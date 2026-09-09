@@ -1,10 +1,10 @@
 import path from "node:path";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, realpath, writeFile } from "node:fs/promises";
 import { canonicalJson, stablePrettyJson } from "./canonical.js";
 import { getBackend } from "./backends.js";
 import { captureEnvironment } from "./environment.js";
 import { sha256Bytes, sha256File, sha256Text } from "./hash.js";
-import { assertPortableRelativePath, readAssetSpec, resolveSpecPath } from "./schema.js";
+import { assertPortableRelativePath, parseGenerationReceipt, readAssetSpec, resolveSpecPath } from "./schema.js";
 import { captureToolIdentity } from "./tool.js";
 
 async function fileExists(filePath) {
@@ -54,7 +54,20 @@ function receiptPortablePath(spec, receiptPath) {
   return assertPortableRelativePath(receiptPath ?? defaultReceiptPath(spec), "receipt path");
 }
 
-function assertDistinctReceiptPath(document, receiptPath) {
+async function filesystemIdentity(filePath) {
+  let resolved;
+  try {
+    resolved = await realpath(filePath);
+  } catch (error) {
+    if (!error || error.code !== "ENOENT") throw error;
+    const parent = path.dirname(filePath);
+    if (parent === filePath) throw error;
+    resolved = path.join(await filesystemIdentity(parent), path.basename(filePath));
+  }
+  return process.platform === "win32" || process.platform === "darwin" ? resolved.toLowerCase() : resolved;
+}
+
+async function assertDistinctReceiptPath(document, receiptPath) {
   const receiptAbsolutePath = resolveSpecPath(document.root, receiptPath);
   const protectedPaths = new Map([
     [document.absolutePath, "asset spec"],
@@ -67,9 +80,11 @@ function assertDistinctReceiptPath(document, receiptPath) {
     protectedPaths.set(resolveSpecPath(document.root, model.path), `model '${name}'`);
   }
 
-  const collision = protectedPaths.get(receiptAbsolutePath);
-  if (collision) {
-    throw new Error(`receipt path must not collide with ${collision}`);
+  const receiptIdentity = await filesystemIdentity(receiptAbsolutePath);
+  for (const [protectedPath, description] of protectedPaths) {
+    if ((await filesystemIdentity(protectedPath)) === receiptIdentity) {
+      throw new Error(`receipt path must not collide with ${description}`);
+    }
   }
   return receiptAbsolutePath;
 }
@@ -132,7 +147,7 @@ export async function generateAsset(specPath, options = {}) {
   const backend = getBackend(document.spec.generator);
   backend.validate(document);
   const receiptPath = receiptPortablePath(document.spec, options.receiptPath);
-  const receiptAbsolutePath = assertDistinctReceiptPath(document, receiptPath);
+  const receiptAbsolutePath = await assertDistinctReceiptPath(document, receiptPath);
   await verifyDeclaredArtifacts(document);
 
   const outputBytes = await backend.generate(document);
@@ -153,37 +168,15 @@ export async function generateAsset(specPath, options = {}) {
   };
 }
 
-function parseReceipt(value) {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    throw new Error("receipt must be an object");
-  }
-  if (value.schemaVersion !== 1) {
-    throw new Error("receipt schemaVersion must be 1");
-  }
-  if (typeof value.assetId !== "string" || value.assetId.length === 0) {
-    throw new Error("receipt.assetId must be a non-empty string");
-  }
-  if (typeof value.spec?.sha256 !== "string") {
-    throw new Error("receipt.spec.sha256 is required");
-  }
-  if (typeof value.output?.path !== "string" || typeof value.output?.sha256 !== "string") {
-    throw new Error("receipt.output path and sha256 are required");
-  }
-  if (typeof value.environment?.sha256 !== "string") {
-    throw new Error("receipt.environment.sha256 is required");
-  }
-  return value;
-}
-
 export async function verifyAsset(specPath, options = {}) {
   try {
     const document = await readAssetSpec(specPath);
     const backend = getBackend(document.spec.generator);
     backend.validate(document);
     const receiptPath = receiptPortablePath(document.spec, options.receiptPath);
-    const receiptAbsolutePath = assertDistinctReceiptPath(document, receiptPath);
+    const receiptAbsolutePath = await assertDistinctReceiptPath(document, receiptPath);
     await verifyDeclaredArtifacts(document);
-    const receipt = parseReceipt(JSON.parse(await readFile(receiptAbsolutePath, "utf8")));
+    const receipt = parseGenerationReceipt(JSON.parse(await readFile(receiptAbsolutePath, "utf8")));
 
     const outputAbsolutePath = resolveSpecPath(document.root, document.spec.output.path);
     const acceptedOutputSha256 = await sha256File(outputAbsolutePath);
