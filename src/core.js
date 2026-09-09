@@ -3,6 +3,12 @@ import { lstat, mkdir, readFile, realpath, stat, writeFile } from "node:fs/promi
 import { canonicalJson, stablePrettyJson } from "./canonical.js";
 import { getBackend } from "./backends.js";
 import { normalizeGenerationResult, receiptGenerator } from "./backend-contract.js";
+import {
+  assertGenerationCachePaths,
+  generationCacheIdentity,
+  readGenerationCache,
+  writeGenerationCache,
+} from "./cache.js";
 import { captureEnvironment } from "./environment.js";
 import { sha256Bytes, sha256File, sha256Text } from "./hash.js";
 import { parseGenerationReceipt } from "./receipts.js";
@@ -33,15 +39,26 @@ async function writeIfChanged(filePath, bytes) {
   return true;
 }
 
+async function declaredArtifactSha256(specDocument, artifact, description) {
+  try {
+    return await sha256File(resolveSpecPath(specDocument.root, artifact.path));
+  } catch (error) {
+    if (error && error.code === "ENOENT") {
+      throw new Error(`${description} is missing at '${artifact.path}'`);
+    }
+    throw error;
+  }
+}
+
 async function verifyDeclaredArtifacts(specDocument) {
   for (const [name, input] of Object.entries(specDocument.spec.inputs)) {
-    const actual = await sha256File(resolveSpecPath(specDocument.root, input.path));
+    const actual = await declaredArtifactSha256(specDocument, input, `input '${name}'`);
     if (actual !== input.sha256) {
       throw new Error(`input '${name}' hash mismatch: expected ${input.sha256}, got ${actual}`);
     }
   }
   for (const [name, model] of Object.entries(specDocument.spec.models)) {
-    const actual = await sha256File(resolveSpecPath(specDocument.root, model.path));
+    const actual = await declaredArtifactSha256(specDocument, model, `model '${name}'`);
     if (actual !== model.sha256) {
       throw new Error(`model '${name}' hash mismatch: expected ${model.sha256}, got ${actual}`);
     }
@@ -163,10 +180,13 @@ function expectedReproducibility(specDocument, backend) {
   return { expected, baseline, reasons };
 }
 
-async function buildReceipt(specDocument, backend, outputSha256, observations) {
+async function generationContext(specDocument, backend, generator) {
   const environment = await captureEnvironment(await backend.environmentComponents(specDocument));
   const tool = await captureToolIdentity();
+  return { environment, tool, generator };
+}
 
+function buildReceipt(specDocument, backend, outputSha256, observations, context) {
   return {
     schemaVersion: 2,
     assetId: specDocument.spec.assetId,
@@ -174,15 +194,15 @@ async function buildReceipt(specDocument, backend, outputSha256, observations) {
       sha256: specDocument.sha256,
       canonicalizer: "asset-tooling-canonical-json-v1",
     },
-    tool,
-    generator: receiptGenerator(specDocument.spec.generator, backend),
+    tool: context.tool,
+    generator: context.generator,
     randomness: specDocument.spec.randomness,
     inputs: specDocument.spec.inputs,
     models: specDocument.spec.models,
     parameters: specDocument.spec.parameters,
     parametersSha256: sha256Text(canonicalJson(specDocument.spec.parameters)),
     observations,
-    environment,
+    environment: context.environment,
     output: {
       path: specDocument.spec.output.path,
       sha256: outputSha256,
@@ -193,6 +213,7 @@ async function buildReceipt(specDocument, backend, outputSha256, observations) {
 
 export async function validateSpec(specPath) {
   const document = await readAssetSpec(specPath);
+  assertGenerationCachePaths(document.spec);
   const backend = getBackend(document.spec.generator);
   backend.validate(document);
   receiptGenerator(document.spec.generator, backend);
@@ -207,16 +228,38 @@ export async function generateAsset(specPath, options = {}) {
   const document = await readAssetSpec(specPath);
   const backend = getBackend(document.spec.generator);
   backend.validate(document);
-  receiptGenerator(document.spec.generator, backend);
+  const generator = receiptGenerator(document.spec.generator, backend);
   const receiptPath = receiptPortablePath(document.spec, options.receiptPath);
+  assertGenerationCachePaths(document.spec, receiptPath);
   const { outputAbsolutePath, receiptAbsolutePath } = await assertSafeMutationPaths(document, receiptPath);
   await verifyDeclaredArtifacts(document);
 
-  const generated = normalizeGenerationResult(await backend.generate(document), backend.id);
+  const context = await generationContext(document, backend, generator);
+  const identity = generationCacheIdentity({
+    specSha256: document.sha256,
+    tool: context.tool,
+    generator: context.generator,
+    environmentSha256: context.environment.sha256,
+  });
+  const cached = await readGenerationCache(document.root, identity);
+
+  let generated;
+  let cacheStatus;
+  if (cached.status === "hit") {
+    generated = normalizeGenerationResult(
+      { bytes: cached.bytes, observations: cached.observations },
+      backend.id,
+    );
+    cacheStatus = "hit";
+  } else {
+    generated = normalizeGenerationResult(await backend.generate(document), backend.id);
+    await writeGenerationCache(document.root, identity, generated);
+    cacheStatus = "miss";
+  }
+
   const outputSha256 = sha256Bytes(generated.bytes);
   const outputChanged = await writeIfChanged(outputAbsolutePath, generated.bytes);
-
-  const receipt = await buildReceipt(document, backend, outputSha256, generated.observations);
+  const receipt = buildReceipt(document, backend, outputSha256, generated.observations, context);
   const receiptChanged = await writeIfChanged(receiptAbsolutePath, Buffer.from(stablePrettyJson(receipt), "utf8"));
 
   return {
@@ -226,6 +269,12 @@ export async function generateAsset(specPath, options = {}) {
     outputSha256,
     receiptPath,
     receipt,
+    cache: {
+      schemaVersion: 1,
+      status: cacheStatus,
+      key: cached.key,
+      outputSha256,
+    },
   };
 }
 
@@ -236,6 +285,7 @@ export async function verifyAsset(specPath, options = {}) {
     backend.validate(document);
     receiptGenerator(document.spec.generator, backend);
     const receiptPath = receiptPortablePath(document.spec, options.receiptPath);
+    assertGenerationCachePaths(document.spec, receiptPath);
     const { outputAbsolutePath, receiptAbsolutePath } = await assertSafeMutationPaths(document, receiptPath);
     await verifyDeclaredArtifacts(document);
     const receipt = parseGenerationReceipt(JSON.parse(await readFile(receiptAbsolutePath, "utf8")));

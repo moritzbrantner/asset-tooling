@@ -31,8 +31,8 @@ Freeze the reusable foundation before widening the feature surface.
 - [x] Protect every published schema byte-for-byte; new semantics require a new schema version.
 - [x] Define and test stable CLI exit semantics and a deliberately small root programmatic API.
 - [x] Make the package consumable and add a deterministic `package:check` coding-tooling capability.
-- [ ] Add content-addressed artifact reuse that never bypasses provenance or fail-closed verification.
-- [ ] Add clean-room/fault-injection coverage for corruption, missing dependencies, environment drift, and repeated/idempotent operation.
+- [x] Add content-addressed artifact reuse that never bypasses provenance or fail-closed verification.
+- [x] Add clean-room/fault-injection coverage for corruption, missing dependencies, environment drift, and repeated/idempotent operation.
 - [ ] Integrate one zoo-game asset through the public package contract.
 - [ ] Integrate one medieval/RTS asset through the same public package contract.
 - [ ] Extract only abstractions demonstrated by both consumers.
