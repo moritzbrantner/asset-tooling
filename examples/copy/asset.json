@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "assetId": "example.copy",
+  "generator": {
+    "id": "builtin.copy",
+    "version": "1"
+  },
+  "randomness": {
+    "mode": "none"
+  },
+  "inputs": {
+    "source": {
+      "path": "source.txt",
+      "sha256": "2ad756adc29673a1bb74a6f5263badab5f947576b200179abfdc8ddb0adb270d"
+    }
+  },
+  "models": {},
+  "parameters": {},
+  "output": {
+    "path": ".asset-tooling/output.txt"
+  },
+  "reproducibility": {
+    "expected": "exact"
+  }
+}

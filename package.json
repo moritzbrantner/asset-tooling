@@ -1,0 +1,17 @@
+{
+  "name": "asset-tooling",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "asset-tooling": "./src/entry.js"
+  },
+  "scripts": {
+    "test": "bun test",
+    "check": "bun test && bun src/entry.js validate examples/copy/asset.json"
+  },
+  "engines": {
+    "bun": "1.4.0"
+  },
+  "packageManager": "bun@1.4.0"
+}
