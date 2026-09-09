@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "operation": "mesh.lod_chain",
   "implementation": {
     "id": "three-d-lod",
@@ -15,19 +15,23 @@
   "parameters": {
     "sourceTriangleCount": 4096,
     "sourceBased": true,
+    "budgetRounding": "nearest-ties-away-from-zero",
     "levels": [
       {
         "triangleRatio": 0.65,
+        "targetTriangleCount": 2662,
         "targetError": 0.01,
         "lockBorder": false
       },
       {
         "triangleRatio": 0.35,
+        "targetTriangleCount": 1434,
         "targetError": 0.025,
         "lockBorder": false
       },
       {
         "triangleRatio": 0.15,
+        "targetTriangleCount": 614,
         "targetError": 0.05,
         "lockBorder": false
       }
