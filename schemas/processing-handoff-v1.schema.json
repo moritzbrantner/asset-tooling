@@ -15,6 +15,11 @@
       "type": "string",
       "pattern": "^[0-9a-f]{64}$"
     },
+    "portablePath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*//).+$"
+    },
     "processingArtifact": {
       "type": "object",
       "additionalProperties": false,
@@ -38,7 +43,7 @@
         "kind": { "const": "generation-receipt" },
         "assetId": { "type": "string", "minLength": 1 },
         "generationReceiptSchemaVersion": { "type": "integer", "minimum": 1 },
-        "generationReceiptPath": { "type": "string", "minLength": 1 },
+        "generationReceiptPath": { "$ref": "#/$defs/portablePath" },
         "generationReceiptSha256": { "$ref": "#/$defs/sha256" }
       }
     }
