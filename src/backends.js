@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { resolveSpecPath } from "./schema.js";
+import { STABLE_DIFFUSION_BACKEND } from "./model-backends.js";
 
 const MASK_64 = (1n << 64n) - 1n;
 
@@ -147,7 +148,7 @@ const PROCEDURAL_SVG_SCATTER_BACKEND = {
   },
 };
 
-const BACKENDS = [COPY_BACKEND, PROCEDURAL_SVG_SCATTER_BACKEND];
+const BACKENDS = [COPY_BACKEND, PROCEDURAL_SVG_SCATTER_BACKEND, STABLE_DIFFUSION_BACKEND];
 
 export function getBackend(generator) {
   const backend = BACKENDS.find(
