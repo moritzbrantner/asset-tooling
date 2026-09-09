@@ -43,6 +43,8 @@ The receipt is evidence, not a claim. Exact reproducibility is established by re
 
 The receipt validators reject the non-standard Python JSON constants `NaN`, `Infinity`, and `-Infinity`. Cross-field validation also rejects non-finite numbers when called with an already-decoded in-memory object. Error metrics therefore cannot pass merely because comparisons against NaN evaluate false.
 
+Numeric cross-field checks use integer/decimal arithmetic rather than coercing arbitrary JSON numbers to binary floats. Schema-valid large integers therefore remain validatable evidence instead of becoming an overflow path in the validator.
+
 ## Cross-field validation
 
 JSON Schema validates structure but cannot express many relationships between fields. `scripts/validate-processing-observations.py` therefore checks semantic invariants after v2 schema validation.
@@ -65,7 +67,9 @@ For positive triangle counts, the target is derived as:
 
 `round_half_up(sourceTriangleCount × triangleRatio)`
 
-and then clamped to `1..sourceTriangleCount-1`. The validator derives that count with decimal arithmetic, checks the materialized parameter against it, checks the processor-observed applied count against the parameter, and also requires strictly decreasing level budgets. This prevents a receipt from pairing plausible ratios with unrelated counts.
+and then clamped to `1..sourceTriangleCount-1`. The validator derives that count using exact integer/decimal arithmetic, checks the materialized parameter against it, checks the processor-observed applied count against the parameter, and requires strictly decreasing requested budgets. This prevents a receipt from pairing plausible ratios with unrelated counts.
+
+Observed `resultTriangleCount` values must also be non-increasing in declared LOD order. Equal adjacent result sizes are allowed because the authoritative processor may legitimately hit the same achievable geometry floor for successive lower budgets; an increase is contradictory evidence because a later lower-detail level cannot contain more geometry than the preceding level.
 
 LOD observations additionally record actual triangle/index counts, relative error, source-buffer sharing, and an SHA-256 for every resulting index buffer. The top-level LOD output can be a manifest or bundle whose hash covers the ordered family.
 
@@ -76,6 +80,8 @@ Target times must be strictly increasing and remain inside the declared source t
 `len(targetTimesSeconds) × channelCount`
 
 This proves that the processor actually baked every declared channel at every requested sample time rather than merely returning a schema-shaped result.
+
+`observations.durationSeconds` is normalized evidence for the elapsed span of the requested grid, independent of the grid's absolute time origin. It must therefore equal `last(targetTimesSeconds) - first(targetTimesSeconds)`. A one-sample grid has duration `0`. This does not move animation semantics into `asset-tooling`: the domain processor still owns sampling and interpolation, while the receipt verifies that its reported duration is consistent with the invocation that was recorded.
 
 ### Animation reduction
 
@@ -93,7 +99,7 @@ Skinned meshes require additional evidence. Joint/weight preservation and the de
 
 ## Animation processing parameters and observations
 
-Animation resampling records the source time domain, explicit target time grid, channel interpolation rules, and transform space. Its observations record source/result keyframe counts, channel count, and resulting duration.
+Animation resampling records the source time domain, explicit target time grid, channel interpolation rules, and transform space. Its observations record source/result keyframe counts, channel count, and the origin-independent elapsed duration of the requested grid.
 
 Animation reduction records translation/rotation/scale tolerances, transform space, and endpoint-preservation policy. Its observations record source/result keyframe counts, maximum observed error for every bounded transform component, and explicit endpoint-preservation evidence.
 
