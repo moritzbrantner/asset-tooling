@@ -248,6 +248,7 @@ def validate_file(path: Path) -> list[str]:
     try:
         receipt = json.loads(
             path.read_text(encoding="utf-8"),
+            parse_float=Decimal,
             parse_constant=_reject_json_constant,
         )
     except (OSError, ValueError) as error:
