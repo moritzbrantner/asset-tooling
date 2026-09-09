@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 2,
+  "operation": "animation.resample",
+  "implementation": {
+    "id": "three-d-animation-processor",
+    "revision": "example-resample-v1",
+    "dependencies": {}
+  },
+  "input": {
+    "sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+    "mediaType": "model/gltf-binary"
+  },
+  "parameters": {
+    "sourceStartSeconds": 0,
+    "sourceEndSeconds": 1,
+    "targetTimesSeconds": [0, 0.5, 1],
+    "interpolation": {
+      "translation": "linear",
+      "rotation": "slerp",
+      "scale": "linear"
+    },
+    "transformSpace": "local"
+  },
+  "observations": {
+    "sourceKeyframeCount": 4,
+    "resultKeyframeCount": 6,
+    "channelCount": 2,
+    "durationSeconds": 1
+  },
+  "output": {
+    "sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+    "mediaType": "model/gltf-binary"
+  },
+  "environmentFingerprint": "example-environment-fingerprint",
+  "reproducibility": {
+    "state": "exact",
+    "repeatOutputSha256": "5555555555555555555555555555555555555555555555555555555555555555"
+  }
+}

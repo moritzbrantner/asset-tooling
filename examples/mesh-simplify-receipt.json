@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 2,
+  "operation": "mesh.simplify",
+  "implementation": {
+    "id": "three-d-lod",
+    "revision": "2a7b20d9f757acef5662277c09898996df801b67",
+    "dependencies": {
+      "meshopt": "0.6.2"
+    }
+  },
+  "input": {
+    "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "mediaType": "model/gltf-binary"
+  },
+  "parameters": {
+    "sourceTriangleCount": 4096,
+    "targetTriangleCount": 2048,
+    "targetError": 0.01,
+    "lockBorder": false
+  },
+  "observations": {
+    "sourceTriangleCount": 4096,
+    "sourceVertexCount": 2200,
+    "requestedTriangleCount": 2048,
+    "resultTriangleCount": 2112,
+    "resultIndexCount": 6336,
+    "relativeError": 0.0085,
+    "sharedSourceVertexBuffer": true
+  },
+  "output": {
+    "sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+    "mediaType": "model/gltf-binary"
+  },
+  "environmentFingerprint": "example-environment-fingerprint",
+  "reproducibility": {
+    "state": "exact",
+    "repeatOutputSha256": "1111111111111111111111111111111111111111111111111111111111111111"
+  }
+}

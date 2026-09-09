@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 2,
+  "operation": "animation.reduce",
+  "implementation": {
+    "id": "three-d-animation-processor",
+    "revision": "example-reduce-v1",
+    "dependencies": {}
+  },
+  "input": {
+    "sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+    "mediaType": "model/gltf-binary"
+  },
+  "parameters": {
+    "translationError": 0.01,
+    "rotationErrorRadians": 0.02,
+    "scaleError": 0.005,
+    "transformSpace": "local",
+    "preserveEndpoints": true
+  },
+  "observations": {
+    "sourceKeyframeCount": 10,
+    "resultKeyframeCount": 4,
+    "maxTranslationError": 0.008,
+    "maxRotationErrorRadians": 0.015,
+    "maxScaleError": 0.004,
+    "endpointsPreserved": true
+  },
+  "output": {
+    "sha256": "7777777777777777777777777777777777777777777777777777777777777777",
+    "mediaType": "model/gltf-binary"
+  },
+  "environmentFingerprint": "example-environment-fingerprint",
+  "reproducibility": {
+    "state": "exact",
+    "repeatOutputSha256": "7777777777777777777777777777777777777777777777777777777777777777"
+  }
+}
