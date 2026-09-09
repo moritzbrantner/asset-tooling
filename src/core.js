@@ -72,23 +72,33 @@ async function filesystemIdentity(filePath) {
   return { canonicalPath, inode };
 }
 
-async function assertDistinctReceiptPath(document, receiptPath) {
-  const receiptAbsolutePath = resolveSpecPath(document.root, receiptPath);
-  let prefix = document.root;
-  for (const segment of receiptPath.split("/")) {
+async function assertNoSymbolicLinks(root, portablePath, description) {
+  let prefix = root;
+  for (const segment of portablePath.split("/")) {
     prefix = path.join(prefix, segment);
     try {
       if ((await lstat(prefix)).isSymbolicLink()) {
-        throw new Error("receipt path must not contain symbolic links");
+        throw new Error(`${description} must not contain symbolic links`);
       }
     } catch (error) {
       if (error && error.code === "ENOENT") break;
       throw error;
     }
   }
+}
+
+function pathsOverlap(left, right) {
+  const relative = path.relative(left, right);
+  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
+}
+
+async function assertSafeMutationPaths(document, receiptPath) {
+  const outputAbsolutePath = resolveSpecPath(document.root, document.spec.output.path);
+  const receiptAbsolutePath = resolveSpecPath(document.root, receiptPath);
+  await assertNoSymbolicLinks(document.root, document.spec.output.path, "output path");
+  await assertNoSymbolicLinks(document.root, receiptPath, "receipt path");
   const protectedPaths = new Map([
     [document.absolutePath, "asset spec"],
-    [resolveSpecPath(document.root, document.spec.output.path), "output"],
   ]);
   for (const [name, input] of Object.entries(document.spec.inputs)) {
     protectedPaths.set(resolveSpecPath(document.root, input.path), `input '${name}'`);
@@ -97,9 +107,16 @@ async function assertDistinctReceiptPath(document, receiptPath) {
     protectedPaths.set(resolveSpecPath(document.root, model.path), `model '${name}'`);
   }
 
+  const outputIdentity = await filesystemIdentity(outputAbsolutePath);
   const receiptIdentity = await filesystemIdentity(receiptAbsolutePath);
   for (const [protectedPath, description] of protectedPaths) {
     const protectedIdentity = await filesystemIdentity(protectedPath);
+    if (
+      protectedIdentity.canonicalPath === outputIdentity.canonicalPath ||
+      (protectedIdentity.inode !== undefined && protectedIdentity.inode === outputIdentity.inode)
+    ) {
+      throw new Error(`output path must not collide with ${description}`);
+    }
     if (
       protectedIdentity.canonicalPath === receiptIdentity.canonicalPath ||
       (protectedIdentity.inode !== undefined && protectedIdentity.inode === receiptIdentity.inode)
@@ -107,7 +124,13 @@ async function assertDistinctReceiptPath(document, receiptPath) {
       throw new Error(`receipt path must not collide with ${description}`);
     }
   }
-  return receiptAbsolutePath;
+  if (
+    pathsOverlap(outputIdentity.canonicalPath, receiptIdentity.canonicalPath) ||
+    pathsOverlap(receiptIdentity.canonicalPath, outputIdentity.canonicalPath)
+  ) {
+    throw new Error("output and receipt paths must not contain one another");
+  }
+  return { outputAbsolutePath, receiptAbsolutePath };
 }
 
 function expectedReproducibility(specDocument, backend) {
@@ -168,12 +191,11 @@ export async function generateAsset(specPath, options = {}) {
   const backend = getBackend(document.spec.generator);
   backend.validate(document);
   const receiptPath = receiptPortablePath(document.spec, options.receiptPath);
-  const receiptAbsolutePath = await assertDistinctReceiptPath(document, receiptPath);
+  const { outputAbsolutePath, receiptAbsolutePath } = await assertSafeMutationPaths(document, receiptPath);
   await verifyDeclaredArtifacts(document);
 
   const outputBytes = await backend.generate(document);
   const outputSha256 = sha256Bytes(outputBytes);
-  const outputAbsolutePath = resolveSpecPath(document.root, document.spec.output.path);
   const outputChanged = await writeIfChanged(outputAbsolutePath, outputBytes);
 
   const receipt = await buildReceipt(document, outputSha256);
@@ -195,11 +217,10 @@ export async function verifyAsset(specPath, options = {}) {
     const backend = getBackend(document.spec.generator);
     backend.validate(document);
     const receiptPath = receiptPortablePath(document.spec, options.receiptPath);
-    const receiptAbsolutePath = await assertDistinctReceiptPath(document, receiptPath);
+    const { outputAbsolutePath, receiptAbsolutePath } = await assertSafeMutationPaths(document, receiptPath);
     await verifyDeclaredArtifacts(document);
     const receipt = parseGenerationReceipt(JSON.parse(await readFile(receiptAbsolutePath, "utf8")));
 
-    const outputAbsolutePath = resolveSpecPath(document.root, document.spec.output.path);
     const acceptedOutputSha256 = await sha256File(outputAbsolutePath);
     const regeneratedBytes = await backend.generate(document);
     const regeneratedOutputSha256 = sha256Bytes(regeneratedBytes);
