@@ -84,3 +84,26 @@ test("handoff input is structurally identical to processing receipt v2 artifact 
   assert.deepEqual(processingSchema.$defs.artifact.required, ["sha256", "mediaType"]);
   assert.equal(processingSchema.$defs.artifact.additionalProperties, false);
 });
+
+test("processing handoff schema requires portable generation receipt paths", async () => {
+  const schema = JSON.parse(
+    await readFile(new URL("../schemas/processing-handoff-v1.schema.json", import.meta.url), "utf8"),
+  );
+  const portablePath = new RegExp(schema.$defs.portablePath.pattern);
+
+  assert.equal(portablePath.test(".asset-tooling/generated.bin.receipt.json"), true);
+  for (const candidate of [
+    "/tmp/receipt.json",
+    "../receipt.json",
+    "receipts\\x.json",
+    "C:/receipts/x.json",
+    "D:receipt.json",
+    "receipts//x.json",
+  ]) {
+    assert.equal(portablePath.test(candidate), false, candidate);
+  }
+  assert.equal(
+    schema.$defs.generationLineage.properties.generationReceiptPath.$ref,
+    "#/$defs/portablePath",
+  );
+});
