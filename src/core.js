@@ -1,5 +1,5 @@
 import path from "node:path";
-import { mkdir, readFile, realpath, stat, writeFile } from "node:fs/promises";
+import { lstat, mkdir, readFile, realpath, stat, writeFile } from "node:fs/promises";
 import { canonicalJson, stablePrettyJson } from "./canonical.js";
 import { getBackend } from "./backends.js";
 import { captureEnvironment } from "./environment.js";
@@ -74,6 +74,13 @@ async function filesystemIdentity(filePath) {
 
 async function assertDistinctReceiptPath(document, receiptPath) {
   const receiptAbsolutePath = resolveSpecPath(document.root, receiptPath);
+  try {
+    if ((await lstat(receiptAbsolutePath)).isSymbolicLink()) {
+      throw new Error("receipt path must not be a symbolic link");
+    }
+  } catch (error) {
+    if (!error || error.code !== "ENOENT") throw error;
+  }
   const protectedPaths = new Map([
     [document.absolutePath, "asset spec"],
     [resolveSpecPath(document.root, document.spec.output.path), "output"],
@@ -98,10 +105,7 @@ async function assertDistinctReceiptPath(document, receiptPath) {
   return receiptAbsolutePath;
 }
 
-async function buildReceipt(specDocument, outputSha256) {
-  const backend = getBackend(specDocument.spec.generator);
-  const environment = await captureEnvironment(await backend.environmentComponents(specDocument));
-  const tool = await captureToolIdentity();
+function expectedReproducibility(specDocument, backend) {
   const expected = specDocument.spec.reproducibility.expected;
   const reasons = [];
   let baseline = "constrained";
@@ -113,6 +117,13 @@ async function buildReceipt(specDocument, outputSha256) {
     baseline = "approximate";
     reasons.push("asset specification requests approximate reproducibility");
   }
+  return { expected, baseline, reasons };
+}
+
+async function buildReceipt(specDocument, outputSha256) {
+  const backend = getBackend(specDocument.spec.generator);
+  const environment = await captureEnvironment(await backend.environmentComponents(specDocument));
+  const tool = await captureToolIdentity();
 
   return {
     schemaVersion: 1,
@@ -132,11 +143,7 @@ async function buildReceipt(specDocument, outputSha256) {
       path: specDocument.spec.output.path,
       sha256: outputSha256,
     },
-    reproducibility: {
-      expected,
-      baseline,
-      reasons,
-    },
+    reproducibility: expectedReproducibility(specDocument, backend),
   };
 }
 
@@ -214,7 +221,7 @@ export async function verifyAsset(specPath, options = {}) {
       parametersMatchReceipt:
         sha256Text(canonicalJson(document.spec.parameters)) === receipt.parametersSha256,
       reproducibilityMatchesReceipt:
-        document.spec.reproducibility.expected === receipt.reproducibility.expected,
+        canonicalJson(expectedReproducibility(document, backend)) === canonicalJson(receipt.reproducibility),
       receiptEnvironmentFingerprintValid:
         sha256Text(canonicalJson(receiptEnvironmentFingerprint)) === receipt.environment.sha256,
       environmentMatchesReceipt: currentEnvironment.sha256 === receipt.environment.sha256,
