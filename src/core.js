@@ -54,6 +54,26 @@ function receiptPortablePath(spec, receiptPath) {
   return assertPortableRelativePath(receiptPath ?? defaultReceiptPath(spec), "receipt path");
 }
 
+function assertDistinctReceiptPath(document, receiptPath) {
+  const receiptAbsolutePath = resolveSpecPath(document.root, receiptPath);
+  const protectedPaths = new Map([
+    [document.absolutePath, "asset spec"],
+    [resolveSpecPath(document.root, document.spec.output.path), "output"],
+  ]);
+  for (const [name, input] of Object.entries(document.spec.inputs)) {
+    protectedPaths.set(resolveSpecPath(document.root, input.path), `input '${name}'`);
+  }
+  for (const [name, model] of Object.entries(document.spec.models)) {
+    protectedPaths.set(resolveSpecPath(document.root, model.path), `model '${name}'`);
+  }
+
+  const collision = protectedPaths.get(receiptAbsolutePath);
+  if (collision) {
+    throw new Error(`receipt path must not collide with ${collision}`);
+  }
+  return receiptAbsolutePath;
+}
+
 async function buildReceipt(specDocument, outputSha256) {
   const backend = getBackend(specDocument.spec.generator);
   const environment = await captureEnvironment(await backend.environmentComponents(specDocument));
@@ -98,7 +118,8 @@ async function buildReceipt(specDocument, outputSha256) {
 
 export async function validateSpec(specPath) {
   const document = await readAssetSpec(specPath);
-  getBackend(document.spec.generator);
+  const backend = getBackend(document.spec.generator);
+  backend.validate(document);
   return {
     status: "valid",
     assetId: document.spec.assetId,
@@ -109,6 +130,9 @@ export async function validateSpec(specPath) {
 export async function generateAsset(specPath, options = {}) {
   const document = await readAssetSpec(specPath);
   const backend = getBackend(document.spec.generator);
+  backend.validate(document);
+  const receiptPath = receiptPortablePath(document.spec, options.receiptPath);
+  const receiptAbsolutePath = assertDistinctReceiptPath(document, receiptPath);
   await verifyDeclaredArtifacts(document);
 
   const outputBytes = await backend.generate(document);
@@ -117,8 +141,6 @@ export async function generateAsset(specPath, options = {}) {
   const outputChanged = await writeIfChanged(outputAbsolutePath, outputBytes);
 
   const receipt = await buildReceipt(document, outputSha256);
-  const receiptPath = receiptPortablePath(document.spec, options.receiptPath);
-  const receiptAbsolutePath = resolveSpecPath(document.root, receiptPath);
   const receiptChanged = await writeIfChanged(receiptAbsolutePath, Buffer.from(stablePrettyJson(receipt), "utf8"));
 
   return {
@@ -157,10 +179,10 @@ export async function verifyAsset(specPath, options = {}) {
   try {
     const document = await readAssetSpec(specPath);
     const backend = getBackend(document.spec.generator);
-    await verifyDeclaredArtifacts(document);
-
+    backend.validate(document);
     const receiptPath = receiptPortablePath(document.spec, options.receiptPath);
-    const receiptAbsolutePath = resolveSpecPath(document.root, receiptPath);
+    const receiptAbsolutePath = assertDistinctReceiptPath(document, receiptPath);
+    await verifyDeclaredArtifacts(document);
     const receipt = parseReceipt(JSON.parse(await readFile(receiptAbsolutePath, "utf8")));
 
     const outputAbsolutePath = resolveSpecPath(document.root, document.spec.output.path);
