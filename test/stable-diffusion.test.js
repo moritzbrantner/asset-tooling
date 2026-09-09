@@ -69,16 +69,17 @@ test("Stable Diffusion rejects untracked model components", async () => {
 });
 
 test("Stable Diffusion requires seeded randomness and an explicit inference grid", async () => {
-  const unseeded = stableDiffusionSpec({ randomness: { mode: "none" } });
+  const unseededPath = await writeSpec(stableDiffusionSpec({ randomness: { mode: "none" } }));
   await assert.rejects(
-    () => validateSpec(await writeSpec(unseeded)),
+    () => validateSpec(unseededPath),
     /requires randomness\.mode='seeded'/,
   );
 
   const badDimensions = stableDiffusionSpec();
   badDimensions.parameters.width = 513;
+  const badDimensionsPath = await writeSpec(badDimensions);
   await assert.rejects(
-    () => validateSpec(await writeSpec(badDimensions)),
+    () => validateSpec(badDimensionsPath),
     /width and height must be divisible by 8/,
   );
 });
