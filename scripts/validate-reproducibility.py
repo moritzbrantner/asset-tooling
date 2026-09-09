@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Validate processing-receipt reproducibility invariants that JSON Schema cannot express.
+"""Validate processing-receipt reproducibility invariants JSON Schema cannot express.
 
-Run this after validating the receipt against processing-receipt-v1.schema.json.
+Run this only after validating the receipt against its declared schema version.
 """
 
 from __future__ import annotations
@@ -10,6 +10,10 @@ import json
 import sys
 from pathlib import Path
 from typing import Any
+
+
+def _reject_json_constant(token: str) -> None:
+    raise ValueError(f"non-standard JSON numeric constant {token!r} is not allowed")
 
 
 def validate_reproducibility(receipt: dict[str, Any]) -> list[str]:
@@ -41,9 +45,12 @@ def validate_reproducibility(receipt: dict[str, Any]) -> list[str]:
 
 def validate_file(path: Path) -> list[str]:
     try:
-        receipt = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as error:
-        return [f"could not read JSON: {error}"]
+        receipt = json.loads(
+            path.read_text(encoding="utf-8"),
+            parse_constant=_reject_json_constant,
+        )
+    except (OSError, ValueError) as error:
+        return [f"could not read strict JSON: {error}"]
 
     if not isinstance(receipt, dict):
         return ["receipt root must be a JSON object"]
