@@ -26,22 +26,26 @@ Every processing receipt records:
 1. Schema version and operation.
 2. An implementation identifier plus immutable revision when available. Dependency versions that affect output are recorded separately; for example a `3d-lab` simplifier using `meshopt` must record the exact `meshopt` version.
 3. The input artifact SHA-256 and media/type identifier.
-4. Normalized operation parameters. Defaults must be materialized rather than inferred later.
+4. Normalized operation parameters. Defaults must be materialized rather than inferred later, and schema v1 selects a strict parameter shape for each operation.
 5. The output artifact SHA-256 and media/type identifier.
 6. The environment fingerprint used by the wider asset-tooling contract.
 7. A reproducibility result describing whether an exact repeated output was actually verified.
 
 The receipt is about evidence, not claims. A deterministic-looking algorithm is not marked exact merely because it accepts a seed or has no obvious randomness. Exact reproducibility is established by repeating the processing under the recorded environment and comparing output hashes.
 
+An `exact` receipt must contain `repeatOutputSha256`. JSON Schema can require that field but cannot express equality with another arbitrary property, so consumers must additionally verify that `reproducibility.repeatOutputSha256 == output.sha256`. `scripts/validate-reproducibility.py` performs that cross-field check after schema validation. `structural` and `unverified` receipts must instead contain `evidence.reason` explaining why exact replay has not been established.
+
 ## Mesh simplification parameters
 
-A simplification adapter should materialize at least the source triangle count, requested triangle count or ratio, geometric error limit, border-lock policy, actual resulting triangle count, reported simplification error, and simplifier implementation identifier. An LOD chain must also make clear that each level was generated from the original source rather than recursively from the preceding LOD when that is the authoritative algorithm contract.
+A simplification invocation materializes the source triangle count, requested triangle count, geometric error limit, and border-lock policy. An LOD chain additionally records every requested source-triangle ratio and explicitly records that levels are generated from the original source rather than recursively from the preceding LOD.
+
+Actual resulting triangle counts and reported simplification error are deterministic processor observations rather than invocation parameters. They should remain in the authoritative processor result and can be added to a later versioned receipt observation envelope without weakening the strict v1 invocation schema.
 
 Skinned meshes require additional evidence. Joint/weight attribute preservation and the deformation-aware error policy must be explicit before a receipt can claim that a skinned mesh was safely simplified. A static-mesh simplifier must not silently accept a skinned asset by dropping those semantics.
 
 ## Animation processing parameters
 
-Animation resampling or key reduction must record the source time domain, sample rate or target times, channel interpolation rules, quaternion convention, error tolerances, and whether the operation is performed on local transforms, world transforms, or deformed geometry.
+Animation resampling records the source time domain, the explicit target time grid, channel interpolation rules, and transform space. Animation reduction records translation/rotation/scale error tolerances, transform space, and endpoint-preservation policy. Defaults are not implicit.
 
 This is separate from smooth runtime playback. A frame-rate-independent playback clock and clip cross-fade do not create a new asset and therefore do not need an asset-processing receipt unless their output is explicitly baked.
 
