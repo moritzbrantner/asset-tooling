@@ -4,83 +4,100 @@
 
 ## Boundary
 
-Algorithm ownership stays in the domain repository. For example, `3d-lab` owns its renderer-independent mesh simplification and LOD semantics. `asset-tooling` owns the provenance envelope around an invocation: what ran, with which exact implementation and dependency versions, against which bytes, with which parameters and environment, what the processor actually observed, and which bytes came out.
+Algorithm ownership stays in the domain repository. For example, `3d-lab` owns renderer-independent mesh simplification, LOD, and animation semantics. `asset-tooling` owns the provenance envelope around an invocation: what ran, with which exact implementation and dependency versions, against which bytes, with which parameters and environment, what the processor actually observed, and which bytes came out.
 
-Do not copy mesh simplification algorithms into this repository. A processor adapter should call the authoritative implementation and emit a receipt.
+Do not copy mesh or animation algorithms into this repository. A processor adapter should call the authoritative implementation and emit a receipt.
+
+## Schema evolution
+
+`processing-receipt-v1.schema.json` is immutable. It remains the contract introduced by the first processing-receipt slice and does not require result observations.
+
+`processing-receipt-v2.schema.json` adds mandatory, operation-specific `observations`. Existing v1 receipts remain valid against v1; producers that want the stronger request/result evidence opt into `schemaVersion: 2`. Never strengthen a published schema in place.
 
 ## Operations
 
-The first 3D processing vocabulary is intentionally small:
+The initial 3D processing vocabulary is intentionally small:
 
 - `mesh.simplify`: derive one simplified mesh from one source mesh.
-- `mesh.lod_chain`: derive a named/ordered family of levels from the same source mesh.
-- `animation.resample`: bake an animation onto an explicit time grid.
-- `animation.reduce`: remove redundant animation keys while staying within an explicit error policy.
+- `mesh.lod_chain`: derive an ordered family of levels from the same source mesh.
+- `animation.resample`: bake animation channels onto an explicit time grid.
+- `animation.reduce`: remove redundant animation keys while staying within explicit error tolerances.
 
 Runtime playback, interpolation, cross-fading, renderer LOD selection, and physics interpolation are not asset-processing operations. They belong to their runtime owners and should not be smuggled into an asset receipt.
 
-## Receipt model
+## V2 receipt model
 
-Every processing receipt records three different kinds of evidence:
+A v2 processing receipt separates three kinds of evidence:
 
-1. **Parameters** — normalized invocation intent. Defaults must be materialized rather than inferred later.
+1. **Parameters** — normalized invocation intent. Defaults are materialized rather than inferred later.
 2. **Observations** — deterministic facts returned by the processor, such as actual triangle counts or measured reduction error.
 3. **Reproducibility** — whether a repeated invocation under the recorded environment actually reproduced the output bytes.
 
-Keeping those separate matters. A target triangle count is not an observed result, and an observed result is not proof that the same bytes can be reproduced later.
+Keeping these separate matters. A target triangle count is not an observed result, and an observed result is not proof that the same bytes can be reproduced later.
 
-Every receipt also records:
+Every receipt also records the operation, implementation/revision, output-affecting dependency versions, input/output artifact hashes and media types, and environment fingerprint.
 
-- schema version and operation;
-- implementation identifier plus immutable revision when available;
-- dependency versions that can affect output;
-- input artifact SHA-256 and media type;
-- output artifact SHA-256 and media type;
-- environment fingerprint.
+The receipt is evidence, not a claim. Exact reproducibility is established by replay under the recorded environment and output-hash comparison. An `exact` receipt must contain `repeatOutputSha256`, and the supplemental validator requires it to equal `output.sha256`. `structural` and `unverified` receipts instead require explanatory evidence.
 
-The receipt is about evidence, not claims. A deterministic-looking algorithm is not marked exact merely because it accepts a seed or has no obvious randomness. Exact reproducibility is established by repeating the processing under the recorded environment and comparing output hashes.
+## Strict JSON
 
-An `exact` receipt must contain `repeatOutputSha256`. JSON Schema can require that field but cannot express equality with another arbitrary property, so consumers must additionally verify that `reproducibility.repeatOutputSha256 == output.sha256`. `scripts/validate-reproducibility.py` performs that cross-field check after schema validation. `structural` and `unverified` receipts must instead contain `evidence.reason` explaining why exact replay has not been established.
+The receipt validators reject the non-standard Python JSON constants `NaN`, `Infinity`, and `-Infinity`. Cross-field validation also rejects non-finite numbers when called with an already-decoded in-memory object. Error metrics therefore cannot pass merely because comparisons against NaN evaluate false.
 
 ## Cross-field validation
 
-JSON Schema validates structure but cannot express many relationships between fields. `scripts/validate-processing-observations.py` therefore checks semantic invariants after schema validation.
+JSON Schema validates structure but cannot express many relationships between fields. `scripts/validate-processing-observations.py` therefore checks semantic invariants after v2 schema validation.
 
-For mesh simplification it verifies that:
+### Mesh simplification
+
+The validator verifies that:
 
 - observed source triangles equal the requested source triangle count;
-- the observed requested triangle budget equals the invocation target;
+- the observed applied triangle budget equals `parameters.targetTriangleCount`;
 - index count equals actual triangle count × 3;
 - actual triangles do not exceed the source;
 - observed relative error does not exceed the configured error ceiling.
 
-For LOD chains it additionally verifies that:
+### LOD chains
 
-- observed and requested level counts match;
-- each observed level corresponds to the requested triangle ratio;
-- observed level numbering is stable and ordered;
-- derived requested triangle counts are strictly decreasing;
-- each level's actual index count and error satisfy the same mesh invariants.
+Each v2 LOD level materializes both `triangleRatio` and `targetTriangleCount`. The chain declares `budgetRounding: "nearest-ties-away-from-zero"`.
 
-For animation resampling it verifies an ordered target time grid inside the declared source time domain. For animation reduction it verifies that the keyframe count does not increase and that observed translation, rotation, and scale error remain within the configured tolerances.
+For positive triangle counts, the target is derived as:
+
+`round_half_up(sourceTriangleCount × triangleRatio)`
+
+and then clamped to `1..sourceTriangleCount-1`. The validator derives that count with decimal arithmetic, checks the materialized parameter against it, checks the processor-observed applied count against the parameter, and also requires strictly decreasing level budgets. This prevents a receipt from pairing plausible ratios with unrelated counts.
+
+LOD observations additionally record actual triangle/index counts, relative error, source-buffer sharing, and an SHA-256 for every resulting index buffer. The top-level LOD output can be a manifest or bundle whose hash covers the ordered family.
+
+### Animation resampling
+
+Target times must be strictly increasing and remain inside the declared source time domain. `resultKeyframeCount` is defined as the aggregate count across channels, so it must equal:
+
+`len(targetTimesSeconds) × channelCount`
+
+This proves that the processor actually baked every declared channel at every requested sample time rather than merely returning a schema-shaped result.
+
+### Animation reduction
+
+Reduction must not increase the aggregate keyframe count, and observed translation, rotation, and scale errors must remain within their configured tolerances.
+
+When `preserveEndpoints` is true, v2 additionally requires `observations.endpointsPreserved: true`. For a source with multiple keys, an endpoint-preserving result must retain at least two keys. This records endpoint preservation directly instead of trying to infer it only from a count.
 
 ## Mesh simplification parameters and observations
 
-A simplification invocation materializes the source triangle count, requested triangle count, geometric error limit, and border-lock policy. Its observations record the actual triangle/index counts, source vertex count, reported relative error, and whether the result still references the source vertex buffer.
+A simplification invocation materializes the source triangle count, requested triangle count, geometric error limit, and border-lock policy. Its observations record actual triangle/index counts, source vertex count, reported relative error, and whether the result still references the source vertex buffer.
 
-An LOD chain records every requested source-triangle ratio and explicitly records that levels are generated from the original source rather than recursively from the preceding LOD. Observations record the derived requested count, actual count, relative error, and SHA-256 of each resulting index buffer.
+A static simplifier preserving the source vertex buffer keeps normals, UVs, colors, and other per-vertex data structurally aligned, but that is not the same as weighting those attributes in the simplification error metric.
 
-The top-level LOD-chain output is a manifest or bundle artifact whose hash covers the ordered family. Per-level index hashes make it possible to identify exactly which topology changed without pretending each level is an unrelated processing invocation.
-
-Skinned meshes require additional evidence. Joint/weight attribute preservation and the deformation-aware error policy must be explicit before a receipt can claim that a skinned mesh was safely simplified. A static-mesh simplifier must not silently accept a skinned asset by dropping those semantics.
+Skinned meshes require additional evidence. Joint/weight preservation and the deformation-aware error policy must be explicit before a receipt can claim that a skinned mesh was safely simplified.
 
 ## Animation processing parameters and observations
 
 Animation resampling records the source time domain, explicit target time grid, channel interpolation rules, and transform space. Its observations record source/result keyframe counts, channel count, and resulting duration.
 
-Animation reduction records translation/rotation/scale error tolerances, transform space, and endpoint-preservation policy. Its observations record the source/result keyframe counts and maximum observed error for every bounded transform component.
+Animation reduction records translation/rotation/scale tolerances, transform space, and endpoint-preservation policy. Its observations record source/result keyframe counts, maximum observed error for every bounded transform component, and explicit endpoint-preservation evidence.
 
-This is separate from smooth runtime playback. A frame-rate-independent playback clock and clip cross-fade do not create a new asset and therefore do not need an asset-processing receipt unless their output is explicitly baked.
+This is separate from smooth runtime playback. A frame-rate-independent playback clock or runtime cross-fade does not create a new asset and therefore does not need a processing receipt unless its output is explicitly baked.
 
 ## Consumer rule
 
