@@ -18,6 +18,15 @@
     "targetError": 0.01,
     "lockBorder": false
   },
+  "observations": {
+    "sourceTriangleCount": 4096,
+    "sourceVertexCount": 2200,
+    "requestedTriangleCount": 2048,
+    "resultTriangleCount": 2112,
+    "resultIndexCount": 6336,
+    "relativeError": 0.0085,
+    "sharedSourceVertexBuffer": true
+  },
   "output": {
     "sha256": "1111111111111111111111111111111111111111111111111111111111111111",
     "mediaType": "model/gltf-binary"
