@@ -40,6 +40,6 @@ for (const file of [
 }
 
 const cli = await readFile(path.join(root, "src/entry.js"), "utf8");
-assert(cli.startsWith("#!/usr/bin/env bun\n"), "CLI entry must retain its Bun shebang");
+assert(cli.split(/\r?\n/, 1)[0] === "#!/usr/bin/env bun", "CLI entry must retain its Bun shebang");
 
 console.log(JSON.stringify({ status: "valid", package: packageJson.name, version: packageJson.version }));
