@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 1,
+  "operation": "mesh.lod_chain",
+  "implementation": {
+    "id": "three-d-lod",
+    "revision": "20475a16dc01444e7a1810d723dbdbf318f38433",
+    "dependencies": {
+      "meshopt": "0.6.2"
+    }
+  },
+  "input": {
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "mediaType": "model/gltf-binary"
+  },
+  "parameters": {
+    "sourceTriangleCount": 4096,
+    "sourceBased": true,
+    "levels": [
+      {
+        "triangleRatio": 0.65,
+        "targetError": 0.01,
+        "lockBorder": false
+      },
+      {
+        "triangleRatio": 0.35,
+        "targetError": 0.025,
+        "lockBorder": false
+      },
+      {
+        "triangleRatio": 0.15,
+        "targetError": 0.05,
+        "lockBorder": false
+      }
+    ]
+  },
+  "observations": {
+    "sourceTriangleCount": 4096,
+    "sourceVertexCount": 2200,
+    "sourceBased": true,
+    "sharedSourceVertexBuffer": true,
+    "levels": [
+      {
+        "level": 1,
+        "triangleRatio": 0.65,
+        "requestedTriangleCount": 2662,
+        "resultTriangleCount": 2700,
+        "resultIndexCount": 8100,
+        "relativeError": 0.004,
+        "indexSha256": "1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      {
+        "level": 2,
+        "triangleRatio": 0.35,
+        "requestedTriangleCount": 1434,
+        "resultTriangleCount": 1500,
+        "resultIndexCount": 4500,
+        "relativeError": 0.012,
+        "indexSha256": "2222222222222222222222222222222222222222222222222222222222222222"
+      },
+      {
+        "level": 3,
+        "triangleRatio": 0.15,
+        "requestedTriangleCount": 614,
+        "resultTriangleCount": 700,
+        "resultIndexCount": 2100,
+        "relativeError": 0.028,
+        "indexSha256": "3333333333333333333333333333333333333333333333333333333333333333"
+      }
+    ]
+  },
+  "output": {
+    "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "mediaType": "application/vnd.asset-tooling.lod-manifest+json"
+  },
+  "environmentFingerprint": "example-environment-fingerprint",
+  "reproducibility": {
+    "state": "exact",
+    "repeatOutputSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  }
+}
