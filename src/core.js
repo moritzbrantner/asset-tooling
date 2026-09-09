@@ -87,6 +87,16 @@ async function assertNoSymbolicLinks(root, portablePath, description) {
   }
 }
 
+async function assertFileOrMissing(filePath, description) {
+  try {
+    if (!(await lstat(filePath)).isFile()) {
+      throw new Error(`${description} must be a regular file or a missing path`);
+    }
+  } catch (error) {
+    if (!error || error.code !== "ENOENT") throw error;
+  }
+}
+
 function pathsOverlap(left, right) {
   const relative = path.relative(left, right);
   return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
@@ -97,6 +107,8 @@ async function assertSafeMutationPaths(document, receiptPath) {
   const receiptAbsolutePath = resolveSpecPath(document.root, receiptPath);
   await assertNoSymbolicLinks(document.root, document.spec.output.path, "output path");
   await assertNoSymbolicLinks(document.root, receiptPath, "receipt path");
+  await assertFileOrMissing(outputAbsolutePath, "output path");
+  await assertFileOrMissing(receiptAbsolutePath, "receipt path");
   const protectedPaths = new Map([
     [document.absolutePath, "asset spec"],
   ]);
@@ -125,6 +137,7 @@ async function assertSafeMutationPaths(document, receiptPath) {
     }
   }
   if (
+    (outputIdentity.inode !== undefined && outputIdentity.inode === receiptIdentity.inode) ||
     pathsOverlap(outputIdentity.canonicalPath, receiptIdentity.canonicalPath) ||
     pathsOverlap(receiptIdentity.canonicalPath, outputIdentity.canonicalPath)
   ) {
