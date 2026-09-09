@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://moritzbrantner.github.io/asset-tooling/schemas/processing-handoff-v1.schema.json",
+  "title": "asset-tooling generation to processing handoff v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "input", "lineage"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "input": { "$ref": "#/$defs/processingArtifact" },
+    "lineage": { "$ref": "#/$defs/generationLineage" }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "processingArtifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sha256", "mediaType"],
+      "properties": {
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "mediaType": { "type": "string", "minLength": 1 }
+      }
+    },
+    "generationLineage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "assetId",
+        "generationReceiptSchemaVersion",
+        "generationReceiptPath",
+        "generationReceiptSha256"
+      ],
+      "properties": {
+        "kind": { "const": "generation-receipt" },
+        "assetId": { "type": "string", "minLength": 1 },
+        "generationReceiptSchemaVersion": { "type": "integer", "minimum": 1 },
+        "generationReceiptPath": { "type": "string", "minLength": 1 },
+        "generationReceiptSha256": { "$ref": "#/$defs/sha256" }
+      }
+    }
+  }
+}
