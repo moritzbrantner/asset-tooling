@@ -11,9 +11,18 @@
 - Non-mutating exact rebuild verification.
 - A deterministic built-in copy backend used only to prove the architecture.
 
-## 2. Seeded local image generation
+## 2. Generation backends
 
-Add the first useful model adapter around a local, version-pinned image-generation stack. The adapter must record model/checkpoint hashes plus all output-affecting sampler, scheduler, step, guidance, size, prompt, negative-prompt, reference-input, and runtime settings. Hidden model downloads are out of scope for generation itself.
+Build procedural and local model generation on one provenance architecture rather than creating model-specific pipelines.
+
+1. Shared versioned generation-receipt contract for `procedural`, `model`, and `utility` backends.
+2. Deterministic seeded procedural reference generator.
+3. Generic adapter result/evidence and replay contract.
+4. Local Stable Diffusion adapter with explicit checkpoint/runtime/sampler evidence and no hidden downloads.
+5. Local TripoSR image-to-3D adapter with explicit input/model/runtime evidence and no hidden downloads.
+6. Generation-to-processing handoff that keeps each stage independently traceable.
+
+Exact reproducibility is always established by replayed output bytes, never inferred from a seed, backend kind, or model family.
 
 ## 3. Deterministic 2D processing
 
