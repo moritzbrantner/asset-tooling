@@ -14,9 +14,14 @@ const PUBLISHED_SCHEMA_BLOBS = {
   "processing-receipt-v2.schema.json": "417820551f5033140addac3684a4ed105ede6195",
 };
 
+function repositoryTextBytes(bytes) {
+  return Buffer.from(bytes.toString("utf8").replace(/\r\n/g, "\n"), "utf8");
+}
+
 function gitBlobSha(bytes) {
-  const header = Buffer.from(`blob ${bytes.byteLength}\0`, "utf8");
-  return createHash("sha1").update(header).update(bytes).digest("hex");
+  const repositoryBytes = repositoryTextBytes(bytes);
+  const header = Buffer.from(`blob ${repositoryBytes.byteLength}\0`, "utf8");
+  return createHash("sha1").update(header).update(repositoryBytes).digest("hex");
 }
 
 for (const [name, expectedSha] of Object.entries(PUBLISHED_SCHEMA_BLOBS)) {
