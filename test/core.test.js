@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import os from "node:os";
 import path from "node:path";
-import { mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, symlink, writeFile } from "node:fs/promises";
 import { canonicalJson } from "../src/canonical.js";
 import { generateAsset, validateSpec, verifyAsset } from "../src/core.js";
 import { sha256Bytes } from "../src/hash.js";
@@ -63,6 +63,18 @@ test("receipt collisions fail before mutating outputs or dependencies", async ()
   }
 });
 
+test("receipt collisions follow filesystem aliases", async () => {
+  if (process.platform === "win32") return;
+  const { specPath, root, source } = await makeWorkspace();
+  await symlink("inputs/source.txt", path.join(root, "receipt-alias.json"));
+  await assert.rejects(
+    () => generateAsset(specPath, { receiptPath: "receipt-alias.json" }),
+    /receipt path must not collide with input 'source'/,
+  );
+  assert.deepEqual(await readFile(path.join(root, "inputs", "source.txt")), source);
+  await assert.rejects(() => readFile(path.join(root, ".asset-tooling", "output.txt")), /ENOENT/);
+});
+
 test("receipt schema constrains required provenance structures", async () => {
   const schema = JSON.parse(
     await readFile(new URL("../schemas/generation-receipt-v1.schema.json", import.meta.url), "utf8"),
@@ -74,6 +86,21 @@ test("receipt schema constrains required provenance structures", async () => {
   for (const definition of ["generator", "artifact", "model"]) {
     assert.equal(schema.$defs[definition].additionalProperties, false);
   }
+  assert.equal(schema.properties.environment.additionalProperties, false);
+  assert.equal(schema.properties.environment.properties.platform.additionalProperties, false);
+  assert.equal(schema.properties.environment.properties.runtime.additionalProperties, false);
+});
+
+test("verification rejects receipts missing required provenance", async () => {
+  const { specPath, root } = await makeWorkspace();
+  const generated = await generateAsset(specPath);
+  const receiptPath = path.join(root, generated.receiptPath);
+  const receipt = JSON.parse(await readFile(receiptPath, "utf8"));
+  delete receipt.tool;
+  await writeFile(receiptPath, `${JSON.stringify(receipt, null, 2)}\n`);
+  const report = await verifyAsset(specPath);
+  assert.equal(report.status, "broken");
+  assert.match(report.error, /receipt\.tool must be an object/);
 });
 
 test("generation reconciles identical output and receipt", async () => {
