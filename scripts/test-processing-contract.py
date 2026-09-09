@@ -169,9 +169,35 @@ def main() -> None:
     errors = validate_observations(nondecreasing_lod_budget)
     assert_cross_field_error(errors, "strictly decreasing")
 
+    increasing_lod_result = copy.deepcopy(lod_example)
+    first_result_count = increasing_lod_result["observations"]["levels"][0]["resultTriangleCount"]
+    increasing_lod_result["observations"]["levels"][1]["resultTriangleCount"] = first_result_count + 1
+    increasing_lod_result["observations"]["levels"][1]["resultIndexCount"] = (first_result_count + 1) * 3
+    assert_cross_field_error(validate_observations(increasing_lod_result), "non-increasing")
+
     wrong_resample_count = copy.deepcopy(resample_example)
     wrong_resample_count["observations"]["resultKeyframeCount"] = 1
     assert_cross_field_error(validate_observations(wrong_resample_count), "targetTimesSeconds")
+
+    wrong_resample_duration = copy.deepcopy(resample_example)
+    wrong_resample_duration["observations"]["durationSeconds"] = 999
+    assert_cross_field_error(validate_observations(wrong_resample_duration), "durationSeconds")
+
+    large_timeline = copy.deepcopy(resample_example)
+    large_time = 10**400
+    large_timeline["parameters"]["sourceEndSeconds"] = large_time
+    large_timeline["parameters"]["targetTimesSeconds"] = [0, large_time]
+    large_timeline["observations"]["resultKeyframeCount"] = (
+        2 * large_timeline["observations"]["channelCount"]
+    )
+    large_timeline["observations"]["durationSeconds"] = large_time
+    validator_v2.validate(large_timeline)
+    large_timeline_errors = validate_observations(large_timeline)
+    if large_timeline_errors:
+        raise AssertionError(
+            "schema-valid large integer timeline failed observation validation:\n"
+            + "\n".join(large_timeline_errors)
+        )
 
     missing_endpoint_evidence = copy.deepcopy(reduce_example)
     missing_endpoint_evidence["observations"]["endpointsPreserved"] = False
