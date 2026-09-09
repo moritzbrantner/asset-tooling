@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "assetId": "example.procedural-svg-scatter",
+  "generator": {
+    "id": "builtin.procedural.svg-scatter",
+    "version": "1"
+  },
+  "randomness": {
+    "mode": "seeded",
+    "seed": "42"
+  },
+  "inputs": {},
+  "models": {},
+  "parameters": {
+    "width": 96,
+    "height": 64,
+    "count": 8,
+    "minRadius": 2,
+    "maxRadius": 6,
+    "background": "#101418",
+    "palette": ["#ffcc00", "#3366ff", "#33aa66"]
+  },
+  "output": {
+    "path": ".asset-tooling/scatter.svg"
+  },
+  "reproducibility": {
+    "expected": "exact"
+  }
+}

@@ -176,7 +176,7 @@ test("verification rejects receipts missing required provenance", async () => {
   await writeFile(receiptPath, `${JSON.stringify(receipt, null, 2)}\n`);
   const report = await verifyAsset(specPath);
   assert.equal(report.status, "broken");
-  assert.match(report.error, /receipt\.tool must be an object/);
+  assert.equal(report.error, "receipt.tool is required");
 });
 
 for (const [name, mutate] of [
