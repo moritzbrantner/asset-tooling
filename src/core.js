@@ -1,5 +1,5 @@
 import path from "node:path";
-import { mkdir, readFile, realpath, writeFile } from "node:fs/promises";
+import { mkdir, readFile, realpath, stat, writeFile } from "node:fs/promises";
 import { canonicalJson, stablePrettyJson } from "./canonical.js";
 import { getBackend } from "./backends.js";
 import { captureEnvironment } from "./environment.js";
@@ -56,15 +56,20 @@ function receiptPortablePath(spec, receiptPath) {
 
 async function filesystemIdentity(filePath) {
   let resolved;
+  let inode;
   try {
     resolved = await realpath(filePath);
+    const metadata = await stat(filePath);
+    inode = `${metadata.dev}:${metadata.ino}`;
   } catch (error) {
     if (!error || error.code !== "ENOENT") throw error;
     const parent = path.dirname(filePath);
     if (parent === filePath) throw error;
-    resolved = path.join(await filesystemIdentity(parent), path.basename(filePath));
+    const parentIdentity = await filesystemIdentity(parent);
+    resolved = path.join(parentIdentity.canonicalPath, path.basename(filePath));
   }
-  return process.platform === "win32" || process.platform === "darwin" ? resolved.toLowerCase() : resolved;
+  const canonicalPath = process.platform === "win32" || process.platform === "darwin" ? resolved.toLowerCase() : resolved;
+  return { canonicalPath, inode };
 }
 
 async function assertDistinctReceiptPath(document, receiptPath) {
@@ -82,7 +87,11 @@ async function assertDistinctReceiptPath(document, receiptPath) {
 
   const receiptIdentity = await filesystemIdentity(receiptAbsolutePath);
   for (const [protectedPath, description] of protectedPaths) {
-    if ((await filesystemIdentity(protectedPath)) === receiptIdentity) {
+    const protectedIdentity = await filesystemIdentity(protectedPath);
+    if (
+      protectedIdentity.canonicalPath === receiptIdentity.canonicalPath ||
+      (protectedIdentity.inode !== undefined && protectedIdentity.inode === receiptIdentity.inode)
+    ) {
       throw new Error(`receipt path must not collide with ${description}`);
     }
   }
@@ -183,6 +192,13 @@ export async function verifyAsset(specPath, options = {}) {
     const regeneratedBytes = await backend.generate(document);
     const regeneratedOutputSha256 = sha256Bytes(regeneratedBytes);
     const currentEnvironment = await captureEnvironment(await backend.environmentComponents(document));
+    const currentTool = await captureToolIdentity();
+    const receiptEnvironmentFingerprint = {
+      schemaVersion: receipt.environment.schemaVersion,
+      platform: receipt.environment.platform,
+      runtime: receipt.environment.runtime,
+      components: receipt.environment.components,
+    };
 
     const checks = {
       assetIdMatches: receipt.assetId === document.spec.assetId,
@@ -190,6 +206,17 @@ export async function verifyAsset(specPath, options = {}) {
       outputPathMatches: receipt.output.path === document.spec.output.path,
       acceptedOutputMatchesReceipt: acceptedOutputSha256 === receipt.output.sha256,
       regeneratedOutputMatchesReceipt: regeneratedOutputSha256 === receipt.output.sha256,
+      toolMatchesReceipt: canonicalJson(currentTool) === canonicalJson(receipt.tool),
+      generatorMatchesReceipt: canonicalJson(document.spec.generator) === canonicalJson(receipt.generator),
+      randomnessMatchesReceipt: canonicalJson(document.spec.randomness) === canonicalJson(receipt.randomness),
+      inputsMatchReceipt: canonicalJson(document.spec.inputs) === canonicalJson(receipt.inputs),
+      modelsMatchReceipt: canonicalJson(document.spec.models) === canonicalJson(receipt.models),
+      parametersMatchReceipt:
+        sha256Text(canonicalJson(document.spec.parameters)) === receipt.parametersSha256,
+      reproducibilityMatchesReceipt:
+        document.spec.reproducibility.expected === receipt.reproducibility.expected,
+      receiptEnvironmentFingerprintValid:
+        sha256Text(canonicalJson(receiptEnvironmentFingerprint)) === receipt.environment.sha256,
       environmentMatchesReceipt: currentEnvironment.sha256 === receipt.environment.sha256,
     };
 
@@ -199,6 +226,14 @@ export async function verifyAsset(specPath, options = {}) {
       checks.outputPathMatches,
       checks.acceptedOutputMatchesReceipt,
       checks.regeneratedOutputMatchesReceipt,
+      checks.toolMatchesReceipt,
+      checks.generatorMatchesReceipt,
+      checks.randomnessMatchesReceipt,
+      checks.inputsMatchReceipt,
+      checks.modelsMatchReceipt,
+      checks.parametersMatchReceipt,
+      checks.reproducibilityMatchesReceipt,
+      checks.receiptEnvironmentFingerprintValid,
     ];
 
     const status = artifactChecks.every(Boolean) ? "exact" : "drift";
