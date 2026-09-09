@@ -2,9 +2,11 @@ import path from "node:path";
 import { lstat, mkdir, readFile, realpath, stat, writeFile } from "node:fs/promises";
 import { canonicalJson, stablePrettyJson } from "./canonical.js";
 import { getBackend } from "./backends.js";
+import { normalizeGenerationResult, receiptGenerator } from "./backend-contract.js";
 import { captureEnvironment } from "./environment.js";
 import { sha256Bytes, sha256File, sha256Text } from "./hash.js";
-import { assertPortableRelativePath, parseGenerationReceipt, readAssetSpec, resolveSpecPath } from "./schema.js";
+import { parseGenerationReceipt } from "./receipts.js";
+import { assertPortableRelativePath, readAssetSpec, resolveSpecPath } from "./schema.js";
 import { captureToolIdentity } from "./tool.js";
 
 async function fileExists(filePath) {
@@ -161,24 +163,25 @@ function expectedReproducibility(specDocument, backend) {
   return { expected, baseline, reasons };
 }
 
-async function buildReceipt(specDocument, outputSha256) {
-  const backend = getBackend(specDocument.spec.generator);
+async function buildReceipt(specDocument, backend, outputSha256, observations) {
   const environment = await captureEnvironment(await backend.environmentComponents(specDocument));
   const tool = await captureToolIdentity();
 
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     assetId: specDocument.spec.assetId,
     spec: {
       sha256: specDocument.sha256,
       canonicalizer: "asset-tooling-canonical-json-v1",
     },
     tool,
-    generator: specDocument.spec.generator,
+    generator: receiptGenerator(specDocument.spec.generator, backend),
     randomness: specDocument.spec.randomness,
     inputs: specDocument.spec.inputs,
     models: specDocument.spec.models,
+    parameters: specDocument.spec.parameters,
     parametersSha256: sha256Text(canonicalJson(specDocument.spec.parameters)),
+    observations,
     environment,
     output: {
       path: specDocument.spec.output.path,
@@ -192,6 +195,7 @@ export async function validateSpec(specPath) {
   const document = await readAssetSpec(specPath);
   const backend = getBackend(document.spec.generator);
   backend.validate(document);
+  receiptGenerator(document.spec.generator, backend);
   return {
     status: "valid",
     assetId: document.spec.assetId,
@@ -203,15 +207,16 @@ export async function generateAsset(specPath, options = {}) {
   const document = await readAssetSpec(specPath);
   const backend = getBackend(document.spec.generator);
   backend.validate(document);
+  receiptGenerator(document.spec.generator, backend);
   const receiptPath = receiptPortablePath(document.spec, options.receiptPath);
   const { outputAbsolutePath, receiptAbsolutePath } = await assertSafeMutationPaths(document, receiptPath);
   await verifyDeclaredArtifacts(document);
 
-  const outputBytes = await backend.generate(document);
-  const outputSha256 = sha256Bytes(outputBytes);
-  const outputChanged = await writeIfChanged(outputAbsolutePath, outputBytes);
+  const generated = normalizeGenerationResult(await backend.generate(document), backend.id);
+  const outputSha256 = sha256Bytes(generated.bytes);
+  const outputChanged = await writeIfChanged(outputAbsolutePath, generated.bytes);
 
-  const receipt = await buildReceipt(document, outputSha256);
+  const receipt = await buildReceipt(document, backend, outputSha256, generated.observations);
   const receiptChanged = await writeIfChanged(receiptAbsolutePath, Buffer.from(stablePrettyJson(receipt), "utf8"));
 
   return {
@@ -229,14 +234,15 @@ export async function verifyAsset(specPath, options = {}) {
     const document = await readAssetSpec(specPath);
     const backend = getBackend(document.spec.generator);
     backend.validate(document);
+    receiptGenerator(document.spec.generator, backend);
     const receiptPath = receiptPortablePath(document.spec, options.receiptPath);
     const { outputAbsolutePath, receiptAbsolutePath } = await assertSafeMutationPaths(document, receiptPath);
     await verifyDeclaredArtifacts(document);
     const receipt = parseGenerationReceipt(JSON.parse(await readFile(receiptAbsolutePath, "utf8")));
 
     const acceptedOutputSha256 = await sha256File(outputAbsolutePath);
-    const regeneratedBytes = await backend.generate(document);
-    const regeneratedOutputSha256 = sha256Bytes(regeneratedBytes);
+    const regenerated = normalizeGenerationResult(await backend.generate(document), backend.id);
+    const regeneratedOutputSha256 = sha256Bytes(regenerated.bytes);
     const currentEnvironment = await captureEnvironment(await backend.environmentComponents(document));
     const currentTool = await captureToolIdentity();
     const receiptEnvironmentFingerprint = {
@@ -245,6 +251,10 @@ export async function verifyAsset(specPath, options = {}) {
       runtime: receipt.environment.runtime,
       components: receipt.environment.components,
     };
+    const expectedGenerator = receipt.schemaVersion === 1
+      ? document.spec.generator
+      : receiptGenerator(document.spec.generator, backend);
+    const expectedParametersSha256 = sha256Text(canonicalJson(document.spec.parameters));
 
     const checks = {
       assetIdMatches: receipt.assetId === document.spec.assetId,
@@ -253,12 +263,15 @@ export async function verifyAsset(specPath, options = {}) {
       acceptedOutputMatchesReceipt: acceptedOutputSha256 === receipt.output.sha256,
       regeneratedOutputMatchesReceipt: regeneratedOutputSha256 === receipt.output.sha256,
       toolMatchesReceipt: canonicalJson(currentTool) === canonicalJson(receipt.tool),
-      generatorMatchesReceipt: canonicalJson(document.spec.generator) === canonicalJson(receipt.generator),
+      generatorMatchesReceipt: canonicalJson(expectedGenerator) === canonicalJson(receipt.generator),
       randomnessMatchesReceipt: canonicalJson(document.spec.randomness) === canonicalJson(receipt.randomness),
       inputsMatchReceipt: canonicalJson(document.spec.inputs) === canonicalJson(receipt.inputs),
       modelsMatchReceipt: canonicalJson(document.spec.models) === canonicalJson(receipt.models),
       parametersMatchReceipt:
-        sha256Text(canonicalJson(document.spec.parameters)) === receipt.parametersSha256,
+        expectedParametersSha256 === receipt.parametersSha256 &&
+        (receipt.schemaVersion === 1 || canonicalJson(document.spec.parameters) === canonicalJson(receipt.parameters)),
+      observationsMatchReceipt:
+        receipt.schemaVersion === 1 || canonicalJson(regenerated.observations) === canonicalJson(receipt.observations),
       reproducibilityMatchesReceipt:
         canonicalJson(expectedReproducibility(document, backend)) === canonicalJson(receipt.reproducibility),
       receiptEnvironmentFingerprintValid:
@@ -278,6 +291,7 @@ export async function verifyAsset(specPath, options = {}) {
       checks.inputsMatchReceipt,
       checks.modelsMatchReceipt,
       checks.parametersMatchReceipt,
+      checks.observationsMatchReceipt,
       checks.reproducibilityMatchesReceipt,
       checks.receiptEnvironmentFingerprintValid,
     ];
