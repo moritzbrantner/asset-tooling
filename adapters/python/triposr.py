@@ -11,6 +11,7 @@ import os
 from pathlib import Path
 import platform
 import stat
+import subprocess
 import sys
 import tempfile
 import zipfile
@@ -37,7 +38,7 @@ def package_version(name: str) -> str:
     raise AssertionError("unreachable")
 
 
-def module_fingerprint(name: str) -> dict[str, str | None]:
+def module_fingerprint(name: str) -> dict[str, str]:
     spec = importlib.util.find_spec(name)
     if spec is None or spec.origin is None:
         fail(f"required Python module {name!r} is not installed")
@@ -51,13 +52,59 @@ def module_fingerprint(name: str) -> dict[str, str | None]:
     }
 
 
+def nvidia_driver_version() -> str:
+    try:
+        completed = subprocess.run(
+            ["nvidia-smi", "--query-gpu=driver_version", "--format=csv,noheader"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (OSError, subprocess.CalledProcessError) as error:
+        fail(f"could not fingerprint the NVIDIA driver with nvidia-smi: {error}")
+    versions = [line.strip() for line in completed.stdout.splitlines() if line.strip()]
+    if not versions:
+        fail("nvidia-smi did not report an NVIDIA driver version")
+    return versions[0]
+
+
+def accelerator_component(torch, requested_device: str) -> dict[str, object]:
+    component: dict[str, object] = {
+        "id": "torch-accelerator",
+        "requestedDevice": requested_device,
+        "cudaVersion": torch.version.cuda,
+        "cudnnVersion": torch.backends.cudnn.version(),
+        "cudaAvailable": torch.cuda.is_available(),
+    }
+    if requested_device == "cuda":
+        if not torch.cuda.is_available():
+            fail("parameters.device='cuda' requested but CUDA is unavailable")
+        index = torch.cuda.current_device()
+        properties = torch.cuda.get_device_properties(index)
+        major, minor = torch.cuda.get_device_capability(index)
+        component["cudaDriverVersion"] = nvidia_driver_version()
+        component["selectedCudaDevice"] = {
+            "index": index,
+            "name": properties.name,
+            "totalMemoryBytes": properties.total_memory,
+            "computeCapability": [major, minor],
+            "multiProcessorCount": properties.multi_processor_count,
+        }
+    return component
+
+
 def probe() -> None:
     try:
         import torch
     except ImportError as error:
         fail(f"required Python package 'torch' is not installed: {error}")
 
+    requested_device = os.environ.get("ASSET_TOOLING_REQUESTED_DEVICE", "cpu")
     components = [
+        {
+            "id": "asset-tooling.triposr-adapter",
+            "sha256": sha256_file(Path(__file__).resolve()),
+        },
         {
             "id": "python",
             "version": platform.python_version(),
@@ -72,12 +119,8 @@ def probe() -> None:
         {"id": "einops", "version": package_version("einops")},
         {"id": "trimesh", "version": package_version("trimesh")},
         module_fingerprint("torchmcubes"),
-        {
-            "id": "torch-accelerator",
-            "cudaVersion": torch.version.cuda,
-            "cudnnVersion": torch.backends.cudnn.version(),
-            "cudaAvailable": torch.cuda.is_available(),
-        },
+        module_fingerprint("torchmcubes_module"),
+        accelerator_component(torch, requested_device),
     ]
     print(json.dumps(components, sort_keys=True, separators=(",", ":")))
 
@@ -92,9 +135,10 @@ def safe_extract_zip(bundle_path: Path, destination: Path) -> None:
             if member_path.is_absolute() or ".." in member_path.parts:
                 fail(f"TripoSR bundle contains unsafe path {member.filename!r}")
             unix_mode = member.external_attr >> 16
-            if stat.S_ISLNK(unix_mode):
+            file_type = stat.S_IFMT(unix_mode)
+            if file_type == stat.S_IFLNK:
                 fail(f"TripoSR bundle contains symbolic link {member.filename!r}")
-            if unix_mode and not (stat.S_ISREG(unix_mode) or stat.S_ISDIR(unix_mode)):
+            if file_type not in (0, stat.S_IFREG, stat.S_IFDIR):
                 fail(f"TripoSR bundle contains unsupported file type {member.filename!r}")
         archive.extractall(destination)
 
