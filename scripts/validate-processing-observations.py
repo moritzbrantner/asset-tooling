@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import Decimal
 import json
 import math
 import sys
@@ -11,23 +11,41 @@ from pathlib import Path
 from typing import Any
 
 
+def _decimal_number(value: Any) -> Decimal | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return Decimal(value)
+    if isinstance(value, float):
+        if not math.isfinite(value):
+            return None
+        return Decimal(str(value))
+    if isinstance(value, Decimal):
+        return value if value.is_finite() else None
+    return None
+
+
 def _finite_number(value: Any) -> bool:
-    return (
-        isinstance(value, (int, float))
-        and not isinstance(value, bool)
-        and math.isfinite(float(value))
-    )
+    return _decimal_number(value) is not None
 
 
 def _same_number(left: Any, right: Any) -> bool:
-    return _finite_number(left) and _finite_number(right) and math.isclose(
-        float(left), float(right), rel_tol=1e-9, abs_tol=1e-12
-    )
+    left_number = _decimal_number(left)
+    right_number = _decimal_number(right)
+    if left_number is None or right_number is None:
+        return False
+
+    difference = abs(left_number - right_number)
+    scale = max(abs(left_number), abs(right_number))
+    tolerance = max(Decimal("1e-12"), Decimal("1e-9") * scale)
+    return difference <= tolerance
 
 
-def _non_finite_errors(value: Any, path: str = "$.") -> list[str]:
+def _non_finite_errors(value: Any, path: str = "$." ) -> list[str]:
     errors: list[str] = []
     if isinstance(value, float) and not math.isfinite(value):
+        errors.append(f"{path.rstrip('.')} contains a non-finite number")
+    elif isinstance(value, Decimal) and not value.is_finite():
         errors.append(f"{path.rstrip('.')} contains a non-finite number")
     elif isinstance(value, dict):
         for key, nested in value.items():
@@ -43,11 +61,16 @@ def _reject_json_constant(token: str) -> None:
 
 
 def _derived_lod_target(source_triangle_count: int, triangle_ratio: Any) -> int | None:
-    if not _finite_number(triangle_ratio):
+    ratio = _decimal_number(triangle_ratio)
+    if ratio is None:
         return None
-    ratio = Decimal(str(triangle_ratio))
-    requested = int((Decimal(source_triangle_count) * ratio).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
-    return max(1, min(requested, source_triangle_count - 1))
+
+    numerator, denominator = ratio.as_integer_ratio()
+    scaled = source_triangle_count * numerator
+    quotient, remainder = divmod(scaled, denominator)
+    if remainder * 2 >= denominator:
+        quotient += 1
+    return max(1, min(quotient, source_triangle_count - 1))
 
 
 def validate_observations(receipt: dict[str, Any]) -> list[str]:
@@ -79,10 +102,10 @@ def validate_observations(receipt: dict[str, Any]) -> list[str]:
         if isinstance(result_triangles, int) and isinstance(source_triangles, int):
             if result_triangles > source_triangles:
                 errors.append("observations.resultTriangleCount must not exceed sourceTriangleCount")
-        relative_error = observations.get("relativeError")
-        target_error = parameters.get("targetError")
-        if _finite_number(relative_error) and _finite_number(target_error):
-            if float(relative_error) > float(target_error):
+        relative_error = _decimal_number(observations.get("relativeError"))
+        target_error = _decimal_number(parameters.get("targetError"))
+        if relative_error is not None and target_error is not None:
+            if relative_error > target_error:
                 errors.append("observations.relativeError must not exceed parameters.targetError")
 
     elif operation == "mesh.lod_chain":
@@ -98,6 +121,7 @@ def validate_observations(receipt: dict[str, Any]) -> list[str]:
             if len(requested_levels) != len(observed_levels):
                 errors.append("observations.levels must have the same length as parameters.levels")
             previous_requested: int | None = None
+            previous_result: int | None = None
             for index, (requested, observed) in enumerate(zip(requested_levels, observed_levels), start=1):
                 if not isinstance(requested, dict) or not isinstance(observed, dict):
                     continue
@@ -135,41 +159,56 @@ def validate_observations(receipt: dict[str, Any]) -> list[str]:
                         errors.append(
                             f"observations.{level_path}.resultTriangleCount must not exceed sourceTriangleCount"
                         )
+                if isinstance(result_triangles, int):
+                    if previous_result is not None and result_triangles > previous_result:
+                        errors.append("LOD resultTriangleCount values must be non-increasing")
+                    previous_result = result_triangles
                 if isinstance(requested_triangles, int):
                     if previous_requested is not None and requested_triangles >= previous_requested:
                         errors.append("LOD requestedTriangleCount values must be strictly decreasing")
                     previous_requested = requested_triangles
-                relative_error = observed.get("relativeError")
-                target_error = requested.get("targetError")
-                if _finite_number(relative_error) and _finite_number(target_error):
-                    if float(relative_error) > float(target_error):
+                relative_error = _decimal_number(observed.get("relativeError"))
+                target_error = _decimal_number(requested.get("targetError"))
+                if relative_error is not None and target_error is not None:
+                    if relative_error > target_error:
                         errors.append(
                             f"observations.{level_path}.relativeError must not exceed the requested targetError"
                         )
 
     elif operation == "animation.resample":
-        start = parameters.get("sourceStartSeconds")
-        end = parameters.get("sourceEndSeconds")
+        start = _decimal_number(parameters.get("sourceStartSeconds"))
+        end = _decimal_number(parameters.get("sourceEndSeconds"))
         times = parameters.get("targetTimesSeconds")
-        if _finite_number(start) and _finite_number(end) and float(end) < float(start):
+        if start is not None and end is not None and end < start:
             errors.append("parameters.sourceEndSeconds must not precede sourceStartSeconds")
-        if isinstance(times, list) and all(_finite_number(time) for time in times):
-            for index in range(1, len(times)):
-                if float(times[index]) <= float(times[index - 1]):
-                    errors.append("parameters.targetTimesSeconds must be strictly increasing")
-                    break
-            if _finite_number(start) and _finite_number(end):
-                if any(float(time) < float(start) or float(time) > float(end) for time in times):
-                    errors.append("parameters.targetTimesSeconds must stay inside the source time domain")
+        if isinstance(times, list):
+            time_values = [_decimal_number(time) for time in times]
+            if all(time is not None for time in time_values):
+                normalized_times = [time for time in time_values if time is not None]
+                for index in range(1, len(normalized_times)):
+                    if normalized_times[index] <= normalized_times[index - 1]:
+                        errors.append("parameters.targetTimesSeconds must be strictly increasing")
+                        break
+                if start is not None and end is not None:
+                    if any(time < start or time > end for time in normalized_times):
+                        errors.append("parameters.targetTimesSeconds must stay inside the source time domain")
 
-            channel_count = observations.get("channelCount")
-            result_count = observations.get("resultKeyframeCount")
-            if isinstance(channel_count, int) and isinstance(result_count, int):
-                expected_result_count = len(times) * channel_count
-                if result_count != expected_result_count:
-                    errors.append(
-                        "observations.resultKeyframeCount must equal len(parameters.targetTimesSeconds) * observations.channelCount"
-                    )
+                channel_count = observations.get("channelCount")
+                result_count = observations.get("resultKeyframeCount")
+                if isinstance(channel_count, int) and isinstance(result_count, int):
+                    expected_result_count = len(normalized_times) * channel_count
+                    if result_count != expected_result_count:
+                        errors.append(
+                            "observations.resultKeyframeCount must equal len(parameters.targetTimesSeconds) * observations.channelCount"
+                        )
+
+                if normalized_times:
+                    duration = observations.get("durationSeconds")
+                    expected_duration = normalized_times[-1] - normalized_times[0]
+                    if not _same_number(duration, expected_duration):
+                        errors.append(
+                            "observations.durationSeconds must equal the elapsed span of parameters.targetTimesSeconds"
+                        )
 
     elif operation == "animation.reduce":
         source_count = observations.get("sourceKeyframeCount")
@@ -191,10 +230,10 @@ def validate_observations(receipt: dict[str, Any]) -> list[str]:
             ("maxScaleError", "scaleError"),
         ]
         for observed_name, parameter_name in comparisons:
-            observed_value = observations.get(observed_name)
-            configured_value = parameters.get(parameter_name)
-            if _finite_number(observed_value) and _finite_number(configured_value):
-                if float(observed_value) > float(configured_value):
+            observed_value = _decimal_number(observations.get(observed_name))
+            configured_value = _decimal_number(parameters.get(parameter_name))
+            if observed_value is not None and configured_value is not None:
+                if observed_value > configured_value:
                     errors.append(
                         f"observations.{observed_name} must not exceed parameters.{parameter_name}"
                     )
