@@ -4,6 +4,12 @@ Reproducible, traceable tooling for generating and processing game and applicati
 
 The repository treats generated and processed assets as build artifacts. Generation intent, generator/model identity, declared dependency bytes, execution environment, outputs, processing observations, and replay evidence are recorded so reproducibility can be tested instead of assumed.
 
+## Stability
+
+The repository is in a stabilization phase before its first stable consumer release. Published schema versions are immutable compatibility contracts, the CLI exit semantics and root programmatic API are protected by deterministic tests, and `package:check` validates the reusable package shape without publishing it.
+
+The package remains on the `0.x` line until one zoo-game asset and one medieval/RTS asset prove the public contract in real consumers. See `docs/stability.md`.
+
 ## Generation
 
 The generation architecture now supports the same provenance model across:
@@ -37,3 +43,7 @@ asset-tooling fingerprint
 ```
 
 Exact reproducibility is established by replayed output bytes. Backend kind, absence or presence of a seed, deterministic runtime switches, or a familiar model family are never accepted as proof on their own.
+
+## Programmatic API
+
+Consumers importing the package root receive only the high-level operations `validateSpec`, `generateAsset`, `verifyAsset`, and `prepareProcessingHandoff`. Versioned schemas are separately available through the `./schemas/*` package export. Backend and receipt-construction internals are deliberately not part of the public package API.
