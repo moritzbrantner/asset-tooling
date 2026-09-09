@@ -10,6 +10,7 @@
     "implementation",
     "input",
     "parameters",
+    "observations",
     "output",
     "environmentFingerprint",
     "reproducibility"
@@ -54,6 +55,9 @@
     "parameters": {
       "type": "object"
     },
+    "observations": {
+      "type": "object"
+    },
     "output": {
       "$ref": "#/$defs/artifact"
     },
@@ -92,6 +96,9 @@
         "properties": {
           "parameters": {
             "$ref": "#/$defs/meshSimplifyParameters"
+          },
+          "observations": {
+            "$ref": "#/$defs/meshSimplifyObservations"
           }
         }
       }
@@ -109,6 +116,9 @@
         "properties": {
           "parameters": {
             "$ref": "#/$defs/meshLodChainParameters"
+          },
+          "observations": {
+            "$ref": "#/$defs/meshLodChainObservations"
           }
         }
       }
@@ -126,6 +136,9 @@
         "properties": {
           "parameters": {
             "$ref": "#/$defs/animationResampleParameters"
+          },
+          "observations": {
+            "$ref": "#/$defs/animationResampleObservations"
           }
         }
       }
@@ -143,6 +156,9 @@
         "properties": {
           "parameters": {
             "$ref": "#/$defs/animationReduceParameters"
+          },
+          "observations": {
+            "$ref": "#/$defs/animationReduceObservations"
           }
         }
       }
@@ -253,6 +269,49 @@
         }
       }
     },
+    "meshSimplifyObservations": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sourceTriangleCount",
+        "sourceVertexCount",
+        "requestedTriangleCount",
+        "resultTriangleCount",
+        "resultIndexCount",
+        "relativeError",
+        "sharedSourceVertexBuffer"
+      ],
+      "properties": {
+        "sourceTriangleCount": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "sourceVertexCount": {
+          "type": "integer",
+          "minimum": 3
+        },
+        "requestedTriangleCount": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "resultTriangleCount": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "resultIndexCount": {
+          "type": "integer",
+          "minimum": 3
+        },
+        "relativeError": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "sharedSourceVertexBuffer": {
+          "type": "boolean"
+        }
+      }
+    },
     "meshLodLevel": {
       "type": "object",
       "additionalProperties": false,
@@ -290,6 +349,84 @@
           "minItems": 1,
           "items": {
             "$ref": "#/$defs/meshLodLevel"
+          }
+        }
+      }
+    },
+    "meshLodObservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "level",
+        "triangleRatio",
+        "requestedTriangleCount",
+        "resultTriangleCount",
+        "resultIndexCount",
+        "relativeError",
+        "indexSha256"
+      ],
+      "properties": {
+        "level": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "triangleRatio": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "exclusiveMaximum": 1
+        },
+        "requestedTriangleCount": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "resultTriangleCount": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "resultIndexCount": {
+          "type": "integer",
+          "minimum": 3
+        },
+        "relativeError": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "indexSha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "meshLodChainObservations": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sourceTriangleCount",
+        "sourceVertexCount",
+        "sourceBased",
+        "sharedSourceVertexBuffer",
+        "levels"
+      ],
+      "properties": {
+        "sourceTriangleCount": {
+          "type": "integer",
+          "minimum": 2
+        },
+        "sourceVertexCount": {
+          "type": "integer",
+          "minimum": 3
+        },
+        "sourceBased": {
+          "const": true
+        },
+        "sharedSourceVertexBuffer": {
+          "type": "boolean"
+        },
+        "levels": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/meshLodObservation"
           }
         }
       }
@@ -352,6 +489,34 @@
         }
       }
     },
+    "animationResampleObservations": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sourceKeyframeCount",
+        "resultKeyframeCount",
+        "channelCount",
+        "durationSeconds"
+      ],
+      "properties": {
+        "sourceKeyframeCount": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "resultKeyframeCount": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "channelCount": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "durationSeconds": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
     "animationReduceParameters": {
       "type": "object",
       "additionalProperties": false,
@@ -380,6 +545,39 @@
         },
         "preserveEndpoints": {
           "type": "boolean"
+        }
+      }
+    },
+    "animationReduceObservations": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sourceKeyframeCount",
+        "resultKeyframeCount",
+        "maxTranslationError",
+        "maxRotationErrorRadians",
+        "maxScaleError"
+      ],
+      "properties": {
+        "sourceKeyframeCount": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "resultKeyframeCount": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "maxTranslationError": {
+          "type": "number",
+          "minimum": 0
+        },
+        "maxRotationErrorRadians": {
+          "type": "number",
+          "minimum": 0
+        },
+        "maxScaleError": {
+          "type": "number",
+          "minimum": 0
         }
       }
     }
