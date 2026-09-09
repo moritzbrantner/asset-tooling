@@ -1,0 +1,387 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://moritzbrantner.github.io/asset-tooling/schemas/processing-receipt-v1.schema.json",
+  "title": "Asset processing receipt v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "operation",
+    "implementation",
+    "input",
+    "parameters",
+    "output",
+    "environmentFingerprint",
+    "reproducibility"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "operation": {
+      "enum": [
+        "mesh.simplify",
+        "mesh.lod_chain",
+        "animation.resample",
+        "animation.reduce"
+      ]
+    },
+    "implementation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "revision", "dependencies"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "revision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "dependencies": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "input": {
+      "$ref": "#/$defs/artifact"
+    },
+    "parameters": {
+      "type": "object"
+    },
+    "output": {
+      "$ref": "#/$defs/artifact"
+    },
+    "environmentFingerprint": {
+      "type": "string",
+      "minLength": 1
+    },
+    "reproducibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state"],
+      "properties": {
+        "state": {
+          "enum": ["exact", "structural", "unverified"]
+        },
+        "repeatOutputSha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "evidence": {
+          "$ref": "#/$defs/reproducibilityEvidence"
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "operation": {
+            "const": "mesh.simplify"
+          }
+        },
+        "required": ["operation"]
+      },
+      "then": {
+        "properties": {
+          "parameters": {
+            "$ref": "#/$defs/meshSimplifyParameters"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "operation": {
+            "const": "mesh.lod_chain"
+          }
+        },
+        "required": ["operation"]
+      },
+      "then": {
+        "properties": {
+          "parameters": {
+            "$ref": "#/$defs/meshLodChainParameters"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "operation": {
+            "const": "animation.resample"
+          }
+        },
+        "required": ["operation"]
+      },
+      "then": {
+        "properties": {
+          "parameters": {
+            "$ref": "#/$defs/animationResampleParameters"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "operation": {
+            "const": "animation.reduce"
+          }
+        },
+        "required": ["operation"]
+      },
+      "then": {
+        "properties": {
+          "parameters": {
+            "$ref": "#/$defs/animationReduceParameters"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "reproducibility": {
+            "properties": {
+              "state": {
+                "const": "exact"
+              }
+            },
+            "required": ["state"]
+          }
+        },
+        "required": ["reproducibility"]
+      },
+      "then": {
+        "properties": {
+          "reproducibility": {
+            "required": ["state", "repeatOutputSha256"]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "reproducibility": {
+            "properties": {
+              "state": {
+                "enum": ["structural", "unverified"]
+              }
+            },
+            "required": ["state"]
+          }
+        },
+        "required": ["reproducibility"]
+      },
+      "then": {
+        "properties": {
+          "reproducibility": {
+            "required": ["state", "evidence"]
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sha256", "mediaType"],
+      "properties": {
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "mediaType": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "reproducibilityEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reason"],
+      "properties": {
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "details": {
+          "type": "object"
+        }
+      }
+    },
+    "meshSimplifyParameters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sourceTriangleCount",
+        "targetTriangleCount",
+        "targetError",
+        "lockBorder"
+      ],
+      "properties": {
+        "sourceTriangleCount": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "targetTriangleCount": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "targetError": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "lockBorder": {
+          "type": "boolean"
+        }
+      }
+    },
+    "meshLodLevel": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["triangleRatio", "targetError", "lockBorder"],
+      "properties": {
+        "triangleRatio": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "exclusiveMaximum": 1
+        },
+        "targetError": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "lockBorder": {
+          "type": "boolean"
+        }
+      }
+    },
+    "meshLodChainParameters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sourceTriangleCount", "sourceBased", "levels"],
+      "properties": {
+        "sourceTriangleCount": {
+          "type": "integer",
+          "minimum": 2
+        },
+        "sourceBased": {
+          "const": true
+        },
+        "levels": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/meshLodLevel"
+          }
+        }
+      }
+    },
+    "interpolationRules": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["translation", "rotation", "scale"],
+      "properties": {
+        "translation": {
+          "type": "string",
+          "minLength": 1
+        },
+        "rotation": {
+          "type": "string",
+          "minLength": 1
+        },
+        "scale": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "transformSpace": {
+      "enum": ["local", "world", "deformed"]
+    },
+    "animationResampleParameters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sourceStartSeconds",
+        "sourceEndSeconds",
+        "targetTimesSeconds",
+        "interpolation",
+        "transformSpace"
+      ],
+      "properties": {
+        "sourceStartSeconds": {
+          "type": "number",
+          "minimum": 0
+        },
+        "sourceEndSeconds": {
+          "type": "number",
+          "minimum": 0
+        },
+        "targetTimesSeconds": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "interpolation": {
+          "$ref": "#/$defs/interpolationRules"
+        },
+        "transformSpace": {
+          "$ref": "#/$defs/transformSpace"
+        }
+      }
+    },
+    "animationReduceParameters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "translationError",
+        "rotationErrorRadians",
+        "scaleError",
+        "transformSpace",
+        "preserveEndpoints"
+      ],
+      "properties": {
+        "translationError": {
+          "type": "number",
+          "minimum": 0
+        },
+        "rotationErrorRadians": {
+          "type": "number",
+          "minimum": 0
+        },
+        "scaleError": {
+          "type": "number",
+          "minimum": 0
+        },
+        "transformSpace": {
+          "$ref": "#/$defs/transformSpace"
+        },
+        "preserveEndpoints": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

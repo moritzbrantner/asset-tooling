@@ -2,6 +2,7 @@
 import { pathToFileURL } from "node:url";
 import { captureEnvironment } from "./environment.js";
 import { generateAsset, validateSpec, verifyAsset } from "./core.js";
+import { prepareProcessingHandoff } from "./processing-handoff.js";
 import { stablePrettyJson } from "./canonical.js";
 
 function usage() {
@@ -11,6 +12,7 @@ Usage:
   asset-tooling validate <asset-spec.json>
   asset-tooling generate <asset-spec.json> [--receipt <relative-path>]
   asset-tooling verify <asset-spec.json> [--receipt <relative-path>]
+  asset-tooling processing-input <asset-spec.json> --media-type <media-type> [--receipt <relative-path>]
   asset-tooling fingerprint
 `;
 }
@@ -27,6 +29,32 @@ function parseReceiptOption(args) {
     throw new Error("unexpected arguments");
   }
   return args[index + 1];
+}
+
+function parseProcessingInputOptions(args) {
+  const options = {};
+  for (let index = 0; index < args.length; index += 1) {
+    const flag = args[index];
+    if (flag !== "--media-type" && flag !== "--receipt") {
+      throw new Error(`unexpected argument '${flag}'`);
+    }
+    if (index + 1 >= args.length) {
+      throw new Error(`${flag} requires a value`);
+    }
+    const value = args[index + 1];
+    index += 1;
+    if (flag === "--media-type") {
+      if (options.mediaType !== undefined) throw new Error("--media-type may be supplied only once");
+      options.mediaType = value;
+    } else {
+      if (options.receiptPath !== undefined) throw new Error("--receipt may be supplied only once");
+      options.receiptPath = value;
+    }
+  }
+  if (options.mediaType === undefined) {
+    throw new Error("processing-input requires --media-type");
+  }
+  return options;
 }
 
 export async function main(args) {
@@ -56,6 +84,12 @@ export async function main(args) {
         : await verifyAsset(specPath, { receiptPath });
     console.log(stablePrettyJson(result).trimEnd());
     return result.status === "broken" || result.status === "drift" ? 1 : 0;
+  }
+
+  if (command === "processing-input") {
+    const options = parseProcessingInputOptions(args.slice(2));
+    console.log(stablePrettyJson(await prepareProcessingHandoff(specPath, options)).trimEnd());
+    return 0;
   }
 
   console.error(usage());
