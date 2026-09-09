@@ -212,6 +212,50 @@ def main() -> None:
         invalid_json_path.write_text('{"schemaVersion":2,"relativeError":NaN}', encoding="utf-8")
         assert_cross_field_error(validate_observation_file(invalid_json_path), "non-standard JSON numeric constant")
 
+        exact_decimal_path = Path(directory) / "exact-decimal-lod-receipt.json"
+        exact_decimal_receipt = {
+            "schemaVersion": 2,
+            "operation": "mesh.lod_chain",
+            "parameters": {
+                "sourceTriangleCount": 10,
+                "sourceBased": True,
+                "budgetRounding": "nearest-ties-away-from-zero",
+                "levels": [
+                    {
+                        "triangleRatio": "__EXACT_RATIO__",
+                        "targetTriangleCount": 2,
+                        "targetError": 0,
+                        "lockBorder": False,
+                    }
+                ],
+            },
+            "observations": {
+                "sourceTriangleCount": 10,
+                "sourceVertexCount": 10,
+                "sourceBased": True,
+                "sharedSourceVertexBuffer": True,
+                "levels": [
+                    {
+                        "level": 1,
+                        "triangleRatio": "__EXACT_RATIO__",
+                        "requestedTriangleCount": 2,
+                        "resultTriangleCount": 2,
+                        "resultIndexCount": 6,
+                        "relativeError": 0,
+                        "indexSha256": "0" * 64,
+                    }
+                ],
+            },
+        }
+        exact_decimal_text = json.dumps(exact_decimal_receipt).replace(
+            '"__EXACT_RATIO__"', "0.14999999999999999"
+        )
+        exact_decimal_path.write_text(exact_decimal_text, encoding="utf-8")
+        assert_cross_field_error(
+            validate_observation_file(exact_decimal_path),
+            "declared ratio budget 1",
+        )
+
     print("processing receipt v1 compatibility and v2 observation contracts valid")
 
 
