@@ -1,0 +1,252 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://moritzbrantner.github.io/asset-tooling/schemas/processing-receipt-v3.schema.json",
+  "title": "Asset processing receipt v3",
+  "description": "Processing receipt v3 preserves the v2 3D operation contracts and adds deterministic 2D image processing evidence.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "operation",
+    "implementation",
+    "input",
+    "parameters",
+    "observations",
+    "output",
+    "environmentFingerprint",
+    "reproducibility"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 3 },
+    "operation": {
+      "enum": ["mesh.simplify", "mesh.lod_chain", "animation.resample", "animation.reduce", "image.crop"]
+    },
+    "implementation": { "$ref": "#/$defs/implementation" },
+    "input": { "$ref": "#/$defs/artifact" },
+    "parameters": { "type": "object" },
+    "observations": { "type": "object" },
+    "output": { "$ref": "#/$defs/artifact" },
+    "environmentFingerprint": { "type": "string", "minLength": 1 },
+    "reproducibility": { "$ref": "#/$defs/reproducibility" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "operation": { "const": "mesh.simplify" } }, "required": ["operation"] },
+      "then": { "properties": { "parameters": { "$ref": "#/$defs/meshSimplifyParameters" }, "observations": { "$ref": "#/$defs/meshSimplifyObservations" } } }
+    },
+    {
+      "if": { "properties": { "operation": { "const": "mesh.lod_chain" } }, "required": ["operation"] },
+      "then": { "properties": { "parameters": { "$ref": "#/$defs/meshLodChainParameters" }, "observations": { "$ref": "#/$defs/meshLodChainObservations" } } }
+    },
+    {
+      "if": { "properties": { "operation": { "const": "animation.resample" } }, "required": ["operation"] },
+      "then": { "properties": { "parameters": { "$ref": "#/$defs/animationResampleParameters" }, "observations": { "$ref": "#/$defs/animationResampleObservations" } } }
+    },
+    {
+      "if": { "properties": { "operation": { "const": "animation.reduce" } }, "required": ["operation"] },
+      "then": { "properties": { "parameters": { "$ref": "#/$defs/animationReduceParameters" }, "observations": { "$ref": "#/$defs/animationReduceObservations" } } }
+    },
+    {
+      "if": { "properties": { "operation": { "const": "image.crop" } }, "required": ["operation"] },
+      "then": { "properties": { "parameters": { "$ref": "#/$defs/imageCropParameters" }, "observations": { "$ref": "#/$defs/imageCropObservations" } } }
+    },
+    {
+      "if": { "properties": { "reproducibility": { "properties": { "state": { "const": "exact" } }, "required": ["state"] } }, "required": ["reproducibility"] },
+      "then": { "properties": { "reproducibility": { "required": ["state", "repeatOutputSha256"] } } }
+    },
+    {
+      "if": { "properties": { "reproducibility": { "properties": { "state": { "enum": ["structural", "unverified"] } }, "required": ["state"] } }, "required": ["reproducibility"] },
+      "then": { "properties": { "reproducibility": { "required": ["state", "evidence"] } } }
+    }
+  ],
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sha256", "mediaType"],
+      "properties": { "sha256": { "$ref": "#/$defs/sha256" }, "mediaType": { "type": "string", "minLength": 1 } }
+    },
+    "implementation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "revision", "dependencies"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "revision": { "type": "string", "minLength": 1 },
+        "dependencies": { "type": "object", "additionalProperties": { "type": "string", "minLength": 1 } }
+      }
+    },
+    "reproducibilityEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reason"],
+      "properties": { "reason": { "type": "string", "minLength": 1 }, "details": { "type": "object" } }
+    },
+    "reproducibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state"],
+      "properties": {
+        "state": { "enum": ["exact", "structural", "unverified"] },
+        "repeatOutputSha256": { "$ref": "#/$defs/sha256" },
+        "evidence": { "$ref": "#/$defs/reproducibilityEvidence" }
+      }
+    },
+    "meshSimplifyParameters": {
+      "type": "object", "additionalProperties": false,
+      "required": ["sourceTriangleCount", "targetTriangleCount", "targetError", "lockBorder"],
+      "properties": {
+        "sourceTriangleCount": { "type": "integer", "minimum": 1 },
+        "targetTriangleCount": { "type": "integer", "minimum": 1 },
+        "targetError": { "type": "number", "minimum": 0, "maximum": 1 },
+        "lockBorder": { "type": "boolean" }
+      }
+    },
+    "meshSimplifyObservations": {
+      "type": "object", "additionalProperties": false,
+      "required": ["sourceTriangleCount", "sourceVertexCount", "requestedTriangleCount", "resultTriangleCount", "resultIndexCount", "relativeError", "sharedSourceVertexBuffer"],
+      "properties": {
+        "sourceTriangleCount": { "type": "integer", "minimum": 1 },
+        "sourceVertexCount": { "type": "integer", "minimum": 3 },
+        "requestedTriangleCount": { "type": "integer", "minimum": 1 },
+        "resultTriangleCount": { "type": "integer", "minimum": 1 },
+        "resultIndexCount": { "type": "integer", "minimum": 3 },
+        "relativeError": { "type": "number", "minimum": 0, "maximum": 1 },
+        "sharedSourceVertexBuffer": { "type": "boolean" }
+      }
+    },
+    "meshLodLevel": {
+      "type": "object", "additionalProperties": false,
+      "required": ["triangleRatio", "targetTriangleCount", "targetError", "lockBorder"],
+      "properties": {
+        "triangleRatio": { "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1 },
+        "targetTriangleCount": { "type": "integer", "minimum": 1 },
+        "targetError": { "type": "number", "minimum": 0, "maximum": 1 },
+        "lockBorder": { "type": "boolean" }
+      }
+    },
+    "meshLodChainParameters": {
+      "type": "object", "additionalProperties": false,
+      "required": ["sourceTriangleCount", "sourceBased", "budgetRounding", "levels"],
+      "properties": {
+        "sourceTriangleCount": { "type": "integer", "minimum": 2 },
+        "sourceBased": { "const": true },
+        "budgetRounding": { "const": "nearest-ties-away-from-zero" },
+        "levels": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/meshLodLevel" } }
+      }
+    },
+    "meshLodObservation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["level", "triangleRatio", "requestedTriangleCount", "resultTriangleCount", "resultIndexCount", "relativeError", "indexSha256"],
+      "properties": {
+        "level": { "type": "integer", "minimum": 1 },
+        "triangleRatio": { "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1 },
+        "requestedTriangleCount": { "type": "integer", "minimum": 1 },
+        "resultTriangleCount": { "type": "integer", "minimum": 1 },
+        "resultIndexCount": { "type": "integer", "minimum": 3 },
+        "relativeError": { "type": "number", "minimum": 0, "maximum": 1 },
+        "indexSha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "meshLodChainObservations": {
+      "type": "object", "additionalProperties": false,
+      "required": ["sourceTriangleCount", "sourceVertexCount", "sourceBased", "sharedSourceVertexBuffer", "levels"],
+      "properties": {
+        "sourceTriangleCount": { "type": "integer", "minimum": 2 },
+        "sourceVertexCount": { "type": "integer", "minimum": 3 },
+        "sourceBased": { "const": true },
+        "sharedSourceVertexBuffer": { "type": "boolean" },
+        "levels": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/meshLodObservation" } }
+      }
+    },
+    "interpolationRules": {
+      "type": "object", "additionalProperties": false,
+      "required": ["translation", "rotation", "scale"],
+      "properties": {
+        "translation": { "type": "string", "minLength": 1 },
+        "rotation": { "type": "string", "minLength": 1 },
+        "scale": { "type": "string", "minLength": 1 }
+      }
+    },
+    "transformSpace": { "enum": ["local", "world", "deformed"] },
+    "animationResampleParameters": {
+      "type": "object", "additionalProperties": false,
+      "required": ["sourceStartSeconds", "sourceEndSeconds", "targetTimesSeconds", "interpolation", "transformSpace"],
+      "properties": {
+        "sourceStartSeconds": { "type": "number", "minimum": 0 },
+        "sourceEndSeconds": { "type": "number", "minimum": 0 },
+        "targetTimesSeconds": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "number", "minimum": 0 } },
+        "interpolation": { "$ref": "#/$defs/interpolationRules" },
+        "transformSpace": { "$ref": "#/$defs/transformSpace" }
+      }
+    },
+    "animationResampleObservations": {
+      "type": "object", "additionalProperties": false,
+      "required": ["sourceKeyframeCount", "resultKeyframeCount", "channelCount", "durationSeconds"],
+      "properties": {
+        "sourceKeyframeCount": { "type": "integer", "minimum": 1 },
+        "resultKeyframeCount": { "type": "integer", "minimum": 1 },
+        "channelCount": { "type": "integer", "minimum": 1 },
+        "durationSeconds": { "type": "number", "minimum": 0 }
+      }
+    },
+    "animationReduceParameters": {
+      "type": "object", "additionalProperties": false,
+      "required": ["translationError", "rotationErrorRadians", "scaleError", "transformSpace", "preserveEndpoints"],
+      "properties": {
+        "translationError": { "type": "number", "minimum": 0 },
+        "rotationErrorRadians": { "type": "number", "minimum": 0 },
+        "scaleError": { "type": "number", "minimum": 0 },
+        "transformSpace": { "$ref": "#/$defs/transformSpace" },
+        "preserveEndpoints": { "type": "boolean" }
+      }
+    },
+    "animationReduceObservations": {
+      "type": "object", "additionalProperties": false,
+      "required": ["sourceKeyframeCount", "resultKeyframeCount", "maxTranslationError", "maxRotationErrorRadians", "maxScaleError", "endpointsPreserved"],
+      "properties": {
+        "sourceKeyframeCount": { "type": "integer", "minimum": 1 },
+        "resultKeyframeCount": { "type": "integer", "minimum": 1 },
+        "maxTranslationError": { "type": "number", "minimum": 0 },
+        "maxRotationErrorRadians": { "type": "number", "minimum": 0 },
+        "maxScaleError": { "type": "number", "minimum": 0 },
+        "endpointsPreserved": { "type": "boolean" }
+      }
+    },
+    "imageCropParameters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y", "width", "height", "sourceColorSpace", "alphaMode"],
+      "properties": {
+        "x": { "type": "integer", "minimum": 0 },
+        "y": { "type": "integer", "minimum": 0 },
+        "width": { "type": "integer", "minimum": 1 },
+        "height": { "type": "integer", "minimum": 1 },
+        "sourceColorSpace": { "const": "srgb" },
+        "alphaMode": { "const": "preserve" }
+      }
+    },
+    "imageCropObservations": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sourceWidth", "sourceHeight", "resultWidth", "resultHeight",
+        "sourcePixelSha256", "resultPixelSha256", "sourceHadSrgbChunk",
+        "outputColorSpace", "alphaMode", "outputEncoding"
+      ],
+      "properties": {
+        "sourceWidth": { "type": "integer", "minimum": 1 },
+        "sourceHeight": { "type": "integer", "minimum": 1 },
+        "resultWidth": { "type": "integer", "minimum": 1 },
+        "resultHeight": { "type": "integer", "minimum": 1 },
+        "sourcePixelSha256": { "$ref": "#/$defs/sha256" },
+        "resultPixelSha256": { "$ref": "#/$defs/sha256" },
+        "sourceHadSrgbChunk": { "type": "boolean" },
+        "outputColorSpace": { "const": "srgb" },
+        "alphaMode": { "const": "preserve" },
+        "outputEncoding": { "const": "canonical-png-rgba8-stored-deflate-v1" }
+      }
+    }
+  }
+}
