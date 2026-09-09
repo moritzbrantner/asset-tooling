@@ -53,15 +53,17 @@ test("TripoSR is a model backend and never claims exact capability a priori", ()
 });
 
 test("TripoSR accepts one image and one hash-pinned source/model/DINO bundle", async () => {
-  const result = await validateSpec(await writeSpec(triposrSpec()));
+  const specPath = await writeSpec(triposrSpec());
+  const result = await validateSpec(specPath);
   assert.equal(result.status, "valid");
 });
 
 test("TripoSR v1 rejects automatic background removal and hidden model components", async () => {
   const autoBackground = triposrSpec();
   autoBackground.parameters.preprocessMode = "remove-background";
+  const autoBackgroundPath = await writeSpec(autoBackground);
   await assert.rejects(
-    () => validateSpec(await writeSpec(autoBackground)),
+    () => validateSpec(autoBackgroundPath),
     /preprocessMode must be 'prepared'/,
   );
 
@@ -71,23 +73,27 @@ test("TripoSR v1 rejects automatic background removal and hidden model component
     path: "models/rembg.onnx",
     sha256: "3".repeat(64),
   };
+  const hiddenModelPath = await writeSpec(hiddenModel);
   await assert.rejects(
-    () => validateSpec(await writeSpec(hiddenModel)),
+    () => validateSpec(hiddenModelPath),
     /models contains unsupported field 'rembg'/,
   );
 });
 
 test("TripoSR has no user randomness and normalizes mesh extraction controls", async () => {
-  const seeded = triposrSpec({ randomness: { mode: "seeded", seed: "42" } });
+  const seededPath = await writeSpec(
+    triposrSpec({ randomness: { mode: "seeded", seed: "42" } }),
+  );
   await assert.rejects(
-    () => validateSpec(await writeSpec(seeded)),
+    () => validateSpec(seededPath),
     /requires randomness\.mode='none'/,
   );
 
   const invalidResolution = triposrSpec();
   invalidResolution.parameters.mcResolution = 1024;
+  const invalidResolutionPath = await writeSpec(invalidResolution);
   await assert.rejects(
-    () => validateSpec(await writeSpec(invalidResolution)),
+    () => validateSpec(invalidResolutionPath),
     /mcResolution must be an integer in 32\.\.512/,
   );
 });
