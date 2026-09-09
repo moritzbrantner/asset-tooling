@@ -2,13 +2,14 @@
   "schemaVersion": 1,
   "profile": "repository-foundation-v1",
   "tiers": {
-    "fast": ["test"],
-    "standard": ["test"]
+    "fast": ["test", "package:check"],
+    "standard": ["test", "package:check"]
   },
-  "requiredCapabilities": ["test"],
+  "requiredCapabilities": ["test", "package:check"],
   "capabilityCommands": {
     ".": {
-      "test": ["bun", "test"]
+      "test": ["bun", "test"],
+      "package:check": ["bun", "run", "package:check"]
     }
   }
 }
