@@ -11,16 +11,16 @@
 - Non-mutating exact rebuild verification.
 - A deterministic built-in copy backend used only to prove the architecture.
 
-## 2. Generation backends
+## 2. Generation backends — implemented foundation
 
-Build procedural and local model generation on one provenance architecture rather than creating model-specific pipelines.
+Procedural and local model generation now share one provenance architecture rather than model-specific pipelines.
 
-1. Shared versioned generation-receipt contract for `procedural`, `model`, and `utility` backends.
-2. Deterministic seeded procedural reference generator.
-3. Generic adapter result/evidence and replay contract.
-4. Local Stable Diffusion adapter with explicit checkpoint/runtime/sampler evidence and no hidden downloads.
-5. Local TripoSR image-to-3D adapter with explicit input/model/runtime evidence and no hidden downloads.
-6. Generation-to-processing handoff that keeps each stage independently traceable.
+- [x] Shared versioned generation-receipt contract for `procedural`, `model`, and `utility` backends.
+- [x] Deterministic seeded procedural reference generator.
+- [x] Generic adapter result/evidence and replay contract.
+- [x] Local Stable Diffusion adapter with a complete hash-pinned Diffusers pipeline bundle, normalized inference settings, runtime evidence, and no hidden downloads.
+- [x] Local TripoSR image-to-3D adapter with explicit source image plus a hash-pinned TripoSR source/weights/DINO bundle and no hidden downloads.
+- [x] Generation-to-processing handoff that keeps each stage independently traceable by content hash and generation-receipt lineage.
 
 Exact reproducibility is always established by replayed output bytes, never inferred from a seed, backend kind, or model family.
 
@@ -30,7 +30,7 @@ Normalize dimensions, color space, alpha handling, cropping, texture packing, an
 
 ## 4. 3D asset contract
 
-Standardize GLB/glTF coordinate system, world scale, transforms, materials, animation names, collision-proxy naming, triangle/material budgets, and LOD rules before adding generative 3D backends.
+Standardize GLB/glTF coordinate system, world scale, transforms, materials, animation names, collision-proxy naming, triangle/material budgets, and LOD rules. The existing processing receipt contracts already establish traceable simplification/LOD and animation processing; this section should grow those contracts into a complete production asset profile.
 
 ## 5. Asset catalog
 
