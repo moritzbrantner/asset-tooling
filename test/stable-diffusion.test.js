@@ -84,7 +84,22 @@ test("Stable Diffusion requires seeded randomness and an explicit inference grid
   );
 });
 
-test("Stable Diffusion adapter is structurally offline and uses a fresh CPU generator", async () => {
+test("Stable Diffusion rejects seeds outside PyTorch's uint64 domain during validation", async () => {
+  const maximumPath = await writeSpec(stableDiffusionSpec({
+    randomness: { mode: "seeded", seed: "18446744073709551615" },
+  }));
+  assert.equal((await validateSpec(maximumPath)).status, "valid");
+
+  const tooLargePath = await writeSpec(stableDiffusionSpec({
+    randomness: { mode: "seeded", seed: "18446744073709551616" },
+  }));
+  await assert.rejects(
+    () => validateSpec(tooLargePath),
+    /randomness\.seed must be at most 18446744073709551615 for PyTorch/,
+  );
+});
+
+test("Stable Diffusion adapter is structurally offline and fingerprints adapter and CUDA identity", async () => {
   const source = await readFile(
     new URL("../adapters/python/stable_diffusion.py", import.meta.url),
     "utf8",
@@ -93,5 +108,19 @@ test("Stable Diffusion adapter is structurally offline and uses a fresh CPU gene
   assert.match(source, /HF_HUB_OFFLINE/);
   assert.match(source, /TRANSFORMERS_OFFLINE/);
   assert.match(source, /torch\.Generator\(device="cpu"\)\.manual_seed\(seed\)/);
+  assert.match(source, /asset-tooling\.stable-diffusion-adapter/);
+  assert.match(source, /sha256_file\(Path\(__file__\)\.resolve\(\)\)/);
+  assert.match(source, /ASSET_TOOLING_REQUESTED_DEVICE/);
+  assert.match(source, /torch\.cuda\.get_device_properties\(index\)/);
+  assert.match(source, /torch\.cuda\.get_device_capability\(index\)/);
+  assert.match(source, /--query-gpu=driver_version/);
   assert.doesNotMatch(source, /from_single_file/);
+});
+
+test("Stable Diffusion probe receives the declared device selection", async () => {
+  const source = await readFile(
+    new URL("../src/model-backends.js", import.meta.url),
+    "utf8",
+  );
+  assert.match(source, /ASSET_TOOLING_REQUESTED_DEVICE: document\.spec\.parameters\.device/);
 });
