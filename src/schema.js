@@ -44,6 +44,9 @@ export function assertPortableRelativePath(value, location) {
   if (candidate.includes("\\")) {
     throw new Error(`${location} must use '/' separators`);
   }
+  if (/^[A-Za-z]:/.test(candidate)) {
+    throw new Error(`${location} must not be drive-qualified`);
+  }
   if (path.posix.isAbsolute(candidate)) {
     throw new Error(`${location} must be relative`);
   }

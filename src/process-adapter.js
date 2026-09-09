@@ -4,26 +4,49 @@ import path from "node:path";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { canonicalJson } from "./canonical.js";
 
+const RESERVED_ENVIRONMENT = new Set([
+  "HF_HUB_OFFLINE",
+  "TRANSFORMERS_OFFLINE",
+  "HF_HUB_DISABLE_TELEMETRY",
+  "DO_NOT_TRACK",
+]);
+const RESERVED_PROTOCOL_FILENAMES = new Set(["request.json", "observations.json"]);
+
 function adapterEnvironment(extra = {}) {
+  for (const name of RESERVED_ENVIRONMENT) {
+    if (Object.hasOwn(extra, name)) {
+      throw new Error(`adapter environment must not override reserved variable '${name}'`);
+    }
+  }
+
   const inherited = {};
   for (const name of ["PATH", "Path", "PATHEXT", "SystemRoot", "WINDIR", "TEMP", "TMP", "TMPDIR", "VIRTUAL_ENV"]) {
     if (process.env[name] !== undefined) inherited[name] = process.env[name];
   }
   return {
     ...inherited,
+    ...extra,
     HF_HUB_OFFLINE: "1",
     TRANSFORMERS_OFFLINE: "1",
     HF_HUB_DISABLE_TELEMETRY: "1",
     DO_NOT_TRACK: "1",
-    ...extra,
   };
 }
 
+function assertAbsoluteCwd(value) {
+  if (typeof value !== "string" || value.length === 0 || !path.isAbsolute(value)) {
+    throw new Error("adapter cwd must be an absolute path");
+  }
+  return value;
+}
+
 async function run(executable, arguments_, options) {
+  const cwd = assertAbsoluteCwd(options.cwd);
+  const environment = adapterEnvironment(options.environment);
   return new Promise((resolve, reject) => {
     const child = spawn(executable, arguments_, {
-      cwd: options.cwd,
-      env: adapterEnvironment(options.environment),
+      cwd,
+      env: environment,
       stdio: ["ignore", "pipe", "pipe"],
       windowsHide: true,
     });
@@ -91,6 +114,10 @@ export async function runProcessAdapter({
   if (typeof outputName !== "string" || !/^[A-Za-z0-9._-]+$/.test(outputName)) {
     throw new Error("adapter outputName must be a simple file name");
   }
+  if (RESERVED_PROTOCOL_FILENAMES.has(outputName)) {
+    throw new Error(`adapter outputName '${outputName}' is a reserved protocol file name`);
+  }
+
   const directory = await mkdtemp(path.join(os.tmpdir(), "asset-tooling-adapter-"));
   const requestPath = path.join(directory, "request.json");
   const outputPath = path.join(directory, outputName);

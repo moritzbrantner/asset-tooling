@@ -36,6 +36,10 @@ async function writeWorkspace() {
   return { root, specPath };
 }
 
+function fixtureScriptPath() {
+  return fileURLToPath(new URL("./fixtures/process-adapter.js", import.meta.url));
+}
+
 test("generation emits receipt v2 with explicit backend kind, parameters, and observations", async () => {
   const { specPath } = await writeWorkspace();
   const result = await generateAsset(specPath);
@@ -94,11 +98,12 @@ test("verification retains generation receipt v1 compatibility", async () => {
 });
 
 test("local process adapter protocol probes and generates without leaking temp paths", async () => {
-  const scriptPath = fileURLToPath(new URL("./fixtures/process-adapter.js", import.meta.url));
+  const scriptPath = fixtureScriptPath();
+  const cwd = path.resolve(process.cwd());
   const components = await probeProcessAdapter({
     executable: process.execPath,
     scriptPath,
-    cwd: process.cwd(),
+    cwd,
   });
   assert.deepEqual(components, [
     {
@@ -111,7 +116,7 @@ test("local process adapter protocol probes and generates without leaking temp p
   const generated = await runProcessAdapter({
     executable: process.execPath,
     scriptPath,
-    cwd: process.cwd(),
+    cwd,
     request: { message: "hello" },
     outputName: "fixture.txt",
   });
@@ -120,4 +125,51 @@ test("local process adapter protocol probes and generates without leaking temp p
     protocol: "fixture-v1",
     messageLength: 5,
   });
+});
+
+test("process adapter requires an absolute deterministic cwd", async () => {
+  const scriptPath = fixtureScriptPath();
+  await assert.rejects(
+    () => probeProcessAdapter({ executable: process.execPath, scriptPath, cwd: "." }),
+    /adapter cwd must be an absolute path/,
+  );
+  await assert.rejects(
+    () => runProcessAdapter({
+      executable: process.execPath,
+      scriptPath,
+      request: { message: "hello" },
+    }),
+    /adapter cwd must be an absolute path/,
+  );
+});
+
+test("process adapter reserved offline flags cannot be overridden", async () => {
+  const scriptPath = fixtureScriptPath();
+  for (const name of ["HF_HUB_OFFLINE", "TRANSFORMERS_OFFLINE", "HF_HUB_DISABLE_TELEMETRY", "DO_NOT_TRACK"]) {
+    await assert.rejects(
+      () => probeProcessAdapter({
+        executable: process.execPath,
+        scriptPath,
+        cwd: path.resolve(process.cwd()),
+        environment: { [name]: "0" },
+      }),
+      new RegExp(`must not override reserved variable '${name}'`),
+    );
+  }
+});
+
+test("process adapter output cannot collide with protocol files", async () => {
+  const scriptPath = fixtureScriptPath();
+  for (const outputName of ["request.json", "observations.json"]) {
+    await assert.rejects(
+      () => runProcessAdapter({
+        executable: process.execPath,
+        scriptPath,
+        cwd: path.resolve(process.cwd()),
+        request: { message: "hello" },
+        outputName,
+      }),
+      /reserved protocol file name/,
+    );
+  }
 });

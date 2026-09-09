@@ -10,6 +10,7 @@ import os
 from pathlib import Path
 import platform
 import stat
+import subprocess
 import sys
 import tempfile
 import zipfile
@@ -36,13 +37,62 @@ def package_version(name: str) -> str:
     raise AssertionError("unreachable")
 
 
+def nvidia_driver_version() -> str:
+    try:
+        completed = subprocess.run(
+            ["nvidia-smi", "--query-gpu=driver_version", "--format=csv,noheader"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (OSError, subprocess.CalledProcessError) as error:
+        fail(f"could not fingerprint the NVIDIA driver with nvidia-smi: {error}")
+    versions = [line.strip() for line in completed.stdout.splitlines() if line.strip()]
+    if not versions:
+        fail("nvidia-smi did not report an NVIDIA driver version")
+    return versions[0]
+
+
+def accelerator_component(torch, requested_device: str) -> dict[str, object]:
+    component: dict[str, object] = {
+        "id": "torch-accelerator",
+        "requestedDevice": requested_device,
+        "cudaVersion": torch.version.cuda,
+        "cudnnVersion": torch.backends.cudnn.version(),
+        "cudaAvailable": torch.cuda.is_available(),
+        "mpsAvailable": bool(
+            hasattr(torch.backends, "mps") and torch.backends.mps.is_available()
+        ),
+    }
+    if requested_device == "cuda":
+        if not torch.cuda.is_available():
+            fail("parameters.device='cuda' requested but CUDA is unavailable")
+        index = torch.cuda.current_device()
+        properties = torch.cuda.get_device_properties(index)
+        major, minor = torch.cuda.get_device_capability(index)
+        component["cudaDriverVersion"] = nvidia_driver_version()
+        component["selectedCudaDevice"] = {
+            "index": index,
+            "name": properties.name,
+            "totalMemoryBytes": properties.total_memory,
+            "computeCapability": [major, minor],
+            "multiProcessorCount": properties.multi_processor_count,
+        }
+    return component
+
+
 def probe() -> None:
     try:
         import torch
     except ImportError as error:
         fail(f"required Python package 'torch' is not installed: {error}")
 
+    requested_device = os.environ.get("ASSET_TOOLING_REQUESTED_DEVICE", "cpu")
     components = [
+        {
+            "id": "asset-tooling.stable-diffusion-adapter",
+            "sha256": sha256_file(Path(__file__).resolve()),
+        },
         {
             "id": "python",
             "version": platform.python_version(),
@@ -54,15 +104,7 @@ def probe() -> None:
         {"id": "huggingface-hub", "version": package_version("huggingface-hub")},
         {"id": "safetensors", "version": package_version("safetensors")},
         {"id": "pillow", "version": package_version("Pillow")},
-        {
-            "id": "torch-accelerator",
-            "cudaVersion": torch.version.cuda,
-            "cudnnVersion": torch.backends.cudnn.version(),
-            "cudaAvailable": torch.cuda.is_available(),
-            "mpsAvailable": bool(
-                hasattr(torch.backends, "mps") and torch.backends.mps.is_available()
-            ),
-        },
+        accelerator_component(torch, requested_device),
     ]
     print(json.dumps(components, sort_keys=True, separators=(",", ":")))
 
