@@ -20,7 +20,8 @@
   "scripts": {
     "test": "bun test",
     "package:check": "bun scripts/check-package-shape.js",
-    "check": "bun test && bun run package:check && bun src/entry.js validate examples/copy/asset.json"
+    "check": "bun test && bun run package:check && bun src/entry.js validate examples/copy/asset.json",
+    "stability:check": "bun run check && bun scripts/check-stability.js"
   },
   "engines": {
     "bun": "1.4.0"

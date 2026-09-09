@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "consumers": [
+    {
+      "id": "zoo",
+      "repository": "moritzbrantner/zoo",
+      "commit": "2eaf4e4fb736ade6de2d1f597230ad35701bfbd1",
+      "specPath": "apps/web/public/generated-assets/zoo-park-texture.asset.json",
+      "assetId": "zoo.web.park-texture"
+    },
+    {
+      "id": "medieval",
+      "repository": "moritzbrantner/medieval",
+      "commit": "163f9ebff147c4cf37137c7c45a63f9f660578b2",
+      "specPath": "web/generated-assets/medieval-camp-texture.asset.json",
+      "assetId": "medieval.web.camp-texture"
+    }
+  ]
+}
