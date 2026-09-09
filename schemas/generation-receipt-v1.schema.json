@@ -61,7 +61,7 @@
     "environment": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["schemaVersion", "platform", "runtime", "sha256"],
+      "required": ["schemaVersion", "platform", "runtime", "components", "sha256"],
       "properties": {
         "schemaVersion": { "const": 1 },
         "platform": {
