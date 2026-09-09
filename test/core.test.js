@@ -2,10 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import os from "node:os";
 import path from "node:path";
-import { mkdtemp, mkdir, readFile, symlink, writeFile } from "node:fs/promises";
+import { link, mkdtemp, mkdir, readFile, symlink, writeFile } from "node:fs/promises";
 import { canonicalJson } from "../src/canonical.js";
 import { generateAsset, validateSpec, verifyAsset } from "../src/core.js";
-import { sha256Bytes } from "../src/hash.js";
+import { sha256Bytes, sha256Text } from "../src/hash.js";
 
 async function makeWorkspace(overrides = {}) {
   const root = await mkdtemp(path.join(os.tmpdir(), "asset-tooling-test-"));
@@ -75,6 +75,17 @@ test("receipt collisions follow filesystem aliases", async () => {
   await assert.rejects(() => readFile(path.join(root, ".asset-tooling", "output.txt")), /ENOENT/);
 });
 
+test("receipt collisions reject hard links to protected artifacts", async () => {
+  const { specPath, root, source } = await makeWorkspace();
+  await link(path.join(root, "inputs", "source.txt"), path.join(root, "receipt-hardlink.json"));
+  await assert.rejects(
+    () => generateAsset(specPath, { receiptPath: "receipt-hardlink.json" }),
+    /receipt path must not collide with input 'source'/,
+  );
+  assert.deepEqual(await readFile(path.join(root, "inputs", "source.txt")), source);
+  await assert.rejects(() => readFile(path.join(root, ".asset-tooling", "output.txt")), /ENOENT/);
+});
+
 test("receipt schema constrains required provenance structures", async () => {
   const schema = JSON.parse(
     await readFile(new URL("../schemas/generation-receipt-v1.schema.json", import.meta.url), "utf8"),
@@ -87,6 +98,7 @@ test("receipt schema constrains required provenance structures", async () => {
     assert.equal(schema.$defs[definition].additionalProperties, false);
   }
   assert.equal(schema.properties.environment.additionalProperties, false);
+  assert.ok(schema.properties.environment.required.includes("components"));
   assert.equal(schema.properties.environment.properties.platform.additionalProperties, false);
   assert.equal(schema.properties.environment.properties.runtime.additionalProperties, false);
 });
@@ -101,6 +113,24 @@ test("verification rejects receipts missing required provenance", async () => {
   const report = await verifyAsset(specPath);
   assert.equal(report.status, "broken");
   assert.match(report.error, /receipt\.tool must be an object/);
+});
+
+test("verification binds duplicated provenance to current evidence", async () => {
+  const mutations = [
+    (receipt) => { receipt.generator.version = "fabricated"; },
+    (receipt) => { receipt.inputs.source.sha256 = "0".repeat(64); },
+    (receipt) => { receipt.environment.platform.os = "fabricated"; },
+  ];
+  for (const mutate of mutations) {
+    const { specPath, root } = await makeWorkspace();
+    const generated = await generateAsset(specPath);
+    const receiptPath = path.join(root, generated.receiptPath);
+    const receipt = JSON.parse(await readFile(receiptPath, "utf8"));
+    mutate(receipt);
+    await writeFile(receiptPath, `${JSON.stringify(receipt, null, 2)}\n`);
+    const report = await verifyAsset(specPath);
+    assert.equal(report.status, "drift");
+  }
 });
 
 test("generation reconciles identical output and receipt", async () => {
@@ -153,7 +183,9 @@ test("environment drift is visible without invalidating byte-exact reproduction"
   await generateAsset(specPath);
   const receiptPath = path.join(root, ".asset-tooling", "output.txt.receipt.json");
   const receipt = JSON.parse(await readFile(receiptPath, "utf8"));
-  receipt.environment.sha256 = "0".repeat(64);
+  receipt.environment.platform.os = "different-valid-environment";
+  const { sha256: _previousSha256, ...fingerprint } = receipt.environment;
+  receipt.environment.sha256 = sha256Text(canonicalJson(fingerprint));
   await writeFile(receiptPath, `${JSON.stringify(receipt, null, 2)}\n`);
 
   const report = await verifyAsset(specPath);
