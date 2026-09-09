@@ -112,3 +112,32 @@ test("TripoSR adapter pins bundled source and DINO and excludes rembg inference"
   assert.doesNotMatch(source, /import rembg/);
   assert.doesNotMatch(source, /remove_background/);
 });
+
+test("TripoSR archive accepts unspecified Unix type bits but rejects explicit special files", async () => {
+  const source = await readFile(
+    new URL("../adapters/python/triposr.py", import.meta.url),
+    "utf8",
+  );
+  assert.match(source, /file_type = stat\.S_IFMT\(unix_mode\)/);
+  assert.match(source, /file_type == stat\.S_IFLNK/);
+  assert.match(source, /file_type not in \(0, stat\.S_IFREG, stat\.S_IFDIR\)/);
+});
+
+test("TripoSR fingerprints adapter, native marching-cubes binary, and selected CUDA identity", async () => {
+  const source = await readFile(
+    new URL("../adapters/python/triposr.py", import.meta.url),
+    "utf8",
+  );
+  assert.match(source, /asset-tooling\.triposr-adapter/);
+  assert.match(source, /sha256_file\(Path\(__file__\)\.resolve\(\)\)/);
+  assert.match(source, /module_fingerprint\("torchmcubes_module"\)/);
+  assert.match(source, /torch\.cuda\.get_device_properties\(index\)/);
+  assert.match(source, /--query-gpu=driver_version/);
+
+  const backendSource = await readFile(
+    new URL("../src/model-backends.js", import.meta.url),
+    "utf8",
+  );
+  assert.match(backendSource, /TRIPOSR_BACKEND[\s\S]*ASSET_TOOLING_REQUESTED_DEVICE: document\.spec\.parameters\.device/);
+  assert.match(backendSource, /PYTORCH_MAX_SEED/);
+});
