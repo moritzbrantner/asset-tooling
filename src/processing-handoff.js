@@ -1,7 +1,7 @@
 import path from "node:path";
 import { lstat, readFile } from "node:fs/promises";
 import { canonicalJson } from "./canonical.js";
-import { sha256File, sha256Text } from "./hash.js";
+import { sha256Bytes, sha256File, sha256Text } from "./hash.js";
 import { parseGenerationReceipt } from "./receipts.js";
 import { assertPortableRelativePath, readAssetSpec, resolveSpecPath } from "./schema.js";
 
@@ -30,6 +30,12 @@ function assertReceiptMatchesSpec(document, receipt) {
   if (receipt.spec.sha256 !== document.sha256) {
     throw new Error("generation receipt spec hash does not match the asset spec");
   }
+  if (
+    receipt.generator.id !== document.spec.generator.id ||
+    receipt.generator.version !== document.spec.generator.version
+  ) {
+    throw new Error("generation receipt generator does not match the asset spec");
+  }
   if (receipt.output.path !== document.spec.output.path) {
     throw new Error("generation receipt output path does not match the asset spec");
   }
@@ -48,6 +54,14 @@ function assertReceiptMatchesSpec(document, receipt) {
   const expectedParametersSha256 = sha256Text(canonicalJson(document.spec.parameters));
   if (receipt.parametersSha256 !== expectedParametersSha256) {
     throw new Error("generation receipt parameter hash does not match the asset spec");
+  }
+  if (receipt.reproducibility.expected !== document.spec.reproducibility.expected) {
+    throw new Error("generation receipt reproducibility expectation does not match the asset spec");
+  }
+
+  const { sha256: recordedEnvironmentSha256, ...environmentFingerprint } = receipt.environment;
+  if (sha256Text(canonicalJson(environmentFingerprint)) !== recordedEnvironmentSha256) {
+    throw new Error("generation receipt environment fingerprint is internally inconsistent");
   }
 }
 
@@ -94,7 +108,7 @@ export async function prepareProcessingHandoff(specPath, options = {}) {
       assetId: receipt.assetId,
       generationReceiptSchemaVersion: receipt.schemaVersion,
       generationReceiptPath: receiptPath,
-      generationReceiptSha256: sha256Text(receiptBytes.toString("utf8")),
+      generationReceiptSha256: sha256Bytes(receiptBytes),
     },
   };
 }
