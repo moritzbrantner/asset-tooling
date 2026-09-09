@@ -29,8 +29,8 @@ function assertFiniteNumber(value, location, minimum, maximum) {
 
 function validateStableDiffusion(document) {
   const { spec } = document;
-  assertExactKeys(spec.models, new Set(["checkpoint"]), "models");
-  assertExactKeys(spec.inputs, new Set(["originalConfig"]), "inputs");
+  assertExactKeys(spec.models, new Set(["pipelineBundle"]), "models");
+  assertExactKeys(spec.inputs, new Set(), "inputs");
   if (spec.randomness.mode !== "seeded") {
     throw new Error("model.stable-diffusion.diffusers requires randomness.mode='seeded'");
   }
@@ -105,8 +105,7 @@ export const STABLE_DIFFUSION_BACKEND = {
         : {},
       outputName: "stable-diffusion.png",
       request: {
-        checkpointPath: resolveSpecPath(root, spec.models.checkpoint.path),
-        originalConfigPath: resolveSpecPath(root, spec.inputs.originalConfig.path),
+        pipelineBundlePath: resolveSpecPath(root, spec.models.pipelineBundle.path),
         seed: spec.randomness.seed,
         parameters: spec.parameters,
       },
