@@ -74,12 +74,17 @@ async function filesystemIdentity(filePath) {
 
 async function assertDistinctReceiptPath(document, receiptPath) {
   const receiptAbsolutePath = resolveSpecPath(document.root, receiptPath);
-  try {
-    if ((await lstat(receiptAbsolutePath)).isSymbolicLink()) {
-      throw new Error("receipt path must not be a symbolic link");
+  let prefix = document.root;
+  for (const segment of receiptPath.split("/")) {
+    prefix = path.join(prefix, segment);
+    try {
+      if ((await lstat(prefix)).isSymbolicLink()) {
+        throw new Error("receipt path must not contain symbolic links");
+      }
+    } catch (error) {
+      if (error && error.code === "ENOENT") break;
+      throw error;
     }
-  } catch (error) {
-    if (!error || error.code !== "ENOENT") throw error;
   }
   const protectedPaths = new Map([
     [document.absolutePath, "asset spec"],
