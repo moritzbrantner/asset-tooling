@@ -127,6 +127,29 @@ test("output and receipt ancestor overlaps fail before mutation", async () => {
   await assert.rejects(() => readFile(path.join(root, "out")), /ENOENT/);
 });
 
+test("output and receipt hard-link collisions fail before mutation", async () => {
+  const { specPath, root } = await makeWorkspace();
+  await mkdir(path.join(root, ".asset-tooling"), { recursive: true });
+  const outputPath = path.join(root, ".asset-tooling", "output.txt");
+  await writeFile(outputPath, "previous output\n");
+  await link(outputPath, path.join(root, "receipt-hardlink.json"));
+  await assert.rejects(
+    () => generateAsset(specPath, { receiptPath: "receipt-hardlink.json" }),
+    /output and receipt paths must not contain one another/,
+  );
+  assert.equal(await readFile(outputPath, "utf8"), "previous output\n");
+});
+
+test("directory receipt targets fail before output mutation", async () => {
+  const { specPath, root } = await makeWorkspace();
+  await mkdir(path.join(root, "receipt-directory"));
+  await assert.rejects(
+    () => generateAsset(specPath, { receiptPath: "receipt-directory" }),
+    /receipt path must be a regular file or a missing path/,
+  );
+  await assert.rejects(() => readFile(path.join(root, ".asset-tooling", "output.txt")), /ENOENT/);
+});
+
 test("receipt schema constrains required provenance structures", async () => {
   const schema = JSON.parse(
     await readFile(new URL("../schemas/generation-receipt-v1.schema.json", import.meta.url), "utf8"),
