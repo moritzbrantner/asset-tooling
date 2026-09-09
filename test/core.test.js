@@ -69,9 +69,20 @@ test("receipt collisions follow filesystem aliases", async () => {
   await symlink("inputs/source.txt", path.join(root, "receipt-alias.json"));
   await assert.rejects(
     () => generateAsset(specPath, { receiptPath: "receipt-alias.json" }),
-    /receipt path must not collide with input 'source'/,
+    /receipt path must not be a symbolic link/,
   );
   assert.deepEqual(await readFile(path.join(root, "inputs", "source.txt")), source);
+  await assert.rejects(() => readFile(path.join(root, ".asset-tooling", "output.txt")), /ENOENT/);
+});
+
+test("receipt targets reject dangling symbolic links", async () => {
+  if (process.platform === "win32") return;
+  const { specPath, root } = await makeWorkspace();
+  await symlink(".asset-tooling/output.txt", path.join(root, "dangling-receipt.json"));
+  await assert.rejects(
+    () => generateAsset(specPath, { receiptPath: "dangling-receipt.json" }),
+    /receipt path must not be a symbolic link/,
+  );
   await assert.rejects(() => readFile(path.join(root, ".asset-tooling", "output.txt")), /ENOENT/);
 });
 
@@ -120,6 +131,7 @@ test("verification binds duplicated provenance to current evidence", async () =>
     (receipt) => { receipt.generator.version = "fabricated"; },
     (receipt) => { receipt.inputs.source.sha256 = "0".repeat(64); },
     (receipt) => { receipt.environment.platform.os = "fabricated"; },
+    (receipt) => { receipt.reproducibility = { expected: "exact", baseline: "approximate", reasons: ["fabricated"] }; },
   ];
   for (const mutate of mutations) {
     const { specPath, root } = await makeWorkspace();
