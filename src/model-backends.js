@@ -5,6 +5,9 @@ import { probeProcessAdapter, runProcessAdapter } from "./process-adapter.js";
 const STABLE_DIFFUSION_SCRIPT = fileURLToPath(
   new URL("../adapters/python/stable_diffusion.py", import.meta.url),
 );
+const TRIPOSR_SCRIPT = fileURLToPath(
+  new URL("../adapters/python/triposr.py", import.meta.url),
+);
 const PYTORCH_MAX_SEED = (1n << 64n) - 1n;
 
 function assertExactKeys(value, expected, location) {
@@ -88,6 +91,43 @@ function validateStableDiffusion(document) {
   }
 }
 
+function validateTripoSR(document) {
+  const { spec } = document;
+  assertExactKeys(spec.models, new Set(["triposrBundle"]), "models");
+  assertExactKeys(spec.inputs, new Set(["image"]), "inputs");
+  if (spec.randomness.mode !== "none") {
+    throw new Error("model.triposr requires randomness.mode='none'");
+  }
+
+  const parameters = spec.parameters;
+  assertExactKeys(
+    parameters,
+    new Set([
+      "preprocessMode",
+      "device",
+      "chunkSize",
+      "mcResolution",
+      "outputFormat",
+      "deterministicAlgorithms",
+    ]),
+    "parameters",
+  );
+  if (parameters.preprocessMode !== "prepared") {
+    throw new Error("parameters.preprocessMode must be 'prepared'; automatic background removal is outside TripoSR v1");
+  }
+  if (!["cpu", "cuda"].includes(parameters.device)) {
+    throw new Error("parameters.device must be cpu or cuda");
+  }
+  assertInteger(parameters.chunkSize, "parameters.chunkSize", 0, 65536);
+  assertInteger(parameters.mcResolution, "parameters.mcResolution", 32, 512);
+  if (!["obj", "glb"].includes(parameters.outputFormat)) {
+    throw new Error("parameters.outputFormat must be obj or glb");
+  }
+  if (typeof parameters.deterministicAlgorithms !== "boolean") {
+    throw new Error("parameters.deterministicAlgorithms must be a boolean");
+  }
+}
+
 export const STABLE_DIFFUSION_BACKEND = {
   id: "model.stable-diffusion.diffusers",
   version: "1",
@@ -119,6 +159,43 @@ export const STABLE_DIFFUSION_BACKEND = {
       request: {
         pipelineBundlePath: resolveSpecPath(root, spec.models.pipelineBundle.path),
         seed: spec.randomness.seed,
+        parameters: spec.parameters,
+      },
+    });
+  },
+};
+
+export const TRIPOSR_BACKEND = {
+  id: "model.triposr",
+  version: "1",
+  kind: "model",
+  exactCapable: false,
+  validate: validateTripoSR,
+  async environmentComponents(document) {
+    validateTripoSR(document);
+    return probeProcessAdapter({
+      executable: "python3",
+      scriptPath: TRIPOSR_SCRIPT,
+      cwd: document.root,
+      environment: {
+        ASSET_TOOLING_REQUESTED_DEVICE: document.spec.parameters.device,
+      },
+    });
+  },
+  async generate(document) {
+    validateTripoSR(document);
+    const { spec, root } = document;
+    return runProcessAdapter({
+      executable: "python3",
+      scriptPath: TRIPOSR_SCRIPT,
+      cwd: root,
+      environment: spec.parameters.deterministicAlgorithms
+        ? { CUBLAS_WORKSPACE_CONFIG: ":16:8" }
+        : {},
+      outputName: `triposr.${spec.parameters.outputFormat}`,
+      request: {
+        triposrBundlePath: resolveSpecPath(root, spec.models.triposrBundle.path),
+        imagePath: resolveSpecPath(root, spec.inputs.image.path),
         parameters: spec.parameters,
       },
     });
