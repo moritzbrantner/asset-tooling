@@ -1,0 +1,108 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import os from "node:os";
+import path from "node:path";
+import { mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
+import { canonicalJson } from "../src/canonical.js";
+import { generateAsset, validateSpec, verifyAsset } from "../src/core.js";
+import { sha256Bytes } from "../src/hash.js";
+
+async function makeWorkspace(overrides = {}) {
+  const root = await mkdtemp(path.join(os.tmpdir(), "asset-tooling-test-"));
+  await mkdir(path.join(root, "inputs"), { recursive: true });
+  const source = Buffer.from("deterministic source\n", "utf8");
+  await writeFile(path.join(root, "inputs", "source.txt"), source);
+
+  const spec = {
+    schemaVersion: 1,
+    assetId: "test.copy",
+    generator: { id: "builtin.copy", version: "1" },
+    randomness: { mode: "none" },
+    inputs: {
+      source: {
+        path: "inputs/source.txt",
+        sha256: sha256Bytes(source),
+      },
+    },
+    models: {},
+    parameters: {},
+    output: { path: ".asset-tooling/output.txt" },
+    reproducibility: { expected: "exact" },
+    ...overrides,
+  };
+  const specPath = path.join(root, "asset.json");
+  await writeFile(specPath, `${JSON.stringify(spec, null, 2)}\n`);
+  return { root, specPath, spec, source };
+}
+
+test("canonical JSON is stable across object insertion order", () => {
+  assert.equal(
+    canonicalJson({ z: 1, a: { d: 4, c: 3 }, items: [{ b: 2, a: 1 }] }),
+    canonicalJson({ items: [{ a: 1, b: 2 }], a: { c: 3, d: 4 }, z: 1 }),
+  );
+});
+
+test("validate rejects non-portable paths", async () => {
+  const { specPath } = await makeWorkspace({
+    output: { path: "../escaped.txt" },
+  });
+  await assert.rejects(() => validateSpec(specPath), /must not contain empty, '\.' or '\.\.' segments/);
+});
+
+test("generation reconciles identical output and receipt", async () => {
+  const { specPath, root, source } = await makeWorkspace();
+  const first = await generateAsset(specPath);
+  const second = await generateAsset(specPath);
+
+  assert.equal(first.status, "changed");
+  assert.equal(first.outputChanged, true);
+  assert.equal(first.receiptChanged, true);
+  assert.match(first.receipt.tool.sourceFingerprint.sha256, /^[0-9a-f]{64}$/);
+  assert.deepEqual(first.receipt.environment.components, []);
+  assert.equal(second.status, "unchanged");
+  assert.equal(second.outputChanged, false);
+  assert.equal(second.receiptChanged, false);
+  assert.deepEqual(await readFile(path.join(root, ".asset-tooling", "output.txt")), source);
+});
+
+test("exact verification rebuilds and compares accepted bytes", async () => {
+  const { specPath } = await makeWorkspace();
+  await generateAsset(specPath);
+  const report = await verifyAsset(specPath);
+
+  assert.equal(report.status, "exact");
+  assert.equal(report.checks.acceptedOutputMatchesReceipt, true);
+  assert.equal(report.checks.regeneratedOutputMatchesReceipt, true);
+});
+
+test("verification reports tampered accepted output as drift", async () => {
+  const { specPath, root } = await makeWorkspace();
+  await generateAsset(specPath);
+  await writeFile(path.join(root, ".asset-tooling", "output.txt"), "tampered\n");
+
+  const report = await verifyAsset(specPath);
+  assert.equal(report.status, "drift");
+  assert.equal(report.checks.acceptedOutputMatchesReceipt, false);
+  assert.equal(report.checks.regeneratedOutputMatchesReceipt, true);
+});
+
+test("declared input hash mismatch fails closed before mutation", async () => {
+  const { specPath, root } = await makeWorkspace();
+  await writeFile(path.join(root, "inputs", "source.txt"), "changed source\n");
+
+  await assert.rejects(() => generateAsset(specPath), /input 'source' hash mismatch/);
+  await assert.rejects(() => readFile(path.join(root, ".asset-tooling", "output.txt")), /ENOENT/);
+});
+
+test("environment drift is visible without invalidating byte-exact reproduction", async () => {
+  const { specPath, root } = await makeWorkspace();
+  await generateAsset(specPath);
+  const receiptPath = path.join(root, ".asset-tooling", "output.txt.receipt.json");
+  const receipt = JSON.parse(await readFile(receiptPath, "utf8"));
+  receipt.environment.sha256 = "0".repeat(64);
+  await writeFile(receiptPath, `${JSON.stringify(receipt, null, 2)}\n`);
+
+  const report = await verifyAsset(specPath);
+  assert.equal(report.status, "exact");
+  assert.equal(report.checks.environmentMatchesReceipt, false);
+});

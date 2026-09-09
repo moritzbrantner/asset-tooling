@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://moritzbrantner.github.io/asset-tooling/schemas/asset-spec-v1.schema.json",
+  "title": "asset-tooling asset spec v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "assetId",
+    "generator",
+    "randomness",
+    "inputs",
+    "models",
+    "parameters",
+    "output",
+    "reproducibility"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "assetId": { "type": "string", "minLength": 1 },
+    "generator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "minLength": 1 }
+      }
+    },
+    "randomness": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode"],
+          "properties": { "mode": { "const": "none" } }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode", "seed"],
+          "properties": {
+            "mode": { "const": "seeded" },
+            "seed": { "type": "string", "pattern": "^(0|[1-9][0-9]*)$" }
+          }
+        }
+      ]
+    },
+    "inputs": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/artifact" }
+    },
+    "models": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/model" }
+    },
+    "parameters": { "type": "object" },
+    "output": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path"],
+      "properties": { "path": { "$ref": "#/$defs/portablePath" } }
+    },
+    "reproducibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["expected"],
+      "properties": {
+        "expected": { "enum": ["exact", "approximate"] }
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "portablePath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*\\\\)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*//).+$"
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": { "$ref": "#/$defs/portablePath" },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "path", "sha256"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "path": { "$ref": "#/$defs/portablePath" },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    }
+  }
+}
