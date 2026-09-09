@@ -1,6 +1,6 @@
 # Stability and consumer contract
 
-`asset-tooling` is being stabilized as reusable infrastructure. New generator and processor features should not widen the public contract until the existing contract has been proven by real consumers.
+`asset-tooling` is reusable infrastructure. Its first stabilization milestone proves the existing contract before further generator or processor surface is added.
 
 ## Published schemas
 
@@ -46,9 +46,9 @@ Internal backend, adapter, cache, hashing, receipt-construction, and environment
 
 ## Package readiness
 
-`bun run package:check` verifies the publishable package shape without publishing anything. It is a required coding-tooling capability and runs as part of `bun run check` on every supported CI operating system.
+`bun run package:check` verifies the publishable package shape without publishing anything. `bun run stability:check` composes the local test, package, CLI fixture, and accepted-consumer-manifest gates and is exposed as the repository's standard coding-tooling capability.
 
-The package remains on the `0.x` line while consumer proof is incomplete. A `1.0.0` release requires all stabilization gates below to hold on an exact accepted head.
+The package remains `0.1.0` until a stable release is intentionally cut. Completing stabilization makes a stable release eligible; it does not publish, tag, or claim a new package version automatically.
 
 ## Cache boundary
 
@@ -56,15 +56,30 @@ Generation may reuse local content-addressed build artifacts, but cache state is
 
 `verify` deliberately bypasses the generation cache and replays the authoritative backend. Corrupted cache state therefore fails cached generation without contaminating verification of an otherwise valid accepted artifact. See `cache.md`.
 
+## Accepted consumer evidence
+
+`stability/consumers.json` is the machine-readable acceptance manifest. It pins one merged Zoo commit and one merged Medieval commit together with the exact committed asset spec and asset ID used to prove the contract.
+
+The hosted `Stability` workflow does not trust those consumers merely because they previously passed. For every current `asset-tooling` pull request and main commit it:
+
+1. validates the local stability contract;
+2. loads the exact accepted consumer commits from the manifest;
+3. checks out the current `asset-tooling` head and each accepted consumer independently;
+4. validates, generates, and replay-verifies each consumer spec with the current tool head.
+
+This makes consumer compatibility a continuing regression gate instead of a one-time dogfood note.
+
+The two integrations did not demonstrate a missing common wrapper or consumer abstraction. Both successfully use the same asset spec plus public CLI boundary, so stabilization intentionally adds no new abstraction solely because there are now two consumers.
+
 ## Stabilization gates
 
 1. Published schemas, CLI exit semantics, and the root programmatic API are protected by deterministic compatibility tests.
-2. The package shape is consumable and validated without network access or publication.
-3. Content-addressed reuse is implemented without allowing stale or unverified artifacts to bypass declared-input, environment, or receipt checks.
+2. The package shape is consumable and validated without publication.
+3. Content-addressed reuse cannot allow stale or unverified artifacts to bypass declared-input, environment, or receipt checks.
 4. Clean-room and fault-injection tests cover corrupted artifacts/receipts/cache entries, missing dependencies, environment drift, reserved-path escapes, and repeated/idempotent operation.
-5. One zoo-game asset and one medieval/RTS asset consume the tool through the public contract rather than repository internals.
-6. Additional abstractions are extracted only when both consumers demonstrate the same need.
-7. `bun run check`, processing-contract validation, coding-tooling standard validation, and hosted cross-platform CI all succeed on the exact release head.
+5. A merged Zoo asset and a merged Medieval asset consume the public contract rather than repository internals.
+6. Shared abstractions are introduced only when multiple consumers demonstrate the same missing responsibility; the first two consumers required none.
+7. The exact release candidate must have the local `stability:check`, hosted current-head consumer matrix, existing processing-contract validation, and Ubuntu/macOS/Windows Validate jobs green together.
 
 ## Ownership boundary
 

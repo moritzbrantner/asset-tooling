@@ -1,0 +1,62 @@
+name: Stability
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  local-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.0
+      - name: Run local stability gate
+        run: bun run stability:check
+
+  consumer-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: matrix
+        name: Load accepted consumers
+        shell: bash
+        run: |
+          node -e 'const fs=require("fs"); const manifest=JSON.parse(fs.readFileSync("stability/consumers.json","utf8")); process.stdout.write("matrix="+JSON.stringify({include:manifest.consumers})+"\n")' >> "$GITHUB_OUTPUT"
+
+  consumer-contract:
+    needs: consumer-matrix
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.consumer-matrix.outputs.matrix) }}
+    steps:
+      - name: Checkout current asset-tooling
+        uses: actions/checkout@v4
+        with:
+          path: asset-tooling
+      - name: Checkout accepted consumer
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ matrix.repository }}
+          ref: ${{ matrix.commit }}
+          path: consumer
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.0
+      - name: Validate current head against accepted consumer
+        shell: bash
+        run: |
+          spec="consumer/${{ matrix.specPath }}"
+          tool="asset-tooling/src/entry.js"
+          bun "$tool" validate "$spec"
+          bun "$tool" generate "$spec" --receipt .asset-tooling/stability.receipt.json
+          bun "$tool" verify "$spec" --receipt .asset-tooling/stability.receipt.json

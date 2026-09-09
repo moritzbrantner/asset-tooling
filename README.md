@@ -6,13 +6,15 @@ The repository treats generated and processed assets as build artifacts. Generat
 
 ## Stability
 
-The repository is in a stabilization phase before its first stable consumer release. Published schema versions are immutable compatibility contracts, the CLI exit semantics and root programmatic API are protected by deterministic tests, and `package:check` validates the reusable package shape without publishing it.
+The reusable core has completed its first stabilization milestone. Published schema versions are immutable compatibility contracts, CLI exit semantics and the deliberately small root programmatic API are protected by deterministic tests, generation cache reuse is fail-closed and content-addressed, and the package shape is validated without publishing it.
 
-The package remains on the `0.x` line until one zoo-game asset and one medieval/RTS asset prove the public contract in real consumers. See `docs/stability.md`.
+The same public CLI/spec boundary is now proven by merged Zoo and Medieval consumers. `bun run stability:check` exercises the local compatibility/package/reproducibility gate, while the hosted `Stability` workflow also runs the current `asset-tooling` head against the exact accepted consumer commits recorded in `stability/consumers.json`.
+
+The package remains `0.1.0` until a stable release is intentionally cut; stabilization readiness does not publish or tag a release by itself. See `docs/stability.md`.
 
 ## Generation
 
-The generation architecture now supports the same provenance model across:
+The generation architecture supports the same provenance model across:
 
 - deterministic/seeded procedural generators;
 - local model-backed generators such as Stable Diffusion and TripoSR;
@@ -22,7 +24,7 @@ The generation architecture now supports the same provenance model across:
 
 Model generation is offline and fail-closed: model acquisition is separate from generation, and undeclared cache/network dependencies are not accepted as reproducibility evidence. A seed is an input, not proof of deterministic output.
 
-See `docs/generation.md`, `docs/stable-diffusion.md`, and `docs/triposr.md`.
+See `docs/generation.md`, `docs/stable-diffusion.md`, `docs/triposr.md`, and `docs/cache.md`.
 
 ## Processing
 
@@ -42,8 +44,8 @@ asset-tooling processing-input <asset-spec.json> --media-type <media-type> [--re
 asset-tooling fingerprint
 ```
 
-Exact reproducibility is established by replayed output bytes. Backend kind, absence or presence of a seed, deterministic runtime switches, or a familiar model family are never accepted as proof on their own.
+Exact reproducibility is established by replayed output bytes. Backend kind, absence or presence of a seed, deterministic runtime switches, cache presence, or a familiar model family are never accepted as proof on their own.
 
 ## Programmatic API
 
-Consumers importing the package root receive only the high-level operations `validateSpec`, `generateAsset`, `verifyAsset`, and `prepareProcessingHandoff`. Versioned schemas are separately available through the `./schemas/*` package export. Backend and receipt-construction internals are deliberately not part of the public package API.
+Consumers importing the package root receive only the high-level operations `validateSpec`, `generateAsset`, `verifyAsset`, and `prepareProcessingHandoff`. Versioned schemas are separately available through the `./schemas/*` package export. Backend, cache, hashing, environment, and receipt-construction internals are deliberately not part of the public package API.

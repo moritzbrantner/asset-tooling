@@ -13,7 +13,7 @@
 
 ## 2. Generation backends — implemented foundation
 
-Procedural and local model generation now share one provenance architecture rather than model-specific pipelines.
+Procedural and local model generation share one provenance architecture rather than model-specific pipelines.
 
 - [x] Shared versioned generation-receipt contract for `procedural`, `model`, and `utility` backends.
 - [x] Deterministic seeded procedural reference generator.
@@ -24,19 +24,21 @@ Procedural and local model generation now share one provenance architecture rath
 
 Exact reproducibility is always established by replayed output bytes, never inferred from a seed, backend kind, or model family.
 
-## 3. Stabilization and first consumer release — in progress
+## 3. Stabilization and first consumer release — release-ready
 
-Freeze the reusable foundation before widening the feature surface.
+The reusable foundation is frozen before widening the feature surface.
 
 - [x] Protect every published schema byte-for-byte; new semantics require a new schema version.
 - [x] Define and test stable CLI exit semantics and a deliberately small root programmatic API.
-- [x] Make the package consumable and add a deterministic `package:check` coding-tooling capability.
+- [x] Make the package consumable and add deterministic package/coding-tooling capabilities.
 - [x] Add content-addressed artifact reuse that never bypasses provenance or fail-closed verification.
 - [x] Add clean-room/fault-injection coverage for corruption, missing dependencies, environment drift, and repeated/idempotent operation.
-- [ ] Integrate one zoo-game asset through the public package contract.
-- [ ] Integrate one medieval/RTS asset through the same public package contract.
-- [ ] Extract only abstractions demonstrated by both consumers.
-- [ ] Require exact-head package, processing-contract, coding-tooling, and cross-platform CI evidence for the first stable release.
+- [x] Integrate one Zoo asset through the public CLI/spec contract.
+- [x] Integrate one Medieval/RTS asset through the same public CLI/spec contract.
+- [x] Evaluate shared abstractions after both consumers: no additional wrapper or consumer abstraction is justified yet.
+- [x] Make release readiness mechanical through `stability:check`, an exact accepted-consumer manifest, a current-head consumer matrix, processing-contract validation, and cross-platform Validate.
+
+A stable package release remains an intentional release action; completing this milestone does not publish or tag one automatically.
 
 ## 4. Deterministic 2D processing
 
@@ -50,6 +52,6 @@ Standardize GLB/glTF coordinate system, world scale, transforms, materials, anim
 
 Publish a GitHub Pages catalog focused on previews, variant comparison, provenance, reproducibility evidence, validation failures, and approved versions. Avoid decorative counters.
 
-## 7. Consumer proof
+## 7. Consumer proof — continuous
 
-Keep consumer-specific runtime semantics outside this repository. The first stabilization milestone requires one zoo-game asset and one medieval/RTS asset to prove the package boundary before additional shared abstractions are introduced.
+Keep consumer-specific runtime semantics outside this repository. `stability/consumers.json` records the exact merged consumer evidence used for the first stabilization milestone, and the Stability workflow reruns the current tool head against those committed specs on every pull request and main update. Add future consumers to the manifest only when they provide meaningful additional contract coverage rather than simply increasing a count.
