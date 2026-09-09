@@ -57,7 +57,10 @@ test("validate rejects specs the selected backend cannot consume", async () => {
 test("receipt collisions fail before mutating outputs or dependencies", async () => {
   for (const target of ["asset.json", "inputs/source.txt", ".asset-tooling/output.txt"]) {
     const { specPath, root, source } = await makeWorkspace();
-    await assert.rejects(() => generateAsset(specPath, { receiptPath: target }), /receipt path must not collide/);
+    await assert.rejects(
+      () => generateAsset(specPath, { receiptPath: target }),
+      /receipt path must not collide|output and receipt paths must not contain one another/,
+    );
     await assert.rejects(() => readFile(path.join(root, ".asset-tooling", "output.txt")), /ENOENT/);
     assert.deepEqual(await readFile(path.join(root, "inputs", "source.txt")), source);
   }
@@ -106,6 +109,22 @@ test("receipt collisions reject hard links to protected artifacts", async () => 
   );
   assert.deepEqual(await readFile(path.join(root, "inputs", "source.txt")), source);
   await assert.rejects(() => readFile(path.join(root, ".asset-tooling", "output.txt")), /ENOENT/);
+});
+
+test("output collisions fail before overwriting the asset spec", async () => {
+  const { specPath } = await makeWorkspace({ output: { path: "asset.json" } });
+  const before = await readFile(specPath);
+  await assert.rejects(() => generateAsset(specPath), /output path must not collide with asset spec/);
+  assert.deepEqual(await readFile(specPath), before);
+});
+
+test("output and receipt ancestor overlaps fail before mutation", async () => {
+  const { specPath, root } = await makeWorkspace({ output: { path: "out" } });
+  await assert.rejects(
+    () => generateAsset(specPath, { receiptPath: "out/receipt.json" }),
+    /output and receipt paths must not contain one another/,
+  );
+  await assert.rejects(() => readFile(path.join(root, "out")), /ENOENT/);
 });
 
 test("receipt schema constrains required provenance structures", async () => {
