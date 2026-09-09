@@ -6,7 +6,7 @@ The repository treats generated and processed assets as build artifacts. Generat
 
 ## Direction
 
-The initial slice establishes:
+The initial slices establish:
 
 - versioned asset specifications;
 - generation and processing receipts with cryptographic hashes;
@@ -14,8 +14,9 @@ The initial slice establishes:
 - explicit reproducibility states;
 - exact artifact verification;
 - deterministic test fixtures before any model-specific backend is introduced;
-- a 3D-processing provenance contract for mesh simplification/LOD and animation baking/reduction without duplicating the domain algorithms.
+- a 3D-processing provenance contract for mesh simplification/LOD and animation baking/reduction without duplicating the domain algorithms;
+- processing receipt v2 observations that distinguish requested parameters from actual processor results.
 
-Model adapters, image/3D processing, catalogs, and consumer integrations build on that contract rather than defining their own provenance formats.
+Model adapters, image/3D processing, catalogs, and consumer integrations build on those contracts rather than defining their own provenance formats.
 
-See `docs/3d-processing.md` for the 3D processing boundary and `schemas/processing-receipt-v1.schema.json` for the first versioned receipt envelope.
+See `docs/3d-processing.md` for the 3D processing boundary. `schemas/processing-receipt-v1.schema.json` remains the immutable first envelope; `schemas/processing-receipt-v2.schema.json` adds mandatory operation-specific result observations and stronger cross-field evidence.
