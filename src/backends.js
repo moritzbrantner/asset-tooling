@@ -8,7 +8,7 @@ const COPY_BACKEND = {
   async environmentComponents() {
     return [];
   },
-  async generate({ spec, root }) {
+  validate({ spec }) {
     const inputNames = Object.keys(spec.inputs);
     if (inputNames.length !== 1 || inputNames[0] !== "source") {
       throw new Error("builtin.copy requires exactly one input named 'source'");
@@ -22,6 +22,10 @@ const COPY_BACKEND = {
     if (spec.randomness.mode !== "none") {
       throw new Error("builtin.copy requires randomness.mode='none'");
     }
+  },
+  async generate(document) {
+    this.validate(document);
+    const { spec, root } = document;
     return readFile(resolveSpecPath(root, spec.inputs.source.path));
   },
 };
