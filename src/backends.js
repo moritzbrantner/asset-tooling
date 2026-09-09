@@ -64,7 +64,13 @@ const COPY_BACKEND = {
   async generate(document) {
     this.validate(document);
     const { spec, root } = document;
-    return readFile(resolveSpecPath(root, spec.inputs.source.path));
+    return {
+      bytes: await readFile(resolveSpecPath(root, spec.inputs.source.path)),
+      observations: {
+        operation: "copy",
+        sourceInput: "source",
+      },
+    };
   },
 };
 
@@ -130,7 +136,14 @@ const PROCEDURAL_SVG_SCATTER_BACKEND = {
       lines.push(`  <circle cx="${x}" cy="${y}" r="${radius}" fill="${color}"/>`);
     }
     lines.push("</svg>");
-    return Buffer.from(`${lines.join("\n")}\n`, "utf8");
+    return {
+      bytes: Buffer.from(`${lines.join("\n")}\n`, "utf8"),
+      observations: {
+        algorithm: "svg-scatter-v1",
+        prng: "splitmix64-v1",
+        generatedElementCount: parameters.count,
+      },
+    };
   },
 };
 
