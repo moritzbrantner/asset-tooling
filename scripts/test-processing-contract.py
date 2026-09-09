@@ -1,25 +1,38 @@
 #!/usr/bin/env python3
-"""Contract tests for processing receipt schema and cross-field evidence."""
+"""Contract tests for processing receipt schemas and cross-field evidence."""
 
 from __future__ import annotations
 
 import copy
 import importlib.util
 import json
+import tempfile
 from pathlib import Path
 
 from jsonschema import Draft202012Validator
 
 ROOT = Path(__file__).resolve().parent.parent
-SCHEMA_PATH = ROOT / "schemas" / "processing-receipt-v1.schema.json"
-SIMPLIFY_EXAMPLE_PATH = ROOT / "examples" / "mesh-simplify-receipt.json"
-LOD_EXAMPLE_PATH = ROOT / "examples" / "mesh-lod-chain-receipt.json"
+SCHEMA_V1_PATH = ROOT / "schemas" / "processing-receipt-v1.schema.json"
+SCHEMA_V2_PATH = ROOT / "schemas" / "processing-receipt-v2.schema.json"
+EXAMPLE_PATHS = [
+    ROOT / "examples" / "mesh-simplify-receipt.json",
+    ROOT / "examples" / "mesh-lod-chain-receipt.json",
+    ROOT / "examples" / "animation-resample-receipt.json",
+    ROOT / "examples" / "animation-reduce-receipt.json",
+]
 REPRODUCIBILITY_PATH = ROOT / "scripts" / "validate-reproducibility.py"
 OBSERVATIONS_PATH = ROOT / "scripts" / "validate-processing-observations.py"
 
 
+def reject_json_constant(token: str) -> None:
+    raise ValueError(f"non-standard JSON numeric constant {token!r} is not allowed")
+
+
 def load_json(path: Path) -> dict:
-    value = json.loads(path.read_text(encoding="utf-8"))
+    value = json.loads(
+        path.read_text(encoding="utf-8"),
+        parse_constant=reject_json_constant,
+    )
     if not isinstance(value, dict):
         raise AssertionError(f"{path} must contain a JSON object")
     return value
@@ -52,29 +65,40 @@ def assert_cross_field_error(errors: list[str], needle: str) -> None:
 
 
 def main() -> None:
-    schema = load_json(SCHEMA_PATH)
-    simplify_example = load_json(SIMPLIFY_EXAMPLE_PATH)
-    lod_example = load_json(LOD_EXAMPLE_PATH)
-    Draft202012Validator.check_schema(schema)
-    validator = Draft202012Validator(schema)
-    validator.validate(simplify_example)
-    validator.validate(lod_example)
+    schema_v1 = load_json(SCHEMA_V1_PATH)
+    schema_v2 = load_json(SCHEMA_V2_PATH)
+    Draft202012Validator.check_schema(schema_v1)
+    Draft202012Validator.check_schema(schema_v2)
+    validator_v1 = Draft202012Validator(schema_v1)
+    validator_v2 = Draft202012Validator(schema_v2)
+
+    simplify_example, lod_example, resample_example, reduce_example = [
+        load_json(path) for path in EXAMPLE_PATHS
+    ]
+    examples = [simplify_example, lod_example, resample_example, reduce_example]
+    for example in examples:
+        validator_v2.validate(example)
+
+    legacy_v1 = copy.deepcopy(simplify_example)
+    legacy_v1["schemaVersion"] = 1
+    del legacy_v1["observations"]
+    validator_v1.validate(legacy_v1)
 
     missing_target = copy.deepcopy(simplify_example)
     del missing_target["parameters"]["targetTriangleCount"]
-    assert_invalid(validator, missing_target, "targetTriangleCount")
+    assert_invalid(validator_v2, missing_target, "targetTriangleCount")
 
     missing_observations = copy.deepcopy(simplify_example)
     del missing_observations["observations"]
-    assert_invalid(validator, missing_observations, "observations")
+    assert_invalid(validator_v2, missing_observations, "observations")
 
     exact_without_repeat = copy.deepcopy(simplify_example)
     del exact_without_repeat["reproducibility"]["repeatOutputSha256"]
-    assert_invalid(validator, exact_without_repeat, "repeatOutputSha256")
+    assert_invalid(validator_v2, exact_without_repeat, "repeatOutputSha256")
 
     structural_without_evidence = copy.deepcopy(simplify_example)
     structural_without_evidence["reproducibility"] = {"state": "structural"}
-    assert_invalid(validator, structural_without_evidence, "evidence")
+    assert_invalid(validator_v2, structural_without_evidence, "evidence")
 
     validate_reproducibility = load_function(
         REPRODUCIBILITY_PATH,
@@ -86,12 +110,17 @@ def main() -> None:
         "processing_observations",
         "validate_observations",
     )
+    validate_observation_file = load_function(
+        OBSERVATIONS_PATH,
+        "processing_observations_file",
+        "validate_file",
+    )
 
-    for example in (simplify_example, lod_example):
+    for example in examples:
         if validate_reproducibility(example):
             raise AssertionError("valid exact receipt failed reproducibility validation")
         if validate_observations(example):
-            raise AssertionError("valid receipt failed observation validation")
+            raise AssertionError("valid v2 receipt failed observation validation")
 
     mismatched_repeat = copy.deepcopy(simplify_example)
     mismatched_repeat["reproducibility"]["repeatOutputSha256"] = "2" * 64
@@ -102,46 +131,62 @@ def main() -> None:
         "state": "structural",
         "evidence": {"reason": "backend is not byte-deterministic"},
     }
-    validator.validate(structural)
+    validator_v2.validate(structural)
     if validate_reproducibility(structural):
         raise AssertionError("valid structural evidence failed validation")
 
     mismatched_source = copy.deepcopy(simplify_example)
     mismatched_source["observations"]["sourceTriangleCount"] = 4095
-    assert_cross_field_error(
-        validate_observations(mismatched_source),
-        "sourceTriangleCount",
-    )
+    assert_cross_field_error(validate_observations(mismatched_source), "sourceTriangleCount")
 
     invalid_index_count = copy.deepcopy(simplify_example)
     invalid_index_count["observations"]["resultIndexCount"] += 1
-    assert_cross_field_error(
-        validate_observations(invalid_index_count),
-        "resultTriangleCount * 3",
-    )
+    assert_cross_field_error(validate_observations(invalid_index_count), "resultTriangleCount * 3")
 
     exceeded_error = copy.deepcopy(simplify_example)
     exceeded_error["observations"]["relativeError"] = 0.02
-    assert_cross_field_error(
-        validate_observations(exceeded_error),
-        "targetError",
-    )
+    assert_cross_field_error(validate_observations(exceeded_error), "targetError")
+
+    non_finite_error = copy.deepcopy(simplify_example)
+    non_finite_error["observations"]["relativeError"] = float("nan")
+    assert_cross_field_error(validate_observations(non_finite_error), "non-finite")
 
     mismatched_lod_ratio = copy.deepcopy(lod_example)
     mismatched_lod_ratio["observations"]["levels"][1]["triangleRatio"] = 0.34
-    assert_cross_field_error(
-        validate_observations(mismatched_lod_ratio),
-        "triangleRatio",
-    )
+    assert_cross_field_error(validate_observations(mismatched_lod_ratio), "triangleRatio")
+
+    wrong_derived_budget = copy.deepcopy(lod_example)
+    wrong_derived_budget["parameters"]["levels"][1]["targetTriangleCount"] = 1400
+    assert_cross_field_error(validate_observations(wrong_derived_budget), "declared ratio budget 1434")
+
+    mismatched_applied_budget = copy.deepcopy(lod_example)
+    mismatched_applied_budget["observations"]["levels"][1]["requestedTriangleCount"] = 1400
+    assert_cross_field_error(validate_observations(mismatched_applied_budget), "targetTriangleCount")
 
     nondecreasing_lod_budget = copy.deepcopy(lod_example)
+    nondecreasing_lod_budget["parameters"]["levels"][1]["targetTriangleCount"] = 2700
     nondecreasing_lod_budget["observations"]["levels"][1]["requestedTriangleCount"] = 2700
-    assert_cross_field_error(
-        validate_observations(nondecreasing_lod_budget),
-        "strictly decreasing",
-    )
+    errors = validate_observations(nondecreasing_lod_budget)
+    assert_cross_field_error(errors, "strictly decreasing")
 
-    print("processing receipt contract valid")
+    wrong_resample_count = copy.deepcopy(resample_example)
+    wrong_resample_count["observations"]["resultKeyframeCount"] = 1
+    assert_cross_field_error(validate_observations(wrong_resample_count), "targetTimesSeconds")
+
+    missing_endpoint_evidence = copy.deepcopy(reduce_example)
+    missing_endpoint_evidence["observations"]["endpointsPreserved"] = False
+    assert_cross_field_error(validate_observations(missing_endpoint_evidence), "endpointsPreserved")
+
+    impossible_endpoint_count = copy.deepcopy(reduce_example)
+    impossible_endpoint_count["observations"]["resultKeyframeCount"] = 1
+    assert_cross_field_error(validate_observations(impossible_endpoint_count), "at least two keys")
+
+    with tempfile.TemporaryDirectory() as directory:
+        invalid_json_path = Path(directory) / "nan-receipt.json"
+        invalid_json_path.write_text('{"schemaVersion":2,"relativeError":NaN}', encoding="utf-8")
+        assert_cross_field_error(validate_observation_file(invalid_json_path), "non-standard JSON numeric constant")
+
+    print("processing receipt v1 compatibility and v2 observation contracts valid")
 
 
 if __name__ == "__main__":
