@@ -69,7 +69,7 @@ test("receipt collisions follow filesystem aliases", async () => {
   await symlink("inputs/source.txt", path.join(root, "receipt-alias.json"));
   await assert.rejects(
     () => generateAsset(specPath, { receiptPath: "receipt-alias.json" }),
-    /receipt path must not be a symbolic link/,
+    /receipt path must not contain symbolic links/,
   );
   assert.deepEqual(await readFile(path.join(root, "inputs", "source.txt")), source);
   await assert.rejects(() => readFile(path.join(root, ".asset-tooling", "output.txt")), /ENOENT/);
@@ -81,7 +81,18 @@ test("receipt targets reject dangling symbolic links", async () => {
   await symlink(".asset-tooling/output.txt", path.join(root, "dangling-receipt.json"));
   await assert.rejects(
     () => generateAsset(specPath, { receiptPath: "dangling-receipt.json" }),
-    /receipt path must not be a symbolic link/,
+    /receipt path must not contain symbolic links/,
+  );
+  await assert.rejects(() => readFile(path.join(root, ".asset-tooling", "output.txt")), /ENOENT/);
+});
+
+test("receipt targets reject symbolic links in path ancestors", async () => {
+  if (process.platform === "win32") return;
+  const { specPath, root } = await makeWorkspace();
+  await symlink(".asset-tooling", path.join(root, "dangling-directory"));
+  await assert.rejects(
+    () => generateAsset(specPath, { receiptPath: "dangling-directory/output.txt" }),
+    /receipt path must not contain symbolic links/,
   );
   await assert.rejects(() => readFile(path.join(root, ".asset-tooling", "output.txt")), /ENOENT/);
 });
@@ -126,14 +137,13 @@ test("verification rejects receipts missing required provenance", async () => {
   assert.match(report.error, /receipt\.tool must be an object/);
 });
 
-test("verification binds duplicated provenance to current evidence", async () => {
-  const mutations = [
-    (receipt) => { receipt.generator.version = "fabricated"; },
-    (receipt) => { receipt.inputs.source.sha256 = "0".repeat(64); },
-    (receipt) => { receipt.environment.platform.os = "fabricated"; },
-    (receipt) => { receipt.reproducibility = { expected: "exact", baseline: "approximate", reasons: ["fabricated"] }; },
-  ];
-  for (const mutate of mutations) {
+for (const [name, mutate] of [
+  ["generator", (receipt) => { receipt.generator.version = "fabricated"; }],
+  ["input", (receipt) => { receipt.inputs.source.sha256 = "0".repeat(64); }],
+  ["environment", (receipt) => { receipt.environment.platform.os = "fabricated"; }],
+  ["classification", (receipt) => { receipt.reproducibility = { expected: "exact", baseline: "approximate", reasons: ["fabricated"] }; }],
+]) {
+  test(`verification binds ${name} provenance to current evidence`, async () => {
     const { specPath, root } = await makeWorkspace();
     const generated = await generateAsset(specPath);
     const receiptPath = path.join(root, generated.receiptPath);
@@ -142,8 +152,8 @@ test("verification binds duplicated provenance to current evidence", async () =>
     await writeFile(receiptPath, `${JSON.stringify(receipt, null, 2)}\n`);
     const report = await verifyAsset(specPath);
     assert.equal(report.status, "drift");
-  }
-});
+  });
+}
 
 test("generation reconciles identical output and receipt", async () => {
   const { specPath, root, source } = await makeWorkspace();
