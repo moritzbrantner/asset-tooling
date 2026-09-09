@@ -49,6 +49,33 @@ test("validate rejects non-portable paths", async () => {
   await assert.rejects(() => validateSpec(specPath), /must not contain empty, '\.' or '\.\.' segments/);
 });
 
+test("validate rejects specs the selected backend cannot consume", async () => {
+  const { specPath } = await makeWorkspace({ randomness: { mode: "seeded", seed: "7" } });
+  await assert.rejects(() => validateSpec(specPath), /builtin\.copy requires randomness\.mode='none'/);
+});
+
+test("receipt collisions fail before mutating outputs or dependencies", async () => {
+  for (const target of ["asset.json", "inputs/source.txt", ".asset-tooling/output.txt"]) {
+    const { specPath, root, source } = await makeWorkspace();
+    await assert.rejects(() => generateAsset(specPath, { receiptPath: target }), /receipt path must not collide/);
+    await assert.rejects(() => readFile(path.join(root, ".asset-tooling", "output.txt")), /ENOENT/);
+    assert.deepEqual(await readFile(path.join(root, "inputs", "source.txt")), source);
+  }
+});
+
+test("receipt schema constrains required provenance structures", async () => {
+  const schema = JSON.parse(
+    await readFile(new URL("../schemas/generation-receipt-v1.schema.json", import.meta.url), "utf8"),
+  );
+  assert.equal(schema.properties.generator.$ref, "#/$defs/generator");
+  assert.equal(schema.properties.randomness.$ref, "#/$defs/randomness");
+  assert.equal(schema.properties.inputs.additionalProperties.$ref, "#/$defs/artifact");
+  assert.equal(schema.properties.models.additionalProperties.$ref, "#/$defs/model");
+  for (const definition of ["generator", "artifact", "model"]) {
+    assert.equal(schema.$defs[definition].additionalProperties, false);
+  }
+});
+
 test("generation reconciles identical output and receipt", async () => {
   const { specPath, root, source } = await makeWorkspace();
   const first = await generateAsset(specPath);
