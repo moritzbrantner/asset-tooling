@@ -5,6 +5,7 @@ import { probeProcessAdapter, runProcessAdapter } from "./process-adapter.js";
 const STABLE_DIFFUSION_SCRIPT = fileURLToPath(
   new URL("../adapters/python/stable_diffusion.py", import.meta.url),
 );
+const PYTORCH_MAX_SEED = (1n << 64n) - 1n;
 
 function assertExactKeys(value, expected, location) {
   for (const key of Object.keys(value)) {
@@ -27,6 +28,13 @@ function assertFiniteNumber(value, location, minimum, maximum) {
   }
 }
 
+function assertPyTorchSeed(seed) {
+  const parsed = BigInt(seed);
+  if (parsed > PYTORCH_MAX_SEED) {
+    throw new Error(`randomness.seed must be at most ${PYTORCH_MAX_SEED} for PyTorch`);
+  }
+}
+
 function validateStableDiffusion(document) {
   const { spec } = document;
   assertExactKeys(spec.models, new Set(["pipelineBundle"]), "models");
@@ -34,6 +42,7 @@ function validateStableDiffusion(document) {
   if (spec.randomness.mode !== "seeded") {
     throw new Error("model.stable-diffusion.diffusers requires randomness.mode='seeded'");
   }
+  assertPyTorchSeed(spec.randomness.seed);
 
   const parameters = spec.parameters;
   assertExactKeys(
@@ -91,6 +100,9 @@ export const STABLE_DIFFUSION_BACKEND = {
       executable: "python3",
       scriptPath: STABLE_DIFFUSION_SCRIPT,
       cwd: document.root,
+      environment: {
+        ASSET_TOOLING_REQUESTED_DEVICE: document.spec.parameters.device,
+      },
     });
   },
   async generate(document) {
