@@ -84,6 +84,14 @@ test("asset refs normalize deterministic metadata and reject invalid content ide
     () => createAssetRef({ ...SOURCE, metadata: { score: Number.NaN } }),
     /non-finite number/,
   );
+  assert.throws(
+    () => createAssetRef({ ...SOURCE, mediaType: "image/*" }),
+    /concrete media type/,
+  );
+  assert.throws(
+    () => createAssetRef({ ...SOURCE, metadata: new Date(0) }),
+    /unsupported non-JSON value/,
+  );
 });
 
 test("operation descriptors reject ambiguous port contracts", () => {
@@ -102,7 +110,24 @@ test("operation descriptors reject ambiguous port contracts", () => {
   );
 });
 
-test("operation registry rejects duplicates and lists deterministically", () => {
+test("port descriptors support media families while asset refs remain concrete", () => {
+  const familyOperation = {
+    ...BLUR,
+    inputs: [{ id: "source", assetKinds: ["image"], mediaTypes: ["image/*"] }],
+  };
+  const descriptor = createAssetOperationDescriptor(familyOperation);
+  assert.deepEqual(descriptor.inputs[0].mediaTypes, ["image/*"]);
+  assert.deepEqual(normalizeAssetOperationInputs(familyOperation, { source: SOURCE }).source, createAssetRef(SOURCE));
+  assert.throws(
+    () =>
+      normalizeAssetOperationInputs(familyOperation, {
+        source: { ...SOURCE, mediaType: "application/octet-stream" },
+      }),
+    /media type 'application\/octet-stream' is not accepted/,
+  );
+});
+
+test("operation registry rejects duplicates, lists deterministically, and freezes registered contracts", () => {
   const registry = createAssetOperationRegistry([
     { ...BLUR, id: "image.resize", version: "2" },
     BLUR,
@@ -112,8 +137,16 @@ test("operation registry rejects duplicates and lists deterministically", () => 
     registry.list().map(({ id, version }) => `${id}@${version}`),
     ["image.blur.gaussian@1", "image.resize@2"],
   );
-  assert.equal(registry.get("image.blur.gaussian", "1")?.label, "Gaussian blur");
+  const registered = registry.get("image.blur.gaussian", "1");
+  assert.equal(registered?.label, "Gaussian blur");
   assert.equal(registry.has("image.blur.gaussian", "1"), true);
+  assert.equal(Object.isFrozen(registered), true);
+  assert.equal(Object.isFrozen(registered.inputs), true);
+  assert.equal(Object.isFrozen(registered.parameterSchema), true);
+  assert.throws(() => {
+    registered.version = "2";
+  }, TypeError);
+  assert.equal(registry.get("image.blur.gaussian", "1")?.version, "1");
   assert.throws(() => registry.register(BLUR), /already registered/);
 });
 
@@ -139,6 +172,33 @@ test("operation inputs and results enforce typed asset ports", () => {
   });
   assert.deepEqual(result.outputs.output, createAssetRef(OUTPUT));
   assert.deepEqual(result.observations, { appliedRadius: 2 });
+  assert.throws(
+    () => normalizeAssetOperationResult(BLUR, { outputs: { output: OUTPUT }, observations: new Map() }),
+    /unsupported non-JSON value/,
+  );
+});
+
+test("operation build identity rejects non-JSON values before hashing", () => {
+  assert.throws(
+    () =>
+      createAssetOperationBuildIdentity({
+        operation: BLUR,
+        implementation: { id: "sharp", version: "1", runtime: new Set(["vips"]) },
+        parameters: { radius: 2 },
+        inputs: { source: SOURCE },
+      }),
+    /unsupported non-JSON value/,
+  );
+  assert.throws(
+    () =>
+      createAssetOperationBuildIdentity({
+        operation: BLUR,
+        implementation: { id: "sharp", version: "1" },
+        parameters: { radius: new Date(0) },
+        inputs: { source: SOURCE },
+      }),
+    /unsupported non-JSON value/,
+  );
 });
 
 test("operation build identity and cache key are canonical and implementation-sensitive", () => {
