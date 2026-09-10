@@ -12,6 +12,7 @@ Milestone A introduces a runtime-neutral operation vocabulary for asset work wit
 - implementation/build identity;
 - deterministic input/result validation;
 - content-addressed cache/build keys;
+- content-addressed intermediate asset resolution;
 - adapters that invoke authoritative generators/processors;
 - provenance and replay evidence at the existing generation/processing boundaries.
 
@@ -101,9 +102,24 @@ This follows the repository's existing rule that caching is acceleration rather 
 
 Implementation identity is deliberately extensible. An adapter can include output-affecting revision, model, dependency, runtime, or algorithm identity in addition to the required implementation `id` and `version`.
 
+## Content-addressed intermediate objects
+
+The focused `asset-tooling/operations/store` subpath stores intermediate output bytes independently of workflow documents and receipts.
+
+`createAssetRefFromBytes(...)` derives an `AssetRef` directly from bytes. `storeAssetObject(...)` writes those bytes to a SHA-256-addressed object path under `.asset-tooling/objects/v1`, and `resolveAssetObject(...)` resolves an `AssetRef` back to bytes only after verifying both byte length and SHA-256.
+
+The store follows four rules:
+
+1. `AssetRef` stays storage-neutral; machine-local object paths never enter workflow/build identity.
+2. Repeated writes of the same bytes are idempotent and return `unchanged`.
+3. Existing corrupt content fails closed rather than being silently overwritten and treated as trusted reuse.
+4. `.asset-tooling/objects` is tool-owned and cannot be claimed by asset outputs, receipts, declared inputs, or model paths; symbolic-link escapes are rejected.
+
+The object store is not provenance evidence. It is reusable content storage. Generation/processing receipts remain responsible for explaining how bytes were produced and for carrying replay evidence.
+
 ## Current status
 
-The runtime contract is exposed through the focused `asset-tooling/operations` package subpath while the deliberately small package root remains unchanged.
+The runtime operation contract is exposed through `asset-tooling/operations`, and content-addressed intermediate storage is exposed through `asset-tooling/operations/store`, while the deliberately small package root remains unchanged.
 
 Do not publish immutable JSON schemas for these new runtime values yet. First prove the shape through:
 
