@@ -61,11 +61,14 @@ First slices:
 - [x] Content-addressed intermediate artifact resolution for operation outputs, with idempotent writes and fail-closed content verification.
 - [ ] Wrap the existing generation backends behind operation adapters without changing their authoritative spec/receipt semantics.
   - [x] Prove the boundary with `builtin.procedural.svg-scatter@1`: explicit seed in operation build identity, authoritative backend reuse, content-addressed output, and byte/observation parity with the legacy generation path.
-  - [ ] Extend the same adapter boundary to model-backed generation only after the processor proof confirms the generic shape does not need to change.
+  - [ ] Extend the same adapter boundary to model-backed generation now that the processor proof confirms the generic operation shape.
 - [ ] Wrap existing processing operations behind the same operation boundary without moving their algorithms into this repository.
-- [ ] Prove the contract with at least one current generator and one current processor before publishing immutable operation schemas.
+  - [x] Prove `mesh.simplify@1` against the exact accepted `three-d-lod` revision from `moritzbrantner/3d-lab`, using a verified object-store input, the shared process-adapter protocol, receipt-compatible observations, and a content-addressed mesh output.
+  - [ ] Extend the same boundary to `mesh.lod_chain`, `animation.resample`, and `animation.reduce` after the first processor proof is stable.
+- [x] Prove the generic operation contract with at least one current generator and one current external processor before publishing immutable operation schemas.
+- [ ] Exercise the descriptor/executor bridge through `workflow-editor` and `workflow-runner` before freezing the new operation schemas.
 
-Acceptance boundary: existing root imports, CLI behavior, published schemas, generation receipts, processing receipts, and exact-replay rules remain compatible.
+Acceptance boundary: existing root imports, CLI behavior, published schemas, generation receipts, processing receipts, and exact-replay rules remain compatible. `stability/processors.json` pins accepted external processor evidence separately from consumer evidence.
 
 ### Milestone B — Workflow integration
 
@@ -173,6 +176,6 @@ Only after representative local asset workflows work correctly:
 - Reusable workflow library for common texture, material, mesh, sprite, and model-assisted recipes.
 - Distributed execution remains an engine/worker concern rather than an asset-tooling core concern.
 
-## Continuous consumer proof
+## Continuous consumer and processor proof
 
-Keep consumer-specific runtime semantics outside this repository. `stability/consumers.json` records exact merged consumer evidence and the Stability workflow reruns the current tool head against those committed specs. Add future consumers only when they provide meaningful additional contract coverage rather than simply increasing a count.
+Keep consumer-specific runtime semantics and processor algorithms outside this repository. `stability/consumers.json` records exact merged consumer evidence; `stability/processors.json` records exact external processor implementations used to prove operation adapters. The Stability workflow reruns the current tool head against both manifests. Add future entries only when they provide meaningful additional contract coverage rather than simply increasing a count.
