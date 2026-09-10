@@ -173,6 +173,15 @@ function normalizeProcessor(value) {
   };
 }
 
+function processorStorageEnvironment(processor) {
+  if (!/^cargo(?:\.exe)?$/i.test(path.basename(processor.executable))) return {};
+  const environment = {};
+  for (const name of ["CARGO_HOME", "RUSTUP_HOME", "HOME", "USERPROFILE"]) {
+    if (process.env[name] !== undefined) environment[name] = process.env[name];
+  }
+  return environment;
+}
+
 function normalizeProbeComponent(components) {
   const matching = components.filter((component) => component.id === PROCESSOR_ID);
   if (matching.length !== 1) {
@@ -188,6 +197,7 @@ function normalizeProbeComponent(components) {
     throw new Error(`processor probe codec must be '${PROCESSOR_CODEC}'`);
   }
   assertPlainObject(component.dependencies, "processor probe dependencies");
+  assertNonEmptyString(component.cargoLock, "processor probe cargoLock");
   return component;
 }
 
@@ -196,15 +206,18 @@ async function processorIdentity(root, processorValue) {
     throw new Error("mesh.simplify root must be an absolute path");
   }
   const processor = normalizeProcessor(processorValue);
+  const environment = processorStorageEnvironment(processor);
   const components = await probeProcessAdapter({
     executable: processor.executable,
     scriptPath: processor.scriptPath,
     prefixArguments: processor.prefixArguments,
     cwd: root,
+    environment,
   });
   const probe = normalizeProbeComponent(components);
   return {
     processor,
+    environment,
     implementation: {
       id: probe.id,
       version: probe.version,
@@ -310,7 +323,14 @@ export async function executeMeshSimplifyOperation(
   processorValue,
 ) {
   const processor = normalizeProcessor(processorValue);
-  const buildIdentity = await createMeshSimplifyOperationBuildIdentity(root, invocation, processor);
+  const parameters = normalizeParameters(invocation.parameters ?? {});
+  const { implementation, environment } = await processorIdentity(root, processor);
+  const buildIdentity = createAssetOperationBuildIdentity({
+    operation: MESH_SIMPLIFY_OPERATION,
+    implementation,
+    parameters,
+    inputs: invocation.inputs ?? {},
+  });
   const source = buildIdentity.inputs.source;
 
   await resolveAssetObject(root, source);
@@ -319,6 +339,7 @@ export async function executeMeshSimplifyOperation(
     scriptPath: processor.scriptPath,
     prefixArguments: processor.prefixArguments,
     cwd: root,
+    environment,
     request: {
       schemaVersion: 1,
       operation: OPERATION_ID,
