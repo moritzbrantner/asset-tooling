@@ -100,7 +100,8 @@ test("mesh.simplify resolves a stored input and stores a validated derived mesh"
   assert.equal(first.outputs.output.kind, "mesh");
   assert.equal(first.outputs.output.mediaType, THREE_D_MESH_MEDIA_TYPE);
   assert.equal(first.outputs.output.metadata.triangleCount, 4);
-  assert.equal(first.outputs.output.metadata.vertexCount, 9);
+  assert.equal(first.outputs.output.metadata.sourceVertexCount, 9);
+  assert.equal(first.outputs.output.metadata.vertexCount, undefined);
   assert.equal(first.outputs.output.metadata.sourceVertexBufferPreserved, true);
   assert.equal(second.outputs.output.sha256, first.outputs.output.sha256);
   assert.deepEqual(second.observations, first.observations);
