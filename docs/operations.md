@@ -117,14 +117,22 @@ The store follows four rules:
 
 The object store is not provenance evidence. It is reusable content storage. Generation/processing receipts remain responsible for explaining how bytes were produced and for carrying replay evidence.
 
+## Generation adapter proof
+
+The focused `asset-tooling/operations/generation` subpath now exposes the first real generator operation: `procedural.svg.scatter@1`.
+
+The adapter deliberately reuses the existing `builtin.procedural.svg-scatter@1` backend rather than copying its algorithm. The workflow-facing invocation makes `seed` an explicit operation parameter so it participates in build identity, then projects it back to the existing asset-spec shape as `randomness.seed`. All other generator parameters retain the backend's existing validation and semantics.
+
+The operation produces a storage-neutral `vector-image` `AssetRef` with media type `image/svg+xml`; its bytes are written through the content-addressed object store. Operation observations are the backend's existing deterministic generation observations rather than a second evidence vocabulary.
+
+Implementation identity includes the concrete backend identity and the current asset-tooling source fingerprint. This ensures the operation build identity does not treat changed built-in implementation code as equivalent merely because the backend's human-facing version string was not updated.
+
+Parity tests execute the operation path and the existing `generateAsset(...)` path with the same seed and parameters and require identical output bytes, SHA-256, and generation observations. The existing generation path still owns accepted output mutation and generation receipts; the operation adapter does not alter those contracts.
+
 ## Current status
 
-The runtime operation contract is exposed through `asset-tooling/operations`, and content-addressed intermediate storage is exposed through `asset-tooling/operations/store`, while the deliberately small package root remains unchanged.
+The runtime operation contract is exposed through `asset-tooling/operations`, content-addressed intermediate storage through `asset-tooling/operations/store`, and the first generator adapter through `asset-tooling/operations/generation`, while the deliberately small package root remains unchanged.
 
-Do not publish immutable JSON schemas for these new runtime values yet. First prove the shape through:
-
-1. one existing generation backend adapter;
-2. one existing processing adapter;
-3. a workflow-editor/workflow-runner reference path.
+Do not publish immutable JSON schemas for these new runtime values yet. The generator side is now proven with one existing backend; next prove the same operation boundary with one existing processor, then exercise the descriptor/executor bridge through workflow-editor/workflow-runner.
 
 After those consumers validate the semantics, publish versioned schemas without changing already-published generation or processing schemas.
