@@ -8,7 +8,7 @@ The repository treats generated and processed assets as build artifacts. Generat
 
 The reusable core has completed its first stabilization milestone. Published schema versions are immutable compatibility contracts, CLI exit semantics and the deliberately small root programmatic API are protected by deterministic tests, generation cache reuse is fail-closed and content-addressed, and the package shape is validated without publishing it.
 
-The same public CLI/spec boundary is now proven by merged Zoo and Medieval consumers. `bun run stability:check` exercises the local compatibility/package/reproducibility gate, while the hosted `Stability` workflow also runs the current `asset-tooling` head against the exact accepted consumer commits recorded in `stability/consumers.json`.
+The same public CLI/spec boundary is proven by merged Zoo and Medieval consumers. `bun run stability:check` exercises the local compatibility/package/reproducibility gate, while the hosted `Stability` workflow reruns the current `asset-tooling` head against exact accepted consumer commits and exact accepted external processor revisions recorded under `stability/`.
 
 The package remains `0.1.0` until a stable release is intentionally cut; stabilization readiness does not publish or tag a release by itself. See `docs/stability.md`.
 
@@ -36,11 +36,13 @@ See `docs/3d-processing.md` and `docs/generation-processing-handoff.md`.
 
 ## Unified asset operations
 
-Milestone A introduces a runtime-neutral operation contract so generation, processing, analysis, composition, and export capabilities can eventually share one typed workflow vocabulary without replacing their authoritative algorithms or existing receipt contracts.
+Milestone A introduces a runtime-neutral operation contract so generation, processing, analysis, composition, and export capabilities can share one typed workflow vocabulary without replacing their authoritative algorithms or existing receipt contracts.
 
 The focused `asset-tooling/operations` package subpath provides runtime `AssetRef` values, versioned operation descriptors, a deterministic operation registry, typed input/result validation, and canonical build/cache identities. `asset-tooling/operations/store` provides verified content-addressed intermediate objects. The root package API remains deliberately small.
 
-The first real generator proof is available through `asset-tooling/operations/generation`: `procedural.svg.scatter@1` reuses the existing `builtin.procedural.svg-scatter@1` backend, maps its seed into the operation build identity, writes the output through the object store, and is tested for byte/hash/observation parity with the existing `generateAsset(...)` path.
+The generator proof lives under `asset-tooling/operations/generation`: `procedural.svg.scatter@1` reuses the existing `builtin.procedural.svg-scatter@1` backend, maps its seed into operation build identity, writes through the object store, and is tested for byte/hash/observation parity with `generateAsset(...)`.
+
+The processor proof lives under `asset-tooling/operations/processing`: `mesh.simplify@1` consumes a verified mesh `AssetRef`, invokes the exact accepted `three-d-lod` implementation from `moritzbrantner/3d-lab` through the shared process-adapter protocol, validates receipt-compatible observations, and stores the derived mesh as another content-addressed `AssetRef`. The processor algorithm and mesh semantics remain owned by `3d-lab`; `stability/processors.json` pins the accepted external revision.
 
 Operation descriptors remain data rather than executors. This is the intended bridge to `workflow-editor` node templates and `workflow-runner` executors in the next milestone, without implementing another DAG/runtime inside this repository.
 
@@ -62,4 +64,4 @@ Exact reproducibility is established by replayed output bytes. Backend kind, abs
 
 Consumers importing the package root receive only the high-level operations `validateSpec`, `generateAsset`, `verifyAsset`, and `prepareProcessingHandoff`. Versioned schemas are separately available through the `./schemas/*` package export. Backend, cache, hashing, environment, and receipt-construction internals are deliberately not part of the public package API.
 
-The additive `asset-tooling/operations`, `asset-tooling/operations/store`, and `asset-tooling/operations/generation` subpaths contain the Milestone A operation surfaces; they do not widen the root export.
+The additive `asset-tooling/operations`, `asset-tooling/operations/store`, `asset-tooling/operations/generation`, and `asset-tooling/operations/processing` subpaths contain the Milestone A operation surfaces; they do not widen the root export.
