@@ -22,6 +22,10 @@ assert(
   packageJson.exports?.["./operations"] === "./src/operations.js",
   "asset operation contracts must remain available through the focused ./operations subpath",
 );
+assert(
+  packageJson.exports?.["./operations/store"] === "./src/asset-store.js",
+  "content-addressed asset storage must remain available through the focused ./operations/store subpath",
+);
 assert(packageJson.exports?.["./schemas/*"] === "./schemas/*", "versioned schemas must remain directly consumable");
 
 const requiredPackageRoots = ["src", "schemas", "adapters", "docs", "README.md"];
@@ -33,6 +37,7 @@ for (const item of requiredPackageRoots) {
 for (const file of [
   "src/index.js",
   "src/operations.js",
+  "src/asset-store.js",
   "src/entry.js",
   "schemas/asset-spec-v1.schema.json",
   "schemas/generation-receipt-v1.schema.json",
