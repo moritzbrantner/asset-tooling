@@ -356,7 +356,7 @@ export async function executeMeshSimplifyOperation(
     metadata: {
       meshSchemaVersion: 1,
       triangleCount: observations.resultTriangleCount,
-      vertexCount: observations.sourceVertexCount,
+      sourceVertexCount: observations.sourceVertexCount,
       sourceVertexBufferPreserved: observations.sharedSourceVertexBuffer,
     },
   });
