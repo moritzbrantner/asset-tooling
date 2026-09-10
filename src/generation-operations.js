@@ -3,13 +3,15 @@ import { normalizeGenerationResult } from "./backend-contract.js";
 import { getBackend } from "./backends.js";
 import {
   createAssetOperationBuildIdentity,
-  createAssetOperationDescriptor,
+  createAssetOperationRegistry,
   normalizeAssetOperationResult,
 } from "./operations.js";
 import { captureToolIdentity } from "./tool.js";
 
 const GENERATOR_ID = "builtin.procedural.svg-scatter";
 const GENERATOR_VERSION = "1";
+const OPERATION_ID = "procedural.svg.scatter";
+const OPERATION_VERSION = "1";
 const OPERATION_PARAMETER_KEYS = new Set([
   "seed",
   "width",
@@ -22,11 +24,11 @@ const OPERATION_PARAMETER_KEYS = new Set([
 ]);
 const SEED_PATTERN = /^(0|[1-9][0-9]*)$/;
 
-export const PROCEDURAL_SVG_SCATTER_OPERATION = Object.freeze(
-  createAssetOperationDescriptor({
+const OPERATION_REGISTRY = createAssetOperationRegistry([
+  {
     schemaVersion: 1,
-    id: "procedural.svg.scatter",
-    version: "1",
+    id: OPERATION_ID,
+    version: OPERATION_VERSION,
     label: "SVG scatter",
     description: "Generate a seeded SVG containing deterministically scattered circles.",
     category: "procedural.vector",
@@ -68,8 +70,10 @@ export const PROCEDURAL_SVG_SCATTER_OPERATION = Object.freeze(
         },
       },
     },
-  }),
-);
+  },
+]);
+
+export const PROCEDURAL_SVG_SCATTER_OPERATION = OPERATION_REGISTRY.get(OPERATION_ID, OPERATION_VERSION);
 
 function legacyDocument(root, parameters) {
   for (const key of Object.keys(parameters)) {
@@ -114,25 +118,20 @@ async function implementationIdentity(backend) {
 
 export async function createProceduralSvgScatterOperationBuildIdentity({ parameters = {}, inputs = {} } = {}) {
   const backend = getBackend({ id: GENERATOR_ID, version: GENERATOR_VERSION });
-  return createAssetOperationBuildIdentity({
+  const buildIdentity = createAssetOperationBuildIdentity({
     operation: PROCEDURAL_SVG_SCATTER_OPERATION,
     implementation: await implementationIdentity(backend),
     parameters,
     inputs,
   });
+  backend.validate(legacyDocument(".", buildIdentity.parameters));
+  return buildIdentity;
 }
 
 export async function executeProceduralSvgScatterOperation(root, { parameters = {}, inputs = {} } = {}) {
   const backend = getBackend({ id: GENERATOR_ID, version: GENERATOR_VERSION });
-  const buildIdentity = await createAssetOperationBuildIdentity({
-    operation: PROCEDURAL_SVG_SCATTER_OPERATION,
-    implementation: await implementationIdentity(backend),
-    parameters,
-    inputs,
-  });
+  const buildIdentity = await createProceduralSvgScatterOperationBuildIdentity({ parameters, inputs });
   const document = legacyDocument(root, buildIdentity.parameters);
-  backend.validate(document);
-
   const generated = normalizeGenerationResult(await backend.generate(document), backend.id);
   const stored = await storeAssetObject(root, {
     bytes: generated.bytes,
