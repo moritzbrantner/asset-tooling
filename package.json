@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.js",
+    "./operations": "./src/operations.js",
     "./schemas/*": "./schemas/*"
   },
   "bin": {
