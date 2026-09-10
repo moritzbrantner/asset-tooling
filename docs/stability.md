@@ -46,7 +46,7 @@ Internal backend, adapter, cache, hashing, receipt-construction, and environment
 
 ## Package readiness
 
-`bun run package:check` verifies the publishable package shape without publishing anything. `bun run stability:check` composes the local test, package, CLI fixture, and accepted-consumer-manifest gates and is exposed as the repository's standard coding-tooling capability.
+`bun run package:check` verifies the publishable package shape without publishing anything. `bun run stability:check` composes the local test, package, CLI fixture, and accepted-consumer-manifest gates. In `.coding-tooling.json`, that repository-specific command is mapped to the shared semantic `test:integration` capability rather than introducing an asset-specific capability into coding-tooling.
 
 The package remains `0.1.0` until a stable release is intentionally cut. Completing stabilization makes a stable release eligible; it does not publish, tag, or claim a new package version automatically.
 

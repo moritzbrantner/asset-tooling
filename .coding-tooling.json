@@ -3,14 +3,14 @@
   "profile": "repository-foundation-v1",
   "tiers": {
     "fast": ["test", "package:check"],
-    "standard": ["stability:check"]
+    "standard": ["test:integration"]
   },
-  "requiredCapabilities": ["test", "package:check", "stability:check"],
+  "requiredCapabilities": ["test", "package:check", "test:integration"],
   "capabilityCommands": {
     ".": {
       "test": ["bun", "test"],
       "package:check": ["bun", "run", "package:check"],
-      "stability:check": ["bun", "run", "stability:check"]
+      "test:integration": ["bun", "run", "stability:check"]
     }
   }
 }
