@@ -60,7 +60,7 @@ async function run(executable, arguments_, options) {
       const stderrText = Buffer.concat(stderr).toString("utf8");
       if (code !== 0) {
         const detail = stderrText.trim() || stdoutText.trim() || `signal ${signal ?? "unknown"}`;
-        reject(new Error(`generator adapter failed with exit code ${code}: ${detail}`));
+        reject(new Error(`process adapter failed with exit code ${code}: ${detail}`));
         return;
       }
       resolve({ stdout: stdoutText, stderr: stderrText });
@@ -94,10 +94,10 @@ export async function probeProcessAdapter({ executable, scriptPath, prefixArgume
   try {
     parsed = JSON.parse(stdout);
   } catch (error) {
-    throw new Error(`generator adapter probe did not return JSON: ${error.message}`);
+    throw new Error(`process adapter probe did not return JSON: ${error.message}`);
   }
   if (!Array.isArray(parsed) || parsed.some((component) => typeof component !== "object" || component === null || Array.isArray(component))) {
-    throw new Error("generator adapter probe must return a JSON array of component objects");
+    throw new Error("process adapter probe must return a JSON array of component objects");
   }
   return parsed;
 }
@@ -135,10 +135,10 @@ export async function runProcessAdapter({
     try {
       observations = JSON.parse(await readFile(observationsPath, "utf8"));
     } catch (error) {
-      throw new Error(`generator adapter did not emit valid observations JSON: ${error.message}`);
+      throw new Error(`process adapter did not emit valid observations JSON: ${error.message}`);
     }
     if (typeof observations !== "object" || observations === null || Array.isArray(observations)) {
-      throw new Error("generator adapter observations must be a JSON object");
+      throw new Error("process adapter observations must be a JSON object");
     }
     return { bytes, observations };
   } finally {

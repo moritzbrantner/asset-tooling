@@ -100,7 +100,7 @@ The descriptor does not contain an executor. It can therefore later be converted
 
 This follows the repository's existing rule that caching is acceleration rather than provenance. A matching operation cache key may permit reuse only after the referenced content is verified; it never proves that an operation was executed or that replay would reproduce the same bytes.
 
-Implementation identity is deliberately extensible. An adapter can include output-affecting revision, model, dependency, runtime, or algorithm identity in addition to the required implementation `id` and `version`.
+Implementation identity is deliberately extensible. An adapter can include output-affecting revision, model, dependency, runtime, algorithm, protocol, and codec identity in addition to the required implementation `id` and `version`.
 
 ## Content-addressed intermediate objects
 
@@ -119,7 +119,7 @@ The object store is not provenance evidence. It is reusable content storage. Gen
 
 ## Generation adapter proof
 
-The focused `asset-tooling/operations/generation` subpath now exposes the first real generator operation: `procedural.svg.scatter@1`.
+The focused `asset-tooling/operations/generation` subpath exposes the first real generator operation: `procedural.svg.scatter@1`.
 
 The adapter deliberately reuses the existing `builtin.procedural.svg-scatter@1` backend rather than copying its algorithm. The workflow-facing invocation makes `seed` an explicit operation parameter so it participates in build identity, then projects it back to the existing asset-spec shape as `randomness.seed`. All other generator parameters retain the backend's existing validation and semantics.
 
@@ -129,10 +129,32 @@ Implementation identity includes the concrete backend identity and the current a
 
 Parity tests execute the operation path and the existing `generateAsset(...)` path with the same seed and parameters and require identical output bytes, SHA-256, and generation observations. The existing generation path still owns accepted output mutation and generation receipts; the operation adapter does not alter those contracts.
 
+## Processor adapter proof
+
+The focused `asset-tooling/operations/processing` subpath exposes `mesh.simplify@1` as the first external processor operation.
+
+`three-d-lod` in `moritzbrantner/3d-lab` remains authoritative for simplification semantics. `asset-tooling` does not copy meshopt, mesh validation, or geometry logic. The adapter accepts one stored mesh `AssetRef` using the narrow `application/vnd.moritzbrantner.three-d.mesh+json` integration media type, verifies the referenced bytes before execution, and passes only the object-store path into the external process protocol.
+
+The processor returns new mesh bytes plus observations compatible with the existing processing receipt vocabulary: source/requested/result triangle counts, result index count, relative error, source vertex count, and source-vertex-buffer preservation. `asset-tooling` validates the cross-field invariants before accepting the result, then stores the derived mesh as another content-addressed `AssetRef`.
+
+External processor identity is semantic rather than path-based. It includes:
+
+- exact source repository and Git commit;
+- processor id/version and algorithm identity;
+- process-adapter protocol and mesh codec;
+- output-affecting dependency evidence reported by the processor, including the resolved Cargo lock used to build the adapter;
+- the current asset-tooling source fingerprint.
+
+Machine-local checkout, manifest, Cargo home, and temporary paths are execution details and do not enter build identity. A different dependency resolution appears in the probe and therefore changes operation identity rather than being silently reused.
+
+`stability/processors.json` pins the exact accepted `3d-lab` revision. The hosted Stability workflow checks out that revision and runs a real deterministic grid mesh through `mesh.simplify@1` twice. It requires stable output identity, valid receipt-compatible observations, preserved source vertices, and resolvable output bytes. Local fixture processors test plumbing only and are not accepted as proof of the external processor boundary.
+
+The existing published `processing-receipt-v1/v2` schemas remain unchanged. Operation results are runtime composition values; processing receipts remain the stronger provenance/replay evidence for accepted production processing.
+
 ## Current status
 
-The runtime operation contract is exposed through `asset-tooling/operations`, content-addressed intermediate storage through `asset-tooling/operations/store`, and the first generator adapter through `asset-tooling/operations/generation`, while the deliberately small package root remains unchanged.
+The operation contract is now proven in both directions: one existing generator and one current external processor use the same `AssetOperationDescriptor`/`AssetRef` model and content-addressed handoff without moving their algorithms into the operation layer.
 
-Do not publish immutable JSON schemas for these new runtime values yet. The generator side is now proven with one existing backend; next prove the same operation boundary with one existing processor, then exercise the descriptor/executor bridge through workflow-editor/workflow-runner.
+The runtime operation contract is exposed through `asset-tooling/operations`, content-addressed intermediate storage through `asset-tooling/operations/store`, generator adapters through `asset-tooling/operations/generation`, and processor adapters through `asset-tooling/operations/processing`, while the deliberately small package root remains unchanged.
 
-After those consumers validate the semantics, publish versioned schemas without changing already-published generation or processing schemas.
+Do not publish immutable JSON schemas for these new runtime values yet. The next architectural proof is the descriptor/executor bridge through `workflow-editor` and `workflow-runner`. That consumer should reveal whether any operation metadata is still missing before the runtime shapes are frozen as published schemas.

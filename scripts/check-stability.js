@@ -19,6 +19,17 @@ const expectedConsumers = new Map([
   ],
 ]);
 
+const expectedProcessors = new Map([
+  [
+    "three-d-lod",
+    {
+      repository: "moritzbrantner/3d-lab",
+      manifestPath: "examples/asset-tooling-lod-adapter/Cargo.toml",
+      operation: "mesh.simplify",
+    },
+  ],
+]);
+
 function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
@@ -41,30 +52,104 @@ function assertPortableRelativePath(value, description) {
   assert(segments.every((segment) => segment !== "" && segment !== "." && segment !== ".."), `${description} must be normalized`);
 }
 
-const manifest = JSON.parse(await readFile(new URL("../stability/consumers.json", import.meta.url), "utf8"));
-assertExactFields(manifest, new Set(["schemaVersion", "consumers"]), "stability manifest");
-assert(manifest.schemaVersion === 1, "stability manifest schemaVersion must be 1");
-assert(Array.isArray(manifest.consumers), "stability manifest consumers must be an array");
-assert(manifest.consumers.length === expectedConsumers.size, "stability manifest must contain exactly the accepted Zoo and Medieval consumers");
+function assertExactCommit(value, description) {
+  assert(/^[0-9a-f]{40}$/.test(value), `${description} must be an exact lowercase Git commit SHA`);
+}
 
-const seen = new Set();
-for (const consumer of manifest.consumers) {
+const consumerManifest = JSON.parse(
+  await readFile(new URL("../stability/consumers.json", import.meta.url), "utf8"),
+);
+assertExactFields(consumerManifest, new Set(["schemaVersion", "consumers"]), "stability manifest");
+assert(consumerManifest.schemaVersion === 1, "stability manifest schemaVersion must be 1");
+assert(Array.isArray(consumerManifest.consumers), "stability manifest consumers must be an array");
+assert(
+  consumerManifest.consumers.length === expectedConsumers.size,
+  "stability manifest must contain exactly the accepted Zoo and Medieval consumers",
+);
+
+const seenConsumers = new Set();
+for (const consumer of consumerManifest.consumers) {
   assertExactFields(
     consumer,
     new Set(["id", "repository", "commit", "specPath", "assetId"]),
     "consumer evidence",
   );
-  assert(typeof consumer.id === "string" && expectedConsumers.has(consumer.id), `unexpected consumer id '${consumer.id}'`);
-  assert(!seen.has(consumer.id), `duplicate consumer id '${consumer.id}'`);
-  seen.add(consumer.id);
+  assert(
+    typeof consumer.id === "string" && expectedConsumers.has(consumer.id),
+    `unexpected consumer id '${consumer.id}'`,
+  );
+  assert(!seenConsumers.has(consumer.id), `duplicate consumer id '${consumer.id}'`);
+  seenConsumers.add(consumer.id);
 
   const expected = expectedConsumers.get(consumer.id);
-  assert(consumer.repository === expected.repository, `${consumer.id} repository must remain '${expected.repository}'`);
-  assert(consumer.specPath === expected.specPath, `${consumer.id} specPath must remain '${expected.specPath}'`);
-  assert(consumer.assetId === expected.assetId, `${consumer.id} assetId must remain '${expected.assetId}'`);
-  assert(/^[0-9a-f]{40}$/.test(consumer.commit), `${consumer.id} commit must be an exact lowercase Git commit SHA`);
+  assert(
+    consumer.repository === expected.repository,
+    `${consumer.id} repository must remain '${expected.repository}'`,
+  );
+  assert(
+    consumer.specPath === expected.specPath,
+    `${consumer.id} specPath must remain '${expected.specPath}'`,
+  );
+  assert(
+    consumer.assetId === expected.assetId,
+    `${consumer.id} assetId must remain '${expected.assetId}'`,
+  );
+  assertExactCommit(consumer.commit, `${consumer.id} commit`);
   assertPortableRelativePath(consumer.specPath, `${consumer.id} specPath`);
 }
+assert(seenConsumers.size === expectedConsumers.size, "all accepted consumers must be present exactly once");
 
-assert(seen.size === expectedConsumers.size, "all accepted consumers must be present exactly once");
-console.log(JSON.stringify({ status: "stable-contract-valid", consumers: [...seen].sort() }));
+const processorManifest = JSON.parse(
+  await readFile(new URL("../stability/processors.json", import.meta.url), "utf8"),
+);
+assertExactFields(
+  processorManifest,
+  new Set(["schemaVersion", "processors"]),
+  "processor stability manifest",
+);
+assert(processorManifest.schemaVersion === 1, "processor stability manifest schemaVersion must be 1");
+assert(Array.isArray(processorManifest.processors), "processor stability manifest processors must be an array");
+assert(
+  processorManifest.processors.length === expectedProcessors.size,
+  "processor stability manifest must contain exactly the accepted three-d-lod processor",
+);
+
+const seenProcessors = new Set();
+for (const processor of processorManifest.processors) {
+  assertExactFields(
+    processor,
+    new Set(["id", "repository", "commit", "manifestPath", "operation"]),
+    "processor evidence",
+  );
+  assert(
+    typeof processor.id === "string" && expectedProcessors.has(processor.id),
+    `unexpected processor id '${processor.id}'`,
+  );
+  assert(!seenProcessors.has(processor.id), `duplicate processor id '${processor.id}'`);
+  seenProcessors.add(processor.id);
+
+  const expected = expectedProcessors.get(processor.id);
+  assert(
+    processor.repository === expected.repository,
+    `${processor.id} repository must remain '${expected.repository}'`,
+  );
+  assert(
+    processor.manifestPath === expected.manifestPath,
+    `${processor.id} manifestPath must remain '${expected.manifestPath}'`,
+  );
+  assert(
+    processor.operation === expected.operation,
+    `${processor.id} operation must remain '${expected.operation}'`,
+  );
+  assertExactCommit(processor.commit, `${processor.id} commit`);
+  assertPortableRelativePath(processor.manifestPath, `${processor.id} manifestPath`);
+}
+assert(seenProcessors.size === expectedProcessors.size, "all accepted processors must be present exactly once");
+
+console.log(
+  JSON.stringify({
+    status: "stable-contract-valid",
+    consumers: [...seenConsumers].sort(),
+    processors: [...seenProcessors].sort(),
+  }),
+);

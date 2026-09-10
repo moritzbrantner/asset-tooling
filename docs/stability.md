@@ -1,4 +1,4 @@
-# Stability and consumer contract
+# Stability, consumer, and processor contracts
 
 `asset-tooling` is reusable infrastructure. Its first stabilization milestone proves the existing contract before further generator or processor surface is added.
 
@@ -42,45 +42,59 @@ The root package export intentionally contains only the high-level reusable oper
 - `verifyAsset`
 - `prepareProcessingHandoff`
 
-Internal backend, adapter, cache, hashing, receipt-construction, and environment helpers are not public API merely because their source files exist. Versioned JSON schemas are separately exported for consumers that validate persisted contracts.
+Internal backend, adapter, cache, hashing, receipt-construction, and environment helpers are not public API merely because their source files exist. Versioned JSON schemas are separately exported for consumers that validate persisted contracts. Additive operation APIs remain on focused `./operations/*` subpaths while Milestone A proves their shape.
 
 ## Package readiness
 
-`bun run package:check` verifies the publishable package shape without publishing anything. `bun run stability:check` composes the local test, package, CLI fixture, and accepted-consumer-manifest gates. In `.coding-tooling.json`, that repository-specific command is mapped to the shared semantic `test:integration` capability rather than introducing an asset-specific capability into coding-tooling.
+`bun run package:check` verifies the publishable package shape without publishing anything. `bun run stability:check` composes the local test, package, CLI fixture, accepted-consumer-manifest, and accepted-processor-manifest gates. In `.coding-tooling.json`, that repository-specific command is mapped to the shared semantic integration-test capability rather than introducing an asset-specific capability into coding-tooling.
 
 The package remains `0.1.0` until a stable release is intentionally cut. Completing stabilization makes a stable release eligible; it does not publish, tag, or claim a new package version automatically.
 
-## Cache boundary
+## Cache and object-store boundary
 
 Generation may reuse local content-addressed build artifacts, but cache state is disposable and never becomes reproducibility evidence. Declared inputs/models are hash-checked before lookup, the build key includes the current spec/tool/generator/environment identity, and cached output bytes are verified against their own SHA-256 before reuse.
 
 `verify` deliberately bypasses the generation cache and replays the authoritative backend. Corrupted cache state therefore fails cached generation without contaminating verification of an otherwise valid accepted artifact. See `cache.md`.
 
+Milestone A also provides a content-addressed intermediate object store. It resolves an `AssetRef` only after checking byte length and SHA-256 and remains reusable storage rather than provenance. Generation and processing receipts continue to explain how accepted artifacts were produced.
+
 ## Accepted consumer evidence
 
-`stability/consumers.json` is the machine-readable acceptance manifest. It pins one merged Zoo commit and one merged Medieval commit together with the exact committed asset spec and asset ID used to prove the contract.
+`stability/consumers.json` is the machine-readable consumer acceptance manifest. It pins merged Zoo and Medieval commits together with the exact committed asset spec and asset ID used to prove the public CLI/spec contract.
 
-The hosted `Stability` workflow does not trust those consumers merely because they previously passed. For every current `asset-tooling` pull request and main commit it:
+The hosted `Stability` workflow does not trust those consumers merely because they previously passed. For every current `asset-tooling` pull request and main commit it loads the exact accepted commits, checks out current asset-tooling plus each consumer independently, then validates, generates, and replay-verifies every accepted consumer spec.
 
-1. validates the local stability contract;
-2. loads the exact accepted consumer commits from the manifest;
-3. checks out the current `asset-tooling` head and each accepted consumer independently;
-4. validates, generates, and replay-verifies each consumer spec with the current tool head.
+This makes consumer compatibility a continuing regression gate instead of a one-time dogfood note. The first two integrations did not demonstrate a missing common wrapper or consumer abstraction, so stabilization intentionally added none solely because there were multiple consumers.
 
-This makes consumer compatibility a continuing regression gate instead of a one-time dogfood note.
+## Accepted processor evidence
 
-The two integrations did not demonstrate a missing common wrapper or consumer abstraction. Both successfully use the same asset spec plus public CLI boundary, so stabilization intentionally adds no new abstraction solely because there are now two consumers.
+`stability/processors.json` is separate because a processor is not a consumer. It identifies an authoritative external implementation used to prove an asset operation while leaving that algorithm in its domain repository.
+
+The first accepted processor is the exact `moritzbrantner/3d-lab` revision containing the `three-d-lod` `mesh.simplify` adapter. Its processor probe reports the algorithm, process protocol, mesh codec, direct dependency versions, and the resolved Cargo lock used to build the adapter. Asset-tooling combines that probe with the exact source repository/revision in operation implementation identity; machine-local checkout and Cargo paths remain execution details.
+
+For every current `asset-tooling` pull request and main commit, the hosted Stability workflow:
+
+1. validates the processor manifest locally;
+2. checks out the exact accepted processor revision;
+3. builds/invokes that processor through its declared process-adapter boundary;
+4. feeds it a content-addressed deterministic mesh input;
+5. executes `mesh.simplify` twice and requires stable output identity and observations;
+6. checks receipt-compatible triangle/error invariants and source-vertex preservation;
+7. resolves the returned output through the asset object store to re-verify its content identity.
+
+A local fixture processor remains useful for fast adapter plumbing tests, but it does not satisfy external processor acceptance. Only the exact external processor job proves the cross-repository ownership boundary.
 
 ## Stabilization gates
 
 1. Published schemas, CLI exit semantics, and the root programmatic API are protected by deterministic compatibility tests.
 2. The package shape is consumable and validated without publication.
-3. Content-addressed reuse cannot allow stale or unverified artifacts to bypass declared-input, environment, or receipt checks.
+3. Content-addressed reuse cannot allow stale or unverified artifacts to bypass declared-input, environment, receipt, or object-content checks.
 4. Clean-room and fault-injection tests cover corrupted artifacts/receipts/cache entries, missing dependencies, environment drift, reserved-path escapes, and repeated/idempotent operation.
-5. A merged Zoo asset and a merged Medieval asset consume the public contract rather than repository internals.
-6. Shared abstractions are introduced only when multiple consumers demonstrate the same missing responsibility; the first two consumers required none.
-7. The exact release candidate must have the local `stability:check`, hosted current-head consumer matrix, existing processing-contract validation, and Ubuntu/macOS/Windows Validate jobs green together.
+5. Merged Zoo and Medieval assets consume the public contract rather than repository internals.
+6. Accepted external processors remain pinned by exact repository revision and are exercised through their real integration boundary rather than copied into asset-tooling.
+7. Shared abstractions are introduced only when multiple consumers or implementations demonstrate the same missing responsibility.
+8. The exact release candidate must have local `stability:check`, hosted current-head consumer and processor contracts, existing processing-contract validation, and Ubuntu/macOS/Windows Validate jobs green together.
 
 ## Ownership boundary
 
-`asset-tooling` owns reproducible asset-build intent, provenance, validation, handoff, local content-addressed reuse, and replay evidence. Domain repositories continue to own generation and processing algorithms. Consumer repositories own runtime/game semantics. Stabilization must not blur those boundaries merely to make integration easier.
+`asset-tooling` owns reproducible asset-build intent, operation envelopes, provenance, validation, handoff, local content-addressed reuse, and replay evidence. Domain repositories continue to own generation and processing algorithms. Consumer repositories own runtime/game semantics. Stabilization must not blur those boundaries merely to make integration easier.
