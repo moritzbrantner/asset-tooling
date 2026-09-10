@@ -1,57 +1,176 @@
 # Roadmap
 
-## 1. Reproducibility core
+`asset-tooling` is a reproducible asset build system. It owns asset-operation contracts, provenance, validation, hashing, caching, and adapters around authoritative generators/processors. It does not own workflow authoring/execution infrastructure or reimplement domain algorithms merely to centralize them.
 
-- Versioned asset specification and receipt contracts.
-- Canonical spec hashing and SHA-256 artifact identities.
-- Execution-environment fingerprints without timestamps, host names, user names, or absolute checkout paths.
-- Explicit randomness contracts (`none` or `seeded`).
-- Fail-closed declared input/model verification.
-- Idempotent mutation results (`changed` / `unchanged`).
-- Non-mutating exact rebuild verification.
-- A deterministic built-in copy backend used only to prove the architecture.
+The long-term pipeline is:
 
-## 2. Generation backends — implemented foundation
+```text
+inputs -> generation -> transformation -> analysis -> composition -> optimization -> export
+```
+
+Larger pipelines should be expressed through the shared workflow stack rather than through a second asset-specific DAG implementation.
+
+## Completed foundation
+
+### Reproducibility core
+
+- [x] Versioned asset specification and receipt contracts.
+- [x] Canonical spec hashing and SHA-256 artifact identities.
+- [x] Execution-environment fingerprints without timestamps, host names, user names, or absolute checkout paths.
+- [x] Explicit randomness contracts (`none` or `seeded`).
+- [x] Fail-closed declared input/model verification.
+- [x] Idempotent mutation results (`changed` / `unchanged`).
+- [x] Non-mutating exact rebuild verification.
+- [x] Content-addressed generation cache that never substitutes for provenance evidence.
+
+### Generation foundation
 
 Procedural and local model generation share one provenance architecture rather than model-specific pipelines.
 
 - [x] Shared versioned generation-receipt contract for `procedural`, `model`, and `utility` backends.
 - [x] Deterministic seeded procedural reference generator.
 - [x] Generic adapter result/evidence and replay contract.
-- [x] Local Stable Diffusion adapter with a complete hash-pinned Diffusers pipeline bundle, normalized inference settings, runtime evidence, and no hidden downloads.
-- [x] Local TripoSR image-to-3D adapter with explicit source image plus a hash-pinned TripoSR source/weights/DINO bundle and no hidden downloads.
-- [x] Generation-to-processing handoff that keeps each stage independently traceable by content hash and generation-receipt lineage.
+- [x] Local Stable Diffusion adapter with a hash-pinned Diffusers pipeline bundle and no hidden downloads.
+- [x] Local TripoSR image-to-3D adapter with explicit source input, hash-pinned dependencies, and no hidden downloads.
+- [x] Generation-to-processing handoff with content-hash and generation-receipt lineage.
 
-Exact reproducibility is always established by replayed output bytes, never inferred from a seed, backend kind, or model family.
+Exact reproducibility is established by replayed output bytes, never inferred from a seed, backend kind, or model family.
 
-## 3. Stabilization and first consumer release — release-ready
+### Stabilization and consumer proof
 
-The reusable foundation is frozen before widening the feature surface.
+- [x] Published schemas are immutable; new semantics require new schema versions.
+- [x] Stable CLI exit semantics and a deliberately small root programmatic API.
+- [x] Deterministic package/coding-tooling capabilities.
+- [x] Clean-room/fault-injection coverage for corruption, missing dependencies, environment drift, and repeated/idempotent operation.
+- [x] Zoo and Medieval consumers exercise the public CLI/spec contract.
+- [x] `stability:check` and the accepted-consumer manifest make release readiness mechanical.
 
-- [x] Protect every published schema byte-for-byte; new semantics require a new schema version.
-- [x] Define and test stable CLI exit semantics and a deliberately small root programmatic API.
-- [x] Make the package consumable and add deterministic package/coding-tooling capabilities.
-- [x] Add content-addressed artifact reuse that never bypasses provenance or fail-closed verification.
-- [x] Add clean-room/fault-injection coverage for corruption, missing dependencies, environment drift, and repeated/idempotent operation.
-- [x] Integrate one Zoo asset through the public CLI/spec contract.
-- [x] Integrate one Medieval/RTS asset through the same public CLI/spec contract.
-- [x] Evaluate shared abstractions after both consumers: no additional wrapper or consumer abstraction is justified yet.
-- [x] Make release readiness mechanical through `stability:check`, an exact accepted-consumer manifest, a current-head consumer matrix, processing-contract validation, and cross-platform Validate.
+## Capability roadmap
 
-A stable package release remains an intentional release action; completing this milestone does not publish or tag one automatically.
+### Milestone A — Unified asset operation system — IN PROGRESS
 
-## 4. Deterministic 2D processing
+Make every generation, processing, analysis, composition, and export capability describable through one small runtime-neutral operation contract while preserving existing published generation/processing contracts.
 
-Normalize dimensions, color space, alpha handling, cropping, texture packing, and compression after generation. Each processor has a versioned contract and contributes to the build identity.
+First slices:
 
-## 5. 3D asset contract
+- [x] Runtime `AssetRef` v1 value with content identity, media/type identity, byte length, and deterministic metadata.
+- [x] Runtime `AssetOperationDescriptor` v1 with typed input/output ports and parameter description.
+- [x] Operation registry with deterministic lookup/list behavior and duplicate rejection.
+- [x] Uniform operation input/result validation.
+- [x] Canonical operation build/cache key derived from operation identity, implementation identity, parameters, and validated input asset references.
+- [x] Content-addressed intermediate artifact resolution for operation outputs, with idempotent writes and fail-closed content verification.
+- [ ] Wrap the existing generation backends behind operation adapters without changing their authoritative spec/receipt semantics.
+- [ ] Wrap existing processing operations behind the same operation boundary without moving their algorithms into this repository.
+- [ ] Prove the contract with at least one current generator and one current processor before publishing immutable operation schemas.
 
-Standardize GLB/glTF coordinate system, world scale, transforms, materials, animation names, collision-proxy naming, triangle/material budgets, and LOD rules. The existing processing receipt contracts already establish traceable simplification/LOD and animation processing; this section should grow those contracts into a complete production asset profile.
+Acceptance boundary: existing root imports, CLI behavior, published schemas, generation receipts, processing receipts, and exact-replay rules remain compatible.
 
-## 6. Asset catalog
+### Milestone B — Workflow integration
 
-Publish a GitHub Pages catalog focused on previews, variant comparison, provenance, reproducibility evidence, validation failures, and approved versions. Avoid decorative counters.
+Use the shared workflow system instead of implementing an asset-specific DAG.
 
-## 7. Consumer proof — continuous
+- Derive workflow-editor node templates from asset operation descriptors.
+- Derive workflow-runner executors from the same operation registrations.
+- Compile asset workflows through the execution-neutral workflow contract.
+- Keep workflow execution state outside editable asset/workflow documents.
+- Add a small deterministic reference workflow covering generate -> transform -> compose -> export.
 
-Keep consumer-specific runtime semantics outside this repository. `stability/consumers.json` records the exact merged consumer evidence used for the first stabilization milestone, and the Stability workflow reruns the current tool head against those committed specs on every pull request and main update. Add future consumers to the manifest only when they provide meaningful additional contract coverage rather than simply increasing a count.
+### Milestone C — Classic deterministic image toolkit
+
+Build the high-value deterministic processing vocabulary before aggressively widening model-backed features.
+
+- Resize/resample, crop/pad, rotate/flip, and colorspace conversion.
+- Exposure, contrast, levels, grayscale, threshold, blur, sharpen, and generic convolution.
+- Edge detection, morphology, alpha/mask operations, palette reduction, quantization, and dithering.
+- Channel extraction/combination plus image metadata and histogram analysis.
+
+Each operation remains independently callable, cacheable, inspectable, and composable.
+
+### Milestone D — Procedural generation
+
+Expand deterministic/seeded generation through authoritative procedural implementations.
+
+- 2D noise, gradients, patterns, Voronoi/cellular fields, SDF/vector shapes, tiling textures, height maps, and normal maps.
+- 3D primitives, terrain, heightfield-to-mesh, extrusion, revolution, parametric surfaces, and scatter/distribution.
+- Later audio synthesis primitives such as oscillators, envelopes, and deterministic noise.
+
+Seeds remain inputs; replayed output is still the reproducibility proof.
+
+### Milestone E — Asset composition
+
+Keep asset composition in `asset-tooling` and process composition in workflow-editor.
+
+- Image layers, masks, blend modes, transforms, and channel/material packing.
+- Sprite/atlas assembly.
+- Mesh and scene assembly where the operation produces a new asset.
+- Reusable multi-step recipes become composed/nested workflows, not giant special-case asset operations.
+
+### Milestone F — AI asset operations
+
+Treat model-backed capabilities as another operation family rather than a separate architecture.
+
+- Text-to-image, image-to-image, inpainting, outpainting, texture generation.
+- Segmentation, background removal, detection, depth/normal estimation, captioning, embeddings, and classification.
+- Super-resolution, denoising, deblurring, and other enhancement operations.
+- Image/text-to-3D where authoritative local model implementations are available.
+
+Model acquisition remains separate from execution; output-affecting model/config bytes must remain declared and hash-pinned.
+
+### Milestone G — Texture and material pipeline
+
+- Texture-set generation and validation.
+- Normal/roughness/metalness/AO derivation where semantics are explicit.
+- Channel packing and material-bundle assembly.
+- Resolution/format variants and platform-oriented compression adapters.
+- Provenance from final material bundle back to every source/generation operation.
+
+### Milestone H — 3D production asset profile
+
+Grow the current traceable 3D processing contracts into a production profile without moving renderer/runtime semantics into asset-tooling.
+
+- Coordinate system, scale, transforms, materials, animation naming, and collision-proxy conventions.
+- Mesh simplification and source-based LOD chains.
+- Animation resampling/reduction and explicit skinned-mesh evidence.
+- Mesh/scene validation and export normalization.
+
+### Milestone I — Asset analysis and validation
+
+Add operations that measure assets without mutating them.
+
+- Dimensions, channels, color-space and alpha diagnostics.
+- Mesh topology, bounds, triangle/material budgets, UV and normal diagnostics.
+- Audio/video metadata and integrity checks when those domains arrive.
+- Policy/budget validation that emits structured evidence suitable for workflow branching and CI.
+
+### Milestone J — Audio and video operations
+
+Add these only after the generic operation and workflow boundaries have proven reusable.
+
+- Deterministic audio transforms, resampling, normalization, slicing, and composition.
+- Video frame/clip transforms and metadata analysis.
+- Model-backed audio/video operations through the same provenance rules.
+- Keep playback/runtime behavior outside the asset build contract unless output is explicitly baked.
+
+### Milestone K — Asset workbench and catalog
+
+Build a domain-shaped UI using workflow-editor rather than a bespoke graph editor.
+
+- Palette grouped by generation, procedural, image, filters, AI, composition, texture, mesh, animation, audio/video, analysis, and export.
+- Node parameter controls, typed ports, previews, and validation diagnostics.
+- External execution overlay showing node state, provenance, implementation/model identity, content hash, and reproducibility evidence.
+- GitHub Pages catalog for previews, variant comparison, provenance, failures, and approved versions. Avoid decorative counters.
+
+### Milestone L — Scaled execution and reusable workflow library
+
+Only after representative local asset workflows work correctly:
+
+- Deterministic parallel stages for independent operations.
+- CPU/GPU resource budgets and executor lifecycle/isolation.
+- Idempotent checkpoint/resume of safe nodes.
+- Batch generation of variants through cached intermediate assets.
+- Reusable workflow library for common texture, material, mesh, sprite, and model-assisted recipes.
+- Distributed execution remains an engine/worker concern rather than an asset-tooling core concern.
+
+## Continuous consumer proof
+
+Keep consumer-specific runtime semantics outside this repository. `stability/consumers.json` records exact merged consumer evidence and the Stability workflow reruns the current tool head against those committed specs. Add future consumers only when they provide meaningful additional contract coverage rather than simply increasing a count.

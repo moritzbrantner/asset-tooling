@@ -143,6 +143,13 @@ test("asset contracts cannot claim the internal cache namespace", async () => {
   await assert.rejects(() => validateSpec(specPath), /reserved asset-tooling cache path/);
 });
 
+test("asset contracts cannot claim the internal object namespace", async () => {
+  const { specPath } = await makeWorkspace({
+    output: { path: ".asset-tooling/objects/v1/sha256/not-an-output" },
+  });
+  await assert.rejects(() => validateSpec(specPath), /reserved asset-tooling object path/);
+});
+
 test("cache storage refuses symbolic-link escapes", async () => {
   if (process.platform === "win32") return;
   const { root, specPath } = await makeWorkspace();

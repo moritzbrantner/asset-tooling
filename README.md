@@ -34,6 +34,16 @@ Generated artifacts feed processing through a content-addressed handoff: the pro
 
 See `docs/3d-processing.md` and `docs/generation-processing-handoff.md`.
 
+## Unified asset operations
+
+Milestone A introduces a runtime-neutral operation contract so generation, processing, analysis, composition, and export capabilities can eventually share one typed workflow vocabulary without replacing their authoritative algorithms or existing receipt contracts.
+
+The focused `asset-tooling/operations` package subpath provides runtime `AssetRef` values, versioned operation descriptors, a deterministic operation registry, typed input/result validation, and canonical build/cache identities. The root package API remains deliberately small.
+
+Operation descriptors are data rather than executors. This is the intended bridge to `workflow-editor` node templates and `workflow-runner` executors in the next milestone, without implementing another DAG/runtime inside this repository.
+
+See `docs/operations.md` and `ROADMAP.md`.
+
 ## CLI
 
 ```text
@@ -49,3 +59,5 @@ Exact reproducibility is established by replayed output bytes. Backend kind, abs
 ## Programmatic API
 
 Consumers importing the package root receive only the high-level operations `validateSpec`, `generateAsset`, `verifyAsset`, and `prepareProcessingHandoff`. Versioned schemas are separately available through the `./schemas/*` package export. Backend, cache, hashing, environment, and receipt-construction internals are deliberately not part of the public package API.
+
+The additive `asset-tooling/operations` subpath contains the Milestone A operation-contract surface; it does not widen the root export.

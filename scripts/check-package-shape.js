@@ -18,6 +18,14 @@ assert(packageJson.type === "module", "package must remain an ES module package"
 assert(/^\d+\.\d+\.\d+$/.test(packageJson.version), "package version must be an explicit semver version");
 assert(packageJson.bin?.["asset-tooling"] === "./src/entry.js", "asset-tooling CLI entry must remain stable");
 assert(packageJson.exports?.["."] === "./src/index.js", "root programmatic export must resolve to src/index.js");
+assert(
+  packageJson.exports?.["./operations"] === "./src/operations.js",
+  "asset operation contracts must remain available through the focused ./operations subpath",
+);
+assert(
+  packageJson.exports?.["./operations/store"] === "./src/asset-store.js",
+  "content-addressed asset storage must remain available through the focused ./operations/store subpath",
+);
 assert(packageJson.exports?.["./schemas/*"] === "./schemas/*", "versioned schemas must remain directly consumable");
 
 const requiredPackageRoots = ["src", "schemas", "adapters", "docs", "README.md"];
@@ -28,6 +36,8 @@ for (const item of requiredPackageRoots) {
 
 for (const file of [
   "src/index.js",
+  "src/operations.js",
+  "src/asset-store.js",
   "src/entry.js",
   "schemas/asset-spec-v1.schema.json",
   "schemas/generation-receipt-v1.schema.json",

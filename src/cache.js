@@ -5,6 +5,7 @@ import { sha256Bytes, sha256Text } from "./hash.js";
 
 const CACHE_ROOT = ".asset-tooling/cache";
 const CACHE_VERSION_ROOT = `${CACHE_ROOT}/v1`;
+const OBJECT_ROOT = ".asset-tooling/objects";
 const SHA256_PATTERN = /^[0-9a-f]{64}$/;
 
 function isObject(value) {
@@ -15,24 +16,27 @@ function cachePath(root, portablePath) {
   return path.join(root, ...portablePath.split("/"));
 }
 
-function isReservedCachePath(portablePath) {
-  return portablePath === CACHE_ROOT || portablePath.startsWith(`${CACHE_ROOT}/`);
+function isReservedPath(portablePath, reservedRoot) {
+  return portablePath === reservedRoot || portablePath.startsWith(`${reservedRoot}/`);
 }
 
-function assertPathOutsideCache(portablePath, description) {
-  if (isReservedCachePath(portablePath)) {
+function assertPathOutsideToolStorage(portablePath, description) {
+  if (isReservedPath(portablePath, CACHE_ROOT)) {
     throw new Error(`${description} must not use reserved asset-tooling cache path '${CACHE_ROOT}'`);
+  }
+  if (isReservedPath(portablePath, OBJECT_ROOT)) {
+    throw new Error(`${description} must not use reserved asset-tooling object path '${OBJECT_ROOT}'`);
   }
 }
 
 export function assertGenerationCachePaths(spec, receiptPath) {
-  assertPathOutsideCache(spec.output.path, "output path");
-  if (receiptPath !== undefined) assertPathOutsideCache(receiptPath, "receipt path");
+  assertPathOutsideToolStorage(spec.output.path, "output path");
+  if (receiptPath !== undefined) assertPathOutsideToolStorage(receiptPath, "receipt path");
   for (const [name, input] of Object.entries(spec.inputs)) {
-    assertPathOutsideCache(input.path, `input '${name}' path`);
+    assertPathOutsideToolStorage(input.path, `input '${name}' path`);
   }
   for (const [name, model] of Object.entries(spec.models)) {
-    assertPathOutsideCache(model.path, `model '${name}' path`);
+    assertPathOutsideToolStorage(model.path, `model '${name}' path`);
   }
 }
 
