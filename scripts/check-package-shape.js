@@ -26,6 +26,10 @@ assert(
   packageJson.exports?.["./operations/store"] === "./src/asset-store.js",
   "content-addressed asset storage must remain available through the focused ./operations/store subpath",
 );
+assert(
+  packageJson.exports?.["./operations/generation"] === "./src/generation-operations.js",
+  "generation operation adapters must remain available through the focused ./operations/generation subpath",
+);
 assert(packageJson.exports?.["./schemas/*"] === "./schemas/*", "versioned schemas must remain directly consumable");
 
 const requiredPackageRoots = ["src", "schemas", "adapters", "docs", "README.md"];
@@ -38,6 +42,7 @@ for (const file of [
   "src/index.js",
   "src/operations.js",
   "src/asset-store.js",
+  "src/generation-operations.js",
   "src/entry.js",
   "schemas/asset-spec-v1.schema.json",
   "schemas/generation-receipt-v1.schema.json",
