@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "baseline": [],
+  "suppressions": [],
+  "verifications": [
+    {
+      "id": "VERIFY-CLI-ENTRY",
+      "version": 1,
+      "expectation": "javascript-source-test",
+      "subject": "src/entry.js",
+      "command": ["bun", "run", "test"],
+      "reason": "The repository test suite includes behavioral CLI coverage in test/public-contract.test.js, which executes src/entry.js as the package entrypoint and verifies exit-code and usage behavior."
+    }
+  ],
+  "invariants": [],
+  "enforcement": {}
+}
