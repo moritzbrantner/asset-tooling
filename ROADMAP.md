@@ -60,6 +60,8 @@ First slices:
 - [x] Canonical operation build/cache key derived from operation identity, implementation identity, parameters, and validated input asset references.
 - [x] Content-addressed intermediate artifact resolution for operation outputs, with idempotent writes and fail-closed content verification.
 - [ ] Wrap the existing generation backends behind operation adapters without changing their authoritative spec/receipt semantics.
+  - [x] Prove the boundary with `builtin.procedural.svg-scatter@1`: explicit seed in operation build identity, authoritative backend reuse, content-addressed output, and byte/observation parity with the legacy generation path.
+  - [ ] Extend the same adapter boundary to model-backed generation only after the processor proof confirms the generic shape does not need to change.
 - [ ] Wrap existing processing operations behind the same operation boundary without moving their algorithms into this repository.
 - [ ] Prove the contract with at least one current generator and one current processor before publishing immutable operation schemas.
 
