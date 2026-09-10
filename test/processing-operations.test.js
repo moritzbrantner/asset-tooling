@@ -80,6 +80,7 @@ test("mesh.simplify build identity records semantic processor identity, not chec
   });
   assert.equal(identity.implementation.probe.protocol, "asset-tooling-process-adapter-v1");
   assert.equal(identity.implementation.probe.codec, "three-d-mesh-json-v1");
+  assert.equal(identity.implementation.probe.cargoLock, "fixture-lock-v1");
   assert.equal(JSON.stringify(identity).includes(FIXTURE_ADAPTER), false);
 });
 
