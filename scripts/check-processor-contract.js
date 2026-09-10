@@ -9,22 +9,31 @@ import {
   executeMeshSimplifyOperation,
 } from "../src/processing-operations.js";
 
-const [processorCheckout, revision] = process.argv.slice(2);
+const [processorCheckout, revision, repository, manifestRelativePath, operation] = process.argv.slice(2);
 if (!processorCheckout || !path.isAbsolute(processorCheckout)) {
   throw new Error("processor checkout must be an absolute path");
 }
 if (!/^[0-9a-f]{40}$/.test(revision ?? "")) {
   throw new Error("processor revision must be an exact lowercase Git commit SHA");
 }
+if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository ?? "")) {
+  throw new Error("processor repository must use owner/repository form");
+}
+if (
+  !manifestRelativePath ||
+  path.isAbsolute(manifestRelativePath) ||
+  manifestRelativePath.includes("\\") ||
+  manifestRelativePath.split("/").some((segment) => segment === "" || segment === "." || segment === "..")
+) {
+  throw new Error("processor manifest path must be a normalized portable relative path");
+}
+if (operation !== "mesh.simplify") {
+  throw new Error("processor contract proof currently supports only mesh.simplify");
+}
 
-const manifestPath = path.join(
-  processorCheckout,
-  "examples",
-  "asset-tooling-lod-adapter",
-  "Cargo.toml",
-);
+const manifestPath = path.join(processorCheckout, ...manifestRelativePath.split("/"));
 const processor = {
-  repository: "moritzbrantner/3d-lab",
+  repository,
   revision,
   executable: "cargo",
   scriptPath: "run",
@@ -80,11 +89,8 @@ try {
   };
 
   const identity = await createMeshSimplifyOperationBuildIdentity(root, invocation, processor);
-  assert.deepEqual(identity.operation, { id: "mesh.simplify", version: "1" });
-  assert.deepEqual(identity.implementation.source, {
-    repository: "moritzbrantner/3d-lab",
-    revision,
-  });
+  assert.deepEqual(identity.operation, { id: operation, version: "1" });
+  assert.deepEqual(identity.implementation.source, { repository, revision });
   assert.equal(identity.implementation.probe.id, "three-d-lod");
   assert.equal(identity.implementation.probe.algorithm, "meshopt-0.6.2");
   assert.equal(identity.implementation.probe.protocol, "asset-tooling-process-adapter-v1");
@@ -119,6 +125,7 @@ try {
       status: "processor-contract-valid",
       processor: identity.implementation.source,
       algorithm: identity.implementation.probe.algorithm,
+      codec: identity.implementation.probe.codec,
       inputSha256: source.sha256,
       outputSha256: first.outputs.output.sha256,
       sourceTriangleCount,
