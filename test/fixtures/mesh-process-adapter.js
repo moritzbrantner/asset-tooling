@@ -15,6 +15,7 @@ if (mode === "probe" && args.length === 0) {
         protocol: "asset-tooling-process-adapter-v1",
         codec: "three-d-mesh-json-v1",
         dependencies: { fixture: "1" },
+        cargoLock: "fixture-lock-v1",
       },
     ])}\n`,
   );
