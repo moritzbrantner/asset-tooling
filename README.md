@@ -38,9 +38,11 @@ See `docs/3d-processing.md` and `docs/generation-processing-handoff.md`.
 
 Milestone A introduces a runtime-neutral operation contract so generation, processing, analysis, composition, and export capabilities can eventually share one typed workflow vocabulary without replacing their authoritative algorithms or existing receipt contracts.
 
-The focused `asset-tooling/operations` package subpath provides runtime `AssetRef` values, versioned operation descriptors, a deterministic operation registry, typed input/result validation, and canonical build/cache identities. The root package API remains deliberately small.
+The focused `asset-tooling/operations` package subpath provides runtime `AssetRef` values, versioned operation descriptors, a deterministic operation registry, typed input/result validation, and canonical build/cache identities. `asset-tooling/operations/store` provides verified content-addressed intermediate objects. The root package API remains deliberately small.
 
-Operation descriptors are data rather than executors. This is the intended bridge to `workflow-editor` node templates and `workflow-runner` executors in the next milestone, without implementing another DAG/runtime inside this repository.
+The first real generator proof is available through `asset-tooling/operations/generation`: `procedural.svg.scatter@1` reuses the existing `builtin.procedural.svg-scatter@1` backend, maps its seed into the operation build identity, writes the output through the object store, and is tested for byte/hash/observation parity with the existing `generateAsset(...)` path.
+
+Operation descriptors remain data rather than executors. This is the intended bridge to `workflow-editor` node templates and `workflow-runner` executors in the next milestone, without implementing another DAG/runtime inside this repository.
 
 See `docs/operations.md` and `ROADMAP.md`.
 
@@ -60,4 +62,4 @@ Exact reproducibility is established by replayed output bytes. Backend kind, abs
 
 Consumers importing the package root receive only the high-level operations `validateSpec`, `generateAsset`, `verifyAsset`, and `prepareProcessingHandoff`. Versioned schemas are separately available through the `./schemas/*` package export. Backend, cache, hashing, environment, and receipt-construction internals are deliberately not part of the public package API.
 
-The additive `asset-tooling/operations` subpath contains the Milestone A operation-contract surface; it does not widen the root export.
+The additive `asset-tooling/operations`, `asset-tooling/operations/store`, and `asset-tooling/operations/generation` subpaths contain the Milestone A operation surfaces; they do not widen the root export.

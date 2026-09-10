@@ -7,6 +7,7 @@
     ".": "./src/index.js",
     "./operations": "./src/operations.js",
     "./operations/store": "./src/asset-store.js",
+    "./operations/generation": "./src/generation-operations.js",
     "./schemas/*": "./schemas/*"
   },
   "bin": {
