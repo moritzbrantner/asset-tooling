@@ -6,6 +6,7 @@
   "exports": {
     ".": "./src/index.js",
     "./operations": "./src/operations.js",
+    "./operations/store": "./src/asset-store.js",
     "./schemas/*": "./schemas/*"
   },
   "bin": {
