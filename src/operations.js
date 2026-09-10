@@ -5,13 +5,16 @@ const SHA256_PATTERN = /^[0-9a-f]{64}$/;
 const TOKEN_PATTERN = /^[a-z0-9]+(?:[._-][a-z0-9]+)*$/;
 const VERSION_PATTERN = /^[A-Za-z0-9]+(?:[._+-][A-Za-z0-9]+)*$/;
 const MEDIA_TYPE_PATTERN = /^[a-z0-9!#$&^_.+-]+\/[a-z0-9!#$&^_.+-]+$/;
+const PORT_MEDIA_TYPE_PATTERN = /^[a-z0-9!#$&^_.+-]+\/(?:[a-z0-9!#$&^_.+-]+|\*)$/;
 
 function isObject(value) {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
 }
 
 function assertObject(value, location) {
-  if (!isObject(value)) throw new Error(`${location} must be an object`);
+  if (!isObject(value)) throw new Error(`${location} must be a plain object`);
   return value;
 }
 
@@ -47,7 +50,15 @@ function assertVersion(value, location) {
 function assertMediaType(value, location) {
   const mediaType = assertNonEmptyString(value, location);
   if (!MEDIA_TYPE_PATTERN.test(mediaType)) {
-    throw new Error(`${location} must be a lowercase media type such as 'image/png'`);
+    throw new Error(`${location} must be a lowercase concrete media type such as 'image/png'`);
+  }
+  return mediaType;
+}
+
+function assertPortMediaType(value, location) {
+  const mediaType = assertNonEmptyString(value, location);
+  if (!PORT_MEDIA_TYPE_PATTERN.test(mediaType)) {
+    throw new Error(`${location} must be a lowercase media type or family such as 'image/png' or 'image/*'`);
   }
   return mediaType;
 }
@@ -69,12 +80,24 @@ function assertJsonValue(value, location) {
     }
     return;
   }
-  throw new Error(`${location} contains unsupported value type '${typeof value}'`);
+  throw new Error(`${location} contains unsupported non-JSON value`);
 }
 
 function canonicalClone(value, location) {
   assertJsonValue(value, location);
   return JSON.parse(canonicalJson(value));
+}
+
+function deepFreeze(value) {
+  if (Array.isArray(value)) {
+    value.forEach(deepFreeze);
+    return Object.freeze(value);
+  }
+  if (isObject(value)) {
+    Object.values(value).forEach(deepFreeze);
+    return Object.freeze(value);
+  }
+  return value;
 }
 
 function normalizeStringList(value, location, validator) {
@@ -110,7 +133,7 @@ function normalizePort(value, location) {
     cardinality: normalizeCardinality(port.cardinality, `${location}.cardinality`),
     required: port.required ?? true,
     assetKinds: normalizeStringList(port.assetKinds, `${location}.assetKinds`, assertToken),
-    mediaTypes: normalizeStringList(port.mediaTypes, `${location}.mediaTypes`, assertMediaType),
+    mediaTypes: normalizeStringList(port.mediaTypes, `${location}.mediaTypes`, assertPortMediaType),
   };
   if (port.label !== undefined) result.label = assertNonEmptyString(port.label, `${location}.label`);
   if (typeof result.required !== "boolean") throw new Error(`${location}.required must be a boolean`);
@@ -277,7 +300,7 @@ export function createAssetOperationRegistry(initialDescriptors = []) {
   const operations = new Map();
 
   function register(value) {
-    const descriptor = createAssetOperationDescriptor(value);
+    const descriptor = deepFreeze(createAssetOperationDescriptor(value));
     const key = `${descriptor.id}@${descriptor.version}`;
     if (operations.has(key)) throw new Error(`asset operation '${key}' is already registered`);
     operations.set(key, descriptor);
