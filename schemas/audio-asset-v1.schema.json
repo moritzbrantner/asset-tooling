@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://moritzbrantner.github.io/asset-tooling/schemas/audio-asset-v1.schema.json",
+  "title": "Canonical audio AssetRef v1",
+  "description": "Content-addressed canonical PCM signed-16 little-endian WAV audio with exact frame/sample metadata and operation lineage.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "kind", "mediaType", "sha256", "byteLength", "metadata"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "kind": { "const": "audio" },
+    "mediaType": { "const": "audio/wav" },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "byteLength": { "type": "integer", "minimum": 44 },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["audio", "provenance"],
+      "properties": {
+        "audio": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "schemaVersion",
+            "codec",
+            "sampleRate",
+            "channels",
+            "channelLayout",
+            "frameCount",
+            "duration"
+          ],
+          "properties": {
+            "schemaVersion": { "const": 1 },
+            "codec": { "const": "pcm-s16le" },
+            "sampleRate": { "type": "integer", "minimum": 8000, "maximum": 192000 },
+            "channels": { "enum": [1, 2] },
+            "channelLayout": { "enum": ["mono", "stereo"] },
+            "frameCount": { "type": "integer", "minimum": 0, "maximum": 10000000 },
+            "duration": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["numerator", "denominator"],
+              "properties": {
+                "numerator": { "type": "integer", "minimum": 0, "maximum": 10000000 },
+                "denominator": { "type": "integer", "minimum": 8000, "maximum": 192000 }
+              }
+            }
+          },
+          "allOf": [
+            {
+              "if": { "properties": { "channels": { "const": 1 } }, "required": ["channels"] },
+              "then": { "properties": { "channelLayout": { "const": "mono" } } }
+            },
+            {
+              "if": { "properties": { "channels": { "const": 2 } }, "required": ["channels"] },
+              "then": { "properties": { "channelLayout": { "const": "stereo" } } }
+            }
+          ]
+        },
+        "provenance": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["operation", "inputs"],
+          "properties": {
+            "operation": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["id", "version"],
+              "properties": {
+                "id": { "type": "string", "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*$" },
+                "version": { "type": "string", "minLength": 1 }
+              }
+            },
+            "inputs": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["port", "sha256"],
+                "properties": {
+                  "port": { "type": "string", "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*$" },
+                  "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
