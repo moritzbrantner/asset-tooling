@@ -8,7 +8,7 @@ The repository treats generated and processed assets as build artifacts. Generat
 
 The reusable core has completed its first stabilization milestone. Published schema versions are immutable compatibility contracts, CLI exit semantics and the deliberately small root programmatic API are protected by deterministic tests, generation cache reuse is fail-closed and content-addressed, and the package shape is validated without publishing it.
 
-The same public CLI/spec boundary is proven by merged Zoo and Medieval consumers. `bun run stability:check` exercises the local compatibility/package/reproducibility gate, while the hosted `Stability` workflow reruns the current `asset-tooling` head against exact accepted consumer commits and exact accepted external processor revisions recorded under `stability/`.
+The same public CLI/spec boundary is proven by merged Zoo and Medieval consumers. `bun run stability:check` exercises the local compatibility/package/reproducibility gate, while the hosted `Stability` workflow reruns the current `asset-tooling` head against exact accepted consumer commits, external processor revisions, and the pinned workflow-editor/workflow-runner conformance pair recorded under `stability/`.
 
 The package remains `0.1.0` until a stable release is intentionally cut; stabilization readiness does not publish or tag a release by itself. See `docs/stability.md`.
 
@@ -44,7 +44,7 @@ The generator proof lives under `asset-tooling/operations/generation`: `procedur
 
 The processor proof lives under `asset-tooling/operations/processing`: `mesh.simplify@1` consumes a verified mesh `AssetRef`, invokes the exact accepted `three-d-lod` implementation from `moritzbrantner/3d-lab` through the shared process-adapter protocol, validates receipt-compatible observations, and stores the derived mesh as another content-addressed `AssetRef`. The processor algorithm and mesh semantics remain owned by `3d-lab`; `stability/processors.json` pins the accepted external revision.
 
-Operation descriptors remain data rather than executors. This is the intended bridge to `workflow-editor` node templates and `workflow-runner` executors in the next milestone, without implementing another DAG/runtime inside this repository.
+The workflow bridge lives under `asset-tooling/operations/workflow`. It derives workflow-editor node templates from the same operation descriptors and provides one generic `asset.operation` workflow-runner executor. Asset-tooling owns this projection; workflow-editor and workflow-runner remain asset-agnostic. Operation observations are delivered through an external evidence callback instead of becoming workflow graph outputs.
 
 See `docs/operations.md` and `ROADMAP.md`.
 
@@ -64,4 +64,4 @@ Exact reproducibility is established by replayed output bytes. Backend kind, abs
 
 Consumers importing the package root receive only the high-level operations `validateSpec`, `generateAsset`, `verifyAsset`, and `prepareProcessingHandoff`. Versioned schemas are separately available through the `./schemas/*` package export. Backend, cache, hashing, environment, and receipt-construction internals are deliberately not part of the public package API.
 
-The additive `asset-tooling/operations`, `asset-tooling/operations/store`, `asset-tooling/operations/generation`, and `asset-tooling/operations/processing` subpaths contain the Milestone A operation surfaces; they do not widen the root export.
+The additive `asset-tooling/operations`, `asset-tooling/operations/store`, `asset-tooling/operations/generation`, `asset-tooling/operations/processing`, and `asset-tooling/operations/workflow` subpaths contain the Milestone A operation surfaces; they do not widen the root export.

@@ -1,4 +1,4 @@
-# Stability, consumer, and processor contracts
+# Stability, consumer, processor, and workflow contracts
 
 `asset-tooling` is reusable infrastructure. Its first stabilization milestone proves the existing contract before further generator or processor surface is added.
 
@@ -46,7 +46,7 @@ Internal backend, adapter, cache, hashing, receipt-construction, and environment
 
 ## Package readiness
 
-`bun run package:check` verifies the publishable package shape without publishing anything. `bun run stability:check` composes the local test, package, CLI fixture, accepted-consumer-manifest, and accepted-processor-manifest gates. In `.coding-tooling.json`, that repository-specific command is mapped to the shared semantic integration-test capability rather than introducing an asset-specific capability into coding-tooling.
+`bun run package:check` verifies the publishable package shape without publishing anything. `bun run stability:check` composes the local test, package, CLI fixture, accepted-consumer, accepted-processor, and pinned workflow-stack manifest gates. In `.coding-tooling.json`, that repository-specific command is mapped to the shared semantic integration-test capability rather than introducing an asset-specific capability into coding-tooling.
 
 The package remains `0.1.0` until a stable release is intentionally cut. Completing stabilization makes a stable release eligible; it does not publish, tag, or claim a new package version automatically.
 
@@ -84,6 +84,20 @@ For every current `asset-tooling` pull request and main commit, the hosted Stabi
 
 A local fixture processor remains useful for fast adapter plumbing tests, but it does not satisfy external processor acceptance. Only the exact external processor job proves the cross-repository ownership boundary.
 
+## Accepted workflow contract evidence
+
+`stability/workflow-stack.json` pins the exact `workflow-editor` and `workflow-runner` revisions used to prove the operation projection. These repositories are contract consumers, not asset-tooling implementation dependencies: the asset bridge points outward to their generic data shapes, while they remain asset-agnostic.
+
+For every current asset-tooling pull request and main commit, the hosted workflow-bridge Stability job checks out those exact revisions, installs workflow-editor from its committed lockfile, and uses the real editor type system/compiler plus the real runner to prove that:
+
+1. derived structural asset types reject an incompatible SVG-to-mesh connection;
+2. selected asset operation identity and parameter values survive compilation into compiled workflow v1;
+3. `procedural.svg.scatter@1` executes through the generic runner and returns a resolvable object-store asset;
+4. `mesh.simplify@1` executes through the same generic `asset.operation` executor shape;
+5. full operation observations remain external evidence rather than synthetic graph outputs.
+
+The bridge test intentionally uses the local mesh processor fixture for runner plumbing because the independent accepted-processor job already proves the real `three-d-lod` implementation. Passing one test cannot substitute for the other.
+
 ## Stabilization gates
 
 1. Published schemas, CLI exit semantics, and the root programmatic API are protected by deterministic compatibility tests.
@@ -92,9 +106,10 @@ A local fixture processor remains useful for fast adapter plumbing tests, but it
 4. Clean-room and fault-injection tests cover corrupted artifacts/receipts/cache entries, missing dependencies, environment drift, reserved-path escapes, and repeated/idempotent operation.
 5. Merged Zoo and Medieval assets consume the public contract rather than repository internals.
 6. Accepted external processors remain pinned by exact repository revision and are exercised through their real integration boundary rather than copied into asset-tooling.
-7. Shared abstractions are introduced only when multiple consumers or implementations demonstrate the same missing responsibility.
-8. The exact release candidate must have local `stability:check`, hosted current-head consumer and processor contracts, existing processing-contract validation, and Ubuntu/macOS/Windows Validate jobs green together.
+7. The workflow bridge remains pinned to exact generic editor/runner contract consumers and must not invert ownership by making them asset-aware.
+8. Shared abstractions are introduced only when multiple consumers or implementations demonstrate the same missing responsibility.
+9. The exact release candidate must have local `stability:check`, hosted current-head consumer, processor, and workflow-bridge contracts, existing processing-contract validation, and Ubuntu/macOS/Windows Validate jobs green together.
 
 ## Ownership boundary
 
-`asset-tooling` owns reproducible asset-build intent, operation envelopes, provenance, validation, handoff, local content-addressed reuse, and replay evidence. Domain repositories continue to own generation and processing algorithms. Consumer repositories own runtime/game semantics. Stabilization must not blur those boundaries merely to make integration easier.
+`asset-tooling` owns reproducible asset-build intent, operation envelopes, provenance, validation, handoff, local content-addressed reuse, and replay evidence. Domain repositories continue to own generation and processing algorithms. `workflow-editor` owns workflow authoring/type semantics; `workflow-runner` owns generic execution dispatch. Consumer repositories own runtime/game semantics. Stabilization must not blur those boundaries merely to make integration easier.
