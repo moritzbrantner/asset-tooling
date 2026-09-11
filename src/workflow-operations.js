@@ -186,6 +186,12 @@ function portTypesMatchExactly(sourcePort, targetPort) {
   return canonicalJson(sourcePort.type) === canonicalJson(targetPort.type);
 }
 
+function constraintIsStructurallyComplete(constraint) {
+  if (!constraint) return false;
+  if (constraint.mediaTypes.some((mediaType) => mediaType.endsWith("/*"))) return false;
+  return constraint.cardinality === "single" || constraint.cardinality === "many";
+}
+
 function stringConstraintSetIsSubset(source, target) {
   if (target.length === 0) return true;
   if (source.length === 0) return false;
@@ -239,9 +245,13 @@ export function validateAssetOperationWorkflowConnection(document, connection) {
 
   if (!source && !target) return { valid: true };
   if (!source || !target) {
-    return portTypesMatchExactly(sourcePort, targetPort)
-      ? { valid: true }
-      : { valid: false, reason: "type-mismatch" };
+    if (!portTypesMatchExactly(sourcePort, targetPort)) {
+      return { valid: false, reason: "type-mismatch" };
+    }
+    if (!source && target && !constraintIsStructurallyComplete(target)) {
+      return { valid: false, reason: "type-mismatch" };
+    }
+    return { valid: true };
   }
   if (!stringConstraintSetIsSubset(source.assetKinds, target.assetKinds)) {
     return { valid: false, reason: "type-mismatch" };
