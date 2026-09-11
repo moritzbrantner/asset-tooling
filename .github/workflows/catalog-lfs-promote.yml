@@ -53,7 +53,6 @@ jobs:
           test "$(git check-attr filter -- "${{ steps.promote.outputs.asset_path }}" | awk '{print $3}')" = "lfs"
           bun run catalog:storage:check
           bun run catalog:storage:verify
-          git lfs fsck
       - name: Stage Git LFS pointer and manifests
         id: stage
         shell: bash
@@ -61,6 +60,7 @@ jobs:
           set -euo pipefail
           git add catalog/sources.json catalog/storage.json "${{ steps.promote.outputs.asset_path }}"
           git diff --cached --check
+          git lfs fsck
           if git diff --cached --quiet; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
