@@ -10,6 +10,7 @@ import {
   parseRgba8Image,
 } from "../src/image-rgba8.js";
 import {
+  IMAGE_OPERATIONS,
   IMAGE_RESIZE_OPERATION,
   createImageResizeOperationBuildIdentity,
   executeImageResizeOperation,
@@ -68,14 +69,21 @@ test("canonical RGBA8 codec rejects contradictory byte length", () => {
   assert.throws(() => parseRgba8Image(invalid), /exactly 8 bytes/);
 });
 
-test("image.resize exposes one typed deterministic RGBA8 input and output", () => {
+test("image geometry registry is deterministic and typed", () => {
+  assert.deepEqual(
+    IMAGE_OPERATIONS.map((operation) => operation.id),
+    ["image.crop", "image.flip", "image.pad", "image.resize", "image.rotate"],
+  );
   assert.equal(IMAGE_RESIZE_OPERATION.id, "image.resize");
   assert.equal(IMAGE_RESIZE_OPERATION.version, "1");
   assert.deepEqual(IMAGE_RESIZE_OPERATION.inputs[0].assetKinds, ["image"]);
   assert.deepEqual(IMAGE_RESIZE_OPERATION.inputs[0].mediaTypes, [RGBA8_IMAGE_MEDIA_TYPE]);
   assert.deepEqual(IMAGE_RESIZE_OPERATION.outputs[0].assetKinds, ["image"]);
   assert.deepEqual(IMAGE_RESIZE_OPERATION.outputs[0].mediaTypes, [RGBA8_IMAGE_MEDIA_TYPE]);
-  assert.deepEqual(IMAGE_RESIZE_OPERATION.parameterSchema.properties.filter.enum, ["nearest"]);
+  assert.deepEqual(IMAGE_RESIZE_OPERATION.parameterSchema.properties.filter.enum, [
+    "nearest",
+    "bilinear",
+  ]);
 });
 
 test("image.resize build identity binds source content and exact algorithm", async () => {
@@ -156,10 +164,8 @@ test("image.resize stores identical bytes and observations across repeated execu
     sourceHeight: 2,
     resultWidth: 3,
     resultHeight: 2,
-    filter: "nearest",
     algorithm: "nearest-center-integer-v1",
-    sourcePixelCount: 4,
-    resultPixelCount: 6,
+    parameters: { width: 3, height: 2, filter: "nearest" },
   });
   const output = parseRgba8Image(await resolveAssetObject(root, first.outputs.output));
   assert.equal(output.width, 3);
@@ -171,10 +177,10 @@ test("image.resize rejects unsupported filters and missing source bytes", async 
   await assert.rejects(
     () =>
       createImageResizeOperationBuildIdentity(root, {
-        parameters: { width: 1, height: 1, filter: "bilinear" },
+        parameters: { width: 1, height: 1, filter: "bicubic" },
         inputs: { source },
       }),
-    /filter must be 'nearest'/,
+    /nearest.*bilinear/,
   );
 
   const missing = { ...source, sha256: "f".repeat(64) };
