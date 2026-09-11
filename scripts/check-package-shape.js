@@ -48,6 +48,10 @@ assert(
   "deterministic image operations must remain available through the focused ./operations/image subpath",
 );
 assert(
+  packageJson.exports?.["./operations/image/filters"] === "./src/image-filter-operations.js",
+  "deterministic image filter operations must remain available through the focused ./operations/image/filters subpath",
+);
+assert(
   packageJson.exports?.["./image/rgba8"] === "./src/image-rgba8.js",
   "canonical RGBA8 image contracts must remain available through the focused ./image/rgba8 subpath",
 );
@@ -94,6 +98,7 @@ for (const file of [
   "src/animation-processing-operations.js",
   "src/image-rgba8.js",
   "src/image-operations.js",
+  "src/image-filter-operations.js",
   "src/audio.js",
   "src/audio-operations.js",
   "src/audio-model-operations.js",
