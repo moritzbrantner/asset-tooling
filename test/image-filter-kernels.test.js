@@ -86,6 +86,16 @@ test("generic convolution validates bounded odd kernels and preserves alpha on r
   assert.deepEqual(identity.pixels, source.pixels);
 });
 
+test("premultiplied convolution unpremultiplies from raw rational sums", () => {
+  const source = image(1, 1, pixel(2, 0, 0, 1));
+  const output = convolveRgba8(
+    source,
+    { width: 1, height: 1, weights: [1], divisor: 2, bias: 0 },
+    { alphaMode: "convolve-premultiplied" },
+  );
+  assert.deepEqual(output.pixels, pixels(pixel(2, 0, 0, 1)));
+});
+
 test("box blur convolves premultiplied color and alpha", () => {
   const source = image(
     3,
