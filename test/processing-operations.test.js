@@ -21,6 +21,9 @@ const FIXTURE_ADAPTER = fileURLToPath(new URL("./fixtures/mesh-process-adapter.j
 const LOD_FIXTURE_ADAPTER = fileURLToPath(
   new URL("./fixtures/lod-chain-process-adapter.js", import.meta.url),
 );
+const MUTATING_LOD_FIXTURE_ADAPTER = fileURLToPath(
+  new URL("./fixtures/lod-chain-mutating-process-adapter.js", import.meta.url),
+);
 const PROCESSOR = {
   repository: "fixture/three-d-lod",
   revision: "f".repeat(40),
@@ -34,6 +37,11 @@ const LOD_PROCESSOR = {
   executable: process.execPath,
   scriptPath: LOD_FIXTURE_ADAPTER,
   prefixArguments: [],
+};
+const MUTATING_LOD_PROCESSOR = {
+  ...LOD_PROCESSOR,
+  revision: "d".repeat(40),
+  scriptPath: MUTATING_LOD_FIXTURE_ADAPTER,
 };
 const PARAMETERS = {
   sourceTriangleCount: 8,
@@ -256,6 +264,28 @@ test("mesh.lod_chain stores a deterministic source-based bundle with per-level i
   assert.deepEqual(output.levels.map((level) => level.indices.length), [18, 12, 6]);
 });
 
+test("mesh.lod_chain rejects ratio budgets that do not match the versioned materialization rule", async () => {
+  const { root, source } = await workspaceWithSource();
+  await assert.rejects(
+    () =>
+      createMeshLodChainOperationBuildIdentity(
+        root,
+        {
+          parameters: {
+            ...LOD_PARAMETERS,
+            levels: [
+              { ...LOD_PARAMETERS.levels[0], targetTriangleCount: 5 },
+              ...LOD_PARAMETERS.levels.slice(1),
+            ],
+          },
+          inputs: { source },
+        },
+        LOD_PROCESSOR,
+      ),
+    /targetTriangleCount must equal the materialized ratio budget 6/,
+  );
+});
+
 test("mesh.lod_chain rejects non-source-based and non-decreasing level contracts before processor execution", async () => {
   const { root, source } = await workspaceWithSource();
   await assert.rejects(
@@ -279,7 +309,7 @@ test("mesh.lod_chain rejects non-source-based and non-decreasing level contracts
             ...LOD_PARAMETERS,
             levels: [
               LOD_PARAMETERS.levels[0],
-              { ...LOD_PARAMETERS.levels[1], targetTriangleCount: 6 },
+              { triangleRatio: 0.7, targetTriangleCount: 6, targetError: 1, lockBorder: false },
             ],
           },
           inputs: { source },
@@ -287,5 +317,18 @@ test("mesh.lod_chain rejects non-source-based and non-decreasing level contracts
         LOD_PROCESSOR,
       ),
     /targetTriangleCount values must be strictly decreasing/,
+  );
+});
+
+test("mesh.lod_chain rejects an adapter that mutates the bound source vertex buffer", async () => {
+  const { root, source } = await workspaceWithSource();
+  await assert.rejects(
+    () =>
+      executeMeshLodChainOperation(
+        root,
+        { parameters: LOD_PARAMETERS, inputs: { source } },
+        MUTATING_LOD_PROCESSOR,
+      ),
+    /differs from the bound source mesh/,
   );
 });
