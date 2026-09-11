@@ -39,6 +39,11 @@ assert(
   "processing operation adapters must remain available through the focused ./operations/processing subpath",
 );
 assert(
+  packageJson.exports?.["./operations/processing/animation"] ===
+    "./src/animation-processing-operations.js",
+  "animation processing operation adapters must remain available through the focused ./operations/processing/animation subpath",
+);
+assert(
   packageJson.exports?.["./operations/audio"] === "./src/audio-operations.js",
   "audio operations must remain available through the focused ./operations/audio subpath",
 );
@@ -78,6 +83,7 @@ for (const file of [
   "src/generation-operations.js",
   "src/triposr-operation.js",
   "src/processing-operations.js",
+  "src/animation-processing-operations.js",
   "src/audio.js",
   "src/audio-operations.js",
   "src/audio-model-operations.js",
