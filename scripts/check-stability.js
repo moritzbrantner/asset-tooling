@@ -30,6 +30,17 @@ const expectedProcessors = new Map([
   ],
 ]);
 
+const expectedWorkflowStack = {
+  editor: {
+    repository: "moritzbrantner/workflow-editor",
+    commit: "2797dcb357f00f3d388442a3de4dbfeb7e82cb96",
+  },
+  runner: {
+    repository: "moritzbrantner/workflow-runner",
+    commit: "74fee4790bdc5e0a014846ad88377790f0dc37e5",
+  },
+};
+
 function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
@@ -146,10 +157,32 @@ for (const processor of processorManifest.processors) {
 }
 assert(seenProcessors.size === expectedProcessors.size, "all accepted processors must be present exactly once");
 
+const workflowStack = JSON.parse(
+  await readFile(new URL("../stability/workflow-stack.json", import.meta.url), "utf8"),
+);
+assertExactFields(
+  workflowStack,
+  new Set(["schemaVersion", "editor", "runner"]),
+  "workflow stack stability manifest",
+);
+assert(workflowStack.schemaVersion === 1, "workflow stack stability manifest schemaVersion must be 1");
+for (const role of ["editor", "runner"]) {
+  const actual = workflowStack[role];
+  const expected = expectedWorkflowStack[role];
+  assertExactFields(actual, new Set(["repository", "commit"]), `workflow stack ${role} evidence`);
+  assert(actual.repository === expected.repository, `workflow stack ${role} repository must remain '${expected.repository}'`);
+  assertExactCommit(actual.commit, `workflow stack ${role} commit`);
+  assert(actual.commit === expected.commit, `workflow stack ${role} commit must remain '${expected.commit}'`);
+}
+
 console.log(
   JSON.stringify({
     status: "stable-contract-valid",
     consumers: [...seenConsumers].sort(),
     processors: [...seenProcessors].sort(),
+    workflowStack: {
+      editor: workflowStack.editor.commit,
+      runner: workflowStack.runner.commit,
+    },
   }),
 );
