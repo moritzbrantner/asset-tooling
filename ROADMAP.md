@@ -76,7 +76,7 @@ First slices:
 
 Acceptance boundary: existing root imports, CLI behavior, published schemas, generation receipts, processing receipts, and exact-replay rules remain compatible. `stability/processors.json` pins accepted external processor evidence separately from consumer evidence, and `stability/workflow-stack.json` pins the workflow contract consumers used to prove the bridge.
 
-### Milestone B — Workflow integration — STARTED
+### Milestone B — Workflow integration — COMPLETE
 
 Use the shared workflow system instead of implementing an asset-specific DAG.
 
@@ -84,7 +84,7 @@ Use the shared workflow system instead of implementing an asset-specific DAG.
 - [x] Derive a workflow-runner executor from the same operation registrations.
 - [x] Compile asset operation nodes through the execution-neutral workflow contract.
 - [x] Keep workflow execution state and operation evidence outside editable asset/workflow documents.
-- [ ] Add a small deterministic multi-node reference workflow covering generate -> transform -> compose -> export once compatible transform/composition operations exist.
+- [x] Add a small deterministic multi-node reference workflow covering generate -> transform -> compose -> export: two procedural audio sources feed a gain transform and typed `json.array`, then `audio.mix`, with a typed terminal export of the final content-addressed Audio `AssetRef`; repeated execution must produce the same final SHA-256.
 
 ### Milestone C — Classic deterministic image toolkit
 
