@@ -42,6 +42,19 @@ test("nearest resize uses deterministic center mapping", () => {
   );
 });
 
+test("nearest resize samples vertical centers from source height on non-square images", () => {
+  const source = image(
+    1,
+    4,
+    pixel(1, 0, 0),
+    pixel(2, 0, 0),
+    pixel(3, 0, 0),
+    pixel(4, 0, 0),
+  );
+  const resized = resizeRgba8Nearest(source, 1, 2);
+  assert.deepEqual(resized.pixels, pixels(pixel(2, 0, 0), pixel(4, 0, 0)));
+});
+
 test("bilinear resize uses exact rational center weights", () => {
   const source = image(2, 1, pixel(0, 0, 0), pixel(255, 255, 255));
   const resized = resizeRgba8Bilinear(source, 3, 1);
