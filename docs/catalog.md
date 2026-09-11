@@ -68,15 +68,18 @@ The catalog stores provenance and exact bytes; format conversion belongs to type
 
 The rollout is deliberately vertical:
 
-1. **3D reference consumers:** `3d-lab`, `ecs-lab`, `physics-engine`, `layout-lab`, `maps`. Reuse pinned glTF/GLB reference objects for importer, renderer, material, animation, picking, collision, and optimization scenarios instead of cloning opaque fixtures.
-2. **Application/game consumers:** `example-apps`, Expo/template demos, card/game repositories. Prefer Kenney/Quaternius CC0 packs for generic UI, sprites, props, characters, and environment material; keep app-specific art local.
-3. **Media consumers:** audio/video analysis, playback, similarity, transcription, and conversion repositories. Reuse a small pinned corpus with explicit purpose tags; do not grow giant fixture collections simply because assets are available.
-4. **Workbench:** expose catalog browsing, source status, provenance, previews, variants, and approved versions in the asset workbench/GitHub Pages surface. Avoid decorative counters; interaction should answer which asset is appropriate and why.
+1. **3D asset consumers:** `3d-lab`, `layout-lab`, and asset/rendering surfaces in `maps`. Reuse pinned glTF/GLB reference objects for importer, renderer, material, animation, picking, and optimization scenarios instead of cloning opaque fixtures.
+2. **Simulation demos, not kernels:** `ecs-lab` and `physics-engine` may use canonical assets only in Pages/demo adapters. ECS storage and physics simulation contracts must not acquire rendering or media ownership merely because their demos need models or textures.
+3. **Application/game consumers:** `example-apps`, Expo/template demos, card/game repositories. Prefer Kenney/Quaternius CC0 packs for generic UI, sprites, props, characters, and environment material; keep app-specific art local.
+4. **Media consumers:** audio/video analysis, playback, similarity, transcription, and conversion repositories. Reuse a small pinned corpus with explicit purpose tags; do not grow giant fixture collections simply because assets are available.
+5. **Workbench:** expose catalog browsing, source status, provenance, previews, variants, and approved versions in the asset workbench/GitHub Pages surface. Avoid decorative counters; interaction should answer which asset is appropriate and why.
 
 A consumer should normally depend on a catalog id plus an exact `AssetRef`/materialization result rather than commit another independent copy. If a consumer must vendor bytes for offline/runtime packaging, retain the catalog provenance and exact hash beside the vendored file.
 
-## Seed source
+## Seed sources
 
-`catalog/sources.json` starts with the Khronos Avocado GLB at an exact upstream commit. The file is CC0 according to its asset-specific license record. It remains a candidate until its downloaded bytes are SHA-256 pinned; the recorded upstream Git blob SHA and byte length are acquisition evidence only.
+`khronos.triangle-embedded-gltf` is the first fully pinned canonical source. It is a 1,122-byte, self-contained glTF 2.0 Triangle from an exact Khronos commit, with CC0 evidence and an independently recorded SHA-256. Its upstream Git blob identity is retained as additional acquisition evidence, not as a substitute for the SHA-256.
 
-This gives the fleet a real reference source without weakening the rule that canonical bytes must be measured locally before reuse.
+`khronos.avocado-glb` is a larger PBR reference at the same exact upstream commit. It remains a candidate until its downloaded bytes are SHA-256 pinned; the recorded upstream Git blob SHA and byte length are acquisition evidence only.
+
+Together these give the fleet both a tiny deterministic conformance fixture and a realistic PBR candidate without weakening the rule that canonical bytes must be measured before reuse.
