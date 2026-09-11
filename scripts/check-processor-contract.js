@@ -4,8 +4,11 @@ import path from "node:path";
 import { mkdtemp, rm } from "node:fs/promises";
 import { resolveAssetObject, storeAssetObject } from "../src/asset-store.js";
 import {
+  THREE_D_LOD_CHAIN_MEDIA_TYPE,
   THREE_D_MESH_MEDIA_TYPE,
+  createMeshLodChainOperationBuildIdentity,
   createMeshSimplifyOperationBuildIdentity,
+  executeMeshLodChainOperation,
   executeMeshSimplifyOperation,
 } from "../src/processing-operations.js";
 
@@ -27,8 +30,8 @@ if (
 ) {
   throw new Error("processor manifest path must be a normalized portable relative path");
 }
-if (operation !== "mesh.simplify") {
-  throw new Error("processor contract proof currently supports only mesh.simplify");
+if (operation !== "mesh.simplify" && operation !== "mesh.lod_chain") {
+  throw new Error("processor contract proof supports mesh.simplify and mesh.lod_chain");
 }
 
 const manifestPath = path.join(processorCheckout, ...manifestRelativePath.split("/"));
@@ -37,7 +40,10 @@ const processor = {
   revision,
   executable: "cargo",
   scriptPath: "run",
-  prefixArguments: ["--quiet", "--manifest-path", manifestPath, "--"],
+  prefixArguments:
+    operation === "mesh.lod_chain"
+      ? ["--quiet", "--manifest-path", manifestPath, "--bin", "lod_chain", "--"]
+      : ["--quiet", "--manifest-path", manifestPath, "--"],
 };
 
 function gridMesh(segments) {
@@ -61,8 +67,7 @@ function gridMesh(segments) {
   return { schemaVersion: 1, vertices, indices };
 }
 
-const root = await mkdtemp(path.join(os.tmpdir(), "asset-tooling-real-processor-"));
-try {
+async function storedSource(root) {
   const sourceDocument = gridMesh(8);
   const sourceTriangleCount = sourceDocument.indices.length / 3;
   const sourceBytes = Buffer.from(JSON.stringify(sourceDocument), "utf8");
@@ -78,6 +83,11 @@ try {
       },
     })
   ).asset;
+  return { sourceDocument, sourceTriangleCount, source };
+}
+
+async function checkSimplify(root) {
+  const { sourceDocument, sourceTriangleCount, source } = await storedSource(root);
   const invocation = {
     parameters: {
       sourceTriangleCount,
@@ -120,18 +130,102 @@ try {
   assert.deepEqual(output.vertices, sourceDocument.vertices);
   assert.equal(output.indices.length, first.observations.resultIndexCount);
 
-  console.log(
-    JSON.stringify({
-      status: "processor-contract-valid",
-      processor: identity.implementation.source,
-      algorithm: identity.implementation.probe.algorithm,
-      codec: identity.implementation.probe.codec,
-      inputSha256: source.sha256,
-      outputSha256: first.outputs.output.sha256,
+  return {
+    status: "processor-contract-valid",
+    processor: identity.implementation.source,
+    algorithm: identity.implementation.probe.algorithm,
+    codec: identity.implementation.probe.codec,
+    inputSha256: source.sha256,
+    outputSha256: first.outputs.output.sha256,
+    sourceTriangleCount,
+    resultTriangleCount: first.observations.resultTriangleCount,
+  };
+}
+
+async function checkLodChain(root) {
+  const { sourceDocument, sourceTriangleCount, source } = await storedSource(root);
+  const levels = [0.75, 0.5, 0.25].map((triangleRatio) => ({
+    triangleRatio,
+    targetTriangleCount: Math.round(sourceTriangleCount * triangleRatio),
+    targetError: 1,
+    lockBorder: false,
+  }));
+  const invocation = {
+    parameters: {
       sourceTriangleCount,
-      resultTriangleCount: first.observations.resultTriangleCount,
-    }),
-  );
+      sourceBased: true,
+      budgetRounding: "nearest-ties-away-from-zero",
+      levels,
+    },
+    inputs: { source },
+  };
+
+  const identity = await createMeshLodChainOperationBuildIdentity(root, invocation, processor);
+  assert.deepEqual(identity.operation, { id: operation, version: "1" });
+  assert.deepEqual(identity.implementation.source, { repository, revision });
+  assert.equal(identity.implementation.probe.id, "three-d-lod-chain");
+  assert.equal(identity.implementation.probe.algorithm, "meshopt-0.6.2");
+  assert.equal(identity.implementation.probe.protocol, "asset-tooling-process-adapter-v1");
+  assert.equal(identity.implementation.probe.codec, "three-d-lod-chain-json-v1");
+  assert.equal(identity.implementation.probe.dependencies.meshopt, "0.6.2");
+  assert.match(identity.implementation.probe.cargoLock, /name = "meshopt"/);
+  assert.match(identity.implementation.probe.cargoLock, /version = "0\.6\.2"/);
+
+  const first = await executeMeshLodChainOperation(root, invocation, processor);
+  const second = await executeMeshLodChainOperation(root, invocation, processor);
+  assert.equal(first.outputs.output.kind, "lod-chain");
+  assert.equal(first.outputs.output.mediaType, THREE_D_LOD_CHAIN_MEDIA_TYPE);
+  assert.equal(second.outputs.output.sha256, first.outputs.output.sha256);
+  assert.deepEqual(second.observations, first.observations);
+  assert.equal(first.observations.sourceTriangleCount, sourceTriangleCount);
+  assert.equal(first.observations.sourceVertexCount, sourceDocument.vertices.length);
+  assert.equal(first.observations.sourceBased, true);
+  assert.equal(first.observations.sharedSourceVertexBuffer, true);
+  assert.equal(first.observations.levels.length, levels.length);
+  for (const [index, level] of first.observations.levels.entries()) {
+    assert.equal(level.level, index + 1);
+    assert.equal(level.triangleRatio, levels[index].triangleRatio);
+    assert.equal(level.requestedTriangleCount, levels[index].targetTriangleCount);
+    assert.equal(level.resultIndexCount, level.resultTriangleCount * 3);
+    assert.ok(level.relativeError <= levels[index].targetError);
+    assert.match(level.indexSha256, /^[0-9a-f]{64}$/);
+    if (index > 0) {
+      assert.ok(level.resultTriangleCount <= first.observations.levels[index - 1].resultTriangleCount);
+    }
+  }
+
+  const outputBytes = await resolveAssetObject(root, first.outputs.output);
+  const output = JSON.parse(outputBytes.toString("utf8"));
+  assert.equal(output.schemaVersion, 1);
+  assert.deepEqual(output.sourceVertices, sourceDocument.vertices);
+  assert.equal(output.levels.length, levels.length);
+  for (const [index, level] of output.levels.entries()) {
+    assert.equal(level.level, index + 1);
+    assert.equal(level.indices.length, first.observations.levels[index].resultIndexCount);
+  }
+
+  return {
+    status: "processor-contract-valid",
+    processor: identity.implementation.source,
+    algorithm: identity.implementation.probe.algorithm,
+    codec: identity.implementation.probe.codec,
+    inputSha256: source.sha256,
+    outputSha256: first.outputs.output.sha256,
+    sourceTriangleCount,
+    levels: first.observations.levels.map((level) => ({
+      level: level.level,
+      requestedTriangleCount: level.requestedTriangleCount,
+      resultTriangleCount: level.resultTriangleCount,
+      indexSha256: level.indexSha256,
+    })),
+  };
+}
+
+const root = await mkdtemp(path.join(os.tmpdir(), "asset-tooling-real-processor-"));
+try {
+  const result =
+    operation === "mesh.lod_chain" ? await checkLodChain(root) : await checkSimplify(root);
+  console.log(JSON.stringify(result));
 } finally {
   await rm(root, { recursive: true, force: true });
 }
