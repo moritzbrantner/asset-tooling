@@ -43,7 +43,7 @@ async function workspace() {
   return mkdtemp(path.join(os.tmpdir(), "asset-tooling-stable-diffusion-operation-"));
 }
 
-function modelBackend({ environmentVersion = "1", generate } = {}) {
+function modelBackend({ environmentVersion = "1", generate, onEnvironmentDocument } = {}) {
   const authoritative = getBackend({ id: "model.stable-diffusion.diffusers", version: "1" });
   return {
     id: authoritative.id,
@@ -52,7 +52,8 @@ function modelBackend({ environmentVersion = "1", generate } = {}) {
     validate(document) {
       authoritative.validate(document);
     },
-    async environmentComponents() {
+    async environmentComponents(document) {
+      onEnvironmentDocument?.(document);
       return [{ id: "test-stable-diffusion-runtime", version: environmentVersion }];
     },
     async generate(document) {
@@ -73,9 +74,16 @@ test("Stable Diffusion operation exposes the pipeline bundle as content-addresse
   assert.deepEqual(STABLE_DIFFUSION_IMAGE_OPERATION.outputs[0].mediaTypes, ["image/png"]);
 });
 
-test("Stable Diffusion operation build identity binds model bytes, parameters, and execution environment", async () => {
-  const backend = modelBackend();
+test("Stable Diffusion operation build identity binds model bytes, parameters, execution environment, and asset root", async () => {
+  const root = await workspace();
+  let probedRoot;
+  const backend = modelBackend({
+    onEnvironmentDocument(document) {
+      probedRoot = document.root;
+    },
+  });
   const identity = await createStableDiffusionImageOperationBuildIdentity(
+    root,
     {
       parameters: PARAMETERS,
       inputs: { model: MODEL },
@@ -83,6 +91,7 @@ test("Stable Diffusion operation build identity binds model bytes, parameters, a
     backend,
   );
 
+  assert.equal(probedRoot, root);
   assert.deepEqual(identity.operation, { id: "image.stable-diffusion.generate", version: "1" });
   assert.equal(identity.parameters.seed, "42");
   assert.equal(identity.parameters.pipelineId, "stable-diffusion-local-pipeline");
@@ -97,6 +106,7 @@ test("Stable Diffusion operation build identity binds model bytes, parameters, a
   assert.match(identity.implementation.environment.sha256, /^[0-9a-f]{64}$/);
 
   const otherModel = await createStableDiffusionImageOperationBuildIdentity(
+    root,
     {
       parameters: PARAMETERS,
       inputs: { model: { ...MODEL, sha256: "b".repeat(64) } },
@@ -106,6 +116,7 @@ test("Stable Diffusion operation build identity binds model bytes, parameters, a
   assert.notDeepEqual(identity, otherModel);
 
   const otherEnvironment = await createStableDiffusionImageOperationBuildIdentity(
+    root,
     {
       parameters: PARAMETERS,
       inputs: { model: MODEL },
@@ -189,10 +200,12 @@ test("Stable Diffusion operation fails closed before generation when model bytes
 });
 
 test("Stable Diffusion operation preserves backend validation for seed domain and unsupported parameters", async () => {
+  const root = await workspace();
   const backend = modelBackend();
   await assert.rejects(
     () =>
       createStableDiffusionImageOperationBuildIdentity(
+        root,
         {
           parameters: { ...PARAMETERS, seed: "18446744073709551616" },
           inputs: { model: MODEL },
@@ -205,6 +218,7 @@ test("Stable Diffusion operation preserves backend validation for seed domain an
   await assert.rejects(
     () =>
       createStableDiffusionImageOperationBuildIdentity(
+        root,
         {
           parameters: { ...PARAMETERS, hiddenDownload: true },
           inputs: { model: MODEL },
