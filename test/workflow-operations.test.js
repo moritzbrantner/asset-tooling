@@ -93,6 +93,23 @@ test("asset value cardinality projects to array values, not multiple workflow ed
   assert.equal(Object.hasOwn(template.inputs[0], "cardinality"), false);
 });
 
+test("workflow parameters reject values that canonical JSON would otherwise collapse", () => {
+  assert.throws(
+    () =>
+      createAssetOperationWorkflowNodeTemplate(PROCEDURAL_SVG_SCATTER_OPERATION, {
+        parameters: { ...SCATTER_PARAMETERS, hiddenDate: new Date(0) },
+      }),
+    /unsupported non-JSON value/,
+  );
+  assert.throws(
+    () =>
+      createAssetOperationWorkflowNodeTemplate(PROCEDURAL_SVG_SCATTER_OPERATION, {
+        parameters: { ...SCATTER_PARAMETERS, hiddenSet: new Set([1, 2]) },
+      }),
+    /unsupported non-JSON value/,
+  );
+});
+
 test("workflow executor runs the registered operation and keeps observations outside workflow outputs", async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), "asset-tooling-workflow-bridge-"));
   const evidence = [];
@@ -125,6 +142,36 @@ test("workflow executor runs the registered operation and keeps observations out
   assert.equal(evidence.length, 1);
   assert.deepEqual(evidence[0].operation, { id: "procedural.svg.scatter", version: "1" });
   assert.equal(evidence[0].result.observations.algorithm, "svg-scatter-v1");
+});
+
+test("workflow evidence callback cannot mutate the graph result", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "asset-tooling-workflow-evidence-"));
+  const executor = createAssetOperationWorkflowExecutor({
+    root,
+    registrations: [
+      {
+        operation: PROCEDURAL_SVG_SCATTER_OPERATION,
+        execute: executeProceduralSvgScatterOperation,
+      },
+    ],
+    onOperationResult(entry) {
+      entry.result.outputs.output.kind = "mutated";
+      entry.result.observations.algorithm = "mutated";
+    },
+  });
+  const template = createAssetOperationWorkflowNodeTemplate(PROCEDURAL_SVG_SCATTER_OPERATION, {
+    parameters: SCATTER_PARAMETERS,
+  });
+  const execution = await executor({
+    runId: "run-evidence",
+    node: { id: "scatter", kind: template.kind, data: template.data },
+    inputs: {},
+    workflowInput: {},
+    context: {},
+  });
+
+  assert.equal(execution.outputs.output.kind, "vector-image");
+  assert.match((await resolveAssetObject(root, execution.outputs.output)).toString("utf8"), /^<svg /);
 });
 
 test("workflow executor rejects an operation that was not registered", async () => {
