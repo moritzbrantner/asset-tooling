@@ -415,8 +415,11 @@ async function verifyProcessorSource(processor, root, operationId) {
       ["status", "--porcelain=v1", "--untracked-files=all"],
       `${operationId} processor checkout cleanliness verification`,
     );
-    if (status.length > 0) {
-      throw new Error(`${operationId} processor checkout must be clean at the declared revision`);
+    const unexpectedStatus = status
+      .split(/\r?\n/)
+      .filter((line) => line.length > 0 && line !== "?? Cargo.lock");
+    if (unexpectedStatus.length > 0) {
+      throw new Error(`${operationId} processor checkout must be source-clean at the declared revision`);
     }
 
     if (/^cargo(?:\.exe)?$/i.test(path.basename(processor.executable))) {
