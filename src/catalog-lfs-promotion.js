@@ -51,6 +51,7 @@ export async function prepareAssetCatalogLfsPromotion({
   }
 
   const catalog = createAssetCatalog({ providers, sources });
+  createAssetCatalogStorageManifest({ catalog, entries: storageEntries });
   const acquisition = await acquireAssetCatalogSource({
     catalog,
     sourceId,
