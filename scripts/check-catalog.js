@@ -9,8 +9,9 @@ function assertDocument(value, key, location) {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     throw new Error(`${location} must be an object`);
   }
-  const keys = Object.keys(value).sort();
-  if (keys.length !== 2 || keys[0] !== key || keys[1] !== "schemaVersion") {
+  const allowedKeys = new Set(["schemaVersion", key]);
+  const keys = Object.keys(value);
+  if (keys.length !== allowedKeys.size || keys.some((candidate) => !allowedKeys.has(candidate))) {
     throw new Error(`${location} must contain only schemaVersion and ${key}`);
   }
   if (value.schemaVersion !== 1) throw new Error(`${location}.schemaVersion must be 1`);
