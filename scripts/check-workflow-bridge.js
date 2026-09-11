@@ -344,6 +344,7 @@ arrayNode = addWorkflowEditorArrayConstructorInputToNode(arrayNode, {
   type: clone(synthBTemplate.outputs[0].type),
 });
 arrayNode.outputs[0].type = clone(mixTemplate.inputs[0].type);
+arrayNode.outputs[0].metadata = clone(mixTemplate.inputs[0].metadata);
 const mixNode = nodeFromTemplate(mixTemplate, "mix", 720, 80);
 const endNode = nodeFromTemplate(endTemplate, "export", 960, 80);
 endNode.inputs[0].type = clone(mixTemplate.outputs[0].type);
