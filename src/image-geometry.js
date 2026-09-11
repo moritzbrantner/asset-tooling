@@ -65,12 +65,16 @@ function linearAxis(destinationIndex, sourceLength, destinationLength) {
   return { lower, upper: lower + 1, fraction, denominator };
 }
 
-function roundedWeightedSum(values, weights, denominator) {
+function weightedSum(values, weights) {
   let total = 0;
   for (let index = 0; index < values.length; index += 1) {
     total += values[index] * weights[index];
   }
-  return Math.floor((total + Math.floor(denominator / 2)) / denominator);
+  return total;
+}
+
+function roundedRatio(numerator, denominator) {
+  return Math.floor((numerator + Math.floor(denominator / 2)) / denominator);
 }
 
 export function resizeRgba8Nearest(sourceValue, width, height) {
@@ -115,12 +119,18 @@ export function resizeRgba8Bilinear(sourceValue, width, height) {
         (y.upper * source.width + x.upper) * 4,
       ];
       const targetOffset = (targetY * targetWidth + targetX) * 4;
-      for (let component = 0; component < 4; component += 1) {
-        output[targetOffset + component] = roundedWeightedSum(
-          offsets.map((offset) => source.pixels[offset + component]),
-          weights,
-          denominator,
-        );
+      const alphas = offsets.map((offset) => source.pixels[offset + 3]);
+      const weightedAlpha = weightedSum(alphas, weights);
+      output[targetOffset + 3] = roundedRatio(weightedAlpha, denominator);
+
+      for (let component = 0; component < 3; component += 1) {
+        let weightedPremultiplied = 0;
+        for (let sample = 0; sample < offsets.length; sample += 1) {
+          weightedPremultiplied +=
+            source.pixels[offsets[sample] + component] * alphas[sample] * weights[sample];
+        }
+        output[targetOffset + component] =
+          weightedAlpha === 0 ? 0 : roundedRatio(weightedPremultiplied, weightedAlpha);
       }
     }
   }
