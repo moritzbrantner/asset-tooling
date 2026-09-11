@@ -127,3 +127,36 @@ test("promotion refuses to overwrite canonical bytes that do not match the pinne
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test("promotion validates existing storage before performing network acquisition", async () => {
+  const root = await workspace();
+  let fetched = false;
+  try {
+    await assert.rejects(
+      applyAssetCatalogLfsPromotion({
+        providersDocument: PROVIDERS,
+        sourcesDocument: SOURCES,
+        storageDocument: {
+          schemaVersion: 1,
+          entries: [
+            {
+              sourceId: "example.model",
+              storage: "git-lfs",
+              path: "assets/canonical/example.model/model.glb",
+            },
+          ],
+        },
+        sourceId: "example.model",
+        repositoryRoot: root,
+        fetchImpl: async () => {
+          fetched = true;
+          return new Response("must not be fetched", { status: 200 });
+        },
+      }),
+      /must be content-pinned before canonical import/,
+    );
+    assert.equal(fetched, false);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
