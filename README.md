@@ -42,6 +42,8 @@ Catalog/provider/storage manifests and provenance stay in normal Git. Approved p
 
 A Git LFS pointer is not accepted as content evidence. `Validate / canonical-storage` checks out with LFS hydration, runs `git lfs fsck`, verifies that the payload tree exactly matches `catalog/storage.json`, and compares every hydrated payload's SHA-256 and byte length with the corresponding source pin. The ordinary cross-platform `bun run check` validates storage-manifest structure without downloading the full media corpus.
 
+The `asset-tooling/catalog/storage` subpath is the consumer boundary for durable payloads. `readAssetCatalogStorageSource(...)` resolves only manifest-declared sources, rejects missing, drifted, symbolic-link, or pointer-only payloads, and verifies hydrated bytes against the catalog pin. `importAssetCatalogStorageSource(...)` then feeds those exact bytes through the existing canonical import into the consumer's disposable `.asset-tooling/objects` store, preserving the same provenance-bearing `AssetRef` and remaining idempotent on repeated imports. Network acquisition is never part of this consumer path.
+
 The manually dispatched `Catalog Git LFS promotion` workflow acquires a registered shared source, measures or re-verifies its bytes, updates the source pin and storage manifest, places the payload under its deterministic `assets/canonical/<source-id>/...` path, stages it through Git LFS, and pushes a review branch. It never pushes canonical bytes directly to `main`; the resulting branch must still pass normal PR-triggered exact-head validation before integration.
 
 CC0 is preferred; non-CC0 shared sources must retain explicit attribution, and providers such as Mixamo that should not be raw-redistributed remain project-local.
@@ -86,6 +88,6 @@ Exact reproducibility is established by replayed output bytes. Backend kind, abs
 
 ## Programmatic API
 
-Consumers importing the package root receive only the high-level operations `validateSpec`, `generateAsset`, `verifyAsset`, and `prepareProcessingHandoff`. Versioned schemas are separately available through the `./schemas/*` package export. Backend, cache, hashing, environment, catalog-storage maintenance, and receipt-construction internals are deliberately not part of the public package API.
+Consumers importing the package root receive only the high-level operations `validateSpec`, `generateAsset`, `verifyAsset`, and `prepareProcessingHandoff`. Versioned schemas are separately available through the `./schemas/*` package export. Backend, cache, hashing, environment, acquisition/promotion maintenance, and receipt-construction internals are deliberately not part of the public package API.
 
-The additive `asset-tooling/operations`, `asset-tooling/operations/store`, `asset-tooling/operations/generation`, `asset-tooling/operations/processing`, `asset-tooling/operations/workflow`, and `asset-tooling/catalog` subpaths contain focused operation/catalog surfaces; they do not widen the root export.
+The additive `asset-tooling/operations`, `asset-tooling/operations/store`, `asset-tooling/operations/generation`, `asset-tooling/operations/processing`, `asset-tooling/operations/workflow`, `asset-tooling/catalog`, and `asset-tooling/catalog/storage` subpaths contain focused operation/catalog surfaces; they do not widen the root export.
