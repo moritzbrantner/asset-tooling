@@ -23,6 +23,7 @@ const PROCESSOR_BASE = {
   executable: process.execPath,
   scriptPath: FIXTURE_ADAPTER,
   prefixArguments: [],
+  sourceFiles: [FIXTURE_ADAPTER],
 };
 const RESAMPLE_PROCESSOR = { ...PROCESSOR_BASE, revision: "a".repeat(40) };
 const REDUCE_PROCESSOR = { ...PROCESSOR_BASE, revision: "b".repeat(40) };
@@ -103,7 +104,7 @@ test("animation operations expose one typed animation input and output", () => {
   }
 });
 
-test("animation.resample build identity binds source bytes and exact processor revision", async () => {
+test("animation.resample build identity binds source bytes, processor bytes, and revision", async () => {
   const { root, source } = await workspaceWithSource();
   const identity = await createAnimationResampleOperationBuildIdentity(
     root,
@@ -112,14 +113,46 @@ test("animation.resample build identity binds source bytes and exact processor r
   );
   assert.deepEqual(identity.operation, { id: "animation.resample", version: "1" });
   assert.equal(identity.inputs.source.sha256, source.sha256);
-  assert.deepEqual(identity.implementation.source, {
-    repository: "fixture/3d-lab",
-    revision: "a".repeat(40),
-  });
+  assert.equal(identity.implementation.source.repository, "fixture/3d-lab");
+  assert.equal(identity.implementation.source.revision, "a".repeat(40));
+  assert.match(identity.implementation.source.sourceSha256, /^[0-9a-f]{64}$/);
   assert.equal(identity.implementation.probe.id, "three-d-animation-resample");
   assert.equal(identity.implementation.probe.codec, "three-d-animation-json-v1");
   assert.equal(identity.implementation.probe.protocol, "asset-tooling-process-adapter-v1");
   assert.equal(JSON.stringify(identity).includes(FIXTURE_ADAPTER), false);
+});
+
+test("animation.resample materializes the processor f32 parameter domain", async () => {
+  const { root, source } = await workspaceWithSource();
+  const identity = await createAnimationResampleOperationBuildIdentity(
+    root,
+    {
+      parameters: {
+        ...RESAMPLE_PARAMETERS,
+        targetTimesSeconds: [0, 0.1, 1],
+      },
+      inputs: { source },
+    },
+    RESAMPLE_PROCESSOR,
+  );
+  assert.equal(identity.parameters.targetTimesSeconds[1], Math.fround(0.1));
+
+  await assert.rejects(
+    () =>
+      createAnimationResampleOperationBuildIdentity(
+        root,
+        {
+          parameters: {
+            ...RESAMPLE_PARAMETERS,
+            sourceEndSeconds: 2,
+            targetTimesSeconds: [1, 1 + 1e-8],
+          },
+          inputs: { source },
+        },
+        RESAMPLE_PROCESSOR,
+      ),
+    /strictly increasing after f32 normalization/,
+  );
 });
 
 test("animation.resample validates and stores a deterministic explicit time-grid result", async () => {
@@ -161,11 +194,13 @@ test("animation.reduce binds its own processor identity and retains only source 
     REDUCE_PROCESSOR,
   );
   assert.deepEqual(identity.operation, { id: "animation.reduce", version: "1" });
-  assert.deepEqual(identity.implementation.source, {
-    repository: "fixture/3d-lab",
-    revision: "b".repeat(40),
-  });
+  assert.equal(identity.implementation.source.repository, "fixture/3d-lab");
+  assert.equal(identity.implementation.source.revision, "b".repeat(40));
+  assert.match(identity.implementation.source.sourceSha256, /^[0-9a-f]{64}$/);
   assert.equal(identity.implementation.probe.id, "three-d-animation-reduce");
+  assert.equal(identity.parameters.translationError, Math.fround(0.01));
+  assert.equal(identity.parameters.rotationErrorRadians, Math.fround(0.01));
+  assert.equal(identity.parameters.scaleError, Math.fround(0.01));
 
   const result = await executeAnimationReduceOperation(root, invocation, REDUCE_PROCESSOR);
   assert.equal(result.outputs.output.metadata.keyframeCount, 6);
@@ -227,12 +262,12 @@ test("animation processing validates parameters and source object presence befor
   );
 });
 
-test("animation codec rejects negative source times before processor execution", async () => {
-  const root = await mkdtemp(path.join(os.tmpdir(), "asset-tooling-animation-negative-time-"));
-  const document = animationDocument();
-  document.channels[0].keyframes[0].time = -1;
-  const stored = await storeAssetObject(root, {
-    bytes: Buffer.from(JSON.stringify(document), "utf8"),
+test("animation codec rejects negative or f32-colliding source times before processor execution", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "asset-tooling-animation-invalid-time-"));
+  const negative = animationDocument();
+  negative.channels[0].keyframes[0].time = -1;
+  const negativeStored = await storeAssetObject(root, {
+    bytes: Buffer.from(JSON.stringify(negative), "utf8"),
     kind: "animation",
     mediaType: THREE_D_ANIMATION_MEDIA_TYPE,
     metadata: {},
@@ -241,9 +276,28 @@ test("animation codec rejects negative source times before processor execution",
     () =>
       executeAnimationReduceOperation(
         root,
-        { parameters: REDUCE_PARAMETERS, inputs: { source: stored.asset } },
+        { parameters: REDUCE_PARAMETERS, inputs: { source: negativeStored.asset } },
         REDUCE_PROCESSOR,
       ),
     /must be a finite non-negative number/,
+  );
+
+  const collision = animationDocument();
+  collision.channels[0].keyframes[1].time = 1;
+  collision.channels[0].keyframes[2].time = 1 + 1e-8;
+  const collisionStored = await storeAssetObject(root, {
+    bytes: Buffer.from(JSON.stringify(collision), "utf8"),
+    kind: "animation",
+    mediaType: THREE_D_ANIMATION_MEDIA_TYPE,
+    metadata: {},
+  });
+  await assert.rejects(
+    () =>
+      executeAnimationReduceOperation(
+        root,
+        { parameters: REDUCE_PARAMETERS, inputs: { source: collisionStored.asset } },
+        REDUCE_PROCESSOR,
+      ),
+    /strictly increasing after f32 normalization/,
   );
 });
