@@ -61,6 +61,26 @@ test("catalog providers and sources normalize deterministically", () => {
   );
 });
 
+test("catalog source metadata is recursively immutable after validation", () => {
+  const source = createAssetCatalogSource({
+    ...SOURCE,
+    metadata: {
+      provenance: { generator: "example-v1" },
+      dimensions: [1, 2, 3],
+    },
+  });
+
+  assert.equal(Object.isFrozen(source.metadata), true);
+  assert.equal(Object.isFrozen(source.metadata.provenance), true);
+  assert.equal(Object.isFrozen(source.metadata.dimensions), true);
+  assert.throws(() => {
+    source.metadata.provenance.generator = "mutated";
+  }, TypeError);
+  assert.throws(() => {
+    source.metadata.dimensions.push(4);
+  }, TypeError);
+});
+
 test("catalog rejects unknown providers and duplicate ids", () => {
   assert.throws(
     () => createAssetCatalog({ providers: [SHARED_PROVIDER], sources: [{ ...SOURCE, provider: "missing" }] }),
