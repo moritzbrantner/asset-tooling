@@ -15,7 +15,7 @@ function sortJson(value) {
   }
 
   if (typeof value === "object") {
-    const result = {};
+    const result = Object.create(null);
     for (const key of Object.keys(value).sort()) {
       const child = value[key];
       if (child === undefined) {
