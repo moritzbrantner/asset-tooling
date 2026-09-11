@@ -53,10 +53,12 @@ const editor = await import(pathToFileURL(path.join(editorCheckout, "src", "inde
 const {
   addWorkflowEditorArrayConstructorInputToNode,
   compileWorkflowEditorDocument,
-  validateWorkflowEditorConnectionWithCardinality,
   workflowEditorControlFlowNodeTemplates,
   workflowEditorJsonNodeTemplates,
 } = editor;
+const { validateWorkflowEditorConnectionWithCardinality } = await import(
+  pathToFileURL(path.join(editorCheckout, "src", "cardinality.ts")).href
+);
 const { createWorkflowRunner } = await import(
   pathToFileURL(path.join(runnerCheckout, "src", "index.ts")).href
 );
