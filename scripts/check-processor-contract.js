@@ -50,7 +50,7 @@ if (!supportedOperations.has(operation)) {
 }
 
 const manifestPath = path.join(processorCheckout, ...manifestRelativePath.split("/"));
-const prefixArguments = ["--quiet", "--manifest-path", manifestPath];
+const prefixArguments = ["--quiet", "--locked", "--manifest-path", manifestPath];
 if (operation === "mesh.lod_chain") prefixArguments.push("--bin", "lod_chain");
 if (operation === "animation.reduce") prefixArguments.push("--bin", "animation_reduce");
 prefixArguments.push("--");
@@ -60,7 +60,9 @@ const processor = {
   executable: "cargo",
   scriptPath: "run",
   prefixArguments,
+  checkoutRoot: processorCheckout,
 };
+const verifiedSource = { repository, revision, verification: "git-clean-exact-head" };
 
 function gridMesh(segments) {
   const vertices = [];
@@ -165,7 +167,7 @@ async function checkSimplify(root) {
 
   const identity = await createMeshSimplifyOperationBuildIdentity(root, invocation, processor);
   assert.deepEqual(identity.operation, { id: operation, version: "1" });
-  assert.deepEqual(identity.implementation.source, { repository, revision });
+  assert.deepEqual(identity.implementation.source, verifiedSource);
   assert.equal(identity.implementation.probe.id, "three-d-lod");
   assert.equal(identity.implementation.probe.algorithm, "meshopt-0.6.2");
   assert.equal(identity.implementation.probe.protocol, "asset-tooling-process-adapter-v1");
@@ -182,10 +184,7 @@ async function checkSimplify(root) {
   assert.equal(first.observations.sourceTriangleCount, sourceTriangleCount);
   assert.equal(first.observations.requestedTriangleCount, invocation.parameters.targetTriangleCount);
   assert.ok(first.observations.resultTriangleCount <= sourceTriangleCount);
-  assert.equal(
-    first.observations.resultIndexCount,
-    first.observations.resultTriangleCount * 3,
-  );
+  assert.equal(first.observations.resultIndexCount, first.observations.resultTriangleCount * 3);
   assert.ok(first.observations.relativeError <= invocation.parameters.targetError);
   assert.equal(first.observations.sharedSourceVertexBuffer, true);
 
@@ -227,7 +226,7 @@ async function checkLodChain(root) {
 
   const identity = await createMeshLodChainOperationBuildIdentity(root, invocation, processor);
   assert.deepEqual(identity.operation, { id: operation, version: "1" });
-  assert.deepEqual(identity.implementation.source, { repository, revision });
+  assert.deepEqual(identity.implementation.source, verifiedSource);
   assert.equal(identity.implementation.probe.id, "three-d-lod-chain");
   assert.equal(identity.implementation.probe.algorithm, "meshopt-0.6.2");
   assert.equal(identity.implementation.probe.protocol, "asset-tooling-process-adapter-v1");
@@ -300,7 +299,7 @@ async function checkAnimationResample(root) {
   };
   const identity = await createAnimationResampleOperationBuildIdentity(root, invocation, processor);
   assert.deepEqual(identity.operation, { id: operation, version: "1" });
-  assert.deepEqual(identity.implementation.source, { repository, revision });
+  assert.deepEqual(identity.implementation.source, verifiedSource);
   assert.equal(identity.implementation.probe.id, "three-d-animation-resample");
   assert.equal(identity.implementation.probe.algorithm, "three-d-animation-resample-v1");
   assert.equal(identity.implementation.probe.protocol, "asset-tooling-process-adapter-v1");
@@ -351,7 +350,7 @@ async function checkAnimationReduce(root) {
   };
   const identity = await createAnimationReduceOperationBuildIdentity(root, invocation, processor);
   assert.deepEqual(identity.operation, { id: operation, version: "1" });
-  assert.deepEqual(identity.implementation.source, { repository, revision });
+  assert.deepEqual(identity.implementation.source, verifiedSource);
   assert.equal(identity.implementation.probe.id, "three-d-animation-reduce");
   assert.equal(identity.implementation.probe.algorithm, "three-d-animation-key-reduction-v1");
   assert.equal(identity.implementation.probe.protocol, "asset-tooling-process-adapter-v1");
@@ -364,9 +363,12 @@ async function checkAnimationReduce(root) {
   assert.deepEqual(second.observations, first.observations);
   assert.equal(first.observations.sourceKeyframeCount, 9);
   assert.ok(first.observations.resultKeyframeCount <= 9);
-  assert.ok(first.observations.maxTranslationError <= invocation.parameters.translationError);
-  assert.ok(first.observations.maxRotationErrorRadians <= invocation.parameters.rotationErrorRadians);
-  assert.ok(first.observations.maxScaleError <= invocation.parameters.scaleError);
+  assert.ok(first.observations.maxTranslationError <= Math.fround(invocation.parameters.translationError));
+  assert.ok(
+    first.observations.maxRotationErrorRadians <=
+      Math.fround(invocation.parameters.rotationErrorRadians),
+  );
+  assert.ok(first.observations.maxScaleError <= Math.fround(invocation.parameters.scaleError));
   assert.equal(first.observations.endpointsPreserved, true);
   const output = JSON.parse((await resolveAssetObject(root, first.outputs.output)).toString("utf8"));
   assert.equal(output.schemaVersion, 1);
