@@ -30,6 +30,24 @@ jobs:
       - name: Test and validate example contract
         run: bun run check
 
+  canonical-storage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          lfs: true
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.4.0
+      - name: Verify Git LFS object integrity
+        run: |
+          git lfs install --local
+          git lfs fsck
+      - name: Verify hydrated canonical asset bytes
+        run: bun run catalog:storage:verify
+
   processing-contract:
     runs-on: ubuntu-latest
     timeout-minutes: 15

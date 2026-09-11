@@ -1,4 +1,5 @@
 .asset-tooling/
+.artifacts/
 build/
 dist/
 node_modules/
