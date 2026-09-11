@@ -238,11 +238,28 @@ function normalizeParameters(value) {
   };
 }
 
+function decimalFraction(value) {
+  const match = /^(\d+)(?:\.(\d+))?(?:e([+-]?\d+))?$/i.exec(String(value));
+  if (!match) throw new Error("triangleRatio must have a canonical decimal representation");
+  const fractionalDigits = match[2] ?? "";
+  const exponent = Number(match[3] ?? 0);
+  const digits = BigInt(`${match[1]}${fractionalDigits}`);
+  const scale = fractionalDigits.length - exponent;
+  if (scale <= 0) {
+    return { numerator: digits * 10n ** BigInt(-scale), denominator: 1n };
+  }
+  return { numerator: digits, denominator: 10n ** BigInt(scale) };
+}
+
 function materializeLodTarget(sourceTriangleCount, triangleRatio) {
-  return Math.min(
-    sourceTriangleCount - 1,
-    Math.max(1, Math.round(sourceTriangleCount * triangleRatio)),
-  );
+  const { numerator, denominator } = decimalFraction(triangleRatio);
+  const scaled = BigInt(sourceTriangleCount) * numerator;
+  let rounded = scaled / denominator;
+  if ((scaled % denominator) * 2n >= denominator) rounded += 1n;
+  const maximum = BigInt(sourceTriangleCount - 1);
+  if (rounded < 1n) return 1;
+  if (rounded > maximum) return sourceTriangleCount - 1;
+  return Number(rounded);
 }
 
 function normalizeLodParameters(value) {
@@ -527,6 +544,9 @@ function normalizeLodProcessorObservations(value, parameters) {
     observations.sourceVertexCount,
     "observations.sourceVertexCount",
   );
+  if (sourceVertexCount < 3) {
+    throw new Error("observations.sourceVertexCount must be at least 3");
+  }
   if (sourceTriangleCount !== parameters.sourceTriangleCount) {
     throw new Error("observations.sourceTriangleCount does not match parameters.sourceTriangleCount");
   }
