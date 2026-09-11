@@ -31,6 +31,10 @@ assert(
   "generation operation adapters must remain available through the focused ./operations/generation subpath",
 );
 assert(
+  packageJson.exports?.["./operations/generation/triposr"] === "./src/triposr-operation.js",
+  "TripoSR generation operation must remain available through the focused ./operations/generation/triposr subpath",
+);
+assert(
   packageJson.exports?.["./operations/processing"] === "./src/processing-operations.js",
   "processing operation adapters must remain available through the focused ./operations/processing subpath",
 );
@@ -72,6 +76,7 @@ for (const file of [
   "src/operations.js",
   "src/asset-store.js",
   "src/generation-operations.js",
+  "src/triposr-operation.js",
   "src/processing-operations.js",
   "src/audio.js",
   "src/audio-operations.js",
