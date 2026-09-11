@@ -63,13 +63,52 @@ test("an exact generic AssetRef port may bridge an asset output", () => {
   );
 });
 
-test("an exact generic AssetRef array may bridge into a bounded multi-asset input", () => {
-  const mix = createAssetOperationWorkflowNodeTemplate(AUDIO_MIX_OPERATION);
-  const sourceArrayType = clone(mix.inputs[0].type);
+test("a generic producer cannot satisfy a lossy wildcard asset constraint by type alone", () => {
+  const wildcardSink = createAssetOperationWorkflowNodeTemplate({
+    schemaVersion: 1,
+    id: "fixture.audio-wildcard.sink",
+    version: "1",
+    category: "fixture",
+    inputs: [{ id: "source", assetKinds: ["media"], mediaTypes: ["audio/*"] }],
+    outputs: [],
+    parameterSchema: {},
+  });
   const document = {
     nodes: [
       {
-        id: "array-exact",
+        id: "generic",
+        kind: "fixture.generic",
+        outputs: [{ id: "output", type: clone(wildcardSink.inputs[0].type) }],
+      },
+      assetNode(wildcardSink, "sink"),
+    ],
+    edges: [],
+  };
+
+  assert.deepEqual(
+    validateAssetOperationWorkflowConnection(document, {
+      sourceNodeId: "generic",
+      sourcePortId: "output",
+      targetNodeId: "sink",
+      targetPortId: "source",
+    }),
+    { valid: false, reason: "type-mismatch" },
+  );
+});
+
+test("a bounded generic AssetRef array must propagate verified asset metadata", () => {
+  const mix = createAssetOperationWorkflowNodeTemplate(AUDIO_MIX_OPERATION);
+  const sourceArrayType = clone(mix.inputs[0].type);
+  const sourceArrayMetadata = clone(mix.inputs[0].metadata);
+  const document = {
+    nodes: [
+      {
+        id: "array-verified",
+        kind: "json.array",
+        outputs: [{ id: "value", type: sourceArrayType, metadata: sourceArrayMetadata }],
+      },
+      {
+        id: "array-unverified",
         kind: "json.array",
         outputs: [{ id: "value", type: sourceArrayType }],
       },
@@ -85,12 +124,21 @@ test("an exact generic AssetRef array may bridge into a bounded multi-asset inpu
 
   assert.deepEqual(
     validateAssetOperationWorkflowConnection(document, {
-      sourceNodeId: "array-exact",
+      sourceNodeId: "array-verified",
       sourcePortId: "value",
       targetNodeId: "mix",
       targetPortId: "sources",
     }),
     { valid: true },
+  );
+  assert.deepEqual(
+    validateAssetOperationWorkflowConnection(document, {
+      sourceNodeId: "array-unverified",
+      sourcePortId: "value",
+      targetNodeId: "mix",
+      targetPortId: "sources",
+    }),
+    { valid: false, reason: "type-mismatch" },
   );
   assert.deepEqual(
     validateAssetOperationWorkflowConnection(document, {
