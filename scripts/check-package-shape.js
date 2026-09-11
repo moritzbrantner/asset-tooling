@@ -42,6 +42,10 @@ assert(
   packageJson.exports?.["./catalog"] === "./src/catalog.js",
   "asset catalog contracts must remain available through the focused ./catalog subpath",
 );
+assert(
+  packageJson.exports?.["./catalog/storage"] === "./src/catalog-storage.js",
+  "durable catalog storage consumers must remain available through the focused ./catalog/storage subpath",
+);
 assert(packageJson.exports?.["./schemas/*"] === "./schemas/*", "versioned schemas must remain directly consumable");
 
 const requiredPackageRoots = ["src", "schemas", "adapters", "catalog", "docs", "README.md"];
@@ -49,6 +53,7 @@ for (const item of requiredPackageRoots) {
   assert(packageJson.files?.includes(item), `package files must include '${item}'`);
   await access(path.join(root, item));
 }
+assert(!packageJson.files?.includes("assets"), "durable Git LFS payloads must remain outside the package payload");
 
 for (const file of [
   "src/index.js",
@@ -58,9 +63,11 @@ for (const file of [
   "src/processing-operations.js",
   "src/workflow-operations.js",
   "src/catalog.js",
+  "src/catalog-storage.js",
   "src/entry.js",
   "catalog/providers.json",
   "catalog/sources.json",
+  "catalog/storage.json",
   "schemas/asset-spec-v1.schema.json",
   "schemas/generation-receipt-v1.schema.json",
   "schemas/generation-receipt-v2.schema.json",

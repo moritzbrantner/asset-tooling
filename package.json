@@ -11,6 +11,7 @@
     "./operations/processing": "./src/processing-operations.js",
     "./operations/workflow": "./src/workflow-operations.js",
     "./catalog": "./src/catalog.js",
+    "./catalog/storage": "./src/catalog-storage.js",
     "./schemas/*": "./schemas/*"
   },
   "bin": {
