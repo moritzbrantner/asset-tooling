@@ -3,6 +3,75 @@
   "sources": [
     {
       "schemaVersion": 1,
+      "id": "kenney.boardgame-pack-v1",
+      "provider": "kenney",
+      "title": "Board Game Pack",
+      "kind": "asset-pack",
+      "mediaType": "application/zip",
+      "source": {
+        "url": "https://kenney.nl/media/pages/assets/boardgame-pack/a1656828d2-1677667644/kenney_boardgame-pack.zip",
+        "upstreamId": "boardgame-pack",
+        "revision": "1.0",
+        "path": "kenney_boardgame-pack.zip"
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "evidenceUrl": "https://kenney.nl/assets/boardgame-pack"
+      },
+      "tags": ["board-game", "cards", "dice", "game", "reference", "two-d"],
+      "metadata": {
+        "fileCount": 490,
+        "purpose": "Generic board-game, card, and dice art for demos and game repositories"
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "kenney.ui-audio-v1",
+      "provider": "kenney",
+      "title": "UI Audio",
+      "kind": "audio-pack",
+      "mediaType": "application/zip",
+      "source": {
+        "url": "https://kenney.nl/media/pages/assets/ui-audio/490d233f68-1677590494/kenney_ui-audio.zip",
+        "upstreamId": "ui-audio",
+        "revision": "1.0",
+        "path": "kenney_ui-audio.zip"
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "evidenceUrl": "https://kenney.nl/assets/ui-audio"
+      },
+      "tags": ["audio", "click", "game", "reference", "switch", "ui"],
+      "metadata": {
+        "fileCount": 50,
+        "purpose": "Small generic interaction-sound corpus for UI and audio consumers"
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "kenney.ui-pack-v2",
+      "provider": "kenney",
+      "title": "UI Pack",
+      "kind": "asset-pack",
+      "mediaType": "application/zip",
+      "source": {
+        "url": "https://kenney.nl/media/pages/assets/ui-pack/f651646eab-1718203990/kenney_ui-pack.zip",
+        "upstreamId": "ui-pack",
+        "revision": "2.0",
+        "path": "kenney_ui-pack.zip"
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "evidenceUrl": "https://kenney.nl/assets/ui-pack"
+      },
+      "tags": ["game", "interface", "reference", "two-d", "ui"],
+      "metadata": {
+        "fileCount": 430,
+        "purpose": "Generic buttons, panels, sliders, and interface art for application and game demos"
+      }
+    },
+    {
+      "schemaVersion": 1,
       "id": "khronos.avocado-glb",
       "provider": "khronos-gltf-sample-assets",
       "title": "Avocado",
@@ -48,6 +117,102 @@
       "metadata": {
         "upstreamGitBlobSha": "40cab5a1992a686af009bb864e47f026f68957f6",
         "purpose": "Minimal self-contained glTF 2.0 reference for import, validation, and renderer smoke tests"
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "poly-haven.fine-grained-wood-color-4k-jpg",
+      "provider": "poly-haven",
+      "title": "Fine Grained Wood — 4K Color",
+      "kind": "texture",
+      "mediaType": "image/jpeg",
+      "source": {
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/4k/fine_grained_wood/fine_grained_wood_col_4k.jpg",
+        "upstreamId": "fine_grained_wood",
+        "revision": "4k-jpg-color",
+        "path": "fine_grained_wood_col_4k.jpg"
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "evidenceUrl": "https://polyhaven.com/a/fine_grained_wood"
+      },
+      "tags": ["material", "pbr", "reference", "texture", "wood"],
+      "metadata": {
+        "author": "Rob Tuytel",
+        "resolution": "4K",
+        "purpose": "Real-world color texture input for PBR material and texture processing consumers"
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "poly-haven.studio-small-01-4k-exr",
+      "provider": "poly-haven",
+      "title": "Studio Small 01 — 4K EXR",
+      "kind": "hdri",
+      "mediaType": "image/x-exr",
+      "source": {
+        "url": "https://dl.polyhaven.org/file/ph-assets/HDRIs/exr/4k/studio_small_01_4k.exr",
+        "upstreamId": "studio_small_01",
+        "revision": "4k-exr",
+        "path": "studio_small_01_4k.exr"
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "evidenceUrl": "https://polyhaven.com/a/studio_small_01"
+      },
+      "tags": ["environment", "hdri", "lighting", "reference", "studio", "three-d"],
+      "metadata": {
+        "author": "Greg Zaal",
+        "resolution": "4K",
+        "purpose": "Stable studio-lighting reference for renderer, material, and look-development consumers"
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "quaternius.sci-fi-essentials-standard-models",
+      "provider": "quaternius",
+      "title": "Sci-Fi Essentials Kit — Standard Models",
+      "kind": "asset-pack",
+      "mediaType": "application/zip",
+      "source": {
+        "url": "https://opengameart.org/sites/default/files/sci-fi_essentials_kit_models.zip",
+        "upstreamId": "sci-fi-essentials-kit-standard-models",
+        "revision": "2024-11",
+        "path": "sci-fi_essentials_kit_models.zip"
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "evidenceUrl": "https://quaternius.com/packs/scifiessentialskit.html"
+      },
+      "tags": ["animation", "game", "gltf", "props", "robots", "sci-fi", "three-d"],
+      "metadata": {
+        "distributionMirror": "OpenGameArt upload by Quaternius",
+        "standardModelCount": 37,
+        "purpose": "Reusable low-poly animated enemies, props, weapons, and sci-fi reference models"
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "quaternius.universal-animation-library-2-standard",
+      "provider": "quaternius",
+      "title": "Universal Animation Library 2 — Standard",
+      "kind": "animation-pack",
+      "mediaType": "application/zip",
+      "source": {
+        "url": "https://opengameart.org/sites/default/files/universal_animation_library_2standard.zip",
+        "upstreamId": "universal-animation-library-2-standard",
+        "revision": "2026-01",
+        "path": "universal_animation_library_2standard.zip"
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "evidenceUrl": "https://quaternius.com/packs/universalanimationlibrary2.html"
+      },
+      "tags": ["animation", "combat", "humanoid", "locomotion", "parkour", "retargeting", "three-d"],
+      "metadata": {
+        "animationCount": "130+",
+        "distributionMirror": "OpenGameArt upload by Quaternius",
+        "purpose": "Humanoid animation and retargeting reference corpus for 3D and game consumers"
       }
     }
   ]
