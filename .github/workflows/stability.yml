@@ -12,8 +12,8 @@ jobs:
   local-contract:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: 1.4.0
       - name: Run local stability gate
@@ -24,7 +24,7 @@ jobs:
     outputs:
       matrix: ${{ steps.matrix.outputs.matrix }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       - id: matrix
         name: Load accepted consumers
         shell: bash
@@ -39,17 +39,17 @@ jobs:
       matrix: ${{ fromJson(needs.consumer-matrix.outputs.matrix) }}
     steps:
       - name: Checkout current asset-tooling
-        uses: actions/checkout@v4
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           path: asset-tooling
       - name: Checkout accepted consumer
-        uses: actions/checkout@v4
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           repository: ${{ matrix.repository }}
           ref: ${{ matrix.commit }}
           path: consumer
           persist-credentials: false
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: 1.4.0
       - name: Validate current head against accepted consumer
@@ -66,7 +66,7 @@ jobs:
     outputs:
       matrix: ${{ steps.matrix.outputs.matrix }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       - id: matrix
         name: Load accepted processors
         shell: bash
@@ -81,20 +81,22 @@ jobs:
       matrix: ${{ fromJson(needs.processor-matrix.outputs.matrix) }}
     steps:
       - name: Checkout current asset-tooling
-        uses: actions/checkout@v4
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           path: asset-tooling
       - name: Checkout accepted processor
-        uses: actions/checkout@v4
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           repository: ${{ matrix.repository }}
           ref: ${{ matrix.commit }}
           path: processor
           persist-credentials: false
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: 1.4.0
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.98.1
       - name: Validate current head against accepted processor
         shell: bash
         run: |
@@ -109,7 +111,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout current asset-tooling
-        uses: actions/checkout@v4
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           path: asset-tooling
       - id: stack
@@ -125,20 +127,20 @@ jobs:
           console.log(`runner_commit=${stack.runner.commit}`);
           NODE
       - name: Checkout accepted workflow-editor
-        uses: actions/checkout@v4
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           repository: ${{ steps.stack.outputs.editor_repository }}
           ref: ${{ steps.stack.outputs.editor_commit }}
           path: workflow-editor
           persist-credentials: false
       - name: Checkout accepted workflow-runner
-        uses: actions/checkout@v4
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           repository: ${{ steps.stack.outputs.runner_repository }}
           ref: ${{ steps.stack.outputs.runner_commit }}
           path: workflow-runner
           persist-credentials: false
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: 1.4.0
       - name: Install workflow-editor dependencies from lockfile
