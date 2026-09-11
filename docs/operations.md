@@ -76,7 +76,7 @@ An operation descriptor is serializable metadata describing what an operation ac
 }
 ```
 
-The descriptor does not contain an executor. It can therefore later be converted into a workflow-editor node template without coupling the editor to an implementation runtime.
+The descriptor does not contain an executor. The same descriptor can therefore be projected into an editor node template and paired with an execution registration without coupling either generic workflow repository to asset-tooling.
 
 ## Operation registry
 
@@ -87,7 +87,7 @@ The descriptor does not contain an executor. It can therefore later be converted
 `normalizeAssetOperationInputs(...)` checks:
 
 - unknown or missing ports;
-- single/many/bounded cardinality;
+- single/many/bounded value cardinality;
 - asset kind compatibility;
 - media-type compatibility;
 - valid content-addressed `AssetRef` values.
@@ -151,10 +151,42 @@ Machine-local checkout, manifest, Cargo home, and temporary paths are execution 
 
 The existing published `processing-receipt-v1/v2` schemas remain unchanged. Operation results are runtime composition values; processing receipts remain the stronger provenance/replay evidence for accepted production processing.
 
+## Workflow bridge
+
+The focused `asset-tooling/operations/workflow` subpath projects operation descriptors into the existing workflow contracts. This direction is intentional: `workflow-editor` and `workflow-runner` remain generic and do not import asset-tooling.
+
+`createAssetOperationWorkflowNodeTemplate(...)` derives a workflow-editor template directly from one normalized `AssetOperationDescriptor`. The template stores only the selected operation id/version and the editable parameter values in node data. The parameter schema itself remains on the descriptor and is not copied into every editable/compiled node.
+
+Asset ports are projected into structural workflow types:
+
+- `AssetRef.schemaVersion` becomes the literal `1`;
+- concrete asset kinds and concrete media types become literal or union workflow types;
+- SHA-256 and byte length become string/number properties;
+- metadata remains structurally an object;
+- asset `many` or bounded cardinality becomes an array-valued workflow port.
+
+Asset value cardinality is deliberately not mapped to workflow-editor connection cardinality. Those are different concepts: one constrains the number of `AssetRef` values supplied to an operation, while the other constrains the number of graph edges attached to a port. Exact array-length bounds remain fail-closed asset-tooling execution validation.
+
+The current workflow type vocabulary also has no media-type pattern type. A descriptor such as `image/*` therefore projects to a workflow `string`; concrete media types still project exactly, and asset-tooling remains authoritative for wildcard compatibility during execution. This is a known authoring-time precision limit, not a weakening of the operation contract.
+
+`createAssetOperationWorkflowExecutor(...)` produces one workflow-runner-compatible executor for node kind `asset.operation`. Execution registrations pair a descriptor with its executor function, so operation id/version metadata is not manually duplicated in a second dispatch table. Compiled node data selects the registered operation; runner inputs become the operation inputs; the normalized operation outputs are returned to the graph.
+
+Full operation observations do not become hidden or synthetic graph outputs. An optional `onOperationResult` hook receives the complete normalized result as external execution evidence. A host can use that for an execution overlay, provenance panel, logging, or receipt workflow without mutating the editable document.
+
+`stability/workflow-stack.json` pins exact accepted workflow-editor and workflow-runner revisions. The hosted Stability proof uses the real editor type system/compiler and the real runner to require that:
+
+1. an SVG generator output cannot connect to a mesh input;
+2. operation identity and parameters survive compilation into `@moritzbrantner/workflow/compiled` v1;
+3. the generic runner dispatch executes `procedural.svg.scatter@1` and returns a resolvable object-store asset;
+4. `mesh.simplify@1` also runs through the same generic executor shape;
+5. observations are captured externally rather than appearing in workflow graph outputs.
+
+The bridge proof uses the local mesh processor fixture only to test workflow plumbing. The separate accepted-processor Stability job remains authoritative for the actual `three-d-lod` algorithm boundary.
+
 ## Current status
 
-The operation contract is now proven in both directions: one existing generator and one current external processor use the same `AssetOperationDescriptor`/`AssetRef` model and content-addressed handoff without moving their algorithms into the operation layer.
+The operation contract is now proven in three directions: an existing generator, a current external processor, and the generic workflow authoring/execution stack all consume the same `AssetOperationDescriptor`/`AssetRef` model without moving algorithm or workflow ownership into the operation layer.
 
-The runtime operation contract is exposed through `asset-tooling/operations`, content-addressed intermediate storage through `asset-tooling/operations/store`, generator adapters through `asset-tooling/operations/generation`, and processor adapters through `asset-tooling/operations/processing`, while the deliberately small package root remains unchanged.
+The runtime operation contract is exposed through `asset-tooling/operations`, content-addressed intermediate storage through `asset-tooling/operations/store`, generator adapters through `asset-tooling/operations/generation`, processor adapters through `asset-tooling/operations/processing`, and the workflow projection through `asset-tooling/operations/workflow`, while the deliberately small package root remains unchanged.
 
-Do not publish immutable JSON schemas for these new runtime values yet. The next architectural proof is the descriptor/executor bridge through `workflow-editor` and `workflow-runner`. That consumer should reveal whether any operation metadata is still missing before the runtime shapes are frozen as published schemas.
+The next useful expansion is no longer another orchestration abstraction. Add compatible transform/composition operations and then build the first genuinely multi-node asset workflow; model-backed generation and the remaining processing adapters can use the same operation/runner boundary. Immutable schemas should still be published only when we intentionally decide the runtime contract has enough representative consumers.
