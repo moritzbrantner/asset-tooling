@@ -30,7 +30,10 @@
     "catalog:check": "bun scripts/check-catalog.js",
     "catalog:pin": "bun scripts/pin-catalog-source.js",
     "catalog:acquire": "bun scripts/acquire-catalog-source.js",
-    "check": "bun test && bun run package:check && bun run catalog:check && bun src/entry.js validate examples/copy/asset.json",
+    "catalog:storage:check": "bun scripts/check-catalog-storage.js",
+    "catalog:storage:verify": "bun scripts/verify-catalog-storage.js",
+    "catalog:lfs:promote": "bun scripts/promote-catalog-lfs-source.js",
+    "check": "bun test && bun run package:check && bun run catalog:check && bun run catalog:storage:check && bun src/entry.js validate examples/copy/asset.json",
     "stability:check": "bun run check && bun scripts/check-stability.js"
   },
   "engines": {
