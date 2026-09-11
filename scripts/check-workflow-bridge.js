@@ -15,6 +15,7 @@ import {
 } from "../src/processing-operations.js";
 import {
   ASSET_OPERATION_WORKFLOW_KIND,
+  createAssetOperationWorkflowConnectionValidator,
   createAssetOperationWorkflowExecutor,
   createAssetOperationWorkflowNodeTemplate,
 } from "../src/workflow-operations.js";
@@ -47,6 +48,10 @@ const { validateWorkflowEditorConnectionWithCardinality } = await import(
 );
 const { createWorkflowRunner } = await import(
   pathToFileURL(path.join(runnerCheckout, "src", "index.ts")).href
+);
+
+const validateAssetWorkflowConnection = createAssetOperationWorkflowConnectionValidator(
+  validateWorkflowEditorConnectionWithCardinality,
 );
 
 const SCATTER_PARAMETERS = {
@@ -134,9 +139,49 @@ const incompatibleConnection = {
   targetPortId: "source",
 };
 assert.deepEqual(
-  validateWorkflowEditorConnectionWithCardinality(incompatibleDocument, incompatibleConnection),
+  validateAssetWorkflowConnection(incompatibleDocument, incompatibleConnection),
   { valid: false, reason: "type-mismatch" },
 );
+
+const audioTemplate = createAssetOperationWorkflowNodeTemplate({
+  schemaVersion: 1,
+  id: "fixture.audio.source",
+  version: "1",
+  category: "fixture",
+  inputs: [],
+  outputs: [{ id: "output", assetKinds: ["media"], mediaTypes: ["audio/*"] }],
+  parameterSchema: {},
+});
+const imageTemplate = createAssetOperationWorkflowNodeTemplate({
+  schemaVersion: 1,
+  id: "fixture.image.sink",
+  version: "1",
+  category: "fixture",
+  inputs: [{ id: "source", assetKinds: ["media"], mediaTypes: ["image/*"] }],
+  outputs: [],
+  parameterSchema: {},
+});
+const wildcardDocument = {
+  nodes: [
+    nodeFromTemplate(audioTemplate, "audio", 0, 0),
+    nodeFromTemplate(imageTemplate, "image", 240, 0),
+  ],
+  edges: [],
+};
+const wildcardConnection = {
+  sourceNodeId: "audio",
+  sourcePortId: "output",
+  targetNodeId: "image",
+  targetPortId: "source",
+};
+assert.deepEqual(
+  validateWorkflowEditorConnectionWithCardinality(wildcardDocument, wildcardConnection),
+  { valid: true },
+);
+assert.deepEqual(validateAssetWorkflowConnection(wildcardDocument, wildcardConnection), {
+  valid: false,
+  reason: "type-mismatch",
+});
 
 const evidence = [];
 const fixtureAdapter = fileURLToPath(
