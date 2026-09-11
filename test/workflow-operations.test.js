@@ -14,8 +14,10 @@ import {
 } from "../src/processing-operations.js";
 import {
   ASSET_OPERATION_WORKFLOW_KIND,
+  createAssetOperationWorkflowConnectionValidator,
   createAssetOperationWorkflowExecutor,
   createAssetOperationWorkflowNodeTemplate,
+  validateAssetOperationWorkflowConnection,
 } from "../src/workflow-operations.js";
 
 const SCATTER_PARAMETERS = {
@@ -67,6 +69,12 @@ test("workflow template preserves mesh constraints without inventing workflow co
     kind: "literal",
     value: THREE_D_MESH_MEDIA_TYPE,
   });
+  assert.deepEqual(source.metadata.assetOperationPort, {
+    schemaVersion: 1,
+    assetKinds: ["mesh"],
+    mediaTypes: [THREE_D_MESH_MEDIA_TYPE],
+    cardinality: "single",
+  });
 });
 
 test("asset value cardinality projects to array values, not multiple workflow edges", () => {
@@ -91,6 +99,62 @@ test("asset value cardinality projects to array values, not multiple workflow ed
   assert.equal(template.inputs[0].type.element.properties.kind.type.value, "image");
   assert.deepEqual(template.inputs[0].type.element.properties.mediaType.type, { kind: "string" });
   assert.equal(Object.hasOwn(template.inputs[0], "cardinality"), false);
+  assert.deepEqual(template.inputs[0].metadata.assetOperationPort.cardinality, { min: 1, max: 8 });
+});
+
+test("asset authoring validation preserves wildcard media families and bounded value cardinality", () => {
+  const outputTemplate = createAssetOperationWorkflowNodeTemplate({
+    schemaVersion: 1,
+    id: "fixture.audio.batch",
+    version: "1",
+    category: "fixture",
+    inputs: [],
+    outputs: [
+      {
+        id: "output",
+        assetKinds: ["media"],
+        mediaTypes: ["audio/*"],
+        cardinality: { min: 1, max: 8 },
+      },
+    ],
+    parameterSchema: {},
+  });
+  const inputTemplate = createAssetOperationWorkflowNodeTemplate({
+    schemaVersion: 1,
+    id: "fixture.image.batch",
+    version: "1",
+    category: "fixture",
+    inputs: [
+      {
+        id: "source",
+        assetKinds: ["media"],
+        mediaTypes: ["image/*"],
+        cardinality: { min: 1, max: 4 },
+      },
+    ],
+    outputs: [],
+    parameterSchema: {},
+  });
+  const document = {
+    nodes: [
+      { id: "audio", kind: outputTemplate.kind, outputs: outputTemplate.outputs },
+      { id: "image", kind: inputTemplate.kind, inputs: inputTemplate.inputs },
+    ],
+    edges: [],
+  };
+  const connection = {
+    sourceNodeId: "audio",
+    sourcePortId: "output",
+    targetNodeId: "image",
+    targetPortId: "source",
+  };
+
+  assert.deepEqual(validateAssetOperationWorkflowConnection(document, connection), {
+    valid: false,
+    reason: "type-mismatch",
+  });
+  const combined = createAssetOperationWorkflowConnectionValidator(() => ({ valid: true }));
+  assert.deepEqual(combined(document, connection), { valid: false, reason: "type-mismatch" });
 });
 
 test("workflow parameters reject values that canonical JSON would otherwise collapse", () => {
