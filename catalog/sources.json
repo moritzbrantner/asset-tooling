@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "sources": [
+    {
+      "schemaVersion": 1,
+      "id": "khronos.avocado-glb",
+      "provider": "khronos-gltf-sample-assets",
+      "title": "Avocado",
+      "kind": "mesh",
+      "mediaType": "model/gltf-binary",
+      "source": {
+        "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/90d7ede14c7e280af263824604b427a1ca02cb66/Models/Avocado/glTF-Binary/Avocado.glb",
+        "upstreamId": "Avocado/glTF-Binary",
+        "revision": "90d7ede14c7e280af263824604b427a1ca02cb66",
+        "path": "Models/Avocado/glTF-Binary/Avocado.glb"
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "evidenceUrl": "https://github.com/KhronosGroup/glTF-Sample-Assets/blob/90d7ede14c7e280af263824604b427a1ca02cb66/Models/Avocado/LICENSE.md"
+      },
+      "tags": ["gltf", "pbr", "reference", "three-d"],
+      "metadata": {
+        "upstreamGitBlobSha": "dd79cb8043a835f8589bf9f8e55c9a2c672360b5",
+        "upstreamByteLength": 8110040,
+        "purpose": "Reference PBR glTF asset for renderer, importer, normalization, and optimization consumers"
+      }
+    }
+  ]
+}
