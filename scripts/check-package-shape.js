@@ -18,67 +18,22 @@ assert(packageJson.type === "module", "package must remain an ES module package"
 assert(/^\d+\.\d+\.\d+$/.test(packageJson.version), "package version must be an explicit semver version");
 assert(packageJson.bin?.["asset-tooling"] === "./src/entry.js", "asset-tooling CLI entry must remain stable");
 assert(packageJson.exports?.["."] === "./src/index.js", "root programmatic export must resolve to src/index.js");
-assert(
-  packageJson.exports?.["./operations"] === "./src/operations.js",
-  "asset operation contracts must remain available through the focused ./operations subpath",
-);
-assert(
-  packageJson.exports?.["./operations/store"] === "./src/asset-store.js",
-  "content-addressed asset storage must remain available through the focused ./operations/store subpath",
-);
-assert(
-  packageJson.exports?.["./operations/generation"] === "./src/generation-operations.js",
-  "generation operation adapters must remain available through the focused ./operations/generation subpath",
-);
-assert(
-  packageJson.exports?.["./operations/generation/triposr"] === "./src/triposr-operation.js",
-  "TripoSR generation operation must remain available through the focused ./operations/generation/triposr subpath",
-);
-assert(
-  packageJson.exports?.["./operations/processing"] === "./src/processing-operations.js",
-  "processing operation adapters must remain available through the focused ./operations/processing subpath",
-);
-assert(
-  packageJson.exports?.["./operations/processing/animation"] ===
-    "./src/animation-processing-operations.js",
-  "animation processing operation adapters must remain available through the focused ./operations/processing/animation subpath",
-);
-assert(
-  packageJson.exports?.["./operations/image"] === "./src/image-operations.js",
-  "deterministic image operations must remain available through the focused ./operations/image subpath",
-);
-assert(
-  packageJson.exports?.["./operations/image/filters"] === "./src/image-filter-operations.js",
-  "deterministic image filter operations must remain available through the focused ./operations/image/filters subpath",
-);
-assert(
-  packageJson.exports?.["./image/rgba8"] === "./src/image-rgba8.js",
-  "canonical RGBA8 image contracts must remain available through the focused ./image/rgba8 subpath",
-);
-assert(
-  packageJson.exports?.["./operations/audio"] === "./src/audio-operations.js",
-  "audio operations must remain available through the focused ./operations/audio subpath",
-);
-assert(
-  packageJson.exports?.["./operations/audio/model"] === "./src/audio-model-operations.js",
-  "model-backed audio operations must remain available through the focused ./operations/audio/model subpath",
-);
-assert(
-  packageJson.exports?.["./audio"] === "./src/audio.js",
-  "canonical audio contracts must remain available through the focused ./audio subpath",
-);
-assert(
-  packageJson.exports?.["./operations/workflow"] === "./src/workflow-operations.js",
-  "workflow operation adapters must remain available through the focused ./operations/workflow subpath",
-);
-assert(
-  packageJson.exports?.["./catalog"] === "./src/catalog.js",
-  "asset catalog contracts must remain available through the focused ./catalog subpath",
-);
-assert(
-  packageJson.exports?.["./catalog/storage"] === "./src/catalog-storage.js",
-  "durable catalog storage consumers must remain available through the focused ./catalog/storage subpath",
-);
+assert(packageJson.exports?.["./operations"] === "./src/operations.js", "asset operation contracts must remain available through the focused ./operations subpath");
+assert(packageJson.exports?.["./operations/store"] === "./src/asset-store.js", "content-addressed asset storage must remain available through the focused ./operations/store subpath");
+assert(packageJson.exports?.["./operations/generation"] === "./src/generation-operations.js", "generation operation adapters must remain available through the focused ./operations/generation subpath");
+assert(packageJson.exports?.["./operations/generation/triposr"] === "./src/triposr-operation.js", "TripoSR generation operation must remain available through the focused ./operations/generation/triposr subpath");
+assert(packageJson.exports?.["./operations/processing"] === "./src/processing-operations.js", "processing operation adapters must remain available through the focused ./operations/processing subpath");
+assert(packageJson.exports?.["./operations/processing/animation"] === "./src/animation-processing-operations.js", "animation processing operation adapters must remain available through the focused ./operations/processing/animation subpath");
+assert(packageJson.exports?.["./operations/image"] === "./src/image-operations.js", "deterministic image operations must remain available through the focused ./operations/image subpath");
+assert(packageJson.exports?.["./operations/image/filters"] === "./src/image-filter-operations.js", "deterministic image filter operations must remain available through the focused ./operations/image/filters subpath");
+assert(packageJson.exports?.["./operations/image/advanced"] === "./src/image-advanced-operations.js", "advanced deterministic image operations must remain available through the focused ./operations/image/advanced subpath");
+assert(packageJson.exports?.["./image/rgba8"] === "./src/image-rgba8.js", "canonical RGBA8 image contracts must remain available through the focused ./image/rgba8 subpath");
+assert(packageJson.exports?.["./operations/audio"] === "./src/audio-operations.js", "audio operations must remain available through the focused ./operations/audio subpath");
+assert(packageJson.exports?.["./operations/audio/model"] === "./src/audio-model-operations.js", "model-backed audio operations must remain available through the focused ./operations/audio/model subpath");
+assert(packageJson.exports?.["./audio"] === "./src/audio.js", "canonical audio contracts must remain available through the focused ./audio subpath");
+assert(packageJson.exports?.["./operations/workflow"] === "./src/workflow-operations.js", "workflow operation adapters must remain available through the focused ./operations/workflow subpath");
+assert(packageJson.exports?.["./catalog"] === "./src/catalog.js", "asset catalog contracts must remain available through the focused ./catalog subpath");
+assert(packageJson.exports?.["./catalog/storage"] === "./src/catalog-storage.js", "durable catalog storage consumers must remain available through the focused ./catalog/storage subpath");
 assert(packageJson.exports?.["./schemas/*"] === "./schemas/*", "versioned schemas must remain directly consumable");
 
 const requiredPackageRoots = ["src", "schemas", "adapters", "catalog", "docs", "README.md"];
@@ -99,6 +54,7 @@ for (const file of [
   "src/image-rgba8.js",
   "src/image-operations.js",
   "src/image-filter-operations.js",
+  "src/image-advanced-operations.js",
   "src/audio.js",
   "src/audio-operations.js",
   "src/audio-model-operations.js",
