@@ -117,20 +117,30 @@ function sourceIndex(destinationIndex, sourceLength, destinationLength) {
 }
 
 export function resizeRgba8Nearest(source, width, height) {
+  if (typeof source !== "object" || source === null || Array.isArray(source)) {
+    throw new Error("source RGBA8 image must be an object");
+  }
+  const sourceWidth = positiveDimension(source.width, "source width");
+  const sourceHeight = positiveDimension(source.height, "source height");
+  if (!(source.pixels instanceof Uint8Array)) {
+    throw new Error("source RGBA8 pixels must be a Uint8Array");
+  }
+  const expectedSourceBytes = sourceWidth * sourceHeight * 4;
+  if (source.pixels.byteLength !== expectedSourceBytes) {
+    throw new Error(`source RGBA8 pixels must contain exactly ${expectedSourceBytes} bytes`);
+  }
+  const sourcePixels = Buffer.from(source.pixels);
   const targetWidth = positiveDimension(width, "target width");
   const targetHeight = positiveDimension(height, "target height");
   const output = Buffer.alloc(targetWidth * targetHeight * 4);
 
   for (let targetY = 0; targetY < targetHeight; targetY += 1) {
-    const sourceY = sourceIndex(targetY, source.width, targetHeight);
+    const sourceY = sourceIndex(targetY, sourceHeight, targetHeight);
     for (let targetX = 0; targetX < targetWidth; targetX += 1) {
-      const sourceX = sourceIndex(targetX, source.width, targetWidth);
-      const sourceOffset = (sourceY * source.width + sourceX) * 4;
+      const sourceX = sourceIndex(targetX, sourceWidth, targetWidth);
+      const sourceOffset = (sourceY * sourceWidth + sourceX) * 4;
       const targetOffset = (targetY * targetWidth + targetX) * 4;
-      output[targetOffset] = source.pixels[sourceOffset];
-      output[targetOffset + 1] = source.pixels[sourceOffset + 1];
-      output[targetOffset + 2] = source.pixels[sourceOffset + 2];
-      output[targetOffset + 3] = source.pixels[sourceOffset + 3];
+      sourcePixels.copy(output, targetOffset, sourceOffset, sourceOffset + 4);
     }
   }
 
