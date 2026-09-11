@@ -49,6 +49,84 @@
     },
     {
       "schemaVersion": 1,
+      "id": "kenney.ui-audio-mirror-click1-wav",
+      "provider": "kenney",
+      "title": "UI Audio — click1 WAV mirror",
+      "kind": "audio",
+      "mediaType": "audio/wav",
+      "source": {
+        "url": "https://raw.githubusercontent.com/Calinou/kenney-ui-audio/8c3d81b9159d058c444f89d12d518276b0b09345/addons/kenney_ui_audio/click1.wav",
+        "upstreamId": "ui-audio/click1",
+        "revision": "8c3d81b9159d058c444f89d12d518276b0b09345",
+        "path": "addons/kenney_ui_audio/click1.wav"
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "evidenceUrl": "https://kenney.nl/assets/ui-audio"
+      },
+      "tags": ["audio", "click", "fixture", "reference", "ui", "wav"],
+      "metadata": {
+        "distributionMirror": "Calinou/kenney-ui-audio exact Git commit; mirror converts the CC0 Kenney UI Audio pack to WAV",
+        "mirrorLicenseEvidenceUrl": "https://github.com/Calinou/kenney-ui-audio/blob/8c3d81b9159d058c444f89d12d518276b0b09345/LICENSE.txt",
+        "upstreamGitBlobSha": "2454780dc0d18f3a4dbf537a43cb6144ec93e624",
+        "upstreamByteLength": 18254,
+        "purpose": "Small click fixture for canonical audio normalization and consumer tests"
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "kenney.ui-audio-mirror-rollover2-wav",
+      "provider": "kenney",
+      "title": "UI Audio — rollover2 WAV mirror",
+      "kind": "audio",
+      "mediaType": "audio/wav",
+      "source": {
+        "url": "https://raw.githubusercontent.com/Calinou/kenney-ui-audio/8c3d81b9159d058c444f89d12d518276b0b09345/addons/kenney_ui_audio/rollover2.wav",
+        "upstreamId": "ui-audio/rollover2",
+        "revision": "8c3d81b9159d058c444f89d12d518276b0b09345",
+        "path": "addons/kenney_ui_audio/rollover2.wav"
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "evidenceUrl": "https://kenney.nl/assets/ui-audio"
+      },
+      "tags": ["audio", "fixture", "reference", "rollover", "ui", "wav"],
+      "metadata": {
+        "distributionMirror": "Calinou/kenney-ui-audio exact Git commit; mirror converts the CC0 Kenney UI Audio pack to WAV",
+        "mirrorLicenseEvidenceUrl": "https://github.com/Calinou/kenney-ui-audio/blob/8c3d81b9159d058c444f89d12d518276b0b09345/LICENSE.txt",
+        "upstreamGitBlobSha": "6a6573b4f7c644ff76e0f70915b83d2dea79c5d9",
+        "upstreamByteLength": 11086,
+        "purpose": "Short hover/rollover fixture with a different source duration for audio processing tests"
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "kenney.ui-audio-mirror-switch14-wav",
+      "provider": "kenney",
+      "title": "UI Audio — switch14 WAV mirror",
+      "kind": "audio",
+      "mediaType": "audio/wav",
+      "source": {
+        "url": "https://raw.githubusercontent.com/Calinou/kenney-ui-audio/8c3d81b9159d058c444f89d12d518276b0b09345/addons/kenney_ui_audio/switch14.wav",
+        "upstreamId": "ui-audio/switch14",
+        "revision": "8c3d81b9159d058c444f89d12d518276b0b09345",
+        "path": "addons/kenney_ui_audio/switch14.wav"
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "evidenceUrl": "https://kenney.nl/assets/ui-audio"
+      },
+      "tags": ["audio", "fixture", "reference", "switch", "ui", "wav"],
+      "metadata": {
+        "distributionMirror": "Calinou/kenney-ui-audio exact Git commit; mirror converts the CC0 Kenney UI Audio pack to WAV",
+        "mirrorLicenseEvidenceUrl": "https://github.com/Calinou/kenney-ui-audio/blob/8c3d81b9159d058c444f89d12d518276b0b09345/LICENSE.txt",
+        "upstreamGitBlobSha": "91d6f7f24555545753b89222ace1c3fee316a609",
+        "upstreamByteLength": 6222,
+        "purpose": "Very small switch fixture for fast audio normalization and workflow smoke tests"
+      }
+    },
+    {
+      "schemaVersion": 1,
       "id": "kenney.ui-pack-v2",
       "provider": "kenney",
       "title": "UI Pack",
