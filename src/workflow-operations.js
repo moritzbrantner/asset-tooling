@@ -3,6 +3,7 @@ import { canonicalJson } from "./canonical.js";
 import {
   assetOperationKey,
   createAssetOperationDescriptor,
+  normalizeAssetOperationInputs,
   normalizeAssetOperationResult,
 } from "./operations.js";
 
@@ -320,12 +321,16 @@ export function createAssetOperationWorkflowExecutor({
     if (!registration) {
       throw new Error(`asset workflow operation '${selection.key}' is not registered`);
     }
+    const inputs = normalizeAssetOperationInputs(
+      registration.operation,
+      context.inputs ?? {},
+    );
 
     const rawResult = await registration.execute(
       root,
       {
         parameters: selection.parameters,
-        inputs: context.inputs ?? {},
+        inputs,
       },
       context,
     );
