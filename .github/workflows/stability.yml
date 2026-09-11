@@ -104,3 +104,51 @@ jobs:
             "${{ matrix.repository }}" \
             "${{ matrix.manifestPath }}" \
             "${{ matrix.operation }}"
+
+  workflow-bridge:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout current asset-tooling
+        uses: actions/checkout@v4
+        with:
+          path: asset-tooling
+      - id: stack
+        name: Load accepted workflow stack
+        shell: bash
+        run: |
+          node - <<'NODE' >> "$GITHUB_OUTPUT"
+          const fs = require("fs");
+          const stack = JSON.parse(fs.readFileSync("asset-tooling/stability/workflow-stack.json", "utf8"));
+          console.log(`editor_repository=${stack.editor.repository}`);
+          console.log(`editor_commit=${stack.editor.commit}`);
+          console.log(`runner_repository=${stack.runner.repository}`);
+          console.log(`runner_commit=${stack.runner.commit}`);
+          NODE
+      - name: Checkout accepted workflow-editor
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ steps.stack.outputs.editor_repository }}
+          ref: ${{ steps.stack.outputs.editor_commit }}
+          path: workflow-editor
+          persist-credentials: false
+      - name: Checkout accepted workflow-runner
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ steps.stack.outputs.runner_repository }}
+          ref: ${{ steps.stack.outputs.runner_commit }}
+          path: workflow-runner
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.0
+      - name: Install workflow-editor dependencies from lockfile
+        working-directory: workflow-editor
+        run: bun install --frozen-lockfile
+      - name: Validate descriptor/editor/runner bridge
+        shell: bash
+        run: |
+          bun asset-tooling/scripts/check-workflow-bridge.js \
+            "$GITHUB_WORKSPACE/workflow-editor" \
+            "$GITHUB_WORKSPACE/workflow-runner" \
+            "${{ steps.stack.outputs.editor_commit }}" \
+            "${{ steps.stack.outputs.runner_commit }}"
