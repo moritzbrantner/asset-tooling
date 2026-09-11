@@ -10,6 +10,7 @@ import {
   parseRgba8Image,
 } from "../src/image-rgba8.js";
 import {
+  IMAGE_CROP_OPERATION,
   IMAGE_OPERATIONS,
   IMAGE_RESIZE_OPERATION,
   createImageResizeOperationBuildIdentity,
@@ -84,6 +85,8 @@ test("image geometry registry is deterministic and typed", () => {
     "nearest",
     "bilinear",
   ]);
+  assert.equal(IMAGE_CROP_OPERATION.parameterSchema.properties.x.maximum, 8191);
+  assert.equal(IMAGE_CROP_OPERATION.parameterSchema.properties.y.maximum, 8191);
 });
 
 test("image.resize build identity binds source content and exact algorithm", async () => {
