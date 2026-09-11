@@ -99,8 +99,7 @@ export function convolveRgba8(sourceValue, kernelValue, { alphaMode = "preserve"
       for (const sample of samples) {
         alphaSum += source.pixels[sample.offset + 3] * sample.weight;
       }
-      const outputAlpha = clampByte(roundRatioSigned(alphaSum, kernel.divisor));
-      output[targetOffset + 3] = outputAlpha;
+      output[targetOffset + 3] = clampByte(roundRatioSigned(alphaSum, kernel.divisor));
 
       for (let component = 0; component < 3; component += 1) {
         let premultipliedSum = 0;
@@ -109,15 +108,10 @@ export function convolveRgba8(sourceValue, kernelValue, { alphaMode = "preserve"
           premultipliedSum +=
             source.pixels[sample.offset + component] * alpha * sample.weight;
         }
-        const premultiplied = clamp(
-          roundRatioSigned(premultipliedSum, kernel.divisor),
-          0,
-          255 * 255,
-        );
         output[targetOffset + component] =
-          outputAlpha === 0
+          alphaSum <= 0
             ? 0
-            : clampByte(roundRatioSigned(premultiplied, outputAlpha) + kernel.bias);
+            : clampByte(roundRatioSigned(premultipliedSum, alphaSum) + kernel.bias);
       }
     }
   }
