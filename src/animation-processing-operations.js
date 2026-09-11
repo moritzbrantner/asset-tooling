@@ -420,9 +420,6 @@ async function verifyProcessorSource(processor, root, operationId) {
     }
 
     if (/^cargo(?:\.exe)?$/i.test(path.basename(processor.executable))) {
-      if (!processor.prefixArguments.includes("--locked")) {
-        throw new Error(`${operationId} cargo processor must use --locked`);
-      }
       const manifestIndex = processor.prefixArguments.indexOf("--manifest-path");
       const manifestValue = processor.prefixArguments[manifestIndex + 1];
       if (manifestIndex < 0 || typeof manifestValue !== "string") {
@@ -432,6 +429,12 @@ async function verifyProcessorSource(processor, root, operationId) {
       if (!pathIsInside(processor.checkoutRoot, manifestPath)) {
         throw new Error(`${operationId} processor manifest must be inside checkoutRoot`);
       }
+      const manifestRelativePath = path.relative(processor.checkoutRoot, manifestPath);
+      await gitOutput(
+        processor.checkoutRoot,
+        ["ls-files", "--error-unmatch", "--", manifestRelativePath],
+        `${operationId} processor manifest tracking verification`,
+      );
     } else {
       const scriptPath = path.isAbsolute(processor.scriptPath)
         ? path.resolve(processor.scriptPath)
