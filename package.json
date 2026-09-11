@@ -10,6 +10,7 @@
     "./operations/generation": "./src/generation-operations.js",
     "./operations/processing": "./src/processing-operations.js",
     "./operations/workflow": "./src/workflow-operations.js",
+    "./catalog": "./src/catalog.js",
     "./schemas/*": "./schemas/*"
   },
   "bin": {
@@ -19,6 +20,7 @@
     "src",
     "schemas",
     "adapters",
+    "catalog",
     "docs",
     "README.md"
   ],
