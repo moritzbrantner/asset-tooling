@@ -43,6 +43,25 @@ async function workspace() {
   return mkdtemp(path.join(os.tmpdir(), "asset-tooling-stable-diffusion-operation-"));
 }
 
+function modelBackend({ environmentVersion = "1", generate } = {}) {
+  const authoritative = getBackend({ id: "model.stable-diffusion.diffusers", version: "1" });
+  return {
+    id: authoritative.id,
+    version: authoritative.version,
+    kind: authoritative.kind,
+    validate(document) {
+      authoritative.validate(document);
+    },
+    async environmentComponents() {
+      return [{ id: "test-stable-diffusion-runtime", version: environmentVersion }];
+    },
+    async generate(document) {
+      if (generate) return generate(document);
+      return { bytes: Buffer.from("unused", "utf8"), observations: {} };
+    },
+  };
+}
+
 test("Stable Diffusion operation exposes the pipeline bundle as content-addressed input", () => {
   assert.equal(STABLE_DIFFUSION_IMAGE_OPERATION.id, "image.stable-diffusion.generate");
   assert.equal(STABLE_DIFFUSION_IMAGE_OPERATION.version, "1");
@@ -54,11 +73,15 @@ test("Stable Diffusion operation exposes the pipeline bundle as content-addresse
   assert.deepEqual(STABLE_DIFFUSION_IMAGE_OPERATION.outputs[0].mediaTypes, ["image/png"]);
 });
 
-test("Stable Diffusion operation build identity binds seed, backend, parameters, and exact model bytes", async () => {
-  const identity = await createStableDiffusionImageOperationBuildIdentity({
-    parameters: PARAMETERS,
-    inputs: { model: MODEL },
-  });
+test("Stable Diffusion operation build identity binds model bytes, parameters, and execution environment", async () => {
+  const backend = modelBackend();
+  const identity = await createStableDiffusionImageOperationBuildIdentity(
+    {
+      parameters: PARAMETERS,
+      inputs: { model: MODEL },
+    },
+    backend,
+  );
 
   assert.deepEqual(identity.operation, { id: "image.stable-diffusion.generate", version: "1" });
   assert.equal(identity.parameters.seed, "42");
@@ -68,12 +91,31 @@ test("Stable Diffusion operation build identity binds seed, backend, parameters,
   assert.equal(identity.implementation.version, "1");
   assert.equal(identity.implementation.kind, "model");
   assert.equal(identity.implementation.tool.name, "asset-tooling");
+  assert.deepEqual(identity.implementation.environment.components, [
+    { id: "test-stable-diffusion-runtime", version: "1" },
+  ]);
+  assert.match(identity.implementation.environment.sha256, /^[0-9a-f]{64}$/);
 
-  const otherModel = await createStableDiffusionImageOperationBuildIdentity({
-    parameters: PARAMETERS,
-    inputs: { model: { ...MODEL, sha256: "b".repeat(64) } },
-  });
+  const otherModel = await createStableDiffusionImageOperationBuildIdentity(
+    {
+      parameters: PARAMETERS,
+      inputs: { model: { ...MODEL, sha256: "b".repeat(64) } },
+    },
+    backend,
+  );
   assert.notDeepEqual(identity, otherModel);
+
+  const otherEnvironment = await createStableDiffusionImageOperationBuildIdentity(
+    {
+      parameters: PARAMETERS,
+      inputs: { model: MODEL },
+    },
+    modelBackend({ environmentVersion: "2" }),
+  );
+  assert.notEqual(
+    identity.implementation.environment.sha256,
+    otherEnvironment.implementation.environment.sha256,
+  );
 });
 
 test("Stable Diffusion operation reuses backend semantics and materializes only verified object-store model bytes", async () => {
@@ -86,23 +128,16 @@ test("Stable Diffusion operation reuses backend semantics and materializes only 
     metadata: {},
   });
   const generatedBytes = Buffer.from("fake-png-output", "utf8");
-  const authoritative = getBackend({ id: "model.stable-diffusion.diffusers", version: "1" });
   let capturedDocument;
-  const backend = {
-    id: authoritative.id,
-    version: authoritative.version,
-    kind: authoritative.kind,
-    validate(document) {
-      authoritative.validate(document);
-    },
-    async generate(document) {
+  const backend = modelBackend({
+    generate(document) {
       capturedDocument = document;
       return {
         bytes: generatedBytes,
         observations: { adapter: "fake-diffusers", seed: document.spec.randomness.seed },
       };
     },
-  };
+  });
 
   const execute = createStableDiffusionImageOperationExecutor(backend);
   const result = await execute(root, {
@@ -136,20 +171,13 @@ test("Stable Diffusion operation reuses backend semantics and materializes only 
 });
 
 test("Stable Diffusion operation fails closed before generation when model bytes are missing", async () => {
-  const authoritative = getBackend({ id: "model.stable-diffusion.diffusers", version: "1" });
   let generated = false;
-  const backend = {
-    id: authoritative.id,
-    version: authoritative.version,
-    kind: authoritative.kind,
-    validate(document) {
-      authoritative.validate(document);
-    },
-    async generate() {
+  const backend = modelBackend({
+    generate() {
       generated = true;
       return { bytes: Buffer.alloc(0), observations: {} };
     },
-  };
+  });
   const execute = createStableDiffusionImageOperationExecutor(backend);
   const root = await workspace();
 
@@ -161,21 +189,28 @@ test("Stable Diffusion operation fails closed before generation when model bytes
 });
 
 test("Stable Diffusion operation preserves backend validation for seed domain and unsupported parameters", async () => {
+  const backend = modelBackend();
   await assert.rejects(
     () =>
-      createStableDiffusionImageOperationBuildIdentity({
-        parameters: { ...PARAMETERS, seed: "18446744073709551616" },
-        inputs: { model: MODEL },
-      }),
+      createStableDiffusionImageOperationBuildIdentity(
+        {
+          parameters: { ...PARAMETERS, seed: "18446744073709551616" },
+          inputs: { model: MODEL },
+        },
+        backend,
+      ),
     /randomness\.seed must be at most 18446744073709551615 for PyTorch/,
   );
 
   await assert.rejects(
     () =>
-      createStableDiffusionImageOperationBuildIdentity({
-        parameters: { ...PARAMETERS, hiddenDownload: true },
-        inputs: { model: MODEL },
-      }),
+      createStableDiffusionImageOperationBuildIdentity(
+        {
+          parameters: { ...PARAMETERS, hiddenDownload: true },
+          inputs: { model: MODEL },
+        },
+        backend,
+      ),
     /does not accept parameter 'hiddenDownload'/,
   );
 });

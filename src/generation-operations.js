@@ -5,6 +5,7 @@ import {
 } from "./asset-store.js";
 import { normalizeGenerationResult } from "./backend-contract.js";
 import { getBackend } from "./backends.js";
+import { captureEnvironment } from "./environment.js";
 import {
   createAssetOperationBuildIdentity,
   createAssetOperationRegistry,
@@ -237,12 +238,13 @@ function stableDiffusionLegacyDocument(root, parameters, model) {
   };
 }
 
-async function implementationIdentity(backend) {
+async function implementationIdentity(backend, environment) {
   return {
     id: backend.id,
     version: backend.version,
     kind: backend.kind,
     tool: await captureToolIdentity(),
+    ...(environment === undefined ? {} : { environment }),
   };
 }
 
@@ -253,24 +255,42 @@ function assertStableDiffusionBackend(backend) {
     backend.version !== STABLE_DIFFUSION_GENERATOR_VERSION ||
     backend.kind !== "model" ||
     typeof backend.validate !== "function" ||
-    typeof backend.generate !== "function"
+    typeof backend.generate !== "function" ||
+    typeof backend.environmentComponents !== "function"
   ) {
     throw new Error("Stable Diffusion operation requires model.stable-diffusion.diffusers@1 backend semantics");
   }
   return backend;
 }
 
-async function createStableDiffusionBuildIdentity(backend, { parameters = {}, inputs = {} } = {}) {
-  const buildIdentity = createAssetOperationBuildIdentity({
+async function createStableDiffusionBuildIdentity(
+  root,
+  backend,
+  { parameters = {}, inputs = {} } = {},
+) {
+  const normalizedInvocation = createAssetOperationBuildIdentity({
     operation: STABLE_DIFFUSION_IMAGE_OPERATION,
-    implementation: await implementationIdentity(backend),
+    implementation: {
+      id: backend.id,
+      version: backend.version,
+      kind: backend.kind,
+    },
     parameters,
     inputs,
   });
-  backend.validate(
-    stableDiffusionLegacyDocument(".", buildIdentity.parameters, buildIdentity.inputs.model),
+  const document = stableDiffusionLegacyDocument(
+    root,
+    normalizedInvocation.parameters,
+    normalizedInvocation.inputs.model,
   );
-  return buildIdentity;
+  backend.validate(document);
+  const environment = await captureEnvironment(await backend.environmentComponents(document));
+  return createAssetOperationBuildIdentity({
+    operation: STABLE_DIFFUSION_IMAGE_OPERATION,
+    implementation: await implementationIdentity(backend, environment),
+    parameters: normalizedInvocation.parameters,
+    inputs: normalizedInvocation.inputs,
+  });
 }
 
 export async function createProceduralSvgScatterOperationBuildIdentity({ parameters = {}, inputs = {} } = {}) {
@@ -308,12 +328,18 @@ export async function executeProceduralSvgScatterOperation(root, { parameters = 
   });
 }
 
-export async function createStableDiffusionImageOperationBuildIdentity({ parameters = {}, inputs = {} } = {}) {
-  const backend = getBackend({
-    id: STABLE_DIFFUSION_GENERATOR_ID,
-    version: STABLE_DIFFUSION_GENERATOR_VERSION,
-  });
-  return createStableDiffusionBuildIdentity(backend, { parameters, inputs });
+export async function createStableDiffusionImageOperationBuildIdentity(
+  invocation = {},
+  backendValue,
+) {
+  const backend = assertStableDiffusionBackend(
+    backendValue ??
+      getBackend({
+        id: STABLE_DIFFUSION_GENERATOR_ID,
+        version: STABLE_DIFFUSION_GENERATOR_VERSION,
+      }),
+  );
+  return createStableDiffusionBuildIdentity(process.cwd(), backend, invocation);
 }
 
 export function createStableDiffusionImageOperationExecutor(backendValue) {
@@ -329,7 +355,10 @@ export function createStableDiffusionImageOperationExecutor(backendValue) {
     root,
     { parameters = {}, inputs = {} } = {},
   ) {
-    const buildIdentity = await createStableDiffusionBuildIdentity(backend, { parameters, inputs });
+    const buildIdentity = await createStableDiffusionBuildIdentity(root, backend, {
+      parameters,
+      inputs,
+    });
     const model = buildIdentity.inputs.model;
     await resolveAssetObject(root, model);
     const document = stableDiffusionLegacyDocument(root, buildIdentity.parameters, model);
