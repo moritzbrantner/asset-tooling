@@ -44,6 +44,14 @@ assert(
   "animation processing operation adapters must remain available through the focused ./operations/processing/animation subpath",
 );
 assert(
+  packageJson.exports?.["./operations/image"] === "./src/image-operations.js",
+  "deterministic image operations must remain available through the focused ./operations/image subpath",
+);
+assert(
+  packageJson.exports?.["./image/rgba8"] === "./src/image-rgba8.js",
+  "canonical RGBA8 image contracts must remain available through the focused ./image/rgba8 subpath",
+);
+assert(
   packageJson.exports?.["./operations/audio"] === "./src/audio-operations.js",
   "audio operations must remain available through the focused ./operations/audio subpath",
 );
@@ -84,6 +92,8 @@ for (const file of [
   "src/triposr-operation.js",
   "src/processing-operations.js",
   "src/animation-processing-operations.js",
+  "src/image-rgba8.js",
+  "src/image-operations.js",
   "src/audio.js",
   "src/audio-operations.js",
   "src/audio-model-operations.js",
