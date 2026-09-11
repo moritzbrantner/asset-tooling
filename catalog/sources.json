@@ -121,6 +121,54 @@
     },
     {
       "schemaVersion": 1,
+      "id": "poly-haven.fine-grained-wood-color-4k-jpg",
+      "provider": "poly-haven",
+      "title": "Fine Grained Wood — 4K Color",
+      "kind": "texture",
+      "mediaType": "image/jpeg",
+      "source": {
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/4k/fine_grained_wood/fine_grained_wood_col_4k.jpg",
+        "upstreamId": "fine_grained_wood",
+        "revision": "4k-jpg-color",
+        "path": "fine_grained_wood_col_4k.jpg"
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "evidenceUrl": "https://polyhaven.com/a/fine_grained_wood"
+      },
+      "tags": ["material", "pbr", "reference", "texture", "wood"],
+      "metadata": {
+        "author": "Rob Tuytel",
+        "resolution": "4K",
+        "purpose": "Real-world color texture input for PBR material and texture processing consumers"
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "poly-haven.studio-small-01-4k-exr",
+      "provider": "poly-haven",
+      "title": "Studio Small 01 — 4K EXR",
+      "kind": "hdri",
+      "mediaType": "image/x-exr",
+      "source": {
+        "url": "https://dl.polyhaven.org/file/ph-assets/HDRIs/exr/4k/studio_small_01_4k.exr",
+        "upstreamId": "studio_small_01",
+        "revision": "4k-exr",
+        "path": "studio_small_01_4k.exr"
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "evidenceUrl": "https://polyhaven.com/a/studio_small_01"
+      },
+      "tags": ["environment", "hdri", "lighting", "reference", "studio", "three-d"],
+      "metadata": {
+        "author": "Greg Zaal",
+        "resolution": "4K",
+        "purpose": "Stable studio-lighting reference for renderer, material, and look-development consumers"
+      }
+    },
+    {
+      "schemaVersion": 1,
       "id": "quaternius.sci-fi-essentials-standard-models",
       "provider": "quaternius",
       "title": "Sci-Fi Essentials Kit — Standard Models",
