@@ -5,6 +5,15 @@ import { mkdtemp } from "node:fs/promises";
 import { pathToFileURL, fileURLToPath } from "node:url";
 import { resolveAssetObject, storeAssetObject } from "../src/asset-store.js";
 import {
+  AUDIO_GAIN_OPERATION,
+  AUDIO_MIX_OPERATION,
+  AUDIO_SYNTHESIZE_OPERATION,
+  executeAudioGainOperation,
+  executeAudioMixOperation,
+  executeAudioSynthesizeOperation,
+} from "../src/audio-operations.js";
+import { assertCanonicalAudioBytes } from "../src/audio.js";
+import {
   PROCEDURAL_SVG_SCATTER_OPERATION,
   executeProceduralSvgScatterOperation,
 } from "../src/generation-operations.js";
@@ -40,6 +49,12 @@ const workflowStack = JSON.parse(
 assert.equal(workflowStack.editor.commit, editorRevision);
 assert.equal(workflowStack.runner.commit, runnerRevision);
 
+const editor = await import(pathToFileURL(path.join(editorCheckout, "src", "index.ts")).href);
+const {
+  addWorkflowEditorArrayConstructorInputToNode,
+  workflowEditorControlFlowNodeTemplates,
+  workflowEditorJsonNodeTemplates,
+} = editor;
 const { compileWorkflowEditorDocument } = await import(
   pathToFileURL(path.join(editorCheckout, "src", "compiler.ts")).href
 );
@@ -69,6 +84,32 @@ const SIMPLIFY_PARAMETERS = {
   targetTriangleCount: 4,
   targetError: 1,
   lockBorder: false,
+};
+const SYNTH_A_PARAMETERS = {
+  waveform: "square",
+  sampleRate: 8000,
+  channels: 1,
+  frameCount: 800,
+  frequencyHz: 440,
+  amplitude: 4000,
+};
+const SYNTH_B_PARAMETERS = {
+  waveform: "saw",
+  sampleRate: 8000,
+  channels: 1,
+  frameCount: 800,
+  frequencyHz: 220,
+  amplitude: 2000,
+};
+const GAIN_PARAMETERS = {
+  numerator: 1,
+  denominator: 2,
+};
+const MIX_PARAMETERS = {
+  tracks: [
+    { startFrame: 0, gainNumerator: 1, gainDenominator: 1 },
+    { startFrame: 80, gainNumerator: 1, gainDenominator: 1 },
+  ],
 };
 
 function clone(value) {
@@ -269,6 +310,154 @@ assert.equal(evidence[1].result.observations.resultTriangleCount, 4);
 assert.equal(Object.hasOwn(generatedRun.nodeResults.generate.outputs, "observations"), false);
 assert.equal(Object.hasOwn(processedRun.nodeResults.simplify.outputs, "observations"), false);
 
+const synthATemplate = createAssetOperationWorkflowNodeTemplate(AUDIO_SYNTHESIZE_OPERATION, {
+  parameters: SYNTH_A_PARAMETERS,
+});
+const synthBTemplate = createAssetOperationWorkflowNodeTemplate(AUDIO_SYNTHESIZE_OPERATION, {
+  parameters: SYNTH_B_PARAMETERS,
+});
+const gainTemplate = createAssetOperationWorkflowNodeTemplate(AUDIO_GAIN_OPERATION, {
+  parameters: GAIN_PARAMETERS,
+});
+const mixTemplate = createAssetOperationWorkflowNodeTemplate(AUDIO_MIX_OPERATION, {
+  parameters: MIX_PARAMETERS,
+});
+const arrayTemplate = workflowEditorJsonNodeTemplates.find((template) => template.kind === "json.array");
+const endTemplate = workflowEditorControlFlowNodeTemplates.find((template) => template.kind === "control.end");
+assert.ok(arrayTemplate, "pinned workflow-editor must expose json.array");
+assert.ok(endTemplate, "pinned workflow-editor must expose control.end");
+
+const synthANode = nodeFromTemplate(synthATemplate, "synth-a", 0, 0);
+const synthBNode = nodeFromTemplate(synthBTemplate, "synth-b", 0, 180);
+const gainNode = nodeFromTemplate(gainTemplate, "gain-a", 240, 0);
+let arrayNode = nodeFromTemplate(arrayTemplate, "sources", 480, 80);
+arrayNode = addWorkflowEditorArrayConstructorInputToNode(arrayNode, {
+  portId: "gain-source",
+  sourceNodeId: "gain-a",
+  sourcePortId: "output",
+  type: clone(gainTemplate.outputs[0].type),
+});
+arrayNode = addWorkflowEditorArrayConstructorInputToNode(arrayNode, {
+  portId: "synth-b-source",
+  sourceNodeId: "synth-b",
+  sourcePortId: "output",
+  type: clone(synthBTemplate.outputs[0].type),
+});
+arrayNode.outputs[0].type = clone(mixTemplate.inputs[0].type);
+arrayNode.outputs[0].metadata = clone(mixTemplate.inputs[0].metadata);
+const mixNode = nodeFromTemplate(mixTemplate, "mix", 720, 80);
+const endNode = nodeFromTemplate(endTemplate, "export", 960, 80);
+endNode.inputs[0].type = clone(mixTemplate.outputs[0].type);
+
+const referenceConnections = [
+  {
+    id: "ref-synth-gain",
+    sourceNodeId: "synth-a",
+    sourcePortId: "output",
+    targetNodeId: "gain-a",
+    targetPortId: "source",
+  },
+  {
+    id: "ref-gain-array",
+    sourceNodeId: "gain-a",
+    sourcePortId: "output",
+    targetNodeId: "sources",
+    targetPortId: "gain-source",
+  },
+  {
+    id: "ref-synth-b-array",
+    sourceNodeId: "synth-b",
+    sourcePortId: "output",
+    targetNodeId: "sources",
+    targetPortId: "synth-b-source",
+  },
+  {
+    id: "ref-array-mix",
+    sourceNodeId: "sources",
+    sourcePortId: "value",
+    targetNodeId: "mix",
+    targetPortId: "sources",
+  },
+  {
+    id: "ref-mix-export",
+    sourceNodeId: "mix",
+    sourcePortId: "output",
+    targetNodeId: "export",
+    targetPortId: "in",
+  },
+];
+const referenceDocument = {
+  nodes: [synthANode, synthBNode, gainNode, arrayNode, mixNode, endNode],
+  edges: [],
+};
+for (const connection of referenceConnections) {
+  assert.deepEqual(
+    validateAssetWorkflowConnection(referenceDocument, connection),
+    { valid: true },
+    `reference workflow connection ${connection.id} must be valid`,
+  );
+  referenceDocument.edges.push(connection);
+}
+
+const referenceWorkflow = compileWorkflowEditorDocument(referenceDocument);
+const compiledArray = referenceWorkflow.nodes.find((node) => node.id === "sources");
+assert.ok(compiledArray);
+assert.deepEqual(
+  compiledArray.inputs.filter((input) => input.id !== "item-add").map((input) => input.id),
+  ["gain-source", "synth-b-source"],
+);
+
+const referenceEvidence = [];
+const referenceAssetExecutor = createAssetOperationWorkflowExecutor({
+  root,
+  registrations: [
+    { operation: AUDIO_SYNTHESIZE_OPERATION, execute: executeAudioSynthesizeOperation },
+    { operation: AUDIO_GAIN_OPERATION, execute: executeAudioGainOperation },
+    { operation: AUDIO_MIX_OPERATION, execute: executeAudioMixOperation },
+  ],
+  onOperationResult: (entry) => referenceEvidence.push(entry),
+});
+const referenceRunner = createWorkflowRunner({
+  executors: { [ASSET_OPERATION_WORKFLOW_KIND]: referenceAssetExecutor },
+});
+const firstReferenceRun = await referenceRunner.dispatch({
+  runId: "reference-audio-workflow-1",
+  workflow: referenceWorkflow,
+});
+const secondReferenceRun = await referenceRunner.dispatch({
+  runId: "reference-audio-workflow-2",
+  workflow: referenceWorkflow,
+});
+assert.equal(firstReferenceRun.status, "succeeded");
+assert.equal(secondReferenceRun.status, "succeeded");
+assert.equal(firstReferenceRun.output.kind, "audio");
+assert.equal(secondReferenceRun.output.sha256, firstReferenceRun.output.sha256);
+assert.equal(firstReferenceRun.nodeResults.mix.outputs.output.sha256, firstReferenceRun.output.sha256);
+assert.equal(Object.hasOwn(firstReferenceRun.nodeResults.mix.outputs, "observations"), false);
+
+const finalBytes = await resolveAssetObject(root, firstReferenceRun.output);
+const finalAudio = assertCanonicalAudioBytes(finalBytes, firstReferenceRun.output.metadata);
+assert.equal(finalAudio.sampleRate, 8000);
+assert.equal(finalAudio.channels, 1);
+assert.equal(finalAudio.samples.length, 880);
+
+const firstGainAsset = firstReferenceRun.nodeResults["gain-a"].outputs.output;
+const firstSynthBAsset = firstReferenceRun.nodeResults["synth-b"].outputs.output;
+const firstMixEvidence = referenceEvidence.find(
+  (entry) => entry.runId === "reference-audio-workflow-1" && entry.nodeId === "mix",
+);
+assert.ok(firstMixEvidence);
+assert.deepEqual(firstMixEvidence.result.observations.orderedInputSha256, [
+  firstGainAsset.sha256,
+  firstSynthBAsset.sha256,
+]);
+assert.equal(firstMixEvidence.result.observations.trackCount, 2);
+assert.equal(referenceEvidence.length, 8);
+assert.equal(
+  referenceEvidence.every((entry) => Object.hasOwn(entry.result, "observations")),
+  true,
+);
+
 console.log(
   JSON.stringify({
     status: "workflow-bridge-valid",
@@ -276,6 +465,13 @@ console.log(
     workflowRunner: runnerRevision,
     generatorOutput: generatedAsset.sha256,
     processorOutput: processedAsset.sha256,
+    referenceWorkflow: {
+      finalOutput: firstReferenceRun.output.sha256,
+      sampleRate: finalAudio.sampleRate,
+      channels: finalAudio.channels,
+      frameCount: finalAudio.samples.length,
+      operationEvidenceEvents: referenceEvidence.length,
+    },
     evidenceEvents: evidence.length,
   }),
 );
