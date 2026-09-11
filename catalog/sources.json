@@ -18,7 +18,14 @@
         "spdx": "CC0-1.0",
         "evidenceUrl": "https://kenney.nl/assets/boardgame-pack"
       },
-      "tags": ["board-game", "cards", "dice", "game", "reference", "two-d"],
+      "tags": [
+        "board-game",
+        "cards",
+        "dice",
+        "game",
+        "reference",
+        "two-d"
+      ],
       "metadata": {
         "fileCount": 490,
         "purpose": "Generic board-game, card, and dice art for demos and game repositories"
@@ -41,7 +48,14 @@
         "spdx": "CC0-1.0",
         "evidenceUrl": "https://kenney.nl/assets/ui-audio"
       },
-      "tags": ["audio", "click", "game", "reference", "switch", "ui"],
+      "tags": [
+        "audio",
+        "click",
+        "game",
+        "reference",
+        "switch",
+        "ui"
+      ],
       "metadata": {
         "fileCount": 50,
         "purpose": "Small generic interaction-sound corpus for UI and audio consumers"
@@ -64,7 +78,14 @@
         "spdx": "CC0-1.0",
         "evidenceUrl": "https://kenney.nl/assets/ui-audio"
       },
-      "tags": ["audio", "click", "fixture", "reference", "ui", "wav"],
+      "tags": [
+        "audio",
+        "click",
+        "fixture",
+        "reference",
+        "ui",
+        "wav"
+      ],
       "metadata": {
         "distributionMirror": "Calinou/kenney-ui-audio exact Git commit; mirror converts the CC0 Kenney UI Audio pack to WAV",
         "mirrorLicenseEvidenceUrl": "https://github.com/Calinou/kenney-ui-audio/blob/8c3d81b9159d058c444f89d12d518276b0b09345/LICENSE.txt",
@@ -90,7 +111,14 @@
         "spdx": "CC0-1.0",
         "evidenceUrl": "https://kenney.nl/assets/ui-audio"
       },
-      "tags": ["audio", "fixture", "reference", "rollover", "ui", "wav"],
+      "tags": [
+        "audio",
+        "fixture",
+        "reference",
+        "rollover",
+        "ui",
+        "wav"
+      ],
       "metadata": {
         "distributionMirror": "Calinou/kenney-ui-audio exact Git commit; mirror converts the CC0 Kenney UI Audio pack to WAV",
         "mirrorLicenseEvidenceUrl": "https://github.com/Calinou/kenney-ui-audio/blob/8c3d81b9159d058c444f89d12d518276b0b09345/LICENSE.txt",
@@ -116,7 +144,14 @@
         "spdx": "CC0-1.0",
         "evidenceUrl": "https://kenney.nl/assets/ui-audio"
       },
-      "tags": ["audio", "fixture", "reference", "switch", "ui", "wav"],
+      "tags": [
+        "audio",
+        "fixture",
+        "reference",
+        "switch",
+        "ui",
+        "wav"
+      ],
       "metadata": {
         "distributionMirror": "Calinou/kenney-ui-audio exact Git commit; mirror converts the CC0 Kenney UI Audio pack to WAV",
         "mirrorLicenseEvidenceUrl": "https://github.com/Calinou/kenney-ui-audio/blob/8c3d81b9159d058c444f89d12d518276b0b09345/LICENSE.txt",
@@ -142,7 +177,13 @@
         "spdx": "CC0-1.0",
         "evidenceUrl": "https://kenney.nl/assets/ui-pack"
       },
-      "tags": ["game", "interface", "reference", "two-d", "ui"],
+      "tags": [
+        "game",
+        "interface",
+        "reference",
+        "two-d",
+        "ui"
+      ],
       "metadata": {
         "fileCount": 430,
         "purpose": "Generic buttons, panels, sliders, and interface art for application and game demos"
@@ -165,11 +206,48 @@
         "spdx": "CC0-1.0",
         "evidenceUrl": "https://github.com/KhronosGroup/glTF-Sample-Assets/blob/90d7ede14c7e280af263824604b427a1ca02cb66/Models/Avocado/LICENSE.md"
       },
-      "tags": ["gltf", "pbr", "reference", "three-d"],
+      "tags": [
+        "gltf",
+        "pbr",
+        "reference",
+        "three-d"
+      ],
       "metadata": {
         "upstreamGitBlobSha": "dd79cb8043a835f8589bf9f8e55c9a2c672360b5",
         "upstreamByteLength": 8110040,
         "purpose": "Reference PBR glTF asset for renderer, importer, normalization, and optimization consumers"
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "khronos.simpleskin-embedded-gltf",
+      "provider": "khronos-gltf-sample-assets",
+      "title": "Simple Skin",
+      "kind": "mesh",
+      "mediaType": "model/gltf+json",
+      "source": {
+        "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/90d7ede14c7e280af263824604b427a1ca02cb66/Models/SimpleSkin/glTF-Embedded/SimpleSkin.gltf",
+        "upstreamId": "SimpleSkin/glTF-Embedded",
+        "revision": "90d7ede14c7e280af263824604b427a1ca02cb66",
+        "path": "Models/SimpleSkin/glTF-Embedded/SimpleSkin.gltf",
+        "sha256": "7d0c3f48d0510d101269cb4fdd3ee035eaada0e04809a0899e0b4cfe8c38e68f",
+        "byteLength": 3566
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "evidenceUrl": "https://github.com/KhronosGroup/glTF-Sample-Assets/blob/90d7ede14c7e280af263824604b427a1ca02cb66/Models/SimpleSkin/LICENSE.md"
+      },
+      "tags": [
+        "animation",
+        "gltf",
+        "reference",
+        "skinning",
+        "testing",
+        "three-d"
+      ],
+      "metadata": {
+        "upstreamGitBlobSha": "e9f4e4d8bce793e2c27bbf1fffaa5c7af6e90aa5",
+        "purpose": "Small self-contained skinning and animation conformance fixture for importer boundary tests"
       }
     },
     {
@@ -191,7 +269,14 @@
         "spdx": "CC0-1.0",
         "evidenceUrl": "https://github.com/KhronosGroup/glTF-Sample-Assets/blob/90d7ede14c7e280af263824604b427a1ca02cb66/Models/Triangle/LICENSE.md"
       },
-      "tags": ["basic", "gltf", "primitive", "reference", "testing", "three-d"],
+      "tags": [
+        "basic",
+        "gltf",
+        "primitive",
+        "reference",
+        "testing",
+        "three-d"
+      ],
       "metadata": {
         "upstreamGitBlobSha": "40cab5a1992a686af009bb864e47f026f68957f6",
         "purpose": "Minimal self-contained glTF 2.0 reference for import, validation, and renderer smoke tests"
@@ -214,7 +299,13 @@
         "spdx": "CC0-1.0",
         "evidenceUrl": "https://polyhaven.com/a/fine_grained_wood"
       },
-      "tags": ["material", "pbr", "reference", "texture", "wood"],
+      "tags": [
+        "material",
+        "pbr",
+        "reference",
+        "texture",
+        "wood"
+      ],
       "metadata": {
         "author": "Rob Tuytel",
         "resolution": "4K",
@@ -238,7 +329,14 @@
         "spdx": "CC0-1.0",
         "evidenceUrl": "https://polyhaven.com/a/studio_small_01"
       },
-      "tags": ["environment", "hdri", "lighting", "reference", "studio", "three-d"],
+      "tags": [
+        "environment",
+        "hdri",
+        "lighting",
+        "reference",
+        "studio",
+        "three-d"
+      ],
       "metadata": {
         "author": "Greg Zaal",
         "resolution": "4K",
@@ -262,7 +360,15 @@
         "spdx": "CC0-1.0",
         "evidenceUrl": "https://quaternius.com/packs/scifiessentialskit.html"
       },
-      "tags": ["animation", "game", "gltf", "props", "robots", "sci-fi", "three-d"],
+      "tags": [
+        "animation",
+        "game",
+        "gltf",
+        "props",
+        "robots",
+        "sci-fi",
+        "three-d"
+      ],
       "metadata": {
         "distributionMirror": "OpenGameArt upload by Quaternius",
         "standardModelCount": 37,
@@ -286,7 +392,15 @@
         "spdx": "CC0-1.0",
         "evidenceUrl": "https://quaternius.com/packs/universalanimationlibrary2.html"
       },
-      "tags": ["animation", "combat", "humanoid", "locomotion", "parkour", "retargeting", "three-d"],
+      "tags": [
+        "animation",
+        "combat",
+        "humanoid",
+        "locomotion",
+        "parkour",
+        "retargeting",
+        "three-d"
+      ],
       "metadata": {
         "animationCount": "130+",
         "distributionMirror": "OpenGameArt upload by Quaternius",
