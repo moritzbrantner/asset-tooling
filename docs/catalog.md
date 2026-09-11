@@ -46,6 +46,30 @@ A source record contains:
 
 Repository commit SHAs, Git blob SHAs, API ids, download URLs, and provider versions are useful acquisition evidence, but they do not substitute for the SHA-256 of the bytes that `asset-tooling` actually accepts.
 
+## Explicit acquisition evidence
+
+Catalog acquisition is intentionally separate from normal tests, generation, and verification.
+
+For a local file that has already been obtained from its recorded source, run:
+
+```text
+bun run catalog:pin -- <catalog-source-id> <local-file>
+```
+
+For an explicit network acquisition, run:
+
+```text
+bun run catalog:acquire -- <catalog-source-id> [destination-root]
+```
+
+`catalog:acquire` only accepts registered shared providers whose source license is allowed by provider policy. It follows the recorded HTTPS source URL, writes the received bytes to an evidence directory, measures the exact SHA-256 and byte length through the same catalog pin verifier, and writes a canonical `.pin.json` record beside the downloaded file. It does not modify `catalog/sources.json` and does not import the object into the canonical store.
+
+The manually dispatched `Catalog acquisition evidence` GitHub workflow performs the same operation on a hosted runner and retains the bytes plus pin evidence as a short-lived workflow artifact. This provides a reproducible place to acquire sources that cannot be retrieved from the current development environment without turning external availability into a required CI dependency.
+
+Promotion remains an explicit reviewed change: copy the measured `sha256` and `byteLength` into the matching source record, run the deterministic catalog gate, and only then allow canonical import or consumer vendoring. Re-running acquisition for an already pinned source fails if upstream bytes drift.
+
+Project-local providers such as Mixamo are refused by this shared acquisition workflow so their raw assets cannot accidentally enter shared artifacts.
+
 ## Canonical formats
 
 Prefer these normalized delivery boundaries where the owning processor supports them:
@@ -82,4 +106,6 @@ A consumer should normally depend on a catalog id plus an exact `AssetRef`/mater
 
 `khronos.avocado-glb` is a larger PBR reference at the same exact upstream commit. It remains a candidate until its downloaded bytes are SHA-256 pinned; the recorded upstream Git blob SHA and byte length are acquisition evidence only.
 
-Together these give the fleet both a tiny deterministic conformance fixture and a realistic PBR candidate without weakening the rule that canonical bytes must be measured before reuse.
+The catalog also carries practical CC0 candidates from Kenney, Quaternius, and Poly Haven. They remain candidates until the explicit acquisition path measures their actual bytes; source discovery and license evidence alone do not make them canonical.
+
+Together these give the fleet both a tiny deterministic conformance fixture and realistic candidates for UI, audio, board-game art, 3D models, humanoid animation, PBR material inputs, and HDRI lighting without weakening the rule that canonical bytes must be measured before reuse.
