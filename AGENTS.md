@@ -15,6 +15,8 @@
 - `assets/canonical/` is the durable Git LFS-backed payload namespace. Every file there must have exactly one `catalog/storage.json` entry whose source is shared, license-accepted, and content-pinned.
 - Catalog/provider/storage manifests, license evidence, hashes, operation descriptors, receipts, and other reviewable metadata stay in normal Git; canonical payload bytes under `assets/canonical/` stay behind Git LFS pointers.
 - A Git LFS pointer is not sufficient provenance evidence. Storage verification must hydrate the object and compare its actual SHA-256 and byte length with the catalog source pin.
+- Consumers resolve durable payloads through `asset-tooling/catalog/storage`; they must not infer LFS paths or trust pointer metadata directly.
+- Importing a durable payload re-verifies hydrated bytes and copies them into the consumer's disposable content-addressed object store as the existing provenance-bearing `AssetRef`. It does not create a second identity or trigger network acquisition.
 - Canonical LFS promotion is an explicit reviewed mutation. Acquisition may measure a candidate and prepare a review branch, but it must not silently redefine `main` or bypass exact-head PR validation.
 - Generation and receipt creation are explicit mutations and must reconcile existing output instead of rewriting identical files.
 - Stable machine-visible paths are portable `/`-separated paths relative to the asset spec directory. Do not make behavior depend on the caller's working directory.
@@ -28,4 +30,4 @@ Run `bun run check` for the ordinary deterministic gate. It validates catalog an
 
 Run `bun run catalog:storage:verify` from a Git LFS-hydrated checkout when changing canonical payload storage. Hosted `Validate / canonical-storage` additionally runs `git lfs fsck` and verifies every hydrated payload against its catalog SHA-256 and byte length.
 
-The test suite covers canonical hashing, published-contract immutability, package shape, fail-closed dependency checks, content-addressed cache integrity, idempotent generation, exact rebuild verification, output/cache tampering, catalog acquisition/promotion boundaries, canonical-storage identity, and environment drift reporting.
+The test suite covers canonical hashing, published-contract immutability, package shape, fail-closed dependency checks, content-addressed cache integrity, idempotent generation, exact rebuild verification, output/cache tampering, catalog acquisition/promotion boundaries, canonical-storage identity and consumer materialization, and environment drift reporting.
