@@ -47,7 +47,7 @@ Exact reproducibility is established by replayed output bytes, never inferred fr
 
 ## Capability roadmap
 
-### Milestone A — Unified asset operation system — IN PROGRESS
+### Milestone A — Unified asset operation system — COMPLETE
 
 Make every generation, processing, analysis, composition, and export capability describable through one small runtime-neutral operation contract while preserving existing published generation/processing contracts.
 
@@ -63,10 +63,10 @@ First slices:
   - [x] Prove the boundary with `builtin.procedural.svg-scatter@1`: explicit seed in operation build identity, authoritative backend reuse, content-addressed output, and byte/observation parity with the legacy generation path.
   - [x] Wrap `model.stable-diffusion.diffusers@1` as `image.stable-diffusion.generate@1` with the exact pipeline bundle as a content-addressed input and execution-environment identity in the build key.
   - [x] Wrap `model.triposr@1` as `mesh.triposr.generate@1` with prepared image and complete TripoSR/source/DINO bundle inputs, preserving raw OBJ/GLB generation semantics.
-- [ ] Wrap existing processing operations behind the same operation boundary without moving their algorithms into this repository.
+- [x] Wrap existing processing operations behind the same operation boundary without moving their algorithms into this repository.
   - [x] Prove `mesh.simplify@1` against the exact accepted `three-d-lod` revision from `moritzbrantner/3d-lab`, using a verified object-store input, the shared process-adapter protocol, receipt-compatible observations, and a content-addressed mesh output.
   - [x] Wrap `mesh.lod_chain@1` against the pinned source-based `three-d-lod-chain` processor with deterministic exact-decimal per-level budget materialization, exact source/bundle validation, and content-addressed index evidence.
-  - [ ] Extend the same boundary to `animation.resample` and `animation.reduce` once their authoritative processor adapters are available.
+  - [x] Wrap `animation.resample@1` and `animation.reduce@1` against the exact merged `three-d-animation` processor revision, preserving local-space interpolation/reduction authority in `3d-lab` while validating content-addressed inputs, output structure, endpoint evidence, and requested error caps here.
 - [x] Prove the generic operation contract with at least one current generator and one current external processor before publishing immutable operation schemas.
 - [x] Exercise the descriptor/executor bridge through exact accepted `workflow-editor` and `workflow-runner` revisions before freezing the new operation schemas.
   - [x] Derive editor node templates and structural `AssetRef` port types from the operation descriptor rather than maintaining a second node catalog.
