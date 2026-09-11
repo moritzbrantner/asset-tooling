@@ -11,6 +11,8 @@
     "./operations/generation/triposr": "./src/triposr-operation.js",
     "./operations/processing": "./src/processing-operations.js",
     "./operations/processing/animation": "./src/animation-processing-operations.js",
+    "./operations/image": "./src/image-operations.js",
+    "./image/rgba8": "./src/image-rgba8.js",
     "./operations/audio": "./src/audio-operations.js",
     "./operations/audio/model": "./src/audio-model-operations.js",
     "./audio": "./src/audio.js",
