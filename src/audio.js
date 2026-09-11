@@ -292,7 +292,14 @@ export function decodePcmWav(bytesValue) {
       if (data) throw new Error("WAV must contain exactly one data chunk");
       data = bytes.subarray(bodyStart, bodyEnd);
     }
-    offset = bodyEnd + (size % 2);
+    const paddedEnd = bodyEnd + (size % 2);
+    if (paddedEnd > bytes.length) {
+      throw new Error(`WAV chunk '${id}' is missing its required padding byte`);
+    }
+    offset = paddedEnd;
+  }
+  if (offset !== bytes.length) {
+    throw new Error(`WAV contains ${bytes.length - offset} trailing byte(s) outside a complete chunk`);
   }
   if (!format) throw new Error("WAV input is missing fmt chunk");
   if (!data) throw new Error("WAV input is missing data chunk");
@@ -429,13 +436,23 @@ export function applyAudioFade(audioValue, fadeInFramesValue, fadeOutFramesValue
     let numerator = 1n;
     let denominator = 1n;
     if (fadeInFrames > 0 && frame < fadeInFrames) {
-      numerator *= BigInt(fadeInFrames === 1 ? 1 : frame);
-      denominator *= BigInt(fadeInFrames === 1 ? 1 : fadeInFrames - 1);
+      if (fadeInFrames === 1) {
+        numerator = 0n;
+        denominator = 1n;
+      } else {
+        numerator *= BigInt(frame);
+        denominator *= BigInt(fadeInFrames - 1);
+      }
     }
     const remaining = frameCount - 1 - frame;
     if (fadeOutFrames > 0 && remaining < fadeOutFrames) {
-      numerator *= BigInt(fadeOutFrames === 1 ? 1 : remaining);
-      denominator *= BigInt(fadeOutFrames === 1 ? 1 : fadeOutFrames - 1);
+      if (fadeOutFrames === 1) {
+        numerator = 0n;
+        denominator = 1n;
+      } else {
+        numerator *= BigInt(remaining);
+        denominator *= BigInt(fadeOutFrames - 1);
+      }
     }
     if (numerator === denominator) continue;
     for (let channel = 0; channel < audio.channels; channel += 1) {
