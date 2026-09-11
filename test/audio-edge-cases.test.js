@@ -19,14 +19,18 @@ test("WAV parser rejects declared trailing bytes that do not form a complete chu
 });
 
 test("WAV parser rejects an odd chunk whose required padding byte is missing", () => {
-  const bytes = Buffer.alloc(21);
-  bytes.write("RIFF", 0, "ascii");
-  bytes.writeUInt32LE(13, 4);
-  bytes.write("WAVE", 8, "ascii");
-  bytes.write("JUNK", 12, "ascii");
-  bytes.writeUInt32LE(1, 16);
-  bytes[20] = 0x42;
-  assert.throws(() => decodePcmWav(bytes), /missing its required padding byte/);
+  const canonical = encodeCanonicalPcm16Wav({
+    sampleRate: 8_000,
+    channels: 1,
+    samples: Int16Array.from([100, -100]),
+  }).bytes;
+  const oddChunkWithoutPadding = Buffer.alloc(9);
+  oddChunkWithoutPadding.write("JUNK", 0, "ascii");
+  oddChunkWithoutPadding.writeUInt32LE(1, 4);
+  oddChunkWithoutPadding[8] = 0x42;
+  const malformed = Buffer.concat([canonical, oddChunkWithoutPadding]);
+  malformed.writeUInt32LE(malformed.length - 8, 4);
+  assert.throws(() => decodePcmWav(malformed), /missing its required padding byte/);
 });
 
 test("one-frame fade-in and fade-out affect their endpoint", () => {
