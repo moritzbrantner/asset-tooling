@@ -50,7 +50,15 @@ if (!supportedOperations.has(operation)) {
 }
 
 const manifestPath = path.join(processorCheckout, ...manifestRelativePath.split("/"));
-const prefixArguments = ["--quiet", "--manifest-path", manifestPath];
+const fetchProcess = Bun.spawn(["cargo", "fetch", "--manifest-path", manifestPath], {
+  cwd: processorCheckout,
+  stdout: "inherit",
+  stderr: "inherit",
+});
+if ((await fetchProcess.exited) !== 0) {
+  throw new Error("explicit processor dependency acquisition failed");
+}
+const prefixArguments = ["--quiet", "--offline", "--manifest-path", manifestPath];
 if (operation === "mesh.lod_chain") prefixArguments.push("--bin", "lod_chain");
 if (operation === "animation.reduce") prefixArguments.push("--bin", "animation_reduce");
 prefixArguments.push("--");
@@ -302,6 +310,9 @@ async function checkAnimationResample(root) {
   const identity = await createAnimationResampleOperationBuildIdentity(root, invocation, processor);
   assert.deepEqual(identity.operation, { id: operation, version: "1" });
   assert.deepEqual(identity.implementation.source, animationSource);
+  assert.equal(identity.implementation.runtime.kind, "cargo-rust-v1");
+  assert.match(identity.implementation.runtime.cargo, /^cargo 1\.98\.1/m);
+  assert.match(identity.implementation.runtime.rustc, /^rustc 1\.98\.1/m);
   assert.equal(identity.implementation.probe.id, "three-d-animation-resample");
   assert.equal(identity.implementation.probe.algorithm, "three-d-animation-resample-v1");
   assert.equal(identity.implementation.probe.protocol, "asset-tooling-process-adapter-v1");
@@ -329,6 +340,7 @@ async function checkAnimationResample(root) {
   return {
     status: "processor-contract-valid",
     processor: identity.implementation.source,
+    runtime: identity.implementation.runtime,
     algorithm: identity.implementation.probe.algorithm,
     codec: identity.implementation.probe.codec,
     inputSha256: source.sha256,
@@ -353,6 +365,9 @@ async function checkAnimationReduce(root) {
   const identity = await createAnimationReduceOperationBuildIdentity(root, invocation, processor);
   assert.deepEqual(identity.operation, { id: operation, version: "1" });
   assert.deepEqual(identity.implementation.source, animationSource);
+  assert.equal(identity.implementation.runtime.kind, "cargo-rust-v1");
+  assert.match(identity.implementation.runtime.cargo, /^cargo 1\.98\.1/m);
+  assert.match(identity.implementation.runtime.rustc, /^rustc 1\.98\.1/m);
   assert.equal(identity.implementation.probe.id, "three-d-animation-reduce");
   assert.equal(identity.implementation.probe.algorithm, "three-d-animation-key-reduction-v1");
   assert.equal(identity.implementation.probe.protocol, "asset-tooling-process-adapter-v1");
@@ -382,6 +397,7 @@ async function checkAnimationReduce(root) {
   return {
     status: "processor-contract-valid",
     processor: identity.implementation.source,
+    runtime: identity.implementation.runtime,
     algorithm: identity.implementation.probe.algorithm,
     codec: identity.implementation.probe.codec,
     inputSha256: source.sha256,
