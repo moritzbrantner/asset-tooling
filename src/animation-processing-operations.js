@@ -1,4 +1,8 @@
+import { execFile } from "node:child_process";
+import { createHash } from "node:crypto";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
+import { promisify } from "node:util";
 import { assetObjectPortablePath, resolveAssetObject, storeAssetObject } from "./asset-store.js";
 import {
   createAssetOperationBuildIdentity,
@@ -7,6 +11,8 @@ import {
 } from "./operations.js";
 import { probeProcessAdapter, runProcessAdapter } from "./process-adapter.js";
 import { captureToolIdentity } from "./tool.js";
+
+const execFileAsync = promisify(execFile);
 
 export const THREE_D_ANIMATION_MEDIA_TYPE =
   "application/vnd.moritzbrantner.three-d.animation+json";
@@ -162,11 +168,36 @@ function assertNonEmptyString(value, location) {
   return value;
 }
 
-function finiteNonNegative(value, location) {
-  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
-    throw new Error(`${location} must be a finite non-negative number`);
+function finiteNumber(value, location) {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw new Error(`${location} must be a finite number`);
   }
   return value;
+}
+
+function finiteF32(value, location) {
+  const normalized = Math.fround(finiteNumber(value, location));
+  if (!Number.isFinite(normalized)) {
+    throw new Error(`${location} must be representable as a finite f32`);
+  }
+  return normalized;
+}
+
+function finiteNonNegative(value, location) {
+  const normalized = finiteNumber(value, location);
+  if (normalized < 0) {
+    throw new Error(`${location} must be a finite non-negative number`);
+  }
+  return normalized;
+}
+
+function finiteNonNegativeF32(value, location) {
+  const normalized = finiteNonNegative(value, location);
+  const rounded = Math.fround(normalized);
+  if (!Number.isFinite(rounded)) {
+    throw new Error(`${location} must be representable as a finite non-negative f32`);
+  }
+  return rounded;
 }
 
 function positiveSafeInteger(value, location) {
@@ -185,11 +216,11 @@ function normalizeResampleParameters(value) {
     "transformSpace",
   ]);
   const parameters = assertExactKeys(value, keys, `${RESAMPLE_OPERATION_ID} parameters`);
-  const sourceStartSeconds = finiteNonNegative(
+  const sourceStartSeconds = finiteNonNegativeF32(
     parameters.sourceStartSeconds,
     "parameters.sourceStartSeconds",
   );
-  const sourceEndSeconds = finiteNonNegative(
+  const sourceEndSeconds = finiteNonNegativeF32(
     parameters.sourceEndSeconds,
     "parameters.sourceEndSeconds",
   );
@@ -201,12 +232,17 @@ function normalizeResampleParameters(value) {
   }
   let previous = -Infinity;
   const targetTimesSeconds = parameters.targetTimesSeconds.map((time, index) => {
-    const normalized = finiteNonNegative(time, `parameters.targetTimesSeconds[${index}]`);
+    const normalized = finiteNonNegativeF32(
+      time,
+      `parameters.targetTimesSeconds[${index}]`,
+    );
     if (normalized < sourceStartSeconds || normalized > sourceEndSeconds) {
       throw new Error("parameters.targetTimesSeconds must stay inside the source time domain");
     }
     if (normalized <= previous) {
-      throw new Error("parameters.targetTimesSeconds must be strictly increasing");
+      throw new Error(
+        "parameters.targetTimesSeconds must be strictly increasing after f32 normalization",
+      );
     }
     previous = normalized;
     return normalized;
@@ -253,12 +289,15 @@ function normalizeReduceParameters(value) {
     throw new Error("parameters.preserveEndpoints must be a boolean");
   }
   return {
-    translationError: finiteNonNegative(parameters.translationError, "parameters.translationError"),
-    rotationErrorRadians: finiteNonNegative(
+    translationError: finiteNonNegativeF32(
+      parameters.translationError,
+      "parameters.translationError",
+    ),
+    rotationErrorRadians: finiteNonNegativeF32(
       parameters.rotationErrorRadians,
       "parameters.rotationErrorRadians",
     ),
-    scaleError: finiteNonNegative(parameters.scaleError, "parameters.scaleError"),
+    scaleError: finiteNonNegativeF32(parameters.scaleError, "parameters.scaleError"),
     transformSpace: "local",
     preserveEndpoints: parameters.preserveEndpoints,
   };
@@ -266,7 +305,15 @@ function normalizeReduceParameters(value) {
 
 function normalizeProcessor(value, operationId) {
   const processor = assertPlainObject(value, `${operationId} processor`);
-  const allowed = new Set(["repository", "revision", "executable", "scriptPath", "prefixArguments"]);
+  const allowed = new Set([
+    "repository",
+    "revision",
+    "executable",
+    "scriptPath",
+    "prefixArguments",
+    "checkoutRoot",
+    "sourceFiles",
+  ]);
   for (const key of Object.keys(processor)) {
     if (!allowed.has(key)) throw new Error(`${operationId} processor contains unknown field '${key}'`);
   }
@@ -284,12 +331,44 @@ function normalizeProcessor(value, operationId) {
   prefixArguments.forEach((argument, index) =>
     assertNonEmptyString(argument, `processor.prefixArguments[${index}]`),
   );
+
+  const hasCheckoutRoot = processor.checkoutRoot !== undefined;
+  const hasSourceFiles = processor.sourceFiles !== undefined;
+  if (hasCheckoutRoot === hasSourceFiles) {
+    throw new Error("processor must declare exactly one of checkoutRoot or sourceFiles");
+  }
+
+  let checkoutRoot;
+  let sourceFiles;
+  if (hasCheckoutRoot) {
+    checkoutRoot = assertNonEmptyString(processor.checkoutRoot, "processor.checkoutRoot");
+    if (!path.isAbsolute(checkoutRoot)) {
+      throw new Error("processor.checkoutRoot must be an absolute path");
+    }
+  } else {
+    if (!Array.isArray(processor.sourceFiles) || processor.sourceFiles.length === 0) {
+      throw new Error("processor.sourceFiles must be a non-empty array");
+    }
+    sourceFiles = processor.sourceFiles.map((file, index) => {
+      const normalized = assertNonEmptyString(file, `processor.sourceFiles[${index}]`);
+      if (!path.isAbsolute(normalized)) {
+        throw new Error(`processor.sourceFiles[${index}] must be an absolute path`);
+      }
+      return path.resolve(normalized);
+    });
+    if (new Set(sourceFiles).size !== sourceFiles.length) {
+      throw new Error("processor.sourceFiles must not contain duplicates");
+    }
+  }
+
   return {
     repository,
     revision: processor.revision,
     executable,
     scriptPath,
     prefixArguments: [...prefixArguments],
+    ...(checkoutRoot === undefined ? {} : { checkoutRoot: path.resolve(checkoutRoot) }),
+    ...(sourceFiles === undefined ? {} : { sourceFiles }),
   };
 }
 
@@ -300,6 +379,100 @@ function processorStorageEnvironment(processor) {
     if (process.env[name] !== undefined) environment[name] = process.env[name];
   }
   return environment;
+}
+
+function pathIsInside(root, candidate) {
+  const relative = path.relative(root, candidate);
+  return relative === "" || (!relative.startsWith(`..${path.sep}`) && relative !== ".." && !path.isAbsolute(relative));
+}
+
+async function gitOutput(checkoutRoot, arguments_, location) {
+  try {
+    const { stdout } = await execFileAsync("git", ["-C", checkoutRoot, ...arguments_], {
+      encoding: "utf8",
+      windowsHide: true,
+    });
+    return stdout.trim();
+  } catch (error) {
+    throw new Error(`${location} failed: ${error.message}`);
+  }
+}
+
+async function verifyProcessorSource(processor, root, operationId) {
+  if (processor.checkoutRoot !== undefined) {
+    const actualRevision = await gitOutput(
+      processor.checkoutRoot,
+      ["rev-parse", "HEAD"],
+      `${operationId} processor checkout revision verification`,
+    );
+    if (actualRevision !== processor.revision) {
+      throw new Error(
+        `${operationId} processor checkout HEAD '${actualRevision}' does not match declared revision '${processor.revision}'`,
+      );
+    }
+    const status = await gitOutput(
+      processor.checkoutRoot,
+      ["status", "--porcelain=v1", "--untracked-files=all"],
+      `${operationId} processor checkout cleanliness verification`,
+    );
+    if (status.length > 0) {
+      throw new Error(`${operationId} processor checkout must be clean at the declared revision`);
+    }
+
+    if (/^cargo(?:\.exe)?$/i.test(path.basename(processor.executable))) {
+      if (!processor.prefixArguments.includes("--locked")) {
+        throw new Error(`${operationId} cargo processor must use --locked`);
+      }
+      const manifestIndex = processor.prefixArguments.indexOf("--manifest-path");
+      const manifestValue = processor.prefixArguments[manifestIndex + 1];
+      if (manifestIndex < 0 || typeof manifestValue !== "string") {
+        throw new Error(`${operationId} cargo processor must declare --manifest-path`);
+      }
+      const manifestPath = path.resolve(manifestValue);
+      if (!pathIsInside(processor.checkoutRoot, manifestPath)) {
+        throw new Error(`${operationId} processor manifest must be inside checkoutRoot`);
+      }
+    } else {
+      const scriptPath = path.isAbsolute(processor.scriptPath)
+        ? path.resolve(processor.scriptPath)
+        : path.resolve(root, processor.scriptPath);
+      if (!pathIsInside(processor.checkoutRoot, scriptPath)) {
+        throw new Error(`${operationId} processor script must be inside checkoutRoot`);
+      }
+    }
+
+    return {
+      repository: processor.repository,
+      revision: processor.revision,
+      verification: "git-clean-exact-head",
+    };
+  }
+
+  const scriptPath = path.isAbsolute(processor.scriptPath)
+    ? path.resolve(processor.scriptPath)
+    : path.resolve(root, processor.scriptPath);
+  if (!processor.sourceFiles.includes(scriptPath)) {
+    throw new Error(`${operationId} processor.sourceFiles must include the executed scriptPath`);
+  }
+  const fileHashes = [];
+  for (const sourceFile of processor.sourceFiles) {
+    let bytes;
+    try {
+      bytes = await readFile(sourceFile);
+    } catch (error) {
+      throw new Error(`${operationId} processor source file '${sourceFile}' could not be read: ${error.message}`);
+    }
+    fileHashes.push(createHash("sha256").update(bytes).digest("hex"));
+  }
+  fileHashes.sort();
+  const sourceSha256 = createHash("sha256")
+    .update(JSON.stringify(fileHashes))
+    .digest("hex");
+  return {
+    repository: processor.repository,
+    revision: processor.revision,
+    sourceSha256,
+  };
 }
 
 function normalizeProbe(components, { operationId, processorId }) {
@@ -326,6 +499,7 @@ async function processorIdentity(root, processorValue, { operationId, processorI
     throw new Error(`${operationId} root must be an absolute path`);
   }
   const processor = normalizeProcessor(processorValue, operationId);
+  const source = await verifyProcessorSource(processor, root, operationId);
   const environment = processorStorageEnvironment(processor);
   const components = await probeProcessAdapter({
     executable: processor.executable,
@@ -341,7 +515,7 @@ async function processorIdentity(root, processorValue, { operationId, processorI
     implementation: {
       id: probe.id,
       version: probe.version,
-      source: { repository: processor.repository, revision: processor.revision },
+      source,
       probe,
       assetTooling: await captureToolIdentity(),
     },
@@ -390,25 +564,29 @@ function parseAnimationDocument(bytes, location) {
         new Set(["time", "value"]),
         `${location}.channels[${channelIndex}].keyframes[${keyIndex}]`,
       );
-      const time = finiteNonNegative(
+      const time = finiteNonNegativeF32(
         keyframe.time,
         `${location}.channels[${channelIndex}].keyframes[${keyIndex}].time`,
       );
       if (time <= previousTime) {
-        throw new Error(`${location}.channels[${channelIndex}] keyframe times must be strictly increasing`);
+        throw new Error(
+          `${location}.channels[${channelIndex}] keyframe times must be strictly increasing after f32 normalization`,
+        );
       }
       previousTime = time;
-      if (
-        !Array.isArray(keyframe.value) ||
-        keyframe.value.length !== width ||
-        keyframe.value.some((component) => typeof component !== "number" || !Number.isFinite(component))
-      ) {
+      if (!Array.isArray(keyframe.value) || keyframe.value.length !== width) {
         throw new Error(
           `${location}.channels[${channelIndex}].keyframes[${keyIndex}].value must be a finite ${width === 4 ? "quaternion" : "vec3"}`,
         );
       }
+      const normalizedValue = keyframe.value.map((component, componentIndex) =>
+        finiteF32(
+          component,
+          `${location}.channels[${channelIndex}].keyframes[${keyIndex}].value[${componentIndex}]`,
+        ),
+      );
       if (channel.kind === "rotation") {
-        const [x, y, z, w] = keyframe.value;
+        const [x, y, z, w] = normalizedValue;
         const length = Math.hypot(x, y, z, w);
         if (Math.abs(length - 1) > UNIT_QUATERNION_TOLERANCE) {
           throw new Error(
@@ -416,7 +594,7 @@ function parseAnimationDocument(bytes, location) {
           );
         }
       }
-      return { time, value: [...keyframe.value] };
+      return { time, value: normalizedValue };
     });
     keyframeCount += keyframes.length;
     return { kind: channel.kind, node: channel.node, keyframes };
@@ -588,13 +766,13 @@ function normalizeReduceObservations(value, source, output, parameters) {
   if (resultKeyframeCount > sourceKeyframeCount) {
     throw new Error("animation.reduce resultKeyframeCount must not exceed the source count");
   }
-  if (maxTranslationError > Math.fround(parameters.translationError)) {
+  if (maxTranslationError > parameters.translationError) {
     throw new Error("observations.maxTranslationError exceeds parameters.translationError");
   }
-  if (maxRotationErrorRadians > Math.fround(parameters.rotationErrorRadians)) {
+  if (maxRotationErrorRadians > parameters.rotationErrorRadians) {
     throw new Error("observations.maxRotationErrorRadians exceeds parameters.rotationErrorRadians");
   }
-  if (maxScaleError > Math.fround(parameters.scaleError)) {
+  if (maxScaleError > parameters.scaleError) {
     throw new Error("observations.maxScaleError exceeds parameters.scaleError");
   }
   const actualEndpointsPreserved = endpointsPreserved(source, output);
