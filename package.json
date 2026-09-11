@@ -9,6 +9,8 @@
     "./operations/store": "./src/asset-store.js",
     "./operations/generation": "./src/generation-operations.js",
     "./operations/processing": "./src/processing-operations.js",
+    "./operations/audio": "./src/audio-operations.js",
+    "./audio": "./src/audio.js",
     "./operations/workflow": "./src/workflow-operations.js",
     "./catalog": "./src/catalog.js",
     "./catalog/storage": "./src/catalog-storage.js",

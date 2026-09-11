@@ -35,6 +35,14 @@ assert(
   "processing operation adapters must remain available through the focused ./operations/processing subpath",
 );
 assert(
+  packageJson.exports?.["./operations/audio"] === "./src/audio-operations.js",
+  "audio operations must remain available through the focused ./operations/audio subpath",
+);
+assert(
+  packageJson.exports?.["./audio"] === "./src/audio.js",
+  "canonical audio contracts must remain available through the focused ./audio subpath",
+);
+assert(
   packageJson.exports?.["./operations/workflow"] === "./src/workflow-operations.js",
   "workflow operation adapters must remain available through the focused ./operations/workflow subpath",
 );
@@ -61,6 +69,8 @@ for (const file of [
   "src/asset-store.js",
   "src/generation-operations.js",
   "src/processing-operations.js",
+  "src/audio.js",
+  "src/audio-operations.js",
   "src/workflow-operations.js",
   "src/catalog.js",
   "src/catalog-storage.js",
@@ -69,6 +79,7 @@ for (const file of [
   "catalog/sources.json",
   "catalog/storage.json",
   "schemas/asset-spec-v1.schema.json",
+  "schemas/audio-asset-v1.schema.json",
   "schemas/generation-receipt-v1.schema.json",
   "schemas/generation-receipt-v2.schema.json",
   "schemas/processing-handoff-v1.schema.json",
