@@ -190,21 +190,27 @@
       }
     },
     {
-      "schemaVersion": 1,
       "id": "khronos.avocado-glb",
-      "provider": "khronos-gltf-sample-assets",
-      "title": "Avocado",
       "kind": "mesh",
-      "mediaType": "model/gltf-binary",
-      "source": {
-        "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/90d7ede14c7e280af263824604b427a1ca02cb66/Models/Avocado/glTF-Binary/Avocado.glb",
-        "upstreamId": "Avocado/glTF-Binary",
-        "revision": "90d7ede14c7e280af263824604b427a1ca02cb66",
-        "path": "Models/Avocado/glTF-Binary/Avocado.glb"
-      },
       "license": {
-        "spdx": "CC0-1.0",
-        "evidenceUrl": "https://github.com/KhronosGroup/glTF-Sample-Assets/blob/90d7ede14c7e280af263824604b427a1ca02cb66/Models/Avocado/LICENSE.md"
+        "evidenceUrl": "https://github.com/KhronosGroup/glTF-Sample-Assets/blob/90d7ede14c7e280af263824604b427a1ca02cb66/Models/Avocado/LICENSE.md",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "model/gltf-binary",
+      "metadata": {
+        "purpose": "Reference PBR glTF asset for renderer, importer, normalization, and optimization consumers",
+        "upstreamByteLength": 8110040,
+        "upstreamGitBlobSha": "dd79cb8043a835f8589bf9f8e55c9a2c672360b5"
+      },
+      "provider": "khronos-gltf-sample-assets",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 8110040,
+        "path": "Models/Avocado/glTF-Binary/Avocado.glb",
+        "revision": "90d7ede14c7e280af263824604b427a1ca02cb66",
+        "sha256": "ccc9c3ce56423720b09399c2351537207cd5a65f859f9e6e2f30922762f3abd4",
+        "upstreamId": "Avocado/glTF-Binary",
+        "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/90d7ede14c7e280af263824604b427a1ca02cb66/Models/Avocado/glTF-Binary/Avocado.glb"
       },
       "tags": [
         "gltf",
@@ -212,11 +218,7 @@
         "reference",
         "three-d"
       ],
-      "metadata": {
-        "upstreamGitBlobSha": "dd79cb8043a835f8589bf9f8e55c9a2c672360b5",
-        "upstreamByteLength": 8110040,
-        "purpose": "Reference PBR glTF asset for renderer, importer, normalization, and optimization consumers"
-      }
+      "title": "Avocado"
     },
     {
       "schemaVersion": 1,
