@@ -34,6 +34,10 @@ assert(
   packageJson.exports?.["./operations/processing"] === "./src/processing-operations.js",
   "processing operation adapters must remain available through the focused ./operations/processing subpath",
 );
+assert(
+  packageJson.exports?.["./operations/workflow"] === "./src/workflow-operations.js",
+  "workflow operation adapters must remain available through the focused ./operations/workflow subpath",
+);
 assert(packageJson.exports?.["./schemas/*"] === "./schemas/*", "versioned schemas must remain directly consumable");
 
 const requiredPackageRoots = ["src", "schemas", "adapters", "docs", "README.md"];
@@ -48,6 +52,7 @@ for (const file of [
   "src/asset-store.js",
   "src/generation-operations.js",
   "src/processing-operations.js",
+  "src/workflow-operations.js",
   "src/entry.js",
   "schemas/asset-spec-v1.schema.json",
   "schemas/generation-receipt-v1.schema.json",
