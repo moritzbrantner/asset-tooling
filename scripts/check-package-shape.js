@@ -38,9 +38,13 @@ assert(
   packageJson.exports?.["./operations/workflow"] === "./src/workflow-operations.js",
   "workflow operation adapters must remain available through the focused ./operations/workflow subpath",
 );
+assert(
+  packageJson.exports?.["./catalog"] === "./src/catalog.js",
+  "asset catalog contracts must remain available through the focused ./catalog subpath",
+);
 assert(packageJson.exports?.["./schemas/*"] === "./schemas/*", "versioned schemas must remain directly consumable");
 
-const requiredPackageRoots = ["src", "schemas", "adapters", "docs", "README.md"];
+const requiredPackageRoots = ["src", "schemas", "adapters", "catalog", "docs", "README.md"];
 for (const item of requiredPackageRoots) {
   assert(packageJson.files?.includes(item), `package files must include '${item}'`);
   await access(path.join(root, item));
@@ -53,7 +57,10 @@ for (const file of [
   "src/generation-operations.js",
   "src/processing-operations.js",
   "src/workflow-operations.js",
+  "src/catalog.js",
   "src/entry.js",
+  "catalog/providers.json",
+  "catalog/sources.json",
   "schemas/asset-spec-v1.schema.json",
   "schemas/generation-receipt-v1.schema.json",
   "schemas/generation-receipt-v2.schema.json",
