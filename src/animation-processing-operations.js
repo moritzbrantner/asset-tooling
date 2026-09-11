@@ -10,6 +10,7 @@ import {
   normalizeAssetOperationResult,
 } from "./operations.js";
 import { probeProcessAdapter, runProcessAdapter } from "./process-adapter.js";
+import { captureCargoRuntimeIdentity } from "./processor-runtime.js";
 import { captureToolIdentity } from "./tool.js";
 
 const execFileAsync = promisify(execFile);
@@ -331,6 +332,13 @@ function normalizeProcessor(value, operationId) {
   prefixArguments.forEach((argument, index) =>
     assertNonEmptyString(argument, `processor.prefixArguments[${index}]`),
   );
+  if (
+    /^cargo(?:\.exe)?$/i.test(path.basename(executable))
+    && !prefixArguments.includes("--offline")
+    && !prefixArguments.includes("--frozen")
+  ) {
+    throw new Error(`${operationId} cargo processor must run with --offline or --frozen`);
+  }
 
   const hasCheckoutRoot = processor.checkoutRoot !== undefined;
   const hasSourceFiles = processor.sourceFiles !== undefined;
@@ -507,6 +515,13 @@ async function processorIdentity(root, processorValue, { operationId, processorI
   const processor = normalizeProcessor(processorValue, operationId);
   const source = await verifyProcessorSource(processor, root, operationId);
   const environment = processorStorageEnvironment(processor);
+  const runtime = /^cargo(?:\.exe)?$/i.test(path.basename(processor.executable))
+    ? await captureCargoRuntimeIdentity({
+        executable: processor.executable,
+        cwd: processor.checkoutRoot ?? root,
+        environment,
+      })
+    : undefined;
   const components = await probeProcessAdapter({
     executable: processor.executable,
     scriptPath: processor.scriptPath,
@@ -522,6 +537,7 @@ async function processorIdentity(root, processorValue, { operationId, processorI
       id: probe.id,
       version: probe.version,
       source,
+      ...(runtime ? { runtime } : {}),
       probe,
       assetTooling: await captureToolIdentity(),
     },
