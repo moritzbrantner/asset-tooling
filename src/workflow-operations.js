@@ -25,12 +25,29 @@ function assertExactKeys(value, allowed, location) {
   }
 }
 
-function canonicalClone(value, location) {
-  try {
-    return JSON.parse(canonicalJson(value));
-  } catch (error) {
-    throw new Error(`${location} must contain only deterministic JSON values: ${error.message}`);
+function assertJsonValue(value, location) {
+  if (value === null || typeof value === "string" || typeof value === "boolean") return;
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) throw new Error(`${location} contains a non-finite number`);
+    return;
   }
+  if (Array.isArray(value)) {
+    value.forEach((child, index) => assertJsonValue(child, `${location}[${index}]`));
+    return;
+  }
+  if (isPlainObject(value)) {
+    for (const [key, child] of Object.entries(value)) {
+      if (child === undefined) throw new Error(`${location}.${key} is undefined`);
+      assertJsonValue(child, `${location}.${key}`);
+    }
+    return;
+  }
+  throw new Error(`${location} contains unsupported non-JSON value`);
+}
+
+function canonicalClone(value, location) {
+  assertJsonValue(value, location);
+  return JSON.parse(canonicalJson(value));
 }
 
 function assertParameters(value) {
@@ -219,7 +236,7 @@ export function createAssetOperationWorkflowExecutor({
           id: registration.operation.id,
           version: registration.operation.version,
         },
-        result,
+        result: canonicalClone(result, "asset workflow operation evidence"),
       });
     }
 
