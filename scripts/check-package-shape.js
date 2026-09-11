@@ -39,6 +39,10 @@ assert(
   "audio operations must remain available through the focused ./operations/audio subpath",
 );
 assert(
+  packageJson.exports?.["./operations/audio/model"] === "./src/audio-model-operations.js",
+  "model-backed audio operations must remain available through the focused ./operations/audio/model subpath",
+);
+assert(
   packageJson.exports?.["./audio"] === "./src/audio.js",
   "canonical audio contracts must remain available through the focused ./audio subpath",
 );
@@ -71,6 +75,7 @@ for (const file of [
   "src/processing-operations.js",
   "src/audio.js",
   "src/audio-operations.js",
+  "src/audio-model-operations.js",
   "src/workflow-operations.js",
   "src/catalog.js",
   "src/catalog-storage.js",
