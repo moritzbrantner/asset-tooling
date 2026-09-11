@@ -1,4 +1,11 @@
 {
   "schemaVersion": 1,
-  "entries": []
+  "entries": [
+    {
+      "schemaVersion": 1,
+      "sourceId": "khronos.avocado-glb",
+      "storage": "git-lfs",
+      "path": "assets/canonical/khronos.avocado-glb/Avocado.glb"
+    }
+  ]
 }
