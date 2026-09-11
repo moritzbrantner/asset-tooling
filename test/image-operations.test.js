@@ -184,6 +184,6 @@ test("image.resize rejects unsupported filters and missing source bytes", async 
         parameters: { width: 1, height: 1, filter: "nearest" },
         inputs: { source: missing },
       }),
-    /asset object.*not found|ENOENT/i,
+    /asset object.*missing/i,
   );
 });
