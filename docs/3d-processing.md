@@ -8,6 +8,8 @@ Algorithm ownership stays in the domain repository. For example, `3d-lab` owns r
 
 Do not copy mesh or animation algorithms into this repository. A processor adapter should call the authoritative implementation and emit a receipt.
 
+The unified animation operation boundary follows that rule directly. `animation.resample@1` and `animation.reduce@1` consume and emit content-addressed `animation` AssetRefs using the `three-d-animation-json-v1` integration codec, while the exact accepted `3d-lab` revision remains authoritative for sampling, quaternion SLERP, bounded key reduction, and error measurement. The asset-tooling wrapper validates only the transport/identity boundary: codec shape, source/output channel identity, explicit target grids, source-key-only reduction, endpoint evidence, counts, and requested error ceilings.
+
 ## Schema evolution
 
 `processing-receipt-v1.schema.json` is immutable. It remains the contract introduced by the first processing-receipt slice and does not require result observations.
@@ -83,11 +85,17 @@ This proves that the processor actually baked every declared channel at every re
 
 `observations.durationSeconds` is normalized evidence for the elapsed span of the requested grid, independent of the grid's absolute time origin. It must therefore equal `last(targetTimesSeconds) - first(targetTimesSeconds)`. A one-sample grid has duration `0`. This does not move animation semantics into `asset-tooling`: the domain processor still owns sampling and interpolation, while the receipt verifies that its reported duration is consistent with the invocation that was recorded.
 
+The runtime operation wrapper additionally requires the emitted channels to preserve source node/kind identity and order, and every emitted key time to match the explicit target grid under the processor's `f32` time domain. It does not recompute translation, scale, or quaternion interpolation in JavaScript.
+
 ### Animation reduction
 
 Reduction must not increase the aggregate keyframe count, and observed translation, rotation, and scale errors must remain within their configured tolerances.
 
 When `preserveEndpoints` is true, v2 additionally requires `observations.endpointsPreserved: true`. For a source with multiple keys, an endpoint-preserving result must retain at least two keys. This records endpoint preservation directly instead of trying to infer it only from a count.
+
+The runtime operation wrapper also proves that every emitted reduced key existed in the exact source channel and that the reported endpoint flag matches the emitted bytes. The actual error metric, shortest-arc quaternion handling, comparison-work budget, and conservative fallback behavior remain processor-owned in `3d-lab`.
+
+The current `three-d-animation-key-reduction-v1` evidence measures maximum reconstruction error at the original source key times. That is a deliberately bounded claim: it does not assert a continuous-time error bound between source keys beyond the interpolation semantics owned by the authoritative animation implementation.
 
 ## Mesh simplification parameters and observations
 
