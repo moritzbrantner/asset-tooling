@@ -54,15 +54,17 @@ const prefixArguments = ["--quiet", "--locked", "--manifest-path", manifestPath]
 if (operation === "mesh.lod_chain") prefixArguments.push("--bin", "lod_chain");
 if (operation === "animation.reduce") prefixArguments.push("--bin", "animation_reduce");
 prefixArguments.push("--");
+const animationOperation = operation.startsWith("animation.");
 const processor = {
   repository,
   revision,
   executable: "cargo",
   scriptPath: "run",
   prefixArguments,
-  checkoutRoot: processorCheckout,
+  ...(animationOperation ? { checkoutRoot: processorCheckout } : {}),
 };
-const verifiedSource = { repository, revision, verification: "git-clean-exact-head" };
+const meshSource = { repository, revision };
+const animationSource = { repository, revision, verification: "git-clean-exact-head" };
 
 function gridMesh(segments) {
   const vertices = [];
@@ -167,7 +169,7 @@ async function checkSimplify(root) {
 
   const identity = await createMeshSimplifyOperationBuildIdentity(root, invocation, processor);
   assert.deepEqual(identity.operation, { id: operation, version: "1" });
-  assert.deepEqual(identity.implementation.source, verifiedSource);
+  assert.deepEqual(identity.implementation.source, meshSource);
   assert.equal(identity.implementation.probe.id, "three-d-lod");
   assert.equal(identity.implementation.probe.algorithm, "meshopt-0.6.2");
   assert.equal(identity.implementation.probe.protocol, "asset-tooling-process-adapter-v1");
@@ -226,7 +228,7 @@ async function checkLodChain(root) {
 
   const identity = await createMeshLodChainOperationBuildIdentity(root, invocation, processor);
   assert.deepEqual(identity.operation, { id: operation, version: "1" });
-  assert.deepEqual(identity.implementation.source, verifiedSource);
+  assert.deepEqual(identity.implementation.source, meshSource);
   assert.equal(identity.implementation.probe.id, "three-d-lod-chain");
   assert.equal(identity.implementation.probe.algorithm, "meshopt-0.6.2");
   assert.equal(identity.implementation.probe.protocol, "asset-tooling-process-adapter-v1");
@@ -299,7 +301,7 @@ async function checkAnimationResample(root) {
   };
   const identity = await createAnimationResampleOperationBuildIdentity(root, invocation, processor);
   assert.deepEqual(identity.operation, { id: operation, version: "1" });
-  assert.deepEqual(identity.implementation.source, verifiedSource);
+  assert.deepEqual(identity.implementation.source, animationSource);
   assert.equal(identity.implementation.probe.id, "three-d-animation-resample");
   assert.equal(identity.implementation.probe.algorithm, "three-d-animation-resample-v1");
   assert.equal(identity.implementation.probe.protocol, "asset-tooling-process-adapter-v1");
@@ -350,7 +352,7 @@ async function checkAnimationReduce(root) {
   };
   const identity = await createAnimationReduceOperationBuildIdentity(root, invocation, processor);
   assert.deepEqual(identity.operation, { id: operation, version: "1" });
-  assert.deepEqual(identity.implementation.source, verifiedSource);
+  assert.deepEqual(identity.implementation.source, animationSource);
   assert.equal(identity.implementation.probe.id, "three-d-animation-reduce");
   assert.equal(identity.implementation.probe.algorithm, "three-d-animation-key-reduction-v1");
   assert.equal(identity.implementation.probe.protocol, "asset-tooling-process-adapter-v1");
