@@ -7,6 +7,7 @@ import {
 } from "./operations.js";
 
 export const ASSET_OPERATION_WORKFLOW_KIND = "asset.operation";
+const ASSET_PORT_METADATA_KEY = "assetOperationPort";
 
 function isPlainObject(value) {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
@@ -103,12 +104,24 @@ function workflowCategory(category) {
   return ["Assets", ...segments].join(" / ");
 }
 
+function assetPortMetadata(port) {
+  return {
+    schemaVersion: 1,
+    assetKinds: [...port.assetKinds],
+    mediaTypes: [...port.mediaTypes],
+    cardinality: canonicalClone(port.cardinality, "asset operation port cardinality"),
+  };
+}
+
 function workflowPort(port) {
   return {
     id: port.id,
     ...(port.label === undefined ? {} : { label: port.label }),
     type: assetRefWorkflowType(port),
     ...(port.required ? {} : { optional: true }),
+    metadata: {
+      [ASSET_PORT_METADATA_KEY]: assetPortMetadata(port),
+    },
   };
 }
 
@@ -149,6 +162,96 @@ export function createAssetOperationWorkflowNodeTemplates(operationValues) {
   return operationValues
     .map((operation) => createAssetOperationWorkflowNodeTemplate(operation))
     .sort((left, right) => left.id.localeCompare(right.id));
+}
+
+function findWorkflowPort(document, nodeId, portId, direction) {
+  const node = document?.nodes?.find((candidate) => candidate.id === nodeId);
+  if (!node) return undefined;
+  const ports = direction === "output" ? node.outputs : node.inputs;
+  return ports?.find((port) => port.id === portId);
+}
+
+function portConstraint(port) {
+  const value = port?.metadata?.[ASSET_PORT_METADATA_KEY];
+  if (!isPlainObject(value) || value.schemaVersion !== 1) return undefined;
+  if (!Array.isArray(value.assetKinds) || !Array.isArray(value.mediaTypes)) return undefined;
+  return value;
+}
+
+function stringConstraintSetIsSubset(source, target) {
+  if (target.length === 0) return true;
+  if (source.length === 0) return false;
+  return source.every((value) => target.includes(value));
+}
+
+function mediaConstraintCovers(target, source) {
+  if (target === source) return true;
+  if (!target.endsWith("/*")) return false;
+  if (source.endsWith("/*")) return target === source;
+  return source.startsWith(target.slice(0, -1));
+}
+
+function mediaConstraintSetIsSubset(source, target) {
+  if (target.length === 0) return true;
+  if (source.length === 0) return false;
+  return source.every((sourceConstraint) =>
+    target.some((targetConstraint) => mediaConstraintCovers(targetConstraint, sourceConstraint)),
+  );
+}
+
+function cardinalityRange(cardinality) {
+  if (cardinality === "single") return { min: 1, max: 1 };
+  if (cardinality === "many") return { min: 0, max: Number.POSITIVE_INFINITY };
+  if (isPlainObject(cardinality)) return { min: cardinality.min, max: cardinality.max };
+  return undefined;
+}
+
+function cardinalityIsSubset(source, target) {
+  const sourceRange = cardinalityRange(source);
+  const targetRange = cardinalityRange(target);
+  if (!sourceRange || !targetRange) return false;
+  return sourceRange.min >= targetRange.min && sourceRange.max <= targetRange.max;
+}
+
+export function validateAssetOperationWorkflowConnection(document, connection) {
+  const sourcePort = findWorkflowPort(
+    document,
+    connection.sourceNodeId,
+    connection.sourcePortId,
+    "output",
+  );
+  const targetPort = findWorkflowPort(
+    document,
+    connection.targetNodeId,
+    connection.targetPortId,
+    "input",
+  );
+  const source = portConstraint(sourcePort);
+  const target = portConstraint(targetPort);
+
+  if (!source && !target) return { valid: true };
+  if (!source || !target) return { valid: false, reason: "type-mismatch" };
+  if (!stringConstraintSetIsSubset(source.assetKinds, target.assetKinds)) {
+    return { valid: false, reason: "type-mismatch" };
+  }
+  if (!mediaConstraintSetIsSubset(source.mediaTypes, target.mediaTypes)) {
+    return { valid: false, reason: "type-mismatch" };
+  }
+  if (!cardinalityIsSubset(source.cardinality, target.cardinality)) {
+    return { valid: false, reason: "type-mismatch" };
+  }
+  return { valid: true };
+}
+
+export function createAssetOperationWorkflowConnectionValidator(validateWorkflowConnection) {
+  if (typeof validateWorkflowConnection !== "function") {
+    throw new Error("workflow connection validator must be a function");
+  }
+  return (document, connection, options) => {
+    const genericValidity = validateWorkflowConnection(document, connection, options);
+    if (!genericValidity?.valid) return genericValidity;
+    return validateAssetOperationWorkflowConnection(document, connection);
+  };
 }
 
 function normalizeRegistration(value, index) {
