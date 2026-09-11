@@ -9,6 +9,7 @@
     "./operations/store": "./src/asset-store.js",
     "./operations/generation": "./src/generation-operations.js",
     "./operations/processing": "./src/processing-operations.js",
+    "./operations/workflow": "./src/workflow-operations.js",
     "./schemas/*": "./schemas/*"
   },
   "bin": {
