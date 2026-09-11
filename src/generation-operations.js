@@ -263,11 +263,19 @@ function assertStableDiffusionBackend(backend) {
   return backend;
 }
 
+function assertAssetRoot(root) {
+  if (typeof root !== "string" || !path.isAbsolute(root)) {
+    throw new Error("Stable Diffusion operation root must be an absolute path");
+  }
+  return root;
+}
+
 async function createStableDiffusionBuildIdentity(
   root,
   backend,
   { parameters = {}, inputs = {} } = {},
 ) {
+  const assetRoot = assertAssetRoot(root);
   const normalizedInvocation = createAssetOperationBuildIdentity({
     operation: STABLE_DIFFUSION_IMAGE_OPERATION,
     implementation: {
@@ -279,7 +287,7 @@ async function createStableDiffusionBuildIdentity(
     inputs,
   });
   const document = stableDiffusionLegacyDocument(
-    root,
+    assetRoot,
     normalizedInvocation.parameters,
     normalizedInvocation.inputs.model,
   );
@@ -329,6 +337,7 @@ export async function executeProceduralSvgScatterOperation(root, { parameters = 
 }
 
 export async function createStableDiffusionImageOperationBuildIdentity(
+  root,
   invocation = {},
   backendValue,
 ) {
@@ -339,7 +348,7 @@ export async function createStableDiffusionImageOperationBuildIdentity(
         version: STABLE_DIFFUSION_GENERATOR_VERSION,
       }),
   );
-  return createStableDiffusionBuildIdentity(process.cwd(), backend, invocation);
+  return createStableDiffusionBuildIdentity(root, backend, invocation);
 }
 
 export function createStableDiffusionImageOperationExecutor(backendValue) {
