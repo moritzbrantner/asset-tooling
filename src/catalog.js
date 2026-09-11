@@ -72,6 +72,12 @@ function canonicalClone(value, location) {
   }
 }
 
+function deepFreeze(value) {
+  if (value === null || typeof value !== "object" || Object.isFrozen(value)) return value;
+  for (const nested of Object.values(value)) deepFreeze(nested);
+  return Object.freeze(value);
+}
+
 function normalizeStringList(value, location, validator = assertNonEmptyString) {
   if (!Array.isArray(value)) throw new Error(`${location} must be an array`);
   const normalized = value.map((entry, index) => validator(entry, `${location}[${index}]`));
@@ -174,7 +180,7 @@ export function createAssetCatalogSource(value) {
     source: Object.freeze(normalizeSourceLocator(source.source)),
     license: Object.freeze(normalizeLicense(source.license)),
     tags: Object.freeze(normalizeStringList(source.tags ?? [], "catalog source.tags", assertToken)),
-    metadata: Object.freeze(metadata),
+    metadata: deepFreeze(metadata),
   });
 }
 
