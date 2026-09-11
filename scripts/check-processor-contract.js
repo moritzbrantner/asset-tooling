@@ -50,7 +50,7 @@ if (!supportedOperations.has(operation)) {
 }
 
 const manifestPath = path.join(processorCheckout, ...manifestRelativePath.split("/"));
-const prefixArguments = ["--quiet", "--locked", "--manifest-path", manifestPath];
+const prefixArguments = ["--quiet", "--manifest-path", manifestPath];
 if (operation === "mesh.lod_chain") prefixArguments.push("--bin", "lod_chain");
 if (operation === "animation.reduce") prefixArguments.push("--bin", "animation_reduce");
 prefixArguments.push("--");
