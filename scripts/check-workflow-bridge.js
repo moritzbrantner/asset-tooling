@@ -52,10 +52,12 @@ assert.equal(workflowStack.runner.commit, runnerRevision);
 const editor = await import(pathToFileURL(path.join(editorCheckout, "src", "index.ts")).href);
 const {
   addWorkflowEditorArrayConstructorInputToNode,
-  compileWorkflowEditorDocument,
   workflowEditorControlFlowNodeTemplates,
   workflowEditorJsonNodeTemplates,
 } = editor;
+const { compileWorkflowEditorDocument } = await import(
+  pathToFileURL(path.join(editorCheckout, "src", "compiler.ts")).href
+);
 const { validateWorkflowEditorConnectionWithCardinality } = await import(
   pathToFileURL(path.join(editorCheckout, "src", "cardinality.ts")).href
 );
