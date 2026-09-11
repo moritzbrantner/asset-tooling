@@ -61,24 +61,28 @@ First slices:
 - [x] Content-addressed intermediate artifact resolution for operation outputs, with idempotent writes and fail-closed content verification.
 - [ ] Wrap the existing generation backends behind operation adapters without changing their authoritative spec/receipt semantics.
   - [x] Prove the boundary with `builtin.procedural.svg-scatter@1`: explicit seed in operation build identity, authoritative backend reuse, content-addressed output, and byte/observation parity with the legacy generation path.
-  - [ ] Extend the same adapter boundary to model-backed generation now that the processor proof confirms the generic operation shape.
+  - [ ] Extend the same adapter boundary to model-backed generation now that the processor and workflow proofs confirm the generic operation shape.
 - [ ] Wrap existing processing operations behind the same operation boundary without moving their algorithms into this repository.
   - [x] Prove `mesh.simplify@1` against the exact accepted `three-d-lod` revision from `moritzbrantner/3d-lab`, using a verified object-store input, the shared process-adapter protocol, receipt-compatible observations, and a content-addressed mesh output.
   - [ ] Extend the same boundary to `mesh.lod_chain`, `animation.resample`, and `animation.reduce` after the first processor proof is stable.
 - [x] Prove the generic operation contract with at least one current generator and one current external processor before publishing immutable operation schemas.
-- [ ] Exercise the descriptor/executor bridge through `workflow-editor` and `workflow-runner` before freezing the new operation schemas.
+- [x] Exercise the descriptor/executor bridge through exact accepted `workflow-editor` and `workflow-runner` revisions before freezing the new operation schemas.
+  - [x] Derive editor node templates and structural `AssetRef` port types from the operation descriptor rather than maintaining a second node catalog.
+  - [x] Dispatch compiled nodes through one generic `asset.operation` runner executor keyed by the same operation identity.
+  - [x] Keep observations and execution evidence outside editable workflow documents and graph outputs.
+  - [x] Preserve asset value cardinality as array-valued workflow ports rather than confusing it with workflow connection cardinality.
 
-Acceptance boundary: existing root imports, CLI behavior, published schemas, generation receipts, processing receipts, and exact-replay rules remain compatible. `stability/processors.json` pins accepted external processor evidence separately from consumer evidence.
+Acceptance boundary: existing root imports, CLI behavior, published schemas, generation receipts, processing receipts, and exact-replay rules remain compatible. `stability/processors.json` pins accepted external processor evidence separately from consumer evidence, and `stability/workflow-stack.json` pins the workflow contract consumers used to prove the bridge.
 
-### Milestone B — Workflow integration
+### Milestone B — Workflow integration — STARTED
 
 Use the shared workflow system instead of implementing an asset-specific DAG.
 
-- Derive workflow-editor node templates from asset operation descriptors.
-- Derive workflow-runner executors from the same operation registrations.
-- Compile asset workflows through the execution-neutral workflow contract.
-- Keep workflow execution state outside editable asset/workflow documents.
-- Add a small deterministic reference workflow covering generate -> transform -> compose -> export.
+- [x] Derive workflow-editor node templates from asset operation descriptors.
+- [x] Derive a workflow-runner executor from the same operation registrations.
+- [x] Compile asset operation nodes through the execution-neutral workflow contract.
+- [x] Keep workflow execution state and operation evidence outside editable asset/workflow documents.
+- [ ] Add a small deterministic multi-node reference workflow covering generate -> transform -> compose -> export once compatible transform/composition operations exist.
 
 ### Milestone C — Classic deterministic image toolkit
 
@@ -176,6 +180,6 @@ Only after representative local asset workflows work correctly:
 - Reusable workflow library for common texture, material, mesh, sprite, and model-assisted recipes.
 - Distributed execution remains an engine/worker concern rather than an asset-tooling core concern.
 
-## Continuous consumer and processor proof
+## Continuous consumer, processor, and workflow-contract proof
 
-Keep consumer-specific runtime semantics and processor algorithms outside this repository. `stability/consumers.json` records exact merged consumer evidence; `stability/processors.json` records exact external processor implementations used to prove operation adapters. The Stability workflow reruns the current tool head against both manifests. Add future entries only when they provide meaningful additional contract coverage rather than simply increasing a count.
+Keep consumer-specific runtime semantics, processor algorithms, and generic workflow infrastructure outside this repository. `stability/consumers.json` records exact merged consumer evidence; `stability/processors.json` records exact external processor implementations used to prove operation adapters; `stability/workflow-stack.json` records the exact workflow-editor/workflow-runner revisions used to prove the projection and execution bridge. The Stability workflow reruns the current tool head against all three boundaries. Add future entries only when they provide meaningful additional contract coverage rather than simply increasing a count.
