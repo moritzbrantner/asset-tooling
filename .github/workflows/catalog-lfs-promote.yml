@@ -1,0 +1,100 @@
+name: Catalog Git LFS promotion
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_id:
+        description: Registered shared catalog source id to acquire and prepare for canonical Git LFS storage
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      SOURCE_ID: ${{ inputs.source_id }}
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+          lfs: true
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.4.0
+      - name: Enable Git LFS filters and hooks
+        run: git lfs install --local
+      - name: Acquire, pin, and prepare canonical payload
+        id: promote
+        shell: bash
+        run: |
+          set -euo pipefail
+          result="$(bun scripts/promote-catalog-lfs-source.js "$SOURCE_ID")"
+          echo "$result"
+          asset_path="$(printf '%s' "$result" | jq -r '.path')"
+          status="$(printf '%s' "$result" | jq -r '.status')"
+          sha256="$(printf '%s' "$result" | jq -r '.sha256')"
+          byte_length="$(printf '%s' "$result" | jq -r '.byteLength')"
+          {
+            echo "asset_path=$asset_path"
+            echo "status=$status"
+            echo "sha256=$sha256"
+            echo "byte_length=$byte_length"
+          } >> "$GITHUB_OUTPUT"
+      - name: Verify canonical storage boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git check-attr filter -- "${{ steps.promote.outputs.asset_path }}" | awk '{print $3}')" = "lfs"
+          bun run catalog:storage:check
+          bun run catalog:storage:verify
+          git lfs fsck
+      - name: Stage Git LFS pointer and manifests
+        id: stage
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add catalog/sources.json catalog/storage.json "${{ steps.promote.outputs.asset_path }}"
+          git diff --cached --check
+          if git diff --cached --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Commit and push review branch
+        if: steps.stage.outputs.changed == 'true'
+        id: push
+        shell: bash
+        run: |
+          set -euo pipefail
+          safe_id="${SOURCE_ID//./-}"
+          branch="catalog-lfs/${safe_id}-${GITHUB_RUN_ID}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git commit -m "assets: promote ${SOURCE_ID} to Git LFS"
+          git push origin "HEAD:refs/heads/$branch"
+          echo "branch=$branch" >> "$GITHUB_OUTPUT"
+      - name: Summarize promotion
+        shell: bash
+        run: |
+          {
+            echo "## Catalog Git LFS promotion"
+            echo
+            echo "- Source: \`$SOURCE_ID\`"
+            echo "- Asset path: \`${{ steps.promote.outputs.asset_path }}\`"
+            echo "- SHA-256: \`${{ steps.promote.outputs.sha256 }}\`"
+            echo "- Bytes: \`${{ steps.promote.outputs.byte_length }}\`"
+            if [ "${{ steps.stage.outputs.changed }}" = "true" ]; then
+              echo "- Review branch: \`${{ steps.push.outputs.branch }}\`"
+              echo
+              echo "The branch contains the LFS pointer, uploaded LFS object, source pin, and storage-manifest entry. Open a pull request from that branch so normal exact-head validation runs before integration."
+            else
+              echo "- Result: already canonical; no branch was created."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
