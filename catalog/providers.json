@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "providers": [
+    {
+      "schemaVersion": 1,
+      "id": "blender-studio",
+      "label": "Blender Studio",
+      "homepage": "https://studio.blender.org/",
+      "distribution": "shared",
+      "acceptedLicenses": ["CC-BY-4.0"]
+    },
+    {
+      "schemaVersion": 1,
+      "id": "freesound",
+      "label": "Freesound",
+      "homepage": "https://freesound.org/",
+      "distribution": "shared",
+      "acceptedLicenses": ["CC0-1.0", "CC-BY-4.0"]
+    },
+    {
+      "schemaVersion": 1,
+      "id": "kenney",
+      "label": "Kenney",
+      "homepage": "https://kenney.nl/assets",
+      "distribution": "shared",
+      "acceptedLicenses": ["CC0-1.0"]
+    },
+    {
+      "schemaVersion": 1,
+      "id": "khronos-gltf-sample-assets",
+      "label": "Khronos glTF Sample Assets",
+      "homepage": "https://github.com/KhronosGroup/glTF-Sample-Assets",
+      "distribution": "shared",
+      "acceptedLicenses": ["CC0-1.0", "CC-BY-4.0"]
+    },
+    {
+      "schemaVersion": 1,
+      "id": "mixamo",
+      "label": "Adobe Mixamo",
+      "homepage": "https://www.mixamo.com/",
+      "distribution": "project-local",
+      "acceptedLicenses": []
+    },
+    {
+      "schemaVersion": 1,
+      "id": "poly-haven",
+      "label": "Poly Haven",
+      "homepage": "https://polyhaven.com/",
+      "distribution": "shared",
+      "acceptedLicenses": ["CC0-1.0"]
+    },
+    {
+      "schemaVersion": 1,
+      "id": "quaternius",
+      "label": "Quaternius",
+      "homepage": "https://quaternius.com/",
+      "distribution": "shared",
+      "acceptedLicenses": ["CC0-1.0"]
+    }
+  ]
+}

@@ -10,6 +10,7 @@
     "./operations/generation": "./src/generation-operations.js",
     "./operations/processing": "./src/processing-operations.js",
     "./operations/workflow": "./src/workflow-operations.js",
+    "./catalog": "./src/catalog.js",
     "./schemas/*": "./schemas/*"
   },
   "bin": {
@@ -19,13 +20,16 @@
     "src",
     "schemas",
     "adapters",
+    "catalog",
     "docs",
     "README.md"
   ],
   "scripts": {
     "test": "bun test",
     "package:check": "bun scripts/check-package-shape.js",
-    "check": "bun test && bun run package:check && bun src/entry.js validate examples/copy/asset.json",
+    "catalog:check": "bun scripts/check-catalog.js",
+    "catalog:pin": "bun scripts/pin-catalog-source.js",
+    "check": "bun test && bun run package:check && bun run catalog:check && bun src/entry.js validate examples/copy/asset.json",
     "stability:check": "bun run check && bun scripts/check-stability.js"
   },
   "engines": {
