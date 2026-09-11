@@ -72,8 +72,8 @@ const OPERATION_REGISTRY = createAssetOperationRegistry([
       additionalProperties: false,
       required: ["x", "y", "width", "height"],
       properties: {
-        x: { type: "integer", minimum: 0 },
-        y: { type: "integer", minimum: 0 },
+        x: { type: "integer", minimum: 0, maximum: MAX_DIMENSION - 1 },
+        y: { type: "integer", minimum: 0, maximum: MAX_DIMENSION - 1 },
         width: { type: "integer", minimum: 1, maximum: MAX_DIMENSION },
         height: { type: "integer", minimum: 1, maximum: MAX_DIMENSION },
       },
