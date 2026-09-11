@@ -28,6 +28,14 @@ const expectedProcessors = new Map([
       operation: "mesh.simplify",
     },
   ],
+  [
+    "three-d-lod-chain",
+    {
+      repository: "moritzbrantner/3d-lab",
+      manifestPath: "examples/asset-tooling-lod-adapter/Cargo.toml",
+      operation: "mesh.lod_chain",
+    },
+  ],
 ]);
 
 const expectedWorkflowStack = {
@@ -122,7 +130,7 @@ assert(processorManifest.schemaVersion === 1, "processor stability manifest sche
 assert(Array.isArray(processorManifest.processors), "processor stability manifest processors must be an array");
 assert(
   processorManifest.processors.length === expectedProcessors.size,
-  "processor stability manifest must contain exactly the accepted three-d-lod processor",
+  "processor stability manifest must contain exactly the accepted 3d-lab processors",
 );
 
 const seenProcessors = new Set();
@@ -171,7 +179,7 @@ for (const role of ["editor", "runner"]) {
   const expected = expectedWorkflowStack[role];
   assertExactFields(actual, new Set(["repository", "commit"]), `workflow stack ${role} evidence`);
   assert(actual.repository === expected.repository, `workflow stack ${role} repository must remain '${expected.repository}'`);
-  assertExactCommit(actual.commit, `workflow stack ${role} commit`);
+  assertExactCommit(actual.commit, `${role} commit`);
   assert(actual.commit === expected.commit, `workflow stack ${role} commit must remain '${expected.commit}'`);
 }
 
