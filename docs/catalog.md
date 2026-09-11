@@ -4,7 +4,7 @@ The catalog is the acquisition and provenance boundary for reusable third-party 
 
 ## Ownership
 
-`asset-tooling` owns provider policy, source metadata, byte pinning, canonical import, content identity, and provenance metadata. Authoritative image, mesh, animation, audio, and video algorithms stay in their domain repositories. `workflow-editor` and `workflow-runner` remain generic workflow infrastructure.
+`asset-tooling` owns provider policy, source metadata, byte pinning, durable canonical storage, content identity, and provenance metadata. Authoritative image, mesh, animation, audio, and video algorithms stay in their domain repositories. `workflow-editor` and `workflow-runner` remain generic workflow infrastructure.
 
 The shared canonical path is:
 
@@ -14,13 +14,13 @@ provider/source discovery
   -> explicit acquisition outside deterministic generation
   -> inspect exact bytes
   -> SHA-256 + byte-length pin
-  -> canonical import
-  -> content-addressed AssetRef
-  -> normalization/processing operations
+  -> reviewed Git LFS storage
+  -> hydrated-byte verification
+  -> AssetRef / normalization operations
   -> consumer reuse
 ```
 
-Network acquisition stays outside generation and verification. A catalog source without `source.sha256` and `source.byteLength` is a candidate only. `importAssetCatalogSource(...)` fails closed until both are present and then verifies the supplied bytes again before writing them to the existing content-addressed object store.
+Network acquisition stays outside generation and verification. A catalog source without `source.sha256` and `source.byteLength` is a candidate only. A Git LFS pointer is storage metadata, not proof of the payload: canonical verification always checks the hydrated bytes against the catalog pin.
 
 ## Provider policy
 
@@ -44,7 +44,7 @@ A source record contains:
 - tags and non-authoritative discovery metadata;
 - after inspection, exact SHA-256 and byte length.
 
-Repository commit SHAs, Git blob SHAs, API ids, download URLs, and provider versions are useful acquisition evidence, but they do not substitute for the SHA-256 of the bytes that `asset-tooling` actually accepts.
+Repository commit SHAs, Git blob SHAs, API ids, download URLs, provider versions, and Git LFS object ids are useful storage/acquisition evidence, but none substitutes for verification of the actual accepted bytes.
 
 ## Explicit acquisition evidence
 
@@ -62,13 +62,49 @@ For an explicit network acquisition, run:
 bun run catalog:acquire -- <catalog-source-id> [destination-root]
 ```
 
-`catalog:acquire` only accepts registered shared providers whose source license is allowed by provider policy. It follows the recorded HTTPS source URL, writes the received bytes to an evidence directory, measures the exact SHA-256 and byte length through the same catalog pin verifier, and writes a canonical `.pin.json` record beside the downloaded file. It does not modify `catalog/sources.json` and does not import the object into the canonical store.
+`catalog:acquire` only accepts registered shared providers whose source license is allowed by provider policy. It follows the recorded HTTPS source URL, writes the received bytes to an evidence directory, measures the exact SHA-256 and byte length through the same catalog pin verifier, and writes a canonical `.pin.json` record beside the downloaded file. It does not modify `catalog/sources.json` and does not place anything in durable storage.
 
-The manually dispatched `Catalog acquisition evidence` GitHub workflow performs the same operation on a hosted runner and retains the bytes plus pin evidence as a short-lived workflow artifact. This provides a reproducible place to acquire sources that cannot be retrieved from the current development environment without turning external availability into a required CI dependency.
+The manually dispatched `Catalog acquisition evidence` workflow performs the same operation on a hosted runner and retains the bytes plus pin evidence as a short-lived workflow artifact. This remains useful when the desired outcome is evidence only.
 
-Promotion remains an explicit reviewed change: copy the measured `sha256` and `byteLength` into the matching source record, run the deterministic catalog gate, and only then allow canonical import or consumer vendoring. Re-running acquisition for an already pinned source fails if upstream bytes drift.
+Project-local providers such as Mixamo are refused by the shared acquisition path so their raw assets cannot accidentally enter shared artifacts.
 
-Project-local providers such as Mixamo are refused by this shared acquisition workflow so their raw assets cannot accidentally enter shared artifacts.
+## Durable Git LFS storage
+
+Durable approved payloads live under `assets/canonical/`. `.gitattributes` assigns every file in that tree to Git LFS, while `catalog/providers.json`, `catalog/sources.json`, `catalog/storage.json`, license/provenance metadata, and code remain ordinary reviewable Git text.
+
+`catalog/storage.json` is a closed-world storage manifest. Every entry must:
+
+- reference an existing content-pinned source;
+- pass the provider's shared-distribution and accepted-license policy;
+- use storage backend `git-lfs`;
+- use the deterministic path `assets/canonical/<source-id>/<upstream-filename>`;
+- be unique by source id and path.
+
+Conversely, every file present under `assets/canonical/` must have exactly one manifest entry. An orphan LFS file is invalid canonical storage.
+
+Ordinary `bun run check` runs `catalog:storage:check`, which validates this structure without hydrating large payloads. The dedicated `Validate / canonical-storage` job checks out with `lfs: true`, runs `git lfs fsck`, confirms every manifest path is actually marked with the LFS filter, checks that the payload tree exactly matches the manifest, and hashes each hydrated file against `catalog/sources.json`.
+
+For local full verification from an LFS-hydrated checkout:
+
+```text
+bun run catalog:storage:verify
+```
+
+`.asset-tooling/objects` remains a separate disposable content-addressed operation store. Durable third-party masters must not be moved into that namespace merely because both use content hashes.
+
+## Reviewed LFS promotion
+
+For a direct local promotion of a registered shared source:
+
+```text
+bun run catalog:lfs:promote -- <catalog-source-id>
+```
+
+This acquires the registered source, measures or re-verifies the exact bytes, updates that source's SHA-256 and byte length, writes the payload at its deterministic canonical path, and updates `catalog/storage.json`. Git LFS itself remains responsible for replacing the staged payload with its pointer and uploading the object during `git push`.
+
+The preferred hosted path is the manually dispatched `Catalog Git LFS promotion` workflow. It performs the same preparation, verifies the LFS/storage boundary, stages the payload through Git LFS, commits it, and pushes a uniquely named review branch. It does **not** push to `main` and does not automatically create a PR; the review branch must be turned into a normal pull request so PR-triggered exact-head validation executes before integration.
+
+Re-running promotion for an already canonical source is idempotent when the bytes and manifests are unchanged. A changed upstream response, corrupted local canonical payload, implicit path move, unaccepted license, or project-local provider fails closed.
 
 ## Canonical formats
 
@@ -86,7 +122,7 @@ Prefer these normalized delivery boundaries where the owning processor supports 
 | Video | MP4/WebM according to the consumer contract |
 | Animation | glTF animation clips where practical |
 
-The catalog stores provenance and exact bytes; format conversion belongs to typed asset operations so derived outputs receive their own content identities.
+Git LFS stores accepted source/master payloads. Format conversion still belongs to typed asset operations so every derived output receives its own content identity and source lineage.
 
 ## Fleet rollout
 
@@ -98,14 +134,12 @@ The rollout is deliberately vertical:
 4. **Media consumers:** audio/video analysis, playback, similarity, transcription, and conversion repositories. Reuse a small pinned corpus with explicit purpose tags; do not grow giant fixture collections simply because assets are available.
 5. **Workbench:** expose catalog browsing, source status, provenance, previews, variants, and approved versions in the asset workbench/GitHub Pages surface. Avoid decorative counters; interaction should answer which asset is appropriate and why.
 
-A consumer should normally depend on a catalog id plus an exact `AssetRef`/materialization result rather than commit another independent copy. If a consumer must vendor bytes for offline/runtime packaging, retain the catalog provenance and exact hash beside the vendored file.
+A consumer should normally depend on a catalog id and exact content identity rather than source an independent copy. If a consumer must vendor bytes for offline/runtime packaging, retain the catalog provenance and exact hash beside the vendored file.
 
 ## Seed sources
 
-`khronos.triangle-embedded-gltf` is the first fully pinned canonical source. It is a 1,122-byte, self-contained glTF 2.0 Triangle from an exact Khronos commit, with CC0 evidence and an independently recorded SHA-256. Its upstream Git blob identity is retained as additional acquisition evidence, not as a substitute for the SHA-256.
+`khronos.triangle-embedded-gltf` is the first fully pinned canonical source identity. It is a 1,122-byte self-contained glTF 2.0 Triangle from an exact Khronos commit, with CC0 evidence and an independently recorded SHA-256. Its current `3d-lab` use remains an intentionally small repository fixture rather than forcing a 1 KiB text asset into LFS solely for uniformity.
 
-`khronos.avocado-glb` is a larger PBR reference at the same exact upstream commit. It remains a candidate until its downloaded bytes are SHA-256 pinned; the recorded upstream Git blob SHA and byte length are acquisition evidence only.
+`khronos.avocado-glb` is a larger PBR reference at the same exact upstream commit and is a natural first GLB candidate for the durable LFS path once its downloaded bytes are measured.
 
-The catalog also carries practical CC0 candidates from Kenney, Quaternius, and Poly Haven. They remain candidates until the explicit acquisition path measures their actual bytes; source discovery and license evidence alone do not make them canonical.
-
-Together these give the fleet both a tiny deterministic conformance fixture and realistic candidates for UI, audio, board-game art, 3D models, humanoid animation, PBR material inputs, and HDRI lighting without weakening the rule that canonical bytes must be measured before reuse.
+The catalog also carries practical CC0 candidates from Kenney, Quaternius, and Poly Haven. The hosted LFS promotion path can turn these into reviewed source pins plus durable payloads without weakening the rule that canonical bytes must be measured before reuse.
