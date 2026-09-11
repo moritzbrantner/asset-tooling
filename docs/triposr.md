@@ -2,6 +2,17 @@
 
 The first TripoSR backend is `model.triposr` version `1`. It invokes the authoritative TripoSR source through the generic local process-adapter protocol and emits an OBJ or GLB mesh. `asset-tooling` owns invocation, dependency identity, output hashing, replay, and receipts; TripoSR owns image-to-3D inference and mesh extraction semantics.
 
+## Unified operation boundary
+
+The runtime-neutral operation adapter is `mesh.triposr.generate@1`, published through `asset-tooling/operations/generation/triposr`. It does not define another inference path. Instead it projects two verified `AssetRef` inputs into the existing `model.triposr@1` backend:
+
+- `image`: one prepared `image/png` or `image/jpeg` asset;
+- `model`: one `application/zip` model asset containing the complete TripoSR/source/DINO bundle described below.
+
+The operation build identity binds both exact input hashes, the normalized TripoSR controls, the asset-tooling implementation identity, and the probed execution environment. Execution resolves both content-addressed objects before invoking the backend. The raw result is stored as a new `mesh` AssetRef using `model/gltf-binary` for GLB or `model/obj` for OBJ, with the source image hash and model-bundle hash retained in deterministic metadata.
+
+The adapter deliberately does not perform background removal, image normalization, simplification, LOD derivation, coordinate conversion, or other downstream processing. Those remain independently traceable operations.
+
 ## Bundle contract
 
 A TripoSR result depends on more than `model.ckpt`. The official implementation constructs its image tokenizer from configuration, and that tokenizer normally references a Hugging Face DINO model. The v1 backend therefore consumes one SHA-256-pinned ZIP containing the complete inference authority:

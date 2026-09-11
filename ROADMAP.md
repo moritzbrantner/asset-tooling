@@ -59,12 +59,14 @@ First slices:
 - [x] Uniform operation input/result validation.
 - [x] Canonical operation build/cache key derived from operation identity, implementation identity, parameters, and validated input asset references.
 - [x] Content-addressed intermediate artifact resolution for operation outputs, with idempotent writes and fail-closed content verification.
-- [ ] Wrap the existing generation backends behind operation adapters without changing their authoritative spec/receipt semantics.
+- [x] Wrap the existing generation backends behind operation adapters without changing their authoritative spec/receipt semantics.
   - [x] Prove the boundary with `builtin.procedural.svg-scatter@1`: explicit seed in operation build identity, authoritative backend reuse, content-addressed output, and byte/observation parity with the legacy generation path.
-  - [ ] Extend the same adapter boundary to model-backed generation now that the processor and workflow proofs confirm the generic operation shape.
+  - [x] Wrap `model.stable-diffusion.diffusers@1` as `image.stable-diffusion.generate@1` with the exact pipeline bundle as a content-addressed input and execution-environment identity in the build key.
+  - [x] Wrap `model.triposr@1` as `mesh.triposr.generate@1` with prepared image and complete TripoSR/source/DINO bundle inputs, preserving raw OBJ/GLB generation semantics.
 - [ ] Wrap existing processing operations behind the same operation boundary without moving their algorithms into this repository.
   - [x] Prove `mesh.simplify@1` against the exact accepted `three-d-lod` revision from `moritzbrantner/3d-lab`, using a verified object-store input, the shared process-adapter protocol, receipt-compatible observations, and a content-addressed mesh output.
-  - [ ] Extend the same boundary to `mesh.lod_chain`, `animation.resample`, and `animation.reduce` after the first processor proof is stable.
+  - [x] Wrap `mesh.lod_chain@1` against the pinned source-based `three-d-lod-chain` processor with deterministic exact-decimal per-level budget materialization, exact source/bundle validation, and content-addressed index evidence.
+  - [ ] Extend the same boundary to `animation.resample` and `animation.reduce` once their authoritative processor adapters are available.
 - [x] Prove the generic operation contract with at least one current generator and one current external processor before publishing immutable operation schemas.
 - [x] Exercise the descriptor/executor bridge through exact accepted `workflow-editor` and `workflow-runner` revisions before freezing the new operation schemas.
   - [x] Derive editor node templates and structural `AssetRef` port types from the operation descriptor rather than maintaining a second node catalog.
