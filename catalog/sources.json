@@ -24,6 +24,31 @@
         "upstreamByteLength": 8110040,
         "purpose": "Reference PBR glTF asset for renderer, importer, normalization, and optimization consumers"
       }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "khronos.triangle-embedded-gltf",
+      "provider": "khronos-gltf-sample-assets",
+      "title": "Triangle",
+      "kind": "mesh",
+      "mediaType": "model/gltf+json",
+      "source": {
+        "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/90d7ede14c7e280af263824604b427a1ca02cb66/Models/Triangle/glTF-Embedded/Triangle.gltf",
+        "upstreamId": "Triangle/glTF-Embedded",
+        "revision": "90d7ede14c7e280af263824604b427a1ca02cb66",
+        "path": "Models/Triangle/glTF-Embedded/Triangle.gltf",
+        "sha256": "6bf10f2d1e07643cbda968fc6941929d52d4dfd4250182c852103668997f706a",
+        "byteLength": 1122
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "evidenceUrl": "https://github.com/KhronosGroup/glTF-Sample-Assets/blob/90d7ede14c7e280af263824604b427a1ca02cb66/Models/Triangle/LICENSE.md"
+      },
+      "tags": ["basic", "gltf", "primitive", "reference", "testing", "three-d"],
+      "metadata": {
+        "upstreamGitBlobSha": "40cab5a1992a686af009bb864e47f026f68957f6",
+        "purpose": "Minimal self-contained glTF 2.0 reference for import, validation, and renderer smoke tests"
+      }
     }
   ]
 }
