@@ -43,11 +43,20 @@ test("nearest resize uses deterministic center mapping", () => {
 });
 
 test("bilinear resize uses exact rational center weights", () => {
-  const source = image(2, 1, pixel(0, 0, 0, 0), pixel(255, 255, 255, 255));
+  const source = image(2, 1, pixel(0, 0, 0), pixel(255, 255, 255));
   const resized = resizeRgba8Bilinear(source, 3, 1);
   assert.deepEqual(
     resized.pixels,
-    pixels(pixel(0, 0, 0, 0), pixel(128, 128, 128, 128), pixel(255, 255, 255, 255)),
+    pixels(pixel(0, 0, 0), pixel(128, 128, 128), pixel(255, 255, 255)),
+  );
+});
+
+test("bilinear resize interpolates straight-alpha images through premultiplied color", () => {
+  const source = image(2, 1, pixel(255, 0, 0, 0), pixel(0, 0, 255, 255));
+  const resized = resizeRgba8Bilinear(source, 3, 1);
+  assert.deepEqual(
+    resized.pixels,
+    pixels(pixel(0, 0, 0, 0), pixel(0, 0, 255, 128), pixel(0, 0, 255, 255)),
   );
 });
 
