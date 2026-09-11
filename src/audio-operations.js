@@ -187,10 +187,31 @@ const OPERATION_REGISTRY = createAssetOperationRegistry([
         sampleRate: { type: "integer", minimum: 8000, maximum: 192000 },
         channels: { type: "integer", enum: [1, 2] },
         frameCount: { type: "integer", minimum: 0, maximum: 10000000 },
-        frequencyHz: { type: "integer", minimum: 1 },
+        frequencyHz: { type: "integer", minimum: 1, maximum: 96000 },
         amplitude: { type: "integer", minimum: 0, maximum: 32767 },
         seed: { type: "string", pattern: "^(0|[1-9][0-9]*)$" },
       },
+      oneOf: [
+        {
+          properties: { waveform: { const: "silence" } },
+          not: { anyOf: [{ required: ["frequencyHz"] }, { required: ["seed"] }] },
+        },
+        {
+          properties: { waveform: { const: "square" } },
+          required: ["frequencyHz"],
+          not: { required: ["seed"] },
+        },
+        {
+          properties: { waveform: { const: "saw" } },
+          required: ["frequencyHz"],
+          not: { required: ["seed"] },
+        },
+        {
+          properties: { waveform: { const: "noise" } },
+          required: ["seed"],
+          not: { required: ["frequencyHz"] },
+        },
+      ],
     },
   },
   {
