@@ -34,6 +34,16 @@ Generated artifacts feed processing through a content-addressed handoff: the pro
 
 See `docs/3d-processing.md` and `docs/generation-processing-handoff.md`.
 
+## Canonical asset catalog
+
+The focused `asset-tooling/catalog` subpath adds a fail-closed acquisition boundary for reusable third-party assets. Provider policy, source identity, per-asset license evidence, exact byte pinning, and canonical import are kept separate from network acquisition and from downstream normalization algorithms.
+
+A catalog source is only a candidate until its actual bytes have been inspected and pinned by SHA-256 plus byte length. Canonical import verifies those pins again and writes the accepted bytes through the same content-addressed object store used by asset operations. CC0 is preferred; non-CC0 shared sources must retain explicit attribution, and providers such as Mixamo that should not be raw-redistributed are marked project-local rather than silently entering the shared store.
+
+`catalog/providers.json` records the initial Kenney, Poly Haven, Quaternius, Khronos glTF Sample Assets, Freesound, Blender Studio, and Mixamo policies. `catalog/sources.json` begins with an exact-commit Khronos Avocado GLB reference as a real source candidate without pretending its Git blob identity is the required SHA-256 of accepted bytes.
+
+See `docs/catalog.md`.
+
 ## Unified asset operations
 
 Milestone A introduces a runtime-neutral operation contract so generation, processing, analysis, composition, and export capabilities can share one typed workflow vocabulary without replacing their authoritative algorithms or existing receipt contracts.
@@ -64,4 +74,4 @@ Exact reproducibility is established by replayed output bytes. Backend kind, abs
 
 Consumers importing the package root receive only the high-level operations `validateSpec`, `generateAsset`, `verifyAsset`, and `prepareProcessingHandoff`. Versioned schemas are separately available through the `./schemas/*` package export. Backend, cache, hashing, environment, and receipt-construction internals are deliberately not part of the public package API.
 
-The additive `asset-tooling/operations`, `asset-tooling/operations/store`, `asset-tooling/operations/generation`, `asset-tooling/operations/processing`, and `asset-tooling/operations/workflow` subpaths contain the Milestone A operation surfaces; they do not widen the root export.
+The additive `asset-tooling/operations`, `asset-tooling/operations/store`, `asset-tooling/operations/generation`, `asset-tooling/operations/processing`, `asset-tooling/operations/workflow`, and `asset-tooling/catalog` subpaths contain focused operation/catalog surfaces; they do not widen the root export.
