@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "editor": {
+    "repository": "moritzbrantner/workflow-editor",
+    "commit": "2797dcb357f00f3d388442a3de4dbfeb7e82cb96"
+  },
+  "runner": {
+    "repository": "moritzbrantner/workflow-runner",
+    "commit": "74fee4790bdc5e0a014846ad88377790f0dc37e5"
+  }
+}
