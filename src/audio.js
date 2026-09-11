@@ -310,12 +310,18 @@ export function decodePcmWav(bytesValue) {
     }
   }
 
-  return {
+  const audio = {
     sampleRate: format.sampleRate,
     channels: format.channels,
     samples,
-    sourceBitsPerSample: format.bitsPerSample,
   };
+  Object.defineProperty(audio, "sourceBitsPerSample", {
+    value: format.bitsPerSample,
+    enumerable: false,
+    configurable: false,
+    writable: false,
+  });
+  return audio;
 }
 
 export function assertCanonicalAudioBytes(bytesValue, metadataValue) {
@@ -390,8 +396,7 @@ export function resampleAudio(audioValue, targetSampleRate) {
     for (let channel = 0; channel < audio.channels; channel += 1) {
       const left = audio.samples[safeLeft * audio.channels + channel];
       const right = audio.samples[rightFrame * audio.channels + channel];
-      const weighted =
-        BigInt(left) * (denominator - remainder) + BigInt(right) * remainder;
+      const weighted = BigInt(left) * (denominator - remainder) + BigInt(right) * remainder;
       samples[frame * audio.channels + channel] = clampInt16(
         roundDivideSigned(weighted, denominator),
       );
