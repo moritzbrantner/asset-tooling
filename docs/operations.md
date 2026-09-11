@@ -155,7 +155,7 @@ The existing published `processing-receipt-v1/v2` schemas remain unchanged. Oper
 
 The focused `asset-tooling/operations/workflow` subpath projects operation descriptors into the existing workflow contracts. This direction is intentional: `workflow-editor` and `workflow-runner` remain generic and do not import asset-tooling.
 
-`createAssetOperationWorkflowNodeTemplate(...)` derives a workflow-editor template directly from one normalized `AssetOperationDescriptor`. The template stores only the selected operation id/version and the editable parameter values in node data. The parameter schema itself remains on the descriptor and is not copied into every editable/compiled node.
+`createAssetOperationWorkflowNodeTemplate(...)` derives a workflow-editor template directly from one normalized `AssetOperationDescriptor`. The template stores only the selected operation id/version and editable parameter values in node data. The parameter schema itself remains on the descriptor and is not copied into every editable/compiled node.
 
 Asset ports are projected into structural workflow types:
 
@@ -165,21 +165,24 @@ Asset ports are projected into structural workflow types:
 - metadata remains structurally an object;
 - asset `many` or bounded cardinality becomes an array-valued workflow port.
 
-Asset value cardinality is deliberately not mapped to workflow-editor connection cardinality. Those are different concepts: one constrains the number of `AssetRef` values supplied to an operation, while the other constrains the number of graph edges attached to a port. Exact array-length bounds remain fail-closed asset-tooling execution validation.
+Asset value cardinality is deliberately not mapped to workflow-editor connection cardinality. Those are different concepts: one constrains the number of `AssetRef` values supplied to an operation, while the other constrains the number of graph edges attached to a port.
 
-The current workflow type vocabulary also has no media-type pattern type. A descriptor such as `image/*` therefore projects to a workflow `string`; concrete media types still project exactly, and asset-tooling remains authoritative for wildcard compatibility during execution. This is a known authoring-time precision limit, not a weakening of the operation contract.
+Some asset constraints cannot be represented exactly by the current generic workflow type vocabulary. In particular, media families such as `image/*` are broader than literal strings, and two bounded asset arrays may have different allowed lengths even though both are workflow arrays. The derived editor ports therefore also retain exact asset kind, media-family, and value-cardinality constraints in editor-only `assetOperationPort` metadata.
+
+`createAssetOperationWorkflowConnectionValidator(...)` composes workflow-editor's normal type/cardinality validator with these exact asset constraints. It preserves family assignability such as `image/png -> image/*`, rejects incompatible families such as `audio/* -> image/*`, and rejects source value-cardinality ranges that are not a subset of the target range. If only one endpoint carries asset-port metadata, the asset-aware validator fails closed instead of assuming an unproven asset contract. The compiler remains execution-neutral; runtime operation validation independently enforces the same asset contract before execution.
 
 `createAssetOperationWorkflowExecutor(...)` produces one workflow-runner-compatible executor for node kind `asset.operation`. Execution registrations pair a descriptor with its executor function, so operation id/version metadata is not manually duplicated in a second dispatch table. Compiled node data selects the registered operation; runner inputs become the operation inputs; the normalized operation outputs are returned to the graph.
 
-Full operation observations do not become hidden or synthetic graph outputs. An optional `onOperationResult` hook receives the complete normalized result as external execution evidence. A host can use that for an execution overlay, provenance panel, logging, or receipt workflow without mutating the editable document.
+Full operation observations do not become hidden or synthetic graph outputs. An optional `onOperationResult` hook receives a detached canonical copy of the complete normalized result as external execution evidence, so an observer cannot mutate the already-validated graph output. A host can use that evidence for an execution overlay, provenance panel, logging, or receipt workflow without mutating the editable document.
 
 `stability/workflow-stack.json` pins exact accepted workflow-editor and workflow-runner revisions. The hosted Stability proof uses the real editor type system/compiler and the real runner to require that:
 
-1. an SVG generator output cannot connect to a mesh input;
-2. operation identity and parameters survive compilation into `@moritzbrantner/workflow/compiled` v1;
-3. the generic runner dispatch executes `procedural.svg.scatter@1` and returns a resolvable object-store asset;
-4. `mesh.simplify@1` also runs through the same generic executor shape;
-5. observations are captured externally rather than appearing in workflow graph outputs.
+1. concrete incompatible asset types are rejected;
+2. wildcard media-family compatibility remains enforced by the asset-aware authoring validator rather than being lost when the structural workflow type must be broader;
+3. operation identity and parameters survive compilation into `@moritzbrantner/workflow/compiled` v1;
+4. the generic runner dispatch executes `procedural.svg.scatter@1` and returns a resolvable object-store asset;
+5. `mesh.simplify@1` also runs through the same generic executor shape;
+6. observations are captured externally rather than appearing in workflow graph outputs.
 
 The bridge proof uses the local mesh processor fixture only to test workflow plumbing. The separate accepted-processor Stability job remains authoritative for the actual `three-d-lod` algorithm boundary.
 
