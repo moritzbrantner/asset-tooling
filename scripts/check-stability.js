@@ -36,6 +36,22 @@ const expectedProcessors = new Map([
       operation: "mesh.lod_chain",
     },
   ],
+  [
+    "three-d-animation-resample",
+    {
+      repository: "moritzbrantner/3d-lab",
+      manifestPath: "examples/asset-tooling-animation-adapter/Cargo.toml",
+      operation: "animation.resample",
+    },
+  ],
+  [
+    "three-d-animation-reduce",
+    {
+      repository: "moritzbrantner/3d-lab",
+      manifestPath: "examples/asset-tooling-animation-adapter/Cargo.toml",
+      operation: "animation.reduce",
+    },
+  ],
 ]);
 
 const expectedWorkflowStack = {

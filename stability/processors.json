@@ -14,6 +14,20 @@
       "commit": "5d6caf05f580638e7dd69c01741704d7f5d9500d",
       "manifestPath": "examples/asset-tooling-lod-adapter/Cargo.toml",
       "operation": "mesh.lod_chain"
+    },
+    {
+      "id": "three-d-animation-resample",
+      "repository": "moritzbrantner/3d-lab",
+      "commit": "d605128d619315bbd8beec4137c0d2d413fc5fc4",
+      "manifestPath": "examples/asset-tooling-animation-adapter/Cargo.toml",
+      "operation": "animation.resample"
+    },
+    {
+      "id": "three-d-animation-reduce",
+      "repository": "moritzbrantner/3d-lab",
+      "commit": "d605128d619315bbd8beec4137c0d2d413fc5fc4",
+      "manifestPath": "examples/asset-tooling-animation-adapter/Cargo.toml",
+      "operation": "animation.reduce"
     }
   ]
 }
