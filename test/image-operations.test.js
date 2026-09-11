@@ -13,6 +13,7 @@ import {
   IMAGE_CROP_OPERATION,
   IMAGE_OPERATIONS,
   IMAGE_RESIZE_OPERATION,
+  createImageCropOperationBuildIdentity,
   createImageResizeOperationBuildIdentity,
   executeImageResizeOperation,
   resizeRgba8Nearest,
@@ -89,19 +90,48 @@ test("image geometry registry is deterministic and typed", () => {
   assert.equal(IMAGE_CROP_OPERATION.parameterSchema.properties.y.maximum, 8191);
 });
 
-test("image.resize build identity binds source content and exact algorithm", async () => {
+test("image.resize build identity binds source content and exact filter algorithm", async () => {
   const { root, source } = await workspaceWithImage(1, 1, pixels(pixel(10, 20, 30)));
-  const identity = await createImageResizeOperationBuildIdentity(root, {
+  const nearest = await createImageResizeOperationBuildIdentity(root, {
     parameters: { width: 2, height: 3, filter: "nearest" },
     inputs: { source },
   });
-  assert.deepEqual(identity.operation, { id: "image.resize", version: "1" });
-  assert.equal(identity.inputs.source.sha256, source.sha256);
-  assert.equal(identity.implementation.id, "builtin.image.rgba8.resize");
-  assert.equal(identity.implementation.version, "1");
-  assert.equal(identity.implementation.algorithm, "nearest-center-integer-v1");
-  assert.equal(identity.implementation.pixelFormat, "rgba8");
-  assert.equal(JSON.stringify(identity).includes(root), false);
+  assert.deepEqual(nearest.operation, { id: "image.resize", version: "1" });
+  assert.equal(nearest.inputs.source.sha256, source.sha256);
+  assert.equal(nearest.implementation.id, "builtin.image.rgba8.resize");
+  assert.equal(nearest.implementation.version, "1");
+  assert.equal(nearest.implementation.algorithm, "nearest-center-integer-v1");
+  assert.equal(nearest.implementation.pixelFormat, "rgba8");
+  assert.equal(JSON.stringify(nearest).includes(root), false);
+
+  const bilinear = await createImageResizeOperationBuildIdentity(root, {
+    parameters: { width: 2, height: 3, filter: "bilinear" },
+    inputs: { source },
+  });
+  assert.equal(bilinear.implementation.algorithm, "bilinear-center-fixed-rational-v1");
+});
+
+test("image.crop descriptor and runtime enforce the same coordinate domain", async () => {
+  const { root, source } = await workspaceWithImage(1, 1, pixels(pixel(1, 2, 3)));
+  assert.equal(IMAGE_CROP_OPERATION.parameterSchema.properties.x.maximum, 8191);
+  assert.equal(IMAGE_CROP_OPERATION.parameterSchema.properties.y.maximum, 8191);
+
+  await assert.rejects(
+    () =>
+      createImageCropOperationBuildIdentity(root, {
+        parameters: { x: 8192, y: 0, width: 1, height: 1 },
+        inputs: { source },
+      }),
+    /parameters\.x must be an integer in 0\.\.8191/,
+  );
+  await assert.rejects(
+    () =>
+      createImageCropOperationBuildIdentity(root, {
+        parameters: { x: 0, y: 8192, width: 1, height: 1 },
+        inputs: { source },
+      }),
+    /parameters\.y must be an integer in 0\.\.8191/,
+  );
 });
 
 test("nearest-center resize expands pixels deterministically", () => {
