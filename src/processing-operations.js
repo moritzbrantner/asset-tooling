@@ -238,6 +238,13 @@ function normalizeParameters(value) {
   };
 }
 
+function materializeLodTarget(sourceTriangleCount, triangleRatio) {
+  return Math.min(
+    sourceTriangleCount - 1,
+    Math.max(1, Math.round(sourceTriangleCount * triangleRatio)),
+  );
+}
+
 function normalizeLodParameters(value) {
   const parameters = assertPlainObject(value, `${LOD_OPERATION_ID} parameters`);
   for (const key of Object.keys(parameters)) {
@@ -294,9 +301,10 @@ function normalizeLodParameters(value) {
       level.targetTriangleCount,
       `parameters.levels[${index}].targetTriangleCount`,
     );
-    if (targetTriangleCount >= sourceTriangleCount) {
+    const expectedTargetTriangleCount = materializeLodTarget(sourceTriangleCount, triangleRatio);
+    if (targetTriangleCount !== expectedTargetTriangleCount) {
       throw new Error(
-        `parameters.levels[${index}].targetTriangleCount must be less than sourceTriangleCount`,
+        `parameters.levels[${index}].targetTriangleCount must equal the materialized ratio budget ${expectedTargetTriangleCount}`,
       );
     }
     if (triangleRatio >= previousRatio) {
@@ -611,7 +619,34 @@ function indexBufferSha256(indices, location) {
   return sha256Bytes(bytes);
 }
 
-function validateAndEnrichLodOutput(bytes, observations, parameters) {
+function parseSourceMeshVertices(sourceBytes, observations) {
+  let source;
+  try {
+    source = JSON.parse(sourceBytes.toString("utf8"));
+  } catch (error) {
+    throw new Error(`mesh.lod_chain source mesh is not valid JSON: ${error.message}`);
+  }
+  source = assertPlainObject(source, "mesh.lod_chain source mesh");
+  if (source.schemaVersion !== 1) {
+    throw new Error("mesh.lod_chain source mesh schemaVersion must be 1");
+  }
+  if (!Array.isArray(source.vertices) || source.vertices.length !== observations.sourceVertexCount) {
+    throw new Error("mesh.lod_chain source mesh vertices do not match processor observations");
+  }
+  source.vertices.forEach((vertex, index) => {
+    if (
+      !Array.isArray(vertex) ||
+      vertex.length !== 3 ||
+      vertex.some((component) => typeof component !== "number" || !Number.isFinite(component))
+    ) {
+      throw new Error(`mesh.lod_chain source mesh vertices[${index}] must be a finite vec3`);
+    }
+  });
+  return source.vertices;
+}
+
+function validateAndEnrichLodOutput(bytes, observations, parameters, sourceBytes) {
+  const sourceVertices = parseSourceMeshVertices(sourceBytes, observations);
   let document;
   try {
     document = JSON.parse(bytes.toString("utf8"));
@@ -626,8 +661,8 @@ function validateAndEnrichLodOutput(bytes, observations, parameters) {
   if (document.schemaVersion !== 1) {
     throw new Error("mesh.lod_chain processor output schemaVersion must be 1");
   }
-  if (!Array.isArray(document.sourceVertices) || document.sourceVertices.length !== observations.sourceVertexCount) {
-    throw new Error("mesh.lod_chain processor output sourceVertices does not match observations");
+  if (!Array.isArray(document.sourceVertices) || document.sourceVertices.length !== sourceVertices.length) {
+    throw new Error("mesh.lod_chain processor output sourceVertices does not match the source mesh");
   }
   document.sourceVertices.forEach((vertex, index) => {
     if (
@@ -636,6 +671,13 @@ function validateAndEnrichLodOutput(bytes, observations, parameters) {
       vertex.some((component) => typeof component !== "number" || !Number.isFinite(component))
     ) {
       throw new Error(`mesh.lod_chain processor output sourceVertices[${index}] must be a finite vec3`);
+    }
+    for (let component = 0; component < 3; component += 1) {
+      if (vertex[component] !== sourceVertices[index][component]) {
+        throw new Error(
+          `mesh.lod_chain processor output sourceVertices[${index}][${component}] differs from the bound source mesh`,
+        );
+      }
     }
   });
   if (!Array.isArray(document.levels) || document.levels.length !== parameters.levels.length) {
@@ -780,7 +822,7 @@ export async function executeMeshLodChainOperation(root, invocation = {}, proces
   });
   const source = buildIdentity.inputs.source;
 
-  await resolveAssetObject(root, source);
+  const sourceBytes = await resolveAssetObject(root, source);
   const processed = await runProcessAdapter({
     executable: processor.executable,
     scriptPath: processor.scriptPath,
@@ -803,6 +845,7 @@ export async function executeMeshLodChainOperation(root, invocation = {}, proces
     processed.bytes,
     processorObservations,
     buildIdentity.parameters,
+    sourceBytes,
   );
   const stored = await storeAssetObject(root, {
     bytes: processed.bytes,
