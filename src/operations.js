@@ -1,4 +1,4 @@
-import { canonicalJson } from "./canonical.js";
+import { canonicalJson, compareCodeUnitStrings } from "./canonical.js";
 import { sha256Text } from "./hash.js";
 
 const SHA256_PATTERN = /^[0-9a-f]{64}$/;
@@ -319,8 +319,10 @@ export function createAssetOperationRegistry(initialDescriptors = []) {
     },
     list() {
       return [...operations.values()].sort((left, right) => {
-        const idComparison = left.id.localeCompare(right.id);
-        return idComparison !== 0 ? idComparison : left.version.localeCompare(right.version);
+        const idComparison = compareCodeUnitStrings(left.id, right.id);
+        return idComparison !== 0
+          ? idComparison
+          : compareCodeUnitStrings(left.version, right.version);
       });
     },
   };
