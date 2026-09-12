@@ -1,5 +1,5 @@
 import path from "node:path";
-import { canonicalJson } from "./canonical.js";
+import { canonicalJson, compareCodeUnitStrings } from "./canonical.js";
 import {
   assetOperationKey,
   createAssetOperationDescriptor,
@@ -162,7 +162,7 @@ export function createAssetOperationWorkflowNodeTemplates(operationValues) {
   }
   return operationValues
     .map((operation) => createAssetOperationWorkflowNodeTemplate(operation))
-    .sort((left, right) => left.id.localeCompare(right.id));
+    .sort((left, right) => compareCodeUnitStrings(left.id, right.id));
 }
 
 function findWorkflowPort(document, nodeId, portId, direction) {
