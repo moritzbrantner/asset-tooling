@@ -14,6 +14,7 @@ import {
 import {
   PROCEDURAL_SHAPE_OPERATIONS,
   createProceduralCircleSdfOperationBuildIdentity,
+  createProceduralCircleVectorOperationBuildIdentity,
   executeProceduralCircleSdfOperation,
   executeProceduralCircleVectorOperation,
   executeProceduralRoundedRectVectorOperation,
@@ -189,5 +190,12 @@ test("shape parameters fail closed on invalid geometry and serialization", async
         parameters: { width: 5, height: 5, centerX: 5, centerY: 2, radius: 1, spread: 2 },
       }),
     /centerX/,
+  );
+  await assert.rejects(
+    () =>
+      createProceduralCircleVectorOperationBuildIdentity({
+        parameters: { width: 10, height: 10, centerX: 2, centerY: 2, radius: 4, fill: "#000000" },
+      }),
+    /fit inside the canvas/,
   );
 });
