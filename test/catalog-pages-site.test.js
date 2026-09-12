@@ -56,7 +56,7 @@ test("gallery renders compact linked cards with image thumbnails and no provenan
   assert.doesNotMatch(html, /abc123/);
 });
 
-test("gallery gives non-image assets a deterministic thumbnail tile", () => {
+test("gallery renders audio waveforms and lazy 3D model previews", () => {
   const html = renderCatalogGalleryHtml(model([
     asset({
       id: "example.mesh",
@@ -73,13 +73,15 @@ test("gallery gives non-image assets a deterministic thumbnail tile", () => {
       source: { ...asset().source, url: "https://example.com/audio.wav" },
     }),
   ]));
-  assert.match(html, /preview-model/);
-  assert.match(html, />3D model</);
-  assert.match(html, /preview-audio/);
-  assert.match(html, />audio</);
+  assert.match(html, /<model-viewer src="https:\/\/example\.com\/model\.glb"/);
+  assert.match(html, /loading="lazy"/);
+  assert.match(html, /@google\/model-viewer@4\.3\.1\/dist\/model-viewer\.min\.js/);
+  assert.match(html, /<canvas class="waveform" data-waveform-src="https:\/\/example\.com\/audio\.wav"/);
+  assert.match(html, /new IntersectionObserver/);
+  assert.match(html, /decodeAudioData/);
 });
 
-test("individual asset pages contain the hidden provenance details and native audio preview", () => {
+test("individual audio pages render waveform plus native playback and hidden provenance details", () => {
   const audio = asset({
     id: "example.audio",
     title: "Example Audio",
@@ -94,8 +96,39 @@ test("individual asset pages contain the hidden provenance details and native au
   assert.match(html, /Source path/);
   assert.match(html, /abc123/);
   assert.match(html, /git-lfs · assets\/canonical\/example\.audio\/audio\.wav/);
+  assert.match(html, /<canvas class="waveform" data-waveform-src="https:\/\/example\.com\/audio\.wav"/);
   assert.match(html, /<audio controls preload="none" src="https:\/\/example\.com\/audio\.wav"><\/audio>/);
   assert.match(html, /href="\.\.\/\.\.\/">← Back to gallery<\/a>/);
+});
+
+test("individual 3D pages render an interactive pinned model-viewer", () => {
+  const mesh = asset({
+    id: "example.mesh",
+    title: "Example Mesh",
+    kind: "mesh",
+    mediaType: "model/gltf-binary",
+    source: { ...asset().source, url: "https://example.com/model.glb" },
+  });
+  const html = renderCatalogAssetHtml(mesh);
+  assert.match(html, /@google\/model-viewer@4\.3\.1\/dist\/model-viewer\.min\.js/);
+  assert.match(html, /<model-viewer src="https:\/\/example\.com\/model\.glb"/);
+  assert.match(html, /loading="eager"/);
+  assert.match(html, /camera-controls auto-rotate autoplay/);
+  assert.match(html, /Drag to orbit · scroll or pinch to zoom/);
+});
+
+test("archive assets retain a deterministic fallback visualization", () => {
+  const html = renderCatalogGalleryHtml(model([
+    asset({
+      id: "example.pack",
+      title: "Example Pack",
+      kind: "asset-pack",
+      mediaType: "application/zip",
+      source: { ...asset().source, url: "https://example.com/archive.zip" },
+    }),
+  ]));
+  assert.match(html, /preview-archive/);
+  assert.match(html, />Asset pack</);
 });
 
 test("gallery and asset pages escape catalog strings in HTML attributes and text", () => {
