@@ -102,7 +102,7 @@ Each operation remains independently callable, cacheable, inspectable, and compo
 Expand deterministic/seeded generation through authoritative procedural implementations.
 
 - [x] Seeded coordinate-hashed 2D white noise plus exact integer horizontal, vertical, and diagonal RGBA8 gradients.
-- [ ] Patterns and Voronoi/cellular fields.
+- [x] Exact two-color checker/stripe patterns plus seeded jittered-cell Voronoi cell-color and nearest-feature-distance fields.
 - [ ] SDF/vector shapes.
 - [ ] Tiling textures, height maps, and normal maps.
 - [ ] 3D primitives, terrain, heightfield-to-mesh, extrusion, revolution, parametric surfaces, and scatter/distribution.

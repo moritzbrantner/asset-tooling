@@ -5,12 +5,20 @@ import path from "node:path";
 import { mkdtemp } from "node:fs/promises";
 import { resolveAssetObject } from "../src/asset-store.js";
 import { parseRgba8Image, RGBA8_IMAGE_MEDIA_TYPE } from "../src/image-rgba8.js";
-import { generateLinearGradientRgba8, generateNoiseRgba8 } from "../src/procedural-image.js";
+import {
+  generateLinearGradientRgba8,
+  generateNoiseRgba8,
+  generatePatternRgba8,
+  generateVoronoiRgba8,
+} from "../src/procedural-image.js";
 import {
   PROCEDURAL_IMAGE_OPERATIONS,
   createProceduralImageNoiseOperationBuildIdentity,
+  createProceduralImageVoronoiOperationBuildIdentity,
   executeProceduralImageGradientOperation,
   executeProceduralImageNoiseOperation,
+  executeProceduralImagePatternOperation,
+  executeProceduralImageVoronoiOperation,
 } from "../src/procedural-image-operations.js";
 
 function pixel(red, green, blue, alpha = 255) {
@@ -24,7 +32,12 @@ function pixels(...values) {
 test("procedural image operation registry is deterministic and typed", () => {
   assert.deepEqual(
     PROCEDURAL_IMAGE_OPERATIONS.map((operation) => operation.id),
-    ["image.procedural.gradient", "image.procedural.noise"],
+    [
+      "image.procedural.gradient",
+      "image.procedural.noise",
+      "image.procedural.pattern",
+      "image.procedural.voronoi",
+    ],
   );
   for (const operation of PROCEDURAL_IMAGE_OPERATIONS) {
     assert.deepEqual(operation.inputs, []);
@@ -93,6 +106,69 @@ test("diagonal gradient orientation is explicit and deterministic", () => {
   );
 });
 
+test("checker and stripe patterns use exact integer cells", () => {
+  const checker = generatePatternRgba8({
+    width: 4,
+    height: 2,
+    pattern: "checker",
+    size: 1,
+    colors: [[0, 0, 0, 255], [255, 255, 255, 255]],
+  });
+  assert.deepEqual(
+    checker.pixels,
+    pixels(
+      pixel(0, 0, 0), pixel(255, 255, 255), pixel(0, 0, 0), pixel(255, 255, 255),
+      pixel(255, 255, 255), pixel(0, 0, 0), pixel(255, 255, 255), pixel(0, 0, 0),
+    ),
+  );
+
+  const stripes = generatePatternRgba8({
+    width: 4,
+    height: 1,
+    pattern: "stripes-vertical",
+    size: 2,
+    colors: [[10, 20, 30, 40], [50, 60, 70, 80]],
+  });
+  assert.deepEqual(
+    stripes.pixels,
+    pixels(
+      pixel(10, 20, 30, 40),
+      pixel(10, 20, 30, 40),
+      pixel(50, 60, 70, 80),
+      pixel(50, 60, 70, 80),
+    ),
+  );
+});
+
+test("Voronoi distance is exact for one-pixel cells", () => {
+  const output = generateVoronoiRgba8({
+    width: 3,
+    height: 2,
+    seed: "42",
+    cellSize: 1,
+    mode: "distance",
+  });
+  assert.deepEqual(
+    output.pixels,
+    pixels(
+      pixel(0, 0, 0), pixel(0, 0, 0), pixel(0, 0, 0),
+      pixel(0, 0, 0), pixel(0, 0, 0), pixel(0, 0, 0),
+    ),
+  );
+});
+
+test("Voronoi cell colors are deterministic and seed-sensitive", () => {
+  const parameters = { width: 5, height: 4, cellSize: 2, mode: "cells" };
+  const first = generateVoronoiRgba8({ ...parameters, seed: "42" });
+  const repeated = generateVoronoiRgba8({ ...parameters, seed: "42" });
+  const different = generateVoronoiRgba8({ ...parameters, seed: "43" });
+  assert.deepEqual(repeated.pixels, first.pixels);
+  assert.notDeepEqual(different.pixels, first.pixels);
+  for (let offset = 3; offset < first.pixels.length; offset += 4) {
+    assert.equal(first.pixels[offset], 255);
+  }
+});
+
 test("procedural noise build identity binds explicit seed and algorithm", async () => {
   const build = await createProceduralImageNoiseOperationBuildIdentity({
     parameters: { seed: "42", width: 2, height: 2, mode: "grayscale" },
@@ -101,6 +177,16 @@ test("procedural noise build identity binds explicit seed and algorithm", async 
   assert.equal(build.parameters.seed, "42");
   assert.equal(build.implementation.randomness, "seeded");
   assert.equal(build.implementation.algorithm, "fnv1a32-coordinate-avalanche-rgba8-v1");
+});
+
+test("Voronoi build identity binds seed and cellular algorithm", async () => {
+  const build = await createProceduralImageVoronoiOperationBuildIdentity({
+    parameters: { seed: "42", width: 4, height: 4, cellSize: 2, mode: "distance" },
+  });
+  assert.deepEqual(build.operation, { id: "image.procedural.voronoi", version: "1" });
+  assert.equal(build.parameters.seed, "42");
+  assert.equal(build.implementation.randomness, "seeded");
+  assert.equal(build.implementation.algorithm, "fnv1a32-jittered-cellular-nearest-v1");
 });
 
 test("procedural image execution is content-addressed and idempotent", async () => {
@@ -142,6 +228,31 @@ test("gradient execution produces canonical RGBA8 output", async () => {
   assert.equal(result.observations.randomness, "none");
 });
 
+test("pattern and Voronoi execution remain canonical and content-addressed", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "asset-tooling-procedural-image-"));
+  const pattern = await executeProceduralImagePatternOperation(root, {
+    parameters: {
+      width: 2,
+      height: 2,
+      pattern: "checker",
+      size: 1,
+      colors: [[0, 0, 0, 255], [255, 255, 255, 255]],
+    },
+  });
+  assert.equal(pattern.observations.randomness, "none");
+  assert.equal(pattern.outputs.output.metadata.generator, "image.procedural.pattern@1");
+
+  const invocation = {
+    parameters: { seed: "42", width: 3, height: 3, cellSize: 2, mode: "distance" },
+  };
+  const first = await executeProceduralImageVoronoiOperation(root, invocation);
+  const second = await executeProceduralImageVoronoiOperation(root, invocation);
+  assert.equal(first.outputs.output.sha256, second.outputs.output.sha256);
+  assert.deepEqual(first.observations, second.observations);
+  assert.equal(first.outputs.output.metadata.generator, "image.procedural.voronoi@1");
+  parseRgba8Image(await resolveAssetObject(root, first.outputs.output));
+});
+
 test("procedural image parameters fail closed", async () => {
   await assert.rejects(
     () =>
@@ -149,6 +260,13 @@ test("procedural image parameters fail closed", async () => {
         parameters: { seed: "0042", width: 1, height: 1, mode: "grayscale" },
       }),
     /non-negative decimal integer string/,
+  );
+  await assert.rejects(
+    () =>
+      createProceduralImageVoronoiOperationBuildIdentity({
+        parameters: { seed: "42", width: 1, height: 1, cellSize: 0, mode: "distance" },
+      }),
+    /cellSize/,
   );
   assert.throws(
     () =>
@@ -160,5 +278,16 @@ test("procedural image parameters fail closed", async () => {
         endColor: [255, 255, 255, 255],
       }),
     /gradient direction/,
+  );
+  assert.throws(
+    () =>
+      generatePatternRgba8({
+        width: 1,
+        height: 1,
+        pattern: "dots",
+        size: 1,
+        colors: [[0, 0, 0, 255], [255, 255, 255, 255]],
+      }),
+    /pattern must be/,
   );
 });
