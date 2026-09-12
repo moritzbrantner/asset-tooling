@@ -10,6 +10,7 @@
     "./operations/generation": "./src/generation-operations.js",
     "./operations/generation/procedural-image": "./src/procedural-image-operations.js",
     "./operations/generation/procedural-shapes": "./src/procedural-shape-operations.js",
+    "./operations/generation/procedural-textures": "./src/procedural-texture-operations.js",
     "./operations/generation/triposr": "./src/triposr-operation.js",
     "./operations/processing": "./src/processing-operations.js",
     "./operations/processing/animation": "./src/animation-processing-operations.js",
