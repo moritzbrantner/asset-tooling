@@ -29,6 +29,7 @@
     "./audio": "./src/audio.js",
     "./operations/workflow": "./src/workflow-operations.js",
     "./catalog": "./src/catalog.js",
+    "./catalog/acquisition": "./src/catalog-acquisition.js",
     "./catalog/storage": "./src/catalog-storage.js",
     "./schemas/*": "./schemas/*"
   },
