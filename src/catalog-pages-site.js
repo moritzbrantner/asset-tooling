@@ -2,6 +2,8 @@ import { createCatalogPagesModel } from "./catalog-pages.js";
 
 export { createCatalogPagesModel };
 
+const MODEL_VIEWER_MODULE = "https://cdn.jsdelivr.net/npm/@google/model-viewer@4.3.1/dist/model-viewer.min.js";
+
 function escapeHtml(value) {
   return String(value)
     .replaceAll("&", "&amp;")
@@ -36,15 +38,38 @@ function iconFor(kind) {
   return `<svg viewBox="0 0 96 64" role="img" aria-label="Asset"><path d="M26 18h44v34H26zM34 26h28v18H34z" fill="none" stroke="currentColor" stroke-width="4"/></svg>`;
 }
 
+function renderWaveformPreview(asset, { detail }) {
+  const className = detail ? "asset-preview audio-preview waveform-preview" : "thumbnail waveform-preview";
+  const label = `${asset.title} waveform`;
+  const controls = detail
+    ? `<audio controls preload="none" src="${escapeHtml(asset.source.url)}"></audio>`
+    : "";
+  return `<div class="${className}">
+    <canvas class="waveform" data-waveform-src="${escapeHtml(asset.source.url)}" role="img" aria-label="${escapeHtml(label)}"></canvas>
+    <span class="preview-status" aria-live="polite">Loading waveform…</span>
+    ${controls}
+  </div>`;
+}
+
+function renderModelPreview(asset, { detail }) {
+  const className = detail ? "asset-preview model-preview interactive-model" : "thumbnail model-preview";
+  const controls = detail ? " camera-controls auto-rotate autoplay" : "";
+  const loading = detail ? "eager" : "lazy";
+  const hint = detail ? "Drag to orbit · scroll or pinch to zoom" : "Interactive 3D preview";
+  return `<div class="${className}">
+    <model-viewer src="${escapeHtml(asset.source.url)}" alt="${escapeHtml(asset.title)} 3D preview" loading="${loading}" interaction-prompt="none" shadow-intensity="1" exposure="1"${controls}></model-viewer>
+    <span class="preview-status">${hint}</span>
+  </div>`;
+}
+
 function renderThumbnail(asset, { detail = false } = {}) {
   const kind = previewKind(asset);
   const className = detail ? "asset-preview" : "thumbnail";
   if (kind === "image" && asset.source.url) {
     return `<div class="${className} image-preview"><img src="${escapeHtml(asset.source.url)}" alt="${escapeHtml(asset.title)} preview" loading="lazy"></div>`;
   }
-  if (detail && kind === "audio" && asset.source.url) {
-    return `<div class="${className} audio-preview">${iconFor(kind)}<audio controls preload="none" src="${escapeHtml(asset.source.url)}"></audio></div>`;
-  }
+  if (kind === "audio" && asset.source.url) return renderWaveformPreview(asset, { detail });
+  if (kind === "model" && asset.source.url) return renderModelPreview(asset, { detail });
   return `<div class="${className} fallback-preview preview-${kind}">${iconFor(kind)}<span>${escapeHtml(kind === "model" ? "3D model" : kind === "archive" ? "Asset pack" : kind)}</span></div>`;
 }
 
@@ -98,12 +123,150 @@ function selectOptions(values) {
   return values.map(({ value, label }) => `<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`).join("");
 }
 
+function modelViewerModuleScript(enabled) {
+  return enabled ? `<script type="module" src="${MODEL_VIEWER_MODULE}"></script>` : "";
+}
+
+function waveformRuntimeScript(enabled) {
+  if (!enabled) return "";
+  return `<script>
+(() => {
+  const buffers = new Map();
+  const rendered = new WeakMap();
+
+  function decoder() {
+    const Offline = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+    if (Offline) return { context: new Offline(1, 1, 44100), close: false };
+    const Realtime = window.AudioContext || window.webkitAudioContext;
+    if (!Realtime) throw new Error("Web Audio API unavailable");
+    return { context: new Realtime(), close: true };
+  }
+
+  function loadBuffer(source) {
+    if (!buffers.has(source)) {
+      buffers.set(source, (async () => {
+        const response = await fetch(source, { mode: "cors" });
+        if (!response.ok) throw new Error("Audio preview request failed");
+        const bytes = await response.arrayBuffer();
+        const { context, close } = decoder();
+        try {
+          return await context.decodeAudioData(bytes);
+        } finally {
+          if (close && typeof context.close === "function") context.close().catch(() => {});
+        }
+      })());
+    }
+    return buffers.get(source);
+  }
+
+  function formatDuration(seconds) {
+    if (!Number.isFinite(seconds) || seconds < 0) return "Waveform";
+    const total = Math.round(seconds);
+    const minutes = Math.floor(total / 60);
+    const remainder = String(total % 60).padStart(2, "0");
+    return minutes + ":" + remainder;
+  }
+
+  function draw(canvas, buffer) {
+    const width = Math.max(1, Math.floor(canvas.clientWidth));
+    const height = Math.max(1, Math.floor(canvas.clientHeight));
+    const ratio = Math.min(2, window.devicePixelRatio || 1);
+    const pixelWidth = Math.max(1, Math.floor(width * ratio));
+    const pixelHeight = Math.max(1, Math.floor(height * ratio));
+    if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
+      canvas.width = pixelWidth;
+      canvas.height = pixelHeight;
+    }
+    const context = canvas.getContext("2d");
+    if (!context) return;
+    context.setTransform(ratio, 0, 0, ratio, 0, 0);
+    context.clearRect(0, 0, width, height);
+    context.strokeStyle = getComputedStyle(canvas).color;
+    context.lineWidth = Math.max(1, Math.min(2, width / 320));
+    context.globalAlpha = 0.86;
+
+    const bins = Math.max(1, Math.min(720, width));
+    const samples = buffer.length;
+    const channelCount = buffer.numberOfChannels;
+    const channels = Array.from({ length: channelCount }, (_, index) => buffer.getChannelData(index));
+    context.beginPath();
+    for (let bin = 0; bin < bins; bin += 1) {
+      const start = Math.floor((bin * samples) / bins);
+      const end = Math.max(start + 1, Math.floor(((bin + 1) * samples) / bins));
+      const stride = Math.max(1, Math.floor((end - start) / 160));
+      let minimum = 1;
+      let maximum = -1;
+      for (const channel of channels) {
+        for (let index = start; index < end; index += stride) {
+          const sample = channel[index] || 0;
+          if (sample < minimum) minimum = sample;
+          if (sample > maximum) maximum = sample;
+        }
+      }
+      const x = ((bin + 0.5) / bins) * width;
+      const y1 = ((1 - maximum) * height) / 2;
+      const y2 = ((1 - minimum) * height) / 2;
+      context.moveTo(x, y1);
+      context.lineTo(x, y2);
+    }
+    context.stroke();
+    context.globalAlpha = 1;
+  }
+
+  async function hydrate(canvas) {
+    if (canvas.dataset.waveformState) return;
+    canvas.dataset.waveformState = "loading";
+    const container = canvas.closest(".waveform-preview");
+    const status = container && container.querySelector(".preview-status");
+    try {
+      const buffer = await loadBuffer(canvas.dataset.waveformSrc);
+      rendered.set(canvas, buffer);
+      draw(canvas, buffer);
+      canvas.dataset.waveformState = "ready";
+      if (container) container.dataset.previewState = "ready";
+      if (status) status.textContent = formatDuration(buffer.duration);
+    } catch {
+      canvas.dataset.waveformState = "error";
+      if (container) container.dataset.previewState = "error";
+      if (status) status.textContent = "Waveform unavailable";
+    }
+  }
+
+  const canvases = [...document.querySelectorAll("canvas[data-waveform-src]")];
+  if ("IntersectionObserver" in window) {
+    const observer = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue;
+        observer.unobserve(entry.target);
+        hydrate(entry.target);
+      }
+    }, { rootMargin: "240px" });
+    for (const canvas of canvases) observer.observe(canvas);
+  } else {
+    for (const canvas of canvases) hydrate(canvas);
+  }
+
+  if ("ResizeObserver" in window) {
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const buffer = rendered.get(entry.target);
+        if (buffer) draw(entry.target, buffer);
+      }
+    });
+    for (const canvas of canvases) resizeObserver.observe(canvas);
+  }
+})();
+</script>`;
+}
+
 export function renderCatalogGalleryHtml(model) {
   const kinds = [...new Set(model.assets.map((asset) => asset.kind))]
     .sort()
     .map((value) => ({ value, label: value }));
   const providers = model.providers.map((provider) => ({ value: provider.id, label: provider.label }));
   const cards = model.assets.map(renderCard).join("\n");
+  const hasAudio = model.assets.some((asset) => previewKind(asset) === "audio" && asset.source.url);
+  const hasModel = model.assets.some((asset) => previewKind(asset) === "model" && asset.source.url);
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -111,6 +274,7 @@ export function renderCatalogGalleryHtml(model) {
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>asset-tooling gallery</title>
   <meta name="description" content="Browse generated and reusable asset-tooling assets as a visual gallery.">
+  ${modelViewerModuleScript(hasModel)}
   <style>
     :root { color-scheme: light dark; font-family: ui-sans-serif, system-ui, sans-serif; }
     * { box-sizing: border-box; }
@@ -126,9 +290,13 @@ export function renderCatalogGalleryHtml(model) {
     #results { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px; }
     .asset-card { min-width: 0; overflow: hidden; border: 1px solid color-mix(in srgb, CanvasText 16%, Canvas); border-radius: 16px; background: color-mix(in srgb, CanvasText 2%, Canvas); }
     .thumbnail-link { display: block; text-decoration: none; }
-    .thumbnail { aspect-ratio: 4 / 3; border-bottom: 1px solid color-mix(in srgb, CanvasText 12%, Canvas); background: color-mix(in srgb, CanvasText 5%, Canvas); }
+    .thumbnail { position: relative; aspect-ratio: 4 / 3; border-bottom: 1px solid color-mix(in srgb, CanvasText 12%, Canvas); background: color-mix(in srgb, CanvasText 5%, Canvas); overflow: hidden; }
     .image-preview { display: grid; place-items: center; overflow: hidden; }
     .image-preview img { width: 100%; height: 100%; object-fit: cover; }
+    .waveform-preview { color: color-mix(in srgb, CanvasText 74%, Canvas); background: linear-gradient(180deg, color-mix(in srgb, CanvasText 3%, Canvas), color-mix(in srgb, CanvasText 7%, Canvas)); }
+    .waveform { display: block; width: 100%; height: 100%; min-height: 120px; }
+    .waveform-preview .preview-status, .model-preview .preview-status { position: absolute; left: 10px; bottom: 9px; padding: 3px 7px; border-radius: 999px; background: color-mix(in srgb, Canvas 82%, transparent); color: color-mix(in srgb, CanvasText 72%, Canvas); font-size: .7rem; line-height: 1.2; }
+    .model-preview model-viewer { width: 100%; height: 100%; background: radial-gradient(circle at 50% 44%, color-mix(in srgb, CanvasText 8%, Canvas), color-mix(in srgb, CanvasText 3%, Canvas)); pointer-events: none; }
     .fallback-preview { display: grid; place-items: center; align-content: center; gap: 10px; color: color-mix(in srgb, CanvasText 68%, Canvas); }
     .fallback-preview svg { width: 78px; height: 56px; }
     .fallback-preview span { font-size: .78rem; text-transform: uppercase; letter-spacing: .08em; font-weight: 700; }
@@ -164,6 +332,7 @@ export function renderCatalogGalleryHtml(model) {
   <p id="summary" aria-live="polite"></p>
   <section id="results" aria-label="Asset gallery">${cards}</section>
 </main>
+${waveformRuntimeScript(hasAudio)}
 <script>
 const controls = ["search", "state", "kind", "provider"].map((id) => document.getElementById(id));
 const [search, state, kind, provider] = controls;
@@ -230,6 +399,9 @@ export function renderCatalogAssetHtml(asset) {
     detailRow("Provider", "Open provider", { href: asset.provider.homepage }),
   ].join("");
   const tags = asset.tags.length ? `<div class="tags">${renderTags(asset.tags)}</div>` : "";
+  const kind = previewKind(asset);
+  const hasAudio = kind === "audio" && Boolean(asset.source.url);
+  const hasModel = kind === "model" && Boolean(asset.source.url);
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -237,6 +409,7 @@ export function renderCatalogAssetHtml(asset) {
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>${escapeHtml(asset.title)} · asset-tooling</title>
   <meta name="description" content="Preview and provenance details for ${escapeHtml(asset.title)}.">
+  ${modelViewerModuleScript(hasModel)}
   <style>
     :root { color-scheme: light dark; font-family: ui-sans-serif, system-ui, sans-serif; }
     * { box-sizing: border-box; }
@@ -247,13 +420,18 @@ export function renderCatalogAssetHtml(asset) {
     .hero { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(260px, .8fr); gap: 28px; align-items: start; }
     h1 { margin: 0 0 6px; font-size: clamp(2rem, 5vw, 3rem); letter-spacing: -0.035em; }
     .id { margin: 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: color-mix(in srgb, CanvasText 58%, Canvas); overflow-wrap: anywhere; }
-    .asset-preview { aspect-ratio: 4 / 3; border: 1px solid color-mix(in srgb, CanvasText 16%, Canvas); border-radius: 16px; overflow: hidden; background: color-mix(in srgb, CanvasText 5%, Canvas); }
+    .asset-preview { position: relative; aspect-ratio: 4 / 3; border: 1px solid color-mix(in srgb, CanvasText 16%, Canvas); border-radius: 16px; overflow: hidden; background: color-mix(in srgb, CanvasText 5%, Canvas); }
     .image-preview { display: grid; place-items: center; }
     .image-preview img { width: 100%; height: 100%; object-fit: contain; }
-    .fallback-preview, .audio-preview { display: grid; place-items: center; align-content: center; gap: 12px; color: color-mix(in srgb, CanvasText 68%, Canvas); }
-    .fallback-preview svg, .audio-preview svg { width: 108px; height: 74px; }
-    .audio-preview audio { width: calc(100% - 32px); }
+    .fallback-preview { display: grid; place-items: center; align-content: center; gap: 12px; color: color-mix(in srgb, CanvasText 68%, Canvas); }
+    .fallback-preview svg { width: 108px; height: 74px; }
     .fallback-preview span { font-size: .82rem; text-transform: uppercase; letter-spacing: .08em; font-weight: 700; }
+    .waveform-preview { display: grid; grid-template-rows: minmax(0, 1fr) auto; padding: 18px; gap: 12px; color: color-mix(in srgb, CanvasText 78%, Canvas); background: linear-gradient(180deg, color-mix(in srgb, CanvasText 3%, Canvas), color-mix(in srgb, CanvasText 7%, Canvas)); }
+    .waveform-preview .waveform { display: block; width: 100%; height: 100%; min-height: 150px; }
+    .waveform-preview audio { width: 100%; }
+    .waveform-preview .preview-status { position: absolute; top: 14px; right: 14px; padding: 3px 7px; border-radius: 999px; background: color-mix(in srgb, Canvas 82%, transparent); color: color-mix(in srgb, CanvasText 68%, Canvas); font-size: .72rem; }
+    .model-preview model-viewer { width: 100%; height: 100%; background: radial-gradient(circle at 50% 44%, color-mix(in srgb, CanvasText 8%, Canvas), color-mix(in srgb, CanvasText 3%, Canvas)); }
+    .model-preview .preview-status { position: absolute; left: 14px; bottom: 12px; z-index: 2; padding: 4px 8px; border-radius: 999px; background: color-mix(in srgb, Canvas 82%, transparent); color: color-mix(in srgb, CanvasText 72%, Canvas); font-size: .72rem; pointer-events: none; }
     .state { display: inline-block; margin-top: 16px; padding: 4px 8px; border: 1px solid color-mix(in srgb, CanvasText 18%, Canvas); border-radius: 999px; font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
     .details { margin-top: 34px; padding-top: 26px; border-top: 1px solid color-mix(in srgb, CanvasText 16%, Canvas); }
     h2 { margin: 0 0 18px; font-size: 1.15rem; }
@@ -284,6 +462,7 @@ export function renderCatalogAssetHtml(asset) {
     <dl>${details}</dl>
   </section>
 </main>
+${waveformRuntimeScript(hasAudio)}
 </body>
 </html>
 `;
