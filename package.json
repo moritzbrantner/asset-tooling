@@ -8,6 +8,7 @@
     "./operations": "./src/operations.js",
     "./operations/store": "./src/asset-store.js",
     "./operations/generation": "./src/generation-operations.js",
+    "./operations/generation/procedural-image": "./src/procedural-image-operations.js",
     "./operations/generation/triposr": "./src/triposr-operation.js",
     "./operations/processing": "./src/processing-operations.js",
     "./operations/processing/animation": "./src/animation-processing-operations.js",
