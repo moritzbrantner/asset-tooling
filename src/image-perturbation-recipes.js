@@ -1,6 +1,5 @@
 import { canonicalJson } from "./canonical.js";
 import { sha256Text } from "./hash.js";
-import { createAssetOperationCacheKey } from "./operations.js";
 import {
   createImageCropOperationBuildIdentity,
   createImageFlipOperationBuildIdentity,
@@ -146,7 +145,7 @@ export async function executeImagePerturbationRecipe(root, { source, recipe }) {
       operation: { id: step.operation, version: handler.version },
       parameters: build.parameters,
       implementation: build.implementation,
-      cacheKey: createAssetOperationCacheKey(build),
+      cacheKey: sha256Text(canonicalJson(build)),
       input: current,
       output,
       observations: result.observations,
