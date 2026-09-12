@@ -61,7 +61,7 @@ export function sobelEdgesRgba8(sourceValue) {
           sampleIndex += 1;
         }
       }
-      const magnitude = clampByte(roundRatio(Math.abs(gx) + Math.abs(gy), 8));
+      const magnitude = clampByte(Math.abs(gx) + Math.abs(gy));
       const targetOffset = (y * source.width + x) * 4;
       output[targetOffset] = magnitude;
       output[targetOffset + 1] = magnitude;
