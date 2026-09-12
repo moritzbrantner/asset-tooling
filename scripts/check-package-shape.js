@@ -31,6 +31,11 @@ assert(
   "generation operation adapters must remain available through the focused ./operations/generation subpath",
 );
 assert(
+  packageJson.exports?.["./operations/generation/procedural-image"] ===
+    "./src/procedural-image-operations.js",
+  "procedural image generation must remain available through the focused ./operations/generation/procedural-image subpath",
+);
+assert(
   packageJson.exports?.["./operations/generation/triposr"] === "./src/triposr-operation.js",
   "TripoSR generation operation must remain available through the focused ./operations/generation/triposr subpath",
 );
@@ -113,6 +118,8 @@ for (const file of [
   "src/operations.js",
   "src/asset-store.js",
   "src/generation-operations.js",
+  "src/procedural-image.js",
+  "src/procedural-image-operations.js",
   "src/triposr-operation.js",
   "src/processing-operations.js",
   "src/animation-processing-operations.js",
