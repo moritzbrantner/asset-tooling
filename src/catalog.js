@@ -1,4 +1,4 @@
-import { canonicalJson } from "./canonical.js";
+import { canonicalJson, compareCodeUnitStrings } from "./canonical.js";
 import { sha256Bytes } from "./hash.js";
 import { storeAssetObject } from "./asset-store.js";
 
@@ -82,7 +82,7 @@ function normalizeStringList(value, location, validator = assertNonEmptyString) 
   if (!Array.isArray(value)) throw new Error(`${location} must be an array`);
   const normalized = value.map((entry, index) => validator(entry, `${location}[${index}]`));
   if (new Set(normalized).size !== normalized.length) throw new Error(`${location} must not contain duplicates`);
-  return [...normalized].sort();
+  return [...normalized].sort(compareCodeUnitStrings);
 }
 
 function normalizeSourceLocator(value) {
@@ -232,8 +232,10 @@ export function createAssetCatalog({ providers, sources }) {
     sourceMap.set(source.id, source);
   }
 
-  const listProviders = () => [...providerMap.values()].sort((a, b) => a.id.localeCompare(b.id));
-  const listSources = () => [...sourceMap.values()].sort((a, b) => a.id.localeCompare(b.id));
+  const listProviders = () =>
+    [...providerMap.values()].sort((a, b) => compareCodeUnitStrings(a.id, b.id));
+  const listSources = () =>
+    [...sourceMap.values()].sort((a, b) => compareCodeUnitStrings(a.id, b.id));
   return Object.freeze({
     getProvider(id) {
       return providerMap.get(id);
