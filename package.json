@@ -13,6 +13,7 @@
     "./operations/processing/animation": "./src/animation-processing-operations.js",
     "./operations/image": "./src/image-operations.js",
     "./operations/image/filters": "./src/image-filter-operations.js",
+    "./operations/image/advanced": "./src/image-advanced-operations.js",
     "./image/rgba8": "./src/image-rgba8.js",
     "./operations/audio": "./src/audio-operations.js",
     "./operations/audio/model": "./src/audio-model-operations.js",
