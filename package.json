@@ -22,6 +22,8 @@
     "./operations/image/colorspace": "./src/image-colorspace-operations.js",
     "./operations/image/channels": "./src/image-channel-operations.js",
     "./operations/image/analysis": "./src/image-analysis-operations.js",
+    "./operations/image/codecs": "./src/image-codec-operations.js",
+    "./operations/image/perturbations": "./src/image-perturbation-recipes.js",
     "./image/rgba8": "./src/image-rgba8.js",
     "./image/linear-rgba8": "./src/image-linear-rgba8.js",
     "./operations/audio": "./src/audio-operations.js",
@@ -29,6 +31,7 @@
     "./audio": "./src/audio.js",
     "./operations/workflow": "./src/workflow-operations.js",
     "./catalog": "./src/catalog.js",
+    "./catalog/acquisition": "./src/catalog-acquisition.js",
     "./catalog/storage": "./src/catalog-storage.js",
     "./schemas/*": "./schemas/*"
   },
