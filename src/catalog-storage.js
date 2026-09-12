@@ -1,5 +1,6 @@
 import path from "node:path";
 import { lstat, readFile } from "node:fs/promises";
+import { compareCodeUnitStrings } from "./canonical.js";
 import {
   assertAssetCatalogSourceReusable,
   createAssetCatalogSource,
@@ -155,7 +156,7 @@ export function createAssetCatalogStorageManifest({ catalog, entries }) {
     throw new Error("catalog storage entries must not duplicate paths");
   }
 
-  normalized.sort((left, right) => left.sourceId.localeCompare(right.sourceId));
+  normalized.sort((left, right) => compareCodeUnitStrings(left.sourceId, right.sourceId));
   return Object.freeze({
     schemaVersion: 1,
     entries: Object.freeze(normalized),
