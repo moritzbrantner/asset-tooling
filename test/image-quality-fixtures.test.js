@@ -57,11 +57,11 @@ test("image codec registry exposes explicit standard decode and PNG encode bound
   const decode = IMAGE_CODEC_OPERATIONS.find((operation) => operation.id === "image.decode");
   assert.deepEqual(decode.outputs[0].mediaTypes, [RGBA8_IMAGE_MEDIA_TYPE]);
   assert.deepEqual(decode.inputs[0].mediaTypes, [
-    "image/bmp",
     "image/jpeg",
     "image/png",
-    "image/tiff",
     "image/webp",
+    "image/bmp",
+    "image/tiff",
   ]);
 });
 
