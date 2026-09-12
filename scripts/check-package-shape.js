@@ -46,6 +46,11 @@ assert(
   "procedural texture generation must remain available through the focused ./operations/generation/procedural-textures subpath",
 );
 assert(
+  packageJson.exports?.["./operations/generation/procedural-mesh"] ===
+    "./src/procedural-mesh-operations.js",
+  "procedural mesh generation must remain available through the focused ./operations/generation/procedural-mesh subpath",
+);
+assert(
   packageJson.exports?.["./operations/generation/triposr"] === "./src/triposr-operation.js",
   "TripoSR generation operation must remain available through the focused ./operations/generation/triposr subpath",
 );
@@ -57,6 +62,10 @@ assert(
   packageJson.exports?.["./operations/processing/animation"] ===
     "./src/animation-processing-operations.js",
   "animation processing operation adapters must remain available through the focused ./operations/processing/animation subpath",
+);
+assert(
+  packageJson.exports?.["./operations/mesh/analysis"] === "./src/mesh-analysis-operations.js",
+  "mesh analysis operations must remain available through the focused ./operations/mesh/analysis subpath",
 );
 assert(
   packageJson.exports?.["./operations/image"] === "./src/image-operations.js",
@@ -134,9 +143,13 @@ for (const file of [
   "src/procedural-shape-operations.js",
   "src/procedural-textures.js",
   "src/procedural-texture-operations.js",
+  "src/procedural-mesh.js",
+  "src/procedural-mesh-operations.js",
   "src/triposr-operation.js",
   "src/processing-operations.js",
   "src/animation-processing-operations.js",
+  "src/mesh-analysis.js",
+  "src/mesh-analysis-operations.js",
   "src/image-rgba8.js",
   "src/image-linear-rgba8.js",
   "src/image-operations.js",
