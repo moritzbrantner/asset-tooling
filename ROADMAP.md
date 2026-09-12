@@ -97,15 +97,18 @@ Build the high-value deterministic processing vocabulary before aggressively wid
 
 Each operation remains independently callable, cacheable, inspectable, and composable. Output-producing operations emit content-addressed image assets; analysis operations emit deterministic observations without inventing synthetic assets.
 
-### Milestone D — Procedural generation
+### Milestone D — Procedural generation — STARTED
 
 Expand deterministic/seeded generation through authoritative procedural implementations.
 
-- 2D noise, gradients, patterns, Voronoi/cellular fields, SDF/vector shapes, tiling textures, height maps, and normal maps.
-- 3D primitives, terrain, heightfield-to-mesh, extrusion, revolution, parametric surfaces, and scatter/distribution.
-- Later audio synthesis primitives such as oscillators, envelopes, and deterministic noise.
+- [x] Seeded coordinate-hashed 2D white noise plus exact integer horizontal, vertical, and diagonal RGBA8 gradients.
+- [ ] Patterns and Voronoi/cellular fields.
+- [ ] SDF/vector shapes.
+- [ ] Tiling textures, height maps, and normal maps.
+- [ ] 3D primitives, terrain, heightfield-to-mesh, extrusion, revolution, parametric surfaces, and scatter/distribution.
+- [ ] Later audio synthesis primitives such as oscillators, envelopes, and deterministic noise.
 
-Seeds remain inputs; replayed output is still the reproducibility proof.
+Seeds remain explicit operation inputs for seeded generators; replayed output bytes remain the reproducibility proof.
 
 ### Milestone E — Asset composition
 
