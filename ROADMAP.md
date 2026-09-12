@@ -95,10 +95,11 @@ Build the high-value deterministic processing vocabulary before aggressively wid
 - [x] Exposure, contrast, levels, grayscale, threshold, alpha-correct blur, sharpen, and bounded generic integer convolution.
 - [x] Sobel edge detection, luma/alpha morphology, alpha-mask application, palette mapping, uniform quantization, and ordered Bayer dithering.
 - [x] Channel extraction/combination plus non-mutating image metadata and exact 256-bin channel/luma histogram analysis.
+- [x] Deterministic standard image codec/quality fixtures and reusable perturbation recipes where exact implementation identity is part of evidence.
 
 Each operation remains independently callable, cacheable, inspectable, and composable. Output-producing operations emit content-addressed image assets; analysis operations emit deterministic observations without inventing synthetic assets.
 
-### Milestone D — Procedural generation — STARTED
+### Milestone D — Procedural generation — IN PROGRESS
 
 Expand deterministic/seeded generation through authoritative procedural implementations.
 
@@ -106,8 +107,10 @@ Expand deterministic/seeded generation through authoritative procedural implemen
 - [x] Exact two-color checker/stripe patterns plus seeded jittered-cell Voronoi cell-color and nearest-feature-distance fields.
 - [x] Integer circle/rounded-rectangle signed-distance fields plus canonical SVG circle/rounded-rectangle vector shapes.
 - [x] Seeded periodic value-noise textures and grayscale height maps plus deterministic wrapped/clamped normal-map derivation.
-- [ ] 3D primitives, terrain, heightfield-to-mesh, extrusion, revolution, parametric surfaces, and scatter/distribution.
-- [ ] Later audio synthesis primitives such as oscillators, envelopes, and deterministic noise.
+- [x] Deterministic centered OBJ box/plane primitives and RGBA8 heightfield-to-mesh generation with explicit integer/half-unit geometry.
+- [ ] Additional 3D primitives, terrain shaping, extrusion, revolution, parametric surfaces, and seeded scatter/distribution.
+- [x] Initial deterministic audio synthesis for silence, square, saw, and explicitly seeded noise.
+- [ ] Broader procedural audio primitives such as additional oscillators and envelopes where exact sample semantics are useful.
 
 Seeds remain explicit operation inputs for seeded generators; replayed output bytes remain the reproducibility proof.
 
@@ -115,10 +118,11 @@ Seeds remain explicit operation inputs for seeded generators; replayed output by
 
 Keep asset composition in `asset-tooling` and process composition in workflow-editor.
 
-- Image layers, masks, blend modes, transforms, and channel/material packing.
-- Sprite/atlas assembly.
-- Mesh and scene assembly where the operation produces a new asset.
-- Reusable multi-step recipes become composed/nested workflows, not giant special-case asset operations.
+- [ ] Image layers, masks, blend modes, and transforms beyond the current narrow image operations.
+- [x] Channel/material packing foundation through deterministic ORM packing and content-addressed PBR material bundles.
+- [ ] Sprite/atlas assembly.
+- [ ] Mesh and scene assembly where the operation produces a new asset.
+- [ ] Reusable multi-step recipes as composed/nested workflows rather than giant special-case asset operations.
 
 ### Milestone F — AI asset operations
 
@@ -131,49 +135,59 @@ Treat model-backed capabilities as another operation family rather than a separa
 
 Model acquisition remains separate from execution; output-affecting model/config bytes must remain declared and hash-pinned.
 
-### Milestone G — Texture and material pipeline
+### Milestone G — Texture and material pipeline — IN PROGRESS
 
-- Texture-set generation and validation.
-- Normal/roughness/metalness/AO derivation where semantics are explicit.
-- Channel packing and material-bundle assembly.
-- Resolution/format variants and platform-oriented compression adapters.
-- Provenance from final material bundle back to every source/generation operation.
+- [ ] Texture-set generation and validation as a first-class aggregate contract.
+- [x] Deterministic normal-map derivation from explicit height sources.
+- [ ] Roughness/metalness/AO derivation where source semantics justify deterministic derivation rather than fabrication.
+- [x] ORM channel packing with explicit linear channel semantics.
+- [x] Content-addressed PBR material-bundle assembly with exact texture lineage and explicit normal-Y convention.
+- [ ] Resolution/format variants and platform-oriented compression adapters such as KTX2 when the authoritative compressor boundary is clear.
+- [x] Provenance from the current material bundle back to every referenced source asset.
 
-### Milestone H — 3D production asset profile
+### Milestone H — 3D production asset profile — IN PROGRESS
 
 Grow the current traceable 3D processing contracts into a production profile without moving renderer/runtime semantics into asset-tooling.
 
-- Coordinate system, scale, transforms, materials, animation naming, and collision-proxy conventions.
-- Mesh simplification and source-based LOD chains.
-- Animation resampling/reduction and explicit skinned-mesh evidence.
-- Mesh/scene validation and export normalization.
+- [ ] Coordinate system, scale, transforms, material naming, animation naming, and collision-proxy conventions as a complete profile.
+- [x] Mesh simplification and source-based LOD chains through pinned authoritative processors.
+- [x] Animation resampling/reduction with explicit endpoint/error evidence through pinned authoritative processors.
+- [ ] Explicit skinned-mesh production-profile evidence.
+- [ ] Mesh/scene normalization and export normalization.
 
-### Milestone I — Asset analysis and validation
+### Milestone I — Asset analysis and validation — IN PROGRESS
 
 Add operations that measure assets without mutating them.
 
-- Dimensions, channels, color-space and alpha diagnostics.
-- Mesh topology, bounds, triangle/material budgets, UV and normal diagnostics.
-- Audio/video metadata and integrity checks when those domains arrive.
-- Policy/budget validation that emits structured evidence suitable for workflow branching and CI.
+- [x] Image dimensions, channels, color-space/alpha diagnostics, and exact channel/luma histograms.
+- [x] OBJ mesh topology, bounds, triangle counts, material/object/group records, UV/normal coverage, and unused/repeated-index diagnostics.
+- [x] Explicit OBJ policy validation for vertex/triangle budgets, triangle-only policy, required normals, unused vertices, and unsupported records, with structured violations suitable for workflow branching and CI.
+- [ ] Equivalent structured analysis for normalized glTF/GLB and other production mesh/scene formats.
+- [ ] Audio/video metadata and integrity analysis beyond the current canonical audio validation.
 
-### Milestone J — Audio and video operations
+### Milestone J — Audio and video operations — IN PROGRESS
 
-Add these only after the generic operation and workflow boundaries have proven reusable.
+The generic operation/workflow boundary is already reused by a substantial canonical audio stack; remaining work is primarily broader generation and video coverage.
 
-- Deterministic audio transforms, resampling, normalization, slicing, and composition.
-- Video frame/clip transforms and metadata analysis.
-- Model-backed audio/video operations through the same provenance rules.
-- Keep playback/runtime behavior outside the asset build contract unless output is explicitly baked.
+- [x] Canonical PCM16 WAV contract and deterministic normalization.
+- [x] Deterministic audio trim, resample, mono/stereo mapping, gain, fade, and offline ordered multi-track mixing.
+- [x] Deterministic procedural audio synthesis for the initial silence/square/saw/seeded-noise vocabulary.
+- [x] Provider-neutral model-backed audio generation operation with explicit model identity and exact-vs-approximate reproducibility classification.
+- [ ] Pin and prove representative real model-backed audio adapters rather than widening the generic contract further.
+- [ ] Video frame/clip transforms and metadata analysis through the same operation/provenance rules.
+- [ ] Continue to keep playback/runtime behavior outside the asset build contract unless output is explicitly baked.
 
-### Milestone K — Asset workbench and catalog
+### Milestone K — Asset workbench and catalog — IN PROGRESS
 
-Build a domain-shaped UI using workflow-editor rather than a bespoke graph editor.
+Build domain-shaped discovery/editing surfaces around the same operation/catalog contracts rather than a bespoke second graph engine.
 
-- Palette grouped by generation, procedural, image, filters, AI, composition, texture, mesh, animation, audio/video, analysis, and export.
-- Node parameter controls, typed ports, previews, and validation diagnostics.
-- External execution overlay showing node state, provenance, implementation/model identity, content hash, and reproducibility evidence.
-- GitHub Pages catalog for previews, variant comparison, provenance, failures, and approved versions. Avoid decorative counters.
+- [x] Deterministic GitHub Pages catalog projection with search/filtering and candidate/pinned/canonical provenance state.
+- [x] Pages provenance details for provider, license/required attribution, exact revision/path/hash/byte length, durable storage path, purpose, and tags.
+- [x] Hash-pinned ordinary image/audio browser previews that remain explicitly non-authoritative evidence.
+- [ ] Rich preview/variant comparison for additional media such as canonical GLB/material assets without making the UI the source of truth.
+- [ ] Workflow-editor palette grouped by generation, procedural, image, filters, AI, composition, texture, mesh, animation, audio/video, analysis, and export.
+- [ ] Node parameter controls, typed ports, previews, and validation diagnostics.
+- [ ] External execution overlay showing node state, provenance, implementation/model identity, content hash, and reproducibility evidence.
 
 ### Milestone L — Scaled execution and reusable workflow library
 
