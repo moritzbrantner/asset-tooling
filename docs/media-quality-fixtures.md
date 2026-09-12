@@ -15,7 +15,7 @@ Both operations use an explicitly observed FFmpeg runtime. Their build identity 
 
 The codec boundary exists to connect real-world corpus inputs to deterministic image operations. It does not make FFmpeg part of the asset-tooling core algorithm vocabulary.
 
-## Perturbation recipes
+## Image perturbation recipes
 
 `executeImagePerturbationRecipe(...)` composes existing image operations without creating another workflow engine. A recipe is an ordered list of supported operation ids and parameters. Each step is executed through the normal operation adapter and records:
 
@@ -30,11 +30,19 @@ The recipe itself has a canonical SHA-256 identity. Repeating a recipe against i
 
 The initial recipe vocabulary deliberately focuses on useful retrieval perturbations: resize, crop, pad, quarter-turn rotation, flip, exposure, contrast, grayscale, blur, and sharpen. Consumers can combine these into harder fixtures such as crop + resize, contrast + blur, or resize + sharpen while preserving exact provenance.
 
+## Standard-audio codec boundary
+
+`audio.decode@1` accepts common audio containers/codecs and emits the canonical PCM signed-16 little-endian WAV representation already consumed by the deterministic audio toolkit. The target sample rate and channel count are required operation parameters rather than implicit host/runtime choices.
+
+The decoder asks FFmpeg only for raw signed-16 PCM at those explicit parameters, then asset-tooling itself writes the canonical WAV container and canonical audio metadata. The build identity records the exact observed FFmpeg version. This keeps container-byte determinism, frame-count validation, and audio provenance under the existing asset-tooling contract while using FFmpeg only as the external codec implementation.
+
+Once decoded, consumers can compose the existing deterministic `audio.trim`, `audio.resample`, `audio.channels`, `audio.gain`, `audio.fade`, `audio.synthesize`, and `audio.mix` operations to produce robustness fixtures such as trimmed/resampled recordings, gain changes, and seeded-noise mixtures.
+
 ## Corpus integration
 
 A retrieval corpus should acquire and pin original source bytes separately from mutation. License evidence and source hashes belong to the catalog/source contract. Derived fixture bytes are disposable and reproducible; relevance relationships remain consumer data.
 
-A typical consumer flow is:
+A typical image consumer flow is:
 
 1. verify or import a hash-pinned source asset;
 2. decode it to canonical RGBA8 through `image.decode@1`;
@@ -43,4 +51,6 @@ A typical consumer flow is:
 5. record the resulting source/output hashes and recipe lineage beside the consumer-owned labels;
 6. evaluate retrieval quality from those labels.
 
-This keeps the asset pipeline reusable for other search, vision, regression, and robustness consumers without turning asset-tooling into a benchmark-specific repository.
+An audio consumer follows the same boundary: acquire and pin encoded source bytes, decode to explicit canonical PCM through `audio.decode@1`, apply deterministic audio operations, and preserve the resulting `AssetRef`/operation evidence beside consumer-owned retrieval labels.
+
+This keeps the asset pipeline reusable for other search, vision, audio, regression, and robustness consumers without turning asset-tooling into a benchmark-specific repository.
