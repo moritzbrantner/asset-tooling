@@ -6,6 +6,12 @@ function assertDataProperty(object, key, location) {
   return descriptor.value;
 }
 
+export function compareCodeUnitStrings(left, right) {
+  if (left < right) return -1;
+  if (left > right) return 1;
+  return 0;
+}
+
 function sortJson(value, location = "$") {
   if (value === null || typeof value === "string" || typeof value === "boolean") {
     return value;
@@ -59,7 +65,7 @@ function sortJson(value, location = "$") {
       keys.push(key);
     }
 
-    for (const key of keys.sort()) {
+    for (const key of keys.sort(compareCodeUnitStrings)) {
       const child = assertDataProperty(value, key, `${location}.${key}`);
       if (child === undefined) {
         throw new TypeError(`canonical JSON does not support undefined at ${location}.${key}`);
