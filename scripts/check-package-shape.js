@@ -119,6 +119,10 @@ assert(
   "asset catalog contracts must remain available through the focused ./catalog subpath",
 );
 assert(
+  packageJson.exports?.["./catalog/acquisition"] === "./src/catalog-acquisition.js",
+  "verified catalog acquisition must remain available through the focused ./catalog/acquisition subpath",
+);
+assert(
   packageJson.exports?.["./catalog/storage"] === "./src/catalog-storage.js",
   "durable catalog storage consumers must remain available through the focused ./catalog/storage subpath",
 );
@@ -160,6 +164,7 @@ for (const file of [
   "src/audio-model-operations.js",
   "src/workflow-operations.js",
   "src/catalog.js",
+  "src/catalog-acquisition.js",
   "src/catalog-storage.js",
   "src/entry.js",
   "catalog/providers.json",
