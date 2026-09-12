@@ -56,8 +56,24 @@ assert(
   "advanced deterministic image operations must remain available through the focused ./operations/image/advanced subpath",
 );
 assert(
+  packageJson.exports?.["./operations/image/colorspace"] === "./src/image-colorspace-operations.js",
+  "image colorspace operations must remain available through the focused ./operations/image/colorspace subpath",
+);
+assert(
+  packageJson.exports?.["./operations/image/channels"] === "./src/image-channel-operations.js",
+  "image channel operations must remain available through the focused ./operations/image/channels subpath",
+);
+assert(
+  packageJson.exports?.["./operations/image/analysis"] === "./src/image-analysis-operations.js",
+  "image analysis operations must remain available through the focused ./operations/image/analysis subpath",
+);
+assert(
   packageJson.exports?.["./image/rgba8"] === "./src/image-rgba8.js",
   "canonical RGBA8 image contracts must remain available through the focused ./image/rgba8 subpath",
+);
+assert(
+  packageJson.exports?.["./image/linear-rgba8"] === "./src/image-linear-rgba8.js",
+  "canonical linear RGBA8 image contracts must remain available through the focused ./image/linear-rgba8 subpath",
 );
 assert(
   packageJson.exports?.["./operations/audio"] === "./src/audio-operations.js",
@@ -101,9 +117,13 @@ for (const file of [
   "src/processing-operations.js",
   "src/animation-processing-operations.js",
   "src/image-rgba8.js",
+  "src/image-linear-rgba8.js",
   "src/image-operations.js",
   "src/image-filter-operations.js",
   "src/image-advanced-operations.js",
+  "src/image-colorspace-operations.js",
+  "src/image-channel-operations.js",
+  "src/image-analysis-operations.js",
   "src/audio.js",
   "src/audio-operations.js",
   "src/audio-model-operations.js",

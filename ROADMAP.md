@@ -86,16 +86,16 @@ Use the shared workflow system instead of implementing an asset-specific DAG.
 - [x] Keep workflow execution state and operation evidence outside editable asset/workflow documents.
 - [x] Add a small deterministic multi-node reference workflow covering generate -> transform -> compose -> export: two procedural audio sources feed a gain transform and typed `json.array`, then `audio.mix`, with a typed terminal export of the final content-addressed Audio `AssetRef`; repeated execution must produce the same final SHA-256.
 
-### Milestone C — Classic deterministic image toolkit
+### Milestone C — Classic deterministic image toolkit — COMPLETE
 
 Build the high-value deterministic processing vocabulary before aggressively widening model-backed features.
 
-- Resize/resample, crop/pad, rotate/flip, and colorspace conversion.
-- Exposure, contrast, levels, grayscale, threshold, blur, sharpen, and generic convolution.
-- Edge detection, morphology, alpha/mask operations, palette reduction, quantization, and dithering.
-- Channel extraction/combination plus image metadata and histogram analysis.
+- [x] Resize/resample, crop/pad, rotate/flip, and explicit sRGB ↔ linear-sRGB conversion over canonical straight-alpha RGBA8 image domains.
+- [x] Exposure, contrast, levels, grayscale, threshold, alpha-correct blur, sharpen, and bounded generic integer convolution.
+- [x] Sobel edge detection, luma/alpha morphology, alpha-mask application, palette mapping, uniform quantization, and ordered Bayer dithering.
+- [x] Channel extraction/combination plus non-mutating image metadata and exact 256-bin channel/luma histogram analysis.
 
-Each operation remains independently callable, cacheable, inspectable, and composable.
+Each operation remains independently callable, cacheable, inspectable, and composable. Output-producing operations emit content-addressed image assets; analysis operations emit deterministic observations without inventing synthetic assets.
 
 ### Milestone D — Procedural generation
 
