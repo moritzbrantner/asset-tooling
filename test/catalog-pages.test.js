@@ -112,7 +112,10 @@ test("catalog Pages model distinguishes candidate, pinned, and canonical state w
 test("catalog Pages model runs canonical catalog and storage validation", () => {
   const documents = fixture();
   documents.storage.entries[0].path = "assets/canonical/wrong.wav";
-  assert.throws(() => createCatalogPagesModel(documents), /canonical path/);
+  assert.throws(
+    () => createCatalogPagesModel(documents),
+    /path must be 'assets\/canonical\/m-canonical\/canonical\.wav'/,
+  );
 });
 
 test("catalog Pages model fails closed on unknown providers", () => {
