@@ -1,5 +1,5 @@
 import { sha256File, sha256Text } from "./hash.js";
-import { canonicalJson } from "./canonical.js";
+import { canonicalJson, compareCodeUnitStrings } from "./canonical.js";
 
 export async function captureEnvironment(components = []) {
   const runtimeName = typeof globalThis.Bun === "object" ? "bun" : "node";
@@ -17,7 +17,9 @@ export async function captureEnvironment(components = []) {
       version: runtimeVersion,
       executableSha256,
     },
-    components: [...components].sort((left, right) => canonicalJson(left).localeCompare(canonicalJson(right))),
+    components: [...components].sort((left, right) =>
+      compareCodeUnitStrings(canonicalJson(left), canonicalJson(right)),
+    ),
   };
 
   return {
