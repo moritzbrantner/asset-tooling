@@ -83,6 +83,14 @@ assert(
   "image analysis operations must remain available through the focused ./operations/image/analysis subpath",
 );
 assert(
+  packageJson.exports?.["./operations/image/codecs"] === "./src/image-codec-operations.js",
+  "standard image codec operations must remain available through the focused ./operations/image/codecs subpath",
+);
+assert(
+  packageJson.exports?.["./operations/image/perturbations"] === "./src/image-perturbation-recipes.js",
+  "image perturbation recipes must remain available through the focused ./operations/image/perturbations subpath",
+);
+assert(
   packageJson.exports?.["./image/rgba8"] === "./src/image-rgba8.js",
   "canonical RGBA8 image contracts must remain available through the focused ./image/rgba8 subpath",
 );
@@ -145,6 +153,8 @@ for (const file of [
   "src/image-colorspace-operations.js",
   "src/image-channel-operations.js",
   "src/image-analysis-operations.js",
+  "src/image-codec-operations.js",
+  "src/image-perturbation-recipes.js",
   "src/audio.js",
   "src/audio-operations.js",
   "src/audio-model-operations.js",
