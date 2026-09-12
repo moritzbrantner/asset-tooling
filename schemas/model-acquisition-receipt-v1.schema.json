@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://moritzbrantner.github.io/asset-tooling/schemas/model-acquisition-receipt-v1.schema.json",
+  "title": "asset-tooling model acquisition receipt v1",
+  "description": "Evidence that a Hugging Face model repository revision was resolved to an immutable commit, downloaded outside generation, packaged deterministically, and content-hashed for offline model-backed generation.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "provider",
+    "repository",
+    "license",
+    "acquirer",
+    "files",
+    "bundle",
+    "modelArtifact"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "provider": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "endpoint"],
+      "properties": {
+        "id": { "const": "huggingface" },
+        "endpoint": { "const": "https://huggingface.co" }
+      }
+    },
+    "repository": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repoId", "requestedRevision", "resolvedRevision"],
+      "properties": {
+        "repoId": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$" },
+        "requestedRevision": { "type": "string", "minLength": 1 },
+        "resolvedRevision": { "type": "string", "pattern": "^[0-9a-f]{40}$" }
+      }
+    },
+    "license": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["expected", "observed", "status"],
+      "properties": {
+        "expected": { "$ref": "#/$defs/nullableNonEmptyString" },
+        "observed": { "$ref": "#/$defs/nullableNonEmptyString" },
+        "status": { "enum": ["matched", "unverified"] }
+      }
+    },
+    "acquirer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "sourceSha256", "hubClient"],
+      "properties": {
+        "id": { "const": "asset-tooling.huggingface-snapshot" },
+        "version": { "const": "1" },
+        "sourceSha256": { "$ref": "#/$defs/sha256" },
+        "hubClient": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "version"],
+          "properties": {
+            "name": { "const": "huggingface_hub" },
+            "version": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    },
+    "files": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/file" }
+    },
+    "bundle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["format", "path", "sha256", "byteLength"],
+      "properties": {
+        "format": { "const": "zip-store-v1" },
+        "path": { "const": "model.zip" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "byteLength": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "modelArtifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "path", "sha256"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^hf:[^@]+@[0-9a-f]{40}$" },
+        "path": { "const": "model.zip" },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "nullableNonEmptyString": {
+      "oneOf": [
+        { "type": "string", "minLength": 1 },
+        { "type": "null" }
+      ]
+    },
+    "portablePath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*//).+$"
+    },
+    "file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "byteLength"],
+      "properties": {
+        "path": { "$ref": "#/$defs/portablePath" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "byteLength": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

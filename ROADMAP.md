@@ -32,6 +32,7 @@ Procedural and local model generation share one provenance architecture rather t
 - [x] Generic adapter result/evidence and replay contract.
 - [x] Local Stable Diffusion adapter with a hash-pinned Diffusers pipeline bundle and no hidden downloads.
 - [x] Local TripoSR image-to-3D adapter with explicit source input, hash-pinned dependencies, and no hidden downloads.
+- [x] Verified Hugging Face model acquisition that resolves requested refs to immutable commit SHAs, validates declared license metadata, hashes every model file, emits a deterministic offline-verifiable bundle/receipt, and remains outside generation.
 - [x] Generation-to-processing handoff with content-hash and generation-receipt lineage.
 
 Exact reproducibility is established by replayed output bytes, never inferred from a seed, backend kind, or model family.

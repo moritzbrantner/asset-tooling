@@ -24,7 +24,9 @@ The generation architecture supports the same provenance model across:
 
 Model generation is offline and fail-closed: model acquisition is separate from generation, and undeclared cache/network dependencies are not accepted as reproducibility evidence. A seed is an input, not proof of deterministic output.
 
-See `docs/generation.md`, `docs/stable-diffusion.md`, `docs/triposr.md`, and `docs/cache.md`.
+For acquisition, `scripts/acquire-huggingface-model.py` resolves a requested Hugging Face revision to an immutable commit, downloads that exact complete snapshot, records license and per-file evidence, and emits a deterministic hash-pinned ZIP plus an independently verifiable receipt. The manually dispatched `Hugging Face model acquisition evidence` workflow provides the same boundary in hosted CI without promoting model bytes automatically.
+
+See `docs/generation.md`, `docs/model-acquisition.md`, `docs/stable-diffusion.md`, `docs/triposr.md`, and `docs/cache.md`.
 
 ## Processing
 
@@ -82,6 +84,8 @@ bun run catalog:acquire -- <catalog-source-id> [destination-root]
 bun run catalog:storage:check
 bun run catalog:storage:verify
 bun run catalog:lfs:promote -- <catalog-source-id>
+python scripts/acquire-huggingface-model.py acquire --repo-id <owner/model> --revision <ref> --expected-license <license> --destination <dir>
+python scripts/acquire-huggingface-model.py verify --bundle <model.zip> --receipt <receipt.json>
 ```
 
 Exact reproducibility is established by replayed output bytes. Backend kind, absence or presence of a seed, deterministic runtime switches, cache presence, Git LFS pointer identity, or a familiar model family are never accepted as proof on their own.

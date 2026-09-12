@@ -22,6 +22,7 @@
 - Stable machine-visible paths are portable `/`-separated paths relative to the asset spec directory. Do not make behavior depend on the caller's working directory.
 - Generator backends must fail closed when a declared model, input, runtime requirement, or hash does not match.
 - Network acquisition is separate from generation. Once declared model/input dependencies are present, deterministic generation and verification must not require hidden downloads.
+- Model acquisition may accept a convenient provider branch or tag only as a request: resolve it first to an immutable provider revision, download using that revision, and record provider identity, revision, license evidence, every accepted file hash/length, acquisition implementation identity, and the final bundle hash. Authentication tokens and provider cache metadata are never provenance. Generation consumes only the resulting local hash-pinned artifact and must not invoke acquisition.
 - Generated artifacts are disposable by default. Commit an output or receipt only when a consumer/distribution contract intentionally requires it.
 
 ## Validation
@@ -30,4 +31,4 @@ Run `bun run check` for the ordinary deterministic gate. It validates catalog an
 
 Run `bun run catalog:storage:verify` from a Git LFS-hydrated checkout when changing canonical payload storage. Hosted `Validate / canonical-storage` additionally runs `git lfs fsck` and verifies every hydrated payload against its catalog SHA-256 and byte length.
 
-The test suite covers canonical hashing, published-contract immutability, package shape, fail-closed dependency checks, content-addressed cache integrity, idempotent generation, exact rebuild verification, output/cache tampering, catalog acquisition/promotion boundaries, canonical-storage identity and consumer materialization, and environment drift reporting.
+The test suite covers canonical hashing, published-contract immutability, package shape, fail-closed dependency checks, content-addressed cache integrity, idempotent generation, exact rebuild verification, output/cache tampering, catalog acquisition/promotion boundaries, canonical-storage identity and consumer materialization, model-acquisition deterministic packaging/offline verification/tamper rejection, and environment drift reporting.

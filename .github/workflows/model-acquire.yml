@@ -1,0 +1,60 @@
+name: Hugging Face model acquisition evidence
+
+on:
+  workflow_dispatch:
+    inputs:
+      repo_id:
+        description: Hugging Face model repository in owner/name form
+        required: true
+        type: string
+      revision:
+        description: Branch, tag, or full commit to resolve before download
+        required: true
+        type: string
+      expected_license:
+        description: Exact model-card license identifier expected for this model
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  acquire:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      REPO_ID: ${{ inputs.repo_id }}
+      REVISION: ${{ inputs.revision }}
+      EXPECTED_LICENSE: ${{ inputs.expected_license }}
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: requirements-model-acquisition.txt
+      - name: Install pinned Hugging Face acquisition client
+        run: python -m pip install --requirement requirements-model-acquisition.txt
+      - name: Acquire immutable model snapshot and evidence
+        shell: bash
+        run: >-
+          python scripts/acquire-huggingface-model.py acquire
+          --repo-id "$REPO_ID"
+          --revision "$REVISION"
+          --expected-license "$EXPECTED_LICENSE"
+          --destination .artifacts/model-acquisition
+      - name: Verify the produced bundle without network access
+        run: >-
+          python scripts/acquire-huggingface-model.py verify
+          --bundle .artifacts/model-acquisition/model.zip
+          --receipt .artifacts/model-acquisition/receipt.json
+      - name: Upload model bundle and acquisition receipt
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: model-acquisition-${{ github.run_id }}
+          path: .artifacts/model-acquisition/
+          if-no-files-found: error
+          retention-days: 7
