@@ -68,6 +68,10 @@ assert(
   "mesh analysis operations must remain available through the focused ./operations/mesh/analysis subpath",
 );
 assert(
+  packageJson.exports?.["./operations/material"] === "./src/material-operations.js",
+  "material operations must remain available through the focused ./operations/material subpath",
+);
+assert(
   packageJson.exports?.["./operations/image"] === "./src/image-operations.js",
   "deterministic image operations must remain available through the focused ./operations/image subpath",
 );
@@ -162,6 +166,7 @@ for (const file of [
   "src/animation-processing-operations.js",
   "src/mesh-analysis.js",
   "src/mesh-analysis-operations.js",
+  "src/material-operations.js",
   "src/image-rgba8.js",
   "src/image-linear-rgba8.js",
   "src/image-operations.js",
