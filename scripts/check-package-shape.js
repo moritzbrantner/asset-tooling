@@ -41,6 +41,11 @@ assert(
   "procedural SDF/vector shapes must remain available through the focused ./operations/generation/procedural-shapes subpath",
 );
 assert(
+  packageJson.exports?.["./operations/generation/procedural-textures"] ===
+    "./src/procedural-texture-operations.js",
+  "procedural texture generation must remain available through the focused ./operations/generation/procedural-textures subpath",
+);
+assert(
   packageJson.exports?.["./operations/generation/triposr"] === "./src/triposr-operation.js",
   "TripoSR generation operation must remain available through the focused ./operations/generation/triposr subpath",
 );
@@ -127,6 +132,8 @@ for (const file of [
   "src/procedural-image-operations.js",
   "src/procedural-shapes.js",
   "src/procedural-shape-operations.js",
+  "src/procedural-textures.js",
+  "src/procedural-texture-operations.js",
   "src/triposr-operation.js",
   "src/processing-operations.js",
   "src/animation-processing-operations.js",
