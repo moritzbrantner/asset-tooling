@@ -28,6 +28,7 @@
     "./image/rgba8": "./src/image-rgba8.js",
     "./image/linear-rgba8": "./src/image-linear-rgba8.js",
     "./operations/audio": "./src/audio-operations.js",
+    "./operations/audio/codecs": "./src/audio-codec-operations.js",
     "./operations/audio/model": "./src/audio-model-operations.js",
     "./audio": "./src/audio.js",
     "./operations/workflow": "./src/workflow-operations.js",
