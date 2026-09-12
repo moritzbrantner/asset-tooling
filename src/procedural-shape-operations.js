@@ -232,11 +232,22 @@ function normalizeParameters(operation, value) {
       `${operation.id} parameters`,
     );
     const normalized = dimensions(parameters);
+    const centerX = integer(parameters.centerX, "parameters.centerX", 0, normalized.width);
+    const centerY = integer(parameters.centerY, "parameters.centerY", 0, normalized.height);
+    const radius = integer(parameters.radius, "parameters.radius", 1, MAX_DIMENSION);
+    if (
+      centerX - radius < 0 ||
+      centerY - radius < 0 ||
+      centerX + radius > normalized.width ||
+      centerY + radius > normalized.height
+    ) {
+      throw new Error("vector.procedural.circle geometry must fit inside the canvas");
+    }
     return {
       ...normalized,
-      centerX: integer(parameters.centerX, "parameters.centerX", 0, normalized.width),
-      centerY: integer(parameters.centerY, "parameters.centerY", 0, normalized.height),
-      radius: integer(parameters.radius, "parameters.radius", 1, MAX_DIMENSION),
+      centerX,
+      centerY,
+      radius,
       fill: fill(parameters.fill),
     };
   }
@@ -247,12 +258,17 @@ function normalizeParameters(operation, value) {
       `${operation.id} parameters`,
     );
     const normalized = dimensions(parameters);
+    const x = integer(parameters.x, "parameters.x", 0, normalized.width - 1);
+    const y = integer(parameters.y, "parameters.y", 0, normalized.height - 1);
     const rectWidth = integer(parameters.rectWidth, "parameters.rectWidth", 1, MAX_DIMENSION);
     const rectHeight = integer(parameters.rectHeight, "parameters.rectHeight", 1, MAX_DIMENSION);
+    if (x + rectWidth > normalized.width || y + rectHeight > normalized.height) {
+      throw new Error("vector.procedural.rounded-rect geometry must fit inside the canvas");
+    }
     return {
       ...normalized,
-      x: integer(parameters.x, "parameters.x", 0, normalized.width - 1),
-      y: integer(parameters.y, "parameters.y", 0, normalized.height - 1),
+      x,
+      y,
       rectWidth,
       rectHeight,
       cornerRadius: integer(parameters.cornerRadius, "parameters.cornerRadius", 0, Math.floor(Math.min(rectWidth, rectHeight) / 2)),
