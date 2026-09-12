@@ -34,6 +34,21 @@ test("Sobel emits zero magnitude for a constant image and preserves alpha", () =
   );
 });
 
+test("Sobel saturates a full black-white step to full-strength edge magnitude", () => {
+  const source = image(
+    3,
+    3,
+    pixel(0, 0, 0), pixel(0, 0, 0), pixel(255, 255, 255),
+    pixel(0, 0, 0), pixel(0, 0, 0), pixel(255, 255, 255),
+    pixel(0, 0, 0), pixel(0, 0, 0), pixel(255, 255, 255),
+  );
+  const output = sobelEdgesRgba8(source);
+  assert.deepEqual(
+    Array.from(output.pixels.subarray((1 * 3 + 1) * 4, (1 * 3 + 1) * 4 + 4)),
+    pixel(255, 255, 255),
+  );
+});
+
 test("luma morphology dilates and erodes a bounded neighborhood", () => {
   const source = image(3, 1, pixel(0, 0, 0), pixel(128, 128, 128), pixel(255, 255, 255));
   assert.deepEqual(
