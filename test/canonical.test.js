@@ -1,6 +1,18 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { canonicalJson, stablePrettyJson } from "../src/canonical.js";
+import {
+  canonicalJson,
+  compareCodeUnitStrings,
+  stablePrettyJson,
+} from "../src/canonical.js";
+
+test("canonical string ordering is locale-independent code-unit order", () => {
+  assert.deepEqual(
+    ["ä", "z", "a", "A", "-", "a.b", "a-b"].sort(compareCodeUnitStrings),
+    ["-", "A", "a", "a-b", "a.b", "z", "ä"],
+  );
+  assert.equal(canonicalJson({ ä: 1, z: 2, a: 3, A: 4, "-": 5 }), '{"-":5,"A":4,"a":3,"z":2,"ä":1}');
+});
 
 test("canonical JSON preserves own __proto__ keys", () => {
   const value = JSON.parse('{"mode":"a","__proto__":{"x":1}}');
