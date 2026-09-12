@@ -1,7 +1,7 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { readdir } from "node:fs/promises";
-import { canonicalJson } from "./canonical.js";
+import { canonicalJson, compareCodeUnitStrings } from "./canonical.js";
 import { sha256File, sha256Text } from "./hash.js";
 
 const SOURCE_ROOT = path.dirname(fileURLToPath(import.meta.url));
@@ -9,7 +9,7 @@ const SOURCE_ROOT = path.dirname(fileURLToPath(import.meta.url));
 async function sourceFiles(directory, prefix = "") {
   const entries = await readdir(directory, { withFileTypes: true });
   const files = [];
-  for (const entry of entries.sort((a, b) => a.name.localeCompare(b.name))) {
+  for (const entry of entries.sort((a, b) => compareCodeUnitStrings(a.name, b.name))) {
     const relative = prefix ? `${prefix}/${entry.name}` : entry.name;
     const absolute = path.join(directory, entry.name);
     if (entry.isDirectory()) {
