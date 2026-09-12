@@ -9,7 +9,6 @@ import {
 } from "./operations.js";
 import {
   RGBA8_IMAGE_MEDIA_TYPE,
-  createRgba8Image,
   encodeRgba8Image,
   parseRgba8Image,
 } from "./image-rgba8.js";
@@ -287,9 +286,12 @@ export async function executeImageDecodeOperation(
   if (rgba.length !== expectedLength) {
     throw new Error(`image decode produced ${rgba.length} RGBA bytes; expected ${expectedLength}`);
   }
-  const canonical = createRgba8Image({ ...dimensions, pixels: new Uint8Array(rgba) });
+  const canonicalBytes = encodeRgba8Image({
+    ...dimensions,
+    pixels: new Uint8Array(rgba),
+  });
   const stored = await storeAssetObject(prepared.assetRoot, {
-    bytes: encodeRgba8Image(canonical),
+    bytes: canonicalBytes,
     kind: "image",
     mediaType: RGBA8_IMAGE_MEDIA_TYPE,
     metadata: {
