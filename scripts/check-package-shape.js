@@ -51,6 +51,11 @@ assert(
   "procedural mesh generation must remain available through the focused ./operations/generation/procedural-mesh subpath",
 );
 assert(
+  packageJson.exports?.["./operations/generation/parametric-surfaces"] ===
+    "./src/parametric-surface-operations.js",
+  "parametric surface generation must remain available through the focused ./operations/generation/parametric-surfaces subpath",
+);
+assert(
   packageJson.exports?.["./operations/generation/triposr"] === "./src/triposr-operation.js",
   "TripoSR generation operation must remain available through the focused ./operations/generation/triposr subpath",
 );
@@ -102,6 +107,10 @@ assert(
 assert(
   packageJson.exports?.["./operations/image/perturbations"] === "./src/image-perturbation-recipes.js",
   "image perturbation recipes must remain available through the focused ./operations/image/perturbations subpath",
+);
+assert(
+  packageJson.exports?.["./operations/image/terrain"] === "./src/terrain-operations.js",
+  "terrain height operations must remain available through the focused ./operations/image/terrain subpath",
 );
 assert(
   packageJson.exports?.["./image/rgba8"] === "./src/image-rgba8.js",
@@ -161,6 +170,8 @@ for (const file of [
   "src/procedural-texture-operations.js",
   "src/procedural-mesh.js",
   "src/procedural-mesh-operations.js",
+  "src/parametric-surface-operations.js",
+  "src/terrain-operations.js",
   "src/triposr-operation.js",
   "src/processing-operations.js",
   "src/animation-processing-operations.js",

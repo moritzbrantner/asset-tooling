@@ -1,0 +1,284 @@
+import path from "node:path";
+import { storeAssetObject } from "./asset-store.js";
+import {
+  createAssetOperationBuildIdentity,
+  createAssetOperationRegistry,
+  normalizeAssetOperationResult,
+} from "./operations.js";
+import { generateCylinderObj, PROCEDURAL_RADIAL_SEGMENTS } from "./procedural-mesh.js";
+import { captureToolIdentity } from "./tool.js";
+
+const VERSION = "1";
+const MAX_SIZE = 1_000_000;
+const MICRO_SCALE = 1_000_000n;
+
+const meshOutput = {
+  id: "output",
+  label: "Generated parametric mesh",
+  assetKinds: ["mesh"],
+  mediaTypes: ["model/obj"],
+};
+
+const OPERATION_REGISTRY = createAssetOperationRegistry([
+  {
+    schemaVersion: 1,
+    id: "mesh.procedural.torus",
+    version: VERSION,
+    label: "Generate torus mesh",
+    description:
+      "Generate a deterministic right-handed Y-up triangular OBJ torus from the canonical procedural-mesh fixed-circle sampling.",
+    category: "procedural.mesh",
+    inputs: [],
+    outputs: [meshOutput],
+    parameterSchema: {
+      type: "object",
+      additionalProperties: false,
+      required: ["majorRadius", "minorRadius", "majorSegments", "minorSegments"],
+      properties: {
+        majorRadius: { type: "integer", minimum: 2, maximum: MAX_SIZE },
+        minorRadius: { type: "integer", minimum: 1, maximum: MAX_SIZE - 1 },
+        majorSegments: { type: "integer", enum: [...PROCEDURAL_RADIAL_SEGMENTS] },
+        minorSegments: { type: "integer", enum: [...PROCEDURAL_RADIAL_SEGMENTS] },
+      },
+    },
+  },
+]);
+
+export const PROCEDURAL_TORUS_OPERATION = OPERATION_REGISTRY.get("mesh.procedural.torus", VERSION);
+export const PARAMETRIC_SURFACE_OPERATIONS = OPERATION_REGISTRY.list();
+
+function plainObject(value, location) {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error(`${location} must be a plain object`);
+  }
+  const prototype = Object.getPrototypeOf(value);
+  if (prototype !== Object.prototype && prototype !== null) {
+    throw new Error(`${location} must be a plain object`);
+  }
+  return value;
+}
+
+function exactKeys(value, keys, location) {
+  const object = plainObject(value, location);
+  const expected = new Set(keys);
+  for (const key of Object.keys(object)) {
+    if (!expected.has(key)) throw new Error(`${location} contains unknown field '${key}'`);
+  }
+  for (const key of keys) {
+    if (!Object.hasOwn(object, key)) throw new Error(`${location} is missing '${key}'`);
+  }
+  return object;
+}
+
+function integer(value, location, minimum, maximum = MAX_SIZE) {
+  if (!Number.isSafeInteger(value) || value < minimum || value > maximum) {
+    throw new Error(`${location} must be an integer in ${minimum}..${maximum}`);
+  }
+  return value;
+}
+
+function oneOfIntegers(value, location, allowed) {
+  integer(value, location, allowed[0], allowed.at(-1));
+  if (!allowed.includes(value)) {
+    throw new Error(`${location} must be one of ${allowed.join(", ")}`);
+  }
+  return value;
+}
+
+function roundDivide(numerator, denominator) {
+  if (typeof numerator !== "bigint" || typeof denominator !== "bigint" || denominator <= 0n) {
+    throw new Error("parametric fixed-point division requires bigint numerator and positive bigint denominator");
+  }
+  const negative = numerator < 0n;
+  const absolute = negative ? -numerator : numerator;
+  const rounded = (absolute + denominator / 2n) / denominator;
+  return negative ? -rounded : rounded;
+}
+
+function formatMicroUnits(value) {
+  if (typeof value !== "bigint") throw new Error("parametric coordinate must be a bigint");
+  const negative = value < 0n;
+  const absolute = negative ? -value : value;
+  const whole = absolute / MICRO_SCALE;
+  const remainder = absolute % MICRO_SCALE;
+  if (remainder === 0n) return `${negative ? "-" : ""}${whole}`;
+  const fraction = remainder.toString().padStart(6, "0").replace(/0+$/, "");
+  return `${negative ? "-" : ""}${whole}.${fraction}`;
+}
+
+function parseMicroUnits(value) {
+  const match = /^(-?)([0-9]+)(?:\.([0-9]{1,6}))?$/.exec(value);
+  if (!match) throw new Error(`canonical circle coordinate '${value}' is not a fixed decimal`);
+  const sign = match[1] === "-" ? -1n : 1n;
+  const whole = BigInt(match[2]);
+  const fraction = BigInt((match[3] ?? "").padEnd(6, "0") || "0");
+  return sign * (whole * MICRO_SCALE + fraction);
+}
+
+function canonicalCircleSamples(segments) {
+  const circle = generateCylinderObj({ radius: 1, height: 1, radialSegments: segments });
+  const vertices = circle.bytes
+    .toString("utf8")
+    .split("\n")
+    .filter((line) => line.startsWith("v "))
+    .slice(0, segments);
+  if (vertices.length !== segments) {
+    throw new Error("canonical procedural cylinder did not expose the expected circle vertices");
+  }
+  return vertices.map((line) => {
+    const [, x, , z] = line.split(" ");
+    return { x: parseMicroUnits(x), z: parseMicroUnits(z) };
+  });
+}
+
+function encodeObj(vertices, faces) {
+  const lines = ["# asset-tooling canonical procedural OBJ v1"];
+  for (const vertex of vertices) lines.push(`v ${vertex[0]} ${vertex[1]} ${vertex[2]}`);
+  for (const face of faces) lines.push(`f ${face[0]} ${face[1]} ${face[2]}`);
+  return Buffer.from(`${lines.join("\n")}\n`, "utf8");
+}
+
+function normalizeTorusParameters(value, location = "torus parameters") {
+  const parameters = exactKeys(
+    value,
+    ["majorRadius", "minorRadius", "majorSegments", "minorSegments"],
+    location,
+  );
+  const majorRadius = integer(parameters.majorRadius, `${location}.majorRadius`, 2);
+  const minorRadius = integer(parameters.minorRadius, `${location}.minorRadius`, 1, MAX_SIZE - 1);
+  if (minorRadius >= majorRadius) {
+    throw new Error(`${location}.minorRadius must be smaller than majorRadius`);
+  }
+  return {
+    majorRadius,
+    minorRadius,
+    majorSegments: oneOfIntegers(
+      parameters.majorSegments,
+      `${location}.majorSegments`,
+      PROCEDURAL_RADIAL_SEGMENTS,
+    ),
+    minorSegments: oneOfIntegers(
+      parameters.minorSegments,
+      `${location}.minorSegments`,
+      PROCEDURAL_RADIAL_SEGMENTS,
+    ),
+  };
+}
+
+export function generateTorusObj(value) {
+  const { majorRadius, minorRadius, majorSegments, minorSegments } = normalizeTorusParameters(
+    value,
+    "torus",
+  );
+  const majorCircle = canonicalCircleSamples(majorSegments);
+  const minorCircle = canonicalCircleSamples(minorSegments);
+  const vertices = [];
+  for (const major of majorCircle) {
+    for (const minor of minorCircle) {
+      const radialMicro = BigInt(majorRadius) * MICRO_SCALE + BigInt(minorRadius) * minor.x;
+      vertices.push([
+        formatMicroUnits(roundDivide(radialMicro * major.x, MICRO_SCALE)),
+        formatMicroUnits(BigInt(minorRadius) * minor.z),
+        formatMicroUnits(roundDivide(radialMicro * major.z, MICRO_SCALE)),
+      ]);
+    }
+  }
+
+  const faces = [];
+  for (let major = 0; major < majorSegments; major += 1) {
+    const nextMajor = (major + 1) % majorSegments;
+    for (let minor = 0; minor < minorSegments; minor += 1) {
+      const nextMinor = (minor + 1) % minorSegments;
+      const a = major * minorSegments + minor + 1;
+      const b = nextMajor * minorSegments + minor + 1;
+      const c = major * minorSegments + nextMinor + 1;
+      const d = nextMajor * minorSegments + nextMinor + 1;
+      faces.push([a, c, b], [b, c, d]);
+    }
+  }
+  return {
+    bytes: encodeObj(vertices, faces),
+    vertexCount: vertices.length,
+    triangleCount: faces.length,
+  };
+}
+
+function normalizeParameters(operation, value) {
+  if (operation.id === "mesh.procedural.torus") {
+    return normalizeTorusParameters(value, `${operation.id} parameters`);
+  }
+  throw new Error(`unsupported parametric surface operation '${operation.id}'`);
+}
+
+function assertRoot(root) {
+  if (typeof root !== "string" || !path.isAbsolute(root)) {
+    throw new Error("parametric surface operation root must be an absolute path");
+  }
+  return root;
+}
+
+async function implementationIdentity(operation) {
+  return {
+    id: `builtin.${operation.id}`,
+    version: VERSION,
+    algorithm: "canonical-triangular-obj-torus-cylinder-circle-v1",
+    randomness: "none",
+    meshFormat: "obj",
+    coordinateSystem: "right-handed-y-up",
+    coordinateQuantization: "1e-6-unit-fixed-table",
+    tool: await captureToolIdentity(),
+  };
+}
+
+async function createBuildIdentity(root, operation, parameters, inputs) {
+  assertRoot(root);
+  return createAssetOperationBuildIdentity({
+    operation,
+    implementation: await implementationIdentity(operation),
+    parameters: normalizeParameters(operation, parameters),
+    inputs,
+  });
+}
+
+async function execute(root, operation, build) {
+  const assetRoot = assertRoot(root);
+  const generated = generateTorusObj(build.parameters);
+  const stored = await storeAssetObject(assetRoot, {
+    bytes: generated.bytes,
+    kind: "mesh",
+    mediaType: "model/obj",
+    metadata: {
+      meshFormat: "obj",
+      topology: "triangles",
+      coordinateSystem: "right-handed-y-up",
+      coordinateQuantization: "1e-6-unit-fixed-table",
+      vertexCount: generated.vertexCount,
+      triangleCount: generated.triangleCount,
+      generator: `${operation.id}@${operation.version}`,
+      surface: "torus",
+      circleSampling: "mesh.procedural.cylinder@1",
+    },
+  });
+  return normalizeAssetOperationResult(operation, {
+    outputs: { output: stored.asset },
+    observations: {
+      vertexCount: generated.vertexCount,
+      triangleCount: generated.triangleCount,
+      algorithm: build.implementation.algorithm,
+      randomness: "none",
+      parameters: build.parameters,
+    },
+  });
+}
+
+export async function createProceduralTorusOperationBuildIdentity(
+  root,
+  { parameters = {}, inputs = {} } = {},
+) {
+  return createBuildIdentity(root, PROCEDURAL_TORUS_OPERATION, parameters, inputs);
+}
+
+export async function executeProceduralTorusOperation(root, invocation = {}) {
+  const build = await createProceduralTorusOperationBuildIdentity(root, invocation);
+  return execute(root, PROCEDURAL_TORUS_OPERATION, build);
+}
