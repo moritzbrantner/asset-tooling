@@ -1,6 +1,8 @@
 import { lumaRgba8 } from "./image-color.js";
 
 const MAX_HEIGHTFIELD_DIMENSION = 256;
+const MAX_PROFILE_POINTS = 64;
+const MAX_COORDINATE = 1_000_000;
 const MICRO_SCALE = 1_000_000n;
 const CIRCLE_SAMPLE_COUNT = 128;
 const QUARTER_SINE_MICRO = Object.freeze([
@@ -12,6 +14,7 @@ const QUARTER_SINE_MICRO = Object.freeze([
 
 export const PROCEDURAL_RADIAL_SEGMENTS = Object.freeze([4, 8, 16, 32, 64, 128]);
 export const PROCEDURAL_SPHERE_LATITUDE_SEGMENTS = Object.freeze([4, 8, 16, 32, 64]);
+export const PROCEDURAL_PROFILE_MAX_POINTS = MAX_PROFILE_POINTS;
 
 function integer(value, location, minimum, maximum = Number.MAX_SAFE_INTEGER) {
   if (!Number.isSafeInteger(value) || value < minimum || value > maximum) {
@@ -26,6 +29,29 @@ function oneOfIntegers(value, location, allowed) {
     throw new Error(`${location} must be one of ${allowed.join(", ")}`);
   }
   return value;
+}
+
+function plainObject(value, location) {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error(`${location} must be a plain object`);
+  }
+  const prototype = Object.getPrototypeOf(value);
+  if (prototype !== Object.prototype && prototype !== null) {
+    throw new Error(`${location} must be a plain object`);
+  }
+  return value;
+}
+
+function exactKeys(value, keys, location) {
+  const object = plainObject(value, location);
+  const expected = new Set(keys);
+  for (const key of Object.keys(object)) {
+    if (!expected.has(key)) throw new Error(`${location} contains unknown field '${key}'`);
+  }
+  for (const key of keys) {
+    if (!Object.hasOwn(object, key)) throw new Error(`${location} is missing '${key}'`);
+  }
+  return object;
 }
 
 function formatHalfUnits(twiceValue) {
@@ -85,6 +111,88 @@ function encodeObj(vertices, faces) {
   for (const vertex of vertices) lines.push(`v ${vertex[0]} ${vertex[1]} ${vertex[2]}`);
   for (const face of faces) lines.push(`f ${face[0]} ${face[1]} ${face[2]}`);
   return Buffer.from(`${lines.join("\n")}\n`, "utf8");
+}
+
+function cross2d(a, b, c) {
+  return BigInt(b.x - a.x) * BigInt(c.z - a.z) - BigInt(b.z - a.z) * BigInt(c.x - a.x);
+}
+
+function signedAreaTwice(points) {
+  let area = 0n;
+  for (let index = 0; index < points.length; index += 1) {
+    const next = points[(index + 1) % points.length];
+    const current = points[index];
+    area += BigInt(current.x) * BigInt(next.z) - BigInt(current.z) * BigInt(next.x);
+  }
+  return area;
+}
+
+function rotateFrom(points, index) {
+  return [...points.slice(index), ...points.slice(0, index)];
+}
+
+export function normalizeExtrusionProfile(value) {
+  if (!Array.isArray(value) || value.length < 3 || value.length > MAX_PROFILE_POINTS) {
+    throw new Error(`extrusion profile must contain 3..${MAX_PROFILE_POINTS} points`);
+  }
+  const points = value.map((entry, index) => {
+    const point = exactKeys(entry, ["x", "z"], `extrusion profile[${index}]`);
+    return {
+      x: integer(point.x, `extrusion profile[${index}].x`, -MAX_COORDINATE, MAX_COORDINATE),
+      z: integer(point.z, `extrusion profile[${index}].z`, -MAX_COORDINATE, MAX_COORDINATE),
+    };
+  });
+  const identities = new Set(points.map((point) => `${point.x},${point.z}`));
+  if (identities.size !== points.length) throw new Error("extrusion profile points must be unique");
+
+  const area = signedAreaTwice(points);
+  if (area === 0n) throw new Error("extrusion profile must have non-zero signed area");
+  let normalized = area > 0n ? points : [...points].reverse();
+  let first = 0;
+  for (let index = 1; index < normalized.length; index += 1) {
+    const candidate = normalized[index];
+    const current = normalized[first];
+    if (candidate.x < current.x || (candidate.x === current.x && candidate.z < current.z)) first = index;
+  }
+  normalized = rotateFrom(normalized, first);
+
+  for (let edge = 0; edge < normalized.length; edge += 1) {
+    const next = (edge + 1) % normalized.length;
+    for (let point = 0; point < normalized.length; point += 1) {
+      if (point === edge || point === next) continue;
+      if (cross2d(normalized[edge], normalized[next], normalized[point]) <= 0n) {
+        throw new Error("extrusion profile must be strictly convex without collinear boundary points");
+      }
+    }
+  }
+  return normalized.map(({ x, z }) => ({ x, z }));
+}
+
+export function normalizeRevolutionProfile(value) {
+  if (!Array.isArray(value) || value.length < 3 || value.length > MAX_PROFILE_POINTS) {
+    throw new Error(`revolution profile must contain 3..${MAX_PROFILE_POINTS} points`);
+  }
+  const points = value.map((entry, index) => {
+    const point = exactKeys(entry, ["radius", "y"], `revolution profile[${index}]`);
+    return {
+      radius: integer(point.radius, `revolution profile[${index}].radius`, 0, MAX_COORDINATE),
+      y: integer(point.y, `revolution profile[${index}].y`, -MAX_COORDINATE, MAX_COORDINATE),
+    };
+  });
+  if (points[0].radius !== 0 || points.at(-1).radius !== 0) {
+    throw new Error("revolution profile must start and end on the Y axis");
+  }
+  for (let index = 1; index < points.length; index += 1) {
+    if (points[index].y <= points[index - 1].y) {
+      throw new Error("revolution profile y values must be strictly increasing");
+    }
+  }
+  for (let index = 1; index < points.length - 1; index += 1) {
+    if (points[index].radius === 0) {
+      throw new Error("revolution profile interior points must have positive radius");
+    }
+  }
+  return points.map(({ radius, y }) => ({ radius, y }));
 }
 
 export function generateBoxObj({ width, height, depth }) {
@@ -210,6 +318,80 @@ export function generateUvSphereObj({ radius, latitudeSegments, longitudeSegment
     faces.push([bottom, current, next]);
   }
 
+  return { bytes: encodeObj(vertices, faces), vertexCount: vertices.length, triangleCount: faces.length };
+}
+
+export function generateExtrudedProfileObj({ profile, height }) {
+  const normalized = normalizeExtrusionProfile(profile);
+  integer(height, "height", 1, MAX_COORDINATE);
+  const y0 = formatHalfUnits(-height);
+  const y1 = formatHalfUnits(height);
+  const vertices = [
+    ...normalized.map(({ x, z }) => [String(x), y0, String(z)]),
+    ...normalized.map(({ x, z }) => [String(x), y1, String(z)]),
+  ];
+  const count = normalized.length;
+  const faces = [];
+  for (let index = 1; index < count - 1; index += 1) {
+    faces.push([1, index + 1, index + 2]);
+    faces.push([count + 1, count + index + 2, count + index + 1]);
+  }
+  for (let index = 0; index < count; index += 1) {
+    const next = (index + 1) % count;
+    const bottom = index + 1;
+    const bottomNext = next + 1;
+    const top = count + index + 1;
+    const topNext = count + next + 1;
+    faces.push([bottom, top, bottomNext], [bottomNext, top, topNext]);
+  }
+  return { bytes: encodeObj(vertices, faces), vertexCount: vertices.length, triangleCount: faces.length };
+}
+
+export function generateRevolvedProfileObj({ profile, radialSegments }) {
+  const normalized = normalizeRevolutionProfile(profile);
+  oneOfIntegers(radialSegments, "radialSegments", PROCEDURAL_RADIAL_SEGMENTS);
+  const step = CIRCLE_SAMPLE_COUNT / radialSegments;
+  const interior = normalized.slice(1, -1);
+  const vertices = [["0", String(normalized[0].y), "0"]];
+  for (const point of interior) {
+    for (let segment = 0; segment < radialSegments; segment += 1) {
+      const sampleIndex = segment * step;
+      vertices.push([
+        formatMicroUnits(radialCoordinateMicro(point.radius, cosineMicro(sampleIndex))),
+        String(point.y),
+        formatMicroUnits(radialCoordinateMicro(point.radius, sineMicro(sampleIndex))),
+      ]);
+    }
+  }
+  vertices.push(["0", String(normalized.at(-1).y), "0"]);
+
+  const ringStart = (ring) => 2 + ring * radialSegments;
+  const top = vertices.length;
+  const faces = [];
+  const firstRing = ringStart(0);
+  for (let segment = 0; segment < radialSegments; segment += 1) {
+    const current = firstRing + segment;
+    const next = firstRing + ((segment + 1) % radialSegments);
+    faces.push([1, current, next]);
+  }
+  for (let ring = 0; ring < interior.length - 1; ring += 1) {
+    const lower = ringStart(ring);
+    const upper = ringStart(ring + 1);
+    for (let segment = 0; segment < radialSegments; segment += 1) {
+      const next = (segment + 1) % radialSegments;
+      const lowerCurrent = lower + segment;
+      const lowerNext = lower + next;
+      const upperCurrent = upper + segment;
+      const upperNext = upper + next;
+      faces.push([lowerCurrent, upperCurrent, lowerNext], [lowerNext, upperCurrent, upperNext]);
+    }
+  }
+  const lastRing = ringStart(interior.length - 1);
+  for (let segment = 0; segment < radialSegments; segment += 1) {
+    const current = lastRing + segment;
+    const next = lastRing + ((segment + 1) % radialSegments);
+    faces.push([top, next, current]);
+  }
   return { bytes: encodeObj(vertices, faces), vertexCount: vertices.length, triangleCount: faces.length };
 }
 
