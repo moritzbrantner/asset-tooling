@@ -12,7 +12,7 @@ The first recipe version generates three static archetypes:
 
 The output is intentionally simple. These are gameplay-readable placeholder meshes for exercising the asset pipeline, not final art.
 
-All models are right-handed Y-up OBJ meshes expressed in integer millimeters. Consumers that work in meters should apply the declared `0.001` scale. Named OBJ groups retain semantic part names so later processing can identify equipment/body regions without making those names authoritative for gameplay behavior.
+All models are right-handed Y-up OBJ meshes expressed in millimeter units with the existing procedural mesh fixed-point precision. Consumers that work in meters should apply the declared `0.001` scale. Named OBJ groups retain semantic part names so later processing can identify equipment/body regions without making those names authoritative for gameplay behavior.
 
 ## Build
 
