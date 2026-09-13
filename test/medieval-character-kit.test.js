@@ -12,8 +12,13 @@ function sha256(bytes) {
   return createHash("sha256").update(bytes).digest("hex");
 }
 
-test("medieval character kit exposes the first three gameplay archetypes", () => {
+test("medieval character kit exposes immutable first gameplay archetypes", () => {
   assert.deepEqual(Object.keys(MEDIEVAL_CHARACTER_RECIPES), ["soldier", "archer", "knight"]);
+  assert(Object.isFrozen(MEDIEVAL_CHARACTER_RECIPES));
+  assert(Object.isFrozen(MEDIEVAL_CHARACTER_RECIPES.soldier.parts));
+  assert(Object.isFrozen(MEDIEVAL_CHARACTER_RECIPES.soldier.parts[0]));
+  assert(Object.isFrozen(MEDIEVAL_CHARACTER_RECIPES.soldier.parts[0].parameters));
+  assert(Object.isFrozen(MEDIEVAL_CHARACTER_RECIPES.soldier.parts[0].translate));
   assert(MEDIEVAL_CHARACTER_RECIPES.soldier.parts.some((part) => part.name === "shield"));
   assert(MEDIEVAL_CHARACTER_RECIPES.soldier.parts.some((part) => part.name === "spear"));
   assert(MEDIEVAL_CHARACTER_RECIPES.archer.parts.some((part) => part.name === "bow-stave"));
