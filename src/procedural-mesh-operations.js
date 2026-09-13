@@ -8,9 +8,13 @@ import {
 import { parseRgba8Image, RGBA8_IMAGE_MEDIA_TYPE } from "./image-rgba8.js";
 import {
   generateBoxObj,
+  generateCylinderObj,
   generateHeightfieldObj,
   generatePlaneObj,
+  generateUvSphereObj,
   PROCEDURAL_HEIGHTFIELD_MAX_DIMENSION,
+  PROCEDURAL_RADIAL_SEGMENTS,
+  PROCEDURAL_SPHERE_LATITUDE_SEGMENTS,
 } from "./procedural-mesh.js";
 import { captureToolIdentity } from "./tool.js";
 
@@ -52,6 +56,27 @@ const OPERATION_REGISTRY = createAssetOperationRegistry([
   },
   {
     schemaVersion: 1,
+    id: "mesh.procedural.cylinder",
+    version: VERSION,
+    label: "Generate cylinder mesh",
+    description:
+      "Generate a deterministic centered capped right-handed Y-up triangular OBJ cylinder from a fixed millionth-unit circle table.",
+    category: "procedural.mesh",
+    inputs: [],
+    outputs: [meshOutput],
+    parameterSchema: {
+      type: "object",
+      additionalProperties: false,
+      required: ["radius", "height", "radialSegments"],
+      properties: {
+        radius: { type: "integer", minimum: 1, maximum: MAX_SIZE },
+        height: { type: "integer", minimum: 1, maximum: MAX_SIZE },
+        radialSegments: { type: "integer", enum: [...PROCEDURAL_RADIAL_SEGMENTS] },
+      },
+    },
+  },
+  {
+    schemaVersion: 1,
     id: "mesh.procedural.plane",
     version: VERSION,
     label: "Generate plane mesh",
@@ -66,6 +91,27 @@ const OPERATION_REGISTRY = createAssetOperationRegistry([
       properties: {
         width: { type: "integer", minimum: 1, maximum: MAX_SIZE },
         depth: { type: "integer", minimum: 1, maximum: MAX_SIZE },
+      },
+    },
+  },
+  {
+    schemaVersion: 1,
+    id: "mesh.procedural.uv-sphere",
+    version: VERSION,
+    label: "Generate UV sphere mesh",
+    description:
+      "Generate a deterministic centered right-handed Y-up triangular OBJ UV sphere from a fixed millionth-unit circle table.",
+    category: "procedural.mesh",
+    inputs: [],
+    outputs: [meshOutput],
+    parameterSchema: {
+      type: "object",
+      additionalProperties: false,
+      required: ["radius", "latitudeSegments", "longitudeSegments"],
+      properties: {
+        radius: { type: "integer", minimum: 1, maximum: MAX_SIZE },
+        latitudeSegments: { type: "integer", enum: [...PROCEDURAL_SPHERE_LATITUDE_SEGMENTS] },
+        longitudeSegments: { type: "integer", enum: [...PROCEDURAL_RADIAL_SEGMENTS] },
       },
     },
   },
@@ -92,7 +138,9 @@ const OPERATION_REGISTRY = createAssetOperationRegistry([
 ]);
 
 export const PROCEDURAL_BOX_MESH_OPERATION = OPERATION_REGISTRY.get("mesh.procedural.box", VERSION);
+export const PROCEDURAL_CYLINDER_MESH_OPERATION = OPERATION_REGISTRY.get("mesh.procedural.cylinder", VERSION);
 export const PROCEDURAL_PLANE_MESH_OPERATION = OPERATION_REGISTRY.get("mesh.procedural.plane", VERSION);
+export const PROCEDURAL_UV_SPHERE_MESH_OPERATION = OPERATION_REGISTRY.get("mesh.procedural.uv-sphere", VERSION);
 export const HEIGHTFIELD_MESH_OPERATION = OPERATION_REGISTRY.get("mesh.heightfield.from-image", VERSION);
 export const PROCEDURAL_MESH_OPERATIONS = OPERATION_REGISTRY.list();
 
@@ -126,6 +174,14 @@ function integer(value, location, minimum, maximum = MAX_SIZE) {
   return value;
 }
 
+function oneOfIntegers(value, location, allowed) {
+  integer(value, location, allowed[0], allowed[allowed.length - 1]);
+  if (!allowed.includes(value)) {
+    throw new Error(`${location} must be one of ${allowed.join(", ")}`);
+  }
+  return value;
+}
+
 function normalizeParameters(operation, value) {
   if (operation.id === "mesh.procedural.box") {
     const parameters = exactKeys(value, ["width", "height", "depth"], `${operation.id} parameters`);
@@ -135,11 +191,39 @@ function normalizeParameters(operation, value) {
       depth: integer(parameters.depth, "parameters.depth", 1),
     };
   }
+  if (operation.id === "mesh.procedural.cylinder") {
+    const parameters = exactKeys(value, ["radius", "height", "radialSegments"], `${operation.id} parameters`);
+    return {
+      radius: integer(parameters.radius, "parameters.radius", 1),
+      height: integer(parameters.height, "parameters.height", 1),
+      radialSegments: oneOfIntegers(parameters.radialSegments, "parameters.radialSegments", PROCEDURAL_RADIAL_SEGMENTS),
+    };
+  }
   if (operation.id === "mesh.procedural.plane") {
     const parameters = exactKeys(value, ["width", "depth"], `${operation.id} parameters`);
     return {
       width: integer(parameters.width, "parameters.width", 1),
       depth: integer(parameters.depth, "parameters.depth", 1),
+    };
+  }
+  if (operation.id === "mesh.procedural.uv-sphere") {
+    const parameters = exactKeys(
+      value,
+      ["radius", "latitudeSegments", "longitudeSegments"],
+      `${operation.id} parameters`,
+    );
+    return {
+      radius: integer(parameters.radius, "parameters.radius", 1),
+      latitudeSegments: oneOfIntegers(
+        parameters.latitudeSegments,
+        "parameters.latitudeSegments",
+        PROCEDURAL_SPHERE_LATITUDE_SEGMENTS,
+      ),
+      longitudeSegments: oneOfIntegers(
+        parameters.longitudeSegments,
+        "parameters.longitudeSegments",
+        PROCEDURAL_RADIAL_SEGMENTS,
+      ),
     };
   }
   if (operation.id === "mesh.heightfield.from-image") {
@@ -162,7 +246,9 @@ function assertRoot(root) {
 function algorithm(operation) {
   const algorithms = {
     "mesh.procedural.box": "canonical-triangular-obj-box-half-unit-v1",
+    "mesh.procedural.cylinder": "canonical-triangular-obj-cylinder-fixed-micro-circle-v1",
     "mesh.procedural.plane": "canonical-triangular-obj-plane-half-unit-v1",
+    "mesh.procedural.uv-sphere": "canonical-triangular-obj-uv-sphere-fixed-micro-circle-v1",
     "mesh.heightfield.from-image": "q8-rec709-integer-heightfield-obj-v1",
   };
   return algorithms[operation.id];
@@ -204,7 +290,9 @@ async function createBuildIdentity(root, operation, parameters, inputs) {
 
 function generate(operation, parameters, source) {
   if (operation.id === "mesh.procedural.box") return generateBoxObj(parameters);
+  if (operation.id === "mesh.procedural.cylinder") return generateCylinderObj(parameters);
   if (operation.id === "mesh.procedural.plane") return generatePlaneObj(parameters);
+  if (operation.id === "mesh.procedural.uv-sphere") return generateUvSphereObj(parameters);
   if (operation.id === "mesh.heightfield.from-image") return generateHeightfieldObj(source, parameters);
   throw new Error(`unsupported procedural mesh operation '${operation.id}'`);
 }
@@ -227,6 +315,9 @@ async function execute(root, operation, build) {
       vertexCount: generated.vertexCount,
       triangleCount: generated.triangleCount,
       generator: `${operation.id}@${operation.version}`,
+      ...(operation.id === "mesh.procedural.cylinder" || operation.id === "mesh.procedural.uv-sphere"
+        ? { coordinateQuantization: "1e-6-unit-fixed-table" }
+        : {}),
       ...(operation.id === "mesh.heightfield.from-image"
         ? {
             sourceSha256: build.inputs.source.sha256,
@@ -260,6 +351,18 @@ export async function executeProceduralBoxMeshOperation(root, invocation = {}) {
   return execute(root, PROCEDURAL_BOX_MESH_OPERATION, build);
 }
 
+export async function createProceduralCylinderMeshOperationBuildIdentity(
+  root,
+  { parameters = {}, inputs = {} } = {},
+) {
+  return createBuildIdentity(root, PROCEDURAL_CYLINDER_MESH_OPERATION, parameters, inputs);
+}
+
+export async function executeProceduralCylinderMeshOperation(root, invocation = {}) {
+  const build = await createProceduralCylinderMeshOperationBuildIdentity(root, invocation);
+  return execute(root, PROCEDURAL_CYLINDER_MESH_OPERATION, build);
+}
+
 export async function createProceduralPlaneMeshOperationBuildIdentity(
   root,
   { parameters = {}, inputs = {} } = {},
@@ -270,6 +373,18 @@ export async function createProceduralPlaneMeshOperationBuildIdentity(
 export async function executeProceduralPlaneMeshOperation(root, invocation = {}) {
   const build = await createProceduralPlaneMeshOperationBuildIdentity(root, invocation);
   return execute(root, PROCEDURAL_PLANE_MESH_OPERATION, build);
+}
+
+export async function createProceduralUvSphereMeshOperationBuildIdentity(
+  root,
+  { parameters = {}, inputs = {} } = {},
+) {
+  return createBuildIdentity(root, PROCEDURAL_UV_SPHERE_MESH_OPERATION, parameters, inputs);
+}
+
+export async function executeProceduralUvSphereMeshOperation(root, invocation = {}) {
+  const build = await createProceduralUvSphereMeshOperationBuildIdentity(root, invocation);
+  return execute(root, PROCEDURAL_UV_SPHERE_MESH_OPERATION, build);
 }
 
 export async function createHeightfieldMeshOperationBuildIdentity(
