@@ -18,7 +18,7 @@ test("parametric surface registry exposes deterministic torus generation", () =>
   assert.deepEqual(PROCEDURAL_TORUS_OPERATION.parameterSchema.properties.minorSegments.enum, [4, 8, 16, 32, 64, 128]);
 });
 
-test("torus generation pins fixed-table cardinal coordinates and winding", () => {
+test("torus generation pins canonical circle cardinal coordinates and winding", () => {
   const generated = generateTorusObj({ majorRadius: 3, minorRadius: 1, majorSegments: 4, minorSegments: 4 });
   assert.equal(generated.vertexCount, 16);
   assert.equal(generated.triangleCount, 32);
@@ -29,7 +29,7 @@ test("torus generation pins fixed-table cardinal coordinates and winding", () =>
   assert.match(obj, /\nf 4 13 1\n$/);
 });
 
-test("torus validates non-self-intersecting radii and fixed-table segment counts", () => {
+test("torus validates non-self-intersecting radii and canonical segment counts", () => {
   assert.throws(
     () => generateTorusObj({ majorRadius: 2, minorRadius: 2, majorSegments: 8, minorSegments: 8 }),
     /minorRadius must be smaller than majorRadius/,
@@ -40,13 +40,13 @@ test("torus validates non-self-intersecting radii and fixed-table segment counts
   );
 });
 
-test("torus build identity binds parametric topology and fixed-table algorithm", async () => {
+test("torus build identity binds topology to the canonical cylinder-circle algorithm", async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), "asset-tooling-torus-"));
   const build = await createProceduralTorusOperationBuildIdentity(root, {
     parameters: { majorRadius: 5, minorRadius: 2, majorSegments: 16, minorSegments: 8 },
     inputs: {},
   });
-  assert.equal(build.implementation.algorithm, "canonical-triangular-obj-torus-fixed-micro-two-angle-v1");
+  assert.equal(build.implementation.algorithm, "canonical-triangular-obj-torus-cylinder-circle-v1");
   assert.equal(build.implementation.coordinateQuantization, "1e-6-unit-fixed-table");
   assert.deepEqual(build.parameters, { majorRadius: 5, majorSegments: 16, minorRadius: 2, minorSegments: 8 });
 });
@@ -65,6 +65,7 @@ test("torus operation is content-addressed and idempotent with exact topology ev
   assert.equal(first.outputs.output.metadata.triangleCount, 64);
   assert.equal(first.outputs.output.metadata.surface, "torus");
   assert.equal(first.outputs.output.metadata.coordinateQuantization, "1e-6-unit-fixed-table");
+  assert.equal(first.outputs.output.metadata.circleSampling, "mesh.procedural.cylinder@1");
   assert.match(
     (await resolveAssetObject(root, first.outputs.output)).toString("utf8"),
     /^# asset-tooling canonical procedural OBJ v1/,
