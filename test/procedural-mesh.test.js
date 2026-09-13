@@ -58,7 +58,9 @@ test("procedural mesh registry exposes deterministic OBJ generation", () => {
       "mesh.heightfield.from-image",
       "mesh.procedural.box",
       "mesh.procedural.cylinder",
+      "mesh.procedural.extrude",
       "mesh.procedural.plane",
+      "mesh.procedural.revolve",
       "mesh.procedural.uv-sphere",
     ],
   );
