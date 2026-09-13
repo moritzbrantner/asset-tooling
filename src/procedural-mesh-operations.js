@@ -9,10 +9,15 @@ import { parseRgba8Image, RGBA8_IMAGE_MEDIA_TYPE } from "./image-rgba8.js";
 import {
   generateBoxObj,
   generateCylinderObj,
+  generateExtrudedProfileObj,
   generateHeightfieldObj,
   generatePlaneObj,
+  generateRevolvedProfileObj,
   generateUvSphereObj,
+  normalizeExtrusionProfile,
+  normalizeRevolutionProfile,
   PROCEDURAL_HEIGHTFIELD_MAX_DIMENSION,
+  PROCEDURAL_PROFILE_MAX_POINTS,
   PROCEDURAL_RADIAL_SEGMENTS,
   PROCEDURAL_SPHERE_LATITUDE_SEGMENTS,
 } from "./procedural-mesh.js";
@@ -31,6 +36,24 @@ const heightInput = {
   label: "Height source",
   assetKinds: ["image"],
   mediaTypes: [RGBA8_IMAGE_MEDIA_TYPE],
+};
+const extrusionPointSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: ["x", "z"],
+  properties: {
+    x: { type: "integer", minimum: -MAX_SIZE, maximum: MAX_SIZE },
+    z: { type: "integer", minimum: -MAX_SIZE, maximum: MAX_SIZE },
+  },
+};
+const revolutionPointSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: ["radius", "y"],
+  properties: {
+    radius: { type: "integer", minimum: 0, maximum: MAX_SIZE },
+    y: { type: "integer", minimum: -MAX_SIZE, maximum: MAX_SIZE },
+  },
 };
 
 const OPERATION_REGISTRY = createAssetOperationRegistry([
@@ -77,6 +100,31 @@ const OPERATION_REGISTRY = createAssetOperationRegistry([
   },
   {
     schemaVersion: 1,
+    id: "mesh.procedural.extrude",
+    version: VERSION,
+    label: "Extrude convex profile mesh",
+    description:
+      "Extrude a canonicalized strictly convex integer XZ profile symmetrically along Y into a deterministic triangular OBJ mesh.",
+    category: "procedural.mesh",
+    inputs: [],
+    outputs: [meshOutput],
+    parameterSchema: {
+      type: "object",
+      additionalProperties: false,
+      required: ["profile", "height"],
+      properties: {
+        profile: {
+          type: "array",
+          minItems: 3,
+          maxItems: PROCEDURAL_PROFILE_MAX_POINTS,
+          items: extrusionPointSchema,
+        },
+        height: { type: "integer", minimum: 1, maximum: MAX_SIZE },
+      },
+    },
+  },
+  {
+    schemaVersion: 1,
     id: "mesh.procedural.plane",
     version: VERSION,
     label: "Generate plane mesh",
@@ -91,6 +139,31 @@ const OPERATION_REGISTRY = createAssetOperationRegistry([
       properties: {
         width: { type: "integer", minimum: 1, maximum: MAX_SIZE },
         depth: { type: "integer", minimum: 1, maximum: MAX_SIZE },
+      },
+    },
+  },
+  {
+    schemaVersion: 1,
+    id: "mesh.procedural.revolve",
+    version: VERSION,
+    label: "Revolve profile mesh",
+    description:
+      "Revolve an axis-closed strictly Y-increasing integer radius/Y profile around Y using the fixed millionth-unit circle table.",
+    category: "procedural.mesh",
+    inputs: [],
+    outputs: [meshOutput],
+    parameterSchema: {
+      type: "object",
+      additionalProperties: false,
+      required: ["profile", "radialSegments"],
+      properties: {
+        profile: {
+          type: "array",
+          minItems: 3,
+          maxItems: PROCEDURAL_PROFILE_MAX_POINTS,
+          items: revolutionPointSchema,
+        },
+        radialSegments: { type: "integer", enum: [...PROCEDURAL_RADIAL_SEGMENTS] },
       },
     },
   },
@@ -139,7 +212,9 @@ const OPERATION_REGISTRY = createAssetOperationRegistry([
 
 export const PROCEDURAL_BOX_MESH_OPERATION = OPERATION_REGISTRY.get("mesh.procedural.box", VERSION);
 export const PROCEDURAL_CYLINDER_MESH_OPERATION = OPERATION_REGISTRY.get("mesh.procedural.cylinder", VERSION);
+export const PROCEDURAL_EXTRUDE_MESH_OPERATION = OPERATION_REGISTRY.get("mesh.procedural.extrude", VERSION);
 export const PROCEDURAL_PLANE_MESH_OPERATION = OPERATION_REGISTRY.get("mesh.procedural.plane", VERSION);
+export const PROCEDURAL_REVOLVE_MESH_OPERATION = OPERATION_REGISTRY.get("mesh.procedural.revolve", VERSION);
 export const PROCEDURAL_UV_SPHERE_MESH_OPERATION = OPERATION_REGISTRY.get("mesh.procedural.uv-sphere", VERSION);
 export const HEIGHTFIELD_MESH_OPERATION = OPERATION_REGISTRY.get("mesh.heightfield.from-image", VERSION);
 export const PROCEDURAL_MESH_OPERATIONS = OPERATION_REGISTRY.list();
@@ -199,11 +274,25 @@ function normalizeParameters(operation, value) {
       radialSegments: oneOfIntegers(parameters.radialSegments, "parameters.radialSegments", PROCEDURAL_RADIAL_SEGMENTS),
     };
   }
+  if (operation.id === "mesh.procedural.extrude") {
+    const parameters = exactKeys(value, ["profile", "height"], `${operation.id} parameters`);
+    return {
+      profile: normalizeExtrusionProfile(parameters.profile),
+      height: integer(parameters.height, "parameters.height", 1),
+    };
+  }
   if (operation.id === "mesh.procedural.plane") {
     const parameters = exactKeys(value, ["width", "depth"], `${operation.id} parameters`);
     return {
       width: integer(parameters.width, "parameters.width", 1),
       depth: integer(parameters.depth, "parameters.depth", 1),
+    };
+  }
+  if (operation.id === "mesh.procedural.revolve") {
+    const parameters = exactKeys(value, ["profile", "radialSegments"], `${operation.id} parameters`);
+    return {
+      profile: normalizeRevolutionProfile(parameters.profile),
+      radialSegments: oneOfIntegers(parameters.radialSegments, "parameters.radialSegments", PROCEDURAL_RADIAL_SEGMENTS),
     };
   }
   if (operation.id === "mesh.procedural.uv-sphere") {
@@ -247,7 +336,9 @@ function algorithm(operation) {
   const algorithms = {
     "mesh.procedural.box": "canonical-triangular-obj-box-half-unit-v1",
     "mesh.procedural.cylinder": "canonical-triangular-obj-cylinder-fixed-micro-circle-v1",
+    "mesh.procedural.extrude": "canonical-triangular-obj-convex-xz-extrusion-v1",
     "mesh.procedural.plane": "canonical-triangular-obj-plane-half-unit-v1",
+    "mesh.procedural.revolve": "canonical-triangular-obj-fixed-micro-revolution-v1",
     "mesh.procedural.uv-sphere": "canonical-triangular-obj-uv-sphere-fixed-micro-circle-v1",
     "mesh.heightfield.from-image": "q8-rec709-integer-heightfield-obj-v1",
   };
@@ -291,10 +382,33 @@ async function createBuildIdentity(root, operation, parameters, inputs) {
 function generate(operation, parameters, source) {
   if (operation.id === "mesh.procedural.box") return generateBoxObj(parameters);
   if (operation.id === "mesh.procedural.cylinder") return generateCylinderObj(parameters);
+  if (operation.id === "mesh.procedural.extrude") return generateExtrudedProfileObj(parameters);
   if (operation.id === "mesh.procedural.plane") return generatePlaneObj(parameters);
+  if (operation.id === "mesh.procedural.revolve") return generateRevolvedProfileObj(parameters);
   if (operation.id === "mesh.procedural.uv-sphere") return generateUvSphereObj(parameters);
   if (operation.id === "mesh.heightfield.from-image") return generateHeightfieldObj(source, parameters);
   throw new Error(`unsupported procedural mesh operation '${operation.id}'`);
+}
+
+function meshMetadata(operation, build) {
+  if (operation.id === "mesh.procedural.extrude") {
+    return {
+      coordinateQuantization: "integer-xz-half-unit-y",
+      profileConvention: "canonical-ccw-strictly-convex-xz",
+      profilePointCount: build.parameters.profile.length,
+    };
+  }
+  if (operation.id === "mesh.procedural.revolve") {
+    return {
+      coordinateQuantization: "1e-6-unit-fixed-table-xz+integer-y",
+      profileConvention: "axis-closed-strictly-increasing-radius-y",
+      profilePointCount: build.parameters.profile.length,
+    };
+  }
+  if (operation.id === "mesh.procedural.cylinder" || operation.id === "mesh.procedural.uv-sphere") {
+    return { coordinateQuantization: "1e-6-unit-fixed-table" };
+  }
+  return {};
 }
 
 async function execute(root, operation, build) {
@@ -315,9 +429,7 @@ async function execute(root, operation, build) {
       vertexCount: generated.vertexCount,
       triangleCount: generated.triangleCount,
       generator: `${operation.id}@${operation.version}`,
-      ...(operation.id === "mesh.procedural.cylinder" || operation.id === "mesh.procedural.uv-sphere"
-        ? { coordinateQuantization: "1e-6-unit-fixed-table" }
-        : {}),
+      ...meshMetadata(operation, build),
       ...(operation.id === "mesh.heightfield.from-image"
         ? {
             sourceSha256: build.inputs.source.sha256,
@@ -363,6 +475,18 @@ export async function executeProceduralCylinderMeshOperation(root, invocation = 
   return execute(root, PROCEDURAL_CYLINDER_MESH_OPERATION, build);
 }
 
+export async function createProceduralExtrudeMeshOperationBuildIdentity(
+  root,
+  { parameters = {}, inputs = {} } = {},
+) {
+  return createBuildIdentity(root, PROCEDURAL_EXTRUDE_MESH_OPERATION, parameters, inputs);
+}
+
+export async function executeProceduralExtrudeMeshOperation(root, invocation = {}) {
+  const build = await createProceduralExtrudeMeshOperationBuildIdentity(root, invocation);
+  return execute(root, PROCEDURAL_EXTRUDE_MESH_OPERATION, build);
+}
+
 export async function createProceduralPlaneMeshOperationBuildIdentity(
   root,
   { parameters = {}, inputs = {} } = {},
@@ -373,6 +497,18 @@ export async function createProceduralPlaneMeshOperationBuildIdentity(
 export async function executeProceduralPlaneMeshOperation(root, invocation = {}) {
   const build = await createProceduralPlaneMeshOperationBuildIdentity(root, invocation);
   return execute(root, PROCEDURAL_PLANE_MESH_OPERATION, build);
+}
+
+export async function createProceduralRevolveMeshOperationBuildIdentity(
+  root,
+  { parameters = {}, inputs = {} } = {},
+) {
+  return createBuildIdentity(root, PROCEDURAL_REVOLVE_MESH_OPERATION, parameters, inputs);
+}
+
+export async function executeProceduralRevolveMeshOperation(root, invocation = {}) {
+  const build = await createProceduralRevolveMeshOperationBuildIdentity(root, invocation);
+  return execute(root, PROCEDURAL_REVOLVE_MESH_OPERATION, build);
 }
 
 export async function createProceduralUvSphereMeshOperationBuildIdentity(
