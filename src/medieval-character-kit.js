@@ -7,18 +7,25 @@ const COORDINATE_SYSTEM = "right-handed-y-up";
 const UNIT = "millimeter";
 const ARCHETYPES = Object.freeze(["soldier", "archer", "knight"]);
 
-const COMMON = Object.freeze({
+function deepFreeze(value) {
+  if (typeof value !== "object" || value === null || Object.isFrozen(value)) return value;
+  Object.freeze(value);
+  for (const nested of Object.values(value)) deepFreeze(nested);
+  return value;
+}
+
+const COMMON = {
   legs: [
     { name: "left-leg", primitive: "box", parameters: { width: 180, height: 700, depth: 200 }, translate: [-140, 350, 0] },
     { name: "right-leg", primitive: "box", parameters: { width: 180, height: 700, depth: 200 }, translate: [140, 350, 0] },
   ],
   head: { name: "head", primitive: "uv-sphere", parameters: { radius: 180, latitudeSegments: 8, longitudeSegments: 16 }, translate: [0, 1580, 0] },
-});
+};
 
-export const MEDIEVAL_CHARACTER_RECIPES = Object.freeze({
-  soldier: Object.freeze({
+export const MEDIEVAL_CHARACTER_RECIPES = deepFreeze({
+  soldier: {
     label: "Foot soldier",
-    parts: Object.freeze([
+    parts: [
       ...COMMON.legs,
       { name: "torso", primitive: "box", parameters: { width: 520, height: 700, depth: 280 }, translate: [0, 1050, 0] },
       COMMON.head,
@@ -26,11 +33,11 @@ export const MEDIEVAL_CHARACTER_RECIPES = Object.freeze({
       { name: "right-arm", primitive: "box", parameters: { width: 140, height: 620, depth: 160 }, translate: [340, 1040, 0] },
       { name: "shield", primitive: "box", parameters: { width: 360, height: 520, depth: 80 }, translate: [-490, 1050, 0] },
       { name: "spear", primitive: "cylinder", parameters: { radius: 28, height: 1900, radialSegments: 8 }, translate: [520, 950, 0] },
-    ]),
-  }),
-  archer: Object.freeze({
+    ],
+  },
+  archer: {
     label: "Archer",
-    parts: Object.freeze([
+    parts: [
       ...COMMON.legs,
       { name: "torso", primitive: "box", parameters: { width: 460, height: 680, depth: 240 }, translate: [0, 1040, 0] },
       COMMON.head,
@@ -39,11 +46,11 @@ export const MEDIEVAL_CHARACTER_RECIPES = Object.freeze({
       { name: "bow-stave", primitive: "box", parameters: { width: 70, height: 1250, depth: 55 }, translate: [500, 1050, 0] },
       { name: "bow-string", primitive: "box", parameters: { width: 16, height: 1120, depth: 16 }, translate: [560, 1050, 0] },
       { name: "quiver", primitive: "box", parameters: { width: 180, height: 620, depth: 180 }, translate: [-250, 1170, -250] },
-    ]),
-  }),
-  knight: Object.freeze({
+    ],
+  },
+  knight: {
     label: "Armored knight",
-    parts: Object.freeze([
+    parts: [
       { name: "left-leg", primitive: "box", parameters: { width: 220, height: 720, depth: 240 }, translate: [-150, 360, 0] },
       { name: "right-leg", primitive: "box", parameters: { width: 220, height: 720, depth: 240 }, translate: [150, 360, 0] },
       { name: "armored-torso", primitive: "box", parameters: { width: 620, height: 760, depth: 360 }, translate: [0, 1090, 0] },
@@ -54,8 +61,8 @@ export const MEDIEVAL_CHARACTER_RECIPES = Object.freeze({
       { name: "right-pauldron", primitive: "uv-sphere", parameters: { radius: 210, latitudeSegments: 4, longitudeSegments: 8 }, translate: [360, 1390, 0] },
       { name: "shield", primitive: "box", parameters: { width: 440, height: 650, depth: 100 }, translate: [-570, 1050, 0] },
       { name: "sword", primitive: "box", parameters: { width: 70, height: 1150, depth: 55 }, translate: [570, 900, 0] },
-    ]),
-  }),
+    ],
+  },
 });
 
 function parseMicro(value) {
