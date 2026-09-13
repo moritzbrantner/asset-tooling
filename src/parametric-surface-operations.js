@@ -5,19 +5,12 @@ import {
   createAssetOperationRegistry,
   normalizeAssetOperationResult,
 } from "./operations.js";
-import { PROCEDURAL_RADIAL_SEGMENTS } from "./procedural-mesh.js";
+import { generateCylinderObj, PROCEDURAL_RADIAL_SEGMENTS } from "./procedural-mesh.js";
 import { captureToolIdentity } from "./tool.js";
 
 const VERSION = "1";
 const MAX_SIZE = 1_000_000;
 const MICRO_SCALE = 1_000_000n;
-const CIRCLE_SAMPLE_COUNT = 128;
-const QUARTER_SINE_MICRO = Object.freeze([
-  0, 49068, 98017, 146730, 195090, 242980, 290285, 336890, 382683, 427555, 471397,
-  514103, 555570, 595699, 634393, 671559, 707107, 740951, 773010, 803208, 831470,
-  857729, 881921, 903989, 923880, 941544, 956940, 970031, 980785, 989177, 995185,
-  998795, 1000000,
-]);
 
 const meshOutput = {
   id: "output",
@@ -33,7 +26,7 @@ const OPERATION_REGISTRY = createAssetOperationRegistry([
     version: VERSION,
     label: "Generate torus mesh",
     description:
-      "Generate a deterministic right-handed Y-up triangular OBJ torus from a fixed millionth-unit two-angle parameterization.",
+      "Generate a deterministic right-handed Y-up triangular OBJ torus from the canonical procedural-mesh fixed-circle sampling.",
     category: "procedural.mesh",
     inputs: [],
     outputs: [meshOutput],
@@ -92,20 +85,6 @@ function oneOfIntegers(value, location, allowed) {
   return value;
 }
 
-function sineMicro(index) {
-  const normalized = ((index % CIRCLE_SAMPLE_COUNT) + CIRCLE_SAMPLE_COUNT) % CIRCLE_SAMPLE_COUNT;
-  const quadrant = Math.floor(normalized / 32);
-  const offset = normalized % 32;
-  if (quadrant === 0) return QUARTER_SINE_MICRO[offset];
-  if (quadrant === 1) return QUARTER_SINE_MICRO[32 - offset];
-  if (quadrant === 2) return -QUARTER_SINE_MICRO[offset];
-  return -QUARTER_SINE_MICRO[32 - offset];
-}
-
-function cosineMicro(index) {
-  return sineMicro(index + 32);
-}
-
 function roundDivide(numerator, denominator) {
   if (typeof numerator !== "bigint" || typeof denominator !== "bigint" || denominator <= 0n) {
     throw new Error("parametric fixed-point division requires bigint numerator and positive bigint denominator");
@@ -125,6 +104,31 @@ function formatMicroUnits(value) {
   if (remainder === 0n) return `${negative ? "-" : ""}${whole}`;
   const fraction = remainder.toString().padStart(6, "0").replace(/0+$/, "");
   return `${negative ? "-" : ""}${whole}.${fraction}`;
+}
+
+function parseMicroUnits(value) {
+  const match = /^(-?)([0-9]+)(?:\.([0-9]{1,6}))?$/.exec(value);
+  if (!match) throw new Error(`canonical circle coordinate '${value}' is not a fixed decimal`);
+  const sign = match[1] === "-" ? -1n : 1n;
+  const whole = BigInt(match[2]);
+  const fraction = BigInt((match[3] ?? "").padEnd(6, "0") || "0");
+  return sign * (whole * MICRO_SCALE + fraction);
+}
+
+function canonicalCircleSamples(segments) {
+  const circle = generateCylinderObj({ radius: 1, height: 1, radialSegments: segments });
+  const vertices = circle.bytes
+    .toString("utf8")
+    .split("\n")
+    .filter((line) => line.startsWith("v "))
+    .slice(0, segments);
+  if (vertices.length !== segments) {
+    throw new Error("canonical procedural cylinder did not expose the expected circle vertices");
+  }
+  return vertices.map((line) => {
+    const [, x, , z] = line.split(" ");
+    return { x: parseMicroUnits(x), z: parseMicroUnits(z) };
+  });
 }
 
 function encodeObj(vertices, faces) {
@@ -166,22 +170,16 @@ export function generateTorusObj(value) {
     value,
     "torus",
   );
-  const majorStep = CIRCLE_SAMPLE_COUNT / majorSegments;
-  const minorStep = CIRCLE_SAMPLE_COUNT / minorSegments;
+  const majorCircle = canonicalCircleSamples(majorSegments);
+  const minorCircle = canonicalCircleSamples(minorSegments);
   const vertices = [];
-  for (let major = 0; major < majorSegments; major += 1) {
-    const majorIndex = major * majorStep;
-    const majorCos = BigInt(cosineMicro(majorIndex));
-    const majorSin = BigInt(sineMicro(majorIndex));
-    for (let minor = 0; minor < minorSegments; minor += 1) {
-      const minorIndex = minor * minorStep;
-      const minorCos = BigInt(cosineMicro(minorIndex));
-      const minorSin = BigInt(sineMicro(minorIndex));
-      const radialMicro = BigInt(majorRadius) * MICRO_SCALE + BigInt(minorRadius) * minorCos;
+  for (const major of majorCircle) {
+    for (const minor of minorCircle) {
+      const radialMicro = BigInt(majorRadius) * MICRO_SCALE + BigInt(minorRadius) * minor.x;
       vertices.push([
-        formatMicroUnits(roundDivide(radialMicro * majorCos, MICRO_SCALE)),
-        formatMicroUnits(BigInt(minorRadius) * minorSin),
-        formatMicroUnits(roundDivide(radialMicro * majorSin, MICRO_SCALE)),
+        formatMicroUnits(roundDivide(radialMicro * major.x, MICRO_SCALE)),
+        formatMicroUnits(BigInt(minorRadius) * minor.z),
+        formatMicroUnits(roundDivide(radialMicro * major.z, MICRO_SCALE)),
       ]);
     }
   }
@@ -223,7 +221,7 @@ async function implementationIdentity(operation) {
   return {
     id: `builtin.${operation.id}`,
     version: VERSION,
-    algorithm: "canonical-triangular-obj-torus-fixed-micro-two-angle-v1",
+    algorithm: "canonical-triangular-obj-torus-cylinder-circle-v1",
     randomness: "none",
     meshFormat: "obj",
     coordinateSystem: "right-handed-y-up",
@@ -258,6 +256,7 @@ async function execute(root, operation, build) {
       triangleCount: generated.triangleCount,
       generator: `${operation.id}@${operation.version}`,
       surface: "torus",
+      circleSampling: "mesh.procedural.cylinder@1",
     },
   });
   return normalizeAssetOperationResult(operation, {
