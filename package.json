@@ -32,6 +32,7 @@
     "./image/linear-rgba8": "./src/image-linear-rgba8.js",
     "./instance-set": "./src/instance-set.js",
     "./operations/audio": "./src/audio-operations.js",
+    "./operations/audio/procedural": "./src/audio-procedural-operations.js",
     "./operations/audio/codecs": "./src/audio-codec-operations.js",
     "./operations/audio/model": "./src/audio-model-operations.js",
     "./audio": "./src/audio.js",
