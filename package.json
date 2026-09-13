@@ -40,6 +40,7 @@
     "./catalog": "./src/catalog.js",
     "./catalog/acquisition": "./src/catalog-acquisition.js",
     "./catalog/storage": "./src/catalog-storage.js",
+    "./recipes/medieval-character-kit": "./src/medieval-character-kit.js",
     "./schemas/*": "./schemas/*"
   },
   "bin": { "asset-tooling": "./src/entry.js" },
@@ -54,6 +55,7 @@
     "catalog:storage:verify": "bun scripts/verify-catalog-storage.js",
     "catalog:lfs:promote": "bun scripts/promote-catalog-lfs-source.js",
     "pages:build": "bun scripts/build-catalog-pages.js",
+    "example:medieval-character-kit": "bun examples/medieval-character-kit/build.mjs",
     "check": "bun test && bun run package:check && bun run catalog:check && bun run catalog:storage:check && bun run pages:build && bun src/entry.js validate examples/copy/asset.json",
     "stability:check": "bun run check && bun scripts/check-stability.js"
   },
