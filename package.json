@@ -41,6 +41,7 @@
     "./catalog/acquisition": "./src/catalog-acquisition.js",
     "./catalog/storage": "./src/catalog-storage.js",
     "./recipes/medieval-character-kit": "./src/medieval-character-kit.js",
+    "./recipes/medieval-character-materials": "./src/medieval-character-materials.js",
     "./schemas/*": "./schemas/*"
   },
   "bin": { "asset-tooling": "./src/entry.js" },
