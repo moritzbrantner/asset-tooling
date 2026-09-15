@@ -56,15 +56,8 @@ test("gallery renders compact linked cards with image thumbnails and no provenan
   assert.doesNotMatch(html, /abc123/);
 });
 
-test("gallery renders audio waveforms and lazy 3D model previews", () => {
+test("gallery audio previews play on hover muted and expose an unmute control", () => {
   const html = renderCatalogGalleryHtml(model([
-    asset({
-      id: "example.mesh",
-      title: "Example Mesh",
-      kind: "mesh",
-      mediaType: "model/gltf-binary",
-      source: { ...asset().source, url: "https://example.com/model.glb" },
-    }),
     asset({
       id: "example.audio",
       title: "Example Audio",
@@ -73,12 +66,103 @@ test("gallery renders audio waveforms and lazy 3D model previews", () => {
       source: { ...asset().source, url: "https://example.com/audio.wav" },
     }),
   ]));
+  assert.match(html, /<canvas class="waveform" data-waveform-src="https:\/\/example\.com\/audio\.wav"/);
+  assert.match(html, /<audio class="hover-audio" muted preload="metadata" src="https:\/\/example\.com\/audio\.wav">/);
+  assert.match(html, /class="audio-mute-toggle"/);
+  assert.match(html, /aria-label="Unmute audio preview"/);
+  assert.match(html, /pointerenter/);
+  assert.match(html, /audio\.play\(\)/);
+  assert.match(html, /decodeAudioData/);
+});
+
+test("gallery 3D models spin automatically while remaining lazy", () => {
+  const html = renderCatalogGalleryHtml(model([
+    asset({
+      id: "example.mesh",
+      title: "Example Mesh",
+      kind: "mesh",
+      mediaType: "model/gltf-binary",
+      source: { ...asset().source, url: "https://example.com/model.glb" },
+    }),
+  ]));
   assert.match(html, /<model-viewer src="https:\/\/example\.com\/model\.glb"/);
   assert.match(html, /loading="lazy"/);
+  assert.match(html, /auto-rotate auto-rotate-delay="0" rotation-per-second="18deg" autoplay/);
+  assert.match(html, /Spinning 3D preview/);
   assert.match(html, /@google\/model-viewer@4\.3\.1\/dist\/model-viewer\.min\.js/);
-  assert.match(html, /<canvas class="waveform" data-waveform-src="https:\/\/example\.com\/audio\.wav"/);
-  assert.match(html, /new IntersectionObserver/);
-  assert.match(html, /decodeAudioData/);
+});
+
+test("animation-bearing 3D assets autoplay their embedded animation", () => {
+  const html = renderCatalogGalleryHtml(model([
+    asset({
+      id: "example.animation",
+      title: "Example Animation",
+      kind: "mesh",
+      mediaType: "model/gltf+json",
+      tags: ["animation", "gltf"],
+      source: { ...asset().source, url: "https://example.com/animated.gltf" },
+    }),
+  ]));
+  assert.match(html, /autoplay/);
+  assert.match(html, /Animated 3D preview/);
+});
+
+test("asset packs render a member carousel and classify audio packs as packs, not ZIP audio", () => {
+  const html = renderCatalogGalleryHtml(model([
+    asset({
+      id: "example.audio-pack",
+      title: "Example Audio Pack",
+      kind: "audio-pack",
+      mediaType: "application/zip",
+      source: { ...asset().source, url: "https://example.com/archive.zip" },
+      metadata: {
+        purpose: "Pack fixture",
+        previewMembers: [
+          { title: "Click", mediaType: "audio/wav", url: "https://example.com/click.wav" },
+          { title: "Hover", mediaType: "audio/wav", url: "https://example.com/hover.wav" },
+        ],
+      },
+    }),
+  ]));
+  assert.match(html, /data-pack-carousel/);
+  assert.match(html, /data-pack-prev/);
+  assert.match(html, /data-pack-next/);
+  assert.match(html, /1 \/ 2/);
+  assert.match(html, /data-waveform-src="https:\/\/example\.com\/click\.wav"/);
+  assert.doesNotMatch(html, /data-waveform-src="https:\/\/example\.com\/archive\.zip"/);
+});
+
+test("known catalog packs use presentation-only member hints", () => {
+  const html = renderCatalogGalleryHtml(model([
+    asset({
+      id: "kenney.boardgame-pack-v1",
+      title: "Board Game Pack",
+      kind: "asset-pack",
+      mediaType: "application/zip",
+      source: { ...asset().source, url: "https://example.com/boardgame.zip" },
+      metadata: { purpose: "Board game fixture" },
+    }),
+  ]));
+  assert.match(html, /data-pack-carousel/);
+  assert.match(html, /Ace of hearts/);
+  assert.match(html, /cardHeartsA\.png/);
+});
+
+test("HDRI assets use a tonemapped pannable preview when one is available", () => {
+  const html = renderCatalogGalleryHtml(model([
+    asset({
+      id: "example.hdri",
+      title: "Example HDRI",
+      kind: "hdri",
+      mediaType: "image/x-exr",
+      source: { ...asset().source, url: "https://example.com/studio.exr" },
+      metadata: { previewUrl: "https://example.com/studio-preview.jpg" },
+    }),
+  ]));
+  assert.match(html, /class="thumbnail hdri-preview" data-hdri-preview/);
+  assert.match(html, /src="https:\/\/example\.com\/studio-preview\.jpg"/);
+  assert.match(html, /Tonemapped HDRI · move to pan/);
+  assert.match(html, /pointermove/);
 });
 
 test("individual audio pages render waveform plus native playback and hidden provenance details", () => {
@@ -101,7 +185,7 @@ test("individual audio pages render waveform plus native playback and hidden pro
   assert.match(html, /href="\.\.\/\.\.\/">← Back to gallery<\/a>/);
 });
 
-test("individual 3D pages render an interactive pinned model-viewer", () => {
+test("individual 3D pages remain interactive while rotating and animating", () => {
   const mesh = asset({
     id: "example.mesh",
     title: "Example Mesh",
@@ -113,11 +197,11 @@ test("individual 3D pages render an interactive pinned model-viewer", () => {
   assert.match(html, /@google\/model-viewer@4\.3\.1\/dist\/model-viewer\.min\.js/);
   assert.match(html, /<model-viewer src="https:\/\/example\.com\/model\.glb"/);
   assert.match(html, /loading="eager"/);
-  assert.match(html, /camera-controls auto-rotate autoplay/);
-  assert.match(html, /Drag to orbit · scroll or pinch to zoom/);
+  assert.match(html, /auto-rotate auto-rotate-delay="0" rotation-per-second="18deg" autoplay camera-controls/);
+  assert.match(html, /Drag to orbit · model spins automatically/);
 });
 
-test("archive assets retain a deterministic fallback visualization", () => {
+test("archive assets without preview members retain a deterministic fallback visualization", () => {
   const html = renderCatalogGalleryHtml(model([
     asset({
       id: "example.pack",
@@ -125,6 +209,7 @@ test("archive assets retain a deterministic fallback visualization", () => {
       kind: "asset-pack",
       mediaType: "application/zip",
       source: { ...asset().source, url: "https://example.com/archive.zip" },
+      metadata: { previewMembers: [] },
     }),
   ]));
   assert.match(html, /preview-archive/);
