@@ -1,4 +1,5 @@
 import { buildMedievalCharacterKitManifest, MEDIEVAL_CHARACTER_RECIPES } from "./medieval-character-kit.js";
+import { createThreeDProductionManifest } from "./three-d-production-profile.js";
 
 const MATERIAL_RECIPE_VERSION = "1";
 const PACKAGE_VERSION = "1";
@@ -154,6 +155,12 @@ export function buildMedievalCharacterPackageManifest() {
     schemaVersion: 1,
     id: "medieval-character-package",
     packageVersion: PACKAGE_VERSION,
+    productionProfile: createThreeDProductionManifest({
+      unit: "millimeter",
+      materials: MEDIEVAL_CHARACTER_PALETTES[0].materials.map((entry) => entry.id),
+      animations: [],
+      collisionProxies: [],
+    }),
     geometry: buildMedievalCharacterKitManifest(),
     materials: buildMedievalCharacterMaterialManifest(),
     processingPlan: {
