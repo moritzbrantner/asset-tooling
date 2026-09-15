@@ -28,6 +28,13 @@
       "commit": "d605128d619315bbd8beec4137c0d2d413fc5fc4",
       "manifestPath": "examples/asset-tooling-animation-adapter/Cargo.toml",
       "operation": "animation.reduce"
+    },
+    {
+      "id": "three-d-skinning-validate",
+      "repository": "moritzbrantner/3d-lab",
+      "commit": "9e569a23c487336eb8424e4d0c451a59d2beb9d4",
+      "manifestPath": "examples/asset-tooling-skinning-adapter/Cargo.toml",
+      "operation": "mesh.skinning.validate"
     }
   ]
 }
