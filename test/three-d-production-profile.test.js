@@ -11,7 +11,7 @@ import {
   buildMedievalCharacterPackageManifest,
 } from "../src/medieval-character-materials.js";
 
-test("3D production profile makes coordinate, scale, transform, naming, and proxy conventions explicit", () => {
+test("3D production profile makes coordinate, scale, transform, naming, skinning, and proxy conventions explicit", () => {
   assert.equal(THREE_D_PRODUCTION_PROFILE_V1.id, "asset-tooling-3d-production-v1");
   assert.equal(THREE_D_PRODUCTION_PROFILE_V1.coordinateSystem, "right-handed-y-up");
   assert.deepEqual(THREE_D_PRODUCTION_PROFILE_V1.units.scaleToMeters, {
@@ -22,6 +22,22 @@ test("3D production profile makes coordinate, scale, transform, naming, and prox
   assert.equal(THREE_D_PRODUCTION_PROFILE_V1.transforms.space, "local");
   assert.equal(THREE_D_PRODUCTION_PROFILE_V1.transforms.rotationRepresentation, "quaternion-xyzw");
   assert.equal(THREE_D_PRODUCTION_PROFILE_V1.naming.convention, "lower-kebab-case");
+  assert.equal(
+    THREE_D_PRODUCTION_PROFILE_V1.skinning.authority,
+    "moritzbrantner/3d-lab/three-d-animation",
+  );
+  assert.equal(THREE_D_PRODUCTION_PROFILE_V1.skinning.hierarchyOrder, "parent-before-child");
+  assert.equal(THREE_D_PRODUCTION_PROFILE_V1.skinning.matrixLayout, "column-major-4x4");
+  assert.equal(
+    THREE_D_PRODUCTION_PROFILE_V1.skinning.skinMatrixRule,
+    "joint-world-times-inverse-bind",
+  );
+  assert.equal(THREE_D_PRODUCTION_PROFILE_V1.skinning.influenceSlotsPerVertex, 4);
+  assert.equal(
+    THREE_D_PRODUCTION_PROFILE_V1.skinning.weightRule,
+    "finite-nonnegative-normalized-sum-one",
+  );
+  assert.equal(THREE_D_PRODUCTION_PROFILE_V1.skinning.jointIndexRule, "active-indices-in-range");
   assert.equal(THREE_D_PRODUCTION_PROFILE_V1.collisionProxies.declaration, "explicit-manifest-entry");
   assert.equal(THREE_D_PRODUCTION_PROFILE_V1.collisionProxies.namingInference, false);
   assert(Object.isFrozen(THREE_D_PRODUCTION_PROFILE_V1));
