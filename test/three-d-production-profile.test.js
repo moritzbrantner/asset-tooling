@@ -98,6 +98,10 @@ test("existing medieval material roles and package scale fit the production prof
   assert.equal(packageManifest.productionProfile.unitScaleToMeters, "0.001");
   assert.equal(packageManifest.productionProfile.coordinateSystem, packageManifest.geometry.coordinateSystem);
   assert.equal(packageManifest.productionProfile.unit, packageManifest.geometry.unit);
+  assert.equal(
+    packageManifest.productionProfile.unitScaleToMeters,
+    packageManifest.geometry.consumerScaleToMeters,
+  );
   assert.deepEqual(
     packageManifest.productionProfile.materials,
     MEDIEVAL_CHARACTER_PALETTES[0].materials.map((material) => material.id),
