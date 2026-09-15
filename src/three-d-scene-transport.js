@@ -2,10 +2,10 @@ export const THREE_D_SCENE_MEDIA_TYPE = "application/vnd.moritzbrantner.three-d.
 export const GLB_MEDIA_TYPE = "model/gltf-binary";
 export const THREE_D_SCENE_COORDINATE_SYSTEM = "right-handed-y-up";
 export const THREE_D_SCENE_NORMALIZED_UNIT = "meter";
+export { parseCanonicalGlbBytes } from "./canonical-glb-validation.js";
 
 const SOURCE_UNITS = new Set(["meter", "centimeter", "millimeter"]);
 const UNIT_QUATERNION_TOLERANCE = 1.0e-4;
-const GLB_JSON_CHUNK = 0x4e4f534a;
 
 function isPlainObject(value) {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
@@ -76,6 +76,24 @@ function compareCodeUnits(left, right) {
   return left < right ? -1 : left > right ? 1 : 0;
 }
 
+function assertCanonicalPositiveZero(value, location) {
+  if (typeof value === "number") {
+    if (Object.is(value, -0)) {
+      throw new Error(`${location} must use positive zero in canonical output`);
+    }
+    return;
+  }
+  if (Array.isArray(value)) {
+    value.forEach((entry, index) => assertCanonicalPositiveZero(entry, `${location}[${index}]`));
+    return;
+  }
+  if (isPlainObject(value)) {
+    for (const [key, entry] of Object.entries(value)) {
+      assertCanonicalPositiveZero(entry, `${location}.${key}`);
+    }
+  }
+}
+
 function parseMesh(entry, index, location) {
   const meshLocation = `${location}.meshes[${index}]`;
   const mesh = assertAllowedKeys(
@@ -125,6 +143,22 @@ function parseMesh(entry, index, location) {
     colors: attribute("colors", 3),
     triangleCount: indices.length / 3,
   };
+}
+
+function assertCanonicalVertexCompaction(mesh, location) {
+  const referenced = new Set();
+  let nextFirstUse = 0;
+  for (const vertexIndex of mesh.indices) {
+    if (referenced.has(vertexIndex)) continue;
+    if (vertexIndex !== nextFirstUse) {
+      throw new Error(`${location}.indices must use canonical first-index-use vertex order`);
+    }
+    referenced.add(vertexIndex);
+    nextFirstUse += 1;
+  }
+  if (referenced.size !== mesh.vertices.length) {
+    throw new Error(`${location}.vertices must not contain unused vertices after normalization`);
+  }
 }
 
 function parseNode(entry, index, location) {
@@ -197,6 +231,7 @@ export function parseThreeDSceneBytes(bytes, location, { requireCanonical = fals
     new Set(["schemaVersion", "coordinateSystem", "unit", "meshes", "nodes"]),
     location,
   );
+  if (requireCanonical) assertCanonicalPositiveZero(document, location);
   if (document.schemaVersion !== 1) throw new Error(`${location}.schemaVersion must be 1`);
   if (document.coordinateSystem !== THREE_D_SCENE_COORDINATE_SYSTEM) {
     throw new Error(
@@ -250,6 +285,9 @@ export function parseThreeDSceneBytes(bytes, location, { requireCanonical = fals
     const sortedMeshes = [...meshOrder].sort(compareCodeUnits);
     if (meshOrder.some((id, index) => id !== sortedMeshes[index])) {
       throw new Error(`${location}.meshes must use canonical id order`);
+    }
+    for (const [meshIndex, mesh] of meshes.entries()) {
+      assertCanonicalVertexCompaction(mesh, `${location}.meshes[${meshIndex}]`);
     }
     const nodeOrder = nodes.map((node) => node.id);
     if (nodeOrder.some((id, index) => id !== canonicalOrder[index])) {
@@ -381,82 +419,6 @@ export function normalizeSceneNormalizeObservations(value, source, output) {
     coordinateSystem: THREE_D_SCENE_COORDINATE_SYSTEM,
     canonicalOrder: true,
     canonicalQuaternionSign: true,
-  };
-}
-
-export function parseCanonicalGlbBytes(bytes, location) {
-  if (!Buffer.isBuffer(bytes) || bytes.length < 20) {
-    throw new Error(`${location} must be a GLB 2.0 byte sequence`);
-  }
-  if (bytes.toString("ascii", 0, 4) !== "glTF") throw new Error(`${location} has invalid GLB magic`);
-  if (bytes.readUInt32LE(4) !== 2) throw new Error(`${location} GLB version must be 2`);
-  if (bytes.readUInt32LE(8) !== bytes.length) {
-    throw new Error(`${location} GLB declared byte length does not match output bytes`);
-  }
-  const jsonLength = bytes.readUInt32LE(12);
-  if (bytes.readUInt32LE(16) !== GLB_JSON_CHUNK) {
-    throw new Error(`${location} first GLB chunk must be JSON`);
-  }
-  const jsonEnd = 20 + jsonLength;
-  if (jsonEnd > bytes.length) throw new Error(`${location} JSON chunk exceeds GLB bytes`);
-
-  let document;
-  try {
-    document = JSON.parse(bytes.toString("utf8", 20, jsonEnd).trimEnd());
-  } catch (error) {
-    throw new Error(`${location} contains invalid GLB JSON: ${error.message}`);
-  }
-  if (!isPlainObject(document) || document.asset?.version !== "2.0") {
-    throw new Error(`${location} GLB JSON must declare glTF 2.0`);
-  }
-  if (!Array.isArray(document.meshes) || !Array.isArray(document.nodes)) {
-    throw new Error(`${location} GLB JSON must contain mesh and node arrays`);
-  }
-  if (!Array.isArray(document.accessors)) {
-    throw new Error(`${location} GLB JSON must contain accessors`);
-  }
-  const sceneIndex = document.scene;
-  if (!Number.isInteger(sceneIndex) || !Array.isArray(document.scenes) || !document.scenes[sceneIndex]) {
-    throw new Error(`${location} GLB JSON must select a valid scene`);
-  }
-  const roots = document.scenes[sceneIndex].nodes;
-  if (!Array.isArray(roots)) throw new Error(`${location} selected GLB scene must contain root nodes`);
-
-  let vertexCount = 0;
-  let triangleCount = 0;
-  for (const [meshIndex, mesh] of document.meshes.entries()) {
-    if (!isPlainObject(mesh) || !Array.isArray(mesh.primitives) || mesh.primitives.length !== 1) {
-      throw new Error(`${location} mesh ${meshIndex} must contain exactly one canonical primitive`);
-    }
-    const primitive = mesh.primitives[0];
-    const positionAccessor = primitive?.attributes?.POSITION;
-    const indexAccessor = primitive?.indices;
-    if (!Number.isInteger(positionAccessor) || !document.accessors[positionAccessor]) {
-      throw new Error(`${location} mesh ${meshIndex} has no valid POSITION accessor`);
-    }
-    if (!Number.isInteger(indexAccessor) || !document.accessors[indexAccessor]) {
-      throw new Error(`${location} mesh ${meshIndex} has no valid index accessor`);
-    }
-    const positionCount = nonNegativeSafeInteger(
-      document.accessors[positionAccessor].count,
-      `${location}.accessors[${positionAccessor}].count`,
-    );
-    const indexCount = nonNegativeSafeInteger(
-      document.accessors[indexAccessor].count,
-      `${location}.accessors[${indexAccessor}].count`,
-    );
-    if (indexCount % 3 !== 0) {
-      throw new Error(`${location} mesh ${meshIndex} index count is not triangular`);
-    }
-    vertexCount += positionCount;
-    triangleCount += indexCount / 3;
-  }
-  return {
-    meshCount: document.meshes.length,
-    nodeCount: document.nodes.length,
-    rootNodeCount: roots.length,
-    vertexCount,
-    triangleCount,
   };
 }
 

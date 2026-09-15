@@ -117,3 +117,14 @@ test("canonical GLB validation rejects non-finite attribute payloads", () => {
     /non-finite f32 component/,
   );
 });
+
+test("canonical GLB validation rejects non-triangle primitive modes", () => {
+  for (const mode of [0, 1, 2, 3, 5, 6]) {
+    const document = canonicalDocument();
+    document.meshes[0].primitives[0].mode = mode;
+    assert.throws(
+      () => parseCanonicalGlbBytes(glb(document), "fixture"),
+      /primitive mode must be TRIANGLES/,
+    );
+  }
+});

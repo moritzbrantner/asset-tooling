@@ -122,6 +122,12 @@ function pathIsInside(root, candidate) {
   );
 }
 
+export function resolveCargoManifestPath(root, manifestValue) {
+  return path.isAbsolute(manifestValue)
+    ? path.resolve(manifestValue)
+    : path.resolve(root, manifestValue);
+}
+
 async function gitOutput(checkoutRoot, arguments_, location) {
   try {
     const { stdout } = await execFileAsync("git", ["-C", checkoutRoot, ...arguments_], {
@@ -164,7 +170,7 @@ async function verifyProcessorSource(processor, root, operationId) {
       if (manifestIndex < 0 || typeof manifestValue !== "string") {
         throw new Error(`${operationId} cargo processor must declare --manifest-path`);
       }
-      const manifestPath = path.resolve(manifestValue);
+      const manifestPath = resolveCargoManifestPath(root, manifestValue);
       if (!pathIsInside(processor.checkoutRoot, manifestPath)) {
         throw new Error(`${operationId} processor manifest must be inside checkoutRoot`);
       }
