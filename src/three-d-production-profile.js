@@ -33,6 +33,15 @@ export const THREE_D_PRODUCTION_PROFILE_V1 = deepFreeze({
     materialSemantics: "stable-role-id",
     animationSemantics: "stable-clip-id",
   },
+  skinning: {
+    authority: "moritzbrantner/3d-lab/three-d-animation",
+    hierarchyOrder: "parent-before-child",
+    matrixLayout: "column-major-4x4",
+    skinMatrixRule: "joint-world-times-inverse-bind",
+    influenceSlotsPerVertex: 4,
+    weightRule: "finite-nonnegative-normalized-sum-one",
+    jointIndexRule: "active-indices-in-range",
+  },
   collisionProxies: {
     declaration: "explicit-manifest-entry",
     namingInference: false,

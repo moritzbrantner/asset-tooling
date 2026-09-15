@@ -18,6 +18,11 @@ import {
   executeMeshLodChainOperation,
   executeMeshSimplifyOperation,
 } from "../src/processing-operations.js";
+import {
+  THREE_D_SKINNING_MEDIA_TYPE,
+  createMeshSkinningValidateOperationBuildIdentity,
+  executeMeshSkinningValidateOperation,
+} from "../src/skinning-processing-operations.js";
 
 const [processorCheckout, revision, repository, manifestRelativePath, operation] = process.argv.slice(2);
 if (!processorCheckout || !path.isAbsolute(processorCheckout)) {
@@ -40,12 +45,13 @@ if (
 const supportedOperations = new Set([
   "mesh.simplify",
   "mesh.lod_chain",
+  "mesh.skinning.validate",
   "animation.resample",
   "animation.reduce",
 ]);
 if (!supportedOperations.has(operation)) {
   throw new Error(
-    "processor contract proof supports mesh.simplify, mesh.lod_chain, animation.resample, and animation.reduce",
+    "processor contract proof supports mesh.simplify, mesh.lod_chain, mesh.skinning.validate, animation.resample, and animation.reduce",
   );
 }
 
@@ -62,17 +68,18 @@ const prefixArguments = ["--quiet", "--offline", "--manifest-path", manifestPath
 if (operation === "mesh.lod_chain") prefixArguments.push("--bin", "lod_chain");
 if (operation === "animation.reduce") prefixArguments.push("--bin", "animation_reduce");
 prefixArguments.push("--");
-const animationOperation = operation.startsWith("animation.");
+const verifiedCheckoutOperation =
+  operation.startsWith("animation.") || operation === "mesh.skinning.validate";
 const processor = {
   repository,
   revision,
   executable: "cargo",
   scriptPath: "run",
   prefixArguments,
-  ...(animationOperation ? { checkoutRoot: processorCheckout } : {}),
+  ...(verifiedCheckoutOperation ? { checkoutRoot: processorCheckout } : {}),
 };
 const meshSource = { repository, revision };
-const animationSource = { repository, revision, verification: "git-clean-exact-head" };
+const verifiedSource = { repository, revision, verification: "git-clean-exact-head" };
 
 function gridMesh(segments) {
   const vertices = [];
@@ -158,6 +165,46 @@ async function storedAnimationSource(root) {
       kind: "animation",
       mediaType: THREE_D_ANIMATION_MEDIA_TYPE,
       metadata: { animationSchemaVersion: 1, channelCount: 3, keyframeCount: 9 },
+    })
+  ).asset;
+  return { sourceDocument, source };
+}
+
+const IDENTITY = [
+  1, 0, 0, 0,
+  0, 1, 0, 0,
+  0, 0, 1, 0,
+  0, 0, 0, 1,
+];
+
+function translatedY(value) {
+  const matrix = [...IDENTITY];
+  matrix[13] = value;
+  return matrix;
+}
+
+function skinningDocument() {
+  return {
+    schemaVersion: 1,
+    joints: [
+      { parent: null, inverseBind: IDENTITY, bindWorld: IDENTITY },
+      { parent: 0, inverseBind: translatedY(-1), bindWorld: translatedY(1) },
+    ],
+    influences: [
+      { joints: [0, 0, 0, 0], weights: [1, 0, 0, 0] },
+      { joints: [0, 1, 0, 0], weights: [1, 3, 0, 0] },
+    ],
+  };
+}
+
+async function storedSkinningSource(root) {
+  const sourceDocument = skinningDocument();
+  const source = (
+    await storeAssetObject(root, {
+      bytes: Buffer.from(JSON.stringify(sourceDocument), "utf8"),
+      kind: "skinning",
+      mediaType: THREE_D_SKINNING_MEDIA_TYPE,
+      metadata: { skinningSchemaVersion: 1, jointCount: 2, vertexInfluenceCount: 2 },
     })
   ).asset;
   return { sourceDocument, source };
@@ -295,6 +342,66 @@ async function checkLodChain(root) {
   };
 }
 
+async function checkSkinning(root) {
+  const { sourceDocument, source } = await storedSkinningSource(root);
+  const invocation = {
+    parameters: { bindPoseIdentityTolerance: 0.0001 },
+    inputs: { source },
+  };
+  const identity = await createMeshSkinningValidateOperationBuildIdentity(root, invocation, processor);
+  assert.deepEqual(identity.operation, { id: operation, version: "1" });
+  assert.deepEqual(identity.implementation.source, verifiedSource);
+  assert.equal(identity.implementation.runtime.kind, "cargo-rust-v1");
+  assert.match(identity.implementation.runtime.cargo, /^cargo 1\.98\.1/m);
+  assert.match(identity.implementation.runtime.rustc, /^rustc 1\.98\.1/m);
+  assert.equal(identity.implementation.probe.id, "three-d-skinning-validate");
+  assert.equal(identity.implementation.probe.algorithm, "three-d-animation-skinning-profile-v1");
+  assert.equal(identity.implementation.probe.protocol, "asset-tooling-process-adapter-v1");
+  assert.equal(identity.implementation.probe.codec, "three-d-skinning-json-v1");
+  assert.equal(identity.implementation.probe.dependencies.threeDAnimation, "0.1.0");
+  assert.match(identity.implementation.probe.cargoLock, /name = "three-d-animation"/);
+
+  const first = await executeMeshSkinningValidateOperation(root, invocation, processor);
+  const second = await executeMeshSkinningValidateOperation(root, invocation, processor);
+  assert.equal(second.outputs.output.sha256, first.outputs.output.sha256);
+  assert.deepEqual(second.observations, first.observations);
+  assert.equal(first.outputs.output.kind, "skinning");
+  assert.equal(first.outputs.output.mediaType, THREE_D_SKINNING_MEDIA_TYPE);
+  assert.equal(first.observations.jointCount, 2);
+  assert.equal(first.observations.rootJointCount, 1);
+  assert.equal(first.observations.vertexInfluenceCount, 2);
+  assert.equal(first.observations.influenceSlotsPerVertex, 4);
+  assert.equal(first.observations.maxActiveInfluences, 2);
+  assert.equal(first.observations.parentBeforeChild, true);
+  assert.equal(first.observations.weightsNormalized, true);
+  assert.equal(first.observations.activeJointIndicesInRange, true);
+  assert.equal(first.observations.inverseBindMatchesBindPose, true);
+  assert.equal(first.observations.maxBindPoseIdentityError, 0);
+  assert.equal(first.observations.matrixLayout, "column-major-4x4");
+  assert.equal(first.observations.skinMatrixRule, "joint-world-times-inverse-bind");
+
+  const output = JSON.parse((await resolveAssetObject(root, first.outputs.output)).toString("utf8"));
+  assert.deepEqual(output.joints, sourceDocument.joints);
+  assert.deepEqual(output.influences[0], sourceDocument.influences[0]);
+  assert.deepEqual(output.influences[1], {
+    joints: [0, 1, 0, 0],
+    weights: [0.25, 0.75, 0, 0],
+  });
+
+  return {
+    status: "processor-contract-valid",
+    processor: identity.implementation.source,
+    runtime: identity.implementation.runtime,
+    algorithm: identity.implementation.probe.algorithm,
+    codec: identity.implementation.probe.codec,
+    inputSha256: source.sha256,
+    outputSha256: first.outputs.output.sha256,
+    jointCount: first.observations.jointCount,
+    vertexInfluenceCount: first.observations.vertexInfluenceCount,
+    maxBindPoseIdentityError: first.observations.maxBindPoseIdentityError,
+  };
+}
+
 async function checkAnimationResample(root) {
   const { source, sourceDocument } = await storedAnimationSource(root);
   const invocation = {
@@ -309,7 +416,7 @@ async function checkAnimationResample(root) {
   };
   const identity = await createAnimationResampleOperationBuildIdentity(root, invocation, processor);
   assert.deepEqual(identity.operation, { id: operation, version: "1" });
-  assert.deepEqual(identity.implementation.source, animationSource);
+  assert.deepEqual(identity.implementation.source, verifiedSource);
   assert.equal(identity.implementation.runtime.kind, "cargo-rust-v1");
   assert.match(identity.implementation.runtime.cargo, /^cargo 1\.98\.1/m);
   assert.match(identity.implementation.runtime.rustc, /^rustc 1\.98\.1/m);
@@ -364,7 +471,7 @@ async function checkAnimationReduce(root) {
   };
   const identity = await createAnimationReduceOperationBuildIdentity(root, invocation, processor);
   assert.deepEqual(identity.operation, { id: operation, version: "1" });
-  assert.deepEqual(identity.implementation.source, animationSource);
+  assert.deepEqual(identity.implementation.source, verifiedSource);
   assert.equal(identity.implementation.runtime.kind, "cargo-rust-v1");
   assert.match(identity.implementation.runtime.cargo, /^cargo 1\.98\.1/m);
   assert.match(identity.implementation.runtime.rustc, /^rustc 1\.98\.1/m);
@@ -416,6 +523,9 @@ try {
       break;
     case "mesh.lod_chain":
       result = await checkLodChain(root);
+      break;
+    case "mesh.skinning.validate":
+      result = await checkSkinning(root);
       break;
     case "animation.resample":
       result = await checkAnimationResample(root);

@@ -52,6 +52,14 @@ const expectedProcessors = new Map([
       operation: "animation.reduce",
     },
   ],
+  [
+    "three-d-skinning-validate",
+    {
+      repository: "moritzbrantner/3d-lab",
+      manifestPath: "examples/asset-tooling-skinning-adapter/Cargo.toml",
+      operation: "mesh.skinning.validate",
+    },
+  ],
 ]);
 
 const expectedWorkflowStack = {
