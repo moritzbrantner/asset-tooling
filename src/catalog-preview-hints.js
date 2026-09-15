@@ -6,17 +6,17 @@ export const CATALOG_PREVIEW_HINTS = Object.freeze({
       Object.freeze({
         title: "Ace of hearts",
         mediaType: "image/png",
-        url: "https://raw.githubusercontent.com/ETdoFresh/kenney.nl/master/boardgamepack/PNG/Cards/cardHeartsA.png",
+        url: "https://raw.githubusercontent.com/ETdoFresh/kenney.nl/45df48c4d45f8716216b1a9e22df0b69cd9f5932/boardgamepack/PNG/Cards/cardHeartsA.png",
       }),
       Object.freeze({
         title: "Blue card back",
         mediaType: "image/png",
-        url: "https://raw.githubusercontent.com/ETdoFresh/kenney.nl/master/boardgamepack/PNG/Cards/cardBack_blue2.png",
+        url: "https://raw.githubusercontent.com/ETdoFresh/kenney.nl/45df48c4d45f8716216b1a9e22df0b69cd9f5932/boardgamepack/PNG/Cards/cardBack_blue2.png",
       }),
       Object.freeze({
         title: "Red die",
         mediaType: "image/png",
-        url: "https://raw.githubusercontent.com/ETdoFresh/kenney.nl/master/boardgamepack/PNG/Dice/dieRed6.png",
+        url: "https://raw.githubusercontent.com/ETdoFresh/kenney.nl/45df48c4d45f8716216b1a9e22df0b69cd9f5932/boardgamepack/PNG/Dice/dieRed6.png",
       }),
     ]),
   }),
@@ -44,17 +44,17 @@ export const CATALOG_PREVIEW_HINTS = Object.freeze({
       Object.freeze({
         title: "Blue button",
         mediaType: "image/png",
-        url: "https://raw.githubusercontent.com/ereborstudios/kenney-ui-pack/main/sprites/blue_button00.png",
+        url: "https://raw.githubusercontent.com/ereborstudios/kenney-ui-pack/6ab7fc90e56163e16873d618343eb2a7c7631019/sprites/blue_button00.png",
       }),
       Object.freeze({
         title: "Blue checkmark box",
         mediaType: "image/png",
-        url: "https://raw.githubusercontent.com/ereborstudios/kenney-ui-pack/main/sprites/blue_boxCheckmark.png",
+        url: "https://raw.githubusercontent.com/ereborstudios/kenney-ui-pack/6ab7fc90e56163e16873d618343eb2a7c7631019/sprites/blue_boxCheckmark.png",
       }),
       Object.freeze({
         title: "Green button",
         mediaType: "image/png",
-        url: "https://raw.githubusercontent.com/ereborstudios/kenney-ui-pack/main/sprites/green_button00.png",
+        url: "https://raw.githubusercontent.com/ereborstudios/kenney-ui-pack/6ab7fc90e56163e16873d618343eb2a7c7631019/sprites/green_button00.png",
       }),
     ]),
   }),
