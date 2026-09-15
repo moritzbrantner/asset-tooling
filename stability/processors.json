@@ -35,6 +35,20 @@
       "commit": "9e569a23c487336eb8424e4d0c451a59d2beb9d4",
       "manifestPath": "examples/asset-tooling-skinning-adapter/Cargo.toml",
       "operation": "mesh.skinning.validate"
+    },
+    {
+      "id": "three-d-scene-normalize",
+      "repository": "moritzbrantner/3d-lab",
+      "commit": "2af3ef54bb515c8f5611d4f7d39d484202a42784",
+      "manifestPath": "examples/asset-tooling-scene-adapter/Cargo.toml",
+      "operation": "scene.normalize"
+    },
+    {
+      "id": "three-d-scene-export-glb",
+      "repository": "moritzbrantner/3d-lab",
+      "commit": "2af3ef54bb515c8f5611d4f7d39d484202a42784",
+      "manifestPath": "examples/asset-tooling-scene-adapter/Cargo.toml",
+      "operation": "scene.export.glb"
     }
   ]
 }
