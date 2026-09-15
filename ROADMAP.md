@@ -108,7 +108,7 @@ Expand deterministic/seeded generation through authoritative procedural implemen
 - [x] Integer circle/rounded-rectangle signed-distance fields plus canonical SVG circle/rounded-rectangle vector shapes.
 - [x] Seeded periodic value-noise textures and grayscale height maps plus deterministic wrapped/clamped normal-map derivation.
 - [x] Deterministic centered OBJ box/plane primitives and RGBA8 heightfield-to-mesh generation with explicit integer/half-unit geometry.
-- [ ] Additional 3D primitives, terrain shaping, extrusion, revolution, parametric surfaces, and seeded scatter/distribution.
+- [x] Additional 3D primitives, terrain shaping, extrusion, revolution, parametric surfaces, and seeded scatter/distribution.
 - [x] Initial deterministic audio synthesis for silence, square, saw, and explicitly seeded noise.
 - [ ] Broader procedural audio primitives such as additional oscillators and envelopes where exact sample semantics are useful.
 
@@ -149,9 +149,10 @@ Model acquisition remains separate from execution; output-affecting model/config
 
 Grow the current traceable 3D processing contracts into a production profile without moving renderer/runtime semantics into asset-tooling.
 
-- [ ] Coordinate system, scale, transforms, material naming, animation naming, and collision-proxy conventions as a complete profile.
+- [x] Coordinate system, scale, transforms, material naming, animation naming, and collision-proxy conventions as a complete profile.
 - [x] Mesh simplification and source-based LOD chains through pinned authoritative processors.
 - [x] Animation resampling/reduction with explicit endpoint/error evidence through pinned authoritative processors.
+- [x] Deterministic local-space procedural translation, yaw, and uniform-scale source clips using the shared animation transport contract.
 - [ ] Explicit skinned-mesh production-profile evidence.
 - [ ] Mesh/scene normalization and export normalization.
 
