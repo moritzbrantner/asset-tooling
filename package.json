@@ -41,6 +41,7 @@
     "./catalog": "./src/catalog.js",
     "./catalog/acquisition": "./src/catalog-acquisition.js",
     "./catalog/storage": "./src/catalog-storage.js",
+    "./3d/production-profile": "./src/three-d-production-profile.js",
     "./recipes/medieval-character-kit": "./src/medieval-character-kit.js",
     "./recipes/medieval-character-materials": "./src/medieval-character-materials.js",
     "./schemas/*": "./schemas/*"
