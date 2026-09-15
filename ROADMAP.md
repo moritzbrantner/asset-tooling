@@ -153,7 +153,7 @@ Grow the current traceable 3D processing contracts into a production profile wit
 - [x] Mesh simplification and source-based LOD chains through pinned authoritative processors.
 - [x] Animation resampling/reduction with explicit endpoint/error evidence through pinned authoritative processors.
 - [x] Deterministic local-space procedural translation, yaw, and uniform-scale source clips using the shared animation transport contract.
-- [ ] Explicit skinned-mesh production-profile evidence.
+- [x] Explicit skinned-mesh production-profile evidence through the pinned `three-d-animation` authority.
 - [ ] Mesh/scene normalization and export normalization.
 
 ### Milestone I — Asset analysis and validation — IN PROGRESS
