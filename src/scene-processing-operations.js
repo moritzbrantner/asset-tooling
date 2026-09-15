@@ -1,4 +1,5 @@
 import { assetObjectPortablePath, resolveAssetObject, storeAssetObject } from "./asset-store.js";
+import { parseCanonicalGlbBytes } from "./canonical-glb-validation.js";
 import {
   createAssetOperationBuildIdentity,
   createAssetOperationRegistry,
@@ -13,7 +14,6 @@ import {
   THREE_D_SCENE_NORMALIZED_UNIT,
   normalizeSceneExportObservations,
   normalizeSceneNormalizeObservations,
-  parseCanonicalGlbBytes,
   parseThreeDSceneBytes,
 } from "./three-d-scene-transport.js";
 
