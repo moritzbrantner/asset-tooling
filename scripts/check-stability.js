@@ -60,6 +60,22 @@ const expectedProcessors = new Map([
       operation: "mesh.skinning.validate",
     },
   ],
+  [
+    "three-d-scene-normalize",
+    {
+      repository: "moritzbrantner/3d-lab",
+      manifestPath: "examples/asset-tooling-scene-adapter/Cargo.toml",
+      operation: "scene.normalize",
+    },
+  ],
+  [
+    "three-d-scene-export-glb",
+    {
+      repository: "moritzbrantner/3d-lab",
+      manifestPath: "examples/asset-tooling-scene-adapter/Cargo.toml",
+      operation: "scene.export.glb",
+    },
+  ],
 ]);
 
 const expectedWorkflowStack = {
@@ -78,7 +94,10 @@ function assert(condition, message) {
 }
 
 function assertExactFields(value, allowed, description) {
-  assert(value && typeof value === "object" && !Array.isArray(value), `${description} must be an object`);
+  assert(
+    value && typeof value === "object" && !Array.isArray(value),
+    `${description} must be an object`,
+  );
   for (const key of Object.keys(value)) {
     assert(allowed.has(key), `${description} contains unknown field '${key}'`);
   }
@@ -88,21 +107,34 @@ function assertExactFields(value, allowed, description) {
 }
 
 function assertPortableRelativePath(value, description) {
-  assert(typeof value === "string" && value.length > 0, `${description} must be a non-empty string`);
+  assert(
+    typeof value === "string" && value.length > 0,
+    `${description} must be a non-empty string`,
+  );
   assert(!value.startsWith("/"), `${description} must be relative`);
   assert(!value.includes("\\"), `${description} must use '/' separators`);
   const segments = value.split("/");
-  assert(segments.every((segment) => segment !== "" && segment !== "." && segment !== ".."), `${description} must be normalized`);
+  assert(
+    segments.every((segment) => segment !== "" && segment !== "." && segment !== ".."),
+    `${description} must be normalized`,
+  );
 }
 
 function assertExactCommit(value, description) {
-  assert(/^[0-9a-f]{40}$/.test(value), `${description} must be an exact lowercase Git commit SHA`);
+  assert(
+    /^[0-9a-f]{40}$/.test(value),
+    `${description} must be an exact lowercase Git commit SHA`,
+  );
 }
 
 const consumerManifest = JSON.parse(
   await readFile(new URL("../stability/consumers.json", import.meta.url), "utf8"),
 );
-assertExactFields(consumerManifest, new Set(["schemaVersion", "consumers"]), "stability manifest");
+assertExactFields(
+  consumerManifest,
+  new Set(["schemaVersion", "consumers"]),
+  "stability manifest",
+);
 assert(consumerManifest.schemaVersion === 1, "stability manifest schemaVersion must be 1");
 assert(Array.isArray(consumerManifest.consumers), "stability manifest consumers must be an array");
 assert(
@@ -140,7 +172,10 @@ for (const consumer of consumerManifest.consumers) {
   assertExactCommit(consumer.commit, `${consumer.id} commit`);
   assertPortableRelativePath(consumer.specPath, `${consumer.id} specPath`);
 }
-assert(seenConsumers.size === expectedConsumers.size, "all accepted consumers must be present exactly once");
+assert(
+  seenConsumers.size === expectedConsumers.size,
+  "all accepted consumers must be present exactly once",
+);
 
 const processorManifest = JSON.parse(
   await readFile(new URL("../stability/processors.json", import.meta.url), "utf8"),
@@ -150,8 +185,14 @@ assertExactFields(
   new Set(["schemaVersion", "processors"]),
   "processor stability manifest",
 );
-assert(processorManifest.schemaVersion === 1, "processor stability manifest schemaVersion must be 1");
-assert(Array.isArray(processorManifest.processors), "processor stability manifest processors must be an array");
+assert(
+  processorManifest.schemaVersion === 1,
+  "processor stability manifest schemaVersion must be 1",
+);
+assert(
+  Array.isArray(processorManifest.processors),
+  "processor stability manifest processors must be an array",
+);
 assert(
   processorManifest.processors.length === expectedProcessors.size,
   "processor stability manifest must contain exactly the accepted 3d-lab processors",
@@ -187,7 +228,10 @@ for (const processor of processorManifest.processors) {
   assertExactCommit(processor.commit, `${processor.id} commit`);
   assertPortableRelativePath(processor.manifestPath, `${processor.id} manifestPath`);
 }
-assert(seenProcessors.size === expectedProcessors.size, "all accepted processors must be present exactly once");
+assert(
+  seenProcessors.size === expectedProcessors.size,
+  "all accepted processors must be present exactly once",
+);
 
 const workflowStack = JSON.parse(
   await readFile(new URL("../stability/workflow-stack.json", import.meta.url), "utf8"),
@@ -197,14 +241,27 @@ assertExactFields(
   new Set(["schemaVersion", "editor", "runner"]),
   "workflow stack stability manifest",
 );
-assert(workflowStack.schemaVersion === 1, "workflow stack stability manifest schemaVersion must be 1");
+assert(
+  workflowStack.schemaVersion === 1,
+  "workflow stack stability manifest schemaVersion must be 1",
+);
 for (const role of ["editor", "runner"]) {
   const actual = workflowStack[role];
   const expected = expectedWorkflowStack[role];
-  assertExactFields(actual, new Set(["repository", "commit"]), `workflow stack ${role} evidence`);
-  assert(actual.repository === expected.repository, `workflow stack ${role} repository must remain '${expected.repository}'`);
+  assertExactFields(
+    actual,
+    new Set(["repository", "commit"]),
+    `workflow stack ${role} evidence`,
+  );
+  assert(
+    actual.repository === expected.repository,
+    `workflow stack ${role} repository must remain '${expected.repository}'`,
+  );
   assertExactCommit(actual.commit, `${role} commit`);
-  assert(actual.commit === expected.commit, `workflow stack ${role} commit must remain '${expected.commit}'`);
+  assert(
+    actual.commit === expected.commit,
+    `workflow stack ${role} commit must remain '${expected.commit}'`,
+  );
 }
 
 console.log(
