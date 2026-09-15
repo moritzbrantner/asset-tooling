@@ -110,7 +110,13 @@ jobs:
       - name: Validate current head against accepted processor
         shell: bash
         run: |
-          bun asset-tooling/scripts/check-processor-contract.js \
+          script="asset-tooling/scripts/check-processor-contract.js"
+          case "${{ matrix.operation }}" in
+            scene.normalize|scene.export.glb)
+              script="asset-tooling/scripts/check-scene-processor-contract.js"
+              ;;
+          esac
+          bun "$script" \
             "$GITHUB_WORKSPACE/processor" \
             "${{ matrix.commit }}" \
             "${{ matrix.repository }}" \
