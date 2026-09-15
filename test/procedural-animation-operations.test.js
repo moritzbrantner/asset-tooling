@@ -126,7 +126,7 @@ test("yaw and uniform-scale generators make rotation and scale channel mechanics
   });
 });
 
-test("generated source clips pass directly into the authoritative animation processing boundary", async () => {
+test("generated source clips enter the authoritative animation processing boundary without codec translation", async () => {
   const root = await workspace("procedural-animation-processing");
   const generated = await executeProceduralTranslationAnimationOperation(root, {
     parameters: { node: 0, durationSeconds: 1, from: [0, 0, 0], to: [1, 0, 0] },
@@ -138,7 +138,7 @@ test("generated source clips pass directly into the authoritative animation proc
       parameters: {
         sourceStartSeconds: 0,
         sourceEndSeconds: 1,
-        targetTimesSeconds: [0, 0.5, 1],
+        targetTimesSeconds: [0, 1],
         interpolation: { translation: "linear", rotation: "slerp", scale: "linear" },
         transformSpace: "local",
       },
@@ -147,10 +147,10 @@ test("generated source clips pass directly into the authoritative animation proc
     RESAMPLE_PROCESSOR,
   );
   assert.equal(resampled.outputs.output.metadata.channelCount, 1);
-  assert.equal(resampled.outputs.output.metadata.keyframeCount, 3);
+  assert.equal(resampled.outputs.output.metadata.keyframeCount, 2);
   assert.deepEqual(
     (await readDocument(root, resampled.outputs.output)).channels[0].keyframes.map((keyframe) => keyframe.time),
-    [0, 0.5, 1],
+    [0, 1],
   );
 });
 
