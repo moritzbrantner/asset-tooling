@@ -19,6 +19,7 @@
     "./operations/processing": "./src/processing-operations.js",
     "./operations/processing/animation": "./src/animation-processing-operations.js",
     "./operations/processing/skinning": "./src/skinning-processing-operations.js",
+    "./operations/processing/scene": "./src/scene-processing-operations.js",
     "./operations/mesh/analysis": "./src/mesh-analysis-operations.js",
     "./operations/material": "./src/material-operations.js",
     "./operations/image": "./src/image-operations.js",
