@@ -42,6 +42,23 @@ export const THREE_D_PRODUCTION_PROFILE_V1 = deepFreeze({
     weightRule: "finite-nonnegative-normalized-sum-one",
     jointIndexRule: "active-indices-in-range",
   },
+  normalization: {
+    authority: "moritzbrantner/3d-lab/three-d-scene",
+    coordinateSystem: "right-handed-y-up",
+    outputUnit: "meter",
+    meshOrder: "stable-id",
+    hierarchyOrder: "parent-before-child-stable-id",
+    vertexOrder: "first-index-use",
+    unusedVertices: "removed",
+    quaternionSign: "canonical-equivalent-sign",
+    negativeZero: "canonical-positive-zero",
+  },
+  export: {
+    authority: "moritzbrantner/3d-lab/three-d-export",
+    format: "glb-2.0",
+    normalizedBeforeExport: true,
+    transforms: "local-translation-quaternion-scale",
+  },
   collisionProxies: {
     declaration: "explicit-manifest-entry",
     namingInference: false,

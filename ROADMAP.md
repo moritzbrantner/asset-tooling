@@ -145,7 +145,7 @@ Model acquisition remains separate from execution; output-affecting model/config
 - [ ] Resolution/format variants and platform-oriented compression adapters such as KTX2 when the authoritative compressor boundary is clear.
 - [x] Provenance from the current material bundle back to every referenced source asset.
 
-### Milestone H — 3D production asset profile — IN PROGRESS
+### Milestone H — 3D production asset profile — COMPLETE
 
 Grow the current traceable 3D processing contracts into a production profile without moving renderer/runtime semantics into asset-tooling.
 
@@ -153,8 +153,8 @@ Grow the current traceable 3D processing contracts into a production profile wit
 - [x] Mesh simplification and source-based LOD chains through pinned authoritative processors.
 - [x] Animation resampling/reduction with explicit endpoint/error evidence through pinned authoritative processors.
 - [x] Deterministic local-space procedural translation, yaw, and uniform-scale source clips using the shared animation transport contract.
-- [x] Explicit skinned-mesh production-profile evidence through the pinned `three-d-animation` authority.
-- [ ] Mesh/scene normalization and export normalization.
+- [x] Explicit skinned-mesh production-profile evidence through the pinned `three-d-animation` processor boundary.
+- [x] Mesh/scene normalization and deterministic GLB 2.0 export normalization through pinned `three-d-scene` / `three-d-export` processor boundaries.
 
 ### Milestone I — Asset analysis and validation — IN PROGRESS
 
