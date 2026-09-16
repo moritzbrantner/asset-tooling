@@ -1,5 +1,5 @@
-import path from "node:path";
 import { access, readFile } from "node:fs/promises";
+import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
@@ -16,138 +16,56 @@ assert(packageJson.name === "asset-tooling", "package name must remain 'asset-to
 assert(packageJson.private === false, "package must be consumable (private=false)");
 assert(packageJson.type === "module", "package must remain an ES module package");
 assert(/^\d+\.\d+\.\d+$/.test(packageJson.version), "package version must be an explicit semver version");
-assert(packageJson.bin?.["asset-tooling"] === "./src/entry.js", "asset-tooling CLI entry must remain stable");
-assert(packageJson.exports?.["."] === "./src/index.js", "root programmatic export must resolve to src/index.js");
-assert(
-  packageJson.exports?.["./operations"] === "./src/operations.js",
-  "asset operation contracts must remain available through the focused ./operations subpath",
-);
-assert(
-  packageJson.exports?.["./operations/store"] === "./src/asset-store.js",
-  "content-addressed asset storage must remain available through the focused ./operations/store subpath",
-);
-assert(
-  packageJson.exports?.["./operations/generation"] === "./src/generation-operations.js",
-  "generation operation adapters must remain available through the focused ./operations/generation subpath",
-);
-assert(
-  packageJson.exports?.["./operations/generation/procedural-image"] ===
-    "./src/procedural-image-operations.js",
-  "procedural image generation must remain available through the focused ./operations/generation/procedural-image subpath",
-);
-assert(
-  packageJson.exports?.["./operations/generation/procedural-shapes"] ===
-    "./src/procedural-shape-operations.js",
-  "procedural SDF/vector shapes must remain available through the focused ./operations/generation/procedural-shapes subpath",
-);
-assert(
-  packageJson.exports?.["./operations/generation/procedural-textures"] ===
-    "./src/procedural-texture-operations.js",
-  "procedural texture generation must remain available through the focused ./operations/generation/procedural-textures subpath",
-);
-assert(
-  packageJson.exports?.["./operations/generation/procedural-mesh"] ===
-    "./src/procedural-mesh-operations.js",
-  "procedural mesh generation must remain available through the focused ./operations/generation/procedural-mesh subpath",
-);
-assert(
-  packageJson.exports?.["./operations/generation/parametric-surfaces"] ===
-    "./src/parametric-surface-operations.js",
-  "parametric surface generation must remain available through the focused ./operations/generation/parametric-surfaces subpath",
-);
-assert(
-  packageJson.exports?.["./operations/generation/triposr"] === "./src/triposr-operation.js",
-  "TripoSR generation operation must remain available through the focused ./operations/generation/triposr subpath",
-);
-assert(
-  packageJson.exports?.["./operations/processing"] === "./src/processing-operations.js",
-  "processing operation adapters must remain available through the focused ./operations/processing subpath",
-);
-assert(
-  packageJson.exports?.["./operations/processing/animation"] ===
-    "./src/animation-processing-operations.js",
-  "animation processing operation adapters must remain available through the focused ./operations/processing/animation subpath",
-);
-assert(
-  packageJson.exports?.["./operations/mesh/analysis"] === "./src/mesh-analysis-operations.js",
-  "mesh analysis operations must remain available through the focused ./operations/mesh/analysis subpath",
-);
-assert(
-  packageJson.exports?.["./operations/material"] === "./src/material-operations.js",
-  "material operations must remain available through the focused ./operations/material subpath",
-);
-assert(
-  packageJson.exports?.["./operations/image"] === "./src/image-operations.js",
-  "deterministic image operations must remain available through the focused ./operations/image subpath",
-);
-assert(
-  packageJson.exports?.["./operations/image/filters"] === "./src/image-filter-operations.js",
-  "deterministic image filter operations must remain available through the focused ./operations/image/filters subpath",
-);
-assert(
-  packageJson.exports?.["./operations/image/advanced"] === "./src/image-advanced-operations.js",
-  "advanced deterministic image operations must remain available through the focused ./operations/image/advanced subpath",
-);
-assert(
-  packageJson.exports?.["./operations/image/colorspace"] === "./src/image-colorspace-operations.js",
-  "image colorspace operations must remain available through the focused ./operations/image/colorspace subpath",
-);
-assert(
-  packageJson.exports?.["./operations/image/channels"] === "./src/image-channel-operations.js",
-  "image channel operations must remain available through the focused ./operations/image/channels subpath",
-);
-assert(
-  packageJson.exports?.["./operations/image/analysis"] === "./src/image-analysis-operations.js",
-  "image analysis operations must remain available through the focused ./operations/image/analysis subpath",
-);
-assert(
-  packageJson.exports?.["./operations/image/codecs"] === "./src/image-codec-operations.js",
-  "standard image codec operations must remain available through the focused ./operations/image/codecs subpath",
-);
-assert(
-  packageJson.exports?.["./operations/image/perturbations"] === "./src/image-perturbation-recipes.js",
-  "image perturbation recipes must remain available through the focused ./operations/image/perturbations subpath",
-);
-assert(
-  packageJson.exports?.["./operations/image/terrain"] === "./src/terrain-operations.js",
-  "terrain height operations must remain available through the focused ./operations/image/terrain subpath",
-);
-assert(
-  packageJson.exports?.["./image/rgba8"] === "./src/image-rgba8.js",
-  "canonical RGBA8 image contracts must remain available through the focused ./image/rgba8 subpath",
-);
-assert(
-  packageJson.exports?.["./image/linear-rgba8"] === "./src/image-linear-rgba8.js",
-  "canonical linear RGBA8 image contracts must remain available through the focused ./image/linear-rgba8 subpath",
-);
-assert(
-  packageJson.exports?.["./operations/audio"] === "./src/audio-operations.js",
-  "audio operations must remain available through the focused ./operations/audio subpath",
-);
-assert(
-  packageJson.exports?.["./operations/audio/model"] === "./src/audio-model-operations.js",
-  "model-backed audio operations must remain available through the focused ./operations/audio/model subpath",
-);
-assert(
-  packageJson.exports?.["./audio"] === "./src/audio.js",
-  "canonical audio contracts must remain available through the focused ./audio subpath",
-);
-assert(
-  packageJson.exports?.["./operations/workflow"] === "./src/workflow-operations.js",
-  "workflow operation adapters must remain available through the focused ./operations/workflow subpath",
-);
-assert(
-  packageJson.exports?.["./catalog"] === "./src/catalog.js",
-  "asset catalog contracts must remain available through the focused ./catalog subpath",
-);
-assert(
-  packageJson.exports?.["./catalog/acquisition"] === "./src/catalog-acquisition.js",
-  "verified catalog acquisition must remain available through the focused ./catalog/acquisition subpath",
-);
-assert(
-  packageJson.exports?.["./catalog/storage"] === "./src/catalog-storage.js",
-  "durable catalog storage consumers must remain available through the focused ./catalog/storage subpath",
-);
+assert(packageJson.bin?.["asset-tooling"] === "./src/entry.ts", "asset-tooling CLI entry must resolve to the TypeScript authority");
+
+const expectedSourceExports = {
+  ".": "./src/index.ts",
+  "./operations": "./src/operations.ts",
+  "./operations/store": "./src/asset-store.ts",
+  "./operations/instances": "./src/scatter-operations.ts",
+  "./operations/generation": "./src/generation-operations.ts",
+  "./operations/generation/procedural-image": "./src/procedural-image-operations.ts",
+  "./operations/generation/procedural-shapes": "./src/procedural-shape-operations.ts",
+  "./operations/generation/procedural-textures": "./src/procedural-texture-operations.ts",
+  "./operations/generation/procedural-mesh": "./src/procedural-mesh-operations.ts",
+  "./operations/generation/procedural-animation": "./src/procedural-animation-operations.ts",
+  "./operations/generation/parametric-surfaces": "./src/parametric-surface-operations.ts",
+  "./operations/generation/triposr": "./src/triposr-operation.ts",
+  "./operations/processing": "./src/processing-operations.ts",
+  "./operations/processing/animation": "./src/animation-processing-operations.ts",
+  "./operations/processing/skinning": "./src/skinning-processing-operations.ts",
+  "./operations/mesh/analysis": "./src/mesh-analysis-operations.ts",
+  "./operations/material": "./src/material-operations.ts",
+  "./operations/image": "./src/image-operations.ts",
+  "./operations/image/filters": "./src/image-filter-operations.ts",
+  "./operations/image/advanced": "./src/image-advanced-operations.ts",
+  "./operations/image/colorspace": "./src/image-colorspace-operations.ts",
+  "./operations/image/channels": "./src/image-channel-operations.ts",
+  "./operations/image/analysis": "./src/image-analysis-operations.ts",
+  "./operations/image/codecs": "./src/image-codec-operations.ts",
+  "./operations/image/perturbations": "./src/image-perturbation-recipes.ts",
+  "./operations/image/terrain": "./src/terrain-operations.ts",
+  "./image/rgba8": "./src/image-rgba8.ts",
+  "./image/linear-rgba8": "./src/image-linear-rgba8.ts",
+  "./instance-set": "./src/instance-set.ts",
+  "./operations/audio": "./src/audio-operations.ts",
+  "./operations/audio/procedural": "./src/audio-procedural-operations.ts",
+  "./operations/audio/codecs": "./src/audio-codec-operations.ts",
+  "./operations/audio/model": "./src/audio-model-operations.ts",
+  "./audio": "./src/audio.ts",
+  "./operations/workflow": "./src/workflow-operations.ts",
+  "./catalog": "./src/catalog.ts",
+  "./catalog/acquisition": "./src/catalog-acquisition.ts",
+  "./catalog/storage": "./src/catalog-storage.ts",
+  "./3d/production-profile": "./src/three-d-production-profile.ts",
+  "./recipes/medieval-character-kit": "./src/medieval-character-kit.ts",
+  "./recipes/medieval-character-materials": "./src/medieval-character-materials.ts",
+};
+
+for (const [subpath, target] of Object.entries(expectedSourceExports)) {
+  assert(packageJson.exports?.[subpath] === target, `${subpath} must resolve to ${target}`);
+  await access(path.join(root, target));
+}
 assert(packageJson.exports?.["./schemas/*"] === "./schemas/*", "versioned schemas must remain directly consumable");
 
 const requiredPackageRoots = ["src", "schemas", "adapters", "catalog", "docs", "README.md"];
@@ -157,45 +75,25 @@ for (const item of requiredPackageRoots) {
 }
 assert(!packageJson.files?.includes("assets"), "durable Git LFS payloads must remain outside the package payload");
 
-for (const file of [
-  "src/index.js",
-  "src/operations.js",
-  "src/asset-store.js",
-  "src/generation-operations.js",
-  "src/procedural-image.js",
-  "src/procedural-image-operations.js",
-  "src/procedural-shapes.js",
-  "src/procedural-shape-operations.js",
-  "src/procedural-textures.js",
-  "src/procedural-texture-operations.js",
-  "src/procedural-mesh.js",
-  "src/procedural-mesh-operations.js",
-  "src/parametric-surface-operations.js",
-  "src/terrain-operations.js",
-  "src/triposr-operation.js",
-  "src/processing-operations.js",
-  "src/animation-processing-operations.js",
-  "src/mesh-analysis.js",
-  "src/mesh-analysis-operations.js",
-  "src/material-operations.js",
-  "src/image-rgba8.js",
-  "src/image-linear-rgba8.js",
-  "src/image-operations.js",
-  "src/image-filter-operations.js",
-  "src/image-advanced-operations.js",
-  "src/image-colorspace-operations.js",
-  "src/image-channel-operations.js",
-  "src/image-analysis-operations.js",
-  "src/image-codec-operations.js",
-  "src/image-perturbation-recipes.js",
-  "src/audio.js",
-  "src/audio-operations.js",
-  "src/audio-model-operations.js",
-  "src/workflow-operations.js",
-  "src/catalog.js",
-  "src/catalog-acquisition.js",
-  "src/catalog-storage.js",
-  "src/entry.js",
+const requiredInternalFiles = [
+  "src/procedural-image.ts",
+  "src/procedural-shapes.ts",
+  "src/procedural-textures.ts",
+  "src/procedural-mesh.ts",
+  "src/image-advanced.ts",
+  "src/image-analysis.ts",
+  "src/image-channels.ts",
+  "src/image-colorspace.ts",
+  "src/image-convolution.ts",
+  "src/image-color.ts",
+  "src/image-geometry.ts",
+  "src/process-adapter.ts",
+  "src/processing-handoff.ts",
+  "src/processor-runtime.ts",
+  "src/receipts.ts",
+  "src/schema.ts",
+  "src/tool.ts",
+  "src/entry.ts",
   "catalog/providers.json",
   "catalog/sources.json",
   "catalog/storage.json",
@@ -206,11 +104,12 @@ for (const file of [
   "schemas/processing-handoff-v1.schema.json",
   "schemas/processing-receipt-v1.schema.json",
   "schemas/processing-receipt-v2.schema.json",
-]) {
+];
+for (const file of requiredInternalFiles) {
   await access(path.join(root, file));
 }
 
-const cli = await readFile(path.join(root, "src/entry.js"), "utf8");
+const cli = await readFile(path.join(root, "src/entry.ts"), "utf8");
 assert(cli.split(/\r?\n/, 1)[0] === "#!/usr/bin/env bun", "CLI entry must retain its Bun shebang");
 
 console.log(JSON.stringify({ status: "valid", package: packageJson.name, version: packageJson.version }));
