@@ -8,7 +8,7 @@ const root = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
 const [sourceId, destinationRoot = ".artifacts/catalog-acquisition"] = process.argv.slice(2);
 
 if (!sourceId) {
-  console.error("usage: bun scripts/acquire-catalog-source.js <catalog-source-id> [destination-root]");
+  console.error("usage: bun scripts/acquire-catalog-source.ts <catalog-source-id> [destination-root]");
   process.exitCode = 2;
 } else {
   const providersDocument = JSON.parse(await readFile(path.join(root, "catalog/providers.json"), "utf8"));
