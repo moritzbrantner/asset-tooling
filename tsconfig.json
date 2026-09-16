@@ -18,5 +18,13 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true
   },
-  "include": ["scripts/check-package-shape.ts"]
+  "include": [
+    "scripts/check-package-shape.ts",
+    "src/canonical.ts",
+    "src/hash.ts",
+    "src/environment.ts",
+    "src/tool.ts",
+    "test/environment-ordering.test.ts",
+    "test/tool-identity.test.ts"
+  ]
 }
