@@ -20,7 +20,7 @@ export function compareCodeUnitStrings(left: string, right: string): number {
   return 0;
 }
 
-function sortJson(value: unknown, location: string = "$ "): CanonicalJsonValue {
+function sortJson(value: unknown, location: string = "$"): CanonicalJsonValue {
   if (value === null || typeof value === "string" || typeof value === "boolean") {
     return value;
   }
