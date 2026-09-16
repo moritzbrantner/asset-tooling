@@ -2,11 +2,21 @@ import { access, readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+type PackageJson = {
+  name?: string;
+  version?: string;
+  private?: boolean;
+  type?: string;
+  bin?: Record<string, string>;
+  exports?: Record<string, string>;
+  files?: string[];
+};
+
 const root = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
 const packagePath = path.join(root, "package.json");
-const packageJson = JSON.parse(await readFile(packagePath, "utf8"));
+const packageJson = JSON.parse(await readFile(packagePath, "utf8")) as PackageJson;
 
-function assert(condition, message) {
+function assert(condition: unknown, message: string): asserts condition {
   if (!condition) {
     throw new Error(message);
   }
@@ -15,10 +25,16 @@ function assert(condition, message) {
 assert(packageJson.name === "asset-tooling", "package name must remain 'asset-tooling'");
 assert(packageJson.private === false, "package must be consumable (private=false)");
 assert(packageJson.type === "module", "package must remain an ES module package");
-assert(/^\d+\.\d+\.\d+$/.test(packageJson.version), "package version must be an explicit semver version");
-assert(packageJson.bin?.["asset-tooling"] === "./src/entry.ts", "asset-tooling CLI entry must resolve to the TypeScript authority");
+assert(
+  typeof packageJson.version === "string" && /^\d+\.\d+\.\d+$/.test(packageJson.version),
+  "package version must be an explicit semver version",
+);
+assert(
+  packageJson.bin?.["asset-tooling"] === "./src/entry.ts",
+  "asset-tooling CLI entry must resolve to the TypeScript authority",
+);
 
-const expectedSourceExports = {
+const expectedSourceExports: Record<string, string> = {
   ".": "./src/index.ts",
   "./operations": "./src/operations.ts",
   "./operations/store": "./src/asset-store.ts",
@@ -66,14 +82,20 @@ for (const [subpath, target] of Object.entries(expectedSourceExports)) {
   assert(packageJson.exports?.[subpath] === target, `${subpath} must resolve to ${target}`);
   await access(path.join(root, target));
 }
-assert(packageJson.exports?.["./schemas/*"] === "./schemas/*", "versioned schemas must remain directly consumable");
+assert(
+  packageJson.exports?.["./schemas/*"] === "./schemas/*",
+  "versioned schemas must remain directly consumable",
+);
 
 const requiredPackageRoots = ["src", "schemas", "adapters", "catalog", "docs", "README.md"];
 for (const item of requiredPackageRoots) {
   assert(packageJson.files?.includes(item), `package files must include '${item}'`);
   await access(path.join(root, item));
 }
-assert(!packageJson.files?.includes("assets"), "durable Git LFS payloads must remain outside the package payload");
+assert(
+  !packageJson.files?.includes("assets"),
+  "durable Git LFS payloads must remain outside the package payload",
+);
 
 const requiredInternalFiles = [
   "src/procedural-image.ts",
