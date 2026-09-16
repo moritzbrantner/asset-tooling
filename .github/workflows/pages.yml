@@ -6,9 +6,9 @@ on:
       - main
     paths:
       - "catalog/**"
-      - "src/catalog-pages.js"
-      - "src/catalog-pages-site.js"
-      - "scripts/build-catalog-pages.js"
+      - "src/catalog-pages.ts"
+      - "src/catalog-pages-site.ts"
+      - "scripts/build-catalog-pages.ts"
       - "package.json"
       - ".github/workflows/pages.yml"
   workflow_dispatch:

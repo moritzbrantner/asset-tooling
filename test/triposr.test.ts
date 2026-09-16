@@ -135,7 +135,7 @@ test("TripoSR fingerprints adapter, native marching-cubes binary, and selected C
   assert.match(source, /--query-gpu=driver_version/);
 
   const backendSource = await readFile(
-    new URL("../src/model-backends.js", import.meta.url),
+    new URL("../src/model-backends.ts", import.meta.url),
     "utf8",
   );
   assert.match(backendSource, /TRIPOSR_BACKEND[\s\S]*ASSET_TOOLING_REQUESTED_DEVICE: document\.spec\.parameters\.device/);

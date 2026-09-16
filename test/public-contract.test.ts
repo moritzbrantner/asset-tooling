@@ -43,7 +43,7 @@ test("root package export remains deliberately small", () => {
 });
 
 async function runCli(args) {
-  const cliPath = fileURLToPath(new URL("../src/entry.js", import.meta.url));
+  const cliPath = fileURLToPath(new URL("../src/entry.ts", import.meta.url));
   const child = Bun.spawn([process.execPath, cliPath, ...args], {
     stdout: "pipe",
     stderr: "pipe",

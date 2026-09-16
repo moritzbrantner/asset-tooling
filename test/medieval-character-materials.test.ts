@@ -65,6 +65,6 @@ test("package exports the material/package recipe surface", async () => {
   const packageJson = JSON.parse(await readFile(packagePath, "utf8"));
   assert.equal(
     packageJson.exports["./recipes/medieval-character-materials"],
-    "./src/medieval-character-materials.js",
+    "./src/medieval-character-materials.ts",
   );
 });

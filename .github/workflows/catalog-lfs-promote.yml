@@ -34,7 +34,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          result="$(bun scripts/promote-catalog-lfs-source.js "$SOURCE_ID")"
+          result="$(bun scripts/promote-catalog-lfs-source.ts "$SOURCE_ID")"
           echo "$result"
           asset_path="$(printf '%s' "$result" | jq -r '.path')"
           status="$(printf '%s' "$result" | jq -r '.status')"

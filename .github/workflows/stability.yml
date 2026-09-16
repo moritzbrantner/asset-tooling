@@ -56,7 +56,7 @@ jobs:
         shell: bash
         run: |
           spec="consumer/${{ matrix.specPath }}"
-          tool="asset-tooling/src/entry.js"
+          tool="asset-tooling/src/entry.ts"
           bun "$tool" validate "$spec"
           bun "$tool" generate "$spec" --receipt .asset-tooling/stability.receipt.json
           bun "$tool" verify "$spec" --receipt .asset-tooling/stability.receipt.json
@@ -110,7 +110,7 @@ jobs:
       - name: Validate current head against accepted processor
         shell: bash
         run: |
-          bun asset-tooling/scripts/check-processor-contract.js \
+          bun asset-tooling/scripts/check-processor-contract.ts \
             "$GITHUB_WORKSPACE/processor" \
             "${{ matrix.commit }}" \
             "${{ matrix.repository }}" \
@@ -159,7 +159,7 @@ jobs:
       - name: Validate descriptor/editor/runner bridge
         shell: bash
         run: |
-          bun asset-tooling/scripts/check-workflow-bridge.js \
+          bun asset-tooling/scripts/check-workflow-bridge.ts \
             "$GITHUB_WORKSPACE/workflow-editor" \
             "$GITHUB_WORKSPACE/workflow-runner" \
             "${{ steps.stack.outputs.editor_commit }}" \

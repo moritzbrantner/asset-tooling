@@ -19,7 +19,7 @@ All models are right-handed Y-up OBJ meshes expressed in millimeter units with t
 Run:
 
 ```text
-bun examples/medieval-character-kit/build.mjs
+bun examples/medieval-character-kit/build.ts
 ```
 
 The build writes disposable outputs to `build/medieval-character-kit/`:
