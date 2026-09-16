@@ -7,7 +7,7 @@ const root = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
 const [sourceId] = process.argv.slice(2);
 
 if (!sourceId) {
-  console.error("usage: bun scripts/promote-catalog-lfs-source.js <catalog-source-id>");
+  console.error("usage: bun scripts/promote-catalog-lfs-source.ts <catalog-source-id>");
   process.exitCode = 2;
 } else {
   const providersDocument = JSON.parse(await readFile(path.join(root, "catalog/providers.json"), "utf8"));
