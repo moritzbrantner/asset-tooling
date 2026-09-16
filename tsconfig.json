@@ -20,6 +20,7 @@
   },
   "include": [
     "scripts/check-package-shape.ts",
+    "scripts/check-operation-registry-types.ts",
     "src/canonical.ts",
     "src/hash.ts",
     "src/environment.ts",
