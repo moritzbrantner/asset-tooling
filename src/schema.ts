@@ -96,7 +96,9 @@ export interface GenerationReceiptV1 {
 }
 
 function isObject(value: unknown): value is PlainObject {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
 }
 
 function assertObject(value: unknown, location: string): PlainObject {
