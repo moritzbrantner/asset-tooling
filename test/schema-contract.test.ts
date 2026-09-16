@@ -46,6 +46,12 @@ test("asset spec parsing keeps schema and JSON evidence fail-closed", () => {
   expect(() => parseAssetSpec({ ...base, parameters: { score: Number.NaN } })).toThrow(
     "parameters.score contains a non-finite number",
   );
+  expect(() =>
+    parseAssetSpec({
+      ...base,
+      parameters: { when: new Date("2026-09-16T00:00:00.000Z") },
+    }),
+  ).toThrow("parameters.when contains unsupported JSON value type 'object'");
   expect(() => parseAssetSpec({ ...base, parameters: {}, extra: true })).toThrow(
     "asset spec contains unknown field 'extra'",
   );
