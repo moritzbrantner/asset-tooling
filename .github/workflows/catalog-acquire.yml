@@ -24,7 +24,7 @@ jobs:
         with:
           bun-version: 1.4.0
       - name: Acquire registered source and compute pin evidence
-        run: bun scripts/acquire-catalog-source.js "$SOURCE_ID" .artifacts/catalog-acquisition
+        run: bun scripts/acquire-catalog-source.ts "$SOURCE_ID" .artifacts/catalog-acquisition
       - name: Upload acquired bytes and pin evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
