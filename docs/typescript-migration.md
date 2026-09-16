@@ -10,6 +10,19 @@ TypeScript semantic validation starts at `scripts/check-package-shape.ts`, the p
 
 The mechanically migrated implementation still contains JavaScript-era inferred shapes such as accumulator arrays, incrementally constructed objects, and option bags whose intended contracts are not yet explicit. Expanding semantic compiler coverage is therefore follow-up convergence work: add explicit domain types at stable module boundaries, then add those modules to the strict TypeScript project. New or substantively changed TypeScript code should not introduce new untyped migration debt.
 
+## Current strict coverage
+
+The strict project now covers both the package/public-wiring authority and the deterministic identity foundation:
+
+- `scripts/check-package-shape.ts`;
+- `src/canonical.ts` and `src/hash.ts`;
+- `src/environment.ts` and its ordering regression;
+- `src/tool.ts` and its source-tree fingerprint regression.
+
+The tool identity hashes the authored `src/**/*.ts` tree. Its focused regression independently reconstructs that tree hash, so a future extension or runtime migration cannot silently leave `sha256-tree-v1` bound to obsolete JavaScript paths or an empty source set.
+
+Later typing slices should expand outward from these typed deterministic primitives into cohesive domain boundaries rather than adding isolated files solely to increase compiler coverage.
+
 ## Completion criteria for later typing slices
 
 A module is ready to join the strict project when its public parameters and return values have explicit stable types, mutable accumulators do not rely on empty-literal inference, runtime-validated external data is narrowed before domain use, and its existing behavioral tests remain unchanged or become stricter. Add modules to `tsconfig.json` only with their transitive dependencies so the compiler gate remains deterministic and actionable.

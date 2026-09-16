@@ -6,24 +6,38 @@ import { sha256File, sha256Text } from "./hash.js";
 
 const SOURCE_ROOT = path.dirname(fileURLToPath(import.meta.url));
 
-async function sourceFiles(directory, prefix = "") {
+interface SourceFile {
+  relative: string;
+  absolute: string;
+}
+
+export interface ToolIdentity {
+  name: "asset-tooling";
+  version: "0.1.0";
+  sourceFingerprint: {
+    algorithm: "sha256-tree-v1";
+    sha256: string;
+  };
+}
+
+async function sourceFiles(directory: string, prefix = ""): Promise<SourceFile[]> {
   const entries = await readdir(directory, { withFileTypes: true });
-  const files = [];
-  for (const entry of entries.sort((a, b) => compareCodeUnitStrings(a.name, b.name))) {
+  const files: SourceFile[] = [];
+  for (const entry of entries.sort((left, right) => compareCodeUnitStrings(left.name, right.name))) {
     const relative = prefix ? `${prefix}/${entry.name}` : entry.name;
     const absolute = path.join(directory, entry.name);
     if (entry.isDirectory()) {
       files.push(...(await sourceFiles(absolute, relative)));
-    } else if (entry.isFile() && entry.name.endsWith(".js")) {
+    } else if (entry.isFile() && entry.name.endsWith(".ts")) {
       files.push({ relative, absolute });
     }
   }
   return files;
 }
 
-export async function captureToolIdentity() {
+export async function captureToolIdentity(): Promise<ToolIdentity> {
   const files = await sourceFiles(SOURCE_ROOT);
-  const sourceHashes = {};
+  const sourceHashes: Record<string, string> = {};
   for (const file of files) {
     sourceHashes[file.relative] = await sha256File(file.absolute);
   }
