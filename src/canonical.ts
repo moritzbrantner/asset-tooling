@@ -1,4 +1,12 @@
-function assertDataProperty(object, key, location) {
+export type CanonicalJsonValue =
+  | null
+  | boolean
+  | number
+  | string
+  | CanonicalJsonValue[]
+  | { [key: string]: CanonicalJsonValue };
+
+function assertDataProperty(object: object, key: PropertyKey, location: string): unknown {
   const descriptor = Object.getOwnPropertyDescriptor(object, key);
   if (!descriptor || !descriptor.enumerable || !("value" in descriptor)) {
     throw new TypeError(`canonical JSON requires enumerable data properties at ${location}`);
@@ -6,13 +14,13 @@ function assertDataProperty(object, key, location) {
   return descriptor.value;
 }
 
-export function compareCodeUnitStrings(left, right) {
+export function compareCodeUnitStrings(left: string, right: string): number {
   if (left < right) return -1;
   if (left > right) return 1;
   return 0;
 }
 
-function sortJson(value, location = "$") {
+function sortJson(value: unknown, location = "$": string): CanonicalJsonValue {
   if (value === null || typeof value === "string" || typeof value === "boolean") {
     return value;
   }
@@ -36,7 +44,7 @@ function sortJson(value, location = "$") {
       }
     }
 
-    const result = new Array(value.length);
+    const result: CanonicalJsonValue[] = new Array(value.length);
     for (let index = 0; index < value.length; index += 1) {
       if (!Object.hasOwn(value, index)) {
         throw new TypeError(`canonical JSON does not support sparse arrays at ${location}[${index}]`);
@@ -56,8 +64,8 @@ function sortJson(value, location = "$") {
       throw new TypeError(`canonical JSON requires plain objects at ${location}`);
     }
 
-    const result = Object.create(null);
-    const keys = [];
+    const result: Record<string, CanonicalJsonValue> = Object.create(null);
+    const keys: string[] = [];
     for (const key of Reflect.ownKeys(value)) {
       if (typeof key === "symbol") {
         throw new TypeError(`canonical JSON does not support symbol properties at ${location}`);
@@ -78,10 +86,18 @@ function sortJson(value, location = "$") {
   throw new TypeError(`canonical JSON does not support ${typeof value}`);
 }
 
-export function canonicalJson(value) {
-  return JSON.stringify(sortJson(value));
+function stringifyCanonical(value: CanonicalJsonValue, space?: number): string {
+  const serialized = JSON.stringify(value, null, space);
+  if (serialized === undefined) {
+    throw new TypeError("canonical JSON serialization unexpectedly produced undefined");
+  }
+  return serialized;
 }
 
-export function stablePrettyJson(value) {
-  return `${JSON.stringify(sortJson(value), null, 2)}\n`;
+export function canonicalJson(value: unknown): string {
+  return stringifyCanonical(sortJson(value));
+}
+
+export function stablePrettyJson(value: unknown): string {
+  return `${stringifyCanonical(sortJson(value), 2)}\n`;
 }
