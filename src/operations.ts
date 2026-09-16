@@ -9,6 +9,11 @@ const PORT_MEDIA_TYPE_PATTERN = /^[a-z0-9!#$&^_.+-]+\/(?:[a-z0-9!#$&^_.+-]+|\*)$
 
 type PlainObject = Record<string, unknown>;
 export type CanonicalJsonObject = { [key: string]: CanonicalJsonValue };
+export type DeepReadonly<T> = T extends readonly (infer Item)[]
+  ? readonly DeepReadonly<Item>[]
+  : T extends object
+    ? { readonly [Key in keyof T]: DeepReadonly<T[Key]> }
+    : T;
 
 export interface AssetRef {
   schemaVersion: 1;
@@ -42,6 +47,7 @@ export interface AssetOperationDescriptor {
   parameterSchema: CanonicalJsonObject;
 }
 
+export type ReadonlyAssetOperationDescriptor = DeepReadonly<AssetOperationDescriptor>;
 export type AssetPortValue = AssetRef | AssetRef[];
 export type AssetPortMap = Record<string, AssetPortValue>;
 
@@ -69,10 +75,10 @@ export interface AssetOperationBuildIdentity {
 }
 
 export interface AssetOperationRegistry {
-  register(value: unknown): AssetOperationDescriptor;
-  get(id: string, version: string): AssetOperationDescriptor | undefined;
+  register(value: unknown): ReadonlyAssetOperationDescriptor;
+  get(id: string, version: string): ReadonlyAssetOperationDescriptor | undefined;
   has(id: string, version: string): boolean;
-  list(): AssetOperationDescriptor[];
+  list(): readonly ReadonlyAssetOperationDescriptor[];
 }
 
 function isObject(value: unknown): value is PlainObject {
@@ -162,16 +168,16 @@ function canonicalObject(value: unknown, location: string): CanonicalJsonObject 
   return normalized as CanonicalJsonObject;
 }
 
-function deepFreeze<T>(value: T): T {
+function deepFreeze<T>(value: T): DeepReadonly<T> {
   if (Array.isArray(value)) {
     value.forEach(deepFreeze);
-    return Object.freeze(value) as T;
+    return Object.freeze(value) as DeepReadonly<T>;
   }
   if (isObject(value)) {
     Object.values(value).forEach(deepFreeze);
-    return Object.freeze(value) as T;
+    return Object.freeze(value) as DeepReadonly<T>;
   }
-  return value;
+  return value as DeepReadonly<T>;
 }
 
 function normalizeStringList(
@@ -385,9 +391,9 @@ export function createAssetOperationRegistry(initialDescriptors: unknown = []): 
   if (!Array.isArray(initialDescriptors)) {
     throw new Error("initial asset operation descriptors must be an array");
   }
-  const operations = new Map<string, AssetOperationDescriptor>();
+  const operations = new Map<string, ReadonlyAssetOperationDescriptor>();
 
-  function register(value: unknown): AssetOperationDescriptor {
+  function register(value: unknown): ReadonlyAssetOperationDescriptor {
     const descriptor = deepFreeze(createAssetOperationDescriptor(value));
     const key = `${descriptor.id}@${descriptor.version}`;
     if (operations.has(key)) throw new Error(`asset operation '${key}' is already registered`);
@@ -399,13 +405,13 @@ export function createAssetOperationRegistry(initialDescriptors: unknown = []): 
 
   return {
     register,
-    get(id: string, version: string): AssetOperationDescriptor | undefined {
+    get(id: string, version: string): ReadonlyAssetOperationDescriptor | undefined {
       return operations.get(assetOperationKey(id, version));
     },
     has(id: string, version: string): boolean {
       return operations.has(assetOperationKey(id, version));
     },
-    list(): AssetOperationDescriptor[] {
+    list(): readonly ReadonlyAssetOperationDescriptor[] {
       return [...operations.values()].sort((left, right) => {
         const idComparison = compareCodeUnitStrings(left.id, right.id);
         return idComparison !== 0
