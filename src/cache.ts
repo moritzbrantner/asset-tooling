@@ -1,10 +1,7 @@
 import path from "node:path";
 import { lstat, mkdir, readFile, writeFile } from "node:fs/promises";
-import {
-  canonicalJson,
-  stablePrettyJson,
-  type CanonicalJsonValue,
-} from "./canonical.js";
+import type { GenerationObservations, ReceiptGenerator } from "./backend-contract.js";
+import { canonicalJson, stablePrettyJson } from "./canonical.js";
 import { sha256Bytes, sha256Text } from "./hash.js";
 
 const CACHE_ROOT = ".asset-tooling/cache";
@@ -13,7 +10,7 @@ const OBJECT_ROOT = ".asset-tooling/objects";
 const SHA256_PATTERN = /^[0-9a-f]{64}$/;
 
 type PlainObject = Record<string, unknown>;
-export type GenerationCacheObservations = Record<string, CanonicalJsonValue>;
+export type GenerationCacheObservations = GenerationObservations;
 
 export interface GenerationCacheArtifactPath {
   path: string;
@@ -28,7 +25,7 @@ export interface GenerationCachePathSpec {
 export interface GenerationCacheIdentityInput {
   specSha256: string;
   tool: unknown;
-  generator: unknown;
+  generator: ReceiptGenerator;
   environmentSha256: string;
 }
 
