@@ -24,6 +24,7 @@
     "src/hash.ts",
     "src/environment.ts",
     "src/tool.ts",
+    "src/operations.ts",
     "test/environment-ordering.test.ts",
     "test/tool-identity.test.ts"
   ]
