@@ -7,7 +7,7 @@ const root = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
 const [sourceId, filePath] = process.argv.slice(2);
 
 if (!sourceId || !filePath) {
-  console.error("usage: bun scripts/pin-catalog-source.js <catalog-source-id> <local-file>");
+  console.error("usage: bun scripts/pin-catalog-source.ts <catalog-source-id> <local-file>");
   process.exitCode = 2;
 } else {
   const providersDocument = JSON.parse(await readFile(path.join(root, "catalog/providers.json"), "utf8"));
