@@ -78,7 +78,7 @@ export interface AssetOperationRegistry {
   register(value: unknown): ReadonlyAssetOperationDescriptor;
   get(id: string, version: string): ReadonlyAssetOperationDescriptor | undefined;
   has(id: string, version: string): boolean;
-  list(): readonly ReadonlyAssetOperationDescriptor[];
+  list(): ReadonlyAssetOperationDescriptor[];
 }
 
 function isObject(value: unknown): value is PlainObject {
@@ -411,7 +411,7 @@ export function createAssetOperationRegistry(initialDescriptors: unknown = []): 
     has(id: string, version: string): boolean {
       return operations.has(assetOperationKey(id, version));
     },
-    list(): readonly ReadonlyAssetOperationDescriptor[] {
+    list(): ReadonlyAssetOperationDescriptor[] {
       return [...operations.values()].sort((left, right) => {
         const idComparison = compareCodeUnitStrings(left.id, right.id);
         return idComparison !== 0
