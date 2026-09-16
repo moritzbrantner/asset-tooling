@@ -20,10 +20,12 @@
   },
   "include": [
     "scripts/check-package-shape.ts",
+    "scripts/check-operation-registry-types.ts",
     "src/canonical.ts",
     "src/hash.ts",
     "src/environment.ts",
     "src/tool.ts",
+    "src/operations.ts",
     "test/environment-ordering.test.ts",
     "test/tool-identity.test.ts"
   ]
