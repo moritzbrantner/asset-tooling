@@ -119,7 +119,7 @@ test("Stable Diffusion adapter is structurally offline and fingerprints adapter 
 
 test("Stable Diffusion probe receives the declared device selection", async () => {
   const source = await readFile(
-    new URL("../src/model-backends.js", import.meta.url),
+    new URL("../src/model-backends.ts", import.meta.url),
     "utf8",
   );
   assert.match(source, /ASSET_TOOLING_REQUESTED_DEVICE: document\.spec\.parameters\.device/);
