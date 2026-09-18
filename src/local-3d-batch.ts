@@ -9,7 +9,10 @@ import {
   executeImageDecodeOperation,
   executeImageEncodePngOperation,
 } from "./image-codec-operations.js";
-import { resolveAssetObject, storeAssetObject } from "./asset-store.js";
+import {
+  resolveAssetObject,
+  storeAssetObjectFile,
+} from "./asset-store.js";
 import { executeStableFast3DMeshOperation } from "./stable-fast-3d-operation.js";
 import { captureToolIdentity } from "./tool.js";
 
@@ -175,12 +178,18 @@ function normalizeConfig(raw, configPath, root) {
       model: bundle(stableFast3D.model, "config.stableFast3D.model", base),
       tokenizer: bundle(stableFast3D.tokenizer, "config.stableFast3D.tokenizer", base),
       device: choice(stableFast3D.device, ["cpu", "cuda"], "config.stableFast3D.device"),
-      textureResolution: integer(
-        stableFast3D.textureResolution,
-        "config.stableFast3D.textureResolution",
-        512,
-        2048,
-      ),
+      textureResolution: (() => {
+        const value = integer(
+          stableFast3D.textureResolution,
+          "config.stableFast3D.textureResolution",
+          512,
+          2048,
+        );
+        if (value % 256 !== 0) {
+          throw new Error("config.stableFast3D.textureResolution must be a multiple of 256");
+        }
+        return value;
+      })(),
       remesh: choice(
         stableFast3D.remesh,
         ["none", "triangle", "quad"],
@@ -212,10 +221,9 @@ async function writeJson(filePath, value) {
 }
 
 async function importBundle(root, descriptor, role) {
-  const bytes = await readFile(descriptor.path);
   return (
-    await storeAssetObject(root, {
-      bytes,
+    await storeAssetObjectFile(root, {
+      sourcePath: descriptor.path,
       kind: "model",
       mediaType: "application/zip",
       metadata: { id: descriptor.id, role },
