@@ -133,7 +133,8 @@ Treat model-backed capabilities as another operation family rather than a separa
 - Segmentation, background removal, detection, depth/normal estimation, captioning, embeddings, and classification.
 - Super-resolution, denoising, deblurring, and other enhancement operations.
 - [x] Image-to-3D through explicit local Stable Fast 3D and TripoSR adapters with model/source/tokenizer bytes hash-pinned before execution.
-- [ ] Reusable concept-image → prepared RGBA → local 3D → normalize/LOD recipe composed from existing operations rather than a special-case pipeline.
+- [x] Reusable unattended local batch recipe for concept image → deterministic RGBA preparation → Stable Fast 3D, driven by a Markdown queue with stage checkpoints, model-byte locking, and restart-safe sequential execution.
+- [ ] Extend the local 3D batch recipe through canonical scene normalization and LOD processing once those production operations are integrated on current main.
 - [ ] Text-to-3D only when an authoritative local implementation with acceptable licensing and reproducibility evidence is available.
 
 Model acquisition remains separate from execution; output-affecting model/config bytes must remain declared and hash-pinned.
