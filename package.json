@@ -25,6 +25,7 @@
     "./operations/image": "./src/image-operations.ts",
     "./operations/image/filters": "./src/image-filter-operations.ts",
     "./operations/image/advanced": "./src/image-advanced-operations.ts",
+    "./operations/image/background": "./src/image-background-operations.ts",
     "./operations/image/colorspace": "./src/image-colorspace-operations.ts",
     "./operations/image/channels": "./src/image-channel-operations.ts",
     "./operations/image/analysis": "./src/image-analysis-operations.ts",
@@ -62,6 +63,9 @@
     "catalog:lfs:promote": "bun scripts/promote-catalog-lfs-source.ts",
     "pages:build": "bun scripts/build-catalog-pages.ts",
     "example:medieval-character-kit": "bun examples/medieval-character-kit/build.ts",
+    "weekend:3d": "bun scripts/run-weekend-3d.ts",
+    "weekend:3d:doctor": "bun scripts/run-weekend-3d.ts --doctor",
+    "weekend:3d:dry-run": "bun scripts/run-weekend-3d.ts --dry-run",
     "check": "bun run typecheck && bun test && bun run package:check && bun run catalog:check && bun run catalog:storage:check && bun run pages:build && bun src/entry.ts validate examples/copy/asset.json",
     "stability:check": "bun run check && bun scripts/check-stability.ts"
   },
