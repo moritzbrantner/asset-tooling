@@ -13,7 +13,7 @@
   "stableDiffusion": {
     "pipeline": {
       "id": "local-game-asset-diffusion",
-      "path": "models/stable-diffusion.zip"
+      "path": "models/local/stable-diffusion.zip"
     },
     "device": "cuda",
     "dtype": "float16",
@@ -25,15 +25,15 @@
   "stableFast3D": {
     "source": {
       "id": "stable-fast-3d-source",
-      "path": "models/stable-fast-3d-source.zip"
+      "path": "models/local/stable-fast-3d-source.zip"
     },
     "model": {
       "id": "stabilityai/stable-fast-3d",
-      "path": "models/stable-fast-3d-model.zip"
+      "path": "models/local/stable-fast-3d-model.zip"
     },
     "tokenizer": {
       "id": "facebook/dinov2-large",
-      "path": "models/dinov2-large.zip"
+      "path": "models/local/dinov2-large.zip"
     },
     "device": "cuda",
     "textureResolution": 1024,
