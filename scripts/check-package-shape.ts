@@ -47,6 +47,7 @@ const expectedSourceExports: Record<string, string> = {
   "./operations/generation/procedural-animation": "./src/procedural-animation-operations.ts",
   "./operations/generation/parametric-surfaces": "./src/parametric-surface-operations.ts",
   "./operations/generation/triposr": "./src/triposr-operation.ts",
+  "./operations/generation/stable-fast-3d": "./src/stable-fast-3d-operation.ts",
   "./operations/processing": "./src/processing-operations.ts",
   "./operations/processing/animation": "./src/animation-processing-operations.ts",
   "./operations/processing/skinning": "./src/skinning-processing-operations.ts",

@@ -17,12 +17,12 @@ The package remains `0.1.0` until a stable release is intentionally cut; stabili
 The generation architecture supports the same provenance model across:
 
 - deterministic/seeded procedural generators;
-- local model-backed generators such as Stable Diffusion and TripoSR;
+- local model-backed generators such as Stable Diffusion, Stable Fast 3D, and TripoSR;
 - utility backends used to prove contracts.
 
-`builtin.procedural.svg-scatter` is the deterministic procedural reference backend. `model.stable-diffusion.diffusers` consumes a hash-pinned local Diffusers pipeline bundle. `model.triposr` consumes a hash-pinned bundle containing TripoSR source, weights/config, and its local DINO image-tokenizer model.
+`builtin.procedural.svg-scatter` is the deterministic procedural reference backend. `model.stable-diffusion.diffusers` consumes a hash-pinned local Diffusers pipeline bundle. `model.stable-fast-3d` consumes an explicit prepared image plus separately pinned Stable Fast 3D source, weights/config, and DINOv2 image-tokenizer bundles and emits a textured GLB. `model.triposr` remains the lighter image-to-3D fallback and consumes a hash-pinned bundle containing TripoSR source, weights/config, and its local DINO image-tokenizer model.
 
-Model generation is offline and fail-closed: model acquisition is separate from generation, and undeclared cache/network dependencies are not accepted as reproducibility evidence. A seed is an input, not proof of deterministic output.
+Model generation is offline and fail-closed: model acquisition is separate from generation, and undeclared cache/network dependencies are not accepted as reproducibility evidence. A seed is an input, not proof of deterministic output. For local game-asset reconstruction, Stable Fast 3D is the preferred textured image-to-3D backend when its runtime fits; TripoSR remains the lower-resource fallback.
 
 For acquisition, `scripts/acquire-huggingface-model.py` resolves a requested Hugging Face revision to an immutable commit, downloads that exact complete snapshot, records license and per-file evidence, and emits a deterministic hash-pinned ZIP plus an independently verifiable receipt. The manually dispatched `Hugging Face model acquisition evidence` workflow provides the same boundary in hosted CI without promoting model bytes automatically.
 

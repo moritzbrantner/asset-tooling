@@ -1,6 +1,10 @@
 import { readFile } from "node:fs/promises";
 import { resolveSpecPath } from "./schema.js";
-import { STABLE_DIFFUSION_BACKEND, TRIPOSR_BACKEND } from "./model-backends.js";
+import {
+  STABLE_DIFFUSION_BACKEND,
+  STABLE_FAST_3D_BACKEND,
+  TRIPOSR_BACKEND,
+} from "./model-backends.js";
 
 const MASK_64 = (1n << 64n) - 1n;
 
@@ -152,6 +156,7 @@ const BACKENDS = [
   COPY_BACKEND,
   PROCEDURAL_SVG_SCATTER_BACKEND,
   STABLE_DIFFUSION_BACKEND,
+  STABLE_FAST_3D_BACKEND,
   TRIPOSR_BACKEND,
 ];
 

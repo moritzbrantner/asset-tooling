@@ -5,6 +5,9 @@ import { probeProcessAdapter, runProcessAdapter } from "./process-adapter.js";
 const STABLE_DIFFUSION_SCRIPT = fileURLToPath(
   new URL("../adapters/python/stable_diffusion.py", import.meta.url),
 );
+const STABLE_FAST_3D_SCRIPT = fileURLToPath(
+  new URL("../adapters/python/stable_fast_3d.py", import.meta.url),
+);
 const TRIPOSR_SCRIPT = fileURLToPath(
   new URL("../adapters/python/triposr.py", import.meta.url),
 );
@@ -91,6 +94,59 @@ function validateStableDiffusion(document) {
   }
 }
 
+function validateStableFast3D(document) {
+  const { spec } = document;
+  assertExactKeys(
+    spec.models,
+    new Set(["sf3dSourceBundle", "sf3dModelBundle", "dinoBundle"]),
+    "models",
+  );
+  assertExactKeys(spec.inputs, new Set(["image"]), "inputs");
+  if (spec.randomness.mode !== "none") {
+    throw new Error("model.stable-fast-3d requires randomness.mode='none'");
+  }
+
+  const parameters = spec.parameters;
+  assertExactKeys(
+    parameters,
+    new Set([
+      "preprocessMode",
+      "device",
+      "textureResolution",
+      "remesh",
+      "targetVertexCount",
+      "deterministicAlgorithms",
+    ]),
+    "parameters",
+  );
+  if (parameters.preprocessMode !== "prepared-rgba") {
+    throw new Error(
+      "parameters.preprocessMode must be 'prepared-rgba'; background removal and framing are separate operations",
+    );
+  }
+  if (!["cpu", "cuda"].includes(parameters.device)) {
+    throw new Error("parameters.device must be cpu or cuda");
+  }
+  assertInteger(parameters.textureResolution, "parameters.textureResolution", 512, 2048);
+  if (parameters.textureResolution % 256 !== 0) {
+    throw new Error("parameters.textureResolution must be a multiple of 256");
+  }
+  if (!["none", "triangle", "quad"].includes(parameters.remesh)) {
+    throw new Error("parameters.remesh must be none, triangle, or quad");
+  }
+  if (
+    parameters.targetVertexCount !== -1 &&
+    (!Number.isInteger(parameters.targetVertexCount) ||
+      parameters.targetVertexCount < 1000 ||
+      parameters.targetVertexCount > 20000)
+  ) {
+    throw new Error("parameters.targetVertexCount must be -1 or an integer in 1000..20000");
+  }
+  if (typeof parameters.deterministicAlgorithms !== "boolean") {
+    throw new Error("parameters.deterministicAlgorithms must be a boolean");
+  }
+}
+
 function validateTripoSR(document) {
   const { spec } = document;
   assertExactKeys(spec.models, new Set(["triposrBundle"]), "models");
@@ -159,6 +215,49 @@ export const STABLE_DIFFUSION_BACKEND = {
       request: {
         pipelineBundlePath: resolveSpecPath(root, spec.models.pipelineBundle.path),
         seed: spec.randomness.seed,
+        parameters: spec.parameters,
+      },
+    });
+  },
+};
+
+export const STABLE_FAST_3D_BACKEND = {
+  id: "model.stable-fast-3d",
+  version: "1",
+  kind: "model",
+  exactCapable: false,
+  validate: validateStableFast3D,
+  async environmentComponents(document) {
+    validateStableFast3D(document);
+    return probeProcessAdapter({
+      executable: "python3",
+      scriptPath: STABLE_FAST_3D_SCRIPT,
+      cwd: document.root,
+      environment: {
+        ASSET_TOOLING_REQUESTED_DEVICE: document.spec.parameters.device,
+        ...(document.spec.parameters.device === "cpu" ? { SF3D_USE_CPU: "1" } : {}),
+      },
+    });
+  },
+  async generate(document) {
+    validateStableFast3D(document);
+    const { spec, root } = document;
+    return runProcessAdapter({
+      executable: "python3",
+      scriptPath: STABLE_FAST_3D_SCRIPT,
+      cwd: root,
+      environment: {
+        ...(spec.parameters.deterministicAlgorithms
+          ? { CUBLAS_WORKSPACE_CONFIG: ":16:8" }
+          : {}),
+        ...(spec.parameters.device === "cpu" ? { SF3D_USE_CPU: "1" } : {}),
+      },
+      outputName: "stable-fast-3d.glb",
+      request: {
+        sourceBundlePath: resolveSpecPath(root, spec.models.sf3dSourceBundle.path),
+        modelBundlePath: resolveSpecPath(root, spec.models.sf3dModelBundle.path),
+        dinoBundlePath: resolveSpecPath(root, spec.models.dinoBundle.path),
+        imagePath: resolveSpecPath(root, spec.inputs.image.path),
         parameters: spec.parameters,
       },
     });

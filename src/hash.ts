@@ -1,7 +1,7 @@
-import { createHash, type BinaryLike } from "node:crypto";
+import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 
-export function sha256Bytes(bytes: BinaryLike): string {
+export function sha256Bytes(bytes: string | NodeJS.ArrayBufferView): string {
   return createHash("sha256").update(bytes).digest("hex");
 }
 
