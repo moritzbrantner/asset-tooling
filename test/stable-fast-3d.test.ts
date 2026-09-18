@@ -71,8 +71,9 @@ test("Stable Fast 3D accepts prepared image plus explicit source, weights, and D
 test("Stable Fast 3D rejects hidden preprocessing and hidden model components", async () => {
   const autoBackground = stableFast3DSpec();
   autoBackground.parameters.preprocessMode = "remove-background";
+  const autoBackgroundPath = await writeSpec(autoBackground);
   await assert.rejects(
-    () => validateSpec(await writeSpec(autoBackground)),
+    () => validateSpec(autoBackgroundPath),
     /preprocessMode must be 'prepared-rgba'/,
   );
 
@@ -82,8 +83,9 @@ test("Stable Fast 3D rejects hidden preprocessing and hidden model components", 
     path: "models/rembg.onnx",
     sha256: "5".repeat(64),
   };
+  const hiddenModelPath = await writeSpec(hiddenModel);
   await assert.rejects(
-    () => validateSpec(await writeSpec(hiddenModel)),
+    () => validateSpec(hiddenModelPath),
     /models contains unsupported field 'rembg'/,
   );
 });
@@ -91,15 +93,17 @@ test("Stable Fast 3D rejects hidden preprocessing and hidden model components", 
 test("Stable Fast 3D normalizes game-asset mesh controls", async () => {
   const invalidTexture = stableFast3DSpec();
   invalidTexture.parameters.textureResolution = 1000;
+  const invalidTexturePath = await writeSpec(invalidTexture);
   await assert.rejects(
-    () => validateSpec(await writeSpec(invalidTexture)),
+    () => validateSpec(invalidTexturePath),
     /textureResolution must be a multiple of 256/,
   );
 
   const invalidVertices = stableFast3DSpec();
   invalidVertices.parameters.targetVertexCount = 500;
+  const invalidVerticesPath = await writeSpec(invalidVertices);
   await assert.rejects(
-    () => validateSpec(await writeSpec(invalidVertices)),
+    () => validateSpec(invalidVerticesPath),
     /targetVertexCount must be -1 or an integer in 1000\.\.20000/,
   );
 });
