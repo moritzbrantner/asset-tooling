@@ -56,6 +56,7 @@ const expectedSourceExports: Record<string, string> = {
   "./operations/image": "./src/image-operations.ts",
   "./operations/image/filters": "./src/image-filter-operations.ts",
   "./operations/image/advanced": "./src/image-advanced-operations.ts",
+  "./operations/image/background": "./src/image-background-operations.ts",
   "./operations/image/colorspace": "./src/image-colorspace-operations.ts",
   "./operations/image/channels": "./src/image-channel-operations.ts",
   "./operations/image/analysis": "./src/image-analysis-operations.ts",

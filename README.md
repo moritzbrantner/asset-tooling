@@ -24,6 +24,8 @@ The generation architecture supports the same provenance model across:
 
 Model generation is offline and fail-closed: model acquisition is separate from generation, and undeclared cache/network dependencies are not accepted as reproducibility evidence. A seed is an input, not proof of deterministic output. For local game-asset reconstruction, Stable Fast 3D is the preferred textured image-to-3D backend when its runtime fits; TripoSR remains the lower-resource fallback.
 
+For unattended local batches, edit `WEEKEND_MODELS.md`, copy `weekend-3d.config.example.json` to the ignored `weekend-3d.local.json`, run `bun run weekend:3d:doctor`, then start `bun run weekend:3d`. The sequential runner checkpoints each expensive stage and resumes verified work after interruption; see `docs/local-3d-weekend-batch.md`.
+
 For acquisition, `scripts/acquire-huggingface-model.py` resolves a requested Hugging Face revision to an immutable commit, downloads that exact complete snapshot, records license and per-file evidence, and emits a deterministic hash-pinned ZIP plus an independently verifiable receipt. The manually dispatched `Hugging Face model acquisition evidence` workflow provides the same boundary in hosted CI without promoting model bytes automatically.
 
 See `docs/generation.md`, `docs/model-acquisition.md`, `docs/stable-diffusion.md`, `docs/triposr.md`, and `docs/cache.md`.

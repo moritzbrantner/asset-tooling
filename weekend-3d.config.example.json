@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "queue": "WEEKEND_MODELS.md",
+  "outputDir": "build/weekend-3d",
+  "promptPrefix": "stylized low-poly medieval game asset, ",
+  "promptSuffix": ", single isolated object, centered, entire object visible, three-quarter view, pure white background, no ground plane, no cast shadow, no text, game-ready strong silhouette",
+  "negativePrompt": "multiple objects, environment scene, cropped object, floor, terrain, cast shadow, text, logo, watermark, photorealism, tiny fragile details",
+  "cooldownSeconds": 2,
+  "background": {
+    "backgroundFloor": 224,
+    "transparentAbove": 250
+  },
+  "stableDiffusion": {
+    "pipeline": {
+      "id": "local-game-asset-diffusion",
+      "path": "models/local/stable-diffusion.zip"
+    },
+    "device": "cuda",
+    "dtype": "float16",
+    "steps": 30,
+    "guidanceScale": 7,
+    "scheduler": "euler-a",
+    "deterministicAlgorithms": false
+  },
+  "stableFast3D": {
+    "source": {
+      "id": "stable-fast-3d-source",
+      "path": "models/local/stable-fast-3d-source.zip"
+    },
+    "model": {
+      "id": "stabilityai/stable-fast-3d",
+      "path": "models/local/stable-fast-3d-model.zip"
+    },
+    "tokenizer": {
+      "id": "facebook/dinov2-large",
+      "path": "models/local/dinov2-large.zip"
+    },
+    "device": "cuda",
+    "textureResolution": 1024,
+    "remesh": "triangle",
+    "targetVertexCount": 12000,
+    "deterministicAlgorithms": false
+  }
+}

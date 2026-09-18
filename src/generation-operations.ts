@@ -1,8 +1,8 @@
 import path from "node:path";
 import {
   assetObjectPortablePath,
-  resolveAssetObject,
   storeAssetObject,
+  verifyAssetObject,
 } from "./asset-store.js";
 import { normalizeGenerationResult } from "./backend-contract.js";
 import { getBackend } from "./backends.js";
@@ -370,7 +370,7 @@ export function createStableDiffusionImageOperationExecutor(backendValue) {
       inputs,
     });
     const model = buildIdentity.inputs.model;
-    await resolveAssetObject(root, model);
+    await verifyAssetObject(root, model);
     const document = stableDiffusionLegacyDocument(root, buildIdentity.parameters, model);
     const generated = normalizeGenerationResult(await backend.generate(document), backend.id);
     const stored = await storeAssetObject(root, {

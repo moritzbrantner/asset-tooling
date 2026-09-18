@@ -1,8 +1,8 @@
 import path from "node:path";
 import {
   assetObjectPortablePath,
-  resolveAssetObject,
   storeAssetObject,
+  verifyAssetObject,
 } from "./asset-store.js";
 import { normalizeGenerationResult } from "./backend-contract.js";
 import { getBackend } from "./backends.js";
@@ -204,8 +204,8 @@ export function createTripoSRMeshOperationExecutor(backendValue) {
     const buildIdentity = await createBuildIdentity(root, backend, { parameters, inputs });
     const image = buildIdentity.inputs.image;
     const model = buildIdentity.inputs.model;
-    await resolveAssetObject(root, image);
-    await resolveAssetObject(root, model);
+    await verifyAssetObject(root, image);
+    await verifyAssetObject(root, model);
 
     const document = legacyDocument(root, buildIdentity.parameters, image, model);
     const generated = normalizeGenerationResult(await backend.generate(document), backend.id);

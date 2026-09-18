@@ -1,8 +1,8 @@
 import path from "node:path";
 import {
   assetObjectPortablePath,
-  resolveAssetObject,
   storeAssetObject,
+  verifyAssetObject,
 } from "./asset-store.js";
 import { normalizeGenerationResult } from "./backend-contract.js";
 import { getBackend } from "./backends.js";
@@ -246,7 +246,7 @@ export function createStableFast3DMeshOperationExecutor(backendValue) {
   ) {
     const buildIdentity = await createBuildIdentity(root, backend, { parameters, inputs });
     for (const input of Object.values(buildIdentity.inputs)) {
-      await resolveAssetObject(root, input);
+      await verifyAssetObject(root, input);
     }
 
     const document = legacyDocument(root, buildIdentity.parameters, buildIdentity.inputs);
