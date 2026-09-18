@@ -64,6 +64,7 @@ First slices:
   - [x] Prove the boundary with `builtin.procedural.svg-scatter@1`: explicit seed in operation build identity, authoritative backend reuse, content-addressed output, and byte/observation parity with the legacy generation path.
   - [x] Wrap `model.stable-diffusion.diffusers@1` as `image.stable-diffusion.generate@1` with the exact pipeline bundle as a content-addressed input and execution-environment identity in the build key.
   - [x] Wrap `model.triposr@1` as `mesh.triposr.generate@1` with prepared image and complete TripoSR/source/DINO bundle inputs, preserving raw OBJ/GLB generation semantics.
+  - [x] Add `model.stable-fast-3d@1` / `mesh.stable-fast-3d.generate@1` as the preferred local textured image-to-3D path with prepared RGBA input, separately pinned source/model/DINO bundles, forced offline execution, and raw GLB output; retain TripoSR as the lower-resource fallback.
 - [x] Wrap existing processing operations behind the same operation boundary without moving their algorithms into this repository.
   - [x] Prove `mesh.simplify@1` against the exact accepted `three-d-lod` revision from `moritzbrantner/3d-lab`, using a verified object-store input, the shared process-adapter protocol, receipt-compatible observations, and a content-addressed mesh output.
   - [x] Wrap `mesh.lod_chain@1` against the pinned source-based `three-d-lod-chain` processor with deterministic exact-decimal per-level budget materialization, exact source/bundle validation, and content-addressed index evidence.
@@ -131,7 +132,9 @@ Treat model-backed capabilities as another operation family rather than a separa
 - Text-to-image, image-to-image, inpainting, outpainting, texture generation.
 - Segmentation, background removal, detection, depth/normal estimation, captioning, embeddings, and classification.
 - Super-resolution, denoising, deblurring, and other enhancement operations.
-- Image/text-to-3D where authoritative local model implementations are available.
+- [x] Image-to-3D through explicit local Stable Fast 3D and TripoSR adapters with model/source/tokenizer bytes hash-pinned before execution.
+- [ ] Reusable concept-image → prepared RGBA → local 3D → normalize/LOD recipe composed from existing operations rather than a special-case pipeline.
+- [ ] Text-to-3D only when an authoritative local implementation with acceptable licensing and reproducibility evidence is available.
 
 Model acquisition remains separate from execution; output-affecting model/config bytes must remain declared and hash-pinned.
 
