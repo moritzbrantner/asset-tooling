@@ -1,5 +1,7 @@
+import { constants, createReadStream } from "node:fs";
+import { createHash } from "node:crypto";
 import path from "node:path";
-import { lstat, mkdir, readFile, writeFile } from "node:fs/promises";
+import { copyFile, lstat, mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { sha256Bytes } from "./hash.js";
 import {
   createAssetRef,
@@ -17,6 +19,10 @@ export interface AssetRefFromBytesOptions {
 
 export interface StoreAssetObjectOptions extends AssetRefFromBytesOptions {
   bytes: Uint8Array;
+}
+
+export interface StoreAssetObjectFileOptions extends AssetRefFromBytesOptions {
+  sourcePath: string;
 }
 
 export interface StoreAssetObjectResult {
@@ -40,6 +46,36 @@ function normalizeBytes(value: unknown, location: string): Buffer {
     throw new Error(`${location} must be a Buffer or Uint8Array`);
   }
   return Buffer.from(value);
+}
+
+async function hashFile(filePath: string): Promise<{ sha256: string; byteLength: number }> {
+  const fileStat = await stat(filePath);
+  if (!fileStat.isFile()) {
+    throw new Error(`asset file '${filePath}' must be a regular file`);
+  }
+  const digest = createHash("sha256");
+  let byteLength = 0;
+  for await (const chunk of createReadStream(filePath)) {
+    const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    byteLength += bytes.byteLength;
+    digest.update(bytes);
+  }
+  if (byteLength !== fileStat.size) {
+    throw new Error(
+      `asset file '${filePath}' changed while hashing: expected ${fileStat.size} bytes, read ${byteLength}`,
+    );
+  }
+  return { sha256: digest.digest("hex"), byteLength };
+}
+
+async function assertRegularSourceFile(filePath: string): Promise<void> {
+  const sourceStat = await lstat(filePath);
+  if (sourceStat.isSymbolicLink()) {
+    throw new Error(`asset source file '${filePath}' must not be a symbolic link`);
+  }
+  if (!sourceStat.isFile()) {
+    throw new Error(`asset source file '${filePath}' must be a regular file`);
+  }
 }
 
 function objectPath(root: string, portablePath: string): string {
@@ -71,6 +107,33 @@ function assertAssetBytes(asset: AssetRef, bytes: Uint8Array): void {
   if (actualSha256 !== asset.sha256) {
     throw new Error(
       `asset object '${asset.sha256}' hash mismatch: expected ${asset.sha256}, got ${actualSha256}`,
+    );
+  }
+}
+
+async function verifyStoredObject(
+  root: string,
+  asset: AssetRef,
+  portablePath: string,
+): Promise<void> {
+  const absolutePath = objectPath(root, portablePath);
+  let actual: { sha256: string; byteLength: number };
+  try {
+    actual = await hashFile(absolutePath);
+  } catch (error: unknown) {
+    if (hasErrorCode(error, "ENOENT")) {
+      throw new Error(`asset object '${asset.sha256}' is missing`);
+    }
+    throw error;
+  }
+  if (actual.byteLength !== asset.byteLength) {
+    throw new Error(
+      `asset object '${asset.sha256}' byte length mismatch: expected ${asset.byteLength}, got ${actual.byteLength}`,
+    );
+  }
+  if (actual.sha256 !== asset.sha256) {
+    throw new Error(
+      `asset object '${asset.sha256}' hash mismatch: expected ${asset.sha256}, got ${actual.sha256}`,
     );
   }
 }
@@ -143,6 +206,52 @@ export async function storeAssetObject(
   const existing = await readStoredObject(root, asset, portablePath);
   assertAssetBytes(asset, existing);
   return { status: "unchanged", asset };
+}
+
+export async function storeAssetObjectFile(
+  root: string,
+  { sourcePath, kind, mediaType, metadata = {} }: StoreAssetObjectFileOptions,
+): Promise<StoreAssetObjectResult> {
+  await assertRegularSourceFile(sourcePath);
+  const identity = await hashFile(sourcePath);
+  const asset = createAssetRef({
+    schemaVersion: 1,
+    kind,
+    mediaType,
+    sha256: identity.sha256,
+    byteLength: identity.byteLength,
+    metadata,
+  });
+  const portablePath = assetObjectPortablePath(asset);
+  await assertNoSymbolicLinks(root, portablePath);
+  const absolutePath = objectPath(root, portablePath);
+  await mkdir(path.dirname(absolutePath), { recursive: true });
+
+  try {
+    await verifyStoredObject(root, asset, portablePath);
+    return { status: "unchanged", asset };
+  } catch (error: unknown) {
+    if (!(error instanceof Error) || !error.message.includes(" is missing")) throw error;
+  }
+
+  try {
+    await copyFile(sourcePath, absolutePath, constants.COPYFILE_EXCL);
+    await verifyStoredObject(root, asset, portablePath);
+    return { status: "changed", asset };
+  } catch (error: unknown) {
+    if (!hasErrorCode(error, "EEXIST")) throw error;
+  }
+
+  await verifyStoredObject(root, asset, portablePath);
+  return { status: "unchanged", asset };
+}
+
+export async function verifyAssetObject(root: string, value: unknown): Promise<AssetRef> {
+  const asset = createAssetRef(value);
+  const portablePath = assetObjectPortablePath(asset);
+  await assertNoSymbolicLinks(root, portablePath);
+  await verifyStoredObject(root, asset, portablePath);
+  return asset;
 }
 
 export async function resolveAssetObject(root: string, value: unknown): Promise<Buffer> {
