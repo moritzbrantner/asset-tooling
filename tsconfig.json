@@ -27,9 +27,11 @@
     "src/tool.ts",
     "src/operations.ts",
     "src/backend-contract.ts",
+    "src/schema.ts",
     "src/asset-store.ts",
     "src/cache.ts",
     "test/backend-contract.test.ts",
+    "test/schema-contract.test.ts",
     "test/environment-ordering.test.ts",
     "test/tool-identity.test.ts"
   ]
