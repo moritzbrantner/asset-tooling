@@ -29,7 +29,8 @@ inference, so Stable Diffusion and Stable Fast 3D do not compete for GPU memory.
    machine, the Python dependencies required by the existing Stable Diffusion
    and Stable Fast 3D adapters, and the Stable Fast 3D native extensions.
 2. Acquire the model/source dependencies **before** generation. Do not put model
-   downloads into the weekend loop.
+   downloads into the weekend loop. Keep the resulting ZIPs under `models/local/`;
+   that directory is intentionally git-ignored.
 3. Copy `weekend-3d.config.example.json` to `weekend-3d.local.json`.
 4. Put the four ZIP bundles at the paths configured there:
    - a complete local Diffusers pipeline;
