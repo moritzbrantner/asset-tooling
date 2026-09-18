@@ -228,10 +228,11 @@ export async function storeAssetObjectFile(
   await mkdir(path.dirname(absolutePath), { recursive: true });
 
   try {
+    await stat(absolutePath);
     await verifyStoredObject(root, asset, portablePath);
     return { status: "unchanged", asset };
   } catch (error: unknown) {
-    if (!(error instanceof Error) || !error.message.includes(" is missing")) throw error;
+    if (!hasErrorCode(error, "ENOENT")) throw error;
   }
 
   try {
