@@ -8,6 +8,8 @@ import {
   createAssetRefFromBytes,
   resolveAssetObject,
   storeAssetObject,
+  storeAssetObjectFile,
+  verifyAssetObject,
 } from "../src/asset-store.js";
 
 async function workspace() {
@@ -106,6 +108,43 @@ test("asset object store refuses symbolic-link escapes", async () => {
     } finally {
       await rm(outside, { recursive: true, force: true });
     }
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+
+test("large local files can be imported and verified without changing object identity", async () => {
+  const root = await workspace();
+  try {
+    const sourcePath = path.join(root, "local-model.zip");
+    const bytes = Buffer.alloc(1024 * 1024 + 17, 0x5a);
+    await writeFile(sourcePath, bytes);
+
+    const first = await storeAssetObjectFile(root, {
+      sourcePath,
+      kind: "model",
+      mediaType: "application/zip",
+      metadata: { id: "fixture.model" },
+    });
+    const second = await storeAssetObjectFile(root, {
+      sourcePath,
+      kind: "model",
+      mediaType: "application/zip",
+      metadata: { id: "fixture.model" },
+    });
+
+    assert.equal(first.status, "changed");
+    assert.equal(second.status, "unchanged");
+    assert.deepEqual(second.asset, first.asset);
+    assert.deepEqual(await verifyAssetObject(root, first.asset), first.asset);
+
+    const objectPath = path.join(root, ...assetObjectPortablePath(first.asset).split("/"));
+    await writeFile(objectPath, Buffer.alloc(bytes.length, 0x59));
+    await assert.rejects(
+      () => verifyAssetObject(root, first.asset),
+      /asset object .* hash mismatch/,
+    );
   } finally {
     await rm(root, { recursive: true, force: true });
   }
