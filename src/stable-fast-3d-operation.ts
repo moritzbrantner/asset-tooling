@@ -21,7 +21,7 @@ const OPERATION_VERSION = "1";
 const PARAMETER_KEYS = new Set([
   "sourceBundleId",
   "modelBundleId",
-  "imageTokenizerBundleId",
+  "tokenizerBundleId",
   "preprocessMode",
   "device",
   "textureResolution",
@@ -59,7 +59,7 @@ const OPERATION_REGISTRY = createAssetOperationRegistry([
         mediaTypes: ["application/zip"],
       },
       {
-        id: "imageTokenizer",
+        id: "tokenizer",
         label: "DINOv2 image-tokenizer bundle",
         assetKinds: ["model"],
         mediaTypes: ["application/zip"],
@@ -79,7 +79,7 @@ const OPERATION_REGISTRY = createAssetOperationRegistry([
       required: [
         "sourceBundleId",
         "modelBundleId",
-        "imageTokenizerBundleId",
+        "tokenizerBundleId",
         "preprocessMode",
         "device",
         "textureResolution",
@@ -90,7 +90,7 @@ const OPERATION_REGISTRY = createAssetOperationRegistry([
       properties: {
         sourceBundleId: { type: "string", minLength: 1 },
         modelBundleId: { type: "string", minLength: 1 },
-        imageTokenizerBundleId: { type: "string", minLength: 1 },
+        tokenizerBundleId: { type: "string", minLength: 1 },
         preprocessMode: { type: "string", enum: ["prepared-rgba"] },
         device: { type: "string", enum: ["cpu", "cuda"] },
         textureResolution: {
@@ -150,7 +150,7 @@ function legacyDocument(root, parameters, inputs) {
   }
   assertBundleId(parameters, "sourceBundleId");
   assertBundleId(parameters, "modelBundleId");
-  assertBundleId(parameters, "imageTokenizerBundleId");
+  assertBundleId(parameters, "tokenizerBundleId");
 
   return {
     root,
@@ -173,9 +173,9 @@ function legacyDocument(root, parameters, inputs) {
           sha256: inputs.model.sha256,
         },
         dinoBundle: {
-          id: parameters.imageTokenizerBundleId,
-          path: assetObjectPortablePath(inputs.imageTokenizer),
-          sha256: inputs.imageTokenizer.sha256,
+          id: parameters.tokenizerBundleId,
+          path: assetObjectPortablePath(inputs.tokenizer),
+          sha256: inputs.tokenizer.sha256,
         },
       },
       randomness: { mode: "none" },
@@ -260,7 +260,7 @@ export function createStableFast3DMeshOperationExecutor(backendValue) {
         inputImageSha256: buildIdentity.inputs.image.sha256,
         sourceSha256: buildIdentity.inputs.source.sha256,
         modelSha256: buildIdentity.inputs.model.sha256,
-        imageTokenizerSha256: buildIdentity.inputs.imageTokenizer.sha256,
+        tokenizerSha256: buildIdentity.inputs.tokenizer.sha256,
         textureResolution: buildIdentity.parameters.textureResolution,
         remesh: buildIdentity.parameters.remesh,
         targetVertexCount: buildIdentity.parameters.targetVertexCount,
