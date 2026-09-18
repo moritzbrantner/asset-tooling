@@ -14,7 +14,7 @@ import {
 const PARAMETERS = {
   sourceBundleId: "stable-fast-3d-source",
   modelBundleId: "stabilityai/stable-fast-3d",
-  imageTokenizerBundleId: "facebook/dinov2-large",
+  tokenizerBundleId: "facebook/dinov2-large",
   preprocessMode: "prepared-rgba",
   device: "cuda",
   textureResolution: 1024,
@@ -59,7 +59,7 @@ function modelBackend({ environmentVersion = "1", generate } = {}) {
   };
 }
 
-function invocation(inputs = { image: IMAGE, source: SOURCE, model: MODEL, imageTokenizer: DINO }) {
+function invocation(inputs = { image: IMAGE, source: SOURCE, model: MODEL, tokenizer: DINO }) {
   return { parameters: PARAMETERS, inputs };
 }
 
@@ -68,7 +68,7 @@ test("Stable Fast 3D operation exposes all offline dependencies as typed inputs"
   assert.equal(STABLE_FAST_3D_MESH_OPERATION.version, "1");
   assert.deepEqual(
     STABLE_FAST_3D_MESH_OPERATION.inputs.map((input) => input.id),
-    ["image", "source", "model", "imageTokenizer"],
+    ["image", "source", "model", "tokenizer"],
   );
   assert.deepEqual(STABLE_FAST_3D_MESH_OPERATION.outputs[0].mediaTypes, ["model/gltf-binary"]);
 });
@@ -85,7 +85,7 @@ test("Stable Fast 3D build identity binds all input hashes and environment ident
   assert.equal(identity.inputs.image.sha256, IMAGE.sha256);
   assert.equal(identity.inputs.source.sha256, SOURCE.sha256);
   assert.equal(identity.inputs.model.sha256, MODEL.sha256);
-  assert.equal(identity.inputs.imageTokenizer.sha256, DINO.sha256);
+  assert.equal(identity.inputs.tokenizer.sha256, DINO.sha256);
   assert.deepEqual(identity.implementation.environment.components, [
     { id: "test-stable-fast-3d-runtime", version: "1" },
   ]);
@@ -143,7 +143,7 @@ test("Stable Fast 3D operation stores raw GLB with complete source lineage", asy
       image: storedImage.asset,
       source: storedSource.asset,
       model: storedModel.asset,
-      imageTokenizer: storedDino.asset,
+      tokenizer: storedDino.asset,
     },
   });
 
@@ -160,7 +160,7 @@ test("Stable Fast 3D operation stores raw GLB with complete source lineage", asy
   assert.equal(result.outputs.output.metadata.inputImageSha256, storedImage.asset.sha256);
   assert.equal(result.outputs.output.metadata.sourceSha256, storedSource.asset.sha256);
   assert.equal(result.outputs.output.metadata.modelSha256, storedModel.asset.sha256);
-  assert.equal(result.outputs.output.metadata.imageTokenizerSha256, storedDino.asset.sha256);
+  assert.equal(result.outputs.output.metadata.tokenizerSha256, storedDino.asset.sha256);
   assert.equal(result.outputs.output.metadata.textureResolution, 1024);
 });
 
@@ -186,7 +186,7 @@ test("Stable Fast 3D verifies every declared object before inference", async () 
     () =>
       execute(root, {
         parameters: PARAMETERS,
-        inputs: { image: storedImage.asset, source: SOURCE, model: MODEL, imageTokenizer: DINO },
+        inputs: { image: storedImage.asset, source: SOURCE, model: MODEL, tokenizer: DINO },
       }),
     /asset object '[0-9a-f]{64}' is missing/,
   );
