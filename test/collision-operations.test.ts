@@ -44,10 +44,40 @@ test("proxy normalization canonicalizes exact decimals and proxy order", () => {
   assert.deepEqual(normalized, {
     unit: "meter",
     proxies: [
-      { id: "barrel", target: "barrel", shape: "capsule", center: ["0", "0.45", "0"], radius: "0.3", segmentLength: "0.3", axis: "y" },
+      { id: "barrel", target: "barrel", shape: "capsule", center: ["0", "0.45", "0"], radius: "0.3", segmentLength: "0.3" },
       { id: "crate", target: "crate", shape: "box", center: ["0", "0.5", "0"], size: ["1", "1", "1"] },
     ],
   });
+});
+
+test("capsule parameters normalize idempotently and execute successfully", async () => {
+  const root = await workspace();
+  try {
+    const parameters = {
+      unit: "meter",
+      proxies: [
+        { id: "barrel-body", target: "barrel", shape: "capsule", center: ["0", "0.45", "0"], radius: "0.3", segmentLength: "0.3" },
+      ],
+    };
+    const once = normalizeCollisionProxySetBuildParameters(parameters);
+    const twice = normalizeCollisionProxySetBuildParameters(once);
+    assert.deepEqual(twice, once);
+    const result = await executeCollisionProxySetBuildOperation(root, { parameters });
+    assert.equal(result.outputs.output.metadata.shapeCounts.capsule, 1);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("proxy ordering uses code-unit order for stable content hashes", () => {
+  const normalized = normalizeCollisionProxySetBuildParameters({
+    unit: "meter",
+    proxies: [
+      { id: "a-2", target: "box", shape: "box", center: ["0", "0", "0"], size: ["1", "1", "1"] },
+      { id: "a-10", target: "box", shape: "box", center: ["0", "0", "0"], size: ["1", "1", "1"] },
+    ],
+  });
+  assert.deepEqual(normalized.proxies.map((proxy) => proxy.id), ["a-10", "a-2"]);
 });
 
 test("compound window collision preserves the opening and is byte-stable across input order", async () => {
