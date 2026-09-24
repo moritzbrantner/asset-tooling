@@ -1,5 +1,5 @@
 import path from "node:path";
-import { canonicalJson } from "./canonical.js";
+import { canonicalJson, compareCodeUnitStrings } from "./canonical.js";
 import { storeAssetObject } from "./asset-store.js";
 import {
   createAssetOperationBuildIdentity,
@@ -13,7 +13,7 @@ import { captureToolIdentity } from "./tool.js";
 const VERSION = "1";
 const MAX_PROXIES = 128;
 const DECIMAL_PATTERN = /^-?(?:0|[1-9][0-9]{0,8})(?:\.[0-9]{1,6})?$/;
-const IDENTIFIER_PATTERN = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
+const IDENTIFIER_PATTERN = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;\nconst POSITIVE_DECIMAL_SCHEMA_PATTERN =\n  "^(?!0(?:\\\\.0{1,6})?$)(?:0|[1-9][0-9]{0,8})(?:\\\\.[0-9]{1,6})?$";
 
 export const COLLISION_PROXY_SET_MEDIA_TYPE =
   "application/vnd.asset-tooling.collision-proxy-set+json";
