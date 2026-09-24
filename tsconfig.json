@@ -1,18 +1,13 @@
 {
   "compilerOptions": {
-    "lib": [
-      "ESNext",
-      "DOM"
-    ],
+    "lib": ["ESNext", "DOM"],
     "target": "ESNext",
     "module": "Preserve",
     "moduleDetection": "force",
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
-    "types": [
-      "bun"
-    ],
+    "types": ["bun"],
     "noEmit": true,
     "strict": true,
     "skipLibCheck": true,
@@ -38,8 +33,6 @@
     "test/backend-contract.test.ts",
     "test/schema-contract.test.ts",
     "test/environment-ordering.test.ts",
-    "test/tool-identity.test.ts",
-    "src/collision-operations.ts",
-    "src/production-prop-kit.ts"
+    "test/tool-identity.test.ts"
   ]
 }
