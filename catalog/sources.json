@@ -33,6 +33,36 @@
     },
     {
       "schemaVersion": 1,
+      "id": "kenney.ui-audio-v1",
+      "provider": "kenney",
+      "title": "UI Audio",
+      "kind": "audio-pack",
+      "mediaType": "application/zip",
+      "source": {
+        "url": "https://kenney.nl/media/pages/assets/ui-audio/490d233f68-1677590494/kenney_ui-audio.zip",
+        "upstreamId": "ui-audio",
+        "revision": "1.0",
+        "path": "kenney_ui-audio.zip"
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "evidenceUrl": "https://kenney.nl/assets/ui-audio"
+      },
+      "tags": [
+        "audio",
+        "click",
+        "game",
+        "reference",
+        "switch",
+        "ui"
+      ],
+      "metadata": {
+        "fileCount": 50,
+        "purpose": "Small generic interaction-sound corpus for UI and audio consumers"
+      }
+    },
+    {
+      "schemaVersion": 1,
       "id": "kenney.ui-audio-mirror-click1-wav",
       "provider": "kenney",
       "title": "UI Audio — click1 WAV mirror",
@@ -128,36 +158,6 @@
         "upstreamGitBlobSha": "91d6f7f24555545753b89222ace1c3fee316a609",
         "upstreamByteLength": 6222,
         "purpose": "Very small switch fixture for fast audio normalization and workflow smoke tests"
-      }
-    },
-    {
-      "schemaVersion": 1,
-      "id": "kenney.ui-audio-v1",
-      "provider": "kenney",
-      "title": "UI Audio",
-      "kind": "audio-pack",
-      "mediaType": "application/zip",
-      "source": {
-        "url": "https://kenney.nl/media/pages/assets/ui-audio/490d233f68-1677590494/kenney_ui-audio.zip",
-        "upstreamId": "ui-audio",
-        "revision": "1.0",
-        "path": "kenney_ui-audio.zip"
-      },
-      "license": {
-        "spdx": "CC0-1.0",
-        "evidenceUrl": "https://kenney.nl/assets/ui-audio"
-      },
-      "tags": [
-        "audio",
-        "click",
-        "game",
-        "reference",
-        "switch",
-        "ui"
-      ],
-      "metadata": {
-        "fileCount": 50,
-        "purpose": "Small generic interaction-sound corpus for UI and audio consumers"
       }
     },
     {
