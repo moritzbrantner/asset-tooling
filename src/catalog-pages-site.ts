@@ -545,6 +545,8 @@ export function renderCatalogGalleryHtml(model) {
     header { max-width: 760px; margin-bottom: 28px; }
     h1 { margin: 0 0 8px; font-size: clamp(2rem, 5vw, 3.5rem); letter-spacing: -0.04em; }
     header p { margin: 0; line-height: 1.55; color: color-mix(in srgb, CanvasText 70%, Canvas); }
+    .page-actions { margin-top: 12px; }
+    .page-actions a { font-weight: 700; color: LinkText; }
     .controls { display: grid; grid-template-columns: minmax(240px, 2fr) repeat(3, minmax(140px, 1fr)); gap: 12px; margin: 28px 0 16px; }
     input, select { width: 100%; padding: 11px 12px; border: 1px solid color-mix(in srgb, CanvasText 20%, Canvas); border-radius: 10px; background: Canvas; color: CanvasText; font: inherit; }
     #summary { margin: 0 0 18px; color: color-mix(in srgb, CanvasText 64%, Canvas); }
@@ -580,6 +582,7 @@ export function renderCatalogGalleryHtml(model) {
   <header>
     <h1>Asset gallery</h1>
     <p>Browse assets visually first. Provenance, hashes, license evidence, source paths, and storage details are kept on each asset's individual page.</p>
+    <p class="page-actions"><a href="generate/">Generate a 3D asset in this browser</a></p>
   </header>
   <section class="controls" aria-label="Asset filters">
     <input id="search" type="search" placeholder="Search assets…" aria-label="Search assets">

@@ -28,6 +28,8 @@ For unattended local batches, choose either the Stable Fast 3D example or the TR
 
 For acquisition, `scripts/acquire-huggingface-model.py` resolves a requested Hugging Face revision to an immutable commit, downloads that exact complete snapshot, records license and per-file evidence, and emits a deterministic hash-pinned ZIP plus an independently verifiable receipt. The manually dispatched `Hugging Face model acquisition evidence` workflow provides the same boundary in hosted CI without promoting model bytes automatically.
 
+For zero-Python browser use, the same static 3D studio runs locally and on GitHub Pages. Run `bun run studio` from a checkout or open `/generate/` on the deployed Pages site. **Prepare model** is an explicit acquisition step: it downloads the immutable, hash-pinned Stable Fast 3D WebGPU artifacts, re-verifies cached bytes, and then enables local WebGPU generation. Source images and generated GLBs stay in the browser. TRELLIS.2 remains local CUDA-only and is intentionally not exposed by Pages. See `docs/browser-3d-studio.md`.
+
 See `docs/generation.md`, `docs/model-acquisition.md`, `docs/stable-diffusion.md`, `docs/trellis2.md`, `docs/stable-fast-3d.md`, `docs/triposr.md`, and `docs/cache.md`.
 
 ## Processing

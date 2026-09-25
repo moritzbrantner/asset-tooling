@@ -8,6 +8,11 @@ on:
       - "catalog/**"
       - "src/catalog-pages.ts"
       - "src/catalog-pages-site.ts"
+      - "src/browser-pages-site.ts"
+      - "src/browser/**"
+      - "src/image-border-white-alpha-core.ts"
+      - "licenses/**"
+      - "THIRD_PARTY_NOTICES.md"
       - "scripts/build-catalog-pages.ts"
       - "package.json"
       - ".github/workflows/pages.yml"
@@ -50,6 +55,8 @@ jobs:
           bun run pages:build
           test -s dist/pages/index.html
           test -s dist/pages/catalog.json
+          test -s dist/pages/generate/index.html
+          test -s dist/pages/generate/app.js
           test "$(find dist/pages/assets -name index.html -type f | wc -l)" -gt 0
 
       - name: Configure Pages
