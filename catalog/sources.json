@@ -347,6 +347,79 @@
     },
     {
       "schemaVersion": 1,
+      "id": "quaternius.fantasy-props-megakit-standard",
+      "provider": "quaternius",
+      "title": "Fantasy Props MegaKit — Standard",
+      "kind": "asset-pack",
+      "mediaType": "application/zip",
+      "source": {
+        "url": "https://opengameart.org/sites/default/files/fantasy_props_megakitstandard.zip",
+        "upstreamId": "fantasy-props-megakit-standard",
+        "revision": "2025-06-03-standard",
+        "path": "fantasy_props_megakitstandard.zip"
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "evidenceUrl": "https://quaternius.com/packs/fantasypropsmegakit.html"
+      },
+      "tags": [
+        "fantasy",
+        "furniture",
+        "game",
+        "gltf",
+        "medieval",
+        "props",
+        "texture",
+        "three-d"
+      ],
+      "metadata": {
+        "standardModelCount": 94,
+        "fullPackModelCount": "200+",
+        "fullPackTextureSetCount": 4,
+        "standardIncludesCustomCollision": false,
+        "sourceVersionIncludesCustomSimpleCollision": true,
+        "purpose": "Reusable textured low-poly prop source for production asset selection and processing"
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "quaternius.medieval-village-megakit-standard",
+      "provider": "quaternius",
+      "title": "Medieval Village MegaKit — Standard",
+      "kind": "asset-pack",
+      "mediaType": "application/zip",
+      "source": {
+        "url": "https://opengameart.org/sites/default/files/medieval_village_megakitstandard.zip",
+        "upstreamId": "medieval-village-megakit-standard",
+        "revision": "2025-04-16-standard",
+        "path": "medieval_village_megakitstandard.zip"
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "evidenceUrl": "https://quaternius.com/packs/medievalvillagemegakit.html"
+      },
+      "tags": [
+        "doors",
+        "environment",
+        "game",
+        "gltf",
+        "medieval",
+        "modular",
+        "three-d",
+        "walls",
+        "windows"
+      ],
+      "metadata": {
+        "standardModelCount": 176,
+        "fullPackModelCount": "300+",
+        "gridBased": true,
+        "standardIncludesCustomCollision": false,
+        "sourceVersionIncludesCustomOptimizedCollision": true,
+        "purpose": "Reusable textured modular environment source for walls, doors, windows, roofs, stairs, and village construction"
+      }
+    },
+    {
+      "schemaVersion": 1,
       "id": "quaternius.sci-fi-essentials-standard-models",
       "provider": "quaternius",
       "title": "Sci-Fi Essentials Kit — Standard Models",

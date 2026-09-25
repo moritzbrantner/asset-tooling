@@ -52,6 +52,7 @@ const expectedSourceExports: Record<string, string> = {
   "./operations/processing/animation": "./src/animation-processing-operations.ts",
   "./operations/processing/skinning": "./src/skinning-processing-operations.ts",
   "./operations/mesh/analysis": "./src/mesh-analysis-operations.ts",
+  "./operations/mesh/collision": "./src/collision-operations.ts",
   "./operations/material": "./src/material-operations.ts",
   "./operations/image": "./src/image-operations.ts",
   "./operations/image/filters": "./src/image-filter-operations.ts",
@@ -78,6 +79,7 @@ const expectedSourceExports: Record<string, string> = {
   "./3d/production-profile": "./src/three-d-production-profile.ts",
   "./recipes/medieval-character-kit": "./src/medieval-character-kit.ts",
   "./recipes/medieval-character-materials": "./src/medieval-character-materials.ts",
+  "./recipes/production-props": "./src/production-prop-kit.ts",
 };
 
 for (const [subpath, target] of Object.entries(expectedSourceExports)) {
