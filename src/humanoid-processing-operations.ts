@@ -294,6 +294,23 @@ function normalizeObservations(value, source) {
   if (rootNode >= jointCount || hipsNode >= jointCount) {
     throw new Error("observations root/hips nodes must reference source joints");
   }
+  const rootBinding = source.bindings.find((binding) => binding.bone === "root");
+  const hipsBinding = source.bindings.find((binding) => binding.bone === "hips");
+  if (!rootBinding || rootNode !== rootBinding.node) {
+    throw new Error("observations.rootNode does not match the humanoid source binding");
+  }
+  if (!hipsBinding || hipsNode !== hipsBinding.node) {
+    throw new Error("observations.hipsNode does not match the humanoid source binding");
+  }
+  const expectedToeCount = source.bindings.filter(
+    (binding) => binding.bone === "left-toes" || binding.bone === "right-toes",
+  ).length;
+  if (optionalToeCount !== expectedToeCount) {
+    throw new Error("observations.optionalToeCount does not match the humanoid source bindings");
+  }
+  if (rootNode === hipsNode) {
+    throw new Error("observations root and hips nodes must remain separated");
+  }
   if (referenceHeight !== source.referenceHeight) {
     throw new Error("observations.referenceHeight does not match the humanoid source");
   }
@@ -349,7 +366,13 @@ export async function createHumanoidValidateOperationBuildIdentity(
 
 export async function executeHumanoidValidateOperation(root, invocation, processorValue) {
   const parameters = normalizeParameters(invocation.parameters);
-  const source = invocation.inputs.source;
+  const normalizedInvocation = createAssetOperationBuildIdentity({
+    operation: HUMANOID_VALIDATE_OPERATION,
+    implementation: { id: PROCESSOR_ID, version: "unprobed" },
+    parameters,
+    inputs: invocation.inputs,
+  });
+  const source = normalizedInvocation.inputs.source;
   const sourceBytes = await resolveAssetObject(root, source);
   const parsedSource = parseHumanoidDocument(sourceBytes, `${OPERATION_ID} source humanoid`);
   const identity = await processorIdentity(root, processorValue);
@@ -364,7 +387,7 @@ export async function executeHumanoidValidateOperation(root, invocation, process
       schemaVersion: 1,
       operation: OPERATION_ID,
       inputPath: assetObjectPortablePath(source),
-      parameters,
+      parameters: normalizedInvocation.parameters,
     },
   });
   const parsedOutput = parseHumanoidDocument(
