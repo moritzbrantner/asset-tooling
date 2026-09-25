@@ -228,11 +228,12 @@ async function verifyProcessorSource(
   const scriptPath = path.isAbsolute(processor.scriptPath)
     ? path.resolve(processor.scriptPath)
     : path.resolve(root, processor.scriptPath);
-  if (!processor.sourceFiles?.includes(scriptPath)) {
+  const sourceFiles = processor.sourceFiles;
+  if (!sourceFiles?.includes(scriptPath)) {
     throw new Error(`${operationId} processor.sourceFiles must include the executed scriptPath`);
   }
   const fileHashes: string[] = [];
-  for (const sourceFile of processor.sourceFiles) {
+  for (const sourceFile of sourceFiles) {
     let bytes: Buffer;
     try {
       bytes = await readFile(sourceFile);
