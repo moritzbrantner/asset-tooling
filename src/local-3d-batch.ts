@@ -489,9 +489,41 @@ async function materializeJob(root, config, item, job) {
     id: item.id,
     prompt: item.prompt,
     seed: job.seed,
+    reconstructionBackend: config.reconstructionBackend,
     jobKey: job.jobKey,
     stages: job.stages,
   });
+}
+
+function reconstructionIdentity(config, models) {
+  if (config.reconstructionBackend === "stable-fast-3d") {
+    return {
+      backend: "stable-fast-3d",
+      source: models.stableFast3DSource.sha256,
+      model: models.stableFast3DModel.sha256,
+      tokenizer: models.stableFast3DTokenizer.sha256,
+      device: config.stableFast3D.device,
+      textureResolution: config.stableFast3D.textureResolution,
+      remesh: config.stableFast3D.remesh,
+      targetVertexCount: config.stableFast3D.targetVertexCount,
+      deterministicAlgorithms: config.stableFast3D.deterministicAlgorithms,
+    };
+  }
+  return {
+    backend: "trellis2",
+    source: models.trellis2Source.sha256,
+    model: models.trellis2Model.sha256,
+    legacyDecoder: models.trellis2LegacyDecoder.sha256,
+    imageEncoder: models.trellis2ImageEncoder.sha256,
+    device: config.trellis2.device,
+    pipelineType: config.trellis2.pipelineType,
+    maxNumTokens: config.trellis2.maxNumTokens,
+    decimationTarget: config.trellis2.decimationTarget,
+    textureSize: config.trellis2.textureSize,
+    remesh: config.trellis2.remesh,
+    extensionWebp: config.trellis2.extensionWebp,
+    deterministicAlgorithms: config.trellis2.deterministicAlgorithms,
+  };
 }
 
 function jobIdentity(item, config, models, tool) {
@@ -514,16 +546,7 @@ function jobIdentity(item, config, models, tool) {
         scheduler: config.stableDiffusion.scheduler,
         deterministicAlgorithms: config.stableDiffusion.deterministicAlgorithms,
       },
-      stableFast3D: {
-        source: models.stableFast3DSource.sha256,
-        model: models.stableFast3DModel.sha256,
-        tokenizer: models.stableFast3DTokenizer.sha256,
-        device: config.stableFast3D.device,
-        textureResolution: config.stableFast3D.textureResolution,
-        remesh: config.stableFast3D.remesh,
-        targetVertexCount: config.stableFast3D.targetVertexCount,
-        deterministicAlgorithms: config.stableFast3D.deterministicAlgorithms,
-      },
+      reconstruction: reconstructionIdentity(config, models),
       tool: tool.sourceFingerprint.sha256,
     }),
   );
@@ -532,6 +555,8 @@ function jobIdentity(item, config, models, tool) {
 function report(queue, state, config, root) {
   const lines = [
     "# Local 3D batch report",
+    "",
+    "Reconstruction backend: `" + config.reconstructionBackend + "`",
     "",
     "| Asset | Status | Seed | Output/error |",
     "| --- | --- | ---: | --- |",
@@ -622,25 +647,52 @@ async function runOne(root, config, item, models, tool, state, statePath, queue)
     }
 
     if (!job.stages.mesh) {
-      const mesh = await executeStableFast3DMeshOperation(root, {
-        parameters: {
-          sourceBundleId: config.stableFast3D.source.id,
-          modelBundleId: config.stableFast3D.model.id,
-          tokenizerBundleId: config.stableFast3D.tokenizer.id,
-          preprocessMode: "prepared-rgba",
-          device: config.stableFast3D.device,
-          textureResolution: config.stableFast3D.textureResolution,
-          remesh: config.stableFast3D.remesh,
-          targetVertexCount: config.stableFast3D.targetVertexCount,
-          deterministicAlgorithms: config.stableFast3D.deterministicAlgorithms,
-        },
-        inputs: {
-          image: job.stages.prepared,
-          source: models.stableFast3DSource,
-          model: models.stableFast3DModel,
-          tokenizer: models.stableFast3DTokenizer,
-        },
-      });
+      const mesh =
+        config.reconstructionBackend === "stable-fast-3d"
+          ? await executeStableFast3DMeshOperation(root, {
+              parameters: {
+                sourceBundleId: config.stableFast3D.source.id,
+                modelBundleId: config.stableFast3D.model.id,
+                tokenizerBundleId: config.stableFast3D.tokenizer.id,
+                preprocessMode: "prepared-rgba",
+                device: config.stableFast3D.device,
+                textureResolution: config.stableFast3D.textureResolution,
+                remesh: config.stableFast3D.remesh,
+                targetVertexCount: config.stableFast3D.targetVertexCount,
+                deterministicAlgorithms: config.stableFast3D.deterministicAlgorithms,
+              },
+              inputs: {
+                image: job.stages.prepared,
+                source: models.stableFast3DSource,
+                model: models.stableFast3DModel,
+                tokenizer: models.stableFast3DTokenizer,
+              },
+            })
+          : await executeTrellis2MeshOperation(root, {
+              parameters: {
+                sourceBundleId: config.trellis2.source.id,
+                modelBundleId: config.trellis2.model.id,
+                legacyDecoderBundleId: config.trellis2.legacyDecoder.id,
+                imageEncoderBundleId: config.trellis2.imageEncoder.id,
+                seed,
+                preprocessMode: "prepared-rgba-premultiplied",
+                device: config.trellis2.device,
+                pipelineType: config.trellis2.pipelineType,
+                maxNumTokens: config.trellis2.maxNumTokens,
+                decimationTarget: config.trellis2.decimationTarget,
+                textureSize: config.trellis2.textureSize,
+                remesh: config.trellis2.remesh,
+                extensionWebp: config.trellis2.extensionWebp,
+                deterministicAlgorithms: config.trellis2.deterministicAlgorithms,
+              },
+              inputs: {
+                image: job.stages.prepared,
+                source: models.trellis2Source,
+                model: models.trellis2Model,
+                "legacy-decoder": models.trellis2LegacyDecoder,
+                "image-encoder": models.trellis2ImageEncoder,
+              },
+            });
       job.stages.mesh = mesh.outputs.output;
       await checkpoint(queue, state, config, root, statePath);
     }
@@ -687,6 +739,7 @@ export async function runLocal3DBatch(rootValue, configPathValue, options = {}) 
   if (options.dryRun) {
     return {
       status: "planned",
+      reconstructionBackend: config.reconstructionBackend,
       jobs: selected.map((item) => ({
         id: item.id,
         seed: seedFor(item),
@@ -724,6 +777,7 @@ export async function runLocal3DBatch(rootValue, configPathValue, options = {}) 
   const failed = results.filter((entry) => entry.status === "failed");
   return {
     status: failed.length === 0 ? "completed" : "completed-with-failures",
+    reconstructionBackend: config.reconstructionBackend,
     completed: results.length - failed.length,
     failed: failed.length,
     results,
