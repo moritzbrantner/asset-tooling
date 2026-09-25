@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "queue": "WEEKEND_PROPS.md",
+  "outputDir": "build/weekend-3d-trellis2",
+  "reconstructionBackend": "trellis2",
+  "promptPrefix": "stylized low-poly medieval game asset, ",
+  "promptSuffix": ", single isolated object, centered, entire object visible, three-quarter view, pure white background, no ground plane, no cast shadow, no text, game-ready strong silhouette, clean readable materials",
+  "negativePrompt": "multiple objects, environment scene, cropped object, floor, terrain, cast shadow, text, logo, watermark, photorealism, tiny fragile details",
+  "cooldownSeconds": 2,
+  "background": {
+    "backgroundFloor": 224,
+    "transparentAbove": 250
+  },
+  "stableDiffusion": {
+    "pipeline": {
+      "id": "local-game-asset-diffusion",
+      "path": "models/local/stable-diffusion.zip"
+    },
+    "device": "cuda",
+    "dtype": "float16",
+    "steps": 30,
+    "guidanceScale": 7,
+    "scheduler": "euler-a",
+    "deterministicAlgorithms": false
+  },
+  "trellis2": {
+    "source": {
+      "id": "microsoft/TRELLIS.2@75fbf0183001ed9876c8dbb35de6b68552ee08bd",
+      "path": "models/local/trellis2-source.zip"
+    },
+    "model": {
+      "id": "microsoft/TRELLIS.2-4B",
+      "path": "models/local/trellis2-4b.zip"
+    },
+    "legacyDecoder": {
+      "id": "microsoft/TRELLIS-image-large:ss-dec-conv3d-16l8-fp16",
+      "path": "models/local/trellis-legacy-decoder.zip"
+    },
+    "imageEncoder": {
+      "id": "facebook/dinov3-vitl16-pretrain-lvd1689m",
+      "path": "models/local/dinov3-vitl16.zip"
+    },
+    "device": "cuda",
+    "pipelineType": "1024-cascade",
+    "maxNumTokens": 49152,
+    "decimationTarget": 100000,
+    "textureSize": 2048,
+    "remesh": true,
+    "extensionWebp": false,
+    "deterministicAlgorithms": false
+  }
+}

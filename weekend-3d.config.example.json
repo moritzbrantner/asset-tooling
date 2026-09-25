@@ -2,6 +2,7 @@
   "schemaVersion": 1,
   "queue": "WEEKEND_MODELS.md",
   "outputDir": "build/weekend-3d",
+  "reconstructionBackend": "stable-fast-3d",
   "promptPrefix": "stylized low-poly medieval game asset, ",
   "promptSuffix": ", single isolated object, centered, entire object visible, three-quarter view, pure white background, no ground plane, no cast shadow, no text, game-ready strong silhouette",
   "negativePrompt": "multiple objects, environment scene, cropped object, floor, terrain, cast shadow, text, logo, watermark, photorealism, tiny fragile details",
