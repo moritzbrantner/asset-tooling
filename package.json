@@ -52,8 +52,17 @@
     "./recipes/production-props": "./src/production-prop-kit.ts",
     "./schemas/*": "./schemas/*"
   },
-  "bin": { "asset-tooling": "./src/entry.ts" },
-  "files": ["src", "schemas", "adapters", "catalog", "docs", "README.md"],
+  "bin": {
+    "asset-tooling": "./src/entry.ts"
+  },
+  "files": [
+    "src",
+    "schemas",
+    "adapters",
+    "catalog",
+    "docs",
+    "README.md"
+  ],
   "scripts": {
     "typecheck": "bun add --no-save --dev typescript@7.0.2 @types/bun@1.4.0 && bunx --no-install tsc --noEmit",
     "test": "bun test",
@@ -71,8 +80,12 @@
     "weekend:3d:dry-run": "bun scripts/run-weekend-3d.ts --dry-run",
     "check": "bun run typecheck && bun test && bun run package:check && bun run catalog:check && bun run catalog:storage:check && bun run pages:build && bun src/entry.ts validate examples/copy/asset.json",
     "stability:contract": "bun scripts/check-stability.ts",
-    "stability:check": "bun run check && bun run stability:contract"
+    "stability:check": "bun run check && bun run stability:contract",
+    "pages:dev": "bun run pages:build && bun scripts/serve-pages.ts",
+    "studio": "bun run pages:dev"
   },
-  "engines": { "bun": "1.4.2" },
+  "engines": {
+    "bun": "1.4.2"
+  },
   "packageManager": "bun@1.4.2"
 }
