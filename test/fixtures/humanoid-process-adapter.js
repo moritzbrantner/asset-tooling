@@ -2,7 +2,10 @@
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-const mode = process.argv[2];
+const args = process.argv.slice(2);
+const mismatchArgument = args[0]?.startsWith("--mismatch=") ? args.shift() : null;
+const mismatch = mismatchArgument?.slice("--mismatch=".length) ?? null;
+const mode = args[0];
 if (mode === "probe") {
   process.stdout.write(
     JSON.stringify([
@@ -20,11 +23,13 @@ if (mode === "probe") {
   process.exit(0);
 }
 
-if (mode !== "generate" || process.argv.length !== 6) {
-  throw new Error("usage: fixture probe | generate REQUEST OUTPUT OBSERVATIONS");
+if (mode !== "generate" || args.length !== 4) {
+  throw new Error(
+    "usage: fixture [--mismatch=root|toes] probe | generate REQUEST OUTPUT OBSERVATIONS",
+  );
 }
 
-const [, , , requestPath, outputPath, observationsPath] = process.argv;
+const [, requestPath, outputPath, observationsPath] = args;
 const request = JSON.parse(await readFile(requestPath, "utf8"));
 if (request.operation !== "rig.humanoid.validate") {
   throw new Error(`unsupported fixture operation '${request.operation}'`);
@@ -36,6 +41,8 @@ const optionalToeCount = ["left-toes", "right-toes"].filter(
 ).length;
 
 await writeFile(outputPath, JSON.stringify(source));
+const rootNode = mismatch === "root" ? nodeFor("hips") : nodeFor("root");
+const observedToeCount = mismatch === "toes" ? optionalToeCount + 1 : optionalToeCount;
 await writeFile(
   observationsPath,
   JSON.stringify({
@@ -43,12 +50,12 @@ await writeFile(
     mappedBoneCount: source.bindings.length,
     helperJointCount: source.joints.length - source.bindings.length,
     socketCount: source.sockets.length,
-    rootNode: nodeFor("root"),
+    rootNode,
     hipsNode: nodeFor("hips"),
-    optionalToeCount,
+    optionalToeCount: observedToeCount,
     referenceHeight: Math.fround(source.referenceHeight),
     semanticHierarchyValid: true,
-    rootHipsSeparated: nodeFor("root") !== nodeFor("hips"),
+    rootHipsSeparated: rootNode !== nodeFor("hips"),
     standardSocketsPresent: true,
   }),
 );
