@@ -23,6 +23,14 @@ const PROCESSOR = {
   prefixArguments: [],
   sourceFiles: [FIXTURE_ADAPTER],
 };
+const WRONG_ROOT_PROCESSOR = {
+  ...PROCESSOR,
+  prefixArguments: ["--mismatch=root"],
+};
+const WRONG_TOES_PROCESSOR = {
+  ...PROCESSOR,
+  prefixArguments: ["--mismatch=toes"],
+};
 const IDENTITY_MATRIX = [
   1, 0, 0, 0,
   0, 1, 0, 0,
@@ -183,6 +191,51 @@ test("humanoid validation is idempotent and records reusable rig evidence", asyn
     (await resolveAssetObject(root, first.outputs.output)).toString("utf8"),
   );
   assert.deepEqual(output, sourceDocument());
+});
+
+test("humanoid execution enforces the operation input kind and media type", async () => {
+  const root = await workspace();
+  const source = await storedSource(root);
+
+  await assert.rejects(
+    () =>
+      executeHumanoidValidateOperation(
+        root,
+        {
+          parameters: {},
+          inputs: { source: { ...source, kind: "mesh" } },
+        },
+        PROCESSOR,
+      ),
+    /kind 'mesh' is not accepted/,
+  );
+  await assert.rejects(
+    () =>
+      executeHumanoidValidateOperation(
+        root,
+        {
+          parameters: {},
+          inputs: { source: { ...source, mediaType: "application/json" } },
+        },
+        PROCESSOR,
+      ),
+    /media type 'application\/json' is not accepted/,
+  );
+});
+
+test("humanoid execution rejects processor observations that contradict source bindings", async () => {
+  const root = await workspace();
+  const source = await storedSource(root);
+  const invocation = { parameters: {}, inputs: { source } };
+
+  await assert.rejects(
+    () => executeHumanoidValidateOperation(root, invocation, WRONG_ROOT_PROCESSOR),
+    /observations\.rootNode does not match the humanoid source binding/,
+  );
+  await assert.rejects(
+    () => executeHumanoidValidateOperation(root, invocation, WRONG_TOES_PROCESSOR),
+    /observations\.optionalToeCount does not match the humanoid source bindings/,
+  );
 });
 
 test("humanoid validation rejects ambiguous parameters and malformed transport before execution", async () => {
