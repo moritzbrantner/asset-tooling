@@ -384,14 +384,12 @@ export async function executeHumanoidValidateOperation(root, invocation, process
       socketCount: observations.socketCount,
       optionalToeCount: observations.optionalToeCount,
       referenceHeight: observations.referenceHeight,
+      operation: OPERATION_ID,
+      sourceSha256: source.sha256,
     },
   });
   return normalizeAssetOperationResult(HUMANOID_VALIDATE_OPERATION, {
     outputs: { output: stored.asset },
     observations,
-    evidence: {
-      implementation: identity.implementation,
-      changed: stored.changed,
-    },
   });
 }
