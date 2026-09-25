@@ -14,6 +14,7 @@ import {
   storeAssetObjectFile,
 } from "./asset-store.js";
 import { executeStableFast3DMeshOperation } from "./stable-fast-3d-operation.js";
+import { executeTrellis2MeshOperation } from "./trellis2-operation.js";
 import { captureToolIdentity } from "./tool.js";
 
 const SCHEMA_VERSION = 1;
@@ -99,7 +100,19 @@ function normalizeConfig(raw, configPath, root) {
   const base = path.dirname(configPath);
   const background = object(value.background, "config.background");
   const stableDiffusion = object(value.stableDiffusion, "config.stableDiffusion");
-  const stableFast3D = object(value.stableFast3D, "config.stableFast3D");
+  const reconstructionBackend = choice(
+    value.reconstructionBackend ?? "stable-fast-3d",
+    ["stable-fast-3d", "trellis2"],
+    "config.reconstructionBackend",
+  );
+  const stableFast3D =
+    reconstructionBackend === "stable-fast-3d"
+      ? object(value.stableFast3D, "config.stableFast3D")
+      : undefined;
+  const trellis2 =
+    reconstructionBackend === "trellis2"
+      ? object(value.trellis2, "config.trellis2")
+      : undefined;
   const outputDir = path.resolve(base, nonEmpty(value.outputDir, "config.outputDir"));
   const relativeOutput = path.relative(root, outputDir);
   if (
@@ -127,14 +140,17 @@ function normalizeConfig(raw, configPath, root) {
     throw new Error("backgroundFloor must be below transparentAbove");
   }
 
-  const targetVertexCount = stableFast3D.targetVertexCount;
-  if (
-    targetVertexCount !== -1 &&
-    (!Number.isSafeInteger(targetVertexCount) ||
-      targetVertexCount < 1000 ||
-      targetVertexCount > 20000)
-  ) {
-    throw new Error("config.stableFast3D.targetVertexCount must be -1 or 1000..20000");
+  let targetVertexCount;
+  if (stableFast3D) {
+    targetVertexCount = stableFast3D.targetVertexCount;
+    if (
+      targetVertexCount !== -1 &&
+      (!Number.isSafeInteger(targetVertexCount) ||
+        targetVertexCount < 1000 ||
+        targetVertexCount > 20000)
+    ) {
+      throw new Error("config.stableFast3D.targetVertexCount must be -1 or 1000..20000");
+    }
   }
 
   return {
@@ -145,6 +161,7 @@ function normalizeConfig(raw, configPath, root) {
     negativePrompt: typeof value.negativePrompt === "string" ? value.negativePrompt : "",
     cooldownSeconds: integer(value.cooldownSeconds ?? 0, "config.cooldownSeconds", 0, 3600),
     background: { backgroundFloor, transparentAbove },
+    reconstructionBackend,
     stableDiffusion: {
       pipeline: bundle(stableDiffusion.pipeline, "config.stableDiffusion.pipeline", base),
       device: choice(stableDiffusion.device, ["cpu", "cuda", "mps"], "config.stableDiffusion.device"),
@@ -173,34 +190,88 @@ function normalizeConfig(raw, configPath, root) {
         "config.stableDiffusion.deterministicAlgorithms",
       ),
     },
-    stableFast3D: {
-      source: bundle(stableFast3D.source, "config.stableFast3D.source", base),
-      model: bundle(stableFast3D.model, "config.stableFast3D.model", base),
-      tokenizer: bundle(stableFast3D.tokenizer, "config.stableFast3D.tokenizer", base),
-      device: choice(stableFast3D.device, ["cpu", "cuda"], "config.stableFast3D.device"),
-      textureResolution: (() => {
-        const value = integer(
-          stableFast3D.textureResolution,
-          "config.stableFast3D.textureResolution",
-          512,
-          2048,
-        );
-        if (value % 256 !== 0) {
-          throw new Error("config.stableFast3D.textureResolution must be a multiple of 256");
+    stableFast3D: stableFast3D
+      ? {
+          source: bundle(stableFast3D.source, "config.stableFast3D.source", base),
+          model: bundle(stableFast3D.model, "config.stableFast3D.model", base),
+          tokenizer: bundle(stableFast3D.tokenizer, "config.stableFast3D.tokenizer", base),
+          device: choice(stableFast3D.device, ["cpu", "cuda"], "config.stableFast3D.device"),
+          textureResolution: (() => {
+            const textureResolution = integer(
+              stableFast3D.textureResolution,
+              "config.stableFast3D.textureResolution",
+              512,
+              2048,
+            );
+            if (textureResolution % 256 !== 0) {
+              throw new Error("config.stableFast3D.textureResolution must be a multiple of 256");
+            }
+            return textureResolution;
+          })(),
+          remesh: choice(
+            stableFast3D.remesh,
+            ["none", "triangle", "quad"],
+            "config.stableFast3D.remesh",
+          ),
+          targetVertexCount,
+          deterministicAlgorithms: bool(
+            stableFast3D.deterministicAlgorithms,
+            "config.stableFast3D.deterministicAlgorithms",
+          ),
         }
-        return value;
-      })(),
-      remesh: choice(
-        stableFast3D.remesh,
-        ["none", "triangle", "quad"],
-        "config.stableFast3D.remesh",
-      ),
-      targetVertexCount,
-      deterministicAlgorithms: bool(
-        stableFast3D.deterministicAlgorithms,
-        "config.stableFast3D.deterministicAlgorithms",
-      ),
-    },
+      : undefined,
+    trellis2: trellis2
+      ? {
+          source: bundle(trellis2.source, "config.trellis2.source", base),
+          model: bundle(trellis2.model, "config.trellis2.model", base),
+          legacyDecoder: bundle(
+            trellis2.legacyDecoder,
+            "config.trellis2.legacyDecoder",
+            base,
+          ),
+          imageEncoder: bundle(
+            trellis2.imageEncoder,
+            "config.trellis2.imageEncoder",
+            base,
+          ),
+          device: choice(trellis2.device, ["cuda"], "config.trellis2.device"),
+          pipelineType: choice(
+            trellis2.pipelineType,
+            ["512", "1024", "1024-cascade", "1536-cascade"],
+            "config.trellis2.pipelineType",
+          ),
+          maxNumTokens: integer(
+            trellis2.maxNumTokens,
+            "config.trellis2.maxNumTokens",
+            4096,
+            131072,
+          ),
+          decimationTarget: integer(
+            trellis2.decimationTarget,
+            "config.trellis2.decimationTarget",
+            1000,
+            1000000,
+          ),
+          textureSize: (() => {
+            const textureSize = integer(
+              trellis2.textureSize,
+              "config.trellis2.textureSize",
+              512,
+              4096,
+            );
+            if (![512, 1024, 2048, 4096].includes(textureSize)) {
+              throw new Error("config.trellis2.textureSize must be 512, 1024, 2048, or 4096");
+            }
+            return textureSize;
+          })(),
+          remesh: bool(trellis2.remesh, "config.trellis2.remesh"),
+          extensionWebp: bool(trellis2.extensionWebp, "config.trellis2.extensionWebp"),
+          deterministicAlgorithms: bool(
+            trellis2.deterministicAlgorithms,
+            "config.trellis2.deterministicAlgorithms",
+          ),
+        }
+      : undefined,
   };
 }
 
