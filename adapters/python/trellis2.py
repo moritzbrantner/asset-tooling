@@ -447,6 +447,7 @@ def generate(request_path: Path, output_path: Path, observations_path: Path) -> 
             "faceCount": int(mesh.faces.shape[0]),
             "outputFormat": "glb",
             "pbrChannels": ["base-color", "metallic", "roughness", "opacity"],
+            "alphaMode": "OPAQUE",
             "deterministicAlgorithms": parameters["deterministicAlgorithms"],
         }
         observations_path.write_text(
