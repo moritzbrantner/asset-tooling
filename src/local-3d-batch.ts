@@ -352,7 +352,6 @@ async function pinModels(root, config, refreshLock) {
 
   const lock = {
     schemaVersion: 1,
-    reconstructionBackend: config.reconstructionBackend,
     models: Object.fromEntries(
       Object.entries(models).map(([role, asset]) => [
         role,
@@ -495,10 +494,30 @@ async function materializeJob(root, config, item, job) {
   });
 }
 
-function reconstructionIdentity(config, models) {
+function jobIdentity(item, config, models, tool) {
+  const identity = {
+    schemaVersion: 1,
+    id: item.id,
+    prompt: item.prompt,
+    seed: seedFor(item),
+    promptPrefix: config.promptPrefix,
+    promptSuffix: config.promptSuffix,
+    negativePrompt: config.negativePrompt,
+    background: config.background,
+    stableDiffusion: {
+      model: models.stableDiffusion.sha256,
+      device: config.stableDiffusion.device,
+      dtype: config.stableDiffusion.dtype,
+      steps: config.stableDiffusion.steps,
+      guidanceScale: config.stableDiffusion.guidanceScale,
+      scheduler: config.stableDiffusion.scheduler,
+      deterministicAlgorithms: config.stableDiffusion.deterministicAlgorithms,
+    },
+    tool: tool.sourceFingerprint.sha256,
+  };
+
   if (config.reconstructionBackend === "stable-fast-3d") {
-    return {
-      backend: "stable-fast-3d",
+    identity.stableFast3D = {
       source: models.stableFast3DSource.sha256,
       model: models.stableFast3DModel.sha256,
       tokenizer: models.stableFast3DTokenizer.sha256,
@@ -508,48 +527,24 @@ function reconstructionIdentity(config, models) {
       targetVertexCount: config.stableFast3D.targetVertexCount,
       deterministicAlgorithms: config.stableFast3D.deterministicAlgorithms,
     };
+  } else {
+    identity.trellis2 = {
+      source: models.trellis2Source.sha256,
+      model: models.trellis2Model.sha256,
+      legacyDecoder: models.trellis2LegacyDecoder.sha256,
+      imageEncoder: models.trellis2ImageEncoder.sha256,
+      device: config.trellis2.device,
+      pipelineType: config.trellis2.pipelineType,
+      maxNumTokens: config.trellis2.maxNumTokens,
+      decimationTarget: config.trellis2.decimationTarget,
+      textureSize: config.trellis2.textureSize,
+      remesh: config.trellis2.remesh,
+      extensionWebp: config.trellis2.extensionWebp,
+      deterministicAlgorithms: config.trellis2.deterministicAlgorithms,
+    };
   }
-  return {
-    backend: "trellis2",
-    source: models.trellis2Source.sha256,
-    model: models.trellis2Model.sha256,
-    legacyDecoder: models.trellis2LegacyDecoder.sha256,
-    imageEncoder: models.trellis2ImageEncoder.sha256,
-    device: config.trellis2.device,
-    pipelineType: config.trellis2.pipelineType,
-    maxNumTokens: config.trellis2.maxNumTokens,
-    decimationTarget: config.trellis2.decimationTarget,
-    textureSize: config.trellis2.textureSize,
-    remesh: config.trellis2.remesh,
-    extensionWebp: config.trellis2.extensionWebp,
-    deterministicAlgorithms: config.trellis2.deterministicAlgorithms,
-  };
-}
 
-function jobIdentity(item, config, models, tool) {
-  return sha256Text(
-    canonicalJson({
-      schemaVersion: 1,
-      id: item.id,
-      prompt: item.prompt,
-      seed: seedFor(item),
-      promptPrefix: config.promptPrefix,
-      promptSuffix: config.promptSuffix,
-      negativePrompt: config.negativePrompt,
-      background: config.background,
-      stableDiffusion: {
-        model: models.stableDiffusion.sha256,
-        device: config.stableDiffusion.device,
-        dtype: config.stableDiffusion.dtype,
-        steps: config.stableDiffusion.steps,
-        guidanceScale: config.stableDiffusion.guidanceScale,
-        scheduler: config.stableDiffusion.scheduler,
-        deterministicAlgorithms: config.stableDiffusion.deterministicAlgorithms,
-      },
-      reconstruction: reconstructionIdentity(config, models),
-      tool: tool.sourceFingerprint.sha256,
-    }),
-  );
+  return sha256Text(canonicalJson(identity));
 }
 
 function report(queue, state, config, root) {
