@@ -49,7 +49,7 @@ TRELLIS.2 generates a mesh carrying:
 - roughness;
 - opacity.
 
-The adapter exports those attributes through the upstream O-Voxel GLB postprocessor and stores the resulting GLB as a normal content-addressed mesh `AssetRef`.
+The adapter exports those attributes through the upstream O-Voxel GLB postprocessor and stores the resulting GLB as a normal content-addressed mesh `AssetRef`. The upstream exporter preserves alpha in the base-color texture but emits `alphaMode: OPAQUE`; consumers must deliberately opt into transparency when that is part of their rendering contract.
 
 `decimationTarget`, `textureSize`, remeshing, WebP extension use, pipeline type, token cap, and seed are explicit operation parameters and therefore part of build identity.
 
