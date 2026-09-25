@@ -92,7 +92,7 @@ export function parseLocal3DQueue(markdown) {
   return items;
 }
 
-function normalizeConfig(raw, configPath, root) {
+export function normalizeLocal3DBatchConfig(raw, configPath, root) {
   const value = object(raw, "weekend 3D config");
   if (value.schemaVersion !== SCHEMA_VERSION) {
     throw new Error("weekend 3D config schemaVersion must be 1");
@@ -309,24 +309,50 @@ async function pinModels(root, config, refreshLock) {
       config.stableDiffusion.pipeline,
       "stable-diffusion-pipeline",
     ),
-    stableFast3DSource: await importBundle(
+  };
+
+  if (config.reconstructionBackend === "stable-fast-3d") {
+    models.stableFast3DSource = await importBundle(
       root,
       config.stableFast3D.source,
       "stable-fast-3d-source",
-    ),
-    stableFast3DModel: await importBundle(
+    );
+    models.stableFast3DModel = await importBundle(
       root,
       config.stableFast3D.model,
       "stable-fast-3d-model",
-    ),
-    stableFast3DTokenizer: await importBundle(
+    );
+    models.stableFast3DTokenizer = await importBundle(
       root,
       config.stableFast3D.tokenizer,
       "stable-fast-3d-tokenizer",
-    ),
-  };
+    );
+  } else {
+    models.trellis2Source = await importBundle(
+      root,
+      config.trellis2.source,
+      "trellis2-source",
+    );
+    models.trellis2Model = await importBundle(
+      root,
+      config.trellis2.model,
+      "trellis2-model",
+    );
+    models.trellis2LegacyDecoder = await importBundle(
+      root,
+      config.trellis2.legacyDecoder,
+      "trellis2-legacy-decoder",
+    );
+    models.trellis2ImageEncoder = await importBundle(
+      root,
+      config.trellis2.imageEncoder,
+      "trellis2-image-encoder",
+    );
+  }
+
   const lock = {
     schemaVersion: 1,
+    reconstructionBackend: config.reconstructionBackend,
     models: Object.fromEntries(
       Object.entries(models).map(([role, asset]) => [
         role,
@@ -342,7 +368,7 @@ async function pinModels(root, config, refreshLock) {
   const existing = await readJson(lockPath, null);
   if (existing && !refreshLock && canonicalJson(existing) !== canonicalJson(lock)) {
     throw new Error(
-      "local model bundle bytes changed; inspect them and rerun with --refresh-lock to accept",
+      "local model bundle bytes or reconstruction backend changed; inspect them and rerun with --refresh-lock to accept",
     );
   }
   if (!existing || refreshLock) await writeJson(lockPath, lock);
@@ -370,7 +396,7 @@ function runCommand(executable, args, root, env = {}) {
 export async function doctorLocal3DBatch(rootValue, configPathValue, options = {}) {
   const root = path.resolve(rootValue);
   const configPath = path.resolve(root, configPathValue);
-  const config = normalizeConfig(
+  const config = normalizeLocal3DBatchConfig(
     JSON.parse(await readFile(configPath, "utf8")),
     configPath,
     root,
@@ -383,12 +409,26 @@ export async function doctorLocal3DBatch(rootValue, configPathValue, options = {
   runCommand("python3", [path.join(root, "adapters/python/stable_diffusion.py"), "probe"], root, {
     ASSET_TOOLING_REQUESTED_DEVICE: config.stableDiffusion.device,
   });
-  runCommand("python3", [path.join(root, "adapters/python/stable_fast_3d.py"), "probe"], root, {
-    ASSET_TOOLING_REQUESTED_DEVICE: config.stableFast3D.device,
-  });
+
+  if (config.reconstructionBackend === "stable-fast-3d") {
+    runCommand(
+      "python3",
+      [path.join(root, "adapters/python/stable_fast_3d.py"), "probe"],
+      root,
+      { ASSET_TOOLING_REQUESTED_DEVICE: config.stableFast3D.device },
+    );
+  } else {
+    runCommand(
+      "python3",
+      [path.join(root, "adapters/python/trellis2.py"), "probe"],
+      root,
+      { ASSET_TOOLING_REQUESTED_DEVICE: "cuda" },
+    );
+  }
 
   return {
     status: "ready",
+    reconstructionBackend: config.reconstructionBackend,
     queuedJobs: queue.length,
     outputDir: path.relative(root, config.outputDir),
     modelLock: pinned.lock,
@@ -624,7 +664,7 @@ function sleep(seconds) {
 export async function runLocal3DBatch(rootValue, configPathValue, options = {}) {
   const root = path.resolve(rootValue);
   const configPath = path.resolve(root, configPathValue);
-  const config = normalizeConfig(
+  const config = normalizeLocal3DBatchConfig(
     JSON.parse(await readFile(configPath, "utf8")),
     configPath,
     root,
