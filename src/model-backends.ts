@@ -8,6 +8,9 @@ const STABLE_DIFFUSION_SCRIPT = fileURLToPath(
 const STABLE_FAST_3D_SCRIPT = fileURLToPath(
   new URL("../adapters/python/stable_fast_3d.py", import.meta.url),
 );
+const TRELLIS2_SCRIPT = fileURLToPath(
+  new URL("../adapters/python/trellis2.py", import.meta.url),
+);
 const TRIPOSR_SCRIPT = fileURLToPath(
   new URL("../adapters/python/triposr.py", import.meta.url),
 );
@@ -147,6 +150,70 @@ function validateStableFast3D(document) {
   }
 }
 
+
+function validateTrellis2(document) {
+  const { spec } = document;
+  assertExactKeys(
+    spec.models,
+    new Set([
+      "trellis2SourceBundle",
+      "trellis2ModelBundle",
+      "trellisLegacyDecoderBundle",
+      "dinoV3Bundle",
+    ]),
+    "models",
+  );
+  assertExactKeys(spec.inputs, new Set(["image"]), "inputs");
+  if (spec.randomness.mode !== "seeded") {
+    throw new Error("model.trellis2 requires randomness.mode='seeded'");
+  }
+  assertPyTorchSeed(spec.randomness.seed);
+
+  const parameters = spec.parameters;
+  assertExactKeys(
+    parameters,
+    new Set([
+      "preprocessMode",
+      "device",
+      "pipelineType",
+      "maxNumTokens",
+      "decimationTarget",
+      "textureSize",
+      "remesh",
+      "extensionWebp",
+      "deterministicAlgorithms",
+    ]),
+    "parameters",
+  );
+  if (parameters.preprocessMode !== "prepared-rgba-premultiplied") {
+    throw new Error(
+      "parameters.preprocessMode must be 'prepared-rgba-premultiplied'; background removal and framing are separate operations",
+    );
+  }
+  if (parameters.device !== "cuda") {
+    throw new Error("parameters.device must be cuda for TRELLIS.2 v1");
+  }
+  if (!["512", "1024", "1024-cascade", "1536-cascade"].includes(parameters.pipelineType)) {
+    throw new Error(
+      "parameters.pipelineType must be 512, 1024, 1024-cascade, or 1536-cascade",
+    );
+  }
+  assertInteger(parameters.maxNumTokens, "parameters.maxNumTokens", 4096, 131072);
+  assertInteger(parameters.decimationTarget, "parameters.decimationTarget", 1000, 1000000);
+  if (![512, 1024, 2048, 4096].includes(parameters.textureSize)) {
+    throw new Error("parameters.textureSize must be 512, 1024, 2048, or 4096");
+  }
+  if (typeof parameters.remesh !== "boolean") {
+    throw new Error("parameters.remesh must be a boolean");
+  }
+  if (typeof parameters.extensionWebp !== "boolean") {
+    throw new Error("parameters.extensionWebp must be a boolean");
+  }
+  if (typeof parameters.deterministicAlgorithms !== "boolean") {
+    throw new Error("parameters.deterministicAlgorithms must be a boolean");
+  }
+}
+
 function validateTripoSR(document) {
   const { spec } = document;
   assertExactKeys(spec.models, new Set(["triposrBundle"]), "models");
@@ -258,6 +325,51 @@ export const STABLE_FAST_3D_BACKEND = {
         modelBundlePath: resolveSpecPath(root, spec.models.sf3dModelBundle.path),
         dinoBundlePath: resolveSpecPath(root, spec.models.dinoBundle.path),
         imagePath: resolveSpecPath(root, spec.inputs.image.path),
+        parameters: spec.parameters,
+      },
+    });
+  },
+};
+
+
+export const TRELLIS2_BACKEND = {
+  id: "model.trellis2",
+  version: "1",
+  kind: "model",
+  exactCapable: false,
+  validate: validateTrellis2,
+  async environmentComponents(document) {
+    validateTrellis2(document);
+    return probeProcessAdapter({
+      executable: "python3",
+      scriptPath: TRELLIS2_SCRIPT,
+      cwd: document.root,
+      environment: {
+        ASSET_TOOLING_REQUESTED_DEVICE: "cuda",
+      },
+    });
+  },
+  async generate(document) {
+    validateTrellis2(document);
+    const { spec, root } = document;
+    return runProcessAdapter({
+      executable: "python3",
+      scriptPath: TRELLIS2_SCRIPT,
+      cwd: root,
+      environment: spec.parameters.deterministicAlgorithms
+        ? { CUBLAS_WORKSPACE_CONFIG: ":16:8" }
+        : {},
+      outputName: "trellis2.glb",
+      request: {
+        sourceBundlePath: resolveSpecPath(root, spec.models.trellis2SourceBundle.path),
+        modelBundlePath: resolveSpecPath(root, spec.models.trellis2ModelBundle.path),
+        legacyDecoderBundlePath: resolveSpecPath(
+          root,
+          spec.models.trellisLegacyDecoderBundle.path,
+        ),
+        imageEncoderBundlePath: resolveSpecPath(root, spec.models.dinoV3Bundle.path),
+        imagePath: resolveSpecPath(root, spec.inputs.image.path),
+        seed: spec.randomness.seed,
         parameters: spec.parameters,
       },
     });

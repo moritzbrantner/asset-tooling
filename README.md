@@ -17,18 +17,18 @@ The package remains `0.1.0` until a stable release is intentionally cut; stabili
 The generation architecture supports the same provenance model across:
 
 - deterministic/seeded procedural generators;
-- local model-backed generators such as Stable Diffusion, Stable Fast 3D, and TripoSR;
+- local model-backed generators such as Stable Diffusion, TRELLIS.2, Stable Fast 3D, and TripoSR;
 - utility backends used to prove contracts.
 
-`builtin.procedural.svg-scatter` is the deterministic procedural reference backend. `model.stable-diffusion.diffusers` consumes a hash-pinned local Diffusers pipeline bundle. `model.stable-fast-3d` consumes an explicit prepared image plus separately pinned Stable Fast 3D source, weights/config, and DINOv2 image-tokenizer bundles and emits a textured GLB. `model.triposr` remains the lighter image-to-3D fallback and consumes a hash-pinned bundle containing TripoSR source, weights/config, and its local DINO image-tokenizer model.
+`builtin.procedural.svg-scatter` is the deterministic procedural reference backend. `model.stable-diffusion.diffusers` consumes a hash-pinned local Diffusers pipeline bundle. `model.trellis2` consumes a prepared RGBA image plus separately pinned TRELLIS.2 source, 4B model, legacy sparse decoder, and DINOv3 encoder bundles and emits a PBR GLB. `model.stable-fast-3d` remains the lighter textured image-to-3D path with separately pinned source/model/DINOv2 bundles, while `model.triposr` is the lower-resource geometry fallback.
 
-Model generation is offline and fail-closed: model acquisition is separate from generation, and undeclared cache/network dependencies are not accepted as reproducibility evidence. A seed is an input, not proof of deterministic output. For local game-asset reconstruction, Stable Fast 3D is the preferred textured image-to-3D backend when its runtime fits; TripoSR remains the lower-resource fallback.
+Model generation is offline and fail-closed: model acquisition is separate from generation, and undeclared cache/network dependencies are not accepted as reproducibility evidence. A seed is an input, not proof of deterministic output. For local game-asset reconstruction, TRELLIS.2 is the high-fidelity PBR path when its Linux/CUDA runtime fits; Stable Fast 3D is the lighter textured path and TripoSR remains the lower-resource fallback.
 
 For unattended local batches, edit `WEEKEND_MODELS.md`, copy `weekend-3d.config.example.json` to the ignored `weekend-3d.local.json`, run `bun run weekend:3d:doctor`, then start `bun run weekend:3d`. The sequential runner checkpoints each expensive stage and resumes verified work after interruption; see `docs/local-3d-weekend-batch.md`.
 
 For acquisition, `scripts/acquire-huggingface-model.py` resolves a requested Hugging Face revision to an immutable commit, downloads that exact complete snapshot, records license and per-file evidence, and emits a deterministic hash-pinned ZIP plus an independently verifiable receipt. The manually dispatched `Hugging Face model acquisition evidence` workflow provides the same boundary in hosted CI without promoting model bytes automatically.
 
-See `docs/generation.md`, `docs/model-acquisition.md`, `docs/stable-diffusion.md`, `docs/triposr.md`, and `docs/cache.md`.
+See `docs/generation.md`, `docs/model-acquisition.md`, `docs/stable-diffusion.md`, `docs/trellis2.md`, `docs/stable-fast-3d.md`, `docs/triposr.md`, and `docs/cache.md`.
 
 ## Processing
 
