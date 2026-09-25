@@ -3,6 +3,7 @@ import {
   borderWhiteToAlphaRgba8,
   normalizeBorderWhiteAlphaParameters,
 } from "./image-border-white-alpha-core.js";
+export { borderWhiteToAlphaRgba8 } from "./image-border-white-alpha-core.js";
 import { resolveAssetObject, storeAssetObject } from "./asset-store.js";
 import {
   createAssetOperationBuildIdentity,
