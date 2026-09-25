@@ -24,7 +24,7 @@ The generation architecture supports the same provenance model across:
 
 Model generation is offline and fail-closed: model acquisition is separate from generation, and undeclared cache/network dependencies are not accepted as reproducibility evidence. A seed is an input, not proof of deterministic output. For local game-asset reconstruction, TRELLIS.2 is the high-fidelity PBR path when its Linux/CUDA runtime fits; Stable Fast 3D is the lighter textured path and TripoSR remains the lower-resource fallback.
 
-For unattended local batches, edit `WEEKEND_MODELS.md`, copy `weekend-3d.config.example.json` to the ignored `weekend-3d.local.json`, run `bun run weekend:3d:doctor`, then start `bun run weekend:3d`. The sequential runner checkpoints each expensive stage and resumes verified work after interruption; see `docs/local-3d-weekend-batch.md`.
+For unattended local batches, choose either the Stable Fast 3D example or the TRELLIS.2 example, point it at the desired Markdown queue, run `bun run weekend:3d:doctor`, then start `bun run weekend:3d`. The same sequential runner checkpoints each expensive stage, pins only the selected reconstruction backend, and resumes verified work after interruption; see `docs/local-3d-weekend-batch.md`.
 
 For acquisition, `scripts/acquire-huggingface-model.py` resolves a requested Hugging Face revision to an immutable commit, downloads that exact complete snapshot, records license and per-file evidence, and emits a deterministic hash-pinned ZIP plus an independently verifiable receipt. The manually dispatched `Hugging Face model acquisition evidence` workflow provides the same boundary in hosted CI without promoting model bytes automatically.
 
