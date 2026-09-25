@@ -3,6 +3,7 @@ import { resolveSpecPath } from "./schema.js";
 import {
   STABLE_DIFFUSION_BACKEND,
   STABLE_FAST_3D_BACKEND,
+  TRELLIS2_BACKEND,
   TRIPOSR_BACKEND,
 } from "./model-backends.js";
 
@@ -157,6 +158,7 @@ const BACKENDS = [
   PROCEDURAL_SVG_SCATTER_BACKEND,
   STABLE_DIFFUSION_BACKEND,
   STABLE_FAST_3D_BACKEND,
+  TRELLIS2_BACKEND,
   TRIPOSR_BACKEND,
 ];
 
