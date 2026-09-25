@@ -13,7 +13,7 @@ import { captureToolIdentity } from "./tool.js";
 const VERSION = "1";
 const MAX_PROXIES = 128;
 const DECIMAL_PATTERN = /^-?(?:0|[1-9][0-9]{0,8})(?:\.[0-9]{1,6})?$/;
-const IDENTIFIER_PATTERN = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;\nconst POSITIVE_DECIMAL_SCHEMA_PATTERN =\n  "^(?!0(?:\\\\.0{1,6})?$)(?:0|[1-9][0-9]{0,8})(?:\\\\.[0-9]{1,6})?$";
+const IDENTIFIER_PATTERN = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;\nconst POSITIVE_DECIMAL_SCHEMA_PATTERN =\n  "^(?=.*[1-9])(?:0|[1-9][0-9]{0,8})(?:\\\\.[0-9]{1,6})?$";
 
 export const COLLISION_PROXY_SET_MEDIA_TYPE =
   "application/vnd.asset-tooling.collision-proxy-set+json";
@@ -70,7 +70,7 @@ const REGISTRY = createAssetOperationRegistry([
                     type: "array",
                     minItems: 3,
                     maxItems: 3,
-                    items: { type: "string", pattern: "^(?:0|[1-9][0-9]{0,8})(?:\\.[0-9]{1,6})?$" },
+                    items: { type: "string", pattern: POSITIVE_DECIMAL_SCHEMA_PATTERN },
                   },
                 },
               },
@@ -81,7 +81,7 @@ const REGISTRY = createAssetOperationRegistry([
                 properties: {
                   ...proxyBaseProperties,
                   shape: { const: "sphere" },
-                  radius: { type: "string", pattern: "^(?:0|[1-9][0-9]{0,8})(?:\\.[0-9]{1,6})?$" },
+                  radius: { type: "string", pattern: POSITIVE_DECIMAL_SCHEMA_PATTERN },
                 },
               },
               {
@@ -91,8 +91,8 @@ const REGISTRY = createAssetOperationRegistry([
                 properties: {
                   ...proxyBaseProperties,
                   shape: { const: "capsule" },
-                  radius: { type: "string", pattern: "^(?:0|[1-9][0-9]{0,8})(?:\\.[0-9]{1,6})?$" },
-                  segmentLength: { type: "string", pattern: "^(?:0|[1-9][0-9]{0,8})(?:\\.[0-9]{1,6})?$" },
+                  radius: { type: "string", pattern: POSITIVE_DECIMAL_SCHEMA_PATTERN },
+                  segmentLength: { type: "string", pattern: POSITIVE_DECIMAL_SCHEMA_PATTERN },
                 },
               },
             ],
@@ -133,7 +133,6 @@ type NormalizedProxy =
       center: ExactVector3;
       radius: string;
       segmentLength: string;
-      axis: "y";
     };
 
 export type CollisionProxySetBuildParameters = {
@@ -235,7 +234,6 @@ function normalizeProxy(value: unknown, index: number): NormalizedProxy {
       center: vector3(proxy.center, `${location}.center`),
       radius: exactDecimal(proxy.radius, `${location}.radius`, true),
       segmentLength: exactDecimal(proxy.segmentLength, `${location}.segmentLength`, true),
-      axis: "y",
     };
   }
   throw new Error(`${location}.shape must be one of box, sphere, capsule`);
@@ -256,9 +254,9 @@ export function normalizeCollisionProxySetBuildParameters(
     throw new Error(`collision proxy parameters.proxies must contain 1..${MAX_PROXIES} entries`);
   }
 
-  const proxies = parameters.proxies.map(normalizeProxy).sort((left, right) =>
-    left.id.localeCompare(right.id),
-  );
+  const proxies = parameters.proxies
+    .map(normalizeProxy)
+    .sort((left, right) => compareCodeUnitStrings(left.id, right.id));
   if (new Set(proxies.map((proxy) => proxy.id)).size !== proxies.length) {
     throw new Error("collision proxy parameters.proxies must not contain duplicate ids");
   }
