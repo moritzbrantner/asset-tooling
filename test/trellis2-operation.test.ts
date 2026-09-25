@@ -195,6 +195,7 @@ test("TRELLIS.2 operation stores raw PBR GLB with complete source lineage", asyn
     "roughness",
     "opacity",
   ]);
+  assert.equal(result.outputs.output.metadata.alphaMode, "OPAQUE");
 });
 
 test("TRELLIS.2 verifies every declared object before inference", async () => {
