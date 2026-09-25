@@ -301,6 +301,7 @@ export function createTrellis2MeshOperationExecutor(backendValue) {
         legacyDecoderSha256: buildIdentity.inputs["legacy-decoder"].sha256,
         imageEncoderSha256: buildIdentity.inputs["image-encoder"].sha256,
         pbrChannels: ["base-color", "metallic", "roughness", "opacity"],
+        alphaMode: "OPAQUE",
         pipelineType: buildIdentity.parameters.pipelineType,
         decimationTarget: buildIdentity.parameters.decimationTarget,
         textureSize: buildIdentity.parameters.textureSize,
