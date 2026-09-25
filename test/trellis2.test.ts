@@ -87,22 +87,25 @@ test("TRELLIS.2 requires prepared image plus every remotely referenced model com
 test("TRELLIS.2 rejects hidden preprocessing, CPU fallback, and invalid production controls", async () => {
   const autoBackground = trellis2Spec();
   autoBackground.parameters.preprocessMode = "remove-background";
+  const autoBackgroundPath = await writeSpec(autoBackground);
   await assert.rejects(
-    () => validateSpec(await writeSpec(autoBackground)),
+    () => validateSpec(autoBackgroundPath),
     /prepared-rgba-premultiplied/,
   );
 
   const cpu = trellis2Spec();
   cpu.parameters.device = "cpu";
+  const cpuPath = await writeSpec(cpu);
   await assert.rejects(
-    () => validateSpec(await writeSpec(cpu)),
+    () => validateSpec(cpuPath),
     /parameters\.device must be cuda/,
   );
 
   const badTexture = trellis2Spec();
   badTexture.parameters.textureSize = 3072;
+  const badTexturePath = await writeSpec(badTexture);
   await assert.rejects(
-    () => validateSpec(await writeSpec(badTexture)),
+    () => validateSpec(badTexturePath),
     /textureSize must be 512, 1024, 2048, or 4096/,
   );
 });
