@@ -36,6 +36,8 @@ See `docs/generation.md`, `docs/model-acquisition.md`, `docs/stable-diffusion.md
 
 The versioned 3D processing receipt contracts cover mesh simplification, source-based LOD chains, animation resampling, and animation reduction while keeping the authoritative algorithms in their domain repositories. Cross-field validators check request/result consistency and replay evidence without copying those algorithms into `asset-tooling`.
 
+Rigged-character preparation now follows the same boundary: `mesh.rigged-collision.fit@1` consumes a content-addressed bind-pose position/skeleton/skin document, invokes the exact accepted `three-d-rigged-assets` processor from `3d-lab`, and stores the resulting joint-local primitive collision proxies as a content-addressed collision asset. `asset-tooling` owns invocation and provenance; fitting and physics semantics remain outside this repository.
+
 Generated artifacts feed processing through a content-addressed handoff: the processing receipt input SHA-256 is exactly the generation receipt output SHA-256. The supplemental handoff lineage records which generation receipt supplied those bytes without modifying the published processing receipt v1/v2 schemas.
 
 See `docs/3d-processing.md` and `docs/generation-processing-handoff.md`.
