@@ -35,6 +35,13 @@
       "commit": "9e569a23c487336eb8424e4d0c451a59d2beb9d4",
       "manifestPath": "examples/asset-tooling-skinning-adapter/Cargo.toml",
       "operation": "mesh.skinning.validate"
+    },
+    {
+      "id": "three-d-rigged-collision-fit",
+      "repository": "moritzbrantner/3d-lab",
+      "commit": "be3cf305a22383f715d95a9752f264c8a7815ddd",
+      "manifestPath": "examples/asset-tooling-rigged-collision-adapter/Cargo.toml",
+      "operation": "mesh.rigged-collision.fit"
     }
   ]
 }
