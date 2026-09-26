@@ -35,6 +35,13 @@
       "commit": "9e569a23c487336eb8424e4d0c451a59d2beb9d4",
       "manifestPath": "examples/asset-tooling-skinning-adapter/Cargo.toml",
       "operation": "mesh.skinning.validate"
+    },
+    {
+      "id": "three-d-humanoid-validate",
+      "repository": "moritzbrantner/3d-lab",
+      "commit": "6b21a02243713a94ac05fcace18b800f352a3627",
+      "manifestPath": "examples/asset-tooling-humanoid-adapter/Cargo.toml",
+      "operation": "rig.humanoid.validate"
     }
   ]
 }

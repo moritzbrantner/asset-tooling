@@ -34,7 +34,7 @@ See `docs/generation.md`, `docs/model-acquisition.md`, `docs/stable-diffusion.md
 
 ## Processing
 
-The versioned 3D processing receipt contracts cover mesh simplification, source-based LOD chains, animation resampling, and animation reduction while keeping the authoritative algorithms in their domain repositories. Cross-field validators check request/result consistency and replay evidence without copying those algorithms into `asset-tooling`.
+The versioned 3D processing receipt contracts cover mesh simplification, source-based LOD chains, animation resampling, animation reduction, and production humanoid rig validation while keeping the authoritative algorithms and semantics in their domain repositories. Cross-field validators check request/result consistency and replay evidence without copying those algorithms into `asset-tooling`.
 
 Generated artifacts feed processing through a content-addressed handoff: the processing receipt input SHA-256 is exactly the generation receipt output SHA-256. The supplemental handoff lineage records which generation receipt supplied those bytes without modifying the published processing receipt v1/v2 schemas.
 
