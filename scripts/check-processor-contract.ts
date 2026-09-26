@@ -23,6 +23,12 @@ import {
   createMeshSkinningValidateOperationBuildIdentity,
   executeMeshSkinningValidateOperation,
 } from "../src/skinning-processing-operations.js";
+import {
+  THREE_D_RIGGED_COLLISION_INPUT_MEDIA_TYPE,
+  THREE_D_RIGGED_COLLISION_MEDIA_TYPE,
+  createMeshRiggedCollisionFitOperationBuildIdentity,
+  executeMeshRiggedCollisionFitOperation,
+} from "../src/rigged-collision-processing-operations.js";
 
 const [processorCheckout, revision, repository, manifestRelativePath, operation] = process.argv.slice(2);
 if (!processorCheckout || !path.isAbsolute(processorCheckout)) {
@@ -46,12 +52,13 @@ const supportedOperations = new Set([
   "mesh.simplify",
   "mesh.lod_chain",
   "mesh.skinning.validate",
+  "mesh.rigged-collision.fit",
   "animation.resample",
   "animation.reduce",
 ]);
 if (!supportedOperations.has(operation)) {
   throw new Error(
-    "processor contract proof supports mesh.simplify, mesh.lod_chain, mesh.skinning.validate, animation.resample, and animation.reduce",
+    "processor contract proof supports mesh.simplify, mesh.lod_chain, mesh.skinning.validate, mesh.rigged-collision.fit, animation.resample, and animation.reduce",
   );
 }
 
@@ -69,7 +76,9 @@ if (operation === "mesh.lod_chain") prefixArguments.push("--bin", "lod_chain");
 if (operation === "animation.reduce") prefixArguments.push("--bin", "animation_reduce");
 prefixArguments.push("--");
 const verifiedCheckoutOperation =
-  operation.startsWith("animation.") || operation === "mesh.skinning.validate";
+  operation.startsWith("animation.") ||
+  operation === "mesh.skinning.validate" ||
+  operation === "mesh.rigged-collision.fit";
 const processor = {
   repository,
   revision,
@@ -205,6 +214,43 @@ async function storedSkinningSource(root) {
       kind: "skinning",
       mediaType: THREE_D_SKINNING_MEDIA_TYPE,
       metadata: { skinningSchemaVersion: 1, jointCount: 2, vertexInfluenceCount: 2 },
+    })
+  ).asset;
+  return { sourceDocument, source };
+}
+
+function riggedCollisionDocument() {
+  const positions = [];
+  for (const x of [-0.2, 0.2]) {
+    for (const y of [-1, 1]) {
+      for (const z of [-0.2, 0.2]) {
+        positions.push([x, y, z]);
+      }
+    }
+  }
+  return {
+    schemaVersion: 1,
+    positions,
+    joints: [{ parent: null, inverseBind: IDENTITY }],
+    influences: positions.map(() => ({
+      joints: [0, 0, 0, 0],
+      weights: [1, 0, 0, 0],
+    })),
+  };
+}
+
+async function storedRiggedCollisionSource(root) {
+  const sourceDocument = riggedCollisionDocument();
+  const source = (
+    await storeAssetObject(root, {
+      bytes: Buffer.from(JSON.stringify(sourceDocument), "utf8"),
+      kind: "rigged-mesh",
+      mediaType: THREE_D_RIGGED_COLLISION_INPUT_MEDIA_TYPE,
+      metadata: {
+        riggedCollisionSchemaVersion: 1,
+        jointCount: 1,
+        vertexCount: sourceDocument.positions.length,
+      },
     })
   ).asset;
   return { sourceDocument, source };
@@ -402,6 +448,83 @@ async function checkSkinning(root) {
   };
 }
 
+async function checkRiggedCollision(root) {
+  const { sourceDocument, source } = await storedRiggedCollisionSource(root);
+  const invocation = {
+    parameters: {
+      minVerticesPerJoint: 4,
+      minDominantWeight: 0.5,
+      padding: 0.01,
+      minimumExtent: 0.01,
+      sphereAspectRatio: 1.25,
+      capsuleAspectRatio: 1.75,
+    },
+    inputs: { source },
+  };
+  const identity = await createMeshRiggedCollisionFitOperationBuildIdentity(
+    root,
+    invocation,
+    processor,
+  );
+  assert.deepEqual(identity.operation, { id: operation, version: "1" });
+  assert.deepEqual(identity.implementation.source, verifiedSource);
+  assert.equal(identity.implementation.runtime.kind, "cargo-rust-v1");
+  assert.match(identity.implementation.runtime.cargo, /^cargo 1\.98\.1/m);
+  assert.match(identity.implementation.runtime.rustc, /^rustc 1\.98\.1/m);
+  assert.equal(identity.implementation.probe.id, "three-d-rigged-collision-fit");
+  assert.equal(
+    identity.implementation.probe.algorithm,
+    "three-d-rigged-assets-joint-proxy-fit-v1",
+  );
+  assert.equal(identity.implementation.probe.protocol, "asset-tooling-process-adapter-v1");
+  assert.equal(identity.implementation.probe.codec, "three-d-rigged-collision-json-v1");
+  assert.equal(identity.implementation.probe.dependencies.threeDRiggedAssets, "0.1.0");
+  assert.match(identity.implementation.probe.cargoLock, /name = "three-d-rigged-assets"/);
+
+  const first = await executeMeshRiggedCollisionFitOperation(root, invocation, processor);
+  const second = await executeMeshRiggedCollisionFitOperation(root, invocation, processor);
+  assert.equal(second.outputs.output.sha256, first.outputs.output.sha256);
+  assert.deepEqual(second.observations, first.observations);
+  assert.equal(first.outputs.output.kind, "collision");
+  assert.equal(first.outputs.output.mediaType, THREE_D_RIGGED_COLLISION_MEDIA_TYPE);
+  assert.equal(first.observations.jointCount, 1);
+  assert.equal(first.observations.vertexCount, sourceDocument.positions.length);
+  assert.equal(first.observations.assignedVertices, sourceDocument.positions.length);
+  assert.equal(first.observations.lowConfidenceVertices, 0);
+  assert.equal(first.observations.representedVertices, sourceDocument.positions.length);
+  assert.equal(first.observations.representedJointCount, 1);
+  assert.equal(first.observations.proxyCount, 1);
+  assert.deepEqual(first.observations.shapeCounts, {
+    boxCount: 0,
+    sphereCount: 0,
+    capsuleCount: 1,
+  });
+  assert.equal(first.observations.capsuleAxis, "local-y");
+  assert.equal(first.observations.transformSpace, "joint-bind-local");
+
+  const output = JSON.parse((await resolveAssetObject(root, first.outputs.output)).toString("utf8"));
+  assert.equal(output.schemaVersion, 1);
+  assert.equal(output.coordinateSystem, "right-handed-y-up");
+  assert.equal(output.transformSpace, "joint-bind-local");
+  assert.equal(output.capsuleAxis, "local-y");
+  assert.equal(output.proxies.length, 1);
+  assert.equal(output.proxies[0].shape, "capsule");
+  assert.equal(output.proxies[0].joint, 0);
+
+  return {
+    status: "processor-contract-valid",
+    processor: identity.implementation.source,
+    runtime: identity.implementation.runtime,
+    algorithm: identity.implementation.probe.algorithm,
+    codec: identity.implementation.probe.codec,
+    inputSha256: source.sha256,
+    outputSha256: first.outputs.output.sha256,
+    jointCount: first.observations.jointCount,
+    vertexCount: first.observations.vertexCount,
+    proxyCount: first.observations.proxyCount,
+  };
+}
+
 async function checkAnimationResample(root) {
   const { source, sourceDocument } = await storedAnimationSource(root);
   const invocation = {
@@ -526,6 +649,9 @@ try {
       break;
     case "mesh.skinning.validate":
       result = await checkSkinning(root);
+      break;
+    case "mesh.rigged-collision.fit":
+      result = await checkRiggedCollision(root);
       break;
     case "animation.resample":
       result = await checkAnimationResample(root);

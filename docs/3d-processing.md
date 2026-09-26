@@ -116,3 +116,16 @@ This is separate from smooth runtime playback. A frame-rate-independent playback
 ## Consumer rule
 
 Consumers may use a processed artifact without understanding the implementation internals, but they must be able to retain or resolve its receipt. Re-running the same operation should either reproduce the exact artifact hash or produce explicit evidence explaining why reproducibility is only structural or remains unverified.
+
+
+## Rigged collision fitting
+
+`mesh.rigged-collision.fit@1` derives simplified joint-local collision geometry from explicit bind-pose positions, skeleton inverse-bind matrices, and four-slot skin influences.
+
+The operation does not implement the fitting algorithm. It invokes the exact accepted `three-d-rigged-collision-fit` process adapter from `moritzbrantner/3d-lab`, whose fitting semantics live in `three-d-rigged-assets`. The accepted processor revision is recorded in `stability/processors.json`.
+
+The source is a content-addressed `rigged-mesh` asset using `application/vnd.moritzbrantner.three-d.rigged-collision-input+json`. Parameters explicitly control the minimum supporting vertex count, dominant-weight threshold, padding, minimum extent, sphere aspect threshold, and capsule aspect threshold.
+
+The derived output is a content-addressed `collision` asset using `application/vnd.moritzbrantner.three-d.rigged-collision+json`. Proxies target numeric skeleton joints and are expressed in joint bind-local space; capsules use the local Y axis. Structural observations record assigned/low-confidence/represented vertices, represented joints, proxy count, and primitive shape counts.
+
+This is asset preparation evidence, not physics authority. Contact generation, rigid-body state, collision filtering, and gameplay movement remain downstream runtime concerns.

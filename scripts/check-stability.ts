@@ -60,6 +60,14 @@ const expectedProcessors = new Map([
       operation: "mesh.skinning.validate",
     },
   ],
+  [
+    "three-d-rigged-collision-fit",
+    {
+      repository: "moritzbrantner/3d-lab",
+      manifestPath: "examples/asset-tooling-rigged-collision-adapter/Cargo.toml",
+      operation: "mesh.rigged-collision.fit",
+    },
+  ],
 ]);
 
 const expectedWorkflowStack = {
