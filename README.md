@@ -17,6 +17,7 @@ The package remains `0.1.0` until a stable release is intentionally cut; stabili
 The generation architecture supports the same provenance model across:
 
 - deterministic/seeded procedural generators;
+- consumer-owned Blender scripts run in an exactly pinned Blender release (`external.blender.script`, see `docs/blender-script.md`);
 - local model-backed generators such as Stable Diffusion, TRELLIS.2, Stable Fast 3D, and TripoSR;
 - utility backends used to prove contracts.
 

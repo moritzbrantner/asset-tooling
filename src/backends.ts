@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { resolveSpecPath } from "./schema.js";
+import { BLENDER_SCRIPT_BACKEND } from "./blender-script-backend.js";
 import {
   STABLE_DIFFUSION_BACKEND,
   STABLE_FAST_3D_BACKEND,
@@ -156,6 +157,7 @@ const PROCEDURAL_SVG_SCATTER_BACKEND = {
 const BACKENDS = [
   COPY_BACKEND,
   PROCEDURAL_SVG_SCATTER_BACKEND,
+  BLENDER_SCRIPT_BACKEND,
   STABLE_DIFFUSION_BACKEND,
   STABLE_FAST_3D_BACKEND,
   TRELLIS2_BACKEND,

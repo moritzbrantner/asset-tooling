@@ -75,8 +75,11 @@ function assertCommandPart(value, location) {
   return value;
 }
 
-function commandArguments(scriptPath, prefixArguments, mode, suffixArguments = []) {
+// `launcherArguments` precede the script path for executables that host the script
+// (e.g. `blender --background --python <script>`); `prefixArguments` follow it.
+function commandArguments(launcherArguments, scriptPath, prefixArguments, mode, suffixArguments = []) {
   return [
+    ...launcherArguments.map((value, index) => assertCommandPart(value, `adapter launcherArguments[${index}]`)),
     assertCommandPart(scriptPath, "adapter script path"),
     ...prefixArguments.map((value, index) => assertCommandPart(value, `adapter prefixArguments[${index}]`)),
     mode,
@@ -84,10 +87,17 @@ function commandArguments(scriptPath, prefixArguments, mode, suffixArguments = [
   ];
 }
 
-export async function probeProcessAdapter({ executable, scriptPath, prefixArguments = [], cwd, environment = {} }) {
+export async function probeProcessAdapter({
+  executable,
+  launcherArguments = [],
+  scriptPath,
+  prefixArguments = [],
+  cwd,
+  environment = {},
+}) {
   const { stdout } = await run(
     assertCommandPart(executable, "adapter executable"),
-    commandArguments(scriptPath, prefixArguments, "probe"),
+    commandArguments(launcherArguments, scriptPath, prefixArguments, "probe"),
     { cwd, environment },
   );
   let parsed;
@@ -104,6 +114,7 @@ export async function probeProcessAdapter({ executable, scriptPath, prefixArgume
 
 export async function runProcessAdapter({
   executable,
+  launcherArguments = [],
   scriptPath,
   prefixArguments = [],
   cwd,
@@ -127,7 +138,11 @@ export async function runProcessAdapter({
     await writeFile(requestPath, `${canonicalJson(request)}\n`, "utf8");
     await run(
       assertCommandPart(executable, "adapter executable"),
-      commandArguments(scriptPath, prefixArguments, "generate", [requestPath, outputPath, observationsPath]),
+      commandArguments(launcherArguments, scriptPath, prefixArguments, "generate", [
+        requestPath,
+        outputPath,
+        observationsPath,
+      ]),
       { cwd, environment },
     );
     const bytes = await readFile(outputPath);
