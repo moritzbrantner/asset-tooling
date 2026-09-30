@@ -39,6 +39,8 @@ def generate(output_path: str, arguments: dict, inputs: dict[str, str]) -> dict:
 
 It runs in a `--factory-startup` background session, writes exactly one file at `output_path`, and returns JSON-serializable observations. It must not read undeclared files or the network. Receipt observations wrap the script's observations as `{"runner": "blender-script-runner-v1", "blenderVersion": ..., "script": {...}}`.
 
+The runner reads the declared script once, verifies that byte snapshot against the source pin, and compiles/executes the same bytes. It ignores source-adjacent Python bytecode caches and does not create them when loading the declared script. Normal module metadata and the source's own compiler/future semantics are preserved. The runner's existing SHA-256 environment component records this implementation change; receipts from an older runner report environment drift rather than silently claiming the same execution.
+
 ## Determinism
 
 The backend declares exact capability, and `verify` replays the script and compares output bytes. With one Blender binary, Blender's glTF exporter produces byte-identical output across processes for scripts that avoid nondeterministic data. One known exception: bevel-derived UV coordinates can differ in their final float bits between runs, so untextured assets should export with `export_texcoords=False`.

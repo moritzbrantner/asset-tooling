@@ -106,14 +106,18 @@ def generate(request_path: Path, output_path: Path, observations_path: Path) -> 
         fail(f"Blender {blender_version()} does not match declared blenderVersion {expected}")
 
     script_path = Path(request["scriptPath"])
-    if sha256_file(script_path) != request["scriptSha256"]:
+    script_bytes = script_path.read_bytes()
+    if hashlib.sha256(script_bytes).hexdigest() != request["scriptSha256"]:
         fail("script bytes changed after asset-tooling verified them")
 
     spec = importlib.util.spec_from_file_location("asset_tooling_blender_script", script_path)
     if spec is None or spec.loader is None:
         fail(f"cannot load script {script_path}")
     module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    # Preserve normal module metadata, but execute the exact verified snapshot. SourceFileLoader
+    # can trust an ambient timestamp/size-matched .pyc and writes source-adjacent bytecode. Neither
+    # belongs to the declared source identity. Do not inherit this runner's future compiler flags.
+    exec(compile(script_bytes, spec.origin, "exec", dont_inherit=True), module.__dict__)
     entry = getattr(module, "generate", None)
     if not callable(entry):
         fail("script must define generate(output_path, arguments, inputs)")
