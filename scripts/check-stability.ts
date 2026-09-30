@@ -69,6 +69,14 @@ const expectedProcessors = new Map([
     },
   ],
   [
+    "three-d-rigged-collision-fit",
+    {
+      repository: "moritzbrantner/3d-lab",
+      manifestPath: "examples/asset-tooling-rigged-collision-adapter/Cargo.toml",
+      operation: "mesh.rigged-collision.fit",
+    },
+  ],
+  [
     "three-d-scene-normalize",
     {
       repository: "moritzbrantner/3d-lab",

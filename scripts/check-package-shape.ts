@@ -53,6 +53,7 @@ const expectedSourceExports: Record<string, string> = {
   "./operations/processing/animation": "./src/animation-processing-operations.ts",
   "./operations/processing/scene": "./src/scene-processing-operations.ts",
   "./operations/processing/skinning": "./src/skinning-processing-operations.ts",
+  "./operations/processing/rigged-collision": "./src/rigged-collision-processing-operations.ts",
   "./operations/processing/humanoid": "./src/humanoid-processing-operations.ts",
   "./operations/mesh/analysis": "./src/mesh-analysis-operations.ts",
   "./operations/mesh/collision": "./src/collision-operations.ts",
