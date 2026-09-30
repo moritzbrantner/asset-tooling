@@ -106,3 +106,5 @@ Exact reproducibility is established by replayed output bytes. Backend kind, abs
 Consumers importing the package root receive only the high-level operations `validateSpec`, `generateAsset`, `verifyAsset`, and `prepareProcessingHandoff`. Versioned schemas are separately available through the `./schemas/*` package export. Backend, cache, hashing, environment, acquisition/promotion maintenance, and receipt-construction internals are deliberately not part of the public package API.
 
 The additive `asset-tooling/operations`, `asset-tooling/operations/store`, `asset-tooling/operations/generation`, `asset-tooling/operations/processing`, `asset-tooling/operations/workflow`, `asset-tooling/catalog`, and `asset-tooling/catalog/storage` subpaths contain focused operation/catalog surfaces; they do not widen the root export.
+
+Tileable soil/rock surface recipes and independent color, height, normal and roughness channels are documented in [surface textures](docs/surface-textures.md). Generate the six controlled presets with `bun examples/surface-textures/build.ts`.

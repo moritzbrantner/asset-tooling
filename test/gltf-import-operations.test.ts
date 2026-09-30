@@ -139,9 +139,9 @@ test("unsupported semantics, malformed references and nonfinite payloads fail be
   for (const document of invalid) {
     const { root, source } = await workspace(document);
     try {
-      const before = await readdir(path.join(root, ".asset-tooling/objects/v1"), { recursive: true });
+      const before = (await readdir(path.join(root, ".asset-tooling/objects/v1"), { recursive: true })).sort();
       await assert.rejects(executeGltfImportOperation(root, { inputs: { source } }));
-      assert.deepEqual(await readdir(path.join(root, ".asset-tooling/objects/v1"), { recursive: true }), before);
+      assert.deepEqual((await readdir(path.join(root, ".asset-tooling/objects/v1"), { recursive: true })).sort(), before);
     } finally { await rm(root, { recursive: true, force: true }); }
   }
 });
