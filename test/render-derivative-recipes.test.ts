@@ -99,7 +99,7 @@ for (const projection of [{ type: "orthographic" }, { type: "perspective", horiz
       assert.ok(!["tEXt", "iTXt", "zTXt"].includes(bytes.toString("ascii", offset + 4, offset + 8)), "PNG must not carry volatile render metadata");
       offset += 12 + bytes.readUInt32BE(offset);
     }
-    const decoded = spawnSync("ffmpeg", ["-v", "error", "-i", pngPath, "-f", "rawvideo", "-pix_fmt", "rgba", "-"], { maxBuffer: 1024 * 1024 });
+    const decoded = spawnSync("ffmpeg", ["-v", "error", "-i", pngPath, "-f", "rawvideo", "-pix_fmt", "rgba", "-"], { maxBuffer: 1024 * 1024, timeout: 30_000 });
     assert.equal(decoded.status, 0, decoded.error?.message ?? decoded.stderr.toString());
     const alpha = (x: number, y: number) => decoded.stdout[(y * 81 + x) * 4 + 3];
     assert.equal(alpha(0, 0), 0); assert.equal(alpha(40, 24), 255);
