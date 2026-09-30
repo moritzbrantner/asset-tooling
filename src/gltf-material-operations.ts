@@ -2,6 +2,7 @@
 import { ImageUtils, TextureInfo, VERSION } from "@gltf-transform/core";
 import { version as validatorVersion } from "gltf-validator";
 import { readFile } from "node:fs/promises";
+import path from "node:path";
 import { resolveAssetObject, storeAssetObject } from "./asset-store.js";
 import { GLTF_IMPORT_OPERATION } from "./gltf-import-operations.js";
 import { gltfSummary, loadCheckedGltf, validateGltf } from "./gltf-processing.js";
@@ -74,6 +75,7 @@ function parameters(value: unknown): GltfBaseColorParameters {
 }
 
 async function checked(root: string, invocation: Invocation) {
+  if (typeof root !== "string" || !path.isAbsolute(root)) throw new Error("glTF material operation root must be an absolute path");
   const p = parameters(invocation.parameters);
   const build = createAssetOperationBuildIdentity({ operation: GLTF_BASE_COLOR_OPERATION, parameters: p, inputs: invocation.inputs ?? {},
     implementation: { id: "gltf-transform-base-color", version: "1", gltfTransform: VERSION, validator: validatorVersion(),
