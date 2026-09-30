@@ -112,3 +112,5 @@ Tileable soil/rock surface recipes and independent color, height, normal and rou
 A pinned Blender [rock recipe](docs/rock-recipes.md) produces grounded rounded, angular, flat and boulder GLBs with ordinary generation-cache and exact-verification evidence. Run `bun examples/rocks/build.ts` to exercise the family.
 
 See [deterministic sprite atlases](docs/sprite-atlases.md) for selected-image packing, trim/pivot metadata and the actual PNG puzzle-art fixture.
+
+[Static GLB render derivatives](docs/render-derivatives.md) declare transparent icons and thumbnails through the pinned Blender backend, preserving source identity and camera/framing evidence.
