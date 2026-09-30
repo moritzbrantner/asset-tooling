@@ -23,6 +23,11 @@ import {
   createMeshSkinningValidateOperationBuildIdentity,
   executeMeshSkinningValidateOperation,
 } from "../src/skinning-processing-operations.js";
+import {
+  THREE_D_HUMANOID_MEDIA_TYPE,
+  createHumanoidValidateOperationBuildIdentity,
+  executeHumanoidValidateOperation,
+} from "../src/humanoid-processing-operations.js";
 
 const [processorCheckout, revision, repository, manifestRelativePath, operation] = process.argv.slice(2);
 if (!processorCheckout || !path.isAbsolute(processorCheckout)) {
@@ -46,12 +51,13 @@ const supportedOperations = new Set([
   "mesh.simplify",
   "mesh.lod_chain",
   "mesh.skinning.validate",
+  "rig.humanoid.validate",
   "animation.resample",
   "animation.reduce",
 ]);
 if (!supportedOperations.has(operation)) {
   throw new Error(
-    "processor contract proof supports mesh.simplify, mesh.lod_chain, mesh.skinning.validate, animation.resample, and animation.reduce",
+    "processor contract proof supports mesh.simplify, mesh.lod_chain, mesh.skinning.validate, rig.humanoid.validate, animation.resample, and animation.reduce",
   );
 }
 
@@ -69,7 +75,9 @@ if (operation === "mesh.lod_chain") prefixArguments.push("--bin", "lod_chain");
 if (operation === "animation.reduce") prefixArguments.push("--bin", "animation_reduce");
 prefixArguments.push("--");
 const verifiedCheckoutOperation =
-  operation.startsWith("animation.") || operation === "mesh.skinning.validate";
+  operation.startsWith("animation.") ||
+  operation === "mesh.skinning.validate" ||
+  operation === "rig.humanoid.validate";
 const processor = {
   repository,
   revision,
@@ -205,6 +213,101 @@ async function storedSkinningSource(root) {
       kind: "skinning",
       mediaType: THREE_D_SKINNING_MEDIA_TYPE,
       metadata: { skinningSchemaVersion: 1, jointCount: 2, vertexInfluenceCount: 2 },
+    })
+  ).asset;
+  return { sourceDocument, source };
+}
+
+const HUMANOID_BONES = [
+  "root",
+  "hips",
+  "spine",
+  "chest",
+  "neck",
+  "head",
+  "left-shoulder",
+  "left-upper-arm",
+  "left-lower-arm",
+  "left-hand",
+  "right-shoulder",
+  "right-upper-arm",
+  "right-lower-arm",
+  "right-hand",
+  "left-upper-leg",
+  "left-lower-leg",
+  "left-foot",
+  "right-upper-leg",
+  "right-lower-leg",
+  "right-foot",
+];
+const HUMANOID_PARENTS = [
+  null,
+  0,
+  1,
+  2,
+  3,
+  4,
+  3,
+  6,
+  7,
+  8,
+  3,
+  10,
+  11,
+  12,
+  1,
+  14,
+  15,
+  1,
+  17,
+  18,
+];
+const HUMANOID_SOCKETS = [
+  ["head", "head"],
+  ["chest", "chest"],
+  ["back", "chest"],
+  ["left-hand", "left-hand"],
+  ["right-hand", "right-hand"],
+  ["left-hip", "hips"],
+  ["right-hip", "hips"],
+];
+const IDENTITY_TRANSFORM = {
+  translation: [0, 0, 0],
+  rotation: [0, 0, 0, 1],
+  scale: [1, 1, 1],
+};
+
+function humanoidDocument() {
+  return {
+    schemaVersion: 1,
+    referenceHeight: 1.8,
+    joints: HUMANOID_PARENTS.map((parent) => ({
+      parent,
+      inverseBind: IDENTITY,
+    })),
+    restPose: HUMANOID_BONES.map(() => IDENTITY_TRANSFORM),
+    bindings: HUMANOID_BONES.map((bone, node) => ({ bone, node })),
+    sockets: HUMANOID_SOCKETS.map(([socket, bone]) => ({
+      socket,
+      bone,
+      local: IDENTITY_TRANSFORM,
+    })),
+  };
+}
+
+async function storedHumanoidSource(root) {
+  const sourceDocument = humanoidDocument();
+  const source = (
+    await storeAssetObject(root, {
+      bytes: Buffer.from(JSON.stringify(sourceDocument), "utf8"),
+      kind: "humanoid-rig",
+      mediaType: THREE_D_HUMANOID_MEDIA_TYPE,
+      metadata: {
+        humanoidSchemaVersion: 1,
+        jointCount: sourceDocument.joints.length,
+        mappedBoneCount: sourceDocument.bindings.length,
+        socketCount: sourceDocument.sockets.length,
+      },
     })
   ).asset;
   return { sourceDocument, source };
@@ -402,6 +505,66 @@ async function checkSkinning(root) {
   };
 }
 
+async function checkHumanoid(root) {
+  const { sourceDocument, source } = await storedHumanoidSource(root);
+  const invocation = {
+    parameters: {},
+    inputs: { source },
+  };
+  const identity = await createHumanoidValidateOperationBuildIdentity(root, invocation, processor);
+  assert.deepEqual(identity.operation, { id: operation, version: "1" });
+  assert.deepEqual(identity.implementation.source, verifiedSource);
+  assert.equal(identity.implementation.runtime.kind, "cargo-rust-v1");
+  assert.match(identity.implementation.runtime.cargo, /^cargo 1\.98\.1/m);
+  assert.match(identity.implementation.runtime.rustc, /^rustc 1\.98\.1/m);
+  assert.equal(identity.implementation.probe.id, "three-d-humanoid-validate");
+  assert.equal(
+    identity.implementation.probe.algorithm,
+    "three-d-animation-humanoid-production-v1",
+  );
+  assert.equal(identity.implementation.probe.protocol, "asset-tooling-process-adapter-v1");
+  assert.equal(identity.implementation.probe.codec, "three-d-humanoid-json-v1");
+  assert.equal(identity.implementation.probe.dependencies.threeDAnimation, "0.1.0");
+  assert.match(identity.implementation.probe.cargoLock, /name = "three-d-animation"/);
+
+  const first = await executeHumanoidValidateOperation(root, invocation, processor);
+  const second = await executeHumanoidValidateOperation(root, invocation, processor);
+  assert.equal(second.outputs.output.sha256, first.outputs.output.sha256);
+  assert.deepEqual(second.observations, first.observations);
+  assert.equal(first.outputs.output.kind, "humanoid-rig");
+  assert.equal(first.outputs.output.mediaType, THREE_D_HUMANOID_MEDIA_TYPE);
+  assert.equal(first.outputs.output.metadata.sourceSha256, source.sha256);
+  assert.equal(first.observations.jointCount, 20);
+  assert.equal(first.observations.mappedBoneCount, 20);
+  assert.equal(first.observations.helperJointCount, 0);
+  assert.equal(first.observations.socketCount, 7);
+  assert.equal(first.observations.rootNode, 0);
+  assert.equal(first.observations.hipsNode, 1);
+  assert.equal(first.observations.optionalToeCount, 0);
+  assert.equal(first.observations.referenceHeight, Math.fround(1.8));
+  assert.equal(first.observations.semanticHierarchyValid, true);
+  assert.equal(first.observations.rootHipsSeparated, true);
+  assert.equal(first.observations.standardSocketsPresent, true);
+
+  const output = JSON.parse(
+    (await resolveAssetObject(root, first.outputs.output)).toString("utf8"),
+  );
+  assert.deepEqual(output, sourceDocument);
+
+  return {
+    status: "processor-contract-valid",
+    processor: identity.implementation.source,
+    runtime: identity.implementation.runtime,
+    algorithm: identity.implementation.probe.algorithm,
+    codec: identity.implementation.probe.codec,
+    inputSha256: source.sha256,
+    outputSha256: first.outputs.output.sha256,
+    jointCount: first.observations.jointCount,
+    mappedBoneCount: first.observations.mappedBoneCount,
+    socketCount: first.observations.socketCount,
+  };
+}
+
 async function checkAnimationResample(root) {
   const { source, sourceDocument } = await storedAnimationSource(root);
   const invocation = {
@@ -526,6 +689,9 @@ try {
       break;
     case "mesh.skinning.validate":
       result = await checkSkinning(root);
+      break;
+    case "rig.humanoid.validate":
+      result = await checkHumanoid(root);
       break;
     case "animation.resample":
       result = await checkAnimationResample(root);
