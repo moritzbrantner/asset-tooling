@@ -42,7 +42,9 @@ jobs:
       - name: Install pinned Blender
         run: echo "ASSET_TOOLING_BLENDER=$(bun scripts/install-blender.ts "$RUNNER_TEMP/blender")" >> "$GITHUB_ENV"
       - name: Blender script backend round trips
-        run: bun test test/blender-script.test.ts
+        run: |
+          bun install --frozen-lockfile
+          bun test test/blender-script.test.ts test/gltf-production-operations.test.ts
 
   canonical-storage:
     runs-on: ubuntu-latest

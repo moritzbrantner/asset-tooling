@@ -57,4 +57,14 @@ bun scripts/check-gltf-production-contract.ts khronos.riggedfigure-glb <disposab
 
 The proof checks catalog hash/length/license, repeats import, compares source/output attributes and influence arrays, ordered joints, inverse-bind matrices, every clip channel's times/values/interpolation/target, world transforms, texture bytes and structured analysis. World-matrix component error is bounded at `1e-5` and the measured maximum is recorded. Rigged Figure's source is CC BY 4.0 with catalog attribution, has one 1.25-second unnamed clip, and needs the documented non-root-skin warning exception. It is a conformance reference, not the approved medieval source or an idle/walk library. This registration does not promote payloads into canonical LFS storage.
 
-The approved humanoid, independent pose/render comparisons and visual/consumer acceptance remain open under #104/#109. These proofs establish supported format preservation, analysis and replay; they do not establish art approval or arbitrary glTF support.
+Append an explicit Blender executable to the proof command to independently decode both verified artifacts and compare deformed world-space vertices and topology through Blender, rather than glTF Transform:
+
+```sh
+bun scripts/check-gltf-production-contract.ts khronos.riggedfigure-glb <disposable-directory>/khronos.riggedfigure-glb/RiggedFigure.glb /absolute/path/to/blender
+```
+
+This optional offline comparison requires the exact version in `adapters/blender/release.json`. It records the actual Blender build hash, comparison-script SHA-256, vertex/pose counts, maximum source movement and measured maximum world-vertex error against a fixed `1e-5` meter tolerance. It samples each imported clip's endpoints and quarter intervals plus an animation-disabled baseline. Blender owns animation evaluation and skin deformation; its bone display shapes are excluded. Clips use the imported action/slot directly, and unrelated transforms reset between clips. Imported clips must have one action per NLA track and consistent intervals across objects; unsupported layouts fail. This bounded comparison is not a full pose-space scan or a material/render/visual approval test.
+
+With `ASSET_TOOLING_BLENDER` configured, the production-import tests use an independently authored triangle/skin fixture declaring two meters of hips motion. They require that movement in the oracle's observations and prove that changing the generated joint channel fails the world-space comparison. Hosted validation runs this regression alongside the existing pinned Blender tests; ordinary checks skip the renderer-dependent proof when Blender is not configured.
+
+The approved humanoid, rendered comparisons and visual/consumer acceptance remain open under #104/#109. These proofs establish supported format preservation, sampled independent pose fidelity, analysis and replay; they do not establish art approval or arbitrary glTF support.
