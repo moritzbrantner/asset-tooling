@@ -1,15 +1,16 @@
 import assert from "node:assert/strict";
 import os from "node:os";
 import path from "node:path";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { spawnSync } from "node:child_process";
 import { NodeIO } from "@gltf-transform/core";
 import { createAssetCatalog, importAssetCatalogSource } from "../src/catalog.js";
 import { resolveAssetObject } from "../src/asset-store.js";
 import { createGltfProductionImportOperationBuildIdentity, executeGltfProductionImportOperation, executeGltfAnalyzeOperation } from "../src/gltf-production-operations.js";
 import { sha256Bytes } from "../src/hash.js";
 
-const [sourceId, filename] = process.argv.slice(2);
-if (!sourceId || !filename) throw new Error("usage: bun scripts/check-gltf-production-contract.ts <pinned-catalog-source-id> <explicitly-acquired-file>");
+const [sourceId, filename, blenderExecutable] = process.argv.slice(2);
+if (!sourceId || !filename) throw new Error("usage: bun scripts/check-gltf-production-contract.ts <pinned-catalog-source-id> <explicitly-acquired-file> [blender-executable]");
 const repositoryRoot = path.resolve(import.meta.dir, "..");
 const providers = JSON.parse(await readFile(path.join(repositoryRoot, "catalog/providers.json"), "utf8")).providers;
 const sources = JSON.parse(await readFile(path.join(repositoryRoot, "catalog/sources.json"), "utf8")).sources;
@@ -86,9 +87,30 @@ try {
   for (const field of ["meshes", "materials", "textures", "nodes", "skins", "clips"]) {
     assert.deepEqual(normalizedAnalysis.observations[field], analysis.observations[field]);
   }
+  let independentPoseComparison;
+  if (blenderExecutable) {
+    // Only self-contained validated inputs can be handed to the independent importer.
+    const inputPath = path.join(root, source.mediaType === "model/gltf-binary" ? "source.glb" : "source.gltf");
+    const outputPath = path.join(root, "candidate.glb");
+    const reportPath = path.join(root, "pose-report.json");
+    const scriptPath = path.join(repositoryRoot, "scripts/compare-gltf-poses.py");
+    const { version } = JSON.parse(await readFile(path.join(repositoryRoot, "adapters/blender/release.json"), "utf8"));
+    await writeFile(inputPath, sourceBytes);
+    await writeFile(outputPath, await resolveAssetObject(root, output));
+    const process = spawnSync(blenderExecutable, [
+      "--background", "--factory-startup", "--python-exit-code", "1", "--python",
+      scriptPath, "--", inputPath, outputPath, reportPath, version,
+    ], { encoding: "utf8", timeout: 120_000, maxBuffer: 16 * 1024 * 1024 });
+    assert.equal(process.status, 0, `${process.error?.message ?? ""}\n${process.stderr}\n${process.stdout}`);
+    independentPoseComparison = {
+      ...JSON.parse(await readFile(reportPath, "utf8")),
+      scriptSha256: sha256Bytes(await readFile(scriptPath)),
+    };
+  }
   process.stdout.write(`${JSON.stringify({
     status: "passed", sourceId, sourceSha256: source.sha256, outputSha256: output.sha256,
     identity, observations: first.observations,
     transformComparison: { matrixComponentTolerance, maxMatrixComponentError },
+    ...(independentPoseComparison ? { independentPoseComparison } : {}),
   })}\n`);
 } finally { await rm(root, { recursive: true, force: true }); }

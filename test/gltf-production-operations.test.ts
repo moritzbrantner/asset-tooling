@@ -2,7 +2,8 @@ import { test } from "bun:test";
 import assert from "node:assert/strict";
 import os from "node:os";
 import path from "node:path";
-import { mkdtemp, readdir, rm } from "node:fs/promises";
+import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { spawnSync } from "node:child_process";
 import { NodeIO } from "@gltf-transform/core";
 import { resolveAssetObject, storeAssetObject } from "../src/asset-store.js";
 import { executeGltfImportOperation } from "../src/gltf-import-operations.js";
@@ -97,6 +98,45 @@ test("versioned production import preserves joint order, weights, root/hips and 
     assert.equal(first.observations.animationCount, 1);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
+
+test.skipIf(!process.env.ASSET_TOOLING_BLENDER)("independent Blender pose oracle evaluates motion and rejects changed joint channels", async () => {
+  const { root, source } = await workspace();
+  try {
+    const result = await executeGltfProductionImportOperation(root, { inputs: { source } });
+    const output = result.outputs.output;
+    assert.ok(output && !Array.isArray(output));
+    const sourcePath = path.join(root, "source.gltf");
+    const candidatePath = path.join(root, "candidate.glb");
+    const reportPath = path.join(root, "poses.json");
+    await writeFile(sourcePath, await resolveAssetObject(root, source));
+    const candidate = await resolveAssetObject(root, output);
+    await writeFile(candidatePath, candidate);
+    const { version } = JSON.parse(await readFile(new URL("../adapters/blender/release.json", import.meta.url), "utf8"));
+    const compare = () => spawnSync(process.env.ASSET_TOOLING_BLENDER!, [
+      "--background", "--factory-startup", "--python-exit-code", "1", "--python",
+      path.resolve(import.meta.dir, "../scripts/compare-gltf-poses.py"), "--",
+      sourcePath, candidatePath, reportPath, version,
+    ], { encoding: "utf8", timeout: 120_000 });
+    const proof = compare();
+    assert.equal(proof.status, 0, `${proof.error?.message ?? ""}\n${proof.stderr}\n${proof.stdout}`);
+    const observations = JSON.parse(await readFile(reportPath, "utf8"));
+    assert.equal(observations.clipCount, 1);
+    assert.equal(observations.poseCount, 6);
+    assert.equal(observations.vertexComparisons, 18);
+    // Independent fixture declares exactly two meters of hips translation. This
+    // guards against an oracle that samples only rest pose or muted NLA strips.
+    assert.ok(Math.abs(observations.maxSourceSampleMotionMeters - 2) < 1e-5);
+    assert.ok(observations.maxWorldVertexErrorMeters <= 1e-5);
+    const io = new NodeIO();
+    const changed = await io.readBinary(candidate);
+    changed.getRoot().listAnimations()[0]!.listChannels()[0]!.getSampler()!.getOutput()!
+      .setArray(new Float32Array([0, 0, 0, 0, 1, 0]));
+    await writeFile(candidatePath, await io.writeBinary(changed));
+    const rejection = compare();
+    assert.notEqual(rejection.status, 0);
+    assert.match(`${rejection.stderr}\n${rejection.stdout}`, /world-space error/);
+  } finally { await rm(root, { recursive: true, force: true }); }
+}, 120_000);
 
 test("analysis reports production coverage and clip domains without writing objects", async () => {
   const { root, source } = await workspace();
