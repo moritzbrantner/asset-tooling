@@ -214,6 +214,8 @@ async function preservedEvidence(root: string, value: unknown, build: AssetOpera
       if (canonicalJson(component.build) !== canonicalJson(expectedBuild)) throw new Error("preserved height component build does not match current dependencies");
       const output = createAssetRef(component.output);
       if (output.kind !== "image" || output.mediaType !== RGBA8_IMAGE_MEDIA_TYPE || canonicalJson(output.metadata) !== canonicalJson(proceduralTextureMetadata(expectedBuild,recipe))) throw new Error("preserved height component metadata does not match producer contract");
+      const image = await scalarImage(root,output);
+      if (image.width !== recipe.width || image.height !== recipe.height) throw new Error("preserved height component dimensions do not match recipe");
       components.push({build:expectedBuild,output});
     }
     metadata = surfaceImageMetadata(recipe,build,{...CHANNEL_SEMANTICS.height,sourceSha256s:components.map(c=>c.output.sha256)});
