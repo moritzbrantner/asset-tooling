@@ -19,6 +19,7 @@
     "noUnusedParameters": true
   },
   "include": [
+    "src/rock-recipes.ts",
     "src/gltf-validator.d.ts",
     "src/gltf-import-operations.ts",
     "src/gltf-production-operations.ts",

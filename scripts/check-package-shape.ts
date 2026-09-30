@@ -85,6 +85,7 @@ const expectedSourceExports: Record<string, string> = {
   "./3d/production-profile": "./src/three-d-production-profile.ts",
   "./recipes/medieval-character-kit": "./src/medieval-character-kit.ts",
   "./recipes/medieval-character-materials": "./src/medieval-character-materials.ts",
+  "./recipes/rocks": "./src/rock-recipes.ts",
   "./recipes/surface-textures": "./src/surface-texture-recipes.ts",
   "./recipes/production-props": "./src/production-prop-kit.ts",
 };

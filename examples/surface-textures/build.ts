@@ -1,27 +1,13 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { mkdir, mkdtemp, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { mkdir } from "node:fs/promises";
 import { executeSurfaceTextureRecipe, SURFACE_TEXTURE_PRESETS } from "../../src/surface-texture-recipes.js";
 import { executeImageEncodePngOperation } from "../../src/image-codec-operations.js";
 import { resolveAssetObject } from "../../src/asset-store.js";
 import { createAssetRef, type AssetRef } from "../../src/operations.js";
 import { canonicalJson } from "../../src/canonical.js";
 
-async function writeIfChanged(filePath: string, bytes: Uint8Array): Promise<void> {
-  try {
-    if ((await readFile(filePath)).equals(bytes)) return;
-  } catch (error: unknown) {
-    if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) throw error;
-  }
-  const temporary = await mkdtemp(path.join(path.dirname(filePath), ".surface-write-"));
-  try {
-    const staged = path.join(temporary, "output");
-    await writeFile(staged, bytes);
-    await rename(staged, filePath);
-  } finally {
-    await rm(temporary, { recursive: true, force: true });
-  }
-}
+import { writeIfChanged } from "../reconcile-file.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const directory = path.join(root, ".artifacts/surface-textures");

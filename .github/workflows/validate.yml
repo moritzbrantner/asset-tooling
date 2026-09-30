@@ -44,7 +44,7 @@ jobs:
       - name: Blender script backend round trips
         run: |
           bun install --frozen-lockfile
-          bun test test/blender-script.test.ts test/gltf-production-operations.test.ts
+          bun test test/blender-script.test.ts test/gltf-production-operations.test.ts test/rock-recipes.test.ts
 
   canonical-storage:
     runs-on: ubuntu-latest
