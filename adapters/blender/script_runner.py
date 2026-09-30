@@ -11,7 +11,7 @@ The consumer's script is a hash-pinned spec input. It must define
   generate(output_path: str, arguments: dict, inputs: dict[str, str]) -> dict
 
 which writes exactly one output file and returns JSON-serializable observations. `inputs` maps
-every other declared spec input name to its absolute path. The script runs in a factory-startup
+every other declared spec input name to its portable path relative to the spec directory. The script runs in a factory-startup
 scene with no add-ons beyond Blender's defaults and must not read undeclared files or the network.
 """
 
@@ -59,6 +59,11 @@ def probe() -> None:
     if not binary.is_file():
         fail("Blender binary path is not fingerprintable")
     components = [
+        {
+            "id": "blender-script-runner",
+            "version": "1",
+            "sha256": sha256_file(Path(__file__)),
+        },
         {
             "id": "blender",
             "version": blender_version(),

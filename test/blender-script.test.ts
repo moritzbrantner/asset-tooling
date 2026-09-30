@@ -5,7 +5,7 @@ import path from "node:path";
 import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { getBackend } from "../src/backends.js";
 import { generateAsset, validateSpec, verifyAsset } from "../src/core.js";
-import { sha256Text } from "../src/hash.js";
+import { sha256File, sha256Text } from "../src/hash.js";
 
 // Blender round trips run only where a Blender executable is configured, e.g. the Validate
 // workflow's pinned install. Contract validation below needs no Blender.
@@ -86,6 +86,8 @@ test("Blender script generation replays exactly and records the pinned Blender b
   const blender = generated.receipt.environment.components.find((component) => component.id === "blender");
   assert.equal(blender.version, BLENDER_VERSION);
   assert.match(blender.executableSha256, /^[0-9a-f]{64}$/);
+  const runner = generated.receipt.environment.components.find((component) => component.id === "blender-script-runner");
+  assert.equal(runner.sha256, await sha256File(new URL("../adapters/blender/script_runner.py", import.meta.url)));
   assert.deepEqual(generated.receipt.observations, {
     runner: "blender-script-runner-v1",
     blenderVersion: BLENDER_VERSION,
@@ -96,6 +98,32 @@ test("Blender script generation replays exactly and records the pinned Blender b
 
   const report = await verifyAsset(specPath);
   assert.equal(report.status, "exact");
+});
+
+test("Blender scripts receive the same portable input paths in different checkouts", {
+  skip: !blenderConfigured && "ASSET_TOOLING_BLENDER is not set",
+  timeout: 120_000,
+}, async () => {
+  const script = `from pathlib import Path
+def generate(output_path, arguments, inputs):
+    Path(output_path).write_text(inputs["source"] + ":" + Path(inputs["source"]).read_text())
+    return {"inputPath": inputs["source"]}
+`;
+  const spec = blenderSpec({
+    inputs: {
+      script: { path: "cube.py", sha256: sha256Text(script) },
+      source: { path: "input.txt", sha256: sha256Text("source bytes") },
+    },
+  }, script);
+  const first = await writeWorkspace(spec, script);
+  const second = await writeWorkspace(spec, script);
+  await writeFile(path.join(first.root, "input.txt"), "source bytes");
+  await writeFile(path.join(second.root, "input.txt"), "source bytes");
+  const a = await generateAsset(first.specPath);
+  const b = await generateAsset(second.specPath);
+  assert.equal(a.receipt.output.sha256, b.receipt.output.sha256);
+  assert.deepEqual(a.receipt.observations, b.receipt.observations);
+  assert.equal(a.receipt.observations.script.inputPath, "input.txt");
 });
 
 test("Blender script generation fails closed on a Blender version mismatch", {

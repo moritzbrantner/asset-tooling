@@ -23,10 +23,10 @@
 }
 ```
 
-- `inputs.script` is required and must be a `.py` file. Every other declared input is passed to the script by name as an absolute path.
+- `inputs.script` is required and must be a `.py` file. Every other declared input is passed to the script by name as its portable `/`-separated path relative to the spec directory, which is the runner's working directory.
 - `parameters.blenderVersion` must be an exact `MAJOR.MINOR.PATCH` release. There is no floating "latest": the probe fails closed when the executable's version differs, so a receipt always names the Blender that produced it.
 - `parameters.arguments` is an arbitrary JSON object handed to the script. Seed any randomness through it; `randomness.mode` must be `none`.
-- `models` must be empty; Blender itself is pinned by version, and the receipt's environment records its build hash and executable SHA-256.
+- `models` must be empty; Blender itself is pinned by version, and the receipt's environment records its build hash, executable SHA-256, and Python runner SHA-256.
 
 ## Script contract
 
@@ -52,6 +52,8 @@ bun scripts/install-blender.ts <install-directory>
 ```
 
 downloads that archive, verifies its SHA-256, extracts it, and prints the executable path. Point `ASSET_TOOLING_BLENDER` at it (otherwise `blender` on `PATH` is used). The `Validate / blender-script` job does exactly this before running the round-trip tests.
+
+Repeated installation verifies the cached archive again and compares the complete installed tree with a fresh extraction, including file hashes, executable permissions, and symbolic links. An identical installation is reused without rewriting it; drift is reconciled from the verified archive. Corrupt archive cache entries fail closed. Archive cache bytes live in OS temporary storage.
 
 ## Updating Blender
 

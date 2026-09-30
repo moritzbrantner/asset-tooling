@@ -1,6 +1,5 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { resolveSpecPath } from "./schema.js";
 import { probeProcessAdapter, runProcessAdapter } from "./process-adapter.js";
 
 const RUNNER_SCRIPT = fileURLToPath(new URL("../adapters/blender/script_runner.py", import.meta.url));
@@ -95,7 +94,7 @@ export const BLENDER_SCRIPT_BACKEND = {
     const { spec, root } = document;
     const inputs = {};
     for (const [name, artifact] of Object.entries(spec.inputs)) {
-      if (name !== "script") inputs[name] = resolveSpecPath(root, (artifact as { path: string }).path);
+      if (name !== "script") inputs[name] = (artifact as { path: string }).path;
     }
     return runProcessAdapter({
       executable: blenderExecutable(),
@@ -106,7 +105,7 @@ export const BLENDER_SCRIPT_BACKEND = {
       outputName: outputName(spec.output.path),
       request: {
         blenderVersion: spec.parameters.blenderVersion,
-        scriptPath: resolveSpecPath(root, spec.inputs.script.path),
+        scriptPath: spec.inputs.script.path,
         scriptSha256: spec.inputs.script.sha256,
         arguments: spec.parameters.arguments,
         inputs,
