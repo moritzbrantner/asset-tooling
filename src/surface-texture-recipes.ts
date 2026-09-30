@@ -9,6 +9,7 @@ import {
   type CanonicalJsonObject, type DeepReadonly,
 } from "./operations.js";
 import { captureToolIdentity } from "./tool.js";
+import { proceduralTextureMetadata, proceduralTextureObservations } from "./procedural-texture-metadata.js";
 import {
   executeTileableHeightOperation, createTileableHeightOperationBuildIdentity,
   executeNormalFromHeightOperation, createNormalFromHeightOperationBuildIdentity,
@@ -122,21 +123,27 @@ export async function createScalarColorRampOperationBuildIdentity(root: string, 
   await scalarImage(root,createAssetRef(build.inputs.source));
   return build;
 }
+function surfaceImageMetadata(image: { width:number; height:number }, build: AssetOperationBuildIdentity, metadata: CanonicalJsonObject): CanonicalJsonObject {
+  return {width:image.width,height:image.height,generator:`${build.operation.id}@${build.operation.version}`,...metadata};
+}
 async function storeImage(root: string, image: { width: number; height: number; pixels: Uint8Array }, build: AssetOperationBuildIdentity, metadata: CanonicalJsonObject) {
   return (await storeAssetObject(root, { bytes: encodeRgba8Image(image), kind: "image", mediaType: RGBA8_IMAGE_MEDIA_TYPE,
-    metadata: { width: image.width, height: image.height, generator: `${build.operation.id}@${build.operation.version}`, ...metadata } })).asset;
+    metadata: surfaceImageMetadata(image,build,metadata) })).asset;
+}
+function heightComponentInvocations(p: SurfaceHeightParameters) {
+  return [{ parameters: { seed: p.seed, width: p.width, height: p.height, gridX: p.gridX, gridY: p.gridY } },
+    ...(p.detailWeight > 0 ? [{ parameters: { seed:(BigInt(p.seed)+1n).toString(),width:p.width,height:p.height,gridX:p.detailGridX,gridY:p.detailGridY } }] : [])];
 }
 export async function executeSurfaceHeightOperation(root: string, invocation: Invocation = {}) {
   const build = await createSurfaceHeightOperationBuildIdentity(root,invocation);
   const p = heightParameters(build.parameters);
-  const coarseInvocation = { parameters: { seed: p.seed, width: p.width, height: p.height, gridX: p.gridX, gridY: p.gridY } };
+  const [coarseInvocation,detailInvocation] = heightComponentInvocations(p);
   const coarseBuild = await createTileableHeightOperationBuildIdentity(root,coarseInvocation);
   const coarse = createAssetRef((await executeTileableHeightOperation(root,coarseInvocation)).outputs.output);
   const coarseImage = await scalarImage(root,coarse);
   const components: { build: AssetOperationBuildIdentity; output: AssetRef }[] = [{ build: coarseBuild, output: coarse }];
   let detailImage = coarseImage;
-  if (p.detailWeight > 0) {
-    const detailInvocation = { parameters: { seed: (BigInt(p.seed)+1n).toString(), width: p.width, height: p.height, gridX: p.detailGridX, gridY: p.detailGridY } };
+  if (detailInvocation) {
     const detailBuild = await createTileableHeightOperationBuildIdentity(root,detailInvocation);
     const detail = createAssetRef((await executeTileableHeightOperation(root,detailInvocation)).outputs.output);
     detailImage = await scalarImage(root,detail);
@@ -149,7 +156,7 @@ export async function executeSurfaceHeightOperation(root: string, invocation: In
     pixels[i]=pixels[i+1]=pixels[i+2]=value; pixels[i+3]=255;
   }
   const output = await storeImage(root,{ width: p.width, height: p.height, pixels },build,
-    { field: "height", scalarEncoding: "unorm8", sampling: "data", channelColorSpace: "linear", tileable: true, sourceSha256s: components.map(c=>c.output.sha256) });
+    { ...CHANNEL_SEMANTICS.height, sourceSha256s: components.map(c=>c.output.sha256) });
   return normalizeAssetOperationResult(SURFACE_HEIGHT_OPERATION,{ outputs: { output }, observations: { components, parameters: build.parameters } });
 }
 export async function executeScalarColorRampOperation(root: string, invocation: Invocation = {}) {
@@ -186,15 +193,41 @@ async function preservedStep(root: string, value: SurfaceTextureStep, build: Ass
   if (output.kind !== "image" || output.mediaType !== RGBA8_IMAGE_MEDIA_TYPE) throw new Error(`preserved ${channel} must be a canonical RGBA8 image`);
   const image = channel === "height" || channel === "roughness" ? await scalarImage(root, output) : parseRgba8Image(await resolveAssetObject(root, output));
   if (image.width !== recipe.width || image.height !== recipe.height) throw new Error(`preserved ${channel} dimensions do not match recipe`);
-  const expectedMetadata = { ...CHANNEL_SEMANTICS[channel], width: recipe.width, height: recipe.height,
-    generator: `${build.operation.id}@${build.operation.version}`,
-    ...(channel !== "height" ? { sourceSha256: createAssetRef(build.inputs.source).sha256 } : {}) };
-  for (const [key, expected] of Object.entries(expectedMetadata)) if (output.metadata[key] !== expected) throw new Error(`preserved ${channel} metadata.${key} does not match channel`);
+  const expected = await preservedEvidence(root,p.observations,build,channel,recipe);
+  if (canonicalJson(output.metadata) !== canonicalJson(expected.metadata)) throw new Error(`preserved ${channel} metadata does not match complete producer contract`);
   for (let offset=3;offset<image.pixels.length;offset+=4) if (image.pixels[offset] !== 255) throw new Error(`preserved ${channel} must be opaque`);
   // Canonical serialization validates and detaches caller-owned observation data.
-  const observations = JSON.parse(canonicalJson(p.observations)) as CanonicalJsonObject;
-  if (!observations || typeof observations !== "object" || Array.isArray(observations)) throw new Error(`preserved ${channel} observations must be an object`);
+  const observations = expected.observations;
   return { operation: build.operation, build, output, observations };
+}
+
+async function preservedEvidence(root: string, value: unknown, build: AssetOperationBuildIdentity, channel: SurfaceChannel, recipe: SurfaceTextureRecipe) {
+  let metadata: CanonicalJsonObject, observations: CanonicalJsonObject;
+  if (channel === "height") {
+    const recorded = object(value,["components","parameters"],"preserved height observations");
+    const invocations = heightComponentInvocations(recipe);
+    if (!Array.isArray(recorded.components) || recorded.components.length !== invocations.length) throw new Error("preserved height component evidence does not match recipe");
+    const components: {build:AssetOperationBuildIdentity;output:AssetRef}[] = [];
+    for (const [index,invocation] of invocations.entries()) {
+      const component = object(recorded.components[index],["build","output"],"preserved height component");
+      const expectedBuild = await createTileableHeightOperationBuildIdentity(root,invocation);
+      if (canonicalJson(component.build) !== canonicalJson(expectedBuild)) throw new Error("preserved height component build does not match current dependencies");
+      const output = createAssetRef(component.output);
+      if (output.kind !== "image" || output.mediaType !== RGBA8_IMAGE_MEDIA_TYPE || canonicalJson(output.metadata) !== canonicalJson(proceduralTextureMetadata(expectedBuild,recipe))) throw new Error("preserved height component metadata does not match producer contract");
+      components.push({build:expectedBuild,output});
+    }
+    metadata = surfaceImageMetadata(recipe,build,{...CHANNEL_SEMANTICS.height,sourceSha256s:components.map(c=>c.output.sha256)});
+    observations = {components,parameters:build.parameters};
+  } else if (channel === "normal") {
+    metadata = {...proceduralTextureMetadata(build,recipe),...CHANNEL_SEMANTICS.normal};
+    observations = proceduralTextureObservations(build,recipe);
+  } else {
+    metadata = surfaceImageMetadata(recipe,build,{sourceSha256:createAssetRef(build.inputs.source).sha256,
+      colorSpace:"srgb",alphaMode:"straight",...CHANNEL_SEMANTICS[channel]});
+    observations = {parameters:build.parameters};
+  }
+  if (canonicalJson(value) !== canonicalJson(observations)) throw new Error(`preserved ${channel} observations do not match producer contract`);
+  return {metadata,observations};
 }
 
 async function channelPlan(root: string, recipe: SurfaceTextureRecipe, channel: Exclude<SurfaceChannel, "height">, height: AssetRef) {

@@ -113,3 +113,20 @@ test("normal edits, restarted snapshots, reorder, selection and undo reproduce c
   await assert.rejects(executePreservedSurfaceTextureRecipe(root,palette,{channels:["color"],preserve:locks(accepted,["height","normal"])}),/unselected/);
   await assert.rejects(executePreservedSurfaceTextureRecipe(root,palette,{preserve:locks(accepted,["normal"])}),/require a preserved height/);
 });
+
+test("persisted locks cannot alter source lineage or append unowned output metadata", async t => {
+  const root = await workspace(t), accepted = await executeSurfaceTextureRecipe(root,recipe);
+  const before = await inventory(root,accepted.outputs.height!);
+  const height = locks(accepted,["height"]).height!;
+  for (const metadata of [{sourceSha256s:["0".repeat(64)]}, {inventedLineage:"false-source"}, {tileable:false}]) {
+    const changed = {...height,output:createAssetRef({...height.output,metadata:{...height.output.metadata,...metadata}})};
+    await assert.rejects(executePreservedSurfaceTextureRecipe(root,palette,{preserve:{height:changed}}),/metadata/);
+    assert.deepEqual(await inventory(root,accepted.outputs.height!),before);
+  }
+  const normal = locks(accepted,["normal"]).normal!;
+  await assert.rejects(executePreservedSurfaceTextureRecipe(root,palette,{preserve:{height,
+    normal:{...normal,output:createAssetRef({...normal.output,metadata:{...normal.output.metadata,inventedLineage:"false-source"}})} }}),/metadata/);
+  await assert.rejects(executePreservedSurfaceTextureRecipe(root,palette,{preserve:{height:{...height,
+    observations:{...height.observations,parameters:{...height.build.parameters,seed:"43"}}}}}),/observations/);
+  assert.deepEqual(await inventory(root,accepted.outputs.height!),before);
+});
