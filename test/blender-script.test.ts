@@ -2,7 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import os from "node:os";
 import path from "node:path";
-import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, readdir, rm, utimes, writeFile } from "node:fs/promises";
+import { spawnSync } from "node:child_process";
 import { getBackend } from "../src/backends.js";
 import { generateAsset, validateSpec, verifyAsset } from "../src/core.js";
 import { sha256File, sha256Text } from "../src/hash.js";
@@ -157,4 +158,57 @@ test("Blender script generation fails closed when the script writes no output", 
     script,
   );
   await assert.rejects(generateAsset(specPath), /did not write the output file/);
+});
+
+const PINNED_TEXT_SCRIPT = `from pathlib import Path
+def generate(output_path: str, arguments, inputs):
+    Path(output_path).write_text("declared")
+    return {"implementation": "declared", "module": __name__, "source": Path(__file__).name, "package": __package__, "sourceAnnotations": generate.__annotations__["output_path"] is str}
+`;
+
+test("Blender executes hash-pinned source even with contradictory timestamp-valid Python bytecode", {
+  skip: !blenderConfigured && "ASSET_TOOLING_BLENDER is not set",
+  timeout: 120_000,
+}, async t => {
+  const { root, specPath } = await writeWorkspace(blenderSpec({}, PINNED_TEXT_SCRIPT), PINNED_TEXT_SCRIPT);
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await writeFile(path.join(root, "cube.py"), PINNED_TEXT_SCRIPT.replaceAll("declared", "poisoned"));
+  // Compile with Blender's own Python, so magic/version match the actual loader. The replacement
+  // source has the same byte length and mtime, making this a genuine accepted timestamp cache.
+  const compiler = spawnSync(process.env.ASSET_TOOLING_BLENDER!, [
+    "--background", "--factory-startup", "--quiet", "--python-exit-code", "1", "--python-expr",
+    'import os, py_compile; os.utime("cube.py", (1700000000, 1700000000)); py_compile.compile("cube.py", doraise=True, invalidation_mode=py_compile.PycInvalidationMode.TIMESTAMP)',
+  ], { cwd: root, encoding: "utf8", timeout: 30_000 });
+  assert.equal(compiler.status, 0, compiler.error?.message ?? compiler.stderr);
+  await writeFile(path.join(root, "cube.py"), PINNED_TEXT_SCRIPT);
+  await utimes(path.join(root, "cube.py"), 1700000000, 1700000000);
+  const cacheDirectory = path.join(root, "__pycache__");
+  const cacheFiles = await readdir(cacheDirectory);
+  assert.equal(cacheFiles.length, 1);
+  const bytecode = await readFile(path.join(cacheDirectory, cacheFiles[0]!));
+  assert.equal(bytecode.readUInt32LE(4), 0); // timestamp-based invalidation, not source-hash mode
+  assert.equal(bytecode.readUInt32LE(8), 1700000000);
+  assert.equal(bytecode.readUInt32LE(12), Buffer.byteLength(PINNED_TEXT_SCRIPT));
+  assert.ok(bytecode.includes(Buffer.from("poisoned")));
+
+  const generated = await generateAsset(specPath);
+  assert.equal((await readFile(path.join(root, ".asset-tooling/cube.glb"))).toString(), "declared");
+  assert.deepEqual(generated.receipt.observations.script, {
+    implementation: "declared", module: "asset_tooling_blender_script", source: "cube.py", package: "", sourceAnnotations: true,
+  });
+  assert.equal((await verifyAsset(specPath)).status, "exact");
+  assert.deepEqual(await readFile(path.join(cacheDirectory, cacheFiles[0]!)), bytecode);
+});
+
+test("Blender generation and clean-workspace replay do not create source-adjacent bytecode", {
+  skip: !blenderConfigured && "ASSET_TOOLING_BLENDER is not set",
+  timeout: 120_000,
+}, async t => {
+  const { root, specPath } = await writeWorkspace(blenderSpec({}, PINNED_TEXT_SCRIPT), PINNED_TEXT_SCRIPT);
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await generateAsset(specPath);
+  assert.ok(!(await readdir(root)).includes("__pycache__"));
+  const before = (await readdir(root, { recursive: true })).sort();
+  assert.equal((await verifyAsset(specPath)).status, "exact");
+  assert.deepEqual((await readdir(root, { recursive: true })).sort(), before);
 });
