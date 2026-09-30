@@ -52,7 +52,8 @@
     "./recipes/medieval-character-kit": "./src/medieval-character-kit.ts",
     "./recipes/medieval-character-materials": "./src/medieval-character-materials.ts",
     "./recipes/production-props": "./src/production-prop-kit.ts",
-    "./schemas/*": "./schemas/*"
+    "./schemas/*": "./schemas/*",
+    "./operations/processing/scene": "./src/scene-processing-operations.ts"
   },
   "bin": {
     "asset-tooling": "./src/entry.ts"

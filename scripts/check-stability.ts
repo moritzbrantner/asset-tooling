@@ -76,6 +76,22 @@ const expectedProcessors = new Map([
       operation: "mesh.rigged-collision.fit",
     },
   ],
+  [
+    "three-d-scene-normalize",
+    {
+      repository: "moritzbrantner/3d-lab",
+      manifestPath: "examples/asset-tooling-scene-adapter/Cargo.toml",
+      operation: "scene.normalize",
+    },
+  ],
+  [
+    "three-d-scene-export-glb",
+    {
+      repository: "moritzbrantner/3d-lab",
+      manifestPath: "examples/asset-tooling-scene-adapter/Cargo.toml",
+      operation: "scene.export.glb",
+    },
+  ],
 ]);
 
 const expectedWorkflowStack = {

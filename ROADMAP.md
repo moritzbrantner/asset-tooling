@@ -160,7 +160,7 @@ Grow the current traceable 3D processing contracts into a production profile wit
 - [x] Explicit skinned-mesh production-profile evidence through the pinned `three-d-animation` authority.
 - [x] Deterministic joint-local primitive collision fitting from bind-pose positions and skin weights through the pinned `three-d-rigged-assets` authority, with content-addressed outputs and fitting observations.
 - [x] Production humanoid rig evidence for semantic bone hierarchy, Root/Hips separation, rest pose, and standard attachment sockets through the pinned `three-d-animation` authority.
-- [ ] Mesh/scene normalization and export normalization.
+- [x] Mesh/scene normalization and deterministic GLB 2.0 export normalization through pinned `three-d-scene` / `three-d-export` processor boundaries.
 
 ### Milestone I — Asset analysis and validation — IN PROGRESS
 

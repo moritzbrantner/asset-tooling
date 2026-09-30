@@ -147,6 +147,10 @@ function pathIsInside(root: string, candidate: string): boolean {
   );
 }
 
+export function resolveCargoManifestPath(root: string, manifestPath: string): string {
+  return path.resolve(root, manifestPath);
+}
+
 async function gitOutput(
   checkoutRoot: string,
   arguments_: string[],
@@ -199,7 +203,7 @@ async function verifyProcessorSource(
       if (manifestIndex < 0 || typeof manifestValue !== "string") {
         throw new Error(`${operationId} cargo processor must declare --manifest-path`);
       }
-      const manifestPath = path.resolve(manifestValue);
+      const manifestPath = resolveCargoManifestPath(root, manifestValue);
       if (!pathIsInside(processor.checkoutRoot, manifestPath)) {
         throw new Error(`${operationId} processor manifest must be inside checkoutRoot`);
       }
@@ -232,7 +236,7 @@ async function verifyProcessorSource(
   if (!sourceFiles?.includes(scriptPath)) {
     throw new Error(`${operationId} processor.sourceFiles must include the executed scriptPath`);
   }
-  const fileHashes: string[] = [];
+  const fileHashes: { path: string; sha256: string }[] = [];
   for (const sourceFile of sourceFiles) {
     let bytes: Buffer;
     try {
@@ -242,13 +246,19 @@ async function verifyProcessorSource(
         `${operationId} processor source file '${sourceFile}' could not be read: ${(error as Error).message}`,
       );
     }
-    fileHashes.push(createHash("sha256").update(bytes).digest("hex"));
+    fileHashes.push({
+      path: path.relative(path.dirname(scriptPath), sourceFile).split(path.sep).join("/"),
+      sha256: createHash("sha256").update(bytes).digest("hex"),
+    });
   }
-  fileHashes.sort();
+  fileHashes.sort((left, right) => left.path < right.path ? -1 : left.path > right.path ? 1 : 0);
   return {
     repository: processor.repository,
     revision: processor.revision,
-    sourceSha256: createHash("sha256").update(JSON.stringify(fileHashes)).digest("hex"),
+    sourceSha256: createHash("sha256").update(JSON.stringify({
+      script: path.basename(scriptPath),
+      files: fileHashes,
+    })).digest("hex"),
   };
 }
 

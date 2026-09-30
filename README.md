@@ -35,6 +35,8 @@ See `docs/generation.md`, `docs/model-acquisition.md`, `docs/stable-diffusion.md
 
 ## Processing
 
+`asset-tooling/operations/processing/scene` exposes `scene.normalize@1` and `scene.export.glb@1` for renderer-neutral scene documents. The pinned `3d-lab` processors own canonical hierarchy/geometry normalization and GLB serialization; asset-tooling verifies their identity, validates transport and observations, and stores outputs with source lineage. This is the static scene/export foundation for the broader production GLB profile tracked in #104.
+
 The versioned 3D processing receipt contracts cover mesh simplification, source-based LOD chains, animation resampling, animation reduction, and production humanoid rig validation while keeping the authoritative algorithms and semantics in their domain repositories. Cross-field validators check request/result consistency and replay evidence without copying those algorithms into `asset-tooling`.
 
 Rigged-character preparation now follows the same boundary: `mesh.rigged-collision.fit@1` consumes a content-addressed bind-pose position/skeleton/skin document, invokes the exact accepted `three-d-rigged-assets` processor from `3d-lab`, and stores the resulting joint-local primitive collision proxies as a content-addressed collision asset. `asset-tooling` owns invocation and provenance; fitting and physics semantics remain outside this repository.
