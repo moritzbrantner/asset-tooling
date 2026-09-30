@@ -75,6 +75,20 @@ test("render preflight rejects missing nodes, extensions, external resources and
   await assert.rejects(prepareRenderDerivativeRecipe(root, { ...request, source: { ...source, sha256: "0".repeat(64) }, parameters: front }));
 });
 
+test("node selection retains original multibyte names despite importer truncation and collisions", {
+  skip: !configured && "ASSET_TOOLING_BLENDER is not set", timeout: 120_000,
+}, async t => {
+  const prefix = "树".repeat(128), name = `${prefix}-selected`;
+  const bytes = quadGlb({ nodes: [{ name: `${prefix}-other`, mesh: 0, translation: [2, 3, 4] },
+    { name, mesh: 0, translation: [10, 3, 4] }] });
+  const { source, specPath } = await prepare(t, { ...front, selection: { type: "nodes", names: [name] } }, bytes);
+  const generated = await generateAsset(specPath);
+  assert.equal(generated.receipt.inputs.source.sha256, source.sha256);
+  const observed = generated.receipt.observations.script;
+  assert.equal(observed.meshCount, 1);
+  assert.deepEqual(observed.sourceBoundsBlenderZUp, { min: [9, -4, 2.5], max: [11, -4, 3.5] });
+});
+
 for (const projection of [{ type: "orthographic" }, { type: "perspective", horizontalFovDegrees: 40 }] as const) {
   test(`actual ${projection.type} PNG retains odd-size alpha framing, pivot and selected-only source lineage`, {
     skip: !configured && "ASSET_TOOLING_BLENDER is not set", timeout: 120_000,

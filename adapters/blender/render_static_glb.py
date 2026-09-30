@@ -1,7 +1,9 @@
 """Static self-contained core-glTF derivatives; invoke through the validated public recipe."""
 import math
+import sys
 from array import array
 from pathlib import Path
+from types import ModuleType
 
 import bpy
 from bpy_extras.object_utils import world_to_camera_view
@@ -22,14 +24,35 @@ def generate(output_path, arguments, inputs):
 
     bpy.ops.object.select_all(action="SELECT")
     bpy.ops.object.delete(use_global=False)
-    bpy.ops.import_scene.gltf(filepath=inputs["source"])
+    # The supported glTF import extension hook binds original nodes to actual objects. Object
+    # names can be truncated or disambiguated by Blender and are not source-node identifiers.
+    imported_nodes = {}
+
+    class NodeIdentity:
+        is_critical = True
+
+        def gather_import_node_after_hook(self, vnode, gltf_node, obj, gltf):
+            if gltf_node is not None and obj is not None and obj.type == "MESH":
+                imported_nodes.setdefault(gltf_node.name, []).append(obj)
+
+    extension_name = "asset_tooling_render_node_identity"
+    extension_module = ModuleType(extension_name)
+    extension_module.glTF2ImportUserExtension = NodeIdentity
+    sys.modules[extension_name] = extension_module
+    extension_addon = bpy.context.preferences.addons.new()
+    extension_addon.module = extension_name
+    try:
+        bpy.ops.import_scene.gltf(filepath=inputs["source"])
+    finally:
+        bpy.context.preferences.addons.remove(extension_addon)
+        del sys.modules[extension_name]
     meshes = [obj for obj in bpy.context.scene.objects if obj.type == "MESH"]
     selection = p["selection"]
     if selection["type"] == "nodes":
         names = selection["names"]
-        meshes = [obj for obj in meshes if obj.name in names]
-        if len(meshes) != len(names):
+        if any(len(imported_nodes.get(name, [])) != 1 for name in names):
             raise ValueError("selected mesh nodes were not uniquely imported")
+        meshes = [imported_nodes[name][0] for name in names]
     elif selection["type"] != "scene":
         raise ValueError("unsupported selection")
     if not meshes or any(obj.modifiers for obj in meshes):
