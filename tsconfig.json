@@ -19,6 +19,7 @@
     "noUnusedParameters": true
   },
   "include": [
+    "src/procedural-texture-metadata.ts",
     "src/rock-recipes.ts",
     "src/gltf-material-operations.ts",
     "test/gltf-material-operations.test.ts",
