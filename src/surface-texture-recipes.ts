@@ -26,8 +26,21 @@ export type SurfaceTextureRecipe = SurfaceHeightParameters & ScalarColorRampPara
   roughnessMin: number; roughnessMax: number;
 };
 export type SurfaceChannel = "color" | "height" | "normal" | "roughness";
+export type SurfaceTextureStep = {
+  operation: AssetOperationBuildIdentity["operation"];
+  build: AssetOperationBuildIdentity;
+  output: AssetRef;
+  observations: CanonicalJsonObject;
+};
+export type SurfaceTexturePreservation = Partial<Record<SurfaceChannel, SurfaceTextureStep>>;
 type Invocation = { parameters?: unknown; inputs?: unknown };
 const CHANNELS: SurfaceChannel[] = ["color", "height", "normal", "roughness"];
+const CHANNEL_SEMANTICS: Record<SurfaceChannel, CanonicalJsonObject> = {
+  height: { field: "height", scalarEncoding: "unorm8", sampling: "data", channelColorSpace: "linear", tileable: true },
+  color: { field: "base-color", sampling: "color", channelColorSpace: "srgb" },
+  normal: { field: "normal", sampling: "data", channelColorSpace: "linear", normalYAxis: "negative" },
+  roughness: { field: "roughness", scalarEncoding: "unorm8", sampling: "data", channelColorSpace: "linear" },
+};
 const imagePort = (id: string) => ({ id, assetKinds: ["image"], mediaTypes: [RGBA8_IMAGE_MEDIA_TYPE] });
 const integerSchema = (minimum: number, maximum: number) => ({ type: "integer", minimum, maximum });
 const heightProperties = {
@@ -161,58 +174,118 @@ export function normalizeSurfaceTextureRecipe(value: unknown): SurfaceTextureRec
   return { schemaVersion: 1, seamMode: "repeat", ...height, ...rampParameters({ low: p.low, high: p.high }),
     normalStrength: integer(p.normalStrength,"normalStrength",1,1024), roughnessMin, roughnessMax };
 }
-export async function executeSurfaceTextureRecipe(root: string, value: unknown, { channels = CHANNELS }: { channels?: SurfaceChannel[] } = {}) {
+function selectedChannels(channels: SurfaceChannel[]): SurfaceChannel[] {
+  if (!Array.isArray(channels) || channels.length === 0 || new Set(channels).size !== channels.length || channels.some(c=>!CHANNELS.includes(c))) throw new Error("channels must be a non-empty unique selection of surface channels");
+  return CHANNELS.filter(c=>channels.includes(c));
+}
+
+async function preservedStep(root: string, value: SurfaceTextureStep, build: AssetOperationBuildIdentity, channel: SurfaceChannel, recipe: SurfaceTextureRecipe): Promise<SurfaceTextureStep> {
+  const p = object(value, ["operation", "build", "output", "observations"], `preserved ${channel} step`);
+  if (canonicalJson(p.build) !== canonicalJson(build) || canonicalJson(p.operation) !== canonicalJson(build.operation)) throw new Error(`preserved ${channel} build does not match current dependencies; regenerate it`);
+  const output = createAssetRef(p.output);
+  if (output.kind !== "image" || output.mediaType !== RGBA8_IMAGE_MEDIA_TYPE) throw new Error(`preserved ${channel} must be a canonical RGBA8 image`);
+  const image = channel === "height" || channel === "roughness" ? await scalarImage(root, output) : parseRgba8Image(await resolveAssetObject(root, output));
+  if (image.width !== recipe.width || image.height !== recipe.height) throw new Error(`preserved ${channel} dimensions do not match recipe`);
+  const expectedMetadata = { ...CHANNEL_SEMANTICS[channel], width: recipe.width, height: recipe.height,
+    generator: `${build.operation.id}@${build.operation.version}`,
+    ...(channel !== "height" ? { sourceSha256: createAssetRef(build.inputs.source).sha256 } : {}) };
+  for (const [key, expected] of Object.entries(expectedMetadata)) if (output.metadata[key] !== expected) throw new Error(`preserved ${channel} metadata.${key} does not match channel`);
+  for (let offset=3;offset<image.pixels.length;offset+=4) if (image.pixels[offset] !== 255) throw new Error(`preserved ${channel} must be opaque`);
+  // Canonical serialization validates and detaches caller-owned observation data.
+  const observations = JSON.parse(canonicalJson(p.observations)) as CanonicalJsonObject;
+  if (!observations || typeof observations !== "object" || Array.isArray(observations)) throw new Error(`preserved ${channel} observations must be an object`);
+  return { operation: build.operation, build, output, observations };
+}
+
+async function channelPlan(root: string, recipe: SurfaceTextureRecipe, channel: Exclude<SurfaceChannel, "height">, height: AssetRef) {
+  const inputs = { source: height };
+  switch (channel) {
+    case "normal": {
+      const invocation = { inputs, parameters: { strength: recipe.normalStrength, wrap: true } };
+      return { build: await createNormalFromHeightOperationBuildIdentity(root,invocation),
+        execute: () => executeNormalFromHeightOperation(root,invocation),
+        semantics: CHANNEL_SEMANTICS.normal };
+    }
+    case "color": {
+      const invocation = { inputs, parameters: { low: recipe.low, high: recipe.high } };
+      return { build: await createScalarColorRampOperationBuildIdentity(root,invocation),
+        execute: () => executeScalarColorRampOperation(root,invocation),
+        semantics: CHANNEL_SEMANTICS.color };
+    }
+    case "roughness": {
+      const invocation = { inputs, parameters: { low: [recipe.roughnessMin,recipe.roughnessMin,recipe.roughnessMin], high: [recipe.roughnessMax,recipe.roughnessMax,recipe.roughnessMax] } };
+      return { build: await createScalarColorRampOperationBuildIdentity(root,invocation),
+        execute: () => executeScalarColorRampOperation(root,invocation),
+        semantics: CHANNEL_SEMANTICS.roughness };
+    }
+    default: {
+      const unsupported: never = channel;
+      throw new Error(`unsupported surface channel '${unsupported}'`);
+    }
+  }
+}
+
+async function executeRecipe(root: string, value: unknown, channels: SurfaceChannel[], preserve: SurfaceTexturePreservation = {}) {
   assertRoot(root);
   const recipe = normalizeSurfaceTextureRecipe(value);
-  if (!Array.isArray(channels) || channels.length === 0 || new Set(channels).size !== channels.length || channels.some(c=>!CHANNELS.includes(c))) throw new Error("channels must be a non-empty unique selection of surface channels");
+  const selected = selectedChannels(channels);
+  if (!preserve || typeof preserve !== "object" || Array.isArray(preserve) || ![Object.prototype, null].includes(Object.getPrototypeOf(preserve))) throw new Error("preserve must be a channel-to-step object");
+  for (const channel of Object.keys(preserve)) {
+    if (!CHANNELS.includes(channel as SurfaceChannel) || (channel !== "height" && !selected.includes(channel as SurfaceChannel))) throw new Error(`cannot preserve unselected or unknown channel '${channel}'`);
+    if (!Object.hasOwn(preserve, "height")) throw new Error("preserved dependent channels require a preserved height step");
+  }
   const heightInvocation = { parameters: Object.fromEntries(Object.keys(heightProperties).map(k=>[k,recipe[k as keyof SurfaceTextureRecipe]])) };
   const build = await createSurfaceHeightOperationBuildIdentity(root,heightInvocation);
-  const heightResult = await executeSurfaceHeightOperation(root,heightInvocation);
-  const height = createAssetRef(heightResult.outputs.output);
-  const outputs: Partial<Record<SurfaceChannel,AssetRef>> = {};
-  const steps = [{ operation: build.operation, build, output: height, observations: heightResult.observations }];
-  for (const channel of CHANNELS.filter(c=>channels.includes(c))) {
-    if (channel === "height") { outputs.height=height; continue; }
-    const inputs = { source: height };
-    let channelBuild: AssetOperationBuildIdentity;
-    let result: ReturnType<typeof normalizeAssetOperationResult>;
-    let semantics: CanonicalJsonObject;
-    switch (channel) {
-      case "normal": {
-        const invocation = { inputs, parameters: { strength: recipe.normalStrength, wrap: true } };
-        channelBuild = await createNormalFromHeightOperationBuildIdentity(root,invocation);
-        result = await executeNormalFromHeightOperation(root,invocation);
-        semantics = { field: "normal", sampling: "data", channelColorSpace: "linear", normalYAxis: "negative" };
-        break;
-      }
-      case "color": {
-        const invocation = { inputs, parameters: { low: recipe.low, high: recipe.high } };
-        channelBuild = await createScalarColorRampOperationBuildIdentity(root,invocation);
-        result = await executeScalarColorRampOperation(root,invocation);
-        semantics = { field: "base-color", sampling: "color", channelColorSpace: "srgb" };
-        break;
-      }
-      case "roughness": {
-        const invocation = { inputs, parameters: { low: [recipe.roughnessMin,recipe.roughnessMin,recipe.roughnessMin], high: [recipe.roughnessMax,recipe.roughnessMax,recipe.roughnessMax] } };
-        channelBuild = await createScalarColorRampOperationBuildIdentity(root,invocation);
-        result = await executeScalarColorRampOperation(root,invocation);
-        semantics = { field: "roughness", scalarEncoding: "unorm8", sampling: "data", channelColorSpace: "linear" };
-        break;
-      }
-      default: {
-        const unsupported: never = channel;
-        throw new Error(`unsupported surface channel '${unsupported}'`);
-      }
-    }
-    const rawOutput = createAssetRef(result.outputs.output);
-    const output = createAssetRef({ ...rawOutput, metadata: { ...rawOutput.metadata, ...semantics } });
-    outputs[channel]=output;
-    steps.push({ operation: channelBuild.operation, build: channelBuild, output, observations: result.observations });
+  const reused: SurfaceTexturePreservation = {};
+  if (Object.hasOwn(preserve, "height")) reused.height = await preservedStep(root, preserve.height!, build, "height", recipe);
+  // Validate every requested lock before any generation, including stale/corrupt dependent outputs.
+  if (reused.height) for (const channel of selected) {
+    if (channel === "height" || !Object.hasOwn(preserve, channel)) continue;
+    const plan = await channelPlan(root, recipe, channel, reused.height.output);
+    reused[channel] = await preservedStep(root, preserve[channel]!, plan.build, channel, recipe);
   }
-  return { schemaVersion: 1, recipe, recipeSha256: sha256Text(canonicalJson(recipe)), outputs, steps,
+  let heightStep = reused.height;
+  if (!heightStep) {
+    const heightResult = await executeSurfaceHeightOperation(root,heightInvocation);
+    heightStep = { operation: build.operation, build, output: createAssetRef(heightResult.outputs.output), observations: heightResult.observations };
+  }
+  const height = heightStep.output;
+  const outputs: Partial<Record<SurfaceChannel,AssetRef>> = {};
+  const steps: SurfaceTextureStep[] = [heightStep];
+  const stages: { channel: SurfaceChannel; status: "executed" | "reused"; operationCount: number }[] = [
+    { channel: "height", status: reused.height ? "reused" : "executed", operationCount: recipe.detailWeight > 0 ? 3 : 2 },
+  ];
+  for (const channel of selected) {
+    if (channel === "height") { outputs.height=height; continue; }
+    let step = reused[channel];
+    if (!step) {
+      const plan = await channelPlan(root,recipe,channel,height);
+      const result = await plan.execute(), rawOutput = createAssetRef(result.outputs.output);
+      const output = createAssetRef({ ...rawOutput, metadata: { ...rawOutput.metadata, ...plan.semantics } });
+      step = { operation: plan.build.operation, build: plan.build, output, observations: result.observations };
+    }
+    outputs[channel]=step.output; steps.push(step);
+    stages.push({ channel, status: reused[channel] ? "reused" : "executed", operationCount: 1 });
+  }
+  const result = { schemaVersion: 1, recipe, recipeSha256: sha256Text(canonicalJson(recipe)), outputs, steps,
     conventions: { color: "srgb", height: "linear-unorm8-data", roughness: "linear-unorm8-data",
       normal: { sampling: "linear-unorm8-data", space: "tangent", yAxis: "negative" },
       seamMode: "repeat", sampleDomain: "[0,width) x [0,height)" } };
+  const executedOperations = stages.filter(s => s.status === "executed").reduce((sum,s) => sum+s.operationCount,0);
+  const reusedOperations = stages.filter(s => s.status === "reused").reduce((sum,s) => sum+s.operationCount,0);
+  return { ...result, execution: { stages, executedOperations, reusedOperations, imagePixelsGenerated: executedOperations*recipe.width*recipe.height } };
+}
+
+export async function executeSurfaceTextureRecipe(root: string, value: unknown, { channels = CHANNELS }: { channels?: SurfaceChannel[] } = {}) {
+  const { execution: _execution, ...result } = await executeRecipe(root,value,channels);
+  return result;
+}
+
+/** Explicit immutable component locks. Full execution above remains the independent replay path. */
+export async function executePreservedSurfaceTextureRecipe(root: string, value: unknown, { channels = CHANNELS, preserve = {} }: {
+  channels?: SurfaceChannel[]; preserve?: SurfaceTexturePreservation;
+} = {}) {
+  return executeRecipe(root,value,channels,preserve);
 }
 
 function preset(overrides: Partial<SurfaceTextureRecipe>): SurfaceTextureRecipe {
