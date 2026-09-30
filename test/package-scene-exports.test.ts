@@ -7,4 +7,6 @@ test("package exports scene normalization and canonical GLB processing", async (
   assert.equal(scene.SCENE_EXPORT_GLB_OPERATION.id, "scene.export.glb");
   assert.equal(scene.THREE_D_SCENE_MEDIA_TYPE, "application/vnd.moritzbrantner.three-d.scene+json");
   assert.equal(scene.GLB_MEDIA_TYPE, "model/gltf-binary");
+  const gltf = await import("asset-tooling/operations/processing/gltf");
+  assert.equal(gltf.GLTF_IMPORT_OPERATION.id, "scene.import.gltf");
 });

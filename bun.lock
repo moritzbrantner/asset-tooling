@@ -1,0 +1,20 @@
+{
+  "lockfileVersion": 2,
+  "configVersion": 1,
+  "workspaces": {
+    "": {
+      "name": "asset-tooling",
+      "dependencies": {
+        "@gltf-transform/core": "4.5.1",
+        "gltf-validator": "2.0.0-dev.3.10",
+      },
+    },
+  },
+  "packages": {
+    "@gltf-transform/core": ["@gltf-transform/core@4.5.1", "", { "dependencies": { "property-graph": "^4.1.0" } }, "sha512-OWgBYssKHKoXMIrMb2N20jXqWRnMP9HdtcTFQBEAJtz4P+OOxx5fozl5eAeK7nktIs5uDE/lu4NbkE5VCZaR9g=="],
+
+    "gltf-validator": ["gltf-validator@2.0.0-dev.3.10", "", {}, "sha512-odJ4k0tRkGXiDGn78yDBg+fBbAIvBnXxh3RwAta0emSxGtyagFE8B4xELB1oYe3S5RD8Ci3uZAsZaascH2LAEQ=="],
+
+    "property-graph": ["property-graph@4.1.0", "", {}, "sha512-AvPcP7XECNWy4LGmFQ77k7un4lSKM4eS29PTvW4ck95uYeLxXPWJM7hLuBqK91FaHqCcgJvIUCuNJjjxKE7VKQ=="],
+  }
+}
