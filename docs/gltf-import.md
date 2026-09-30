@@ -27,4 +27,34 @@ Build identity includes operation version, source and resource AssetRefs, normal
 
 Run `bun test test/gltf-import-operations.test.ts` for independent small fixtures covering factors, hierarchy/world-space placement, geometry/attribute retention, malformed references/nonfinite data, deterministic output and resource tampering. Run `bun scripts/check-gltf-import-contract.ts` in a hydrated checkout for the pinned catalog Avocado proof. An optional filename accepts explicitly acquired Avocado bytes; the catalog still validates the source hash/length and license before import. The proof compares source/output attributes, indices, world transforms, material factors and texture hashes, then rebuilds to compare output identity. It does not download assets or mutate canonical storage.
 
-Skins/animations, production policy/analysis, the approved humanoid, and visual/consumer acceptance remain open under #104/#109. The Avocado contract proof establishes material-bearing transport and replay, not art approval.
+## Production import and analysis
+
+`asset-tooling/operations/processing/gltf-production` exports `GLTF_PRODUCTION_IMPORT_OPERATION` (`scene.import.gltf@2`) and `GLTF_ANALYZE_OPERATION` (`scene.analyze.gltf@1`), with corresponding `createGltfProductionImportOperationBuildIdentity`, `executeGltfProductionImportOperation`, `createGltfAnalyzeOperationBuildIdentity` and `executeGltfAnalyzeOperation` functions. V1 continues to reject skins and animations.
+
+V2 retains supported core skins, joint order/references, inverse-bind matrices, influence attributes, node/root hierarchy, named clips, interpolation and all key times/values. The same one-buffer, resource and unsupported-extension/morph/primitive limits apply. glTF Transform normalizes matrix/TRS representation and omits near-default TRS components; byte replay is exact for repeated builds, while source/output computed transform comparisons use an explicit tolerance. Axes and units retain the glTF contract; arbitrary source conventions are not inferred or repaired.
+
+Both production operations accept `parameters.policy`:
+
+| Field | Default | Acceptance rule |
+| --- | --- | --- |
+| `maxTriangles` | `null` | Optional positive integer bound on aggregate mesh triangles |
+| `maxJointsPerSkin` | `null` | Optional positive integer bound per skin |
+| `requireNormals` | `false` | Every primitive must have NORMAL |
+| `requiredClipNames` | `[]` | Each exact name must identify one clip |
+| `allowedValidatorWarnings` | `[]` | Only the explicit `NODE_SKINNED_MESH_NON_ROOT` exception is supported |
+
+All defaults are materialized in build identity. The named warning documents that parent transforms do not affect a skinned mesh; accepting it preserves that source meaning rather than moving nodes. Other warnings and every validation error remain failures, including the validator's missing-tangent warning for a normal-mapped primitive. Accepted warnings are retained separately for source and output in import evidence. This exception does not affect v1's strict validation.
+
+Analysis returns no outputs and writes no objects. Its observations include node/mesh/material/texture/skin/animation counts, hierarchy and skin references, per-primitive triangle/vertex counts, mesh-local bind-pose bounds, attribute coverage/type/normalization, material factors, texture-slot color space/sampling and byte hashes, clip names/time domains/durations/targets/interpolation/key counts, source-resource inventory, policy and acceptance diagnostics with asset paths. The Khronos validator checks structural and accessor/skin/animation integrity; asset-tooling does not implement a second decoder or animation evaluator. Animated/world-space bounds and physical/gameplay meaning are outside this analysis.
+
+A policy rejection returns `accepted: false` with diagnostics from analysis. Production import applies the same policy and refuses to store a derived output when rejected. Malformed/unsupported inputs fail validation before either operation claims acceptance. Build identity hashes the source and declared resources even for analysis.
+
+Run `bun test test/gltf-production-operations.test.ts` for independent joint-order, root/hips, weights/bind matrices, clip endpoint/value, malformed-input, policy and non-mutation fixtures. For representative source evidence, explicitly acquire the pinned reference with `bun run catalog:acquire khronos.riggedfigure-glb <disposable-directory>`, then run:
+
+```sh
+bun scripts/check-gltf-production-contract.ts khronos.riggedfigure-glb <disposable-directory>/khronos.riggedfigure-glb/RiggedFigure.glb
+```
+
+The proof checks catalog hash/length/license, repeats import, compares source/output attributes and influence arrays, ordered joints, inverse-bind matrices, every clip channel's times/values/interpolation/target, world transforms, texture bytes and structured analysis. World-matrix component error is bounded at `1e-5` and the measured maximum is recorded. Rigged Figure's source is CC BY 4.0 with catalog attribution, has one 1.25-second unnamed clip, and needs the documented non-root-skin warning exception. It is a conformance reference, not the approved medieval source or an idle/walk library. This registration does not promote payloads into canonical LFS storage.
+
+The approved humanoid, independent pose/render comparisons and visual/consumer acceptance remain open under #104/#109. These proofs establish supported format preservation, analysis and replay; they do not establish art approval or arbitrary glTF support.
