@@ -19,7 +19,8 @@ export type SurfaceHeightParameters = {
   detailGridX: number; detailGridY: number; detailWeight: number;
   heightMin: number; heightMax: number;
 };
-export type ScalarColorRampParameters = { low: number[]; high: number[] };
+export type RgbBytes = [number, number, number];
+export type ScalarColorRampParameters = { low: RgbBytes; high: RgbBytes };
 export type SurfaceTextureRecipe = SurfaceHeightParameters & ScalarColorRampParameters & {
   schemaVersion: 1; seamMode: "repeat"; normalStrength: number;
   roughnessMin: number; roughnessMax: number;
@@ -73,9 +74,9 @@ function heightParameters(value: unknown): SurfaceHeightParameters {
     detailGridX: integer(p.detailGridX,"detailGridX",1,Math.min(256,width)), detailGridY: integer(p.detailGridY,"detailGridY",1,Math.min(256,height)),
     detailWeight: integer(p.detailWeight,"detailWeight",0,255), heightMin, heightMax };
 }
-function rgb(value: unknown, key: string): number[] {
+function rgb(value: unknown, key: string): RgbBytes {
   if (!Array.isArray(value) || value.length !== 3) throw new Error(`${key} must contain three RGB bytes`);
-  return Array.from(value, (v,i) => integer(v,`${key}[${i}]`,0,255));
+  return [integer(value[0],`${key}[0]`,0,255), integer(value[1],`${key}[1]`,0,255), integer(value[2],`${key}[2]`,0,255)];
 }
 function rampParameters(value: unknown): ScalarColorRampParameters {
   const p = object(value,["low","high"],"scalar color ramp parameters");
@@ -130,7 +131,7 @@ export async function executeSurfaceHeightOperation(root: string, invocation: In
     pixels[i]=pixels[i+1]=pixels[i+2]=value; pixels[i+3]=255;
   }
   const output = await storeImage(root,{ width: p.width, height: p.height, pixels },build,
-    { field: "height", scalarEncoding: "unorm8", sampling: "data", tileable: true, sourceSha256s: components.map(c=>c.output.sha256) });
+    { field: "height", scalarEncoding: "unorm8", sampling: "data", channelColorSpace: "linear", tileable: true, sourceSha256s: components.map(c=>c.output.sha256) });
   return normalizeAssetOperationResult(SURFACE_HEIGHT_OPERATION,{ outputs: { output }, observations: { components, parameters: build.parameters } });
 }
 export async function executeScalarColorRampOperation(root: string, invocation: Invocation = {}) {
@@ -167,13 +168,39 @@ export async function executeSurfaceTextureRecipe(root: string, value: unknown, 
   const steps = [{ operation: build.operation, build, output: height, observations: heightResult.observations }];
   for (const channel of CHANNELS.filter(c=>channels.includes(c))) {
     if (channel === "height") { outputs.height=height; continue; }
-    const invocation = { inputs: { source: height }, parameters: channel === "normal"
-      ? { strength: recipe.normalStrength, wrap: true }
-      : channel === "color" ? { low: recipe.low, high: recipe.high }
-      : { low: [recipe.roughnessMin,recipe.roughnessMin,recipe.roughnessMin], high: [recipe.roughnessMax,recipe.roughnessMax,recipe.roughnessMax] } };
-    const channelBuild = channel === "normal" ? await createNormalFromHeightOperationBuildIdentity(root,invocation) : await createScalarColorRampOperationBuildIdentity(root,invocation);
-    const result = channel === "normal" ? await executeNormalFromHeightOperation(root,invocation) : await executeScalarColorRampOperation(root,invocation);
-    const output = createAssetRef(result.outputs.output);
+    const inputs = { source: height };
+    let channelBuild: AssetOperationBuildIdentity;
+    let result: ReturnType<typeof normalizeAssetOperationResult>;
+    let semantics: CanonicalJsonObject;
+    switch (channel) {
+      case "normal": {
+        const invocation = { inputs, parameters: { strength: recipe.normalStrength, wrap: true } };
+        channelBuild = await createNormalFromHeightOperationBuildIdentity(root,invocation);
+        result = await executeNormalFromHeightOperation(root,invocation);
+        semantics = { field: "normal", sampling: "data", channelColorSpace: "linear", normalYAxis: "negative" };
+        break;
+      }
+      case "color": {
+        const invocation = { inputs, parameters: { low: recipe.low, high: recipe.high } };
+        channelBuild = await createScalarColorRampOperationBuildIdentity(root,invocation);
+        result = await executeScalarColorRampOperation(root,invocation);
+        semantics = { field: "base-color", sampling: "color", channelColorSpace: "srgb" };
+        break;
+      }
+      case "roughness": {
+        const invocation = { inputs, parameters: { low: [recipe.roughnessMin,recipe.roughnessMin,recipe.roughnessMin], high: [recipe.roughnessMax,recipe.roughnessMax,recipe.roughnessMax] } };
+        channelBuild = await createScalarColorRampOperationBuildIdentity(root,invocation);
+        result = await executeScalarColorRampOperation(root,invocation);
+        semantics = { field: "roughness", scalarEncoding: "unorm8", sampling: "data", channelColorSpace: "linear" };
+        break;
+      }
+      default: {
+        const unsupported: never = channel;
+        throw new Error(`unsupported surface channel '${unsupported}'`);
+      }
+    }
+    const rawOutput = createAssetRef(result.outputs.output);
+    const output = createAssetRef({ ...rawOutput, metadata: { ...rawOutput.metadata, ...semantics } });
     outputs[channel]=output;
     steps.push({ operation: channelBuild.operation, build: channelBuild, output, observations: result.observations });
   }
