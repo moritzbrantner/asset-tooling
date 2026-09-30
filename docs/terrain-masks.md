@@ -16,7 +16,7 @@ const build = await createHeightMaskFlattenOperationBuildIdentity(absoluteRoot, 
 const result = await executeHeightMaskFlattenOperation(absoluteRoot, invocation);
 ```
 
-Both inputs use `application/vnd.asset-tooling.image.rgba8+json`. Each must fit 512 KiB encoded bytes, have dimensions in 1–256, and share exactly the same width and height. `targetHeight` is an integer in 0–255. `channel: "scalar"` requires opaque grayscale mask pixels; `channel: "alpha"` reads straight alpha and ignores mask RGB. There are no default controls, implicit resizing or hidden coordinate transforms. Apply an explicit image transform before using a differently sized guide.
+Both inputs use `RGBA8_IMAGE_MEDIA_TYPE` from `asset-tooling/image/rgba8` (`application/vnd.moritzbrantner.rgba8+json`). Each must fit 512 KiB encoded bytes, have dimensions in 1–256, and share exactly the same width and height. `targetHeight` is an integer in 0–255. `channel: "scalar"` requires opaque grayscale mask pixels; `channel: "alpha"` reads straight alpha and ignores mask RGB. There are no default controls, implicit resizing or hidden coordinate transforms. Apply an explicit image transform before using a differently sized guide.
 
 Each mask sample corresponds to the height sample at the same row and column. Heights and weights are scalar Q8 bytes; the image transport's color-space field does not apply gamma correction. The integer blend is `floor(((255 - weight) * source + weight * targetHeight + 127) / 255)`. Weight zero preserves the original sample exactly, weight 255 sets the target exactly, and intermediate values round to the nearest integer. Output RGB repeats the height and alpha is 255. No seed or ambient random state participates.
 
