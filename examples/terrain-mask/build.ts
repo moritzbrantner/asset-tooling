@@ -82,9 +82,13 @@ assert.ok(sourceMeshes.before && sourceMeshes.after);
 assert.deepEqual(lines(sourceMeshes.before).filter(l => l.startsWith("f ")), lines(sourceMeshes.after).filter(l => l.startsWith("f ")));
 const verticesBefore = lines(sourceMeshes.before).filter(l => l.startsWith("v "));
 const verticesAfter = lines(sourceMeshes.after).filter(l => l.startsWith("v "));
-for (let i = 0; i < verticesBefore.length; i++) {
-  if (weights.pixels[i * 4] === 0) assert.equal(verticesBefore[i], verticesAfter[i]);
-  if (weights.pixels[i * 4] === 255) assert.equal(Number(verticesAfter[i].split(" ")[2]), 4);
+assert.equal(verticesBefore.length, weights.width * weights.height);
+assert.equal(verticesAfter.length, verticesBefore.length);
+for (const [i, vertexAfter] of verticesAfter.entries()) {
+  const vertexBefore = verticesBefore[i];
+  assert.ok(vertexBefore);
+  if (weights.pixels[i * 4] === 0) assert.equal(vertexBefore, vertexAfter);
+  if (weights.pixels[i * 4] === 255) assert.equal(Number(vertexAfter.split(" ")[2]), 4);
 }
 for (const [name, image] of Object.entries({ "height-before": originalPixels, mask: weights, "height-after": editedPixels })) {
   const ref = (await storeAssetObject(root, { bytes: encodeRgba8Image(image), kind: "image", mediaType: RGBA8_IMAGE_MEDIA_TYPE })).asset;
