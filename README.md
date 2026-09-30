@@ -110,3 +110,5 @@ The additive `asset-tooling/operations`, `asset-tooling/operations/store`, `asse
 Tileable soil/rock surface recipes and independent color, height, normal and roughness channels are documented in [surface textures](docs/surface-textures.md). Generate the six controlled presets with `bun examples/surface-textures/build.ts`.
 
 A pinned Blender [rock recipe](docs/rock-recipes.md) produces grounded rounded, angular, flat and boulder GLBs with ordinary generation-cache and exact-verification evidence. Run `bun examples/rocks/build.ts` to exercise the family.
+
+See [deterministic sprite atlases](docs/sprite-atlases.md) for selected-image packing, trim/pivot metadata and the actual PNG puzzle-art fixture.
