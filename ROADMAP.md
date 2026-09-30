@@ -158,6 +158,7 @@ Grow the current traceable 3D processing contracts into a production profile wit
 - [x] Animation resampling/reduction with explicit endpoint/error evidence through pinned authoritative processors.
 - [x] Deterministic local-space procedural translation, yaw, and uniform-scale source clips using the shared animation transport contract.
 - [x] Explicit skinned-mesh production-profile evidence through the pinned `three-d-animation` authority.
+- [x] Deterministic joint-local primitive collision fitting from bind-pose positions and skin weights through the pinned `three-d-rigged-assets` authority, with content-addressed outputs and fitting observations.
 - [x] Production humanoid rig evidence for semantic bone hierarchy, Root/Hips separation, rest pose, and standard attachment sockets through the pinned `three-d-animation` authority.
 - [ ] Mesh/scene normalization and export normalization.
 
