@@ -7,7 +7,7 @@ import { resolveAssetObject, storeAssetObject, assetObjectPortablePath } from ".
 import { createAssetRef } from "../src/operations.js";
 import { encodeRgba8Image, parseRgba8Image, RGBA8_IMAGE_MEDIA_TYPE } from "../src/image-rgba8.js";
 import {
-  executeSurfaceTextureRecipe, SURFACE_TEXTURE_PRESETS,
+  executeSurfaceTextureRecipe, SURFACE_TEXTURE_PRESETS, SURFACE_HEIGHT_OPERATION, SCALAR_COLOR_RAMP_OPERATION,
   executeScalarColorRampOperation, executeSurfaceHeightOperation,
   createScalarColorRampOperationBuildIdentity,
 } from "../src/surface-texture-recipes.js";
@@ -133,4 +133,14 @@ test("nonzero mixture and range remapping match pinned component bytes and ratio
   assert.deepEqual((await image(root,result.outputs.output)).pixels,
     Buffer.from([57,61,66,61,57,61,66,61].flatMap(v=>[v,v,v,255])));
   assert.equal((result.observations.components as unknown[]).length,2);
+}));
+
+
+test("public descriptors and nested presets cannot alter later recipe identity", () => withRoot(async root => {
+  const before = await executeSurfaceTextureRecipe(root,SURFACE_TEXTURE_PRESETS['soil-fine'],{channels:['height']});
+  assert.equal(Reflect.set(SURFACE_HEIGHT_OPERATION,'version','999'),false);
+  assert.equal(Reflect.set(SCALAR_COLOR_RAMP_OPERATION.outputs[0]!,'required',false),false);
+  assert.equal(Reflect.set(SURFACE_TEXTURE_PRESETS['soil-fine'].low,'0',255),false);
+  assert.equal(Reflect.set(SURFACE_TEXTURE_PRESETS['soil-fine'],'seed','99'),false);
+  assert.deepEqual(await executeSurfaceTextureRecipe(root,SURFACE_TEXTURE_PRESETS['soil-fine'],{channels:['height']}),before);
 }));

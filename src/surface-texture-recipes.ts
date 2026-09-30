@@ -4,9 +4,9 @@ import { sha256Text } from "./hash.js";
 import { resolveAssetObject, storeAssetObject } from "./asset-store.js";
 import { encodeRgba8Image, parseRgba8Image, RGBA8_IMAGE_MEDIA_TYPE } from "./image-rgba8.js";
 import {
-  createAssetOperationBuildIdentity, createAssetOperationDescriptor, createAssetRef,
+  createAssetOperationBuildIdentity, createAssetOperationDescriptor, createAssetOperationRegistry, createAssetRef,
   normalizeAssetOperationResult, type AssetRef, type AssetOperationBuildIdentity,
-  type CanonicalJsonObject,
+  type CanonicalJsonObject, type DeepReadonly,
 } from "./operations.js";
 import { captureToolIdentity } from "./tool.js";
 import {
@@ -38,18 +38,23 @@ const heightProperties = {
   detailWeight: integerSchema(0,255), heightMin: integerSchema(0,255), heightMax: integerSchema(0,255),
 };
 const rgbSchema = { type: "array", minItems: 3, maxItems: 3, items: integerSchema(0,255) };
-export const SURFACE_HEIGHT_OPERATION = createAssetOperationDescriptor({
+const SURFACE_HEIGHT_DESCRIPTOR = createAssetOperationDescriptor({
   schemaVersion: 1, id: "image.procedural.height.surface", version: "1",
   label: "Compose periodic surface height", category: "procedural.height",
   inputs: [], outputs: [imagePort("output")],
   parameterSchema: { type: "object", additionalProperties: false, required: Object.keys(heightProperties), properties: heightProperties },
 });
-export const SCALAR_COLOR_RAMP_OPERATION = createAssetOperationDescriptor({
+const SCALAR_COLOR_RAMP_DESCRIPTOR = createAssetOperationDescriptor({
   schemaVersion: 1, id: "image.scalar.color-ramp", version: "1",
   label: "Color an opaque scalar field", category: "texture.material",
   inputs: [imagePort("source")], outputs: [imagePort("output")],
   parameterSchema: { type: "object", additionalProperties: false, required: ["low","high"], properties: { low: rgbSchema, high: rgbSchema } },
 });
+
+const OPERATION_REGISTRY = createAssetOperationRegistry([SURFACE_HEIGHT_DESCRIPTOR, SCALAR_COLOR_RAMP_DESCRIPTOR]);
+// Both keys are owned by the literal descriptors registered immediately above.
+export const SURFACE_HEIGHT_OPERATION = OPERATION_REGISTRY.get("image.procedural.height.surface", "1")!;
+export const SCALAR_COLOR_RAMP_OPERATION = OPERATION_REGISTRY.get("image.scalar.color-ramp", "1")!;
 
 function object(value: unknown, keys: string[], location: string): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value) ||
@@ -216,12 +221,20 @@ function preset(overrides: Partial<SurfaceTextureRecipe>): SurfaceTextureRecipe 
     heightMin: 0, heightMax: 255, low: [38,23,12], high: [145,102,58],
     normalStrength: 2, roughnessMin: 180, roughnessMax: 240, ...overrides };
 }
-// Content presets, not a core style policy. Clone before editing.
-export const SURFACE_TEXTURE_PRESETS = {
+function deepFreeze<T>(value: T): DeepReadonly<T> {
+  if (typeof value === "object" && value !== null) {
+    Object.freeze(value);
+    for (const nested of Object.values(value)) deepFreeze(nested);
+  }
+  // Recursion above freezes every nested object and array before exposure.
+  return value as DeepReadonly<T>;
+}
+// Immutable content presets. Replace palette arrays when creating editable variants.
+export const SURFACE_TEXTURE_PRESETS = deepFreeze({
   "soil-fine": preset({ gridX: 16, gridY: 16, detailWeight: 100 }),
   "soil-coarse": preset({ gridX: 6, gridY: 6, detailWeight: 130, normalStrength: 4 }),
   "soil-directional": preset({ gridX: 3, gridY: 24, detailWeight: 60, normalStrength: 3 }),
   "rock-smooth": preset({ low: [55,59,62], high: [160,164,166], detailWeight: 30, normalStrength: 1, roughnessMin: 110, roughnessMax: 180 }),
   "rock-grainy": preset({ low: [55,59,62], high: [160,164,166], detailWeight: 160, normalStrength: 4 }),
   "rock-layered": preset({ low: [62,54,44], high: [171,152,126], gridX: 24, gridY: 2, detailWeight: 50, normalStrength: 3 }),
-} satisfies Record<string,SurfaceTextureRecipe>;
+} satisfies Record<string,SurfaceTextureRecipe>);
