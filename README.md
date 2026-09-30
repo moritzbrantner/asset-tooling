@@ -107,7 +107,7 @@ Consumers importing the package root receive only the high-level operations `val
 
 The additive `asset-tooling/operations`, `asset-tooling/operations/store`, `asset-tooling/operations/generation`, `asset-tooling/operations/processing`, `asset-tooling/operations/workflow`, `asset-tooling/catalog`, and `asset-tooling/catalog/storage` subpaths contain focused operation/catalog surfaces; they do not widen the root export.
 
-Tileable soil/rock surface recipes and independent color, height, normal and roughness channels are documented in [surface textures](docs/surface-textures.md). Generate the six controlled presets with `bun examples/surface-textures/build.ts`.
+Tileable soil/rock surface recipes and independent color, height, normal and roughness channels are documented in [surface textures](docs/surface-textures.md). Generate the six controlled presets with `bun examples/surface-textures/build.ts`; `bun examples/surface-preservation/build.ts` demonstrates palette/normal edits that reuse accepted components and independently match cold full rebuilds.
 
 A pinned Blender [rock recipe](docs/rock-recipes.md) produces grounded rounded, angular, flat and boulder GLBs with ordinary generation-cache and exact-verification evidence. Run `bun examples/rocks/build.ts` to exercise the family.
 

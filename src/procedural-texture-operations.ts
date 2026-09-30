@@ -1,4 +1,5 @@
 import path from "node:path";
+import { proceduralTextureMetadata, proceduralTextureObservations } from "./procedural-texture-metadata.js";
 import { resolveAssetObject, storeAssetObject } from "./asset-store.js";
 import {
   createAssetOperationBuildIdentity,
@@ -290,39 +291,11 @@ async function execute(root, operation, build) {
     bytes: encodeRgba8Image(output),
     kind: "image",
     mediaType: RGBA8_IMAGE_MEDIA_TYPE,
-    metadata: {
-      width: output.width,
-      height: output.height,
-      pixelFormat: "rgba8",
-      colorSpace: "srgb",
-      alphaMode: "straight",
-      generator: `${operation.id}@${operation.version}`,
-      ...(operation.id === "image.procedural.height.tileable-noise"
-        ? { field: "height", heightEncoding: "luma8", tileable: true }
-        : {}),
-      ...(operation.id === "image.procedural.texture.tileable-noise"
-        ? { tileable: true }
-        : {}),
-      ...(operation.id === "image.normal.from-height"
-        ? {
-            field: "normal",
-            normalEncoding: "xyz-unorm8",
-            tangentSpace: true,
-            sourceSha256: build.inputs.source.sha256,
-            wrap: build.parameters.wrap,
-          }
-        : {}),
-    },
+    metadata: proceduralTextureMetadata(build, output),
   });
   return normalizeAssetOperationResult(operation, {
     outputs: { output: stored.asset },
-    observations: {
-      width: output.width,
-      height: output.height,
-      algorithm: build.implementation.algorithm,
-      randomness: build.implementation.randomness,
-      parameters: build.parameters,
-    },
+    observations: proceduralTextureObservations(build, output),
   });
 }
 
