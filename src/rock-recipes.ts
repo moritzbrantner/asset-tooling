@@ -1,5 +1,4 @@
-import { readFile } from "node:fs/promises";
-import { sha256Bytes } from "./hash.js";
+import { readBlenderRecipeSource } from "./blender-recipe-source.js";
 import { createAssetRef, type AssetRef } from "./operations.js";
 import { parseAssetSpec } from "./schema.js";
 
@@ -31,10 +30,7 @@ export function normalizeRockParameters(value: unknown): RockParameters {
 
 /** Read packaged authoring source. Acquisition is not invoked by this recipe. */
 export async function readRockRecipeSource() {
-  const bytes=await readFile(new URL("../adapters/blender/rock.py",import.meta.url));
-  const release: unknown=JSON.parse(await readFile(new URL("../adapters/blender/release.json",import.meta.url),"utf8"));
-  if(!release || typeof release!=="object" || !("version" in release) || typeof release.version!=="string" || !/^\d+\.\d+\.\d+$/.test(release.version)) throw new Error("packaged Blender release must declare an exact version");
-  return {bytes,sha256:sha256Bytes(bytes),blenderVersion:release.version};
+  return readBlenderRecipeSource("rock.py");
 }
 export function createRockAssetSpec({assetId,parameters,scriptSha256,blenderVersion,scriptPath="rock.py",outputPath="rock.glb"}: {
   assetId: string; parameters: unknown; scriptSha256: string; blenderVersion: string; scriptPath?: string; outputPath?: string;

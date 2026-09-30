@@ -21,6 +21,7 @@
   "include": [
     "src/procedural-texture-metadata.ts",
     "src/rock-recipes.ts",
+    "src/render-derivative-recipes.ts",
     "src/sprite-atlas-operations.ts",
     "test/sprite-atlas-operations.test.ts",
     "src/gltf-validator.d.ts",
