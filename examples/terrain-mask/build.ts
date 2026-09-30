@@ -45,9 +45,9 @@ for (let i = 0; i < weights.pixels.length; i += 4) {
 }
 const exportScript = await readFile(path.join(directory, "export-review-glb.py"));
 const renderScript = await readRenderDerivativeRecipeSource();
-const outputs = {};
-const sourceMeshes = {};
-for (const [id, field] of [["before", source], ["after", editedHeight]]) {
+const outputs: Record<string, unknown> = {};
+const sourceMeshes: Record<string, string> = {};
+for (const [id, field] of Object.entries({ before: source, after: editedHeight })) {
   const mesh = await executeHeightfieldMeshOperation(root, { parameters: recipe.mesh, inputs: { source: field } });
   const meshRef = createAssetRef(mesh.outputs.output), bytes = await resolveAssetObject(root, meshRef);
   sourceMeshes[id] = bytes.toString("utf8");
@@ -77,7 +77,8 @@ for (const [id, field] of [["before", source], ["after", editedHeight]]) {
     canonicalMeshPath: assetObjectPortablePath(meshRef), worldTranslation: [recipe.placement.firstSampleWorldOrigin[0] + (weights.width - 1) * recipe.mesh.cellSize / 2,
       recipe.placement.firstSampleWorldOrigin[1], recipe.placement.firstSampleWorldOrigin[2] + (weights.height - 1) * recipe.mesh.cellSize / 2] };
 }
-const lines = value => value.split("\n");
+const lines = (value: string) => value.split("\n");
+assert.ok(sourceMeshes.before && sourceMeshes.after);
 assert.deepEqual(lines(sourceMeshes.before).filter(l => l.startsWith("f ")), lines(sourceMeshes.after).filter(l => l.startsWith("f ")));
 const verticesBefore = lines(sourceMeshes.before).filter(l => l.startsWith("v "));
 const verticesAfter = lines(sourceMeshes.after).filter(l => l.startsWith("v "));
@@ -85,7 +86,7 @@ for (let i = 0; i < verticesBefore.length; i++) {
   if (weights.pixels[i * 4] === 0) assert.equal(verticesBefore[i], verticesAfter[i]);
   if (weights.pixels[i * 4] === 255) assert.equal(Number(verticesAfter[i].split(" ")[2]), 4);
 }
-for (const [name, image] of [["height-before", originalPixels], ["mask", weights], ["height-after", editedPixels]]) {
+for (const [name, image] of Object.entries({ "height-before": originalPixels, mask: weights, "height-after": editedPixels })) {
   const ref = (await storeAssetObject(root, { bytes: encodeRgba8Image(image), kind: "image", mediaType: RGBA8_IMAGE_MEDIA_TYPE })).asset;
   const png = await executeImageEncodePngOperation(root, { parameters: { compressionLevel: 9 }, inputs: { source: ref } });
   await writeIfChanged(path.join(destination, `${name}.png`), await resolveAssetObject(root, createAssetRef(png.outputs.output)));
