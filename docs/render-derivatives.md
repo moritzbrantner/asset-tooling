@@ -25,7 +25,7 @@ Preparation verifies source content and validates it through the existing static
 
 ## Controls and coordinate contract
 
-The packaged renderer enforces the same exact fields, types and ranges when a spec is authored directly; invalid controls fail before importing Blender or reading the source.
+The packaged renderer enforces the same exact fields, types and ranges when a spec is authored directly; invalid controls fail before importing Blender or reading the source. Direct specs also receive source closure, static/core-profile and resource-budget checks before scene import. This uses Blender’s own header-only GLB/JSON parser and header-only PNG/JPEG dimension inspection; it rejects all external/data resource URIs, unsupported extensions, skins, clips and morphs. Ordinary recipe preparation additionally runs the existing Khronos validator.
 
 All version-1 controls are required. The immutable icon, thumbnail and perspective presets supply defaults; replace nested arrays/objects to edit them.
 

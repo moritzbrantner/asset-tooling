@@ -152,6 +152,46 @@ for parameters in controls["invalid"]:
   assert.equal(checked.status, 0, checked.error?.message ?? checked.stderr);
 });
 
+test("direct renderer source preflight rejects hidden resources, unsupported profiles and decode budgets", {
+  skip: !configured && "ASSET_TOOLING_BLENDER is not set", timeout: 120_000,
+}, async t => {
+  const { root } = await workspace(t);
+  const invalid = [quadGlb({ images: [{ uri: "undeclared.png" }] }),
+    quadGlb({ buffers: [{ byteLength: 108, uri: "undeclared.bin" }] }),
+    quadGlb({ extensionsUsed: ["KHR_materials_unlit"] }), quadGlb({ skins: [{}] }), quadGlb({ animations: [{}] }),
+    quadGlb({ nodes: [{ name: "plane", mesh: 0, skin: 0 }] }),
+    quadGlb({ scenes: [{ nodes: [0] }, { nodes: [1] }] }),
+    quadGlb({ nodes: Array.from({ length: 4097 }, () => ({ mesh: 0 })) }),
+    quadGlb({ meshes: [{ primitives: [{ attributes: { POSITION: 0 }, targets: [{ POSITION: 0 }] }] }] }),
+    quadGlb({ accessors: [{ componentType: 5126, count: 1000000000, type: "VEC3" }] }),
+    quadGlb({}, [png(8192, 1)]), quadGlb({}, [png(4096, 2049), png(4096, 2049, 17)])];
+  const paths = [];
+  for (const [index, bytes] of invalid.entries()) {
+    const file = path.join(root, `invalid-${index}.glb`); await writeFile(file, bytes); paths.push(file);
+  }
+  const scriptPath = path.join(root, "render_static_glb.py"), sourcesPath = path.join(root, "sources.json");
+  const validPath = path.join(root, "valid.glb"); await writeFile(validPath, quadGlb());
+  await writeFile(scriptPath, renderer.bytes);
+  await writeFile(sourcesPath, JSON.stringify({ parameters: front, valid: validPath, invalid: paths }));
+  const blender = process.env.ASSET_TOOLING_BLENDER; assert.ok(blender);
+  const checked = spawnSync(blender, ["--background", "--factory-startup", "--threads", "1", "--python-exit-code", "1", "--python-expr", `
+import bpy, json, runpy, sys
+assert ".".join(map(str, bpy.app.version)) == ${JSON.stringify(renderer.blenderVersion)}
+renderer = runpy.run_path(sys.argv[-2])
+sources = json.load(open(sys.argv[-1]))
+renderer["validate_source"](sources["valid"], sources["parameters"])
+original_objects = set(bpy.data.objects)
+for source in sources["invalid"]:
+    try:
+        renderer["generate"]("must-not-write.png", sources["parameters"], {"source": source})
+    except ValueError:
+        assert set(bpy.data.objects) == original_objects, "invalid source changed scene state"
+        continue
+    raise AssertionError("invalid source was accepted")
+`, "--", scriptPath, sourcesPath], { encoding: "utf8", timeout: 30_000 });
+  assert.equal(checked.status, 0, checked.error?.message ?? checked.stderr);
+});
+
 test("render recipe pins validated source/script bytes and rejects incompatible camera/selection/budgets", async t => {
   const { source, prepared } = await prepare(t);
   assert.equal(prepared.spec.inputs.source.sha256, source.sha256);
@@ -187,6 +227,15 @@ test("directly authored render specs fail closed through the authoritative Blend
     await assert.rejects(generateAsset(specPath), /invalid (?:lightEnergy|padding|render)/);
     await assert.rejects(readFile(path.join(root, "render.png")), { code: "ENOENT" });
   }
+  // Direct specifications cannot declare only the GLB while importing a sibling image.
+  const bytes = quadGlb({ images: [{ uri: "undeclared.png" }] });
+  await writeFile(path.join(root, "source.glb"), bytes);
+  const source = (await storeAssetObject(root, { bytes, kind: "scene", mediaType: "model/gltf-binary" })).asset;
+  await writeFile(specPath, canonicalJson({ ...prepared.spec, inputs: { ...prepared.spec.inputs,
+    source: { path: "source.glb", sha256: source.sha256 } } }));
+  await assert.rejects(generateAsset(specPath), /without resource URIs/);
+  await assert.rejects(readFile(path.join(root, "render.png")), { code: "ENOENT" });
+
 });
 
 test("node selection retains original multibyte names despite importer truncation and collisions", {
