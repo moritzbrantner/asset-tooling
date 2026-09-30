@@ -60,6 +60,14 @@ const expectedProcessors = new Map([
       operation: "mesh.skinning.validate",
     },
   ],
+  [
+    "three-d-humanoid-validate",
+    {
+      repository: "moritzbrantner/3d-lab",
+      manifestPath: "examples/asset-tooling-humanoid-adapter/Cargo.toml",
+      operation: "rig.humanoid.validate",
+    },
+  ],
 ]);
 
 const expectedWorkflowStack = {
