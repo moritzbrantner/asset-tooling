@@ -20,6 +20,8 @@
   },
   "include": [
     "src/procedural-texture-metadata.ts",
+    "src/terrain-mask-operations.ts",
+    "test/terrain-mask-operations.test.ts",
     "src/rock-recipes.ts",
     "src/gltf-material-operations.ts",
     "test/gltf-material-operations.test.ts",

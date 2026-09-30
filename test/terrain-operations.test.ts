@@ -51,7 +51,7 @@ async function storeHeight(root, width, height, values) {
 test("terrain registry exposes explicit deterministic height transforms", () => {
   assert.deepEqual(
     TERRAIN_HEIGHT_OPERATIONS.map((operation) => operation.id),
-    ["image.height.radial-falloff", "image.height.terrace"],
+    ["image.height.mask-flatten", "image.height.radial-falloff", "image.height.terrace"],
   );
   assert.equal(HEIGHT_TERRACE_OPERATION.parameterSchema.properties.levels.maximum, 256);
   assert.equal(HEIGHT_RADIAL_FALLOFF_OPERATION.parameterSchema.properties.innerRadiusQ8.maximum, 254);
