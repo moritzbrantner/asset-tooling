@@ -141,13 +141,13 @@ test.skipIf(!process.env.ASSET_TOOLING_BLENDER)("independent Blender pose oracle
 test("analysis reports production coverage and clip domains without writing objects", async () => {
   const { root, source } = await workspace();
   try {
-    const before = await readdir(root, { recursive: true });
+    const before = (await readdir(root, { recursive: true })).sort();
     const result = await executeGltfAnalyzeOperation(root, { inputs: { source } });
     assert.deepEqual(result.outputs, {});
     assert.deepEqual(result.observations.clips, [{ name: "walk", startSeconds: 0, endSeconds: 1, durationSeconds: 1, channels: [{ node: 1, path: "translation", interpolation: "LINEAR", keyframeCount: 2 }] }]);
     assert.deepEqual(result.observations.skins, [{ name: "rig", joints: [2, 1], skeleton: 1, inverseBindMatrixCount: 2 }]);
     assert.equal(result.observations.accepted, true);
-    assert.deepEqual(await readdir(root, { recursive: true }), before);
+    assert.deepEqual((await readdir(root, { recursive: true })).sort(), before);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
@@ -155,7 +155,7 @@ test("production policy returns actionable paths and refuses unacceptable derive
   const { root, source } = await workspace();
   try {
     const invocation = { inputs: { source }, parameters: { policy: { requiredClipNames: ["idle"], maxJointsPerSkin: 1 } } };
-    const before = await readdir(root, { recursive: true });
+    const before = (await readdir(root, { recursive: true })).sort();
     const analysis = await executeGltfAnalyzeOperation(root, invocation);
     assert.equal(analysis.observations.accepted, false);
     assert.deepEqual(analysis.observations.diagnostics, [
@@ -163,7 +163,7 @@ test("production policy returns actionable paths and refuses unacceptable derive
       { path: "/animations", rule: "requiredClipNames", message: "missing clip 'idle'" },
     ]);
     await assert.rejects(executeGltfProductionImportOperation(root, invocation), /\/skins\/0.*missing clip 'idle'/);
-    assert.deepEqual(await readdir(root, { recursive: true }), before);
+    assert.deepEqual((await readdir(root, { recursive: true })).sort(), before);
     await assert.rejects(executeGltfAnalyzeOperation(root, { inputs: { source }, parameters: { policy: { maxTriangles: -1 } } }), /maxTriangles/);
     await assert.rejects(executeGltfAnalyzeOperation(root, { inputs: { source }, parameters: { policy: { surprise: true } } }), /unknown/);
   } finally { await rm(root, { recursive: true, force: true }); }
