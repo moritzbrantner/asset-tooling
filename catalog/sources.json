@@ -221,6 +221,38 @@
       "title": "Avocado"
     },
     {
+      "id": "khronos.riggedfigure-glb",
+      "kind": "mesh",
+      "license": {
+        "attribution": "Rigged Figure © 2017 Cesium, licensed CC BY 4.0. Source: Khronos glTF Sample Assets. Derived packaging by asset-tooling.",
+        "evidenceUrl": "https://github.com/KhronosGroup/glTF-Sample-Assets/blob/90d7ede14c7e280af263824604b427a1ca02cb66/Models/RiggedFigure/README.md",
+        "spdx": "CC-BY-4.0"
+      },
+      "mediaType": "model/gltf-binary",
+      "metadata": {
+        "purpose": "Material-bearing articulated figure for production glTF import conformance; not an approved medieval character source"
+      },
+      "provider": "khronos-gltf-sample-assets",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 50116,
+        "path": "Models/RiggedFigure/glTF-Binary/RiggedFigure.glb",
+        "revision": "90d7ede14c7e280af263824604b427a1ca02cb66",
+        "sha256": "d6be85417d3e256861ee733eea6916093a7af7c79c16366181fd8abcaeb38cf5",
+        "upstreamId": "RiggedFigure/glTF-Binary",
+        "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/90d7ede14c7e280af263824604b427a1ca02cb66/Models/RiggedFigure/glTF-Binary/RiggedFigure.glb"
+      },
+      "tags": [
+        "animation",
+        "gltf",
+        "reference",
+        "skinning",
+        "testing",
+        "three-d"
+      ],
+      "title": "Rigged Figure"
+    },
+    {
       "schemaVersion": 1,
       "id": "khronos.simpleskin-embedded-gltf",
       "provider": "khronos-gltf-sample-assets",

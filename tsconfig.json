@@ -21,6 +21,7 @@
   "include": [
     "src/gltf-validator.d.ts",
     "src/gltf-import-operations.ts",
+    "src/gltf-production-operations.ts",
     "src/canonical-glb-validation.ts",
     "src/three-d-scene-transport.ts",
     "scripts/blender-installation.ts",

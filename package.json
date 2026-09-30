@@ -54,7 +54,8 @@
     "./recipes/production-props": "./src/production-prop-kit.ts",
     "./schemas/*": "./schemas/*",
     "./operations/processing/scene": "./src/scene-processing-operations.ts",
-    "./operations/processing/gltf": "./src/gltf-import-operations.ts"
+    "./operations/processing/gltf": "./src/gltf-import-operations.ts",
+    "./operations/processing/gltf-production": "./src/gltf-production-operations.ts"
   },
   "bin": {
     "asset-tooling": "./src/entry.ts"
