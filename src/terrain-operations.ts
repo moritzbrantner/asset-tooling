@@ -13,6 +13,9 @@ import {
   normalizeAssetOperationResult,
 } from "./operations.js";
 import { captureToolIdentity } from "./tool.js";
+import { HEIGHT_MASK_FLATTEN_OPERATION } from "./terrain-mask-operations.js";
+export { HEIGHT_MASK_FLATTEN_OPERATION, createHeightMaskFlattenOperationBuildIdentity, executeHeightMaskFlattenOperation,
+  type HeightMaskFlattenParameters } from "./terrain-mask-operations.js";
 
 const VERSION = "1";
 const MAX_LEVELS = 256;
@@ -78,7 +81,7 @@ export const HEIGHT_RADIAL_FALLOFF_OPERATION = OPERATION_REGISTRY.get(
   VERSION,
 );
 export const HEIGHT_TERRACE_OPERATION = OPERATION_REGISTRY.get("image.height.terrace", VERSION);
-export const TERRAIN_HEIGHT_OPERATIONS = OPERATION_REGISTRY.list();
+export const TERRAIN_HEIGHT_OPERATIONS = [HEIGHT_MASK_FLATTEN_OPERATION, ...OPERATION_REGISTRY.list()];
 
 function plainObject(value, location) {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {

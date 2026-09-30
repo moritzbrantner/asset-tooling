@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "height": {
+    "width": 32,
+    "height": 24,
+    "seed": "134",
+    "gridX": 4,
+    "gridY": 3
+  },
+  "flatten": {
+    "targetHeight": 128,
+    "channel": "scalar"
+  },
+  "mask": {
+    "path": "footprint.rgba8.json",
+    "sha256": "9a09330d356d32aaf3f40719a2bc98c38dea84b5ede3b6fce51d81c1cb57b9a9"
+  },
+  "mesh": {
+    "cellSize": 1,
+    "heightScale": 8
+  },
+  "placement": {
+    "unit": "meter",
+    "coordinateSystem": "right-handed-y-up",
+    "firstSampleWorldOrigin": [
+      -16,
+      0,
+      -12
+    ],
+    "columns": "+X",
+    "rows": "+Z",
+    "sampleConvention": "vertex samples; no resampling"
+  }
+}

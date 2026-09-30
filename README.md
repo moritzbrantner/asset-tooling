@@ -116,3 +116,5 @@ See [deterministic sprite atlases](docs/sprite-atlases.md) for selected-image pa
 [Static GLB material finishing](docs/gltf-materials.md) applies generated PNG colors to existing named slots. Run `bun examples/rock-materials/build.ts` after the rock master example to inspect gray/warm families without regenerating geometry.
 
 [Static GLB render derivatives](docs/render-derivatives.md) declare transparent icons and thumbnails through the pinned Blender backend, preserving source identity and camera/framing evidence.
+
+[Saved terrain masks](docs/terrain-masks.md) flatten a verified height field with explicit same-grid guide weights. Run `bun examples/terrain-mask/build.ts` for height bytes, unchanged-topology meshes and before/after renders.
