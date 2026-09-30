@@ -98,6 +98,60 @@ test("render preflight bounds each embedded texture and total decoded pixels bef
   assert.deepEqual(prepared.sourceBytes, await resolveAssetObject(root, source));
 });
 
+test("render preflight caps raw sparse accessor counts, vertices and aggregate decoded storage", async t => {
+  const sparse = (count: number) => ({ componentType: 5126, count, type: "VEC3", min: [-1, -.5, 0], max: [0, 0, 0],
+    sparse: { count: 1, indices: { bufferView: 2, componentType: 5123 }, values: { bufferView: 0 } } });
+  const meshes = [{ primitives: [{ attributes: { POSITION: 0 }, indices: 1 }] }];
+  const indices = { bufferView: 2, componentType: 5123, count: 6, type: "SCALAR" };
+  for (const accessors of [
+    [sparse(1000000000), indices], [sparse(1000001), indices],
+    [sparse(4), indices, { componentType: 5126, count: 2000000, type: "MAT4" }],
+    [sparse(4), indices, ...Array.from({ length: 2 }, () => ({ componentType: 5126, count: 2100000, type: "VEC4" }))],
+  ]) {
+    // Oversized declarations must fail before validator/decoder scans.
+    const bytes = quadGlb({ meshes, accessors });
+    const { root, source } = await workspace(t, bytes);
+    assert.ok(bytes.length < 2048);
+    await assert.rejects(prepareRenderDerivativeRecipe(root, { assetId: "test.accessor-budget", source, parameters: front,
+      scriptSha256: renderer.sha256, blenderVersion: renderer.blenderVersion }), /(?:accessor|vertex).*budget/);
+    assert.deepEqual(await resolveAssetObject(root, source), bytes);
+  }
+});
+
+test("packaged renderer rejects invalid directly authored controls before scene mutation", {
+  skip: !configured && "ASSET_TOOLING_BLENDER is not set", timeout: 120_000,
+}, async t => {
+  const { root } = await workspace(t);
+  const changes = [{ lightEnergy: -1 }, { lightEnergy: true }, { lightSize: 0 }, { worldColor: [1, 2, 3] },
+    { worldStrength: 3 }, { exposure: 5 }, { padding: true }, { schemaVersion: true }, { width: 1.5 }, { seed: true },
+    { lightDirection: [0, 0, 0] }, { viewDirection: [0, 1, 0] }, { lightDirection: [0, 0, 1001] },
+    { projection: { type: "perspective", horizontalFovDegrees: true } },
+    { projection: { type: "orthographic", horizontalFovDegrees: 40 } },
+    { selection: { type: "nodes", names: ["plane", "plane"] } }, { selection: { type: "scene", names: [] } },
+    { selection: { type: "nodes", names: ["😀".repeat(129)] } }, { invented: 1 }];
+  for (const change of changes) assert.throws(() => normalizeRenderDerivativeParameters({ ...front, ...change }));
+  const scriptPath = path.join(root, "render_static_glb.py"), controlsPath = path.join(root, "controls.json");
+  await writeFile(scriptPath, renderer.bytes);
+  await writeFile(controlsPath, JSON.stringify({ valid: front, invalid: changes.map(change => ({ ...front, ...change })) }));
+  // Use the existing pinned Blender interpreter; ordinary deterministic checks need no Python.
+  const blender = process.env.ASSET_TOOLING_BLENDER;
+  assert.ok(blender);
+  const checked = spawnSync(blender, ["--background", "--factory-startup", "--threads", "1", "--python-exit-code", "1", "--python-expr", `
+import bpy, json, runpy, sys
+assert ".".join(map(str, bpy.app.version)) == ${JSON.stringify(renderer.blenderVersion)}
+renderer = runpy.run_path(sys.argv[-2])
+controls = json.load(open(sys.argv[-1]))
+renderer["validate_arguments"](controls["valid"])
+for parameters in controls["invalid"]:
+    try:
+        renderer["generate"]("must-not-write.png", parameters, {"source": "must-not-read.glb"})
+    except ValueError:
+        continue
+    raise AssertionError("invalid controls were accepted")
+`, "--", scriptPath, controlsPath], { encoding: "utf8", timeout: 30_000 });
+  assert.equal(checked.status, 0, checked.error?.message ?? checked.stderr);
+});
+
 test("render recipe pins validated source/script bytes and rejects incompatible camera/selection/budgets", async t => {
   const { source, prepared } = await prepare(t);
   assert.equal(prepared.spec.inputs.source.sha256, source.sha256);
@@ -121,6 +175,18 @@ test("render preflight rejects missing nodes, extensions, external resources and
     await assert.rejects(prepareRenderDerivativeRecipe(invalid.root, { ...request, source: invalid.source, parameters: front }));
   }
   await assert.rejects(prepareRenderDerivativeRecipe(root, { ...request, source: { ...source, sha256: "0".repeat(64) }, parameters: front }));
+});
+
+test("directly authored render specs fail closed through the authoritative Blender backend", {
+  skip: !configured && "ASSET_TOOLING_BLENDER is not set", timeout: 120_000,
+}, async t => {
+  const { root, prepared, specPath } = await prepare(t);
+  for (const change of [{ lightEnergy: -1 }, { padding: true }, { invented: 1 }]) {
+    await writeFile(specPath, canonicalJson({ ...prepared.spec, parameters: { ...prepared.spec.parameters,
+      arguments: { ...front, ...change } } }));
+    await assert.rejects(generateAsset(specPath), /invalid (?:lightEnergy|padding|render)/);
+    await assert.rejects(readFile(path.join(root, "render.png")), { code: "ENOENT" });
+  }
 });
 
 test("node selection retains original multibyte names despite importer truncation and collisions", {

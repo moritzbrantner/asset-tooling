@@ -5,22 +5,78 @@ from array import array
 from pathlib import Path
 from types import ModuleType
 
-import bpy
-from bpy_extras.object_utils import world_to_camera_view
-from mathutils import Vector
 
 
-def generate(output_path, arguments, inputs):
-    p = arguments
-    if p["schemaVersion"] != 1 or set(inputs) != {"source"}:
-        raise ValueError("static render requires version 1 and exactly one source input")
+def exact_object(value, keys, label):
+    if type(value) is not dict or set(value) != set(keys):
+        raise ValueError(f"invalid {label} fields")
+    return value
+
+
+def bounded(value, minimum, maximum, label):
+    if type(value) not in (int, float) or not math.isfinite(value) or not minimum <= value <= maximum:
+        raise ValueError(f"invalid {label}")
+    return value
+
+
+def vector(value, minimum, maximum, label):
+    if type(value) is not list or len(value) != 3:
+        raise ValueError(f"invalid {label}")
+    return [bounded(coordinate, minimum, maximum, label) for coordinate in value]
+
+
+def direction(value, label):
+    result = vector(value, -1000, 1000, label)
+    if math.hypot(*result) < 0.000001:
+        raise ValueError(f"zero {label}")
+    return result
+
+
+def validate_arguments(arguments):
+    p = exact_object(arguments, ("schemaVersion", "width", "height", "projection", "selection", "viewDirection", "padding",
+        "lightDirection", "lightEnergy", "lightSize", "worldColor", "worldStrength", "background", "exposure", "samples", "seed"), "render")
+    if type(p["schemaVersion"]) is not int or p["schemaVersion"] != 1:
+        raise ValueError("static render requires version 1")
     for key, minimum, maximum in (("width", 1, 1024), ("height", 1, 1024), ("samples", 1, 64), ("seed", 0, 2147483647)):
         if type(p[key]) is not int or not minimum <= p[key] <= maximum:
             raise ValueError(f"invalid {key}")
-    if p["projection"]["type"] not in ("orthographic", "perspective") or p["background"] not in ("transparent", "opaque"):
-        raise ValueError("unsupported projection/background")
-    if not 0 <= p["padding"] <= 0.4:
-        raise ValueError("invalid padding")
+    projection = p["projection"]
+    exact_object(projection, ("type", "horizontalFovDegrees") if type(projection) is dict and projection.get("type") == "perspective" else ("type",), "projection")
+    if projection["type"] == "perspective":
+        bounded(projection["horizontalFovDegrees"], 10, 100, "horizontalFovDegrees")
+    elif projection["type"] != "orthographic":
+        raise ValueError("unsupported projection")
+    selection = p["selection"]
+    exact_object(selection, ("type", "names") if type(selection) is dict and selection.get("type") == "nodes" else ("type",), "selection")
+    if selection["type"] == "nodes":
+        names = selection["names"]
+        if (type(names) is not list or not 1 <= len(names) <= 64 or
+                any(type(name) is not str or not 1 <= len(name.encode("utf-16-le", errors="surrogatepass")) // 2 <= 256 for name in names) or
+                len(set(names)) != len(names)):
+            raise ValueError("invalid selection.names")
+    elif selection["type"] != "scene":
+        raise ValueError("unsupported selection")
+    view = direction(p["viewDirection"], "viewDirection")
+    if abs(view[1]) / math.hypot(*view) > 0.999:
+        raise ValueError("viewDirection is parallel to source up")
+    direction(p["lightDirection"], "lightDirection")
+    vector(p["worldColor"], 0, 1, "worldColor")
+    for key, minimum, maximum in (("padding", 0, 0.4), ("lightEnergy", 1, 10000), ("lightSize", 0.01, 10),
+                                  ("worldStrength", 0, 2), ("exposure", -4, 4)):
+        bounded(p[key], minimum, maximum, key)
+    if p["background"] not in ("transparent", "opaque"):
+        raise ValueError("unsupported background")
+    return p
+
+
+def generate(output_path, arguments, inputs):
+    p = validate_arguments(arguments)
+    if set(inputs) != {"source"}:
+        raise ValueError("static render requires exactly one source input")
+    # Validation precedes importing Blender modules or touching source/output state.
+    import bpy
+    from bpy_extras.object_utils import world_to_camera_view
+    from mathutils import Vector
 
     bpy.ops.object.select_all(action="SELECT")
     bpy.ops.object.delete(use_global=False)

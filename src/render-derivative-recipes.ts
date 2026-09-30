@@ -1,3 +1,5 @@
+import { NodeIO } from "@gltf-transform/core";
+import { resolveAssetObject } from "./asset-store.js";
 import { createAssetRef, type AssetRef } from "./operations.js";
 import { parseAssetSpec } from "./schema.js";
 import { GLTF_IMPORT_OPERATION } from "./gltf-import-operations.js";
@@ -77,6 +79,31 @@ export function normalizeRenderDerivativeParameters(value: unknown): RenderDeriv
 
 export const readRenderDerivativeRecipeSource = () => readBlenderRecipeSource("render_static_glb.py");
 
+/** Header-only inspection precedes validator scans and sparse accessor densification. */
+async function checkedAccessorBudget(bytes: Uint8Array) {
+  const { json } = await new NodeIO().setAllowNetwork(false).setStrictResources(true).binaryToJSON(bytes);
+  const components: Record<string, number> = { SCALAR: 1, VEC2: 2, VEC3: 3, VEC4: 4, MAT2: 4, MAT3: 9, MAT4: 16 };
+  let decodedBytes = 0;
+  if (json.accessors !== undefined && !Array.isArray(json.accessors)) throw new Error("render accessor budget requires an accessor array");
+  for (const accessor of json.accessors ?? []) {
+    if (!accessor || !Number.isSafeInteger(accessor.count) || accessor.count < 1 || accessor.count > 3000000 ||
+        !Object.hasOwn(components, accessor.type)) throw new Error("render accessor exceeds count/type budget");
+    // Conservatively reserve float32 storage even for byte/short accessors.
+    decodedBytes += accessor.count * components[accessor.type]! * 4;
+    if (decodedBytes > 64 * 1024 * 1024) throw new Error("render accessors exceed 64 MiB decoded memory budget");
+  }
+  const positions = new Set<number>();
+  for (const mesh of json.meshes ?? []) for (const primitive of mesh.primitives ?? []) {
+    if (primitive.attributes && Object.hasOwn(primitive.attributes, "POSITION")) positions.add(primitive.attributes.POSITION!);
+  }
+  let vertices = 0;
+  for (const index of positions) {
+    if (!Number.isSafeInteger(index) || !json.accessors?.[index]) throw new Error("render vertex budget requires valid POSITION accessors");
+    vertices += json.accessors[index]!.count;
+    if (vertices > 1000000) throw new Error("render vertex/accessor budget exceeds one million source vertices");
+  }
+}
+
 /** Validate an existing source through the supported static importer, then declare a pinned render. */
 export async function prepareRenderDerivativeRecipe(root: string, { assetId, source: value, parameters, scriptSha256, blenderVersion,
   scriptPath = "render_static_glb.py", sourcePath = "source.glb", outputPath = "render.png" }: {
@@ -88,6 +115,7 @@ export async function prepareRenderDerivativeRecipe(root: string, { assetId, sou
   if (source.mediaType !== "model/gltf-binary") throw new Error("render derivative source must be a self-contained GLB");
   if (!/^\d+\.\d+\.\d+$/.test(blenderVersion)) throw new Error("render Blender version must be exact");
   if (!scriptPath.endsWith(".py") || !sourcePath.endsWith(".glb") || !outputPath.endsWith(".png")) throw new Error("render recipe requires Python, GLB and PNG paths");
+  await checkedAccessorBudget(await resolveAssetObject(root, source));
   const checked = await loadCheckedGltf(root, GLTF_IMPORT_OPERATION, { resourceUris: [] }, { source }, false);
   // Blender imports every embedded texture, including those on unselected nodes.
   // Inspect headers before its importer allocates decoded image storage.
