@@ -53,11 +53,11 @@ function canonicalBase64(value: unknown, location: string) {
   return bytes;
 }
 
-export interface Rgba8Image {
+export type Rgba8Image = {
   width: number;
   height: number;
   pixels: Uint8Array;
-}
+};
 
 export function createRgba8Image({ width, height, pixels }: Rgba8Image) {
   const normalizedWidth = dimension(width, "RGBA8 image width");

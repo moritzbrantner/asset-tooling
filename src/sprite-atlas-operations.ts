@@ -14,35 +14,35 @@ const MAX_SPRITES = 512;
 const MAX_SOURCE_PIXELS = 16 * 1024 * 1024;
 const tokenPattern = /^[a-z0-9]+(?:[._-][a-z0-9]+)*$/;
 
-export interface SpriteFrame {
+export type SpriteFrame = {
   sequence: string;
   index: number;
   timeMs: number;
   durationMs: number;
   loop: boolean;
-}
-export interface SpriteDeclaration {
+};
+export type SpriteDeclaration = {
   id: string;
   pivot: { x: number; y: number };
   frame?: SpriteFrame;
-}
-export interface SpriteAtlasParameters {
+};
+export type SpriteAtlasParameters = {
   width: number;
   maxHeight: number;
   padding: number;
   extrusion: number;
   trim: boolean;
   sprites: SpriteDeclaration[];
-}
-export interface SpriteAtlasEntry extends SpriteDeclaration {
+};
+export type SpriteAtlasEntry = SpriteDeclaration & {
   source: AssetRef;
   sourceSize: { width: number; height: number };
   rect: { x: number; y: number; width: number; height: number };
   trimOffset: { x: number; y: number };
   empty: boolean;
   rotated: false;
-}
-export interface SpriteAtlasManifest {
+};
+export type SpriteAtlasManifest = {
   schemaVersion: 1;
   image: AssetRef;
   width: number;
@@ -53,7 +53,7 @@ export interface SpriteAtlasManifest {
   padding: number;
   extrusion: number;
   sprites: SpriteAtlasEntry[];
-}
+};
 type Invocation = { parameters?: unknown; inputs?: unknown };
 const integerSchema = (minimum: number, maximum: number) => ({ type: "integer", minimum, maximum });
 const frameSchema = {
