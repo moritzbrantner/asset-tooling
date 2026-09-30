@@ -334,7 +334,7 @@ async function verifyProcessorSource(processor, root) {
       if (manifestIndex < 0 || typeof manifestValue !== "string") {
         throw new Error(OPERATION_ID + " cargo processor must declare --manifest-path");
       }
-      const manifestPath = path.resolve(manifestValue);
+      const manifestPath = path.resolve(root, manifestValue);
       if (!pathIsInside(processor.checkoutRoot, manifestPath)) {
         throw new Error(OPERATION_ID + " processor manifest must be inside checkoutRoot");
       }
@@ -366,7 +366,7 @@ async function verifyProcessorSource(processor, root) {
   if (!processor.sourceFiles.includes(scriptPath)) {
     throw new Error(OPERATION_ID + " processor.sourceFiles must include the executed scriptPath");
   }
-  const fileHashes = [];
+  const fileHashes: { path: string; sha256: string }[] = [];
   for (const sourceFile of processor.sourceFiles) {
     let bytes;
     try {
@@ -376,13 +376,19 @@ async function verifyProcessorSource(processor, root) {
         OPERATION_ID + " processor source file '" + sourceFile + "' could not be read: " + error.message,
       );
     }
-    fileHashes.push(createHash("sha256").update(bytes).digest("hex"));
+    fileHashes.push({
+      path: path.relative(path.dirname(scriptPath), sourceFile).split(path.sep).join("/"),
+      sha256: createHash("sha256").update(bytes).digest("hex"),
+    });
   }
-  fileHashes.sort();
+  fileHashes.sort((left, right) => left.path < right.path ? -1 : left.path > right.path ? 1 : 0);
   return {
     repository: processor.repository,
     revision: processor.revision,
-    sourceSha256: createHash("sha256").update(JSON.stringify(fileHashes)).digest("hex"),
+    sourceSha256: createHash("sha256").update(JSON.stringify({
+      script: path.basename(scriptPath),
+      files: fileHashes,
+    })).digest("hex"),
   };
 }
 

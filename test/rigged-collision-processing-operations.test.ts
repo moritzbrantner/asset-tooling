@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import os from "node:os";
 import path from "node:path";
-import { mkdtemp } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { resolveAssetObject, storeAssetObject } from "../src/asset-store.js";
 import {
@@ -103,6 +103,35 @@ test("build identity pins source, probe, parameters, and adapter bytes", async (
   assert.equal(identity.implementation.source.repository, "fixture/3d-lab");
   assert.equal(identity.implementation.source.revision, "e".repeat(40));
   assert.match(identity.implementation.source.sourceSha256, /^[0-9a-f]{64}$/);
+});
+
+test("processor identity binds file names and stays portable across checkout locations", async () => {
+  const root = await workspace();
+  const source = await storedSource(root);
+  const invocation = { parameters: parameters(), inputs: { source } };
+  const adapterBytes = await readFile(FIXTURE_ADAPTER, "utf8");
+  const first = adapterBytes + "\n// first implementation\n";
+  const second = adapterBytes + "\n// second implementation\n";
+  async function identity(directory, swapped = false, reversed = false) {
+    const scriptPath = path.join(directory, "adapter.js");
+    const otherPath = path.join(directory, "other.js");
+    await writeFile(scriptPath, swapped ? second : first);
+    await writeFile(otherPath, swapped ? first : second);
+    return createMeshRiggedCollisionFitOperationBuildIdentity(root, invocation, {
+      ...PROCESSOR,
+      scriptPath,
+      sourceFiles: reversed ? [otherPath, scriptPath] : [scriptPath, otherPath],
+    });
+  }
+  const directory = await workspace();
+  const original = await identity(directory);
+  assert.deepEqual(await identity(directory, false, true), original);
+  assert.deepEqual(await identity(await workspace()), original);
+  const swapped = await identity(directory, true);
+  assert.notEqual(
+    swapped.implementation.source.sourceSha256,
+    original.implementation.source.sourceSha256,
+  );
 });
 
 test("rigged collision fitting stores deterministic proxy evidence", async () => {
