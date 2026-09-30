@@ -19,6 +19,7 @@
     "noUnusedParameters": true
   },
   "include": [
+    "src/procedural-texture-metadata.ts",
     "src/rock-recipes.ts",
     "src/render-derivative-recipes.ts",
     "src/sprite-atlas-operations.ts",
