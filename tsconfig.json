@@ -19,6 +19,8 @@
     "noUnusedParameters": true
   },
   "include": [
+    "src/canonical-glb-validation.ts",
+    "src/three-d-scene-transport.ts",
     "scripts/blender-installation.ts",
     "test/blender-installation.test.ts",
     "scripts/check-package-shape.ts",

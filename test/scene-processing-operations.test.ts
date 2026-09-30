@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import os from "node:os";
 import path from "node:path";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { resolveAssetObject, storeAssetObject } from "../src/asset-store.js";
 import {
@@ -213,5 +213,40 @@ test("scene processing fails closed on unknown parameters and invalid source pro
     );
   } finally {
     await rm(workspace.root, { recursive: true, force: true });
+  }
+});
+
+
+test("scene processor identity binds file paths and remains independent of checkout location", async () => {
+  const { root, source } = await workspaceWithScene();
+  const firstDirectory = await mkdtemp(path.join(os.tmpdir(), "scene-processor-"));
+  const secondDirectory = await mkdtemp(path.join(os.tmpdir(), "scene-processor-"));
+  try {
+    const first = await readFile(FIXTURE, "utf8") + "\n// first implementation\n";
+    const second = await readFile(FIXTURE, "utf8") + "\n// second implementation\n";
+    async function identity(directory, swapped = false, reversed = false) {
+      const scriptPath = path.join(directory, "adapter.js");
+      const otherPath = path.join(directory, "other.js");
+      await writeFile(scriptPath, swapped ? second : first);
+      await writeFile(otherPath, swapped ? first : second);
+      return createSceneNormalizeOperationBuildIdentity(root, { parameters: {}, inputs: { source } }, {
+        ...PROCESSOR,
+        scriptPath,
+        sourceFiles: reversed ? [otherPath, scriptPath] : [scriptPath, otherPath],
+      });
+    }
+    const original = await identity(firstDirectory);
+    assert.deepEqual(await identity(firstDirectory, false, true), original);
+    assert.deepEqual(await identity(secondDirectory), original);
+    const swapped = await identity(firstDirectory, true);
+    assert.notEqual(swapped.implementation.source.sourceSha256, original.implementation.source.sourceSha256);
+    await assert.rejects(
+      createSceneNormalizeOperationBuildIdentity(root, { parameters: {}, inputs: { source, extra: source } }, PROCESSOR),
+      /unknown port 'extra'/,
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+    await rm(firstDirectory, { recursive: true, force: true });
+    await rm(secondDirectory, { recursive: true, force: true });
   }
 });

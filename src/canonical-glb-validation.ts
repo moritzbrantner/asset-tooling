@@ -1,3 +1,13 @@
+export type CanonicalGlbSummary = {
+  meshCount: number;
+  nodeCount: number;
+  rootNodeCount: number;
+  vertexCount: number;
+  triangleCount: number;
+};
+type BufferView = { byteOffset: number; byteLength: number; target: number };
+type Accessor = { bufferView: number; byteOffset: number; byteLength: number; componentType: number; type: string; count: number };
+
 const GLB_JSON_CHUNK = 0x4e4f534a;
 const GLB_BIN_CHUNK = 0x004e4942;
 const ARRAY_BUFFER_TARGET = 34962;
@@ -15,7 +25,7 @@ const TYPE_WIDTH = new Map([
   ["VEC3", 3],
   ["VEC4", 4],
 ]);
-const ATTRIBUTE_SHAPE = new Map([
+const ATTRIBUTE_SHAPE = new Map<string, readonly [number, string]>([
   ["POSITION", [COMPONENT_F32, "VEC3"]],
   ["NORMAL", [COMPONENT_F32, "VEC3"]],
   ["TANGENT", [COMPONENT_F32, "VEC4"]],
@@ -24,25 +34,25 @@ const ATTRIBUTE_SHAPE = new Map([
 ]);
 const UNIT_QUATERNION_TOLERANCE = 1.0e-4;
 
-function isPlainObject(value) {
+function isPlainObject(value: unknown): value is Record<string, unknown> {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
   const prototype = Object.getPrototypeOf(value);
   return prototype === Object.prototype || prototype === null;
 }
 
-function object(value, location) {
+function object(value: unknown, location: string): Record<string, unknown> {
   if (!isPlainObject(value)) throw new Error(`${location} must be an object`);
   return value;
 }
 
-function integer(value, location, minimum = 0) {
-  if (!Number.isSafeInteger(value) || value < minimum) {
+function integer(value: unknown, location: string, minimum = 0): number {
+  if (typeof value !== "number" || !Number.isSafeInteger(value) || value < minimum) {
     throw new Error(`${location} must be an integer >= ${minimum}`);
   }
   return value;
 }
 
-function finiteVector(value, width, location) {
+function finiteVector(value: unknown, width: number, location: string): number[] {
   if (!Array.isArray(value) || value.length !== width) {
     throw new Error(`${location} must contain exactly ${width} finite numbers`);
   }
@@ -54,7 +64,9 @@ function finiteVector(value, width, location) {
   return value;
 }
 
-function canonicalQuaternion([x, y, z, w]) {
+function canonicalQuaternion(rotation: number[]): boolean {
+  // finiteVector has validated exactly four finite components at this call site.
+  const [x, y, z, w] = rotation as [number, number, number, number];
   if (w > 0) return true;
   if (w < 0) return false;
   if (x > 0) return true;
@@ -64,11 +76,11 @@ function canonicalQuaternion([x, y, z, w]) {
   return z >= 0;
 }
 
-function compareCodeUnits(left, right) {
+function compareCodeUnits(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
 }
 
-function validateBufferViews(document, bufferByteLength, location) {
+function validateBufferViews(document: Record<string, unknown>, bufferByteLength: number, location: string): BufferView[] {
   if (!Array.isArray(document.bufferViews)) {
     throw new Error(`${location} GLB JSON must contain bufferViews`);
   }
@@ -82,56 +94,59 @@ function validateBufferViews(document, bufferByteLength, location) {
     if (byteOffset + byteLength > bufferByteLength) {
       throw new Error(`${location}.bufferViews[${index}] exceeds the declared binary buffer`);
     }
-    if (![ARRAY_BUFFER_TARGET, ELEMENT_ARRAY_BUFFER_TARGET].includes(view.target)) {
+    if (typeof view.target !== "number" || ![ARRAY_BUFFER_TARGET, ELEMENT_ARRAY_BUFFER_TARGET].includes(view.target)) {
       throw new Error(`${location}.bufferViews[${index}].target is not canonical`);
     }
     if (view.byteStride !== undefined) {
       throw new Error(`${location}.bufferViews[${index}] must not use byteStride`);
     }
-    return { byteOffset, byteLength, target: view.target };
+    return { byteOffset, byteLength, target: integer(view.target, `${location} bufferView target`) };
   });
 }
 
-function validateAccessors(document, views, location) {
+function validateAccessors(document: Record<string, unknown>, views: BufferView[], location: string): Accessor[] {
   if (!Array.isArray(document.accessors)) {
     throw new Error(`${location} GLB JSON must contain accessors`);
   }
   return document.accessors.map((entry, index) => {
     const accessor = object(entry, `${location}.accessors[${index}]`);
     const bufferView = integer(accessor.bufferView, `${location}.accessors[${index}].bufferView`);
-    if (!views[bufferView]) {
+    const view = views[bufferView];
+    if (!view) {
       throw new Error(`${location}.accessors[${index}] references a missing bufferView`);
     }
     const byteOffset = integer(accessor.byteOffset ?? 0, `${location}.accessors[${index}].byteOffset`);
-    const componentSize = COMPONENT_SIZE.get(accessor.componentType);
-    const width = TYPE_WIDTH.get(accessor.type);
-    if (!componentSize || !width) {
+    const componentType = integer(accessor.componentType, `${location}.accessors[${index}].componentType`);
+    const type = accessor.type;
+    const componentSize = COMPONENT_SIZE.get(componentType);
+    const width = typeof type === "string" ? TYPE_WIDTH.get(type) : undefined;
+    if (!componentSize || !width || typeof type !== "string") {
       throw new Error(`${location}.accessors[${index}] uses a non-canonical component/type`);
     }
     const count = integer(accessor.count, `${location}.accessors[${index}].count`, 1);
     const byteLength = count * componentSize * width;
-    if (!Number.isSafeInteger(byteLength) || byteOffset + byteLength > views[bufferView].byteLength) {
+    if (!Number.isSafeInteger(byteLength) || byteOffset + byteLength > view.byteLength) {
       throw new Error(`${location}.accessors[${index}] exceeds its bufferView`);
     }
     return {
       bufferView,
       byteOffset,
       byteLength,
-      componentType: accessor.componentType,
-      type: accessor.type,
+      componentType,
+      type,
       count,
     };
   });
 }
 
-function accessorStart(binaryStart, views, accessor) {
-  return binaryStart + views[accessor.bufferView].byteOffset + accessor.byteOffset;
+function accessorStart(binaryStart: number, views: BufferView[], accessor: Accessor): number {
+  return binaryStart + views[accessor.bufferView]!.byteOffset + accessor.byteOffset;
 }
 
-function validateFiniteF32Accessor(bytes, binaryStart, views, accessor, location) {
+function validateFiniteF32Accessor(bytes: Buffer, binaryStart: number, views: BufferView[], accessor: Accessor, location: string): void {
   if (accessor.componentType !== COMPONENT_F32) return;
   const start = accessorStart(binaryStart, views, accessor);
-  const componentCount = accessor.count * TYPE_WIDTH.get(accessor.type);
+  const componentCount = accessor.count * TYPE_WIDTH.get(accessor.type)!;
   for (let index = 0; index < componentCount; index += 1) {
     if (!Number.isFinite(bytes.readFloatLE(start + index * 4))) {
       throw new Error(`${location} contains a non-finite f32 component`);
@@ -139,7 +154,7 @@ function validateFiniteF32Accessor(bytes, binaryStart, views, accessor, location
   }
 }
 
-function validateMeshGeometry(bytes, binaryStart, document, views, accessors, location) {
+function validateMeshGeometry(bytes: Buffer, binaryStart: number, document: Record<string, unknown>, views: BufferView[], accessors: Accessor[], location: string) {
   if (!Array.isArray(document.meshes)) {
     throw new Error(`${location} GLB JSON must contain meshes`);
   }
@@ -181,7 +196,7 @@ function validateMeshGeometry(bytes, binaryStart, document, views, accessors, lo
       if (!accessor) {
         throw new Error(`${location}.meshes[${meshIndex}] attribute '${semantic}' has no accessor`);
       }
-      const [componentType, type] = ATTRIBUTE_SHAPE.get(semantic);
+      const [componentType, type] = ATTRIBUTE_SHAPE.get(semantic)!;
       if (accessor.componentType !== componentType || accessor.type !== type) {
         throw new Error(`${location}.meshes[${meshIndex}] attribute '${semantic}' has the wrong accessor shape`);
       }
@@ -193,9 +208,9 @@ function validateMeshGeometry(bytes, binaryStart, document, views, accessors, lo
         `${location}.meshes[${meshIndex}] attribute '${semantic}'`,
       );
     }
-    const positionAccessor = accessors[attributes.POSITION];
+    const positionAccessor = accessors[integer(attributes.POSITION, `${location} POSITION accessor`)]!;
     for (const [semantic, accessorIndex] of Object.entries(attributes)) {
-      if (accessors[accessorIndex].count !== positionAccessor.count) {
+      if (accessors[integer(accessorIndex, `${location} attribute accessor`)]!.count !== positionAccessor.count) {
         throw new Error(`${location}.meshes[${meshIndex}] attribute '${semantic}' count differs from POSITION`);
       }
     }
@@ -225,12 +240,12 @@ function validateMeshGeometry(bytes, binaryStart, document, views, accessors, lo
   return { meshCount: document.meshes.length, vertexCount, triangleCount };
 }
 
-function validateNodes(document, location) {
+function validateNodes(document: Record<string, unknown>, location: string, meshCount: number) {
   if (!Array.isArray(document.nodes) || document.nodes.length === 0) {
     throw new Error(`${location} GLB JSON must contain at least one node`);
   }
-  const parentCounts = Array(document.nodes.length).fill(0);
-  const names = [];
+  const parentCounts: number[] = Array(document.nodes.length).fill(0);
+  const names: string[] = [];
   for (const [nodeIndex, nodeValue] of document.nodes.entries()) {
     const node = object(nodeValue, `${location}.nodes[${nodeIndex}]`);
     if (typeof node.name !== "string" || node.name.length === 0) {
@@ -248,7 +263,7 @@ function validateNodes(document, location) {
     finiteVector(node.scale, 3, `${location}.nodes[${nodeIndex}].scale`);
     if (node.mesh !== undefined) {
       const mesh = integer(node.mesh, `${location}.nodes[${nodeIndex}].mesh`);
-      if (!document.meshes[mesh]) {
+      if (mesh >= meshCount) {
         throw new Error(`${location}.nodes[${nodeIndex}] references a missing mesh`);
       }
     }
@@ -265,11 +280,12 @@ function validateNodes(document, location) {
       if (!document.nodes[child] || child <= nodeIndex) {
         throw new Error(`${location}.nodes[${nodeIndex}] children must be later canonical nodes`);
       }
-      parentCounts[child] += 1;
-      if (parentCounts[child] > 1) {
+      parentCounts[child] = (parentCounts[child] ?? 0) + 1;
+      if (parentCounts[child]! > 1) {
         throw new Error(`${location}.nodes[${child}] has more than one parent`);
       }
-      const childName = document.nodes[child].name;
+      const childName = object(document.nodes[child], `${location}.nodes[${child}]`).name;
+      if (typeof childName !== "string") throw new Error(`${location} child name must be a string`);
       if (previousChildName !== null && compareCodeUnits(previousChildName, childName) > 0) {
         throw new Error(`${location}.nodes[${nodeIndex}] children must use stable name order`);
       }
@@ -279,7 +295,7 @@ function validateNodes(document, location) {
   return { parentCounts, names };
 }
 
-function validateSelectedScene(document, parentCounts, names, location) {
+function validateSelectedScene(document: Record<string, unknown>, parentCounts: number[], names: string[], location: string): number {
   if (document.scene !== 0 || !Array.isArray(document.scenes) || document.scenes.length !== 1) {
     throw new Error(`${location} must contain exactly one selected canonical scene`);
   }
@@ -300,14 +316,14 @@ function validateSelectedScene(document, parentCounts, names, location) {
     throw new Error(`${location}.scenes[0].nodes does not match canonical hierarchy roots`);
   }
   for (let index = 1; index < roots.length; index += 1) {
-    if (compareCodeUnits(names[roots[index - 1]], names[roots[index]]) > 0) {
+    if (compareCodeUnits(names[roots[index - 1]!]!, names[roots[index]!]!) > 0) {
       throw new Error(`${location} root nodes must use stable name order`);
     }
   }
   return roots.length;
 }
 
-export function parseCanonicalGlbBytes(bytes, location) {
+export function parseCanonicalGlbBytes(bytes: Buffer, location: string): CanonicalGlbSummary {
   if (!Buffer.isBuffer(bytes) || bytes.length < 28) {
     throw new Error(`${location} must be a canonical GLB 2.0 byte sequence`);
   }
@@ -327,14 +343,14 @@ export function parseCanonicalGlbBytes(bytes, location) {
   if (jsonEnd + 8 > bytes.length) {
     throw new Error(`${location} is missing the canonical BIN chunk`);
   }
-  let document;
+  let rawDocument: unknown;
   try {
-    document = JSON.parse(bytes.toString("utf8", 20, jsonEnd).trimEnd());
+    rawDocument = JSON.parse(bytes.toString("utf8", 20, jsonEnd).trimEnd());
   } catch (error) {
-    throw new Error(`${location} contains invalid GLB JSON: ${error.message}`);
+    throw new Error(`${location} contains invalid GLB JSON: ${error instanceof Error ? error.message : String(error)}`);
   }
-  object(document, `${location} GLB JSON`);
-  if (document.asset?.version !== "2.0") {
+  const document = object(rawDocument, `${location} GLB JSON`);
+  if (object(document.asset, `${location}.asset`).version !== "2.0") {
     throw new Error(`${location} GLB JSON must declare glTF 2.0`);
   }
 
@@ -360,11 +376,11 @@ export function parseCanonicalGlbBytes(bytes, location) {
   const views = validateBufferViews(document, bufferByteLength, location);
   const accessors = validateAccessors(document, views, location);
   const geometry = validateMeshGeometry(bytes, binaryStart, document, views, accessors, location);
-  const { parentCounts, names } = validateNodes(document, location);
+  const { parentCounts, names } = validateNodes(document, location, geometry.meshCount);
   const rootNodeCount = validateSelectedScene(document, parentCounts, names, location);
   return {
     meshCount: geometry.meshCount,
-    nodeCount: document.nodes.length,
+    nodeCount: names.length,
     rootNodeCount,
     vertexCount: geometry.vertexCount,
     triangleCount: geometry.triangleCount,

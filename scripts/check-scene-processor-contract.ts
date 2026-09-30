@@ -37,15 +37,6 @@ if (operation !== "scene.normalize" && operation !== "scene.export.glb") {
 }
 
 const manifestPath = path.join(processorCheckout, ...manifestRelativePath.split("/"));
-const fetchProcess = Bun.spawn(["cargo", "fetch", "--manifest-path", manifestPath], {
-  cwd: processorCheckout,
-  stdout: "inherit",
-  stderr: "inherit",
-});
-if ((await fetchProcess.exited) !== 0) {
-  throw new Error("explicit processor dependency acquisition failed");
-}
-
 const prefixArguments = ["--quiet", "--offline", "--manifest-path", manifestPath];
 if (operation === "scene.export.glb") prefixArguments.push("--bin", "scene_export_glb");
 prefixArguments.push("--");

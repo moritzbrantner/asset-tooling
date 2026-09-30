@@ -1,3 +1,5 @@
+import type { CanonicalGlbSummary } from "./canonical-glb-validation.js";
+
 export const THREE_D_SCENE_MEDIA_TYPE = "application/vnd.moritzbrantner.three-d.scene+json";
 export const GLB_MEDIA_TYPE = "model/gltf-binary";
 export const THREE_D_SCENE_COORDINATE_SYSTEM = "right-handed-y-up";
@@ -7,18 +9,18 @@ export { parseCanonicalGlbBytes } from "./canonical-glb-validation.js";
 const SOURCE_UNITS = new Set(["meter", "centimeter", "millimeter"]);
 const UNIT_QUATERNION_TOLERANCE = 1.0e-4;
 
-function isPlainObject(value) {
+function isPlainObject(value: unknown): value is Record<string, unknown> {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
   const prototype = Object.getPrototypeOf(value);
   return prototype === Object.prototype || prototype === null;
 }
 
-function assertPlainObject(value, location) {
+function assertPlainObject(value: unknown, location: string): Record<string, unknown> {
   if (!isPlainObject(value)) throw new Error(`${location} must be a plain object`);
   return value;
 }
 
-function assertExactKeys(value, keys, location) {
+function assertExactKeys(value: unknown, keys: Set<string>, location: string): Record<string, unknown> {
   const object = assertPlainObject(value, location);
   for (const key of Object.keys(object)) {
     if (!keys.has(key)) throw new Error(`${location} contains unknown field '${key}'`);
@@ -29,7 +31,7 @@ function assertExactKeys(value, keys, location) {
   return object;
 }
 
-function assertAllowedKeys(value, allowed, required, location) {
+function assertAllowedKeys(value: unknown, allowed: Set<string>, required: Set<string>, location: string): Record<string, unknown> {
   const object = assertPlainObject(value, location);
   for (const key of Object.keys(object)) {
     if (!allowed.has(key)) throw new Error(`${location} contains unknown field '${key}'`);
@@ -40,14 +42,14 @@ function assertAllowedKeys(value, allowed, required, location) {
   return object;
 }
 
-function nonEmptyString(value, location) {
+function nonEmptyString(value: unknown, location: string): string {
   if (typeof value !== "string" || value.length === 0) {
     throw new Error(`${location} must be a non-empty string`);
   }
   return value;
 }
 
-function finiteF32(value, location) {
+function finiteF32(value: unknown, location: string): number {
   if (typeof value !== "number" || !Number.isFinite(value)) {
     throw new Error(`${location} must be a finite number`);
   }
@@ -58,25 +60,25 @@ function finiteF32(value, location) {
   return Object.is(normalized, -0) ? 0 : normalized;
 }
 
-function nonNegativeSafeInteger(value, location) {
-  if (!Number.isSafeInteger(value) || value < 0) {
+function nonNegativeSafeInteger(value: unknown, location: string): number {
+  if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) {
     throw new Error(`${location} must be a non-negative safe integer`);
   }
   return value;
 }
 
-function vector(value, width, location) {
+function vector(value: unknown, width: number, location: string): number[] {
   if (!Array.isArray(value) || value.length !== width) {
     throw new Error(`${location} must contain exactly ${width} finite f32 values`);
   }
   return value.map((component, index) => finiteF32(component, `${location}[${index}]`));
 }
 
-function compareCodeUnits(left, right) {
+function compareCodeUnits(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
 }
 
-function assertCanonicalPositiveZero(value, location) {
+function assertCanonicalPositiveZero(value: unknown, location: string): void {
   if (typeof value === "number") {
     if (Object.is(value, -0)) {
       throw new Error(`${location} must use positive zero in canonical output`);
@@ -94,7 +96,7 @@ function assertCanonicalPositiveZero(value, location) {
   }
 }
 
-function parseMesh(entry, index, location) {
+function parseMesh(entry: unknown, index: number, location: string) {
   const meshLocation = `${location}.meshes[${index}]`;
   const mesh = assertAllowedKeys(
     entry,
@@ -122,7 +124,7 @@ function parseMesh(entry, index, location) {
     return normalized;
   });
 
-  function attribute(name, width) {
+  function attribute(name: string, width: number): number[][] | undefined {
     if (!Object.hasOwn(mesh, name)) return undefined;
     const values = mesh[name];
     if (!Array.isArray(values) || values.length !== vertices.length) {
@@ -145,7 +147,7 @@ function parseMesh(entry, index, location) {
   };
 }
 
-function assertCanonicalVertexCompaction(mesh, location) {
+function assertCanonicalVertexCompaction(mesh: ReturnType<typeof parseMesh>, location: string): void {
   const referenced = new Set();
   let nextFirstUse = 0;
   for (const vertexIndex of mesh.indices) {
@@ -161,7 +163,7 @@ function assertCanonicalVertexCompaction(mesh, location) {
   }
 }
 
-function parseNode(entry, index, location) {
+function parseNode(entry: unknown, index: number, location: string) {
   const nodeLocation = `${location}.nodes[${index}]`;
   const node = assertExactKeys(
     entry,
@@ -180,25 +182,25 @@ function parseNode(entry, index, location) {
   return { id, parent, mesh, translation, rotation, scale };
 }
 
-function canonicalNodeOrder(nodes, location) {
-  const children = new Map(nodes.map((node) => [node.id, []]));
+function canonicalNodeOrder(nodes: ReturnType<typeof parseNode>[], location: string): string[] {
+  const children = new Map<string, string[]>(nodes.map((node) => [node.id, []]));
   const roots = [];
   for (const node of nodes) {
     if (node.parent === null) roots.push(node.id);
-    else children.get(node.parent).push(node.id);
+    else children.get(node.parent)!.push(node.id);
   }
   roots.sort(compareCodeUnits);
   for (const entries of children.values()) entries.sort(compareCodeUnits);
 
-  const order = [];
+  const order: string[] = [];
   const visiting = new Set();
   const visited = new Set();
-  function append(id) {
+  function append(id: string): void {
     if (visiting.has(id)) throw new Error(`${location} node hierarchy contains a cycle`);
     if (visited.has(id)) return;
     visiting.add(id);
     order.push(id);
-    for (const child of children.get(id)) append(child);
+    for (const child of children.get(id)!) append(child);
     visiting.delete(id);
     visited.add(id);
   }
@@ -209,7 +211,9 @@ function canonicalNodeOrder(nodes, location) {
   return order;
 }
 
-function quaternionHasCanonicalSign([x, y, z, w]) {
+function quaternionHasCanonicalSign(rotation: number[]): boolean {
+  // parseNode has validated a four-component quaternion.
+  const [x, y, z, w] = rotation as [number, number, number, number];
   if (w > 0) return true;
   if (w < 0) return false;
   if (x > 0) return true;
@@ -219,12 +223,12 @@ function quaternionHasCanonicalSign([x, y, z, w]) {
   return z >= 0;
 }
 
-export function parseThreeDSceneBytes(bytes, location, { requireCanonical = false } = {}) {
-  let value;
+export function parseThreeDSceneBytes(bytes: Buffer, location: string, { requireCanonical = false }: { requireCanonical?: boolean } = {}) {
+  let value: unknown;
   try {
     value = JSON.parse(bytes.toString("utf8"));
   } catch (error) {
-    throw new Error(`${location} is not valid JSON: ${error.message}`);
+    throw new Error(`${location} is not valid JSON: ${error instanceof Error ? error.message : String(error)}`);
   }
   const document = assertExactKeys(
     value,
@@ -238,7 +242,7 @@ export function parseThreeDSceneBytes(bytes, location, { requireCanonical = fals
       `${location}.coordinateSystem must be '${THREE_D_SCENE_COORDINATE_SYSTEM}'`,
     );
   }
-  if (!SOURCE_UNITS.has(document.unit)) {
+  if (typeof document.unit !== "string" || !SOURCE_UNITS.has(document.unit)) {
     throw new Error(`${location}.unit must be meter, centimeter, or millimeter`);
   }
   if (!Array.isArray(document.meshes)) throw new Error(`${location}.meshes must be an array`);
@@ -313,12 +317,14 @@ export function parseThreeDSceneBytes(bytes, location, { requireCanonical = fals
   };
 }
 
-function trueValue(value, location) {
+export type ThreeDSceneSummary = ReturnType<typeof parseThreeDSceneBytes>;
+
+function trueValue(value: unknown, location: string): true {
   if (value !== true) throw new Error(`${location} must be true`);
   return true;
 }
 
-export function normalizeSceneNormalizeObservations(value, source, output) {
+export function normalizeSceneNormalizeObservations(value: unknown, source: ThreeDSceneSummary, output: ThreeDSceneSummary) {
   const observations = assertExactKeys(
     value,
     new Set([
@@ -422,7 +428,7 @@ export function normalizeSceneNormalizeObservations(value, source, output) {
   };
 }
 
-export function normalizeSceneExportObservations(value, source, glb, byteLength) {
+export function normalizeSceneExportObservations(value: unknown, source: ThreeDSceneSummary, glb: CanonicalGlbSummary, byteLength: number) {
   const observations = assertExactKeys(
     value,
     new Set([

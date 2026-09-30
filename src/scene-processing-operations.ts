@@ -1,3 +1,12 @@
+import type {
+  AssetOperationBuildIdentity,
+  AssetOperationResult,
+  ReadonlyAssetOperationDescriptor,
+} from "./operations.js";
+
+type SceneInvocation = { parameters?: unknown; inputs?: unknown };
+type ProcessorContract = { operationId: string; processorId: string; protocol: string; codec: string };
+
 import { assetObjectPortablePath, resolveAssetObject, storeAssetObject } from "./asset-store.js";
 import { parseCanonicalGlbBytes } from "./canonical-glb-validation.js";
 import {
@@ -112,7 +121,7 @@ const EXPORT_PROCESSOR = Object.freeze({
   codec: EXPORT_PROCESSOR_CODEC,
 });
 
-function normalizeParameters(value, operationId) {
+function normalizeParameters(value: unknown, operationId: string): Record<string, never> {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     throw new Error(`${operationId} parameters must be a plain object`);
   }
@@ -128,13 +137,13 @@ function normalizeParameters(value, operationId) {
 }
 
 async function createBuildIdentity(
-  root,
-  operation,
-  parameters,
-  inputs,
-  processorValue,
-  processorIdentity,
-) {
+  root: string,
+  operation: ReadonlyAssetOperationDescriptor | undefined,
+  parameters: Record<string, never>,
+  inputs: unknown,
+  processorValue: unknown,
+  processorIdentity: ProcessorContract,
+): Promise<AssetOperationBuildIdentity> {
   const base = createAssetOperationBuildIdentity({
     operation,
     implementation: { id: processorIdentity.processorId, version: "unprobed" },
@@ -155,10 +164,10 @@ async function createBuildIdentity(
 }
 
 export async function createSceneNormalizeOperationBuildIdentity(
-  root,
-  { parameters: parameterValue = {}, inputs = {} } = {},
-  processorValue,
-) {
+  root: string,
+  { parameters: parameterValue = {}, inputs = {} }: SceneInvocation = {},
+  processorValue: unknown,
+): Promise<AssetOperationBuildIdentity> {
   return createBuildIdentity(
     root,
     SCENE_NORMALIZE_OPERATION,
@@ -170,10 +179,10 @@ export async function createSceneNormalizeOperationBuildIdentity(
 }
 
 export async function executeSceneNormalizeOperation(
-  root,
-  { parameters: parameterValue = {}, inputs = {} } = {},
-  processorValue,
-) {
+  root: string,
+  { parameters: parameterValue = {}, inputs = {} }: SceneInvocation = {},
+  processorValue: unknown,
+): Promise<AssetOperationResult> {
   const parameters = normalizeParameters(parameterValue, NORMALIZE_OPERATION_ID);
   const invocation = createAssetOperationBuildIdentity({
     operation: SCENE_NORMALIZE_OPERATION,
@@ -239,10 +248,10 @@ export async function executeSceneNormalizeOperation(
 }
 
 export async function createSceneExportGlbOperationBuildIdentity(
-  root,
-  { parameters: parameterValue = {}, inputs = {} } = {},
-  processorValue,
-) {
+  root: string,
+  { parameters: parameterValue = {}, inputs = {} }: SceneInvocation = {},
+  processorValue: unknown,
+): Promise<AssetOperationBuildIdentity> {
   return createBuildIdentity(
     root,
     SCENE_EXPORT_GLB_OPERATION,
@@ -254,10 +263,10 @@ export async function createSceneExportGlbOperationBuildIdentity(
 }
 
 export async function executeSceneExportGlbOperation(
-  root,
-  { parameters: parameterValue = {}, inputs = {} } = {},
-  processorValue,
-) {
+  root: string,
+  { parameters: parameterValue = {}, inputs = {} }: SceneInvocation = {},
+  processorValue: unknown,
+): Promise<AssetOperationResult> {
   const parameters = normalizeParameters(parameterValue, EXPORT_OPERATION_ID);
   const invocation = createAssetOperationBuildIdentity({
     operation: SCENE_EXPORT_GLB_OPERATION,

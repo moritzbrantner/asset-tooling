@@ -1,5 +1,15 @@
 # Traceable 3D processing
 
+## Canonical scene normalization and GLB export
+
+The `asset-tooling/operations/processing/scene` subpath publishes `scene.normalize@1` and `scene.export.glb@1`. Both consume a verified scene `AssetRef` with media type `application/vnd.moritzbrantner.three-d.scene+json` and empty parameters. The declared scene transport contains named triangle meshes, optional aligned normals/tangents/UV/colors, parent-linked nodes, local transforms, a right-handed Y-up coordinate system, and meter/centimeter/millimeter units.
+
+The accepted `3d-lab` revision in `stability/processors.json` owns the algorithms. Normalization produces meter-space scenes with stable mesh and parent-before-child node ordering, compact first-use vertex indexing, canonical quaternion signs, and positive zero. Export normalizes before producing deterministic GLB 2.0 bytes. Validation checks binary accessor ranges, actual index and floating-point payloads, triangle topology, local transforms, hierarchy roots, and observations against the source and output. Each output has a new content-addressed identity and records its source SHA-256; source masters remain unchanged.
+
+Consumers supply the explicit pinned processor declaration to the build-identity and execution helpers. Dependency acquisition happens before execution; Cargo runs offline. The ordinary operation descriptors also project through the generic workflow bridge. Stability exercises both real pinned processors, and deterministic fixtures cover repeat execution and malformed canonical output.
+
+This boundary consumes the renderer-neutral scene transport. Importing arbitrary GLB sources, preserving materials/skins/animations, and broader structured GLB analysis remain the scope of issue #104.
+
 3D asset processing must be reproducible and inspectable for the same reason generation is: a derived mesh is an artifact, not an opaque editor side effect.
 
 ## Boundary
