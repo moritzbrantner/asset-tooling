@@ -19,6 +19,8 @@
     "noUnusedParameters": true
   },
   "include": [
+    "scripts/blender-installation.ts",
+    "test/blender-installation.test.ts",
     "scripts/check-package-shape.ts",
     "scripts/check-operation-registry-types.ts",
     "src/canonical.ts",
