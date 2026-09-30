@@ -56,7 +56,8 @@
     "./operations/processing/scene": "./src/scene-processing-operations.ts",
     "./operations/processing/gltf": "./src/gltf-import-operations.ts",
     "./operations/processing/gltf-production": "./src/gltf-production-operations.ts",
-    "./recipes/surface-textures": "./src/surface-texture-recipes.ts"
+    "./recipes/surface-textures": "./src/surface-texture-recipes.ts",
+    "./recipes/rocks": "./src/rock-recipes.ts"
   },
   "bin": {
     "asset-tooling": "./src/entry.ts"
