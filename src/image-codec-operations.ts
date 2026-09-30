@@ -121,6 +121,7 @@ function runTool(executable, args, { input, text = false, label }) {
     input,
     encoding: text ? "utf8" : undefined,
     maxBuffer: MAX_OUTPUT_BYTES,
+    timeout: 30_000,
     windowsHide: true,
   });
   if (result.error) {
@@ -159,7 +160,8 @@ async function implementationIdentity(operation, runtime) {
     implementation.ffprobe = toolVersion(normalizedRuntime.ffprobe, "ffprobe");
     implementation.algorithm = "ffprobe-dimensions-ffmpeg-rgba8-v1";
   } else {
-    implementation.algorithm = "ffmpeg-rgba8-png-image2pipe-v1";
+    implementation.version = "2";
+    implementation.algorithm = "ffmpeg-rgba8-square-pixel-png-image2pipe-v2";
   }
   return { implementation, runtime: normalizedRuntime };
 }
@@ -354,6 +356,8 @@ export async function executeImageEncodePngOperation(
       "pipe:0",
       "-frames:v",
       "1",
+      "-vf",
+      "setsar=1",
       "-c:v",
       "png",
       "-compression_level",

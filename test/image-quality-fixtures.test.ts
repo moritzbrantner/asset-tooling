@@ -9,6 +9,7 @@ import { resolveAssetObject, storeAssetObject } from "../src/asset-store.js";
 import {
   IMAGE_CODEC_OPERATIONS,
   createImageDecodeOperationBuildIdentity,
+  createImageEncodePngOperationBuildIdentity,
   executeImageDecodeOperation,
   executeImageEncodePngOperation,
 } from "../src/image-codec-operations.js";
@@ -45,8 +46,8 @@ async function workspaceWithImage() {
 }
 
 function hasFfmpeg() {
-  return spawnSync("ffmpeg", ["-version"], { windowsHide: true }).status === 0 &&
-    spawnSync("ffprobe", ["-version"], { windowsHide: true }).status === 0;
+  return spawnSync("ffmpeg", ["-version"], { windowsHide: true, timeout: 30_000 }).status === 0 &&
+    spawnSync("ffprobe", ["-version"], { windowsHide: true, timeout: 30_000 }).status === 0;
 }
 
 test("image codec registry exposes explicit standard decode and PNG encode boundaries", () => {
@@ -135,11 +136,25 @@ test("image perturbation recipes preserve step-by-step content-addressed lineage
 if (hasFfmpeg()) {
   test("FFmpeg codec operations round-trip canonical pixels through deterministic PNG", async () => {
     const { root, source, pixels } = await workspaceWithImage();
+    const build = await createImageEncodePngOperationBuildIdentity(root, {
+      parameters: { compressionLevel: 9 }, inputs: { source },
+    });
+    assert.equal(build.operation.version, "1", "the public invocation remains compatible");
+    assert.equal(build.implementation.version, "2", "square-pixel encoding has a new implementation identity");
     const encoded = await executeImageEncodePngOperation(root, {
       parameters: { compressionLevel: 9 },
       inputs: { source },
     });
     assert.equal(encoded.outputs.output.mediaType, "image/png");
+    const png = await resolveAssetObject(root, encoded.outputs.output);
+    for (let offset = 8; offset < png.length;) {
+      const length = png.readUInt32BE(offset);
+      if (png.toString("ascii", offset + 4, offset + 8) === "pHYs") {
+        const x = png.readUInt32BE(offset + 8), y = png.readUInt32BE(offset + 12);
+        assert.ok(x > 0 && x === y, "canonical square pixels must not declare a zero/non-square PNG aspect");
+      }
+      offset += length + 12;
+    }
 
     const decoded = await executeImageDecodeOperation(root, {
       inputs: { source: encoded.outputs.output },
