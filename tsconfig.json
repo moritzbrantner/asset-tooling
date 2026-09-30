@@ -1,0 +1,40 @@
+{
+  "compilerOptions": {
+    "lib": ["ESNext", "DOM"],
+    "target": "ESNext",
+    "module": "Preserve",
+    "moduleDetection": "force",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "types": ["bun"],
+    "noEmit": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true
+  },
+  "include": [
+    "scripts/blender-installation.ts",
+    "test/blender-installation.test.ts",
+    "scripts/check-package-shape.ts",
+    "scripts/check-operation-registry-types.ts",
+    "src/canonical.ts",
+    "src/hash.ts",
+    "src/environment.ts",
+    "src/tool.ts",
+    "src/operations.ts",
+    "src/backend-contract.ts",
+    "src/schema.ts",
+    "src/asset-store.ts",
+    "src/cache.ts",
+    "test/backend-contract.test.ts",
+    "test/schema-contract.test.ts",
+    "test/environment-ordering.test.ts",
+    "test/tool-identity.test.ts"
+  ]
+}

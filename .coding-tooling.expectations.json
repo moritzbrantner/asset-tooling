@@ -6,10 +6,10 @@
     {
       "id": "VERIFY-CLI-ENTRY",
       "version": 1,
-      "expectation": "javascript-source-test",
-      "subject": "src/entry.js",
+      "expectation": "typescript-source-test",
+      "subject": "src/entry.ts",
       "command": ["bun", "run", "test"],
-      "reason": "The repository test suite includes behavioral CLI coverage in test/public-contract.test.js, which executes src/entry.js as the package entrypoint and verifies exit-code and usage behavior."
+      "reason": "The repository test suite includes behavioral CLI coverage in test/public-contract.test.ts, which executes src/entry.ts as the package entrypoint and verifies exit-code and usage behavior."
     }
   ],
   "invariants": [],

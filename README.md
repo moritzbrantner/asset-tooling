@@ -17,20 +17,25 @@ The package remains `0.1.0` until a stable release is intentionally cut; stabili
 The generation architecture supports the same provenance model across:
 
 - deterministic/seeded procedural generators;
-- local model-backed generators such as Stable Diffusion and TripoSR;
+- consumer-owned Blender scripts run in an exactly pinned Blender release (`external.blender.script`, see `docs/blender-script.md`);
+- local model-backed generators such as Stable Diffusion, TRELLIS.2, Stable Fast 3D, and TripoSR;
 - utility backends used to prove contracts.
 
-`builtin.procedural.svg-scatter` is the deterministic procedural reference backend. `model.stable-diffusion.diffusers` consumes a hash-pinned local Diffusers pipeline bundle. `model.triposr` consumes a hash-pinned bundle containing TripoSR source, weights/config, and its local DINO image-tokenizer model.
+`builtin.procedural.svg-scatter` is the deterministic procedural reference backend. `model.stable-diffusion.diffusers` consumes a hash-pinned local Diffusers pipeline bundle. `model.trellis2` consumes a prepared RGBA image plus separately pinned TRELLIS.2 source, 4B model, legacy sparse decoder, and DINOv3 encoder bundles and emits a PBR GLB. `model.stable-fast-3d` remains the lighter textured image-to-3D path with separately pinned source/model/DINOv2 bundles, while `model.triposr` is the lower-resource geometry fallback.
 
-Model generation is offline and fail-closed: model acquisition is separate from generation, and undeclared cache/network dependencies are not accepted as reproducibility evidence. A seed is an input, not proof of deterministic output.
+Model generation is offline and fail-closed: model acquisition is separate from generation, and undeclared cache/network dependencies are not accepted as reproducibility evidence. A seed is an input, not proof of deterministic output. For local game-asset reconstruction, TRELLIS.2 is the high-fidelity PBR path when its Linux/CUDA runtime fits; Stable Fast 3D is the lighter textured path and TripoSR remains the lower-resource fallback.
+
+For unattended local batches, choose either the Stable Fast 3D example or the TRELLIS.2 example, point it at the desired Markdown queue, run `bun run weekend:3d:doctor`, then start `bun run weekend:3d`. The same sequential runner checkpoints each expensive stage, pins only the selected reconstruction backend, and resumes verified work after interruption; see `docs/local-3d-weekend-batch.md`.
 
 For acquisition, `scripts/acquire-huggingface-model.py` resolves a requested Hugging Face revision to an immutable commit, downloads that exact complete snapshot, records license and per-file evidence, and emits a deterministic hash-pinned ZIP plus an independently verifiable receipt. The manually dispatched `Hugging Face model acquisition evidence` workflow provides the same boundary in hosted CI without promoting model bytes automatically.
 
-See `docs/generation.md`, `docs/model-acquisition.md`, `docs/stable-diffusion.md`, `docs/triposr.md`, and `docs/cache.md`.
+For zero-Python browser use, the same static 3D studio runs locally and on GitHub Pages. Run `bun run studio` from a checkout or open `/generate/` on the deployed Pages site. **Prepare model** is an explicit acquisition step: it downloads the immutable, hash-pinned Stable Fast 3D WebGPU artifacts, re-verifies cached bytes, and then enables local WebGPU generation. Source images and generated GLBs stay in the browser. TRELLIS.2 remains local CUDA-only and is intentionally not exposed by Pages. See `docs/browser-3d-studio.md`.
+
+See `docs/generation.md`, `docs/model-acquisition.md`, `docs/stable-diffusion.md`, `docs/trellis2.md`, `docs/stable-fast-3d.md`, `docs/triposr.md`, and `docs/cache.md`.
 
 ## Processing
 
-The versioned 3D processing receipt contracts cover mesh simplification, source-based LOD chains, animation resampling, and animation reduction while keeping the authoritative algorithms in their domain repositories. Cross-field validators check request/result consistency and replay evidence without copying those algorithms into `asset-tooling`.
+The versioned 3D processing receipt contracts cover mesh simplification, source-based LOD chains, animation resampling, animation reduction, and production humanoid rig validation while keeping the authoritative algorithms and semantics in their domain repositories. Cross-field validators check request/result consistency and replay evidence without copying those algorithms into `asset-tooling`.
 
 Generated artifacts feed processing through a content-addressed handoff: the processing receipt input SHA-256 is exactly the generation receipt output SHA-256. The supplemental handoff lineage records which generation receipt supplied those bytes without modifying the published processing receipt v1/v2 schemas.
 

@@ -12,19 +12,19 @@ jobs:
   local-contract:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
-          bun-version: 1.4.0
-      - name: Run local stability gate
-        run: bun run stability:check
+          bun-version: 1.4.2
+      - name: Validate stability metadata
+        run: bun run stability:contract
 
   consumer-matrix:
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.matrix.outputs.matrix }}
     steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
       - id: matrix
         name: Load accepted consumers
         shell: bash
@@ -39,11 +39,11 @@ jobs:
       matrix: ${{ fromJson(needs.consumer-matrix.outputs.matrix) }}
     steps:
       - name: Checkout current asset-tooling
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           path: asset-tooling
       - name: Checkout accepted consumer
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           repository: ${{ matrix.repository }}
           ref: ${{ matrix.commit }}
@@ -51,12 +51,12 @@ jobs:
           persist-credentials: false
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
-          bun-version: 1.4.0
+          bun-version: 1.4.2
       - name: Validate current head against accepted consumer
         shell: bash
         run: |
           spec="consumer/${{ matrix.specPath }}"
-          tool="asset-tooling/src/entry.js"
+          tool="asset-tooling/src/entry.ts"
           bun "$tool" validate "$spec"
           bun "$tool" generate "$spec" --receipt .asset-tooling/stability.receipt.json
           bun "$tool" verify "$spec" --receipt .asset-tooling/stability.receipt.json
@@ -66,7 +66,7 @@ jobs:
     outputs:
       matrix: ${{ steps.matrix.outputs.matrix }}
     steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
       - id: matrix
         name: Load accepted processors
         shell: bash
@@ -81,11 +81,11 @@ jobs:
       matrix: ${{ fromJson(needs.processor-matrix.outputs.matrix) }}
     steps:
       - name: Checkout current asset-tooling
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           path: asset-tooling
       - name: Checkout accepted processor
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           repository: ${{ matrix.repository }}
           ref: ${{ matrix.commit }}
@@ -93,7 +93,7 @@ jobs:
           persist-credentials: false
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
-          bun-version: 1.4.0
+          bun-version: 1.4.2
       - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
         with:
           toolchain: 1.98.1
@@ -110,10 +110,10 @@ jobs:
       - name: Validate current head against accepted processor
         shell: bash
         run: |
-          script="asset-tooling/scripts/check-processor-contract.js"
+          script="asset-tooling/scripts/check-processor-contract.ts"
           case "${{ matrix.operation }}" in
             scene.normalize|scene.export.glb)
-              script="asset-tooling/scripts/check-scene-processor-contract.js"
+              script="asset-tooling/scripts/check-scene-processor-contract.ts"
               ;;
           esac
           bun "$script" \
@@ -127,7 +127,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout current asset-tooling
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           path: asset-tooling
       - id: stack
@@ -143,14 +143,14 @@ jobs:
           console.log(`runner_commit=${stack.runner.commit}`);
           NODE
       - name: Checkout accepted workflow-editor
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           repository: ${{ steps.stack.outputs.editor_repository }}
           ref: ${{ steps.stack.outputs.editor_commit }}
           path: workflow-editor
           persist-credentials: false
       - name: Checkout accepted workflow-runner
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           repository: ${{ steps.stack.outputs.runner_repository }}
           ref: ${{ steps.stack.outputs.runner_commit }}
@@ -158,14 +158,14 @@ jobs:
           persist-credentials: false
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
-          bun-version: 1.4.0
+          bun-version: 1.4.2
       - name: Install workflow-editor dependencies from lockfile
         working-directory: workflow-editor
         run: bun install --frozen-lockfile
       - name: Validate descriptor/editor/runner bridge
         shell: bash
         run: |
-          bun asset-tooling/scripts/check-workflow-bridge.js \
+          bun asset-tooling/scripts/check-workflow-bridge.ts \
             "$GITHUB_WORKSPACE/workflow-editor" \
             "$GITHUB_WORKSPACE/workflow-runner" \
             "${{ steps.stack.outputs.editor_commit }}" \

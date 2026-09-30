@@ -37,6 +37,13 @@
       "operation": "mesh.skinning.validate"
     },
     {
+      "id": "three-d-humanoid-validate",
+      "repository": "moritzbrantner/3d-lab",
+      "commit": "6b21a02243713a94ac05fcace18b800f352a3627",
+      "manifestPath": "examples/asset-tooling-humanoid-adapter/Cargo.toml",
+      "operation": "rig.humanoid.validate"
+    },
+    {
       "id": "three-d-scene-normalize",
       "repository": "moritzbrantner/3d-lab",
       "commit": "2af3ef54bb515c8f5611d4f7d39d484202a42784",
