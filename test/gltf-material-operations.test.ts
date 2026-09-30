@@ -111,7 +111,10 @@ test("material-only changes retain geometry across cold stores and explicit alph
 test("invalid bindings, controls and tampered inputs fail before derived objects are stored", async t => {
   const { root, source, baseColor, invocation } = await workspace(t);
   const before = (await readdir(root, { recursive: true })).sort();
-  for (const relativeRoot of ["", ".", path.relative(process.cwd(), root)]) {
+  // Windows checkout and OS temp may be on different drives; relative() then returns an absolute path.
+  const relativeStore = path.relative(path.dirname(root), root);
+  assert.equal(path.isAbsolute(relativeStore), false);
+  for (const relativeRoot of ["", ".", relativeStore]) {
     await assert.rejects(createGltfBaseColorOperationBuildIdentity(relativeRoot, invocation), /root must be an absolute path/);
     await assert.rejects(executeGltfBaseColorOperation(relativeRoot, invocation), /root must be an absolute path/);
   }
