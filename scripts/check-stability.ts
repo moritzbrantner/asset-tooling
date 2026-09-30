@@ -61,6 +61,14 @@ const expectedProcessors = new Map([
     },
   ],
   [
+    "three-d-humanoid-validate",
+    {
+      repository: "moritzbrantner/3d-lab",
+      manifestPath: "examples/asset-tooling-humanoid-adapter/Cargo.toml",
+      operation: "rig.humanoid.validate",
+    },
+  ],
+  [
     "three-d-rigged-collision-fit",
     {
       repository: "moritzbrantner/3d-lab",

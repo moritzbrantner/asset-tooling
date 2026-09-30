@@ -24,6 +24,7 @@ The initial 3D processing vocabulary is intentionally small:
 - `mesh.lod_chain`: derive an ordered family of levels from the same source mesh.
 - `animation.resample`: bake animation channels onto an explicit time grid.
 - `animation.reduce`: remove redundant animation keys while staying within explicit error tolerances.
+- `rig.humanoid.validate`: validate a production humanoid skeleton/rest-pose package, semantic bone mapping, Root/Hips separation, and standard attachment sockets through the authoritative `three-d-animation` contract.
 
 Runtime playback, interpolation, cross-fading, renderer LOD selection, and physics interpolation are not asset-processing operations. They belong to their runtime owners and should not be smuggled into an asset receipt.
 
