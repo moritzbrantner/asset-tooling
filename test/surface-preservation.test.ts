@@ -4,6 +4,7 @@ import { mkdtemp, readFile, readdir, rm, stat, writeFile } from "node:fs/promise
 import os from "node:os";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { assetObjectPortablePath, resolveAssetObject, storeAssetObject } from "../src/asset-store.js";
 import { canonicalJson } from "../src/canonical.js";
 import { createAssetRef, type AssetRef } from "../src/operations.js";
@@ -76,7 +77,7 @@ test("preserved height verifies its noise blobs without replaying their operatio
     try { await executeSurfaceTextureRecipe(process.argv[1], palette); }
     catch (error) { if (error.message !== "preserved noise must not execute") throw error; blocked = true; }
     if (!blocked) throw new Error("noise spy did not intercept full generation");
-  `, root, snapshot], { cwd: process.cwd(), encoding: "utf8", timeout: 30_000 });
+  `, root, snapshot], { cwd: path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."), encoding: "utf8", timeout: 30_000 });
   assert.equal(child.status, 0, child.error?.message ?? child.stderr);
   const after = await inventory(root, accepted.outputs.height!);
   for (const entry of before) assert.deepEqual(after.find(x => x[0] === entry[0]), entry);
