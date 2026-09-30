@@ -89,6 +89,17 @@ export async function prepareRenderDerivativeRecipe(root: string, { assetId, sou
   if (!/^\d+\.\d+\.\d+$/.test(blenderVersion)) throw new Error("render Blender version must be exact");
   if (!scriptPath.endsWith(".py") || !sourcePath.endsWith(".glb") || !outputPath.endsWith(".png")) throw new Error("render recipe requires Python, GLB and PNG paths");
   const checked = await loadCheckedGltf(root, GLTF_IMPORT_OPERATION, { resourceUris: [] }, { source }, false);
+  // Blender imports every embedded texture, including those on unselected nodes.
+  // Inspect headers before its importer allocates decoded image storage.
+  let texturePixels = 0;
+  for (const texture of checked.document.getRoot().listTextures()) {
+    const size = texture.getSize();
+    if (!size || size.some(dimension => !Number.isSafeInteger(dimension) || dimension < 1 || dimension > 4096)) {
+      throw new Error("render texture exceeds dimension budget (1–4096 per axis)");
+    }
+    texturePixels += size[0] * size[1];
+    if (texturePixels > 16777216) throw new Error("render textures exceed total decoded pixel budget (16777216)");
+  }
   const summary = gltfSummary(checked.document);
   if (summary.triangleCount > 1000000 || summary.nodeCount > 4096) throw new Error("render source exceeds geometry/node budget");
   if (checked.document.getRoot().listScenes().length !== 1) throw new Error("render derivative requires exactly one source scene");

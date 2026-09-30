@@ -4,7 +4,8 @@ import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
-import { storeAssetObject } from "../src/asset-store.js";
+import { deflateSync } from "node:zlib";
+import { resolveAssetObject, storeAssetObject } from "../src/asset-store.js";
 import { generateAsset, verifyAsset } from "../src/core.js";
 import { canonicalJson } from "../src/canonical.js";
 import { normalizeRenderDerivativeParameters, prepareRenderDerivativeRecipe, readRenderDerivativeRecipeSource, RENDER_DERIVATIVE_PRESETS } from "../src/render-derivative-recipes.js";
@@ -15,24 +16,35 @@ const front = { ...RENDER_DERIVATIVE_PRESETS.icon, width: 81, height: 49, viewDi
   selection: { type: "nodes", names: ["plane"] }, samples: 8 };
 
 // Independently authored GLB: one 2x1 quad and a distant duplicate. No production writer oracle.
-function quadGlb(change: Record<string, unknown> = {}) {
+function quadGlb(change: Record<string, unknown> = {}, images: Buffer[] = []) {
   const binary = Buffer.alloc(108);
   [-1, -.5, 0, 1, -.5, 0, 1, .5, 0, -1, .5, 0, ...Array.from({ length: 4 }, () => [0, 0, 1]).flat()]
     .forEach((value, i) => binary.writeFloatLE(value, i * 4));
   [0, 1, 2, 0, 2, 3].forEach((value, i) => binary.writeUInt16LE(value, 96 + i * 2));
+  const imageViews: { buffer: number; byteOffset: number; byteLength: number }[] = [];
+  const chunks = [binary];
+  let offset = binary.length;
+  for (const bytes of images) {
+    imageViews.push({ buffer: 0, byteOffset: offset, byteLength: bytes.length });
+    const padding = Buffer.alloc((4 - bytes.length % 4) % 4);
+    chunks.push(bytes, padding); offset += bytes.length + padding.length;
+  }
+  const payload = Buffer.concat(chunks);
   const document = { asset: { version: "2.0" }, scene: 0, scenes: [{ nodes: [0, 1] }],
     nodes: [{ name: "plane", mesh: 0, translation: [2, 3, 4] }, { name: "other", mesh: 0, translation: [10, 3, 4] }],
     meshes: [{ primitives: [{ attributes: { POSITION: 0, NORMAL: 1 }, indices: 2, material: 0 }] }],
     materials: [{ pbrMetallicRoughness: { baseColorFactor: [.25, .5, .75, 1], metallicFactor: 0, roughnessFactor: 1 }, doubleSided: true }],
-    buffers: [{ byteLength: binary.length }], bufferViews: [{ buffer: 0, byteOffset: 0, byteLength: 48 }, { buffer: 0, byteOffset: 48, byteLength: 48 }, { buffer: 0, byteOffset: 96, byteLength: 12 }],
+    buffers: [{ byteLength: payload.length }], bufferViews: [{ buffer: 0, byteOffset: 0, byteLength: 48 }, { buffer: 0, byteOffset: 48, byteLength: 48 }, { buffer: 0, byteOffset: 96, byteLength: 12 }, ...imageViews],
     accessors: [{ bufferView: 0, componentType: 5126, count: 4, type: "VEC3", min: [-1, -.5, 0], max: [1, .5, 0] },
-      { bufferView: 1, componentType: 5126, count: 4, type: "VEC3" }, { bufferView: 2, componentType: 5123, count: 6, type: "SCALAR" }], ...change };
+      { bufferView: 1, componentType: 5126, count: 4, type: "VEC3" }, { bufferView: 2, componentType: 5123, count: 6, type: "SCALAR" }],
+    ...(images.length ? { images: images.map((_, i) => ({ bufferView: 3 + i, mimeType: "image/png" })),
+      textures: images.map((_, source) => ({ source })) } : {}), ...change };
   const json = Buffer.from(JSON.stringify(document));
   const padded = Buffer.concat([json, Buffer.alloc((4 - json.length % 4) % 4, 32)]);
-  const header = Buffer.alloc(20); header.write("glTF"); header.writeUInt32LE(2, 4); header.writeUInt32LE(28 + padded.length + binary.length, 8);
+  const header = Buffer.alloc(20); header.write("glTF"); header.writeUInt32LE(2, 4); header.writeUInt32LE(28 + padded.length + payload.length, 8);
   header.writeUInt32LE(padded.length, 12); header.writeUInt32LE(0x4e4f534a, 16);
-  const binHeader = Buffer.alloc(8); binHeader.writeUInt32LE(binary.length); binHeader.writeUInt32LE(0x004e4942, 4);
-  return Buffer.concat([header, padded, binHeader, binary]);
+  const binHeader = Buffer.alloc(8); binHeader.writeUInt32LE(payload.length); binHeader.writeUInt32LE(0x004e4942, 4);
+  return Buffer.concat([header, padded, binHeader, payload]);
 }
 async function workspace(t: TestContext, bytes = quadGlb()) {
   const root = await mkdtemp(path.join(os.tmpdir(), "asset-render-"));
@@ -49,6 +61,42 @@ async function prepare(t: TestContext, parameters: unknown = front, bytes = quad
   await writeFile(specPath, canonicalJson(prepared.spec));
   return { root, source, prepared, specPath };
 }
+
+// Independent valid, highly compressible RGBA PNGs. No production image encoder/Blender oracle.
+function png(width: number, height: number, firstRed = 0) {
+  function chunk(type: string, data: Buffer) {
+    const body = Buffer.concat([Buffer.from(type), data]);
+    let crc = 0xffffffff;
+    for (const byte of body) {
+      crc ^= byte;
+      for (let bit = 0; bit < 8; bit++) crc = (crc >>> 1) ^ ((crc & 1) ? 0xedb88320 : 0);
+    }
+    const header = Buffer.alloc(4), tail = Buffer.alloc(4);
+    header.writeUInt32BE(data.length); tail.writeUInt32BE((crc ^ 0xffffffff) >>> 0);
+    return Buffer.concat([header, body, tail]);
+  }
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(width); ihdr.writeUInt32BE(height, 4); ihdr[8] = 8; ihdr[9] = 6;
+  const raw = Buffer.alloc((width * 4 + 1) * height); raw[1] = firstRed;
+  return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk("IHDR", ihdr),
+    chunk("IDAT", deflateSync(raw)), chunk("IEND", Buffer.alloc(0))]);
+}
+
+test("render preflight bounds each embedded texture and total decoded pixels before Blender", async t => {
+  for (const images of [[png(8192, 1)], [png(4096, 2049), png(4096, 2049, 17)]]) {
+    const bytes = quadGlb({}, images);
+    const { root, source } = await workspace(t, bytes);
+    assert.ok(source.byteLength < 1024 * 1024, "compressed transport is small despite excessive decoded dimensions");
+    await assert.rejects(prepareRenderDerivativeRecipe(root, { assetId: "test.texture-budget", source, parameters: front,
+      scriptSha256: renderer.sha256, blenderVersion: renderer.blenderVersion }), /texture.*budget/);
+    assert.deepEqual(await resolveAssetObject(root, source), bytes);
+  }
+  const { root, source } = await workspace(t, quadGlb({}, [png(4096, 4096)]));
+  const prepared = await prepareRenderDerivativeRecipe(root, { assetId: "test.texture-budget-boundary", source,
+    parameters: front, scriptSha256: renderer.sha256, blenderVersion: renderer.blenderVersion });
+  assert.equal(prepared.sourceSummary.textureCount, 1);
+  assert.deepEqual(prepared.sourceBytes, await resolveAssetObject(root, source));
+});
 
 test("render recipe pins validated source/script bytes and rejects incompatible camera/selection/budgets", async t => {
   const { source, prepared } = await prepare(t);
