@@ -41,10 +41,12 @@ jobs:
           bun-version: 1.4.2
       - name: Install pinned Blender
         run: echo "ASSET_TOOLING_BLENDER=$(bun scripts/install-blender.ts "$RUNNER_TEMP/blender")" >> "$GITHUB_ENV"
+      - name: Install image inspection codec
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
       - name: Blender script backend round trips
         run: |
           bun install --frozen-lockfile
-          bun test test/blender-script.test.ts test/gltf-production-operations.test.ts test/rock-recipes.test.ts
+          bun test test/blender-script.test.ts test/gltf-production-operations.test.ts test/rock-recipes.test.ts test/render-derivative-recipes.test.ts
 
   canonical-storage:
     runs-on: ubuntu-latest

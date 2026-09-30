@@ -114,3 +114,5 @@ A pinned Blender [rock recipe](docs/rock-recipes.md) produces grounded rounded, 
 See [deterministic sprite atlases](docs/sprite-atlases.md) for selected-image packing, trim/pivot metadata and the actual PNG puzzle-art fixture.
 
 [Static GLB material finishing](docs/gltf-materials.md) applies generated PNG colors to existing named slots. Run `bun examples/rock-materials/build.ts` after the rock master example to inspect gray/warm families without regenerating geometry.
+
+[Static GLB render derivatives](docs/render-derivatives.md) declare transparent icons and thumbnails through the pinned Blender backend, preserving source identity and camera/framing evidence.
