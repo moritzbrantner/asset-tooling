@@ -354,13 +354,18 @@ export async function createHumanoidValidateOperationBuildIdentity(
   processorValue,
 ) {
   const parameters = normalizeParameters(invocation.parameters);
-  const inputs = { source: invocation.inputs.source };
+  const normalizedInvocation = createAssetOperationBuildIdentity({
+    operation: HUMANOID_VALIDATE_OPERATION,
+    implementation: { id: PROCESSOR_ID, version: "unprobed" },
+    parameters,
+    inputs: invocation.inputs,
+  });
   const identity = await processorIdentity(root, processorValue);
   return createAssetOperationBuildIdentity({
     operation: HUMANOID_VALIDATE_OPERATION,
     implementation: identity.implementation,
     parameters,
-    inputs,
+    inputs: normalizedInvocation.inputs,
   });
 }
 

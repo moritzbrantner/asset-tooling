@@ -166,6 +166,19 @@ test("humanoid build identity binds exact processor source and production algori
   assert.match(identity.implementation.source.sourceSha256, /^[0-9a-f]{64}$/);
 });
 
+test("humanoid build identity rejects unknown ports before probing a processor", async () => {
+  const root = await workspace();
+  const source = await storedSource(root);
+  await assert.rejects(
+    () => createHumanoidValidateOperationBuildIdentity(
+      root,
+      { parameters: {}, inputs: { source, extra: source } },
+      { ...PROCESSOR, executable: "missing-humanoid-processor" },
+    ),
+    /unknown port 'extra'/,
+  );
+});
+
 test("humanoid validation is idempotent and records reusable rig evidence", async () => {
   const root = await workspace();
   const source = await storedSource(root);
