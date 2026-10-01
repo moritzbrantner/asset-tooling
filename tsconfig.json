@@ -24,6 +24,9 @@
     "noUnusedParameters": true
   },
   "include": [
+    "examples/wheat/build.ts",
+    "src/wheat-recipes.ts",
+    "test/wheat-recipes.test.ts",
     "src/transition-tile-recipes.ts",
     "test/transition-tile-recipes.test.ts",
     "examples/transition-tiles/build.ts",
