@@ -24,6 +24,10 @@
     "noUnusedParameters": true
   },
   "include": [
+    "examples/leaf-artwork/build.ts",
+    "examples/leaf-artwork/apply-to-tree.ts",
+    "src/leaf-artwork-recipes.ts",
+    "test/leaf-artwork-recipes.test.ts",
     "src/procedural-image.ts",
     "test/tilled-soil.test.ts",
     "examples/tilled-soil/build.ts",
