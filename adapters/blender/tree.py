@@ -118,6 +118,10 @@ def generate(output_path, arguments, inputs):
             for name, color in [("bark", (.20, .09, .03, 1)), ("foliage", (.16, .30, .06, 1))]:
                 material = bpy.data.materials.new("tree-" + name)
                 material.diffuse_color = color
+                # Blender 5.2 initializes nodes by default; earlier declared releases
+                # require activation. Avoid its deprecated setter when already enabled.
+                if material.node_tree is None:
+                    material.use_nodes = True
                 material.node_tree.nodes.get("Principled BSDF").inputs["Base Color"].default_value = color
                 material.node_tree.nodes.get("Principled BSDF").inputs["Roughness"].default_value = .9
                 materials[name] = material
