@@ -10,7 +10,7 @@ import { createTreeAssetSpec, TREE_PRESETS, SAPLING_TREE_SOURCE, readTreeRecipeS
 
 type Bone = { id: string; parent: string | null; head: number[]; tail: number[] };
 type TreeEvidence = { source: { sha256: string }; wind: string; splines: number;
-  componentGeometrySha256: Record<string, string>; branchHierarchy: Bone[] };
+  componentGeometrySha256: Record<string, string>; componentCounts: Record<string, { vertices: number; triangles: number }>; branchHierarchy: Bone[] };
 // The legacy core is outside the incremental strict project. This fixture bridge types
 // only the returned evidence exercised below; generation still crosses the public API.
 const { generateAsset, verifyAsset }: {
@@ -34,6 +34,7 @@ test("tree recipe pins its authoritative offline generator and complete explicit
 });
 test("tree recipes reject malformed controls and unbounded work before invocation", () => {
   for (const change of [{ height: 0 }, { height: Infinity }, { seed: "-1" }, { seed: "2147483648" },
+    { seed: "133\n" }, { seed: "133\r" }, { seed: "133\u2028" }, { seed: "133\u2029" }, { seed: "000" }, { seed: "+1" }, { seed: "1.0" },
     { primaryBranches: 33 }, { secondaryBranches: 9 }, { levels: 4 }, { foliageDensity: 513 },
     { trunkTaper: -1 }, { branchAngle: NaN }, { component: "wind" }, { maxTriangles: 1000001 }, { extra: true }]) {
     assert.throws(() => spec({ ...TREE_PRESETS.broadleaf, ...change }));
@@ -53,6 +54,7 @@ test("actual Sapling components have bounded grounded geometry, native hierarchy
   await writeFile(path.join(root, "sapling.zip"), archiveBytes);
   const specPath = path.join(root, "asset.json");
   const outputPath = path.join(root, "tree.glb");
+  let broadleafGeometry: unknown;
   for (const parameters of Object.values(TREE_PRESETS)) {
     let composedHashes: unknown;
     for (const component of ["composed", "trunk", "branches", "foliage"] as const) {
@@ -102,7 +104,10 @@ test("actual Sapling components have bounded grounded geometry, native hierarchy
       assert.equal(observations.source.sha256, SAPLING_TREE_SOURCE.sha256);
       assert.equal(observations.wind, "none");
       assert.ok(observations.splines <= 1 + parameters.primaryBranches + parameters.primaryBranches * parameters.secondaryBranches);
-      if (component === "composed") composedHashes = observations.componentGeometrySha256;
+      if (component === "composed") {
+        composedHashes = observations.componentGeometrySha256;
+        if (parameters.family === "broadleaf") broadleafGeometry = composedHashes;
+      }
       else assert.deepEqual(observations.componentGeometrySha256, composedHashes);
       const bones = observations.branchHierarchy;
       const byId = new Map(bones.map(bone => [bone.id, bone]));
@@ -141,6 +146,24 @@ test("actual Sapling components have bounded grounded geometry, native hierarchy
       assert.deepEqual(await readFile(outputPath), bytes);
     }
   }
+  await writeFile(specPath, JSON.stringify(spec({ ...TREE_PRESETS.broadleaf, seed: "134" })));
+  const reseeded = await generateAsset(specPath);
+  assert.notDeepEqual(reseeded.receipt.observations.script.componentGeometrySha256, broadleafGeometry);
+  assert.deepEqual(reseeded.receipt.observations.script.branchHierarchy[0]?.head, [0, 0, 0]);
+  assert.equal((await verifyAsset(specPath)).status, "exact");
+  await writeFile(specPath, JSON.stringify(spec({ ...TREE_PRESETS.broadleaf, seed: "134", height: 3, primaryBranches: 8, foliageDensity: 16 })));
+  const controlled = await generateAsset(specPath);
+  assert.ok(controlled.receipt.observations.script.splines < reseeded.receipt.observations.script.splines);
+  assert.ok(controlled.receipt.observations.script.componentCounts.foliage!.triangles < reseeded.receipt.observations.script.componentCounts.foliage!.triangles);
+  assert.equal((await verifyAsset(specPath)).status, "exact");
+  const changed = await new NodeIO().readBinary(new Uint8Array(await readFile(outputPath)));
+  let changedHeight = -Infinity;
+  for (const mesh of changed.getRoot().listMeshes()) for (const primitive of mesh.listPrimitives()) {
+    const positions = primitive.getAttribute("POSITION"); assert.ok(positions);
+    const point: number[] = [];
+    for (let i = 0; i < positions.getCount(); i++) { positions.getElement(i, point); changedHeight = Math.max(changedHeight, point[1]!); }
+  }
+  assert.ok(Math.abs(changedHeight - 3) < 1e-5);
   const accepted = await readFile(outputPath), before = await stat(outputPath);
   await writeFile(path.join(root, "sapling.zip"), Buffer.alloc(archiveBytes.length));
   await assert.rejects(generateAsset(specPath), /hash|sha256/);
