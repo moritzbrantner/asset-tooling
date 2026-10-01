@@ -1,0 +1,210 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://moritzbrantner.github.io/asset-tooling/schemas/asset-bundle-v2.schema.json",
+  "title": "asset-tooling selected sprite atlas package v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "profile",
+    "assets",
+    "resources"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 2
+    },
+    "profile": {
+      "const": "sprite-atlas-png-v1"
+    },
+    "assets": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 256,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "variant",
+          "source",
+          "path",
+          "image"
+        ],
+        "properties": {
+          "key": {
+            "$ref": "#/$defs/token"
+          },
+          "variant": {
+            "$ref": "#/$defs/token"
+          },
+          "source": {
+            "$ref": "#/$defs/atlasRef"
+          },
+          "path": {
+            "type": "string",
+            "pattern": "^assets/[0-9a-f]{64}\\.atlas\\.json$"
+          },
+          "image": {
+            "$ref": "#/$defs/pngResource"
+          }
+        }
+      }
+    },
+    "resources": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 4096,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/rgbaResource"
+      }
+    }
+  },
+  "$defs": {
+    "token": {
+      "type": "string",
+      "maxLength": 128,
+      "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*$"
+    },
+    "atlasRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "kind",
+        "mediaType",
+        "sha256",
+        "byteLength",
+        "metadata"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "kind": {
+          "const": "sprite-atlas"
+        },
+        "mediaType": {
+          "const": "application/vnd.moritzbrantner.sprite-atlas+json"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "byteLength": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8388608
+        },
+        "metadata": {
+          "type": "object"
+        }
+      }
+    },
+    "pngRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "kind",
+        "mediaType",
+        "sha256",
+        "byteLength",
+        "metadata"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "kind": {
+          "const": "image"
+        },
+        "mediaType": {
+          "const": "image/png"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "byteLength": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 67108864
+        },
+        "metadata": {
+          "type": "object"
+        }
+      }
+    },
+    "rgbaRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "kind",
+        "mediaType",
+        "sha256",
+        "byteLength",
+        "metadata"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "kind": {
+          "const": "image"
+        },
+        "mediaType": {
+          "const": "application/vnd.moritzbrantner.rgba8+json"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "byteLength": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 67108864
+        },
+        "metadata": {
+          "type": "object"
+        }
+      }
+    },
+    "pngResource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source",
+        "path"
+      ],
+      "properties": {
+        "source": {
+          "$ref": "#/$defs/pngRef"
+        },
+        "path": {
+          "type": "string",
+          "pattern": "^assets/[0-9a-f]{64}\\.png$"
+        }
+      }
+    },
+    "rgbaResource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source",
+        "path"
+      ],
+      "properties": {
+        "source": {
+          "$ref": "#/$defs/rgbaRef"
+        },
+        "path": {
+          "type": "string",
+          "pattern": "^assets/[0-9a-f]{64}\\.rgba\\.json$"
+        }
+      }
+    }
+  }
+}

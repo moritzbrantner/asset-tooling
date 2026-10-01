@@ -1,4 +1,4 @@
-# Selected static asset packages
+# Selected asset packages
 
 `asset-tooling/operations/bundle` packages an explicitly selected set of existing `AssetRef`s. Stable logical keys and explicit variants map to portable, content-addressed files. Source/processor/license metadata remains on the original refs; packaging creates no replacement asset identity or catalog. Consumer loading and verification use the packaged files without object-store access or acquisition.
 
@@ -57,3 +57,39 @@ bun examples/selected-bundle/build.ts
 The explicit inventories select broadleaf/conifer composed GLBs and two standalone PNG ingredients. The example exports under `.artifacts/selected-bundle/`, verifies all actual packaged bytes, loads both three-mesh trees through offline NodeIO, and compares the manifest against an independent export directory. `export.ref.json` is local handoff evidence; products pin the expected ref through their deliberate distribution contract. No generator or consumer repository is changed by this example.
 
 Focused fixtures independently author triangle GLBs and a PNG. They prove material-only/mesh changes, unchanged-file preservation, duplicate-resource reuse, cold/warm export parity, input/output corruption, missing dependencies, interrupted export/resume and path/symlink rejection. Package-only loading still succeeds after deleting the fixture's source object store. #125 remains open for rigged/clip/outfit and other profiles, broader source-derivation invalidation, and actual game integration; the static profile is its first bounded transport slice.
+
+## Sprite atlas PNG profile
+
+`SPRITE_ATLAS_BUNDLE_PROFILE` selects `sprite-atlas-png-v1` through the same exporter, verification and operation functions. It uses `asset.bundle@2` and the separate immutable [v2 transport schema](../schemas/asset-bundle-v2.schema.json). The original static operation/profile and v1 schema remain compatible. This profile selects existing atlases and encoded PNGs; it neither authors pixels nor evaluates animation.
+
+```ts
+import { SPRITE_ATLAS_BUNDLE_PROFILE, exportAssetBundle,
+  verifyAssetBundle, readAssetBundleSpriteAtlas } from "asset-tooling/operations/bundle";
+
+const exported = await exportAssetBundle(root, directory, {
+  parameters: { profile: SPRITE_ATLAS_BUNDLE_PROFILE,
+    assets: [{ key: "reward.ring", variant: "subtle" }] },
+  inputs: { assets: [acceptedAtlasManifestRef], images: [acceptedAtlasPngRef] },
+});
+const checked = await verifyAssetBundle(directory, exported.manifest,
+  { profile: SPRITE_ATLAS_BUNDLE_PROFILE });
+if (checked.manifest.schemaVersion !== 2) throw new Error("expected atlas package");
+const { atlas, image, png } = await readAssetBundleSpriteAtlas(
+  directory, checked.manifest, "reward.ring", "subtle");
+```
+
+The default two-argument `verifyAssetBundle` and `parseAssetBundleManifest` retain their original static-profile return types and reject atlas transports. Atlas verification explicitly selects the new profile as above; `parseSpriteAtlasBundleManifest` admits its v2 transport separately. Existing typed static callers need no migration.
+
+The paired PNG must record the original canonical atlas image hash, dimensions, PNG codec and sRGB source convention supplied by the existing encoder. Actual PNG header dimensions must match the decoded canonical image. Transport verification checks these declared associations and payload pins; it does not decode PNG pixels or certify an arbitrary producer's assertion. Independent encoder replay/pixel comparison is the producer acceptance proof, as exercised below. No FFmpeg, Blender, generation, source store or acquisition is required for package loading/verification.
+
+Each selected entry retains `key`, `variant`, the **original** atlas `source` and content-addressed `.atlas.json` path, plus `image: { source, path }` naming its separate PNG derivative. Root `resources` contains the original canonical atlas image and every original sprite source as full AssetRefs with `.rgba.json` paths. Original manifests/refs remain byte-for-byte intact, including producer frame indices/times/durations/loop policy, pivots and source/processor/license metadata. Sparse producer frame selection is valid; timing is never inferred from paths. Distinct refs with the same payload retain their metadata while sharing one file. This is the typed atlas resource closure, not an attempt to retrieve every incidental provenance hash from producer metadata.
+
+`parseSpriteAtlasManifest` owns structural admission of the existing original atlas format: exact fields/semantics, sorted unique IDs, source/trim/pivot bounds, non-overlapping footprints including padding/extrusion, unsupported rotation rejection and original frame timing rules. Packaging verifies every referenced canonical image against its source size and content pin before looking up export files. Verification also rejects missing or extra resources in the published closure. Original atlas bytes pin nested refs in the build's declared input; the existing tool/dependency identities record the packing implementation.
+
+The shared publication/recovery/path rules above apply unchanged. Additional bounds are 8 MiB per original atlas manifest, 4096 declared canonical resource references (including repeated references), 4096 pixels per image axis, 4 megapixels per decoded canonical image and 16 megapixels of sprite sources per atlas. The existing distinct payload/manifest limits still apply. Full refs sort deterministically by content path and canonical metadata; dependency bytes deduplicate by path. Counters count actual distinct files, not upstream artwork evaluation. Retained older files support previous accepted manifests; only `result.files` is the active distribution allowlist.
+
+Consumers admit the expected pinned manifest with `verifyAssetBundle`, then `readAssetBundleSpriteAtlas` reads only the selected original atlas and PNG, checking their pins. Complete canonical resources remain available for offline provenance/reconstruction evidence; normal playback does not load every source frame. `readAssetBundleAsset` also returns the selected original atlas bytes. Runtime owners retain playback, lifecycle, reduced motion and gameplay timing.
+
+Run `bun examples/atlas-bundle/build.ts`, then `python examples/atlas-bundle/review.py`. The self-contained example builds the existing six authored puff/ring sequences and six PNG derivatives, cold-replays them, exports their selected closure and compares an independent package. It deletes the independent source store before verifying/loading all six pairs. Original recipe/build/PNG-encoder evidence remains in ignored `.artifacts/atlas-bundle/`. The independent Pillow inspection reads **only** the pinned package: PNG pixels match canonical atlas images, and all 36 frames reconstruct original alpha/visible RGB with source sizes/pivots and explicit timing intact. The source-versus-packed board is disposable visual evidence; invalid inspection removes it. Paths anchor to the script and unchanged files reconcile.
+
+`bun test test/atlas-bundle.test.ts test/asset-bundle.test.ts test/sprite-atlas-operations.test.ts test/public-contract.test.ts` covers independent white-pixel and non-square trimmed/empty sparse-frame fixtures, stable paired ordering, source-store-free loading, retiming, cold/warm parity, invalid bounds/relationships/closure, missing/corrupt sources and outputs, bounded decoding and interrupted export/resume. Run the ordinary gate afterward. #125/#135 remain open for other profiles and actual product integration.

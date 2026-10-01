@@ -24,6 +24,8 @@
     "noUnusedParameters": true
   },
   "include": [
+    "test/atlas-bundle.test.ts",
+    "examples/atlas-bundle/build.ts",
     "test/wood-surfaces.test.ts",
     "examples/wood-surfaces/build.ts",
     "examples/wood-surfaces/render.ts",

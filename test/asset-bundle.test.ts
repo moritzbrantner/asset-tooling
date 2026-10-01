@@ -9,7 +9,7 @@ import { sha256Bytes } from "../src/hash.js";
 import { storeAssetObject, assetObjectPortablePath, resolveAssetObject } from "../src/asset-store.js";
 import { createAssetRef } from "../src/operations.js";
 import { ASSET_BUNDLE_MEDIA_TYPE, STATIC_ASSET_BUNDLE_PROFILE, createAssetBundleBuildIdentity, executeAssetBundleOperation,
-  exportAssetBundle, parseAssetBundleManifest, readAssetBundleAsset, resolveAssetBundleEntry, verifyAssetBundle } from "../src/asset-bundle.js";
+  exportAssetBundle, parseAssetBundleManifest, readAssetBundleAsset, resolveAssetBundleEntry, verifyAssetBundle, type AssetBundleManifest } from "../src/asset-bundle.js";
 
 // Independently authored 1px white PNG and triangle GLB; packaging never authors geometry.
 const png=Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR4nGP4DwQACfsD/fteaysAAAAASUVORK5CYII=","base64");
@@ -56,7 +56,10 @@ test("selected bundle preserves logical variants and provenance while deduplicat
   assert.equal(manifestRef.mediaType,ASSET_BUNDLE_MEDIA_TYPE);
   const first=await exportAssetBundle(root,directory,invocation);
   assert.deepEqual(first.manifest,manifestRef);assert.equal(first.blobsWritten,2);assert.equal(first.blobsReused,0);assert.equal(first.assetsVerified,3);
-  const verified=await verifyAssetBundle(directory,first.manifest),manifest=verified.manifest;
+  const verified=await verifyAssetBundle(directory,first.manifest);
+  const manifest:AssetBundleManifest=verified.manifest;
+  const parsed:AssetBundleManifest=parseAssetBundleManifest(await readFile(path.join(directory,"manifest.json")));
+  assert.deepEqual(parsed,manifest);
   assert.deepEqual(manifest.assets.map(e=>`${e.key}/${e.variant}`),["icon/small","prop/default","prop-copy/default"]);
   assert.deepEqual(resolveAssetBundleEntry(manifest,"prop","default").source,source);
   assert.deepEqual(resolveAssetBundleEntry(manifest,"icon","small").source,image);

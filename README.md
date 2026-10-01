@@ -125,7 +125,7 @@ Static puff/ring ingredients with explicit alpha, geometry and intensity control
 
 See [leaf alpha artwork](docs/leaf-artwork.md) for independently generated masks, preserved recoloring, standalone PNG packaging and optional native tree-material inspection.
 
-Selected static GLB/PNG handoff with content-addressed files, source lineage and recoverable export is available through [`./operations/bundle`](docs/asset-bundles.md).
+Selected static GLB/PNG and sprite-atlas/PNG handoff with original frame metadata, content-addressed resource closure, source lineage and recoverable export is available through [`./operations/bundle`](docs/asset-bundles.md). `bun examples/atlas-bundle/build.ts` proves package-only loading after deleting an independent source store.
 
 See [complete static GLB PBR finishing](docs/gltf-pbr-materials.md) for applying existing normal/ORM material sets.
 

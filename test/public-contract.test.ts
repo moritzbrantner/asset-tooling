@@ -7,6 +7,7 @@ import * as publicApi from "../src/index.js";
 
 const PUBLISHED_SCHEMA_BLOBS = {
   "asset-bundle-v1.schema.json": "2de513d0ca3733eae9d4f5e3c95de87a3db4ac5f",
+  "asset-bundle-v2.schema.json": "7dd87542fb9e4d0a03ba2bf1be7f4312ef3eebaa",
   "asset-spec-v1.schema.json": "9e0cd63b4e5d83a02cbb3628e7e1e59aec024588",
   "audio-asset-v1.schema.json": "193934f6128ff2ad94152018d60713b5e0e03b4b",
   "generation-receipt-v1.schema.json": "472719e19daa3373de50cfd54ab52519bcbe60d5",
