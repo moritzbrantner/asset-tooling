@@ -4,6 +4,7 @@ import hashlib
 import io
 import json
 import re
+import tempfile
 from pathlib import Path
 
 from PIL import Image, ImageDraw
@@ -121,7 +122,14 @@ def review():
     draw.text((520, 560), "256 native compatible directed boundaries: byte-exact", fill="black")
     draw.text((520, 580), "Atlas PNG reconstructs every source + extrusion exactly", fill="black")
     draw.text((520, 600), "Cosmetic connectivity only; no gameplay selection", fill="black")
-    board.convert("RGB").save(OUTPUT)
+    encoded = io.BytesIO()
+    board.convert("RGB").save(encoded, format="PNG")
+    payload = encoded.getvalue()
+    if not OUTPUT.exists() or OUTPUT.read_bytes() != payload:
+        with tempfile.TemporaryDirectory(prefix=".review-", dir=DIRECTORY) as temporary:
+            staged = Path(temporary) / "review.png"
+            staged.write_bytes(payload)
+            staged.replace(OUTPUT)
     print(json.dumps({"compatibleBoundaries": compatible, "completeTiles": 16,
                       "selectedTiles": 12, "scales": [16, 32, 65], "output": str(OUTPUT.relative_to(ROOT))}))
 
