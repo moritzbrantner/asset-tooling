@@ -17,7 +17,8 @@ Outputs and receipts remain disposable under `.artifacts/corn`. The script uses
 the native authoring functions already used by Wheat: materials, swept Bezier
 leaves, ordered UV spheres, joining and the Blender glTF exporter. Corn declares
 that complete local Python file as a second hash-pinned input; generation never
-loads it from an ambient import path. Native cones form the stalk, ear core and
+loads it from an ambient import path. The runner's `inputs.load_source("authoring")`
+executes a verified snapshot and preserves the existing portable path contract. Native cones form the stalk, ear core and
 small tassel. The ear has eight columns and bounded explicit kernel rows.
 Bounds, stage controls, seed, resolution and a
 combined triangle budget are explicit. Each self-contained GLB uses meters,

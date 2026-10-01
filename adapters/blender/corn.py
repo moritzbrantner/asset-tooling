@@ -2,7 +2,6 @@
 import math
 import random
 import re
-import runpy
 
 KEYS = {"schemaVersion", "stage", "seed", "stemHeight", "stemRadius", "leafCount", "leafLength", "leafWidth",
         "earLength", "kernelRows", "curveSegments", "maxTriangles"}
@@ -42,7 +41,7 @@ def generate(output_path, arguments, inputs):
     validate(arguments, inputs)
     # The existing backend verifies this entire local input before execution or
     # cache lookup. No ambient module import, bytecode cache or acquisition.
-    native = runpy.run_path(inputs["authoring"])
+    native = inputs.load_source("authoring")
     import bpy
     p = arguments
     rng = random.Random(int(p["seed"]))

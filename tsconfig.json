@@ -24,6 +24,8 @@
     "noUnusedParameters": true
   },
   "include": [
+    "src/blender-script-backend.ts",
+    "test/blender-input-snapshot.test.ts",
     "examples/crop-appearance.ts",
     "examples/corn/build.ts",
     "test/corn-recipes.test.ts",
