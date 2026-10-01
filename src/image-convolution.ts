@@ -1,34 +1,38 @@
+import type { Rgba8Image } from "./image-rgba8.js";
+export type ConvolutionKernel = {width:number;height:number;weights:readonly number[];divisor:number;bias?:number};
+
 import { assertRgba8Image } from "./image-geometry.js";
 
+// Indexed reads below follow validated image lengths and bounded channel/kernel loops.
 const MAX_KERNEL_SIZE = 7;
 const MAX_WEIGHT = 4096;
 const MAX_DIVISOR = 1_000_000;
 const MAX_BIAS = 255;
 const ALPHA_MODES = new Set(["preserve", "convolve-premultiplied"]);
 
-function integer(value, location, minimum, maximum) {
-  if (!Number.isSafeInteger(value) || value < minimum || value > maximum) {
+function integer(value: unknown, location: string, minimum: number, maximum: number) {
+  if (typeof value !== "number" || !Number.isSafeInteger(value) || value < minimum || value > maximum) {
     throw new Error(`${location} must be an integer in ${minimum}..${maximum}`);
   }
   return value;
 }
 
-function clamp(value, minimum, maximum) {
+function clamp(value: number, minimum: number, maximum: number) {
   return Math.max(minimum, Math.min(maximum, value));
 }
 
-function clampByte(value) {
+function clampByte(value: number) {
   return clamp(value, 0, 255);
 }
 
-function roundRatioSigned(numerator, denominator) {
+function roundRatioSigned(numerator: number, denominator: number) {
   if (numerator >= 0) {
     return Math.floor((numerator + Math.floor(denominator / 2)) / denominator);
   }
   return -Math.floor((-numerator + Math.floor(denominator / 2)) / denominator);
 }
 
-export function normalizeConvolutionKernel({ width, height, weights, divisor, bias = 0 }) {
+export function normalizeConvolutionKernel({ width, height, weights, divisor, bias = 0 }: ConvolutionKernel) {
   const kernelWidth = integer(width, "kernel width", 1, MAX_KERNEL_SIZE);
   const kernelHeight = integer(height, "kernel height", 1, MAX_KERNEL_SIZE);
   if (kernelWidth % 2 !== 1 || kernelHeight % 2 !== 1) {
@@ -51,7 +55,7 @@ export function normalizeConvolutionKernel({ width, height, weights, divisor, bi
   };
 }
 
-function samplesFor(source, x, y, kernel) {
+function samplesFor(source: Rgba8Image, x: number, y: number, kernel: Required<ConvolutionKernel>) {
   const radiusX = Math.floor(kernel.width / 2);
   const radiusY = Math.floor(kernel.height / 2);
   const samples = [];
@@ -61,14 +65,14 @@ function samplesFor(source, x, y, kernel) {
       const sourceX = clamp(x + kernelX - radiusX, 0, source.width - 1);
       samples.push({
         offset: (sourceY * source.width + sourceX) * 4,
-        weight: kernel.weights[kernelY * kernel.width + kernelX],
+        weight: kernel.weights[kernelY * kernel.width + kernelX]!,
       });
     }
   }
   return samples;
 }
 
-export function convolveRgba8(sourceValue, kernelValue, { alphaMode = "preserve" } = {}) {
+export function convolveRgba8(sourceValue: unknown, kernelValue: ConvolutionKernel, { alphaMode = "preserve" }: {alphaMode?:"preserve"|"convolve-premultiplied"} = {}) {
   const source = assertRgba8Image(sourceValue, "source RGBA8 image");
   const kernel = normalizeConvolutionKernel(kernelValue);
   if (!ALPHA_MODES.has(alphaMode)) {
@@ -85,28 +89,32 @@ export function convolveRgba8(sourceValue, kernelValue, { alphaMode = "preserve"
         for (let component = 0; component < 3; component += 1) {
           let sum = 0;
           for (const sample of samples) {
-            sum += source.pixels[sample.offset + component] * sample.weight;
+            sum += source.pixels[sample.offset + component]! * sample.weight;
           }
           output[targetOffset + component] = clampByte(
             roundRatioSigned(sum, kernel.divisor) + kernel.bias,
           );
         }
-        output[targetOffset + 3] = source.pixels[targetOffset + 3];
+        output[targetOffset + 3] = source.pixels[targetOffset + 3]!;
         continue;
       }
 
+      if (alphaMode !== "convolve-premultiplied") {
+        const unreachable: never = alphaMode;
+        throw new Error(`unsupported convolution alpha mode '${unreachable}'`);
+      }
       let alphaSum = 0;
       for (const sample of samples) {
-        alphaSum += source.pixels[sample.offset + 3] * sample.weight;
+        alphaSum += source.pixels[sample.offset + 3]! * sample.weight;
       }
       output[targetOffset + 3] = clampByte(roundRatioSigned(alphaSum, kernel.divisor));
 
       for (let component = 0; component < 3; component += 1) {
         let premultipliedSum = 0;
         for (const sample of samples) {
-          const alpha = source.pixels[sample.offset + 3];
+          const alpha = source.pixels[sample.offset + 3]!;
           premultipliedSum +=
-            source.pixels[sample.offset + component] * alpha * sample.weight;
+            source.pixels[sample.offset + component]! * alpha * sample.weight;
         }
         output[targetOffset + component] =
           alphaSum <= 0
@@ -119,7 +127,7 @@ export function convolveRgba8(sourceValue, kernelValue, { alphaMode = "preserve"
   return { width: source.width, height: source.height, pixels: output };
 }
 
-export function boxBlurRgba8(sourceValue, radius) {
+export function boxBlurRgba8(sourceValue: unknown, radius: number) {
   const normalizedRadius = integer(radius, "blur radius", 1, 3);
   const size = normalizedRadius * 2 + 1;
   const count = size * size;
@@ -136,7 +144,7 @@ export function boxBlurRgba8(sourceValue, radius) {
   );
 }
 
-export function sharpenRgba8(sourceValue, numerator, denominator) {
+export function sharpenRgba8(sourceValue: unknown, numerator: number, denominator: number) {
   const amountNumerator = integer(numerator, "sharpen numerator", 0, 32);
   const amountDenominator = integer(denominator, "sharpen denominator", 1, 32);
   return convolveRgba8(

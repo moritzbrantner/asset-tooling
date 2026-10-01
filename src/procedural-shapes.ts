@@ -1,30 +1,35 @@
+export type CircleSdfParameters = { width:number; height:number; centerX:number; centerY:number; radius:number; spread:number };
+export type RoundedRectSdfParameters = Omit<CircleSdfParameters,"radius"> & {halfWidth:number;halfHeight:number;cornerRadius:number};
+export type CircleSvgParameters = Omit<CircleSdfParameters,"spread"> & {fill:string};
+export type RoundedRectSvgParameters = {width:number;height:number;x:number;y:number;rectWidth:number;rectHeight:number;cornerRadius:number;fill:string};
+
 const MAX_DIMENSION = 4096;
 const SVG_COLOR_PATTERN = /^#[0-9a-f]{6}$/;
 
-function integer(value, location, minimum, maximum) {
-  if (!Number.isSafeInteger(value) || value < minimum || value > maximum) {
+function integer(value: unknown, location: string, minimum: number, maximum: number): number {
+  if (typeof value !== "number" || !Number.isSafeInteger(value) || value < minimum || value > maximum) {
     throw new Error(`${location} must be an integer in ${minimum}..${maximum}`);
   }
   return value;
 }
 
-function dimension(value, location) {
+function dimension(value: unknown, location: string) {
   return integer(value, location, 1, MAX_DIMENSION);
 }
 
-function clamp(value, minimum, maximum) {
+function clamp(value: number, minimum: number, maximum: number) {
   return Math.max(minimum, Math.min(maximum, value));
 }
 
-function roundRatioSigned(numerator, denominator) {
+function roundRatioSigned(numerator: number, denominator: number) {
   if (numerator >= 0) {
     return Math.floor((numerator + Math.floor(denominator / 2)) / denominator);
   }
   return -Math.floor((-numerator + Math.floor(denominator / 2)) / denominator);
 }
 
-function integerSqrt(value) {
-  if (!Number.isSafeInteger(value) || value < 0) {
+function integerSqrt(value: number) {
+  if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) {
     throw new Error("integer square root input must be a non-negative safe integer");
   }
   if (value < 2) return value;
@@ -43,11 +48,11 @@ function integerSqrt(value) {
   return result;
 }
 
-function sdfByte(signedDistance, spread) {
+function sdfByte(signedDistance: number, spread: number) {
   return clamp(128 + roundRatioSigned(signedDistance * 127, spread), 0, 255);
 }
 
-function makeSdfImage(width, height, spread, distanceAt) {
+function makeSdfImage(width: number, height: number, spread: number, distanceAt: (x:number,y:number)=>number) {
   const imageWidth = dimension(width, "SDF width");
   const imageHeight = dimension(height, "SDF height");
   const normalizedSpread = integer(spread, "SDF spread", 1, MAX_DIMENSION);
@@ -65,7 +70,7 @@ function makeSdfImage(width, height, spread, distanceAt) {
   return { width: imageWidth, height: imageHeight, pixels };
 }
 
-export function generateCircleSdfRgba8({ width, height, centerX, centerY, radius, spread }) {
+export function generateCircleSdfRgba8({ width, height, centerX, centerY, radius, spread }: CircleSdfParameters) {
   const imageWidth = dimension(width, "circle SDF width");
   const imageHeight = dimension(height, "circle SDF height");
   const cx = integer(centerX, "circle centerX", 0, imageWidth - 1);
@@ -87,7 +92,7 @@ export function generateRoundedRectSdfRgba8({
   halfHeight,
   cornerRadius,
   spread,
-}) {
+}: RoundedRectSdfParameters) {
   const imageWidth = dimension(width, "rounded rectangle SDF width");
   const imageHeight = dimension(height, "rounded rectangle SDF height");
   const cx = integer(centerX, "rounded rectangle centerX", 0, imageWidth - 1);
@@ -106,21 +111,21 @@ export function generateRoundedRectSdfRgba8({
   });
 }
 
-function svgColor(value, location) {
+function svgColor(value: unknown, location: string) {
   if (typeof value !== "string" || !SVG_COLOR_PATTERN.test(value)) {
     throw new Error(`${location} must be a lowercase #rrggbb color`);
   }
   return value;
 }
 
-function svgDocument(width, height, element) {
+function svgDocument(width: number, height: number, element: string) {
   return Buffer.from(
     `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">${element}</svg>\n`,
     "utf8",
   );
 }
 
-export function generateCircleSvg({ width, height, centerX, centerY, radius, fill }) {
+export function generateCircleSvg({ width, height, centerX, centerY, radius, fill }: CircleSvgParameters) {
   const canvasWidth = dimension(width, "circle SVG width");
   const canvasHeight = dimension(height, "circle SVG height");
   const cx = integer(centerX, "circle SVG centerX", 0, canvasWidth);
@@ -146,7 +151,7 @@ export function generateRoundedRectSvg({
   rectHeight,
   cornerRadius,
   fill,
-}) {
+}: RoundedRectSvgParameters) {
   const canvasWidth = dimension(width, "rounded rectangle SVG width");
   const canvasHeight = dimension(height, "rounded rectangle SVG height");
   const originX = integer(x, "rounded rectangle SVG x", 0, canvasWidth - 1);

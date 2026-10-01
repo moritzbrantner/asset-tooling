@@ -24,6 +24,8 @@
     "noUnusedParameters": true
   },
   "include": [
+    "src/effect-artwork-recipes.ts",
+    "test/effect-artwork-recipes.test.ts",
     "src/tree-recipes.ts",
     "test/tree-recipes.test.ts",
     "src/procedural-texture-metadata.ts",
