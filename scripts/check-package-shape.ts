@@ -92,6 +92,7 @@ const expectedSourceExports: Record<string, string> = {
   "./operations/image/atlas": "./src/sprite-atlas-operations.ts",
   "./recipes/surface-textures": "./src/surface-texture-recipes.ts",
   "./recipes/leaf-artwork": "./src/leaf-artwork-recipes.ts",
+  "./recipes/authored-effect-sequences": "./src/authored-effect-sequences.ts",
   "./recipes/production-props": "./src/production-prop-kit.ts",
 };
 
