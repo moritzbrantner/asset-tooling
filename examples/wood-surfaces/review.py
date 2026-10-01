@@ -50,7 +50,34 @@ def reconcile(image, output):
 
 reconcile(sheet, directory / "review.png")
 renders = [directory / "renders" / variant["id"] / "render.png" for variant in evidence["variants"]]
+native_count = 0
+native_output = directory / "native-review.png"
 if all(render.exists() for render in renders):
+    try:
+        for render, variant in zip(renders, evidence["variants"]):
+            spec_bytes = (render.parent / "asset.json").read_bytes()
+            spec = json.loads(spec_bytes)
+            receipt = json.loads((render.parent / "render.png.receipt.json").read_text())
+            assert spec["inputs"]["source"] == {"path": "source.glb", "sha256": variant["mesh"]["sha256"]}
+            assert receipt["inputs"] == spec["inputs"] and receipt["parameters"] == spec["parameters"]
+            assert receipt["assetId"] == spec["assetId"] == f"wood-review.{variant['id']}"
+            assert spec["generator"] == {"id": "external.blender.script", "version": "1"}
+            assert receipt["generator"]["id"] == spec["generator"]["id"]
+            assert receipt["generator"]["version"] == spec["generator"]["version"]
+            assert spec_bytes.endswith(b"\n")
+            assert hashlib.sha256(spec_bytes[:-1]).hexdigest() == receipt["spec"]["sha256"]
+            for name in ["source", "script"]:
+                declared = spec["inputs"][name]
+                assert declared["path"] == ("source.glb" if name == "source" else "render_static_glb.py")
+                payload = (render.parent / declared["path"]).read_bytes()
+                assert hashlib.sha256(payload).hexdigest() == declared["sha256"]
+                if name == "source":
+                    assert len(payload) == variant["mesh"]["byteLength"]
+            assert spec["output"]["path"] == receipt["output"]["path"] == "render.png"
+            assert hashlib.sha256(render.read_bytes()).hexdigest() == receipt["output"]["sha256"]
+    except (AssertionError, KeyError, OSError, ValueError) as error:
+        native_output.unlink(missing_ok=True)
+        raise RuntimeError("native render evidence is stale or invalid; rerun render.ts") from error
     native = Image.new("RGB", (1568, 554), "#f5f4f0")
     labels = ImageDraw.Draw(native)
     for index, (render, variant) in enumerate(zip(renders, evidence["variants"])):
@@ -58,5 +85,8 @@ if all(render.exists() for render in renders):
         assert image.size == (512, 512)
         native.paste(image, (8 + index * 520, 28), image)
         labels.text((8 + index * 520, 8), variant["id"], fill="#18232f")
-    reconcile(native, directory / "native-review.png")
-print(json.dumps({"pngsIndependentlyMatched": 15, "review": str(directory / "review.png"), "nativeRenders": sum(p.exists() for p in renders)}))
+    reconcile(native, native_output)
+    native_count = 3
+else:
+    native_output.unlink(missing_ok=True)
+print(json.dumps({"pngsIndependentlyMatched": 15, "review": str(directory / "review.png"), "nativeRenders": native_count}))
