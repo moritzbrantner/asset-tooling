@@ -1,0 +1,12 @@
+{
+  "name": "selected-bundle-consumer",
+  "private": true,
+  "type": "module",
+  "packageManager": "bun@1.4.2",
+  "scripts": {
+    "accept": "bun consumer.ts"
+  },
+  "dependencies": {
+    "asset-tooling": "file:./asset-tooling.tgz"
+  }
+}

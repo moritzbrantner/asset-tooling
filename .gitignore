@@ -7,3 +7,4 @@ node_modules/
 weekend-3d.local.json
 weekend-3d.local.*.json
 models/local/
+adapters/dependency.lock

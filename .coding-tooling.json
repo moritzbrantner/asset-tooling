@@ -2,15 +2,89 @@
   "schemaVersion": 1,
   "profile": "repository-foundation-v1",
   "tiers": {
-    "fast": ["test", "package:check"],
-    "standard": ["test:integration"]
+    "fast": [
+      "test",
+      "package:check"
+    ],
+    "standard": [
+      "test:integration"
+    ]
   },
-  "requiredCapabilities": ["test", "package:check", "test:integration"],
+  "requiredCapabilities": [
+    "test",
+    "package:check",
+    "test:integration"
+  ],
   "capabilityCommands": {
     ".": {
-      "test": ["bun", "test"],
-      "package:check": ["bun", "run", "package:check"],
-      "test:integration": ["bun", "run", "stability:check"]
+      "test": [
+        "bun",
+        "test"
+      ],
+      "package:check": [
+        "bun",
+        "run",
+        "package:check"
+      ],
+      "test:integration": [
+        "bun",
+        "run",
+        "stability:check"
+      ],
+      "test:e2e:smoke": [
+        "bun",
+        "run",
+        "verify:consumer:bundle"
+      ]
     }
+  },
+  "optionalCapabilities": [
+    "test:e2e:smoke"
+  ],
+  "taskKnowledge": {
+    "schemaVersion": 1,
+    "completion": {
+      "command": [
+        "bun",
+        "run",
+        "check"
+      ],
+      "source": "package.json"
+    },
+    "scopes": [
+      {
+        "id": "selected-bundle-adoption",
+        "paths": [
+          "examples/selected-bundle/**",
+          "scripts/verify-bundle-consumer.ts",
+          ".coding-tooling/generators/selected-bundle/**",
+          "src/asset-bundle.ts",
+          "src/effect-artwork-recipes.ts"
+        ],
+        "taskKinds": [
+          "asset-adoption"
+        ],
+        "instructions": [
+          "docs/asset-bundles.md",
+          "examples/selected-bundle/README.md"
+        ],
+        "capabilities": [
+          "test",
+          "test:e2e:smoke"
+        ],
+        "examples": [
+          {
+            "path": "examples/selected-bundle/adoption.ts",
+            "entrypoint": "asset-tooling/examples/selected-bundle"
+          }
+        ],
+        "generators": [
+          "selected-bundle"
+        ],
+        "owners": [
+          "moritzbrantner/asset-tooling"
+        ]
+      }
+    ]
   }
 }

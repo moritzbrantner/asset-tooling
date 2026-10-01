@@ -1,7 +1,7 @@
 /// <reference path="./gltf-validator.d.ts" />
+import { readDependencyLockSha256 } from "./dependency-lock.js";
 import { ImageUtils, TextureInfo, VERSION, type Document } from "@gltf-transform/core";
 import { version as validatorVersion } from "gltf-validator";
-import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { resolveAssetObject, storeAssetObject } from "./asset-store.js";
 import { GLTF_IMPORT_OPERATION } from "./gltf-import-operations.js";
@@ -79,7 +79,7 @@ async function checked(root: string, invocation: Invocation) {
   const p = normalizeGltfBaseColorParameters(invocation.parameters);
   const build = createAssetOperationBuildIdentity({ operation: GLTF_BASE_COLOR_OPERATION, parameters: p, inputs: invocation.inputs ?? {},
     implementation: { id: "gltf-transform-base-color", version: "1", gltfTransform: VERSION, validator: validatorVersion(),
-      dependencyLockSha256: sha256Bytes(await readFile(new URL("../bun.lock", import.meta.url))), assetTooling: await captureToolIdentity() } });
+      dependencyLockSha256: await readDependencyLockSha256(), assetTooling: await captureToolIdentity() } });
   const source = createAssetRef(build.inputs.source), baseColor = createAssetRef(build.inputs["base-color"]);
   const png = await resolveAssetObject(root, baseColor);
   if (png.length > 64 * 1024 * 1024 || ImageUtils.getMimeType(png) !== "image/png") throw new Error("base-color input must be a PNG within 64 MiB");
