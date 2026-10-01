@@ -45,6 +45,7 @@ async function checked(root:string,{parameters:value,inputs={}}:Invocation={}) {
   const build=createAssetOperationBuildIdentity({operation:INSTANCE_EXCLUSION_MASK_OPERATION,parameters:p,inputs,
     implementation:{id:"builtin.instances.filter.exclusion-mask",version:"1",algorithm:"nearest-endpoint-q8-exclusion-subset-v1",randomness:"none",tool:await captureToolIdentity()}});
   const source=createAssetRef(build.inputs.source),mask=createAssetRef(build.inputs.mask);
+  if(mask.metadata.sampling!=="data" || mask.metadata.channelColorSpace!=="linear") throw new Error("exclusion mask must explicitly declare data sampling and linear channelColorSpace");
   if(source.byteLength>2*1024*1024 || mask.byteLength>8*1024*1024) throw new Error("instance exclusion inputs exceed the 2 MiB instance-set / 8 MiB mask budgets");
   const set=parseInstanceSet(await resolveAssetObject(root,source));
   if(set.bounds.widthMicro!==p.maskBounds.widthMicro || set.bounds.depthMicro!==p.maskBounds.depthMicro) throw new Error("declared mask bounds must match the centered source footprint; implicit stretching is unsupported");

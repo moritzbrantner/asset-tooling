@@ -19,7 +19,7 @@ test("saved exclusion masks keep original candidate IDs, positions and order",as
   const source=(await storeAssetObject(root,{kind:"instance-set",mediaType:INSTANCE_SET_MEDIA_TYPE,bytes:encodeInstanceSet({schemaVersion:1,coordinateSystem:"right-handed-y-up",coordinateQuantization:"1e-6-unit",bounds:{widthMicro:7,depthMicro:5},instances:[
    {id:"west",positionMicro:[-3,8,-2]},{id:"middle",positionMicro:[0,9,0]},{id:"east",positionMicro:[3,-10,2]},
   ]})})).asset;
-  const mask=(await storeAssetObject(root,{kind:"image",mediaType:RGBA8_IMAGE_MEDIA_TYPE,bytes:encodeRgba8Image({width:3,height:1,pixels:Buffer.from([0,255,0].flatMap(v=>[v,v,v,255]))})})).asset;
+  const mask=(await storeAssetObject(root,{kind:"image",mediaType:RGBA8_IMAGE_MEDIA_TYPE,bytes:encodeRgba8Image({width:3,height:1,pixels:Buffer.from([0,255,0].flatMap(v=>[v,v,v,255]))}),metadata:{sampling:"data",channelColorSpace:"linear"}})).asset;
   const result=await executeInstanceExclusionMaskOperation(root,{inputs:{source,mask},parameters:{maxCoverage:127,maskBounds:{widthMicro:7,depthMicro:5}}});
   const output=parseInstanceSet(await resolveAssetObject(root,createAssetRef(result.outputs.output)));
   assert.deepEqual(output.instances,[{id:"west",positionMicro:[-3,8,-2]},{id:"east",positionMicro:[3,-10,2]}]);
@@ -102,6 +102,12 @@ test("localized saved-mask edits retain unrelated detail and replay in a cold st
 test("invalid calibration, channels, references and budgets fail before derived writes",()=>workspace(async root=>{
  const bounds={widthMicro:7,depthMicro:5},source=await sourceSet(root,bounds,[{id:"one",positionMicro:[0,1,0]}]),mask=await sourceMask(root,1,1,[0]);
  const invocation={inputs:{source,mask},parameters:{maxCoverage:127,maskBounds:bounds}},before=await inventory(root);
+ for(const metadata of [{},{sampling:"color",channelColorSpace:"linear"},{sampling:"data",channelColorSpace:"srgb"},{sampling:"data"},{channelColorSpace:"linear"}]) {
+  const invalid=createAssetRef({...mask,metadata});
+  for(const call of [executeInstanceExclusionMaskOperation,createInstanceExclusionMaskOperationBuildIdentity]) {
+   await assert.rejects(call(root,{...invocation,inputs:{source,mask:invalid}}),/data sampling and linear/);assert.deepEqual(await inventory(root),before);
+  }
+ }
  for(const p of [{maxCoverage:-1,maskBounds:bounds},{maxCoverage:256,maskBounds:bounds},{maxCoverage:NaN,maskBounds:bounds},{maxCoverage:1.5,maskBounds:bounds},
   {maxCoverage:0,maskBounds:{...bounds,widthMicro:0}},{maxCoverage:0,maskBounds:{...bounds,widthMicro:8}},
   {maxCoverage:0,maskBounds:{...bounds,originX:0}},{maxCoverage:0,maskBounds:bounds,sampling:"bilinear"}]) {
@@ -112,7 +118,7 @@ test("invalid calibration, channels, references and budgets fail before derived 
  }
  await assert.rejects(executeInstanceExclusionMaskOperation(root,{...invocation,inputs:{source:createAssetRef({...source,byteLength:2*1024*1024+1}),mask}}),/budgets/);
  for(const pixels of [[0,1,0,255],[0,0,0,254]]) {
-  const invalid=(await storeAssetObject(root,{kind:"image",mediaType:RGBA8_IMAGE_MEDIA_TYPE,bytes:encodeRgba8Image({width:1,height:1,pixels:Buffer.from(pixels)})})).asset,inventoryBefore=await inventory(root);
+  const invalid=(await storeAssetObject(root,{kind:"image",mediaType:RGBA8_IMAGE_MEDIA_TYPE,bytes:encodeRgba8Image({width:1,height:1,pixels:Buffer.from(pixels)}),metadata:{sampling:"data",channelColorSpace:"linear"}})).asset,inventoryBefore=await inventory(root);
   await assert.rejects(executeInstanceExclusionMaskOperation(root,{...invocation,inputs:{source,mask:invalid}}),/opaque grayscale/);assert.deepEqual(await inventory(root),inventoryBefore);
  }
  const oversized=await sourceMask(root,4097,1,Array(4097).fill(0)),oversizedBefore=await inventory(root);

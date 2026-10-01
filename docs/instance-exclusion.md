@@ -23,7 +23,7 @@ The operation is also listed and re-exported through the existing `asset-tooling
 
 ## Coordinate and coverage contract
 
-Inputs use the existing `instance-set` and canonical RGBA8 image formats and original AssetRefs. The mask must be opaque grayscale: RGB bytes agree and alpha is 255. Its bytes represent linear UNORM8 exclusion coverage, not sRGB color. Coverage at or below the integer `maxCoverage` threshold (0–255, inclusive) keeps a candidate. Black permits detail; white excludes it unless the threshold is 255. Filtering tests instance roots, not complete mesh footprints.
+Inputs use the existing `instance-set` and canonical RGBA8 image formats and original AssetRefs. The mask must be opaque grayscale: RGB bytes agree and alpha is 255. Its AssetRef must explicitly declare `sampling: "data"` and `channelColorSpace: "linear"`; missing or conflicting semantics fail before writes. The existing RGBA8 transport's `colorSpace: "srgb"` tag does not describe scalar data: declared mask bytes represent linear UNORM8 exclusion coverage, and no sRGB transfer function is applied. Coverage at or below the integer `maxCoverage` threshold (0–255, inclusive) keeps a candidate. Black permits detail; white excludes it unless the threshold is 255. Filtering tests instance roots, not complete mesh footprints.
 
 `maskBounds` is mandatory and must exactly equal the source set's `widthMicro` and `depthMicro`. Coordinates use the existing right-handed Y-up, 1e−6-unit protocol. For each horizontal axis, the footprint starts at `−floor(span/2)` and ends at that minimum plus `span−1`. Image columns increase with world X; rows increase with world Z. Unsupported offsets or implicit stretching fail closed.
 
