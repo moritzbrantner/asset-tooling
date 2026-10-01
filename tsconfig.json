@@ -1,13 +1,18 @@
 {
   "compilerOptions": {
-    "lib": ["ESNext", "DOM"],
+    "lib": [
+      "ESNext",
+      "DOM"
+    ],
     "target": "ESNext",
     "module": "Preserve",
     "moduleDetection": "force",
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
-    "types": ["bun"],
+    "types": [
+      "bun"
+    ],
     "noEmit": true,
     "strict": true,
     "skipLibCheck": true,
@@ -19,6 +24,8 @@
     "noUnusedParameters": true
   },
   "include": [
+    "src/tree-recipes.ts",
+    "test/tree-recipes.test.ts",
     "src/procedural-texture-metadata.ts",
     "src/terrain-mask-operations.ts",
     "test/terrain-mask-operations.test.ts",

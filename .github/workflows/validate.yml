@@ -43,10 +43,17 @@ jobs:
         run: echo "ASSET_TOOLING_BLENDER=$(bun scripts/install-blender.ts "$RUNNER_TEMP/blender")" >> "$GITHUB_ENV"
       - name: Install image inspection codec
         run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Acquire pinned Sapling test input
+        run: |
+          set -euo pipefail
+          SAPLING_SOURCE_URL=$(bun -e 'import { SAPLING_TREE_SOURCE } from "./src/tree-recipes.ts"; console.log(SAPLING_TREE_SOURCE.download)')
+          curl --fail --location --max-time 30 --max-filesize 36296 "$SAPLING_SOURCE_URL" --output "$RUNNER_TEMP/sapling.zip"
+          bun -e 'import { readFile } from "node:fs/promises"; import { sha256Bytes } from "./src/hash.ts"; import { SAPLING_TREE_SOURCE } from "./src/tree-recipes.ts"; const bytes = await readFile(process.argv[1]); if (bytes.length !== SAPLING_TREE_SOURCE.byteLength || sha256Bytes(bytes) !== SAPLING_TREE_SOURCE.sha256) throw new Error("Sapling input pin mismatch")' "$RUNNER_TEMP/sapling.zip"
+          echo "ASSET_TOOLING_SAPLING_ARCHIVE=$RUNNER_TEMP/sapling.zip" >> "$GITHUB_ENV"
       - name: Blender script backend round trips
         run: |
           bun install --frozen-lockfile
-          bun test test/blender-script.test.ts test/gltf-production-operations.test.ts test/rock-recipes.test.ts test/render-derivative-recipes.test.ts
+          bun test test/blender-script.test.ts test/gltf-production-operations.test.ts test/rock-recipes.test.ts test/render-derivative-recipes.test.ts test/tree-recipes.test.ts
 
   canonical-storage:
     runs-on: ubuntu-latest
