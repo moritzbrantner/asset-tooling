@@ -96,3 +96,14 @@ test("shared source edits change every dependent build and excessive accessor cl
  const oversized=await fixture(t,nativeTree({accessors:[{componentType:5126,count:3000001,type:"VEC3",min:[0,0,0],max:[1,1,0]}]}));
  await assert.rejects(executeTreeAppearanceFamily(oversized.root,oversized.family),/accessor exceeds count/);
 });
+
+test("oversized declared PNG refs fail at family admission before object lookup or writes",async t=>{
+ const {root,family,png}=await fixture(t);
+ const oversized=createAssetRef({...png,sha256:"0".repeat(64),byteLength:64*1024*1024+1});
+ const invalid={...family,states:[{...family.states[0],baseColor:oversized}]};
+ assert.throws(()=>normalizeTreeAppearanceFamily(invalid),/64 MiB/);
+ const files=(await readdir(path.join(root,".asset-tooling/objects"),{recursive:true})).sort();
+ await assert.rejects(executeTreeAppearanceFamily(root,invalid),/64 MiB/);
+ await assert.rejects(executeTreeAppearanceState(root,invalid,"summer"),/64 MiB/);
+ assert.deepEqual((await readdir(path.join(root,".asset-tooling/objects"),{recursive:true})).sort(),files);
+});

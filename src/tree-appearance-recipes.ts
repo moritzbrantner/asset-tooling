@@ -41,6 +41,7 @@ export function normalizeTreeAppearanceFamily(value:unknown):TreeAppearanceFamil
     const s=object(value,["id","baseColor","factor"],"tree appearance state"),stateId=id(s.id),baseColor=createAssetRef(s.baseColor);
     if(seen.has(stateId)) throw new Error(`duplicate appearance state '${stateId}'`);seen.add(stateId);
     if(baseColor.kind!=="image" || baseColor.mediaType!=="image/png") throw new Error("appearance base color must be PNG");
+    if(baseColor.byteLength<1 || baseColor.byteLength>64*1024*1024) throw new Error("appearance PNG must be nonempty and within 64 MiB");
     return {id:stateId,baseColor,factor:factor(s.factor)};
   });
   states.sort((a,b)=>compareCodeUnitStrings(a.id,b.id));
