@@ -384,4 +384,10 @@ export const SURFACE_TEXTURE_PRESETS = deepFreeze({
   "rock-smooth": preset({ low: [55,59,62], high: [160,164,166], detailWeight: 30, normalStrength: 1, roughnessMin: 110, roughnessMax: 180 }),
   "rock-grainy": preset({ low: [55,59,62], high: [160,164,166], detailWeight: 160, normalStrength: 4 }),
   "rock-layered": preset({ low: [62,54,44], high: [171,152,126], gridX: 24, gridY: 2, detailWeight: 50, normalStrength: 3 }),
+  "wood-long-grain": preset({low:[52,27,12],high:[179,115,55],gridX:24,gridY:1,detailGridX:96,detailGridY:2,
+    detailWeight:40,normalStrength:1,roughnessMin:130,roughnessMax:210}),
+  "wood-short-grain": preset({low:[52,27,12],high:[179,115,55],gridX:24,gridY:6,detailGridX:96,detailGridY:12,
+    detailWeight:40,normalStrength:1,roughnessMin:130,roughnessMax:210}),
+  "wood-cross-grain": preset({low:[52,27,12],high:[179,115,55],gridX:1,gridY:24,detailGridX:2,detailGridY:96,
+    detailWeight:40,normalStrength:1,roughnessMin:130,roughnessMax:210}),
 } satisfies Record<string,SurfaceTextureRecipe>);
