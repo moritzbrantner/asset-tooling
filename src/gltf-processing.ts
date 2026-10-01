@@ -114,6 +114,30 @@ function resourceInventory(json: GLTF.IGLTF, supplied: Record<string, Uint8Array
   return inventory;
 }
 
+/** Header-only inspection precedes validator scans and sparse accessor densification. */
+export function checkStaticGltfAccessorBudget(json: GLTF.IGLTF, location: string): void {
+  const components: Record<string, number> = { SCALAR: 1, VEC2: 2, VEC3: 3, VEC4: 4, MAT2: 4, MAT3: 9, MAT4: 16 };
+  let decodedBytes = 0;
+  if (json.accessors !== undefined && !Array.isArray(json.accessors)) throw new Error(`${location} accessor budget requires an accessor array`);
+  for (const accessor of json.accessors ?? []) {
+    if (!accessor || !Number.isSafeInteger(accessor.count) || accessor.count < 1 || accessor.count > 3000000 ||
+        !Object.hasOwn(components, accessor.type)) throw new Error(`${location} accessor exceeds count/type budget`);
+    // Conservatively reserve float32 storage even for byte/short accessors.
+    decodedBytes += accessor.count * components[accessor.type]! * 4;
+    if (decodedBytes > 64 * 1024 * 1024) throw new Error(`${location} accessors exceed 64 MiB decoded memory budget`);
+  }
+  const positions = new Set<number>();
+  for (const mesh of json.meshes ?? []) for (const primitive of mesh.primitives ?? []) {
+    if (primitive.attributes && Object.hasOwn(primitive.attributes, "POSITION")) positions.add(primitive.attributes.POSITION!);
+  }
+  let vertices = 0;
+  for (const index of positions) {
+    if (!Number.isSafeInteger(index) || !json.accessors?.[index]) throw new Error(`${location} vertex budget requires valid POSITION accessors`);
+    vertices += json.accessors[index]!.count;
+    if (vertices > 1000000) throw new Error(`${location} vertex/accessor budget exceeds one million source vertices`);
+  }
+}
+
 export function gltfSummary(document: Document) {
   const root = document.getRoot();
   let triangleCount = 0;
@@ -137,7 +161,16 @@ export async function loadCheckedGltf(
   allowedWarnings: readonly string[] = [],
 ) {
   const checked = await checkedGltfInputs(root, operation, normalizedParameters, inputs);
-  const { source, sourceBytes, resourceBytes } = checked;
+  return { ...checked, ...await parseCheckedGltfBytes(checked.source, checked.sourceBytes, checked.resourceBytes, allowRigged, allowedWarnings) };
+}
+
+// The same parser/policy boundary serves object-store imports and non-mutating packaged-byte verification.
+export async function parseCheckedGltfBytes(
+  source: AssetRef, sourceBytes: Buffer, resourceBytes: JSONDocument["resources"],
+  allowRigged: boolean, allowedWarnings: readonly string[] = [],
+) {
+  if (sourceBytes.byteLength !== source.byteLength || sha256Bytes(sourceBytes) !== source.sha256) throw new Error("glTF bytes do not match the declared source pin");
+  if (source.mediaType !== "model/gltf-binary" && source.mediaType !== "model/gltf+json") throw new Error("unsupported glTF source media type");
   const io = new NodeIO().setAllowNetwork(false).setStrictResources(true);
   const format = source.mediaType === GLB_MEDIA_TYPE ? "glb" : "gltf";
   // GLB external resources are deliberately unsupported by the public in-memory decoder.
@@ -164,5 +197,5 @@ export async function loadCheckedGltf(
   supportedPolicy(jsonDocument.json, allowRigged);
   const inventory = resourceInventory(jsonDocument.json, resourceBytes, format === "glb" ? jsonDocument.resources : Object.create(null));
   const document = await io.readJSON(jsonDocument);
-  return { ...checked, document, io, inventory, validatorWarnings };
+  return { document, io, inventory, validatorWarnings };
 }

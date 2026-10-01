@@ -24,6 +24,8 @@
     "noUnusedParameters": true
   },
   "include": [
+    "src/asset-bundle.ts",
+    "test/asset-bundle.test.ts",
     "src/effect-artwork-recipes.ts",
     "test/effect-artwork-recipes.test.ts",
     "src/tree-recipes.ts",
