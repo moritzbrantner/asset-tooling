@@ -3,7 +3,7 @@ import { canonicalJson, compareCodeUnitStrings } from "./canonical.js";
 import { resolveAssetObject, storeAssetObject } from "./asset-store.js";
 import { encodeRgba8Image, parseRgba8Image, RGBA8_IMAGE_MEDIA_TYPE } from "./image-rgba8.js";
 import {
-  createAssetOperationBuildIdentity, createAssetOperationRegistry, createAssetRef,
+  createAssetOperationBuildIdentity, createAssetOperationRegistry, createAssetRef, parseAssetRef,
   normalizeAssetOperationResult, type AssetRef, type AssetOperationBuildIdentity,
 } from "./operations.js";
 import { captureToolIdentity } from "./tool.js";
@@ -156,6 +156,48 @@ function parameters(value: unknown): SpriteAtlasParameters {
     padding: integer(p.padding, "padding", 0, 32), extrusion: integer(p.extrusion, "extrusion", 0, 32),
     trim: boolean(p.trim, "trim"), sprites,
   };
+}
+
+/** Validate original producer metadata for portable distribution without evaluating animation or repacking. */
+export function parseSpriteAtlasManifest(bytes: Uint8Array): SpriteAtlasManifest {
+  if (!(bytes instanceof Uint8Array) || bytes.byteLength > 8 * 1024 * 1024) throw new Error("atlas manifest exceeds 8 MiB budget");
+  const raw: unknown = JSON.parse(Buffer.from(bytes).toString("utf8"));
+  const p = object(raw, ["schemaVersion", "image", "width", "height", "coordinates", "colorSpace", "alphaMode", "padding", "extrusion", "sprites"], [], "atlas manifest");
+  if (p.schemaVersion !== 1 || p.coordinates !== "top-left-pixels" || p.colorSpace !== "srgb" || p.alphaMode !== "straight") throw new Error("unsupported atlas manifest semantics");
+  if (!Array.isArray(p.sprites) || p.sprites.length<1 || p.sprites.length>MAX_SPRITES) throw new Error("atlas sprites must contain 1..512 entries");
+  const entries = p.sprites.map(value => object(value, ["id", "pivot", "source", "sourceSize", "rect", "trimOffset", "empty", "rotated"], ["frame"], "atlas sprite"));
+  const controls = parameters({width:p.width,maxHeight:p.height,padding:p.padding,extrusion:p.extrusion,trim:true,
+    sprites:entries.map(e=>({id:e.id,pivot:e.pivot,...(Object.hasOwn(e,"frame")?{frame:e.frame}:{})}))});
+  const image = parseAssetRef(p.image);
+  function canonicalImage(source: AssetRef): void {
+    if (source.kind !== "image" || source.mediaType !== RGBA8_IMAGE_MEDIA_TYPE) throw new Error("atlas resource must be a canonical RGBA8 image");
+  }
+  canonicalImage(image);
+  const sprites: SpriteAtlasEntry[] = entries.map((e,index)=>{
+    const source=parseAssetRef(e.source);canonicalImage(source);
+    const size=object(e.sourceSize,["width","height"],[],"sprite source size"),rect=object(e.rect,["x","y","width","height"],[],"sprite rect"),offset=object(e.trimOffset,["x","y"],[],"sprite trim offset");
+    const sourceSize={width:integer(size.width,"source width",1,8192),height:integer(size.height,"source height",1,8192)};
+    const rectangle={x:integer(rect.x,"rect x",0,MAX_DIMENSION),y:integer(rect.y,"rect y",0,MAX_DIMENSION),
+      width:integer(rect.width,"rect width",1,MAX_DIMENSION),height:integer(rect.height,"rect height",1,MAX_DIMENSION)};
+    const trimOffset={x:integer(offset.x,"trim x",0,8192),y:integer(offset.y,"trim y",0,8192)};
+    const declared=controls.sprites[index]!,empty=boolean(e.empty,"sprite empty"),margin=controls.padding+controls.extrusion;
+    if (e.rotated !== false) throw new Error("rotated atlas sprites are unsupported");
+    if (declared.pivot.x>sourceSize.width || declared.pivot.y>sourceSize.height || trimOffset.x+rectangle.width>sourceSize.width || trimOffset.y+rectangle.height>sourceSize.height) throw new Error("sprite pivot/trim exceeds source bounds");
+    if (rectangle.x<margin || rectangle.y<margin || rectangle.x+rectangle.width+margin>controls.width || rectangle.y+rectangle.height+margin>controls.maxHeight) throw new Error("sprite rect/padding/extrusion exceeds atlas bounds");
+    if (empty && (rectangle.width!==1 || rectangle.height!==1 || trimOffset.x!==0 || trimOffset.y!==0)) throw new Error("empty sprite must use the original one-pixel placeholder");
+    return {...declared,source,sourceSize,rect:rectangle,trimOffset,empty,rotated:false};
+  });
+  const margin=controls.padding+controls.extrusion;
+  for(let i=0;i<sprites.length;i++) {
+    if(i>0 && compareCodeUnitStrings(sprites[i-1]!.id,sprites[i]!.id)>=0) throw new Error("atlas sprite IDs must have stable sorted ordering");
+    const a=sprites[i]!.rect;
+    for(let j=0;j<i;j++) {
+      const b=sprites[j]!.rect;
+      if(a.x-margin<b.x+b.width+margin && b.x-margin<a.x+a.width+margin && a.y-margin<b.y+b.height+margin && b.y-margin<a.y+a.height+margin) throw new Error("atlas sprite footprints overlap");
+    }
+  }
+  return {schemaVersion:1,image,width:controls.width,height:controls.maxHeight,coordinates:"top-left-pixels",colorSpace:"srgb",alphaMode:"straight",
+    padding:controls.padding,extrusion:controls.extrusion,sprites};
 }
 function assertRoot(root: string): void {
   if (typeof root !== "string" || !path.isAbsolute(root)) throw new Error("sprite atlas root must be an absolute path");
