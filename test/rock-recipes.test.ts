@@ -56,7 +56,13 @@ test('authoritative rock output has finite grounded geometry, closed winding, UV
   assert.equal(document.getRoot().listMeshes().length,1);
   const primitive=document.getRoot().listMeshes()[0]!.listPrimitives()[0]!;
   const positions=primitive.getAttribute('POSITION')!,normals=primitive.getAttribute('NORMAL')!,uvs=primitive.getAttribute('TEXCOORD_0')!;
-  assert.ok(normals && uvs);
+  const tangents=primitive.getAttribute('TANGENT')!;
+  assert.ok(normals && uvs && tangents);
+  assert.equal(tangents.getCount(),positions.getCount());
+  for(let i=0;i<tangents.getCount();i++) {const tangent:number[]=[];tangents.getElement(i,tangent);assert.ok(tangent.every(Number.isFinite));assert.ok(Math.abs(tangent[3]!)===1);
+    const normal:number[]=[];normals.getElement(i,normal);assert.ok(Math.abs(Math.hypot(...tangent.slice(0,3))-1)<1e-4);
+    assert.ok(Math.abs(normal.reduce((sum,v,c)=>sum+v*tangent[c]!,0))<1e-4);}
+
   assert.equal(uvs.getCount(),positions.getCount());
   const minimum=[Infinity,Infinity,Infinity],maximum=[-Infinity,-Infinity,-Infinity];
   const point: number[]=[];

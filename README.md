@@ -124,3 +124,5 @@ See [deterministic sprite atlases](docs/sprite-atlases.md) for selected-image pa
 Static puff/ring ingredients with explicit alpha, geometry and intensity controls are available through [`./recipes/effect-artwork`](docs/effect-artwork.md).
 
 Selected static GLB/PNG handoff with content-addressed files, source lineage and recoverable export is available through [`./operations/bundle`](docs/asset-bundles.md).
+
+See [complete static GLB PBR finishing](docs/gltf-pbr-materials.md) for applying existing normal/ORM material sets.
