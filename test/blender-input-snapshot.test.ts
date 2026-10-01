@@ -2,6 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import path from "node:path";
 import {tmpdir} from "node:os";
+import {fileURLToPath} from "node:url";
+import {spawnSync} from "node:child_process";
 import {chmod,mkdir,mkdtemp,readFile,readdir,rm,stat,writeFile} from "node:fs/promises";
 import {readWheatRecipeSource} from "../src/wheat-recipes.js";
 import {sha256Text} from "../src/hash.js";
@@ -43,6 +45,51 @@ process.exit(child.status ?? 1);
  const replay=await verifyAsset(specPath);assert.equal(replay.status,"broken");assert.match(replay.error ?? "",/input 'authoring' bytes changed/);
  assert.deepEqual(await readFile(output),bytes);assert.deepEqual(await readFile(output+".receipt.json"),receipt);assert.equal((await stat(output)).mtimeMs,mtime);
  assert.ok(!(await readdir(root)).includes("executed.marker"));
+});
+
+test("runner snapshots retain each declared input identity when source paths alias",{
+ skip:!process.env.ASSET_TOOLING_BLENDER && "configured Blender is required",timeout:45000,
+},async t=>{
+ const blender=process.env.ASSET_TOOLING_BLENDER;assert.ok(blender);
+ const root=await mkdtemp(path.join(tmpdir(),"blender-input-alias-"));t.after(()=>rm(root,{recursive:true,force:true}));
+ const first='VALUE="first"\n',second='VALUE="second"\n';
+ const script='from pathlib import Path\ndef generate(output_path, arguments, inputs):\n first=inputs.load_source("first")["VALUE"]\n second=inputs.load_source("second")["VALUE"]\n Path(output_path).write_text(first+"/"+second)\n return {"first":first,"second":second}\n';
+ const source=await readWheatRecipeSource();
+ await writeFile(path.join(root,"helper.py"),first);await writeFile(path.join(root,"entry.py"),script);
+ await writeFile(path.join(root,"request.json"),JSON.stringify({blenderVersion:source.blenderVersion,scriptPath:"entry.py",scriptSha256:sha256Text(script),arguments:{},
+  inputArtifacts:{script:{path:"entry.py",sha256:sha256Text(script)},first:{path:"helper.py",sha256:sha256Text(first)},second:{path:"helper.py",sha256:sha256Text(second)}},
+  inputs:{first:"helper.py",second:"helper.py"}}));
+ // Isolate the runner seam: simulate a concurrent edit between its two verified
+ // reads. Both individual declared pins must retain their own copied bytes.
+ const harness=path.join(root,"harness.py");
+ await writeFile(harness,`import ast, sys
+from pathlib import Path
+runner=Path(sys.argv[-1])
+tree=ast.parse(runner.read_text())
+assert isinstance(tree.body[-1],ast.Try)
+tree.body.pop() # Suppress only the command-line entrypoint, not generate().
+namespace={"__file__":str(runner),"__name__":"snapshot_fixture"}
+exec(compile(tree,str(runner),"exec",dont_inherit=True),namespace)
+original_open=Path.open
+reads=0
+def tracked_open(self,*args,**kwargs):
+ global reads
+ if self==Path("helper.py") and args==("rb",):
+  reads+=1
+  if reads==2:
+   self.write_text(${JSON.stringify(second)})
+ return original_open(self,*args,**kwargs)
+Path.open=tracked_open
+try:
+ namespace["generate"](Path("request.json"),Path("output.txt"),Path("observations.json"))
+finally:
+ Path.open=original_open
+assert reads==2
+`);
+ const runner=fileURLToPath(new URL("../adapters/blender/script_runner.py",import.meta.url));
+ const result=spawnSync(blender,["--background","--factory-startup","--threads","1","--python-exit-code","1","--python",harness,"--",runner],{cwd:root,encoding:"utf8",timeout:30000});
+ assert.equal(result.status,0,result.stderr+result.stdout);
+ assert.equal(await readFile(path.join(root,"output.txt"),"utf8"),"first/second");
 });
 
 

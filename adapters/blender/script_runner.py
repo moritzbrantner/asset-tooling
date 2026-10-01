@@ -118,11 +118,9 @@ def verified_module(source_bytes: bytes, script_path: Path, name: str):
 class VerifiedScriptInputs(dict):
     """A compatible portable path map with an explicit pinned Python loader."""
 
-    def __init__(self, paths, snapshot: Path):
+    def __init__(self, paths, sources):
         super().__init__(paths)
-        self._sources = MappingProxyType({
-            name: (Path(relative), snapshot / relative) for name, relative in paths.items()
-        })
+        self._sources = MappingProxyType({name: sources[name] for name in paths})
 
     def load_source(self, name: str):
         if name not in self._sources:
@@ -142,11 +140,14 @@ def generate(request_path: Path, output_path: Path, observations_path: Path) -> 
 
     with tempfile.TemporaryDirectory(prefix="declared-inputs-", dir=request_path.parent) as temporary:
         snapshot = Path(temporary)
-        for name, artifact in request["inputArtifacts"].items():
+        sources = {}
+        for index, (name, artifact) in enumerate(request["inputArtifacts"].items()):
             relative = Path(artifact["path"])
             if relative.is_absolute() or ".." in relative.parts:
                 fail(f"input '{name}' path must stay relative to the spec")
-            destination = snapshot / relative
+            # Names may alias an original path. Keep each verified copy distinct
+            # so a later read cannot overwrite an earlier input's pinned bytes.
+            destination = snapshot / str(index) / relative
             destination.parent.mkdir(parents=True, exist_ok=True)
             digest = hashlib.sha256()
             with relative.open("rb") as source, destination.open("wb") as target:
@@ -155,8 +156,9 @@ def generate(request_path: Path, output_path: Path, observations_path: Path) -> 
                     target.write(chunk)
             if digest.hexdigest() != artifact["sha256"]:
                 fail(f"input '{name}' bytes changed after asset-tooling verified them")
+            sources[name] = (relative, destination)
         script_path = Path(request["scriptPath"])
-        script_bytes = (snapshot / script_path).read_bytes()
+        script_bytes = sources["script"][1].read_bytes()
         if hashlib.sha256(script_bytes).hexdigest() != request["scriptSha256"]:
             fail("script bytes changed after asset-tooling verified them")
 
@@ -165,7 +167,7 @@ def generate(request_path: Path, output_path: Path, observations_path: Path) -> 
         if not callable(entry):
             fail("script must define generate(output_path, arguments, inputs)")
 
-        observations = entry(str(output_path), request["arguments"], VerifiedScriptInputs(request["inputs"], snapshot))
+        observations = entry(str(output_path), request["arguments"], VerifiedScriptInputs(request["inputs"], sources))
     if not isinstance(observations, dict):
         fail("script generate() must return an observations dict")
     assert_json(observations, "script observations")
