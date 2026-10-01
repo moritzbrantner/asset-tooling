@@ -390,4 +390,10 @@ export const SURFACE_TEXTURE_PRESETS = deepFreeze({
     detailWeight:40,normalStrength:1,roughnessMin:130,roughnessMax:210}),
   "wood-cross-grain": preset({low:[52,27,12],high:[179,115,55],gridX:1,gridY:24,detailGridX:2,detailGridY:96,
     detailWeight:40,normalStrength:1,roughnessMin:130,roughnessMax:210}),
+  "paper-fine": preset({low:[231,226,215],high:[247,244,237],gridX:16,gridY:16,detailGridX:128,detailGridY:128,
+    detailWeight:180,normalStrength:1,roughnessMin:220,roughnessMax:245}),
+  "paper-coarse": preset({low:[231,226,215],high:[247,244,237],gridX:8,gridY:8,detailGridX:32,detailGridY:32,
+    detailWeight:180,normalStrength:1,roughnessMin:220,roughnessMax:245}),
+  "paper-fibers": preset({low:[231,226,215],high:[247,244,237],gridX:2,gridY:32,detailGridX:4,detailGridY:128,
+    detailWeight:180,normalStrength:1,roughnessMin:220,roughnessMax:245}),
 } satisfies Record<string,SurfaceTextureRecipe>);
