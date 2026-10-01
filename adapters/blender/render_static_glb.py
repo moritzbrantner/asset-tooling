@@ -34,8 +34,11 @@ def direction(value, label):
 
 
 def validate_arguments(arguments):
-    p = exact_object(arguments, ("schemaVersion", "width", "height", "projection", "selection", "viewDirection", "padding",
-        "lightDirection", "lightEnergy", "lightSize", "worldColor", "worldStrength", "background", "exposure", "samples", "seed"), "render")
+    keys = ("schemaVersion", "width", "height", "projection", "selection", "viewDirection", "padding",
+            "lightDirection", "lightEnergy", "lightSize", "worldColor", "worldStrength", "background", "exposure", "samples", "seed")
+    if type(arguments) is dict and "framing" in arguments:
+        keys += ("framing",)
+    p = exact_object(arguments, keys, "render")
     if type(p["schemaVersion"]) is not int or p["schemaVersion"] != 1:
         raise ValueError("static render requires version 1")
     for key, minimum, maximum in (("width", 1, 1024), ("height", 1, 1024), ("samples", 1, 64), ("seed", 0, 2147483647)):
@@ -67,6 +70,13 @@ def validate_arguments(arguments):
         bounded(p[key], minimum, maximum, key)
     if p["background"] not in ("transparent", "opaque"):
         raise ValueError("unsupported background")
+    if "framing" in p:
+        framing = exact_object(p["framing"], ("type", "center", "horizontalSpan", "pivot"), "framing")
+        if framing["type"] != "shared-orthographic" or projection["type"] != "orthographic":
+            raise ValueError("shared framing requires orthographic projection")
+        vector(framing["center"], -100000, 100000, "framing.center")
+        vector(framing["pivot"], -100000, 100000, "framing.pivot")
+        bounded(framing["horizontalSpan"], 0.000001, 100000, "framing.horizontalSpan")
     return p
 
 
@@ -304,6 +314,13 @@ def generate(output_path, arguments, inputs):
     if diagonal < 1e-8 or diagonal > 1e6:
         raise ValueError("empty or excessive source bounds")
     center = (low + high) * 0.5
+    source_diagonal = diagonal
+    framing = p.get("framing")
+    if framing:
+        # A declared world-space target/span locks scale and framing across
+        # independent states/directions. No source bounds are rewritten.
+        center = Vector((framing["center"][0], -framing["center"][2], framing["center"][1]))
+        diagonal = framing["horizontalSpan"] * max(1, p["height"] / p["width"])
 
     # The public camera/light directions are glTF right-handed Y-up; Blender is Z-up.
     def blender_direction(value):
@@ -320,7 +337,7 @@ def generate(output_path, arguments, inputs):
     camera.rotation_euler = (-direction).to_track_quat("-Z", "Y").to_euler()
     camera.data.sensor_fit = "HORIZONTAL"
     local = [camera.rotation_euler.to_matrix().transposed() @ (point - center) for point in corners]
-    if max(point.x for point in local) - min(point.x for point in local) < diagonal * 1e-8 or max(point.y for point in local) - min(point.y for point in local) < diagonal * 1e-8:
+    if max(point.x for point in local) - min(point.x for point in local) < source_diagonal * 1e-8 or max(point.y for point in local) - min(point.y for point in local) < source_diagonal * 1e-8:
         raise ValueError("source has degenerate projected bounds from this view")
     aspect = p["width"] / p["height"]
     usable = 1 - 2 * p["padding"]
@@ -328,8 +345,8 @@ def generate(output_path, arguments, inputs):
         camera.data.type = "ORTHO"
         half_width = max(abs(point.x) for point in local)
         half_height = max(abs(point.y) for point in local)
-        camera.data.ortho_scale = max(half_width * 2, half_height * 2 * aspect) / usable
-        distance = diagonal * 2
+        camera.data.ortho_scale = framing["horizontalSpan"] if framing else max(half_width * 2, half_height * 2 * aspect) / usable
+        distance = max(diagonal * 2, max(point.z for point in local) + diagonal)
     else:
         fov = p["projection"]["horizontalFovDegrees"]
         if not 10 <= fov <= 100:
@@ -340,8 +357,8 @@ def generate(output_path, arguments, inputs):
         camera.data.lens = 36 / (2 * tangent)
         distance = max(max(abs(point.x) / (tangent * usable), abs(point.y) * aspect / (tangent * usable)) + point.z for point in local) + diagonal * 0.001
     camera.location = center + direction * distance
-    camera.data.clip_start = max(1e-8, diagonal * 1e-5)
-    camera.data.clip_end = max(1, distance + diagonal * 4)
+    camera.data.clip_start = max(1e-8, min(diagonal, source_diagonal) * 1e-5)
+    camera.data.clip_end = max(1, distance - min(point.z for point in local) + max(diagonal, source_diagonal) * 4) if framing else max(1, distance + diagonal * 4)
     scene = bpy.context.scene
     scene.camera = camera
     scene.render.resolution_x = p["width"]
@@ -356,6 +373,14 @@ def generate(output_path, arguments, inputs):
                         "top": 1 - max(point.y for point in projected), "bottom": 1 - min(point.y for point in projected)}
     if min(projected_bounds["left"], projected_bounds["top"], 1 - projected_bounds["right"], 1 - projected_bounds["bottom"]) < p["padding"] - 1e-5:
         raise ValueError("camera framing clips the declared padded bounds")
+    pivot = {"x": p["width"] / 2, "y": p["height"] / 2}
+    if framing:
+        point = framing["pivot"]
+        projected_pivot = world_to_camera_view(scene, camera, Vector((point[0], -point[2], point[1])))
+        if projected_pivot.z <= 0 or not (-1e-5 <= projected_pivot.x <= 1 + 1e-5 and -1e-5 <= projected_pivot.y <= 1 + 1e-5):
+            raise ValueError("logical pivot falls outside the shared frame")
+        pivot = {"x": min(p["width"], max(0, projected_pivot.x * p["width"])),
+                 "y": min(p["height"], max(0, (1 - projected_pivot.y) * p["height"]))}
 
     bpy.ops.object.light_add(type="AREA")
     light = bpy.context.object
@@ -407,8 +432,12 @@ def generate(output_path, arguments, inputs):
         bpy.data.images.remove(native)
     finally:
         native_path.unlink(missing_ok=True)
-    return {"recipe": "static-glb-render-v1", "renderer": "blender-cycles-cpu", "width": p["width"], "height": p["height"],
-            "pivot": {"x": p["width"] / 2, "y": p["height"] / 2}, "projection": p["projection"], "padding": p["padding"],
+    observations = {"recipe": "static-glb-render-v1", "renderer": "blender-cycles-cpu", "width": p["width"], "height": p["height"],
+            "pivot": pivot, "projection": p["projection"], "padding": p["padding"],
             "projectedBounds": projected_bounds, "meshCount": len(meshes), "materialCount": len({m for obj in meshes for m in obj.data.materials if m}),
             "colorSpace": "srgb", "alphaMode": "straight", "background": p["background"], "viewDirection": p["viewDirection"],
             "samples": p["samples"], "seed": p["seed"], "sourceBoundsBlenderZUp": {"min": list(low), "max": list(high)}}
+    if framing:
+        observations["framing"] = {**framing, "coordinateSpace": "gltf-world-y-up",
+                                   "worldUnitsPerPixel": framing["horizontalSpan"] / p["width"], "trimOffset": {"x": 0, "y": 0}}
+    return observations

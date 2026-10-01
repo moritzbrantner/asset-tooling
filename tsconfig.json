@@ -24,6 +24,8 @@
     "noUnusedParameters": true
   },
   "include": [
+    "examples/directional-crops/build.ts",
+    "test/shared-render-framing.test.ts",
     "src/blender-script-backend.ts",
     "test/blender-input-snapshot.test.ts",
     "examples/crop-appearance.ts",
