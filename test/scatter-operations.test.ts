@@ -109,14 +109,15 @@ test("instance operation registry exposes scatter and heightfield projection sep
   assert.deepEqual(
     INSTANCE_OPERATIONS.map((operation) => operation.id),
     [
+      "instances.filter.exclusion-mask",
       "instances.project.heightfield",
       "instances.scatter.minimum-distance",
       "instances.scatter.uniform",
     ],
   );
-  assert.deepEqual(INSTANCE_OPERATIONS[0].inputs.map((input) => input.id), ["source", "height"]);
-  assert.equal(INSTANCE_OPERATIONS[1].parameterSchema.properties.count.maximum, 4096);
-  assert.deepEqual(INSTANCE_OPERATIONS[2].inputs, []);
+  assert.deepEqual(INSTANCE_OPERATIONS[1].inputs.map((input) => input.id), ["source", "height"]);
+  assert.equal(INSTANCE_OPERATIONS[2].parameterSchema.properties.count.maximum, 4096);
+  assert.deepEqual(INSTANCE_OPERATIONS[3].inputs, []);
 });
 
 test("uniform scatter pins the SHA-256-seeded SplitMix64 candidate stream", () => {
