@@ -132,3 +132,5 @@ See [complete static GLB PBR finishing](docs/gltf-pbr-materials.md) for applying
 For controlled regular soil ridges and troughs, see the [tilled furrow recipe](docs/surface-textures.md#regular-tilled-furrows) and [actual tiled-material example](examples/tilled-soil/build.ts).
 
 [Saved instance exclusion masks](docs/instance-exclusion.md) remove cosmetic detail from an accepted candidate set while preserving retained IDs, order and XYZ positions. The native rock-field example compares a path mask with a localized edit under identical camera framing.
+
+[Authored effect frame sequences](docs/authored-effect-sequences.md) compose explicit puff/ring poses and millisecond schedules into the existing atlas format, with preserved frame IDs/pivots, transparent one-shot endings and cancellation between stages.

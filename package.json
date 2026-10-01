@@ -66,7 +66,8 @@
     "./operations/bundle": "./src/asset-bundle.ts",
     "./operations/processing/gltf-pbr": "./src/gltf-pbr-material-operations.ts",
     "./recipes/leaf-artwork": "./src/leaf-artwork-recipes.ts",
-    "./operations/instances/masks": "./src/instance-mask-operations.ts"
+    "./operations/instances/masks": "./src/instance-mask-operations.ts",
+    "./recipes/authored-effect-sequences": "./src/authored-effect-sequences.ts"
   },
   "bin": {
     "asset-tooling": "./src/entry.ts"
