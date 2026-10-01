@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { mkdtemp, readFile, writeFile, copyFile, mkdir, rm, stat } from "node:fs/promises";
+import { cp, mkdtemp, readFile, writeFile, copyFile, mkdir, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
@@ -25,12 +25,19 @@ const exec = promisify(execFile);
 const repository = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
 const directory = await mkdtemp(path.join(tmpdir(), "asset-bundle-consumer-"));
 const consumer = path.join(directory, "consumer");
+const producer = path.join(directory, "producer");
 async function run(args: string[], cwd = consumer) {
   return exec(process.execPath, args, { cwd, timeout: 120_000, maxBuffer: 8 * 1024 * 1024 });
 }
 try {
   await mkdir(consumer);
-  await run(["pm", "pack", "--destination", directory], repository);
+  // Packing runs explicit prepack reconciliation; keep that mutation in disposable producer state.
+  const excluded = new Set([".git", "node_modules", ".artifacts", ".asset-tooling", "dist", "build"]);
+  await cp(repository, producer, {
+    recursive: true,
+    filter: source => !excluded.has(path.relative(repository, source).split(path.sep)[0] ?? ""),
+  });
+  await run(["pm", "pack", "--destination", directory], producer);
   const packageJson: unknown = JSON.parse(await readFile(path.join(repository, "package.json"), "utf8"));
   assert.ok(packageJson && typeof packageJson === "object" && "version" in packageJson && typeof packageJson.version === "string");
   await copyFile(path.join(directory, `asset-tooling-${packageJson.version}.tgz`), path.join(consumer, "asset-tooling.tgz"));
