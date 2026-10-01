@@ -38,6 +38,8 @@ The storage and cache boundaries preserve their existing runtime authority: asse
 
 The static effect-artwork composition also brings its existing pure SDF, image geometry, color, convolution, channel and mask kernels under strict checking. Their algorithms and public operation versions stay unchanged; explicit image/parameter types and checked-loop index bounds allow the new recipe to reuse them without introducing untyped migration debt.
 
+The complete PBR finishing slice brings the existing material/ORM, canonical linear RGBA8 and bounded image codec boundaries under strict checking. The new finisher consumes those typed contracts and the existing named-material helpers; their original ORM packing and image algorithms remain unchanged.
+
 Later typing slices should continue expanding outward from these stable primitives into cohesive boundaries rather than adding isolated files solely to increase compiler coverage. `src/receipts.ts` is the next natural authority boundary because `src/core.ts` consumes its generation-receipt v1/v2 validation and reproducibility evidence. Typing receipts before orchestration keeps provenance and compatibility contracts centralized; `src/core.ts` can then be typed against the validated spec, backend, cache, and receipt domains instead of defining local approximations.
 
 ## Completion criteria for later typing slices

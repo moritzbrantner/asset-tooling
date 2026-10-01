@@ -1,5 +1,5 @@
 /// <reference path="./gltf-validator.d.ts" />
-import { ImageUtils, TextureInfo, VERSION } from "@gltf-transform/core";
+import { ImageUtils, TextureInfo, VERSION, type Document } from "@gltf-transform/core";
 import { version as validatorVersion } from "gltf-validator";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
@@ -59,7 +59,7 @@ function choice<T extends string>(value: unknown, choices: readonly T[], label: 
   for (const candidate of choices) if (candidate === value) return candidate;
   throw new Error(`unsupported ${label}`);
 }
-function parameters(value: unknown): GltfBaseColorParameters {
+export function normalizeGltfBaseColorParameters(value: unknown): GltfBaseColorParameters {
   const p = object(value, ["materialName", "baseColorFactor", "texCoord", "sampler", "alpha"], "glTF base-color parameters");
   if (typeof p.materialName !== "string" || p.materialName.length < 1 || p.materialName.length > 256) throw new Error("materialName must contain 1..256 characters");
   if (!Array.isArray(p.baseColorFactor) || p.baseColorFactor.length !== 4) throw new Error("baseColorFactor needs four coordinates");
@@ -76,7 +76,7 @@ function parameters(value: unknown): GltfBaseColorParameters {
 
 async function checked(root: string, invocation: Invocation) {
   if (typeof root !== "string" || !path.isAbsolute(root)) throw new Error("glTF material operation root must be an absolute path");
-  const p = parameters(invocation.parameters);
+  const p = normalizeGltfBaseColorParameters(invocation.parameters);
   const build = createAssetOperationBuildIdentity({ operation: GLTF_BASE_COLOR_OPERATION, parameters: p, inputs: invocation.inputs ?? {},
     implementation: { id: "gltf-transform-base-color", version: "1", gltfTransform: VERSION, validator: validatorVersion(),
       dependencyLockSha256: sha256Bytes(await readFile(new URL("../bun.lock", import.meta.url))), assetTooling: await captureToolIdentity() } });
@@ -86,11 +86,7 @@ async function checked(root: string, invocation: Invocation) {
   const size = ImageUtils.getSize(png, "image/png");
   if (!size || size.some(value => !Number.isSafeInteger(value) || value < 1 || value > 4096)) throw new Error("base-color PNG dimensions must be in 1..4096");
   const imported = await loadCheckedGltf(root, GLTF_IMPORT_OPERATION, { resourceUris: [] }, { source }, false);
-  const matches = imported.document.getRoot().listMaterials().filter(material => material.getName() === p.materialName);
-  if (matches.length !== 1) throw new Error("materialName must uniquely identify an existing material");
-  const material = matches[0]!;
-  const primitives = imported.document.getRoot().listMeshes().flatMap(mesh => mesh.listPrimitives()).filter(primitive => primitive.getMaterial() === material);
-  if (primitives.length === 0 || primitives.some(primitive => !primitive.getAttribute(`TEXCOORD_${p.texCoord}`))) throw new Error("selected material must be used and covered by the declared UV set");
+  const {material,primitives}=selectNamedGltfMaterial(imported.document,p.materialName,p.texCoord);
   return { build, p, baseColor, png, size, material, primitives, ...imported };
 }
 
@@ -107,10 +103,7 @@ export async function executeGltfBaseColorOperation(root: string, invocation: In
   material.setBaseColorTexture(texture).setBaseColorFactor(p.baseColorFactor).setAlphaMode(p.alpha.mode)
     .setAlphaCutoff(p.alpha.mode === "MASK" ? p.alpha.cutoff : 0.5);
   const info = material.getBaseColorTextureInfo()!;
-  const filters = { nearest: TextureInfo.MagFilter.NEAREST!, linear: TextureInfo.MagFilter.LINEAR! };
-  const wraps = { repeat: TextureInfo.WrapMode.REPEAT!, "mirrored-repeat": TextureInfo.WrapMode.MIRRORED_REPEAT!, "clamp-to-edge": TextureInfo.WrapMode.CLAMP_TO_EDGE! };
-  info.setTexCoord(p.texCoord).setMagFilter(filters[p.sampler.magFilter]).setMinFilter(filters[p.sampler.minFilter])
-    .setWrapS(wraps[p.sampler.wrapS]).setWrapT(wraps[p.sampler.wrapT]);
+  applyGltfTextureInfo(info,p);
   const bytes = await io.writeBinary(document);
   await validateGltf(bytes, "glb", Object.create(null), "scene.material.base-color output");
   const stored = await storeAssetObject(root, { bytes, kind: source.kind, mediaType: GLB, metadata: {
@@ -121,4 +114,20 @@ export async function executeGltfBaseColorOperation(root: string, invocation: In
     ...gltfSummary(document), materialName: p.materialName, affectedPrimitives: primitives.length, parameters: p,
     texture: { sha256: baseColor.sha256, byteLength: baseColor.byteLength, width: size[0], height: size[1], colorSpace: "srgb" },
   } });
+}
+
+export function selectNamedGltfMaterial(document:Document,materialName:string,texCoord:number) {
+  const matches = document.getRoot().listMaterials().filter(material => material.getName() === materialName);
+  if (matches.length !== 1) throw new Error("materialName must uniquely identify an existing material");
+  const material = matches[0]!;
+  const primitives = document.getRoot().listMeshes().flatMap(mesh => mesh.listPrimitives()).filter(primitive => primitive.getMaterial() === material);
+  if (primitives.length === 0 || primitives.some(primitive => !primitive.getAttribute(`TEXCOORD_${texCoord}`))) throw new Error("selected material must be used and covered by the declared UV set");
+  return {material,primitives};
+}
+
+export function applyGltfTextureInfo(info:TextureInfo,p:GltfBaseColorParameters) {
+  const filters = { nearest: TextureInfo.MagFilter.NEAREST!, linear: TextureInfo.MagFilter.LINEAR! };
+  const wraps = { repeat: TextureInfo.WrapMode.REPEAT!, "mirrored-repeat": TextureInfo.WrapMode.MIRRORED_REPEAT!, "clamp-to-edge": TextureInfo.WrapMode.CLAMP_TO_EDGE! };
+  info.setTexCoord(p.texCoord).setMagFilter(filters[p.sampler.magFilter]).setMinFilter(filters[p.sampler.minFilter])
+    .setWrapS(wraps[p.sampler.wrapS]).setWrapT(wraps[p.sampler.wrapT]);
 }

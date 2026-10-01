@@ -91,7 +91,7 @@ def generate(output_path, arguments, inputs):
         for face in rock.data.polygons)
     bpy.ops.export_scene.gltf(
         filepath=output_path, export_format="GLB", use_selection=True,
-        export_yup=True, export_texcoords=True, export_normals=True,
+        export_yup=True, export_texcoords=True, export_normals=True, export_tangents=True,
         export_animations=False, export_skins=False, export_morph=False,
         export_cameras=False, export_lights=False, export_extras=False)
     return {

@@ -63,7 +63,8 @@
     "./recipes/render-derivatives": "./src/render-derivative-recipes.ts",
     "./recipes/trees": "./src/tree-recipes.ts",
     "./recipes/effect-artwork": "./src/effect-artwork-recipes.ts",
-    "./operations/bundle": "./src/asset-bundle.ts"
+    "./operations/bundle": "./src/asset-bundle.ts",
+    "./operations/processing/gltf-pbr": "./src/gltf-pbr-material-operations.ts"
   },
   "bin": {
     "asset-tooling": "./src/entry.ts"

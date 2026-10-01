@@ -140,7 +140,7 @@ if (hasFfmpeg()) {
       parameters: { compressionLevel: 9 }, inputs: { source },
     });
     assert.equal(build.operation.version, "1", "the public invocation remains compatible");
-    assert.equal(build.implementation.version, "2", "square-pixel encoding has a new implementation identity");
+    assert.equal(build.implementation.version, "3", "byte-preserving color/data PNG encoding has an explicit implementation identity");
     const encoded = await executeImageEncodePngOperation(root, {
       parameters: { compressionLevel: 9 },
       inputs: { source },

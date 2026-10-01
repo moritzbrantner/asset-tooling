@@ -4,6 +4,9 @@ import path from "node:path";
 import { resolveAssetObject, storeAssetObject } from "./asset-store.js";
 import {
   createAssetOperationBuildIdentity,
+  createAssetRef,
+  type ReadonlyAssetOperationDescriptor,
+
   createAssetOperationRegistry,
   normalizeAssetOperationResult,
 } from "./operations.js";
@@ -12,8 +15,14 @@ import {
   encodeRgba8Image,
   parseRgba8Image,
 } from "./image-rgba8.js";
-import { captureToolIdentity } from "./tool.js";
+import { captureToolIdentity, type ToolIdentity } from "./tool.js";
 
+type CodecImplementation = {id:string;version:string;operation:string;ffmpeg:string;tool:ToolIdentity;ffprobe?:string;algorithm?:string};
+type CodecRuntime = { ffmpeg: string; ffprobe: string };
+export type ImageCodecInvocation = { parameters?:unknown; inputs?:unknown; runtime?:unknown };
+type ToolOptions = { input?:Uint8Array; text?:boolean; label:string };
+import { LINEAR_RGBA8_IMAGE_MEDIA_TYPE, parseLinearRgba8Image } from "./image-linear-rgba8.js";
+import type { AssetRef } from "./operations.js";
 const VERSION = "1";
 const MAX_OUTPUT_BYTES = 512 * 1024 * 1024;
 const STANDARD_IMAGE_MEDIA_TYPES = [
@@ -57,14 +66,14 @@ const OPERATION_REGISTRY = createAssetOperationRegistry([
     version: VERSION,
     label: "Encode canonical image as PNG",
     description:
-      "Encode canonical straight-alpha sRGB RGBA8 bytes as one deterministic PNG under an explicit FFmpeg runtime identity.",
+      "Encode canonical straight-alpha sRGB or linear RGBA8 channel bytes as one deterministic PNG without a transfer, under an explicit FFmpeg runtime identity.",
     category: "image.codec",
     inputs: [
       {
         id: "source",
         label: "Canonical RGBA8 image",
         assetKinds: ["image"],
-        mediaTypes: [RGBA8_IMAGE_MEDIA_TYPE],
+        mediaTypes: [RGBA8_IMAGE_MEDIA_TYPE, LINEAR_RGBA8_IMAGE_MEDIA_TYPE],
       },
     ],
     outputs: [
@@ -84,18 +93,18 @@ const OPERATION_REGISTRY = createAssetOperationRegistry([
   },
 ]);
 
-export const IMAGE_DECODE_OPERATION = OPERATION_REGISTRY.get("image.decode", VERSION);
-export const IMAGE_ENCODE_PNG_OPERATION = OPERATION_REGISTRY.get("image.encode.png", VERSION);
+export const IMAGE_DECODE_OPERATION = OPERATION_REGISTRY.get("image.decode", VERSION)!;
+export const IMAGE_ENCODE_PNG_OPERATION = OPERATION_REGISTRY.get("image.encode.png", VERSION)!;
 export const IMAGE_CODEC_OPERATIONS = OPERATION_REGISTRY.list();
 
-function assertRoot(root) {
+function assertRoot(root: string) {
   if (typeof root !== "string" || !path.isAbsolute(root)) {
     throw new Error("image codec operation root must be an absolute path");
   }
   return root;
 }
 
-function normalizeRuntime(runtime = {}) {
+function normalizeRuntime(runtime: unknown = {}) {
   if (typeof runtime !== "object" || runtime === null || Array.isArray(runtime)) {
     throw new Error("image codec runtime must be an object");
   }
@@ -103,7 +112,7 @@ function normalizeRuntime(runtime = {}) {
   for (const key of Object.keys(runtime)) {
     if (!allowed.has(key)) throw new Error(`image codec runtime contains unknown field '${key}'`);
   }
-  const executable = (value, fallback, location) => {
+  const executable = (value: unknown, fallback: string, location: string) => {
     const resolved = value ?? fallback;
     if (typeof resolved !== "string" || resolved.trim().length === 0) {
       throw new Error(`${location} must be a non-empty executable name or path`);
@@ -111,12 +120,14 @@ function normalizeRuntime(runtime = {}) {
     return resolved;
   };
   return {
-    ffmpeg: executable(runtime.ffmpeg, "ffmpeg", "runtime.ffmpeg"),
-    ffprobe: executable(runtime.ffprobe, "ffprobe", "runtime.ffprobe"),
+    ffmpeg: executable("ffmpeg" in runtime ? runtime.ffmpeg : undefined, "ffmpeg", "runtime.ffmpeg"),
+    ffprobe: executable("ffprobe" in runtime ? runtime.ffprobe : undefined, "ffprobe", "runtime.ffprobe"),
   };
 }
 
-function runTool(executable, args, { input, text = false, label }) {
+function runTool(executable:string,args:string[],options:ToolOptions & {text:true}):string;
+function runTool(executable:string,args:string[],options:ToolOptions & {text?:false}):Buffer;
+function runTool(executable:string,args:string[],{input,text=false,label}:ToolOptions):string|Buffer {
   const result = spawnSync(executable, args, {
     input,
     encoding: text ? "utf8" : undefined,
@@ -140,16 +151,17 @@ function runTool(executable, args, { input, text = false, label }) {
   return result.stdout;
 }
 
-function toolVersion(executable, label) {
+function toolVersion(executable:string, label:string) {
   const stdout = runTool(executable, ["-version"], { text: true, label: `${label} version probe` });
   const firstLine = String(stdout).split(/\r?\n/, 1)[0]?.trim();
   if (!firstLine) throw new Error(`${label} version probe returned no identity`);
   return firstLine;
 }
 
-async function implementationIdentity(operation, runtime) {
+export async function probeImageCodecImplementation(operation:ReadonlyAssetOperationDescriptor,runtime:unknown) {
+  if(operation.id!=="image.decode" && operation.id!=="image.encode.png") throw new Error("unsupported image codec operation identity");
   const normalizedRuntime = normalizeRuntime(runtime);
-  const implementation = {
+  const implementation: CodecImplementation = {
     id: "external.ffmpeg.image-codec",
     version: VERSION,
     operation: operation.id,
@@ -160,13 +172,13 @@ async function implementationIdentity(operation, runtime) {
     implementation.ffprobe = toolVersion(normalizedRuntime.ffprobe, "ffprobe");
     implementation.algorithm = "ffprobe-dimensions-ffmpeg-rgba8-v1";
   } else {
-    implementation.version = "2";
-    implementation.algorithm = "ffmpeg-rgba8-square-pixel-png-image2pipe-v2";
+    implementation.version = "3";
+    implementation.algorithm = "ffmpeg-rgba8-byte-preserving-square-pixel-png-image2pipe-v3";
   }
   return { implementation, runtime: normalizedRuntime };
 }
 
-function normalizeDecodeParameters(value) {
+function normalizeDecodeParameters(value: unknown) {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     throw new Error("image.decode parameters must be an object");
   }
@@ -176,7 +188,7 @@ function normalizeDecodeParameters(value) {
   return {};
 }
 
-function normalizeEncodeParameters(value) {
+function normalizeEncodeParameters(value: unknown) {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     throw new Error("image.encode.png parameters must be an object");
   }
@@ -184,27 +196,36 @@ function normalizeEncodeParameters(value) {
   if (keys.length !== 1 || keys[0] !== "compressionLevel") {
     throw new Error("image.encode.png parameters must contain only compressionLevel");
   }
-  if (!Number.isSafeInteger(value.compressionLevel) || value.compressionLevel < 0 || value.compressionLevel > 9) {
+  if (!("compressionLevel" in value) || typeof value.compressionLevel !== "number" || !Number.isSafeInteger(value.compressionLevel) || value.compressionLevel < 0 || value.compressionLevel > 9) {
     throw new Error("parameters.compressionLevel must be an integer in 0..9");
   }
   return { compressionLevel: value.compressionLevel };
 }
 
-async function createBuildIdentity(root, operation, parameters, inputs, runtime) {
+function pngInput(source:AssetRef,bytes:Uint8Array) {
+  switch(source.mediaType) {
+    case RGBA8_IMAGE_MEDIA_TYPE:return parseRgba8Image(bytes);
+    case LINEAR_RGBA8_IMAGE_MEDIA_TYPE:return parseLinearRgba8Image(bytes);
+    default:throw new Error("PNG encode requires canonical sRGB or linear RGBA8 input");
+  }
+}
+
+async function createBuildIdentity(root:string,operation:ReadonlyAssetOperationDescriptor,parameters:unknown,inputs:unknown,runtime:unknown) {
   const assetRoot = assertRoot(root);
-  const identity = await implementationIdentity(operation, runtime);
+  const identity = await probeImageCodecImplementation(operation, runtime);
   const build = createAssetOperationBuildIdentity({
     operation,
     implementation: identity.implementation,
     parameters,
     inputs,
   });
-  const sourceBytes = await resolveAssetObject(assetRoot, build.inputs.source);
-  if (operation.id === "image.encode.png") parseRgba8Image(sourceBytes);
-  return { assetRoot, build, runtime: identity.runtime, sourceBytes };
+  const source=createAssetRef(build.inputs.source);
+  const sourceBytes = await resolveAssetObject(assetRoot, source);
+  if (operation.id === "image.encode.png") pngInput(source,sourceBytes);
+  return { assetRoot, build, runtime: identity.runtime, source, sourceBytes };
 }
 
-function probeDimensions(runtime, sourceBytes) {
+function probeDimensions(runtime:CodecRuntime,sourceBytes:Buffer) {
   const stdout = runTool(
     runtime.ffprobe,
     [
@@ -220,16 +241,16 @@ function probeDimensions(runtime, sourceBytes) {
     ],
     { input: sourceBytes, text: true, label: "image dimension probe" },
   );
-  let parsed;
+  let parsed:unknown;
   try {
     parsed = JSON.parse(String(stdout));
   } catch (error) {
-    throw new Error(`image dimension probe returned invalid JSON: ${error.message}`);
+    throw new Error(`image dimension probe returned invalid JSON: ${error instanceof Error ? error.message : String(error)}`);
   }
-  const stream = parsed?.streams?.[0];
-  const width = stream?.width;
-  const height = stream?.height;
-  if (!Number.isSafeInteger(width) || width < 1 || !Number.isSafeInteger(height) || height < 1) {
+  const stream = parsed && typeof parsed === "object" && "streams" in parsed && Array.isArray(parsed.streams) ? parsed.streams[0] : undefined;
+  const width:unknown = stream?.width;
+  const height:unknown = stream?.height;
+  if (typeof width !== "number" || typeof height !== "number" || !Number.isSafeInteger(width) || width < 1 || !Number.isSafeInteger(height) || height < 1) {
     throw new Error("image dimension probe did not return positive integer dimensions");
   }
   if (width > 8192 || height > 8192) {
@@ -239,8 +260,8 @@ function probeDimensions(runtime, sourceBytes) {
 }
 
 export async function createImageDecodeOperationBuildIdentity(
-  root,
-  { parameters = {}, inputs = {}, runtime = {} } = {},
+  root:string,
+  { parameters = {}, inputs = {}, runtime = {} }:ImageCodecInvocation = {},
 ) {
   const prepared = await createBuildIdentity(
     root,
@@ -253,8 +274,8 @@ export async function createImageDecodeOperationBuildIdentity(
 }
 
 export async function executeImageDecodeOperation(
-  root,
-  { parameters = {}, inputs = {}, runtime = {} } = {},
+  root:string,
+  { parameters = {}, inputs = {}, runtime = {} }:ImageCodecInvocation = {},
 ) {
   const prepared = await createBuildIdentity(
     root,
@@ -301,22 +322,22 @@ export async function executeImageDecodeOperation(
       pixelFormat: "rgba8",
       colorSpace: "srgb",
       alphaMode: "straight",
-      sourceSha256: prepared.build.inputs.source.sha256,
+      sourceSha256: prepared.source.sha256,
     },
   });
   return normalizeAssetOperationResult(IMAGE_DECODE_OPERATION, {
     outputs: { output: stored.asset },
     observations: {
       ...dimensions,
-      sourceMediaType: prepared.build.inputs.source.mediaType,
+      sourceMediaType: prepared.source.mediaType,
       algorithm: prepared.build.implementation.algorithm,
     },
   });
 }
 
 export async function createImageEncodePngOperationBuildIdentity(
-  root,
-  { parameters = { compressionLevel: 9 }, inputs = {}, runtime = {} } = {},
+  root:string,
+  { parameters = { compressionLevel: 9 }, inputs = {}, runtime = {} }:ImageCodecInvocation = {},
 ) {
   const prepared = await createBuildIdentity(
     root,
@@ -329,8 +350,8 @@ export async function createImageEncodePngOperationBuildIdentity(
 }
 
 export async function executeImageEncodePngOperation(
-  root,
-  { parameters = { compressionLevel: 9 }, inputs = {}, runtime = {} } = {},
+  root:string,
+  { parameters = { compressionLevel: 9 }, inputs = {}, runtime = {} }:ImageCodecInvocation = {},
 ) {
   const prepared = await createBuildIdentity(
     root,
@@ -339,7 +360,7 @@ export async function executeImageEncodePngOperation(
     inputs,
     runtime,
   );
-  const image = parseRgba8Image(prepared.sourceBytes);
+  const image = pngInput(prepared.source,prepared.sourceBytes);
   const png = runTool(
     prepared.runtime.ffmpeg,
     [
@@ -375,8 +396,9 @@ export async function executeImageEncodePngOperation(
     metadata: {
       width: image.width,
       height: image.height,
-      sourceSha256: prepared.build.inputs.source.sha256,
+      sourceSha256: prepared.source.sha256,
       codec: "png",
+      sourceColorSpace: image.colorSpace,
     },
   });
   return normalizeAssetOperationResult(IMAGE_ENCODE_PNG_OPERATION, {

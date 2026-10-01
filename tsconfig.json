@@ -24,6 +24,11 @@
     "noUnusedParameters": true
   },
   "include": [
+    "src/gltf-pbr-material-operations.ts",
+    "src/image-codec-operations.ts",
+    "src/material-operations.ts",
+    "src/image-linear-rgba8.ts",
+    "test/gltf-pbr-material.test.ts",
     "src/asset-bundle.ts",
     "test/asset-bundle.test.ts",
     "src/effect-artwork-recipes.ts",

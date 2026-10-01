@@ -1,3 +1,4 @@
+import type { Rgba8Image } from "./image-rgba8.js";
 import { canonicalJson } from "./canonical.js";
 
 export const LINEAR_RGBA8_IMAGE_MEDIA_TYPE =
@@ -7,7 +8,7 @@ export const LINEAR_RGBA8_IMAGE_SCHEMA_VERSION = 1;
 const MAX_DIMENSION = 8192;
 const BASE64_PATTERN = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
 
-function assertPlainObject(value, location) {
+function assertPlainObject(value: unknown, location: string): Record<string, unknown> {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     throw new Error(`${location} must be a plain object`);
   }
@@ -15,10 +16,10 @@ function assertPlainObject(value, location) {
   if (prototype !== Object.prototype && prototype !== null) {
     throw new Error(`${location} must be a plain object`);
   }
-  return value;
+  return value as Record<string, unknown>;
 }
 
-function assertExactKeys(value, keys, location) {
+function assertExactKeys(value: unknown, keys: ReadonlySet<string>, location: string) {
   const object = assertPlainObject(value, location);
   for (const key of Object.keys(object)) {
     if (!keys.has(key)) throw new Error(`${location} contains unknown field '${key}'`);
@@ -29,14 +30,14 @@ function assertExactKeys(value, keys, location) {
   return object;
 }
 
-function dimension(value, location) {
-  if (!Number.isSafeInteger(value) || value < 1 || value > MAX_DIMENSION) {
+function dimension(value: unknown, location: string) {
+  if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 1 || value > MAX_DIMENSION) {
     throw new Error(`${location} must be an integer in 1..${MAX_DIMENSION}`);
   }
   return value;
 }
 
-function expectedByteLength(width, height) {
+function expectedByteLength(width: number, height: number) {
   const length = width * height * 4;
   if (!Number.isSafeInteger(length)) {
     throw new Error("linear RGBA8 image byte length exceeds the safe integer range");
@@ -44,7 +45,7 @@ function expectedByteLength(width, height) {
   return length;
 }
 
-function canonicalBase64(value, location) {
+function canonicalBase64(value: unknown, location: string) {
   if (typeof value !== "string" || !BASE64_PATTERN.test(value)) {
     throw new Error(`${location} must be canonical base64`);
   }
@@ -55,7 +56,7 @@ function canonicalBase64(value, location) {
   return bytes;
 }
 
-export function createLinearRgba8Image({ width, height, pixels }) {
+export function createLinearRgba8Image({ width, height, pixels }: Rgba8Image) {
   const normalizedWidth = dimension(width, "linear RGBA8 image width");
   const normalizedHeight = dimension(height, "linear RGBA8 image height");
   if (!(pixels instanceof Uint8Array)) {
@@ -76,19 +77,19 @@ export function createLinearRgba8Image({ width, height, pixels }) {
   };
 }
 
-export function encodeLinearRgba8Image(image) {
+export function encodeLinearRgba8Image(image: Rgba8Image) {
   return Buffer.from(`${canonicalJson(createLinearRgba8Image(image))}\n`, "utf8");
 }
 
-export function parseLinearRgba8Image(bytes) {
+export function parseLinearRgba8Image(bytes: Uint8Array) {
   if (!(bytes instanceof Uint8Array)) {
     throw new Error("linear RGBA8 image bytes must be a Uint8Array");
   }
-  let value;
+  let value: unknown;
   try {
     value = JSON.parse(Buffer.from(bytes).toString("utf8"));
   } catch (error) {
-    throw new Error(`linear RGBA8 image is not valid JSON: ${error.message}`);
+    throw new Error(`linear RGBA8 image is not valid JSON: ${error instanceof Error ? error.message : String(error)}`);
   }
   const document = assertExactKeys(
     value,

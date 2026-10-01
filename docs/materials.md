@@ -29,3 +29,5 @@ The first bundle version deliberately does not define sampler state, UV transfor
 ## Reproducibility boundary
 
 Both operations use normal asset-operation build identity and object-store verification. Repeating the same operation against the same exact input assets and parameters yields the same content-addressed output identity. A renderer accepting the bundle must still interpret the recorded conventions explicitly rather than infer them from filenames or ambient defaults.
+
+The [static GLB finishing operation](gltf-pbr-materials.md) consumes this existing complete bundle, verifies every declared source map, preserves its channel conventions, and embeds byte-preserving PNGs through the established codec. It also exposes `parsePbrMaterialDocument` at the existing materials boundary.
