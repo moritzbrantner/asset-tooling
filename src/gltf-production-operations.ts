@@ -1,7 +1,7 @@
 /// <reference path="./gltf-validator.d.ts" />
+import { readDependencyLockSha256 } from "./dependency-lock.js";
 import { VERSION, type Document } from "@gltf-transform/core";
 import { version as validatorVersion } from "gltf-validator";
-import { readFile } from "node:fs/promises";
 import { storeAssetObject } from "./asset-store.js";
 import { GLTF_IMPORT_OPERATION } from "./gltf-import-operations.js";
 import { checkedGltfInputs, gltfSummary, loadCheckedGltf, portableGltfUri, validateGltf } from "./gltf-processing.js";
@@ -117,7 +117,7 @@ async function buildIdentity(root: string, invocation: Invocation, operation: Re
     operation, parameters: identity.parameters, inputs: identity.inputs,
     implementation: {
       id: "gltf-transform-production", version: "1", gltfTransform: VERSION, validator: validatorVersion(),
-      dependencyLockSha256: sha256Bytes(await readFile(new URL("../bun.lock", import.meta.url))),
+      dependencyLockSha256: await readDependencyLockSha256(),
       assetTooling: await captureToolIdentity(),
     },
   });

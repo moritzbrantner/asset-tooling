@@ -1,3 +1,4 @@
+import { readDependencyLockSha256 } from "./dependency-lock.js";
 /// <reference path="./gltf-validator.d.ts" />
 import { ImageUtils, NodeIO, VERSION } from "@gltf-transform/core";
 import { version as validatorVersion } from "gltf-validator";
@@ -126,7 +127,7 @@ async function prepare(root:string,invocation:Invocation,signal?:AbortSignal) {
   }
   const build=createAssetOperationBuildIdentity({operation:ASSET_BUNDLE_OPERATION,parameters:{profile:p.profile,assets:entries.map(({key,variant})=>({key,variant}))},
     inputs:{assets:entries.map(entry=>entry.source)},implementation:{id:"builtin.asset.bundle",version:"1",profile:p.profile,
-      gltfTransform:VERSION,validator:validatorVersion(),dependencyLockSha256:sha256Bytes(await readFile(new URL("../bun.lock",import.meta.url))),tool:await captureToolIdentity()}});
+      gltfTransform:VERSION,validator:validatorVersion(),dependencyLockSha256:await readDependencyLockSha256(),tool:await captureToolIdentity()}});
   const manifest:AssetBundleManifest={schemaVersion:1,profile:p.profile,assets:entries};
   const bytes=Buffer.from(`${canonicalJson(manifest)}\n`);parseAssetBundleManifest(bytes);
   return {build,manifest,bytes,blobs};

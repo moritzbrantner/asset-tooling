@@ -81,6 +81,11 @@
     "test/backend-contract.test.ts",
     "test/schema-contract.test.ts",
     "test/environment-ordering.test.ts",
-    "test/tool-identity.test.ts"
+    "test/tool-identity.test.ts",
+    "examples/selected-bundle/adoption.ts",
+    "examples/selected-bundle/consumer.ts",
+    "scripts/verify-bundle-consumer.ts",
+    "src/dependency-lock.ts",
+    "scripts/prepare-package.ts"
   ]
 }
