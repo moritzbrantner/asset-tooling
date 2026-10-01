@@ -28,7 +28,7 @@ import {writeFile} from "node:fs/promises";
 import {spawnSync} from "node:child_process";
 const args=process.argv.slice(2);
 if(args.includes("generate")) {await writeFile(${JSON.stringify(helperPath)},${JSON.stringify(poisoned)});}
-const child=spawnSync(${JSON.stringify(blender)},args,{stdio:"inherit"});
+const child=spawnSync(${JSON.stringify(blender)},args,{stdio:"inherit",timeout:30000});
 if(child.error) {throw child.error;}
 process.exit(child.status ?? 1);
 `);await chmod(launcher,0o755);
@@ -46,7 +46,7 @@ process.exit(child.status ?? 1);
 });
 
 
-test("declared Python dependencies execute their verified bytes after a later source edit",{
+test("declared Python loader ignores public path edits and refuses undeclared names",{
  skip:!process.env.ASSET_TOOLING_BLENDER && "configured Blender is required",timeout:60000,
 },async t=>{
  const temporary=await mkdtemp(path.join(tmpdir(),"blender-pinned-code-")),root=path.join(temporary,"spec");
@@ -59,16 +59,19 @@ test("declared Python dependencies execute their verified bytes after a later so
 
 def generate(output_path, arguments, inputs):
  Path(inputs["authoring"]).write_text(${JSON.stringify(poisoned)})
+ portable=inputs["authoring"]
+ inputs["authoring"]=str(Path(portable).resolve())
  result=inputs.load_source("authoring")["build"](output_path)
- result["portableInput"]=inputs["authoring"]
+ result["portableInput"]=portable
  result["workingDirectory"]=Path.cwd().name
  return result
 `;
  const source=await readWheatRecipeSource(),specPath=path.join(root,"asset.json");
  await writeFile(path.join(root,"helper.py"),helper);await writeFile(path.join(root,"entry.py"),script);
- await writeFile(specPath,JSON.stringify({schemaVersion:1,assetId:"blender.pinned-dependency",generator:{id:"external.blender.script",version:"1"},randomness:{mode:"none"},
-  inputs:{script:{path:"entry.py",sha256:sha256Text(script)},authoring:{path:"helper.py",sha256:sha256Text(helper)}},models:{},
-  parameters:{blenderVersion:source.blenderVersion,arguments:{}},output:{path:"output.txt"},reproducibility:{expected:"exact"}}));
+ const spec=(entry:string)=>({schemaVersion:1,assetId:"blender.pinned-dependency",generator:{id:"external.blender.script",version:"1"},randomness:{mode:"none"},
+  inputs:{script:{path:"entry.py",sha256:sha256Text(entry)},authoring:{path:"helper.py",sha256:sha256Text(helper)}},models:{},
+  parameters:{blenderVersion:source.blenderVersion,arguments:{}},output:{path:"output.txt"},reproducibility:{expected:"exact"}});
+ await writeFile(specPath,JSON.stringify(spec(script)));
  await generateAsset(specPath);
  assert.equal(await readFile(path.join(root,"helper.py"),"utf8"),poisoned);
  assert.equal(await readFile(path.join(root,"output.txt"),"utf8"),"declared");
@@ -77,4 +80,11 @@ def generate(output_path, arguments, inputs):
  assert.deepEqual(receipt.observations,{runner:"blender-script-runner-v1",blenderVersion:source.blenderVersion,
   script:{value:"declared",source:"helper.py",nativeAnnotation:true,portableInput:"helper.py",workingDirectory:"spec"}});
  assert.ok(!(await readdir(root)).includes("__pycache__"));
+ const accepted=await readFile(path.join(root,"output.txt")),acceptedReceipt=await readFile(path.join(root,"output.txt.receipt.json"));
+ const forged='def generate(output_path, arguments, inputs):\n inputs["undeclared"]=inputs["authoring"]\n inputs.load_source("undeclared")["build"](output_path)\n return {}\n';
+ await writeFile(path.join(root,"helper.py"),helper);await writeFile(path.join(root,"entry.py"),forged);
+ await writeFile(specPath,JSON.stringify(spec(forged)));
+ await assert.rejects(generateAsset(specPath),/undeclared Python input 'undeclared'/);
+ assert.deepEqual(await readFile(path.join(root,"output.txt")),accepted);
+ assert.deepEqual(await readFile(path.join(root,"output.txt.receipt.json")),acceptedReceipt);
 });

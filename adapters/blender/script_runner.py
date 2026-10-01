@@ -28,6 +28,7 @@ import os
 import sys
 import tempfile
 from pathlib import Path
+from types import MappingProxyType
 
 import bpy
 
@@ -119,15 +120,17 @@ class VerifiedScriptInputs(dict):
 
     def __init__(self, paths, snapshot: Path):
         super().__init__(paths)
-        self._snapshot = snapshot
+        self._sources = MappingProxyType({
+            name: (Path(relative), snapshot / relative) for name, relative in paths.items()
+        })
 
     def load_source(self, name: str):
-        if name not in self:
+        if name not in self._sources:
             fail(f"undeclared Python input '{name}'")
-        source_path = Path(self[name])
+        source_path, snapshot_path = self._sources[name]
         if source_path.suffix != ".py":
             fail(f"Python input '{name}' must be a .py source")
-        source_bytes = (self._snapshot / source_path).read_bytes()
+        source_bytes = snapshot_path.read_bytes()
         return verified_module(source_bytes, source_path, f"asset_tooling_input_{name}").__dict__
 
 
