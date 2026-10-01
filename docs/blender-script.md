@@ -2,6 +2,8 @@
 
 `external.blender.script@1` runs a consumer-owned, hash-pinned Python script inside an exactly pinned Blender release and records the result with the ordinary receipt/verify contract. asset-tooling owns the runner, version pinning, and provenance; the consumer owns the script and therefore the art and game semantics it encodes.
 
+The public `asset-tooling/recipes/grass` recipe supplies bounded short/bent/tuft clumps using the existing Wheat native leaf authoring/export source as a declared hash-pinned dependency. Both executable sources are recorded; `inputs.load_source("authoring")` executes verified snapshot bytes. Controls specify an upper height envelope, width, root spread, bend, blade count, curve resolution, seed and triangle budget. Outputs retain native meter/Y-up/root-plane geometry, UVs/normals and identity transforms. `examples/grass-clumps` verifies actual meshes, common-scale native renders, cold packaging and package-only reads. Density edits preserve existing blades; the recipe grants no wind, collision, spacing or simulation authority.
+
 ## Spec
 
 ```json

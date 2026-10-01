@@ -72,7 +72,8 @@
     "./recipes/authored-effect-sequences": "./src/authored-effect-sequences.ts",
     "./examples/selected-bundle": "./examples/selected-bundle/adoption.ts",
     "./recipes/tree-appearances": "./src/tree-appearance-recipes.ts",
-    "./recipes/corn": "./src/corn-recipes.ts"
+    "./recipes/corn": "./src/corn-recipes.ts",
+    "./recipes/grass": "./src/grass-recipes.ts"
   },
   "bin": {
     "asset-tooling": "./src/entry.ts"
