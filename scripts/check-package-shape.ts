@@ -36,6 +36,7 @@ assert(
 
 const expectedSourceExports: Record<string, string> = {
   "./recipes/wheat": "./src/wheat-recipes.ts",
+  "./recipes/corn": "./src/corn-recipes.ts",
   "./recipes/transition-tiles": "./src/transition-tile-recipes.ts",
   "./recipes/tree-appearances": "./src/tree-appearance-recipes.ts",
   "./examples/selected-bundle": "./examples/selected-bundle/adoption.ts",
