@@ -4,6 +4,7 @@
   "private": false,
   "type": "module",
   "exports": {
+    "./recipes/wheat": "./src/wheat-recipes.ts",
     "./recipes/transition-tiles": "./src/transition-tile-recipes.ts",
     ".": "./src/index.ts",
     "./operations": "./src/operations.ts",
