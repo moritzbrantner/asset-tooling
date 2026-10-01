@@ -73,9 +73,11 @@ function parameters(value:unknown):AssetBundleParameters {
   return {profile:p.profile,assets:selections(p.assets)};
 }
 function compareEntries(a:BundleAssetSelection,b:BundleAssetSelection):number { return compareCodeUnitStrings(a.key,b.key)||compareCodeUnitStrings(a.variant,b.variant); }
+function unreachable(value:never):never { throw new Error(`unsupported owned bundle variant: ${String(value)}`); }
 function assetPath(source:AssetRef,profile:AssetBundleParameters["profile"]=STATIC_ASSET_BUNDLE_PROFILE):string {
   if(source.byteLength<1 || source.byteLength>MAX_ASSET_BYTES) throw new Error("bundle asset exceeds 64 MiB byte budget");
-  if(profile===SPRITE_ATLAS_BUNDLE_PROFILE) {
+  switch(profile) {
+   case SPRITE_ATLAS_BUNDLE_PROFILE:
     if(source.kind==="sprite-atlas" && source.mediaType===SPRITE_ATLAS_MEDIA_TYPE) {
       if(source.byteLength>MAX_MANIFEST_BYTES) throw new Error("atlas manifest exceeds 8 MiB byte budget");
       return `assets/${source.sha256}.atlas.json`;
@@ -83,10 +85,12 @@ function assetPath(source:AssetRef,profile:AssetBundleParameters["profile"]=STAT
     if(source.kind==="image" && source.mediaType===RGBA8_IMAGE_MEDIA_TYPE) return `assets/${source.sha256}.rgba.json`;
     if(source.kind==="image" && source.mediaType==="image/png") return `assets/${source.sha256}.png`;
     throw new Error("asset kind/media type is incompatible with sprite-atlas-png-v1");
+   case STATIC_ASSET_BUNDLE_PROFILE:
+    if(source.mediaType==="model/gltf-binary" && ["scene","mesh"].includes(source.kind)) return `assets/${source.sha256}.glb`;
+    if(source.mediaType==="image/png" && source.kind==="image") return `assets/${source.sha256}.png`;
+    throw new Error(`asset kind/media type '${source.kind}/${source.mediaType}' is incompatible with ${STATIC_ASSET_BUNDLE_PROFILE}`);
+   default: return unreachable(profile);
   }
-  if(source.mediaType==="model/gltf-binary" && ["scene","mesh"].includes(source.kind)) return `assets/${source.sha256}.glb`;
-  if(source.mediaType==="image/png" && source.kind==="image") return `assets/${source.sha256}.png`;
-  throw new Error(`asset kind/media type '${source.kind}/${source.mediaType}' is incompatible with ${STATIC_ASSET_BUNDLE_PROFILE}`);
 }
 function checkBudget(entries:BundleResource[]):void {
   const lengths=new Map<string,number>();
@@ -185,7 +189,11 @@ function parseAtlasBundle(value:unknown):SpriteAtlasBundleManifest {
 }
 async function prepare(root:string,invocation:Invocation,signal?:AbortSignal) {
   signal?.throwIfAborted();assertAbsolute(root);const p=parameters(invocation.parameters);
-  if(p.profile===SPRITE_ATLAS_BUNDLE_PROFILE) return prepareAtlas(root,p,invocation.inputs,signal);
+  switch(p.profile) {
+    case SPRITE_ATLAS_BUNDLE_PROFILE: return prepareAtlas(root,p,invocation.inputs,signal);
+    case STATIC_ASSET_BUNDLE_PROFILE: break;
+    default: return unreachable(p.profile);
+  }
   const inputs=object(invocation.inputs,["assets"],"bundle inputs");
   if(!Array.isArray(inputs.assets) || inputs.assets.length!==p.assets.length) throw new Error("one source AssetRef is required for each bundle selection");
   const refs=inputs.assets.map(createAssetRef),entries=p.assets.map((entry,index)=>({ ...entry,source:refs[index]!,path:assetPath(refs[index]!) })).sort(compareEntries);
@@ -267,7 +275,21 @@ async function storeManifest(root:string,prepared:Awaited<ReturnType<typeof prep
 }
 export async function executeAssetBundleOperation(root:string,invocation:Invocation={}) {
   const prepared=await prepare(root,invocation),manifest=await storeManifest(root,prepared);
-  return normalizeAssetOperationResult(prepared.manifest.schemaVersion===1?ASSET_BUNDLE_OPERATION:SPRITE_ATLAS_BUNDLE_OPERATION,{outputs:{manifest},observations:{build:prepared.build,assetCount:prepared.manifest.assets.length,uniquePayloads:prepared.blobs.size}});
+  return normalizeAssetOperationResult(bundleOperation(prepared.manifest),{outputs:{manifest},observations:{build:prepared.build,assetCount:prepared.manifest.assets.length,uniquePayloads:prepared.blobs.size}});
+}
+function bundleOperation(manifest:AnyAssetBundleManifest) {
+  switch(manifest.schemaVersion) {
+    case 1: return ASSET_BUNDLE_OPERATION;
+    case 2: return SPRITE_ATLAS_BUNDLE_OPERATION;
+    default: return unreachable(manifest);
+  }
+}
+function bundleResources(manifest:AnyAssetBundleManifest):BundleResource[] {
+  switch(manifest.schemaVersion) {
+    case 1: return manifest.assets;
+    case 2: return [...manifest.assets,...manifest.assets.map(e=>e.image),...manifest.resources];
+    default: return unreachable(manifest);
+  }
 }
 async function writeAtomicIfChanged(directory:string,relative:string,bytes:Buffer,signal?:AbortSignal):Promise<"changed"|"unchanged"> {
   signal?.throwIfAborted();const target=path.join(directory,...relative.split("/"));await assertRegular(target,true);
@@ -319,9 +341,11 @@ export async function verifyAssetBundle(directory:string,manifestValue:unknown,o
   if(ref.kind!=="asset-bundle" || ref.mediaType!==ASSET_BUNDLE_MEDIA_TYPE || ref.byteLength>MAX_MANIFEST_BYTES) throw new Error("expected a pinned asset-bundle manifest within 8 MiB");
   const manifest=parseAnyAssetBundleManifest(await readPinned(directory,"manifest.json",ref)),verified=new Set<string>();
   if(manifest.profile!==selected.profile) throw new Error("bundle manifest does not match the explicitly selected verification profile");
-  const resources:BundleResource[]=manifest.schemaVersion===1?manifest.assets:[...manifest.assets,...manifest.assets.map(e=>e.image),...manifest.resources];
+  const resources=bundleResources(manifest);
   for(const entry of resources) if(!verified.has(entry.path)) {await validatePayload(entry.source,await readPinned(directory,entry.path,entry.source));verified.add(entry.path);}
-  if(manifest.schemaVersion===2) {
+  switch(manifest.schemaVersion) {
+   case 1: break;
+   case 2: {
     const expected:BundleResource[]=[];
     const declared=new Set(resources.map(r=>canonicalJson(r.source)));let canonicalReferences=0;
     const read:ReadResource=async source=>{
@@ -334,6 +358,9 @@ export async function verifyAssetBundle(directory:string,manifestValue:unknown,o
       if(expected.length>4096) throw new Error("atlas bundle exceeds 4096 declared resource references");
     }
     if(canonicalJson(uniqueResources(expected))!==canonicalJson(manifest.resources)) throw new Error("atlas bundle resource closure is incomplete or contains undeclared resources");
+    break;
+   }
+   default: return unreachable(manifest);
   }
   return {manifest,assetsVerified:manifest.assets.length,uniquePayloads:verified.size};
 }
