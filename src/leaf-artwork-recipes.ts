@@ -1,7 +1,7 @@
 import path from "node:path";
 import { canonicalJson } from "./canonical.js";
 import { resolveAssetObject, storeAssetObject } from "./asset-store.js";
-import { createAssetOperationBuildIdentity, createAssetOperationDescriptor, createAssetRef, normalizeAssetOperationResult,
+import { createAssetOperationBuildIdentity, createAssetOperationDescriptor, createAssetOperationRegistry, createAssetRef, normalizeAssetOperationResult,
   type AssetOperationBuildIdentity, type AssetRef, type CanonicalJsonObject } from "./operations.js";
 import { captureToolIdentity } from "./tool.js";
 import { encodeRgba8Image, parseRgba8Image, RGBA8_IMAGE_MEDIA_TYPE, type Rgba8Image } from "./image-rgba8.js";
@@ -21,15 +21,20 @@ const maskKeys=["width","height","radius","offset","softness"];
 const integerSchema=(minimum:number,maximum:number)=>({type:"integer",minimum,maximum});
 const port=(id:string)=>({id,assetKinds:["image"],mediaTypes:[RGBA8_IMAGE_MEDIA_TYPE]});
 const rgbSchema={type:"array",minItems:3,maxItems:3,items:integerSchema(0,255)};
-export const LEAF_MASK_OPERATION=createAssetOperationDescriptor({
+const LEAF_MASK_DESCRIPTOR=createAssetOperationDescriptor({
   schemaVersion:1,id:"image.procedural.mask.leaf",version:"1",label:"Compose a leaf alpha mask",category:"procedural.image",
   description:"Compose two softened circle SDF coverages into a vertical lens; the output is opaque grayscale linear coverage.",
   inputs:[],outputs:[port("output")],parameterSchema:{type:"object",additionalProperties:false,required:maskKeys,properties:{
     width:integerSchema(9,256),height:integerSchema(9,256),radius:integerSchema(1,128),offset:integerSchema(0,127),softness:integerSchema(1,16)}}});
-export const MASK_COLOR_GRADIENT_OPERATION=createAssetOperationDescriptor({
+const MASK_COLOR_GRADIENT_DESCRIPTOR=createAssetOperationDescriptor({
   schemaVersion:1,id:"image.mask.color-gradient",version:"1",label:"Color a saved alpha mask",category:"texture.material",
   description:"Apply a top-to-bottom sRGB gradient to bounded opaque grayscale coverage, retaining straight alpha and edge RGB.",
   inputs:[port("mask")],outputs:[port("output")],parameterSchema:{type:"object",additionalProperties:false,required:["low","high"],properties:{low:rgbSchema,high:rgbSchema}}});
+
+const registry=createAssetOperationRegistry([LEAF_MASK_DESCRIPTOR,MASK_COLOR_GRADIENT_DESCRIPTOR]);
+// These literal keys were registered above; registry-owned descriptors are deeply frozen.
+export const LEAF_MASK_OPERATION=registry.get("image.procedural.mask.leaf","1")!;
+export const MASK_COLOR_GRADIENT_OPERATION=registry.get("image.mask.color-gradient","1")!;
 
 function object(value:unknown,keys:readonly string[],label:string):Record<string,unknown> {
   if(!value || typeof value!=="object" || Array.isArray(value) || ![Object.prototype,null].includes(Object.getPrototypeOf(value))) throw new Error(`${label} must be a plain object`);

@@ -11,7 +11,7 @@ import { createAssetRef } from "../src/operations.js";
 import { canonicalJson } from "../src/canonical.js";
 import { assetObjectPortablePath, resolveAssetObject, storeAssetObject } from "../src/asset-store.js";
 import { encodeRgba8Image, parseRgba8Image, RGBA8_IMAGE_MEDIA_TYPE } from "../src/image-rgba8.js";
-import { executeLeafMaskOperation, executeMaskColorGradientOperation, executePreservedLeafArtworkRecipe, normalizeLeafArtworkRecipe } from "../src/leaf-artwork-recipes.js";
+import { LEAF_MASK_OPERATION, MASK_COLOR_GRADIENT_OPERATION, executeLeafMaskOperation, executeMaskColorGradientOperation, executePreservedLeafArtworkRecipe, normalizeLeafArtworkRecipe } from "../src/leaf-artwork-recipes.js";
 
 test("leaf recoloring preserves the complete silhouette identity", async () => {
   const root=await mkdtemp(path.join(tmpdir(),"leaf-artwork-"));
@@ -156,5 +156,18 @@ test("saved leaf coverage is verified and reused without calling the shape gener
     `,root,snapshot],{cwd:path.resolve(path.dirname(fileURLToPath(import.meta.url)),".."),encoding:"utf8",timeout:30_000});
     assert.equal(child.status,0,child.error?.message??child.stderr);
     assert.deepEqual(normalizeLeafArtworkRecipe(small),small);
+  } finally {await rm(root,{recursive:true,force:true});}
+});
+
+
+test("published leaf descriptors reject nested mutation and preserve later build identity",async()=>{
+  const root=await mkdtemp(path.join(tmpdir(),"leaf-descriptors-"));
+  try {
+    const first=await executeLeafArtworkRecipe(root,small);
+    assert.equal(Reflect.set(LEAF_MASK_OPERATION,"version","999"),false);
+    assert.equal(Reflect.set(MASK_COLOR_GRADIENT_OPERATION,"id","other"),false);
+    assert.equal(Reflect.set(LEAF_MASK_OPERATION.outputs[0]!,"required",false),false);
+    assert.equal(Reflect.set(MASK_COLOR_GRADIENT_OPERATION.parameterSchema,"additionalProperties",true),false);
+    assert.deepEqual(await executeLeafArtworkRecipe(root,small),first);
   } finally {await rm(root,{recursive:true,force:true});}
 });
