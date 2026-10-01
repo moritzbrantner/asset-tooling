@@ -24,6 +24,9 @@
     "noUnusedParameters": true
   },
   "include": [
+    "src/procedural-image.ts",
+    "test/tilled-soil.test.ts",
+    "examples/tilled-soil/build.ts",
     "src/gltf-pbr-material-operations.ts",
     "src/image-codec-operations.ts",
     "src/material-operations.ts",

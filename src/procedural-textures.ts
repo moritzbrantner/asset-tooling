@@ -1,3 +1,7 @@
+import type {Rgba8Image} from "./image-rgba8.js";
+export type TileableHeightParameters = {width:number;height:number;seed:string;gridX:number;gridY:number};
+export type TileableTextureParameters = TileableHeightParameters & {mode?:"grayscale"|"rgb"};
+export type NormalFromHeightParameters = {strength:number;wrap:boolean};
 import { lumaRgba8 } from "./image-color.js";
 import { assertRgba8Image } from "./image-geometry.js";
 
@@ -7,25 +11,25 @@ const MAX_STRENGTH = 1024;
 const SEED_PATTERN = /^(0|[1-9][0-9]*)$/;
 const TEXTURE_MODES = new Set(["grayscale", "rgb"]);
 
-function integer(value, location, minimum, maximum) {
-  if (!Number.isSafeInteger(value) || value < minimum || value > maximum) {
+function integer(value: unknown, location: string, minimum: number, maximum: number) {
+  if (typeof value !== "number" || !Number.isSafeInteger(value) || value < minimum || value > maximum) {
     throw new Error(`${location} must be an integer in ${minimum}..${maximum}`);
   }
   return value;
 }
 
-function dimension(value, location) {
+function dimension(value: unknown, location: string) {
   return integer(value, location, 1, MAX_DIMENSION);
 }
 
-function normalizedSeed(seed) {
+function normalizedSeed(seed: unknown) {
   if (typeof seed !== "string" || !SEED_PATTERN.test(seed)) {
     throw new Error("seed must be a non-negative decimal integer string");
   }
   return seed;
 }
 
-function fnv1a32(text) {
+function fnv1a32(text: string) {
   let hash = 0x811c9dc5;
   for (let index = 0; index < text.length; index += 1) {
     hash ^= text.charCodeAt(index);
@@ -34,7 +38,7 @@ function fnv1a32(text) {
   return hash >>> 0;
 }
 
-function avalanche32(value) {
+function avalanche32(value: number) {
   let mixed = value >>> 0;
   mixed ^= mixed >>> 16;
   mixed = Math.imul(mixed, 0x7feb352d);
@@ -44,7 +48,7 @@ function avalanche32(value) {
   return mixed >>> 0;
 }
 
-function coordinateHash32(seedHash, x, y, component) {
+function coordinateHash32(seedHash: number, x: number, y: number, component: number) {
   const mixed =
     seedHash ^
     Math.imul(x + 1, 0x9e3779b1) ^
@@ -53,24 +57,24 @@ function coordinateHash32(seedHash, x, y, component) {
   return avalanche32(mixed);
 }
 
-function roundRatioSigned(numerator, denominator) {
+function roundRatioSigned(numerator: number, denominator: number) {
   if (numerator >= 0) {
     return Math.floor((numerator + Math.floor(denominator / 2)) / denominator);
   }
   return -Math.floor((-numerator + Math.floor(denominator / 2)) / denominator);
 }
 
-function lerpInteger(start, end, numerator, denominator) {
+function lerpInteger(start: number, end: number, numerator: number, denominator: number) {
   return start + roundRatioSigned((end - start) * numerator, denominator);
 }
 
-function latticeByte(seedHash, cellX, cellY, gridX, gridY, component) {
+function latticeByte(seedHash: number, cellX: number, cellY: number, gridX: number, gridY: number, component: number) {
   const wrappedX = ((cellX % gridX) + gridX) % gridX;
   const wrappedY = ((cellY % gridY) + gridY) % gridY;
   return coordinateHash32(seedHash, wrappedX, wrappedY, component) >>> 24;
 }
 
-function valueNoiseByte(seedHash, x, y, width, height, gridX, gridY, component) {
+function valueNoiseByte(seedHash: number, x: number, y: number, width: number, height: number, gridX: number, gridY: number, component: number) {
   const phaseX = x * gridX;
   const phaseY = y * gridY;
   const cellX = Math.floor(phaseX / width);
@@ -93,7 +97,7 @@ function valueNoiseByte(seedHash, x, y, width, height, gridX, gridY, component) 
   return lerpInteger(top, bottom, fractionY, height);
 }
 
-function normalizeGrid(value, limit, location) {
+function normalizeGrid(value: unknown, limit: number, location: string) {
   return integer(value, location, 1, Math.min(MAX_GRID, limit));
 }
 
@@ -104,7 +108,7 @@ export function generateTileableValueNoiseRgba8({
   gridX,
   gridY,
   mode = "rgb",
-}) {
+}: TileableTextureParameters) {
   const imageWidth = dimension(width, "tileable texture width");
   const imageHeight = dimension(height, "tileable texture height");
   const normalizedGridX = normalizeGrid(gridX, imageWidth, "tileable texture gridX");
@@ -132,7 +136,7 @@ export function generateTileableValueNoiseRgba8({
         output[offset] = value;
         output[offset + 1] = value;
         output[offset + 2] = value;
-      } else {
+      } else if (mode === "rgb") {
         for (let component = 0; component < 3; component += 1) {
           output[offset + component] = valueNoiseByte(
             seedHash,
@@ -145,7 +149,7 @@ export function generateTileableValueNoiseRgba8({
             component,
           );
         }
-      }
+      } else {const unreachable: never = mode;throw new Error(`unsupported texture mode ${unreachable}`);}
       output[offset + 3] = 255;
     }
   }
@@ -153,7 +157,7 @@ export function generateTileableValueNoiseRgba8({
   return { width: imageWidth, height: imageHeight, pixels: output };
 }
 
-export function generateTileableHeightMapRgba8({ width, height, seed, gridX, gridY }) {
+export function generateTileableHeightMapRgba8({ width, height, seed, gridX, gridY }: TileableHeightParameters) {
   return generateTileableValueNoiseRgba8({
     width,
     height,
@@ -164,7 +168,7 @@ export function generateTileableHeightMapRgba8({ width, height, seed, gridX, gri
   });
 }
 
-function integerSqrt(value) {
+function integerSqrt(value: number) {
   if (!Number.isSafeInteger(value) || value < 0) {
     throw new Error("integer square root input must be a non-negative safe integer");
   }
@@ -184,11 +188,11 @@ function integerSqrt(value) {
   return result;
 }
 
-function clampByte(value) {
+function clampByte(value: number) {
   return Math.max(0, Math.min(255, value));
 }
 
-function sampleHeight(source, x, y, wrap) {
+function sampleHeight(source: Rgba8Image, x: number, y: number, wrap: boolean) {
   let sampleX = x;
   let sampleY = y;
   if (wrap) {
@@ -200,17 +204,17 @@ function sampleHeight(source, x, y, wrap) {
   }
   const offset = (sampleY * source.width + sampleX) * 4;
   return lumaRgba8(
-    source.pixels[offset],
-    source.pixels[offset + 1],
-    source.pixels[offset + 2],
+    source.pixels[offset]!,
+    source.pixels[offset + 1]!,
+    source.pixels[offset + 2]!,
   );
 }
 
-function encodeNormalComponent(component, length) {
+function encodeNormalComponent(component: number, length: number) {
   return clampByte(128 + roundRatioSigned(component * 127, length));
 }
 
-export function deriveNormalMapRgba8(sourceValue, { strength, wrap }) {
+export function deriveNormalMapRgba8(sourceValue: unknown, { strength, wrap }: NormalFromHeightParameters) {
   const source = assertRgba8Image(sourceValue, "height source RGBA8 image");
   const normalizedStrength = integer(strength, "normal-map strength", 1, MAX_STRENGTH);
   if (typeof wrap !== "boolean") {

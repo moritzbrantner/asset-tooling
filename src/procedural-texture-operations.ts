@@ -4,20 +4,26 @@ import { resolveAssetObject, storeAssetObject } from "./asset-store.js";
 import {
   createAssetOperationBuildIdentity,
   createAssetOperationRegistry,
-  normalizeAssetOperationResult,
+  normalizeAssetOperationResult, createAssetRef, type AssetOperationDescriptor, type AssetOperationBuildIdentity, type DeepReadonly,
 } from "./operations.js";
 import {
   encodeRgba8Image,
   parseRgba8Image,
-  RGBA8_IMAGE_MEDIA_TYPE,
+  RGBA8_IMAGE_MEDIA_TYPE, type Rgba8Image,
 } from "./image-rgba8.js";
 import {
   deriveNormalMapRgba8,
   generateTileableHeightMapRgba8,
-  generateTileableValueNoiseRgba8,
+  generateTileableValueNoiseRgba8, type TileableHeightParameters, type NormalFromHeightParameters,
 } from "./procedural-textures.js";
 import { captureToolIdentity } from "./tool.js";
 
+type Descriptor = DeepReadonly<AssetOperationDescriptor>;
+type Invocation = {parameters?:unknown;inputs?:unknown};
+type TextureParameters =
+  | {kind:"texture";value:TileableHeightParameters & {mode:"grayscale"|"rgb"}}
+  | {kind:"height";value:TileableHeightParameters}
+  | {kind:"normal";value:NormalFromHeightParameters};
 const VERSION = "1";
 const MAX_DIMENSION = 4096;
 const MAX_GRID = 256;
@@ -110,18 +116,18 @@ const OPERATION_REGISTRY = createAssetOperationRegistry([
 export const PROCEDURAL_TILEABLE_TEXTURE_OPERATION = OPERATION_REGISTRY.get(
   "image.procedural.texture.tileable-noise",
   VERSION,
-);
+)!;
 export const PROCEDURAL_TILEABLE_HEIGHT_OPERATION = OPERATION_REGISTRY.get(
   "image.procedural.height.tileable-noise",
   VERSION,
-);
+)!;
 export const NORMAL_FROM_HEIGHT_OPERATION = OPERATION_REGISTRY.get(
   "image.normal.from-height",
   VERSION,
-);
+)!;
 export const PROCEDURAL_TEXTURE_OPERATIONS = OPERATION_REGISTRY.list();
 
-function plainObject(value, location) {
+function plainObject(value: unknown, location: string) {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     throw new Error(`${location} must be a plain object`);
   }
@@ -129,10 +135,10 @@ function plainObject(value, location) {
   if (prototype !== Object.prototype && prototype !== null) {
     throw new Error(`${location} must be a plain object`);
   }
-  return value;
+  return value as Record<string,unknown>;
 }
 
-function exactKeys(value, keys, location) {
+function exactKeys(value: unknown, keys: readonly string[], location: string) {
   const object = plainObject(value, location);
   const expected = new Set(keys);
   for (const key of Object.keys(object)) {
@@ -144,35 +150,35 @@ function exactKeys(value, keys, location) {
   return object;
 }
 
-function integer(value, location, minimum, maximum) {
-  if (!Number.isSafeInteger(value) || value < minimum || value > maximum) {
+function integer(value: unknown, location: string, minimum: number, maximum: number) {
+  if (typeof value !== "number" || !Number.isSafeInteger(value) || value < minimum || value > maximum) {
     throw new Error(`${location} must be an integer in ${minimum}..${maximum}`);
   }
   return value;
 }
 
-function seed(value) {
+function seed(value: unknown) {
   if (typeof value !== "string" || !SEED_PATTERN.test(value)) {
     throw new Error("parameters.seed must be a non-negative decimal integer string");
   }
   return value;
 }
 
-function normalizedDimensions(parameters) {
+function normalizedDimensions(parameters: Record<string,unknown>) {
   return {
     width: integer(parameters.width, "parameters.width", 1, MAX_DIMENSION),
     height: integer(parameters.height, "parameters.height", 1, MAX_DIMENSION),
   };
 }
 
-function normalizedGrid(parameters, dimensions) {
+function normalizedGrid(parameters: Record<string,unknown>, dimensions: {width:number;height:number}) {
   return {
     gridX: integer(parameters.gridX, "parameters.gridX", 1, Math.min(MAX_GRID, dimensions.width)),
     gridY: integer(parameters.gridY, "parameters.gridY", 1, Math.min(MAX_GRID, dimensions.height)),
   };
 }
 
-function normalizeParameters(operation, value) {
+function normalizeParameters(operation: Descriptor, value: unknown): TextureParameters {
   if (operation.id === "image.procedural.texture.tileable-noise") {
     const parameters = exactKeys(
       value,
@@ -181,15 +187,10 @@ function normalizeParameters(operation, value) {
     );
     const dimensions = normalizedDimensions(parameters);
     const grid = normalizedGrid(parameters, dimensions);
-    if (!["grayscale", "rgb"].includes(parameters.mode)) {
+    if (parameters.mode !== "grayscale" && parameters.mode !== "rgb") {
       throw new Error("parameters.mode must be 'grayscale' or 'rgb'");
     }
-    return {
-      seed: seed(parameters.seed),
-      ...dimensions,
-      ...grid,
-      mode: parameters.mode,
-    };
+    return {kind:"texture",value:{seed:seed(parameters.seed),...dimensions,...grid,mode:parameters.mode}};
   }
 
   if (operation.id === "image.procedural.height.tileable-noise") {
@@ -199,11 +200,7 @@ function normalizeParameters(operation, value) {
       `${operation.id} parameters`,
     );
     const dimensions = normalizedDimensions(parameters);
-    return {
-      seed: seed(parameters.seed),
-      ...dimensions,
-      ...normalizedGrid(parameters, dimensions),
-    };
+    return {kind:"height",value:{seed:seed(parameters.seed),...dimensions,...normalizedGrid(parameters,dimensions)}};
   }
 
   if (operation.id === "image.normal.from-height") {
@@ -215,32 +212,31 @@ function normalizeParameters(operation, value) {
     if (typeof parameters.wrap !== "boolean") {
       throw new Error("parameters.wrap must be a boolean");
     }
-    return {
-      strength: integer(parameters.strength, "parameters.strength", 1, MAX_STRENGTH),
-      wrap: parameters.wrap,
-    };
+    return {kind:"normal",value:{strength:integer(parameters.strength,"parameters.strength",1,MAX_STRENGTH),wrap:parameters.wrap}};
   }
 
   throw new Error(`unsupported procedural texture operation '${operation.id}'`);
 }
 
-function assertRoot(root) {
+function assertRoot(root: string) {
   if (typeof root !== "string" || !path.isAbsolute(root)) {
     throw new Error("procedural texture operation root must be an absolute path");
   }
   return root;
 }
 
-function algorithm(operation) {
-  const algorithms = {
+function algorithm(operation: Descriptor) {
+  const algorithms: Record<string,string> = {
     "image.procedural.texture.tileable-noise": "periodic-integer-bilinear-value-noise-v1",
     "image.procedural.height.tileable-noise": "periodic-integer-bilinear-height-v1",
     "image.normal.from-height": "q8-luma-central-difference-integer-normal-v1",
   };
-  return algorithms[operation.id];
+  const result=algorithms[operation.id];
+  if (!result) throw new Error(`unsupported texture algorithm ${operation.id}`);
+  return result;
 }
 
-async function implementationIdentity(operation) {
+async function implementationIdentity(operation: Descriptor) {
   return {
     id: `builtin.${operation.id}`,
     version: VERSION,
@@ -253,40 +249,36 @@ async function implementationIdentity(operation) {
   };
 }
 
-async function createBuildIdentity(root, operation, parameters, inputs) {
+async function createBuildIdentity(root: string, operation: Descriptor, parameters: unknown, inputs: unknown) {
   const assetRoot = assertRoot(root);
   const build = createAssetOperationBuildIdentity({
     operation,
     implementation: await implementationIdentity(operation),
-    parameters: normalizeParameters(operation, parameters),
+    parameters: normalizeParameters(operation, parameters).value,
     inputs,
   });
   if (operation.id === "image.normal.from-height") {
-    parseRgba8Image(await resolveAssetObject(assetRoot, build.inputs.source));
+    parseRgba8Image(await resolveAssetObject(assetRoot, createAssetRef(build.inputs.source)));
   }
   return build;
 }
 
-function generate(operation, parameters, source) {
-  if (operation.id === "image.procedural.texture.tileable-noise") {
-    return generateTileableValueNoiseRgba8(parameters);
+function generate(parameters: TextureParameters, source: Rgba8Image|undefined) {
+  switch(parameters.kind) {
+    case "texture": return generateTileableValueNoiseRgba8(parameters.value);
+    case "height": return generateTileableHeightMapRgba8(parameters.value);
+    case "normal": return deriveNormalMapRgba8(source,parameters.value);
+    default: {const unreachable:never=parameters;throw new Error(`unsupported texture parameters ${unreachable}`);}
   }
-  if (operation.id === "image.procedural.height.tileable-noise") {
-    return generateTileableHeightMapRgba8(parameters);
-  }
-  if (operation.id === "image.normal.from-height") {
-    return deriveNormalMapRgba8(source, parameters);
-  }
-  throw new Error(`unsupported procedural texture operation '${operation.id}'`);
 }
 
-async function execute(root, operation, build) {
+async function execute(root: string, operation: Descriptor, build: AssetOperationBuildIdentity) {
   const assetRoot = assertRoot(root);
   const source =
     operation.id === "image.normal.from-height"
-      ? parseRgba8Image(await resolveAssetObject(assetRoot, build.inputs.source))
+      ? parseRgba8Image(await resolveAssetObject(assetRoot, createAssetRef(build.inputs.source)))
       : undefined;
-  const output = generate(operation, build.parameters, source);
+  const output = generate(normalizeParameters(operation,build.parameters), source);
   const stored = await storeAssetObject(assetRoot, {
     bytes: encodeRgba8Image(output),
     kind: "image",
@@ -300,37 +292,37 @@ async function execute(root, operation, build) {
 }
 
 export async function createTileableTextureOperationBuildIdentity(
-  root,
-  { parameters = {}, inputs = {} } = {},
+  root: string,
+  { parameters = {}, inputs = {} }: Invocation = {},
 ) {
   return createBuildIdentity(root, PROCEDURAL_TILEABLE_TEXTURE_OPERATION, parameters, inputs);
 }
 
-export async function executeTileableTextureOperation(root, invocation = {}) {
+export async function executeTileableTextureOperation(root: string, invocation: Invocation = {}) {
   const build = await createTileableTextureOperationBuildIdentity(root, invocation);
   return execute(root, PROCEDURAL_TILEABLE_TEXTURE_OPERATION, build);
 }
 
 export async function createTileableHeightOperationBuildIdentity(
-  root,
-  { parameters = {}, inputs = {} } = {},
+  root: string,
+  { parameters = {}, inputs = {} }: Invocation = {},
 ) {
   return createBuildIdentity(root, PROCEDURAL_TILEABLE_HEIGHT_OPERATION, parameters, inputs);
 }
 
-export async function executeTileableHeightOperation(root, invocation = {}) {
+export async function executeTileableHeightOperation(root: string, invocation: Invocation = {}) {
   const build = await createTileableHeightOperationBuildIdentity(root, invocation);
   return execute(root, PROCEDURAL_TILEABLE_HEIGHT_OPERATION, build);
 }
 
 export async function createNormalFromHeightOperationBuildIdentity(
-  root,
-  { parameters = {}, inputs = {} } = {},
+  root: string,
+  { parameters = {}, inputs = {} }: Invocation = {},
 ) {
   return createBuildIdentity(root, NORMAL_FROM_HEIGHT_OPERATION, parameters, inputs);
 }
 
-export async function executeNormalFromHeightOperation(root, invocation = {}) {
+export async function executeNormalFromHeightOperation(root: string, invocation: Invocation = {}) {
   const build = await createNormalFromHeightOperationBuildIdentity(root, invocation);
   return execute(root, NORMAL_FROM_HEIGHT_OPERATION, build);
 }

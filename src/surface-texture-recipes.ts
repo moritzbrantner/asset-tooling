@@ -6,19 +6,25 @@ import { encodeRgba8Image, parseRgba8Image, RGBA8_IMAGE_MEDIA_TYPE } from "./ima
 import {
   createAssetOperationBuildIdentity, createAssetOperationDescriptor, createAssetOperationRegistry, createAssetRef,
   normalizeAssetOperationResult, type AssetRef, type AssetOperationBuildIdentity,
-  type CanonicalJsonObject, type DeepReadonly,
+  type CanonicalJsonObject, type DeepReadonly, type AssetOperationDescriptor,
 } from "./operations.js";
 import { captureToolIdentity } from "./tool.js";
 import { proceduralTextureMetadata, proceduralTextureObservations } from "./procedural-texture-metadata.js";
+import { generatePatternRgba8 } from "./procedural-image.js";
+import { boxBlurRgba8 } from "./image-convolution.js";
+import { cropRgba8, resizeRgba8Nearest, rotateRgba8QuarterTurns } from "./image-geometry.js";
 import {
   executeTileableHeightOperation, createTileableHeightOperationBuildIdentity,
   executeNormalFromHeightOperation, createNormalFromHeightOperationBuildIdentity,
+  NORMAL_FROM_HEIGHT_OPERATION,
 } from "./procedural-texture-operations.js";
 
+export type FurrowParameters = {axis:"x"|"y";count:number;depth:number;softness:number};
 export type SurfaceHeightParameters = {
   seed: string; width: number; height: number; gridX: number; gridY: number;
   detailGridX: number; detailGridY: number; detailWeight: number;
   heightMin: number; heightMax: number;
+  furrows?: FurrowParameters;
 };
 export type RgbBytes = [number, number, number];
 export type ScalarColorRampParameters = { low: RgbBytes; high: RgbBytes };
@@ -50,13 +56,15 @@ const heightProperties = {
   gridX: integerSchema(1,256), gridY: integerSchema(1,256),
   detailGridX: integerSchema(1,256), detailGridY: integerSchema(1,256),
   detailWeight: integerSchema(0,255), heightMin: integerSchema(0,255), heightMax: integerSchema(0,255),
+  furrows: {type:"object",additionalProperties:false,required:["axis","count","depth","softness"],properties:{
+    axis:{type:"string",enum:["x","y"]},count:integerSchema(1,64),depth:integerSchema(0,255),softness:integerSchema(0,3)}},
 };
 const rgbSchema = { type: "array", minItems: 3, maxItems: 3, items: integerSchema(0,255) };
 const SURFACE_HEIGHT_DESCRIPTOR = createAssetOperationDescriptor({
   schemaVersion: 1, id: "image.procedural.height.surface", version: "1",
   label: "Compose periodic surface height", category: "procedural.height",
   inputs: [], outputs: [imagePort("output")],
-  parameterSchema: { type: "object", additionalProperties: false, required: Object.keys(heightProperties), properties: heightProperties },
+  parameterSchema: { type: "object", additionalProperties: false, required: Object.keys(heightProperties).filter(key=>key!=="furrows"), properties: heightProperties },
 });
 const SCALAR_COLOR_RAMP_DESCRIPTOR = createAssetOperationDescriptor({
   schemaVersion: 1, id: "image.scalar.color-ramp", version: "1",
@@ -69,13 +77,15 @@ const OPERATION_REGISTRY = createAssetOperationRegistry([SURFACE_HEIGHT_DESCRIPT
 // Both keys are owned by the literal descriptors registered immediately above.
 export const SURFACE_HEIGHT_OPERATION = OPERATION_REGISTRY.get("image.procedural.height.surface", "1")!;
 export const SCALAR_COLOR_RAMP_OPERATION = OPERATION_REGISTRY.get("image.scalar.color-ramp", "1")!;
+const CHANNEL_OPERATIONS = {height:SURFACE_HEIGHT_OPERATION,normal:NORMAL_FROM_HEIGHT_OPERATION,
+  color:SCALAR_COLOR_RAMP_OPERATION,roughness:SCALAR_COLOR_RAMP_OPERATION} satisfies Record<SurfaceChannel,DeepReadonly<AssetOperationDescriptor>>;
 
-function object(value: unknown, keys: string[], location: string): Record<string, unknown> {
+function object(value: unknown, keys: string[], location: string, optional: string[] = []): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value) ||
       ![Object.prototype, null].includes(Object.getPrototypeOf(value))) throw new Error(`${location} must be a plain object`);
   const result = value as Record<string, unknown>;
   for (const key of Object.keys(result)) if (!keys.includes(key)) throw new Error(`${location} contains unknown field '${key}'`);
-  for (const key of keys) if (!Object.hasOwn(result, key)) throw new Error(`${location} is missing '${key}'`);
+  for (const key of keys) if (!optional.includes(key) && !Object.hasOwn(result, key)) throw new Error(`${location} is missing '${key}'`);
   return result;
 }
 function integer(value: unknown, key: string, min: number, max: number): number {
@@ -83,15 +93,24 @@ function integer(value: unknown, key: string, min: number, max: number): number 
   return value;
 }
 function heightParameters(value: unknown): SurfaceHeightParameters {
-  const p = object(value, Object.keys(heightProperties), "surface height parameters");
+  const p = object(value, Object.keys(heightProperties), "surface height parameters", ["furrows"]);
   if (typeof p.seed !== "string" || !/^(0|[1-9][0-9]*)$/.test(p.seed)) throw new Error("seed must be a non-negative decimal integer string");
   const width = integer(p.width, "width",1,4096), height = integer(p.height,"height",1,4096);
   const heightMin = integer(p.heightMin,"heightMin",0,255), heightMax = integer(p.heightMax,"heightMax",0,255);
   if (heightMin > heightMax) throw new Error("heightMin must not exceed heightMax");
+  let furrows:FurrowParameters|undefined;
+  if(Object.hasOwn(p,"furrows")) {
+    const f=object(p.furrows,["axis","count","depth","softness"],"furrows");
+    if(f.axis!=="x" && f.axis!=="y") throw new Error("furrow axis must be x or y");
+    const extent=f.axis==="x"?width:height;
+    if(extent<2) throw new Error("furrow axis requires at least two texels");
+    furrows={axis:f.axis,count:integer(f.count,"furrow count",1,Math.min(64,Math.floor(extent/2))),
+      depth:integer(f.depth,"furrow depth",0,255),softness:integer(f.softness,"furrow softness",0,3)};
+  }
   return { seed: p.seed, width, height,
     gridX: integer(p.gridX,"gridX",1,Math.min(256,width)), gridY: integer(p.gridY,"gridY",1,Math.min(256,height)),
     detailGridX: integer(p.detailGridX,"detailGridX",1,Math.min(256,width)), detailGridY: integer(p.detailGridY,"detailGridY",1,Math.min(256,height)),
-    detailWeight: integer(p.detailWeight,"detailWeight",0,255), heightMin, heightMax };
+    detailWeight: integer(p.detailWeight,"detailWeight",0,255), heightMin, heightMax, ...(furrows?{furrows}:{}) };
 }
 function rgb(value: unknown, key: string): RgbBytes {
   if (!Array.isArray(value) || value.length !== 3) throw new Error(`${key} must contain three RGB bytes`);
@@ -114,7 +133,7 @@ async function scalarImage(root: string, source: AssetRef): Promise<{ width: num
 export async function createSurfaceHeightOperationBuildIdentity(root: string, { parameters, inputs = {} }: Invocation = {}) {
   assertRoot(root);
   return createAssetOperationBuildIdentity({ operation: SURFACE_HEIGHT_OPERATION, parameters: heightParameters(parameters), inputs,
-    implementation: { id: "builtin.image.procedural.height.surface", version: "1", algorithm: "periodic-two-scale-unorm8-mix-v1", tool: await captureToolIdentity() } });
+    implementation: { id: "builtin.image.procedural.height.surface", version: "2", algorithm: "periodic-two-scale-unorm8-mix-stripes-v2", tool: await captureToolIdentity() } });
 }
 export async function createScalarColorRampOperationBuildIdentity(root: string, { parameters, inputs = {} }: Invocation = {}) {
   assertRoot(root);
@@ -134,6 +153,20 @@ function heightComponentInvocations(p: SurfaceHeightParameters) {
   return [{ parameters: { seed: p.seed, width: p.width, height: p.height, gridX: p.gridX, gridY: p.gridY } },
     ...(p.detailWeight > 0 ? [{ parameters: { seed:(BigInt(p.seed)+1n).toString(),width:p.width,height:p.height,gridX:p.detailGridX,gridY:p.detailGridY } }] : [])];
 }
+function furrowProfile(p:FurrowParameters,width:number,height:number) {
+  const period=p.count*16;
+  const repeated=generatePatternRgba8({width:period*3,height:1,pattern:"stripes-vertical",size:8,
+    colors:[[0,0,0,255],[255,255,255,255]]});
+  const softened=p.softness===0?repeated:boxBlurRgba8(boxBlurRgba8(repeated,p.softness),p.softness);
+  // Both blur passes stay inside repeated data, away from the kernel's clamp border.
+  const row=cropRgba8(softened,{x:period,y:0,width:period,height:1});
+  switch(p.axis) {
+    case "x": return resizeRgba8Nearest(row,width,height);
+    case "y": return resizeRgba8Nearest(rotateRgba8QuarterTurns(row,1),width,height);
+    default: {const unreachable:never=p.axis;throw new Error(`unsupported furrow axis ${unreachable}`);}
+  }
+}
+
 export async function executeSurfaceHeightOperation(root: string, invocation: Invocation = {}) {
   const build = await createSurfaceHeightOperationBuildIdentity(root,invocation);
   const p = heightParameters(build.parameters);
@@ -149,9 +182,12 @@ export async function executeSurfaceHeightOperation(root: string, invocation: In
     detailImage = await scalarImage(root,detail);
     components.push({ build: detailBuild, output: detail });
   }
+  const furrows=p.furrows;
+  const profile=furrows?furrowProfile(furrows,p.width,p.height):undefined;
   const pixels = Buffer.alloc(p.width*p.height*4);
   for (let i=0;i<pixels.length;i+=4) {
-    const mixed = Math.round((coarseImage.pixels[i]!*(255-p.detailWeight)+detailImage.pixels[i]!*p.detailWeight)/255);
+    const grain = Math.round((coarseImage.pixels[i]!*(255-p.detailWeight)+detailImage.pixels[i]!*p.detailWeight)/255);
+    const mixed = profile && furrows?Math.round((grain*(255-furrows.depth)+profile.pixels[i]!*furrows.depth)/255):grain;
     const value = p.heightMin + Math.round(mixed*(p.heightMax-p.heightMin)/255);
     pixels[i]=pixels[i+1]=pixels[i+2]=value; pixels[i+3]=255;
   }
@@ -173,9 +209,9 @@ export async function executeScalarColorRampOperation(root: string, invocation: 
 }
 
 export function normalizeSurfaceTextureRecipe(value: unknown): SurfaceTextureRecipe {
-  const p = object(value,["schemaVersion","seamMode", ...Object.keys(heightProperties),"low","high","normalStrength","roughnessMin","roughnessMax"],"surface recipe");
+  const p = object(value,["schemaVersion","seamMode", ...Object.keys(heightProperties),"low","high","normalStrength","roughnessMin","roughnessMax"],"surface recipe",["furrows"]);
   if (p.schemaVersion !== 1 || p.seamMode !== "repeat") throw new Error("surface recipe requires schemaVersion 1 and repeat seamMode");
-  const height = heightParameters(Object.fromEntries(Object.keys(heightProperties).map(k=>[k,p[k]])));
+  const height = heightParameters(Object.fromEntries(Object.keys(heightProperties).filter(k=>Object.hasOwn(p,k)).map(k=>[k,p[k]])));
   const roughnessMin = integer(p.roughnessMin,"roughnessMin",0,255), roughnessMax = integer(p.roughnessMax,"roughnessMax",0,255);
   if (roughnessMin > roughnessMax) throw new Error("roughnessMin must not exceed roughnessMax");
   return { schemaVersion: 1, seamMode: "repeat", ...height, ...rampParameters({ low: p.low, high: p.high }),
@@ -197,12 +233,12 @@ async function preservedStep(root: string, value: SurfaceTextureStep, build: Ass
   if (canonicalJson(output.metadata) !== canonicalJson(expected.metadata)) throw new Error(`preserved ${channel} metadata does not match complete producer contract`);
   for (let offset=3;offset<image.pixels.length;offset+=4) if (image.pixels[offset] !== 255) throw new Error(`preserved ${channel} must be opaque`);
   // Canonical serialization validates and detaches caller-owned observation data.
-  const observations = expected.observations;
+  const observations = normalizeAssetOperationResult(CHANNEL_OPERATIONS[channel],{outputs:{output},observations:expected.observations}).observations;
   return { operation: build.operation, build, output, observations };
 }
 
 async function preservedEvidence(root: string, value: unknown, build: AssetOperationBuildIdentity, channel: SurfaceChannel, recipe: SurfaceTextureRecipe) {
-  let metadata: CanonicalJsonObject, observations: CanonicalJsonObject;
+  let metadata: CanonicalJsonObject, observations: unknown;
   if (channel === "height") {
     const recorded = object(value,["components","parameters"],"preserved height observations");
     const invocations = heightComponentInvocations(recipe);
@@ -269,7 +305,7 @@ async function executeRecipe(root: string, value: unknown, channels: SurfaceChan
     if (!CHANNELS.includes(channel as SurfaceChannel) || (channel !== "height" && !selected.includes(channel as SurfaceChannel))) throw new Error(`cannot preserve unselected or unknown channel '${channel}'`);
     if (!Object.hasOwn(preserve, "height")) throw new Error("preserved dependent channels require a preserved height step");
   }
-  const heightInvocation = { parameters: Object.fromEntries(Object.keys(heightProperties).map(k=>[k,recipe[k as keyof SurfaceTextureRecipe]])) };
+  const heightInvocation = { parameters: Object.fromEntries(Object.keys(heightProperties).filter(k=>Object.hasOwn(recipe,k)).map(k=>[k,recipe[k as keyof SurfaceTextureRecipe]])) };
   const build = await createSurfaceHeightOperationBuildIdentity(root,heightInvocation);
   const reused: SurfaceTexturePreservation = {};
   if (Object.hasOwn(preserve, "height")) reused.height = await preservedStep(root, preserve.height!, build, "height", recipe);
@@ -342,6 +378,9 @@ export const SURFACE_TEXTURE_PRESETS = deepFreeze({
   "soil-fine": preset({ gridX: 16, gridY: 16, detailWeight: 100 }),
   "soil-coarse": preset({ gridX: 6, gridY: 6, detailWeight: 130, normalStrength: 4 }),
   "soil-directional": preset({ gridX: 3, gridY: 24, detailWeight: 60, normalStrength: 3 }),
+  "soil-tilled-shallow": preset({furrows:{axis:"x",count:4,depth:140,softness:3},normalStrength:2}),
+  "soil-tilled-deep": preset({furrows:{axis:"x",count:4,depth:200,softness:3},normalStrength:4}),
+  "soil-tilled-crosswise": preset({furrows:{axis:"y",count:8,depth:180,softness:3},normalStrength:3}),
   "rock-smooth": preset({ low: [55,59,62], high: [160,164,166], detailWeight: 30, normalStrength: 1, roughnessMin: 110, roughnessMax: 180 }),
   "rock-grainy": preset({ low: [55,59,62], high: [160,164,166], detailWeight: 160, normalStrength: 4 }),
   "rock-layered": preset({ low: [62,54,44], high: [171,152,126], gridX: 24, gridY: 2, detailWeight: 50, normalStrength: 3 }),

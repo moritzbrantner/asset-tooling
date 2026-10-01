@@ -45,3 +45,5 @@ Later typing slices should continue expanding outward from these stable primitiv
 ## Completion criteria for later typing slices
 
 A module is ready to join the strict project when its public parameters and return values have explicit stable types, mutable accumulators do not rely on empty-literal inference, runtime-validated external data is narrowed before domain use, and its existing behavioral tests remain unchanged or become stricter. Add modules to `tsconfig.json` only with their transitive dependencies so the compiler gate remains deterministic and actionable.
+
+The tilled-soil slice adds strict coverage for the existing surface recipe, procedural image kernels, periodic noise/normal kernels and their operation boundary. Existing algorithms, descriptors and transport formats remain compatible; the surface height implementation adds only the optional furrow composition.
