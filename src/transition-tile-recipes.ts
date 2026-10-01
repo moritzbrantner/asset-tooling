@@ -34,29 +34,29 @@ const registry=createAssetOperationRegistry([{
 export const TRANSITION_TILE_OPERATION=registry.get("image.procedural.transition-tile","1")!;
 
 function object(value:unknown,keys:readonly string[],label:string):Record<string,unknown> {
- if(!value || typeof value!=="object" || Array.isArray(value) || ![Object.prototype,null].includes(Object.getPrototypeOf(value))) throw new Error(`${label} must be a plain object`);
+ if(!value || typeof value!=="object" || Array.isArray(value) || ![Object.prototype,null].includes(Object.getPrototypeOf(value))) { throw new Error(`${label} must be a plain object`); }
  // The external JSON boundary has established a plain record.
  const p=value as Record<string,unknown>;
- if(Object.keys(p).some(k=>!keys.includes(k)) || keys.some(k=>!Object.hasOwn(p,k))) throw new Error(`${label} requires exactly ${keys.join(", ")}`);
+ if(Object.keys(p).some(k=>!keys.includes(k)) || keys.some(k=>!Object.hasOwn(p,k))) { throw new Error(`${label} requires exactly ${keys.join(", ")}`); }
  return p;
 }
 function integer(value:unknown,label:string,min:number,max:number):number {
- if(typeof value!=="number" || !Number.isSafeInteger(value) || value<min || value>max) throw new Error(`${label} must be an integer in ${min}..${max}`);
+ if(typeof value!=="number" || !Number.isSafeInteger(value) || value<min || value>max) { throw new Error(`${label} must be an integer in ${min}..${max}`); }
  return value;
 }
 function rgb(value:unknown,label:string):Rgb {
- if(!Array.isArray(value) || value.length!==3) throw new Error(`${label} requires three RGB bytes`);
+ if(!Array.isArray(value) || value.length!==3) { throw new Error(`${label} requires three RGB bytes`); }
  return [integer(value[0],label,0,255),integer(value[1],label,0,255),integer(value[2],label,0,255)];
 }
 function corners(value:unknown):string {
- if(typeof value!=="string" || !/^[01]{4}$/.test(value)) throw new Error("corners must be four soil=0/grass=1 bits in NW,NE,SE,SW order");
+ if(typeof value!=="string" || !/^[01]{4}$/.test(value)) { throw new Error("corners must be four soil=0/grass=1 bits in NW,NE,SE,SW order"); }
  return value;
 }
 export function normalizeTransitionTileRecipe(value:unknown):TransitionTileRecipe {
  const p=object(value,recipeKeys,"transition tile recipe");
- if(p.schemaVersion!==1) throw new Error("transition tile schemaVersion must be 1");
+ if(p.schemaVersion!==1) { throw new Error("transition tile schemaVersion must be 1"); }
  const recipe:TransitionTileRecipe={schemaVersion:1,size:integer(p.size,"tile size",17,128),soil:rgb(p.soil,"soil"),grass:rgb(p.grass,"grass")};
- if(canonicalJson(recipe.soil)===canonicalJson(recipe.grass)) throw new Error("soil and grass must have distinct colors");
+ if(canonicalJson(recipe.soil)===canonicalJson(recipe.grass)) { throw new Error("soil and grass must have distinct colors"); }
  return recipe;
 }
 function parameters(value:unknown):TransitionTileParameters {
@@ -74,42 +74,42 @@ export function readTransitionTileConnection(value:unknown):TransitionTileConnec
  return connectionForRef(parseAssetRef(value));
 }
 function connectionForRef(ref:AssetRef):TransitionTileConnection {
- if(ref.kind!=="image" || ref.mediaType!==RGBA8_IMAGE_MEDIA_TYPE) throw new Error("connection requires the original canonical RGBA8 sprite ref");
+ if(ref.kind!=="image" || ref.mediaType!==RGBA8_IMAGE_MEDIA_TYPE) { throw new Error("connection requires the original canonical RGBA8 sprite ref"); }
  const c=object(ref.metadata.connection,["schemaVersion","family","id","corners","axes","unit","origin","dimensions","ports","allowedRotations","mirroring","palette"],"transition connection");
  const d=object(c.dimensions,["pixels","cells"],"connection dimensions"),palette=object(c.palette,["soil","grass"],"connection palette");
- if(!Array.isArray(d.pixels) || d.pixels.length!==2) throw new Error("connection dimensions require two pixel axes");
+ if(!Array.isArray(d.pixels) || d.pixels.length!==2) { throw new Error("connection dimensions require two pixel axes"); }
  const expected=connection({...normalizeTransitionTileRecipe({schemaVersion:1,size:d.pixels[0],...palette}),corners:corners(c.corners)});
  // All derived ports, orientation permissions, origin and normalized dimensions have one family owner.
- if(canonicalJson(c)!==canonicalJson(expected) || ref.metadata.width!==expected.dimensions.pixels[0] || ref.metadata.height!==expected.dimensions.pixels[1]) throw new Error("transition connection has invalid ports, identity, dimensions, units, origin or orientation permissions");
+ if(canonicalJson(c)!==canonicalJson(expected) || ref.metadata.width!==expected.dimensions.pixels[0] || ref.metadata.height!==expected.dimensions.pixels[1]) { throw new Error("transition connection has invalid ports, identity, dimensions, units, origin or orientation permissions"); }
  return expected;
 }
 export function transformTransitionCorners(value:unknown,options:unknown):string {
  const c=corners(value),p=object(options,["quarterTurns","mirror"],"transition orientation");
- if(p.mirror!==false) throw new Error("transition tile mirroring is unsupported");
+ if(p.mirror!==false) { throw new Error("transition tile mirroring is unsupported"); }
  const q=integer(p.quarterTurns,"quarterTurns",0,3);
  return c.slice(4-q)+c.slice(0,4-q);
 }
 const opposite:Record<TransitionEdge,TransitionEdge>={north:"south",east:"west",south:"north",west:"east"};
 export function canConnectTransitionTiles(first:unknown,second:unknown,direction:TransitionEdge):boolean {
- if(!Object.hasOwn(opposite,direction)) throw new Error("connection direction must be north, east, south or west");
+ if(!Object.hasOwn(opposite,direction)) { throw new Error("connection direction must be north, east, south or west"); }
  const a=readTransitionTileConnection(first),b=readTransitionTileConnection(second);
  return canonicalJson(a.dimensions)===canonicalJson(b.dimensions) && canonicalJson(a.palette)===canonicalJson(b.palette) && a.ports[direction]===b.ports[opposite[direction]];
 }
 /** Bounded selected-family lookup diagnoses absent combinations and duplicate logical IDs. */
 export function findTransitionTile(values:readonly unknown[],wanted:unknown):AssetRef {
  const target=corners(wanted);
- if(!Array.isArray(values) || values.length<1 || values.length>16) throw new Error("selected transition family requires 1..16 sprites");
+ if(!Array.isArray(values) || values.length<1 || values.length>16) { throw new Error("selected transition family requires 1..16 sprites"); }
  const refs=values.map(parseAssetRef),connections=refs.map(connectionForRef),seen=new Set<string>();
  for(const c of connections) {
-  if(seen.has(c.id)) throw new Error(`duplicate transition piece '${c.id}'`);
+  if(seen.has(c.id)) { throw new Error(`duplicate transition piece '${c.id}'`); }
   seen.add(c.id);
-  if(canonicalJson(c.palette)!==canonicalJson(connections[0]!.palette) || canonicalJson(c.dimensions)!==canonicalJson(connections[0]!.dimensions)) throw new Error("selected transition family has incompatible dimensions or palette");
+  if(canonicalJson(c.palette)!==canonicalJson(connections[0]!.palette) || canonicalJson(c.dimensions)!==canonicalJson(connections[0]!.dimensions)) { throw new Error("selected transition family has incompatible dimensions or palette"); }
  }
  const index=connections.findIndex(c=>c.corners===target);
- if(index<0) throw new Error(`selected transition family is missing combination '${target}'`);
+ if(index<0) { throw new Error(`selected transition family is missing combination '${target}'`); }
  return refs[index]!;
 }
-function assertRoot(root:string):void {if(typeof root!=="string" || !path.isAbsolute(root)) throw new Error("transition tile root must be absolute");}
+function assertRoot(root:string):void {if(typeof root!=="string" || !path.isAbsolute(root)) {throw new Error("transition tile root must be absolute");}}
 function buildFor(p:TransitionTileParameters,inputs:unknown,tool:ToolIdentity):AssetOperationBuildIdentity {
  return createAssetOperationBuildIdentity({operation:TRANSITION_TILE_OPERATION,parameters:p,inputs,
   implementation:{id:"builtin.image.procedural.transition-tile",version:"1",algorithm:"corner-sdf-complement-product-srgb-v1",randomness:"none",tool}});
@@ -131,12 +131,12 @@ function tilePixels(p:TransitionTileParameters):Rgba8Image {
  const white=levelsRgba8(fields[0]!,{blackPoint:0,whitePoint:255,outputBlack:255,outputWhite:255});
  let complement=white;
  for(let i=0;i<4;i++) {
-  if(p.corners[i]==="1") complement=applyMaskRgba8(complement,levelsRgba8(fields[i]!,{blackPoint:128,whitePoint:255}),"luma");
+  if(p.corners[i]==="1") { complement=applyMaskRgba8(complement,levelsRgba8(fields[i]!,{blackPoint:128,whitePoint:255}),"luma"); }
  }
  const coverage=invert(extractRgba8Channel(complement,"alpha"));
  const channel=(i:0|1|2)=>{
   const soil=p.soil[i],grass=p.grass[i];
-  if(soil<=grass) return levelsRgba8(coverage,{blackPoint:0,whitePoint:255,outputBlack:soil,outputWhite:grass});
+  if(soil<=grass) { return levelsRgba8(coverage,{blackPoint:0,whitePoint:255,outputBlack:soil,outputWhite:grass}); }
   return levelsRgba8(invert(coverage),{blackPoint:0,whitePoint:255,outputBlack:grass,outputWhite:soil});
  };
  return combineRgba8Channels({red:channel(0),green:channel(1),blue:channel(2),alpha:white});
@@ -156,9 +156,9 @@ export async function executeTransitionTileOperation(root:string,invocation:Invo
 export async function executeTransitionTileKit(root:string,value:unknown,{corners:selection=allCorners,signal}:{corners?:unknown;signal?:AbortSignal}={}) {
  assertRoot(root);signal?.throwIfAborted();
  const recipe=normalizeTransitionTileRecipe(value);
- if(!Array.isArray(selection) || selection.length<1 || selection.length>16) throw new Error("transition selection requires 1..16 corner combinations");
+ if(!Array.isArray(selection) || selection.length<1 || selection.length>16) { throw new Error("transition selection requires 1..16 corner combinations"); }
  const selected=selection.map(corners).sort();
- if(new Set(selected).size!==selected.length) throw new Error("duplicate selected transition piece");
+ if(new Set(selected).size!==selected.length) { throw new Error("duplicate selected transition piece"); }
  const tiles:TransitionTileResult[]=[];
  let objectWrites=0,objectBytesWritten=0;
  const tool=await captureToolIdentity();

@@ -26,8 +26,17 @@ const edges=["north","west","south","east"] as const,opposite=[2,3,0,1];
 function edge(image:Rgba8Image,direction:typeof edges[number]) {
  const pixels:number[]=[];
  for(let n=0;n<image.width;n++) {
-  const x=direction==="west"?0:direction==="east"?image.width-1:n;
-  const y=direction==="north"?0:direction==="south"?image.height-1:n;
+  let x=n,y=n;
+  switch(direction) {
+   case "west": x=0;break;
+   case "east": x=image.width-1;break;
+   case "north": y=0;break;
+   case "south": y=image.height-1;break;
+   default: {
+    const unreachable:never=direction;
+    throw new Error(`unknown edge '${unreachable}'`);
+   }
+  }
   pixels.push(...image.pixels.subarray((y*image.width+x)*4,(y*image.width+x)*4+4));
  }
  return pixels;
@@ -51,12 +60,16 @@ test("complete transition kit ports and actual boundaries match the independent 
    images.set(tile.corners,parseRgba8Image(await resolveAssetObject(root,tile.image)));
   }
   let compatible=0;
-  for(const a of result.tiles) for(const b of result.tiles) for(let i=0;i<4;i++) {
+  for(const a of result.tiles) {
+  for(const b of result.tiles) {
+  for(let i=0;i<4;i++) {
    const expected=ports[a.corners]![i]===ports[b.corners]![opposite[i]!]!;
    assert.equal(canConnectTransitionTiles(a.image,b.image,edges[i]!),expected);
    const equal=JSON.stringify(edge(images.get(a.corners)!,edges[i]!))===JSON.stringify(edge(images.get(b.corners)!,edges[opposite[i]!]!));
    assert.equal(equal,expected,`${a.corners}/${b.corners}/${edges[i]}`);
-   if(expected) compatible++;
+   if(expected) {compatible++;}
+  }
+  }
   }
   assert.equal(compatible,256);
   assert.deepEqual([...images.get("0000")!.pixels.subarray(0,4)],[...TRANSITION_TILE_PRESET.soil,255]);
@@ -70,10 +83,12 @@ test("rotations preserve directional corner art and compose without permitting m
   for(const size of [17,32,65,128]) {
    const result=await executeTransitionTileKit(root,{...TRANSITION_TILE_PRESET,size});
    const images=new Map(await Promise.all(result.tiles.map(async t=>[t.corners,parseRgba8Image(await resolveAssetObject(root,t.image))] as const)));
-   for(const tile of result.tiles) for(let q=0;q<4;q++) {
+   for(const tile of result.tiles) {
+   for(let q=0;q<4;q++) {
     const rotated=transformTransitionCorners(tile.corners,{quarterTurns:q,mirror:false});
     assert.deepEqual(rotateRgba8QuarterTurns(images.get(tile.corners)!,q).pixels,images.get(rotated)!.pixels);
-    for(let p=0;p<4;p++) assert.equal(transformTransitionCorners(rotated,{quarterTurns:p,mirror:false}),transformTransitionCorners(tile.corners,{quarterTurns:(p+q)%4,mirror:false}));
+    for(let p=0;p<4;p++) {assert.equal(transformTransitionCorners(rotated,{quarterTurns:p,mirror:false}),transformTransitionCorners(tile.corners,{quarterTurns:(p+q)%4,mirror:false}));}
+   }
    }
   }
   assert.equal(transformTransitionCorners("1000",{quarterTurns:1,mirror:false}),"0100");
@@ -120,7 +135,7 @@ test("selection order, unrelated addition, repeated execution and cold full repl
   assert.deepEqual(await inventory(root),before);
   assert.deepEqual(await executeTransitionTileKit(cold,TRANSITION_TILE_PRESET,{corners:["0110","1000"]}),first);
   const added=await executeTransitionTileKit(root,TRANSITION_TILE_PRESET,{corners:["0111","1000","0110"]});
-  for(const old of first.tiles) assert.deepEqual(added.tiles.find(t=>t.corners===old.corners),old);
+  for(const old of first.tiles) {assert.deepEqual(added.tiles.find(t=>t.corners===old.corners),old);}
   const direct=await executeTransitionTileOperation(root,{parameters:{...TRANSITION_TILE_PRESET,corners:"1000"}});
   assert.deepEqual(createAssetRef(direct.outputs.image),findTransitionTile(first.tiles.map(t=>t.image),"1000"));
   const aborted=new AbortController();aborted.abort();
@@ -137,21 +152,25 @@ test("soft transition pixels and both ascending/descending palette channels matc
   let softened=0;
   for(const tile of result.tiles) {
    const image=parseRgba8Image(await resolveAssetObject(root,tile.image));
-   for(let y=0;y<65;y++) for(let x=0;x<65;x++) {
+   for(let y=0;y<65;y++) {
+   for(let x=0;x<65;x++) {
     // Platform hypot instead of the integer-SDF implementation; explicit scalar
     // mask arithmetic and colors instead of any production image kernels.
     let outside=255;
     const centers=[[0,0],[64,0],[64,64],[0,64]];
-    for(let i=0;i<4;i++) if(tile.corners[i]==="1") {
+    for(let i=0;i<4;i++) {
+    if(tile.corners[i]==="1") {
      const distance=Math.floor(Math.hypot(x-centers[i]![0]!,y-centers[i]![1]!))-48;
      const encoded=Math.max(0,Math.min(127,Math.round(distance*127/2)));
      const inverse=Math.round(encoded*255/127);
      outside=Math.round(outside*inverse/255);
     }
+    }
     const coverage=255-outside;
-    if(coverage>0 && coverage<255) softened++;
+    if(coverage>0 && coverage<255) {softened++;}
     const expected=[4+Math.round(outside*249/255),1+Math.round(coverage*249/255),87,255],offset=(y*65+x)*4;
     assert.deepEqual([...image.pixels.subarray(offset,offset+4)],expected,`${tile.corners} (${x},${y})`);
+   }
    }
   }
   assert.ok(softened>100);
@@ -176,10 +195,12 @@ test("repacking changes layout while preserving complete original refs, logical 
    assert.deepEqual(first.pivot,{x:0,y:0});assert.deepEqual(second.pivot,first.pivot);
    assert.deepEqual(first.sourceSize,{width:17,height:17});assert.deepEqual(first.trimOffset,{x:0,y:0});
    const original=parseRgba8Image(await resolveAssetObject(root,source));
-   for(let y=-1;y<=17;y++) for(let x=-1;x<=17;x++) {
+   for(let y=-1;y<=17;y++) {
+   for(let x=-1;x<=17;x++) {
     const actual=((first.rect.y+y)*ai.width+first.rect.x+x)*4;
     const expected=(Math.max(0,Math.min(16,y))*17+Math.max(0,Math.min(16,x)))*4;
     assert.deepEqual(ai.pixels.subarray(actual,actual+4),original.pixels.subarray(expected,expected+4));
+   }
    }
   }
  } finally {await rm(root,{recursive:true,force:true});}

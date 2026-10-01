@@ -33,7 +33,7 @@ try {
  assert.deepEqual(full.tiles,freshFull.tiles);
  const subset=await executeTransitionTileKit(root,TRANSITION_TILE_PRESET,{corners:[...selected].reverse()});
  assert.equal(subset.execution.objectWrites,0);assert.equal(subset.execution.verifiedExistingObjects,12);
- for(const tile of subset.tiles) assert.deepEqual(tile,full.tiles.find(t=>t.corners===tile.corners));
+ for(const tile of subset.tiles) {assert.deepEqual(tile,full.tiles.find(t=>t.corners===tile.corners));}
  const complete=await atlas(root,full.tiles,4),packed=await atlas(root,subset.tiles,4),fresh=await atlas(cold,subset.tiles,4);
  assert.deepEqual(packed,fresh);
  const repacked=await atlas(root,[...subset.tiles].reverse(),3);
@@ -42,11 +42,13 @@ try {
   assert.deepEqual(document.sprites.map(s=>s.source),subset.tiles.map(t=>t.image));
  }
  const refs=subset.tiles.map(t=>t.image);
- for(let y=0;y<4;y++) for(let x=0;x<4;x++) {
+ for(let y=0;y<4;y++) {
+ for(let x=0;x<4;x++) {
   assert.equal(grid[y]![x],vertices[y]![x]!+vertices[y]![x+1]!+vertices[y+1]![x+1]!+vertices[y+1]![x]!);
   const tile=findTransitionTile(refs,grid[y]![x]);
-  if(x<3) assert.equal(canConnectTransitionTiles(tile,findTransitionTile(refs,grid[y]![x+1]),"east"),true);
-  if(y<3) assert.equal(canConnectTransitionTiles(tile,findTransitionTile(refs,grid[y+1]![x]),"south"),true);
+  if(x<3) {assert.equal(canConnectTransitionTiles(tile,findTransitionTile(refs,grid[y]![x+1]),"east"),true);}
+  if(y<3) {assert.equal(canConnectTransitionTiles(tile,findTransitionTile(refs,grid[y+1]![x]),"south"),true);}
+ }
  }
  assert.throws(()=>findTransitionTile(refs,"1010"),/missing.*1010/);
  const invocation={parameters:{profile:SPRITE_ATLAS_BUNDLE_PROFILE,assets:[{key:"ground-transition",variant:"island"}]},inputs:{assets:[packed.manifest],images:[packed.png]}};
