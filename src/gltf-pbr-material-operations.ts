@@ -70,11 +70,11 @@ async function checked(root:string,invocation:Invocation) {
   const selected=selectNamedGltfMaterial(imported.document,p.materialName,p.texCoord);
   if(selected.material.getNormalTextureInfo() && selected.material.getNormalTextureInfo()!.getTexCoord()!==0) throw new Error("PBR source normal texture must use its authored UV0 tangent frame");
   if(selected.primitives.some(primitive=>!primitive.getAttribute("NORMAL") || !primitive.getAttribute("TANGENT"))) throw new Error("PBR normal texture requires authored source normals and tangents");
-  const images:Record<Role,Rgba8Image>={baseColor:parseRgba8Image(await resolveAssetObject(root,refs.baseColor)),
-    normal:parseRgba8Image(await resolveAssetObject(root,refs.normal)),orm:parseLinearRgba8Image(await resolveAssetObject(root,refs.orm))};
+  // The budgeted bundle dimensions must match native headers before pixel allocation.
+  const images:Record<Role,Rgba8Image>={baseColor:parseRgba8Image(await resolveAssetObject(root,refs.baseColor),doc.textures.baseColor!),
+    normal:parseRgba8Image(await resolveAssetObject(root,refs.normal),doc.textures.normal!),orm:parseLinearRgba8Image(await resolveAssetObject(root,refs.orm),doc.textures.orm!)};
   for(const role of ROLES) {
-    const image=images[role],declared=doc.textures[role]!;
-    if(image.width!==declared.width || image.height!==declared.height) throw new Error("PBR texture dimensions disagree with bundle");
+    const image=images[role];
     // Normal and ORM alpha are unused data, never coverage.
     if(role!=="baseColor") for(let i=3;i<image.pixels.length;i+=4) if(image.pixels[i]!==255) throw new Error("PBR data channels must be opaque");
   }
@@ -87,11 +87,19 @@ export async function executeGltfPbrMaterialOperation(root:string,invocation:Inv
   let imagesAdded=0,imagesReused=0;
   for(const role of ROLES) {
     let input=refs[role];
-    if(role==="normal" && doc.conventions.normal!.yAxis==="negative") {
-      const image=images.normal,green=convolveRgba8(extractRgba8Channel(image,"green"),{width:1,height:1,weights:[-1],divisor:1,bias:255});
-      const positive=combineRgba8Channels({red:extractRgba8Channel(image,"red"),green,blue:extractRgba8Channel(image,"blue"),alpha:extractRgba8Channel(image,"alpha")});
-      input=(await storeAssetObject(root,{bytes:encodeRgba8Image(positive),kind:"image",mediaType:RGBA8_IMAGE_MEDIA_TYPE,
-        metadata:{operation:"scene.material.pbr",sourceSha256:refs.normal.sha256,materialSha256:bundle.sha256,normalYAxis:"positive",channelColorSpace:"linear"}})).asset;
+    if(role==="normal") {
+      const axis=doc.conventions.normal!.yAxis;
+      switch(axis) {
+        case "negative": {
+          const image=images.normal,green=convolveRgba8(extractRgba8Channel(image,"green"),{width:1,height:1,weights:[-1],divisor:1,bias:255});
+          const positive=combineRgba8Channels({red:extractRgba8Channel(image,"red"),green,blue:extractRgba8Channel(image,"blue"),alpha:extractRgba8Channel(image,"alpha")});
+          input=(await storeAssetObject(root,{bytes:encodeRgba8Image(positive),kind:"image",mediaType:RGBA8_IMAGE_MEDIA_TYPE,
+            metadata:{operation:"scene.material.pbr",sourceSha256:refs.normal.sha256,materialSha256:bundle.sha256,normalYAxis:"positive",channelColorSpace:"linear"}})).asset;
+          break;
+        }
+        case "positive": break;
+        default: {const unreachable:never=axis;throw new Error(`Unsupported normal axis: ${unreachable}`);}
+      }
     }
     const png=createAssetRef((await executeImageEncodePngOperation(root,{inputs:{source:input},parameters:{compressionLevel:9},runtime:prepared.codec.runtime})).outputs.output);
     const bytes=await resolveAssetObject(root,png);encoded[role]=png;

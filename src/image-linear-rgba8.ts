@@ -81,7 +81,7 @@ export function encodeLinearRgba8Image(image: Rgba8Image) {
   return Buffer.from(`${canonicalJson(createLinearRgba8Image(image))}\n`, "utf8");
 }
 
-export function parseLinearRgba8Image(bytes: Uint8Array) {
+export function parseLinearRgba8Image(bytes: Uint8Array, expectedDimensions?: Pick<Rgba8Image, "width" | "height">) {
   if (!(bytes instanceof Uint8Array)) {
     throw new Error("linear RGBA8 image bytes must be a Uint8Array");
   }
@@ -108,6 +108,9 @@ export function parseLinearRgba8Image(bytes: Uint8Array) {
   }
   if (document.alphaMode !== "straight") {
     throw new Error("linear RGBA8 image alphaMode must be 'straight'");
+  }
+  if (expectedDimensions && (width !== expectedDimensions.width || height !== expectedDimensions.height)) {
+    throw new Error("linear RGBA8 image dimensions disagree with expected dimensions");
   }
   const pixels = canonicalBase64(
     document.pixelsBase64,

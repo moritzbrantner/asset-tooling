@@ -105,6 +105,27 @@ test("PBR closure, convention, controls and corrupt dependencies fail before any
   await assert.rejects(executeGltfPbrMaterialOperation(root,invocation),/hash/);assert.deepEqual(await objects(root),corrupt);
 });
 
+test("PBR checks actual canonical headers before decoding pixels against underdeclared bundle dimensions",{skip:!codecAvailable},async t=>{
+  const {root,invocation,material}=await fixture(t);
+  const bundle=parsePbrMaterialDocument(await resolveAssetObject(root,material));
+  // Independent JSON headers deliberately combine large dimensions with invalid pixel data.
+  // A dimensions error, rather than a base64 error, proves rejection precedes decoding.
+  for(const role of ["baseColor","normal","orm"] as const) {
+    const original=bundle.textures[role]!;
+    const map=(await storeAssetObject(root,{kind:"image",mediaType:original.mediaType,
+      bytes:Buffer.from(JSON.stringify({schemaVersion:1,width:8192,height:8192,
+        colorSpace:role==="orm"?"linear-srgb":"srgb",alphaMode:"straight",pixelsBase64:"invalid!"}))})).asset;
+    const pinned=(await storeAssetObject(root,{kind:material.kind,mediaType:material.mediaType,
+      bytes:Buffer.from(canonicalJson({...bundle,textures:{...bundle.textures,[role]:{
+        ...original,sha256:map.sha256,byteLength:map.byteLength}}}))})).asset;
+    const before=await objects(root);
+    const port=role==="baseColor"?"base-color":role;
+    await assert.rejects(executeGltfPbrMaterialOperation(root,{...invocation,
+      inputs:{...invocation.inputs,material:pinned,[port]:map}}),/dimensions disagree with expected dimensions/);
+    assert.deepEqual(await objects(root),before);
+  }
+});
+
 test("positive-Y normals need no conversion and byte-identical texture roles reuse one native image",{skip:!codecAvailable},async t=>{
   const {root,invocation,image}=await fixture(t),same=await image(Buffer.from([128,128,255,255,128,128,255,255])),linear=await image(Buffer.from([128,128,255,255,128,128,255,255]),true);
   const material=createAssetRef((await executePbrMaterialBundleOperation(root,{inputs:{"base-color":same,normal:same,orm:linear},parameters:{normalYAxis:"positive"}})).outputs.output);

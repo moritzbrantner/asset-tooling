@@ -84,7 +84,7 @@ export function encodeRgba8Image(image: Rgba8Image) {
   return Buffer.from(`${canonicalJson(createRgba8Image(image))}\n`, "utf8");
 }
 
-export function parseRgba8Image(bytes: Uint8Array) {
+export function parseRgba8Image(bytes: Uint8Array, expectedDimensions?: Pick<Rgba8Image, "width" | "height">) {
   if (!(bytes instanceof Uint8Array)) throw new Error("RGBA8 image bytes must be a Uint8Array");
   let value: unknown;
   try {
@@ -104,6 +104,9 @@ export function parseRgba8Image(bytes: Uint8Array) {
   const height = dimension(document.height, "RGBA8 image height");
   if (document.colorSpace !== "srgb") throw new Error("RGBA8 image colorSpace must be 'srgb'");
   if (document.alphaMode !== "straight") throw new Error("RGBA8 image alphaMode must be 'straight'");
+  if (expectedDimensions && (width !== expectedDimensions.width || height !== expectedDimensions.height)) {
+    throw new Error("RGBA8 image dimensions disagree with expected dimensions");
+  }
   const pixels = canonicalBase64(document.pixelsBase64, "RGBA8 image pixelsBase64");
   const expected = expectedByteLength(width, height);
   if (pixels.length !== expected) {
