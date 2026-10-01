@@ -114,6 +114,30 @@ function resourceInventory(json: GLTF.IGLTF, supplied: Record<string, Uint8Array
   return inventory;
 }
 
+/** Header-only inspection precedes validator scans and sparse accessor densification. */
+export function checkStaticGltfAccessorBudget(json: GLTF.IGLTF, location: string): void {
+  const components: Record<string, number> = { SCALAR: 1, VEC2: 2, VEC3: 3, VEC4: 4, MAT2: 4, MAT3: 9, MAT4: 16 };
+  let decodedBytes = 0;
+  if (json.accessors !== undefined && !Array.isArray(json.accessors)) throw new Error(`${location} accessor budget requires an accessor array`);
+  for (const accessor of json.accessors ?? []) {
+    if (!accessor || !Number.isSafeInteger(accessor.count) || accessor.count < 1 || accessor.count > 3000000 ||
+        !Object.hasOwn(components, accessor.type)) throw new Error(`${location} accessor exceeds count/type budget`);
+    // Conservatively reserve float32 storage even for byte/short accessors.
+    decodedBytes += accessor.count * components[accessor.type]! * 4;
+    if (decodedBytes > 64 * 1024 * 1024) throw new Error(`${location} accessors exceed 64 MiB decoded memory budget`);
+  }
+  const positions = new Set<number>();
+  for (const mesh of json.meshes ?? []) for (const primitive of mesh.primitives ?? []) {
+    if (primitive.attributes && Object.hasOwn(primitive.attributes, "POSITION")) positions.add(primitive.attributes.POSITION!);
+  }
+  let vertices = 0;
+  for (const index of positions) {
+    if (!Number.isSafeInteger(index) || !json.accessors?.[index]) throw new Error(`${location} vertex budget requires valid POSITION accessors`);
+    vertices += json.accessors[index]!.count;
+    if (vertices > 1000000) throw new Error(`${location} vertex/accessor budget exceeds one million source vertices`);
+  }
+}
+
 export function gltfSummary(document: Document) {
   const root = document.getRoot();
   let triangleCount = 0;

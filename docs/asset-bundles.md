@@ -30,7 +30,7 @@ The [v1 JSON Schema](../schemas/asset-bundle-v1.schema.json) declares the transp
 
 Selections correspond one-to-one with `inputs.assets` before sorting by invariant key/variant order. Keys/variants are lowercase portable tokens of at most 128 characters. Multiple variants of one key are allowed; a repeated pair is rejected. `resolveAssetBundleEntry` requires the exact pair and diagnoses missing selections instead of falling back to a variant. Identical payloads referenced by several logical entries share one file while retaining each entry's metadata.
 
-Limits are 1–256 selections, 64 MiB per payload, 256 MiB total distinct payload bytes and 8 MiB for the manifest. PNG dimensions are 1–4096 in each axis. These caps are checked before writes; no budget implies permission for hidden dependencies or new processing. The profile validates actual static GLB resources and supported semantics before reuse.
+Limits are 1–256 selections, 64 MiB per payload, 256 MiB total distinct payload bytes and 8 MiB for the manifest. PNG dimensions are 1–4096 in each axis. These caps are checked before writes; no budget implies permission for hidden dependencies or new processing. The profile validates actual static GLB resources and supported semantics before reuse. It reuses the renderer’s header preflight before validator scans or sparse densification: at most 3 million elements per accessor, 64 MiB of conservative float32 accessor storage, and 1 million distinct POSITION vertices. Protected namespace names are reserved case-insensitively on every platform.
 
 ## Export, recovery and verification
 

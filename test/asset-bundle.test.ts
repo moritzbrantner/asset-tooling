@@ -22,6 +22,9 @@ function triangle(scale=1,external=false,color=[1,1,1,1]):Buffer {
     bufferViews:[{buffer:0,byteOffset:0,byteLength:36},{buffer:0,byteOffset:36,byteLength:36},{buffer:0,byteOffset:72,byteLength:6}],
     accessors:[{bufferView:0,componentType:5126,count:3,type:"VEC3",min:[0,0,0],max:[scale,scale,0]},
       {bufferView:1,componentType:5126,count:3,type:"VEC3"},{bufferView:2,componentType:5123,count:3,type:"SCALAR"}]}));
+  return glb(json,binary);
+}
+function glb(json:Buffer,binary:Buffer):Buffer {
   const padded=Buffer.concat([json,Buffer.alloc((4-json.length%4)%4,32)]),header=Buffer.alloc(20),bin=Buffer.alloc(8);
   header.write("glTF");header.writeUInt32LE(2,4);header.writeUInt32LE(28+padded.length+binary.length,8);
   header.writeUInt32LE(padded.length,12);header.writeUInt32LE(0x4e4f534a,16);bin.writeUInt32LE(binary.length);bin.writeUInt32LE(0x004e4942,4);
@@ -115,7 +118,7 @@ test("invalid dependencies, transport, paths and cancellation preserve the last 
   const bad=(await storeAssetObject(root,{bytes:triangle(1,true),kind:"mesh",mediaType:"model/gltf-binary"})).asset;
   await assert.rejects(exportAssetBundle(root,directory,{parameters:invocation.parameters,inputs:{assets:[bad,image,bad]}}),/resource|validation|buffer|GLB/i);
   assert.deepEqual(await snapshot(directory),before);
-  for(const unsafe of [root,path.dirname(root),path.join(root,".asset-tooling"),path.join(root,"assets/canonical")]) await assert.rejects(exportAssetBundle(root,unsafe,invocation),/output directory/);
+  for(const unsafe of [root,path.dirname(root),path.join(root,".asset-tooling"),path.join(root,"assets/canonical"),path.join(root,".GIT"),path.join(root,".ASSET-TOOLING"),path.join(root,"Assets/CANONICAL"),path.join(root,".git."),path.join(root,".asset-tooling "),path.join(root,"assets/canonical.")]) await assert.rejects(exportAssetBundle(root,unsafe,invocation),/output directory/);
   for(const invalid of [ {profile:"unknown",assets:invocation.parameters.assets},
     {profile:STATIC_ASSET_BUNDLE_PROFILE,assets:[{key:"../escape",variant:"default"}]},
     {profile:STATIC_ASSET_BUNDLE_PROFILE,assets:[{key:"x",variant:"a"},{key:"x",variant:"a"}]},
@@ -157,4 +160,35 @@ test("export and verification reject symlinked resources instead of crossing the
   const outside=path.join(root,"outside.png");await writeFile(outside,await readFile(file));await rm(file);await symlink(outside,file);
   await assert.rejects(verifyAssetBundle(directory,first.manifest),/regular/);
   await assert.rejects(exportAssetBundle(root,directory,invocation),/regular/);
+});
+
+test("static bundle rejects sparse decoded-memory and vertex budgets before densification",async t=>{
+  const {root,directory,source,image,invocation}=await workspace(t);
+  await exportAssetBundle(root,directory,invocation);const before=await snapshot(directory);
+  for(const count of [1000000000,1000001]) {
+    // Two sparse vertices use 36 payload bytes regardless of its declared dense count.
+    const binary=Buffer.alloc(36);binary[0]=1;binary[1]=2;
+    [1,0,0,0,1,0].forEach((n,i)=>binary.writeFloatLE(n,4+i*4));
+    [0,1,2].forEach((n,i)=>binary.writeUInt16LE(n,28+i*2));
+    const json=Buffer.from(JSON.stringify({asset:{version:"2.0"},scene:0,scenes:[{nodes:[0]}],nodes:[{mesh:0}],
+      meshes:[{primitives:[{attributes:{POSITION:0},indices:1}]}],buffers:[{byteLength:36}],
+      bufferViews:[{buffer:0,byteOffset:0,byteLength:2},{buffer:0,byteOffset:4,byteLength:24},{buffer:0,byteOffset:28,byteLength:6}],
+      accessors:[{componentType:5126,count,type:"VEC3",min:[0,0,0],max:[1,1,0],
+        sparse:{count:2,indices:{bufferView:0,componentType:5121},values:{bufferView:1}}},
+        {bufferView:2,componentType:5123,count:3,type:"SCALAR"}]}));
+    const bytes=glb(json,binary),large=(await storeAssetObject(root,{bytes,kind:"mesh",mediaType:"model/gltf-binary"})).asset;
+    assert.ok(bytes.length<1024);
+    await assert.rejects(exportAssetBundle(root,directory,{parameters:invocation.parameters,inputs:{assets:[large,image,source]}}),/(?:accessor|vertex).*budget/);
+    assert.deepEqual(await snapshot(directory),before);
+  }
+  // Independently assemble a package so verification exercises the same preflight.
+  const binary=Buffer.alloc(16),json=Buffer.from(JSON.stringify({asset:{version:"2.0"},
+    accessors:[{componentType:5126,count:2100000,type:"MAT4",sparse:{count:1,indices:{bufferView:0,componentType:5121},values:{bufferView:1}}}],
+    buffers:[{byteLength:16}],bufferViews:[{buffer:0,byteOffset:0,byteLength:1},{buffer:0,byteOffset:4,byteLength:12}]}));
+  const bytes=glb(json,binary),large=createAssetRef({sha256:sha256Bytes(bytes),byteLength:bytes.length,kind:"mesh",mediaType:"model/gltf-binary"});
+  const portable=`assets/${large.sha256}.glb`,manifest=Buffer.from(canonicalJson({schemaVersion:1,profile:STATIC_ASSET_BUNDLE_PROFILE,assets:[{key:"large",variant:"default",source:large,path:portable}]}));
+  await writeFile(path.join(directory,portable),bytes);await writeFile(path.join(directory,"manifest.json"),manifest);
+  const pinned=createAssetRef({sha256:sha256Bytes(manifest),byteLength:manifest.length,kind:"asset-bundle",mediaType:ASSET_BUNDLE_MEDIA_TYPE}),accepted=await snapshot(directory);
+  await assert.rejects(verifyAssetBundle(directory,pinned),/64 MiB decoded memory budget/);
+  assert.deepEqual(await snapshot(directory),accepted);
 });

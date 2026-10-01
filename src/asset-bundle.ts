@@ -1,12 +1,12 @@
 /// <reference path="./gltf-validator.d.ts" />
-import { ImageUtils, VERSION } from "@gltf-transform/core";
+import { ImageUtils, NodeIO, VERSION } from "@gltf-transform/core";
 import { version as validatorVersion } from "gltf-validator";
 import path from "node:path";
 import { lstat, mkdir, mkdtemp, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { canonicalJson, compareCodeUnitStrings } from "./canonical.js";
 import { resolveAssetObject, storeAssetObject } from "./asset-store.js";
 import { sha256Bytes } from "./hash.js";
-import { parseCheckedGltfBytes } from "./gltf-processing.js";
+import { checkStaticGltfAccessorBudget, parseCheckedGltfBytes } from "./gltf-processing.js";
 import { captureToolIdentity } from "./tool.js";
 import { createAssetOperationBuildIdentity, createAssetOperationDescriptor, createAssetRef, normalizeAssetOperationResult,
   type AssetRef, type AssetOperationBuildIdentity } from "./operations.js";
@@ -83,15 +83,17 @@ async function assertDirectory(directory:string,allowMissing=false):Promise<void
 }
 async function assertExportBoundary(root:string,directory:string):Promise<void> {
   assertAbsolute(root);assertAbsolute(directory);
-  const relative=path.relative(root,directory),segments=relative.split(path.sep);
-  if(!relative || path.isAbsolute(relative) || segments[0]===".." || segments[0]===".git" || segments[0]===".asset-tooling" ||
+  const relative=path.relative(root,directory),segments=relative.split(path.sep).map(segment=>segment.toLowerCase());
+  if(segments.some(segment=>/[. ]$/.test(segment) || segment.includes(":")) || !relative || path.isAbsolute(relative) || segments[0]===".." || segments[0]===".git" || segments[0]===".asset-tooling" ||
      (segments[0]==="assets" && segments[1]==="canonical")) throw new Error("bundle export must be inside a separate declared output directory below its asset root");
   await assertDirectory(root);let prefix=root;
-  for(const segment of segments) {prefix=path.join(prefix,segment);await assertDirectory(prefix,true);}
+  for(const segment of relative.split(path.sep)) {prefix=path.join(prefix,segment);await assertDirectory(prefix,true);}
 }
 async function validatePayload(source:AssetRef,bytes:Buffer):Promise<void> {
   if(bytes.byteLength!==source.byteLength || sha256Bytes(bytes)!==source.sha256) throw new Error("bundle payload does not match its content pin");
   if(source.mediaType==="model/gltf-binary") {
+    const { json } = await new NodeIO().setAllowNetwork(false).setStrictResources(true).binaryToJSON(bytes);
+    checkStaticGltfAccessorBudget(json,"bundle");
     const parsed=await parseCheckedGltfBytes(source,bytes,Object.create(null),false);
     if(parsed.inventory.some(resource=>resource.storage==="external")) throw new Error("bundle GLB must have embedded resources");
   } else if(source.mediaType==="image/png") {
