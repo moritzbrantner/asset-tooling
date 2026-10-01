@@ -1,3 +1,11 @@
+export type RgbaBytes = readonly [number, number, number, number];
+export type NoiseParameters = {width:number;height:number;seed:string;mode?:"grayscale"|"rgb"};
+export type GradientDirection = "horizontal"|"vertical"|"diagonal-down"|"diagonal-up";
+export type GradientParameters = {width:number;height:number;direction:GradientDirection;startColor:RgbaBytes;endColor:RgbaBytes};
+export type PatternKind = "checker"|"stripes-horizontal"|"stripes-vertical"|"stripes-diagonal-down"|"stripes-diagonal-up";
+export type PatternParameters = {width:number;height:number;pattern:PatternKind;size:number;colors:readonly [RgbaBytes,RgbaBytes]};
+export type VoronoiParameters = {width:number;height:number;seed:string;cellSize:number;mode:"cells"|"distance"};
+
 const MAX_DIMENSION = 4096;
 const MAX_PATTERN_SIZE = 1024;
 const MAX_CELL_SIZE = 512;
@@ -18,43 +26,43 @@ const PATTERN_KINDS = new Set([
 ]);
 const VORONOI_MODES = new Set(["cells", "distance"]);
 
-function integer(value, location, minimum, maximum) {
-  if (!Number.isSafeInteger(value) || value < minimum || value > maximum) {
+function integer(value: unknown, location: string, minimum: number, maximum: number) {
+  if (typeof value !== "number" || !Number.isSafeInteger(value) || value < minimum || value > maximum) {
     throw new Error(`${location} must be an integer in ${minimum}..${maximum}`);
   }
   return value;
 }
 
-function dimension(value, location) {
+function dimension(value: unknown, location: string) {
   return integer(value, location, 1, MAX_DIMENSION);
 }
 
-function channel(value, location) {
+function channel(value: unknown, location: string) {
   return integer(value, location, 0, 255);
 }
 
-function rgba(value, location) {
+function rgba(value: unknown, location: string): RgbaBytes {
   if (!Array.isArray(value) || value.length !== 4) {
     throw new Error(`${location} must contain exactly four RGBA8 channels`);
   }
-  return value.map((entry, index) => channel(entry, `${location}[${index}]`));
+  return [channel(value[0], `${location}[0]`), channel(value[1], `${location}[1]`), channel(value[2], `${location}[2]`), channel(value[3], `${location}[3]`)];
 }
 
-function colorPair(value, location) {
+function colorPair(value: unknown, location: string): readonly [RgbaBytes,RgbaBytes] {
   if (!Array.isArray(value) || value.length !== 2) {
     throw new Error(`${location} must contain exactly two RGBA8 colors`);
   }
-  return value.map((entry, index) => rgba(entry, `${location}[${index}]`));
+  return [rgba(value[0], `${location}[0]`), rgba(value[1], `${location}[1]`)];
 }
 
-function normalizedSeed(seed) {
+function normalizedSeed(seed: unknown) {
   if (typeof seed !== "string" || !SEED_PATTERN.test(seed)) {
     throw new Error("seed must be a non-negative decimal integer string");
   }
   return seed;
 }
 
-function fnv1a32(text) {
+function fnv1a32(text: string) {
   let hash = 0x811c9dc5;
   for (let index = 0; index < text.length; index += 1) {
     hash ^= text.charCodeAt(index);
@@ -63,7 +71,7 @@ function fnv1a32(text) {
   return hash >>> 0;
 }
 
-function avalanche32(value) {
+function avalanche32(value: number) {
   let mixed = value >>> 0;
   mixed ^= mixed >>> 16;
   mixed = Math.imul(mixed, 0x7feb352d);
@@ -73,7 +81,7 @@ function avalanche32(value) {
   return mixed >>> 0;
 }
 
-function coordinateHash32(seedHash, x, y, component) {
+function coordinateHash32(seedHash: number, x: number, y: number, component: number) {
   const mixed =
     seedHash ^
     Math.imul(x + 1, 0x9e3779b1) ^
@@ -82,37 +90,39 @@ function coordinateHash32(seedHash, x, y, component) {
   return avalanche32(mixed);
 }
 
-function coordinateNoiseByte(seedHash, x, y, component) {
+function coordinateNoiseByte(seedHash: number, x: number, y: number, component: number) {
   return coordinateHash32(seedHash, x, y, component) >>> 24;
 }
 
-function roundRatioSigned(numerator, denominator) {
+function roundRatioSigned(numerator: number, denominator: number) {
   if (numerator >= 0) {
     return Math.floor((numerator + Math.floor(denominator / 2)) / denominator);
   }
   return -Math.floor((-numerator + Math.floor(denominator / 2)) / denominator);
 }
 
-function gradientPosition(direction, x, y, width, height) {
+function gradientPosition(direction: GradientDirection, x: number, y: number, width: number, height: number) {
   if (direction === "horizontal") return { numerator: x, denominator: width - 1 };
   if (direction === "vertical") return { numerator: y, denominator: height - 1 };
   if (direction === "diagonal-down") {
     return { numerator: x + y, denominator: width + height - 2 };
   }
-  return { numerator: x + (height - 1 - y), denominator: width + height - 2 };
+  if (direction === "diagonal-up") return { numerator: x + (height - 1 - y), denominator: width + height - 2 };
+  const unreachable: never = direction; throw new Error(`unsupported gradient direction ${unreachable}`);
 }
 
-function patternIndex(pattern, x, y, size) {
+function patternIndex(pattern: PatternKind, x: number, y: number, size: number) {
   if (pattern === "checker") {
     return (Math.floor(x / size) + Math.floor(y / size)) & 1;
   }
   if (pattern === "stripes-horizontal") return Math.floor(y / size) & 1;
   if (pattern === "stripes-vertical") return Math.floor(x / size) & 1;
   if (pattern === "stripes-diagonal-down") return Math.floor((x + y) / size) & 1;
-  return Math.floor((x - y) / size) & 1;
+  if (pattern === "stripes-diagonal-up") return Math.floor((x - y) / size) & 1;
+  const unreachable: never = pattern; throw new Error(`unsupported pattern ${unreachable}`);
 }
 
-function integerSqrt(value) {
+function integerSqrt(value: number) {
   if (!Number.isSafeInteger(value) || value < 0) {
     throw new Error("integer square root input must be a non-negative safe integer");
   }
@@ -132,14 +142,14 @@ function integerSqrt(value) {
   return result;
 }
 
-function featurePoint(seedHash, cellX, cellY, cellSize) {
+function featurePoint(seedHash: number, cellX: number, cellY: number, cellSize: number) {
   return {
     x: cellX * cellSize + (coordinateHash32(seedHash, cellX, cellY, 0) % cellSize),
     y: cellY * cellSize + (coordinateHash32(seedHash, cellX, cellY, 1) % cellSize),
   };
 }
 
-function nearestFeature(seedHash, x, y, cellSize) {
+function nearestFeature(seedHash: number, x: number, y: number, cellSize: number) {
   const originCellX = Math.floor(x / cellSize);
   const originCellY = Math.floor(y / cellSize);
   let bestDistanceSquared = Number.POSITIVE_INFINITY;
@@ -169,7 +179,7 @@ function nearestFeature(seedHash, x, y, cellSize) {
   return { distanceSquared: bestDistanceSquared, cellX: bestCellX, cellY: bestCellY };
 }
 
-export function generateNoiseRgba8({ width, height, seed, mode = "grayscale" }) {
+export function generateNoiseRgba8({ width, height, seed, mode = "grayscale" }: NoiseParameters) {
   const imageWidth = dimension(width, "noise width");
   const imageHeight = dimension(height, "noise height");
   const seedHash = fnv1a32(normalizedSeed(seed));
@@ -186,10 +196,13 @@ export function generateNoiseRgba8({ width, height, seed, mode = "grayscale" }) 
         output[offset] = value;
         output[offset + 1] = value;
         output[offset + 2] = value;
-      } else {
+      } else if (mode === "rgb") {
         output[offset] = coordinateNoiseByte(seedHash, x, y, 0);
         output[offset + 1] = coordinateNoiseByte(seedHash, x, y, 1);
         output[offset + 2] = coordinateNoiseByte(seedHash, x, y, 2);
+      } else {
+        const unreachable: never = mode;
+        throw new Error(`unsupported noise mode ${unreachable}`);
       }
       output[offset + 3] = 255;
     }
@@ -204,7 +217,7 @@ export function generateLinearGradientRgba8({
   direction,
   startColor,
   endColor,
-}) {
+}: GradientParameters) {
   const imageWidth = dimension(width, "gradient width");
   const imageHeight = dimension(height, "gradient height");
   if (!GRADIENT_DIRECTIONS.has(direction)) {
@@ -229,9 +242,9 @@ export function generateLinearGradientRgba8({
       for (let component = 0; component < 4; component += 1) {
         output[offset + component] =
           denominator === 0
-            ? start[component]
-            : start[component] +
-              roundRatioSigned((end[component] - start[component]) * numerator, denominator);
+            ? start[component]!
+            : start[component]! +
+              roundRatioSigned((end[component]! - start[component]!) * numerator, denominator);
       }
     }
   }
@@ -239,7 +252,7 @@ export function generateLinearGradientRgba8({
   return { width: imageWidth, height: imageHeight, pixels: output };
 }
 
-export function generatePatternRgba8({ width, height, pattern, size, colors }) {
+export function generatePatternRgba8({ width, height, pattern, size, colors }: PatternParameters) {
   const imageWidth = dimension(width, "pattern width");
   const imageHeight = dimension(height, "pattern height");
   if (!PATTERN_KINDS.has(pattern)) {
@@ -253,10 +266,10 @@ export function generatePatternRgba8({ width, height, pattern, size, colors }) {
 
   for (let y = 0; y < imageHeight; y += 1) {
     for (let x = 0; x < imageWidth; x += 1) {
-      const color = normalizedColors[patternIndex(pattern, x, y, patternSize)];
+      const color = normalizedColors[patternIndex(pattern, x, y, patternSize)]!;
       const offset = (y * imageWidth + x) * 4;
       for (let component = 0; component < 4; component += 1) {
-        output[offset + component] = color[component];
+        output[offset + component] = color[component]!;
       }
     }
   }
@@ -264,7 +277,7 @@ export function generatePatternRgba8({ width, height, pattern, size, colors }) {
   return { width: imageWidth, height: imageHeight, pixels: output };
 }
 
-export function generateVoronoiRgba8({ width, height, seed, cellSize, mode }) {
+export function generateVoronoiRgba8({ width, height, seed, cellSize, mode }: VoronoiParameters) {
   const imageWidth = dimension(width, "Voronoi width");
   const imageHeight = dimension(height, "Voronoi height");
   const seedHash = fnv1a32(normalizedSeed(seed));
@@ -284,10 +297,13 @@ export function generateVoronoiRgba8({ width, height, seed, cellSize, mode }) {
         output[offset] = value;
         output[offset + 1] = value;
         output[offset + 2] = value;
-      } else {
+      } else if (mode === "cells") {
         output[offset] = coordinateNoiseByte(seedHash, nearest.cellX, nearest.cellY, 2);
         output[offset + 1] = coordinateNoiseByte(seedHash, nearest.cellX, nearest.cellY, 3);
         output[offset + 2] = coordinateNoiseByte(seedHash, nearest.cellX, nearest.cellY, 4);
+      } else {
+        const unreachable: never = mode;
+        throw new Error(`unsupported Voronoi mode ${unreachable}`);
       }
       output[offset + 3] = 255;
     }
