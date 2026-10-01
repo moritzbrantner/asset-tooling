@@ -1,3 +1,8 @@
+import {compareCodeUnitStrings} from "./canonical.js";
+import {INSTANCE_EXCLUSION_MASK_OPERATION} from "./instance-mask-operations.js";
+export {INSTANCE_EXCLUSION_MASK_OPERATION,createInstanceExclusionMaskOperationBuildIdentity,executeInstanceExclusionMaskOperation,
+  type InstanceExclusionMaskParameters} from "./instance-mask-operations.js";
+import {roundDivideBigInt, sampleAxis} from "./instance-image-sampling.js";
 import path from "node:path";
 import { resolveAssetObject, storeAssetObject } from "./asset-store.js";
 import { sha256Text } from "./hash.js";
@@ -129,7 +134,7 @@ export const INSTANCE_UNIFORM_SCATTER_OPERATION = OPERATION_REGISTRY.get(
   "instances.scatter.uniform",
   VERSION,
 );
-export const INSTANCE_OPERATIONS = OPERATION_REGISTRY.list();
+export const INSTANCE_OPERATIONS = [INSTANCE_EXCLUSION_MASK_OPERATION,...OPERATION_REGISTRY.list()].sort((a,b)=>compareCodeUnitStrings(a.id,b.id));
 
 function plainObject(value, location) {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
@@ -356,19 +361,6 @@ export function generateMinimumDistanceInstanceSet(parameters) {
     rejectedCount: candidateCount - points.length,
     minDistanceMicro,
   };
-}
-
-function roundDivideBigInt(numerator, denominator) {
-  if (numerator < 0n || denominator <= 0n) {
-    throw new Error("instance projection ratio requires non-negative numerator and positive denominator");
-  }
-  return (numerator + denominator / 2n) / denominator;
-}
-
-function sampleAxis(position, minimum, spanMicro, sampleCount) {
-  if (sampleCount <= 1 || spanMicro <= 1) return 0;
-  const numerator = BigInt(position - minimum) * BigInt(sampleCount - 1);
-  return Number(roundDivideBigInt(numerator, BigInt(spanMicro - 1)));
 }
 
 export function projectInstanceSetToHeightfield(instanceSetValue, heightValue, { heightScale }) {

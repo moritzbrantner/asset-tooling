@@ -24,6 +24,9 @@
     "noUnusedParameters": true
   },
   "include": [
+    "examples/instance-exclusion/build.ts",
+    "src/instance-mask-operations.ts",
+    "test/instance-mask-operations.test.ts",
     "examples/leaf-artwork/build.ts",
     "examples/leaf-artwork/apply-to-tree.ts",
     "src/leaf-artwork-recipes.ts",

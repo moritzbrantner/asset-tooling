@@ -65,7 +65,8 @@
     "./recipes/effect-artwork": "./src/effect-artwork-recipes.ts",
     "./operations/bundle": "./src/asset-bundle.ts",
     "./operations/processing/gltf-pbr": "./src/gltf-pbr-material-operations.ts",
-    "./recipes/leaf-artwork": "./src/leaf-artwork-recipes.ts"
+    "./recipes/leaf-artwork": "./src/leaf-artwork-recipes.ts",
+    "./operations/instances/masks": "./src/instance-mask-operations.ts"
   },
   "bin": {
     "asset-tooling": "./src/entry.ts"

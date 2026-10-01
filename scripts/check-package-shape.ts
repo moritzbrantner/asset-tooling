@@ -39,6 +39,7 @@ const expectedSourceExports: Record<string, string> = {
   "./operations": "./src/operations.ts",
   "./operations/store": "./src/asset-store.ts",
   "./operations/instances": "./src/scatter-operations.ts",
+  "./operations/instances/masks": "./src/instance-mask-operations.ts",
   "./operations/generation": "./src/generation-operations.ts",
   "./operations/generation/procedural-image": "./src/procedural-image-operations.ts",
   "./operations/generation/procedural-shapes": "./src/procedural-shape-operations.ts",

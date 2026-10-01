@@ -130,3 +130,5 @@ Selected static GLB/PNG handoff with content-addressed files, source lineage and
 See [complete static GLB PBR finishing](docs/gltf-pbr-materials.md) for applying existing normal/ORM material sets.
 
 For controlled regular soil ridges and troughs, see the [tilled furrow recipe](docs/surface-textures.md#regular-tilled-furrows) and [actual tiled-material example](examples/tilled-soil/build.ts).
+
+[Saved instance exclusion masks](docs/instance-exclusion.md) remove cosmetic detail from an accepted candidate set while preserving retained IDs, order and XYZ positions. The native rock-field example compares a path mask with a localized edit under identical camera framing.
