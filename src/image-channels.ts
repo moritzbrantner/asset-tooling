@@ -8,15 +8,17 @@ import { lumaRgba8 } from "./image-color.js";
 const CHANNELS = new Set(["red", "green", "blue", "alpha", "luma"]);
 
 function channelValue(source: Rgba8Image, offset: number, channel: Rgba8Channel) {
-  if (channel === "red") return source.pixels[offset]!;
-  if (channel === "green") return source.pixels[offset + 1]!;
-  if (channel === "blue") return source.pixels[offset + 2]!;
-  if (channel === "alpha") return source.pixels[offset + 3]!;
-  return lumaRgba8(
-    source.pixels[offset]!,
-    source.pixels[offset + 1]!,
-    source.pixels[offset + 2]!,
-  );
+  switch (channel) {
+    case "red": return source.pixels[offset]!;
+    case "green": return source.pixels[offset + 1]!;
+    case "blue": return source.pixels[offset + 2]!;
+    case "alpha": return source.pixels[offset + 3]!;
+    case "luma": return lumaRgba8(source.pixels[offset]!, source.pixels[offset + 1]!, source.pixels[offset + 2]!);
+    default: {
+      const unreachable: never = channel;
+      throw new Error(`unsupported image channel '${unreachable}'`);
+    }
+  }
 }
 
 export function extractRgba8Channel(sourceValue: unknown, channel: Rgba8Channel) {

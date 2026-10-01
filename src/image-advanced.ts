@@ -76,7 +76,24 @@ export function sobelEdgesRgba8(sourceValue: unknown) {
   return { width: source.width, height: source.height, pixels: output };
 }
 
-export function morphologyRgba8(sourceValue: unknown, { mode, channel, radius }: {mode:"dilate"|"erode";channel:"luma"|"alpha";radius:number}) {
+type MorphologyMode = "dilate" | "erode";
+const MORPHOLOGY_RULES = {
+  dilate: { initial: 0, combine: Math.max },
+  erode: { initial: 255, combine: Math.min },
+} satisfies Record<MorphologyMode, { initial: number; combine: (a: number, b: number) => number }>;
+
+function maskChannelValue(source: Rgba8Image, offset: number, channel: "luma" | "alpha"): number {
+  switch (channel) {
+    case "alpha": return source.pixels[offset + 3]!;
+    case "luma": return lumaRgba8(source.pixels[offset]!, source.pixels[offset + 1]!, source.pixels[offset + 2]!);
+    default: {
+      const unreachable: never = channel;
+      throw new Error(`unsupported mask channel '${unreachable}'`);
+    }
+  }
+}
+
+export function morphologyRgba8(sourceValue: unknown, { mode, channel, radius }: {mode:MorphologyMode;channel:"luma"|"alpha";radius:number}) {
   const source = assertRgba8Image(sourceValue, "source RGBA8 image");
   if (!["dilate", "erode"].includes(mode)) {
     throw new Error("morphology mode must be 'dilate' or 'erode'");
@@ -86,36 +103,36 @@ export function morphologyRgba8(sourceValue: unknown, { mode, channel, radius }:
   }
   const normalizedRadius = integer(radius, "morphology radius", 1, 3);
   const output = Buffer.alloc(source.pixels.length);
+  const rule = MORPHOLOGY_RULES[mode];
 
   for (let y = 0; y < source.height; y += 1) {
     for (let x = 0; x < source.width; x += 1) {
-      let selected = mode === "dilate" ? 0 : 255;
+      let selected = rule.initial;
       for (let dy = -normalizedRadius; dy <= normalizedRadius; dy += 1) {
         for (let dx = -normalizedRadius; dx <= normalizedRadius; dx += 1) {
           const offset = sourcePixelOffset(source, x + dx, y + dy);
-          const candidate = channel === "alpha"
-            ? source.pixels[offset + 3]!
-            : lumaRgba8(
-                source.pixels[offset]!,
-                source.pixels[offset + 1]!,
-                source.pixels[offset + 2]!,
-              );
-          selected = mode === "dilate"
-            ? Math.max(selected, candidate)
-            : Math.min(selected, candidate);
+          const candidate = maskChannelValue(source, offset, channel);
+          selected = rule.combine(selected, candidate);
         }
       }
       const targetOffset = (y * source.width + x) * 4;
-      if (channel === "alpha") {
-        output[targetOffset] = source.pixels[targetOffset]!;
-        output[targetOffset + 1] = source.pixels[targetOffset + 1]!;
-        output[targetOffset + 2] = source.pixels[targetOffset + 2]!;
-        output[targetOffset + 3] = selected;
-      } else {
-        output[targetOffset] = selected;
-        output[targetOffset + 1] = selected;
-        output[targetOffset + 2] = selected;
-        output[targetOffset + 3] = source.pixels[targetOffset + 3]!;
+      switch (channel) {
+        case "alpha":
+          output[targetOffset] = source.pixels[targetOffset]!;
+          output[targetOffset + 1] = source.pixels[targetOffset + 1]!;
+          output[targetOffset + 2] = source.pixels[targetOffset + 2]!;
+          output[targetOffset + 3] = selected;
+          break;
+        case "luma":
+          output[targetOffset] = selected;
+          output[targetOffset + 1] = selected;
+          output[targetOffset + 2] = selected;
+          output[targetOffset + 3] = source.pixels[targetOffset + 3]!;
+          break;
+        default: {
+          const unreachable: never = channel;
+          throw new Error(`unsupported morphology channel '${unreachable}'`);
+        }
       }
     }
   }
@@ -134,9 +151,7 @@ export function applyMaskRgba8(sourceValue: unknown, maskValue: unknown, channel
   }
   const output = Buffer.from(source.pixels);
   for (let offset = 0; offset < output.length; offset += 4) {
-    const maskValue_ = channel === "alpha"
-      ? mask.pixels[offset + 3]!
-      : lumaRgba8(mask.pixels[offset]!, mask.pixels[offset + 1]!, mask.pixels[offset + 2]!);
+    const maskValue_ = maskChannelValue(mask, offset, channel);
     output[offset + 3] = roundRatio(source.pixels[offset + 3]! * maskValue_, 255);
   }
   return { width: source.width, height: source.height, pixels: output };

@@ -227,7 +227,14 @@ export function rotateRgba8QuarterTurns(sourceValue: unknown, quarterTurns: numb
   return { width: targetWidth, height: targetHeight, pixels: output };
 }
 
-export function flipRgba8(sourceValue: unknown, axis: "horizontal"|"vertical"|"both") {
+type FlipAxis = "horizontal" | "vertical" | "both";
+const FLIP_AXES = {
+  horizontal: { x: true, y: false },
+  vertical: { x: false, y: true },
+  both: { x: true, y: true },
+} satisfies Record<FlipAxis, { x: boolean; y: boolean }>;
+
+export function flipRgba8(sourceValue: unknown, axis: FlipAxis) {
   const source = assertRgba8Image(sourceValue, "source RGBA8 image");
   if (!["horizontal", "vertical", "both"].includes(axis)) {
     throw new Error("flip axis must be 'horizontal', 'vertical', or 'both'");
@@ -235,10 +242,10 @@ export function flipRgba8(sourceValue: unknown, axis: "horizontal"|"vertical"|"b
   const output = Buffer.alloc(source.pixels.length);
   for (let sourceY = 0; sourceY < source.height; sourceY += 1) {
     for (let sourceX = 0; sourceX < source.width; sourceX += 1) {
-      const targetX = axis === "horizontal" || axis === "both"
+      const targetX = FLIP_AXES[axis].x
         ? source.width - 1 - sourceX
         : sourceX;
-      const targetY = axis === "vertical" || axis === "both"
+      const targetY = FLIP_AXES[axis].y
         ? source.height - 1 - sourceY
         : sourceY;
       const sourceOffset = (sourceY * source.width + sourceX) * 4;

@@ -62,9 +62,17 @@ function artwork(p:EffectArtworkParameters):{image:Rgba8Image;mask:Rgba8Image} {
   const outer=convolveRgba8(levelsRgba8(field,{blackPoint:128,whitePoint:255}),{width:1,height:1,weights:[-1],divisor:1,bias:255});
   const constant=(value:number) => levelsRgba8(field,{blackPoint:0,whitePoint:255,outputBlack:value,outputWhite:value});
   let image=applyMaskRgba8(combineRgba8Channels({red:constant(p.color[0]),green:constant(p.color[1]),blue:constant(p.color[2]),alpha:constant(p.opacity)}),outer,"luma");
-  if(p.shape==="ring") {
-    const inner=generateCircleSdfRgba8({...shape,radius:p.radius-p.stroke});
-    image=applyMaskRgba8(image,levelsRgba8(inner,{blackPoint:1,whitePoint:128}),"luma");
+  switch(p.shape) {
+    case "puff": break;
+    case "ring": {
+      const inner=generateCircleSdfRgba8({...shape,radius:p.radius-p.stroke});
+      image=applyMaskRgba8(image,levelsRgba8(inner,{blackPoint:1,whitePoint:128}),"luma");
+      break;
+    }
+    default: {
+      const unreachable:never=p;
+      throw new Error(`unsupported artwork '${unreachable}'`);
+    }
   }
   return {image,mask:extractRgba8Channel(image,"alpha")};
 }

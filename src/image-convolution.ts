@@ -99,6 +99,10 @@ export function convolveRgba8(sourceValue: unknown, kernelValue: ConvolutionKern
         continue;
       }
 
+      if (alphaMode !== "convolve-premultiplied") {
+        const unreachable: never = alphaMode;
+        throw new Error(`unsupported convolution alpha mode '${unreachable}'`);
+      }
       let alphaSum = 0;
       for (const sample of samples) {
         alphaSum += source.pixels[sample.offset + 3]! * sample.weight;
