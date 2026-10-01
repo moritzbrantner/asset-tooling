@@ -13,6 +13,9 @@ The consumer's script is a hash-pinned spec input. It must define
 which writes exactly one output file and returns JSON-serializable observations. `inputs` maps
 every other declared spec input name to its portable path relative to the spec directory. The script runs in a factory-startup
 scene with no add-ons beyond Blender's defaults and must not read undeclared files or the network.
+All declared input files are rechecked into a disposable snapshot. Working directory and
+portable input paths retain their existing spec-relative contract. Python dependencies
+are executed from verified snapshot bytes through inputs.load_source(name).
 """
 
 from __future__ import annotations
@@ -23,7 +26,9 @@ import json
 import math
 import os
 import sys
+import tempfile
 from pathlib import Path
+from types import MappingProxyType
 
 import bpy
 
@@ -99,30 +104,70 @@ def assert_json(value, location: str) -> None:
     fail(f"{location} contains unsupported value type {type(value).__name__!r}")
 
 
+def verified_module(source_bytes: bytes, script_path: Path, name: str):
+    spec = importlib.util.spec_from_file_location(name, script_path)
+    if spec is None or spec.loader is None:
+        fail(f"cannot load script {script_path}")
+    module = importlib.util.module_from_spec(spec)
+    # Execute verified source, never timestamp/size-matched ambient .pyc, and
+    # retain normal module metadata without inheriting this runner's flags.
+    exec(compile(source_bytes, spec.origin, "exec", dont_inherit=True), module.__dict__)
+    return module
+
+
+class VerifiedScriptInputs(dict):
+    """A compatible portable path map with an explicit pinned Python loader."""
+
+    def __init__(self, paths, sources):
+        super().__init__(paths)
+        self._sources = MappingProxyType({name: sources[name] for name in paths})
+
+    def load_source(self, name: str):
+        if name not in self._sources:
+            fail(f"undeclared Python input '{name}'")
+        source_path, snapshot_path = self._sources[name]
+        if source_path.suffix != ".py":
+            fail(f"Python input '{name}' must be a .py source")
+        source_bytes = snapshot_path.read_bytes()
+        return verified_module(source_bytes, source_path, f"asset_tooling_input_{name}").__dict__
+
+
 def generate(request_path: Path, output_path: Path, observations_path: Path) -> None:
     request = json.loads(request_path.read_text("utf8"))
     expected = request["blenderVersion"]
     if blender_version() != expected:
         fail(f"Blender {blender_version()} does not match declared blenderVersion {expected}")
 
-    script_path = Path(request["scriptPath"])
-    script_bytes = script_path.read_bytes()
-    if hashlib.sha256(script_bytes).hexdigest() != request["scriptSha256"]:
-        fail("script bytes changed after asset-tooling verified them")
+    with tempfile.TemporaryDirectory(prefix="declared-inputs-", dir=request_path.parent) as temporary:
+        snapshot = Path(temporary)
+        sources = {}
+        for index, (name, artifact) in enumerate(request["inputArtifacts"].items()):
+            relative = Path(artifact["path"])
+            if relative.is_absolute() or ".." in relative.parts:
+                fail(f"input '{name}' path must stay relative to the spec")
+            # Names may alias an original path. Keep each verified copy distinct
+            # so a later read cannot overwrite an earlier input's pinned bytes.
+            destination = snapshot / str(index) / relative
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            digest = hashlib.sha256()
+            with relative.open("rb") as source, destination.open("wb") as target:
+                for chunk in iter(lambda: source.read(1024 * 1024), b""):
+                    digest.update(chunk)
+                    target.write(chunk)
+            if digest.hexdigest() != artifact["sha256"]:
+                fail(f"input '{name}' bytes changed after asset-tooling verified them")
+            sources[name] = (relative, destination)
+        script_path = Path(request["scriptPath"])
+        script_bytes = sources["script"][1].read_bytes()
+        if hashlib.sha256(script_bytes).hexdigest() != request["scriptSha256"]:
+            fail("script bytes changed after asset-tooling verified them")
 
-    spec = importlib.util.spec_from_file_location("asset_tooling_blender_script", script_path)
-    if spec is None or spec.loader is None:
-        fail(f"cannot load script {script_path}")
-    module = importlib.util.module_from_spec(spec)
-    # Preserve normal module metadata, but execute the exact verified snapshot. SourceFileLoader
-    # can trust an ambient timestamp/size-matched .pyc and writes source-adjacent bytecode. Neither
-    # belongs to the declared source identity. Do not inherit this runner's future compiler flags.
-    exec(compile(script_bytes, spec.origin, "exec", dont_inherit=True), module.__dict__)
-    entry = getattr(module, "generate", None)
-    if not callable(entry):
-        fail("script must define generate(output_path, arguments, inputs)")
+        module = verified_module(script_bytes, script_path, "asset_tooling_blender_script")
+        entry = getattr(module, "generate", None)
+        if not callable(entry):
+            fail("script must define generate(output_path, arguments, inputs)")
 
-    observations = entry(str(output_path), request["arguments"], request["inputs"])
+        observations = entry(str(output_path), request["arguments"], VerifiedScriptInputs(request["inputs"], sources))
     if not isinstance(observations, dict):
         fail("script generate() must return an observations dict")
     assert_json(observations, "script observations")

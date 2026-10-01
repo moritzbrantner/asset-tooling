@@ -1,6 +1,13 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { probeProcessAdapter, runProcessAdapter } from "./process-adapter.js";
+import {type AssetSpecDocument} from "./schema.js";
+import {type CanonicalJsonObject} from "./operations.js";
+type AdapterCommand={executable:string;launcherArguments:string[];scriptPath:string;prefixArguments:string[];cwd:string};
+// Keep this typed module at the existing untyped process-adapter migration seam.
+const {probeProcessAdapter,runProcessAdapter}:{
+ probeProcessAdapter:(options:AdapterCommand)=>Promise<CanonicalJsonObject[]>;
+ runProcessAdapter:(options:AdapterCommand & {request:unknown;outputName:string})=>Promise<{bytes:Uint8Array;observations:CanonicalJsonObject}>;
+}=await import(new URL("./process-adapter.js",import.meta.url).href);
 
 const RUNNER_SCRIPT = fileURLToPath(new URL("../adapters/blender/script_runner.py", import.meta.url));
 const BLENDER_LAUNCHER_ARGUMENTS = [
@@ -26,14 +33,14 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 
 function assertExactKeys(value: Record<string, unknown>, expected: Set<string>, location: string) {
   for (const key of Object.keys(value)) {
-    if (!expected.has(key)) throw new Error(`${location} contains unsupported field '${key}'`);
+    if (!expected.has(key)) {throw new Error(`${location} contains unsupported field '${key}'`);}
   }
   for (const key of expected) {
-    if (!(key in value)) throw new Error(`${location}.${key} is required`);
+    if (!(key in value)) {throw new Error(`${location}.${key} is required`);}
   }
 }
 
-function validateBlenderScript(document) {
+function validateBlenderScript(document:AssetSpecDocument) {
   const { spec } = document;
   if (spec.randomness.mode !== "none") {
     throw new Error(`${BACKEND_ID} requires randomness.mode='none'; seed through script arguments`);
@@ -56,6 +63,7 @@ function validateBlenderScript(document) {
   if (!isPlainObject(parameters.arguments)) {
     throw new Error("parameters.arguments must be an object");
   }
+  return {script,blenderVersion:parameters.blenderVersion,arguments:parameters.arguments};
 }
 
 function outputName(outputPath: string): string {
@@ -71,8 +79,8 @@ export const BLENDER_SCRIPT_BACKEND = {
   // `verify` still replays the script and compares output bytes.
   exactCapable: true,
   validate: validateBlenderScript,
-  async environmentComponents(document) {
-    validateBlenderScript(document);
+  async environmentComponents(document:AssetSpecDocument) {
+    const validated=validateBlenderScript(document);
     const components = await probeProcessAdapter({
       executable: blenderExecutable(),
       launcherArguments: BLENDER_LAUNCHER_ARGUMENTS,
@@ -81,7 +89,7 @@ export const BLENDER_SCRIPT_BACKEND = {
       cwd: document.root,
     });
     const blender = components.find((component) => component.id === "blender");
-    const declared = document.spec.parameters.blenderVersion;
+    const declared = validated.blenderVersion;
     if (!blender || blender.version !== declared) {
       throw new Error(
         `Blender ${String(blender?.version ?? "(not found)")} does not match declared blenderVersion ${declared}`,
@@ -89,12 +97,12 @@ export const BLENDER_SCRIPT_BACKEND = {
     }
     return components;
   },
-  async generate(document) {
-    validateBlenderScript(document);
+  async generate(document:AssetSpecDocument) {
+    const validated=validateBlenderScript(document);
     const { spec, root } = document;
-    const inputs = {};
+    const inputs:Record<string,string> = {};
     for (const [name, artifact] of Object.entries(spec.inputs)) {
-      if (name !== "script") inputs[name] = (artifact as { path: string }).path;
+      if (name !== "script") {inputs[name] = artifact.path;}
     }
     return runProcessAdapter({
       executable: blenderExecutable(),
@@ -104,10 +112,11 @@ export const BLENDER_SCRIPT_BACKEND = {
       cwd: root,
       outputName: outputName(spec.output.path),
       request: {
-        blenderVersion: spec.parameters.blenderVersion,
-        scriptPath: spec.inputs.script.path,
-        scriptSha256: spec.inputs.script.sha256,
-        arguments: spec.parameters.arguments,
+        blenderVersion: validated.blenderVersion,
+        scriptPath: validated.script.path,
+        scriptSha256: validated.script.sha256,
+        arguments: validated.arguments,
+        inputArtifacts:spec.inputs,
         inputs,
       },
     });
