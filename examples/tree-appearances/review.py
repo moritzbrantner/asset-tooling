@@ -38,8 +38,9 @@ def review():
             parameters=spec['parameters']
         else:
             assert parameters==spec['parameters'], 'camera, light, framing and samples must match'
-        image=Image.open(io.BytesIO(encoded)).convert('RGB')
+        image=Image.open(io.BytesIO(encoded)).convert('RGBA')
         assert image.size==(384,512)
+        image=Image.alpha_composite(Image.new('RGBA',image.size,'#f5f4f0'),image).convert('RGB')
         renders.append((name,image))
     sheet=Image.new('RGB',(1536,548),'#f5f4f0')
     draw=ImageDraw.Draw(sheet)
