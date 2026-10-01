@@ -1,9 +1,10 @@
 """Inspect actual standalone PNGs and optional native tree renders; no generation."""
 from pathlib import Path
 import sys
+from io import BytesIO
 from PIL import Image, ImageDraw
 
-root = Path(sys.argv[1] if len(sys.argv) > 1 else ".artifacts/leaf-artwork")
+root = Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else Path(__file__).resolve().parents[2] / ".artifacts/leaf-artwork"
 board = Image.new("RGB", (1576, 1050), "#20252b")
 draw = ImageDraw.Draw(board)
 draw.text((20, 12), "Leaf artwork: actual PNGs / saved alpha masks / existing GLB material finishing", fill="white")
@@ -43,5 +44,9 @@ for column, name in enumerate(["source", "broad.summer", "broad.autumn", "slende
         board.paste(background, (x, y))
 
 draw.text((20, 1030), "Identical tree geometry and framing; palette-only alpha unchanged. Offline artwork evidence, not game approval or growth states.", fill="white")
-board.save(root / "review.png")
+buffer = BytesIO()
+board.save(buffer, format="PNG")
+output = root / "review.png"
+if not output.exists() or output.read_bytes() != buffer.getvalue():
+    output.write_bytes(buffer.getvalue())
 print(root / "review.png")
