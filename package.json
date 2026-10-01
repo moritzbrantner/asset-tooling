@@ -68,7 +68,8 @@
     "./recipes/leaf-artwork": "./src/leaf-artwork-recipes.ts",
     "./operations/instances/masks": "./src/instance-mask-operations.ts",
     "./recipes/authored-effect-sequences": "./src/authored-effect-sequences.ts",
-    "./examples/selected-bundle": "./examples/selected-bundle/adoption.ts"
+    "./examples/selected-bundle": "./examples/selected-bundle/adoption.ts",
+    "./recipes/tree-appearances": "./src/tree-appearance-recipes.ts"
   },
   "bin": {
     "asset-tooling": "./src/entry.ts"
