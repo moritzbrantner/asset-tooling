@@ -24,6 +24,9 @@
     "noUnusedParameters": true
   },
   "include": [
+    "src/transition-tile-recipes.ts",
+    "test/transition-tile-recipes.test.ts",
+    "examples/transition-tiles/build.ts",
     "test/atlas-bundle.test.ts",
     "examples/atlas-bundle/build.ts",
     "test/wood-surfaces.test.ts",
