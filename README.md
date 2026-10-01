@@ -140,3 +140,5 @@ For controlled grain direction and length, see the [wood surface presets](docs/s
 The [selected-bundle adoption example](examples/selected-bundle/README.md) consumes the installed public package, verifies real recipe pixels and distribution provenance, and documents a clean consumer setup using the existing native generator.
 
 [Native-ground tree appearances](docs/tree-appearances.md) derive explicit summer/autumn/winter foliage states from one accepted master, preserving bark, geometry and placement while supporting isolated material edits.
+
+[Grass/soil corner tiles](docs/transition-tiles.md) provide a complete sixteen-piece 2D transition family, ordered edge ports, selected atlas bundles and independently checked pixel seams.
