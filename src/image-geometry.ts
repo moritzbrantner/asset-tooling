@@ -1,56 +1,60 @@
+import type { Rgba8Image } from "./image-rgba8.js";
+
+// Indexed reads below follow validated image lengths and bounded channel/kernel loops.
 const MAX_DIMENSION = 8192;
 
-function dimension(value, location) {
-  if (!Number.isSafeInteger(value) || value < 1 || value > MAX_DIMENSION) {
+function dimension(value: unknown, location: string) {
+  if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 1 || value > MAX_DIMENSION) {
     throw new Error(`${location} must be an integer in 1..${MAX_DIMENSION}`);
   }
   return value;
 }
 
-function nonNegativeInteger(value, location, maximum = MAX_DIMENSION) {
-  if (!Number.isSafeInteger(value) || value < 0 || value > maximum) {
+function nonNegativeInteger(value: unknown, location: string, maximum = MAX_DIMENSION) {
+  if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0 || value > maximum) {
     throw new Error(`${location} must be an integer in 0..${maximum}`);
   }
   return value;
 }
 
-function channel(value, location) {
-  if (!Number.isSafeInteger(value) || value < 0 || value > 255) {
+function channel(value: unknown, location: string) {
+  if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0 || value > 255) {
     throw new Error(`${location} must be an integer in 0..255`);
   }
   return value;
 }
 
-export function assertRgba8Image(image, location = "RGBA8 image") {
+export function assertRgba8Image(image: unknown, location = "RGBA8 image") {
   if (typeof image !== "object" || image === null || Array.isArray(image)) {
     throw new Error(`${location} must be an object`);
   }
-  const width = dimension(image.width, `${location} width`);
-  const height = dimension(image.height, `${location} height`);
-  if (!(image.pixels instanceof Uint8Array)) {
+  const candidate = image as Partial<Rgba8Image>;
+  const width = dimension(candidate.width, `${location} width`);
+  const height = dimension(candidate.height, `${location} height`);
+  if (!(candidate.pixels instanceof Uint8Array)) {
     throw new Error(`${location} pixels must be a Uint8Array`);
   }
   const expected = width * height * 4;
-  if (image.pixels.byteLength !== expected) {
+  if (candidate.pixels.byteLength !== expected) {
     throw new Error(`${location} pixels must contain exactly ${expected} bytes`);
   }
-  return { width, height, pixels: Buffer.from(image.pixels) };
+  return { width, height, pixels: Buffer.from(candidate.pixels) };
 }
 
-function nearestSourceIndex(destinationIndex, sourceLength, destinationLength) {
+function nearestSourceIndex(destinationIndex: number, sourceLength: number, destinationLength: number) {
   return Math.min(
     sourceLength - 1,
     Math.floor(((2 * destinationIndex + 1) * sourceLength) / (2 * destinationLength)),
   );
 }
 
-function floorDiv(numerator, denominator) {
+function floorDiv(numerator: number, denominator: number) {
   const quotient = Math.trunc(numerator / denominator);
   const remainder = numerator % denominator;
   return remainder !== 0 && numerator < 0 ? quotient - 1 : quotient;
 }
 
-function linearAxis(destinationIndex, sourceLength, destinationLength) {
+function linearAxis(destinationIndex: number, sourceLength: number, destinationLength: number) {
   const denominator = 2 * destinationLength;
   const numerator = (2 * destinationIndex + 1) * sourceLength - destinationLength;
   const lower = floorDiv(numerator, denominator);
@@ -65,19 +69,19 @@ function linearAxis(destinationIndex, sourceLength, destinationLength) {
   return { lower, upper: lower + 1, fraction, denominator };
 }
 
-function weightedSum(values, weights) {
+function weightedSum(values: number[], weights: number[]) {
   let total = 0;
   for (let index = 0; index < values.length; index += 1) {
-    total += values[index] * weights[index];
+    total += values[index]! * weights[index]!;
   }
   return total;
 }
 
-function roundedRatio(numerator, denominator) {
+function roundedRatio(numerator: number, denominator: number) {
   return Math.floor((numerator + Math.floor(denominator / 2)) / denominator);
 }
 
-export function resizeRgba8Nearest(sourceValue, width, height) {
+export function resizeRgba8Nearest(sourceValue: unknown, width: number, height: number) {
   const source = assertRgba8Image(sourceValue, "source RGBA8 image");
   const targetWidth = dimension(width, "target width");
   const targetHeight = dimension(height, "target height");
@@ -96,7 +100,7 @@ export function resizeRgba8Nearest(sourceValue, width, height) {
   return { width: targetWidth, height: targetHeight, pixels: output };
 }
 
-export function resizeRgba8Bilinear(sourceValue, width, height) {
+export function resizeRgba8Bilinear(sourceValue: unknown, width: number, height: number) {
   const source = assertRgba8Image(sourceValue, "source RGBA8 image");
   const targetWidth = dimension(width, "target width");
   const targetHeight = dimension(height, "target height");
@@ -119,7 +123,7 @@ export function resizeRgba8Bilinear(sourceValue, width, height) {
         (y.upper * source.width + x.upper) * 4,
       ];
       const targetOffset = (targetY * targetWidth + targetX) * 4;
-      const alphas = offsets.map((offset) => source.pixels[offset + 3]);
+      const alphas = offsets.map((offset) => source.pixels[offset + 3]!);
       const weightedAlpha = weightedSum(alphas, weights);
       output[targetOffset + 3] = roundedRatio(weightedAlpha, denominator);
 
@@ -127,7 +131,7 @@ export function resizeRgba8Bilinear(sourceValue, width, height) {
         let weightedPremultiplied = 0;
         for (let sample = 0; sample < offsets.length; sample += 1) {
           weightedPremultiplied +=
-            source.pixels[offsets[sample] + component] * alphas[sample] * weights[sample];
+            source.pixels[offsets[sample]! + component]! * alphas[sample]! * weights[sample]!;
         }
         output[targetOffset + component] =
           weightedAlpha === 0 ? 0 : roundedRatio(weightedPremultiplied, weightedAlpha);
@@ -138,7 +142,7 @@ export function resizeRgba8Bilinear(sourceValue, width, height) {
   return { width: targetWidth, height: targetHeight, pixels: output };
 }
 
-export function cropRgba8(sourceValue, { x, y, width, height }) {
+export function cropRgba8(sourceValue: unknown, { x, y, width, height }: {x:number;y:number;width:number;height:number}) {
   const source = assertRgba8Image(sourceValue, "source RGBA8 image");
   const cropX = nonNegativeInteger(x, "crop x", source.width - 1);
   const cropY = nonNegativeInteger(y, "crop y", source.height - 1);
@@ -156,7 +160,7 @@ export function cropRgba8(sourceValue, { x, y, width, height }) {
   return { width: cropWidth, height: cropHeight, pixels: output };
 }
 
-export function padRgba8(sourceValue, { left, right, top, bottom, color }) {
+export function padRgba8(sourceValue: unknown, { left, right, top, bottom, color }: {left:number;right:number;top:number;bottom:number;color:readonly number[]}) {
   const source = assertRgba8Image(sourceValue, "source RGBA8 image");
   const padLeft = nonNegativeInteger(left, "pad left");
   const padRight = nonNegativeInteger(right, "pad right");
@@ -172,10 +176,10 @@ export function padRgba8(sourceValue, { left, right, top, bottom, color }) {
   const fill = color.map((value, index) => channel(value, `pad color[${index}]`));
   const output = Buffer.alloc(targetWidth * targetHeight * 4);
   for (let offset = 0; offset < output.length; offset += 4) {
-    output[offset] = fill[0];
-    output[offset + 1] = fill[1];
-    output[offset + 2] = fill[2];
-    output[offset + 3] = fill[3];
+    output[offset] = fill[0]!;
+    output[offset + 1] = fill[1]!;
+    output[offset + 2] = fill[2]!;
+    output[offset + 3] = fill[3]!;
   }
   for (let sourceY = 0; sourceY < source.height; sourceY += 1) {
     for (let sourceX = 0; sourceX < source.width; sourceX += 1) {
@@ -188,7 +192,7 @@ export function padRgba8(sourceValue, { left, right, top, bottom, color }) {
   return { width: targetWidth, height: targetHeight, pixels: output };
 }
 
-export function rotateRgba8QuarterTurns(sourceValue, quarterTurns) {
+export function rotateRgba8QuarterTurns(sourceValue: unknown, quarterTurns: number) {
   const source = assertRgba8Image(sourceValue, "source RGBA8 image");
   if (!Number.isSafeInteger(quarterTurns) || quarterTurns < 0 || quarterTurns > 3) {
     throw new Error("quarterTurns must be an integer in 0..3");
@@ -223,7 +227,7 @@ export function rotateRgba8QuarterTurns(sourceValue, quarterTurns) {
   return { width: targetWidth, height: targetHeight, pixels: output };
 }
 
-export function flipRgba8(sourceValue, axis) {
+export function flipRgba8(sourceValue: unknown, axis: "horizontal"|"vertical"|"both") {
   const source = assertRgba8Image(sourceValue, "source RGBA8 image");
   if (!["horizontal", "vertical", "both"].includes(axis)) {
     throw new Error("flip axis must be 'horizontal', 'vertical', or 'both'");

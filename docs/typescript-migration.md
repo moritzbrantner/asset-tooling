@@ -36,6 +36,8 @@ The schema boundary is the authority for data that has crossed the asset-spec va
 
 The storage and cache boundaries preserve their existing runtime authority: asset bytes are still verified by declared length and SHA-256, symbolic-link escapes remain rejected, cache indexes and blobs remain fail-closed on malformed or corrupt data, and deterministic reuse remains content-addressed rather than trusting type declarations. The TypeScript contracts describe those guarantees without replacing their runtime validation.
 
+The static effect-artwork composition also brings its existing pure SDF, image geometry, color, convolution, channel and mask kernels under strict checking. Their algorithms and public operation versions stay unchanged; explicit image/parameter types and checked-loop index bounds allow the new recipe to reuse them without introducing untyped migration debt.
+
 Later typing slices should continue expanding outward from these stable primitives into cohesive boundaries rather than adding isolated files solely to increase compiler coverage. `src/receipts.ts` is the next natural authority boundary because `src/core.ts` consumes its generation-receipt v1/v2 validation and reproducibility evidence. Typing receipts before orchestration keeps provenance and compatibility contracts centralized; `src/core.ts` can then be typed against the validated spec, backend, cache, and receipt domains instead of defining local approximations.
 
 ## Completion criteria for later typing slices

@@ -61,7 +61,8 @@
     "./operations/image/atlas": "./src/sprite-atlas-operations.ts",
     "./operations/processing/gltf-material": "./src/gltf-material-operations.ts",
     "./recipes/render-derivatives": "./src/render-derivative-recipes.ts",
-    "./recipes/trees": "./src/tree-recipes.ts"
+    "./recipes/trees": "./src/tree-recipes.ts",
+    "./recipes/effect-artwork": "./src/effect-artwork-recipes.ts"
   },
   "bin": {
     "asset-tooling": "./src/entry.ts"

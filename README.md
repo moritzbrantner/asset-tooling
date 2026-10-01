@@ -120,3 +120,5 @@ See [deterministic sprite atlases](docs/sprite-atlases.md) for selected-image pa
 [Saved terrain masks](docs/terrain-masks.md) flatten a verified height field with explicit same-grid guide weights. Run `bun examples/terrain-mask/build.ts` for height bytes, unchanged-topology meshes and before/after renders.
 
 [Offline tree recipes](docs/tree-recipes.md) invoke a separately acquired hash-pinned Sapling source through Blender, with broadleaf/conifer families and independent trunk, branch and foliage GLBs.
+
+Static puff/ring ingredients with explicit alpha, geometry and intensity controls are available through [`./recipes/effect-artwork`](docs/effect-artwork.md).
