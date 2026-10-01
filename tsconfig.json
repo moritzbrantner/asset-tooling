@@ -24,6 +24,9 @@
     "noUnusedParameters": true
   },
   "include": [
+    "test/wood-surfaces.test.ts",
+    "examples/wood-surfaces/build.ts",
+    "examples/wood-surfaces/render.ts",
     "src/authored-effect-sequences.ts",
     "test/authored-effect-sequences.test.ts",
     "examples/authored-effect-sequences/build.ts",

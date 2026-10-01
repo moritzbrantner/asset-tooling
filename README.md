@@ -107,7 +107,7 @@ Consumers importing the package root receive only the high-level operations `val
 
 The additive `asset-tooling/operations`, `asset-tooling/operations/store`, `asset-tooling/operations/generation`, `asset-tooling/operations/processing`, `asset-tooling/operations/workflow`, `asset-tooling/catalog`, and `asset-tooling/catalog/storage` subpaths contain focused operation/catalog surfaces; they do not widen the root export.
 
-Tileable soil/rock surface recipes and independent color, height, normal and roughness channels are documented in [surface textures](docs/surface-textures.md). Generate the six controlled presets with `bun examples/surface-textures/build.ts`; `bun examples/surface-preservation/build.ts` demonstrates palette/normal edits that reuse accepted components and independently match cold full rebuilds.
+Tileable soil/tilled-soil/rock/wood surface recipes and independent color, height, normal and roughness channels are documented in [surface textures](docs/surface-textures.md). Generate the twelve controlled presets with `bun examples/surface-textures/build.ts`; `bun examples/surface-preservation/build.ts` demonstrates palette/normal edits that reuse accepted components and independently match cold full rebuilds.
 
 A pinned Blender [rock recipe](docs/rock-recipes.md) produces grounded rounded, angular, flat and boulder GLBs with ordinary generation-cache and exact-verification evidence. Run `bun examples/rocks/build.ts` to exercise the family.
 
@@ -130,6 +130,8 @@ Selected static GLB/PNG handoff with content-addressed files, source lineage and
 See [complete static GLB PBR finishing](docs/gltf-pbr-materials.md) for applying existing normal/ORM material sets.
 
 For controlled regular soil ridges and troughs, see the [tilled furrow recipe](docs/surface-textures.md#regular-tilled-furrows) and [actual tiled-material example](examples/tilled-soil/build.ts).
+
+For controlled grain direction and length, see the [wood surface presets](docs/surface-textures.md#directional-wood-grain) and [PBR/recolor example](examples/wood-surfaces/build.ts), with independent pixel inspection and optional native renders.
 
 [Saved instance exclusion masks](docs/instance-exclusion.md) remove cosmetic detail from an accepted candidate set while preserving retained IDs, order and XYZ positions. The native rock-field example compares a path mask with a localized edit under identical camera framing.
 
