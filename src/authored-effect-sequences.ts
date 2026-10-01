@@ -1,13 +1,15 @@
 import path from "node:path";
 import {canonicalJson} from "./canonical.js";
 import {sha256Text} from "./hash.js";
-import {createAssetRef,type DeepReadonly} from "./operations.js";
+import {createAssetRef,type DeepReadonly,type AssetRef,type AssetOperationBuildIdentity,type CanonicalJsonObject} from "./operations.js";
 import {normalizeEffectArtworkParameters,createEffectArtworkBuildIdentity,executeEffectArtwork,type EffectArtworkParameters} from "./effect-artwork-recipes.js";
 import {createSpriteAtlasOperationBuildIdentity,executeSpriteAtlasOperation,type SpriteFrame} from "./sprite-atlas-operations.js";
 
 export type AuthoredEffectFrame={index:number;timeMs:number;durationMs:number;artwork:EffectArtworkParameters};
 export type AuthoredEffectSequenceRecipe={schemaVersion:1;sequence:string;loop:false;
  atlas:{columns:number;padding:number;extrusion:number;trim:boolean};frames:AuthoredEffectFrame[]};
+export type AuthoredEffectFrameResult={id:string;frame:SpriteFrame;build:AssetOperationBuildIdentity;
+ image:AssetRef;mask:AssetRef;observations:CanonicalJsonObject};
 
 function object(value:unknown,keys:readonly string[],label:string):Record<string,unknown> {
  if(!value || typeof value!=="object" || Array.isArray(value) || ![Object.prototype,null].includes(Object.getPrototypeOf(value))) throw new Error(`${label} must be a plain object`);
@@ -55,7 +57,7 @@ export async function executeAuthoredEffectSequenceRecipe(root:string,value:unkn
  signal?.throwIfAborted();
  // Validate every pose/time and worst-case packing before any generated object.
  const recipe=normalizeAuthoredEffectSequenceRecipe(value);
- const frames=[];
+ const frames:AuthoredEffectFrameResult[]=[];
  for(const {artwork,...timing} of recipe.frames) {
   signal?.throwIfAborted();
   const invocation={parameters:artwork},build=await createEffectArtworkBuildIdentity(root,invocation);
