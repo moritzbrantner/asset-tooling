@@ -90,6 +90,7 @@ const expectedSourceExports: Record<string, string> = {
   "./recipes/render-derivatives": "./src/render-derivative-recipes.ts",
   "./operations/image/atlas": "./src/sprite-atlas-operations.ts",
   "./recipes/surface-textures": "./src/surface-texture-recipes.ts",
+  "./recipes/leaf-artwork": "./src/leaf-artwork-recipes.ts",
   "./recipes/production-props": "./src/production-prop-kit.ts",
 };
 
