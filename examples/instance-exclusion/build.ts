@@ -28,7 +28,7 @@ function object(value:unknown):Record<string,unknown> {if(!value || typeof value
 const p=object(recipe),scatter=object(p.scatter),rows=object(p.masks);
 assert.equal(p.schemaVersion,1);assert.equal(p.sourceRockId,"angular");
 const generated=await executeMinimumDistanceScatterOperation(root,{parameters:scatter}),source=createAssetRef(generated.outputs.output),set=parseInstanceSet(await resolveAssetObject(root,source));
-const cold=await mkdtemp(path.join(tmpdir(),"instance-exclusion-example-")),evidence:Record<string,unknown>={},meshes:AssetRef[]=[];
+const evidence:Record<string,unknown>={},meshes:AssetRef[]=[];
 const renderer=await readRenderDerivativeRecipeSource(),script=await readFile(new URL("./assemble-review.py",import.meta.url)),scriptSha256=sha256Bytes(script);
 const inventory=object(JSON.parse(await readFile(path.join(root,".artifacts/rocks/variants.json"),"utf8")));
 if(!Array.isArray(inventory.variants)) throw new Error("run the existing rock example to supply its original master inventory");
@@ -36,6 +36,7 @@ const masterEntry=inventory.variants.map(object).find(v=>v.id===p.sourceRockId),
 await createGltfImportOperationBuildIdentity(root,{inputs:{source:master},parameters:{resourceUris:[]}});
 await mkdir(directory,{recursive:true});
 let acceptedFraming:unknown;
+const cold=await mkdtemp(path.join(tmpdir(),"instance-exclusion-example-"));
 try {
  await writeIfChanged(path.join(directory,"candidates.json"),await resolveAssetObject(root,source));
  for(const name of ["path","edited"]) {
