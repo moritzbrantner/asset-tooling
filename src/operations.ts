@@ -304,6 +304,16 @@ function normalizePortMap(
   return result;
 }
 
+/** Admit a complete serialized reference without inventing omitted transport fields. */
+export function parseAssetRef(value: unknown): AssetRef {
+  const asset = assertObject(value, "serialized asset ref");
+  for (const key of ["schemaVersion", "kind", "mediaType", "sha256", "byteLength", "metadata"]) {
+    if (!Object.hasOwn(asset, key)) throw new Error(`serialized asset ref is missing '${key}'`);
+  }
+  if (asset.schemaVersion !== 1 || !isObject(asset.metadata)) throw new Error("serialized asset ref requires schemaVersion 1 and object metadata");
+  return createAssetRef(asset);
+}
+
 export function createAssetRef(value: unknown): AssetRef {
   const asset = assertObject(value, "asset ref");
   assertExactKeys(

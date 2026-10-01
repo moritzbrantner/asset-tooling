@@ -170,15 +170,39 @@ test("v2 admission rejects omitted or defaultable required refs without normaliz
   const ref=location==="atlas"?forged.assets[0]!.source:location==="png"?forged.assets[0]!.image.source:forged.resources[0]!.source;
   if(mutation==="missing") Reflect.deleteProperty(ref,field);else Reflect.set(ref,field,null);
   const bytes=Buffer.from(canonicalJson(forged)+"\n");
-  assert.throws(()=>parseSpriteAtlasBundleManifest(bytes),/atlas bundle asset ref/);
+  assert.throws(()=>parseSpriteAtlasBundleManifest(bytes),/serialized asset ref/);
   await writeFile(path.join(directory,"manifest.json"),bytes);
   const before=await stat(path.join(directory,"manifest.json"));
   const pin=createAssetRef({kind:"asset-bundle",mediaType:ASSET_BUNDLE_MEDIA_TYPE,byteLength:bytes.length,sha256:sha256Bytes(bytes)});
-  await assert.rejects(verifyAssetBundle(directory,pin,{profile:SPRITE_ATLAS_BUNDLE_PROFILE}),/atlas bundle asset ref/);
+  await assert.rejects(verifyAssetBundle(directory,pin,{profile:SPRITE_ATLAS_BUNDLE_PROFILE}),/serialized asset ref/);
   assert.deepEqual(await readFile(path.join(directory,"manifest.json")),bytes);
   assert.equal((await stat(path.join(directory,"manifest.json"))).mtimeMs,before.mtimeMs);
  }
  await writeFile(path.join(directory,"manifest.json"),original);
  await verifyAssetBundle(directory,accepted.manifest,{profile:SPRITE_ATLAS_BUNDLE_PROFILE});
  assert.equal((await exportAssetBundle(root,directory,invocation)).bytesWritten,0);
+});
+
+
+test("original atlas image and sprite refs cannot invent omitted provenance fields",async t=>{
+ const {root,directory,atlas,png,document,invocation}=await fixture(t),accepted=await exportAssetBundle(root,directory,invocation);
+ const previous=await readFile(path.join(directory,"manifest.json")),manifest=parseSpriteAtlasBundleManifest(previous);
+ for(const location of ["image","sprite"] as const) for(const field of ["schemaVersion","metadata"] as const) for(const mutation of ["missing","null"] as const) {
+  const changed=structuredClone(document),ref=location==="image"?changed.image:changed.sprites[0]!.source;
+  if(mutation==="missing") Reflect.deleteProperty(ref,field);else Reflect.set(ref,field,null);
+  const bytes=Buffer.from(canonicalJson(changed)+"\n");
+  const source=(await storeAssetObject(root,{kind:atlas.kind,mediaType:atlas.mediaType,metadata:atlas.metadata,bytes})).asset;
+  await assert.rejects(exportAssetBundle(root,directory,{...invocation,inputs:{assets:[source],images:[png]}}),/serialized asset ref/);
+  assert.deepEqual(await readFile(path.join(directory,"manifest.json")),previous);
+  const forged={...manifest,assets:manifest.assets.map(e=>({...e,source,path:`assets/${source.sha256}.atlas.json`}))};
+  await writeFile(path.join(directory,forged.assets[0]!.path),bytes);
+  const transport=Buffer.from(canonicalJson(forged)+"\n"),pin=createAssetRef({kind:"asset-bundle",mediaType:ASSET_BUNDLE_MEDIA_TYPE,byteLength:transport.length,sha256:sha256Bytes(transport)});
+  await writeFile(path.join(directory,"manifest.json"),transport);
+  const before=await stat(path.join(directory,"manifest.json"));
+  await assert.rejects(verifyAssetBundle(directory,pin,{profile:SPRITE_ATLAS_BUNDLE_PROFILE}),/serialized asset ref/);
+  assert.deepEqual(await readFile(path.join(directory,"manifest.json")),transport);
+  assert.equal((await stat(path.join(directory,"manifest.json"))).mtimeMs,before.mtimeMs);
+  await writeFile(path.join(directory,"manifest.json"),previous);
+ }
+ await verifyAssetBundle(directory,accepted.manifest,{profile:SPRITE_ATLAS_BUNDLE_PROFILE});
 });

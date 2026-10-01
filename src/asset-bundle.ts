@@ -12,7 +12,7 @@ import { captureToolIdentity } from "./tool.js";
 import { parseRgba8Image, RGBA8_IMAGE_MEDIA_TYPE } from "./image-rgba8.js";
 import { parseSpriteAtlasManifest, SPRITE_ATLAS_MEDIA_TYPE, type SpriteAtlasManifest } from "./sprite-atlas-operations.js";
 import { createAssetOperationBuildIdentity, createAssetOperationDescriptor, createAssetRef, normalizeAssetOperationResult,
-  createAssetOperationRegistry, type AssetRef, type AssetOperationBuildIdentity } from "./operations.js";
+  createAssetOperationRegistry, parseAssetRef, type AssetRef, type AssetOperationBuildIdentity } from "./operations.js";
 
 export const ASSET_BUNDLE_MEDIA_TYPE = "application/vnd.moritzbrantner.asset-bundle+json";
 export const STATIC_ASSET_BUNDLE_PROFILE = "static-glb-png-v1";
@@ -142,13 +142,8 @@ function boundedRgba(bytes:Buffer,expected?:{width:number;height:number}) {
      value.width<1 || value.height<1 || value.width>4096 || value.height>4096 || value.width*value.height>4*1024*1024) throw new Error("atlas resource exceeds its 4096-axis/4-megapixel decode budget");
   return parseRgba8Image(bytes,expected);
 }
-function atlasBundleRef(value:unknown):AssetRef {
-  const ref=object(value,["schemaVersion","kind","mediaType","sha256","byteLength","metadata"],"atlas bundle asset ref");
-  if(ref.schemaVersion!==1 || !ref.metadata || typeof ref.metadata!=="object" || Array.isArray(ref.metadata)) throw new Error("atlas bundle asset ref requires schemaVersion 1 and object metadata");
-  return createAssetRef(ref);
-}
 function resource(value:unknown,mediaType:string):BundleResource {
-  const e=object(value,["source","path"],"bundle resource"),source=atlasBundleRef(e.source),portable=assetPath(source,SPRITE_ATLAS_BUNDLE_PROFILE);
+  const e=object(value,["source","path"],"bundle resource"),source=parseAssetRef(e.source),portable=assetPath(source,SPRITE_ATLAS_BUNDLE_PROFILE);
   if(source.mediaType!==mediaType || e.path!==portable) throw new Error("bundle resource kind/media type/path does not match its content identity");
   return {source,path:portable};
 }
@@ -183,7 +178,7 @@ function parseAtlasBundle(value:unknown):SpriteAtlasBundleManifest {
   if(p.schemaVersion!==2 || p.profile!==SPRITE_ATLAS_BUNDLE_PROFILE || !Array.isArray(p.assets) || p.assets.length<1 || p.assets.length>MAX_ASSETS) throw new Error("unsupported atlas bundle schema/profile or selection count");
   const chosen=selections(p.assets.map(value=>{const e=object(value,["key","variant","source","path","image"],"atlas bundle entry");return {key:e.key,variant:e.variant};}));
   const assets:SpriteAtlasBundleEntry[]=p.assets.map((value,index)=>{
-    const e=object(value,["key","variant","source","path","image"],"atlas bundle entry"),source=atlasBundleRef(e.source),portable=assetPath(source,SPRITE_ATLAS_BUNDLE_PROFILE);
+    const e=object(value,["key","variant","source","path","image"],"atlas bundle entry"),source=parseAssetRef(e.source),portable=assetPath(source,SPRITE_ATLAS_BUNDLE_PROFILE);
     if(source.kind!=="sprite-atlas" || e.path!==portable) throw new Error("atlas selection path/kind must match original manifest");
     return {...chosen[index]!,source,path:portable,image:resource(e.image,"image/png")};
   });

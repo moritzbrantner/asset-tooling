@@ -3,7 +3,7 @@ import { canonicalJson, compareCodeUnitStrings } from "./canonical.js";
 import { resolveAssetObject, storeAssetObject } from "./asset-store.js";
 import { encodeRgba8Image, parseRgba8Image, RGBA8_IMAGE_MEDIA_TYPE } from "./image-rgba8.js";
 import {
-  createAssetOperationBuildIdentity, createAssetOperationRegistry, createAssetRef,
+  createAssetOperationBuildIdentity, createAssetOperationRegistry, createAssetRef, parseAssetRef,
   normalizeAssetOperationResult, type AssetRef, type AssetOperationBuildIdentity,
 } from "./operations.js";
 import { captureToolIdentity } from "./tool.js";
@@ -168,13 +168,13 @@ export function parseSpriteAtlasManifest(bytes: Uint8Array): SpriteAtlasManifest
   const entries = p.sprites.map(value => object(value, ["id", "pivot", "source", "sourceSize", "rect", "trimOffset", "empty", "rotated"], ["frame"], "atlas sprite"));
   const controls = parameters({width:p.width,maxHeight:p.height,padding:p.padding,extrusion:p.extrusion,trim:true,
     sprites:entries.map(e=>({id:e.id,pivot:e.pivot,...(Object.hasOwn(e,"frame")?{frame:e.frame}:{})}))});
-  const image = createAssetRef(p.image);
+  const image = parseAssetRef(p.image);
   function canonicalImage(source: AssetRef): void {
     if (source.kind !== "image" || source.mediaType !== RGBA8_IMAGE_MEDIA_TYPE) throw new Error("atlas resource must be a canonical RGBA8 image");
   }
   canonicalImage(image);
   const sprites: SpriteAtlasEntry[] = entries.map((e,index)=>{
-    const source=createAssetRef(e.source);canonicalImage(source);
+    const source=parseAssetRef(e.source);canonicalImage(source);
     const size=object(e.sourceSize,["width","height"],[],"sprite source size"),rect=object(e.rect,["x","y","width","height"],[],"sprite rect"),offset=object(e.trimOffset,["x","y"],[],"sprite trim offset");
     const sourceSize={width:integer(size.width,"source width",1,8192),height:integer(size.height,"source height",1,8192)};
     const rectangle={x:integer(rect.x,"rect x",0,MAX_DIMENSION),y:integer(rect.y,"rect y",0,MAX_DIMENSION),
