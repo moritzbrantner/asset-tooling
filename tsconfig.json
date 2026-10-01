@@ -88,6 +88,9 @@
     "examples/selected-bundle/consumer.ts",
     "scripts/verify-bundle-consumer.ts",
     "src/dependency-lock.ts",
-    "scripts/prepare-package.ts"
+    "scripts/prepare-package.ts",
+    "src/tree-appearance-recipes.ts",
+    "test/tree-appearance-recipes.test.ts",
+    "examples/tree-appearances/build.ts"
   ]
 }

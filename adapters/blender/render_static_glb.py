@@ -214,6 +214,25 @@ def validate_source(source_path, parameters):
         pixels += width * height
         if pixels > 16777216:
             raise ValueError("render textures exceed decoded pixel budget")
+    return raw
+
+
+def constant_invisible_material(material):
+    # Texture alpha cannot exceed one. Cull only when the declared factor/mode proves
+    # no fragment can contribute; OPAQUE and MASK cutoff zero must remain visible.
+    factor = material.get("pbrMetallicRoughness", {}).get("baseColorFactor", [1, 1, 1, 1])
+    if type(factor) is not list or len(factor) != 4:
+        return False
+    alpha = factor[3]
+    if type(alpha) not in (int, float) or not math.isfinite(alpha) or not 0 <= alpha <= 1:
+        return False
+    mode = material.get("alphaMode", "OPAQUE")
+    if mode == "BLEND":
+        return alpha == 0
+    if mode == "MASK":
+        cutoff = material.get("alphaCutoff", 0.5)
+        return type(cutoff) in (int, float) and math.isfinite(cutoff) and 0 <= cutoff <= 1 and alpha < cutoff
+    return False
 
 
 def generate(output_path, arguments, inputs):
@@ -225,7 +244,11 @@ def generate(output_path, arguments, inputs):
     from bpy_extras.object_utils import world_to_camera_view
     from mathutils import Vector
 
-    validate_source(inputs["source"], p)
+    source = validate_source(inputs["source"], p)
+    materials = source.get("materials", [])
+    invisible_meshes = {index for index, mesh in enumerate(source["meshes"])
+                       if all("material" in primitive and constant_invisible_material(materials[primitive["material"]])
+                              for primitive in mesh["primitives"])}
 
     bpy.ops.object.select_all(action="SELECT")
     bpy.ops.object.delete(use_global=False)
@@ -239,6 +262,10 @@ def generate(output_path, arguments, inputs):
         def gather_import_node_after_hook(self, vnode, gltf_node, obj, gltf):
             if gltf_node is not None and obj is not None and obj.type == "MESH":
                 imported_nodes.setdefault(gltf_node.name, []).append(obj)
+                # Skipping provably invisible objects avoids Cycles' finite transparent-ray
+                # limit turning dense zero-alpha layers black. Keep their geometry for bounds.
+                if gltf_node.mesh in invisible_meshes:
+                    obj.hide_render = True
 
     extension_name = "asset_tooling_render_node_identity"
     extension_module = ModuleType(extension_name)

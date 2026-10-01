@@ -35,6 +35,7 @@ assert(
 );
 
 const expectedSourceExports: Record<string, string> = {
+  "./recipes/tree-appearances": "./src/tree-appearance-recipes.ts",
   "./examples/selected-bundle": "./examples/selected-bundle/adoption.ts",
   ".": "./src/index.ts",
   "./operations": "./src/operations.ts",

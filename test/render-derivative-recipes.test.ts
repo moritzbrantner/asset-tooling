@@ -308,3 +308,33 @@ test("perspective framing fits independently authored near/far corners rather th
   assert.ok(Math.abs(observed.projectedBounds.right - (.5 + 5 / (2 * tangent * near))) < 1e-5);
   assert.ok(Math.abs(observed.projectedBounds.top - (.5 - .5 * (81 / 49) / (2 * tangent * near))) < 1e-5);
 });
+
+test("fully transparent material layers cannot become black silhouettes in static derivatives", {
+  skip: !configured && "ASSET_TOOLING_BLENDER is not set", timeout: 120_000,
+}, async t => {
+  const count=16,nodes=Array.from({length:count},(_,i)=>({name:`layer.${i}`,mesh:0,translation:[0,0,i*.001]}));
+  const cases=[
+    {mode:"MASK",alpha:0,cutoff:.5,invisible:true,mixed:false},
+    {mode:"BLEND",alpha:0,cutoff:.5,invisible:true,mixed:false},
+    {mode:"MASK",alpha:.4,cutoff:.5,invisible:true,mixed:false},
+    {mode:"OPAQUE",alpha:0,cutoff:.5,invisible:false,mixed:false},
+    {mode:"MASK",alpha:0,cutoff:0,invisible:false,mixed:false},
+    {mode:"MASK",alpha:0,cutoff:.5,invisible:false,mixed:true},
+  ];
+  for(const c of cases) {
+    const material={pbrMetallicRoughness:{baseColorFactor:[.25,.5,.75,c.alpha],metallicFactor:0,roughnessFactor:1},alphaMode:c.mode,
+      ...(c.mode==="MASK"?{alphaCutoff:c.cutoff}:{}),doubleSided:true};
+    const primitive={attributes:{POSITION:0,NORMAL:1},indices:2,material:0};
+    const bytes=quadGlb({scenes:[{nodes:nodes.map((_,i)=>i)}],nodes,
+      materials:[material,...(c.mixed?[{pbrMetallicRoughness:{baseColorFactor:[.25,.5,.75,1]},doubleSided:true}]:[])],
+      meshes:[{primitives:[primitive,...(c.mixed?[{...primitive,material:1}]:[])]}]});
+    const {root,specPath}=await prepare(t,{...front,selection:{type:"scene"},samples:1},bytes);
+    const generated=await generateAsset(specPath);
+    assert.equal(generated.receipt.observations.script.meshCount,count,"invisible meshes remain in source/framing evidence");
+    const decoded=spawnSync("ffmpeg",["-v","error","-i",path.join(root,"render.png"),"-f","rawvideo","-pix_fmt","rgba","-"],{maxBuffer:1024*1024,timeout:30_000});
+    assert.equal(decoded.status,0,decoded.error?.message ?? decoded.stderr.toString());
+    const alpha=Array.from({length:decoded.stdout.length/4},(_,i)=>decoded.stdout[i*4+3]!);
+    if(c.invisible) assert.ok(alpha.every(a=>a===0),"constant-invisible layers must reveal the transparent background");
+    else assert.ok(alpha.some(a=>a>0),"opaque, zero-cutoff and mixed-material meshes must retain visible fragments");
+  }
+});
