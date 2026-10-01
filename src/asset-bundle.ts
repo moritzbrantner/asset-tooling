@@ -1,3 +1,4 @@
+import { readDependencyLockSha256 } from "./dependency-lock.js";
 /// <reference path="./gltf-validator.d.ts" />
 import { ImageUtils, NodeIO, VERSION } from "@gltf-transform/core";
 import { version as validatorVersion } from "gltf-validator";
@@ -209,7 +210,7 @@ async function prepare(root:string,invocation:Invocation,signal?:AbortSignal) {
   }
   const build=createAssetOperationBuildIdentity({operation:ASSET_BUNDLE_OPERATION,parameters:{profile:p.profile,assets:entries.map(({key,variant})=>({key,variant}))},
     inputs:{assets:entries.map(entry=>entry.source)},implementation:{id:"builtin.asset.bundle",version:"1",profile:p.profile,
-      gltfTransform:VERSION,validator:validatorVersion(),dependencyLockSha256:sha256Bytes(await readFile(new URL("../bun.lock",import.meta.url))),tool:await captureToolIdentity()}});
+      gltfTransform:VERSION,validator:validatorVersion(),dependencyLockSha256:await readDependencyLockSha256(),tool:await captureToolIdentity()}});
   const manifest:AssetBundleManifest={schemaVersion:1,profile:p.profile,assets:entries};
   const bytes=Buffer.from(`${canonicalJson(manifest)}\n`);parseAssetBundleManifest(bytes);
   return {build,manifest,bytes,blobs};
@@ -269,7 +270,7 @@ async function prepareAtlas(root:string,p:AssetBundleParameters,value:unknown,si
     inputs:{assets:entries.map(e=>e.source),images:entries.map(e=>e.image.source)},
     // Original atlas bytes pin the full nested resource refs; actual dependencies were verified above.
     implementation:{id:"builtin.asset.bundle",version:"2",profile:p.profile,algorithm:"original-atlas-png-pinned-closure-v1",gltfTransform:VERSION,
-      dependencyLockSha256:sha256Bytes(await readFile(new URL("../bun.lock",import.meta.url))),tool:await captureToolIdentity()}});
+      dependencyLockSha256:await readDependencyLockSha256(),tool:await captureToolIdentity()}});
   return {build,manifest,bytes,blobs};
 }
 export async function createAssetBundleBuildIdentity(root:string,invocation:Invocation={}):Promise<AssetOperationBuildIdentity> { return (await prepare(root,invocation)).build; }

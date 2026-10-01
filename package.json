@@ -67,7 +67,8 @@
     "./operations/processing/gltf-pbr": "./src/gltf-pbr-material-operations.ts",
     "./recipes/leaf-artwork": "./src/leaf-artwork-recipes.ts",
     "./operations/instances/masks": "./src/instance-mask-operations.ts",
-    "./recipes/authored-effect-sequences": "./src/authored-effect-sequences.ts"
+    "./recipes/authored-effect-sequences": "./src/authored-effect-sequences.ts",
+    "./examples/selected-bundle": "./examples/selected-bundle/adoption.ts"
   },
   "bin": {
     "asset-tooling": "./src/entry.ts"
@@ -79,7 +80,8 @@
     "catalog",
     "docs",
     "bun.lock",
-    "README.md"
+    "README.md",
+    "examples/selected-bundle/adoption.ts"
   ],
   "scripts": {
     "typecheck": "bun add --no-save --dev typescript@7.0.2 @types/bun@1.4.0 && bunx --no-install tsc --noEmit",
@@ -100,7 +102,10 @@
     "stability:contract": "bun scripts/check-stability.ts",
     "stability:check": "bun run check && bun run stability:contract",
     "pages:dev": "bun run pages:build && bun scripts/serve-pages.ts",
-    "studio": "bun run pages:dev"
+    "studio": "bun run pages:dev",
+    "example:selected-bundle": "bun examples/selected-bundle/consumer.ts",
+    "verify:consumer:bundle": "bun scripts/verify-bundle-consumer.ts",
+    "prepack": "bun scripts/prepare-package.ts"
   },
   "engines": {
     "bun": "1.4.2"

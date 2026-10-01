@@ -167,8 +167,8 @@ test("v2 admission rejects omitted or defaultable required refs without normaliz
  assert.deepEqual(JSON.parse(original.toString()),manifest);
  for(const location of ["atlas","png","rgba"] as const) for(const field of ["schemaVersion","metadata"] as const) for(const mutation of ["missing","null"] as const) {
   const forged=structuredClone(manifest);
-  const ref:Record<string,unknown>=location==="atlas"?forged.assets[0]!.source:location==="png"?forged.assets[0]!.image.source:forged.resources[0]!.source;
-  if(mutation==="missing") delete ref[field];else ref[field]=null;
+  const ref=location==="atlas"?forged.assets[0]!.source:location==="png"?forged.assets[0]!.image.source:forged.resources[0]!.source;
+  if(mutation==="missing") Reflect.deleteProperty(ref,field);else Reflect.set(ref,field,null);
   const bytes=Buffer.from(canonicalJson(forged)+"\n");
   assert.throws(()=>parseSpriteAtlasBundleManifest(bytes),/atlas bundle asset ref/);
   await writeFile(path.join(directory,"manifest.json"),bytes);

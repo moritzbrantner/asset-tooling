@@ -1,9 +1,8 @@
 /// <reference path="./gltf-validator.d.ts" />
+import { readDependencyLockSha256 } from "./dependency-lock.js";
 import { VERSION } from "@gltf-transform/core";
 import { version as validatorVersion } from "gltf-validator";
-import { readFile } from "node:fs/promises";
 import { storeAssetObject } from "./asset-store.js";
-import { sha256Bytes } from "./hash.js";
 import {
   createAssetOperationBuildIdentity,
   createAssetOperationDescriptor,
@@ -62,7 +61,7 @@ export async function createGltfImportOperationBuildIdentity(
     implementation: {
       id: "gltf-transform-static-import", version: "1",
       gltfTransform: VERSION, validator: validatorVersion(),
-      dependencyLockSha256: sha256Bytes(await readFile(new URL("../bun.lock", import.meta.url))),
+      dependencyLockSha256: await readDependencyLockSha256(),
       assetTooling: await captureToolIdentity(),
     },
     parameters: identity.parameters, inputs: identity.inputs,

@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "id": "selected-bundle",
+  "description": "Create a public selected-bundle consumer in a prepared Bun project.",
+  "rules": [],
+  "technologies": [
+    "typescript"
+  ],
+  "inputs": {},
+  "target": {
+    "kind": "root"
+  },
+  "operations": [
+    {
+      "kind": "create-file",
+      "template": "templates/consumer.ts.tmpl",
+      "path": "consumer.ts"
+    }
+  ],
+  "compose": [],
+  "prerequisites": [
+    {
+      "kind": "tool",
+      "name": "bun"
+    },
+    {
+      "kind": "tool",
+      "name": "ffmpeg"
+    },
+    {
+      "kind": "tool",
+      "name": "ffprobe"
+    },
+    {
+      "kind": "package",
+      "name": "asset-tooling",
+      "version": "0.1.0"
+    }
+  ],
+  "postconditions": []
+}

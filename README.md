@@ -136,3 +136,5 @@ For controlled grain direction and length, see the [wood surface presets](docs/s
 [Saved instance exclusion masks](docs/instance-exclusion.md) remove cosmetic detail from an accepted candidate set while preserving retained IDs, order and XYZ positions. The native rock-field example compares a path mask with a localized edit under identical camera framing.
 
 [Authored effect frame sequences](docs/authored-effect-sequences.md) compose explicit puff/ring poses and millisecond schedules into the existing atlas format, with preserved frame IDs/pivots, transparent one-shot endings and cancellation between stages.
+
+The [selected-bundle adoption example](examples/selected-bundle/README.md) consumes the installed public package, verifies real recipe pixels and distribution provenance, and documents a clean consumer setup using the existing native generator.

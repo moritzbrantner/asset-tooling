@@ -1,7 +1,7 @@
 /// <reference path="./gltf-validator.d.ts" />
+import { readDependencyLockSha256 } from "./dependency-lock.js";
 import { NodeIO, VERSION, type Texture } from "@gltf-transform/core";
 import { version as validatorVersion } from "gltf-validator";
-import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { resolveAssetObject, storeAssetObject } from "./asset-store.js";
 import { sha256Bytes } from "./hash.js";
@@ -50,7 +50,7 @@ async function checked(root:string,invocation:Invocation) {
   const codec=await probeImageCodecImplementation(IMAGE_ENCODE_PNG_OPERATION,invocation.runtime??{});
   const build=createAssetOperationBuildIdentity({operation:GLTF_PBR_MATERIAL_OPERATION,parameters:p,inputs:invocation.inputs??{},
     implementation:{id:"gltf-transform-pbr-bundle",version:"1",gltfTransform:VERSION,validator:validatorVersion(),pngCodec:codec.implementation,
-      dependencyLockSha256:sha256Bytes(await readFile(new URL("../bun.lock",import.meta.url))),tool:await captureToolIdentity()}});
+      dependencyLockSha256:await readDependencyLockSha256(),tool:await captureToolIdentity()}});
   const source=createAssetRef(build.inputs.source),bundle=createAssetRef(build.inputs.material);
   if(source.byteLength>64*1024*1024 || bundle.byteLength>8*1024*1024) throw new Error("PBR source/material exceeds byte budget");
   const doc=parsePbrMaterialDocument(await resolveAssetObject(root,bundle));
