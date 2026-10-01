@@ -24,6 +24,7 @@
     "noUnusedParameters": true
   },
   "include": [
+    "examples/shrubs/build.ts",
     "examples/paper-grain/build.ts",
     "test/paper-grain.test.ts",
     "examples/directional-crops/build.ts",

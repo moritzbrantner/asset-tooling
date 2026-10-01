@@ -28,6 +28,9 @@ test("tree recipe pins its authoritative offline generator and complete explicit
   assert.deepEqual(actual.inputs.sapling, { path: "sapling.zip", sha256: SAPLING_TREE_SOURCE.sha256 });
   assert.deepEqual(actual.parameters.arguments, TREE_PRESETS.broadleaf);
   assert.equal(Reflect.set(TREE_PRESETS.broadleaf, "seed", "12"), false);
+  assert.deepEqual(spec(TREE_PRESETS.shrub).parameters.arguments, TREE_PRESETS.shrub);
+  assert.equal(TREE_PRESETS.shrub.family, "broadleaf");
+  assert.equal(Reflect.set(TREE_PRESETS.shrub, "height", 2), false);
   for (const component of ["trunk", "branches", "foliage", "composed"]) {
     assert.notDeepEqual(spec({ ...TREE_PRESETS.broadleaf, component }), spec({ ...TREE_PRESETS.conifer, component }));
   }
@@ -106,7 +109,7 @@ test("actual Sapling components have bounded grounded geometry, native hierarchy
       assert.ok(observations.splines <= 1 + parameters.primaryBranches + parameters.primaryBranches * parameters.secondaryBranches);
       if (component === "composed") {
         composedHashes = observations.componentGeometrySha256;
-        if (parameters.family === "broadleaf") broadleafGeometry = composedHashes;
+        if (parameters === TREE_PRESETS.broadleaf) { broadleafGeometry = composedHashes; }
       }
       else assert.deepEqual(observations.componentGeometrySha256, composedHashes);
       const bones = observations.branchHierarchy;

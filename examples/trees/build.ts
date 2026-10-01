@@ -52,4 +52,5 @@ for (const [family, parameters] of Object.entries(TREE_PRESETS)) {
 }
 await writeIfChanged(path.join(destination, "assets.json"), Buffer.from(`${canonicalJson({ schemaVersion: 1, assets })}\n`));
 await writeIfChanged(path.join(destination, "evidence.json"), Buffer.from(`${canonicalJson({ source: SAPLING_TREE_SOURCE, evidence,
-  work: { declaredFullFamilySpecs: 8, cacheIndependentTreeReplays: 8, cacheIndependentThumbnailReplays: 8, componentHashesMatchComposition: true } })}\n`));
+  work: { declaredFullFamilySpecs: Object.keys(assets).length, cacheIndependentTreeReplays: Object.keys(assets).length,
+    cacheIndependentThumbnailReplays: Object.keys(assets).length, componentHashesMatchComposition: true } })}\n`));
