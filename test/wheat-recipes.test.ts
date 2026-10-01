@@ -39,15 +39,38 @@ test("Wheat rejects unsupported stages, malformed bounds and incompatible appear
  assert.throws(()=>spec({...WHEAT_PRESETS.harvested,leafCount:1}),/harvested/);
  assert.throws(()=>createWheatAssetSpec({assetId:"wheat",parameters:WHEAT_PRESETS.early,scriptSha256:source.sha256,blenderVersion:"current"}),/exact/);
 });
-test("Python and TypeScript admit identical bounded authored controls before loading Blender",()=>{
- const script=fileURLToPath(new URL("../adapters/blender/wheat.py",import.meta.url));
- const program=`import importlib.util,json,sys\ns=importlib.util.spec_from_file_location('wheat',sys.argv[1]);m=importlib.util.module_from_spec(s);s.loader.exec_module(m)\nfor p in json.loads(sys.stdin.read()):\n try: m.validate(p,{});print('accepted')\n except (ValueError,TypeError): print('rejected')\n`;
+test("pinned Blender and TypeScript admit identical authored controls before scene mutation",{
+ skip:!process.env.ASSET_TOOLING_BLENDER && "pinned Blender is required",timeout:30000,
+},async t=>{
+ const root=await mkdtemp(path.join(tmpdir(),"wheat-controls-"));t.after(()=>rm(root,{recursive:true,force:true}));
+ const script=fileURLToPath(new URL("../adapters/blender/wheat.py",import.meta.url)),controls=path.join(root,"controls.json");
  const cases:unknown[]=[...Object.values(WHEAT_PRESETS),{...WHEAT_PRESETS.mature,stemHeight:2},{...WHEAT_PRESETS.mature,leafCount:0},
   {...WHEAT_PRESETS.mature,seed:"1\n"},{...WHEAT_PRESETS.mature,stemHeight:true},{...WHEAT_PRESETS.mature,grainPairs:4},
   {...WHEAT_PRESETS.harvested,leafLength:.1},{...WHEAT_PRESETS.mature,unknown:true}];
  const expected=cases.map(p=>{try{normalizeWheatParameters(p);return "accepted";}catch(error){assert.ok(error instanceof Error);return "rejected";}});
- const run=spawnSync("python3",["-c",program,path.resolve(script)],{input:JSON.stringify(cases),encoding:"utf8",timeout:10000,env:{...process.env,PYTHONDONTWRITEBYTECODE:"1"}});
- assert.equal(run.status,0,run.stderr);assert.deepEqual(run.stdout.trim().split("\n"),expected);
+ await writeFile(controls,JSON.stringify(cases));
+ const blender=process.env.ASSET_TOOLING_BLENDER;assert.ok(blender);
+ const program=`import bpy,json,runpy,sys
+assert ".".join(map(str,bpy.app.version)) == ${JSON.stringify(source.blenderVersion)}
+recipe=runpy.run_path(sys.argv[-2]);results=[];before=set(bpy.data.objects)
+for p in json.load(open(sys.argv[-1])):
+ try:
+  recipe['validate'](p,{})
+  results.append('accepted')
+ except (ValueError,TypeError):
+  try: recipe['generate']('must-not-write.glb',p,{})
+  except (ValueError,TypeError): pass
+  else: raise AssertionError('invalid controls reached authoring')
+  assert set(bpy.data.objects)==before,'invalid controls mutated the scene'
+  results.append('rejected')
+print('[wheat-validation]'+json.dumps(results))
+`;
+ const run=spawnSync(blender,["--background","--factory-startup","--threads","1","--python-exit-code","1","--python-expr",program,"--",script,controls],{
+  encoding:"utf8",timeout:25000,env:{...process.env,PYTHONDONTWRITEBYTECODE:"1"},
+ });
+ assert.equal(run.status,0,run.error?.message ?? run.stderr);
+ const line=run.stdout.split("\n").find(value=>value.startsWith("[wheat-validation]"));assert.ok(line,run.stdout);
+ assert.deepEqual(JSON.parse(line.slice("[wheat-validation]".length)),expected);
 });
 
 test("actual Wheat stages are bounded rooted static GLBs with exact replay, UVs and isolated variation",{
