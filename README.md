@@ -122,3 +122,5 @@ See [deterministic sprite atlases](docs/sprite-atlases.md) for selected-image pa
 [Offline tree recipes](docs/tree-recipes.md) invoke a separately acquired hash-pinned Sapling source through Blender, with broadleaf/conifer families and independent trunk, branch and foliage GLBs.
 
 Static puff/ring ingredients with explicit alpha, geometry and intensity controls are available through [`./recipes/effect-artwork`](docs/effect-artwork.md).
+
+Selected static GLB/PNG handoff with content-addressed files, source lineage and recoverable export is available through [`./operations/bundle`](docs/asset-bundles.md).

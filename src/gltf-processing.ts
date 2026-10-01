@@ -137,7 +137,16 @@ export async function loadCheckedGltf(
   allowedWarnings: readonly string[] = [],
 ) {
   const checked = await checkedGltfInputs(root, operation, normalizedParameters, inputs);
-  const { source, sourceBytes, resourceBytes } = checked;
+  return { ...checked, ...await parseCheckedGltfBytes(checked.source, checked.sourceBytes, checked.resourceBytes, allowRigged, allowedWarnings) };
+}
+
+// The same parser/policy boundary serves object-store imports and non-mutating packaged-byte verification.
+export async function parseCheckedGltfBytes(
+  source: AssetRef, sourceBytes: Buffer, resourceBytes: JSONDocument["resources"],
+  allowRigged: boolean, allowedWarnings: readonly string[] = [],
+) {
+  if (sourceBytes.byteLength !== source.byteLength || sha256Bytes(sourceBytes) !== source.sha256) throw new Error("glTF bytes do not match the declared source pin");
+  if (source.mediaType !== "model/gltf-binary" && source.mediaType !== "model/gltf+json") throw new Error("unsupported glTF source media type");
   const io = new NodeIO().setAllowNetwork(false).setStrictResources(true);
   const format = source.mediaType === GLB_MEDIA_TYPE ? "glb" : "gltf";
   // GLB external resources are deliberately unsupported by the public in-memory decoder.
@@ -164,5 +173,5 @@ export async function loadCheckedGltf(
   supportedPolicy(jsonDocument.json, allowRigged);
   const inventory = resourceInventory(jsonDocument.json, resourceBytes, format === "glb" ? jsonDocument.resources : Object.create(null));
   const document = await io.readJSON(jsonDocument);
-  return { ...checked, document, io, inventory, validatorWarnings };
+  return { document, io, inventory, validatorWarnings };
 }
