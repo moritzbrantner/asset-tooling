@@ -20,10 +20,10 @@ assert.equal(archive.byteLength, SAPLING_TREE_SOURCE.byteLength);
 assert.equal(sha256Bytes(archive), SAPLING_TREE_SOURCE.sha256);
 const source = await readTreeRecipeSource(), renderer = await readRenderDerivativeRecipeSource();
 const assets: Record<string, AssetRef> = {}, evidence: Record<string, unknown> = {};
-for (const [family, parameters] of Object.entries(TREE_PRESETS)) {
+for (const [presetId, parameters] of Object.entries(TREE_PRESETS)) {
   let acceptedGeometry: unknown;
   for (const component of ["composed", "trunk", "branches", "foliage"] as const) {
-    const id = `${family}.${component}`, directory = path.join(destination, family, component);
+    const id = `${presetId}.${component}`, directory = path.join(destination, presetId, component);
     await mkdir(directory, { recursive: true });
     await writeIfChanged(path.join(directory, "tree.py"), source.bytes);
     await writeIfChanged(path.join(directory, "sapling.zip"), archive);
@@ -37,7 +37,8 @@ for (const [family, parameters] of Object.entries(TREE_PRESETS)) {
     else assert.deepEqual(geometry, acceptedGeometry, "native components match the composed family");
     const mesh = (await storeAssetObject(root, { bytes: await readFile(path.join(directory, "tree.glb")), kind: "mesh", mediaType: "model/gltf-binary",
       metadata: { sourceSpecSha256: generated.receipt.spec.sha256, generator: "external.blender.script@1", recipe: "sapling-tree-v1", source: SAPLING_TREE_SOURCE,
-        component, family, unit: "meter", axes: "right-handed-y-up", origin: "native-root-ground-anchor", geometry: generated.receipt.observations.script } })).asset;
+        component, family: parameters.family, ...(presetId === parameters.family ? {} : { presetId }), unit: "meter", axes: "right-handed-y-up", origin: "native-root-ground-anchor", geometry: generated.receipt.observations.script } })).asset;
+    assert.equal(mesh.metadata.family, generated.receipt.observations.script.parameters.family);
     assets[id] = mesh;
     const render = await prepareRenderDerivativeRecipe(root, { assetId: `tree-review.${id}`, source: mesh, scriptSha256: renderer.sha256,
       blenderVersion: renderer.blenderVersion, parameters: { ...RENDER_DERIVATIVE_PRESETS.thumbnail, width: 384, height: 512, samples: 16 } });
