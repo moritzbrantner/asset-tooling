@@ -5,7 +5,7 @@ import json
 import os
 import tempfile
 from pathlib import Path
-from PIL import Image
+from PIL import Image, ImageDraw
 
 
 def read_verified_render(folder, source, image_ref, asset_id):
@@ -48,3 +48,32 @@ def reconcile_review(output, image):
         os.replace(temporary, output)
     finally:
         Path(temporary).unlink(missing_ok=True)
+
+
+def review_native_vegetation(directory, assets, evidence, names, prefix, framing, image_size, label):
+    """Common pinned ground/scale comparison for the shrub and grass examples."""
+    assert evidence['packageOnlyMatches']
+    assert evidence['unit'] == 'meter' and evidence['origin'] == 'native-root-ground-anchor'
+    assert evidence['consumerPlacementAuthority'] is False
+    width, height = image_size
+    sheet = Image.new('RGB', (width * len(names), height + 46), '#f5f4f0')
+    draw = ImageDraw.Draw(sheet)
+    for index, name in enumerate(names):
+        source, ref = assets['meshes'][name], assets['images'][name]
+        image, spec, receipt = read_verified_render(directory / f'{name}-render', source, ref, f'{prefix}.{name}.render')
+        assert ref['metadata']['render'] == receipt['observations']['script']
+        assert spec['parameters']['arguments']['framing'] == framing
+        assert image.size == image_size
+        render = receipt['observations']['script']
+        assert render['framing']['worldUnitsPerPixel'] == framing['horizontalSpan'] / width
+        assert evidence['evidence'][name]['bounds']['min'][1] >= -1e-5
+        left = index * width
+        draw.text((left + 10, 10), f'{name}: {label}', fill='#18232f')
+        draw.text((left + 10, 26), f"{framing['horizontalSpan']}m shared span / native ground pivot", fill='#18232f')
+        sheet.paste(Image.alpha_composite(Image.new('RGBA', image.size, '#f5f4f0'), image).convert('RGB'), (left, 44))
+        point = render['pivot']
+        x, y = left + point['x'], 44 + point['y']
+        draw.line((x - 5, y, x + 5, y), fill='#506a77')
+        draw.line((x, y - 5, x, y + 5), fill='#506a77')
+    reconcile_review(directory / 'review.png', sheet)
+    return {'nativeRenders': len(names), 'commonWorldSpan': framing['horizontalSpan'], 'review': str(directory / 'review.png')}
