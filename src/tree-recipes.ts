@@ -57,4 +57,6 @@ const defaults: TreeParameters = { schemaVersion: 1, seed: "133", family: "broad
   primaryBranches: 28, secondaryBranches: 8, branchAngle: 48, trunkRatio: 0.02, trunkTaper: 1,
   canopyShape: "rounded", foliageDensity: 128, leafScale: 0.35, curveSegments: 5, maxTriangles: 60000, component: "composed" };
 export const TREE_PRESETS = Object.freeze({ broadleaf: Object.freeze({ ...defaults }),
-  conifer: Object.freeze({ ...defaults, family: "conifer" as const, canopyShape: "conical" as const, branchAngle: 110, foliageDensity: 512, leafScale: 0.22 }) });
+  conifer: Object.freeze({ ...defaults, family: "conifer" as const, canopyShape: "conical" as const, branchAngle: 110, foliageDensity: 512, leafScale: 0.22 }),
+  shrub: Object.freeze({...defaults,height:1.1,primaryBranches:20,secondaryBranches:4,branchAngle:70,
+    trunkRatio:0.025,foliageDensity:320,leafScale:0.16,curveSegments:4,maxTriangles:30000}) });
