@@ -42,10 +42,15 @@ function expectedByteLength(width: number, height: number) {
   return length;
 }
 
-function canonicalBase64(value: unknown, location: string) {
-  if (typeof value !== "string" || !BASE64_PATTERN.test(value)) {
+function canonicalBase64(value: unknown, location: string, expected: number) {
+  if (typeof value !== "string") {
     throw new Error(`${location} must be canonical base64`);
   }
+  const padding = value.endsWith("==") ? 2 : value.endsWith("=") ? 1 : 0;
+  if (value.length !== Math.ceil(expected / 3) * 4 || value.length / 4 * 3 - padding !== expected) {
+    throw new Error(`${location} must decode to exactly ${expected} bytes`);
+  }
+  if (!BASE64_PATTERN.test(value)) throw new Error(`${location} must be canonical base64`);
   const bytes = Buffer.from(value, "base64");
   if (bytes.toString("base64") !== value) {
     throw new Error(`${location} must be canonical base64`);
@@ -107,8 +112,8 @@ export function parseRgba8Image(bytes: Uint8Array, expectedDimensions?: Pick<Rgb
   if (expectedDimensions && (width !== expectedDimensions.width || height !== expectedDimensions.height)) {
     throw new Error("RGBA8 image dimensions disagree with expected dimensions");
   }
-  const pixels = canonicalBase64(document.pixelsBase64, "RGBA8 image pixelsBase64");
   const expected = expectedByteLength(width, height);
+  const pixels = canonicalBase64(document.pixelsBase64, "RGBA8 image pixelsBase64", expected);
   if (pixels.length !== expected) {
     throw new Error(`RGBA8 image pixelsBase64 must decode to exactly ${expected} bytes`);
   }

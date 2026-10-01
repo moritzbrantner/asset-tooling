@@ -6,10 +6,26 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { storeAssetObject, resolveAssetObject } from "../src/asset-store.js";
 import { createAssetRef } from "../src/operations.js";
-import { encodeLinearRgba8Image, LINEAR_RGBA8_IMAGE_MEDIA_TYPE } from "../src/image-linear-rgba8.js";
+import { encodeLinearRgba8Image, parseLinearRgba8Image, LINEAR_RGBA8_IMAGE_MEDIA_TYPE } from "../src/image-linear-rgba8.js";
 import { parseRgba8Image } from "../src/image-rgba8.js";
 import { executeImageEncodePngOperation, executeImageDecodeOperation, createImageEncodePngOperationBuildIdentity } from "../src/image-codec-operations.js";
 const codecAvailable = ["ffmpeg","ffprobe"].every(tool=>spawnSync(tool,["-version"],{timeout:30_000,windowsHide:true}).status===0);
+
+test("canonical image parsers reject oversized pixel strings before allocating decoded buffers",()=>{
+  const nativeFrom=Buffer.from;
+  const bytesFor=(colorSpace:string)=>nativeFrom(JSON.stringify({schemaVersion:1,width:1,height:1,
+    colorSpace,alphaMode:"straight",pixelsBase64:nativeFrom(new Uint8Array(64)).toString("base64")}));
+  const srgb=bytesFor("srgb"),linear=bytesFor("linear-srgb");
+  try {
+    // Synchronous instrumentation detects the allocation; no large test payload is needed.
+    Buffer.from=(...args:unknown[])=>{
+      assert.notEqual(args[1],"base64","oversized pixels must be rejected before decoding");
+      return Reflect.apply(nativeFrom,Buffer,args);
+    };
+    assert.throws(()=>parseRgba8Image(srgb),/exactly 4 bytes/);
+    assert.throws(()=>parseLinearRgba8Image(linear),/exactly 4 bytes/);
+  } finally {Buffer.from=nativeFrom;}
+});
 
 test("linear ORM PNG transport preserves data channel bytes without an sRGB transfer",{skip:!codecAvailable},async t=>{
   const root=await mkdtemp(path.join(tmpdir(),"gltf-pbr-"));t.after(()=>rm(root,{recursive:true,force:true}));
