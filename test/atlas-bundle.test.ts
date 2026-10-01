@@ -158,3 +158,27 @@ test("repeated canonical source references obey the same 4096 cap during export 
  await writeFile(path.join(directory,"manifest.json"),bytes);await assert.rejects(verifyAssetBundle(directory,ref,{profile:SPRITE_ATLAS_BUNDLE_PROFILE}),/4096/);
  assert.deepEqual(await readFile(path.join(directory,"manifest.json")),bytes);
 });
+
+
+test("v2 admission rejects omitted or defaultable required refs without normalizing pinned transport",async t=>{
+ const {root,directory,invocation}=await fixture(t),accepted=await exportAssetBundle(root,directory,invocation);
+ const original=await readFile(path.join(directory,"manifest.json"));
+ const manifest=parseSpriteAtlasBundleManifest(original);
+ assert.deepEqual(JSON.parse(original.toString()),manifest);
+ for(const location of ["atlas","png","rgba"] as const) for(const field of ["schemaVersion","metadata"] as const) for(const mutation of ["missing","null"] as const) {
+  const forged=structuredClone(manifest);
+  const ref:Record<string,unknown>=location==="atlas"?forged.assets[0]!.source:location==="png"?forged.assets[0]!.image.source:forged.resources[0]!.source;
+  if(mutation==="missing") delete ref[field];else ref[field]=null;
+  const bytes=Buffer.from(canonicalJson(forged)+"\n");
+  assert.throws(()=>parseSpriteAtlasBundleManifest(bytes),/atlas bundle asset ref/);
+  await writeFile(path.join(directory,"manifest.json"),bytes);
+  const before=await stat(path.join(directory,"manifest.json"));
+  const pin=createAssetRef({kind:"asset-bundle",mediaType:ASSET_BUNDLE_MEDIA_TYPE,byteLength:bytes.length,sha256:sha256Bytes(bytes)});
+  await assert.rejects(verifyAssetBundle(directory,pin,{profile:SPRITE_ATLAS_BUNDLE_PROFILE}),/atlas bundle asset ref/);
+  assert.deepEqual(await readFile(path.join(directory,"manifest.json")),bytes);
+  assert.equal((await stat(path.join(directory,"manifest.json"))).mtimeMs,before.mtimeMs);
+ }
+ await writeFile(path.join(directory,"manifest.json"),original);
+ await verifyAssetBundle(directory,accepted.manifest,{profile:SPRITE_ATLAS_BUNDLE_PROFILE});
+ assert.equal((await exportAssetBundle(root,directory,invocation)).bytesWritten,0);
+});
