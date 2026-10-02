@@ -54,6 +54,7 @@ async function sharedComponents(root:string,family:SurfaceAppearanceFamily,signa
   return {height:a.height as SurfaceTextureStep,normal:a.normal as SurfaceTextureStep};
  }
  const result=await executeSurfaceTextureRecipe(root,family.base,{channels:["height","normal"]});
+ signal?.throwIfAborted();
  const step=(field:"height"|"normal")=>result.steps.find(s=>s.output.metadata.field===field)!;
  return {height:step("height"),normal:step("normal")};
 }
@@ -62,9 +63,11 @@ async function state(root:string,family:SurfaceAppearanceFamily,s:SurfaceAppeara
  const recipe=stateRecipe(family.base,s);
  // Height/normal locks are verified by the surface recipe; only color and roughness may execute.
  const result=await executePreservedSurfaceTextureRecipe(root,recipe,{channels:["color","normal","roughness"],preserve:shared});
+ // The surface stages take no signal: an in-flight stage may store immutable objects, but no cancelled result is returned.
+ signal?.throwIfAborted();
  const {color,roughness,height,normal}=result.outputs;
  if(!color || !roughness || height || normal?.sha256!==shared.normal.output.sha256) throw new Error("surface appearance state did not preserve the shared normal");
- return {id:s.id,recipeSha256:result.recipeSha256,outputs:{color,roughness},steps:[color,roughness].map(ref=>result.steps.find(x=>x.output.sha256===ref.sha256)!),
+ return {id:s.id,recipeSha256:result.recipeSha256,outputs:{color,roughness},steps:["base-color","roughness"].map(field=>result.steps.find(x=>x.output.metadata.field===field)!),
   execution:{executedOperations:result.execution.executedOperations,reusedOperations:result.execution.reusedOperations}};
 }
 function checkedRoot(root:string) {

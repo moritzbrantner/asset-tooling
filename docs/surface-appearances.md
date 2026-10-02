@@ -16,7 +16,7 @@ A family has exactly `schemaVersion: 1`, `id` (portable lowercase token), `base`
 
 Invariants are explicit (`SURFACE_APPEARANCE_INVARIANTS`): height and normal are shared, and only color and roughness vary. A state cannot carry height, seed, grid, furrow or normal-strength fields; changing the relief means changing `base`, which changes every state. The base and each state are validated by the surface recipe's own validator before any object is written.
 
-The family builds the base height and normal once. Every state then runs through `executePreservedSurfaceTextureRecipe` with those steps as locks. The locks' build identity, metadata and bytes are verified, and only the color and roughness ramps execute (two operations per state, with four reused at the default two-scale settings). Pass `shared` (the `shared` steps of an accepted family result) to skip the height/normal stage entirely. Stale locks, for example after a base seed or normal-strength edit, and corrupt objects fail closed. An AbortSignal is checked between stages.
+The family builds the base height and normal once. Every state then runs through `executePreservedSurfaceTextureRecipe` with those steps as locks. The locks' build identity, metadata and bytes are verified, and only the color and roughness ramps execute (two operations per state, with four reused at the default two-scale settings). Pass `shared` (the `shared` steps of an accepted family result) to skip the height/normal stage entirely. Stale locks, for example after a base seed or normal-strength edit, and corrupt objects fail closed. An AbortSignal is checked before and after every surface stage. A stage already running may still store immutable objects, but a cancelled call never returns a result.
 
 ## Preset and example
 

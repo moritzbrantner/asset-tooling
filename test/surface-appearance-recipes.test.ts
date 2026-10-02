@@ -37,6 +37,7 @@ test("states share exact height/normal objects and ramp only their own palette a
   const s=result.states[index]!;
   assert.deepEqual(s.execution,{executedOperations:2,reusedOperations:4});
   assert.deepEqual(s.steps.map(x=>x.build.inputs.source),[result.shared.height.output,result.shared.height.output]);
+  assert.deepEqual(s.steps.map(x=>x.output),[s.outputs.color,s.outputs.roughness]);
   const color=parseRgba8Image(await resolveAssetObject(root,s.outputs.color)),rough=parseRgba8Image(await resolveAssetObject(root,s.outputs.roughness));
   for(let i=0;i<height.pixels.length;i+=4) {
    const h=height.pixels[i]!;
@@ -134,4 +135,22 @@ test("frozen soil moisture preset darkens and smooths from dry to wet over one r
  const roughness=[await mean(byId.dry!.outputs.roughness),await mean(byId.damp!.outputs.roughness),await mean(byId.wet!.outputs.roughness)];
  assert.ok(brightness[0]!>brightness[1]! && brightness[1]!>brightness[2]!);
  assert.ok(roughness[0]!>roughness[1]! && roughness[1]!>roughness[2]!);
+}));
+
+test("steps keep their own channel provenance when color and roughness bytes coincide",()=>workspace(async root=>{
+ // Flat height 100 with ramps fixed at 100 makes color and roughness byte-identical.
+ const flat={...base,detailWeight:0,heightMin:100,heightMax:100};
+ const gray={id:"gray",low:[100,100,100],high:[100,100,100],roughnessMin:100,roughnessMax:100};
+ const result=await executeSurfaceAppearanceFamily(root,{...family,base:flat,states:[gray]});
+ const s=result.states[0]!;
+ assert.equal(s.outputs.color.sha256,s.outputs.roughness.sha256);
+ assert.deepEqual(s.steps.map(x=>x.output.metadata.field),["base-color","roughness"]);
+ assert.deepEqual(s.steps.map(x=>x.output),[s.outputs.color,s.outputs.roughness]);
+}));
+
+test("cancellation during the last state's stages returns no result",{timeout:60000},()=>workspace(async root=>{
+ const controller=new AbortController();
+ const pending=executeSurfaceAppearanceFamily(root,{...family,states:[dry]},{signal:controller.signal});
+ queueMicrotask(()=>controller.abort(new Error("cancelled mid-run")));
+ await assert.rejects(pending,/cancelled mid-run/);
 }));
