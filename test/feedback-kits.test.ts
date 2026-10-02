@@ -4,9 +4,9 @@ import path from "node:path";
 import {mkdtemp,rm,readdir,stat} from "node:fs/promises";
 import {tmpdir} from "node:os";
 import {resolveAssetObject} from "../src/asset-store.js";
-import {createAssetRef,type AssetRef} from "../src/operations.js";
+import {createAssetRef} from "../src/operations.js";
 import {parseRgba8Image} from "../src/image-rgba8.js";
-import {executeFeedbackKitRecipe,normalizeFeedbackKitRecipe,FEEDBACK_KIT_PRESETS,FEEDBACK_KIT_MEDIA_TYPE} from "../src/feedback-kits.js";
+import {type FeedbackKitVariantManifest as VariantManifest,executeFeedbackKitRecipe,normalizeFeedbackKitRecipe,FEEDBACK_KIT_PRESETS,FEEDBACK_KIT_MEDIA_TYPE} from "../src/feedback-kits.js";
 
 const artwork={shape:"puff",width:11,height:13,centerX:5,centerY:6,radius:2,softness:1,color:[31,129,240],opacity:180} as const;
 const visual={schemaVersion:1,sequence:"fixture.puff",loop:false,atlas:{columns:2,padding:1,extrusion:1,trim:false},frames:[
@@ -37,8 +37,6 @@ async function inventory(root:string) {
   const p=path.join(e.parentPath,e.name),s=await stat(p);return [path.relative(root,p),s.size,s.mtimeMs] as const;
  })).then(v=>v.sort((a,b)=>a[0]<b[0]?-1:a[0]>b[0]?1:0));
 }
-type VariantManifest={visual:{onsetMs:number;durationMs:number;atlas:AssetRef;image:AssetRef;reducedMotion:{frameId:string;image:AssetRef}};
- audio:{onsetMs:number;durationMs:number;cue:AssetRef;frameCount:number;clipping:string};endMs:number};
 
 test("kit pairs authored frames with an exactly timed synthesized cue per intensity",()=>workspace(async root=>{
  const result=await executeFeedbackKitRecipe(root,recipe);
@@ -66,7 +64,7 @@ test("two tones mix at their declared offsets without saturation",()=>workspace(
  const tones=[blip,{...blip,startMs:0,durationMs:2,amplitude:2000}];
  const two={...recipe,variants:{...recipe.variants,strong:{...recipe.variants.strong,tones}}};
  const result=await executeFeedbackKitRecipe(root,two);
- const samples=pcm(await resolveAssetObject(root,(result.manifest.variants.strong as VariantManifest).audio.cue));
+ const samples=pcm(await resolveAssetObject(root,result.manifest.variants.strong.audio.cue));
  const a=(amp:number,i:number)=>[0,amp,0,-amp][i%4]!;
  assert.deepEqual(samples,Array.from({length:96},(_,i)=>a(2000,i)+(i>=48?a(1000,i-48):0)));
 }));
@@ -119,7 +117,7 @@ test("frozen reward and harvest presets produce audible cues and visible reduced
   const result=await executeFeedbackKitRecipe(root,preset);
   const peaks:number[]=[];
   for(const intensity of ["strong","subtle"] as const) {
-   const v=result.manifest.variants[intensity] as VariantManifest,samples=pcm(await resolveAssetObject(root,v.audio.cue));
+   const v=result.manifest.variants[intensity],samples=pcm(await resolveAssetObject(root,v.audio.cue));
    assert.equal(samples.length,v.audio.frameCount);
    peaks.push(Math.max(...samples.map(Math.abs)));
    assert.ok(peaks.at(-1)!>0 && peaks.at(-1)!<32767);

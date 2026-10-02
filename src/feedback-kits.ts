@@ -88,6 +88,13 @@ export function normalizeFeedbackKitRecipe(value:unknown):FeedbackKitRecipe {
  return {schemaVersion:1,kit:p.kit,concurrency:{maxActive:integer(c.maxActive,"concurrency maxActive",1,8),overflow:c.overflow},variants};
 }
 
+export type FeedbackKitVariantManifest={
+ visual:{onsetMs:number;durationMs:number;loop:false;atlas:AssetRef;image:AssetRef;reducedMotion:{frameId:string;image:AssetRef}};
+ audio:{onsetMs:number;durationMs:number;cue:AssetRef;sampleRate:typeof FEEDBACK_KIT_SAMPLE_RATE;channels:1;frameCount:number;clipping:"amplitude-sum-headroom"};
+ endMs:number};
+export type FeedbackKitManifest={schemaVersion:1;kit:string;recipeSha256:string;presentation:"cosmetic-only";
+ time:{unit:"ms";origin:"accepted-cosmetic-event"};concurrency:FeedbackKitRecipe["concurrency"];
+ variants:Record<FeedbackKitIntensity,FeedbackKitVariantManifest>};
 type Step={build:AssetOperationBuildIdentity;output:AssetRef};
 async function step(signal:AbortSignal|undefined,create:()=>Promise<AssetOperationBuildIdentity>,execute:()=>Promise<{outputs:Record<string,unknown>}>):Promise<Step> {
  signal?.throwIfAborted();
@@ -117,7 +124,8 @@ export async function executeFeedbackKitRecipe(root:string,value:unknown,{signal
  if(typeof root!=="string" || !path.isAbsolute(root)) throw new Error("feedback kit root must be absolute");
  signal?.throwIfAborted();
  const recipe=normalizeFeedbackKitRecipe(value),recipeSha256=sha256Text(canonicalJson(recipe));
- const variants:Record<string,unknown>={},evidence:Record<string,unknown>={};
+ const variants:Partial<Record<FeedbackKitIntensity,FeedbackKitVariantManifest>>={};
+ const evidence:Partial<Record<FeedbackKitIntensity,{visual:Awaited<ReturnType<typeof executeAuthoredEffectSequenceRecipe>>;audioSteps:Step[]}>>={};
  let operations=0;
  for(const intensity of FEEDBACK_KIT_INTENSITIES) {
   const v=recipe.variants[intensity];
@@ -135,12 +143,13 @@ export async function executeFeedbackKitRecipe(root:string,value:unknown,{signal
   evidence[intensity]={visual,audioSteps:audio.steps};
   operations+=visual.execution.artworkOperations+visual.execution.atlasOperations+audio.steps.length;
  }
- const manifest={schemaVersion:1,kit:recipe.kit,recipeSha256,presentation:"cosmetic-only",
-  time:{unit:"ms",origin:"accepted-cosmetic-event"},concurrency:recipe.concurrency,variants};
+ const manifest:FeedbackKitManifest={schemaVersion:1,kit:recipe.kit,recipeSha256,presentation:"cosmetic-only",
+  time:{unit:"ms",origin:"accepted-cosmetic-event"},concurrency:recipe.concurrency,
+  variants:{strong:variants.strong!,subtle:variants.subtle!}};
  signal?.throwIfAborted();
  const stored=await storeAssetObject(root,{bytes:Buffer.from(`${canonicalJson(manifest)}\n`),kind:"feedback-kit",mediaType:FEEDBACK_KIT_MEDIA_TYPE,
   metadata:{kit:recipe.kit,recipeSha256,intensities:[...FEEDBACK_KIT_INTENSITIES]}});
- return {schemaVersion:1,recipe,recipeSha256,manifest,kit:stored.asset,evidence,
+ return {schemaVersion:1 as const,recipe,recipeSha256,manifest,kit:stored.asset,evidence:{strong:evidence.strong!,subtle:evidence.subtle!},
   execution:{operations,randomness:"none",motionEvaluations:0,audioScheduling:"none"}};
 }
 
