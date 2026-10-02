@@ -39,6 +39,7 @@ const expectedSourceExports: Record<string, string> = {
   "./recipes/corn": "./src/corn-recipes.ts",
   "./recipes/transition-tiles": "./src/transition-tile-recipes.ts",
   "./recipes/tree-appearances": "./src/tree-appearance-recipes.ts",
+  "./recipes/surface-appearances": "./src/surface-appearance-recipes.ts",
   "./examples/selected-bundle": "./examples/selected-bundle/adoption.ts",
   ".": "./src/index.ts",
   "./operations": "./src/operations.ts",
@@ -98,7 +99,6 @@ const expectedSourceExports: Record<string, string> = {
   "./recipes/surface-textures": "./src/surface-texture-recipes.ts",
   "./recipes/leaf-artwork": "./src/leaf-artwork-recipes.ts",
   "./recipes/authored-effect-sequences": "./src/authored-effect-sequences.ts",
-  "./recipes/surface-appearances": "./src/surface-appearance-recipes.ts",
   "./recipes/production-props": "./src/production-prop-kit.ts",
 };
 

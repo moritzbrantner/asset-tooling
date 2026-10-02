@@ -49,9 +49,6 @@
     "test/wood-surfaces.test.ts",
     "examples/wood-surfaces/build.ts",
     "examples/wood-surfaces/render.ts",
-    "src/surface-appearance-recipes.ts",
-    "test/surface-appearance-recipes.test.ts",
-    "examples/surface-appearances/build.ts",
     "src/authored-effect-sequences.ts",
     "test/authored-effect-sequences.test.ts",
     "examples/authored-effect-sequences/build.ts",
@@ -113,6 +110,9 @@
     "src/dependency-lock.ts",
     "scripts/prepare-package.ts",
     "src/tree-appearance-recipes.ts",
+    "src/surface-appearance-recipes.ts",
+    "test/surface-appearance-recipes.test.ts",
+    "examples/surface-appearances/build.ts",
     "test/tree-appearance-recipes.test.ts",
     "examples/tree-appearances/build.ts"
   ]

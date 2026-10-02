@@ -137,11 +137,11 @@ For controlled grain direction and length, see the [wood surface presets](docs/s
 
 [Authored effect frame sequences](docs/authored-effect-sequences.md) compose explicit puff/ring poses and millisecond schedules into the existing atlas format, with preserved frame IDs/pivots, transparent one-shot endings and cancellation between stages.
 
-[Surface appearance families](docs/surface-appearances.md) derive dry/damp/wet-style states from one tileable surface. Height and normal stay shared and verified, and only each state's color and roughness are rebuilt.
-
 The [selected-bundle adoption example](examples/selected-bundle/README.md) consumes the installed public package, verifies real recipe pixels and distribution provenance, and documents a clean consumer setup using the existing native generator.
 
 [Native-ground tree appearances](docs/tree-appearances.md) derive explicit summer/autumn/winter foliage states from one accepted master, preserving bark, geometry and placement while supporting isolated material edits.
+
+[Surface appearance families](docs/surface-appearances.md) derive dry/damp/wet-style states from one tileable surface. Height and normal stay shared and verified, and only each state's color and roughness are rebuilt.
 
 [Authored Wheat appearances](examples/wheat/README.md) provide bounded early/mature/harvested-looking static meshes, isolated leaf palettes and derived icons through the existing Blender, material and bundle contracts. [Corn appearances](examples/corn/README.md) reuse the same native authoring and selected-package path with broader leaves, a side ear and a tassel.
 
