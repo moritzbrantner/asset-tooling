@@ -137,6 +137,8 @@ For controlled grain direction and length, see the [wood surface presets](docs/s
 
 [Authored effect frame sequences](docs/authored-effect-sequences.md) compose explicit puff/ring poses and millisecond schedules into the existing atlas format, with preserved frame IDs/pivots, transparent one-shot endings and cancellation between stages.
 
+[Feedback kits](docs/feedback-kits.md) pair an authored effect sequence with a synthesized, clip-free WAV cue per strong/subtle intensity, a reduced-motion still and declared onsets/concurrency in one content-addressed manifest.
+
 The [selected-bundle adoption example](examples/selected-bundle/README.md) consumes the installed public package, verifies real recipe pixels and distribution provenance, and documents a clean consumer setup using the existing native generator.
 
 [Native-ground tree appearances](docs/tree-appearances.md) derive explicit summer/autumn/winter foliage states from one accepted master, preserving bark, geometry and placement while supporting isolated material edits.
