@@ -113,6 +113,9 @@
     "src/dependency-lock.ts",
     "scripts/prepare-package.ts",
     "src/tree-appearance-recipes.ts",
+    "src/surface-appearance-recipes.ts",
+    "test/surface-appearance-recipes.test.ts",
+    "examples/surface-appearances/build.ts",
     "test/tree-appearance-recipes.test.ts",
     "examples/tree-appearances/build.ts"
   ]
