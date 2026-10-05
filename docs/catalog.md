@@ -124,6 +124,17 @@ Prefer these normalized delivery boundaries where the owning processor supports 
 
 Git LFS stores accepted source/master payloads. Format conversion still belongs to typed asset operations so every derived output receives its own content identity and source lineage.
 
+## Pages gallery composition
+
+The GitHub Pages asset gallery is a presentation surface over two distinct authorities:
+
+- validated third-party source records from `catalog/providers.json`, `catalog/sources.json`, and `catalog/storage.json`;
+- reusable built-in asset recipes derived from their existing exported preset owners.
+
+Recipe cards use the `recipe` state and describe generation-on-demand capability. They do not invent source URLs, license evidence, content hashes, or canonical-storage claims for bytes that have not been promoted through the catalog boundary. Adding a preset to a represented recipe family automatically adds its gallery entry.
+
+The published `dist/pages/catalog.json` remains the source-catalog view. The HTML gallery and per-asset pages may compose generated recipe entries for browsing without turning those presentation records into catalog provenance.
+
 ## Fleet rollout
 
 The rollout is deliberately vertical:
