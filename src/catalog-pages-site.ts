@@ -39,7 +39,7 @@ function previewConfig(asset) {
 function previewKind(asset) {
   if (asset.mediaType === "application/zip" || asset.kind.includes("pack")) return "archive";
   if (asset.kind === "hdri" || asset.mediaType === "image/x-exr") return "hdri";
-  if (asset.mediaType.startsWith("image/")) return "image";
+  if (asset.mediaType.startsWith("image/") || asset.kind === "image" || asset.kind === "texture") return "image";
   if (asset.mediaType.startsWith("audio/") || asset.kind === "audio") return "audio";
   if (asset.mediaType.startsWith("model/") || asset.kind === "mesh" || asset.kind === "animation") return "model";
   return "asset";
@@ -224,6 +224,8 @@ function searchableText(asset) {
     asset.license.spdx,
     asset.license.attribution,
     asset.metadata.purpose,
+    asset.metadata.recipe,
+    asset.metadata.availability,
     ...asset.tags,
   ]
     .filter(Boolean)
@@ -519,6 +521,9 @@ const sharedPreviewCss = `
 `;
 
 export function renderCatalogGalleryHtml(model) {
+  const states = [...new Set(model.assets.map((asset) => asset.state))]
+    .sort()
+    .map((value) => ({ value, label: value }));
   const kinds = [...new Set(model.assets.map((asset) => asset.kind))]
     .sort()
     .map((value) => ({ value, label: value }));
@@ -581,12 +586,12 @@ export function renderCatalogGalleryHtml(model) {
 <main>
   <header>
     <h1>Asset gallery</h1>
-    <p>Browse assets visually first. Provenance, hashes, license evidence, source paths, and storage details are kept on each asset's individual page.</p>
+    <p>Browse reusable source assets and built-in asset recipes in one place. Source entries keep provenance and storage evidence; recipe entries show assets that asset-tooling can generate on demand.</p>
     <p class="page-actions"><a href="generate/">Generate a 3D asset in this browser</a></p>
   </header>
   <section class="controls" aria-label="Asset filters">
     <input id="search" type="search" placeholder="Search assets…" aria-label="Search assets">
-    <select id="state" aria-label="Filter by state"><option value="">All states</option>${selectOptions(["candidate", "pinned", "canonical"].map((value) => ({ value, label: value })))}</select>
+    <select id="state" aria-label="Filter by state"><option value="">All states</option>${selectOptions(states)}</select>
     <select id="kind" aria-label="Filter by kind"><option value="">All kinds</option>${selectOptions(kinds)}</select>
     <select id="provider" aria-label="Filter by provider"><option value="">All providers</option>${selectOptions(providers)}</select>
   </section>
@@ -651,6 +656,10 @@ export function renderCatalogAssetHtml(asset) {
     detailRow("License", asset.license.spdx, { code: true }),
     detailRow("Attribution", asset.license.attribution),
     detailRow("Purpose", asset.metadata.purpose),
+    detailRow("Recipe", asset.metadata.recipe, { code: true }),
+    detailRow("Availability", asset.metadata.availability),
+    detailRow("Variants", Array.isArray(asset.metadata.variants) ? asset.metadata.variants.join(", ") : null),
+    detailRow("Tile count", asset.metadata.tileCount),
     detailRow("Revision", asset.source.revision, { code: true }),
     detailRow("Source path", asset.source.path, { code: true }),
     detailRow("SHA-256", asset.source.sha256, { code: true }),
