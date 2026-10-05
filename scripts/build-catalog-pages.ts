@@ -22,15 +22,15 @@ const [providers, sources, storage] = await Promise.all([
   readJson("catalog/storage.json"),
 ]);
 const catalogModel = createCatalogPagesModel({ providers, sources, storage });
-const model = extendCatalogGalleryModel(catalogModel);
-const html = renderCatalogGalleryHtml(model);
+const galleryModel = extendCatalogGalleryModel(catalogModel);
+const html = renderCatalogGalleryHtml(galleryModel);
 
 await mkdir(outputRoot, { recursive: true });
 await writeFile(path.join(outputRoot, "index.html"), html, "utf8");
-await writeFile(path.join(outputRoot, "catalog.json"), `${JSON.stringify(model, null, 2)}\n`, "utf8");
+await writeFile(path.join(outputRoot, "catalog.json"), `${JSON.stringify(catalogModel, null, 2)}\n`, "utf8");
 await writeFile(path.join(outputRoot, ".nojekyll"), "", "utf8");
 
-for (const asset of model.assets) {
+for (const asset of galleryModel.assets) {
   const assetRoot = path.join(outputRoot, "assets", encodeURIComponent(asset.id));
   await mkdir(assetRoot, { recursive: true });
   await writeFile(path.join(assetRoot, "index.html"), renderCatalogAssetHtml(asset), "utf8");
