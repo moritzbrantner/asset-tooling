@@ -533,6 +533,9 @@ export function renderCatalogGalleryHtml(model) {
   const hasModel = model.assets.some(assetHasModelPreview);
   const hasCarousel = model.assets.some(assetHasCarousel);
   const hasHdri = model.assets.some(assetHasHdriPreview);
+  const description = asset.state === "recipe"
+    ? `Preview and generation recipe details for ${asset.title}.`
+    : `Preview and provenance details for ${asset.title}.`;
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -665,9 +668,9 @@ export function renderCatalogAssetHtml(asset) {
     detailRow("SHA-256", asset.source.sha256, { code: true }),
     detailRow("Byte length", asset.source.byteLength, { code: true }),
     asset.storage ? detailRow("Canonical storage", `${asset.storage.kind} · ${asset.storage.path}`, { code: true }) : "",
-    detailRow("Source", "Open source asset", { href: asset.source.url }),
-    detailRow("License evidence", "Open license evidence", { href: asset.license.evidenceUrl }),
-    detailRow("Provider", "Open provider", { href: asset.provider.homepage }),
+    asset.source.url ? detailRow("Source", "Open source asset", { href: asset.source.url }) : "",
+    asset.license.evidenceUrl ? detailRow("License evidence", "Open license evidence", { href: asset.license.evidenceUrl }) : "",
+    asset.provider.homepage ? detailRow("Provider", "Open provider", { href: asset.provider.homepage }) : "",
   ].join("");
   const tags = asset.tags.length ? `<div class="tags">${renderTags(asset.tags)}</div>` : "";
   const hasAudio = assetHasAudioPreview(asset);
@@ -680,7 +683,7 @@ export function renderCatalogAssetHtml(asset) {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>${escapeHtml(asset.title)} · asset-tooling</title>
-  <meta name="description" content="Preview and provenance details for ${escapeHtml(asset.title)}.">
+  <meta name="description" content="${escapeHtml(description)}">
   ${modelViewerModuleScript(hasModel)}
   <style>
     :root { color-scheme: light dark; font-family: ui-sans-serif, system-ui, sans-serif; }
