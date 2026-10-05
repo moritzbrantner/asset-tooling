@@ -61,10 +61,10 @@ function recipeAsset({ id, title, kind, mediaType = "", recipe, purpose, tags = 
   };
 }
 
-function presetAssets(presets, { prefix, kind, mediaType = "", recipe, purpose, tags = [] }) {
+function presetAssets(presets, { prefix, titlePrefix = null, kind, mediaType = "", recipe, purpose, tags = [] }) {
   return Object.keys(presets).map((id) => recipeAsset({
     id: `${prefix}.${id}`,
-    title: titleCase(id),
+    title: titlePrefix ? `${titlePrefix} — ${titleCase(id)}` : titleCase(id),
     kind,
     mediaType,
     recipe,
@@ -86,6 +86,7 @@ export function createGeneratedGalleryAssets() {
     })),
     ...presetAssets(ROCK_PRESETS, {
       prefix: "rock",
+      titlePrefix: "Rock",
       kind: "mesh",
       mediaType: "model/gltf-binary",
       recipe: "asset-tooling/recipes/rocks",
@@ -94,6 +95,7 @@ export function createGeneratedGalleryAssets() {
     }),
     ...presetAssets(TREE_PRESETS, {
       prefix: "tree",
+      titlePrefix: "Tree",
       kind: "mesh",
       mediaType: "model/gltf-binary",
       recipe: "asset-tooling/recipes/trees",
@@ -102,6 +104,7 @@ export function createGeneratedGalleryAssets() {
     }),
     ...presetAssets(GRASS_PRESETS, {
       prefix: "grass",
+      titlePrefix: "Grass",
       kind: "mesh",
       mediaType: "model/gltf-binary",
       recipe: "asset-tooling/recipes/grass",
@@ -110,6 +113,7 @@ export function createGeneratedGalleryAssets() {
     }),
     ...presetAssets(WHEAT_PRESETS, {
       prefix: "wheat",
+      titlePrefix: "Wheat",
       kind: "mesh",
       mediaType: "model/gltf-binary",
       recipe: "asset-tooling/recipes/wheat",
@@ -118,6 +122,7 @@ export function createGeneratedGalleryAssets() {
     }),
     ...presetAssets(CORN_PRESETS, {
       prefix: "corn",
+      titlePrefix: "Corn",
       kind: "mesh",
       mediaType: "model/gltf-binary",
       recipe: "asset-tooling/recipes/corn",
@@ -126,6 +131,7 @@ export function createGeneratedGalleryAssets() {
     }),
     ...presetAssets(FENCE_PRESETS, {
       prefix: "fence",
+      titlePrefix: "Fence",
       kind: "mesh",
       mediaType: "model/gltf-binary",
       recipe: "asset-tooling/recipes/fence",
@@ -151,6 +157,7 @@ export function createGeneratedGalleryAssets() {
     })),
     ...presetAssets(LEAF_ARTWORK_PRESETS, {
       prefix: "leaf",
+      titlePrefix: "Leaf",
       kind: "image",
       mediaType: RGBA8_IMAGE_MEDIA_TYPE,
       recipe: "asset-tooling/recipes/leaf-artwork",
