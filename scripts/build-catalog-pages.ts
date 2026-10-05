@@ -83,7 +83,7 @@ if (!browserBuild.success) {
 console.log(JSON.stringify({
   status: "built",
   assets: galleryModel.assets.length,
-  detailPages: model.assets.length,
+  detailPages: galleryModel.assets.length,
   browser3DStudio: true,
   output: "dist/pages",
 }));
