@@ -7,6 +7,7 @@ import {
   renderCatalogGalleryHtml,
 } from "../src/catalog-pages-site.js";
 import { renderBrowser3DStudioHtml } from "../src/browser-pages-site.js";
+import { extendCatalogGalleryModel } from "../src/generated-gallery-assets.js";
 
 const root = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
 const outputRoot = path.join(root, "dist", "pages");
@@ -20,7 +21,8 @@ const [providers, sources, storage] = await Promise.all([
   readJson("catalog/sources.json"),
   readJson("catalog/storage.json"),
 ]);
-const model = createCatalogPagesModel({ providers, sources, storage });
+const catalogModel = createCatalogPagesModel({ providers, sources, storage });
+const model = extendCatalogGalleryModel(catalogModel);
 const html = renderCatalogGalleryHtml(model);
 
 await mkdir(outputRoot, { recursive: true });
