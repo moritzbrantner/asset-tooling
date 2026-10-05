@@ -213,3 +213,27 @@ export function createGeneratedGalleryAssets() {
 export function generatedGalleryProvider() {
   return { ...PROVIDER };
 }
+
+
+export function extendCatalogGalleryModel(model) {
+  const generated = createGeneratedGalleryAssets();
+  const ids = new Set(model.assets.map((asset) => asset.id));
+  for (const asset of generated) {
+    if (ids.has(asset.id)) throw new Error(`generated gallery asset '${asset.id}' conflicts with a catalog source`);
+    ids.add(asset.id);
+  }
+
+  const provider = generatedGalleryProvider();
+  const providers = model.providers.filter((entry) => entry.id !== provider.id);
+  providers.push({
+    id: provider.id,
+    label: provider.label,
+    distribution: provider.distribution,
+  });
+
+  return {
+    ...model,
+    assets: [...model.assets, ...generated].sort((left, right) => left.id.localeCompare(right.id)),
+    providers: providers.sort((left, right) => left.id.localeCompare(right.id)),
+  };
+}
