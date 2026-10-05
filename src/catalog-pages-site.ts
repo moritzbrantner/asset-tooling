@@ -533,9 +533,6 @@ export function renderCatalogGalleryHtml(model) {
   const hasModel = model.assets.some(assetHasModelPreview);
   const hasCarousel = model.assets.some(assetHasCarousel);
   const hasHdri = model.assets.some(assetHasHdriPreview);
-  const description = asset.state === "recipe"
-    ? `Preview and generation recipe details for ${asset.title}.`
-    : `Preview and provenance details for ${asset.title}.`;
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -677,6 +674,9 @@ export function renderCatalogAssetHtml(asset) {
   const hasModel = assetHasModelPreview(asset);
   const hasCarousel = assetHasCarousel(asset);
   const hasHdri = assetHasHdriPreview(asset);
+  const description = asset.state === "recipe"
+    ? `Preview and generation recipe details for ${asset.title}.`
+    : `Preview and provenance details for ${asset.title}.`;
   return `<!doctype html>
 <html lang="en">
 <head>
