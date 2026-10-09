@@ -7,6 +7,7 @@ import {
   renderCatalogGalleryHtml,
 } from "../src/catalog-pages-site.js";
 import { renderBrowser3DStudioHtml } from "../src/browser-pages-site.js";
+import { extendCatalogGalleryModel } from "../src/generated-gallery-assets.js";
 
 const root = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
 const outputRoot = path.join(root, "dist", "pages");
@@ -20,15 +21,16 @@ const [providers, sources, storage] = await Promise.all([
   readJson("catalog/sources.json"),
   readJson("catalog/storage.json"),
 ]);
-const model = createCatalogPagesModel({ providers, sources, storage });
-const html = renderCatalogGalleryHtml(model);
+const catalogModel = createCatalogPagesModel({ providers, sources, storage });
+const galleryModel = extendCatalogGalleryModel(catalogModel);
+const html = renderCatalogGalleryHtml(galleryModel);
 
 await mkdir(outputRoot, { recursive: true });
 await writeFile(path.join(outputRoot, "index.html"), html, "utf8");
-await writeFile(path.join(outputRoot, "catalog.json"), `${JSON.stringify(model, null, 2)}\n`, "utf8");
+await writeFile(path.join(outputRoot, "catalog.json"), `${JSON.stringify(catalogModel, null, 2)}\n`, "utf8");
 await writeFile(path.join(outputRoot, ".nojekyll"), "", "utf8");
 
-for (const asset of model.assets) {
+for (const asset of galleryModel.assets) {
   const assetRoot = path.join(outputRoot, "assets", encodeURIComponent(asset.id));
   await mkdir(assetRoot, { recursive: true });
   await writeFile(path.join(assetRoot, "index.html"), renderCatalogAssetHtml(asset), "utf8");
@@ -80,8 +82,8 @@ if (!browserBuild.success) {
 
 console.log(JSON.stringify({
   status: "built",
-  assets: model.assets.length,
-  detailPages: model.assets.length,
+  assets: galleryModel.assets.length,
+  detailPages: galleryModel.assets.length,
   browser3DStudio: true,
   output: "dist/pages",
 }));
