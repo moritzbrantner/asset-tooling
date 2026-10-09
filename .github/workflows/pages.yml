@@ -23,6 +23,7 @@ on:
       - "src/authored-effect-sequences.ts"
       - "src/feedback-kits.ts"
       - "src/transition-tile-recipes.ts"
+      - "src/image-rgba8.ts"
       - "src/browser-pages-site.ts"
       - "src/browser/**"
       - "src/image-border-white-alpha-core.ts"
