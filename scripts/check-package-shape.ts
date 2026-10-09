@@ -56,6 +56,7 @@ const expectedSourceExports: Record<string, string> = {
   "./operations/generation/triposr": "./src/triposr-operation.ts",
   "./operations/generation/stable-fast-3d": "./src/stable-fast-3d-operation.ts",
   "./operations/generation/trellis2": "./src/trellis2-operation.ts",
+  "./operations/generation/image-to-3d": "./src/image-to-3d-operation.ts",
   "./operations/processing": "./src/processing-operations.ts",
   "./operations/processing/animation": "./src/animation-processing-operations.ts",
   "./operations/processing/scene": "./src/scene-processing-operations.ts",
