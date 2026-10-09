@@ -329,6 +329,18 @@ test("output must deliver the requested material level", async () => {
   unused.createScene().addChild(unused.createNode().setMesh(mesh));
   assert.equal(glbMaterialLevel(Buffer.from(await new NodeIO().writeBinary(unused))), "geometry");
 
+  // A textured mesh no scene node renders is not delivered output.
+  const orphan = new Document();
+  const orphanBuffer = orphan.createBuffer();
+  const orphanPosition = orphan
+    .createAccessor()
+    .setType("VEC3")
+    .setArray(new Float32Array([0, 0, 0, 1, 0, 0, 0, 1, 0]))
+    .setBuffer(orphanBuffer);
+  orphan.createMesh().addPrimitive(orphan.createPrimitive().setAttribute("POSITION", orphanPosition));
+  orphan.createScene().addChild(orphan.createNode("empty"));
+  assert.equal(glbMaterialLevel(Buffer.from(await new NodeIO().writeBinary(orphan))), "none");
+
   const jpeg = await sf3dRequest(root);
   jpeg.inputs.views = [await store(root, "jpeg-view", "image", "image/jpeg")];
   await assert.rejects(
