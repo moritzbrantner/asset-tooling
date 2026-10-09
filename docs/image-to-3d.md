@@ -24,17 +24,17 @@
 
 ## Providers
 
-| Provider | Backend | Views | Masks | Materials | Seed | Assets |
-| --- | --- | --- | --- | --- | --- | --- |
-| `trellis2` | `model.trellis2@1` | 1 | no | pbr | required | source, model, legacy-decoder, image-encoder |
-| `stable-fast-3d` | `model.stable-fast-3d@1` | 1 | no | textured | none | source, model, tokenizer |
-| `triposr` | `model.triposr@1` | 1 | no | geometry | none | model |
+| Provider | Backend | Views | View media | Masks | Materials | Seed | Assets |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `trellis2` | `model.trellis2@1` | 1 | PNG | no | pbr | required | source, model, legacy-decoder, image-encoder |
+| `stable-fast-3d` | `model.stable-fast-3d@1` | 1 | PNG | no | textured | none | source, model, tokenizer |
+| `triposr` | `model.triposr@1` | 1 | PNG, JPEG | no | geometry | none | model |
 
-`IMAGE_TO_3D_PROVIDERS` exports this table. A request the selected provider cannot honor — too many views, masks, a stronger material requirement, a seed mismatch, or reordered assets — fails closed instead of being silently degraded. The local providers take a single prepared view; the multi-view and mask ports exist so future providers (for example a cloud multi-view adapter) share the same contract.
+`IMAGE_TO_3D_PROVIDERS` exports this table. A request the selected provider cannot honor — too many views, a view format it cannot read (alpha-dependent providers need PNG), masks, a stronger material requirement, a seed mismatch, or reordered assets — fails closed instead of being silently degraded. The local providers take a single prepared view; the multi-view and mask ports exist so future providers (for example a cloud multi-view adapter) share the same contract.
 
 ## Output and evidence
 
-The output is one `model/gltf-binary` mesh. The provider's raw bytes are validated before the delegated operation can store them and again before the facade stores or caches its output: they must pass the Khronos glTF validator (`validateGltf`) and deliver the requested material level — mesh geometry for `geometry`, a base-color texture for `textured`, and base-color plus metallic-roughness textures for `pbr` (`glbMaterialLevel`). The delegated operation's runtime fingerprint must equal the one in the prepared build identity; a runtime change between preparation and generation fails instead of caching output under the wrong environment. Its metadata records the operation, provider id/model/revision/backend/delegated operation, provider parameters, each provider asset role with its SHA-256, each view's index/id/viewpoint/SHA-256/media type (and mask SHA-256), description, quality, requirements, seed, the reproducibility label, and the validation warning count.
+The output is one `model/gltf-binary` mesh. The provider's raw bytes are validated before the delegated operation can store them and again before the facade stores or caches its output: they must pass the Khronos glTF validator (`validateGltf`) and deliver the requested material level on every rendered primitive's assigned material (unused materials do not count) — mesh geometry for `geometry`, a base-color texture for `textured`, and base-color plus metallic-roughness textures for `pbr` (`glbMaterialLevel`). The delegated operation's runtime fingerprint must equal the one in the prepared build identity; a runtime change between preparation and generation fails instead of caching output under the wrong environment. Its metadata records the operation, provider id/model/revision/backend/delegated operation, provider parameters, each provider asset role with its SHA-256, each view's index/id/viewpoint/SHA-256/media type (and mask SHA-256), description, quality, requirements, seed, the reproducibility label, and the validation warning count.
 
 Outputs are labeled `approximate` when the backend declares `exactCapable: false` (every current image-to-3D backend) and `unverified-exact-capable` otherwise. Exactness is earned only by an authoritative replay that reproduces the bytes, so this operation never labels a first output `exact`; a seed or deterministic-algorithm switch never upgrades the label.
 

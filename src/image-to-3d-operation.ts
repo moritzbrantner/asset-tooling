@@ -154,6 +154,7 @@ const PROVIDERS = Object.freeze({
     id: "triposr",
     backend: { id: "model.triposr", version: "1" },
     operation: TRIPOSR_MESH_OPERATION,
+    viewMediaTypes: ["image/png", "image/jpeg"],
     maxViews: 1,
     masks: false,
     materials: "geometry",
@@ -173,6 +174,7 @@ const PROVIDERS = Object.freeze({
     id: "stable-fast-3d",
     backend: { id: "model.stable-fast-3d", version: "1" },
     operation: STABLE_FAST_3D_MESH_OPERATION,
+    viewMediaTypes: ["image/png"],
     maxViews: 1,
     masks: false,
     materials: "textured",
@@ -197,6 +199,7 @@ const PROVIDERS = Object.freeze({
     id: "trellis2",
     backend: { id: "model.trellis2", version: "1" },
     operation: TRELLIS2_MESH_OPERATION,
+    viewMediaTypes: ["image/png"],
     maxViews: 1,
     masks: false,
     materials: "pbr",
@@ -228,6 +231,7 @@ export const IMAGE_TO_3D_PROVIDERS = Object.freeze(
       backend: Object.freeze({ ...provider.backend }),
       operation: Object.freeze({ id: provider.operation.id, version: provider.operation.version }),
       maxViews: provider.maxViews,
+      viewMediaTypes: Object.freeze([...provider.viewMediaTypes]),
       masks: provider.masks,
       materials: provider.materials,
       seed: provider.seed,
@@ -373,6 +377,13 @@ function assertProviderCapabilities(provider, parameters, inputs) {
     throw new Error(
       `${location} accepts at most ${provider.maxViews} view(s); got ${inputs.views.length}`,
     );
+  }
+  for (const [index, view] of inputs.views.entries()) {
+    if (!provider.viewMediaTypes.includes(view.mediaType)) {
+      throw new Error(
+        `${location} cannot read view ${index} as ${view.mediaType}; it accepts ${provider.viewMediaTypes.join(", ")}`,
+      );
+    }
   }
   if (inputs.masks !== undefined && !provider.masks) {
     throw new Error(`${location} does not accept separate masks; prepare the view instead`);
@@ -531,14 +542,21 @@ export function glbMaterialLevel(bytes, location = "GLB") {
     (mesh.primitives ?? []).some((primitive) => primitive.attributes?.POSITION !== undefined),
   );
   if (!hasGeometry) return "none";
+  // Only materials assigned to rendered geometry count; unused materials do not.
   const materials = json.materials ?? [];
-  const textured = materials.filter(
-    (material) => material.pbrMetallicRoughness?.baseColorTexture !== undefined,
+  const levels = (json.meshes ?? []).flatMap((mesh) =>
+    (mesh.primitives ?? [])
+      .filter((primitive) => primitive.attributes?.POSITION !== undefined)
+      .map((primitive) => {
+        const pbr = materials[primitive.material]?.pbrMetallicRoughness;
+        if (pbr?.baseColorTexture === undefined) return "geometry";
+        return pbr.metallicRoughnessTexture === undefined ? "textured" : "pbr";
+      }),
   );
-  if (textured.some((material) => material.pbrMetallicRoughness?.metallicRoughnessTexture !== undefined)) {
-    return "pbr";
-  }
-  return textured.length > 0 ? "textured" : "geometry";
+  // Every rendered primitive must meet the level, so report the weakest.
+  return levels.reduce((weakest, level) =>
+    MATERIAL_LEVELS.indexOf(level) < MATERIAL_LEVELS.indexOf(weakest) ? level : weakest,
+  );
 }
 
 /** Khronos validation plus the requested material level, before any storage. */

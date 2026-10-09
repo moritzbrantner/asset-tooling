@@ -315,6 +315,30 @@ test("output must deliver the requested material level", async () => {
   await assert.rejects(execute(root, request), /delivers geometry output, not the required textured/);
   assert.equal(await objectCount(root), before);
   assert.equal(glbMaterialLevel(await texturedGlb()), "textured");
+  // An unused textured material does not make untextured geometry textured.
+  const unused = new Document();
+  const buffer = unused.createBuffer();
+  const position = unused
+    .createAccessor()
+    .setType("VEC3")
+    .setArray(new Float32Array([0, 0, 0, 1, 0, 0, 0, 1, 0]))
+    .setBuffer(buffer);
+  const texture = unused.createTexture("albedo").setImage(PNG_1X1).setMimeType("image/png");
+  unused.createMaterial("unused").setBaseColorTexture(texture);
+  const mesh = unused.createMesh().addPrimitive(unused.createPrimitive().setAttribute("POSITION", position));
+  unused.createScene().addChild(unused.createNode().setMesh(mesh));
+  assert.equal(glbMaterialLevel(Buffer.from(await new NodeIO().writeBinary(unused))), "geometry");
+
+  const jpeg = await sf3dRequest(root);
+  jpeg.inputs.views = [await store(root, "jpeg-view", "image", "image/jpeg")];
+  await assert.rejects(
+    createImageTo3DOperationBuildIdentity(root, jpeg, {
+      backends: {
+        "stable-fast-3d": fakeBackend("model.stable-fast-3d", { bytes: texturedGlb, calls: [] }),
+      },
+    }),
+    /cannot read view 0 as image\/jpeg/,
+  );
 });
 
 test("a runtime change after preparation fails instead of generating", async () => {
