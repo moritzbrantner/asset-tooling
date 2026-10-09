@@ -1,8 +1,10 @@
 import path from "node:path";
 import { resolveAssetObject, storeAssetObject, verifyAssetObject } from "./asset-store.js";
+import { normalizeGenerationResult } from "./backend-contract.js";
 import { getBackend } from "./backends.js";
 import { readGenerationCache, writeGenerationCache } from "./cache.js";
 import { canonicalJson } from "./canonical.js";
+import { captureEnvironment } from "./environment.js";
 import { validateGltf } from "./gltf-processing.js";
 import { sha256Bytes, sha256Text } from "./hash.js";
 import {
@@ -34,6 +36,8 @@ const MAX_VIEWS = 16;
 const MAX_PROVIDER_ASSETS = 8;
 const TOKEN_PATTERN = /^[a-z0-9]+(?:[._-][a-z0-9]+)*$/;
 const SEED_PATTERN = /^(0|[1-9][0-9]*)$/;
+/** Immutable provider revisions are full commit digests (SHA-1 or SHA-256). */
+const REVISION_PATTERN = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
 const VIEWPOINTS = [
   "unspecified",
   "front",
@@ -104,7 +108,7 @@ const OPERATION_REGISTRY = createAssetOperationRegistry([
           properties: {
             id: { type: "string", enum: ["triposr", "stable-fast-3d", "trellis2"] },
             modelId: { type: "string", minLength: 1 },
-            modelRevision: { type: "string", minLength: 1 },
+            modelRevision: { type: "string", pattern: REVISION_PATTERN.source },
             assets: { type: "array", items: { type: "string", minLength: 1 } },
             parameters: { type: "object" },
           },
@@ -256,6 +260,15 @@ function assertNonEmptyString(value, location) {
   return value;
 }
 
+function assertRevision(value, location) {
+  if (typeof value !== "string" || !REVISION_PATTERN.test(value)) {
+    throw new Error(
+      `${location} must be an immutable 40- or 64-character lowercase commit digest, not a branch or tag`,
+    );
+  }
+  return value;
+}
+
 function assertEnum(value, allowed, location) {
   if (!allowed.includes(value)) throw new Error(`${location} must be one of ${allowed.join(", ")}`);
   return value;
@@ -283,7 +296,7 @@ function normalizeParameters(value) {
   const provider = {
     id: providerId,
     modelId: assertNonEmptyString(providerValue.modelId, `${location}.provider.modelId`),
-    modelRevision: assertNonEmptyString(
+    modelRevision: assertRevision(
       providerValue.modelRevision,
       `${location}.provider.modelRevision`,
     ),
@@ -433,7 +446,9 @@ async function prepare(root, { parameters = {}, inputs = {} } = {}, backends) {
     seed: normalizedParameters.seed,
   });
   const delegated = await provider.createBuildIdentity(root, delegatedInvocation, backend);
-  const reproducibility = backend.exactCapable ? "exact" : "approximate";
+  // Exactness is earned by replay, never by capability: an exact-capable
+  // backend's first output is only a candidate for exact verification.
+  const reproducibility = backend.exactCapable ? "unverified-exact-capable" : "approximate";
   const identity = createAssetOperationBuildIdentity({
     operation: IMAGE_TO_3D_OPERATION,
     implementation: {
@@ -453,7 +468,14 @@ async function prepare(root, { parameters = {}, inputs = {} } = {}, backends) {
     parameters: request.parameters,
     inputs: request.inputs,
   });
-  return { identity, provider, backend, delegatedInvocation, reproducibility };
+  return {
+    identity,
+    provider,
+    backend,
+    delegatedInvocation,
+    reproducibility,
+    parameters: normalizedParameters,
+  };
 }
 
 export async function createImageTo3DOperationBuildIdentity(root, invocation = {}, { backends } = {}) {
@@ -493,6 +515,70 @@ function provenanceMetadata(identity, provider, reproducibility, validationWarni
   };
 }
 
+function glbJson(bytes, location) {
+  const buffer = Buffer.from(bytes);
+  if (buffer.length < 20 || buffer.readUInt32LE(0) !== 0x46546c67 || buffer.readUInt32LE(16) !== 0x4e4f534a) {
+    throw new Error(`${location} is not a GLB with a leading JSON chunk`);
+  }
+  const length = buffer.readUInt32LE(12);
+  return JSON.parse(buffer.subarray(20, 20 + length).toString("utf8"));
+}
+
+/** The material level a GLB actually delivers, from its glTF JSON. */
+export function glbMaterialLevel(bytes, location = "GLB") {
+  const json = glbJson(bytes, location);
+  const hasGeometry = (json.meshes ?? []).some((mesh) =>
+    (mesh.primitives ?? []).some((primitive) => primitive.attributes?.POSITION !== undefined),
+  );
+  if (!hasGeometry) return "none";
+  const materials = json.materials ?? [];
+  const textured = materials.filter(
+    (material) => material.pbrMetallicRoughness?.baseColorTexture !== undefined,
+  );
+  if (textured.some((material) => material.pbrMetallicRoughness?.metallicRoughnessTexture !== undefined)) {
+    return "pbr";
+  }
+  return textured.length > 0 ? "textured" : "geometry";
+}
+
+/** Khronos validation plus the requested material level, before any storage. */
+async function validateGeneratedGlb(bytes, location, requiredMaterials) {
+  const warnings = await validateGltf(new Uint8Array(bytes), "glb", {}, location);
+  const delivered = glbMaterialLevel(bytes, location);
+  if (MATERIAL_LEVELS.indexOf(delivered) < MATERIAL_LEVELS.indexOf(requiredMaterials)) {
+    throw new Error(`${location} delivers ${delivered} output, not the required ${requiredMaterials}`);
+  }
+  return warnings;
+}
+
+/**
+ * The delegated operation re-fingerprints its runtime and stores the raw
+ * output. This wrapper fails if that runtime differs from the prepared build
+ * identity, and validates generated bytes before the delegate can store them.
+ */
+function guardedBackend(backend, environmentSha256, location, requiredMaterials) {
+  return {
+    id: backend.id,
+    version: backend.version,
+    kind: backend.kind,
+    exactCapable: backend.exactCapable,
+    validate: (document) => backend.validate(document),
+    async environmentComponents(document) {
+      const components = await backend.environmentComponents(document);
+      const environment = await captureEnvironment(components);
+      if (environment.sha256 !== environmentSha256) {
+        throw new Error(`${location} runtime changed after the build identity was prepared`);
+      }
+      return components;
+    },
+    async generate(document) {
+      const generated = normalizeGenerationResult(await backend.generate(document), backend.id);
+      await validateGeneratedGlb(generated.bytes, location, requiredMaterials);
+      return generated;
+    },
+  };
+}
+
 /**
  * Create the provider-neutral executor. `backends` overrides the registered
  * backend per provider id (for tests or alternate runtimes); `cache: false`
@@ -500,7 +586,7 @@ function provenanceMetadata(identity, provider, reproducibility, validationWarni
  */
 export function createImageTo3DOperationExecutor({ backends, cache = true } = {}) {
   return async function executeImageTo3DOperation(root, invocation = {}) {
-    const { identity, provider, backend, delegatedInvocation, reproducibility } = await prepare(
+    const { identity, provider, backend, delegatedInvocation, reproducibility, parameters } = await prepare(
       root,
       invocation,
       backends,
@@ -526,7 +612,13 @@ export function createImageTo3DOperationExecutor({ backends, cache = true } = {}
       bytes = cached.bytes;
       observations = cached.observations;
     } else {
-      const delegatedResult = await provider.createExecutor(backend)(root, delegatedInvocation);
+      const guarded = guardedBackend(
+        backend,
+        identity.implementation.delegated.implementation.environment.sha256,
+        `${OPERATION_ID} ${provider.id} output`,
+        parameters.requirements.materials,
+      );
+      const delegatedResult = await provider.createExecutor(guarded)(root, delegatedInvocation);
       const output = delegatedResult.outputs.output;
       if (output.mediaType !== GLB_MEDIA_TYPE) {
         throw new Error(`${provider.operation.id} returned ${output.mediaType}, not a GLB`);
@@ -535,11 +627,10 @@ export function createImageTo3DOperationExecutor({ backends, cache = true } = {}
       observations = delegatedResult.observations;
     }
 
-    const warnings = await validateGltf(
-      new Uint8Array(bytes),
-      "glb",
-      {},
+    const warnings = await validateGeneratedGlb(
+      bytes,
       `${OPERATION_ID} ${provider.id} output`,
+      parameters.requirements.materials,
     );
     if (cache && cached.status !== "hit") {
       await writeGenerationCache(root, cacheIdentity, { bytes, observations });

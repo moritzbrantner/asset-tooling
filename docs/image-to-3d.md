@@ -13,7 +13,7 @@
 ## Parameters
 
 - `provider.id` — `trellis2`, `stable-fast-3d`, or `triposr`.
-- `provider.modelId`, `provider.modelRevision` — the model identity and immutable revision the bundles were acquired from (see `docs/model-acquisition.md`).
+- `provider.modelId`, `provider.modelRevision` — the model identity and the immutable revision the bundles were acquired from (see `docs/model-acquisition.md`). The revision must be a full 40- or 64-character lowercase commit digest; branches and tags are rejected. Local provider bundles are composite (source, weights, encoders), so the revision is a declared claim recorded beside the exact bundle hashes, which remain the authority.
 - `provider.assets` — role names for `provider-assets`, which must equal the provider's role list in order.
 - `provider.parameters` — the provider operation's own parameters, passed through and validated by that operation. Fields the canonical request owns (TripoSR `outputFormat`, TRELLIS.2 `seed`) are rejected here.
 - `views` — one `{ id, viewpoint }` per view input, in input order. `id` is a unique token; `viewpoint` is `unspecified`, `front`, `back`, `left`, `right`, `top`, `bottom`, `front-left`, `front-right`, `back-left`, or `back-right`. Order and identity are therefore explicit and part of the build identity.
@@ -34,9 +34,9 @@
 
 ## Output and evidence
 
-The output is one `model/gltf-binary` mesh. Before it becomes an asset, the bytes pass the Khronos glTF validator (`validateGltf`). Its metadata records the operation, provider id/model/revision/backend/delegated operation, provider parameters, each provider asset role with its SHA-256, each view's index/id/viewpoint/SHA-256/media type (and mask SHA-256), description, quality, requirements, seed, the reproducibility label, and the validation warning count.
+The output is one `model/gltf-binary` mesh. The provider's raw bytes are validated before the delegated operation can store them and again before the facade stores or caches its output: they must pass the Khronos glTF validator (`validateGltf`) and deliver the requested material level — mesh geometry for `geometry`, a base-color texture for `textured`, and base-color plus metallic-roughness textures for `pbr` (`glbMaterialLevel`). The delegated operation's runtime fingerprint must equal the one in the prepared build identity; a runtime change between preparation and generation fails instead of caching output under the wrong environment. Its metadata records the operation, provider id/model/revision/backend/delegated operation, provider parameters, each provider asset role with its SHA-256, each view's index/id/viewpoint/SHA-256/media type (and mask SHA-256), description, quality, requirements, seed, the reproducibility label, and the validation warning count.
 
-The reproducibility label comes from the backend's declared `exactCapable` capability. Every current image-to-3D backend declares `false`, so outputs are labeled `approximate`; a seed or deterministic-algorithm switch never upgrades the label.
+Outputs are labeled `approximate` when the backend declares `exactCapable: false` (every current image-to-3D backend) and `unverified-exact-capable` otherwise. Exactness is earned only by an authoritative replay that reproduces the bytes, so this operation never labels a first output `exact`; a seed or deterministic-algorithm switch never upgrades the label.
 
 ## Identity and cache
 

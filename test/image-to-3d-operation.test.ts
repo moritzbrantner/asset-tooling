@@ -11,6 +11,7 @@ import {
   IMAGE_TO_3D_PROVIDERS,
   createImageTo3DOperationBuildIdentity,
   createImageTo3DOperationExecutor,
+  glbMaterialLevel,
 } from "../src/image-to-3d-operation.js";
 
 const TRIPOSR_PARAMETERS = {
@@ -52,18 +53,58 @@ async function triangleGlb() {
   return Buffer.from(await new NodeIO().writeBinary(document));
 }
 
-function fakeBackend(id, { bytes, calls, environmentVersion = "1" }) {
+const PNG_1X1 = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+  "base64",
+);
+
+async function texturedGlb() {
+  const document = new Document();
+  const buffer = document.createBuffer();
+  const position = document
+    .createAccessor()
+    .setType("VEC3")
+    .setArray(new Float32Array([0, 0, 0, 1, 0, 0, 0, 1, 0]))
+    .setBuffer(buffer);
+  const uv = document
+    .createAccessor()
+    .setType("VEC2")
+    .setArray(new Float32Array([0, 0, 1, 0, 0, 1]))
+    .setBuffer(buffer);
+  const texture = document.createTexture("albedo").setImage(PNG_1X1).setMimeType("image/png");
+  const material = document.createMaterial("albedo").setBaseColorTexture(texture);
+  const primitive = document
+    .createPrimitive()
+    .setAttribute("POSITION", position)
+    .setAttribute("TEXCOORD_0", uv)
+    .setMaterial(material);
+  const mesh = document.createMesh("generated").addPrimitive(primitive);
+  document.createScene("scene").addChild(document.createNode("generated").setMesh(mesh));
+  return Buffer.from(await new NodeIO().writeBinary(document));
+}
+
+async function objectCount(root) {
+  try {
+    const entries = await readdir(path.join(root, ".asset-tooling", "objects"), { recursive: true });
+    return entries.length;
+  } catch {
+    return 0;
+  }
+}
+
+function fakeBackend(id, { bytes, calls, environmentVersion = "1", exactCapable }) {
   const authoritative = getBackend({ id, version: "1" });
   return {
     id: authoritative.id,
     version: authoritative.version,
     kind: authoritative.kind,
-    exactCapable: authoritative.exactCapable,
+    exactCapable: exactCapable ?? authoritative.exactCapable,
     validate(document) {
       authoritative.validate(document);
     },
     async environmentComponents() {
-      return [{ id: `test-${id}-runtime`, version: environmentVersion }];
+      const version = typeof environmentVersion === "function" ? environmentVersion() : environmentVersion;
+      return [{ id: `test-${id}-runtime`, version }];
     },
     async generate(document) {
       calls.push(document);
@@ -158,7 +199,7 @@ for (const [name, backendId, request] of [
   test(`${name} runs through the provider-neutral operation with recorded provenance`, async () => {
     const root = await workspace();
     const calls = [];
-    const glb = await triangleGlb();
+    const glb = request === triposrRequest ? await triangleGlb() : await texturedGlb();
     const execute = createImageTo3DOperationExecutor({
       backends: { [request === triposrRequest ? "triposr" : "stable-fast-3d"]: fakeBackend(backendId, { bytes: async () => glb, calls }) },
     });
@@ -255,8 +296,65 @@ test("provider output must pass GLB validation before it becomes an asset", asyn
       }),
     },
   });
-  await assert.rejects(execute(root, await triposrRequest(root)), /failed Khronos validation/);
+  const request = await triposrRequest(root);
+  const before = await objectCount(root);
+  await assert.rejects(execute(root, request), /not a GLB|failed Khronos validation/);
+  assert.equal(await objectCount(root), before);
   await assert.rejects(readdir(path.join(root, ".asset-tooling", "cache")), /ENOENT/);
+});
+
+test("output must deliver the requested material level", async () => {
+  const root = await workspace();
+  const execute = createImageTo3DOperationExecutor({
+    backends: {
+      "stable-fast-3d": fakeBackend("model.stable-fast-3d", { bytes: triangleGlb, calls: [] }),
+    },
+  });
+  const request = await sf3dRequest(root);
+  const before = await objectCount(root);
+  await assert.rejects(execute(root, request), /delivers geometry output, not the required textured/);
+  assert.equal(await objectCount(root), before);
+  assert.equal(glbMaterialLevel(await texturedGlb()), "textured");
+});
+
+test("a runtime change after preparation fails instead of generating", async () => {
+  const root = await workspace();
+  const calls = [];
+  let probes = 0;
+  const execute = createImageTo3DOperationExecutor({
+    backends: {
+      triposr: fakeBackend("model.triposr", {
+        bytes: triangleGlb,
+        calls,
+        environmentVersion: () => String(++probes),
+      }),
+    },
+  });
+  await assert.rejects(execute(root, await triposrRequest(root)), /runtime changed/);
+  assert.equal(calls.length, 0);
+});
+
+test("exact-capable backends are not labeled exact without replay evidence", async () => {
+  const root = await workspace();
+  const execute = createImageTo3DOperationExecutor({
+    backends: {
+      triposr: fakeBackend("model.triposr", { bytes: triangleGlb, calls: [], exactCapable: true }),
+    },
+  });
+  const result = await execute(root, await triposrRequest(root));
+  assert.equal(result.outputs.output.metadata.reproducibility, "unverified-exact-capable");
+});
+
+test("mutable model revisions are rejected", async () => {
+  const root = await workspace();
+  const request = await triposrRequest(root);
+  request.parameters.provider.modelRevision = "main";
+  await assert.rejects(
+    createImageTo3DOperationBuildIdentity(root, request, {
+      backends: { triposr: fakeBackend("model.triposr", { bytes: triangleGlb, calls: [] }) },
+    }),
+    /immutable/,
+  );
 });
 
 test("requests a provider cannot honor fail closed", async () => {
