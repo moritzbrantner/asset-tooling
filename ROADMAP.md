@@ -65,6 +65,7 @@ First slices:
   - [x] Wrap `model.stable-diffusion.diffusers@1` as `image.stable-diffusion.generate@1` with the exact pipeline bundle as a content-addressed input and execution-environment identity in the build key.
   - [x] Wrap `model.triposr@1` as `mesh.triposr.generate@1` with prepared image and complete TripoSR/source/DINO bundle inputs, preserving raw OBJ/GLB generation semantics.
   - [x] Add `model.stable-fast-3d@1` / `mesh.stable-fast-3d.generate@1` as the preferred local textured image-to-3D path with prepared RGBA input, separately pinned source/model/DINO bundles, forced offline execution, and raw GLB output; retain TripoSR as the lower-resource fallback.
+  - [x] Expose TRELLIS.2, Stable Fast 3D, and TripoSR through the provider-neutral `mesh.image-to-3d.generate@1` operation with ordered, identified views, provider/model/revision provenance, honest reproducibility labels, GLB validation, and the verified generation cache.
 - [x] Wrap existing processing operations behind the same operation boundary without moving their algorithms into this repository.
   - [x] Prove `mesh.simplify@1` against the exact accepted `three-d-lod` revision from `moritzbrantner/3d-lab`, using a verified object-store input, the shared process-adapter protocol, receipt-compatible observations, and a content-addressed mesh output.
   - [x] Wrap `mesh.lod_chain@1` against the pinned source-based `three-d-lod-chain` processor with deterministic exact-decimal per-level budget materialization, exact source/bundle validation, and content-addressed index evidence.

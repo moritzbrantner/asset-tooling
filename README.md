@@ -21,7 +21,7 @@ The generation architecture supports the same provenance model across:
 - local model-backed generators such as Stable Diffusion, TRELLIS.2, Stable Fast 3D, and TripoSR;
 - utility backends used to prove contracts.
 
-`builtin.procedural.svg-scatter` is the deterministic procedural reference backend. `model.stable-diffusion.diffusers` consumes a hash-pinned local Diffusers pipeline bundle. `model.trellis2` consumes a prepared RGBA image plus separately pinned TRELLIS.2 source, 4B model, legacy sparse decoder, and DINOv3 encoder bundles and emits a PBR GLB. `model.stable-fast-3d` remains the lighter textured image-to-3D path with separately pinned source/model/DINOv2 bundles, while `model.triposr` is the lower-resource geometry fallback.
+`builtin.procedural.svg-scatter` is the deterministic procedural reference backend. `model.stable-diffusion.diffusers` consumes a hash-pinned local Diffusers pipeline bundle. `model.trellis2` consumes a prepared RGBA image plus separately pinned TRELLIS.2 source, 4B model, legacy sparse decoder, and DINOv3 encoder bundles and emits a PBR GLB. `model.stable-fast-3d` remains the lighter textured image-to-3D path with separately pinned source/model/DINOv2 bundles, while `model.triposr` is the lower-resource geometry fallback. `mesh.image-to-3d.generate@1` is the provider-neutral operation over all three.
 
 Model generation is offline and fail-closed: model acquisition is separate from generation, and undeclared cache/network dependencies are not accepted as reproducibility evidence. A seed is an input, not proof of deterministic output. For local game-asset reconstruction, TRELLIS.2 is the high-fidelity PBR path when its Linux/CUDA runtime fits; Stable Fast 3D is the lighter textured path and TripoSR remains the lower-resource fallback.
 
@@ -31,7 +31,7 @@ For acquisition, `scripts/acquire-huggingface-model.py` resolves a requested Hug
 
 For zero-Python browser use, the same static 3D studio runs locally and on GitHub Pages. Run `bun run studio` from a checkout or open `/generate/` on the deployed Pages site. **Prepare model** is an explicit acquisition step: it downloads the immutable, hash-pinned Stable Fast 3D WebGPU artifacts, re-verifies cached bytes, and then enables local WebGPU generation. Source images and generated GLBs stay in the browser. TRELLIS.2 remains local CUDA-only and is intentionally not exposed by Pages. See `docs/browser-3d-studio.md`.
 
-See `docs/generation.md`, `docs/model-acquisition.md`, `docs/stable-diffusion.md`, `docs/trellis2.md`, `docs/stable-fast-3d.md`, `docs/triposr.md`, and `docs/cache.md`.
+See `docs/generation.md`, `docs/model-acquisition.md`, `docs/stable-diffusion.md`, `docs/trellis2.md`, `docs/stable-fast-3d.md`, `docs/triposr.md`, `docs/image-to-3d.md`, and `docs/cache.md`.
 
 ## Processing
 
