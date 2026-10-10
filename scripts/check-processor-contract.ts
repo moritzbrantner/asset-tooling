@@ -501,8 +501,8 @@ async function checkSkinning(root) {
   assert.deepEqual(identity.operation, { id: operation, version: "1" });
   assert.deepEqual(identity.implementation.source, verifiedSource);
   assert.equal(identity.implementation.runtime.kind, "cargo-rust-v1");
-  assert.match(identity.implementation.runtime.cargo, /^cargo 1\.98\.1/m);
-  assert.match(identity.implementation.runtime.rustc, /^rustc 1\.98\.1/m);
+  assert.match(identity.implementation.runtime.cargo, /^cargo 1\.99\.0/m);
+  assert.match(identity.implementation.runtime.rustc, /^rustc 1\.99\.0/m);
   assert.equal(identity.implementation.probe.id, "three-d-skinning-validate");
   assert.equal(identity.implementation.probe.algorithm, "three-d-animation-skinning-profile-v1");
   assert.equal(identity.implementation.probe.protocol, "asset-tooling-process-adapter-v1");
@@ -561,8 +561,8 @@ async function checkHumanoid(root) {
   assert.deepEqual(identity.operation, { id: operation, version: "1" });
   assert.deepEqual(identity.implementation.source, verifiedSource);
   assert.equal(identity.implementation.runtime.kind, "cargo-rust-v1");
-  assert.match(identity.implementation.runtime.cargo, /^cargo 1\.98\.1/m);
-  assert.match(identity.implementation.runtime.rustc, /^rustc 1\.98\.1/m);
+  assert.match(identity.implementation.runtime.cargo, /^cargo 1\.99\.0/m);
+  assert.match(identity.implementation.runtime.rustc, /^rustc 1\.99\.0/m);
   assert.equal(identity.implementation.probe.id, "three-d-humanoid-validate");
   assert.equal(
     identity.implementation.probe.algorithm,
@@ -632,8 +632,8 @@ async function checkRiggedCollision(root) {
   assert.deepEqual(identity.operation, { id: operation, version: "1" });
   assert.deepEqual(identity.implementation.source, verifiedSource);
   assert.equal(identity.implementation.runtime.kind, "cargo-rust-v1");
-  assert.match(identity.implementation.runtime.cargo, /^cargo 1\.98\.1/m);
-  assert.match(identity.implementation.runtime.rustc, /^rustc 1\.98\.1/m);
+  assert.match(identity.implementation.runtime.cargo, /^cargo 1\.99\.0/m);
+  assert.match(identity.implementation.runtime.rustc, /^rustc 1\.99\.0/m);
   assert.equal(identity.implementation.probe.id, "three-d-rigged-collision-fit");
   assert.equal(
     identity.implementation.probe.algorithm,
@@ -704,8 +704,8 @@ async function checkAnimationResample(root) {
   assert.deepEqual(identity.operation, { id: operation, version: "1" });
   assert.deepEqual(identity.implementation.source, verifiedSource);
   assert.equal(identity.implementation.runtime.kind, "cargo-rust-v1");
-  assert.match(identity.implementation.runtime.cargo, /^cargo 1\.98\.1/m);
-  assert.match(identity.implementation.runtime.rustc, /^rustc 1\.98\.1/m);
+  assert.match(identity.implementation.runtime.cargo, /^cargo 1\.99\.0/m);
+  assert.match(identity.implementation.runtime.rustc, /^rustc 1\.99\.0/m);
   assert.equal(identity.implementation.probe.id, "three-d-animation-resample");
   assert.equal(identity.implementation.probe.algorithm, "three-d-animation-resample-v1");
   assert.equal(identity.implementation.probe.protocol, "asset-tooling-process-adapter-v1");
@@ -759,8 +759,8 @@ async function checkAnimationReduce(root) {
   assert.deepEqual(identity.operation, { id: operation, version: "1" });
   assert.deepEqual(identity.implementation.source, verifiedSource);
   assert.equal(identity.implementation.runtime.kind, "cargo-rust-v1");
-  assert.match(identity.implementation.runtime.cargo, /^cargo 1\.98\.1/m);
-  assert.match(identity.implementation.runtime.rustc, /^rustc 1\.98\.1/m);
+  assert.match(identity.implementation.runtime.cargo, /^cargo 1\.99\.0/m);
+  assert.match(identity.implementation.runtime.rustc, /^rustc 1\.99\.0/m);
   assert.equal(identity.implementation.probe.id, "three-d-animation-reduce");
   assert.equal(identity.implementation.probe.algorithm, "three-d-animation-key-reduction-v1");
   assert.equal(identity.implementation.probe.protocol, "asset-tooling-process-adapter-v1");
