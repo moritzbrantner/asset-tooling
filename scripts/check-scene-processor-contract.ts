@@ -126,8 +126,8 @@ async function storedSceneSource(root) {
 function assertRuntime(identity) {
   assert.deepEqual(identity.implementation.source, verifiedSource);
   assert.equal(identity.implementation.runtime.kind, "cargo-rust-v1");
-  assert.match(identity.implementation.runtime.cargo, /^cargo 1\.98\.1/m);
-  assert.match(identity.implementation.runtime.rustc, /^rustc 1\.98\.1/m);
+  assert.match(identity.implementation.runtime.cargo, /^cargo 1\.99\.0/m);
+  assert.match(identity.implementation.runtime.rustc, /^rustc 1\.99\.0/m);
   assert.equal(identity.implementation.probe.protocol, "asset-tooling-process-adapter-v1");
   assert.equal(identity.implementation.probe.dependencies.threeDScene, "0.1.0");
   assert.equal(identity.implementation.probe.dependencies.threeDExport, "0.1.0");
