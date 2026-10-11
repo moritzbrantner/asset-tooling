@@ -1,5 +1,5 @@
 import path from "node:path";
-import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import {
   createCatalogPagesModel,
@@ -7,7 +7,7 @@ import {
   renderCatalogGalleryHtml,
 } from "../src/catalog-pages-site.js";
 import { renderBrowser3DStudioHtml } from "../src/browser-pages-site.js";
-import { extendCatalogGalleryModel } from "../src/generated-gallery-assets.js";
+import { attachGeneratedGalleryPreviews, extendCatalogGalleryModel } from "../src/generated-gallery-assets.js";
 
 const root = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
 const outputRoot = path.join(root, "dist", "pages");
@@ -22,7 +22,27 @@ const [providers, sources, storage] = await Promise.all([
   readJson("catalog/storage.json"),
 ]);
 const catalogModel = createCatalogPagesModel({ providers, sources, storage });
-const galleryModel = extendCatalogGalleryModel(catalogModel);
+let galleryModel = extendCatalogGalleryModel(catalogModel);
+const previewIndex = path.join(outputRoot, "previews", "index.json");
+const previewsExist = await stat(previewIndex).then(
+  () => true,
+  (error) => {
+    if (error.code === "ENOENT") return false;
+    throw error;
+  },
+);
+if (previewsExist) {
+  const previews = JSON.parse(await readFile(previewIndex, "utf8"));
+  galleryModel = attachGeneratedGalleryPreviews(galleryModel, previews);
+  // Refuse to deploy broken media links even if the preview index itself is present.
+  for (const item of Object.values(previews.assets)) {
+    const urls = item.previewUrl ? [item.previewUrl] : item.previewMembers.map((member) => member.url);
+    for (const url of urls) {
+      const media = await stat(path.join(outputRoot, ...url.split("/")));
+      if (!media.isFile() || media.size === 0) throw new Error("missing generated Pages media: " + url);
+    }
+  }
+}
 const html = renderCatalogGalleryHtml(galleryModel);
 
 await mkdir(outputRoot, { recursive: true });
