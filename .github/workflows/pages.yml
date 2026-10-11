@@ -40,23 +40,55 @@ on:
       - "src/sprite-atlas-operations.ts"
       - "package.json"
       - ".github/workflows/pages.yml"
+  pull_request:
+    paths:
+      - "catalog/**"
+      - "src/catalog-pages.ts"
+      - "src/catalog-pages-site.ts"
+      - "src/catalog-preview-hints.ts"
+      - "src/generated-gallery-assets.ts"
+      - "src/medieval-character-kit.ts"
+      - "src/rock-recipes.ts"
+      - "src/tree-recipes.ts"
+      - "src/grass-recipes.ts"
+      - "src/wheat-recipes.ts"
+      - "src/corn-recipes.ts"
+      - "src/fence-kit-recipes.ts"
+      - "src/surface-texture-recipes.ts"
+      - "src/surface-appearance-recipes.ts"
+      - "src/leaf-artwork-recipes.ts"
+      - "src/effect-artwork-recipes.ts"
+      - "src/authored-effect-sequences.ts"
+      - "src/feedback-kits.ts"
+      - "src/transition-tile-recipes.ts"
+      - "src/image-rgba8.ts"
+      - "src/browser-pages-site.ts"
+      - "src/browser/**"
+      - "src/image-border-white-alpha-core.ts"
+      - "licenses/**"
+      - "THIRD_PARTY_NOTICES.md"
+      - "scripts/build-catalog-pages.ts"
+      - "scripts/build-generated-previews.ts"
+      - "scripts/blender-preview-obj.py"
+      - "adapters/blender/**"
+      - "examples/reconcile-file.ts"
+      - "src/core.ts"
+      - "src/image-codec-operations.ts"
+      - "src/sprite-atlas-operations.ts"
+      - "package.json"
+      - ".github/workflows/pages.yml"
   workflow_dispatch:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
-  group: asset-tooling-pages
+  group: asset-tooling-pages-${{ github.event_name == 'pull_request' && github.event.pull_request.number || 'deployment' }}
   cancel-in-progress: false
 
 jobs:
-  deploy:
+  build:
     timeout-minutes: 45
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository without LFS hydration
@@ -110,13 +142,26 @@ jobs:
           test "$(find dist/pages/assets -name index.html -type f | wc -l)" -gt 0
 
       - name: Configure Pages
+        if: github.event_name != 'pull_request'
         uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6
 
       - name: Upload Pages artifact
+        if: github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5
         with:
           path: dist/pages
 
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5
