@@ -230,3 +230,54 @@ test("gallery and asset pages escape catalog strings in HTML attributes and text
     assert.match(html, /&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
   }
 });
+
+test("generated recipe GLBs and PNGs preview on both gallery and detail routes", () => {
+  const generatedMesh = asset({
+    id: "rock.rounded", title: "Rock", state: "recipe", kind: "mesh", mediaType: "model/gltf-binary",
+    source: { ...asset().source, url: null, sha256: null }, 
+    metadata: { purpose: "Preview fixture", previewUrl: "previews/rock.rounded.glb" },
+  });
+  const generatedImage = asset({
+    id: "surface.soil-fine", title: "Soil", state: "recipe",
+    source: { ...asset().source, url: null, sha256: null },
+    metadata: { purpose: "Preview fixture", previewUrl: "previews/surface.soil-fine.png" },
+  });
+  const gallery = renderCatalogGalleryHtml(model([generatedMesh, generatedImage]));
+  assert.match(gallery, /<model-viewer src="previews\/rock\.rounded\.glb"/);
+  assert.match(gallery, /src="previews\/surface\.soil-fine\.png"/);
+  assert.match(gallery, /class="thumbnail image-preview recipe-preview"/);
+  assert.doesNotMatch(gallery, /preview-model/);
+  assert.match(renderCatalogAssetHtml(generatedMesh), /src="\.\.\/\.\.\/previews\/rock\.rounded\.glb"/);
+  assert.match(renderCatalogAssetHtml(generatedImage), /src="\.\.\/\.\.\/previews\/surface\.soil-fine\.png"/);
+});
+
+test("generated effect sequences, feedback audio and tile kits use the existing previews", () => {
+  const sequence = asset({
+    id: "effect-sequence.ring.strong", state: "recipe", kind: "effect-sequence", mediaType: "",
+    source: { ...asset().source, url: null },
+    metadata: { purpose: "Animated artwork", previewMembers: [
+      { title: "Frame 1", mediaType: "image/png", url: "previews/effect-sequence.ring.strong.frame-000.png" },
+      { title: "Frame 2", mediaType: "image/png", url: "previews/effect-sequence.ring.strong.frame-001.png" },
+    ] },
+  });
+  const feedback = asset({
+    id: "feedback.ui.reward-pulse", state: "recipe", kind: "feedback-kit", mediaType: "",
+    source: { ...asset().source, url: null },
+    metadata: { purpose: "Sound and animation", previewMembers: [
+      { title: "Visual", mediaType: "image/png", url: "previews/feedback.ui.reward-pulse.strong.png" },
+      { title: "Sound", mediaType: "audio/wav", url: "previews/feedback.ui.reward-pulse.strong.wav" },
+    ] },
+  });
+  const transition = asset({
+    id: "transition.grass-soil-corners", state: "recipe", kind: "asset-pack", mediaType: "",
+    source: { ...asset().source, url: null },
+    metadata: { purpose: "Tile kit", previewUrl: "previews/transition.grass-soil-corners.png" },
+  });
+  const gallery = renderCatalogGalleryHtml(model([sequence, feedback, transition]));
+  assert.match(gallery, /data-pack-carousel/);
+  assert.match(gallery, /data-waveform-src="previews\/feedback\.ui\.reward-pulse\.strong\.wav"/);
+  assert.match(gallery, /src="previews\/transition\.grass-soil-corners\.png"/);
+  const detail = renderCatalogAssetHtml(feedback);
+  assert.match(detail, /data-waveform-src="\.\.\/\.\.\/previews\/feedback\.ui\.reward-pulse\.strong\.wav"/);
+  assert.match(detail, /src="\.\.\/\.\.\/previews\/feedback\.ui\.reward-pulse\.strong\.png"/);
+});
