@@ -93,6 +93,7 @@
     "examples/selected-bundle/adoption.ts"
   ],
   "scripts": {
+    "pages:previews": "bun scripts/build-generated-previews.ts",
     "typecheck": "bun add --no-save --dev typescript@7.0.2 @types/bun@1.4.0 && bunx --no-install tsc --noEmit",
     "test": "bun test",
     "package:check": "bun scripts/check-package-shape.ts",

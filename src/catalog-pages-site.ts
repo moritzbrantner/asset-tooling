@@ -37,7 +37,8 @@ function previewConfig(asset) {
 }
 
 function previewKind(asset) {
-  if (asset.mediaType === "application/zip" || asset.kind.includes("pack")) return "archive";
+  if (asset.kind === "effect-sequence" || asset.kind === "feedback-kit" ||
+      asset.mediaType === "application/zip" || asset.kind.includes("pack")) return "archive";
   if (asset.kind === "hdri" || asset.mediaType === "image/x-exr") return "hdri";
   if (asset.mediaType.startsWith("image/") || asset.kind === "image" || asset.kind === "texture") return "image";
   if (asset.mediaType.startsWith("audio/") || asset.kind === "audio") return "audio";
@@ -54,12 +55,12 @@ function memberKind(member) {
 }
 
 function assetHasAudioPreview(asset) {
-  if (previewKind(asset) === "audio" && asset.source.url) return true;
+  if (previewKind(asset) === "audio" && (asset.source.url || previewConfig(asset).previewUrl)) return true;
   return previewConfig(asset).members.some((member) => memberKind(member) === "audio");
 }
 
 function assetHasModelPreview(asset) {
-  if (previewKind(asset) === "model" && asset.source.url) return true;
+  if (previewKind(asset) === "model" && (asset.source.url || previewConfig(asset).previewUrl)) return true;
   return previewConfig(asset).members.some((member) => memberKind(member) === "model");
 }
 
@@ -146,16 +147,22 @@ function renderHdriPreview(asset, { detail }) {
   </div>`;
 }
 
-function renderPackMember(member) {
+function pageMediaUrl(url, detail) {
+  // The gallery lives at /; asset detail pages are two levels below it.
+  return detail && typeof url === "string" && url.startsWith("previews/") ? "../../" + url : url;
+}
+
+function renderPackMember(member, { detail }) {
+  const url = pageMediaUrl(member.url, detail);
   const title = typeof member.title === "string" && member.title.length > 0 ? member.title : "Pack member";
   const mediaType = typeof member.mediaType === "string" ? member.mediaType : "application/octet-stream";
   const kind = memberKind(member);
   if (kind === "image") {
-    return `<div class="pack-member-preview image-preview"><img src="${escapeHtml(member.url)}" alt="${escapeHtml(title)}" loading="lazy"></div>`;
+    return `<div class="pack-member-preview image-preview"><img src="${escapeHtml(url)}" alt="${escapeHtml(title)}" loading="lazy"></div>`;
   }
   if (kind === "audio") {
     return renderWaveformPreview(
-      { title, kind: "audio", mediaType, source: { url: member.url }, tags: [], metadata: {} },
+      { title, kind: "audio", mediaType, source: { url }, tags: [], metadata: {} },
       { detail: false, nested: true },
     );
   }
@@ -165,7 +172,7 @@ function renderPackMember(member) {
         title,
         kind: typeof member.kind === "string" ? member.kind : "mesh",
         mediaType,
-        source: { url: member.url },
+        source: { url },
         tags: Array.isArray(member.tags) ? member.tags : [],
         metadata: member.metadata ?? {},
       },
@@ -183,7 +190,7 @@ function renderPackPreview(asset, { detail }) {
   }
   const slides = members
     .map(
-      (member, index) => `<div class="pack-slide" data-pack-slide data-title="${escapeHtml(member.title ?? `Member ${index + 1}`)}"${index === 0 ? "" : " hidden"}>${renderPackMember(member)}</div>`,
+      (member, index) => `<div class="pack-slide" data-pack-slide data-title="${escapeHtml(member.title ?? `Member ${index + 1}`)}"${index === 0 ? "" : " hidden"}>${renderPackMember(member, { detail })}</div>`,
     )
     .join("");
   return `<div class="${className}" data-pack-carousel tabindex="0" aria-label="${escapeHtml(asset.title)} member previews">
@@ -197,13 +204,19 @@ function renderPackPreview(asset, { detail }) {
 function renderThumbnail(asset, { detail = false } = {}) {
   const kind = previewKind(asset);
   const className = detail ? "asset-preview" : "thumbnail";
-  if (kind === "archive") return renderPackPreview(asset, { detail });
+  const config = previewConfig(asset);
+  const url = pageMediaUrl(config.previewUrl || asset.source.url, detail);
+  const preview = { ...asset, source: { ...asset.source, url } };
+  if (kind === "archive" && config.members.length) return renderPackPreview(asset, { detail });
+  // Single-image asset packs (e.g. a complete tile atlas) do not need carousel controls.
+  if (kind === "archive" && (!url || !url.endsWith(".png"))) return renderPackPreview(asset, { detail });
   if (kind === "hdri") return renderHdriPreview(asset, { detail });
-  if (kind === "image" && asset.source.url) {
-    return `<div class="${className} image-preview"><img src="${escapeHtml(asset.source.url)}" alt="${escapeHtml(asset.title)} preview" loading="lazy"></div>`;
+  if ((kind === "image" || kind === "archive") && url) {
+    const recipeClass = asset.state === "recipe" ? " recipe-preview" : "";
+    return `<div class="${className} image-preview${recipeClass}"><img src="${escapeHtml(url)}" alt="${escapeHtml(asset.title)} preview" loading="lazy"></div>`;
   }
-  if (kind === "audio" && asset.source.url) return renderWaveformPreview(asset, { detail });
-  if (kind === "model" && asset.source.url) return renderModelPreview(asset, { detail });
+  if (kind === "audio" && url) return renderWaveformPreview(preview, { detail });
+  if (kind === "model" && url) return renderModelPreview(preview, { detail });
   return `<div class="${className} fallback-preview preview-${kind}">${iconFor(kind)}<span>${escapeHtml(kind === "model" ? "3D model" : kind)}</span></div>`;
 }
 
@@ -560,6 +573,8 @@ export function renderCatalogGalleryHtml(model) {
     .thumbnail { position: relative; aspect-ratio: 4 / 3; border-bottom: 1px solid color-mix(in srgb, CanvasText 12%, Canvas); background: color-mix(in srgb, CanvasText 5%, Canvas); overflow: hidden; }
     .image-preview { display: grid; place-items: center; overflow: hidden; }
     .thumbnail.image-preview img { width: 100%; height: 100%; object-fit: cover; }
+    .image-preview.recipe-preview { background: repeating-conic-gradient(from 45deg, color-mix(in srgb, CanvasText 5%, Canvas) 0% 25%, Canvas 0% 50%) 50% / 26px 26px; }
+    .image-preview.recipe-preview img { object-fit: contain; padding: 12px; }
     .thumbnail.model-preview model-viewer { pointer-events: none; }
     ${sharedPreviewCss}
     .fallback-preview { display: grid; place-items: center; align-content: center; gap: 10px; color: color-mix(in srgb, CanvasText 68%, Canvas); }
@@ -698,6 +713,8 @@ export function renderCatalogAssetHtml(asset) {
     .asset-preview { position: relative; aspect-ratio: 4 / 3; border: 1px solid color-mix(in srgb, CanvasText 16%, Canvas); border-radius: 16px; overflow: hidden; background: color-mix(in srgb, CanvasText 5%, Canvas); }
     .image-preview { display: grid; place-items: center; overflow: hidden; }
     .asset-preview.image-preview img { width: 100%; height: 100%; object-fit: contain; }
+    .image-preview.recipe-preview { background: repeating-conic-gradient(from 45deg, color-mix(in srgb, CanvasText 5%, Canvas) 0% 25%, Canvas 0% 50%) 50% / 26px 26px; }
+    .image-preview.recipe-preview img { padding: 12px; }
     ${sharedPreviewCss}
     .fallback-preview { display: grid; place-items: center; align-content: center; gap: 12px; color: color-mix(in srgb, CanvasText 68%, Canvas); }
     .fallback-preview svg { width: 108px; height: 74px; }

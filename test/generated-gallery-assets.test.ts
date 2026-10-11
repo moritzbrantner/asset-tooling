@@ -7,6 +7,7 @@ import { FENCE_PRESETS } from "../src/fence-kit-recipes.js";
 import { FEEDBACK_KIT_PRESETS } from "../src/feedback-kits.js";
 import { GRASS_PRESETS } from "../src/grass-recipes.js";
 import {
+  attachGeneratedGalleryPreviews,
   createGeneratedGalleryAssets,
   extendCatalogGalleryModel,
   generatedGalleryProvider,
@@ -104,4 +105,37 @@ test("gallery and detail pages explain generated recipe entries without fake pro
   assert.match(detail, /generated on demand/);
   assert.doesNotMatch(detail, /SHA-256/);
   assert.doesNotMatch(detail, /License evidence/);
+});
+
+test("Pages samples cover every recipe without becoming catalog provenance", () => {
+  const initial = extendCatalogGalleryModel({ schemaVersion: 1, assets: [], providers: [] });
+  const previews = Object.fromEntries(initial.assets.map((asset) => [
+    asset.id,
+    { previewUrl: `previews/${asset.id}.${asset.kind === "mesh" ? "glb" : "png"}` },
+  ]));
+  const model = attachGeneratedGalleryPreviews(initial, { schemaVersion: 1, assets: previews });
+  assert.equal(model.assets.length, initial.assets.length);
+  for (const asset of model.assets) {
+    assert.equal(asset.state, "recipe");
+    assert.equal(asset.source.url, null);
+    assert.equal(asset.source.sha256, null);
+    assert.match(asset.metadata.previewUrl, /^previews\//);
+  }
+  assert.throws(
+    () => attachGeneratedGalleryPreviews(initial, { schemaVersion: 1, assets: { ...previews, "unexpected.entry": { previewUrl: "previews/other.png" } } }),
+    /cover exactly/,
+  );
+  const missing = { ...previews };
+  delete missing["rock.rounded"];
+  assert.throws(() => attachGeneratedGalleryPreviews(initial, { schemaVersion: 1, assets: missing }), /cover exactly/);
+  assert.throws(
+    () => attachGeneratedGalleryPreviews(initial, { schemaVersion: 1, assets: { ...previews, "rock.rounded": { previewUrl: "../../secrets" } } }),
+    /invalid Pages preview URL/,
+  );
+  assert.throws(
+    () => attachGeneratedGalleryPreviews(initial, { schemaVersion: 1, assets: { ...previews, "rock.rounded": { previewMembers: [
+      { title: "Sound", mediaType: "audio/wav", url: "previews/wrong.png" },
+    ] } } }),
+    /media mismatch/,
+  );
 });

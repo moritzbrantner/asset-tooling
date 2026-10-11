@@ -6,48 +6,37 @@ on:
       - main
     paths:
       - "catalog/**"
-      - "src/catalog-pages.ts"
-      - "src/catalog-pages-site.ts"
-      - "src/generated-gallery-assets.ts"
-      - "src/medieval-character-kit.ts"
-      - "src/rock-recipes.ts"
-      - "src/tree-recipes.ts"
-      - "src/grass-recipes.ts"
-      - "src/wheat-recipes.ts"
-      - "src/corn-recipes.ts"
-      - "src/fence-kit-recipes.ts"
-      - "src/surface-texture-recipes.ts"
-      - "src/surface-appearance-recipes.ts"
-      - "src/leaf-artwork-recipes.ts"
-      - "src/effect-artwork-recipes.ts"
-      - "src/authored-effect-sequences.ts"
-      - "src/feedback-kits.ts"
-      - "src/transition-tile-recipes.ts"
-      - "src/image-rgba8.ts"
-      - "src/browser-pages-site.ts"
-      - "src/browser/**"
-      - "src/image-border-white-alpha-core.ts"
+      - "src/**"
       - "licenses/**"
       - "THIRD_PARTY_NOTICES.md"
-      - "scripts/build-catalog-pages.ts"
+      - "scripts/**"
+      - "adapters/blender/**"
+      - "examples/reconcile-file.ts"
+      - "package.json"
+      - ".github/workflows/pages.yml"
+  pull_request:
+    paths:
+      - "catalog/**"
+      - "src/**"
+      - "licenses/**"
+      - "THIRD_PARTY_NOTICES.md"
+      - "scripts/**"
+      - "adapters/blender/**"
+      - "examples/reconcile-file.ts"
       - "package.json"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
-  group: asset-tooling-pages
+  group: asset-tooling-pages-${{ github.event_name == 'pull_request' && github.event.pull_request.number || 'deployment' }}
   cancel-in-progress: false
 
 jobs:
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+  build:
+    timeout-minutes: 45
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository without LFS hydration
@@ -61,28 +50,66 @@ jobs:
         with:
           bun-version: 1.4.2
 
+      - name: Install recipe runtime and dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+          bun install --frozen-lockfile
+
+      - name: Install pinned Blender
+        run: echo "ASSET_TOOLING_BLENDER=$(bun scripts/install-blender.ts "$RUNNER_TEMP/blender")" >> "$GITHUB_ENV"
+
+      - name: Acquire pinned Sapling recipe input
+        run: |
+          set -euo pipefail
+          SAPLING_SOURCE_URL=$(bun -e 'import { SAPLING_TREE_SOURCE } from "./src/tree-recipes.ts"; console.log(SAPLING_TREE_SOURCE.download)')
+          curl --fail --location --max-time 30 --max-filesize 36296 "$SAPLING_SOURCE_URL" --output "$RUNNER_TEMP/sapling.zip"
+          bun -e 'import { readFile } from "node:fs/promises"; import { sha256Bytes } from "./src/hash.ts"; import { SAPLING_TREE_SOURCE } from "./src/tree-recipes.ts"; const bytes = await readFile(process.argv[1]); if (bytes.length !== SAPLING_TREE_SOURCE.byteLength || sha256Bytes(bytes) !== SAPLING_TREE_SOURCE.sha256) throw new Error("Sapling input pin mismatch")' "$RUNNER_TEMP/sapling.zip"
+          echo "ASSET_TOOLING_SAPLING_ARCHIVE=$RUNNER_TEMP/sapling.zip" >> "$GITHUB_ENV"
+
       - name: Validate catalog provenance
         run: |
           bun run catalog:check
           bun run catalog:storage:check
+
+      - name: Build real previews from accepted recipes
+        run: bun run pages:previews
 
       - name: Build deterministic catalog site
         run: |
           bun run pages:build
           test -s dist/pages/index.html
           test -s dist/pages/catalog.json
+          test -s dist/pages/previews/index.json
+          test -s dist/pages/previews/rock.rounded.glb
+          test -s dist/pages/previews/wheat.mature.glb
+          test -s dist/pages/previews/surface.soil-fine.png
+          test -s dist/pages/previews/feedback.farm.harvest-pop.strong.wav
           test -s dist/pages/generate/index.html
           test -s dist/pages/generate/app.js
           test "$(find dist/pages/assets -name index.html -type f | wc -l)" -gt 0
 
       - name: Configure Pages
+        if: github.event_name != 'pull_request'
         uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6
 
       - name: Upload Pages artifact
+        if: github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5
         with:
           path: dist/pages
 
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5

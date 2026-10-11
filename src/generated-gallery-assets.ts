@@ -244,3 +244,66 @@ export function extendCatalogGalleryModel(model) {
     providers: providers.sort((left, right) => left.id.localeCompare(right.id)),
   };
 }
+
+const PAGE_PREVIEW_FILE = /^previews\/[a-z0-9][a-z0-9._-]*\.(?:png|glb|wav)$/;
+
+function checkedPagesPreviewUrl(value, label) {
+  if (typeof value !== "string" || !PAGE_PREVIEW_FILE.test(value)) {
+    throw new Error(`invalid Pages preview URL for '${label}'`);
+  }
+  return value;
+}
+
+/** Presentation-only sample media must never become a catalog source, receipt, or license claim. */
+export function attachGeneratedGalleryPreviews(model, previewDocument) {
+  if (!previewDocument || typeof previewDocument !== "object" || Array.isArray(previewDocument) ||
+      previewDocument.schemaVersion !== 1 || !previewDocument.assets ||
+      typeof previewDocument.assets !== "object" || Array.isArray(previewDocument.assets)) {
+    throw new Error("generated Pages previews must have schemaVersion 1 and an assets record");
+  }
+  const generated = model.assets.filter((asset) =>
+    asset.provider.id === PROVIDER.id && asset.state === "recipe");
+  const ids = new Set(generated.map((asset) => asset.id));
+  const declared = Object.keys(previewDocument.assets);
+  if (ids.size !== declared.length || declared.some((id) => !ids.has(id))) {
+    throw new Error("generated Pages previews must cover exactly the published recipe entries");
+  }
+  return {
+    ...model,
+    assets: model.assets.map((asset) => {
+      if (!ids.has(asset.id)) return asset;
+      const item = previewDocument.assets[asset.id];
+      if (!item || typeof item !== "object" || Array.isArray(item)) {
+        throw new Error(`invalid Pages preview for '${asset.id}'`);
+      }
+      const url = item.previewUrl;
+      const members = item.previewMembers;
+      if ((url === undefined) === (members === undefined) ||
+          Object.keys(item).some((key) => key !== "previewUrl" && key !== "previewMembers")) {
+        throw new Error(`Pages preview '${asset.id}' requires exactly one media representation`);
+      }
+      let preview;
+      if (url !== undefined) {
+        preview = { previewUrl: checkedPagesPreviewUrl(url, asset.id) };
+      } else {
+        if (!Array.isArray(members) || members.length === 0 || members.length > 64) {
+          throw new Error(`Pages preview '${asset.id}' requires 1..64 preview members`);
+        }
+        preview = { previewMembers: members.map((member) => {
+          if (!member || typeof member !== "object" || Array.isArray(member) ||
+              typeof member.title !== "string" || !member.title ||
+              (member.mediaType !== "image/png" && member.mediaType !== "audio/wav") ||
+              Object.keys(member).some((key) => !["title", "mediaType", "url"].includes(key))) {
+            throw new Error(`invalid Pages preview member for '${asset.id}'`);
+          }
+          const memberUrl = checkedPagesPreviewUrl(member.url, asset.id);
+          if (!memberUrl.endsWith(member.mediaType === "image/png" ? ".png" : ".wav")) {
+            throw new Error(`Pages preview member media mismatch for '${asset.id}'`);
+          }
+          return { title: member.title, mediaType: member.mediaType, url: memberUrl };
+        }) };
+      }
+      return { ...asset, metadata: { ...asset.metadata, ...preview } };
+    }),
+  };
+}
