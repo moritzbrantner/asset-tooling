@@ -224,8 +224,11 @@ function analyze(document: Document, policy: Policy) {
   const weightSums = checkWeightSums(document);
   const policyWarnings = singularInverseBinds(document);
   const clips = root.listAnimations().map((animation) => {
-    const starts = animation.listSamplers().map((sampler) => sampler.getInput()!.getMin([])[0]!);
-    const ends = animation.listSamplers().map((sampler) => sampler.getInput()!.getMax([])[0]!);
+    // Only channel-referenced samplers affect playback; unused ones are listed but excluded from timing.
+    const used = animation.listChannels().map((channel) => channel.getSampler()!);
+    const timed = used.length ? [...new Set(used)] : animation.listSamplers();
+    const starts = timed.map((sampler) => sampler.getInput()!.getMin([])[0]!);
+    const ends = timed.map((sampler) => sampler.getInput()!.getMax([])[0]!);
     const startSeconds = Math.min(...starts);
     const endSeconds = Math.max(...ends);
     return {
