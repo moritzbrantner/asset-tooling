@@ -1,6 +1,6 @@
 # Tileable surface recipes
 
-`asset-tooling/recipes/surface-textures` supplies a soil/tilled-soil/rock/wood slice of #131. It composes the existing periodic bilinear height generator and wrapped normal processor with `image.procedural.height.surface@1` (two-scale height mixture) and `image.scalar.color-ramp@1` (opaque scalar-to-RGB ramp). Each operation is independently callable and exposes its descriptor and build-identity function for workflow registration. No network, model service or Blender is required.
+`asset-tooling/recipes/surface-textures` supplies the soil, tilled-soil, rock, wood, paper, bark, grass and sand slices of #131. It composes the existing periodic bilinear height generator and wrapped normal processor with `image.procedural.height.surface@1` (two-scale height mixture) and `image.scalar.color-ramp@1` (opaque scalar-to-RGB ramp). Each operation is independently callable and exposes its descriptor and build-identity function for workflow registration. No network, model service or Blender is required.
 
 ```ts
 import { executeSurfaceTextureRecipe, SURFACE_TEXTURE_PRESETS } from "asset-tooling/recipes/surface-textures";
@@ -47,11 +47,11 @@ Color is sRGB. Height and roughness are opaque grayscale UNORM8 scalar **data**;
 
 Sampling covers `[0,width) × [0,height)`; the first/last texels need not equal. Wrapped derivatives cross the periodic boundary. No mipmap-generation or world-space height/displacement contract is supplied. Repeat-safe consumer sampling/mipmaps and physical height scale remain explicit follow-ups.
 
-Run `bun examples/surface-textures/build.ts` from any working directory to generate all fifteen controlled presets, four channel PNGs per preset and `builds.json` under the repository's ignored `.artifacts/surface-textures/`. PNG encoding uses the existing explicit FFmpeg operation and records its runtime identity; exact PNG replay is scoped to that recorded implementation. Canonical RGBA8 replay does not require FFmpeg. Repeated example builds preserve byte-identical files and metadata; changed files are staged before atomic replacement. Generated outputs and evidence remain disposable.
+Run `bun examples/surface-textures/build.ts` from any working directory to generate every exported controlled preset, four channel PNGs per preset and `builds.json` under the repository's ignored `.artifacts/surface-textures/`. PNG encoding uses the existing explicit FFmpeg operation and records its runtime identity; exact PNG replay is scoped to that recorded implementation. Canonical RGBA8 replay does not require FFmpeg. Repeated example builds preserve byte-identical files and metadata; changed files are staged before atomic replacement. Generated outputs and evidence remain disposable.
 
 Tests cover independent scalar endpoints/interior bytes, the existing pinned periodic-noise fixture, constant scalar/normal references, wrapped normals compared with the center of an independently repeated 3×3 height image, odd/tiny dimensions, invalid/colored/transparent/corrupt input, selected stages, cold-store replay and independent channel invalidation. Run `bun test test/surface-texture-recipes.test.ts test/procedural-textures.test.ts test/material-operations.test.ts`, followed by `bun run check`.
 
-The twelve exported presets are deeply frozen recipe content. Create editable variants by spreading a preset and replacing changed values; replace `low`/`high` arrays rather than mutating them. Registered operation descriptors are recursively frozen too. They provide three noise-soil, three tilled-soil, three rock and three directional wood variations with fixed seed and changed controls. Tiled inspection is technical/artifact evidence; it is not My Farm camera acceptance. Consumer repositories remain read-only in this loop. My Farm currently renders Field Plot using constant-color materials in `packages/game-scene/src/assets.tsx`; integration belongs to my-farm#125. Remaining #131 scope includes bark/grass/sand/paper recipes, richer wood patterns or physical controls as needed, mipmap evidence and consumer-camera acceptance. The explicit preservation path above supplies actual texture component reuse.
+The exported presets are deeply frozen recipe content. Create editable variants by spreading a preset and replacing changed values; replace `low`/`high` arrays rather than mutating them. Registered operation descriptors are recursively frozen too. They provide three noise-soil, three tilled-soil, three rock, three directional wood, three paper, three bark, three grass and three sand variations with fixed seed and changed controls. Tiled inspection is technical/artifact evidence; it is not My Farm camera acceptance. Consumer repositories remain read-only in this loop. My Farm currently renders Field Plot using constant-color materials in `packages/game-scene/src/assets.tsx`; integration belongs to my-farm#125. Remaining #131 scope includes richer wood patterns or physical controls as needed, mipmap evidence and consumer-camera acceptance. The explicit preservation path above supplies actual texture component reuse.
 
 ## Regular tilled furrows
 
@@ -86,3 +86,37 @@ Run `bun examples/wood-surfaces/build.ts` to produce fifteen PNGs (four channels
 A 2D caller selects `{channels:["color"]}` to compute only the shared scalar dependency and its color ramp. No normal/roughness stage, geometry processor or Blender invocation is required. Recoloring with an accepted height lock executes one color operation and reuses three height operations at these two-scale settings. Lower-resolution callers must explicitly reduce grid counts as usual. Paper PNGs are opaque sRGB, suitable for repeat sampling; transparent artwork and ordinary component styling retain their existing contracts.
 
 `bun examples/paper-grain/build.ts` builds the three warm appearances and cool recolors, compares each surface/PNG with independent cold results, exports six selected PNGs through the existing static bundle profile and reads every packaged image after deleting the cold object store. PNG AssetRefs retain the original canonical image, complete editable surface steps and declared encoder identity without changing image bytes. `python3 examples/paper-grain/review.py` verifies every decoded pixel against its pinned canonical source and displays actual tiled images behind text. These are producer fixtures; real UI/puzzle adoption remains separate. See [example instructions](../examples/paper-grain/README.md). Run `bun test test/paper-grain.test.ts test/surface-texture-recipes.test.ts test/surface-preservation.test.ts test/procedural-textures.test.ts`, then `bun run check`.
+
+## Bark, grass and sand
+
+Nine further deeply frozen presets complete the remaining natural-ground families of #131 through the same surface recipe, operations and channel contracts. They add no new operation, kernel or implementation version; earlier presets and their pixels are unchanged. Each family shares seed 42, one palette, one roughness range and the default 256×256 size. Its three variants change only the named pattern controls, so they are controlled variations rather than arbitrary seeds. These are periodic-noise and furrow-profile appearances. They are not species, grain-size or physical displacement models.
+
+| Preset            | Coarse grid | Detail grid | Detail weight | Furrows (axis, count, depth, softness) | Normal strength |
+| ----------------- | ----------- | ----------- | ------------- | -------------------------------------- | --------------- |
+| `bark-ridged`     | 12×2        | 48×8        | 90            | x, 12, 160, 2                          | 4               |
+| `bark-deep`       | 12×2        | 48×8        | 90            | x, 8, 220, 1                           | 6               |
+| `bark-fine`       | 12×2        | 48×8        | 90            | x, 24, 120, 2                          | 3               |
+| `grass-short`     | 16×16       | 128×128     | 150           | none                                   | 2               |
+| `grass-dense`     | 24×24       | 128×128     | 200           | none                                   | 3               |
+| `grass-windswept` | 4×32        | 8×128       | 140           | none                                   | 2               |
+| `sand-fine`       | 16×16       | 128×128     | 60            | none                                   | 1               |
+| `sand-rippled`    | 8×8         | 128×128     | 60            | y, 12, 120, 3                          | 2               |
+| `sand-coarse`     | 8×8         | 64×64       | 140           | none                                   | 2               |
+
+Palettes and roughness ranges:
+
+- **Bark:** RGB `[46,34,26]` to `[122,98,74]`, roughness 190–250.
+- **Grass:** `[52,82,34]` to `[118,156,70]`, roughness 200–245.
+- **Sand:** `[176,150,108]` to `[226,204,160]`, roughness 200–240.
+
+Height range is 0–255 throughout.
+
+How the controls read:
+
+- **Bark** uses x-axis furrows, so its ridges run vertically along the trunk. `bark-deep` has fewer, deeper and sharper ridges; `bark-fine` has more, shallower ones.
+- **Grass** uses isotropic noise for short and dense turf. `grass-windswept` concentrates cycles on y for a directional, combed appearance.
+- **Sand:** `sand-rippled` adds soft y-axis furrows, giving horizontal ripple rows. `sand-coarse` lowers detail frequency and raises its weight.
+
+All presets keep separate channel refs, explicit-preservation recoloring (one color operation executed, five reused at two-scale settings) and cold replay. They also keep wrapped, non-duplicated periodic sampling and the existing small-size rule: callers reduce grid and furrow counts explicitly for smaller images. The surface-textures example builds every exported preset, so it now produces twenty-four presets.
+
+Consumer-camera acceptance (My Farm, a tree trunk, a 2D consumer) and mipmap evidence remain open in #131.
