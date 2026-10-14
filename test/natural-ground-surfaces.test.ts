@@ -1,4 +1,5 @@
 import test from "node:test";
+// Image-heavy cases get headroom for slower hosted runners (windows-latest exceeded the 5 s default).
 import assert from "node:assert/strict";
 import path from "node:path";
 import {mkdtemp,rm} from "node:fs/promises";
@@ -130,7 +131,7 @@ test("each family shares seed, palette, ranges and size and differs only in its 
  }
 });
 
-test("bark ridges run vertically; deep has fewer stronger ridges and fine more shallower ones",()=>workspace(async root=>{
+test("bark ridges run vertically; deep has fewer stronger ridges and fine more shallower ones",{timeout:60_000},()=>workspace(async root=>{
  // 97 columns hold 48 detail cycles and 24 furrow cycles, so no grid reduction is needed.
  const ridges:Record<string,{count:number;amplitude:number}>={};
  for(const [name,count] of [["bark-ridged",12],["bark-deep",8],["bark-fine",24]] as const) {
@@ -147,7 +148,7 @@ test("bark ridges run vertically; deep has fewer stronger ridges and fine more s
  assert.ok(ridges["bark-ridged"]!.amplitude>ridges["bark-fine"]!.amplitude,"fine ridges are shallower than the default");
 }));
 
-test("grass turf is isotropic while windswept grass is combed along one direction",()=>workspace(async root=>{
+test("grass turf is isotropic while windswept grass is combed along one direction",{timeout:60_000},()=>workspace(async root=>{
  const ratio:Record<string,number>={};
  for(const name of GRASS) {
   const result=await executeSurfaceTextureRecipe(root,{...preset(name),width:129,height:131},{channels:["height"]});
@@ -159,7 +160,7 @@ test("grass turf is isotropic while windswept grass is combed along one directio
  assert.ok(ratio["grass-windswept"]!>4*ratio["grass-short"]!,"windswept is directional relative to short turf");
 }));
 
-test("rippled sand shows horizontal ripple rows relative to fine sand",()=>workspace(async root=>{
+test("rippled sand shows horizontal ripple rows relative to fine sand",{timeout:60_000},()=>workspace(async root=>{
  const images:Record<string,Image>={};
  for(const name of SAND) {
   const result=await executeSurfaceTextureRecipe(root,{...preset(name),width:129,height:131},{channels:["height"]});
@@ -174,7 +175,7 @@ test("rippled sand shows horizontal ripple rows relative to fine sand",()=>works
  assert.notEqual(dominant(spectrum(profile(images["sand-rippled"]!,"x"))),12,"ripples do not run across x");
 }));
 
-test("every new preset cold-replays and recolors with one executed and five reused operations",()=>workspace(async root=>{
+test("every new preset cold-replays and recolors with one executed and five reused operations",{timeout:60_000},()=>workspace(async root=>{
  const sizes:Record<string,[number,number]>={bark:[97,37],grass:[129,131],sand:[129,131]};
  for(const name of NEW) {
   const [width,height]=sizes[name.split("-")[0]!]!;
@@ -194,7 +195,7 @@ test("every new preset cold-replays and recolors with one executed and five reus
  }
 }));
 
-test("odd-size bark and sand furrow normals wrap like an independently repeated height tile",()=>workspace(async root=>{
+test("odd-size bark and sand furrow normals wrap like an independently repeated height tile",{timeout:60_000},()=>workspace(async root=>{
  // Small-size rule: grids and furrow counts are reduced explicitly; every other control stays documented.
  for(const [name,width,height,reduced] of [
   ["bark-deep",17,13,{gridX:4,gridY:2,detailGridX:8,detailGridY:4,furrows:{axis:"x",count:4,depth:220,softness:1}}],
