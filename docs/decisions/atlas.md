@@ -60,6 +60,19 @@ The asset-tooling experience must make humanoid content **visually inspectable a
 
 This complements other procedural, 2D, environment and effect capabilities rather than replacing them. It does not authorize a competing 3D renderer, rigging algorithm, animation engine or workflow system: those stay with their established owners. Technical correctness, owner visual approval and consumer readiness remain distinct.
 
+
+## 3. Greyhaven environment assets
+
+### 3.1. Initial sources and future originals
+
+#### Decision 3.1.1 — Start with Medieval Village and Fantasy Props MegaKits
+
+**Approved by owner:** 2026-10-14. **Resolves** the environment-source/style question in [issue #118](https://github.com/moritzbrantner/asset-tooling/issues/118).
+
+Use **Quaternius Medieval Village MegaKit** and **Fantasy Props MegaKit** as the initial source kits for the reusable Greyhaven environment bundle, beginning with a building, a tree and an everyday prop. Apply the existing license/provenance, catalog, material and packaging requirements; assess the assembled scene at the actual gameplay camera. The kits' stylization is acceptable for this first environment slice even though humanoid characters follow the more humanlike direction in Decision 1.1.1.
+
+Use these kits as **inspiration for our own original environment assets in the future**; their adoption does not establish them as a permanent asset dependency or mandate their exact visual style for future content. Creating original replacements is not a prerequisite for delivering [#118](https://github.com/moritzbrantner/asset-tooling/issues/118), and existing game/physics ownership boundaries remain unchanged.
+
 ## Related execution coverage
 
 Existing issues already cover the main outcomes: [#108](https://github.com/moritzbrantner/asset-tooling/issues/108) visual baseline, [#109](https://github.com/moritzbrantner/asset-tooling/issues/109) approved source, [#110](https://github.com/moritzbrantner/asset-tooling/issues/110) first skinned bundle, [#111](https://github.com/moritzbrantner/asset-tooling/issues/111) animation viewer, [#116](https://github.com/moritzbrantner/asset-tooling/issues/116) appearance variants, [#117](https://github.com/moritzbrantner/asset-tooling/issues/117) garments and armor, and [#127](https://github.com/moritzbrantner/asset-tooling/issues/127) editable workbench. Those issues are implementation scope, not alternate product Decisions. The open Question 1.3.2 should not block the independently settled visual or animation work.
