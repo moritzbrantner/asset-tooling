@@ -95,6 +95,11 @@ const VIEWS = {
 type ViewName = keyof typeof VIEWS;
 const isView = (value: string | null): value is ViewName => value !== null && Object.hasOwn(VIEWS, value);
 
+/** Largest millisecond-precision time not after `duration`, so a clamped value is always renderable. */
+function clampTime(seconds: number, duration: number): number {
+  const ceiling = Math.floor(duration * 1000) / 1000;
+  return Math.max(0, Math.min(roundTime(Number.isFinite(seconds) ? seconds : 0), ceiling));
+}
 /** Times are shown and kept at millisecond precision; the renderer is seeked to exactly the shown value. */
 function roundTime(seconds: number): number {
   const rounded = Math.round(seconds * 1000) / 1000;
@@ -226,7 +231,16 @@ function tick(timestamp: number): void {
   }
   if (state.dirty) {
     state.dirty = false;
-    renderNow();
+    try {
+      renderNow();
+    } catch (error) {
+      // A renderer failure must never leave a "loaded" viewer showing a stale or blank canvas.
+      state.generation += 1;
+      setPlaying(false);
+      release();
+      showFailure(new ViewerFailure("parse", "The renderer could not draw this source",
+        error instanceof Error ? error.message : String(error), true));
+    }
   }
   requestAnimationFrame(tick);
 }
@@ -293,8 +307,8 @@ function seekTo(seconds: number): void {
   setPlaying(false);
   setRestPose(false);
   const duration = clipDuration();
-  state.time = Math.max(0, Math.min(roundTime(Number.isFinite(seconds) ? seconds : 0), roundTime(duration)));
-  loaded.instance.seek(state.clip, Math.min(state.time, duration));
+  state.time = clampTime(seconds, duration);
+  loaded.instance.seek(state.clip, state.time);
   showTime();
   syncUrl();
   state.dirty = true;
@@ -308,9 +322,9 @@ function selectClip(index: number): void {
   const duration = clipDuration();
   dom.scrub.max = formatTime(duration);
   dom.time.max = formatTime(duration);
-  state.time = Math.min(state.time, roundTime(duration));
+  state.time = clampTime(state.time, duration);
   if (!state.playing) setRestPose(false);
-  loaded.instance.seek(state.clip, Math.min(state.time, duration));
+  loaded.instance.seek(state.clip, state.time);
   showTime();
   renderIdentity(loaded);
   syncUrl();
@@ -628,12 +642,15 @@ async function start(): Promise<void> {
   }
 }
 
-window.addEventListener("pagehide", (event) => {
-  if (event.persisted) return;
+// Always release on pagehide, including back-forward cache entries; a restored page rebuilds.
+window.addEventListener("pagehide", () => {
   state.generation += 1;
   release();
   state.renderer?.dispose();
   state.renderer = null;
+});
+window.addEventListener("pageshow", (event) => {
+  if (event.persisted) window.location.reload();
 });
 
 void start();
