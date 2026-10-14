@@ -8,6 +8,8 @@ import {
   NON_ELIGIBLE_GLTF_ID,
   NON_ELIGIBLE_ID,
   NO_CLIPS_ID,
+  ODD_DURATION_CLAMPED,
+  ODD_DURATION_ID,
   RIGGED_DURATION,
   RIGGED_ID,
   SECOND_CLIP_DURATION,
@@ -734,6 +736,7 @@ test.describe("harness self-check", () => {
         "test.simpleskin-two-clips-gltf",
         "test.simpleskin-no-clips-gltf",
         "test.malformed-glb",
+        "test.simpleskin-odd-duration-gltf",
       ];
       const checked = [];
       for (const id of ids) {
@@ -755,5 +758,115 @@ test.describe("harness self-check", () => {
     for (const entry of results.checked) expect(entry, entry.id).toMatchObject({ ok: true });
     expect(results.cdn).toBe("blocked");
     expect(log.blocked.some((url) => url.startsWith("https://cdn.jsdelivr.net/"))).toBe(true);
+  });
+});
+
+// Regressions from the #196 review. Each one failed on the code before its fix.
+test.describe("rigged source animation viewer: review regressions", () => {
+  test("clamping to a duration that is not a whole millisecond shows, keeps and seeks the same value", async ({ page }) => {
+    await installNetwork(page, { injectFixtures: true });
+    const viewer = new Viewer(page);
+    await viewer.open({ asset: ODD_DURATION_ID });
+    await viewer.expectReady();
+
+    await viewer.seek("99");
+    await expect(viewer.time).toHaveValue(ODD_DURATION_CLAMPED);
+    expect(Number(await viewer.slider.inputValue())).toBe(Number(ODD_DURATION_CLAMPED));
+    expect((await viewer.params()).get("t")).toBe(ODD_DURATION_CLAMPED);
+    const clamped = await viewer.shot();
+
+    await viewer.seek("0.5");
+    expect(sameBytes(clamped, await viewer.shot()), "the fixture clip is animated near its end").toBe(false);
+    await viewer.seek(ODD_DURATION_CLAMPED);
+    await expect(viewer.time).toHaveValue(ODD_DURATION_CLAMPED);
+    expect(sameBytes(clamped, await viewer.shot()), "a clamped seek renders the displayed time exactly").toBe(true);
+  });
+
+  test("a renderer exception while drawing a frame shows a failure with Retry, and Retry recovers", async ({ page }) => {
+    // Test-side fault injection, no production hook: WebGL draw calls throw while
+    // the page-global flag is set.
+    await page.addInitScript(() => {
+      const flags = window as unknown as { __assetToolingFailDraw?: boolean };
+      const names = ["drawElements", "drawArrays", "drawElementsInstanced", "drawArraysInstanced", "drawRangeElements"];
+      for (const proto of [WebGLRenderingContext.prototype, WebGL2RenderingContext.prototype]) {
+        const methods = proto as unknown as Record<string, unknown>;
+        for (const name of names) {
+          const original = methods[name];
+          if (typeof original !== "function") continue;
+          methods[name] = function (this: unknown, ...args: unknown[]) {
+            if (flags.__assetToolingFailDraw) throw new Error("injected draw failure (test)");
+            return (original as (...inner: unknown[]) => unknown).apply(this, args);
+          };
+        }
+      }
+    });
+    const errors = collectPageErrors(page);
+    await installNetwork(page);
+    const viewer = new Viewer(page);
+    await viewer.open({ asset: RIGGED_ID, t: "0.5" });
+    await viewer.expectReady();
+
+    await page.evaluate(() => {
+      (window as unknown as { __assetToolingFailDraw?: boolean }).__assetToolingFailDraw = true;
+    });
+    await viewer.preset("Side").click();
+    await viewer.expectFailure();
+    await expect(viewer.retry).toBeVisible();
+    expect(errors, "the renderer exception is handled, not left uncaught").toEqual([]);
+
+    await page.evaluate(() => {
+      (window as unknown as { __assetToolingFailDraw?: boolean }).__assetToolingFailDraw = false;
+    });
+    await viewer.retry.click();
+    await viewer.expectReady();
+    const before = await viewer.shot();
+    await viewer.seek("0.9");
+    expect(sameBytes(before, await viewer.shot()), "the render loop is alive after Retry").toBe(false);
+    expect(errors).toEqual([]);
+  });
+
+  test("a persisted pagehide (back-forward cache) releases renderer resources and a persisted pageshow rebuilds", async ({ page }) => {
+    // Playwright's Chromium never restores pages from the back-forward cache
+    // (notRestoredReasons is "masked" even with --disable-back-forward-cache
+    // removed), so this dispatches the same PageTransitionEvents the browser
+    // would fire, and counts WebGL deletions with test-side wrappers.
+    await page.addInitScript(() => {
+      const counter = window as unknown as { __assetToolingGlDeletes?: number };
+      counter.__assetToolingGlDeletes = 0;
+      const names = ["deleteBuffer", "deleteProgram", "deleteTexture", "deleteVertexArray", "deleteFramebuffer", "deleteRenderbuffer", "deleteShader"];
+      for (const proto of [WebGLRenderingContext.prototype, WebGL2RenderingContext.prototype]) {
+        const methods = proto as unknown as Record<string, unknown>;
+        for (const name of names) {
+          const original = methods[name];
+          if (typeof original !== "function") continue;
+          methods[name] = function (this: unknown, ...args: unknown[]) {
+            counter.__assetToolingGlDeletes = (counter.__assetToolingGlDeletes ?? 0) + 1;
+            return (original as (...inner: unknown[]) => unknown).apply(this, args);
+          };
+        }
+      }
+    });
+    const errors = collectPageErrors(page);
+    await installNetwork(page);
+    const viewer = new Viewer(page);
+    await viewer.open({ asset: RIGGED_ID, t: "0.5" });
+    await viewer.expectReady();
+    const before = await viewer.shot();
+
+    const released = await page.evaluate(() => {
+      const counter = window as unknown as { __assetToolingGlDeletes?: number };
+      const start = counter.__assetToolingGlDeletes ?? 0;
+      window.dispatchEvent(new PageTransitionEvent("pagehide", { persisted: true }));
+      return (counter.__assetToolingGlDeletes ?? 0) - start;
+    });
+    expect(released, "pagehide into the back-forward cache releases WebGL resources").toBeGreaterThan(0);
+
+    const reloaded = page.waitForEvent("load");
+    await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent("pageshow", { persisted: true })));
+    await reloaded;
+    await viewer.expectReady();
+    await expect(viewer.time).toHaveValue("0.5");
+    expect(sameBytes(before, await viewer.shot()), "the rebuilt viewer renders the same frame").toBe(true);
+    expect(errors).toEqual([]);
   });
 });

@@ -87,6 +87,11 @@ export const NO_CLIPS_ID = "test.simpleskin-no-clips-gltf";
 export const MALFORMED_ID = "test.malformed-glb";
 export const SECOND_CLIP_NAME = "Bend";
 export const SECOND_CLIP_DURATION = 2.2;
+export const ODD_DURATION_ID = "test.simpleskin-odd-duration-gltf";
+/** A clip duration that is not a whole number of milliseconds. */
+export const ODD_DURATION = 1.2346;
+/** The largest millisecond time not after ODD_DURATION: what clamping must show and seek. */
+export const ODD_DURATION_CLAMPED = "1.234";
 
 function float32DataUri(values: number[]): string {
   const buffer = Buffer.from(new Float32Array(values).buffer);
@@ -139,6 +144,31 @@ export function twoClipsGltf(): Uint8Array {
 }
 
 /** SimpleSkin with its skin intact but every animation removed. */
+/** SimpleSkin whose only clip is rescaled to last 1.2346 s (not a whole millisecond). */
+export function oddDurationGltf(): Uint8Array {
+  const gltf = simpleSkinJson();
+  const first = gltf.animations?.[0];
+  const firstSampler = first?.samplers[0];
+  if (!first || !firstSampler) throw new Error("SimpleSkin animation layout changed");
+  const inputAccessor = gltf.accessors[firstSampler.input] as { count: number };
+  const times = Array.from({ length: inputAccessor.count }, (_, index) => (index * ODD_DURATION) / (inputAccessor.count - 1));
+  const bufferIndex = gltf.buffers.length;
+  gltf.buffers.push({ byteLength: times.length * 4, uri: float32DataUri(times) });
+  const viewIndex = gltf.bufferViews.length;
+  gltf.bufferViews.push({ buffer: bufferIndex, byteLength: times.length * 4 });
+  const accessorIndex = gltf.accessors.length;
+  gltf.accessors.push({
+    bufferView: viewIndex,
+    componentType: 5126,
+    count: times.length,
+    type: "SCALAR",
+    min: [0],
+    max: [Math.fround(ODD_DURATION)],
+  });
+  gltf.animations = [{ ...first, samplers: [{ ...firstSampler, input: accessorIndex }] }];
+  return new Uint8Array(Buffer.from(JSON.stringify(gltf), "utf8"));
+}
+
 export function noClipsGltf(): Uint8Array {
   const gltf = simpleSkinJson();
   delete gltf.animations;
@@ -175,6 +205,7 @@ export const fixtureSources: FixtureSource[] = [
   { id: TWO_CLIPS_ID, title: "Simple Skin (two clips, test fixture)", mediaType: "model/gltf+json", file: "SimpleSkinTwoClips.gltf", bytes: twoClipsGltf() },
   { id: NO_CLIPS_ID, title: "Simple Skin (no clips, test fixture)", mediaType: "model/gltf+json", file: "SimpleSkinNoClips.gltf", bytes: noClipsGltf() },
   { id: MALFORMED_ID, title: "Malformed GLB (test fixture)", mediaType: "model/gltf-binary", file: "Malformed.glb", bytes: malformedGlb() },
+  { id: ODD_DURATION_ID, title: "Simple Skin (1.2346 s clip, test fixture)", mediaType: "model/gltf+json", file: "SimpleSkinOddDuration.gltf", bytes: oddDurationGltf() },
 ];
 
 function fixtureCatalogEntry(fixture: FixtureSource, template: Record<string, unknown>): Record<string, unknown> {
