@@ -439,3 +439,26 @@ test("an unused sampler outside the channels' time range does not widen the clip
   const clip = ((analyzed.observations as Json).clips as Json[])[0]!;
   assert.deepEqual(clip.unusedSamplers, [1], "the out-of-range sampler is still listed");
 });
+
+test("corrupted GLB headers report the header problem, not GLB_EXTERNAL_RESOURCE", async () => {
+  // Regression (PR #195 review): the external-resource check must only trust a well-formed GLB
+  // header; otherwise the real container problem is masked as GLB_EXTERNAL_RESOURCE.
+  const json = untexturedFixture();
+  json.buffers[0].uri = "geometry/tile.bin";
+  const valid = glb(json);
+  const cases: [string, (bytes: Buffer) => void, RegExp][] = [
+    ["wrong magic", (bytes) => bytes.writeUInt32LE(0x46546c68, 0), /GLB_INVALID_MAGIC|well-formed GLB container/],
+    ["version 1", (bytes) => bytes.writeUInt32LE(1, 4), /GLB_INVALID_VERSION|well-formed GLB container/],
+    ["declared length too long", (bytes) => bytes.writeUInt32LE(valid.length + 4, 8), /GLB_LENGTH_MISMATCH|GLB_LENGTH_TOO_SMALL|well-formed GLB container/],
+  ];
+  const failures: string[] = [];
+  for (const [name, change, expected] of cases) {
+    const corrupted = Buffer.from(valid);
+    change(corrupted);
+    try { await failClosed(corrupted, [expected], [], [/GLB_EXTERNAL_RESOURCE/]); }
+    catch (error) { failures.push(`${name}: ${(error as Error).message.split("\n")[0]}`); }
+  }
+  assert.deepEqual(failures, [], failures.join("\n"));
+  // The well-formed container with the same external URI still names the external resource.
+  await failClosed(valid, [/\/buffers\/0\/uri: GLB_EXTERNAL_RESOURCE/, /geometry\/tile\.bin/]);
+});
