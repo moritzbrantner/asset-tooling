@@ -103,22 +103,7 @@ function normalizeSourceLocator(value) {
     normalized.path = assertNonEmptyString(source.path, "catalog source.source.path");
   }
 
-  const hasSha = source.sha256 !== undefined;
-  const hasLength = source.byteLength !== undefined;
-  if (hasSha !== hasLength) {
-    throw new Error("catalog source.source sha256 and byteLength must be declared together");
-  }
-  if (hasSha) {
-    if (!SHA256_PATTERN.test(source.sha256)) {
-      throw new Error("catalog source.source.sha256 must be a lowercase 64-character SHA-256 digest");
-    }
-    if (!Number.isSafeInteger(source.byteLength) || source.byteLength < 0) {
-      throw new Error("catalog source.source.byteLength must be a non-negative safe integer");
-    }
-    normalized.sha256 = source.sha256;
-    normalized.byteLength = source.byteLength;
-  }
-  return normalized;
+  return normalizePin(source, normalized);
 }
 
 function normalizeLicense(value) {
@@ -160,28 +145,108 @@ export function createAssetCatalogProvider(value) {
   });
 }
 
+function normalizePin(source, normalized) {
+  const hasSha = source.sha256 !== undefined;
+  const hasLength = source.byteLength !== undefined;
+  if (hasSha !== hasLength) {
+    throw new Error("catalog source.source sha256 and byteLength must be declared together");
+  }
+  if (hasSha) {
+    if (!SHA256_PATTERN.test(source.sha256)) {
+      throw new Error("catalog source.source.sha256 must be a lowercase 64-character SHA-256 digest");
+    }
+    if (!Number.isSafeInteger(source.byteLength) || source.byteLength < 0) {
+      throw new Error("catalog source.source.byteLength must be a non-negative safe integer");
+    }
+    normalized.sha256 = source.sha256;
+    normalized.byteLength = source.byteLength;
+  }
+  return normalized;
+}
+
+function normalizeMemberPin(value) {
+  const source = assertObject(value ?? {}, "catalog source.source");
+  for (const key of Object.keys(source)) {
+    if (key === "sha256" || key === "byteLength") continue;
+    if (key === "url" || key === "upstreamId" || key === "revision" || key === "path") {
+      throw new Error(
+        `catalog source.source.${key} is not allowed on a schemaVersion 2 archive member; the archive record carries the locator`,
+      );
+    }
+    throw new Error(`catalog source.source contains unknown field '${key}'`);
+  }
+  return normalizePin(source, {});
+}
+
+const DRIVE_PREFIX_PATTERN = /^[A-Za-z]:/;
+
+export function assertAssetCatalogMemberPath(value, location = "catalog source.archiveMember.path") {
+  if (typeof value !== "string" || value.length === 0) throw new Error(`${location} must be a non-empty string`);
+  if (value.includes("\\")) throw new Error(`${location} must not contain a backslash`);
+  if (value.includes("\u0000")) throw new Error(`${location} must not contain NUL`);
+  if (value.startsWith("/")) throw new Error(`${location} must be relative`);
+  if (DRIVE_PREFIX_PATTERN.test(value)) throw new Error(`${location} must not start with a drive prefix`);
+  for (const segment of value.split("/")) {
+    if (segment.length === 0) throw new Error(`${location} must not contain empty segments`);
+    if (segment === "." || segment === "..") throw new Error(`${location} must not contain '.' or '..' segments`);
+  }
+  return value;
+}
+
+function normalizeArchiveMember(value) {
+  const member = assertObject(value, "catalog source.archiveMember");
+  assertExactKeys(member, new Set(["archive", "path"]), "catalog source.archiveMember");
+  return Object.freeze({
+    archive: assertToken(member.archive, "catalog source.archiveMember.archive"),
+    path: assertAssetCatalogMemberPath(member.path),
+  });
+}
+
+const SOURCE_FIELDS_V1 = new Set([
+  "schemaVersion", "id", "provider", "title", "kind", "mediaType", "source", "license", "tags", "metadata",
+]);
+const SOURCE_FIELDS_V2 = new Set([...SOURCE_FIELDS_V1, "archiveMember"]);
+
 export function createAssetCatalogSource(value) {
   const source = assertObject(value, "catalog source");
-  assertExactKeys(
-    source,
-    new Set(["schemaVersion", "id", "provider", "title", "kind", "mediaType", "source", "license", "tags", "metadata"]),
-    "catalog source",
-  );
-  if ((source.schemaVersion ?? 1) !== 1) throw new Error("catalog source schemaVersion must be 1");
+  const schemaVersion = source.schemaVersion ?? 1;
+  if (schemaVersion !== 1 && schemaVersion !== 2) throw new Error("catalog source schemaVersion must be 1 or 2");
+  assertExactKeys(source, schemaVersion === 2 ? SOURCE_FIELDS_V2 : SOURCE_FIELDS_V1, "catalog source");
+  if (schemaVersion === 2 && source.archiveMember === undefined) {
+    throw new Error("catalog source schemaVersion 2 requires archiveMember");
+  }
   const metadata = canonicalClone(source.metadata ?? {}, "catalog source.metadata");
   if (!isObject(metadata)) throw new Error("catalog source.metadata must be an object");
-  return Object.freeze({
-    schemaVersion: 1,
+  const common = {
     id: assertToken(source.id, "catalog source.id"),
     provider: assertToken(source.provider, "catalog source.provider"),
     title: assertNonEmptyString(source.title, "catalog source.title"),
     kind: assertToken(source.kind, "catalog source.kind"),
     mediaType: assertMediaType(source.mediaType, "catalog source.mediaType"),
+  };
+  if (schemaVersion === 2) {
+    return Object.freeze({
+      schemaVersion: 2,
+      ...common,
+      archiveMember: normalizeArchiveMember(source.archiveMember),
+      source: Object.freeze(normalizeMemberPin(source.source)),
+      license: Object.freeze(normalizeLicense(source.license)),
+      tags: Object.freeze(normalizeStringList(source.tags ?? [], "catalog source.tags", assertToken)),
+      metadata: deepFreeze(metadata),
+    });
+  }
+  return Object.freeze({
+    schemaVersion: 1,
+    ...common,
     source: Object.freeze(normalizeSourceLocator(source.source)),
     license: Object.freeze(normalizeLicense(source.license)),
     tags: Object.freeze(normalizeStringList(source.tags ?? [], "catalog source.tags", assertToken)),
     metadata: deepFreeze(metadata),
   });
+}
+
+export function isAssetCatalogArchiveMember(value) {
+  return value?.schemaVersion === 2 && value.archiveMember !== undefined;
 }
 
 export function isAssetCatalogSourcePinned(value) {
@@ -232,6 +297,43 @@ export function createAssetCatalog({ providers, sources }) {
     sourceMap.set(source.id, source);
   }
 
+  // Cross-record archive-member rules. Members may appear before or after their archive.
+  const memberPairs = new Map();
+  for (const source of sourceMap.values()) {
+    if (!isAssetCatalogArchiveMember(source)) continue;
+    const { archive: archiveId, path: memberPath } = source.archiveMember;
+    const archive = sourceMap.get(archiveId);
+    if (!archive) {
+      throw new Error(`catalog source '${source.id}' references unregistered archive '${archiveId}'`);
+    }
+    if (archive.schemaVersion !== 1) {
+      throw new Error(
+        `catalog source '${source.id}' archive '${archiveId}' must be a schemaVersion 1 source; members do not nest`,
+      );
+    }
+    if (archive.mediaType !== "application/zip") {
+      throw new Error(
+        `catalog source '${source.id}' archive '${archiveId}' must have mediaType application/zip, got '${archive.mediaType}'`,
+      );
+    }
+    if (archive.provider !== source.provider) {
+      throw new Error(
+        `catalog source '${source.id}' provider '${source.provider}' differs from archive '${archiveId}' provider '${archive.provider}'`,
+      );
+    }
+    if (canonicalJson(archive.license) !== canonicalJson(source.license)) {
+      throw new Error(`catalog source '${source.id}' license must be identical to archive '${archiveId}' license`);
+    }
+    const pairKey = canonicalJson([archiveId, memberPath]);
+    const previous = memberPairs.get(pairKey);
+    if (previous !== undefined) {
+      throw new Error(
+        `catalog sources '${previous}' and '${source.id}' both name member '${memberPath}' of archive '${archiveId}'`,
+      );
+    }
+    memberPairs.set(pairKey, source.id);
+  }
+
   const listProviders = () =>
     [...providerMap.values()].sort((a, b) => compareCodeUnitStrings(a.id, b.id));
   const listSources = () =>
@@ -268,6 +370,14 @@ export function assertAssetCatalogSourceReusable(catalog, id) {
   if (!isAssetCatalogSourcePinned(source)) {
     throw new Error(`catalog source '${id}' must be content-pinned before canonical import`);
   }
+  if (isAssetCatalogArchiveMember(source)) {
+    const archive = catalog.getSource(source.archiveMember.archive);
+    if (!archive || !isAssetCatalogSourcePinned(archive)) {
+      throw new Error(
+        `catalog source '${id}' archive '${source.archiveMember.archive}' must be content-pinned before its member is reused`,
+      );
+    }
+  }
   return source;
 }
 
@@ -285,6 +395,12 @@ export async function importAssetCatalogSource(root, catalog, id, bytesValue) {
       metadata: pinned.metadata,
     },
   };
+  if (isAssetCatalogArchiveMember(pinned)) {
+    const archive = catalog.getSource(pinned.archiveMember.archive);
+    metadata.catalog.archiveSourceId = archive.id;
+    metadata.catalog.archiveSha256 = archive.source.sha256;
+    metadata.catalog.archiveMemberPath = pinned.archiveMember.path;
+  }
   return storeAssetObject(root, {
     bytes: Buffer.from(bytesValue),
     kind: pinned.kind,

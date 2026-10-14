@@ -6,6 +6,7 @@ import {
   createAssetCatalogSource,
   importAssetCatalogSource,
   inspectAssetCatalogSourceBytes,
+  isAssetCatalogArchiveMember,
 } from "./catalog.js";
 
 const STORAGE_ROOT = "assets/canonical";
@@ -61,7 +62,10 @@ function assertRoot(root, location) {
 }
 
 function sourceFileName(source) {
-  const locator = source.source.path ?? new URL(source.source.url).pathname;
+  // An archive member is stored under the basename of its member path.
+  const locator = isAssetCatalogArchiveMember(source)
+    ? source.archiveMember.path
+    : source.source.path ?? new URL(source.source.url).pathname;
   const portableLocator = locator.replaceAll("\\", "/");
   const filename = path.posix.basename(portableLocator);
   if (!filename || filename === "." || filename === "..") {

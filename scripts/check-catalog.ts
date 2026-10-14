@@ -34,6 +34,7 @@ console.log(
       pinned: isAssetCatalogSourcePinned(source),
       provider: source.provider,
       license: source.license.spdx,
+      ...(source.archiveMember ? { archive: source.archiveMember.archive } : {}),
     })),
   }),
 );
