@@ -183,9 +183,10 @@ function readLocalPayload(bytes, entry, name, centralDirectoryOffset) {
     entryFail(name, "local header name differs from the central directory");
   }
   if (method !== entry.method) entryFail(name, "local header compression method differs from the central directory");
-  if ((flags & (FLAG_ENCRYPTED | FLAG_DATA_DESCRIPTOR)) !== (entry.flags & (FLAG_ENCRYPTED | FLAG_DATA_DESCRIPTOR))) {
-    entryFail(name, "local header flags differ from the central directory");
+  if (flags & ~(FLAG_DATA_DESCRIPTOR | FLAG_UTF8)) {
+    entryFail(name, `local header uses unsupported general-purpose flags 0x${flags.toString(16)}`);
   }
+  if (flags !== entry.flags) entryFail(name, "local header flags differ from the central directory");
   if (hasZip64Extra(bytes.subarray(nameStart + nameLength, dataStart))) entryFail(name, "uses ZIP64 fields");
   // With a data descriptor (bit 3) the local CRC and sizes may be zero; the
   // central directory is then authoritative. Non-zero local values must agree.
