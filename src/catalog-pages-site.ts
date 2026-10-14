@@ -1,5 +1,6 @@
 import { createCatalogPagesModel } from "./catalog-pages.js";
 import { CATALOG_PREVIEW_HINTS } from "./catalog-preview-hints.js";
+import { animationViewerHrefFromAssetPage, isAnimationViewerEligible } from "./animation-viewer-eligibility.js";
 
 export { createCatalogPagesModel };
 
@@ -708,6 +709,9 @@ export function renderCatalogAssetHtml(asset) {
     asset.provider.homepage ? detailRow("Provider", "Open provider", { href: asset.provider.homepage }) : "",
   ].join("");
   const tags = asset.tags.length ? `<div class="tags">${renderTags(asset.tags)}</div>` : "";
+  const viewerLink = isAnimationViewerEligible(asset)
+    ? `<p class="page-actions"><a href="${escapeHtml(animationViewerHrefFromAssetPage(asset.id))}">Inspect animation</a></p>`
+    : "";
   const hasAudio = assetHasAudioPreview(asset);
   const hasModel = assetHasModelPreview(asset);
   const hasCarousel = assetHasCarousel(asset);
@@ -730,6 +734,8 @@ export function renderCatalogAssetHtml(asset) {
     main { max-width: 920px; margin: 0 auto; padding: 36px 24px 80px; }
     a { color: LinkText; }
     .back { display: inline-block; margin-bottom: 28px; }
+    .page-actions { margin: 18px 0 0; }
+    .page-actions a { font-weight: 700; }
     .hero { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(260px, .8fr); gap: 28px; align-items: start; }
     h1 { margin: 0 0 6px; font-size: clamp(2rem, 5vw, 3rem); letter-spacing: -0.035em; }
     .id { margin: 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: color-mix(in srgb, CanvasText 58%, Canvas); overflow-wrap: anywhere; }
@@ -775,6 +781,7 @@ export function renderCatalogAssetHtml(asset) {
       <p class="id">${escapeHtml(asset.id)}</p>
       <span class="state">${escapeHtml(asset.state)}</span>
       ${tags}
+      ${viewerLink}
     </div>
   </section>
   <section class="details" aria-labelledby="details-heading">
