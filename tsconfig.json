@@ -85,6 +85,7 @@
     "src/rock-recipes.ts",
     "src/gltf-material-operations.ts",
     "test/gltf-material-operations.test.ts",
+    "test/gltf-malformed-inputs.test.ts",
     "src/render-derivative-recipes.ts",
     "src/sprite-atlas-operations.ts",
     "test/sprite-atlas-operations.test.ts",
