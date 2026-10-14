@@ -7,6 +7,7 @@ import {
   renderCatalogGalleryHtml,
 } from "../src/catalog-pages-site.js";
 import { renderBrowser3DStudioHtml } from "../src/browser-pages-site.js";
+import { renderAnimationViewerHtml } from "../src/animation-viewer-page.js";
 import { attachGeneratedGalleryPreviews, extendCatalogGalleryModel } from "../src/generated-gallery-assets.js";
 
 const root = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
@@ -100,10 +101,40 @@ if (!browserBuild.success) {
   );
 }
 
+// Rigged source animation viewer (#111): a self-contained bundle of the client,
+// three.js and the commit-pinned 3d-lab renderer. No CDN at runtime.
+const viewerRoot = path.join(outputRoot, "viewer");
+await mkdir(viewerRoot, { recursive: true });
+await writeFile(path.join(viewerRoot, "index.html"), renderAnimationViewerHtml(), "utf8");
+const viewerBuild = await Bun.build({
+  entrypoints: [path.join(root, "src", "browser", "animation-viewer.ts")],
+  outdir: viewerRoot,
+  target: "browser",
+  format: "esm",
+  splitting: false,
+  minify: true,
+  sourcemap: "none",
+  naming: "app.js",
+});
+if (!viewerBuild.success) {
+  throw new Error(
+    "animation viewer bundle failed:\n" +
+      viewerBuild.logs.map((entry) => entry.message).join("\n"),
+  );
+}
+// The renderer's wasm-bindgen glue loads its pose authority relative to the
+// bundle (`new URL("character_bg.wasm", import.meta.url)`), so it ships beside app.js.
+const rendererPackage = path.dirname(fileURLToPath(import.meta.resolve("@moritzbrantner/three-d-renderer/inspection-character")));
+await copyFile(
+  path.join(rendererPackage, "imported-character-wasm", "character_bg.wasm"),
+  path.join(viewerRoot, "character_bg.wasm"),
+);
+
 console.log(JSON.stringify({
   status: "built",
   assets: galleryModel.assets.length,
   detailPages: galleryModel.assets.length,
   browser3DStudio: true,
+  animationViewer: true,
   output: "dist/pages",
 }));

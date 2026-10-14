@@ -2,7 +2,7 @@
 
 First slice of [#111](https://github.com/moritzbrantner/asset-tooling/issues/111) under Decisions 1.2.1 and 2.1.1 of the [Decision Atlas](decisions/atlas.md): a Pages route for inspecting a pinned rigged catalog source and its asset-owned animation clips. It replaces the auto-rotating static preview for these sources. This slice shows the **original source only**. Synchronized source-versus-processed comparison follows once #110's processed character exists; until then the page says so rather than showing a second copy of the same bytes. Appearance swapping is the later workbench slice (#127).
 
-The viewer is presentation and evidence. It never decides asset identity, animation math or approval. It uses the shared 3d-lab renderer (`@moritzbrantner/three-d-renderer`, `./imported-character` export, commit-pinned) for parsing, skinning and clip sampling. It adds no glTF or skin implementation of its own.
+The viewer is presentation and evidence. It never decides asset identity, animation math or approval. It uses the shared 3d-lab renderer (`@moritzbrantner/three-d-renderer`, `./inspection-character` export, commit-pinned as a git dev dependency in `package.json`) for pin verification, parsing, skinning and clip sampling. That export is inspection-only: it verifies the source's SHA-256 and byte length before parsing and never carries production-import provenance. The viewer bundles the renderer, three.js and the renderer's WASM pose module into `viewer/`, so it needs no CDN. It adds no glTF or skin implementation of its own.
 
 ## Route and eligible assets
 
