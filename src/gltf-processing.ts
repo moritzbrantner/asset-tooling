@@ -86,8 +86,12 @@ export const PRODUCTION_SUPERSEDED_VALIDATOR_CODES = Object.freeze(["ACCESSOR_WE
 function rejectGlbExternalResources(bytes: Uint8Array, location: string) {
   if (bytes.byteLength < 20) return;
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  // Only a well-formed header (magic, version 2, exact declared length, aligned in-bounds JSON
+  // chunk) is trusted here; anything else is left for the decoder/validator to diagnose.
+  if (view.getUint32(0, true) !== 0x46546c67 || view.getUint32(4, true) !== 2
+    || view.getUint32(8, true) !== bytes.byteLength) return;
   const length = view.getUint32(12, true);
-  if (view.getUint32(16, true) !== 0x4e4f534a || 20 + length > bytes.byteLength) return;
+  if (view.getUint32(16, true) !== 0x4e4f534a || length % 4 !== 0 || 20 + length > bytes.byteLength) return;
   let json: unknown;
   try { json = JSON.parse(new TextDecoder().decode(bytes.subarray(20, 20 + length))); } catch { return; }
   if (typeof json !== "object" || json === null) return;
