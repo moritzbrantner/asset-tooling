@@ -40,6 +40,14 @@ These are editable, reusable visual-asset compositions that can be inspected and
 
 For the first usable Pages-based humanoid customization experience, should users initially (A) choose from a curated library of pre-compatible heads/tops/footwear, (B) also import outside parts with explicit compatibility checks and failure feedback but no automatic refit, or (C) expect arbitrary imported parts to be automatically fitted and rigged? The chosen initial boundary materially changes what a successful first live edit proves. The longer-term scope can expand separately.
 
+#### Decision 1.3.3 — Start customization with a curated compatible parts library
+
+**Answers:** 1.3.2. **Approved by owner:** 2026-10-14, option A.
+
+The first usable character-customization experience offers a **curated library of pre-compatible heads, shirts/tops and shoes/boots**. A user selects alternatives on the same rigged character, previews the changes during actual animation, and exports/reopens the assembled animated asset. Preserve fitting, attachment, skin deformation and declared source/rig compatibility instead of presenting incompatible parts as successful.
+
+Importing arbitrary third-party replacement parts or automatically fitting/rigging them is **not required for this first release**; those are possible later extensions, not currently approved commitments. The curated approach is a staged delivery boundary, not a limit on the intended realistic character quality or other asset-workbench capabilities.
+
 ## 2. Character inspection and editing
 
 ### 2.1. Asset workbench
