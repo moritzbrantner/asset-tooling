@@ -33,6 +33,7 @@
     "examples/shrubs/build.ts",
     "examples/paper-grain/build.ts",
     "test/paper-grain.test.ts",
+    "test/natural-ground-surfaces.test.ts",
     "examples/directional-crops/build.ts",
     "test/shared-render-framing.test.ts",
     "src/blender-script-backend.ts",
