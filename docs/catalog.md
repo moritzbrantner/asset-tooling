@@ -106,6 +106,37 @@ The preferred hosted path is the manually dispatched `Catalog Git LFS promotion`
 
 Re-running promotion for an already canonical source is idempotent when the bytes and manifests are unchanged. A changed upstream response, corrupted local canonical payload, implicit path move, unaccepted license, or project-local provider fails closed.
 
+## Archive-member sources
+
+Large provider packs are pinned as whole archives, but only the files a consumer needs are stored ([owner decision on #118](https://github.com/moritzbrantner/asset-tooling/issues/118), option B). A **member source** is a catalog source record with `schemaVersion: 2` that names one file inside a registered archive source:
+
+```json
+{
+  "schemaVersion": 2,
+  "id": "quaternius.medieval-village-megakit-standard.door-gltf",
+  "provider": "quaternius",
+  "title": "Medieval Village MegaKit — door (glTF)",
+  "kind": "mesh",
+  "mediaType": "model/gltf+json",
+  "archiveMember": { "archive": "quaternius.medieval-village-megakit-standard", "path": "Medieval Village MegaKit[Standard]/glTF/Door.gltf" },
+  "source": { "sha256": "<member sha256>", "byteLength": 1234 },
+  "license": { "spdx": "CC0-1.0", "evidenceUrl": "https://quaternius.com/packs/medievalvillagemegakit.html" },
+  "tags": ["gltf"]
+}
+```
+
+Rules:
+- **Record shape.** Schema version 1 records are unchanged. Version 2 records require `archiveMember` and must not carry `source.url`, `source.upstreamId`, `source.revision` or `source.path`. Their `source` holds only the member's pin; `sha256` and `byteLength` stay together, and may both be absent before the first promotion. Unknown fields fail, as for version 1.
+- **The archive.** `archiveMember.archive` must be a registered version 1 source with `mediaType: "application/zip"`, from the same provider, and with an identical `license` (spdx, evidence URL and attribution). An archive can never itself be a member, so members don't nest.
+- **The member path.** `archiveMember.path` is a portable relative path: `/`-separated, with no leading `/`, no `.` or `..` segments, no backslash, drive prefix or NUL, and no empty segment. It is compared byte-for-byte with the archive's central-directory name, so case and Unicode form matter. The pair of archive and path is unique across the catalog.
+- **What gets extracted.** Extraction reads only the matching central-directory entry. It accepts a regular file that is unencrypted, single-disk, not ZIP64, and stored or deflate-compressed. Its local header must agree with the central directory (name, compression and sizes), and its CRC-32 must match. Directories, symlinks, duplicate names and any other method or flag fail closed with the entry name. Decompression uses an established decoder (Node `zlib` raw inflate) and stops as soon as the declared uncompressed size is exceeded.
+- **Acquisition.** Acquiring a member fetches the archive's URL, verifies the archive pin when one is present, extracts the member, and verifies the member's pin. The archive bytes stay in disposable `.artifacts/` state and are never stored canonically. Generation still never acquires.
+- **Promotion.** `bun run catalog:lfs:promote -- <member id>` and the hosted promotion workflow accept member ids. A member promotion measures or re-verifies the archive and the member. It writes both pins into `catalog/sources.json`: the archive record gains `sha256` and `byteLength` but no storage entry, and the member gets its own. It stores only the member under `assets/canonical/<member id>/<basename of path>`, with one `catalog/storage.json` entry. Promoting an archive source itself remains possible but is not required.
+- **Storage verification and consumers.** These treat member payloads like any other canonical payload: hydrated bytes must match the member's pin. Imported `AssetRef` metadata additionally records `archiveSourceId`, `archiveSha256` and `archiveMemberPath` as provenance.
+- **Pages.** The Pages gallery lists member sources under their archive, showing the archive's license and evidence.
+
+A glTF asset that refers to external buffers or images needs one member source per referenced file. A recipe binds them as resources (`resourceUris`) in the existing glTF import operations; the catalog does not infer member sets from glTF content.
+
 ## Canonical formats
 
 Prefer these normalized delivery boundaries where the owning processor supports them:
