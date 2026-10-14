@@ -144,7 +144,7 @@ test("analysis reports production coverage and clip domains without writing obje
     const before = (await readdir(root, { recursive: true })).sort();
     const result = await executeGltfAnalyzeOperation(root, { inputs: { source } });
     assert.deepEqual(result.outputs, {});
-    assert.deepEqual(result.observations.clips, [{ name: "walk", startSeconds: 0, endSeconds: 1, durationSeconds: 1, channels: [{ node: 1, path: "translation", interpolation: "LINEAR", keyframeCount: 2 }] }]);
+    assert.deepEqual(result.observations.clips, [{ name: "walk", startSeconds: 0, endSeconds: 1, durationSeconds: 1, unusedSamplers: [], singleKeyframeChannels: [], channels: [{ node: 1, path: "translation", interpolation: "LINEAR", keyframeCount: 2 }] }]);
     assert.deepEqual(result.observations.skins, [{ name: "rig", joints: [2, 1], skeleton: 1, inverseBindMatrixCount: 2 }]);
     assert.equal(result.observations.accepted, true);
     assert.deepEqual((await readdir(root, { recursive: true })).sort(), before);
