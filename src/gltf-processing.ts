@@ -111,7 +111,8 @@ export async function validateGltf(bytes: Uint8Array, format: "gltf" | "glb", re
   let report: Awaited<ReturnType<typeof validateBytes>>;
   try {
     report = await validateBytes(bytes, {
-      format, writeTimestamp: false, maxIssues: 100,
+      // Superseded codes are ignored by the validator itself, so they cannot exhaust the issue limit.
+      format, writeTimestamp: false, maxIssues: 100, ignoredIssues: [...supersededCodes],
       externalResourceFunction: async (uri) => {
         const bytes = resources[portableGltfUri(uri)];
         if (!bytes) throw new Error(`missing glTF resource '${uri}'`);
@@ -126,7 +127,9 @@ export async function validateGltf(bytes: Uint8Array, format: "gltf" | "glb", re
     && (issue.severity === 0 || (issue.severity === 1 && !allowedWarnings.includes(issue.code))));
   const unexplainedErrors = report.issues.numErrors > report.issues.messages.filter((issue) => issue.severity === 0).length;
   if (unexplainedErrors || failures.length || report.issues.truncated) {
-    throw new Error(`${location} failed Khronos validation: ${failures.map((issue) => `${issue.pointer ?? "/"}: ${issue.code}: ${issue.message}`).join("; ")}`);
+    throw new Error(`${location} failed Khronos validation: ${[...failures.map((issue) => `${issue.pointer ?? "/"}: ${issue.code}: ${issue.message}`),
+      ...(report.issues.truncated ? ["validator issue report truncated"] : []),
+      ...(unexplainedErrors ? ["validator reported errors without messages"] : [])].join("; ")}`);
   }
   return report.issues.messages.filter((issue) => issue.severity === 1).map((issue) => ({
     code: issue.code, path: issue.pointer ?? "/", message: issue.message,
