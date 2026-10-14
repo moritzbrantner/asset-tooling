@@ -41,15 +41,59 @@ export async function checkedGltfInputs(root: string, operation: ReadonlyAssetOp
   return { identity, source, sourceBytes, resources, resourceBytes };
 }
 
-export async function validateGltf(bytes: Uint8Array, format: "gltf" | "glb", resources: Record<string, Uint8Array>, location: string, allowedWarnings: readonly string[] = []) {
-  const report = await validateBytes(bytes, {
-    format, writeTimestamp: false, maxIssues: 100,
-    externalResourceFunction: async (uri) => {
-      const bytes = resources[portableGltfUri(uri)];
-      if (!bytes) throw new Error(`missing glTF resource '${uri}'`);
-      return bytes;
-    },
+function describeFailure(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+/**
+ * Narrow checks for inputs the Khronos validator or decoder cannot report as issues (they crash
+ * instead). Everything else stays with the authoritative validator; this is not a second glTF parser.
+ */
+function structuralPreflight(json: unknown, format: "gltf" | "glb", location: string) {
+  if (typeof json !== "object" || json === null) return;
+  const document = json as { buffers?: unknown; meshes?: unknown; accessors?: unknown };
+  if (Array.isArray(document.buffers)) {
+    document.buffers.forEach((buffer, index) => {
+      const embedded = format === "glb" && index === 0;
+      if (typeof buffer === "object" && buffer !== null && !("uri" in buffer) && !embedded) {
+        throw new Error(`${location} failed Khronos validation: /buffers/${index}: BUFFER_MISSING_URI: buffer has no uri and no GLB binary chunk`);
+      }
+    });
+  }
+  const accessors = Array.isArray(document.accessors) ? document.accessors : [];
+  if (!Array.isArray(document.meshes)) return;
+  document.meshes.forEach((mesh, meshIndex) => {
+    const primitives = typeof mesh === "object" && mesh !== null && "primitives" in mesh && Array.isArray(mesh.primitives) ? mesh.primitives : [];
+    primitives.forEach((primitive: unknown, primitiveIndex: number) => {
+      const attributes = typeof primitive === "object" && primitive !== null && "attributes" in primitive ? primitive.attributes : undefined;
+      if (typeof attributes !== "object" || attributes === null) return;
+      for (const [name, accessorIndex] of Object.entries(attributes)) {
+        if (!/^JOINTS_\d+$/.test(name) || typeof accessorIndex !== "number") continue;
+        const accessor: unknown = accessors[accessorIndex];
+        const componentType = typeof accessor === "object" && accessor !== null && "componentType" in accessor ? accessor.componentType : undefined;
+        if (componentType !== undefined && componentType !== 5121 && componentType !== 5123) {
+          throw new Error(`${location} failed Khronos validation: /meshes/${meshIndex}/primitives/${primitiveIndex}/attributes/${name}: MESH_PRIMITIVE_JOINTS_INVALID_COMPONENT_TYPE: joint indices must use unsigned byte or unsigned short components`);
+        }
+      }
+    });
   });
+}
+
+export async function validateGltf(bytes: Uint8Array, format: "gltf" | "glb", resources: Record<string, Uint8Array>, location: string, allowedWarnings: readonly string[] = []) {
+  let report: Awaited<ReturnType<typeof validateBytes>>;
+  try {
+    report = await validateBytes(bytes, {
+      format, writeTimestamp: false, maxIssues: 100,
+      externalResourceFunction: async (uri) => {
+        const bytes = resources[portableGltfUri(uri)];
+        if (!bytes) throw new Error(`missing glTF resource '${uri}'`);
+        return bytes;
+      },
+    });
+  } catch (error) {
+    // The validator can throw non-Error values for inputs it cannot model; keep them diagnosable.
+    throw new Error(`${location} failed Khronos validation: validator could not process the document: ${describeFailure(error)}`);
+  }
   const failures = report.issues.messages.filter((issue) => issue.severity === 0 || (issue.severity === 1 && !allowedWarnings.includes(issue.code)));
   if (report.issues.numErrors || failures.length || report.issues.truncated) {
     throw new Error(`${location} failed Khronos validation: ${failures.map((issue) => `${issue.pointer ?? "/"}: ${issue.code}: ${issue.message}`).join("; ")}`);
@@ -174,9 +218,15 @@ export async function parseCheckedGltfBytes(
   const io = new NodeIO().setAllowNetwork(false).setStrictResources(true);
   const format = source.mediaType === GLB_MEDIA_TYPE ? "glb" : "gltf";
   // GLB external resources are deliberately unsupported by the public in-memory decoder.
-  const jsonDocument: JSONDocument = format === "glb"
-    ? await io.binaryToJSON(sourceBytes)
-    : { json: JSON.parse(sourceBytes.toString("utf8")), resources: resourceBytes };
+  let jsonDocument: JSONDocument;
+  try {
+    jsonDocument = format === "glb"
+      ? await io.binaryToJSON(sourceBytes)
+      : { json: JSON.parse(sourceBytes.toString("utf8")), resources: resourceBytes };
+  } catch (error) {
+    // Decoder failures (truncated chunks, invalid JSON) become an actionable container diagnostic.
+    throw new Error(`scene.import.gltf source is not a well-formed ${format === "glb" ? "GLB container" : "glTF JSON document"}: ${describeFailure(error)}`);
+  }
   // Check original URIs before the validator canonicalizes/decodes them for its callback.
   // Raw JSON is still untrusted here; only inspect fields whose shape has been checked.
   const raw: unknown = jsonDocument.json;
@@ -193,6 +243,7 @@ export async function parseCheckedGltfBytes(
       }
     }
   }
+  structuralPreflight(jsonDocument.json, format, "scene.import.gltf source");
   const validatorWarnings = await validateGltf(sourceBytes, format, resourceBytes, "scene.import.gltf source", allowedWarnings);
   supportedPolicy(jsonDocument.json, allowRigged);
   const inventory = resourceInventory(jsonDocument.json, resourceBytes, format === "glb" ? jsonDocument.resources : Object.create(null));

@@ -68,3 +68,20 @@ This optional offline comparison requires the exact version in `adapters/blender
 With `ASSET_TOOLING_BLENDER` configured, the production-import tests use an independently authored triangle/skin fixture declaring two meters of hips motion. They require that movement in the oracle's observations and prove that changing the generated joint channel fails the world-space comparison. Hosted validation runs this regression alongside the existing pinned Blender tests; ordinary checks skip the renderer-dependent proof when Blender is not configured.
 
 The approved humanoid, rendered comparisons and visual/consumer acceptance remain open under #104/#109. These proofs establish supported format preservation, sampled independent pose fidelity, analysis and replay; they do not establish art approval or arbitrary glTF support.
+
+## Malformed-input diagnostics
+
+`test/gltf-malformed-inputs.test.ts` holds small, independently authored fixtures. Each changes one thing in an accepted static or rigged document. The categories are: references, nonfinite values, skin weights and joints, inverse binds, animation targets and times, material resources, required and optional extensions, missing or external resources, and GLB containers. Every case must reject from `scene.import.gltf@1`, `scene.import.gltf@2` and `scene.analyze.gltf@1` as applicable, with a diagnostic that names the Khronos code and JSON pointer (or the policy rule), and must store no derived object.
+
+Three failure modes used to crash the decoder or validator instead of producing a diagnostic. A narrow structural preflight now reports them before validation:
+- a `.gltf` buffer without `uri` (`/buffers/N: BUFFER_MISSING_URI`);
+- a non-integer `JOINTS_n` accessor (`…/attributes/JOINTS_n: MESH_PRIMITIVE_JOINTS_INVALID_COMPONENT_TYPE`);
+- a truncated GLB container ("not a well-formed GLB container").
+
+Any other non-`Error` validator failure is wrapped with its location. This is not a second glTF parser; all other checks remain the Khronos validator's and the production policy's.
+
+Not yet decided (no policy is asserted):
+- non-invertible inverse bind matrices, which the validator accepts;
+- the validator's strict weight-sum tolerance for exported assets;
+- unused animation samplers and single-keyframe clips;
+- whether glTF Transform's generic "Cannot resolve external buffers" message for GLB external resources should name the URI.
