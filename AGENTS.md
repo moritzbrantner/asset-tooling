@@ -2,6 +2,8 @@
 
 ## Purpose
 
+The owner-controlled product intent is in `docs/decisions/atlas.md`. Read the relevant Decisions and Questions before changing product capabilities; stable IDs and unanswered Questions are not implementation status or GitHub issue substitutes.
+
 `asset-tooling` owns reproducible asset-generation and processing contracts. It does not own game-specific runtime semantics.
 
 ## Boundaries
