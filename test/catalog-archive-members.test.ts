@@ -801,6 +801,39 @@ test("malformed archive fails closed with the entry name: duplicate central-dire
   }
 });
 
+// Regression (Codex P2 on #197): the local flag word must equal the central
+// one in full, and an unsupported bit in the local header alone must not slip
+// through a masked comparison.
+test("malformed archive fails closed with the entry name: local header flags differ from the central directory", async () => {
+  const cases = [
+    { label: "unsupported local bit 0x0010, central 0", localFlags: 0x0010 },
+    { label: "local UTF-8 bit 0x0800, central 0", localFlags: 0x0800 },
+  ];
+  for (const { label, localFlags } of cases) {
+    const root = await tempRoot("local-flags");
+    try {
+      const catalog = catalogOf([archiveRecord(), memberRecord()]);
+      const archive = zip([{ name: MEMBER_PATH, data: MEMBER_BYTES, method: 8, flags: 0, local: { flags: localFlags } }]);
+      await assert.rejects(
+        acquireAssetCatalogSource({ catalog, sourceId: MEMBER_ID, destinationRoot: root, fetchImpl: serve(archive) }),
+        (error) => {
+          assert.ok(error instanceof Error);
+          assert.match(error.message, new RegExp(escapeRegExp(MEMBER_PATH)), `${label}: error names the entry`);
+          return true;
+        },
+        label,
+      );
+      assert.deepEqual(
+        (await listFiles(root)).filter((file) => file.endsWith("Door.gltf")),
+        [],
+        `${label}: no member bytes written`,
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  }
+});
+
 test("malformed archive: bytes that are not a zip fail closed", async () => {
   const root = await tempRoot("not-zip");
   try {
