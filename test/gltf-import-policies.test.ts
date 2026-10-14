@@ -421,3 +421,21 @@ test("@2 and analysis build identities use production implementation version 2 r
     }
   } finally { await rm(root, { recursive: true, force: true }); }
 });
+
+test("an unused sampler outside the channels' time range does not widen the clip's timing", async () => {
+  // Regression (PR #195 review): only channel-referenced samplers define a clip's domain.
+  const document = variant(riggedFixture, (doc) => {
+    const time = appendAccessor(doc, floats([100, 200]), { componentType: 5126, count: 2, type: "SCALAR", min: [100], max: [200] });
+    const value = appendAccessor(doc, floats([0, 0, 0, 0, 1, 0]), { componentType: 5126, count: 2, type: "VEC3" });
+    doc.animations[0].samplers.push({ input: time, output: value, interpolation: "LINEAR" });
+  });
+  const { imported, analyzed } = await accepted(document);
+  for (const [label, result] of [["import@2", imported], ["analyze@1", analyzed]] as const) {
+    const clip = ((result.observations as Json).clips as Json[])[0]!;
+    assert.equal(clip.startSeconds, 0, `${label}: startSeconds`);
+    assert.equal(clip.endSeconds, 1, `${label}: endSeconds`);
+    assert.equal(clip.durationSeconds, 1, `${label}: durationSeconds`);
+  }
+  const clip = ((analyzed.observations as Json).clips as Json[])[0]!;
+  assert.deepEqual(clip.unusedSamplers, [1], "the out-of-range sampler is still listed");
+});
