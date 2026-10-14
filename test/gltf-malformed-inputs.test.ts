@@ -503,5 +503,9 @@ test("GLB declared-length damage fails closed", async () => {
 // e.g. the validator's GLB_* codes.
 test("truncated GLB fails closed with an actionable diagnostic", async () => {
   const valid = selfContainedGlb(staticFixture());
-  await expectFailClosed(valid.subarray(0, valid.length - 8), STATIC_OPERATIONS, /GLB/);
+  // Keep the header's total length consistent so only the oversized BIN chunk is malformed
+  // (GLB_LENGTH_MISMATCH is covered separately above).
+  const truncated = Buffer.from(valid.subarray(0, valid.length - 8));
+  truncated.writeUInt32LE(truncated.length, 8);
+  await expectFailClosed(truncated, STATIC_OPERATIONS, /well-formed GLB container|GLB_CHUNK_LENGTH_UNALIGNED|GLB_CHUNK_TOO_BIG|GLB_UNEXPECTED_END_OF_CHUNK_DATA/);
 });
