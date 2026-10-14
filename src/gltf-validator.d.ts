@@ -4,6 +4,7 @@ declare module "gltf-validator" {
     format: "gltf" | "glb";
     writeTimestamp: false;
     maxIssues: number;
+    ignoredIssues?: string[];
     externalResourceFunction: (uri: string) => Promise<Uint8Array>;
   }): Promise<{
     issues: {

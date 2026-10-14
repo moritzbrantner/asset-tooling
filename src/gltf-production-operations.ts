@@ -4,7 +4,7 @@ import { VERSION, type Document } from "@gltf-transform/core";
 import { version as validatorVersion } from "gltf-validator";
 import { storeAssetObject } from "./asset-store.js";
 import { GLTF_IMPORT_OPERATION } from "./gltf-import-operations.js";
-import { checkedGltfInputs, gltfSummary, loadCheckedGltf, portableGltfUri, validateGltf } from "./gltf-processing.js";
+import { PRODUCTION_SUPERSEDED_VALIDATOR_CODES, checkedGltfInputs, gltfSummary, loadCheckedGltf, portableGltfUri, validateGltf } from "./gltf-processing.js";
 import { sha256Bytes } from "./hash.js";
 import {
   createAssetOperationBuildIdentity, createAssetOperationDescriptor, normalizeAssetOperationResult,
@@ -13,6 +13,9 @@ import {
 import { captureToolIdentity } from "./tool.js";
 
 const PROFILE = "gltf-core-production-v1";
+/** Owner-decided policy values (docs/gltf-import.md); they are part of the build identity. */
+export const GLTF_WEIGHT_SUM_POLICY = Object.freeze({ policy: "gltf-weight-sum-tolerance-v1", tolerance: 1e-3 });
+export const GLTF_SINGULAR_INVERSE_BIND_DETERMINANT = 1e-12;
 type Invocation = { parameters?: unknown; inputs?: unknown };
 type Policy = {
   maxTriangles: number | null;
@@ -116,7 +119,12 @@ async function buildIdentity(root: string, invocation: Invocation, operation: Re
   return createAssetOperationBuildIdentity({
     operation, parameters: identity.parameters, inputs: identity.inputs,
     implementation: {
-      id: "gltf-transform-production", version: "1", gltfTransform: VERSION, validator: validatorVersion(),
+      id: "gltf-transform-production", version: "2", gltfTransform: VERSION, validator: validatorVersion(),
+      policies: {
+        weightSum: GLTF_WEIGHT_SUM_POLICY,
+        singularInverseBindDeterminant: GLTF_SINGULAR_INVERSE_BIND_DETERMINANT,
+        supersededValidatorCodes: PRODUCTION_SUPERSEDED_VALIDATOR_CODES,
+      },
       dependencyLockSha256: await readDependencyLockSha256(),
       assetTooling: await captureToolIdentity(),
     },
@@ -128,6 +136,50 @@ export async function createGltfProductionImportOperationBuildIdentity(root: str
 }
 export async function createGltfAnalyzeOperationBuildIdentity(root: string, invocation: Invocation = {}) {
   return buildIdentity(root, invocation, GLTF_ANALYZE_OPERATION);
+}
+
+/** Weights are never renormalized; out-of-tolerance sums fail with a located diagnostic. */
+function checkWeightSums(document: Document) {
+  let maxAbsoluteDrift = 0;
+  document.getRoot().listMeshes().forEach((mesh, meshIndex) => mesh.listPrimitives().forEach((primitive, primitiveIndex) => {
+    const sets = primitive.listSemantics().filter((semantic) => /^WEIGHTS_\d+$/.test(semantic)).sort()
+      .map((semantic) => primitive.getAttribute(semantic)!);
+    if (!sets.length) return;
+    const element: number[] = [];
+    for (let vertex = 0; vertex < sets[0]!.getCount(); vertex++) {
+      let sum = 0;
+      for (const set of sets) { set.getElement(vertex, element); for (const value of element) sum += value; }
+      const drift = Math.abs(sum - 1);
+      if (!(drift <= GLTF_WEIGHT_SUM_POLICY.tolerance)) {
+        throw new Error(`/meshes/${meshIndex}/primitives/${primitiveIndex}/attributes/WEIGHTS_0: WEIGHTS_SUM_OUT_OF_TOLERANCE: vertex ${vertex} weights sum to ${sum} (${GLTF_WEIGHT_SUM_POLICY.policy} allows ${GLTF_WEIGHT_SUM_POLICY.tolerance})`);
+      }
+      maxAbsoluteDrift = Math.max(maxAbsoluteDrift, drift);
+    }
+  }));
+  return { ...GLTF_WEIGHT_SUM_POLICY, maxAbsoluteDrift };
+}
+
+function singularInverseBinds(document: Document) {
+  const root = document.getRoot(), nodes = root.listNodes(), warnings = [];
+  for (const [skinIndex, skin] of root.listSkins().entries()) {
+    const matrices = skin.getInverseBindMatrices();
+    if (!matrices) continue;
+    const m: number[] = [];
+    for (const [joint, node] of skin.listJoints().entries()) {
+      matrices.getElement(joint, m);
+      // Column-major MAT4: the upper-left 3x3 block holds the linear part.
+      const determinant = m[0]! * (m[5]! * m[10]! - m[9]! * m[6]!)
+        - m[4]! * (m[1]! * m[10]! - m[9]! * m[2]!)
+        + m[8]! * (m[1]! * m[6]! - m[5]! * m[2]!);
+      if (!Number.isFinite(determinant) || Math.abs(determinant) <= GLTF_SINGULAR_INVERSE_BIND_DETERMINANT) {
+        warnings.push({
+          code: "SKIN_INVERSE_BIND_MATRIX_SINGULAR", path: `/skins/${skinIndex}/inverseBindMatrices`,
+          skin: skinIndex, joint, node: nodes.indexOf(node), determinant,
+        });
+      }
+    }
+  }
+  return warnings;
 }
 
 function analyze(document: Document, policy: Policy) {
@@ -169,13 +221,22 @@ function analyze(document: Document, policy: Policy) {
       inverseBindMatrixCount: skin.getInverseBindMatrices()?.getCount() ?? 0,
     };
   });
+  const weightSums = checkWeightSums(document);
+  const policyWarnings = singularInverseBinds(document);
   const clips = root.listAnimations().map((animation) => {
-    const starts = animation.listSamplers().map((sampler) => sampler.getInput()!.getMin([])[0]!);
-    const ends = animation.listSamplers().map((sampler) => sampler.getInput()!.getMax([])[0]!);
+    // Only channel-referenced samplers affect playback; unused ones are listed but excluded from timing.
+    const used = animation.listChannels().map((channel) => channel.getSampler()!);
+    const timed = used.length ? [...new Set(used)] : animation.listSamplers();
+    const starts = timed.map((sampler) => sampler.getInput()!.getMin([])[0]!);
+    const ends = timed.map((sampler) => sampler.getInput()!.getMax([])[0]!);
     const startSeconds = Math.min(...starts);
     const endSeconds = Math.max(...ends);
     return {
       name: animation.getName(), startSeconds, endSeconds, durationSeconds: endSeconds - startSeconds,
+      unusedSamplers: animation.listSamplers().flatMap((sampler, index) =>
+        animation.listChannels().some((channel) => channel.getSampler() === sampler) ? [] : [index]),
+      singleKeyframeChannels: animation.listChannels().flatMap((channel, index) =>
+        channel.getSampler()!.getInput()!.getCount() === 1 ? [index] : []),
       channels: animation.listChannels().map((channel) => ({
         node: nodes.indexOf(channel.getTargetNode()!), path: channel.getTargetPath(),
         interpolation: channel.getSampler()!.getInterpolation(),
@@ -198,7 +259,7 @@ function analyze(document: Document, policy: Policy) {
       mesh: node.getMesh() ? root.listMeshes().indexOf(node.getMesh()!) : null,
       skin: node.getSkin() ? skins.indexOf(node.getSkin()!) : null,
     })),
-    meshes, skins: skinReports, clips, policy, accepted: diagnostics.length === 0, diagnostics,
+    meshes, skins: skinReports, clips, policy, accepted: diagnostics.length === 0, diagnostics, weightSums, policyWarnings,
     materials: root.listMaterials().map((material) => ({
       name: material.getName(), baseColorFactor: material.getBaseColorFactor(),
       metallicFactor: material.getMetallicFactor(), roughnessFactor: material.getRoughnessFactor(),
@@ -239,7 +300,7 @@ export async function executeGltfProductionImportOperation(root: string, invocat
   const analysis = analyze(document, parameters.policy);
   if (!analysis.accepted) throw new Error(`glTF production policy rejected source: ${analysis.diagnostics.map((diagnostic) => `${diagnostic.path}: ${diagnostic.message}`).join("; ")}`);
   const bytes = await io.writeBinary(document);
-  const outputValidatorWarnings = await validateGltf(bytes, "glb", Object.create(null), "scene.import.gltf@2 output", parameters.policy.allowedValidatorWarnings);
+  const outputValidatorWarnings = await validateGltf(bytes, "glb", Object.create(null), "scene.import.gltf@2 output", parameters.policy.allowedValidatorWarnings, PRODUCTION_SUPERSEDED_VALIDATOR_CODES);
   const stored = await storeAssetObject(root, {
     bytes, kind: "scene", mediaType: "model/gltf-binary",
     metadata: {

@@ -79,11 +79,40 @@ function structuralPreflight(json: unknown, format: "gltf" | "glb", location: st
   });
 }
 
-export async function validateGltf(bytes: Uint8Array, format: "gltf" | "glb", resources: Record<string, Uint8Array>, location: string, allowedWarnings: readonly string[] = []) {
+/** Validator codes replaced by an explicit production policy check (see docs/gltf-import.md). */
+export const PRODUCTION_SUPERSEDED_VALIDATOR_CODES = Object.freeze(["ACCESSOR_WEIGHTS_NON_NORMALIZED"]);
+
+/** Fails with the JSON pointer and URI when a GLB refers to an external buffer or image. */
+function rejectGlbExternalResources(bytes: Uint8Array, location: string) {
+  if (bytes.byteLength < 20) return;
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  // Only a well-formed header (magic, version 2, exact declared length, aligned in-bounds JSON
+  // chunk) is trusted here; anything else is left for the decoder/validator to diagnose.
+  if (view.getUint32(0, true) !== 0x46546c67 || view.getUint32(4, true) !== 2
+    || view.getUint32(8, true) !== bytes.byteLength) return;
+  const length = view.getUint32(12, true);
+  if (view.getUint32(16, true) !== 0x4e4f534a || length % 4 !== 0 || 20 + length > bytes.byteLength) return;
+  let json: unknown;
+  try { json = JSON.parse(new TextDecoder().decode(bytes.subarray(20, 20 + length))); } catch { return; }
+  if (typeof json !== "object" || json === null) return;
+  for (const [key, kind] of [["buffers", "buffer"], ["images", "image"]] as const) {
+    const entries: unknown = (json as Record<string, unknown>)[key];
+    if (!Array.isArray(entries)) continue;
+    entries.forEach((entry: unknown, index: number) => {
+      const uri = typeof entry === "object" && entry !== null && "uri" in entry ? entry.uri : undefined;
+      if (typeof uri === "string" && !uri.startsWith("data:")) {
+        throw new Error(`${location}: /${key}/${index}/uri: GLB_EXTERNAL_RESOURCE: GLB inputs must be self-contained; unresolved external ${kind} '${uri}'`);
+      }
+    });
+  }
+}
+
+export async function validateGltf(bytes: Uint8Array, format: "gltf" | "glb", resources: Record<string, Uint8Array>, location: string, allowedWarnings: readonly string[] = [], supersededCodes: readonly string[] = []) {
   let report: Awaited<ReturnType<typeof validateBytes>>;
   try {
     report = await validateBytes(bytes, {
-      format, writeTimestamp: false, maxIssues: 100,
+      // Superseded codes are ignored by the validator itself, so they cannot exhaust the issue limit.
+      format, writeTimestamp: false, maxIssues: 100, ignoredIssues: [...supersededCodes],
       externalResourceFunction: async (uri) => {
         const bytes = resources[portableGltfUri(uri)];
         if (!bytes) throw new Error(`missing glTF resource '${uri}'`);
@@ -94,9 +123,13 @@ export async function validateGltf(bytes: Uint8Array, format: "gltf" | "glb", re
     // The validator can throw non-Error values for inputs it cannot model; keep them diagnosable.
     throw new Error(`${location} failed Khronos validation: validator could not process the document: ${describeFailure(error)}`);
   }
-  const failures = report.issues.messages.filter((issue) => issue.severity === 0 || (issue.severity === 1 && !allowedWarnings.includes(issue.code)));
-  if (report.issues.numErrors || failures.length || report.issues.truncated) {
-    throw new Error(`${location} failed Khronos validation: ${failures.map((issue) => `${issue.pointer ?? "/"}: ${issue.code}: ${issue.message}`).join("; ")}`);
+  const failures = report.issues.messages.filter((issue) => !supersededCodes.includes(issue.code)
+    && (issue.severity === 0 || (issue.severity === 1 && !allowedWarnings.includes(issue.code))));
+  const unexplainedErrors = report.issues.numErrors > report.issues.messages.filter((issue) => issue.severity === 0).length;
+  if (unexplainedErrors || failures.length || report.issues.truncated) {
+    throw new Error(`${location} failed Khronos validation: ${[...failures.map((issue) => `${issue.pointer ?? "/"}: ${issue.code}: ${issue.message}`),
+      ...(report.issues.truncated ? ["validator issue report truncated"] : []),
+      ...(unexplainedErrors ? ["validator reported errors without messages"] : [])].join("; ")}`);
   }
   return report.issues.messages.filter((issue) => issue.severity === 1).map((issue) => ({
     code: issue.code, path: issue.pointer ?? "/", message: issue.message,
@@ -218,6 +251,7 @@ export async function parseCheckedGltfBytes(
   const io = new NodeIO().setAllowNetwork(false).setStrictResources(true);
   const format = source.mediaType === GLB_MEDIA_TYPE ? "glb" : "gltf";
   // GLB external resources are deliberately unsupported by the public in-memory decoder.
+  if (format === "glb") rejectGlbExternalResources(sourceBytes, "scene.import.gltf source");
   let jsonDocument: JSONDocument;
   try {
     jsonDocument = format === "glb"
@@ -244,7 +278,8 @@ export async function parseCheckedGltfBytes(
     }
   }
   structuralPreflight(jsonDocument.json, format, "scene.import.gltf source");
-  const validatorWarnings = await validateGltf(sourceBytes, format, resourceBytes, "scene.import.gltf source", allowedWarnings);
+  const validatorWarnings = await validateGltf(sourceBytes, format, resourceBytes, "scene.import.gltf source", allowedWarnings,
+    allowRigged ? PRODUCTION_SUPERSEDED_VALIDATOR_CODES : []);
   supportedPolicy(jsonDocument.json, allowRigged);
   const inventory = resourceInventory(jsonDocument.json, resourceBytes, format === "glb" ? jsonDocument.resources : Object.create(null));
   const document = await io.readJSON(jsonDocument);
