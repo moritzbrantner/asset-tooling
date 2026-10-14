@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       source_id:
-        description: Registered shared catalog source id to acquire and prepare for canonical Git LFS storage
+        description: Registered shared catalog source id (a whole source or a schemaVersion 2 archive member) to acquire and prepare for canonical Git LFS storage
         required: true
         type: string
 

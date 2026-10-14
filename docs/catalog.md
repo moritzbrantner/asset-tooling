@@ -106,6 +106,38 @@ The preferred hosted path is the manually dispatched `Catalog Git LFS promotion`
 
 Re-running promotion for an already canonical source is idempotent when the bytes and manifests are unchanged. A changed upstream response, corrupted local canonical payload, implicit path move, unaccepted license, or project-local provider fails closed.
 
+## Archive-member sources
+
+Large provider packs are pinned as whole archives, but only the files a consumer needs are stored ([owner decision on #118](https://github.com/moritzbrantner/asset-tooling/issues/118), option B). A **member source** is a catalog source record with `schemaVersion: 2` that names one file inside a registered archive source:
+
+```json
+{
+  "schemaVersion": 2,
+  "id": "quaternius.medieval-village-megakit-standard.door-1-flat-gltf",
+  "provider": "quaternius",
+  "title": "Medieval Village MegaKit — Door_1_Flat (glTF)",
+  "kind": "mesh",
+  "mediaType": "model/gltf+json",
+  "archiveMember": { "archive": "quaternius.medieval-village-megakit-standard", "path": "glTF/Door_1_Flat.gltf" },
+  "source": { "sha256": "<member sha256>", "byteLength": 1234 },
+  "license": { "spdx": "CC0-1.0", "evidenceUrl": "https://quaternius.com/packs/medievalvillagemegakit.html" },
+  "tags": ["gltf"]
+}
+```
+
+Rules:
+- **Record shape.** Schema version 1 records are unchanged and cannot carry `archiveMember`. Version 2 records require `archiveMember` and must not carry `source.url`, `source.upstreamId`, `source.revision` or `source.path`. Their `source` holds only the member's pin; `sha256` and `byteLength` stay together, and may both be absent before the first promotion. An unpinned member may write `"source": {}` or omit `source`; both normalize to `"source": {}`, which is what acquisition and promotion write back. Unknown fields fail, as for version 1.
+- **Record order.** A member record may appear before or after its archive in `catalog/sources.json`; the cross-record rules below are checked once all records are registered.
+- **The archive.** `archiveMember.archive` must be a registered version 1 source with `mediaType: "application/zip"`, from the same provider, and with an identical `license` (spdx, evidence URL and attribution, including attribution present on only one side). An archive can never itself be a member, so members don't nest.
+- **The member path.** `archiveMember.path` is a portable relative path: `/`-separated, with no leading `/`, no `.` or `..` segments, no backslash, drive prefix or NUL, and no empty segment. It is compared byte-for-byte with the archive's central-directory name, so case and Unicode form matter. The pair of archive and path is unique across the catalog.
+- **What gets extracted.** Extraction reads only the matching central-directory entry. It accepts a regular file that is unencrypted, single-disk, not ZIP64, and stored or deflate-compressed (methods 0 and 8). The only general-purpose flags accepted are bit 3 (CRC and sizes in a trailing data descriptor; the central directory is then authoritative and the local header may carry zeros there) and bit 11 (UTF-8 names); every other bit, including the deflate level hints in bits 1 and 2, fails closed. Its local header must agree with the central directory (name, compression, and sizes and CRC-32 unless bit 3 defers them), and the CRC-32 of the extracted bytes must match. Directories (a trailing `/`, the MS-DOS directory attribute or a Unix directory mode), symlinks and other non-regular Unix modes, a member name that appears more than once in the central directory, and any other method or flag fail closed with the entry name. Decompression uses an established decoder (Node `zlib` raw inflate with `maxOutputLength`) and stops as soon as the declared uncompressed size is exceeded. The Quaternius Medieval Village and Fantasy Props Standard zips use only flag 0, methods 0 and 8, and MS-DOS attributes, and every file entry in them extracts under these rules.
+- **Acquisition.** Acquiring a member fetches the archive's URL once, verifies the archive pin when one is present, extracts the member, and verifies the member's pin. It writes `<destination>/<member id>/<basename of path>` with a `.pin.json` holding the normalized version 2 record, and keeps the archive bytes with their measured pin as evidence under `<destination>/<archive id>/`. The default destinations are under the disposable `.artifacts/` tree; archive bytes are never stored canonically. Nothing is written for a member that fails extraction or either pin. Generation still never acquires.
+- **Promotion.** `bun run catalog:lfs:promote -- <member id>` and the hosted promotion workflow accept member ids. A member promotion measures or re-verifies the archive and the member. It writes both pins into `catalog/sources.json`: the archive record gains `sha256` and `byteLength` but no storage entry, and the member gets its own. It stores only the member under `assets/canonical/<member id>/<basename of path>`, with one `catalog/storage.json` entry. Promoting an archive source itself remains possible but is not required.
+- **Storage verification and consumers.** These treat member payloads like any other canonical payload: hydrated bytes must match the member's pin. A member is reusable (storage entry, consumer import) only when its archive is pinned too, which member promotion guarantees. Imported `AssetRef` metadata records `archiveSourceId`, `archiveSha256` and `archiveMemberPath` inside `metadata.catalog`, next to the other catalog provenance; version 1 imports carry none of these fields.
+- **Pages.** The Pages gallery lists member sources under their archive's card instead of as separate cards. Each member keeps its own detail page, which links back to the archive and shows the member path, the archive SHA-256 and the archive's license and evidence. In `catalog.json`, an archive asset carries a `members` list and a member asset an `archive` object.
+
+A glTF asset that refers to external buffers or images needs one member source per referenced file. A recipe binds them as resources (`resourceUris`) in the existing glTF import operations; the catalog does not infer member sets from glTF content. The glTF's relative URI need not match the member path: the Fantasy Props Standard glTF files under `Exports/glTF/` refer to `T_Trim_*.png`, which the zip stores under `Textures/`, so the recipe maps each URI to its member explicitly.
+
 ## Canonical formats
 
 Prefer these normalized delivery boundaries where the owning processor supports them:
