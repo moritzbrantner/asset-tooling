@@ -80,12 +80,17 @@ jobs:
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: 1.4.2
+      - run: bun install --frozen-lockfile
       - name: Verify Git LFS object integrity
         run: |
           git lfs install --local
           git lfs fsck
       - name: Verify hydrated canonical asset bytes
         run: bun run catalog:storage:verify
+      - name: Verify Greyhaven starter source members
+        env:
+          ASSET_TOOLING_REQUIRE_HYDRATED_STORAGE: "1"
+        run: bun test test/greyhaven-starter-sources.test.ts
 
   processing-contract:
     runs-on: ubuntu-latest

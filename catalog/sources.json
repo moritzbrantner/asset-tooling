@@ -378,21 +378,30 @@
       }
     },
     {
-      "schemaVersion": 1,
       "id": "quaternius.fantasy-props-megakit-standard",
-      "provider": "quaternius",
-      "title": "Fantasy Props MegaKit — Standard",
       "kind": "asset-pack",
-      "mediaType": "application/zip",
-      "source": {
-        "url": "https://opengameart.org/sites/default/files/fantasy_props_megakitstandard.zip",
-        "upstreamId": "fantasy-props-megakit-standard",
-        "revision": "2025-06-03-standard",
-        "path": "fantasy_props_megakitstandard.zip"
-      },
       "license": {
-        "spdx": "CC0-1.0",
-        "evidenceUrl": "https://quaternius.com/packs/fantasypropsmegakit.html"
+        "evidenceUrl": "https://quaternius.com/packs/fantasypropsmegakit.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "application/zip",
+      "metadata": {
+        "fullPackModelCount": "200+",
+        "fullPackTextureSetCount": 4,
+        "purpose": "Reusable textured low-poly prop source for production asset selection and processing",
+        "sourceVersionIncludesCustomSimpleCollision": true,
+        "standardIncludesCustomCollision": false,
+        "standardModelCount": 94
+      },
+      "provider": "quaternius",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 73727082,
+        "path": "fantasy_props_megakitstandard.zip",
+        "revision": "2025-06-03-standard",
+        "sha256": "0bc1e5843c9f245c44bda82f97f738b09f88fe51bb34d2a69a7847a969f868e3",
+        "upstreamId": "fantasy-props-megakit-standard",
+        "url": "https://opengameart.org/sites/default/files/fantasy_props_megakitstandard.zip"
       },
       "tags": [
         "fantasy",
@@ -404,31 +413,33 @@
         "texture",
         "three-d"
       ],
-      "metadata": {
-        "standardModelCount": 94,
-        "fullPackModelCount": "200+",
-        "fullPackTextureSetCount": 4,
-        "standardIncludesCustomCollision": false,
-        "sourceVersionIncludesCustomSimpleCollision": true,
-        "purpose": "Reusable textured low-poly prop source for production asset selection and processing"
-      }
+      "title": "Fantasy Props MegaKit — Standard"
     },
     {
-      "schemaVersion": 1,
       "id": "quaternius.medieval-village-megakit-standard",
-      "provider": "quaternius",
-      "title": "Medieval Village MegaKit — Standard",
       "kind": "asset-pack",
-      "mediaType": "application/zip",
-      "source": {
-        "url": "https://opengameart.org/sites/default/files/medieval_village_megakitstandard.zip",
-        "upstreamId": "medieval-village-megakit-standard",
-        "revision": "2025-04-16-standard",
-        "path": "medieval_village_megakitstandard.zip"
-      },
       "license": {
-        "spdx": "CC0-1.0",
-        "evidenceUrl": "https://quaternius.com/packs/medievalvillagemegakit.html"
+        "evidenceUrl": "https://quaternius.com/packs/medievalvillagemegakit.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "application/zip",
+      "metadata": {
+        "fullPackModelCount": "300+",
+        "gridBased": true,
+        "purpose": "Reusable textured modular environment source for walls, doors, windows, roofs, stairs, and village construction",
+        "sourceVersionIncludesCustomOptimizedCollision": true,
+        "standardIncludesCustomCollision": false,
+        "standardModelCount": 176
+      },
+      "provider": "quaternius",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 100025527,
+        "path": "medieval_village_megakitstandard.zip",
+        "revision": "2025-04-16-standard",
+        "sha256": "58c3e1b9713ee85749ade230c36e1195af5d96951435532b4411e993b46387bd",
+        "upstreamId": "medieval-village-megakit-standard",
+        "url": "https://opengameart.org/sites/default/files/medieval_village_megakitstandard.zip"
       },
       "tags": [
         "doors",
@@ -441,14 +452,697 @@
         "walls",
         "windows"
       ],
+      "title": "Medieval Village MegaKit — Standard"
+    },
+    {
+      "id": "quaternius.stylized-nature-megakit-standard",
+      "kind": "asset-pack",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/stylizednaturemegakit.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "application/zip",
       "metadata": {
-        "standardModelCount": 176,
-        "fullPackModelCount": "300+",
-        "gridBased": true,
-        "standardIncludesCustomCollision": false,
-        "sourceVersionIncludesCustomOptimizedCollision": true,
-        "purpose": "Reusable textured modular environment source for walls, doors, windows, roofs, stairs, and village construction"
-      }
+        "fullPackModelCount": 116,
+        "purpose": "Reusable textured stylized nature source for trees, foliage, rocks, and outdoor environment dressing",
+        "standardModelCount": 68
+      },
+      "provider": "quaternius",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 104088529,
+        "path": "stylized_nature_megakitstandard.zip",
+        "revision": "2025-04-16-standard",
+        "sha256": "298f6732b872e4cf7b30e6e7abf9641c7f6dc6b326df37ac089533ed7e3d58c9",
+        "upstreamId": "stylized-nature-megakit-standard",
+        "url": "https://opengameart.org/sites/default/files/stylized_nature_megakitstandard.zip"
+      },
+      "tags": [
+        "environment",
+        "foliage",
+        "game",
+        "gltf",
+        "nature",
+        "rocks",
+        "stylized",
+        "texture",
+        "three-d",
+        "trees"
+      ],
+      "title": "Stylized Nature MegaKit — Standard"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.medieval-village-megakit-standard",
+        "path": "glTF/Wall_Plaster_Door_Flat.gltf"
+      },
+      "id": "quaternius.medieval-village-megakit-standard.wall-plaster-door-flat-gltf",
+      "kind": "mesh",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/medievalvillagemegakit.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "model/gltf+json",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 5942,
+        "sha256": "d2bf9bd8bb88068c79ec6c2bcb0915b0dfc94341f02d9612a4d97da9583e75b3"
+      },
+      "tags": [
+        "building",
+        "greyhaven-starter"
+      ],
+      "title": "Medieval Village MegaKit — Wall_Plaster_Door_Flat (glTF)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.medieval-village-megakit-standard",
+        "path": "glTF/Wall_Plaster_Door_Flat.bin"
+      },
+      "id": "quaternius.medieval-village-megakit-standard.wall-plaster-door-flat-bin",
+      "kind": "buffer",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/medievalvillagemegakit.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "application/octet-stream",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 6792,
+        "sha256": "e169b64543f0ef818daac1a5f0a154bcbb665888e8b283979bfde5f758fb5e37"
+      },
+      "tags": [
+        "building",
+        "greyhaven-starter"
+      ],
+      "title": "Medieval Village MegaKit — Wall_Plaster_Door_Flat (glTF buffer)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.medieval-village-megakit-standard",
+        "path": "glTF/T_WoodTrim_Normal.png"
+      },
+      "id": "quaternius.medieval-village-megakit-standard.t-woodtrim-normal-png",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/medievalvillagemegakit.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/png",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 3596501,
+        "sha256": "5847623e4ed6c206e59f32d1718ee75dcb2b49a1d55ede7ef70a254739caf4a8"
+      },
+      "tags": [
+        "building",
+        "door",
+        "greyhaven-starter"
+      ],
+      "title": "Medieval Village MegaKit — T_WoodTrim_Normal (texture)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.medieval-village-megakit-standard",
+        "path": "glTF/T_WoodTrim_BaseColor.png"
+      },
+      "id": "quaternius.medieval-village-megakit-standard.t-woodtrim-basecolor-png",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/medievalvillagemegakit.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/png",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 2082310,
+        "sha256": "a59f410b07a9bc5f0664df3ba7a2c1e37acffc7979795911f3fc8730ab60e33e"
+      },
+      "tags": [
+        "building",
+        "door",
+        "greyhaven-starter"
+      ],
+      "title": "Medieval Village MegaKit — T_WoodTrim_BaseColor (texture)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.medieval-village-megakit-standard",
+        "path": "glTF/T_WoodTrim_Roughness.png"
+      },
+      "id": "quaternius.medieval-village-megakit-standard.t-woodtrim-roughness-png",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/medievalvillagemegakit.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/png",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 1697111,
+        "sha256": "e888464fd4199d458d8cf39e00fa07d56f8a0bcb658aa03b4a7c95d466ceefa3"
+      },
+      "tags": [
+        "building",
+        "door",
+        "greyhaven-starter"
+      ],
+      "title": "Medieval Village MegaKit — T_WoodTrim_Roughness (texture)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.medieval-village-megakit-standard",
+        "path": "glTF/T_Plaster_Normal.png"
+      },
+      "id": "quaternius.medieval-village-megakit-standard.t-plaster-normal-png",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/medievalvillagemegakit.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/png",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 4607606,
+        "sha256": "8b9617b561466cce00d5a0628eae7bef208dcf63445d72570e7f8e5057fed0d4"
+      },
+      "tags": [
+        "building",
+        "greyhaven-starter"
+      ],
+      "title": "Medieval Village MegaKit — T_Plaster_Normal (texture)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.medieval-village-megakit-standard",
+        "path": "glTF/T_Plaster_BaseColor.png"
+      },
+      "id": "quaternius.medieval-village-megakit-standard.t-plaster-basecolor-png",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/medievalvillagemegakit.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/png",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 3316410,
+        "sha256": "98547ca83888307e3ffa96384ce058b7622affe0a42add3b36d0b48618c5eda4"
+      },
+      "tags": [
+        "building",
+        "greyhaven-starter"
+      ],
+      "title": "Medieval Village MegaKit — T_Plaster_BaseColor (texture)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.medieval-village-megakit-standard",
+        "path": "glTF/T_Plaster_ORM.png"
+      },
+      "id": "quaternius.medieval-village-megakit-standard.t-plaster-orm-png",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/medievalvillagemegakit.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/png",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 2381579,
+        "sha256": "7be9d64a6154ba12bb7086e1d6774a7d5bbbc95775efb614f6ff40a4787fe0c7"
+      },
+      "tags": [
+        "building",
+        "greyhaven-starter"
+      ],
+      "title": "Medieval Village MegaKit — T_Plaster_ORM (texture)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.medieval-village-megakit-standard",
+        "path": "glTF/T_RockTrim_Normal.png"
+      },
+      "id": "quaternius.medieval-village-megakit-standard.t-rocktrim-normal-png",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/medievalvillagemegakit.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/png",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 3925938,
+        "sha256": "f93f82f7e69aa0bf1900f8ab3f252390f091b771f0b84a345c5fefb0f0155cd3"
+      },
+      "tags": [
+        "building",
+        "greyhaven-starter"
+      ],
+      "title": "Medieval Village MegaKit — T_RockTrim_Normal (texture)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.medieval-village-megakit-standard",
+        "path": "glTF/T_RockTrim_BaseColor.png"
+      },
+      "id": "quaternius.medieval-village-megakit-standard.t-rocktrim-basecolor-png",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/medievalvillagemegakit.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/png",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 1908835,
+        "sha256": "aa571cd612091a8f4c95393f8f938bd6e5d47a8cdfd9c896b60a4b37903e2c7c"
+      },
+      "tags": [
+        "building",
+        "greyhaven-starter"
+      ],
+      "title": "Medieval Village MegaKit — T_RockTrim_BaseColor (texture)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.medieval-village-megakit-standard",
+        "path": "glTF/T_RockTrim_ORM.png"
+      },
+      "id": "quaternius.medieval-village-megakit-standard.t-rocktrim-orm-png",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/medievalvillagemegakit.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/png",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 1625807,
+        "sha256": "5287dd9a4e9fb7423af8d8440a8de8bdb8910f9f37ba148f619a6eddf58d5bc8"
+      },
+      "tags": [
+        "building",
+        "greyhaven-starter"
+      ],
+      "title": "Medieval Village MegaKit — T_RockTrim_ORM (texture)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.medieval-village-megakit-standard",
+        "path": "glTF/Door_1_Flat.gltf"
+      },
+      "id": "quaternius.medieval-village-megakit-standard.door-1-flat-gltf",
+      "kind": "mesh",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/medievalvillagemegakit.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "model/gltf+json",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 3895,
+        "sha256": "7e69ba9bcaf45238daa22b96461e9af6c80a59f422f9effb6de7f32e1fc677d8"
+      },
+      "tags": [
+        "door",
+        "greyhaven-starter"
+      ],
+      "title": "Medieval Village MegaKit — Door_1_Flat (glTF)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.medieval-village-megakit-standard",
+        "path": "glTF/Door_1_Flat.bin"
+      },
+      "id": "quaternius.medieval-village-megakit-standard.door-1-flat-bin",
+      "kind": "buffer",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/medievalvillagemegakit.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "application/octet-stream",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 24924,
+        "sha256": "f2235efcb17e3c7c761eba632bba8901f0299e65a27483528b486fbaece29bb5"
+      },
+      "tags": [
+        "door",
+        "greyhaven-starter"
+      ],
+      "title": "Medieval Village MegaKit — Door_1_Flat (glTF buffer)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.fantasy-props-megakit-standard",
+        "path": "Exports/glTF/Barrel.gltf"
+      },
+      "id": "quaternius.fantasy-props-megakit-standard.barrel-gltf",
+      "kind": "mesh",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/fantasypropsmegakit.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "model/gltf+json",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 4311,
+        "sha256": "cececb2da345addb21567e3ce1b30a9da071b689bcec59d85cd7a4446f531e87"
+      },
+      "tags": [
+        "greyhaven-starter",
+        "prop"
+      ],
+      "title": "Fantasy Props MegaKit — Barrel (glTF)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.fantasy-props-megakit-standard",
+        "path": "Exports/glTF/Barrel.bin"
+      },
+      "id": "quaternius.fantasy-props-megakit-standard.barrel-bin",
+      "kind": "buffer",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/fantasypropsmegakit.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "application/octet-stream",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 57144,
+        "sha256": "d8f963e2975b6bbd4b631b5cd7ade2d5dfc76dfb9f8387e2d398935f5405cf20"
+      },
+      "tags": [
+        "greyhaven-starter",
+        "prop"
+      ],
+      "title": "Fantasy Props MegaKit — Barrel (glTF buffer)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.fantasy-props-megakit-standard",
+        "path": "Textures/T_Trim_Furniture_Normal.png"
+      },
+      "id": "quaternius.fantasy-props-megakit-standard.t-trim-furniture-normal-png",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/fantasypropsmegakit.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/png",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 3485710,
+        "sha256": "3340c4cc47ff06d5e94a2dbe2a2a12d914d0ef055fcf66f63d876666bd160e42"
+      },
+      "tags": [
+        "greyhaven-starter",
+        "prop"
+      ],
+      "title": "Fantasy Props MegaKit — T_Trim_Furniture_Normal (texture)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.fantasy-props-megakit-standard",
+        "path": "Textures/T_Trim_Furniture_BaseColor.png"
+      },
+      "id": "quaternius.fantasy-props-megakit-standard.t-trim-furniture-basecolor-png",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/fantasypropsmegakit.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/png",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 2232961,
+        "sha256": "075fbc9ec2fabc15732bd4025b6f63a0b25762df38440d06bf30437565d39bab"
+      },
+      "tags": [
+        "greyhaven-starter",
+        "prop"
+      ],
+      "title": "Fantasy Props MegaKit — T_Trim_Furniture_BaseColor (texture)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.fantasy-props-megakit-standard",
+        "path": "Textures/T_Trim_Furniture_ORM.png"
+      },
+      "id": "quaternius.fantasy-props-megakit-standard.t-trim-furniture-orm-png",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/fantasypropsmegakit.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/png",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 2064585,
+        "sha256": "7bf417e82baf313793c5791bf48cdc8e573f1f7136197785bf0eb235cb0f8153"
+      },
+      "tags": [
+        "greyhaven-starter",
+        "prop"
+      ],
+      "title": "Fantasy Props MegaKit — T_Trim_Furniture_ORM (texture)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.fantasy-props-megakit-standard",
+        "path": "Textures/T_Trim_Metal_Normal.png"
+      },
+      "id": "quaternius.fantasy-props-megakit-standard.t-trim-metal-normal-png",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/fantasypropsmegakit.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/png",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 3625541,
+        "sha256": "ab7315c864c9a9e6d716c940a599928506e1569d3b0c9085f8f1a64ec520d790"
+      },
+      "tags": [
+        "greyhaven-starter",
+        "prop"
+      ],
+      "title": "Fantasy Props MegaKit — T_Trim_Metal_Normal (texture)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.fantasy-props-megakit-standard",
+        "path": "Textures/T_Trim_Metal_BaseColor.png"
+      },
+      "id": "quaternius.fantasy-props-megakit-standard.t-trim-metal-basecolor-png",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/fantasypropsmegakit.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/png",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 1361221,
+        "sha256": "50422bbda9661effc259caf8b386224cac4b5ca811d2c5b3b8b25ae8efc714db"
+      },
+      "tags": [
+        "greyhaven-starter",
+        "prop"
+      ],
+      "title": "Fantasy Props MegaKit — T_Trim_Metal_BaseColor (texture)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.fantasy-props-megakit-standard",
+        "path": "Textures/T_Trim_Metal_ORM.png"
+      },
+      "id": "quaternius.fantasy-props-megakit-standard.t-trim-metal-orm-png",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/fantasypropsmegakit.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/png",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 1871475,
+        "sha256": "7407bccfc39ca74ecd68a61217395959bf56ac2063e6c93b384b11f07f5687c5"
+      },
+      "tags": [
+        "greyhaven-starter",
+        "prop"
+      ],
+      "title": "Fantasy Props MegaKit — T_Trim_Metal_ORM (texture)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.stylized-nature-megakit-standard",
+        "path": "glTF/CommonTree_1.gltf"
+      },
+      "id": "quaternius.stylized-nature-megakit-standard.commontree-1-gltf",
+      "kind": "mesh",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/stylizednaturemegakit.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "model/gltf+json",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 3869,
+        "sha256": "b51cdea6545edb51d102dd6c27caafe62aa75e3c328ac8f9039f4e7bfd690bfa"
+      },
+      "tags": [
+        "greyhaven-starter",
+        "tree"
+      ],
+      "title": "Stylized Nature MegaKit — CommonTree_1 (glTF)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.stylized-nature-megakit-standard",
+        "path": "glTF/CommonTree_1.bin"
+      },
+      "id": "quaternius.stylized-nature-megakit-standard.commontree-1-bin",
+      "kind": "buffer",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/stylizednaturemegakit.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "application/octet-stream",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 491576,
+        "sha256": "9dd689e84e1aa2f5b08db8def591254d582783c73737af54ba0d89b3e549c3ae"
+      },
+      "tags": [
+        "greyhaven-starter",
+        "tree"
+      ],
+      "title": "Stylized Nature MegaKit — CommonTree_1 (glTF buffer)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.stylized-nature-megakit-standard",
+        "path": "glTF/Bark_NormalTree_Normal.png"
+      },
+      "id": "quaternius.stylized-nature-megakit-standard.bark-normaltree-normal-png",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/stylizednaturemegakit.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/png",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 4384496,
+        "sha256": "852f6155404b8c39e100e41e26970e02a6a5c81b482d3726618dab28e3ad03a2"
+      },
+      "tags": [
+        "greyhaven-starter",
+        "tree"
+      ],
+      "title": "Stylized Nature MegaKit — Bark_NormalTree_Normal (texture)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.stylized-nature-megakit-standard",
+        "path": "glTF/Bark_NormalTree.png"
+      },
+      "id": "quaternius.stylized-nature-megakit-standard.bark-normaltree-png",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/stylizednaturemegakit.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/png",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 3894788,
+        "sha256": "f36e94fdd73255347325b998e02a0b2575fdf714b0315bfe5e8ff34bc8e13603"
+      },
+      "tags": [
+        "greyhaven-starter",
+        "tree"
+      ],
+      "title": "Stylized Nature MegaKit — Bark_NormalTree (texture)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.stylized-nature-megakit-standard",
+        "path": "glTF/Leaves_NormalTree_C.png"
+      },
+      "id": "quaternius.stylized-nature-megakit-standard.leaves-normaltree-c-png",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/stylizednaturemegakit.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/png",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 158796,
+        "sha256": "998612bdf0b76a22f5f54d65cd7a457815d2842d89653fa4348a4ebb42933ad3"
+      },
+      "tags": [
+        "greyhaven-starter",
+        "tree"
+      ],
+      "title": "Stylized Nature MegaKit — Leaves_NormalTree_C (texture)"
     },
     {
       "schemaVersion": 1,
