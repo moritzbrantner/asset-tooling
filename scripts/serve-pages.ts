@@ -18,6 +18,7 @@ const mediaTypes = new Map([
   [".jpeg", "image/jpeg"],
   [".webp", "image/webp"],
   [".glb", "model/gltf-binary"],
+  [".wasm", "application/wasm"],
 ]);
 
 function safeFilePath(pathname) {

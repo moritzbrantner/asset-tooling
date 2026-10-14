@@ -24,6 +24,12 @@
     "noUnusedParameters": true
   },
   "include": [
+    "playwright.config.ts",
+    "test/browser/animation-viewer.spec.ts",
+    "test/browser/viewer-harness.ts",
+    "src/animation-viewer-eligibility.ts",
+    "src/animation-viewer-page.ts",
+    "src/browser/animation-viewer.ts",
     "examples/grass-clumps/build.ts",
     "test/grass-recipes.test.ts",
     "src/grass-recipes.ts",

@@ -1,0 +1,3 @@
+[test]
+# Playwright specs run with `bun run test:browser`, not `bun test`.
+pathIgnorePatterns = ["test/browser/**"]

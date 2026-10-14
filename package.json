@@ -112,6 +112,7 @@
     "stability:contract": "bun scripts/check-stability.ts",
     "stability:check": "bun run check && bun run stability:contract",
     "pages:dev": "bun run pages:build && bun scripts/serve-pages.ts",
+    "test:browser": "playwright test",
     "studio": "bun run pages:dev",
     "example:selected-bundle": "bun examples/selected-bundle/consumer.ts",
     "verify:consumer:bundle": "bun scripts/verify-bundle-consumer.ts",
@@ -124,5 +125,11 @@
   "dependencies": {
     "@gltf-transform/core": "4.5.1",
     "gltf-validator": "2.0.0-dev.3.10"
+  },
+  "devDependencies": {
+    "@moritzbrantner/three-d-renderer": "github:moritzbrantner/3d-lab#7ce0c74306466edcc8e046f9773f6107c57111e3",
+    "@playwright/test": "1.63.0",
+    "@types/three": "0.185.4",
+    "three": "0.185.1"
   }
 }
