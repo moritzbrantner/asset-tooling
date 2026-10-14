@@ -290,7 +290,7 @@ function setPlaying(playing: boolean): void {
     state.lastFrame = null;
   } else {
     // Pause on a millisecond-exact frame so the shown time, URL and pose agree.
-    state.time = Math.min(roundTime(state.time), clipDuration());
+    state.time = clampTime(state.time, clipDuration());
     state.loaded.instance.seek(state.clip, state.time);
     showTime();
     state.dirty = true;
