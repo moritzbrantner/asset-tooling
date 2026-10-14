@@ -462,3 +462,50 @@ test("corrupted GLB headers report the header problem, not GLB_EXTERNAL_RESOURCE
   // The well-formed container with the same external URI still names the external resource.
   await failClosed(valid, [/\/buffers\/0\/uri: GLB_EXTERNAL_RESOURCE/, /geometry\/tile\.bin/]);
 });
+
+/** Rigged fixture whose skinned primitive has `vertexCount` non-indexed vertices, each with weights from `weightsOf`. */
+function manyVertexRig(vertexCount: number, weightsOf: (vertex: number) => { joints: number[]; weights: number[] }): Json {
+  const document = riggedFixture();
+  const positions: number[] = [];
+  for (let vertex = 0; vertex < vertexCount; vertex += 1) {
+    const triangle = Math.floor(vertex / 3);
+    const corner = vertex % 3;
+    positions.push(triangle + (corner === 1 ? 1 : 0), corner === 2 ? 1 : 0, 0);
+  }
+  const joints = Buffer.alloc(vertexCount * 4);
+  const weights: number[] = [];
+  for (let vertex = 0; vertex < vertexCount; vertex += 1) {
+    const influence = weightsOf(vertex);
+    influence.joints.forEach((joint, slot) => { joints[vertex * 4 + slot] = joint; });
+    weights.push(...[0, 1, 2, 3].map((slot) => influence.weights[slot] ?? 0));
+  }
+  const attributes = document.meshes[0].primitives[0].attributes;
+  attributes.POSITION = appendAccessor(document, floats(positions), {
+    componentType: 5126, count: vertexCount, type: "VEC3", min: [0, 0, 0], max: [Math.floor((vertexCount - 1) / 3) + 1, 1, 0],
+  });
+  attributes.JOINTS_0 = appendAccessor(document, joints, { componentType: 5121, count: vertexCount, type: "VEC4" });
+  attributes.WEIGHTS_0 = appendAccessor(document, floats(weights), { componentType: 5126, count: vertexCount, type: "VEC4" });
+  attributes.NORMAL = appendAccessor(document, floats(Array.from({ length: vertexCount }, () => [0, 0, 1]).flat()), { componentType: 5126, count: vertexCount, type: "VEC3" });
+  return document;
+}
+
+test("tolerated weight drift on more than 100 vertices does not exhaust the validator issue limit", async () => {
+  // Regression (PR #195 review): superseded ACCESSOR_WEIGHTS_NON_NORMALIZED entries must not fill the
+  // validator's 100-issue report and reject the asset before the named tolerance is applied.
+  const document = manyVertexRig(150, () => ({ joints: [1], weights: [0.9995] }));
+  const { imported, analyzed } = await accepted(document);
+  const drift = 1 - Math.fround(0.9995);
+  for (const [label, result] of [["import@2", imported], ["analyze@1", analyzed]] as const) {
+    const sums = weightSums(result);
+    assert.equal(sums.policy, WEIGHT_POLICY, label);
+    assert.ok(Math.abs(sums.maxAbsoluteDrift - drift) <= 1e-6, `${label}: maxAbsoluteDrift ${sums.maxAbsoluteDrift}`);
+  }
+});
+
+test("a genuine weight error is still reported among many tolerated drifts", async () => {
+  // One negative weight (sum still 1) at vertex 120, after 120 vertices with tolerated drift.
+  const document = manyVertexRig(150, (vertex) => vertex === 120
+    ? { joints: [1, 0], weights: [1.5, -0.5] }
+    : { joints: [1], weights: [0.9995] });
+  await failClosed(document, [/\/meshes\/0\/primitives\/0\/attributes\/WEIGHTS_0: ACCESSOR_WEIGHTS_NEGATIVE/], [], [/ACCESSOR_WEIGHTS_NON_NORMALIZED/]);
+});
