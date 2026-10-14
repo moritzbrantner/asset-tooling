@@ -84,6 +84,33 @@ export function createCatalogPagesModel({ providers, sources, storage }) {
       metadata: normalizedMetadata(source.metadata),
     };
   });
+  // Archive members are listed under their archive and carry the archive's
+  // license and evidence (catalog validation guarantees they are identical).
+  const assetsById = new Map(assets.map((asset) => [asset.id, asset]));
+  for (const record of sources.sources) {
+    if (record.schemaVersion !== 2 || !record.archiveMember) continue;
+    const member = assetsById.get(record.id);
+    const archive = assetsById.get(record.archiveMember.archive);
+    member.archive = {
+      id: archive.id,
+      title: archive.title,
+      memberPath: record.archiveMember.path,
+      sha256: archive.source.sha256,
+    };
+    member.license = { ...archive.license };
+    archive.members ??= [];
+    archive.members.push({
+      id: member.id,
+      title: member.title,
+      kind: member.kind,
+      mediaType: member.mediaType,
+      path: record.archiveMember.path,
+      state: member.state,
+    });
+  }
+  for (const asset of assets) {
+    if (asset.members) asset.members.sort((left, right) => compareText(left.path, right.path));
+  }
   assets.sort((left, right) => compareText(left.id, right.id));
 
   return {

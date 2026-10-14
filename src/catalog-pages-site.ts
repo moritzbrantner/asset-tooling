@@ -240,10 +240,24 @@ function searchableText(asset) {
     asset.metadata.recipe,
     asset.metadata.availability,
     ...asset.tags,
+    ...(asset.members ?? []).flatMap((member) => [member.id, member.title, member.path]),
   ]
     .filter(Boolean)
     .join(" ")
     .toLowerCase();
+}
+
+function renderMemberList(asset, { detail }) {
+  const members = Array.isArray(asset.members) ? asset.members : [];
+  if (!members.length) return "";
+  const prefix = detail ? "../" : "assets/";
+  const items = members
+    .map(
+      (member) => `<li><a href="${prefix}${encodeURIComponent(member.id)}/">${escapeHtml(member.title)}</a> <code>${escapeHtml(member.path)}</code> <span class="member-state">${escapeHtml(member.state)}</span></li>`,
+    )
+    .join("");
+  const label = `${members.length} archive ${members.length === 1 ? "member" : "members"}`;
+  return `<details class="archive-members"><summary>${escapeHtml(label)}</summary><ul>${items}</ul></details>`;
 }
 
 function renderCard(asset) {
@@ -263,6 +277,7 @@ function renderCard(asset) {
     </div>
     ${purpose}
     ${tags}
+    ${renderMemberList(asset, { detail: false })}
     <a class="details-link" href="${assetPath(asset)}">View asset</a>
   </div>
 </article>`;
@@ -541,7 +556,8 @@ export function renderCatalogGalleryHtml(model) {
     .sort()
     .map((value) => ({ value, label: value }));
   const providers = model.providers.map((provider) => ({ value: provider.id, label: provider.label }));
-  const cards = model.assets.map(renderCard).join("\n");
+  // Archive members are listed on their archive's card rather than as separate cards.
+  const cards = model.assets.filter((asset) => !asset.archive).map(renderCard).join("\n");
   const hasAudio = model.assets.some(assetHasAudioPreview);
   const hasModel = model.assets.some(assetHasModelPreview);
   const hasCarousel = model.assets.some(assetHasCarousel);
@@ -591,6 +607,10 @@ export function renderCatalogGalleryHtml(model) {
     .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
     .tag { padding: 3px 7px; border: 1px solid color-mix(in srgb, CanvasText 15%, Canvas); border-radius: 999px; font-size: .72rem; }
     .details-link { display: inline-block; margin-top: 15px; font-size: .9rem; font-weight: 650; }
+    .archive-members { margin-top: 12px; font-size: .85rem; }
+    .archive-members ul { margin: 8px 0 0; padding-left: 18px; }
+    .archive-members li { margin: 4px 0; overflow-wrap: anywhere; }
+    .member-state { color: color-mix(in srgb, CanvasText 58%, Canvas); font-size: .75rem; }
     .empty { grid-column: 1 / -1; padding: 32px 0; color: color-mix(in srgb, CanvasText 62%, Canvas); }
     [hidden] { display: none !important; }
     @media (max-width: 760px) { .controls { grid-template-columns: 1fr 1fr; } }
@@ -675,6 +695,9 @@ export function renderCatalogAssetHtml(asset) {
     detailRow("Availability", asset.metadata.availability),
     detailRow("Variants", Array.isArray(asset.metadata.variants) ? asset.metadata.variants.join(", ") : null),
     detailRow("Tile count", asset.metadata.tileCount),
+    asset.archive ? detailRow("Archive", asset.archive.title, { href: `../${encodeURIComponent(asset.archive.id)}/` }) : "",
+    asset.archive ? detailRow("Archive member path", asset.archive.memberPath, { code: true }) : "",
+    asset.archive ? detailRow("Archive SHA-256", asset.archive.sha256, { code: true }) : "",
     detailRow("Revision", asset.source.revision, { code: true }),
     detailRow("Source path", asset.source.path, { code: true }),
     detailRow("SHA-256", asset.source.sha256, { code: true }),
@@ -733,6 +756,10 @@ export function renderCatalogAssetHtml(asset) {
     code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .86em; }
     .tags { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 18px; }
     .tag { padding: 3px 8px; border: 1px solid color-mix(in srgb, CanvasText 16%, Canvas); border-radius: 999px; font-size: .76rem; }
+    .archive-members { margin-top: 22px; }
+    .archive-members ul { margin: 10px 0 0; padding-left: 20px; }
+    .archive-members li { margin: 5px 0; overflow-wrap: anywhere; }
+    .member-state { color: color-mix(in srgb, CanvasText 58%, Canvas); font-size: .8rem; }
     [hidden] { display: none !important; }
     @media (max-width: 720px) { .hero { grid-template-columns: 1fr; } dl { grid-template-columns: 120px minmax(0, 1fr); } }
     @media (max-width: 480px) { main { padding-inline: 16px; } dl { grid-template-columns: 1fr; gap: 3px; } dd { margin-bottom: 10px; } }
@@ -753,6 +780,7 @@ export function renderCatalogAssetHtml(asset) {
   <section class="details" aria-labelledby="details-heading">
     <h2 id="details-heading">Asset details</h2>
     <dl>${details}</dl>
+    ${renderMemberList(asset, { detail: true })}
   </section>
 </main>
 ${waveformRuntimeScript(hasAudio)}

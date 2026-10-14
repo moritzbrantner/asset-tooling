@@ -293,9 +293,12 @@ test("nonfinite payloads in normals, weights, bind matrices, clip times and valu
 
 test("skin weight integrity violations fail closed", async () => {
   const cases: [string, (bytes: Buffer) => void, RegExp][] = [
-    ["all-zero weights", (bytes) => bytes.writeFloatLE(0, WEIGHTS), /\/meshes\/0\/primitives\/0\/attributes\/WEIGHTS_0: ACCESSOR_WEIGHTS_NON_NORMALIZED/],
-    ["weights sum to 0.5", (bytes) => bytes.writeFloatLE(0.5, WEIGHTS), /\/meshes\/0\/primitives\/0\/attributes\/WEIGHTS_0: ACCESSOR_WEIGHTS_NON_NORMALIZED/],
-    ["weights sum to 1.5", (bytes) => bytes.writeFloatLE(0.5, WEIGHTS + 4), /\/meshes\/0\/primitives\/0\/attributes\/WEIGHTS_0: ACCESSOR_WEIGHTS_NON_NORMALIZED/],
+    // Owner decision on #104 (docs/gltf-import.md): the named tolerance gltf-weight-sum-tolerance-v1
+    // supersedes the validator's ACCESSOR_WEIGHTS_NON_NORMALIZED in the production operations.
+    // All-zero weights also trip the validator's own ACCESSOR_JOINTS_USED_ZERO_WEIGHT, which still applies.
+    ["all-zero weights", (bytes) => bytes.writeFloatLE(0, WEIGHTS), /\/meshes\/0\/primitives\/0\/attributes\/(WEIGHTS_0: WEIGHTS_SUM_OUT_OF_TOLERANCE|JOINTS_0: ACCESSOR_JOINTS_USED_ZERO_WEIGHT)/],
+    ["weights sum to 0.5", (bytes) => bytes.writeFloatLE(0.5, WEIGHTS), /\/meshes\/0\/primitives\/0\/attributes\/WEIGHTS_0: WEIGHTS_SUM_OUT_OF_TOLERANCE/],
+    ["weights sum to 1.5", (bytes) => bytes.writeFloatLE(0.5, WEIGHTS + 4), /\/meshes\/0\/primitives\/0\/attributes\/WEIGHTS_0: WEIGHTS_SUM_OUT_OF_TOLERANCE/],
   ];
   await eachCase("weights", cases, async ([, change, expected]) => {
     await expectFailClosed(variant(riggedFixture, (document) => patchBuffer(document, change)), RIGGED_OPERATIONS, expected);
@@ -480,13 +483,16 @@ test("GLB sources must be self-contained even when an external binding is suppli
   const json = untexturedFixture();
   const bytes = bufferBytes(json);
   json.buffers[0].uri = "geometry/tile.bin";
-  await expectFailClosed(glb(json), STATIC_OPERATIONS, /external buffers/);
-  await expectFailClosed(glb(json), STATIC_OPERATIONS, /external buffers/, { resources: [{ uri: "geometry/tile.bin", bytes }] });
+  // Owner decision on #104: the diagnostic names the JSON pointer, GLB_EXTERNAL_RESOURCE and the URI.
+  const externalBuffer = /\/buffers\/0\/uri: GLB_EXTERNAL_RESOURCE.*external buffer.*geometry\/tile\.bin|\/buffers\/0\/uri: GLB_EXTERNAL_RESOURCE.*geometry\/tile\.bin.*external buffer/;
+  await expectFailClosed(glb(json), STATIC_OPERATIONS, externalBuffer);
+  await expectFailClosed(glb(json), STATIC_OPERATIONS, externalBuffer, { resources: [{ uri: "geometry/tile.bin", bytes }] });
   const imageJson = staticFixture();
   const bin = bufferBytes(imageJson);
   Reflect.deleteProperty(imageJson.buffers[0], "uri");
   imageJson.images[0].uri = "textures/paint.png";
-  await expectFailClosed(glb(imageJson, bin), STATIC_OPERATIONS, /external images/, { resources: [{ uri: "textures/paint.png", bytes: PNG }] });
+  const externalImage = /\/images\/0\/uri: GLB_EXTERNAL_RESOURCE.*external image.*textures\/paint\.png|\/images\/0\/uri: GLB_EXTERNAL_RESOURCE.*textures\/paint\.png.*external image/;
+  await expectFailClosed(glb(imageJson, bin), STATIC_OPERATIONS, externalImage, { resources: [{ uri: "textures/paint.png", bytes: PNG }] });
 });
 
 test("GLB declared-length damage fails closed", async () => {

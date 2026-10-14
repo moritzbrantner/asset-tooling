@@ -65,6 +65,13 @@ export async function prepareAssetCatalogLfsPromotion({
 
   const updatedSources = [...sources];
   updatedSources[sourceIndex] = pinnedSource;
+  if (acquisition.archive) {
+    // A member promotion also pins its archive in sources, without storing it.
+    const pinnedArchive = JSON.parse(await readFile(acquisition.archive.pinPath, "utf8"));
+    const archiveIndex = sources.findIndex(({ id }) => id === pinnedArchive.id);
+    if (archiveIndex < 0) throw new Error(`catalog archive source '${pinnedArchive.id}' is not registered`);
+    updatedSources[archiveIndex] = pinnedArchive;
+  }
   const updatedSourcesDocument = { ...sourcesDocument, sources: updatedSources };
   const updatedCatalog = createAssetCatalog({ providers, sources: updatedSources });
   const relativePath = canonicalAssetStoragePath(pinnedSource);

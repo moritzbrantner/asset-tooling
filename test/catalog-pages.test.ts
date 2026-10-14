@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createCatalogPagesModel, renderCatalogPagesHtml } from "../src/catalog-pages.js";
+import { renderCatalogAssetHtml, renderCatalogGalleryHtml } from "../src/catalog-pages-site.js";
 
 function fixture() {
   return {
@@ -137,4 +138,51 @@ test("catalog Pages HTML is deterministic, includes attribution, and safely embe
   assert.match(first, /id="search"/);
   assert.match(first, /id="provider"/);
   assert.match(first, /preview or Git LFS pointer as content evidence/);
+});
+
+test("catalog Pages model lists archive members under their archive with the archive's license", () => {
+  const documents = fixture();
+  documents.sources.sources.push(
+    {
+      schemaVersion: 1,
+      id: "pack",
+      provider: "shared",
+      title: "Pack",
+      kind: "asset-pack",
+      mediaType: "application/zip",
+      source: { url: "https://example.com/pack.zip", path: "pack.zip" },
+      license: { spdx: "CC0-1.0", evidenceUrl: "https://example.com/pack-license" },
+      tags: [],
+    },
+    {
+      schemaVersion: 2,
+      id: "pack.door",
+      provider: "shared",
+      title: "Pack door",
+      kind: "mesh",
+      mediaType: "model/gltf+json",
+      archiveMember: { archive: "pack", path: "glTF/Door.gltf" },
+      source: {},
+      license: { spdx: "CC0-1.0", evidenceUrl: "https://example.com/pack-license" },
+      tags: [],
+    },
+  );
+  const model = createCatalogPagesModel(documents);
+  const pack = model.assets.find((asset) => asset.id === "pack");
+  const door = model.assets.find((asset) => asset.id === "pack.door");
+  assert.deepEqual(pack.members, [
+    { id: "pack.door", title: "Pack door", kind: "mesh", mediaType: "model/gltf+json", path: "glTF/Door.gltf", state: "candidate" },
+  ]);
+  assert.deepEqual(door.archive, { id: "pack", title: "Pack", memberPath: "glTF/Door.gltf", sha256: null });
+  assert.equal(door.license.evidenceUrl, "https://example.com/pack-license");
+  assert.equal(model.assets.find((asset) => asset.id === "a-pinned").members, undefined);
+
+  const gallery = renderCatalogGalleryHtml(model);
+  assert.doesNotMatch(gallery, /class="asset-card"[^>]*data-search="pack\.door/);
+  assert.match(gallery, /1 archive member/);
+  assert.match(gallery, /href="assets\/pack\.door\/">Pack door<\/a> <code>glTF\/Door\.gltf<\/code>/);
+  const memberPage = renderCatalogAssetHtml(door);
+  assert.match(memberPage, /Archive member path/);
+  assert.match(memberPage, /href="\.\.\/pack\/"/);
+  assert.match(renderCatalogAssetHtml(pack), /href="\.\.\/pack\.door\/">Pack door/);
 });
