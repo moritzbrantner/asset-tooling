@@ -44,7 +44,7 @@ jobs:
 
           # Browser and Pages-only paths retain the Bun and Catalog Pages
           # gates without unrelated Blender/platform/consumer jobs.
-          if grep -Eqv '(^docs/|(^|/)[^/]+[.]md$|^src/browser/|^test/browser/|^scripts/(build-catalog-pages|build-generated-previews|serve-pages)[.]ts$)' "$RUNNER_TEMP/pr-changed-files"; then
+          if grep -Eqv '(^docs/|(^|/)[^/]+[.]md$|^src/browser/|^test/browser/|^src/(animation-viewer-eligibility|animation-viewer-page|browser-pages-site|catalog-pages-site|catalog-pages|catalog-preview-hints|generated-gallery-assets)[.]ts$|^test/(animation-viewer-eligibility|catalog-pages-site|catalog-pages|generated-gallery-assets)[.]test[.]ts$|^scripts/(build-catalog-pages|build-generated-previews|serve-pages)[.]ts$)' "$RUNNER_TEMP/pr-changed-files"; then
             echo "extended=true" >> "$GITHUB_OUTPUT"
           else
             echo "extended=false" >> "$GITHUB_OUTPUT"
