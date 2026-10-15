@@ -16,6 +16,21 @@ Engineering boundaries and reproducibility rules remain in [AGENTS.md](../../AGE
 
 Contemporary *World of Warcraft* characters are an **intermediate quality and presentation reference**: recognizable articulated people, shaped bodies, readable garments and equipment, and usable fantasy stylization. This is not a commitment to duplicate Blizzard models, a fixed polygon/bone count, or photorealism. Existing primitive-built characters may remain debug fallbacks but do not meet the intended visual result. Judge real model candidates in motion and at their intended gameplay camera distance, not only through validation results.
 
+
+#### Question 1.1.2 — First real humanoid source candidate
+
+In [issue #108](https://github.com/moritzbrantner/asset-tooling/issues/108), the owner compared three candidates for the **first** humanlike clothed, skinned fantasy character: (A) Quaternius Universal Base Characters (Standard) plus Modular Character Outfits – Fantasy (Standard), `Male_Ranger`; (B) KayKit Adventurers 2.0 Ranger; or (C) MPFB/MakeHuman CC0 character. This selects the source direction for a verified baseline; it is not by itself a passed animation/appearance inspection.
+
+**Answered by Decision 1.1.3.**
+
+#### Decision 1.1.3 — Start the humanoid baseline with Quaternius Ranger (candidate A)
+
+**Approved by owner:** 2026-10-15. **Answers 1.1.2 (option A).**
+
+Use the **Quaternius Universal Base Characters (Standard)** and **Modular Character Outfits – Fantasy (Standard), Male_Ranger** as the selected **first character source/baseline** for the actual rigged, clothed archer comparison and production candidate. The freely licensed Standard variants and matching source identities evaluated in [issue #108](https://github.com/moritzbrantner/asset-tooling/issues/108) are the starting point, not permission to import unverified assets, discard source provenance or expand a whole library now. Other candidates remain comparison references, not equal defaults.
+
+**Preserve Decision 1.1.1's humanlike quality requirement and Decision 1.2.1's real skinned animation requirement.** The source outfit/body do not come with suitable plain idle/walk clips; the evaluation used third-party Universal Animation Library clips without proper rest-pose correction. Production use therefore requires a licensed, pinned animation source, authoritative retargeting where necessary, and independently inspectable rest/idle/walk deformation, materials, equipment fit and actual gameplay-distance comparison. Record outstanding material/normal-map dependencies and source/rig mismatches rather than hiding them. **Selecting A does not claim the scratch renders, finished GLB, exact rebuild, visual quality or MMORPG/ARPG consumer use have passed acceptance.** Canonical source promotion and the usable bundle remain owned by #109 and #110, with inspection under #108/#111.
+
 ### 1.2. Animation as character content
 
 #### Decision 1.2.1 — Rigged, moving humanoids with inspectable animation clips
