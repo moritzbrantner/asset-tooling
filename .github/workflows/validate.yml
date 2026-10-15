@@ -20,35 +20,16 @@ jobs:
     outputs:
       extended: ${{ steps.detect.outputs.extended }}
     steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
       - id: detect
-        name: Identify changes needing extended validation
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
-        run: |
-          set -euo pipefail
-          if [[ "$GITHUB_EVENT_NAME" != "pull_request" ]]; then
-            echo "extended=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          # GitHub CLI is preinstalled on GitHub-hosted Ubuntu runners.
-          # Include the old path of renamed files to avoid skipping removed code.
-          gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/files?per_page=100" \
-            --jq '.[] | .filename, (.previous_filename // empty)' > "$RUNNER_TEMP/pr-changed-files"
-          if [[ ! -s "$RUNNER_TEMP/pr-changed-files" ]]; then
-            echo "::error::Could not determine changed PR files"
-            exit 1
-          fi
-
-          # Browser and Pages-only paths retain the Bun and Catalog Pages
-          # gates without unrelated Blender/platform/consumer jobs.
-          if grep -Eqv '(^docs/|(^|/)[^/]+[.]md$|^src/browser/|^test/browser/|^src/(animation-viewer-eligibility|animation-viewer-page|browser-pages-site|catalog-pages-site|catalog-pages|catalog-preview-hints|generated-gallery-assets)[.]ts$|^test/(animation-viewer-eligibility|catalog-pages-site|catalog-pages|generated-gallery-assets)[.]test[.]ts$|^scripts/(build-catalog-pages|build-generated-previews|serve-pages)[.]ts$|^[.]github/workflows/pages[.]yml$)' "$RUNNER_TEMP/pr-changed-files"; then
-            echo "extended=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "extended=false" >> "$GITHUB_OUTPUT"
-          fi
+          PR_CHANGED_FILES: ${{ github.event.pull_request.changed_files }}
+        run: bash scripts/ci-impact.sh
 
   validate:
     needs: impact
