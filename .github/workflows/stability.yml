@@ -2,11 +2,26 @@ name: Stability
 
 on:
   pull_request:
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - 'test/**'
+      - 'src/browser/**'
+      - 'scripts/build-catalog-pages.ts'
+      - 'scripts/build-generated-previews.ts'
+      - 'scripts/serve-pages.ts'
+      - '.github/workflows/validate.yml'
+      - '.github/workflows/pages.yml'
   push:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
+
+concurrency:
+  group: stability-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   local-contract:
