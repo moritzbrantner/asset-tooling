@@ -7,20 +7,58 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
 
 concurrency:
   group: validate-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
+  impact:
+    name: Classify PR changes
+    runs-on: ubuntu-latest
+    outputs:
+      extended: ${{ steps.detect.outputs.extended }}
+    steps:
+      - id: detect
+        name: Identify changes needing extended validation
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_EVENT_NAME" != "pull_request" ]]; then
+            echo "extended=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # GitHub CLI is preinstalled on GitHub-hosted Ubuntu runners.
+          # Include the old path of renamed files to avoid skipping removed code.
+          gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/files?per_page=100" \
+            --jq '.[] | .filename, (.previous_filename // empty)' > "$RUNNER_TEMP/pr-changed-files"
+          if [[ ! -s "$RUNNER_TEMP/pr-changed-files" ]]; then
+            echo "::error::Could not determine changed PR files"
+            exit 1
+          fi
+
+          # Browser and Pages-only paths retain the Bun and Catalog Pages
+          # gates without unrelated Blender/platform/consumer jobs.
+          if grep -Eqv '(^docs/|(^|/)[^/]+[.]md$|^src/browser/|^test/browser/|^scripts/(build-catalog-pages|build-generated-previews|serve-pages)[.]ts$)' "$RUNNER_TEMP/pr-changed-files"; then
+            echo "extended=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "extended=false" >> "$GITHUB_OUTPUT"
+          fi
+
   validate:
+    needs: impact
     name: ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: ${{ fromJSON(github.event_name == 'pull_request' && needs.impact.outputs.extended == 'false' && '["ubuntu-latest"]' || '["ubuntu-latest","macos-latest","windows-latest"]') }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
       - name: Set up Bun
@@ -31,6 +69,8 @@ jobs:
         run: bun run check
 
   selected-bundle-consumer:
+    needs: impact
+    if: github.event_name != 'pull_request' || needs.impact.outputs.extended == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -45,6 +85,8 @@ jobs:
         run: bun run verify:consumer:bundle
 
   blender-script:
+    needs: impact
+    if: github.event_name != 'pull_request' || needs.impact.outputs.extended == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -70,6 +112,8 @@ jobs:
           bun test test/blender-script.test.ts test/blender-input-snapshot.test.ts test/gltf-production-operations.test.ts test/rock-recipes.test.ts test/render-derivative-recipes.test.ts test/shared-render-framing.test.ts test/tree-recipes.test.ts test/wheat-recipes.test.ts test/corn-recipes.test.ts test/grass-recipes.test.ts test/fence-kit-recipes.test.ts
 
   canonical-storage:
+    needs: impact
+    if: github.event_name != 'pull_request' || needs.impact.outputs.extended == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -93,6 +137,8 @@ jobs:
         run: bun test test/greyhaven-starter-sources.test.ts
 
   processing-contract:
+    needs: impact
+    if: github.event_name != 'pull_request' || needs.impact.outputs.extended == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
