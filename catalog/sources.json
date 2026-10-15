@@ -563,6 +563,7 @@
       "tags": [
         "building",
         "door",
+        "door-frame",
         "greyhaven-starter"
       ],
       "title": "Medieval Village MegaKit — T_WoodTrim_Normal (texture)"
@@ -589,6 +590,7 @@
       "tags": [
         "building",
         "door",
+        "door-frame",
         "greyhaven-starter"
       ],
       "title": "Medieval Village MegaKit — T_WoodTrim_BaseColor (texture)"
@@ -615,6 +617,7 @@
       "tags": [
         "building",
         "door",
+        "door-frame",
         "greyhaven-starter"
       ],
       "title": "Medieval Village MegaKit — T_WoodTrim_Roughness (texture)"
@@ -1207,6 +1210,56 @@
         "distributionMirror": "OpenGameArt upload by Quaternius",
         "purpose": "Humanoid animation and retargeting reference corpus for 3D and game consumers"
       }
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.medieval-village-megakit-standard",
+        "path": "glTF/DoorFrame_Flat_WoodDark.bin"
+      },
+      "id": "quaternius.medieval-village-megakit-standard.doorframe-flat-wooddark-bin",
+      "kind": "buffer",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/medievalvillagemegakit.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "application/octet-stream",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 3792,
+        "sha256": "1e59d95393867a3cfa0612bea2086018d5ddcb3252969525679391a52e16f94c"
+      },
+      "tags": [
+        "door-frame",
+        "greyhaven-starter"
+      ],
+      "title": "Medieval Village MegaKit — DoorFrame_Flat_WoodDark (glTF buffer)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.medieval-village-megakit-standard",
+        "path": "glTF/DoorFrame_Flat_WoodDark.gltf"
+      },
+      "id": "quaternius.medieval-village-megakit-standard.doorframe-flat-wooddark-gltf",
+      "kind": "mesh",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/medievalvillagemegakit.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "model/gltf+json",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 2235,
+        "sha256": "e12b923833fe91ba7c26c3984b0d7860a498bc955f6092b2af9fc0f3012105c6"
+      },
+      "tags": [
+        "door-frame",
+        "greyhaven-starter"
+      ],
+      "title": "Medieval Village MegaKit — DoorFrame_Flat_WoodDark (glTF)"
     }
   ]
 }

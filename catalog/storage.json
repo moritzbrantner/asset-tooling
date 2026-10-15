@@ -69,6 +69,18 @@
     },
     {
       "schemaVersion": 1,
+      "sourceId": "quaternius.medieval-village-megakit-standard.doorframe-flat-wooddark-bin",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.medieval-village-megakit-standard.doorframe-flat-wooddark-bin/DoorFrame_Flat_WoodDark.bin"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.medieval-village-megakit-standard.doorframe-flat-wooddark-gltf",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.medieval-village-megakit-standard.doorframe-flat-wooddark-gltf/DoorFrame_Flat_WoodDark.gltf"
+    },
+    {
+      "schemaVersion": 1,
       "sourceId": "quaternius.medieval-village-megakit-standard.t-plaster-basecolor-png",
       "storage": "git-lfs",
       "path": "assets/canonical/quaternius.medieval-village-megakit-standard.t-plaster-basecolor-png/T_Plaster_BaseColor.png"

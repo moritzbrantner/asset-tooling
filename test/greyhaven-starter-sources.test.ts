@@ -32,8 +32,8 @@ const NATURE_BYTE_LENGTH = 104_088_529;
 const NATURE_SHA256 = "298f6732b872e4cf7b30e6e7abf9641c7f6dc6b326df37ac089533ed7e3d58c9";
 const NATURE_EVIDENCE_URL = "https://quaternius.com/packs/stylizednaturemegakit.html";
 
-type Role = "building" | "door" | "prop" | "tree";
-const ROLES: readonly Role[] = ["building", "door", "prop", "tree"];
+type Role = "building" | "door" | "door-frame" | "prop" | "tree";
+const ROLES: readonly Role[] = ["building", "door", "door-frame", "prop", "tree"];
 
 /** Expands one brace set, e.g. `glTF/T_WoodTrim_{Normal,BaseColor}.png`. */
 function expand(pattern: string): string[] {
@@ -68,6 +68,12 @@ const ASSETS: Asset[] = [
     archive: MEDIEVAL,
     gltf: "glTF/Door_1_Flat.gltf",
     referenced: ["glTF/Door_1_Flat.bin", ...expand("glTF/T_WoodTrim_{Normal,BaseColor,Roughness}.png")],
+  },
+  {
+    role: "door-frame",
+    archive: MEDIEVAL,
+    gltf: "glTF/DoorFrame_Flat_WoodDark.gltf",
+    referenced: ["glTF/DoorFrame_Flat_WoodDark.bin", ...expand("glTF/T_WoodTrim_{Normal,BaseColor,Roughness}.png")],
   },
   {
     role: "prop",
@@ -184,11 +190,11 @@ const hydratedSkip: string | false =
 
 // ---------------------------------------------------------------- structure
 
-test("expected-member table: 26 unique members, shared WoodTrim set counted once", () => {
-  assert.equal(EXPECTED.size, 26);
+test("expected-member table: 28 unique members, shared WoodTrim set counted once", () => {
+  assert.equal(EXPECTED.size, 28);
   for (const name of expand("glTF/T_WoodTrim_{Normal,BaseColor,Roughness}.png")) {
     const member = EXPECTED.get(memberId(MEDIEVAL, name));
-    assert.deepEqual([...(member?.roles ?? [])].sort(), ["building", "door"]);
+    assert.deepEqual([...(member?.roles ?? [])].sort(), ["building", "door", "door-frame"]);
   }
 });
 
