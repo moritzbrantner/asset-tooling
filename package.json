@@ -127,7 +127,7 @@
     "gltf-validator": "2.0.0-dev.3.10"
   },
   "devDependencies": {
-    "@moritzbrantner/three-d-renderer": "github:moritzbrantner/3d-lab#7ce0c74306466edcc8e046f9773f6107c57111e3",
+    "@moritzbrantner/three-d-renderer": "github:moritzbrantner/3d-lab#0ad439555ef54379edb48ecb57f19c60cc6fe5af",
     "@playwright/test": "1.63.0",
     "@types/three": "0.185.4",
     "three": "0.185.1"

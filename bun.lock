@@ -9,7 +9,7 @@
         "gltf-validator": "2.0.0-dev.3.10",
       },
       "devDependencies": {
-        "@moritzbrantner/three-d-renderer": "github:moritzbrantner/3d-lab#7ce0c74306466edcc8e046f9773f6107c57111e3",
+        "@moritzbrantner/three-d-renderer": "github:moritzbrantner/3d-lab#0ad439555ef54379edb48ecb57f19c60cc6fe5af",
         "@playwright/test": "1.63.0",
         "@types/three": "0.185.4",
         "three": "0.185.1",
@@ -21,7 +21,7 @@
 
     "@gltf-transform/core": ["@gltf-transform/core@4.5.1", "", { "dependencies": { "property-graph": "^4.1.0" } }, "sha512-OWgBYssKHKoXMIrMb2N20jXqWRnMP9HdtcTFQBEAJtz4P+OOxx5fozl5eAeK7nktIs5uDE/lu4NbkE5VCZaR9g=="],
 
-    "@moritzbrantner/three-d-renderer": ["@moritzbrantner/three-d-renderer@github:moritzbrantner/3d-lab#7ce0c74", { "dependencies": { "three": "0.185.1" } }, "moritzbrantner-3d-lab-7ce0c74", "sha512-lHK/ktF+VEM8auz6bUVGWnYA7EXwx1lMfydhWjGZZqhvbDVsSPk0YZdKdXG3DcSJGiuS/BBw3FXow6OWbdbcLA=="],
+    "@moritzbrantner/three-d-renderer": ["@moritzbrantner/three-d-renderer@github:moritzbrantner/3d-lab#0ad4395", { "dependencies": { "three": "0.185.1" } }, "moritzbrantner-3d-lab-0ad4395", "sha512-lb4AZZ0r8nm2GOvCntNsr4YqLuaA1e/hZUbQcSSzoz/idueDN5DWxfRz+blYvI1ASEppzz9NK4BnYrBnlPvRVA=="],
 
     "@playwright/test": ["@playwright/test@1.63.0", "", { "dependencies": { "playwright": "1.63.0" }, "bin": { "playwright": "cli.js" } }, "sha512-oxMK4vllB9RK5NQ2l1pq1IfOf2AvnEuj/vYGDj0H2nMtmtZpKtCwt/l00GEO6xjGfpBNAvjovvYdCm50dRQkpQ=="],
 
