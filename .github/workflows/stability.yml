@@ -4,12 +4,37 @@ on:
   pull_request:
   push:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
+  pull-requests: read
+
+concurrency:
+  group: stability-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  impact:
+    name: Classify PR changes
+    runs-on: ubuntu-latest
+    outputs:
+      relevant: ${{ steps.detect.outputs.stability }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - id: detect
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_CHANGED_FILES: ${{ github.event.pull_request.changed_files }}
+        run: bash scripts/ci-impact.sh
+
   local-contract:
+    needs: impact
+    if: github.event_name != 'pull_request' || needs.impact.outputs.relevant == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
@@ -20,6 +45,8 @@ jobs:
         run: bun run stability:contract
 
   consumer-matrix:
+    needs: impact
+    if: github.event_name != 'pull_request' || needs.impact.outputs.relevant == 'true'
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.matrix.outputs.matrix }}
@@ -62,6 +89,8 @@ jobs:
           bun "$tool" verify "$spec" --receipt .asset-tooling/stability.receipt.json
 
   processor-matrix:
+    needs: impact
+    if: github.event_name != 'pull_request' || needs.impact.outputs.relevant == 'true'
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.matrix.outputs.matrix }}
@@ -124,6 +153,8 @@ jobs:
             "${{ matrix.operation }}"
 
   workflow-bridge:
+    needs: impact
+    if: github.event_name != 'pull_request' || needs.impact.outputs.relevant == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout current asset-tooling

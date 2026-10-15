@@ -7,20 +7,39 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
 
 concurrency:
   group: validate-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
+  impact:
+    name: Classify PR changes
+    runs-on: ubuntu-latest
+    outputs:
+      extended: ${{ steps.detect.outputs.extended }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - id: detect
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_CHANGED_FILES: ${{ github.event.pull_request.changed_files }}
+        run: bash scripts/ci-impact.sh
+
   validate:
+    needs: impact
     name: ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: ${{ fromJSON(github.event_name == 'pull_request' && needs.impact.outputs.extended == 'false' && '["ubuntu-latest"]' || '["ubuntu-latest","macos-latest","windows-latest"]') }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
       - name: Set up Bun
@@ -31,6 +50,8 @@ jobs:
         run: bun run check
 
   selected-bundle-consumer:
+    needs: impact
+    if: github.event_name != 'pull_request' || needs.impact.outputs.extended == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -45,6 +66,8 @@ jobs:
         run: bun run verify:consumer:bundle
 
   blender-script:
+    needs: impact
+    if: github.event_name != 'pull_request' || needs.impact.outputs.extended == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -70,6 +93,8 @@ jobs:
           bun test test/blender-script.test.ts test/blender-input-snapshot.test.ts test/gltf-production-operations.test.ts test/rock-recipes.test.ts test/render-derivative-recipes.test.ts test/shared-render-framing.test.ts test/tree-recipes.test.ts test/wheat-recipes.test.ts test/corn-recipes.test.ts test/grass-recipes.test.ts test/fence-kit-recipes.test.ts
 
   canonical-storage:
+    needs: impact
+    if: github.event_name != 'pull_request' || needs.impact.outputs.extended == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -93,6 +118,8 @@ jobs:
         run: bun test test/greyhaven-starter-sources.test.ts
 
   processing-contract:
+    needs: impact
+    if: github.event_name != 'pull_request' || needs.impact.outputs.extended == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
