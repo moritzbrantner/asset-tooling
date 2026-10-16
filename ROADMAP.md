@@ -10,6 +10,10 @@ inputs -> generation -> transformation -> analysis -> composition -> optimizatio
 
 Larger pipelines should be expressed through the shared workflow stack rather than through a second asset-specific DAG implementation.
 
+## ComfyUI-first generation and selective internal convergence
+
+[Decision Atlas 5.1.1](docs/decisions/atlas.md) makes ComfyUI the initial external golden reference for supported generative-media workflows. `asset-tooling` remains the project-facing operation/provenance/approval/export wrapper; it may later add *explicitly selectable*, consumer-proven internal implementations one capability at a time. Do not copy ComfyUI's execution graph, queue or model loading. Keep existing non-ComfyUI asset processors working. See [the architecture boundary](docs/comfyui-first.md), [first real provider acceptance #212](https://github.com/moritzbrantner/asset-tooling/issues/212), and [Warden icon acceptance #211](https://github.com/moritzbrantner/asset-tooling/issues/211).
+
 ## Completed foundation
 
 ### Reproducibility core
