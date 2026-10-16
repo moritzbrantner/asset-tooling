@@ -35,7 +35,7 @@ export async function loadPreparedComfyUiApiWorkflow(
   const bytes = await resolveAssetObject(root, asset);
   let promptJson: string;
   try {
-    promptJson = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    promptJson = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes);
   } catch {
     throw new Error("ComfyUI API workflow must contain valid UTF-8 JSON");
   }
