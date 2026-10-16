@@ -210,8 +210,9 @@ class Toolchain:
             environment.pop(key, None)
         environment["COMFY_WHERE"] = "local"
         run(
-            str(self.binary("comfy")), "--workspace", str(self.workspace), "--skip-prompt",
-            "install", "--url", COMFY_SOURCE, "--commit", expected["commit"],
+            str(self.binary("comfy")), "--workspace", str(self.comfy_repo), "--skip-prompt",
+            # comfy-cli only accepts --commit together with the nightly version.
+            "install", "--url", COMFY_SOURCE, "--version", "nightly", "--commit", expected["commit"],
             "--skip-manager", f"--{'nvidia' if gpu == 'nvidia' else 'cpu'}", "--fast-deps",
             env=environment, timeout=3600, capture=False,
         )
