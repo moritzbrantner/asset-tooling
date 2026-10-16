@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "comfyui": {
+    "commit": "98cc0bf84b7cb1383654c5b402e7612d875d6d22",
+    "comfy-cli": "1.22.0",
+    "comfy-mcp": "0.10.0"
+  }
+}
