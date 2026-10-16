@@ -8,11 +8,17 @@ import {
   encodeCanonicalPcm16Wav,
   normalizeCanonicalAudioAssetRef,
   validateAudioBuffer,
+  type AudioProvenanceInput,
+  type PcmAudioBuffer,
 } from "./audio.js";
 import {
   createAssetOperationBuildIdentity,
   createAssetOperationRegistry,
   normalizeAssetOperationResult,
+  type AssetOperationBuildIdentity,
+  type AssetOperationInvocation,
+  type AssetOperationResult,
+  type ReadonlyAssetOperationDescriptor,
 } from "./operations.js";
 import { captureToolIdentity } from "./tool.js";
 
@@ -89,11 +95,37 @@ const OPERATION_REGISTRY = createAssetOperationRegistry([
   },
 ]);
 
-export const AUDIO_ADSR_OPERATION = OPERATION_REGISTRY.get("audio.adsr", VERSION);
-export const AUDIO_OSCILLATOR_OPERATION = OPERATION_REGISTRY.get("audio.oscillator", VERSION);
+function registered(id: string): ReadonlyAssetOperationDescriptor {
+  const descriptor = OPERATION_REGISTRY.get(id, VERSION);
+  if (descriptor === undefined) throw new Error(`procedural audio operation '${id}@${VERSION}' is not registered`);
+  return descriptor;
+}
+
+export const AUDIO_ADSR_OPERATION = registered("audio.adsr");
+export const AUDIO_OSCILLATOR_OPERATION = registered("audio.oscillator");
 export const PROCEDURAL_AUDIO_OPERATIONS = OPERATION_REGISTRY.list();
 
-function plainObject(value, location) {
+type PlainObject = Record<string, unknown>;
+
+export type OscillatorWaveform = "sine" | "triangle";
+
+export type OscillatorParameters = {
+  waveform: OscillatorWaveform;
+  sampleRate: number;
+  channels: number;
+  frameCount: number;
+  frequencyHz: number;
+  amplitude: number;
+};
+
+export type AdsrParameters = {
+  attackFrames: number;
+  decayFrames: number;
+  sustainLevelQ15: number;
+  releaseFrames: number;
+};
+
+function plainObject(value: unknown, location: string): PlainObject {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     throw new Error(`${location} must be a plain object`);
   }
@@ -101,10 +133,10 @@ function plainObject(value, location) {
   if (prototype !== Object.prototype && prototype !== null) {
     throw new Error(`${location} must be a plain object`);
   }
-  return value;
+  return value as PlainObject;
 }
 
-function exactKeys(value, keys, location) {
+function exactKeys(value: unknown, keys: readonly string[], location: string): PlainObject {
   const object = plainObject(value, location);
   const expected = new Set(keys);
   for (const key of Object.keys(object)) {
@@ -116,14 +148,14 @@ function exactKeys(value, keys, location) {
   return object;
 }
 
-function integer(value, location, minimum, maximum) {
-  if (!Number.isSafeInteger(value) || value < minimum || value > maximum) {
+function integer(value: unknown, location: string, minimum: number, maximum: number): number {
+  if (!Number.isSafeInteger(value) || (value as number) < minimum || (value as number) > maximum) {
     throw new Error(`${location} must be an integer in ${minimum}..${maximum}`);
   }
-  return value;
+  return value as number;
 }
 
-function roundRatioSigned(numerator, denominator) {
+function roundRatioSigned(numerator: number, denominator: number): number {
   if (!Number.isSafeInteger(numerator) || !Number.isSafeInteger(denominator) || denominator <= 0) {
     throw new Error("audio fixed-point ratio requires a safe integer numerator and positive denominator");
   }
@@ -133,17 +165,17 @@ function roundRatioSigned(numerator, denominator) {
     : -Math.floor((-numerator + half) / denominator);
 }
 
-function sineQ15(index) {
+function sineQ15(index: number): number {
   const normalized = ((index % SINE_PHASE_STEPS) + SINE_PHASE_STEPS) % SINE_PHASE_STEPS;
   const quadrant = Math.floor(normalized / 32);
   const offset = normalized % 32;
-  if (quadrant === 0) return SINE_QUARTER_Q15[offset];
-  if (quadrant === 1) return SINE_QUARTER_Q15[32 - offset];
-  if (quadrant === 2) return -SINE_QUARTER_Q15[offset];
-  return -SINE_QUARTER_Q15[32 - offset];
+  if (quadrant === 0) return SINE_QUARTER_Q15[offset]!;
+  if (quadrant === 1) return SINE_QUARTER_Q15[32 - offset]!;
+  if (quadrant === 2) return -SINE_QUARTER_Q15[offset]!;
+  return -SINE_QUARTER_Q15[32 - offset]!;
 }
 
-function sineFrameQ15(frame, frequencyHz, sampleRate) {
+function sineFrameQ15(frame: number, frequencyHz: number, sampleRate: number): number {
   const phaseNumerator = frame * frequencyHz * SINE_PHASE_STEPS;
   const wholeStep = Math.floor(phaseNumerator / sampleRate);
   const remainder = phaseNumerator % sampleRate;
@@ -152,10 +184,10 @@ function sineFrameQ15(frame, frequencyHz, sampleRate) {
   return current + roundRatioSigned((next - current) * remainder, sampleRate);
 }
 
-function triangleFrameQ15(frame, frequencyHz, sampleRate) {
+function triangleFrameQ15(frame: number, frequencyHz: number, sampleRate: number): number {
   const phase = (frame * frequencyHz) % sampleRate;
   const quarterPhase = phase * 4;
-  let numerator;
+  let numerator: number;
   if (quarterPhase < sampleRate) {
     numerator = quarterPhase;
   } else if (quarterPhase < sampleRate * 2) {
@@ -168,13 +200,13 @@ function triangleFrameQ15(frame, frequencyHz, sampleRate) {
   return roundRatioSigned(numerator * Q15_FULL_SCALE, sampleRate);
 }
 
-function normalizeOscillatorParameters(value) {
+function normalizeOscillatorParameters(value: unknown): OscillatorParameters {
   const parameters = exactKeys(
     value,
     ["waveform", "sampleRate", "channels", "frameCount", "frequencyHz", "amplitude"],
     "audio.oscillator parameters",
   );
-  if (!["sine", "triangle"].includes(parameters.waveform)) {
+  if (!(["sine", "triangle"] as unknown[]).includes(parameters.waveform)) {
     throw new Error("audio.oscillator waveform must be sine or triangle");
   }
   const sampleRate = integer(parameters.sampleRate, "audio.oscillator sampleRate", 8000, 192000);
@@ -185,7 +217,7 @@ function normalizeOscillatorParameters(value) {
     Math.floor(sampleRate / 2),
   );
   return {
-    waveform: parameters.waveform,
+    waveform: parameters.waveform as OscillatorWaveform,
     sampleRate,
     channels: integer(parameters.channels, "audio.oscillator channels", 1, 2),
     frameCount: integer(parameters.frameCount, "audio.oscillator frameCount", 0, MAX_FRAME_COUNT),
@@ -194,7 +226,7 @@ function normalizeOscillatorParameters(value) {
   };
 }
 
-function normalizeAdsrParameters(value) {
+function normalizeAdsrParameters(value: unknown): AdsrParameters {
   const parameters = exactKeys(
     value,
     ["attackFrames", "decayFrames", "sustainLevelQ15", "releaseFrames"],
@@ -213,7 +245,7 @@ function normalizeAdsrParameters(value) {
   };
 }
 
-function assertAdsrBudget(parameters, frameCount) {
+function assertAdsrBudget(parameters: AdsrParameters, frameCount: number): void {
   const shapedFrames = parameters.attackFrames + parameters.decayFrames + parameters.releaseFrames;
   if (shapedFrames > frameCount) {
     throw new Error(
@@ -222,7 +254,7 @@ function assertAdsrBudget(parameters, frameCount) {
   }
 }
 
-export function generateOscillatorAudio(value) {
+export function generateOscillatorAudio(value: unknown): PcmAudioBuffer {
   const parameters = normalizeOscillatorParameters(value);
   const samples = new Int16Array(parameters.frameCount * parameters.channels);
   for (let frame = 0; frame < parameters.frameCount; frame += 1) {
@@ -238,7 +270,7 @@ export function generateOscillatorAudio(value) {
   return { sampleRate: parameters.sampleRate, channels: parameters.channels, samples };
 }
 
-function adsrGainQ15(frame, frameCount, parameters) {
+function adsrGainQ15(frame: number, frameCount: number, parameters: AdsrParameters): number {
   const attackEnd = parameters.attackFrames;
   const decayEnd = attackEnd + parameters.decayFrames;
   const releaseStart = frameCount - parameters.releaseFrames;
@@ -271,7 +303,7 @@ function adsrGainQ15(frame, frameCount, parameters) {
   );
 }
 
-export function applyAdsrEnvelope(audioValue, parameterValue) {
+export function applyAdsrEnvelope(audioValue: unknown, parameterValue: unknown): PcmAudioBuffer {
   const audio = validateAudioBuffer(audioValue);
   const parameters = normalizeAdsrParameters(parameterValue);
   const frameCount = audioFrameCount(audio);
@@ -281,26 +313,29 @@ export function applyAdsrEnvelope(audioValue, parameterValue) {
     const gainQ15 = adsrGainQ15(frame, frameCount, parameters);
     for (let channel = 0; channel < audio.channels; channel += 1) {
       const index = frame * audio.channels + channel;
-      samples[index] = roundRatioSigned(audio.samples[index] * gainQ15, Q15_FULL_SCALE);
+      samples[index] = roundRatioSigned(audio.samples[index]! * gainQ15, Q15_FULL_SCALE);
     }
   }
   return { sampleRate: audio.sampleRate, channels: audio.channels, samples };
 }
 
-function normalizeParameters(operation, value) {
+function normalizeParameters(
+  operation: ReadonlyAssetOperationDescriptor,
+  value: unknown,
+): OscillatorParameters | AdsrParameters {
   if (operation.id === "audio.oscillator") return normalizeOscillatorParameters(value);
   if (operation.id === "audio.adsr") return normalizeAdsrParameters(value);
   throw new Error(`unsupported procedural audio operation '${operation.id}'`);
 }
 
-function assertRoot(root) {
+function assertRoot(root: unknown): string {
   if (typeof root !== "string" || !path.isAbsolute(root)) {
     throw new Error("procedural audio operation root must be an absolute path");
   }
   return root;
 }
 
-async function implementationIdentity(operation) {
+async function implementationIdentity(operation: ReadonlyAssetOperationDescriptor) {
   if (operation.id === "audio.oscillator") {
     return {
       id: "builtin.audio.oscillator",
@@ -325,7 +360,12 @@ async function implementationIdentity(operation) {
   };
 }
 
-async function createBuildIdentity(root, operation, parameters, inputs) {
+async function createBuildIdentity(
+  root: unknown,
+  operation: ReadonlyAssetOperationDescriptor,
+  parameters: unknown,
+  inputs: unknown,
+): Promise<AssetOperationBuildIdentity> {
   const assetRoot = assertRoot(root);
   const build = createAssetOperationBuildIdentity({
     operation,
@@ -339,12 +379,17 @@ async function createBuildIdentity(root, operation, parameters, inputs) {
       await resolveAssetObject(assetRoot, sourceRef),
       sourceRef.metadata,
     );
-    assertAdsrBudget(build.parameters, audioFrameCount(source));
+    assertAdsrBudget(build.parameters as AdsrParameters, audioFrameCount(source));
   }
   return build;
 }
 
-async function storeCanonicalOutput(root, operation, audio, provenanceInputs) {
+async function storeCanonicalOutput(
+  root: unknown,
+  operation: ReadonlyAssetOperationDescriptor,
+  audio: PcmAudioBuffer,
+  provenanceInputs: AudioProvenanceInput[],
+) {
   const encoded = encodeCanonicalPcm16Wav(audio);
   const metadata = createCanonicalAudioMetadata({
     sampleRate: audio.sampleRate,
@@ -361,7 +406,7 @@ async function storeCanonicalOutput(root, operation, audio, provenanceInputs) {
   });
 }
 
-function standardObservations(audio) {
+function standardObservations(audio: PcmAudioBuffer) {
   return {
     sampleRate: audio.sampleRate,
     channels: audio.channels,
@@ -370,13 +415,16 @@ function standardObservations(audio) {
 }
 
 export async function createAudioOscillatorOperationBuildIdentity(
-  root,
-  { parameters = {}, inputs = {} } = {},
-) {
+  root: string,
+  { parameters = {}, inputs = {} }: AssetOperationInvocation = {},
+): Promise<AssetOperationBuildIdentity> {
   return createBuildIdentity(root, AUDIO_OSCILLATOR_OPERATION, parameters, inputs);
 }
 
-export async function executeAudioOscillatorOperation(root, invocation = {}) {
+export async function executeAudioOscillatorOperation(
+  root: string,
+  invocation: AssetOperationInvocation = {},
+): Promise<AssetOperationResult> {
   const build = await createAudioOscillatorOperationBuildIdentity(root, invocation);
   const audio = generateOscillatorAudio(build.parameters);
   const stored = await storeCanonicalOutput(root, AUDIO_OSCILLATOR_OPERATION, audio, []);
@@ -393,13 +441,16 @@ export async function executeAudioOscillatorOperation(root, invocation = {}) {
 }
 
 export async function createAudioAdsrOperationBuildIdentity(
-  root,
-  { parameters = {}, inputs = {} } = {},
-) {
+  root: string,
+  { parameters = {}, inputs = {} }: AssetOperationInvocation = {},
+): Promise<AssetOperationBuildIdentity> {
   return createBuildIdentity(root, AUDIO_ADSR_OPERATION, parameters, inputs);
 }
 
-export async function executeAudioAdsrOperation(root, invocation = {}) {
+export async function executeAudioAdsrOperation(
+  root: string,
+  invocation: AssetOperationInvocation = {},
+): Promise<AssetOperationResult> {
   const build = await createAudioAdsrOperationBuildIdentity(root, invocation);
   const sourceRef = normalizeCanonicalAudioAssetRef(build.inputs.source);
   const source = assertCanonicalAudioBytes(
@@ -407,6 +458,7 @@ export async function executeAudioAdsrOperation(root, invocation = {}) {
     sourceRef.metadata,
   );
   const audio = applyAdsrEnvelope(source, build.parameters);
+  const parameters = build.parameters as AdsrParameters;
   const stored = await storeCanonicalOutput(root, AUDIO_ADSR_OPERATION, audio, [
     { port: "source", sha256: sourceRef.sha256 },
   ]);
@@ -417,9 +469,9 @@ export async function executeAudioAdsrOperation(root, invocation = {}) {
       gainEncoding: "q15",
       sustainFrames:
         audioFrameCount(audio) -
-        build.parameters.attackFrames -
-        build.parameters.decayFrames -
-        build.parameters.releaseFrames,
+        parameters.attackFrames -
+        parameters.decayFrames -
+        parameters.releaseFrames,
       parameters: build.parameters,
       ...standardObservations(audio),
     },

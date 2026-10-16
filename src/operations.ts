@@ -56,6 +56,12 @@ export interface AssetOperationResult {
   observations: CanonicalJsonObject;
 }
 
+/** The invocation every asset operation executor accepts; executors validate both fields. */
+export interface AssetOperationInvocation {
+  parameters?: unknown;
+  inputs?: unknown;
+}
+
 export interface AssetOperationBuildIdentityInput {
   operation: unknown;
   implementation: unknown;

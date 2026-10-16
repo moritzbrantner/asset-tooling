@@ -74,7 +74,7 @@ Input order is retained in provenance and observations. Per-track gain is determ
 
 All outputs flow through the existing `.asset-tooling/objects/v1` content-addressed store. Repeating a deterministic operation produces the same canonical bytes and therefore resolves to the same `AssetRef`; the object store reuses an existing verified object instead of writing duplicate bytes.
 
-Operation build identity still records operation version, implementation/tool fingerprint, parameters, and validated input identities. A future operation-result acceleration cache may use that identity, but cache presence is never provenance evidence and must not bypass content verification.
+Operation build identity still records operation version, implementation/tool fingerprint, parameters, and validated input identities. `runAssetOperation(...)` from `asset-tooling/operations/store` uses that identity to reuse a recorded result without re-executing, which matters for model-backed operations such as `audio.model.generate@1`. It verifies every input before the lookup and every output object before reuse, and returns the recorded reproducibility label unchanged. Cache presence is never provenance evidence; see [Reusing verified operation results](operations.md#reusing-verified-operation-results).
 
 ## Workflow integration
 
