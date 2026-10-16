@@ -12,6 +12,10 @@ The same public CLI/spec boundary is proven by merged Zoo and Medieval consumers
 
 The package remains `0.1.0` until a stable release is intentionally cut; stabilization readiness does not publish or tag a release by itself. See `docs/stability.md`.
 
+## Local tool setup
+
+Run `python3 scripts/setup-tools.py doctor --profile all --json` to inspect repository tool readiness. The idempotent `setup` command prepares the chosen `core`, `previews`, or `comfyui` profile, with an explicit NVIDIA or CPU backend for ComfyUI. See [local tool setup](docs/local-tool-setup.md) for pinned versions, host prerequisites and model-acquisition boundaries.
+
 ## Generation
 
 The generation architecture supports the same provenance model across:
