@@ -14,53 +14,72 @@ import {
   createAssetRef,
   normalizeAssetOperationResult,
 } from "./operations.js";
+import { canonicalJson } from "./canonical.js";
+import { captureEnvironment } from "./environment.js";
 import { captureToolIdentity } from "./tool.js";
 
 const TOKEN_PATTERN = /^[a-z0-9]+(?:[._-][a-z0-9]+)*$/;
 const VERSION_PATTERN = /^[A-Za-z0-9]+(?:[._+-][A-Za-z0-9]+)*$/;
 const SEED_PATTERN = /^(0|[1-9][0-9]*)$/;
 
-const REGISTRY = createAssetOperationRegistry([
-  {
-    schemaVersion: 1,
-    id: "audio.model.generate",
-    version: "1",
-    label: "Generate audio with model",
-    description:
-      "Generate canonical audio through an injected offline model adapter and exact content-addressed model bundle.",
-    category: "model.audio",
-    inputs: [
-      { id: "model", label: "Model bundle", assetKinds: ["model"], mediaTypes: [] },
-      {
-        id: "conditioning",
-        label: "Conditioning audio",
-        assetKinds: ["audio"],
-        mediaTypes: [CANONICAL_AUDIO_MEDIA_TYPE],
-        required: false,
-      },
-    ],
-    outputs: [
-      { id: "output", label: "Audio", assetKinds: ["audio"], mediaTypes: [CANONICAL_AUDIO_MEDIA_TYPE] },
-    ],
-    parameterSchema: {
-      type: "object",
-      additionalProperties: false,
-      required: ["modelId", "modelRevision", "prompt", "sampleRate", "channels", "frameCount"],
-      properties: {
-        modelId: { type: "string", minLength: 1 },
-        modelRevision: { type: "string", minLength: 1 },
-        prompt: { type: "string", minLength: 1 },
-        seed: { type: "string", pattern: "^(0|[1-9][0-9]*)$" },
-        sampleRate: { type: "integer", minimum: 8000, maximum: 192000 },
-        channels: { type: "integer", enum: [1, 2] },
-        frameCount: { type: "integer", minimum: 1, maximum: 10000000 },
-        adapterParameters: { type: "object" },
-      },
+const AUDIO_MODEL_GENERATE_V1_DESCRIPTOR = {
+  schemaVersion: 1,
+  id: "audio.model.generate",
+  version: "1",
+  label: "Generate audio with model",
+  description:
+    "Generate canonical audio through an injected offline model adapter and exact content-addressed model bundle.",
+  category: "model.audio",
+  inputs: [
+    { id: "model", label: "Model bundle", assetKinds: ["model"], mediaTypes: [] },
+    {
+      id: "conditioning",
+      label: "Conditioning audio",
+      assetKinds: ["audio"],
+      mediaTypes: [CANONICAL_AUDIO_MEDIA_TYPE],
+      required: false,
+    },
+  ],
+  outputs: [
+    { id: "output", label: "Audio", assetKinds: ["audio"], mediaTypes: [CANONICAL_AUDIO_MEDIA_TYPE] },
+  ],
+  parameterSchema: {
+    type: "object",
+    additionalProperties: false,
+    required: ["modelId", "modelRevision", "prompt", "sampleRate", "channels", "frameCount"],
+    properties: {
+      modelId: { type: "string", minLength: 1 },
+      modelRevision: { type: "string", minLength: 1 },
+      prompt: { type: "string", minLength: 1 },
+      seed: { type: "string", pattern: "^(0|[1-9][0-9]*)$" },
+      sampleRate: { type: "integer", minimum: 8000, maximum: 192000 },
+      channels: { type: "integer", enum: [1, 2] },
+      frameCount: { type: "integer", minimum: 1, maximum: 10000000 },
+      adapterParameters: { type: "object" },
     },
   },
-]);
+};
+
+// @2 differs from @1 only in that frameCount is optional: when absent, the adapter decides the
+// length and the actual frame count is recorded in metadata and observations.
+const AUDIO_MODEL_GENERATE_V2_DESCRIPTOR = {
+  ...AUDIO_MODEL_GENERATE_V1_DESCRIPTOR,
+  version: "2",
+  description:
+    "Generate canonical audio through an injected offline model adapter and exact content-addressed model bundle; frameCount is optional and the adapter runtime environment is part of the build identity.",
+  parameterSchema: {
+    ...AUDIO_MODEL_GENERATE_V1_DESCRIPTOR.parameterSchema,
+    required: AUDIO_MODEL_GENERATE_V1_DESCRIPTOR.parameterSchema.required.filter((key) => key !== "frameCount"),
+  },
+};
+
+const REGISTRY = createAssetOperationRegistry([AUDIO_MODEL_GENERATE_V1_DESCRIPTOR, AUDIO_MODEL_GENERATE_V2_DESCRIPTOR]);
 
 export const AUDIO_MODEL_GENERATE_OPERATION = REGISTRY.get("audio.model.generate", "1");
+export const AUDIO_MODEL_GENERATE_V2_OPERATION = REGISTRY.get("audio.model.generate", "2");
+
+const V1 = { operation: AUDIO_MODEL_GENERATE_OPERATION, frameCountRequired: true, environment: false };
+const V2 = { operation: AUDIO_MODEL_GENERATE_V2_OPERATION, frameCountRequired: false, environment: true };
 
 function isObject(value) {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
@@ -116,7 +135,7 @@ function canonicalJsonClone(value, location) {
   return JSON.parse(JSON.stringify(value));
 }
 
-function normalizeParameters(value) {
+function normalizeParameters(value, version) {
   const parameters = assertObject(value, "audio.model.generate parameters");
   assertExactKeys(
     parameters,
@@ -129,9 +148,11 @@ function normalizeParameters(value) {
     prompt: assertNonEmptyString(parameters.prompt, "audio.model.generate prompt"),
     sampleRate: assertInteger(parameters.sampleRate, "audio.model.generate sampleRate", 8_000, 192_000),
     channels: assertInteger(parameters.channels, "audio.model.generate channels", 1, 2),
-    frameCount: assertInteger(parameters.frameCount, "audio.model.generate frameCount", 1, 10_000_000),
     adapterParameters: canonicalJsonClone(parameters.adapterParameters ?? {}, "audio.model.generate adapterParameters"),
   };
+  if (version.frameCountRequired || parameters.frameCount !== undefined) {
+    result.frameCount = assertInteger(parameters.frameCount, "audio.model.generate frameCount", 1, 10_000_000);
+  }
   if (!isObject(result.adapterParameters)) throw new Error("audio.model.generate adapterParameters must be an object");
   if (parameters.seed !== undefined) {
     if (typeof parameters.seed !== "string" || !SEED_PATTERN.test(parameters.seed)) {
@@ -142,9 +163,13 @@ function normalizeParameters(value) {
   return result;
 }
 
-function normalizeAdapter(value) {
+function normalizeAdapter(value, version) {
   const adapter = assertObject(value, "audio model adapter");
-  assertExactKeys(adapter, new Set(["id", "version", "reproducibility", "generate"]), "audio model adapter");
+  assertExactKeys(
+    adapter,
+    new Set(["id", "version", "reproducibility", "generate", ...(version.environment ? ["environmentComponents"] : [])]),
+    "audio model adapter",
+  );
   if (typeof adapter.id !== "string" || !TOKEN_PATTERN.test(adapter.id)) {
     throw new Error("audio model adapter id must be a lowercase dotted token");
   }
@@ -155,7 +180,22 @@ function normalizeAdapter(value) {
     throw new Error("audio model adapter reproducibility must be exact or approximate");
   }
   if (typeof adapter.generate !== "function") throw new Error("audio model adapter generate must be a function");
-  return adapter;
+  if (adapter.environmentComponents !== undefined && typeof adapter.environmentComponents !== "function") {
+    throw new Error("audio model adapter environmentComponents must be a function");
+  }
+  // Snapshot the validated shape so later mutation of the caller's object cannot change what a
+  // factory executes or which identity it records (for example, adding environmentComponents to a
+  // v1 adapter after its executor was created).
+  const { generate, environmentComponents } = adapter;
+  return Object.freeze({
+    id: adapter.id,
+    version: adapter.version,
+    reproducibility: adapter.reproducibility,
+    generate: (request, context) => generate.call(adapter, request, context),
+    ...(version.environment && environmentComponents !== undefined
+      ? { environmentComponents: () => environmentComponents.call(adapter) }
+      : {}),
+  });
 }
 
 function normalizeAdapterResult(value, adapterId) {
@@ -174,33 +214,55 @@ function assertRequestedShape(audio, parameters) {
   if (audio.channels !== parameters.channels) {
     throw new Error(`audio model adapter returned ${audio.channels} channels; expected ${parameters.channels}`);
   }
+  if (parameters.frameCount === undefined) return;
   const frameCount = audioFrameCount(audio);
   if (frameCount !== parameters.frameCount) {
     throw new Error(`audio model adapter returned ${frameCount} frames; expected ${parameters.frameCount}`);
   }
 }
 
-export async function createAudioModelGenerateOperationBuildIdentity(adapterValue, { parameters = {}, inputs = {} } = {}) {
-  const adapter = normalizeAdapter(adapterValue);
-  const normalizedParameters = normalizeParameters(parameters);
+async function captureAdapterEnvironment(adapter) {
+  const components = await adapter.environmentComponents();
+  if (!Array.isArray(components)) throw new Error(`${adapter.id} environmentComponents must return an array`);
+  return captureEnvironment(canonicalJsonClone(components, `${adapter.id} environmentComponents`));
+}
+
+async function createBuildIdentity(version, adapter, { parameters = {}, inputs = {} } = {}) {
+  const normalizedParameters = normalizeParameters(parameters, version);
   return createAssetOperationBuildIdentity({
-    operation: AUDIO_MODEL_GENERATE_OPERATION,
+    operation: version.operation,
     implementation: {
       id: adapter.id,
       version: adapter.version,
       reproducibility: adapter.reproducibility,
       model: { id: normalizedParameters.modelId, revision: normalizedParameters.modelRevision },
       tool: await captureToolIdentity(),
+      ...(adapter.environmentComponents === undefined ? {} : { environment: await captureAdapterEnvironment(adapter) }),
     },
     parameters: normalizedParameters,
     inputs,
   });
 }
 
-export function createAudioModelGenerateOperationExecutor(adapterValue) {
-  const adapter = normalizeAdapter(adapterValue);
-  return async function executeAudioModelGenerateOperation(root, { parameters = {}, inputs = {} } = {}, context) {
-    const build = await createAudioModelGenerateOperationBuildIdentity(adapter, { parameters, inputs });
+/**
+ * Under `runAssetOperation`, the cache key was derived from an implementation identity prepared
+ * before execution. v2 fails closed when its own single capture (runtime environment, tool, model
+ * and adapter identity) differs from it, so a result is never recorded under another runtime's key.
+ */
+function assertPreparedImplementation(version, build, run) {
+  if (!version.environment || run?.buildIdentity === undefined) return;
+  if (canonicalJson(build.implementation) !== canonicalJson(run.buildIdentity.implementation)) {
+    throw new Error(
+      `${version.operation.id}@${version.operation.version} implementation identity (runtime environment, tool or adapter) changed after the build identity was prepared`,
+    );
+  }
+}
+
+function createExecutor(version, adapter) {
+  const operation = version.operation;
+  return async function executeAudioModelGenerateOperation(root, { parameters = {}, inputs = {} } = {}, context, run) {
+    const build = await createBuildIdentity(version, adapter, { parameters, inputs });
+    assertPreparedImplementation(version, build, run);
     const model = createAssetRef(build.inputs.model);
     const modelBytes = await resolveAssetObject(root, model);
     const conditioning = build.inputs.conditioning ? normalizeCanonicalAudioAssetRef(build.inputs.conditioning) : undefined;
@@ -230,7 +292,7 @@ export function createAudioModelGenerateOperationExecutor(adapterValue) {
       sampleRate: generated.audio.sampleRate,
       channels: generated.audio.channels,
       frameCount: encoded.frameCount,
-      operation: { id: AUDIO_MODEL_GENERATE_OPERATION.id, version: AUDIO_MODEL_GENERATE_OPERATION.version },
+      operation: { id: operation.id, version: operation.version },
       inputs: [
         { port: "model", sha256: model.sha256 },
         ...(conditioning ? [{ port: "conditioning", sha256: conditioning.sha256 }] : []),
@@ -243,7 +305,7 @@ export function createAudioModelGenerateOperationExecutor(adapterValue) {
       metadata,
     });
 
-    return normalizeAssetOperationResult(AUDIO_MODEL_GENERATE_OPERATION, {
+    return normalizeAssetOperationResult(operation, {
       outputs: { output: stored.asset },
       observations: {
         adapter: { id: adapter.id, version: adapter.version, reproducibility: adapter.reproducibility },
@@ -256,4 +318,26 @@ export function createAudioModelGenerateOperationExecutor(adapterValue) {
       },
     });
   };
+}
+
+export async function createAudioModelGenerateOperationBuildIdentity(adapterValue, invocation = {}) {
+  return createBuildIdentity(V1, normalizeAdapter(adapterValue, V1), invocation);
+}
+
+export function createAudioModelGenerateOperationExecutor(adapterValue) {
+  return createExecutor(V1, normalizeAdapter(adapterValue, V1));
+}
+
+/**
+ * audio.model.generate@2: frameCount is optional (enforced exactly when present, otherwise the
+ * adapter's length is recorded), and an adapter may declare `environmentComponents()` (sync or
+ * async, canonical JSON array) whose `captureEnvironment(...)` fingerprint is part of the
+ * build identity as `implementation.environment`.
+ */
+export async function createAudioModelGenerateV2OperationBuildIdentity(adapterValue, invocation = {}) {
+  return createBuildIdentity(V2, normalizeAdapter(adapterValue, V2), invocation);
+}
+
+export function createAudioModelGenerateV2OperationExecutor(adapterValue) {
+  return createExecutor(V2, normalizeAdapter(adapterValue, V2));
 }
