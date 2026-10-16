@@ -438,6 +438,12 @@ export const KOKORO_ENGLISH_VOICES = Object.freeze([
 const KOKORO_VOICE_SET = new Set(KOKORO_ENGLISH_VOICES);
 const KOKORO_LEXICON_WORD = /^[\p{L}\p{N}]+(?:['’-][\p{L}\p{N}]+)*$/u;
 const KOKORO_MAX_LEXICON_ENTRIES = 10_000;
+// misaki 0.9.4 (pinned in requirements-kokoro.txt), misaki/en.py US_VOCAB and GB_VOCAB: the phoneme
+// symbols its English lexicons use. Both are subsets of the Kokoro-82M config.json vocab at the
+// pinned revision. adapters/python/kokoro_tts.py re-checks entries against the set its voice selects.
+export const KOKORO_US_PHONEMES = Object.freeze([..."AIOWYbdfhijklmnpstuvwzæðŋɑɔəɛɜɡɪɹɾʃʊʌʒʔʤʧˈˌθᵊᵻ"]);
+export const KOKORO_GB_PHONEMES = Object.freeze([..."AIQWYabdfhijklmnpstuvwzðŋɑɒɔəɛɜɡɪɹʃʊʌʒʤʧˈˌːθᵊ"]);
+const KOKORO_LEXICON_PHONEMES = new Set([...KOKORO_US_PHONEMES, ...KOKORO_GB_PHONEMES]);
 
 function isPlainObject(value) {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
@@ -487,6 +493,12 @@ function normalizeKokoroLexicon(value) {
     const phonemes = value.entries[word];
     if (typeof phonemes !== "string" || phonemes.length === 0 || /\s/u.test(phonemes)) {
       throw new Error(`kokoro adapterParameters.lexicon.entries[${JSON.stringify(word)}] must be a non-empty phoneme string without whitespace`);
+    }
+    const invalid = [...new Set([...phonemes].filter((symbol) => !KOKORO_LEXICON_PHONEMES.has(symbol)))];
+    if (invalid.length > 0) {
+      throw new Error(
+        `kokoro adapterParameters.lexicon.entries[${JSON.stringify(word)}] uses symbol(s) outside misaki's English phoneme set: ${JSON.stringify(invalid.join(""))}`,
+      );
     }
     entries[word] = phonemes;
   }
