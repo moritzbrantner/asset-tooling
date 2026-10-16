@@ -1,5 +1,6 @@
 import path from "node:path";
 import { canonicalJson, compareCodeUnitStrings } from "./canonical.js";
+import { createComfyUiImageGenerateRegistration } from "./comfyui-operation.js";
 import {
   assetOperationKey,
   createAssetOperationDescriptor,
@@ -370,5 +371,47 @@ export function createAssetOperationWorkflowExecutor({
     }
 
     return { outputs: result.outputs };
+  };
+}
+
+const PROVIDER_ENTRY_KEYS = new Set(["comfyui"]);
+
+function workflowRegistrationFromRun(runRegistration) {
+  return {
+    operation: runRegistration.descriptor,
+    async execute(root, invocation) {
+      if (runRegistration.verifyDependencies !== undefined) {
+        await runRegistration.verifyDependencies(root, invocation);
+      }
+      return runRegistration.execute(root, invocation);
+    },
+  };
+}
+
+/**
+ * Workflow-bridge entries for operations that need explicit provider configuration (#221).
+ *
+ * The host passes every provider's configuration; nothing is read from the environment, files or
+ * globals, and no network or file I/O happens here. An absent provider contributes nothing, so the
+ * editor does not offer it and an executor built from `registrations` rejects it as not registered.
+ * A present but invalid provider configuration, or an unknown provider key, throws.
+ *
+ * - `comfyui`: `ComfyUiImageGenerateRegistrationOptions` for `image.comfyui.generate@1`; probe the
+ *   server with `probeComfyUiServer` first and pass the identity as `server`.
+ */
+export function createAssetOperationWorkflowProviderEntries(config = {}) {
+  const providers = assertPlainObject(config ?? {}, "asset workflow provider configuration");
+  assertExactKeys(providers, PROVIDER_ENTRY_KEYS, "asset workflow provider configuration");
+  const runRegistrations = [];
+  if (providers.comfyui !== undefined) {
+    if (!isPlainObject(providers.comfyui)) {
+      throw new Error("asset workflow provider configuration 'comfyui' must be a plain ComfyUI options object");
+    }
+    runRegistrations.push(createComfyUiImageGenerateRegistration(providers.comfyui));
+  }
+  const registrations = runRegistrations.map((registration) => workflowRegistrationFromRun(registration));
+  return {
+    templates: createAssetOperationWorkflowNodeTemplates(registrations.map((registration) => registration.operation)),
+    registrations,
   };
 }
