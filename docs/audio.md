@@ -109,4 +109,6 @@ The deterministic PCM operations do not embed a particular text-to-audio model. 
   - Each execution probes the environment once and uses that one capture for its identity. Under `runAssetOperation`, the executor compares that identity with the prepared one the cache key came from. If the runtime, tool or adapter identity changed in between, it fails closed before calling the adapter.
 - Both factories snapshot the validated adapter when they are created. Mutating the adapter object afterwards, for example adding `environmentComponents` to a v1 adapter, does not change what the executor runs or which identity it records.
 
+The first concrete adapter is the local Kokoro-82M text-to-speech adapter for `audio.model.generate@2`; its model, licence and provenance evidence, hash-locked runtime and fail-closed pronunciation lexicon are in [kokoro.md](kokoro.md).
+
 Generation is offline: the operation never acquires models, and an adapter must only read the declared local bundle. The bundle bytes are loaded into memory; a store path or lazy reader for large bundles is not part of either version yet.

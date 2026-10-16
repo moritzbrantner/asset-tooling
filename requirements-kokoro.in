@@ -1,0 +1,11 @@
+# Source for requirements-kokoro.txt (asset-tooling#30). Regenerate with the command in docs/kokoro.md.
+# torch comes from the PyTorch CPU wheel index as a direct, hash-locked URL, so the install needs no
+# extra index and every other package resolves from PyPI. The lock targets CPython 3.12 on Linux x86_64.
+kokoro==0.9.4
+misaki[en]==0.9.4
+torch @ https://download.pytorch.org/whl/cpu/torch-2.8.0%2Bcpu-cp312-cp312-manylinux_2_28_x86_64.whl
+transformers==4.57.6
+spacy==3.8.7
+# spaCy 3.8 imports click directly, but typer>=0.2x no longer depends on it.
+click==8.1.8
+en_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl

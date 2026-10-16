@@ -1,4 +1,9 @@
+import { createHash } from "node:crypto";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { decodePcmWav } from "./audio.js";
 import { resolveSpecPath } from "./schema.js";
 import { probeProcessAdapter, runProcessAdapter } from "./process-adapter.js";
 
@@ -412,3 +417,228 @@ export const TRIPOSR_BACKEND = {
     });
   },
 };
+
+// ---------------------------------------------------------------------------
+// Kokoro-82M text-to-speech adapter for audio.model.generate@2 (asset-tooling#30)
+// ---------------------------------------------------------------------------
+
+const KOKORO_SCRIPT = fileURLToPath(new URL("../adapters/python/kokoro_tts.py", import.meta.url));
+
+export const KOKORO_MODEL_ID = "hexgrad/Kokoro-82M";
+export const KOKORO_MODEL_REVISION = "f3ff3571791e39611d31c381e3a41a3af07b4987";
+export const KOKORO_SAMPLE_RATE = 24_000;
+
+/** Kokoro v1.0 English voices at the pinned revision (American `a*`, British `b*`). */
+export const KOKORO_ENGLISH_VOICES = Object.freeze([
+  "af_alloy", "af_aoede", "af_bella", "af_heart", "af_jessica", "af_kore", "af_nicole", "af_nova",
+  "af_river", "af_sarah", "af_sky", "am_adam", "am_echo", "am_eric", "am_fenrir", "am_liam",
+  "am_michael", "am_onyx", "am_puck", "am_santa", "bf_alice", "bf_emma", "bf_isabella", "bf_lily",
+  "bm_daniel", "bm_fable", "bm_george", "bm_lewis",
+]);
+const KOKORO_VOICE_SET = new Set(KOKORO_ENGLISH_VOICES);
+const KOKORO_LEXICON_WORD = /^[\p{L}\p{N}]+(?:['’-][\p{L}\p{N}]+)*$/u;
+const KOKORO_MAX_LEXICON_ENTRIES = 10_000;
+
+function isPlainObject(value) {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+}
+
+function assertKnownKeys(value, allowed, location) {
+  for (const key of Object.keys(value)) {
+    if (!allowed.has(key)) throw new Error(`${location} contains unsupported field '${key}'`);
+  }
+}
+
+function normalizeKokoroPython(value) {
+  const parts = value === undefined ? ["python3"] : typeof value === "string" ? [value] : value;
+  if (!Array.isArray(parts) || parts.length === 0) {
+    throw new Error("kokoro adapter python must be an executable or a non-empty [executable, ...launcherArguments] array");
+  }
+  parts.forEach((part, index) => {
+    if (typeof part !== "string" || part.length === 0) {
+      throw new Error(`kokoro adapter python[${index}] must be a non-empty string`);
+    }
+  });
+  return Object.freeze([...parts]);
+}
+
+function normalizeKokoroLexicon(value) {
+  if (!isPlainObject(value)) {
+    throw new Error("kokoro adapterParameters.lexicon must be an object { version, entries }");
+  }
+  assertKnownKeys(value, new Set(["version", "entries"]), "kokoro adapterParameters.lexicon");
+  if (typeof value.version !== "string" || value.version.length === 0) {
+    throw new Error("kokoro adapterParameters.lexicon.version must be a non-empty string");
+  }
+  if (!isPlainObject(value.entries)) {
+    throw new Error("kokoro adapterParameters.lexicon.entries must be an object mapping words to phonemes");
+  }
+  const words = Object.keys(value.entries);
+  if (words.length > KOKORO_MAX_LEXICON_ENTRIES) {
+    throw new Error(`kokoro adapterParameters.lexicon.entries must not exceed ${KOKORO_MAX_LEXICON_ENTRIES} entries`);
+  }
+  const entries = {};
+  for (const word of words.sort()) {
+    if (!KOKORO_LEXICON_WORD.test(word)) {
+      throw new Error(`kokoro adapterParameters.lexicon.entries key ${JSON.stringify(word)} must be a single word`);
+    }
+    const phonemes = value.entries[word];
+    if (typeof phonemes !== "string" || phonemes.length === 0 || /\s/u.test(phonemes)) {
+      throw new Error(`kokoro adapterParameters.lexicon.entries[${JSON.stringify(word)}] must be a non-empty phoneme string without whitespace`);
+    }
+    entries[word] = phonemes;
+  }
+  return { version: value.version, entries };
+}
+
+function normalizeKokoroAdapterParameters(value) {
+  if (!isPlainObject(value)) throw new Error("kokoro adapterParameters must be an object");
+  assertKnownKeys(value, new Set(["voice", "lexicon", "speed"]), "kokoro adapterParameters");
+  if (typeof value.voice !== "string" || !KOKORO_VOICE_SET.has(value.voice)) {
+    throw new Error(
+      `kokoro adapterParameters.voice must be a Kokoro v1.0 English voice (${KOKORO_ENGLISH_VOICES.join(", ")})`,
+    );
+  }
+  if (value.lexicon === undefined) {
+    throw new Error("kokoro adapterParameters.lexicon is required: unknown words fail closed instead of falling back");
+  }
+  const lexicon = normalizeKokoroLexicon(value.lexicon);
+  let speed = 1;
+  if (value.speed !== undefined) {
+    if (typeof value.speed !== "number" || !Number.isFinite(value.speed) || value.speed <= 0) {
+      throw new Error("kokoro adapterParameters.speed must be a finite number greater than 0");
+    }
+    speed = value.speed;
+  }
+  return { voice: value.voice, lexicon, speed };
+}
+
+function validateKokoroRequest(request) {
+  if (request.model?.id !== KOKORO_MODEL_ID) {
+    throw new Error(`kokoro requires modelId ${KOKORO_MODEL_ID}; got ${JSON.stringify(request.model?.id)}`);
+  }
+  if (request.model.revision !== KOKORO_MODEL_REVISION) {
+    throw new Error(`kokoro requires modelRevision ${KOKORO_MODEL_REVISION}; got ${JSON.stringify(request.model.revision)}`);
+  }
+  const asset = request.model.asset;
+  if (asset?.mediaType !== "application/zip") {
+    throw new Error(
+      `kokoro model input must be the acquisition model.zip bundle (mediaType application/zip); got ${JSON.stringify(asset?.mediaType)}`,
+    );
+  }
+  const bytes = request.model.bytes;
+  if (!(bytes instanceof Uint8Array) || createHash("sha256").update(bytes).digest("hex") !== asset.sha256) {
+    throw new Error("kokoro model bundle bytes do not match the model AssetRef sha256");
+  }
+  if (request.conditioning !== undefined) {
+    throw new Error("kokoro does not accept a conditioning input");
+  }
+  if (request.sampleRate !== KOKORO_SAMPLE_RATE) {
+    throw new Error(`kokoro synthesizes at sampleRate ${KOKORO_SAMPLE_RATE}; got ${request.sampleRate}`);
+  }
+  if (request.channels !== 1) {
+    throw new Error(`kokoro synthesizes mono audio (channels 1); got channels ${request.channels}`);
+  }
+  if (request.frameCount !== undefined) {
+    throw new Error("kokoro derives the frame count from synthesis; frameCount must be omitted");
+  }
+  if (typeof request.seed !== "string") {
+    throw new Error("kokoro requires a seed: the request seed seeds torch");
+  }
+  if (BigInt(request.seed) > PYTORCH_MAX_SEED) {
+    throw new Error(`kokoro seed must be at most ${PYTORCH_MAX_SEED} for PyTorch`);
+  }
+  return normalizeKokoroAdapterParameters(request.parameters);
+}
+
+function decodeKokoroOutput(bytes) {
+  let decoded;
+  try {
+    decoded = decodePcmWav(bytes);
+  } catch (error) {
+    throw new Error(`kokoro output is not a PCM WAV file: ${error.message}`);
+  }
+  if (decoded.sourceBitsPerSample !== 16) {
+    throw new Error(`kokoro output must be 16-bit PCM WAV; got ${decoded.sourceBitsPerSample}-bit`);
+  }
+  if (decoded.sampleRate !== KOKORO_SAMPLE_RATE) {
+    throw new Error(`kokoro output sampleRate ${decoded.sampleRate} does not match ${KOKORO_SAMPLE_RATE}`);
+  }
+  if (decoded.channels !== 1) {
+    throw new Error(`kokoro output must be mono; got ${decoded.channels} channels`);
+  }
+  if (decoded.samples.length === 0) {
+    throw new Error("kokoro output is empty: it contains no audio frames");
+  }
+  return { sampleRate: decoded.sampleRate, channels: decoded.channels, samples: decoded.samples };
+}
+
+/**
+ * Local Kokoro-82M speech adapter for `audio.model.generate@2`. `python` is the interpreter of
+ * the hash-locked venv (requirements-kokoro.txt), either one executable or
+ * `[executable, ...launcherArguments]`; `threads` is the torch thread count and is part of the
+ * build identity. See docs/kokoro.md.
+ */
+export function createKokoroAudioModelAdapter(options = {}) {
+  if (!isPlainObject(options)) throw new Error("kokoro adapter options must be an object");
+  assertKnownKeys(options, new Set(["python", "threads"]), "kokoro adapter options");
+  const [executable, ...launcherArguments] = normalizeKokoroPython(options.python);
+  const threads = options.threads ?? 1;
+  if (!Number.isSafeInteger(threads) || threads < 1 || threads > 256) {
+    throw new Error("kokoro adapter threads must be an integer in 1..256");
+  }
+  const environment = {
+    OMP_NUM_THREADS: String(threads),
+    MKL_NUM_THREADS: String(threads),
+    PYTHONDONTWRITEBYTECODE: "1",
+  };
+
+  return {
+    id: "kokoro",
+    version: "1",
+    reproducibility: "approximate",
+    async environmentComponents() {
+      const components = await probeProcessAdapter({
+        executable,
+        launcherArguments,
+        scriptPath: KOKORO_SCRIPT,
+        cwd: os.tmpdir(),
+        environment,
+      });
+      return [...components, { id: "asset-tooling.kokoro-adapter-options", threads }];
+    },
+    async generate(request) {
+      const parameters = validateKokoroRequest(request);
+      const directory = await mkdtemp(path.join(os.tmpdir(), "asset-tooling-kokoro-"));
+      try {
+        const modelBundlePath = path.join(directory, "model.zip");
+        await writeFile(modelBundlePath, request.model.bytes);
+        const { bytes, observations } = await runProcessAdapter({
+          executable,
+          launcherArguments,
+          scriptPath: KOKORO_SCRIPT,
+          cwd: directory,
+          environment,
+          outputName: "kokoro.wav",
+          request: {
+            modelBundlePath,
+            modelId: KOKORO_MODEL_ID,
+            modelRevision: KOKORO_MODEL_REVISION,
+            prompt: request.prompt,
+            seed: request.seed,
+            threads,
+            sampleRate: KOKORO_SAMPLE_RATE,
+            voice: parameters.voice,
+            lexicon: parameters.lexicon,
+            speed: parameters.speed,
+          },
+        });
+        return { audio: decodeKokoroOutput(bytes), observations };
+      } finally {
+        await rm(directory, { recursive: true, force: true });
+      }
+    },
+  };
+}

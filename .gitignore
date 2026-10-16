@@ -10,3 +10,4 @@ models/local/
 adapters/dependency.lock
 test-results/
 playwright-report/
+__pycache__/
