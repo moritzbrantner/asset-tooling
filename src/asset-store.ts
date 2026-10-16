@@ -2,11 +2,22 @@ import { constants, createReadStream } from "node:fs";
 import { createHash } from "node:crypto";
 import path from "node:path";
 import { copyFile, lstat, mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import { readOperationResultCache, writeOperationResultCache } from "./cache.js";
 import { sha256Bytes } from "./hash.js";
 import {
+  createAssetOperationBuildIdentity,
+  createAssetOperationCacheKey,
   createAssetRef,
+  normalizeAssetOperationResult,
+  type AssetOperationBuildIdentity,
+  type AssetOperationBuildIdentityInput,
+  type AssetOperationDescriptor,
+  type AssetOperationInvocation,
+  type AssetOperationResult,
+  type AssetPortMap,
   type AssetRef,
   type CanonicalJsonObject,
+  type ReadonlyAssetOperationDescriptor,
 } from "./operations.js";
 
 const ASSET_OBJECT_ROOT = ".asset-tooling/objects/v1";
@@ -260,4 +271,94 @@ export async function resolveAssetObject(root: string, value: unknown): Promise<
   const portablePath = assetObjectPortablePath(asset);
   await assertNoSymbolicLinks(root, portablePath);
   return readStoredObject(root, asset, portablePath);
+}
+
+/**
+ * Output-affecting implementation identity, exactly what
+ * `createAssetOperationBuildIdentity` takes as `implementation`: a required `id`
+ * and `version` plus any tool, algorithm, model, runtime or reproducibility identity.
+ */
+export type AssetOperationImplementationIdentity =
+  | { readonly id: string; readonly version: string; readonly [key: string]: unknown }
+  | CanonicalJsonObject;
+
+/** The invocation the runner hands to an executor: canonical parameters and verified inputs. */
+export interface AssetOperationExecutorInvocation {
+  parameters: CanonicalJsonObject;
+  inputs: AssetPortMap;
+}
+
+export interface AssetOperationRunRegistration {
+  descriptor: AssetOperationDescriptor | ReadonlyAssetOperationDescriptor;
+  implementation: AssetOperationImplementationIdentity;
+  execute(root: string, invocation: AssetOperationExecutorInvocation): Promise<AssetOperationResult>;
+}
+
+export interface AssetOperationRun {
+  status: "hit" | "miss";
+  cacheKey: string;
+  buildIdentity: AssetOperationBuildIdentity;
+  result: AssetOperationResult;
+}
+
+function portRefs(ports: AssetPortMap): AssetRef[] {
+  return Object.values(ports).flatMap((value) => (Array.isArray(value) ? value : [value]));
+}
+
+function unusableCacheEntry(cacheKey: string, error: unknown): Error {
+  const reason = error instanceof Error ? error.message : String(error);
+  return new Error(
+    `operation result cache entry '${cacheKey}' is unusable (delete .asset-tooling/cache to re-execute): ${reason}`,
+  );
+}
+
+/**
+ * Run one asset operation and reuse its recorded result when the operation build
+ * identity is unchanged.
+ *
+ * Every input object is verified before the lookup. A hit verifies every recorded
+ * output object and does not call `execute`. A miss executes, verifies the stored
+ * outputs, and records the result under `.asset-tooling/cache`. A corrupt entry or
+ * output object rejects instead of being reused. The entry is acceleration state,
+ * not provenance evidence.
+ */
+export async function runAssetOperation(
+  root: string,
+  registration: AssetOperationRunRegistration,
+  { parameters = {}, inputs = {} }: AssetOperationInvocation = {},
+): Promise<AssetOperationRun> {
+  const assetRoot = assertRoot(root);
+  const identityInput: AssetOperationBuildIdentityInput = {
+    operation: registration.descriptor,
+    implementation: registration.implementation,
+    parameters,
+    inputs,
+  };
+  const buildIdentity = createAssetOperationBuildIdentity(identityInput);
+  const cacheKey = createAssetOperationCacheKey(identityInput);
+
+  for (const asset of portRefs(buildIdentity.inputs)) await verifyAssetObject(assetRoot, asset);
+
+  const cached = await readOperationResultCache(assetRoot, cacheKey, buildIdentity).catch((error: unknown) => {
+    throw unusableCacheEntry(cacheKey, error);
+  });
+  if (cached.status === "hit") {
+    let result: AssetOperationResult;
+    try {
+      result = normalizeAssetOperationResult(registration.descriptor, cached.result);
+      for (const asset of portRefs(result.outputs)) await verifyAssetObject(assetRoot, asset);
+    } catch (error: unknown) {
+      throw unusableCacheEntry(cacheKey, error);
+    }
+    return { status: "hit", cacheKey, buildIdentity, result };
+  }
+
+  const executed = await registration.execute(assetRoot, {
+    parameters: structuredClone(buildIdentity.parameters),
+    inputs: structuredClone(buildIdentity.inputs),
+  });
+  const result = normalizeAssetOperationResult(registration.descriptor, executed);
+  for (const asset of portRefs(result.outputs)) await verifyAssetObject(assetRoot, asset);
+  await writeOperationResultCache(assetRoot, cacheKey, buildIdentity, result);
+  return { status: "miss", cacheKey, buildIdentity, result };
 }

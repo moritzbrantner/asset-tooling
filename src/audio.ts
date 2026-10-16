@@ -1,4 +1,4 @@
-import { createAssetRef } from "./operations.js";
+import { createAssetRef, type AssetRef } from "./operations.js";
 
 export const AUDIO_SCHEMA_VERSION = 1;
 export const CANONICAL_AUDIO_MEDIA_TYPE = "audio/wav";
@@ -11,74 +11,123 @@ const TOKEN_PATTERN = /^[a-z0-9]+(?:[._-][a-z0-9]+)*$/;
 const VERSION_PATTERN = /^[A-Za-z0-9]+(?:[._+-][A-Za-z0-9]+)*$/;
 const MASK_64 = (1n << 64n) - 1n;
 
-function isObject(value) {
+type PlainObject = Record<string, unknown>;
+
+export type AudioChannelLayout = "mono" | "stereo";
+
+/** Signed 16-bit interleaved PCM samples. */
+export type PcmAudioBuffer = {
+  sampleRate: number;
+  channels: number;
+  samples: Int16Array;
+};
+
+/** A decoded WAV buffer; `sourceBitsPerSample` is a non-enumerable property. */
+export type DecodedPcmAudioBuffer = PcmAudioBuffer & { readonly sourceBitsPerSample: number };
+
+export type AudioProvenanceInput = { port: string; sha256: string };
+
+export type AudioProvenance = {
+  operation: { id: string; version: string };
+  inputs: AudioProvenanceInput[];
+};
+
+export type CanonicalAudioMetadata = {
+  audio: {
+    schemaVersion: typeof AUDIO_SCHEMA_VERSION;
+    codec: typeof CANONICAL_AUDIO_CODEC;
+    sampleRate: number;
+    channels: number;
+    channelLayout: AudioChannelLayout;
+    frameCount: number;
+    duration: { numerator: number; denominator: number };
+  };
+  provenance: AudioProvenance;
+};
+
+export type CanonicalAudioAssetRef = Omit<AssetRef, "metadata"> & { metadata: CanonicalAudioMetadata };
+
+export interface CanonicalAudioMetadataInput {
+  sampleRate: number;
+  channels: number;
+  frameCount: number;
+  operation: { id: string; version: string };
+  inputs?: AudioProvenanceInput[];
+}
+
+function isObject(value: unknown): value is PlainObject {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
   const prototype = Object.getPrototypeOf(value);
   return prototype === Object.prototype || prototype === null;
 }
 
-function assertObject(value, location) {
+function assertObject(value: unknown, location: string): PlainObject {
   if (!isObject(value)) throw new Error(`${location} must be a plain object`);
   return value;
 }
 
-function assertExactKeys(value, allowed, location) {
+function assertExactKeys(value: PlainObject, allowed: ReadonlySet<string>, location: string): void {
   for (const key of Object.keys(value)) {
     if (!allowed.has(key)) throw new Error(`${location} contains unknown field '${key}'`);
   }
 }
 
-function assertInteger(value, location, minimum, maximum = Number.MAX_SAFE_INTEGER) {
-  if (!Number.isSafeInteger(value) || value < minimum || value > maximum) {
+function assertInteger(
+  value: unknown,
+  location: string,
+  minimum: number,
+  maximum: number = Number.MAX_SAFE_INTEGER,
+): number {
+  if (!Number.isSafeInteger(value) || (value as number) < minimum || (value as number) > maximum) {
     throw new Error(`${location} must be an integer in ${minimum}..${maximum}`);
   }
-  return value;
+  return value as number;
 }
 
-function assertToken(value, location) {
+function assertToken(value: unknown, location: string): string {
   if (typeof value !== "string" || !TOKEN_PATTERN.test(value)) {
     throw new Error(`${location} must be a lowercase dotted token`);
   }
   return value;
 }
 
-function assertVersion(value, location) {
+function assertVersion(value: unknown, location: string): string {
   if (typeof value !== "string" || !VERSION_PATTERN.test(value)) {
     throw new Error(`${location} must be a portable version token`);
   }
   return value;
 }
 
-function assertSha256(value, location) {
+function assertSha256(value: unknown, location: string): string {
   if (typeof value !== "string" || !SHA256_PATTERN.test(value)) {
     throw new Error(`${location} must be a lowercase 64-character SHA-256 digest`);
   }
   return value;
 }
 
-function channelLayout(channels) {
+function channelLayout(channels: number): AudioChannelLayout {
   if (channels === 1) return "mono";
   if (channels === 2) return "stereo";
   throw new Error("audio channels must be 1 or 2");
 }
 
-function cloneJson(value) {
+function cloneJson<T>(value: T): T {
   return JSON.parse(JSON.stringify(value));
 }
 
-function clampInt16(value) {
+function clampInt16(value: number): number {
   if (value < -32768) return -32768;
   if (value > 32767) return 32767;
   return value;
 }
 
-function roundDivideSigned(numerator, denominator) {
+function roundDivideSigned(numerator: bigint, denominator: bigint): number {
   if (denominator <= 0n) throw new Error("roundDivideSigned denominator must be positive");
   if (numerator >= 0n) return Number((numerator + denominator / 2n) / denominator);
   return -Number(((-numerator) + denominator / 2n) / denominator);
 }
 
-function splitMix64(seed) {
+function splitMix64(seed: string): () => bigint {
   let state = BigInt(seed) & MASK_64;
   return () => {
     state = (state + 0x9e3779b97f4a7c15n) & MASK_64;
@@ -89,7 +138,7 @@ function splitMix64(seed) {
   };
 }
 
-function normalizeProvenance(value) {
+function normalizeProvenance(value: unknown): AudioProvenance {
   const provenance = assertObject(value, "audio metadata provenance");
   assertExactKeys(provenance, new Set(["operation", "inputs"]), "audio metadata provenance");
   const operation = assertObject(provenance.operation, "audio metadata provenance.operation");
@@ -117,7 +166,7 @@ function normalizeProvenance(value) {
   };
 }
 
-export function normalizeCanonicalAudioMetadata(value) {
+export function normalizeCanonicalAudioMetadata(value: unknown): CanonicalAudioMetadata {
   const metadata = assertObject(value, "canonical audio metadata");
   assertExactKeys(metadata, new Set(["audio", "provenance"]), "canonical audio metadata");
   const audio = assertObject(metadata.audio, "canonical audio metadata.audio");
@@ -172,7 +221,13 @@ export function normalizeCanonicalAudioMetadata(value) {
   };
 }
 
-export function createCanonicalAudioMetadata({ sampleRate, channels, frameCount, operation, inputs = [] }) {
+export function createCanonicalAudioMetadata({
+  sampleRate,
+  channels,
+  frameCount,
+  operation,
+  inputs = [],
+}: CanonicalAudioMetadataInput): CanonicalAudioMetadata {
   return normalizeCanonicalAudioMetadata({
     audio: {
       schemaVersion: AUDIO_SCHEMA_VERSION,
@@ -190,7 +245,7 @@ export function createCanonicalAudioMetadata({ sampleRate, channels, frameCount,
   });
 }
 
-export function normalizeCanonicalAudioAssetRef(value) {
+export function normalizeCanonicalAudioAssetRef(value: unknown): CanonicalAudioAssetRef {
   const asset = createAssetRef(value);
   if (asset.kind !== "audio") throw new Error("canonical audio asset kind must be 'audio'");
   if (asset.mediaType !== CANONICAL_AUDIO_MEDIA_TYPE) {
@@ -202,7 +257,7 @@ export function normalizeCanonicalAudioAssetRef(value) {
   };
 }
 
-export function audioFrameCount(audio) {
+export function audioFrameCount(audio: { readonly sampleRate?: unknown; readonly channels: unknown; readonly samples: unknown }): number {
   if (!(audio.samples instanceof Int16Array)) {
     throw new Error("audio samples must be an Int16Array");
   }
@@ -213,7 +268,7 @@ export function audioFrameCount(audio) {
   return audio.samples.length / channels;
 }
 
-export function validateAudioBuffer(audio) {
+export function validateAudioBuffer(audio: unknown): PcmAudioBuffer {
   const value = assertObject(audio, "audio buffer");
   assertExactKeys(value, new Set(["sampleRate", "channels", "samples"]), "audio buffer");
   const sampleRate = assertInteger(value.sampleRate, "audio buffer sampleRate", 8_000, 192_000);
@@ -228,7 +283,7 @@ export function validateAudioBuffer(audio) {
   return { sampleRate, channels, samples: value.samples };
 }
 
-export function encodeCanonicalPcm16Wav(audioValue) {
+export function encodeCanonicalPcm16Wav(audioValue: unknown): { bytes: Buffer; frameCount: number } {
   const audio = validateAudioBuffer(audioValue);
   const frameCount = audioFrameCount(audio);
   const dataSize = audio.samples.length * AUDIO_SAMPLE_BYTES;
@@ -247,12 +302,12 @@ export function encodeCanonicalPcm16Wav(audioValue) {
   bytes.write("data", 36, "ascii");
   bytes.writeUInt32LE(dataSize, 40);
   for (let index = 0; index < audio.samples.length; index += 1) {
-    bytes.writeInt16LE(audio.samples[index], 44 + index * AUDIO_SAMPLE_BYTES);
+    bytes.writeInt16LE(audio.samples[index]!, 44 + index * AUDIO_SAMPLE_BYTES);
   }
   return { bytes, frameCount };
 }
 
-export function decodePcmWav(bytesValue) {
+export function decodePcmWav(bytesValue: Uint8Array): DecodedPcmAudioBuffer {
   const bytes = Buffer.from(bytesValue);
   if (bytes.length < 44 || bytes.toString("ascii", 0, 4) !== "RIFF" || bytes.toString("ascii", 8, 12) !== "WAVE") {
     throw new Error("audio input must be a RIFF/WAVE file");
@@ -262,8 +317,8 @@ export function decodePcmWav(bytesValue) {
     throw new Error(`WAV RIFF length mismatch: header declares ${declaredLength}, got ${bytes.length}`);
   }
 
-  let format;
-  let data;
+  let format: { channels: number; sampleRate: number; bitsPerSample: number; blockAlign: number } | undefined;
+  let data: Buffer | undefined;
   let offset = 12;
   while (offset + 8 <= bytes.length) {
     const id = bytes.toString("ascii", offset, offset + 4);
@@ -313,7 +368,7 @@ export function decodePcmWav(bytesValue) {
     }
   } else {
     for (let index = 0; index < sampleCount; index += 1) {
-      samples[index] = (data[index] - 128) << 8;
+      samples[index] = (data[index]! - 128) << 8;
     }
   }
 
@@ -321,7 +376,7 @@ export function decodePcmWav(bytesValue) {
     sampleRate: format.sampleRate,
     channels: format.channels,
     samples,
-  };
+  } as DecodedPcmAudioBuffer;
   Object.defineProperty(audio, "sourceBitsPerSample", {
     value: format.bitsPerSample,
     enumerable: false,
@@ -331,7 +386,7 @@ export function decodePcmWav(bytesValue) {
   return audio;
 }
 
-export function assertCanonicalAudioBytes(bytesValue, metadataValue) {
+export function assertCanonicalAudioBytes(bytesValue: Uint8Array, metadataValue: unknown): DecodedPcmAudioBuffer {
   const metadata = normalizeCanonicalAudioMetadata(metadataValue);
   const decoded = decodePcmWav(bytesValue);
   if (decoded.sourceBitsPerSample !== 16) throw new Error("canonical audio bytes must use PCM 16-bit samples");
@@ -344,7 +399,7 @@ export function assertCanonicalAudioBytes(bytesValue, metadataValue) {
   return decoded;
 }
 
-export function trimAudio(audioValue, startFrame, endFrame) {
+export function trimAudio(audioValue: unknown, startFrame: unknown, endFrame: unknown): PcmAudioBuffer {
   const audio = validateAudioBuffer(audioValue);
   const frameCount = audioFrameCount(audio);
   const start = assertInteger(startFrame, "trim startFrame", 0, frameCount);
@@ -353,7 +408,7 @@ export function trimAudio(audioValue, startFrame, endFrame) {
   return { sampleRate: audio.sampleRate, channels: audio.channels, samples };
 }
 
-export function convertAudioChannels(audioValue, targetChannels) {
+export function convertAudioChannels(audioValue: unknown, targetChannels: unknown): PcmAudioBuffer {
   const audio = validateAudioBuffer(audioValue);
   const target = assertInteger(targetChannels, "targetChannels", 1, 2);
   if (audio.channels === target) return { ...audio, samples: audio.samples.slice() };
@@ -361,21 +416,21 @@ export function convertAudioChannels(audioValue, targetChannels) {
   const samples = new Int16Array(frameCount * target);
   if (audio.channels === 1 && target === 2) {
     for (let frame = 0; frame < frameCount; frame += 1) {
-      const sample = audio.samples[frame];
+      const sample = audio.samples[frame]!;
       samples[frame * 2] = sample;
       samples[frame * 2 + 1] = sample;
     }
   } else {
     for (let frame = 0; frame < frameCount; frame += 1) {
-      const left = audio.samples[frame * 2];
-      const right = audio.samples[frame * 2 + 1];
+      const left = audio.samples[frame * 2]!;
+      const right = audio.samples[frame * 2 + 1]!;
       samples[frame] = clampInt16(roundDivideSigned(BigInt(left + right), 2n));
     }
   }
   return { sampleRate: audio.sampleRate, channels: target, samples };
 }
 
-export function resampleAudio(audioValue, targetSampleRate) {
+export function resampleAudio(audioValue: unknown, targetSampleRate: unknown): PcmAudioBuffer {
   const audio = validateAudioBuffer(audioValue);
   const targetRate = assertInteger(targetSampleRate, "targetSampleRate", 8_000, 192_000);
   if (audio.sampleRate === targetRate) return { ...audio, samples: audio.samples.slice() };
@@ -401,8 +456,8 @@ export function resampleAudio(audioValue, targetSampleRate) {
     const rightFrame = Math.min(leftFrame + 1, sourceFrames - 1);
     const safeLeft = Math.min(leftFrame, sourceFrames - 1);
     for (let channel = 0; channel < audio.channels; channel += 1) {
-      const left = audio.samples[safeLeft * audio.channels + channel];
-      const right = audio.samples[rightFrame * audio.channels + channel];
+      const left = audio.samples[safeLeft * audio.channels + channel]!;
+      const right = audio.samples[rightFrame * audio.channels + channel]!;
       const weighted = BigInt(left) * (denominator - remainder) + BigInt(right) * remainder;
       samples[frame * audio.channels + channel] = clampInt16(
         roundDivideSigned(weighted, denominator),
@@ -412,20 +467,20 @@ export function resampleAudio(audioValue, targetSampleRate) {
   return { sampleRate: targetRate, channels: audio.channels, samples };
 }
 
-export function applyAudioGain(audioValue, numeratorValue, denominatorValue) {
+export function applyAudioGain(audioValue: unknown, numeratorValue: unknown, denominatorValue: unknown): PcmAudioBuffer {
   const audio = validateAudioBuffer(audioValue);
   const numerator = assertInteger(numeratorValue, "gain numerator", -160_000, 160_000);
   const denominator = assertInteger(denominatorValue, "gain denominator", 1, 10_000);
   const samples = new Int16Array(audio.samples.length);
   for (let index = 0; index < samples.length; index += 1) {
     samples[index] = clampInt16(
-      roundDivideSigned(BigInt(audio.samples[index]) * BigInt(numerator), BigInt(denominator)),
+      roundDivideSigned(BigInt(audio.samples[index]!) * BigInt(numerator), BigInt(denominator)),
     );
   }
   return { sampleRate: audio.sampleRate, channels: audio.channels, samples };
 }
 
-export function applyAudioFade(audioValue, fadeInFramesValue, fadeOutFramesValue) {
+export function applyAudioFade(audioValue: unknown, fadeInFramesValue: unknown, fadeOutFramesValue: unknown): PcmAudioBuffer {
   const audio = validateAudioBuffer(audioValue);
   const frameCount = audioFrameCount(audio);
   const fadeInFrames = assertInteger(fadeInFramesValue, "fadeInFrames", 0, frameCount);
@@ -458,34 +513,34 @@ export function applyAudioFade(audioValue, fadeInFramesValue, fadeOutFramesValue
     for (let channel = 0; channel < audio.channels; channel += 1) {
       const index = frame * audio.channels + channel;
       samples[index] = clampInt16(
-        roundDivideSigned(BigInt(samples[index]) * numerator, denominator),
+        roundDivideSigned(BigInt(samples[index]!) * numerator, denominator),
       );
     }
   }
   return { sampleRate: audio.sampleRate, channels: audio.channels, samples };
 }
 
-export function synthesizeAudio(parameters) {
+export function synthesizeAudio(parameters: unknown): PcmAudioBuffer {
   const value = assertObject(parameters, "audio synthesis parameters");
   assertExactKeys(
     value,
     new Set(["waveform", "sampleRate", "channels", "frameCount", "frequencyHz", "amplitude", "seed"]),
     "audio synthesis parameters",
   );
-  if (!["silence", "square", "saw", "noise"].includes(value.waveform)) {
+  if (!(["silence", "square", "saw", "noise"] as unknown[]).includes(value.waveform)) {
     throw new Error("audio synthesis waveform must be silence, square, saw, or noise");
   }
   const sampleRate = assertInteger(value.sampleRate, "audio synthesis sampleRate", 8_000, 192_000);
   const channels = assertInteger(value.channels, "audio synthesis channels", 1, 2);
   const frameCount = assertInteger(value.frameCount, "audio synthesis frameCount", 0, AUDIO_MAX_FRAME_COUNT);
   const amplitude = assertInteger(value.amplitude ?? 32767, "audio synthesis amplitude", 0, 32767);
-  let frequencyHz;
-  if (["square", "saw"].includes(value.waveform)) {
+  let frequencyHz: number | undefined;
+  if ((["square", "saw"] as unknown[]).includes(value.waveform)) {
     frequencyHz = assertInteger(value.frequencyHz, "audio synthesis frequencyHz", 1, Math.floor(sampleRate / 2));
   } else if (value.frequencyHz !== undefined) {
     throw new Error(`audio synthesis waveform '${value.waveform}' does not accept frequencyHz`);
   }
-  let next;
+  let next: (() => bigint) | undefined;
   if (value.waveform === "noise") {
     if (typeof value.seed !== "string" || !/^(0|[1-9][0-9]*)$/.test(value.seed)) {
       throw new Error("audio synthesis noise seed must be a non-negative decimal integer string");
@@ -500,16 +555,16 @@ export function synthesizeAudio(parameters) {
   for (let frame = 0; frame < frameCount; frame += 1) {
     let sample = 0;
     if (value.waveform === "square") {
-      const phase = Number((BigInt(frame) * BigInt(frequencyHz)) % BigInt(sampleRate));
+      const phase = Number((BigInt(frame) * BigInt(frequencyHz!)) % BigInt(sampleRate));
       sample = phase * 2 < sampleRate ? amplitude : -amplitude;
     } else if (value.waveform === "saw") {
-      const phase = Number((BigInt(frame) * BigInt(frequencyHz)) % BigInt(sampleRate));
+      const phase = Number((BigInt(frame) * BigInt(frequencyHz!)) % BigInt(sampleRate));
       sample = clampInt16(
         -amplitude +
           roundDivideSigned(BigInt(2 * amplitude * phase), BigInt(Math.max(1, sampleRate - 1))),
       );
     } else if (value.waveform === "noise") {
-      sample = Number(next() % noiseRange) - amplitude;
+      sample = Number(next!() % noiseRange) - amplitude;
     }
     for (let channel = 0; channel < channels; channel += 1) {
       samples[frame * channels + channel] = sample;
@@ -518,7 +573,7 @@ export function synthesizeAudio(parameters) {
   return { sampleRate, channels, samples };
 }
 
-export function mixAudio(sourcesValue, tracksValue) {
+export function mixAudio(sourcesValue: unknown, tracksValue: unknown): PcmAudioBuffer {
   if (!Array.isArray(sourcesValue) || sourcesValue.length < 1 || sourcesValue.length > 32) {
     throw new Error("audio mix sources must contain 1..32 audio buffers");
   }
@@ -526,8 +581,8 @@ export function mixAudio(sourcesValue, tracksValue) {
     throw new Error("audio mix tracks must contain one placement per source");
   }
   const sources = sourcesValue.map((source) => validateAudioBuffer(source));
-  const sampleRate = sources[0].sampleRate;
-  const channels = sources[0].channels;
+  const sampleRate = sources[0]!.sampleRate;
+  const channels = sources[0]!.channels;
   const tracks = tracksValue.map((trackValue, index) => {
     const track = assertObject(trackValue, `audio mix tracks[${index}]`);
     assertExactKeys(
@@ -544,11 +599,11 @@ export function mixAudio(sourcesValue, tracksValue) {
 
   let outputFrames = 0;
   for (let index = 0; index < sources.length; index += 1) {
-    const source = sources[index];
+    const source = sources[index]!;
     if (source.sampleRate !== sampleRate || source.channels !== channels) {
       throw new Error("audio mix inputs must have identical sampleRate and channels; normalize first");
     }
-    outputFrames = Math.max(outputFrames, tracks[index].startFrame + audioFrameCount(source));
+    outputFrames = Math.max(outputFrames, tracks[index]!.startFrame + audioFrameCount(source));
   }
   if (outputFrames > AUDIO_MAX_FRAME_COUNT) {
     throw new Error(`mixed audio frameCount must not exceed ${AUDIO_MAX_FRAME_COUNT}`);
@@ -559,14 +614,15 @@ export function mixAudio(sourcesValue, tracksValue) {
     for (let channel = 0; channel < channels; channel += 1) {
       let sum = 0n;
       for (let index = 0; index < sources.length; index += 1) {
-        const sourceFrame = frame - tracks[index].startFrame;
-        const source = sources[index];
+        const track = tracks[index]!;
+        const sourceFrame = frame - track.startFrame;
+        const source = sources[index]!;
         if (sourceFrame < 0 || sourceFrame >= audioFrameCount(source)) continue;
-        const sample = source.samples[sourceFrame * channels + channel];
+        const sample = source.samples[sourceFrame * channels + channel]!;
         sum += BigInt(
           roundDivideSigned(
-            BigInt(sample) * BigInt(tracks[index].gainNumerator),
-            BigInt(tracks[index].gainDenominator),
+            BigInt(sample) * BigInt(track.gainNumerator),
+            BigInt(track.gainDenominator),
           ),
         );
       }
@@ -576,6 +632,6 @@ export function mixAudio(sourcesValue, tracksValue) {
   return { sampleRate, channels, samples };
 }
 
-export function cloneAudioMetadata(value) {
+export function cloneAudioMetadata(value: unknown): CanonicalAudioMetadata {
   return cloneJson(normalizeCanonicalAudioMetadata(value));
 }

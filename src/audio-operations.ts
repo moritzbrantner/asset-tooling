@@ -14,12 +14,20 @@ import {
   resampleAudio,
   synthesizeAudio,
   trimAudio,
+  type AudioProvenanceInput,
+  type PcmAudioBuffer,
 } from "./audio.js";
 import {
   createAssetOperationBuildIdentity,
   createAssetOperationRegistry,
   createAssetRef,
   normalizeAssetOperationResult,
+  type AssetOperationBuildIdentity,
+  type AssetOperationInvocation,
+  type AssetOperationRegistry,
+  type AssetOperationResult,
+  type AssetRef,
+  type ReadonlyAssetOperationDescriptor,
 } from "./operations.js";
 import { captureToolIdentity } from "./tool.js";
 
@@ -27,29 +35,36 @@ const VERSION = "1";
 const AUDIO_ENGINE_ID = "builtin.audio.pcm16";
 const AUDIO_ENGINE_VERSION = "1";
 
-function isObject(value) {
+type PlainObject = Record<string, unknown>;
+
+function isObject(value: unknown): value is PlainObject {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function assertObject(value, location) {
+function assertObject(value: unknown, location: string): PlainObject {
   if (!isObject(value)) throw new Error(`${location} must be a plain object`);
   return value;
 }
 
-function assertExactKeys(value, allowed, location) {
+function assertExactKeys(value: PlainObject, allowed: ReadonlySet<string>, location: string): void {
   for (const key of Object.keys(value)) {
     if (!allowed.has(key)) throw new Error(`${location} contains unknown field '${key}'`);
   }
 }
 
-function assertInteger(value, location, minimum, maximum = Number.MAX_SAFE_INTEGER) {
-  if (!Number.isSafeInteger(value) || value < minimum || value > maximum) {
+function assertInteger(
+  value: unknown,
+  location: string,
+  minimum: number,
+  maximum: number = Number.MAX_SAFE_INTEGER,
+): number {
+  if (!Number.isSafeInteger(value) || (value as number) < minimum || (value as number) > maximum) {
     throw new Error(`${location} must be an integer in ${minimum}..${maximum}`);
   }
-  return value;
+  return value as number;
 }
 
-function validateNormalizeParameters(value) {
+function validateNormalizeParameters(value: unknown): PlainObject {
   const parameters = assertObject(value ?? {}, "audio.normalize parameters");
   assertExactKeys(parameters, new Set(["sampleRate", "channels"]), "audio.normalize parameters");
   if (parameters.sampleRate !== undefined) assertInteger(parameters.sampleRate, "audio.normalize sampleRate", 8_000, 192_000);
@@ -57,30 +72,30 @@ function validateNormalizeParameters(value) {
   return parameters;
 }
 
-function validateTrimParameters(value) {
+function validateTrimParameters(value: unknown): PlainObject {
   const parameters = assertObject(value, "audio.trim parameters");
   assertExactKeys(parameters, new Set(["startFrame", "endFrame"]), "audio.trim parameters");
   assertInteger(parameters.startFrame, "audio.trim startFrame", 0);
   assertInteger(parameters.endFrame, "audio.trim endFrame", 0);
-  if (parameters.endFrame < parameters.startFrame) throw new Error("audio.trim endFrame must be >= startFrame");
+  if ((parameters.endFrame as number) < (parameters.startFrame as number)) throw new Error("audio.trim endFrame must be >= startFrame");
   return parameters;
 }
 
-function validateResampleParameters(value) {
+function validateResampleParameters(value: unknown): PlainObject {
   const parameters = assertObject(value, "audio.resample parameters");
   assertExactKeys(parameters, new Set(["sampleRate"]), "audio.resample parameters");
   assertInteger(parameters.sampleRate, "audio.resample sampleRate", 8_000, 192_000);
   return parameters;
 }
 
-function validateChannelsParameters(value) {
+function validateChannelsParameters(value: unknown): PlainObject {
   const parameters = assertObject(value, "audio.channels parameters");
   assertExactKeys(parameters, new Set(["channels"]), "audio.channels parameters");
   assertInteger(parameters.channels, "audio.channels channels", 1, 2);
   return parameters;
 }
 
-function validateGainParameters(value) {
+function validateGainParameters(value: unknown): PlainObject {
   const parameters = assertObject(value, "audio.gain parameters");
   assertExactKeys(parameters, new Set(["numerator", "denominator"]), "audio.gain parameters");
   assertInteger(parameters.numerator, "audio.gain numerator", -160_000, 160_000);
@@ -88,7 +103,7 @@ function validateGainParameters(value) {
   return parameters;
 }
 
-function validateFadeParameters(value) {
+function validateFadeParameters(value: unknown): PlainObject {
   const parameters = assertObject(value, "audio.fade parameters");
   assertExactKeys(parameters, new Set(["fadeInFrames", "fadeOutFrames"]), "audio.fade parameters");
   assertInteger(parameters.fadeInFrames, "audio.fade fadeInFrames", 0);
@@ -96,21 +111,21 @@ function validateFadeParameters(value) {
   return parameters;
 }
 
-function validateSynthesisParameters(value) {
+function validateSynthesisParameters(value: unknown): PlainObject {
   const parameters = assertObject(value, "audio.synthesize parameters");
   assertExactKeys(
     parameters,
     new Set(["waveform", "sampleRate", "channels", "frameCount", "frequencyHz", "amplitude", "seed"]),
     "audio.synthesize parameters",
   );
-  if (!["silence", "square", "saw", "noise"].includes(parameters.waveform)) {
+  if (!(["silence", "square", "saw", "noise"] as unknown[]).includes(parameters.waveform)) {
     throw new Error("audio.synthesize waveform must be silence, square, saw, or noise");
   }
   const sampleRate = assertInteger(parameters.sampleRate, "audio.synthesize sampleRate", 8_000, 192_000);
   assertInteger(parameters.channels, "audio.synthesize channels", 1, 2);
   assertInteger(parameters.frameCount, "audio.synthesize frameCount", 0, 10_000_000);
   if (parameters.amplitude !== undefined) assertInteger(parameters.amplitude, "audio.synthesize amplitude", 0, 32767);
-  if (["square", "saw"].includes(parameters.waveform)) {
+  if ((["square", "saw"] as unknown[]).includes(parameters.waveform)) {
     assertInteger(parameters.frequencyHz, "audio.synthesize frequencyHz", 1, Math.floor(sampleRate / 2));
     if (parameters.seed !== undefined) throw new Error(`${parameters.waveform} synthesis does not accept seed`);
   } else {
@@ -126,13 +141,13 @@ function validateSynthesisParameters(value) {
   return parameters;
 }
 
-function validateMixParameters(value, sourceCount) {
+function validateMixParameters(value: unknown, sourceCount: number): PlainObject {
   const parameters = assertObject(value, "audio.mix parameters");
   assertExactKeys(parameters, new Set(["tracks"]), "audio.mix parameters");
   if (!Array.isArray(parameters.tracks) || parameters.tracks.length !== sourceCount) {
     throw new Error("audio.mix tracks must contain one placement per source");
   }
-  parameters.tracks.forEach((trackValue, index) => {
+  parameters.tracks.forEach((trackValue: unknown, index: number) => {
     const track = assertObject(trackValue, `audio.mix tracks[${index}]`);
     assertExactKeys(
       track,
@@ -339,14 +354,20 @@ const OPERATION_REGISTRY = createAssetOperationRegistry([
   },
 ]);
 
-export const AUDIO_NORMALIZE_OPERATION = OPERATION_REGISTRY.get("audio.normalize", VERSION);
-export const AUDIO_SYNTHESIZE_OPERATION = OPERATION_REGISTRY.get("audio.synthesize", VERSION);
-export const AUDIO_TRIM_OPERATION = OPERATION_REGISTRY.get("audio.trim", VERSION);
-export const AUDIO_RESAMPLE_OPERATION = OPERATION_REGISTRY.get("audio.resample", VERSION);
-export const AUDIO_CHANNELS_OPERATION = OPERATION_REGISTRY.get("audio.channels", VERSION);
-export const AUDIO_GAIN_OPERATION = OPERATION_REGISTRY.get("audio.gain", VERSION);
-export const AUDIO_FADE_OPERATION = OPERATION_REGISTRY.get("audio.fade", VERSION);
-export const AUDIO_MIX_OPERATION = OPERATION_REGISTRY.get("audio.mix", VERSION);
+function registered(registry: AssetOperationRegistry, id: string): ReadonlyAssetOperationDescriptor {
+  const descriptor = registry.get(id, VERSION);
+  if (descriptor === undefined) throw new Error(`audio operation '${id}@${VERSION}' is not registered`);
+  return descriptor;
+}
+
+export const AUDIO_NORMALIZE_OPERATION = registered(OPERATION_REGISTRY, "audio.normalize");
+export const AUDIO_SYNTHESIZE_OPERATION = registered(OPERATION_REGISTRY, "audio.synthesize");
+export const AUDIO_TRIM_OPERATION = registered(OPERATION_REGISTRY, "audio.trim");
+export const AUDIO_RESAMPLE_OPERATION = registered(OPERATION_REGISTRY, "audio.resample");
+export const AUDIO_CHANNELS_OPERATION = registered(OPERATION_REGISTRY, "audio.channels");
+export const AUDIO_GAIN_OPERATION = registered(OPERATION_REGISTRY, "audio.gain");
+export const AUDIO_FADE_OPERATION = registered(OPERATION_REGISTRY, "audio.fade");
+export const AUDIO_MIX_OPERATION = registered(OPERATION_REGISTRY, "audio.mix");
 export const AUDIO_OPERATIONS = OPERATION_REGISTRY.list();
 
 async function implementationIdentity() {
@@ -358,7 +379,11 @@ async function implementationIdentity() {
   };
 }
 
-async function buildIdentity(operation, parameters, inputs) {
+async function buildIdentity(
+  operation: ReadonlyAssetOperationDescriptor,
+  parameters: unknown,
+  inputs: unknown,
+): Promise<AssetOperationBuildIdentity> {
   return createAssetOperationBuildIdentity({
     operation,
     implementation: await implementationIdentity(),
@@ -367,13 +392,18 @@ async function buildIdentity(operation, parameters, inputs) {
   });
 }
 
-async function decodeCanonicalInput(root, assetValue) {
+async function decodeCanonicalInput(root: string, assetValue: unknown) {
   const asset = normalizeCanonicalAudioAssetRef(assetValue);
   const bytes = await resolveAssetObject(root, asset);
   return { asset, audio: assertCanonicalAudioBytes(bytes, asset.metadata) };
 }
 
-async function storeCanonicalOutput(root, operation, audio, inputs = []) {
+async function storeCanonicalOutput(
+  root: string,
+  operation: ReadonlyAssetOperationDescriptor,
+  audio: PcmAudioBuffer,
+  inputs: AudioProvenanceInput[] = [],
+) {
   const encoded = encodeCanonicalPcm16Wav(audio);
   const metadata = createCanonicalAudioMetadata({
     sampleRate: audio.sampleRate,
@@ -390,7 +420,7 @@ async function storeCanonicalOutput(root, operation, audio, inputs = []) {
   });
 }
 
-function standardObservations(audio) {
+function standardObservations(audio: PcmAudioBuffer) {
   return {
     codec: "pcm-s16le",
     sampleRate: audio.sampleRate,
@@ -399,12 +429,18 @@ function standardObservations(audio) {
   };
 }
 
-export async function createAudioNormalizeOperationBuildIdentity({ parameters = {}, inputs = {} } = {}) {
+export async function createAudioNormalizeOperationBuildIdentity({
+  parameters = {},
+  inputs = {},
+}: AssetOperationInvocation = {}): Promise<AssetOperationBuildIdentity> {
   validateNormalizeParameters(parameters);
   return buildIdentity(AUDIO_NORMALIZE_OPERATION, parameters, inputs);
 }
 
-export async function executeAudioNormalizeOperation(root, { parameters = {}, inputs = {} } = {}) {
+export async function executeAudioNormalizeOperation(
+  root: string,
+  { parameters = {}, inputs = {} }: AssetOperationInvocation = {},
+): Promise<AssetOperationResult> {
   const build = await createAudioNormalizeOperationBuildIdentity({ parameters, inputs });
   const source = createAssetRef(build.inputs.source);
   const sourceBytes = await resolveAssetObject(root, source);
@@ -429,12 +465,18 @@ export async function executeAudioNormalizeOperation(root, { parameters = {}, in
   });
 }
 
-export async function createAudioSynthesizeOperationBuildIdentity({ parameters = {}, inputs = {} } = {}) {
+export async function createAudioSynthesizeOperationBuildIdentity({
+  parameters = {},
+  inputs = {},
+}: AssetOperationInvocation = {}): Promise<AssetOperationBuildIdentity> {
   validateSynthesisParameters(parameters);
   return buildIdentity(AUDIO_SYNTHESIZE_OPERATION, parameters, inputs);
 }
 
-export async function executeAudioSynthesizeOperation(root, { parameters = {}, inputs = {} } = {}) {
+export async function executeAudioSynthesizeOperation(
+  root: string,
+  { parameters = {}, inputs = {} }: AssetOperationInvocation = {},
+): Promise<AssetOperationResult> {
   const build = await createAudioSynthesizeOperationBuildIdentity({ parameters, inputs });
   const audio = synthesizeAudio(build.parameters);
   const stored = await storeCanonicalOutput(root, AUDIO_SYNTHESIZE_OPERATION, audio);
@@ -449,12 +491,18 @@ export async function executeAudioSynthesizeOperation(root, { parameters = {}, i
   });
 }
 
-export async function createAudioTrimOperationBuildIdentity({ parameters = {}, inputs = {} } = {}) {
+export async function createAudioTrimOperationBuildIdentity({
+  parameters = {},
+  inputs = {},
+}: AssetOperationInvocation = {}): Promise<AssetOperationBuildIdentity> {
   validateTrimParameters(parameters);
   return buildIdentity(AUDIO_TRIM_OPERATION, parameters, inputs);
 }
 
-export async function executeAudioTrimOperation(root, { parameters = {}, inputs = {} } = {}) {
+export async function executeAudioTrimOperation(
+  root: string,
+  { parameters = {}, inputs = {} }: AssetOperationInvocation = {},
+): Promise<AssetOperationResult> {
   const build = await createAudioTrimOperationBuildIdentity({ parameters, inputs });
   const source = await decodeCanonicalInput(root, build.inputs.source);
   const audio = trimAudio(source.audio, build.parameters.startFrame, build.parameters.endFrame);
@@ -467,12 +515,18 @@ export async function executeAudioTrimOperation(root, { parameters = {}, inputs 
   });
 }
 
-export async function createAudioResampleOperationBuildIdentity({ parameters = {}, inputs = {} } = {}) {
+export async function createAudioResampleOperationBuildIdentity({
+  parameters = {},
+  inputs = {},
+}: AssetOperationInvocation = {}): Promise<AssetOperationBuildIdentity> {
   validateResampleParameters(parameters);
   return buildIdentity(AUDIO_RESAMPLE_OPERATION, parameters, inputs);
 }
 
-export async function executeAudioResampleOperation(root, { parameters = {}, inputs = {} } = {}) {
+export async function executeAudioResampleOperation(
+  root: string,
+  { parameters = {}, inputs = {} }: AssetOperationInvocation = {},
+): Promise<AssetOperationResult> {
   const build = await createAudioResampleOperationBuildIdentity({ parameters, inputs });
   const source = await decodeCanonicalInput(root, build.inputs.source);
   const audio = resampleAudio(source.audio, build.parameters.sampleRate);
@@ -485,12 +539,18 @@ export async function executeAudioResampleOperation(root, { parameters = {}, inp
   });
 }
 
-export async function createAudioChannelsOperationBuildIdentity({ parameters = {}, inputs = {} } = {}) {
+export async function createAudioChannelsOperationBuildIdentity({
+  parameters = {},
+  inputs = {},
+}: AssetOperationInvocation = {}): Promise<AssetOperationBuildIdentity> {
   validateChannelsParameters(parameters);
   return buildIdentity(AUDIO_CHANNELS_OPERATION, parameters, inputs);
 }
 
-export async function executeAudioChannelsOperation(root, { parameters = {}, inputs = {} } = {}) {
+export async function executeAudioChannelsOperation(
+  root: string,
+  { parameters = {}, inputs = {} }: AssetOperationInvocation = {},
+): Promise<AssetOperationResult> {
   const build = await createAudioChannelsOperationBuildIdentity({ parameters, inputs });
   const source = await decodeCanonicalInput(root, build.inputs.source);
   const audio = convertAudioChannels(source.audio, build.parameters.channels);
@@ -503,12 +563,18 @@ export async function executeAudioChannelsOperation(root, { parameters = {}, inp
   });
 }
 
-export async function createAudioGainOperationBuildIdentity({ parameters = {}, inputs = {} } = {}) {
+export async function createAudioGainOperationBuildIdentity({
+  parameters = {},
+  inputs = {},
+}: AssetOperationInvocation = {}): Promise<AssetOperationBuildIdentity> {
   validateGainParameters(parameters);
   return buildIdentity(AUDIO_GAIN_OPERATION, parameters, inputs);
 }
 
-export async function executeAudioGainOperation(root, { parameters = {}, inputs = {} } = {}) {
+export async function executeAudioGainOperation(
+  root: string,
+  { parameters = {}, inputs = {} }: AssetOperationInvocation = {},
+): Promise<AssetOperationResult> {
   const build = await createAudioGainOperationBuildIdentity({ parameters, inputs });
   const source = await decodeCanonicalInput(root, build.inputs.source);
   const audio = applyAudioGain(source.audio, build.parameters.numerator, build.parameters.denominator);
@@ -526,12 +592,18 @@ export async function executeAudioGainOperation(root, { parameters = {}, inputs 
   });
 }
 
-export async function createAudioFadeOperationBuildIdentity({ parameters = {}, inputs = {} } = {}) {
+export async function createAudioFadeOperationBuildIdentity({
+  parameters = {},
+  inputs = {},
+}: AssetOperationInvocation = {}): Promise<AssetOperationBuildIdentity> {
   validateFadeParameters(parameters);
   return buildIdentity(AUDIO_FADE_OPERATION, parameters, inputs);
 }
 
-export async function executeAudioFadeOperation(root, { parameters = {}, inputs = {} } = {}) {
+export async function executeAudioFadeOperation(
+  root: string,
+  { parameters = {}, inputs = {} }: AssetOperationInvocation = {},
+): Promise<AssetOperationResult> {
   const build = await createAudioFadeOperationBuildIdentity({ parameters, inputs });
   const source = await decodeCanonicalInput(root, build.inputs.source);
   const audio = applyAudioFade(source.audio, build.parameters.fadeInFrames, build.parameters.fadeOutFrames);
@@ -549,15 +621,22 @@ export async function executeAudioFadeOperation(root, { parameters = {}, inputs 
   });
 }
 
-export async function createAudioMixOperationBuildIdentity({ parameters = {}, inputs = {} } = {}) {
-  const sourceCount = Array.isArray(inputs.sources) ? inputs.sources.length : 0;
+export async function createAudioMixOperationBuildIdentity({
+  parameters = {},
+  inputs = {},
+}: AssetOperationInvocation = {}): Promise<AssetOperationBuildIdentity> {
+  const sources = (inputs as { sources?: unknown }).sources;
+  const sourceCount = Array.isArray(sources) ? sources.length : 0;
   validateMixParameters(parameters, sourceCount);
   return buildIdentity(AUDIO_MIX_OPERATION, parameters, inputs);
 }
 
-export async function executeAudioMixOperation(root, { parameters = {}, inputs = {} } = {}) {
+export async function executeAudioMixOperation(
+  root: string,
+  { parameters = {}, inputs = {} }: AssetOperationInvocation = {},
+): Promise<AssetOperationResult> {
   const build = await createAudioMixOperationBuildIdentity({ parameters, inputs });
-  const sources = await Promise.all(build.inputs.sources.map((asset) => decodeCanonicalInput(root, asset)));
+  const sources = await Promise.all((build.inputs.sources as AssetRef[]).map((asset) => decodeCanonicalInput(root, asset)));
   const audio = mixAudio(
     sources.map((source) => source.audio),
     build.parameters.tracks,

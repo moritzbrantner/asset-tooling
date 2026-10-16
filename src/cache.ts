@@ -1,5 +1,6 @@
 import path from "node:path";
-import { lstat, mkdir, readFile, writeFile } from "node:fs/promises";
+import { randomBytes } from "node:crypto";
+import { lstat, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import type { GenerationObservations, ReceiptGenerator } from "./backend-contract.js";
 import { canonicalJson, stablePrettyJson } from "./canonical.js";
 import { sha256Bytes, sha256Text } from "./hash.js";
@@ -265,4 +266,120 @@ export async function writeGenerationCache(
   await writeFile(indexAbsolutePath, stablePrettyJson(index), "utf8");
 
   return { key, outputSha256 };
+}
+
+export interface OperationResultCacheEntry {
+  schemaVersion: 1;
+  key: string;
+  buildIdentity: unknown;
+  resultSha256: string;
+  result: unknown;
+}
+
+export interface OperationResultCacheMiss {
+  status: "miss";
+  key: string;
+}
+
+export interface OperationResultCacheHit {
+  status: "hit";
+  key: string;
+  /** The recorded result. Callers must still normalize it and verify every output object. */
+  result: unknown;
+}
+
+export type OperationResultCacheReadResult = OperationResultCacheMiss | OperationResultCacheHit;
+
+function operationResultIndexPortablePath(key: string): string {
+  if (!SHA256_PATTERN.test(key)) {
+    throw new Error("operation result cache key must be a lowercase SHA-256 digest");
+  }
+  return `${CACHE_VERSION_ROOT}/operations/${key}.json`;
+}
+
+function parseOperationResultEntry(value: unknown, expectedKey: string, expectedIdentity: unknown): unknown {
+  if (!isObject(value)) throw new Error("operation result cache entry must be an object");
+  const allowed = new Set(["schemaVersion", "key", "buildIdentity", "resultSha256", "result"]);
+  for (const key of Object.keys(value)) {
+    if (!allowed.has(key)) throw new Error(`operation result cache entry contains unknown field '${key}'`);
+  }
+  for (const key of allowed) {
+    if (!(key in value)) throw new Error(`operation result cache entry is missing '${key}'`);
+  }
+  if (value.schemaVersion !== 1) throw new Error("operation result cache entry schemaVersion must be 1");
+  if (value.key !== expectedKey) {
+    throw new Error("operation result cache entry key does not match its build identity");
+  }
+  if (canonicalJson(value.buildIdentity) !== canonicalJson(expectedIdentity)) {
+    throw new Error("operation result cache entry build identity does not match the current build identity");
+  }
+  if (typeof value.resultSha256 !== "string" || !SHA256_PATTERN.test(value.resultSha256)) {
+    throw new Error("operation result cache entry resultSha256 must be a lowercase SHA-256 digest");
+  }
+  if (!isObject(value.result)) throw new Error("operation result cache entry result must be an object");
+  const actual = sha256Text(canonicalJson(value.result));
+  if (actual !== value.resultSha256) {
+    throw new Error(
+      `operation result cache entry result hash mismatch: expected ${value.resultSha256}, got ${actual}`,
+    );
+  }
+  return value.result;
+}
+
+/**
+ * Read the recorded result for one operation build identity. A missing entry is a
+ * miss; a malformed, mismatched or symlinked entry fails closed. The returned result
+ * is not trusted: the caller verifies every output object before reuse.
+ */
+export async function readOperationResultCache(
+  root: string,
+  key: string,
+  buildIdentity: unknown,
+): Promise<OperationResultCacheReadResult> {
+  const indexPortablePath = operationResultIndexPortablePath(key);
+  await assertNoSymbolicLinks(root, indexPortablePath);
+
+  let rawEntry: string;
+  try {
+    rawEntry = await readFile(cachePath(root, indexPortablePath), "utf8");
+  } catch (error: unknown) {
+    if (hasErrorCode(error, "ENOENT")) return { status: "miss", key };
+    throw error;
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(rawEntry) as unknown;
+  } catch {
+    throw new Error(`operation result cache entry '${key}' is not valid JSON`);
+  }
+  return { status: "hit", key, result: parseOperationResultEntry(parsed, key, buildIdentity) };
+}
+
+/** Record an already verified operation result; the write is atomic per entry. */
+export async function writeOperationResultCache(
+  root: string,
+  key: string,
+  buildIdentity: unknown,
+  result: unknown,
+): Promise<void> {
+  const indexPortablePath = operationResultIndexPortablePath(key);
+  await assertNoSymbolicLinks(root, indexPortablePath);
+  const entry: OperationResultCacheEntry = {
+    schemaVersion: 1,
+    key,
+    buildIdentity,
+    resultSha256: sha256Text(canonicalJson(result)),
+    result,
+  };
+  const absolutePath = cachePath(root, indexPortablePath);
+  await mkdir(path.dirname(absolutePath), { recursive: true });
+  const temporaryPath = `${absolutePath}.${process.pid}.${randomBytes(6).toString("hex")}.tmp`;
+  try {
+    await writeFile(temporaryPath, stablePrettyJson(entry), { encoding: "utf8", flag: "wx" });
+    await rename(temporaryPath, absolutePath);
+  } catch (error: unknown) {
+    await rm(temporaryPath, { force: true });
+    throw error;
+  }
 }

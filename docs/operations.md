@@ -117,6 +117,31 @@ The store follows four rules:
 
 The object store is not provenance evidence. It is reusable content storage. Generation/processing receipts remain responsible for explaining how bytes were produced and for carrying replay evidence.
 
+## Reusing verified operation results
+
+`runAssetOperation(root, registration, invocation)` in `asset-tooling/operations/store` runs one operation and reuses its recorded result when the build identity is unchanged:
+
+```ts
+const run = await runAssetOperation(
+  root,
+  {
+    descriptor: AUDIO_OSCILLATOR_OPERATION,
+    implementation, // e.g. (await createAudioOscillatorOperationBuildIdentity(root, invocation)).implementation
+    execute: executeAudioOscillatorOperation,
+  },
+  { parameters, inputs },
+);
+// run.status: "hit" | "miss"; run.cacheKey; run.buildIdentity; run.result
+```
+
+- `buildIdentity` and `cacheKey` are exactly `createAssetOperationBuildIdentity(...)` and `createAssetOperationCacheKey(...)` of `{ operation: descriptor, implementation, parameters, inputs }`. Any change to the operation version, implementation/tool fingerprint, parameters or an input `AssetRef` is a different key and a miss.
+- `implementation` is passed explicitly because executors do not expose it. Built-in operations take it from their own `create*BuildIdentity(...).implementation`, so the key carries the current tool source fingerprint.
+- Every input object is verified before the lookup. On a hit every recorded output object is verified and `execute` is not called. On a miss the executor receives the canonical parameters and the verified inputs; its outputs are verified in the object store before the result is recorded.
+- Corrupt entries and missing or tampered output objects reject (fail closed); they never yield a hit. The full read contract is in [`docs/cache.md`](cache.md#operation-result-entries).
+- The recorded result is returned unchanged, so an `approximate` executor such as `audio.model.generate@1` keeps its recorded reproducibility label on reuse.
+
+A hit means "this result was accepted before for the same declared request and its bytes are still intact". It is not evidence that replay would reproduce the bytes. `mesh.image-to-3d.generate@1` still uses its own generation-cache entry.
+
 ## Generation adapter proof
 
 The focused `asset-tooling/operations/generation` subpath exposes the first real generator operation: `procedural.svg.scatter@1`.
