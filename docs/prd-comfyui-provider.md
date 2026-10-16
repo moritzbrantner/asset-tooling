@@ -1,7 +1,7 @@
 # PRD: ComfyUI-backed image generation
 
 **Issue:** [#212](https://github.com/moritzbrantner/asset-tooling/issues/212)  
-**Status:** Owner-approved product direction. Offline preflight (#215) and the execution slice `image.comfyui.generate@1` (#219) are implemented; review/approval, export and provider choice remain.  
+**Status:** Owner-approved product direction. Offline preflight (#215), the execution slice `image.comfyui.generate@1` (#219) and candidate approval with verified export (#223, `asset.bundle@3`) are implemented; preview UI, custom-node identities and provider choice remain.  
 **Authority:** [Decision Atlas 5.1.1](decisions/atlas.md) and [ComfyUI-first architecture](comfyui-first.md). This PRD specifies acceptance; it is not a second decision registry or implementation status tracker.
 
 ## User outcome
@@ -40,7 +40,7 @@ The first low-risk implementation adds `loadPreparedComfyUiApiWorkflow` and focu
 - **Import and receipt:** the PNG signature and IHDR size must match the injected width × height. The receipt (`observations`) records provider, `reproducibility: "approximate"`, prompt and client ids, workflow and submitted-prompt hashes, ComfyUI version and commit, checkpoint identity and the output file and hash.
 - **Reuse:** the build identity covers workflow bytes, injections, checkpoint identity and licence, the server identity from the probe and the commit. A hit does not contact the server, but it still re-verifies the checkpoint.
 
-Exported as `asset-tooling/operations/image/comfyui` and registrable in the workflow bridge through `createAssetOperationWorkflowProviderEntries` ([#221](https://github.com/moritzbrantner/asset-tooling/issues/221)); see Usage. Cancellation through workflow-runner#8 and provider choice against Diffusers `image.stable-diffusion.generate` remain.
+Exported as `asset-tooling/operations/image/comfyui` and registrable in the workflow bridge through `createAssetOperationWorkflowProviderEntries` ([#221](https://github.com/moritzbrantner/asset-tooling/issues/221)); see Usage. Approval and export are the next section. Cancellation through workflow-runner#8 and provider choice against Diffusers `image.stable-diffusion.generate` remain.
 
 ### Checkpoint acquisition (SD 1.5)
 
@@ -120,9 +120,15 @@ Without `comfyui` (no argument, `{}` or `{ comfyui: undefined }`) both lists are
 
 The real-server acceptance is `test/comfyui-local-server.test.ts`. It is skipped unless `ASSET_TOOLING_COMFYUI_URL` and `ASSET_TOOLING_COMFYUI_CHECKPOINT` are set; see its header for the optional pin, licence, size, timeout and evidence variables. On the WSL CPU machine (2026-10-17), the 4-step SD 1.5 fixture took about 23 s at 256×256 and 44 s at 512×512, including model load.
 
+## Approval and export: `asset.bundle@3` (#223)
+
+Per [Decision 4.1.3](decisions/atlas.md), approval is naming the exact approved sha256 in a bundle export's selection. Every `image.comfyui.generate@1` output is a candidate. The `approved-png-v1` profile of the existing bundle machinery ([Approved PNG profile](asset-bundles.md#approved-png-profile)) exports only selections whose candidate ref and stored bytes match the named sha. It rejects mismatches, regenerated images under an old approval and missing or altered candidates before writing anything. The `schemaVersion: 3` manifest records each approval next to its source ref; a consumer verifies it with `verifyAssetBundle(dir, ref, { profile: "approved-png-v1" })` without the source store or ComfyUI. No approval store, gallery or new packer is added; bundle `@1` and `@2` are unchanged.
+
+The journey is tested against the fake server in `test/comfyui-approval-export.test.ts` and on a real local server in `test/comfyui-approval-local-server.test.ts` (two SD 1.5 candidates, one approved by sha, exported and verified with the store deleted). Previewing candidates in the workbench (#127) and the owner's visual approval of the Warden icons (#211, Decision 4.1.2) remain separate.
+
 ## Further work remaining in #212
 
-The execution slice covers the provider boundary, checkpoint dependency safety, transport except scoped cancellation, and output ingestion except export. Custom-node and input-file identities, review/approval, export, consumer validation and the provider choice are still open.
+The execution slice covers the provider boundary, checkpoint dependency safety, transport except scoped cancellation, and output ingestion. #223 adds exact-sha approval, export and consumer verification. Custom-node and input-file identities, candidate preview and the provider choice are still open.
 
 | Area | Evidence required |
 | --- | --- |

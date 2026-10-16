@@ -3,7 +3,8 @@ import { readDependencyLockSha256 } from "./dependency-lock.js";
 import { ImageUtils, NodeIO, VERSION } from "@gltf-transform/core";
 import { version as validatorVersion } from "gltf-validator";
 import path from "node:path";
-import { lstat, mkdir, mkdtemp, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { constants } from "node:fs";
+import { lstat, mkdir, mkdtemp, open, readFile, rename, rm, rmdir, writeFile } from "node:fs/promises";
 import { canonicalJson, compareCodeUnitStrings } from "./canonical.js";
 import { resolveAssetObject, storeAssetObject } from "./asset-store.js";
 import { sha256Bytes } from "./hash.js";
@@ -17,6 +18,8 @@ import { createAssetOperationBuildIdentity, createAssetOperationDescriptor, crea
 export const ASSET_BUNDLE_MEDIA_TYPE = "application/vnd.moritzbrantner.asset-bundle+json";
 export const STATIC_ASSET_BUNDLE_PROFILE = "static-glb-png-v1";
 export const SPRITE_ATLAS_BUNDLE_PROFILE = "sprite-atlas-png-v1";
+/** PNG candidates approved by naming their exact sha256 in the export selection (Atlas Decision 4.1.3). */
+export const APPROVED_IMAGE_BUNDLE_PROFILE = "approved-png-v1";
 const MAX_ASSETS = 256, MAX_ASSET_BYTES = 64*1024*1024, MAX_BUNDLE_BYTES = 256*1024*1024, MAX_MANIFEST_BYTES = 8*1024*1024;
 export type BundleAssetSelection = { key:string; variant:string };
 export type AssetBundleParameters = { profile:typeof STATIC_ASSET_BUNDLE_PROFILE|typeof SPRITE_ATLAS_BUNDLE_PROFILE; assets:BundleAssetSelection[] };
@@ -25,7 +28,13 @@ export type AssetBundleManifest = { schemaVersion:1; profile:typeof STATIC_ASSET
 export type BundleResource = { source:AssetRef; path:string };
 export type SpriteAtlasBundleEntry = AssetBundleEntry & { image:BundleResource };
 export type SpriteAtlasBundleManifest = { schemaVersion:2; profile:typeof SPRITE_ATLAS_BUNDLE_PROFILE; assets:SpriteAtlasBundleEntry[]; resources:BundleResource[] };
-export type AnyAssetBundleManifest = AssetBundleManifest|SpriteAtlasBundleManifest;
+export type BundleApproval = { sha256:string };
+export type ApprovedBundleAssetSelection = BundleAssetSelection & { approved:BundleApproval };
+export type ApprovedImageBundleParameters = { profile:typeof APPROVED_IMAGE_BUNDLE_PROFILE; assets:ApprovedBundleAssetSelection[] };
+export type ApprovedImageBundleEntry = ApprovedBundleAssetSelection & { source:AssetRef; path:string };
+export type ApprovedImageBundleManifest = { schemaVersion:3; profile:typeof APPROVED_IMAGE_BUNDLE_PROFILE; assets:ApprovedImageBundleEntry[] };
+export type AnyAssetBundleManifest = AssetBundleManifest|SpriteAtlasBundleManifest|ApprovedImageBundleManifest;
+type BundleProfile = AssetBundleParameters["profile"]|typeof APPROVED_IMAGE_BUNDLE_PROFILE;
 type Invocation = { parameters?:unknown; inputs?:unknown };
 export type BundleExportProgress = { path:string; status:"changed"|"unchanged"; byteLength:number };
 export type BundleExportOptions = { signal?:AbortSignal; onArtifact?:(artifact:BundleExportProgress)=>void|Promise<void> };
@@ -49,6 +58,18 @@ const atlasRegistry=createAssetOperationRegistry([{
   parameterSchema:parameterSchema(SPRITE_ATLAS_BUNDLE_PROFILE),
 }]);
 export const SPRITE_ATLAS_BUNDLE_OPERATION=atlasRegistry.get("asset.bundle","2")!;
+const SELECTION_TOKEN_SCHEMA={type:"string",pattern:"^[a-z0-9]+(?:[._-][a-z0-9]+)*$",maxLength:128};
+/** asset.bundle@3: package PNG candidates whose exact bytes the selection names as approved (Decision 4.1.3). */
+export const APPROVED_IMAGE_BUNDLE_OPERATION = createAssetOperationDescriptor({
+  schemaVersion:1,id:"asset.bundle",version:"3",label:"Package approved PNG candidates named by exact sha256",category:"asset.packaging",
+  inputs:[{id:"assets",assetKinds:["image"],mediaTypes:["image/png"],cardinality:{min:1,max:MAX_ASSETS}}],
+  outputs:[{id:"manifest",assetKinds:["asset-bundle"],mediaTypes:[ASSET_BUNDLE_MEDIA_TYPE]}],
+  parameterSchema:{type:"object",additionalProperties:false,required:["profile","assets"],properties:{
+    profile:{const:APPROVED_IMAGE_BUNDLE_PROFILE},assets:{type:"array",minItems:1,maxItems:MAX_ASSETS,items:{type:"object",additionalProperties:false,
+      required:["key","variant","approved"],properties:{key:SELECTION_TOKEN_SCHEMA,variant:SELECTION_TOKEN_SCHEMA,
+        approved:{type:"object",additionalProperties:false,required:["sha256"],properties:{sha256:{type:"string",pattern:"^[0-9a-f]{64}$"}}}}}},
+  }},
+});
 function object(value:unknown,keys:string[],name:string):Record<string,unknown> {
   if(!value || typeof value!=="object" || Array.isArray(value) || ![Object.prototype,null].includes(Object.getPrototypeOf(value))) throw new Error(`${name} must be a plain object`);
   const result=value as Record<string,unknown>;
@@ -68,6 +89,23 @@ function selections(value:unknown):BundleAssetSelection[] {
     if(seen.has(pair)) throw new Error(`duplicate bundle selection '${pair}'`);seen.add(pair);return {key,variant};
   });
 }
+function approvedSelections(value:unknown,fields:string[]):ApprovedBundleAssetSelection[] {
+  if(!Array.isArray(value)) throw new Error("approved bundle must select 1..256 assets");
+  const plain=selections(value.map((entry,index)=>{const e=object(entry,fields,`approved bundle selection[${index}]`);return {key:e.key,variant:e.variant};}));
+  return plain.map((selection,index)=>{
+    const approved=object((value[index] as Record<string,unknown>).approved,["sha256"],`approved bundle selection '${selection.key}/${selection.variant}' approval`);
+    if(typeof approved.sha256!=="string" || !/^[0-9a-f]{64}$/.test(approved.sha256)) throw new Error(`approved sha256 of '${selection.key}/${selection.variant}' must be 64 lowercase hex characters`);
+    return {...selection,approved:{sha256:approved.sha256}};
+  });
+}
+function approvedParameters(value:unknown):ApprovedImageBundleParameters {
+  const p=object(value,["profile","assets"],"approved bundle parameters");
+  if(p.profile!==APPROVED_IMAGE_BUNDLE_PROFILE) throw new Error("unsupported bundle profile");
+  return {profile:p.profile,assets:approvedSelections(p.assets,["key","variant","approved"])};
+}
+function isApprovedProfile(value:unknown):boolean {
+  return !!value && typeof value==="object" && !Array.isArray(value) && (value as Record<string,unknown>).profile===APPROVED_IMAGE_BUNDLE_PROFILE;
+}
 function parameters(value:unknown):AssetBundleParameters {
   const p=object(value,["profile","assets"],"bundle parameters");
   if(p.profile!==STATIC_ASSET_BUNDLE_PROFILE && p.profile!==SPRITE_ATLAS_BUNDLE_PROFILE) throw new Error("unsupported bundle profile");
@@ -75,7 +113,7 @@ function parameters(value:unknown):AssetBundleParameters {
 }
 function compareEntries(a:BundleAssetSelection,b:BundleAssetSelection):number { return compareCodeUnitStrings(a.key,b.key)||compareCodeUnitStrings(a.variant,b.variant); }
 function unreachable(value:never):never { throw new Error(`unsupported owned bundle variant: ${String(value)}`); }
-function assetPath(source:AssetRef,profile:AssetBundleParameters["profile"]=STATIC_ASSET_BUNDLE_PROFILE):string {
+function assetPath(source:AssetRef,profile:BundleProfile=STATIC_ASSET_BUNDLE_PROFILE):string {
   if(source.byteLength<1 || source.byteLength>MAX_ASSET_BYTES) throw new Error("bundle asset exceeds 64 MiB byte budget");
   switch(profile) {
    case SPRITE_ATLAS_BUNDLE_PROFILE:
@@ -90,6 +128,9 @@ function assetPath(source:AssetRef,profile:AssetBundleParameters["profile"]=STAT
     if(source.mediaType==="model/gltf-binary" && ["scene","mesh"].includes(source.kind)) return `assets/${source.sha256}.glb`;
     if(source.mediaType==="image/png" && source.kind==="image") return `assets/${source.sha256}.png`;
     throw new Error(`asset kind/media type '${source.kind}/${source.mediaType}' is incompatible with ${STATIC_ASSET_BUNDLE_PROFILE}`);
+   case APPROVED_IMAGE_BUNDLE_PROFILE:
+    if(source.mediaType==="image/png" && source.kind==="image") return `assets/${source.sha256}.png`;
+    throw new Error(`asset kind/media type '${source.kind}/${source.mediaType}' is incompatible with ${APPROVED_IMAGE_BUNDLE_PROFILE}`);
    default: return unreachable(profile);
   }
 }
@@ -156,9 +197,26 @@ function manifestJson(bytes:Uint8Array):unknown {
 }
 export function parseAssetBundleManifest(bytes:Uint8Array):AssetBundleManifest { return parseStaticBundle(manifestJson(bytes)); }
 export function parseSpriteAtlasBundleManifest(bytes:Uint8Array):SpriteAtlasBundleManifest { return parseAtlasBundle(manifestJson(bytes)); }
+/** Parse an approved-png-v1 (schemaVersion 3) manifest; every entry's approval must name its packaged source bytes. */
+export function parseApprovedImageBundleManifest(bytes:Uint8Array):ApprovedImageBundleManifest { return parseApprovedBundle(manifestJson(bytes)); }
 function parseAnyAssetBundleManifest(bytes:Uint8Array):AnyAssetBundleManifest {
-  const raw=manifestJson(bytes);
-  return raw && typeof raw==="object" && "schemaVersion" in raw && raw.schemaVersion===2 ? parseAtlasBundle(raw) : parseStaticBundle(raw);
+  const raw=manifestJson(bytes),version=raw && typeof raw==="object" && "schemaVersion" in raw ? raw.schemaVersion : undefined;
+  return version===2 ? parseAtlasBundle(raw) : version===3 ? parseApprovedBundle(raw) : parseStaticBundle(raw);
+}
+const APPROVED_ENTRY_FIELDS=["key","variant","approved","source","path"];
+function parseApprovedBundle(raw:unknown):ApprovedImageBundleManifest {
+  const p=object(raw,["schemaVersion","profile","assets"],"approved bundle manifest");
+  if(p.schemaVersion!==3 || p.profile!==APPROVED_IMAGE_BUNDLE_PROFILE || !Array.isArray(p.assets)) throw new Error("unsupported bundle manifest schema/profile");
+  const selected=approvedSelections(p.assets,APPROVED_ENTRY_FIELDS);
+  const assets=p.assets.map((entry,index)=>{
+    const e=object(entry,APPROVED_ENTRY_FIELDS,"approved bundle entry"),choice=selected[index]!,source=parseAssetRef(e.source),portablePath=assetPath(source,APPROVED_IMAGE_BUNDLE_PROFILE);
+    if(source.sha256!==choice.approved.sha256) throw new Error(`approved sha256 of '${choice.key}/${choice.variant}' does not name its packaged source bytes`);
+    if(e.path!==portablePath) throw new Error("bundle resource path must match its content identity");
+    return {...choice,source,path:portablePath};
+  });
+  checkBudget(assets);
+  if(assets.some((entry,index)=>index>0 && compareEntries(assets[index-1]!,entry)>=0)) throw new Error("bundle entries must have stable key/variant ordering");
+  return {schemaVersion:3,profile:APPROVED_IMAGE_BUNDLE_PROFILE,assets};
 }
 function parseStaticBundle(raw:unknown):AssetBundleManifest {
   const p=object(raw,["schemaVersion","profile","assets"],"bundle manifest");
@@ -189,7 +247,9 @@ function parseAtlasBundle(value:unknown):SpriteAtlasBundleManifest {
   return {schemaVersion:2,profile:SPRITE_ATLAS_BUNDLE_PROFILE,assets,resources};
 }
 async function prepare(root:string,invocation:Invocation,signal?:AbortSignal) {
-  signal?.throwIfAborted();assertAbsolute(root);const p=parameters(invocation.parameters);
+  signal?.throwIfAborted();assertAbsolute(root);
+  if(isApprovedProfile(invocation.parameters)) return prepareApproved(root,approvedParameters(invocation.parameters),invocation.inputs,signal);
+  const p=parameters(invocation.parameters);
   switch(p.profile) {
     case SPRITE_ATLAS_BUNDLE_PROFILE: return prepareAtlas(root,p,invocation.inputs,signal);
     case STATIC_ASSET_BUNDLE_PROFILE: break;
@@ -268,6 +328,32 @@ async function prepareAtlas(root:string,p:AssetBundleParameters,value:unknown,si
       dependencyLockSha256:await readDependencyLockSha256(),tool:await captureToolIdentity()}});
   return {build,manifest,bytes,blobs};
 }
+async function prepareApproved(root:string,p:ApprovedImageBundleParameters,value:unknown,signal?:AbortSignal) {
+  const inputs=object(value,["assets"],"approved bundle inputs");
+  if(!Array.isArray(inputs.assets) || inputs.assets.length!==p.assets.length) throw new Error("one candidate AssetRef is required for each approved bundle selection");
+  const refs=inputs.assets.map(createAssetRef);
+  // The selection's approval must name the exact candidate bytes; nothing is read or written before this holds.
+  const entries:ApprovedImageBundleEntry[]=p.assets.map((selection,index)=>{
+    const source=refs[index]!;
+    if(source.sha256!==selection.approved.sha256) throw new Error(`candidate for '${selection.key}/${selection.variant}' is not the approved image: approved sha256 ${selection.approved.sha256}, candidate ${source.sha256}`);
+    return {...selection,source,path:assetPath(source,APPROVED_IMAGE_BUNDLE_PROFILE)};
+  }).sort(compareEntries);
+  checkBudget(entries);const blobs=new Map<string,{source:AssetRef;bytes:Buffer}>();
+  for(const entry of entries) if(!blobs.has(entry.path)) {
+    signal?.throwIfAborted();let bytes:Buffer;
+    try { bytes=await resolveAssetObject(root,entry.source); }
+    catch(error:unknown) { throw new Error(`approved image ${entry.approved.sha256} for '${entry.key}/${entry.variant}' is not an intact stored candidate: ${error instanceof Error?error.message:String(error)}`); }
+    if(sha256Bytes(bytes)!==entry.approved.sha256) throw new Error(`stored bytes for '${entry.key}/${entry.variant}' do not re-hash to the approved sha256`);
+    await validatePayload(entry.source,bytes);signal?.throwIfAborted();blobs.set(entry.path,{source:entry.source,bytes});
+  }
+  const manifest:ApprovedImageBundleManifest={schemaVersion:3,profile:APPROVED_IMAGE_BUNDLE_PROFILE,assets:entries};
+  const bytes=Buffer.from(`${canonicalJson(manifest)}\n`);parseApprovedImageBundleManifest(bytes);
+  const build=createAssetOperationBuildIdentity({operation:APPROVED_IMAGE_BUNDLE_OPERATION,
+    parameters:{profile:p.profile,assets:entries.map(({key,variant,approved})=>({key,variant,approved}))},
+    inputs:{assets:entries.map(entry=>entry.source)},implementation:{id:"builtin.asset.bundle",version:"3",profile:p.profile,
+      dependencyLockSha256:await readDependencyLockSha256(),tool:await captureToolIdentity()}});
+  return {build,manifest,bytes,blobs};
+}
 export async function createAssetBundleBuildIdentity(root:string,invocation:Invocation={}):Promise<AssetOperationBuildIdentity> { return (await prepare(root,invocation)).build; }
 async function storeManifest(root:string,prepared:Awaited<ReturnType<typeof prepare>>) {
   return (await storeAssetObject(root,{bytes:prepared.bytes,kind:"asset-bundle",mediaType:ASSET_BUNDLE_MEDIA_TYPE,
@@ -282,12 +368,13 @@ function bundleOperation(manifest:AnyAssetBundleManifest) {
   switch(manifest.schemaVersion) {
     case 1: return ASSET_BUNDLE_OPERATION;
     case 2: return SPRITE_ATLAS_BUNDLE_OPERATION;
+    case 3: return APPROVED_IMAGE_BUNDLE_OPERATION;
     default: return unreachable(manifest);
   }
 }
 function bundleResources(manifest:AnyAssetBundleManifest):BundleResource[] {
   switch(manifest.schemaVersion) {
-    case 1: return manifest.assets;
+    case 1: case 3: return manifest.assets;
     case 2: return [...manifest.assets,...manifest.assets.map(e=>e.image),...manifest.resources];
     default: return unreachable(manifest);
   }
@@ -305,6 +392,7 @@ export async function exportAssetBundle(root:string,directory:string,invocation:
   options.signal?.throwIfAborted();await assertExportBoundary(root,directory);
   if(options.onArtifact!==undefined && typeof options.onArtifact!=="function") throw new Error("bundle onArtifact must be a function");
   const prepared=await prepare(root,invocation,options.signal);options.signal?.throwIfAborted();
+  if(prepared.manifest.schemaVersion===3) return exportApproved(root,directory,prepared as PreparedApproved,options);
   await assertDirectory(directory,true);await mkdir(directory,{recursive:true});await assertDirectory(path.join(directory,"assets"),true);await mkdir(path.join(directory,"assets"),{recursive:true});
   await assertRegular(path.join(directory,"manifest.json"),true);
   let blobsWritten=0,blobsReused=0,bytesWritten=0;
@@ -319,10 +407,64 @@ export async function exportAssetBundle(root:string,directory:string,invocation:
   if(manifestStatus==="changed") bytesWritten+=prepared.bytes.byteLength;
   return {manifest,manifestStatus,files:["manifest.json",...prepared.blobs.keys()].sort(compareCodeUnitStrings),assetsVerified:prepared.manifest.assets.length,blobsWritten,blobsReused,bytesWritten};
 }
+type PreparedApproved=Awaited<ReturnType<typeof prepareApproved>>;
+/** Read a regular file without following a final symbolic link, so a swapped-in link cannot satisfy a pin check. */
+async function readRegularNoFollow(file:string):Promise<Buffer> {
+  await assertRegular(file);
+  const handle=await open(file,constants.O_RDONLY|(constants.O_NOFOLLOW ?? 0));
+  try { if(!(await handle.stat()).isFile()) throw new Error(`bundle file '${path.basename(file)}' must be a regular file`);return await handle.readFile(); }
+  finally { await handle.close(); }
+}
+/**
+ * approved-png-v1 export. Same publication rules as @1/@2, plus: every payload is re-read without following symlinks and
+ * re-hashed against its approval immediately before the manifest commit, and a failure before that commit rolls back
+ * the payloads and directories this call added or changed, so a rejected approved export leaves the directory as it was.
+ */
+async function exportApproved(root:string,directory:string,prepared:PreparedApproved,options:BundleExportOptions) {
+  await assertDirectory(directory,true);const assetsDirectory=path.join(directory,"assets");
+  const createdTop=await mkdir(directory,{recursive:true});await assertDirectory(assetsDirectory,true);
+  const assetsCreated=await mkdir(assetsDirectory,{recursive:true});
+  await assertRegular(path.join(directory,"manifest.json"),true);
+  const written=new Map<string,Buffer|undefined>();
+  let blobsWritten=0,blobsReused=0,bytesWritten=0,manifestStatus:"changed"|"unchanged";
+  try {
+    for(const [portablePath,{bytes}] of prepared.blobs) {
+      options.signal?.throwIfAborted();const target=path.join(directory,...portablePath.split("/"));await assertRegular(target,true);
+      let previous:Buffer|undefined;
+      try { previous=await readFile(target); } catch(error:unknown) { if(!hasCode(error,"ENOENT")) throw error; }
+      if(!previous?.equals(bytes)) written.set(portablePath,previous);
+      const status=await writeAtomicIfChanged(directory,portablePath,bytes,options.signal);
+      if(status==="changed") {blobsWritten++;bytesWritten+=bytes.byteLength;} else {blobsReused++;written.delete(portablePath);}
+      await options.onArtifact?.({path:portablePath,status,byteLength:bytes.byteLength});
+    }
+    const manifest=await storeManifest(root,prepared);options.signal?.throwIfAborted();
+    await assertDirectory(directory);await assertDirectory(assetsDirectory);
+    for(const entry of prepared.manifest.assets) {
+      const bytes=await readRegularNoFollow(path.join(directory,...entry.path.split("/")));
+      if(bytes.byteLength!==entry.source.byteLength || sha256Bytes(bytes)!==entry.approved.sha256) throw new Error(`exported payload for '${entry.key}/${entry.variant}' no longer matches its approved sha256; the manifest was not committed`);
+    }
+    // Sole commit point. Prior payloads remain available to readers holding the old manifest.
+    manifestStatus=await writeAtomicIfChanged(directory,"manifest.json",prepared.bytes,options.signal);
+    if(manifestStatus==="changed") bytesWritten+=prepared.bytes.byteLength;
+    return {manifest,manifestStatus,files:["manifest.json",...prepared.blobs.keys()].sort(compareCodeUnitStrings),assetsVerified:prepared.manifest.assets.length,blobsWritten,blobsReused,bytesWritten};
+  } catch(error:unknown) {
+    await rollbackApproved(directory,written,createdTop,assetsCreated);throw error;
+  }
+}
+async function rollbackApproved(directory:string,written:Map<string,Buffer|undefined>,createdTop:string|undefined,assetsCreated:string|undefined):Promise<void> {
+  for(const [portablePath,previous] of written) {
+    const target=path.join(directory,...portablePath.split("/"));
+    try { await rm(target,{force:true});if(previous) await writeFile(target,previous,{flag:"wx"}); } catch { /* best effort; the original error is reported */ }
+  }
+  const created=[...(assetsCreated?[path.join(directory,"assets")]:[])];
+  if(createdTop) for(let current=directory;;current=path.dirname(current)) {created.push(current);if(current===createdTop || path.dirname(current)===current) break;}
+  for(const created_ of created) { try { await rmdir(created_); } catch { /* not empty or already gone */ } }
+}
 export function resolveAssetBundleEntry(manifest:AssetBundleManifest,key:string,variant:string):AssetBundleEntry;
 export function resolveAssetBundleEntry(manifest:SpriteAtlasBundleManifest,key:string,variant:string):SpriteAtlasBundleEntry;
-export function resolveAssetBundleEntry(manifest:AnyAssetBundleManifest,key:string,variant:string):AssetBundleEntry|SpriteAtlasBundleEntry;
-export function resolveAssetBundleEntry(manifest:AnyAssetBundleManifest,key:string,variant:string):AssetBundleEntry|SpriteAtlasBundleEntry {
+export function resolveAssetBundleEntry(manifest:ApprovedImageBundleManifest,key:string,variant:string):ApprovedImageBundleEntry;
+export function resolveAssetBundleEntry(manifest:AnyAssetBundleManifest,key:string,variant:string):AssetBundleEntry|SpriteAtlasBundleEntry|ApprovedImageBundleEntry;
+export function resolveAssetBundleEntry(manifest:AnyAssetBundleManifest,key:string,variant:string):AssetBundleEntry|SpriteAtlasBundleEntry|ApprovedImageBundleEntry {
   token(key,"asset key");token(variant,"asset variant");
   const entry=manifest.assets.find(asset=>asset.key===key && asset.variant===variant);
   if(!entry) throw new Error(`bundle does not contain '${key}/${variant}'`);return entry;
@@ -336,7 +478,8 @@ async function readPinned(directory:string,relative:string,source:AssetRef):Prom
 type BundleVerification<M extends AnyAssetBundleManifest>={manifest:M;assetsVerified:number;uniquePayloads:number};
 export function verifyAssetBundle(directory:string,manifestValue:unknown,options?:{profile:typeof STATIC_ASSET_BUNDLE_PROFILE}):Promise<BundleVerification<AssetBundleManifest>>;
 export function verifyAssetBundle(directory:string,manifestValue:unknown,options:{profile:typeof SPRITE_ATLAS_BUNDLE_PROFILE}):Promise<BundleVerification<SpriteAtlasBundleManifest>>;
-export async function verifyAssetBundle(directory:string,manifestValue:unknown,options:{profile:AssetBundleParameters["profile"]}={profile:STATIC_ASSET_BUNDLE_PROFILE}):Promise<BundleVerification<AnyAssetBundleManifest>> {
+export function verifyAssetBundle(directory:string,manifestValue:unknown,options:{profile:typeof APPROVED_IMAGE_BUNDLE_PROFILE}):Promise<BundleVerification<ApprovedImageBundleManifest>>;
+export async function verifyAssetBundle(directory:string,manifestValue:unknown,options:{profile:BundleProfile}={profile:STATIC_ASSET_BUNDLE_PROFILE}):Promise<BundleVerification<AnyAssetBundleManifest>> {
   const selected=object(options,["profile"],"bundle verification profile");
   assertAbsolute(directory);const ref=createAssetRef(manifestValue);
   if(ref.kind!=="asset-bundle" || ref.mediaType!==ASSET_BUNDLE_MEDIA_TYPE || ref.byteLength>MAX_MANIFEST_BYTES) throw new Error("expected a pinned asset-bundle manifest within 8 MiB");
@@ -345,7 +488,7 @@ export async function verifyAssetBundle(directory:string,manifestValue:unknown,o
   const resources=bundleResources(manifest);
   for(const entry of resources) if(!verified.has(entry.path)) {await validatePayload(entry.source,await readPinned(directory,entry.path,entry.source));verified.add(entry.path);}
   switch(manifest.schemaVersion) {
-   case 1: break;
+   case 1: case 3: break;
    case 2: {
     const expected:BundleResource[]=[];
     const declared=new Set(resources.map(r=>canonicalJson(r.source)));let canonicalReferences=0;

@@ -94,3 +94,29 @@ Run `bun examples/atlas-bundle/build.ts`, then `python examples/atlas-bundle/rev
 
 `bun test test/atlas-bundle.test.ts test/asset-bundle.test.ts test/sprite-atlas-operations.test.ts test/public-contract.test.ts` covers independent white-pixel and non-square trimmed/empty sparse-frame fixtures, stable paired ordering, source-store-free loading, retiming, cold/warm parity, invalid bounds/relationships/closure, missing/corrupt sources and outputs, bounded decoding and interrupted export/resume. Run the ordinary gate afterward. #125/#135 remain open for other profiles and actual product integration.
 The [canonical adoption example](../examples/selected-bundle/README.md) adds a fresh installed-package consumer of a real ring-artwork recipe, with pixel acceptance, no producer-store dependency, repeat execution, and negative corruption/export/tool checks. Its generator uses the existing coding-tooling machinery.
+
+## Approved PNG profile
+
+`APPROVED_IMAGE_BUNDLE_PROFILE` selects `approved-png-v1` ([#223](https://github.com/moritzbrantner/asset-tooling/issues/223), Atlas Decision 4.1.3). It uses `asset.bundle@3` (`APPROVED_IMAGE_BUNDLE_OPERATION`) through the same `createAssetBundleBuildIdentity`, `executeAssetBundleOperation`, `exportAssetBundle`, `verifyAssetBundle` and `readAssetBundleAsset` functions. Its manifest has the separate immutable [v3 transport schema](../schemas/asset-bundle-v3.schema.json). `asset.bundle@1`/`@2`, their profiles and the v1/v2 schemas are unchanged.
+
+Generated images (for example `image.comfyui.generate@1` outputs) are **candidates**: plain stored `image/png` AssetRefs that claim nothing about approval. A human approves a candidate by naming its exact sha256 in the export selection. Exporting is the approval act; there is no approval manifest, review store or database. A regenerated image has new bytes, so an earlier approval never applies to it. Candidates that are not selected stay candidates and are not exported. Approval exists only inside an export: a preview cannot show "approved but not exported".
+
+```ts
+import { APPROVED_IMAGE_BUNDLE_PROFILE, exportAssetBundle,
+  verifyAssetBundle, readAssetBundleAsset } from "asset-tooling/operations/bundle";
+
+const exported = await exportAssetBundle(root, directory, {
+  parameters: { profile: APPROVED_IMAGE_BUNDLE_PROFILE,
+    assets: [{ key: "warden.ability.1", variant: "master", approved: { sha256: chosen.sha256 } }] },
+  inputs: { assets: [chosen] },
+});
+const checked = await verifyAssetBundle(directory, exported.manifest,
+  { profile: APPROVED_IMAGE_BUNDLE_PROFILE });
+const png = await readAssetBundleAsset(directory, checked.manifest, "warden.ability.1", "master");
+```
+
+Each selection has exactly `key`, `variant` and `approved: { sha256 }`; the sha is 64 lowercase hex characters. `inputs.assets` pairs one `image`/`image/png` AssetRef with each selection, in selection order. A missing, malformed or extended approval is rejected. Before anything is read or written, every ref's sha256 must equal its selection's approved sha256; otherwise the call fails with an "approved" error. Every candidate's stored bytes must then exist and re-hash to the approved sha (and pass the PNG header/dimension checks); a missing or altered object is rejected. These checks precede any export-directory change: a fresh directory is not created and an existing export keeps every file, because `manifest.json` stays the sole commit point. Immediately before that commit, every payload is re-read without following symbolic links (a non-regular file or link is rejected) and re-hashed against its approval, so bytes replaced during export (for example by an `onArtifact` callback) fail the export. Any failure before the commit, including callback errors and cancellation, removes the payloads this call added, restores those it repaired and removes directories it created. A rejected approved export therefore leaves the directory as it was. Manifest source refs must be complete serialized AssetRefs; a missing `schemaVersion` or `metadata` is rejected.
+
+The manifest is canonical JSON with `schemaVersion: 3`, `profile: "approved-png-v1"` and entries sorted by key, then variant. Each entry is `{ key, variant, approved: { sha256 }, source, path }`, where `source` is the full original AssetRef and `path` is `assets/<sha256>.png`. `parseApprovedImageBundleManifest` admits this shape and rejects an entry whose `approved.sha256` differs from `source.sha256`, so a forged approval fails parsing and verification. Verification must select the approved profile explicitly; the default static verification rejects an approved bundle, and the approved profile rejects static and atlas bundles. The shared limits, recovery, counters and `result.files` allowlist rules above apply unchanged. Build identity records the approved selection (including each sha) and inputs, so `executeAssetBundleOperation` and the export agree on the manifest.
+
+`test/comfyui-approval-export.test.ts` runs candidate, approval, export and independent verification against the fake ComfyUI server, including mismatched, regenerated, missing and tampered candidates and a forged manifest. `test/comfyui-approval-local-server.test.ts` repeats the journey on a real local ComfyUI; it is skipped unless `ASSET_TOOLING_COMFYUI_URL` and `ASSET_TOOLING_COMFYUI_CHECKPOINT` are set.
