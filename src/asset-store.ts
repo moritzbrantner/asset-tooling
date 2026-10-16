@@ -288,10 +288,30 @@ export interface AssetOperationExecutorInvocation {
   inputs: AssetPortMap;
 }
 
+/**
+ * What `runAssetOperation` tells an executor about the run: the build identity and cache key the
+ * result will be recorded under. An executor that re-derives its implementation identity (for
+ * example by probing a runtime environment) can compare and fail closed instead of recording a
+ * result under a key that no longer describes it.
+ */
+export interface AssetOperationRunContext {
+  buildIdentity: AssetOperationBuildIdentity;
+  cacheKey: string;
+}
+
 export interface AssetOperationRunRegistration {
   descriptor: AssetOperationDescriptor | ReadonlyAssetOperationDescriptor;
   implementation: AssetOperationImplementationIdentity;
-  execute(root: string, invocation: AssetOperationExecutorInvocation): Promise<AssetOperationResult>;
+  /**
+   * `context` is the caller's execution context (`runAssetOperation` has none and passes
+   * `undefined`); `run` carries the prepared identity. Executors may ignore both.
+   */
+  execute(
+    root: string,
+    invocation: AssetOperationExecutorInvocation,
+    context?: unknown,
+    run?: AssetOperationRunContext,
+  ): Promise<AssetOperationResult>;
 }
 
 export interface AssetOperationRun {
@@ -353,10 +373,15 @@ export async function runAssetOperation(
     return { status: "hit", cacheKey, buildIdentity, result };
   }
 
-  const executed = await registration.execute(assetRoot, {
-    parameters: structuredClone(buildIdentity.parameters),
-    inputs: structuredClone(buildIdentity.inputs),
-  });
+  const executed = await registration.execute(
+    assetRoot,
+    {
+      parameters: structuredClone(buildIdentity.parameters),
+      inputs: structuredClone(buildIdentity.inputs),
+    },
+    undefined,
+    { buildIdentity: structuredClone(buildIdentity), cacheKey },
+  );
   const result = normalizeAssetOperationResult(registration.descriptor, executed);
   for (const asset of portRefs(result.outputs)) await verifyAssetObject(assetRoot, asset);
   await writeOperationResultCache(assetRoot, cacheKey, buildIdentity, result);

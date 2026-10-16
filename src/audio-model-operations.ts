@@ -14,6 +14,7 @@ import {
   createAssetRef,
   normalizeAssetOperationResult,
 } from "./operations.js";
+import { canonicalJson } from "./canonical.js";
 import { captureEnvironment } from "./environment.js";
 import { captureToolIdentity } from "./tool.js";
 
@@ -182,7 +183,19 @@ function normalizeAdapter(value, version) {
   if (adapter.environmentComponents !== undefined && typeof adapter.environmentComponents !== "function") {
     throw new Error("audio model adapter environmentComponents must be a function");
   }
-  return adapter;
+  // Snapshot the validated shape so later mutation of the caller's object cannot change what a
+  // factory executes or which identity it records (for example, adding environmentComponents to a
+  // v1 adapter after its executor was created).
+  const { generate, environmentComponents } = adapter;
+  return Object.freeze({
+    id: adapter.id,
+    version: adapter.version,
+    reproducibility: adapter.reproducibility,
+    generate: (request, context) => generate.call(adapter, request, context),
+    ...(version.environment && environmentComponents !== undefined
+      ? { environmentComponents: () => environmentComponents.call(adapter) }
+      : {}),
+  });
 }
 
 function normalizeAdapterResult(value, adapterId) {
@@ -231,10 +244,25 @@ async function createBuildIdentity(version, adapter, { parameters = {}, inputs =
   });
 }
 
+/**
+ * Under `runAssetOperation`, the cache key was derived from an implementation identity prepared
+ * before execution. v2 fails closed when its own single capture (runtime environment, tool, model
+ * and adapter identity) differs from it, so a result is never recorded under another runtime's key.
+ */
+function assertPreparedImplementation(version, build, run) {
+  if (!version.environment || run?.buildIdentity === undefined) return;
+  if (canonicalJson(build.implementation) !== canonicalJson(run.buildIdentity.implementation)) {
+    throw new Error(
+      `${version.operation.id}@${version.operation.version} implementation identity (runtime environment, tool or adapter) changed after the build identity was prepared`,
+    );
+  }
+}
+
 function createExecutor(version, adapter) {
   const operation = version.operation;
-  return async function executeAudioModelGenerateOperation(root, { parameters = {}, inputs = {} } = {}, context) {
+  return async function executeAudioModelGenerateOperation(root, { parameters = {}, inputs = {} } = {}, context, run) {
     const build = await createBuildIdentity(version, adapter, { parameters, inputs });
+    assertPreparedImplementation(version, build, run);
     const model = createAssetRef(build.inputs.model);
     const modelBytes = await resolveAssetObject(root, model);
     const conditioning = build.inputs.conditioning ? normalizeCanonicalAudioAssetRef(build.inputs.conditioning) : undefined;
