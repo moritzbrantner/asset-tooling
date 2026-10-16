@@ -12,6 +12,10 @@ The same public CLI/spec boundary is proven by merged Zoo and Medieval consumers
 
 The package remains `0.1.0` until a stable release is intentionally cut; stabilization readiness does not publish or tag a release by itself. See `docs/stability.md`.
 
+## Local tool setup
+
+Run `python3 scripts/setup-tools.py doctor --profile all --json` to inspect repository tool readiness. The idempotent `setup` command prepares the chosen `core`, `previews`, or `comfyui` profile, with an explicit NVIDIA or CPU backend for ComfyUI. See [local tool setup](docs/local-tool-setup.md) for pinned versions, host prerequisites and model-acquisition boundaries.
+
 ## Generation
 
 The generation architecture supports the same provenance model across:
@@ -31,7 +35,7 @@ For acquisition, `scripts/acquire-huggingface-model.py` resolves a requested Hug
 
 The [GitHub Pages asset gallery](https://moritzbrantner.github.io/asset-tooling/) contains real previews of the built-in recipes, including rotating generated GLBs, surface/2D PNGs, effect-frame galleries, and playable feedback-kit WAV cues. These files are **presentation-only generated samples**, not canonical catalog sources, license evidence, or output-replay receipts. Pages CI uses the pinned Blender release and hash-checked Sapling input for 3D, and the existing procedural operations plus FFmpeg PNG codec for 2D. The static gallery consumes `dist/pages/previews/index.json`; missing media or missing recipes fail the Pages build rather than silently reverting to generic icons.
 
-For a local preview build, install Bun 1.4.2, the pinned Blender from `bun scripts/install-blender.ts <directory>`, FFmpeg, and the pinned Sapling ZIP referenced in `src/tree-recipes.ts`. Set `ASSET_TOOLING_BLENDER` and `ASSET_TOOLING_SAPLING_ARCHIVE`, then run `bun run pages:previews && bun run pages:build`. Ordinary `bun run check` does not require these optional native tools and can build the catalog-only fallback.
+For a local preview build, use the Bun version pinned in `package.json`, the pinned Blender from `bun scripts/install-blender.ts <directory>`, FFmpeg, and the pinned Sapling ZIP referenced in `src/tree-recipes.ts`. Set `ASSET_TOOLING_BLENDER` and `ASSET_TOOLING_SAPLING_ARCHIVE`, then run `bun run pages:previews && bun run pages:build`. Ordinary `bun run check` does not require these optional native tools and can build the catalog-only fallback.
 
 For zero-Python browser use, the same static 3D studio runs locally and on GitHub Pages. Run `bun run studio` from a checkout or open `/generate/` on the deployed Pages site. **Prepare model** is an explicit acquisition step: it downloads the immutable, hash-pinned Stable Fast 3D WebGPU artifacts, re-verifies cached bytes, and then enables local WebGPU generation. Source images and generated GLBs stay in the browser. TRELLIS.2 remains local CUDA-only and is intentionally not exposed by Pages. See `docs/browser-3d-studio.md`.
 

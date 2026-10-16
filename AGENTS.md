@@ -28,6 +28,10 @@ The owner-controlled product intent is in `docs/decisions/atlas.md`. Read the re
 - Model acquisition may accept a convenient provider branch or tag only as a request: resolve it first to an immutable provider revision, download using that revision, and record provider identity, revision, license evidence, every accepted file hash/length, acquisition implementation identity, and the final bundle hash. Authentication tokens and provider cache metadata are never provenance. Generation consumes only the resulting local hash-pinned artifact and must not invoke acquisition.
 - Generated artifacts are disposable by default. Commit an output or receipt only when a consumer/distribution contract intentionally requires it.
 
+## Local tool setup
+
+Use `python3 scripts/setup-tools.py doctor --profile all --json` for read-only local tooling diagnostics and `python3 scripts/setup-tools.py setup --profile <profile>` for opt-in, idempotent installation. The ComfyUI profile additionally requires `--gpu nvidia|cpu`. Runtime/model acquisition and visual approval are separate from setup; see `docs/local-tool-setup.md`.
+
 ## Validation
 
 Run `bun run check` for the ordinary deterministic gate. It validates catalog and storage-manifest structure without hydrating the whole LFS corpus.
