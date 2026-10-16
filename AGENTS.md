@@ -9,6 +9,7 @@ The owner-controlled product intent is in `docs/decisions/atlas.md`. Read the re
 ## Boundaries
 
 - Asset intent is declared in versioned specs. Generators consume validated specs instead of ad-hoc prompts or ambient state.
+- For supported generative-media operations, treat ComfyUI as the external reference behind asset operations, not a graph/queue/model runtime to clone. Any internal replacement must have an explicit provider selection, consumer evidence and a reversible rollout. See `docs/comfyui-first.md`.
 - Generation receipts are evidence. They record the declared spec hash, generator/model identity, input hashes, execution fingerprint, and output hash.
 - Exact reproducibility is earned by rebuilding and comparing output bytes; it is never inferred from the presence of a seed alone.
 - Verification is non-mutating and cache-independent. Generation may reuse a verified local cache entry, but `verify` must replay the authoritative backend.
