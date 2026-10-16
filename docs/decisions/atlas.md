@@ -113,3 +113,20 @@ Prove the pipeline with **Heroic Strike, Shield Bash, Rallying Cry and Cleave** 
 ## Related execution coverage
 
 Existing issues already cover the main outcomes: [#108](https://github.com/moritzbrantner/asset-tooling/issues/108) visual baseline, [#109](https://github.com/moritzbrantner/asset-tooling/issues/109) approved source, [#110](https://github.com/moritzbrantner/asset-tooling/issues/110) first skinned bundle, [#111](https://github.com/moritzbrantner/asset-tooling/issues/111) animation viewer, [#116](https://github.com/moritzbrantner/asset-tooling/issues/116) appearance variants, [#117](https://github.com/moritzbrantner/asset-tooling/issues/117) garments and armor, and [#127](https://github.com/moritzbrantner/asset-tooling/issues/127) editable workbench. Those issues are implementation scope, not alternate product Decisions. The open Question 1.3.2 should not block the independently settled visual or animation work.
+
+## 5. ComfyUI-first production and capability convergence
+
+### 5.1. External golden reference and selective internal implementations
+
+#### Decision 5.1.1 — Wrap ComfyUI first, then selectively match and improve its capabilities
+
+**Approved by owner:** 2026-10-16. **Extends** Decision 4.1.1 beyond ability icons; it does not replace that decision's review/approval requirements.
+
+Use **ComfyUI as the golden reference for supported generative-media capabilities**, with `asset-tooling` as the reusable, project-facing wrapper. Initially call real prepared ComfyUI workflows through supported external interfaces instead of rebuilding ComfyUI's native graph editor, model loaders, inference engine, queue, or internal caching. Preserve native ComfyUI workflow identity while exposing stable versioned asset operations, verifiable input/output identities, provenance, inspectable candidates, explicit approval, and game/application-ready exports. ComfyUI and its models are **authoring/production dependencies only**; consuming applications run without them.
+
+Over time, `asset-tooling` may **reimplement, refine and replace individual frequently used ComfyUI capabilities** where a real consumer demonstrates a meaningful advantage. For each capability, compare a pinned ComfyUI reference and the proposed first-party implementation with actual functional/visual acceptance, performance and failure/recovery evidence. Preserve compatible asset-facing contracts and an **explicit, versioned external-versus-internal provider choice** so adoption and rollback never silently change past builds or approved outputs. A seed alone does not establish byte reproducibility; do not require identical pixels of nondeterministic generation as a false proxy for quality. Do not clone ComfyUI wholesale or copy external code/assets without honoring their licenses.
+
+Keep generic workflow ownership separate: `workflow-editor` authors higher-level typed workflows, `workflow-runner` executes generic operations and hands an entire ComfyUI graph to ComfyUI as one external job, and `workflow-engine` handles workflow registration, schedules, and top-level dispatch. Do not add a second ComfyUI graph authority or inference queue. Current deterministic procedural tools and authoritative Blender/3d-lab processors continue to work independently. This is approved direction, **not evidence of a working ComfyUI adapter or visually approved artwork**.
+
+Implementation boundary and evidence: [ComfyUI-first architecture](../comfyui-first.md), [first provider slice #212](https://github.com/moritzbrantner/asset-tooling/issues/212), and [Warden consumer acceptance #211](https://github.com/moritzbrantner/asset-tooling/issues/211).
+
