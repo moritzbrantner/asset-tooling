@@ -200,6 +200,8 @@ Some asset constraints cannot be represented exactly by the current generic work
 
 `createAssetOperationWorkflowExecutor(...)` produces one workflow-runner-compatible executor for node kind `asset.operation`. Execution registrations pair a descriptor with its executor function, so operation id/version metadata is not manually duplicated in a second dispatch table. Compiled node data selects the registered operation; runner inputs become the operation inputs; the normalized operation outputs are returned to the graph.
 
+Operations that need host configuration are registered through `createAssetOperationWorkflowProviderEntries(config)`, which returns `{ templates, registrations }` for exactly the providers the host configured. The host passes provider configuration explicitly; the function reads no environment or files and performs no network I/O, an absent provider contributes nothing, and an invalid configuration or unknown provider key throws. Currently the only provider is `comfyui` (`image.comfyui.generate@1`, see [prd-comfyui-provider.md](prd-comfyui-provider.md)).
+
 Full operation observations do not become hidden or synthetic graph outputs. An optional `onOperationResult` hook receives a detached canonical copy of the complete normalized result as external execution evidence, so an observer cannot mutate the already-validated graph output. A host can use that evidence for an execution overlay, provenance panel, logging, or receipt workflow without mutating the editable document.
 
 `stability/workflow-stack.json` pins exact accepted workflow-editor and workflow-runner revisions. The hosted Stability proof uses the real editor type system/compiler and the real runner to require that:

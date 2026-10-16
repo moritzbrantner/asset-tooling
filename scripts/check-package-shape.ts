@@ -87,6 +87,7 @@ const expectedSourceExports: Record<string, string> = {
   "./operations/audio/codecs": "./src/audio-codec-operations.ts",
   "./operations/audio/model": "./src/audio-model-operations.ts",
   "./operations/audio/model/kokoro": "./src/kokoro-audio-model.ts",
+  "./operations/image/comfyui": "./src/comfyui-operation.ts",
   "./audio": "./src/audio.ts",
   "./operations/workflow": "./src/workflow-operations.ts",
   "./catalog": "./src/catalog.ts",

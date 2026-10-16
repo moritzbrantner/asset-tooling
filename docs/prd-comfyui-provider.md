@@ -40,7 +40,7 @@ The first low-risk implementation adds `loadPreparedComfyUiApiWorkflow` and focu
 - **Import and receipt:** the PNG signature and IHDR size must match the injected width × height. The receipt (`observations`) records provider, `reproducibility: "approximate"`, prompt and client ids, workflow and submitted-prompt hashes, ComfyUI version and commit, checkpoint identity and the output file and hash.
 - **Reuse:** the build identity covers workflow bytes, injections, checkpoint identity and licence, the server identity from the probe and the commit. A hit does not contact the server, but it still re-verifies the checkpoint.
 
-Not yet exported from `package.json` and not registered in a shared registry; that, cancellation through workflow-runner#8 and provider choice against Diffusers `image.stable-diffusion.generate` remain.
+Exported as `asset-tooling/operations/image/comfyui` and registrable in the workflow bridge through `createAssetOperationWorkflowProviderEntries` ([#221](https://github.com/moritzbrantner/asset-tooling/issues/221)); see Usage. Cancellation through workflow-runner#8 and provider choice against Diffusers `image.stable-diffusion.generate` remain.
 
 ### Checkpoint acquisition (SD 1.5)
 
@@ -69,7 +69,7 @@ cd .artifacts/toolchain/comfy-workspace/ComfyUI
 
 ```ts
 import { runAssetOperation } from "asset-tooling/operations/store";
-import { createComfyUiImageGenerateRegistration, probeComfyUiServer } from "./src/comfyui-operation.ts";
+import { createComfyUiImageGenerateRegistration, probeComfyUiServer } from "asset-tooling/operations/image/comfyui";
 
 const endpoint = "http://127.0.0.1:8188";
 const server = await probeComfyUiServer({ endpoint });
@@ -96,6 +96,27 @@ const run = await runAssetOperation(root, registration, {
   },
 });
 ```
+
+The subpath also exports the types `ComfyUiImageGenerateRegistrationOptions` and `ComfyUiServerIdentity`. `endpoint` is required; there is no default and no environment fallback.
+
+#### Workflow bridge
+
+A workflow host registers the operation explicitly. `createAssetOperationWorkflowProviderEntries` takes the same options under `comfyui`, performs no I/O and reads no environment variable:
+
+```ts
+import {
+  createAssetOperationWorkflowExecutor,
+  createAssetOperationWorkflowProviderEntries,
+} from "asset-tooling/operations/workflow";
+
+const { templates, registrations } = createAssetOperationWorkflowProviderEntries({
+  comfyui: { endpoint, server, comfyuiCommit, checkpointDirectory },
+});
+// templates: [asset-operation:image.comfyui.generate@1] for the editor palette
+const executor = createAssetOperationWorkflowExecutor({ root, registrations: [...otherRegistrations, ...registrations] });
+```
+
+Without `comfyui` (no argument, `{}` or `{ comfyui: undefined }`) both lists are empty: the editor does not offer the operation and the executor rejects a node that selects it as not registered. An invalid `comfyui` value (missing or non-loopback endpoint, credentials, missing server identity, unknown field) or an unknown provider key throws instead of registering a partial entry. The bridge entry runs the registration's checkpoint check before executing, so a missing or changed checkpoint still fails before anything is submitted. It does not use the operation result cache; use `runAssetOperation` for cached runs.
 
 The real-server acceptance is `test/comfyui-local-server.test.ts`. It is skipped unless `ASSET_TOOLING_COMFYUI_URL` and `ASSET_TOOLING_COMFYUI_CHECKPOINT` are set; see its header for the optional pin, licence, size, timeout and evidence variables. On the WSL CPU machine (2026-10-17), the 4-step SD 1.5 fixture took about 23 s at 256×256 and 44 s at 512×512, including model load.
 
