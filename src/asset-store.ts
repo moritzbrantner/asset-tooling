@@ -306,6 +306,13 @@ export interface AssetOperationRunRegistration {
    * `context` is the caller's execution context (`runAssetOperation` has none and passes
    * `undefined`); `run` carries the prepared identity. Executors may ignore both.
    */
+  /**
+   * Optional pre-lookup check of declared dependencies that are not input ports (for example a
+   * hash-pinned local model file). `runAssetOperation` calls it after verifying the inputs and
+   * before the cache lookup, on hits and misses alike; a rejection fails the run without
+   * reusing or recording a result. Without it, the run behaves exactly as before.
+   */
+  verifyDependencies?(root: string, invocation: AssetOperationExecutorInvocation): Promise<void>;
   execute(
     root: string,
     invocation: AssetOperationExecutorInvocation,
@@ -336,7 +343,8 @@ function unusableCacheEntry(cacheKey: string, error: unknown): Error {
  * Run one asset operation and reuse its recorded result when the operation build
  * identity is unchanged.
  *
- * Every input object is verified before the lookup. A hit verifies every recorded
+ * Every input object, and any declared dependency through `verifyDependencies`, is verified
+ * before the lookup. A hit verifies every recorded
  * output object and does not call `execute`. A miss executes, verifies the stored
  * outputs, and records the result under `.asset-tooling/cache`. A corrupt entry or
  * output object rejects instead of being reused. The entry is acceleration state,
@@ -358,6 +366,12 @@ export async function runAssetOperation(
   const cacheKey = createAssetOperationCacheKey(identityInput);
 
   for (const asset of portRefs(buildIdentity.inputs)) await verifyAssetObject(assetRoot, asset);
+  if (registration.verifyDependencies !== undefined) {
+    await registration.verifyDependencies(assetRoot, {
+      parameters: structuredClone(buildIdentity.parameters),
+      inputs: structuredClone(buildIdentity.inputs),
+    });
+  }
 
   const cached = await readOperationResultCache(assetRoot, cacheKey, buildIdentity).catch((error: unknown) => {
     throw unusableCacheEntry(cacheKey, error);

@@ -233,10 +233,28 @@ function isConnectionRefused(error: unknown): boolean {
 
 const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
-/** Every request goes through the current `globalThis.fetch`, only to the configured endpoint. */
-function comfyFetch(endpoint: string, route: string, init: RequestInit & { timeoutMs: number }): Promise<Response> {
+/** A 3xx answer; never followed, so no request or response leaves the validated loopback origin. */
+class ComfyUiRedirectError extends Error {}
+
+/**
+ * Every request goes through the current `globalThis.fetch`, only to the configured endpoint.
+ * Redirects are not followed: any 3xx answer rejects with a ComfyUiRedirectError.
+ */
+async function comfyFetch(endpoint: string, route: string, init: RequestInit & { timeoutMs: number }): Promise<Response> {
   const { timeoutMs, ...rest } = init;
-  return globalThis.fetch(`${endpoint}${route}`, { ...rest, signal: AbortSignal.timeout(Math.max(1, timeoutMs)) });
+  const response = await globalThis.fetch(`${endpoint}${route}`, {
+    ...rest,
+    redirect: "manual",
+    signal: AbortSignal.timeout(Math.max(1, timeoutMs)),
+  });
+  if (response.type === "opaqueredirect" || (response.status >= 300 && response.status < 400)) {
+    await response.body?.cancel().catch(() => undefined);
+    const location = response.headers.get("location");
+    throw new ComfyUiRedirectError(
+      `ComfyUI server at ${endpoint} answered ${rest.method ?? "GET"} ${route.split("?")[0]} with a redirect (HTTP ${response.status}${location ? ` to ${location}` : ""}); redirects are never followed`,
+    );
+  }
+  return response;
 }
 
 function normalizeEndpoint(value: unknown): string {
@@ -298,6 +316,7 @@ async function readServerIdentity(endpoint: string, timeoutMs: number): Promise<
   try {
     response = await comfyFetch(endpoint, "/system_stats", { method: "GET", timeoutMs });
   } catch (error) {
+    if (error instanceof ComfyUiRedirectError) throw error;
     throw new Error(`ComfyUI server at ${endpoint} is unavailable: ${errorText(error)}`);
   }
   if (!response.ok) {
@@ -423,7 +442,13 @@ function applyInjections(prompt: Record<string, any>, parameters: ComfyUiImageGe
 
 // ─── Checkpoint ─────────────────────────────────────────────────────────────────────────────────
 
-async function verifyCheckpoint(directory: string, checkpoint: ComfyUiCheckpointIdentity): Promise<void> {
+/** Identity of the verified file on disk; any replacement or rewrite changes it (inode, size, times). */
+function fileSignature(info: { dev: number; ino: number; size: number; mtimeMs: number; ctimeMs: number }, sha256: string): string {
+  return [info.dev, info.ino, info.size, info.mtimeMs, info.ctimeMs, sha256].join(":");
+}
+
+/** Hash the declared checkpoint and return the verified file's signature. */
+async function verifyCheckpoint(directory: string, checkpoint: ComfyUiCheckpointIdentity): Promise<string> {
   const file = path.join(directory, ...checkpoint.name.split("/"));
   let info;
   try {
@@ -440,6 +465,15 @@ async function verifyCheckpoint(directory: string, checkpoint: ComfyUiCheckpoint
   const actual = digest.digest("hex");
   if (actual !== checkpoint.sha256) {
     throw new Error(`ComfyUI checkpoint '${checkpoint.name}' sha256 ${actual} does not match declared ${checkpoint.sha256}`);
+  }
+  return fileSignature(info, actual);
+}
+
+async function checkpointSignature(directory: string, checkpoint: ComfyUiCheckpointIdentity): Promise<string | undefined> {
+  try {
+    return fileSignature(await stat(path.join(directory, ...checkpoint.name.split("/"))), checkpoint.sha256);
+  } catch {
+    return undefined;
   }
 }
 
@@ -487,6 +521,7 @@ async function submitPrompt(
       timeoutMs,
     });
   } catch (error) {
+    if (error instanceof ComfyUiRedirectError) throw error;
     if (isConnectionRefused(error)) throw new Error(`ComfyUI server at ${endpoint} is unavailable: ${errorText(error)}`);
     throw new Error(
       `ComfyUI submission is ambiguous: the POST /prompt response was lost (${isTimeout(error) ? "timed out" : errorText(error)}); the job may have been accepted and was not resubmitted (client_id ${clientId})`,
@@ -520,6 +555,14 @@ interface OutputImage {
   filename: string;
   subfolder: string;
   type: string;
+}
+
+function failureMessageKind(status: Record<string, unknown>): string | undefined {
+  const messages = Array.isArray(status.messages) ? status.messages : [];
+  for (const message of messages) {
+    if (Array.isArray(message) && (message[0] === "execution_error" || message[0] === "execution_interrupted")) return message[0];
+  }
+  return undefined;
 }
 
 function executionErrorText(promptId: string, status: Record<string, unknown>): string {
@@ -566,6 +609,7 @@ async function awaitOutput(
         }
       }
     } catch (error) {
+      if (error instanceof ComfyUiRedirectError) throw error;
       if (error instanceof Error && error.message.startsWith("ComfyUI history")) throw error;
       lastTransient = errorText(error);
       body = undefined;
@@ -579,27 +623,34 @@ async function awaitOutput(
           throw new Error(`ComfyUI history for prompt ${promptId} is malformed: it answered with a record for another prompt id (${keys.join(", ")})`);
         }
         const record = assertRecord(body[promptId], `ComfyUI history record for prompt ${promptId}`);
+        // ComfyUI writes a history record only once the prompt has finished, so a present record
+        // must be an unambiguous success; anything else fails visibly instead of being imported.
         const status = isRecord(record.status) ? record.status : {};
-        if (status.status_str === "error") throw new Error(executionErrorText(promptId, status));
-        if (status.completed === true) {
-          const outputs = isRecord(record.outputs) ? record.outputs : {};
-          const output = isRecord(outputs[outputNode]) ? outputs[outputNode] : {};
-          const images = Array.isArray(output.images) ? output.images : [];
-          const image = images[0];
-          if (
-            images.length !== 1 ||
-            !isRecord(image) ||
-            typeof image.filename !== "string" ||
-            image.filename.length === 0 ||
-            typeof image.subfolder !== "string" ||
-            typeof image.type !== "string"
-          ) {
-            throw new Error(
-              `ComfyUI history for prompt ${promptId} is malformed: expected exactly one image for declared output node '${outputNode}', found ${images.length}`,
-            );
-          }
-          return { filename: image.filename, subfolder: image.subfolder, type: image.type };
+        if (status.status_str === "error" || failureMessageKind(status) !== undefined) {
+          throw new Error(executionErrorText(promptId, status));
         }
+        if (status.completed !== true || status.status_str !== "success") {
+          throw new Error(
+            `ComfyUI history for prompt ${promptId} has no successful completion (status_str ${JSON.stringify(status.status_str ?? null)}, completed ${JSON.stringify(status.completed ?? null)}); the output is not imported`,
+          );
+        }
+        const outputs = isRecord(record.outputs) ? record.outputs : {};
+        const output = isRecord(outputs[outputNode]) ? outputs[outputNode] : {};
+        const images = Array.isArray(output.images) ? output.images : [];
+        const image = images[0];
+        if (
+          images.length !== 1 ||
+          !isRecord(image) ||
+          typeof image.filename !== "string" ||
+          image.filename.length === 0 ||
+          typeof image.subfolder !== "string" ||
+          typeof image.type !== "string"
+        ) {
+          throw new Error(
+            `ComfyUI history for prompt ${promptId} is malformed: expected exactly one image for declared output node '${outputNode}', found ${images.length}`,
+          );
+        }
+        return { filename: image.filename, subfolder: image.subfolder, type: image.type };
       }
     }
     await delay(Math.min(pollIntervalMs, Math.max(0, deadline - Date.now())));
@@ -615,6 +666,7 @@ async function fetchOutput(endpoint: string, promptId: string, image: OutputImag
       timeoutMs: Math.max(MIN_VIEW_TIMEOUT_MS, deadline - Date.now()),
     });
   } catch (error) {
+    if (error instanceof ComfyUiRedirectError) throw error;
     throw new Error(`ComfyUI output for prompt ${promptId} could not be fetched: ${errorText(error)}`);
   }
   if (!response.ok) throw new Error(`ComfyUI output for prompt ${promptId} could not be fetched: GET /view answered HTTP ${response.status}`);
@@ -662,9 +714,19 @@ export function createComfyUiImageGenerateRegistration(options: ComfyUiImageGene
     reproducibility: "approximate",
   };
 
+  // The signature `verifyDependencies` just verified, consumed by the next `execute` so a miss does
+  // not hash a multi-GB checkpoint twice. `execute` re-hashes whenever the file changed since.
+  let preverified: string | undefined;
+
   return {
     descriptor: COMFYUI_IMAGE_GENERATE_OPERATION,
     implementation,
+    // Runs before every cache lookup (hits included): the declared checkpoint must still be there.
+    async verifyDependencies(_root, invocation): Promise<void> {
+      preverified = undefined;
+      const parameters = assertRecord(invocation?.parameters, "ComfyUI parameters");
+      preverified = await verifyCheckpoint(checkpointDirectory, parseCheckpoint(parameters.checkpoint));
+    },
     async execute(root, invocation): Promise<AssetOperationResult> {
       // 1. Local preflight: verified workflow bytes, closed parameters, declared injections.
       const inputs = assertRecord(invocation?.inputs, "ComfyUI operation inputs");
@@ -676,7 +738,11 @@ export function createComfyUiImageGenerateRegistration(options: ComfyUiImageGene
       const height = parameters.injections.height!.value as number;
 
       // 2. The declared checkpoint must be present locally with the declared bytes.
-      await verifyCheckpoint(checkpointDirectory, parameters.checkpoint);
+      const verified = preverified;
+      preverified = undefined;
+      if (verified === undefined || verified !== (await checkpointSignature(checkpointDirectory, parameters.checkpoint))) {
+        await verifyCheckpoint(checkpointDirectory, parameters.checkpoint);
+      }
 
       // 3. The server must still be the one this registration was created for.
       const deadline = Date.now() + timeoutMs;
