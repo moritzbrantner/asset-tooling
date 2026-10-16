@@ -501,7 +501,12 @@ test("a request that is not 24 kHz mono, has no seed or carries conditioning is 
         bytes: encoded.bytes,
         kind: "audio",
         mediaType: "audio/wav",
-        metadata: createCanonicalAudioMetadata({ sampleRate: 24_000, channels: 1, frameCount: encoded.frameCount }),
+        metadata: createCanonicalAudioMetadata({
+          sampleRate: 24_000,
+          channels: 1,
+          frameCount: encoded.frameCount,
+          operation: { id: "audio.synthesize", version: "1" },
+        }),
       })
     ).asset;
     return { model: f.model, conditioning };
