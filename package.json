@@ -96,6 +96,8 @@
     "examples/selected-bundle/adoption.ts"
   ],
   "scripts": {
+    "tools:setup": "python3 scripts/setup-tools.py setup",
+    "tools:doctor": "python3 scripts/setup-tools.py doctor",
     "pages:previews": "bun scripts/build-generated-previews.ts",
     "typecheck": "bun add --no-save --dev typescript@7.0.2 @types/bun@1.4.0 && bunx --no-install tsc --noEmit",
     "test": "bun test",
