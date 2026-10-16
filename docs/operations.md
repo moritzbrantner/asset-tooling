@@ -138,7 +138,7 @@ const run = await runAssetOperation(
 - `implementation` is passed explicitly because executors do not expose it. Built-in operations take it from their own `create*BuildIdentity(...).implementation`, so the key carries the current tool source fingerprint.
 - Every input object is verified before the lookup. On a hit every recorded output object is verified and `execute` is not called. On a miss the executor receives the canonical parameters and the verified inputs; its outputs are verified in the object store before the result is recorded.
 - Corrupt entries and missing or tampered output objects reject (fail closed); they never yield a hit. The full read contract is in [`docs/cache.md`](cache.md#operation-result-entries).
-- The recorded result is returned unchanged, so an `approximate` executor such as `audio.model.generate@1` keeps its recorded reproducibility label on reuse.
+- The recorded result is returned unchanged, so an `approximate` executor such as `audio.model.generate@1` or `@2` keeps its recorded reproducibility label on reuse.
 
 A hit means "this result was accepted before for the same declared request and its bytes are still intact". It is not evidence that replay would reproduce the bytes. `mesh.image-to-3d.generate@1` still uses its own generation-cache entry.
 
