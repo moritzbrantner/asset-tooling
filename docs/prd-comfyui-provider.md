@@ -1,7 +1,7 @@
 # PRD: ComfyUI-backed image generation
 
 **Issue:** [#212](https://github.com/moritzbrantner/asset-tooling/issues/212)  
-**Status:** Owner-approved product direction; integration acceptance pending.  
+**Status:** Owner-approved product direction. Offline preflight (#215) and the execution slice `image.comfyui.generate@1` (#219) are implemented; review/approval, export and provider choice remain.  
 **Authority:** [Decision Atlas 5.1.1](decisions/atlas.md) and [ComfyUI-first architecture](comfyui-first.md). This PRD specifies acceptance; it is not a second decision registry or implementation status tracker.
 
 ## User outcome
@@ -29,7 +29,79 @@ The first low-risk implementation adds `loadPreparedComfyUiApiWorkflow` and focu
 - Return the original JSON text without rewriting or canonicalizing native node contents, together with its exact-byte `AssetRef`.
 - Keep this helper internal until the real provider operation and its invocation contract are accepted. It is **not** proof of working model inference.
 
+## Execution slice: `image.comfyui.generate@1`
+
+[PR #219](https://github.com/moritzbrantner/asset-tooling/pull/219) adds `src/comfyui-operation.ts`. Per the owner decision of 2026-10-16, the first real run is Stable Diffusion 1.5 on CPU on local WSL. It proves the generic provider boundary, not icon quality ([#211](https://github.com/moritzbrantner/asset-tooling/issues/211)).
+
+- **Operation:** input `workflow` (`workflow` / `application/json`), output `image` (`image` / `image/png`). The workflow is loaded through `loadPreparedComfyUiApiWorkflow`.
+- **Parameters (closed):** `provider: "comfyui"`, `checkpoint { name, sha256, byteLength, license }`, `injections { checkpoint, seed, positivePrompt, negativePrompt?, width, height }` and `output { node }`. Each injection names an existing node and an existing literal (non-link) input. Nothing else in the graph changes.
+- **Checkpoint:** a declared identity, not an input port. Through the registration's `verifyDependencies` hook, `runAssetOperation` hashes `<checkpointDirectory>/<name>` before every cache lookup, hits included, and fails closed on a missing file or a mismatch. It never downloads anything.
+- **Transport:** `GET /system_stats` (fail closed on identity drift), one `POST /prompt` with `{ prompt, client_id }`, polling `GET /history/{prompt_id}`, then exactly one `GET /view`. Redirects are never followed; any 3xx fails. A history record is imported only when `completed` is true, `status_str` is `success` and there is no `execution_error` or `execution_interrupted` message. No resubmission and no `/interrupt`. A timeout after acceptance or a lost `/prompt` response is reported as **ambiguous**; the job may still run on the server.
+- **Import and receipt:** the PNG signature and IHDR size must match the injected width × height. The receipt (`observations`) records provider, `reproducibility: "approximate"`, prompt and client ids, workflow and submitted-prompt hashes, ComfyUI version and commit, checkpoint identity and the output file and hash.
+- **Reuse:** the build identity covers workflow bytes, injections, checkpoint identity and licence, the server identity from the probe and the commit. A hit does not contact the server, but it still re-verifies the checkpoint.
+
+Not yet exported from `package.json` and not registered in a shared registry; that, cancellation through workflow-runner#8 and provider choice against Diffusers `image.stable-diffusion.generate` remain.
+
+### Checkpoint acquisition (SD 1.5)
+
+`scripts/acquire-huggingface-model.py` downloads a complete repository snapshot (tens of GB for this repository), so the single checkpoint file is acquired as a separate, explicit step and kept outside Git:
+
+```sh
+REV=$(curl -s https://huggingface.co/api/models/stable-diffusion-v1-5/stable-diffusion-v1-5/revision/main | jq -r .sha)
+# 451f4fe16113bff5a5d2269ed5ad43b0592e9a14 on 2026-10-17; cardData.license: creativeml-openrail-m
+curl -fL -o v1-5-pruned-emaonly.safetensors \
+  "https://huggingface.co/stable-diffusion-v1-5/stable-diffusion-v1-5/resolve/$REV/v1-5-pruned-emaonly.safetensors"
+sha256sum v1-5-pruned-emaonly.safetensors
+# 6ce0161689b3853acaa03779ec93eafe75a02f4ced659bee03f50797806fa2fa, 4,265,146,304 B (equals the provider's LFS sha256)
+mv v1-5-pruned-emaonly.safetensors .artifacts/toolchain/comfy-workspace/ComfyUI/models/checkpoints/
+```
+
+The licence is the CreativeML OpenRAIL-M licence declared in the model card at that revision. Review its use restrictions for the intended use. Keep a receipt (repository, revision, file hash and length, licence evidence) next to the file.
+
+### Usage
+
+Start the managed ComfyUI (`bun run tools:setup --profile comfyui --gpu cpu` first) on loopback:
+
+```sh
+cd .artifacts/toolchain/comfy-workspace/ComfyUI
+.venv/bin/python main.py --cpu --listen 127.0.0.1 --port 8188 --disable-auto-launch
+```
+
+```ts
+import { runAssetOperation } from "asset-tooling/operations/store";
+import { createComfyUiImageGenerateRegistration, probeComfyUiServer } from "./src/comfyui-operation.ts";
+
+const endpoint = "http://127.0.0.1:8188";
+const server = await probeComfyUiServer({ endpoint });
+const registration = createComfyUiImageGenerateRegistration({
+  endpoint,
+  server,
+  comfyuiCommit: "98cc0bf84b7cb1383654c5b402e7612d875d6d22", // from .artifacts/toolchain/comfyui-install.json
+  checkpointDirectory: ".artifacts/toolchain/comfy-workspace/ComfyUI/models/checkpoints",
+});
+const run = await runAssetOperation(root, registration, {
+  inputs: { workflow }, // a stored workflow / application/json AssetRef (API format)
+  parameters: {
+    provider: "comfyui",
+    checkpoint: { name: "v1-5-pruned-emaonly.safetensors", sha256: "6ce01616…", byteLength: 4265146304, license: "creativeml-openrail-m" },
+    injections: {
+      checkpoint: { node: "4", input: "ckpt_name" },
+      seed: { node: "3", input: "seed", value: 212 },
+      positivePrompt: { node: "6", input: "text", value: "a painted fantasy game icon of a steel shield" },
+      negativePrompt: { node: "7", input: "text", value: "text, watermark, blurry" },
+      width: { node: "5", input: "width", value: 512 },
+      height: { node: "5", input: "height", value: 512 },
+    },
+    output: { node: "9" },
+  },
+});
+```
+
+The real-server acceptance is `test/comfyui-local-server.test.ts`. It is skipped unless `ASSET_TOOLING_COMFYUI_URL` and `ASSET_TOOLING_COMFYUI_CHECKPOINT` are set; see its header for the optional pin, licence, size, timeout and evidence variables. On the WSL CPU machine (2026-10-17), the 4-step SD 1.5 fixture took about 23 s at 256×256 and 44 s at 512×512, including model load.
+
 ## Further work remaining in #212
+
+The execution slice covers the provider boundary, checkpoint dependency safety, transport except scoped cancellation, and output ingestion except export. Custom-node and input-file identities, review/approval, export, consumer validation and the provider choice are still open.
 
 | Area | Evidence required |
 | --- | --- |
