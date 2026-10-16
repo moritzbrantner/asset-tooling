@@ -571,12 +571,13 @@ async function strictConsumerTypecheck(source: string) {
       }),
     );
     await writeFile(path.join(directory, "consumer.ts"), source);
-    const tsc = path.join(REPO_ROOT, "node_modules", ".bin", "tsc");
+    // Run the JS entry through the current runtime: node_modules/.bin/tsc is a .exe/.cmd shim on Windows.
+    const tsc = path.join(REPO_ROOT, "node_modules", "typescript", "bin", "tsc");
     assert.ok(
       (await stat(tsc).catch(() => undefined))?.isFile(),
       "typescript must be installed (bun run typecheck installs it) for the consumer type-check",
     );
-    const result = spawnSync(tsc, ["-p", path.join(directory, "tsconfig.json")], { encoding: "utf8" });
+    const result = spawnSync(process.execPath, [tsc, "-p", path.join(directory, "tsconfig.json")], { encoding: "utf8" });
     return { status: result.status, output: `${result.stdout ?? ""}${result.stderr ?? ""}` };
   } finally {
     await rm(directory, { recursive: true, force: true });
