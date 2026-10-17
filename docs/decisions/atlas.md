@@ -50,6 +50,12 @@ Earlier wording treated a single "less cartoony" direction as universal; that wa
 
 The cartoony family for My Farm starts from Quaternius' free, toy-like character packs (for example Ultimate Animated Character), promoted through the normal source catalog. Other free sources are added when the owner judges that better models exist elsewhere; Quaternius is a starting point, not an exclusive dependency.
 
+#### Decision 1.1.6 — Humanlike family: keep the base body, author original gear, evaluate MPFB
+
+**Approved by owner:** 2026-10-17 (live steering session).
+
+For mmorpg and arpg, keep the Universal Base Characters body and head as the base for now and **author original outfits, armour and equipment in Blender** on that rig. A switch to MPFB/MakeHuman is decided by a side-by-side comparison: one MPFB character with an equivalent outfit and the same idle/walk clips, rendered next to the Ranger at the gameplay camera. Switch only if MPFB is clearly better for Decision 1.1.1's target and the transition is smooth.
+
 ### 1.2. Animation as character content
 
 #### Decision 1.2.1 — Rigged, moving humanoids with inspectable animation clips
