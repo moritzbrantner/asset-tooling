@@ -468,8 +468,14 @@ function resolveWith(profiles: Readonly<Record<string, ImageGenerateModelProfile
  * Validate parameters and fill every profile default. Pass the result to `runAssetOperation`:
  * build identity uses these resolved values, so explicit and omitted defaults share one identity.
  */
-export function resolveImageGenerateParameters(parameters: Record<string, unknown>): ImageGenerateParameters {
-  return resolveWith(IMAGE_GENERATE_MODEL_PROFILES as Record<string, ImageGenerateModelProfile>, parameters);
+export function resolveImageGenerateParameters(
+  parameters: Record<string, unknown>,
+  options: { profiles?: Readonly<Record<string, ImageGenerateModelProfile>> } = {},
+): ImageGenerateParameters {
+  const profiles = options.profiles === undefined
+    ? IMAGE_GENERATE_MODEL_PROFILES as Record<string, ImageGenerateModelProfile>
+    : parseProfiles(options.profiles);
+  return resolveWith(profiles, parameters);
 }
 
 /** Parameters reaching `runAssetOperation` must already be resolved, so identity never depends on omission. */
@@ -613,9 +619,10 @@ function createComfyUiRegistration(
     reproducibility: "approximate",
   };
 
-  // Signatures (inode, size, times, pinned digest) of model files this registration has hashed.
-  // A file is re-hashed whenever its signature changes, so multi-GB files are not re-read for every
-  // run while any replacement or rewrite is still detected before use, on hits and misses alike.
+  // Signatures of the model files the immediately preceding `verifyDependencies` hashed. Only the
+  // `execute` that follows it may reuse them (when the signature is unchanged), as
+  // image.comfyui.generate@1 does; every other check, including every cache hit, re-hashes the files,
+  // so a rewrite that preserves size and timestamps is still detected.
   const verified = new Map<string, string>();
   async function verifyModelFiles(profile: ImageGenerateModelProfile): Promise<void> {
     for (const role of ROLES) {
@@ -642,11 +649,18 @@ function createComfyUiRegistration(
     implementation,
     // Runs before every cache lookup (hits included): template and model files must still match.
     async verifyDependencies(_root, invocation): Promise<void> {
+      verified.clear();
       await preflight(invocation?.parameters);
     },
     async execute(root, invocation): Promise<AssetOperationResult> {
       // 1. Local preflight: resolved parameters, pinned template bytes, pinned model files.
-      const { parameters, profile, prompt } = await preflight(invocation?.parameters);
+      let checked: Awaited<ReturnType<typeof preflight>>;
+      try {
+        checked = await preflight(invocation?.parameters);
+      } finally {
+        verified.clear();
+      }
+      const { parameters, profile, prompt } = checked;
       const submitted = injectValues(prompt, profile, parameters);
 
       // 2. The server must still be the one this registration was created for.

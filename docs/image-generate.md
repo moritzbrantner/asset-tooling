@@ -33,7 +33,7 @@ const run = await runAssetOperation(root, registration, { parameters });
 // run.result.outputs.image: image/png AssetRef; run.result.observations: the receipt
 ```
 
-Always pass the **resolved** parameters. A registration rejects parameters that are not fully resolved.
+Always pass the **resolved** parameters. A registration rejects parameters that are not fully resolved. A registration created with a custom `profiles` set needs `resolveImageGenerateParameters(parameters, { profiles })`. Every run, including cache hits, re-hashes the pinned model files before use.
 
 ## Parameters
 
