@@ -7,6 +7,7 @@ import hashlib
 import importlib.util
 import json
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -53,10 +54,20 @@ def expected_requirement_lines(key: str = PINNED_KEY) -> list[str]:
     return sorted(f"{item['name']} @ {item['url']} --hash=sha256:{item['sha256']}" for item in cpu_torch_fixture()["wheels"][key])
 
 
-def torch_record() -> dict:
+def torch_record(key: str = PINNED_KEY) -> dict:
     return {"version": TORCH, "cuda": None,
-            "wheels": [{"name": "torch", "sha256": wheel("torch")["sha256"]},
-                       {"name": "torchvision", "sha256": wheel("torchvision")["sha256"]}]}
+            "wheels": [{"name": "torch", "sha256": wheel("torch", key)["sha256"]},
+                       {"name": "torchvision", "sha256": wheel("torchvision", key)["sha256"]}]}
+
+
+def is_env_probe(call: list[str]) -> bool:
+    """Runtime platform/ABI and torch-requirements probe (non-mutating)."""
+    return "-c" in call and "torchCudaRequirements" in call[call.index("-c") + 1]
+
+
+def is_torch_probe(call: list[str]) -> bool:
+    """Post-install torch import/version probe."""
+    return "-c" in call and not is_env_probe(call)
 
 
 @contextlib.contextmanager
@@ -90,6 +101,15 @@ class FakeHost:
         self.calls: list[list[str]] = []
         self.requirement_files: list[tuple[str, str]] = []
         self.probe_override = None
+        # Per-interpreter platform key reported by the runtime env probe; interpreters not
+        # listed report the caller's key (a venv created by the caller shares its ABI).
+        self.interpreter_keys: dict[str, str] = {}
+        # Requires-Dist names (nvidia-*/triton) declared by an installed CUDA torch build.
+        self.cuda_torch_requires = list(CUDA_ONLY)
+        # When set, the official installer's workspace `.venv` (or its python binary) is
+        # created as a symlink to this target.
+        self.venv_link_target: Path | None = None
+        self.python_link_target: Path | None = None
 
     # Helpers for building existing installs ---------------------------------------------
     @staticmethod
@@ -114,8 +134,7 @@ class FakeHost:
         for binary in (tc.binary("comfy"), tc.binary("python")):
             binary.touch()
         if self.workspace_venv:
-            Path(self.workspace_python()).parent.mkdir(parents=True)
-            Path(self.workspace_python()).touch()
+            self.make_workspace_venv()
         state = {
             "schemaVersion": 1, "commit": COMMIT, "cli": "1.22.0", "mcp": "0.10.0", "gpu": gpu,
             "runtimeEnvironment": "workspace" if self.workspace_venv else "cli",
@@ -126,6 +145,27 @@ class FakeHost:
             state["torch"] = torch
         tc.receipt.write_text(json.dumps(state, indent=2), encoding="utf8")
         return state
+
+    def make_workspace_venv(self):
+        venv = self.tc.comfy_repo / ".venv"
+        if self.venv_link_target is not None and not venv.exists():
+            self.venv_link_target.mkdir(parents=True, exist_ok=True)
+            venv.symlink_to(self.venv_link_target, target_is_directory=True)
+        python = Path(self.workspace_python())
+        python.parent.mkdir(parents=True, exist_ok=True)
+        if self.python_link_target is not None:
+            self.python_link_target.parent.mkdir(parents=True, exist_ok=True)
+            self.python_link_target.touch()
+            if not python.is_symlink():
+                python.symlink_to(self.python_link_target)
+        else:
+            python.touch()
+
+    def torch_cuda_requirements(self, packages: dict) -> list[str]:
+        version = packages.get("torch")
+        if version is None or version.endswith("+cpu"):
+            return []
+        return [name.lower() for name in self.cuda_torch_requires]
 
     # Classification -------------------------------------------------------------------
     def packages_for(self, python: str) -> dict:
@@ -174,8 +214,7 @@ class FakeHost:
             tc.comfy_repo.mkdir(parents=True, exist_ok=True)
             (tc.comfy_repo / "requirements.txt").write_text("numpy\n", encoding="utf8")
             if self.workspace_venv:
-                Path(self.workspace_python()).parent.mkdir(parents=True, exist_ok=True)
-                Path(self.workspace_python()).touch()
+                self.make_workspace_venv()
             return ""
         if executable == "git":
             if "rev-parse" in args:
@@ -184,6 +223,10 @@ class FakeHost:
                 return self.origin
             raise AssertionError(f"unexpected git invocation: {args}")
         packages = self.packages_for(executable)
+        if is_env_probe(args):
+            key = self.interpreter_keys.get(executable, setup.cpu_torch_platform_key())
+            return "noise from site hooks\n" + json.dumps(
+                {"key": key, "torchCudaRequirements": self.torch_cuda_requirements(packages)})
         if "-c" in args:
             if self.probe_override is not None:
                 return "noise from import\n" + json.dumps(self.probe_override)
@@ -454,7 +497,7 @@ class CpuTorchSetupTests(unittest.TestCase):
         requirements_at = fake.index(lambda c: c[0] == runtime and "install" in c and "-r" in c
                                      and c[c.index("-r") + 1] == requirements)
         self.assertNotIn("--require-hashes", fake.calls[requirements_at])
-        probe_at = fake.index(lambda c: c[0] == runtime and "-c" in c)
+        probe_at = fake.index(lambda c: c[0] == runtime and is_torch_probe(c))
         self.assertLess(comfy_at, hashed_at)
         self.assertLess(hashed_at, requirements_at)
         # pip check must run after requirements were installed; the probe follows the install steps.
@@ -503,14 +546,14 @@ class CpuTorchSetupTests(unittest.TestCase):
                 with host(), patch.object(setup, "run", side_effect=fake):
                     with self.assertRaises(setup.SetupError):
                         tc.setup_comfy("cpu")
-                self.assertTrue(any("-c" in call for call in fake.calls), "torch probe was not run")
+                self.assertTrue(any(is_torch_probe(call) for call in fake.calls), "torch probe was not run")
                 self.assertFalse(tc.receipt.exists())
 
     # Convergence ----------------------------------------------------------------------
     def cuda_runtime(self) -> dict:
         return {"torch": CUDA_TORCH, "torchvision": "0.29.1", "numpy": "2.3.0", **CUDA_ONLY}
 
-    def assert_converged(self, fake: FakeHost, old_state: dict):
+    def assert_converged(self, fake: FakeHost, old_state: dict, key: str = PINNED_KEY):
         tc = self.tc
         self.assertFalse([c for c in fake.calls if c[0] == str(tc.binary("comfy"))], "comfy install was re-run")
         self.assertFalse([c for c in fake.calls if "venv" in c[1:3]])
@@ -524,16 +567,16 @@ class CpuTorchSetupTests(unittest.TestCase):
         self.assertIn("--no-deps", fake.calls[hashed_at])
         lines = sorted(line.strip() for line in fake.requirement_files[0][1].splitlines()
                        if line.strip() and not line.strip().startswith("#"))
-        self.assertEqual(lines, expected_requirement_lines(PINNED_KEY))
+        self.assertEqual(lines, expected_requirement_lines(key))
         self.assertTrue(any(i > hashed_at for i, c in enumerate(fake.calls)
                             if c[0] == runtime and c[1:4] == ["-m", "pip", "check"]), "pip check after wheels")
-        self.assertTrue(any(i > hashed_at for i, c in enumerate(fake.calls) if c[0] == runtime and "-c" in c),
+        self.assertTrue(any(i > hashed_at for i, c in enumerate(fake.calls) if c[0] == runtime and is_torch_probe(c)),
                         "torch probe after wheels")
         self.assertEqual(fake.runtime["torch"], TORCH)
         self.assertFalse(any(name.startswith("nvidia-") or name == "triton" for name in fake.runtime))
         self.assertEqual(fake.runtime["numpy"], "2.3.0")
         state = self.receipt()
-        self.assertEqual(state["torch"], torch_record())
+        self.assertEqual(state["torch"], torch_record(key))
         self.assertEqual(state["schemaVersion"], 1)
         for key in ("commit", "cli", "mcp", "gpu", "runtimeEnvironment"):
             self.assertEqual(state[key], old_state[key], key)
@@ -647,6 +690,201 @@ class CpuTorchSetupTests(unittest.TestCase):
         self.assertIn(TORCH, message)
         self.assertEqual(fake.mutating_calls(), [])
 
+    # Managed runtime ownership (#239 P1) ---------------------------------------------
+    def runtime_mutations(self, fake: FakeHost) -> list[list[str]]:
+        runtime = fake.runtime_python()
+        return [c for c in fake.calls if c[0] == runtime and "pip" in c and ("install" in c or "uninstall" in c)]
+
+    def relink_outside(self, root: Path, path: Path) -> Path:
+        """Move a managed directory outside managed storage and leave a symlink in its place."""
+        outside = root / "user-owned" / path.name
+        outside.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(path), str(outside))
+        path.symlink_to(outside, target_is_directory=True)
+        return outside
+
+    def symlinked_runtime_cases(self):
+        return {
+            "workspace .venv": lambda tc: tc.comfy_repo / ".venv",
+            "ComfyUI checkout": lambda tc: tc.comfy_repo,
+            "comfy-workspace": lambda tc: tc.workspace,
+        }
+
+    def test_symlinked_runtime_is_never_converged(self):
+        for label, target in self.symlinked_runtime_cases().items():
+            with self.subTest(label):
+                root = Path(tempfile.mkdtemp(dir=self.temp.name))
+                write_fixture(root)
+                tc = setup.Toolchain(root)
+                fake = FakeHost(tc, runtime_packages=self.cuda_runtime())
+                fake.materialize_install(omit_torch=True)
+                self.relink_outside(root, target(tc))
+                before = tc.receipt.read_bytes()
+                packages = dict(fake.runtime)
+                with host(), patch.object(setup, "run", side_effect=fake):
+                    with self.assertRaisesRegex(setup.SetupError, "(?i)symlink|managed"):
+                        tc.setup_comfy("cpu")
+                self.assertEqual(fake.mutating_calls(), [])
+                self.assertEqual(fake.uninstalled(), set())
+                self.assertEqual(fake.runtime, packages)
+                self.assertEqual(tc.receipt.read_bytes(), before)
+
+    def test_symlinked_runtime_of_otherwise_ready_install_is_not_ready(self):
+        for label, target in self.symlinked_runtime_cases().items():
+            with self.subTest(label):
+                root = Path(tempfile.mkdtemp(dir=self.temp.name))
+                write_fixture(root)
+                tc = setup.Toolchain(root)
+                fake = FakeHost(tc, runtime_packages={"torch": TORCH, "torchvision": TORCHVISION, "numpy": "2.3.0"})
+                fake.materialize_install(torch=torch_record())
+                self.relink_outside(root, target(tc))
+                before = tc.receipt.read_bytes()
+                with host(), patch.object(setup, "run", side_effect=fake):
+                    for gpu in ("cpu", None):
+                        try:
+                            ready, message = tc.comfy_status(gpu)
+                        except setup.SetupError as exc:
+                            ready, message = False, str(exc)
+                        self.assertFalse(ready, f"doctor reported a symlinked runtime ready: {message}")
+                        self.assertRegex(message, "(?i)symlink|managed")
+                    with self.assertRaisesRegex(setup.SetupError, "(?i)symlink|managed"):
+                        tc.setup_comfy("cpu")
+                self.assertEqual(fake.mutating_calls(), [])
+                self.assertEqual(tc.receipt.read_bytes(), before)
+
+    def test_fresh_install_refuses_symlinked_workspace_venv(self):
+        fake = FakeHost(self.tc)
+        fake.venv_link_target = self.root / "user-owned" / "venv"
+        with host(), patch.object(setup, "run", side_effect=fake):
+            with self.assertRaisesRegex(setup.SetupError, "(?i)symlink|managed"):
+                self.tc.setup_comfy("cpu")
+        self.assertEqual(self.runtime_mutations(fake), [])
+        self.assertEqual(fake.requirement_files, [])
+        self.assertFalse(self.tc.receipt.exists())
+
+    def test_runtime_python_binary_symlinked_to_system_interpreter_is_allowed(self):
+        # Real venvs link bin/python to the base interpreter; only the venv directory and
+        # its parents must be managed, real directories.
+        fake = FakeHost(self.tc, runtime_packages=self.cuda_runtime())
+        fake.python_link_target = self.root / "system" / "python3.14"
+        old = fake.materialize_install(omit_torch=True)
+        self.assertTrue(Path(fake.workspace_python()).is_symlink())
+        with host(), patch.object(setup, "run", side_effect=fake):
+            self.tc.setup_comfy("cpu")
+        self.assert_converged(fake, old)
+
+        root = Path(tempfile.mkdtemp(dir=self.temp.name))
+        write_fixture(root)
+        tc = setup.Toolchain(root)
+        fresh = FakeHost(tc)
+        fresh.python_link_target = root / "system" / "python3.14"
+        with host(), patch.object(setup, "run", side_effect=fresh):
+            tc.setup_comfy("cpu")
+        self.assertTrue(Path(fresh.workspace_python()).is_symlink())
+        self.assertEqual(json.loads(tc.receipt.read_text(encoding="utf8"))["torch"], torch_record())
+
+    # Runtime ABI selects the wheel set (#239 P1) --------------------------------------
+    def assert_env_probe_before_mutation(self, fake: FakeHost):
+        runtime = fake.runtime_python()
+        probe_at = fake.index(lambda c: c[0] == runtime and is_env_probe(c))
+        mutations = [i for i, c in enumerate(fake.calls) if c in self.runtime_mutations(fake)]
+        self.assertTrue(mutations)
+        self.assertLess(probe_at, min(mutations))
+
+    def test_fresh_install_selects_wheels_from_runtime_abi_not_caller(self):
+        fake = FakeHost(self.tc)
+        fake.interpreter_keys[fake.workspace_python()] = "linux-x86_64-cp313"
+        with host("linux", "x86_64", (3, 14)), patch.object(setup, "run", side_effect=fake):
+            self.tc.setup_comfy("cpu")
+        lines = sorted(line.strip() for line in fake.requirement_files[0][1].splitlines()
+                       if line.strip() and not line.strip().startswith("#"))
+        self.assertEqual(lines, expected_requirement_lines("linux-x86_64-cp313"))
+        self.assert_env_probe_before_mutation(fake)
+        self.assertEqual(self.receipt()["torch"], torch_record("linux-x86_64-cp313"))
+        with host(), patch.object(setup, "run", side_effect=fake):
+            ready, message = self.tc.comfy_status("cpu")
+        self.assertTrue(ready, message)
+
+    def test_convergence_selects_wheels_from_runtime_abi_not_caller(self):
+        for workspace_venv in (True, False):
+            with self.subTest(workspace_venv=workspace_venv):
+                root = Path(tempfile.mkdtemp(dir=self.temp.name))
+                write_fixture(root)
+                self.tc = setup.Toolchain(root)
+                fake = FakeHost(self.tc, runtime_packages=self.cuda_runtime(), workspace_venv=workspace_venv)
+                fake.interpreter_keys[fake.runtime_python()] = "linux-x86_64-cp313"
+                old = fake.materialize_install(omit_torch=True)
+                with host("linux", "x86_64", (3, 14)), patch.object(setup, "run", side_effect=fake):
+                    self.tc.setup_comfy("cpu")
+                lines = sorted(line.strip() for line in fake.requirement_files[0][1].splitlines()
+                               if line.strip() and not line.strip().startswith("#"))
+                self.assertEqual(lines, expected_requirement_lines("linux-x86_64-cp313"))
+                self.assert_env_probe_before_mutation(fake)
+                self.assert_converged(fake, old, key="linux-x86_64-cp313")
+
+    def test_unpinned_runtime_abi_fails_before_uninstall_and_keeps_install(self):
+        unpinned = "linux-x86_64-cp316"
+        fake = FakeHost(self.tc, runtime_packages=self.cuda_runtime())
+        fake.interpreter_keys[fake.workspace_python()] = unpinned
+        fake.materialize_install(omit_torch=True)
+        before = self.tc.receipt.read_bytes()
+        packages = dict(fake.runtime)
+        with host("linux", "x86_64", (3, 14)), patch.object(setup, "run", side_effect=fake):
+            with self.assertRaisesRegex(setup.SetupError, unpinned):
+                self.tc.setup_comfy("cpu")
+        self.assertTrue(any(c[0] == fake.workspace_python() and is_env_probe(c) for c in fake.calls),
+                        "runtime ABI probe was not run")
+        self.assertEqual(fake.mutating_calls(), [])
+        self.assertEqual(fake.runtime, packages)
+        self.assertEqual(self.tc.receipt.read_bytes(), before)
+
+    def test_fresh_install_with_unpinned_runtime_abi_writes_no_receipt(self):
+        unpinned = "linux-x86_64-cp316"
+        fake = FakeHost(self.tc)
+        fake.interpreter_keys[fake.workspace_python()] = unpinned
+        with host("linux", "x86_64", (3, 14)), patch.object(setup, "run", side_effect=fake):
+            with self.assertRaisesRegex(setup.SetupError, unpinned):
+                self.tc.setup_comfy("cpu")
+        self.assertEqual(self.runtime_mutations(fake), [])
+        self.assertEqual(fake.requirement_files, [])
+        self.assertFalse(self.tc.receipt.exists())
+
+    # Removal set is torch's declared CUDA requirements (#239 P2) ------------------------
+    def test_convergence_keeps_nvidia_packages_torch_does_not_require(self):
+        unrelated = {"nvidia-ml-py": "13.580.0", "nvidia-pyindex": "1.0.9"}
+        fake = FakeHost(self.tc, runtime_packages={**self.cuda_runtime(), **unrelated})
+        fake.materialize_install(omit_torch=True)
+        with host(), patch.object(setup, "run", side_effect=fake):
+            self.tc.setup_comfy("cpu")
+        self.assertEqual(fake.uninstalled(), set(CUDA_ONLY))
+        for name, version in unrelated.items():
+            self.assertEqual(fake.runtime.get(name), version, name)
+        self.assertFalse(any(name in fake.runtime for name in CUDA_ONLY))
+        self.assertEqual(fake.runtime["torch"], TORCH)
+        self.assertEqual(self.receipt()["torch"], torch_record())
+        self.assertEqual(self.receipt()["runtimeEnvironmentSha256"], fake_sha(fake.freeze_text(fake.runtime)))
+
+    def test_convergence_removes_only_declared_requirements_that_are_installed(self):
+        # Torch declares one requirement that is absent; only installed ones are removed.
+        fake = FakeHost(self.tc, runtime_packages={**self.cuda_runtime(), "nvidia-ml-py": "13.580.0"})
+        fake.cuda_torch_requires = [*CUDA_ONLY, "nvidia-cusparselt-cu13"]
+        fake.materialize_install(omit_torch=True)
+        with host(), patch.object(setup, "run", side_effect=fake):
+            self.tc.setup_comfy("cpu")
+        self.assertEqual(fake.uninstalled(), set(CUDA_ONLY))
+        self.assertIn("nvidia-ml-py", fake.runtime)
+
+    def test_convergence_without_installed_torch_cuda_requirements_runs_no_uninstall(self):
+        fake = FakeHost(self.tc, runtime_packages={"torch": CUDA_TORCH, "torchvision": "0.29.1", "numpy": "2.3.0",
+                                                   "nvidia-ml-py": "13.580.0", "nvidia-pyindex": "1.0.9"})
+        fake.materialize_install(omit_torch=True)
+        with host(), patch.object(setup, "run", side_effect=fake):
+            self.tc.setup_comfy("cpu")
+        self.assertFalse([c for c in fake.calls if "uninstall" in c])
+        self.assertEqual(fake.runtime["nvidia-ml-py"], "13.580.0")
+        self.assertEqual(fake.runtime["nvidia-pyindex"], "1.0.9")
+        self.assertEqual(fake.runtime["torch"], TORCH)
+
     # NVIDIA unchanged -----------------------------------------------------------------
     def test_nvidia_setup_is_unchanged_and_not_gated_by_cpu_torch(self):
         for arguments in (("linux", "x86_64", (3, 14)), ("linux", "x86_64", (3, 16)), ("darwin", "arm64", (3, 14))):
@@ -665,7 +903,7 @@ class CpuTorchSetupTests(unittest.TestCase):
                                  ["install", "--url", setup.COMFY_SOURCE, "--version", "nightly", "--commit", COMMIT,
                                   "--skip-manager", "--nvidia", "--fast-deps"])
                 self.assertEqual(fake.requirement_files, [])
-                self.assertFalse([c for c in fake.calls if "--require-hashes" in c or "uninstall" in c or "-c" in c])
+                self.assertFalse([c for c in fake.calls if "--require-hashes" in c or "uninstall" in c or is_torch_probe(c)])
                 state = json.loads(tc.receipt.read_text(encoding="utf8"))
                 self.assertEqual(state["gpu"], "nvidia")
                 self.assertNotIn("torch", state)
