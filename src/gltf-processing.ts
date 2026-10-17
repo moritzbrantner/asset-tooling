@@ -122,6 +122,7 @@ export async function validateGltf(
   bytes: Uint8Array, format: "gltf" | "glb", resources: Record<string, Uint8Array>, location: string,
   allowedWarnings: readonly string[] = [], supersededCodes: readonly string[] = [],
   locatedSupersessions: readonly LocatedValidatorSupersession[] = [],
+  resolveResource?: (uri: string) => Uint8Array | undefined,
 ) {
   let report: Awaited<ReturnType<typeof validateBytes>>;
   const superseded = (issue: { code: string; pointer?: string }) => supersededCodes.includes(issue.code)
@@ -133,7 +134,8 @@ export async function validateGltf(
       // (one issue per repairable component) and every other issue at any pointer is still seen.
       format, writeTimestamp: false, maxIssues: locatedSupersessions.length ? 0 : 100, ignoredIssues: [...supersededCodes],
       externalResourceFunction: async (uri) => {
-        const bytes = resources[portableGltfUri(uri)];
+        // An explicit resolver (asset.bundle@4 packaged glTF) admits its exact listed URIs only.
+        const bytes = resolveResource ? resolveResource(uri) : resources[portableGltfUri(uri)];
         if (!bytes) throw new Error(`missing glTF resource '${uri}'`);
         return bytes;
       },

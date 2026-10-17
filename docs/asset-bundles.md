@@ -142,3 +142,87 @@ Keys are `warden.ability.1` (Heroic Strike), `.2` (Shield Bash), `.3` (Rallying 
 3. Reads the files it ships with `readAssetBundleAsset(dir, manifest, "warden.ability.<id>", "<variant>")`. Each read re-checks the file's pin.
 
 The consumer then copies the selected PNGs and the manifest sha256 into its own packaged assets. The consumer does not need ComfyUI, MCP, a GPU, model weights or network access at game runtime.
+
+## glTF resources profile
+
+`GLTF_RESOURCES_BUNDLE_PROFILE` selects `gltf-resources-v1`, the versioned profile the owner chose on [#118](https://github.com/moritzbrantner/asset-tooling/issues/118) (decision Q4, 2026-10-14: "glTF with external images stored once by hash, plus the doorway/collision descriptor and collision assets"). The rigged humanoid with clips of [#110](https://github.com/moritzbrantner/asset-tooling/issues/110) uses the same profile. It is `asset.bundle@4` (`GLTF_RESOURCES_BUNDLE_OPERATION`) through the same `createAssetBundleBuildIdentity`, `executeAssetBundleOperation`, `exportAssetBundle` and `verifyAssetBundle` functions. Its manifest has the separate immutable [v4 transport schema](../schemas/asset-bundle-v4.schema.json). `asset.bundle@1`–`@3`, their profiles and the v1–v3 schemas are unchanged.
+
+```ts
+import { GLTF_RESOURCES_BUNDLE_PROFILE, exportAssetBundle, verifyAssetBundle,
+  readAssetBundleGltf, readAssetBundleAttachment } from "asset-tooling/operations/bundle";
+
+const exported = await exportAssetBundle(root, directory, {
+  parameters: { profile: GLTF_RESOURCES_BUNDLE_PROFILE, assets: [
+    { key: "building.house", variant: "default", attachments: [{ name: "doorways" }, { name: "collision" }] },
+    { key: "character.ranger", variant: "composed" },
+  ] },
+  inputs: { assets: [houseGlb, rangerGlb], attachments: [doorwayDescriptorJson, collisionGlb] },
+});
+const checked = await verifyAssetBundle(directory, exported.manifest,
+  { profile: GLTF_RESOURCES_BUNDLE_PROFILE });
+const { gltf, resources } = await readAssetBundleGltf(directory, checked.manifest, "character.ranger", "composed");
+// e.g. new NodeIO().readJSON({ json: JSON.parse(gltf.toString("utf8")), resources: Object.fromEntries(resources) })
+```
+
+**Selection.** There are 1–256 selections, each `{ key, variant, attachments?: [{ name }] }`. `inputs.assets` pairs one `scene`/`model/gltf-binary` AssetRef with each selection, in selection order. `inputs.attachments` lists one AssetRef per selected attachment, in selection order and then attachment order. Like the other profiles, AssetRefs travel as declared operation inputs rather than inside parameters, so build identity pins them. Attachment names are unique portable tokens per entry, with at most 16 per entry. Attachment media types are `application/json` (for example the doorway/collision descriptor) and `model/gltf-binary` (for example a collision mesh), and any asset kind is accepted. Build identity sorts selections by key/variant and attachments by name.
+
+**Source admission.** Source GLBs may contain skins and animations. They are admitted with the `scene.import.gltf@2` loader (`parseCheckedGltfBytes` in rigged mode). That loader applies the Khronos validator, the one-buffer/no-extension/triangle policy, the accessor budget and the `gltf-weight-sum-tolerance-v1` check. Resources must be embedded. The allowed validator warnings are fixed for the whole profile: `NODE_SKINNED_MESH_NON_ROOT` and `MESH_PRIMITIVE_GENERATED_TANGENT_SPACE` (`GLTF_RESOURCES_BUNDLE_ALLOWED_VALIDATOR_WARNINGS`). They are recorded in the build identity's implementation policy and in the manifest's `policy`. JSON attachments must parse, and GLB attachments must pass the validator without errors.
+
+**Export layout.** Each GLB becomes `scenes/<key>/<variant>.gltf`: canonical glTF JSON whose buffers and images are external URIs `../../resources/<sha256>.<bin|png|jpg|webp|ktx2>`, chosen by media type. Images are split out of their bufferViews. The remaining bufferViews are copied byte-for-byte into one `.bin` per scene, so geometry, skin and animation bytes are unchanged. Each view keeps its offset's 4-byte phase, so accessor alignment holds. Every distinct resource payload is stored once under `resources/`: two characters that share a texture reference the same file. Attachments are stored as `attachments/<sha256>.<json|glb>`. Before anything is written, each exported `.gltf` is validated with exactly its external resources (no errors, only the profile's warnings) and loaded with glTF Transform.
+
+**Manifest.** It is canonical JSON with `schemaVersion: 4`, `profile: "gltf-resources-v1"`, `policy: { allowedValidatorWarnings }` and `assets` sorted by key, then variant. Each entry has these fields:
+
+- `key` and `variant`.
+- `source`: the full original GLB AssetRef.
+- `path`: the `.gltf` path.
+- `sha256`: the hash of the `.gltf` bytes.
+- `resources`: `{ uri, path, sha256, byteLength, mediaType }`, sorted by path.
+- `attachments`: `{ name, source, path, sha256, byteLength, mediaType }`, sorted by name. `source` keeps the attachment's provenance.
+- `observations`: `{ skins, animations: [names], triangles }`.
+
+`parseGltfResourcesBundleManifest` admits this shape. It checks path and URI against content identity, the policy, the sort orders and the budgets.
+
+**Recovery.** The shared export rules above apply, with one addition. Scene paths are logical rather than content-addressed, so the exporter writes all resources and attachments first and the scene files last, immediately before `manifest.json`, which is still the sole commit point. If a cancellation, callback error or other failure happens before that commit, the exporter restores every scene file the call replaced and removes every scene file it added. The previously accepted manifest therefore keeps verifying. Resume reuses completed files. `result.files` is the active distribution allowlist; `listAssetBundleFiles(manifest)` derives the same set from a manifest.
+
+**Verification and reading.** `verifyAssetBundle(dir, expectedRef, { profile: GLTF_RESOURCES_BUNDLE_PROFILE })` performs these checks:
+
+- It verifies the manifest pin.
+- It re-hashes every `.gltf`, resource and attachment, without following symbolic links.
+- It enforces closure: every buffer/image URI in each `.gltf` is a listed resource, and every listed resource is referenced.
+- It validates each `.gltf` with its resources, loads it, re-checks weight sums and compares the recomputed observations with the manifest.
+
+No source object store is needed. The default and other profiles reject a v4 bundle. `readAssetBundleGltf(dir, manifest, key, variant)` returns `{ gltf, resources }`, with resources keyed by the exact URI the glTF uses, after re-checking every pin and the entry's closure. `readAssetBundleAttachment(dir, manifest, key, variant, name)` reads one attachment. `readAssetBundleAsset` returns the `.gltf` bytes.
+
+Limits are 1–256 selections, 64 MiB per source GLB, resource or attachment, 1,024 resources per scene, 16 attachments per entry, 8 MiB per `.gltf`, JSON attachment and manifest, and 256 MiB of distinct payload bytes.
+
+### Release distribution and consumer pinning
+
+Owner decision Q5 on #118 distributes the bundle as a versioned GitHub Release. `bun scripts/pack-asset-bundle.ts <exportDir> <outFile.tar>` first verifies the export, then writes a deterministic ustar archive and `<outFile.tar>.sha256` in `sha256sum` format. The archive holds exactly `manifest.json`, its closure and `export.ref.json`, the content-only manifest AssetRef. Entries are sorted, regular files only, with mode 0644, uid/gid 0, empty owner names and mtime 0. Retained former export files are never shipped. Two independent exports of the same selection pack to identical bytes. `bun scripts/pack-asset-bundle.ts --verify <file.tar> [--ref <pinned export.ref.json>]` performs these checks:
+
+- It checks the `.sha256` pin.
+- It parses the tar strictly: header checksums, zero padding and sorted unique paths.
+- It requires exactly the closure plus `export.ref.json`.
+- It runs `verifyAssetBundle` on an extracted copy.
+
+The packing helpers are `packAssetBundle`, `verifyAssetBundleTar` and `readAssetBundleTar` in `src/asset-bundle-pack.ts`. Nothing touches the network. Publishing (`gh release create <tag> bundle.tar bundle.tar.sha256`) is a separate, explicit orchestrator step.
+
+A consumer pins three things: the release **tag**, the **tar sha256** and its own copy of **`export.ref.json`** (the manifest sha256 and byte length). It then:
+
+1. Downloads the tar from that tag and checks the tar sha256 before extracting.
+2. Extracts the tar and admits the manifest with `verifyAssetBundle(dir, pinnedRef, { profile: GLTF_RESOURCES_BUNDLE_PROFILE })`, or runs `--verify --ref` with its pinned copy. The consumer never trusts the downloaded `export.ref.json` by itself.
+3. Loads scenes with `readAssetBundleGltf` and attachments with `readAssetBundleAttachment`.
+
+No source store, Blender, GPU or network is needed after the download.
+
+`bun test test/gltf-resources-bundle.test.ts` covers the following with hand-authored skinned and animated fixtures:
+
+- Two entries that share one PNG stored once.
+- Byte-identical accessors.
+- Attachments.
+- Closure tampering, observation/policy/path forgery, corruption and missing files.
+- Incompatible selections rejected before any write.
+- Interrupted and failed export with resume.
+- Loading with the source store deleted.
+- The deterministic tar and its CLI.
+
+Its real-source test runs in the hosted `canonical-storage` job. It skips on Git LFS pointers unless `ASSET_TOOLING_REQUIRE_HYDRATED_STORAGE=1`. The test imports the Superhero body and the Male_Ranger outfit through `scene.import.gltf@2`, subsets the body with the [documented recipe](gltf-subset.md) and composes the two with `scene.compose.skinned.gltf@1`. It then bundles and verifies the composed Ranger with its source store deleted, and packs and verifies the tar.

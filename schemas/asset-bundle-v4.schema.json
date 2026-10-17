@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://moritzbrantner.github.io/asset-tooling/schemas/asset-bundle-v4.schema.json",
+  "title": "asset-tooling glTF resources bundle v4",
+  "description": "gltf-resources-v1 (asset.bundle@4): each selected GLB is packaged as scenes/<key>/<variant>.gltf whose buffers and images are external hash-addressed files under resources/, stored once across entries, plus content-addressed attachments. parseGltfResourcesBundleManifest additionally enforces unique sorted key/variant pairs, path/URI-to-content identity, sorted resources and attachments, the profile policy and the unique payload budget; verifyAssetBundle checks every file pin, the glTF resource closure and Khronos validation.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "profile", "policy", "assets"],
+  "properties": {
+    "schemaVersion": { "const": 4 },
+    "profile": { "const": "gltf-resources-v1" },
+    "policy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["allowedValidatorWarnings"],
+      "properties": {
+        "allowedValidatorWarnings": { "const": ["NODE_SKINNED_MESH_NON_ROOT", "MESH_PRIMITIVE_GENERATED_TANGENT_SPACE"] }
+      }
+    },
+    "assets": {
+      "type": "array", "minItems": 1, "maxItems": 256,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["key", "variant", "source", "path", "sha256", "resources", "attachments", "observations"],
+        "properties": {
+          "key": { "$ref": "#/$defs/token" },
+          "variant": { "$ref": "#/$defs/token" },
+          "source": { "$ref": "#/$defs/sceneRef" },
+          "path": { "type": "string", "pattern": "^scenes/[a-z0-9]+(?:[._-][a-z0-9]+)*/[a-z0-9]+(?:[._-][a-z0-9]+)*\\.gltf$" },
+          "sha256": { "$ref": "#/$defs/sha256" },
+          "resources": {
+            "type": "array", "minItems": 1, "maxItems": 1024,
+            "items": {
+              "type": "object", "additionalProperties": false,
+              "required": ["uri", "path", "sha256", "byteLength", "mediaType"],
+              "properties": {
+                "uri": { "type": "string", "pattern": "^\\.\\./\\.\\./resources/[0-9a-f]{64}\\.(?:bin|png|jpg|webp|ktx2)$" },
+                "path": { "type": "string", "pattern": "^resources/[0-9a-f]{64}\\.(?:bin|png|jpg|webp|ktx2)$" },
+                "sha256": { "$ref": "#/$defs/sha256" },
+                "byteLength": { "$ref": "#/$defs/byteLength" },
+                "mediaType": { "enum": ["application/octet-stream", "image/png", "image/jpeg", "image/webp", "image/ktx2"] }
+              }
+            }
+          },
+          "attachments": {
+            "type": "array", "maxItems": 16,
+            "items": {
+              "type": "object", "additionalProperties": false,
+              "required": ["name", "source", "path", "sha256", "byteLength", "mediaType"],
+              "properties": {
+                "name": { "$ref": "#/$defs/token" },
+                "source": { "$ref": "#/$defs/assetRef" },
+                "path": { "type": "string", "pattern": "^attachments/[0-9a-f]{64}\\.(?:json|glb)$" },
+                "sha256": { "$ref": "#/$defs/sha256" },
+                "byteLength": { "$ref": "#/$defs/byteLength" },
+                "mediaType": { "enum": ["application/json", "model/gltf-binary"] }
+              }
+            }
+          },
+          "observations": {
+            "type": "object", "additionalProperties": false,
+            "required": ["skins", "animations", "triangles"],
+            "properties": {
+              "skins": { "type": "integer", "minimum": 0 },
+              "animations": { "type": "array", "items": { "type": "string" } },
+              "triangles": { "type": "integer", "minimum": 0 }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "token": { "type": "string", "maxLength": 128, "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*$" },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "byteLength": { "type": "integer", "minimum": 1, "maximum": 67108864 },
+    "assetRef": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schemaVersion", "kind", "mediaType", "sha256", "byteLength", "metadata"],
+      "properties": {
+        "schemaVersion": { "const": 1 },
+        "kind": { "type": "string" },
+        "mediaType": { "type": "string" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "byteLength": { "$ref": "#/$defs/byteLength" },
+        "metadata": { "type": "object" }
+      }
+    },
+    "sceneRef": {
+      "allOf": [{ "$ref": "#/$defs/assetRef" }],
+      "properties": { "kind": { "const": "scene" }, "mediaType": { "const": "model/gltf-binary" } }
+    }
+  }
+}
