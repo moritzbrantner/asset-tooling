@@ -7,7 +7,8 @@ import {
   renderCatalogGalleryHtml,
 } from "../src/catalog-pages-site.js";
 import { renderBrowser3DStudioHtml } from "../src/browser-pages-site.js";
-import { renderAnimationViewerHtml } from "../src/animation-viewer-page.js";
+import { renderAnimationViewerHtml, renderRangerComparisonHtml } from "../src/animation-viewer-page.js";
+import { writeRangerComparisonData } from "../src/ranger-comparison.js";
 import { attachGeneratedGalleryPreviews, extendCatalogGalleryModel } from "../src/generated-gallery-assets.js";
 
 const root = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
@@ -130,8 +131,28 @@ await copyFile(
   path.join(viewerRoot, "character_bg.wasm"),
 );
 
+// Ranger source-versus-processed comparison (#111). Its data needs the hydrated humanoid payloads and the
+// pinned release tar (ASSET_TOOLING_RANGER_BUNDLE_TAR); without them the page reports that it has no data,
+// unless ASSET_TOOLING_REQUIRE_RANGER_COMPARISON=1 (the Pages workflow) makes that a build failure.
+const comparisonRoot = path.join(outputRoot, "compare", "ranger");
+const comparison = await writeRangerComparisonData({
+  repositoryRoot: root, outDir: comparisonRoot, bundleTar: process.env.ASSET_TOOLING_RANGER_BUNDLE_TAR || undefined,
+  require: process.env.ASSET_TOOLING_REQUIRE_RANGER_COMPARISON === "1",
+});
+await mkdir(comparisonRoot, { recursive: true });
+await writeFile(path.join(comparisonRoot, "index.html"), renderRangerComparisonHtml(), "utf8");
+const comparisonBuild = await Bun.build({
+  entrypoints: [path.join(root, "src", "browser", "ranger-comparison.ts")],
+  outdir: comparisonRoot, target: "browser", format: "esm", splitting: false, minify: true, sourcemap: "none", naming: "app.js",
+});
+if (!comparisonBuild.success) {
+  throw new Error("ranger comparison bundle failed:\n" + comparisonBuild.logs.map((entry) => entry.message).join("\n"));
+}
+await copyFile(path.join(rendererPackage, "imported-character-wasm", "character_bg.wasm"), path.join(comparisonRoot, "character_bg.wasm"));
+
 console.log(JSON.stringify({
   status: "built",
+  rangerComparison: comparison.status === "built" ? "built" : `unavailable: ${comparison.reason}`,
   assets: galleryModel.assets.length,
   detailPages: galleryModel.assets.length,
   browser3DStudio: true,
