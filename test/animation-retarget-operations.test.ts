@@ -11,6 +11,7 @@ import { fileURLToPath } from "node:url";
 import { resolveAssetObject, storeAssetObject } from "../src/asset-store.js";
 import {
   ANIMATION_RETARGET_OPERATION,
+  HUMANOID_BONE_IDS,
   THREE_D_ANIMATION_MEDIA_TYPE,
   THREE_D_HUMANOID_RIG_MEDIA_TYPE,
   createAnimationRetargetOperationBuildIdentity,
@@ -91,6 +92,11 @@ test("joint-name bindings convert to node indices per rig and fail on unknown or
   assert.throws(() => parseHumanoidRigDocument(Buffer.from(JSON.stringify({ ...SOURCE_RIG, jointNames: SOURCE_RIG.jointNames.slice(1) }))), /jointNames must name every rig node/);
 });
 
+test("upper-chest is an optional HumanoidBone between chest and neck (#268)", () => {
+  assert.deepEqual(HUMANOID_BONE_IDS.slice(2, 6), ["spine", "chest", "upper-chest", "neck"]);
+  assert.equal(HUMANOID_BONE_IDS.length, 23);
+});
+
 test("sampleRate grids cover both clip endpoints", () => {
   assert.deepEqual(retargetSampleTimes(0, 1, 4), [0, 0.25, 0.5, 0.75, 1]);
   assert.deepEqual(retargetSampleTimes(0, 0.9, 2), [0, 0.5, Math.fround(0.9)]);
@@ -137,5 +143,7 @@ test("animation.retarget@1 rejects invalid parameters and bindings before runnin
   await assert.rejects(run({ bindings: BINDINGS, sampleRate: 30, rootMotion: "drift" }), /rootMotion/);
   await assert.rejects(run({ bindings: { pelvis: { source: "a", target: "b" } }, sampleRate: 30, rootMotion: "keep" }), /unknown humanoid bone 'pelvis'/);
   await assert.rejects(run({ bindings: { ...BINDINGS, head: { source: "src.skull", target: "tgt.head" } }, sampleRate: 30, rootMotion: "keep" }), /RETARGET_JOINT_MISSING/);
+  // `upper-chest` (#268) is a known HumanoidBone, so it passes the id check and fails only on the joint name.
+  await assert.rejects(run({ bindings: { ...BINDINGS, "upper-chest": { source: "src.spine_03", target: "tgt.spine_03" } }, sampleRate: 30, rootMotion: "keep" }), /RETARGET_JOINT_MISSING/);
   await assert.rejects(run({ bindings: BINDINGS, sampleTimesSeconds: [0.5, 0.5], rootMotion: "keep" }), /strictly increasing/);
 });

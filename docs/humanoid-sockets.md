@@ -31,7 +31,7 @@ A `humanoid-sockets-v1` descriptor declares the attachment frames of one humanoi
 
 ## Ranger sockets
 
-[`assets/descriptors/humanoid.ranger.male.sockets.json`](../assets/descriptors/humanoid.ranger.male.sockets.json) is the versioned descriptor for `humanoid.ranger.male` ([humanoid-ranger.md](humanoid-ranger.md)). The Ranger bundle v4 ships it as the `humanoid-sockets` attachment of the character entry, next to the `equipment.sword.arming` and `equipment.shield.heater` entries. Bundles v2 and v3 ship the earlier descriptor, kept byte for byte as [`humanoid.ranger.male.sockets.bundle-v2.json`](../assets/descriptors/humanoid.ranger.male.sockets.bundle-v2.json) so that those versions stay reproducible.
+[`assets/descriptors/humanoid.ranger.male.sockets.json`](../assets/descriptors/humanoid.ranger.male.sockets.json) is the versioned descriptor for `humanoid.ranger.male` ([humanoid-ranger.md](humanoid-ranger.md)). The Ranger bundles v4 and v5 ship it as the `humanoid-sockets` attachment of the character entry, next to the `equipment.sword.arming` and `equipment.shield.heater` entries. Bundles v2 and v3 ship the earlier descriptor, kept byte for byte as [`humanoid.ranger.male.sockets.bundle-v2.json`](../assets/descriptors/humanoid.ranger.male.sockets.bundle-v2.json) so that those versions stay reproducible.
 
 | Socket | Joint | Accepts | Placement |
 | --- | --- | --- | --- |

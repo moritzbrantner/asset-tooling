@@ -818,11 +818,13 @@ async function checkAnimationReduce(root) {
   };
 }
 
-// Two tiny humanoid rigs (#110): the eleven required HumanoidBone semantics as one chain under the hips,
-// in a different joint order and naming on each side, with different hips heights.
+// Two tiny humanoid rigs (#110): the eleven required HumanoidBone semantics plus the optional
+// `upper-chest` (3d-lab 4e69c0f, #268) under the hips, in a different joint order and naming on each
+// side, with different hips heights.
 const RETARGET_BONES = [
   "hips", "spine", "head", "left-upper-arm", "left-lower-arm", "right-upper-arm",
   "right-lower-arm", "left-upper-leg", "left-lower-leg", "right-upper-leg", "right-lower-leg",
+  "upper-chest",
 ];
 function retargetRig(prefix, order, hipsHeight) {
   return {
@@ -861,6 +863,14 @@ async function checkAnimationRetarget(root) {
           { time: 1, value: [0, 0.70710677, 0, 0.70710677] },
         ],
       },
+      {
+        kind: "rotation",
+        node: RETARGET_BONES.indexOf("upper-chest"),
+        keyframes: [
+          { time: 0, value: [0, 0, 0, 1] },
+          { time: 1, value: [0.38268343, 0, 0, 0.92387953] },
+        ],
+      },
     ],
   }, "animation", THREE_D_ANIMATION_MEDIA_TYPE);
   const sourceRig = await store(retargetRig("src.", RETARGET_BONES, 1), "rig", THREE_D_HUMANOID_RIG_MEDIA_TYPE);
@@ -888,7 +898,7 @@ async function checkAnimationRetarget(root) {
   const second = await executeAnimationRetargetOperation(root, invocation, processor);
   assert.equal(second.outputs.output.sha256, first.outputs.output.sha256);
   assert.deepEqual(second.observations, first.observations);
-  assert.equal(first.observations.sourceKeyframeCount, 4);
+  assert.equal(first.observations.sourceKeyframeCount, 6);
   assert.equal(first.observations.sampleCount, 5);
   assert.equal(first.observations.mappedBoneCount, RETARGET_BONES.length);
   assert.equal(first.observations.rootMotion, "in-place");
@@ -900,6 +910,11 @@ async function checkAnimationRetarget(root) {
   const last = hipsTranslation.keyframes[hipsTranslation.keyframes.length - 1].value;
   assert.ok(Math.abs(last[0]) < 1e-5 && Math.abs(last[1] - 0.99) < 1e-4, `in-place hips ${last}`);
   assert.equal(output.channels.filter((channel) => channel.kind === "rotation").length, RETARGET_BONES.length);
+  // The optional upper-chest bend (45° about X at t = 1) lands on the target's upper-chest joint.
+  const upperChest = output.channels.find((channel) => channel.node === targetOrder.indexOf("upper-chest") && channel.kind === "rotation");
+  assert.ok(upperChest, "upper-chest rotation channel on the target rig's upper-chest index");
+  const bend = upperChest.keyframes[upperChest.keyframes.length - 1].value;
+  assert.ok(Math.abs(bend[0] - 0.38268343) < 1e-4 && Math.abs(bend[3] - 0.92387953) < 1e-4, `upper-chest ${bend}`);
   return {
     status: "processor-contract-valid",
     processor: identity.implementation.source,
