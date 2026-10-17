@@ -62,9 +62,30 @@ The GLB carries 46 named clips. They include exactly one `Idle_Loop` and one `Wa
 
 The GLB carries 43 named clips, including exactly one `Idle_Shield_Loop`. UAL1 has no shield guard. Its skin is the same 65-joint Unreal-style rig as the body and outfit (`root`, `pelvis`, `spine_01` …), so the Ranger recipe retargets it with a same-name bone map that absorbs the small rest-pose differences.
 
+### Female body and outfit (#115)
+
+Owner answer #115.Q1 = A (2026-10-17) adds the female base body and the matching full `Female_Ranger` outfit, from the same two archives and folders. They were promoted from the same verified local archive files, so no download was needed. `T_Eye_Brown.png`, `T_Eye_Normal.png` and the three `T_Ranger_*` textures are shared with the male assets and stored once.
+
+| Member | Kind | Bytes | SHA-256 |
+| --- | --- | --- | --- |
+| `Superhero_Female_FullBody.gltf` | mesh | 31,656 | `adedf28000a0716f689b009a70314506fc62f827498f77ba852acb5610f3f3f4` |
+| `Superhero_Female_FullBody.bin` | buffer | 990,808 | `3a8220a485b33d05d879115a50697728b45a151781106033afb8b8c243fca208` |
+| `T_Hair_2_BaseColor.png` | texture | 1,729,467 | `f9f4f2fb3eeeefb0b6f0fdef38b0770fd6607640c1c680b8139dd76697e9f9b3` |
+| `T_Hair_2_Normal.png` | texture | 4,710,013 | `172f230aae0d4366c3cfc0402b2e6d1811b11f8487344bff28605eeacac1558d` |
+| `T_Superhero_Female_Dark_BaseColor.png` | texture | 1,319,410 | `d366843ee7d9e9f37ec87a0e1c98c7f2e45573c08eeb80a51a6d9344e68cf288` |
+| `T_Superhero_Female_Normal.png` | texture | 3,940,537 | `cf922460b43ccd31e983e34db05514c9d451dd2f9cdd01a843978e797719f859` |
+| `T_Superhero_Female_Roughness.png` | texture | 3,277,022 | `d2beabf2bd0313e32c68dcdbb80dca371a6e994fabf96efa97128bf9f14fa57b` |
+| `Female_Ranger.gltf` | mesh | 45,461 | `9b98b2ae6af3b4a1ec22bf8928b939e0751f08b25b636de82bfa7364fb34d3e1` |
+| `Female_Ranger.bin` | buffer | 1,959,556 | `d015964ba0a26eee9c9d2ea6f07aa660bba88aa536cf8bb6b67944b9e97c46df` |
+| `T_Regular_Female_Dark_BaseColor.png` | texture | 1,348,542 | `3b6ab973f9f3d6f8961226a0dbd99cf6d1b72df3795a8a5c1620a55754c161c2` |
+| `T_Regular_Female_Normal.png` | texture | 3,913,459 | `e1051d3d56df9cf061bc14c769c37253aecd595f8275f9d4c0d6e0e953c00e18` |
+| `T_Regular_Female_Roughness.png` | texture | 3,274,215 | `da541fbd4b3bffe754fada5c29f8a0d8f836bf20ce7df8273607af4729a3a5ae` |
+
+`Superhero_Female_FullBody.gltf` references `T_Eye_Normal_png.png`, the same exporter artifact as the male body. The same Decision 6.1.3 substitution binds it to `T_Eye_Normal.png`. Its hair normal map, `T_Hair_2_Normal.png`, resolves by name.
+
 ## Declared substitution
 
-`Superhero_Male_FullBody.gltf` uses two normal-map URIs that the archive does not contain under those names. Under [Atlas Decision 6.1.3](decisions/atlas.md), each one is bound to the texture in the same folder:
+`Superhero_Male_FullBody.gltf` uses two normal-map URIs, and `Superhero_Female_FullBody.gltf` uses the eye one, that the archive does not contain under those names. Under [Atlas Decision 6.1.3](decisions/atlas.md), each one is bound to the texture in the same folder:
 
 - `T_Hair_1_Normal_png.png` (`images[0]`, the `MI_Hair_1` normal map) → `T_Hair_1_Normal.png`
 - `T_Eye_Normal_png.png` (`images[2]`, the `MI_Eyes` normal map) → `T_Eye_Normal.png`
@@ -72,8 +93,10 @@ The GLB carries 43 named clips, including exactly one `Idle_Shield_Loop`. UAL1 h
 The substitutes are the same-folder +Y (OpenGL) normal maps. Their bytes are identical to the copies under `Textures/Normals Unity - Godot/`. The broken names are a Blender glTF exporter `_png.png` naming artifact, not a missing bake: the same folder also ships `T_Hair_1_BaseColor.png` and a byte-identical `T_Hair_1_BaseColor_png.png`. Both substitutes are ordinary members, promoted like the others. Each record names the URI it stands in for:
 
 ```json
-"metadata": { "substitutesFor": { "member": "quaternius.universal-base-characters-standard.superhero-male-fullbody-gltf", "uri": "T_Hair_1_Normal_png.png" } }
+"metadata": { "substitutesFor": [{ "member": "quaternius.universal-base-characters-standard.superhero-male-fullbody-gltf", "uri": "T_Hair_1_Normal_png.png" }] }
 ```
+
+`substitutesFor` is a list, because `T_Eye_Normal.png` stands in for the same URI in both bodies. Each entry is `{ member, uri }`.
 
 The source glTF bytes stay unchanged, and no bytes are invented or edited. The broken URIs themselves are not registered or stored. A consumer binds each URI to its substitute through the glTF importer's `resourceUris`. This replaces the known gap recorded under Decision 6.1.2.
 

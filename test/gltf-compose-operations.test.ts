@@ -267,7 +267,7 @@ function memberId(archive: string, memberPath: string): string {
 
 /** Adjacent basename, or the one member whose metadata.substitutesFor names the URI (docs/humanoid-sources.md). */
 function resourceId(archive: string, gltfId: string, uri: string): string {
-  const substitutes = rawSources.filter((source) => source.metadata?.substitutesFor?.member === gltfId && source.metadata.substitutesFor.uri === uri);
+  const substitutes = rawSources.filter((source) => source.metadata?.substitutesFor?.some((entry: Json) => entry.member === gltfId && entry.uri === uri));
   if (substitutes.length === 1) return substitutes[0]!.id;
   const matches = rawSources.filter((source) => source.archiveMember?.archive === archive && path.posix.basename(source.archiveMember.path) === uri);
   assert.equal(matches.length, 1, `URI '${uri}' must resolve to one member`);
