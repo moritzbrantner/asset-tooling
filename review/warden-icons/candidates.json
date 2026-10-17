@@ -121,6 +121,486 @@
           "outputFilename": "warden-icon_00003_.png"
         }
       }
+    },
+    {
+      "id": "warden.ability.1.candidate.02",
+      "ability": "warden.ability.1",
+      "state": "candidate",
+      "path": "candidates/warden.ability.1.candidate.02.png",
+      "mediaType": "image/png",
+      "sha256": "fe35744bcd9a465a7c63627453626aad0d29688d355c3125a2b87efb5c3956ab",
+      "byteLength": 422031,
+      "width": 512,
+      "height": 512,
+      "provenance": {
+        "provider": "comfyui",
+        "operation": "image.comfyui.generate@1",
+        "reproducibility": "approximate",
+        "workflow": {
+          "path": "workflow.sd15-icon.api.json",
+          "sha256": "5dd3fc731d09dfae62dc9993640ea34311a40c9fb66f1857304810419fab61ea"
+        },
+        "checkpoint": {
+          "byteLength": 4265146304,
+          "license": "creativeml-openrail-m",
+          "name": "v1-5-pruned-emaonly.safetensors",
+          "sha256": "6ce0161689b3853acaa03779ec93eafe75a02f4ced659bee03f50797806fa2fa"
+        },
+        "seed": 211108,
+        "positivePrompt": "a single gleaming longsword striking diagonally downward, blade glowing with golden light, bright slash streak, flying sparks, dark fantasy game ability icon, digital oil painting, painterly brush strokes, single bold centered subject, strong clear silhouette, dramatic rim lighting, high contrast, dark smoky vignette background, polished steel and warm firelight, square composition",
+        "negativePrompt": "text, letters, words, watermark, signature, logo, frame, border, user interface, multiple subjects, cluttered, busy background, blurry, low resolution, jpeg artifacts, photograph, cropped, deformed, person, face, hands",
+        "comfyui": {
+          "commit": "98cc0bf84b7cb1383654c5b402e7612d875d6d22",
+          "version": "0.41.0"
+        },
+        "run": {
+          "promptId": "91102fb3-deab-46af-9c94-561110a65810",
+          "submittedPromptSha256": "4e35e291f2f2a3d93125c7a66857b20eb0ff5aafd1ae0f7cdbf504cb2ad39d6b",
+          "outputNode": "9",
+          "outputFilename": "warden-icon_00008_.png",
+          "device": "cuda:0 NVIDIA GeForce RTX 3060 Ti"
+        }
+      }
+    },
+    {
+      "id": "warden.ability.1.candidate.03",
+      "ability": "warden.ability.1",
+      "state": "candidate",
+      "path": "candidates/warden.ability.1.candidate.03.png",
+      "mediaType": "image/png",
+      "sha256": "a698c66583a3c24220b932ce2f1eb8e6612d747ab943000289f1977504f3ab55",
+      "byteLength": 372641,
+      "width": 512,
+      "height": 512,
+      "provenance": {
+        "provider": "comfyui",
+        "operation": "image.comfyui.generate@1",
+        "reproducibility": "approximate",
+        "workflow": {
+          "path": "workflow.sd15-icon.api.json",
+          "sha256": "5dd3fc731d09dfae62dc9993640ea34311a40c9fb66f1857304810419fab61ea"
+        },
+        "checkpoint": {
+          "byteLength": 4265146304,
+          "license": "creativeml-openrail-m",
+          "name": "v1-5-pruned-emaonly.safetensors",
+          "sha256": "6ce0161689b3853acaa03779ec93eafe75a02f4ced659bee03f50797806fa2fa"
+        },
+        "seed": 211103,
+        "positivePrompt": "a single gleaming longsword striking diagonally downward, blade glowing with golden light, bright slash streak, flying sparks, dark fantasy game ability icon, digital oil painting, painterly brush strokes, single bold centered subject, strong clear silhouette, dramatic rim lighting, high contrast, dark smoky vignette background, polished steel and warm firelight, square composition",
+        "negativePrompt": "text, letters, words, watermark, signature, logo, frame, border, user interface, multiple subjects, cluttered, busy background, blurry, low resolution, jpeg artifacts, photograph, cropped, deformed, person, face, hands",
+        "comfyui": {
+          "commit": "98cc0bf84b7cb1383654c5b402e7612d875d6d22",
+          "version": "0.41.0"
+        },
+        "run": {
+          "promptId": "7d450f3c-cb9d-4502-bcfc-b8a5f74c1107",
+          "submittedPromptSha256": "d563827c73f7383f6faf3c6192273e98a62bcdba99e151027db830cc8eeaf49f",
+          "outputNode": "9",
+          "outputFilename": "warden-icon_00003_.png",
+          "device": "cuda:0 NVIDIA GeForce RTX 3060 Ti"
+        }
+      }
+    },
+    {
+      "id": "warden.ability.1.candidate.04",
+      "ability": "warden.ability.1",
+      "state": "candidate",
+      "path": "candidates/warden.ability.1.candidate.04.png",
+      "mediaType": "image/png",
+      "sha256": "d3889c16f3abd60fa00db66b4dbb9095b5ff09dfe3467cfcd6892688d1415acc",
+      "byteLength": 387288,
+      "width": 512,
+      "height": 512,
+      "provenance": {
+        "provider": "comfyui",
+        "operation": "image.comfyui.generate@1",
+        "reproducibility": "approximate",
+        "workflow": {
+          "path": "workflow.sd15-icon.api.json",
+          "sha256": "5dd3fc731d09dfae62dc9993640ea34311a40c9fb66f1857304810419fab61ea"
+        },
+        "checkpoint": {
+          "byteLength": 4265146304,
+          "license": "creativeml-openrail-m",
+          "name": "v1-5-pruned-emaonly.safetensors",
+          "sha256": "6ce0161689b3853acaa03779ec93eafe75a02f4ced659bee03f50797806fa2fa"
+        },
+        "seed": 211102,
+        "positivePrompt": "a single gleaming longsword striking diagonally downward, blade glowing with golden light, bright slash streak, flying sparks, dark fantasy game ability icon, digital oil painting, painterly brush strokes, single bold centered subject, strong clear silhouette, dramatic rim lighting, high contrast, dark smoky vignette background, polished steel and warm firelight, square composition",
+        "negativePrompt": "text, letters, words, watermark, signature, logo, frame, border, user interface, multiple subjects, cluttered, busy background, blurry, low resolution, jpeg artifacts, photograph, cropped, deformed, person, face, hands",
+        "comfyui": {
+          "commit": "98cc0bf84b7cb1383654c5b402e7612d875d6d22",
+          "version": "0.41.0"
+        },
+        "run": {
+          "promptId": "b4b4c3f8-e33a-4fc1-aa1c-f916969ac748",
+          "submittedPromptSha256": "a5d9f17a2d94269bdbdce1808710eb5d79da610560318af284b92015302b0ab1",
+          "outputNode": "9",
+          "outputFilename": "warden-icon_00002_.png",
+          "device": "cuda:0 NVIDIA GeForce RTX 3060 Ti"
+        }
+      }
+    },
+    {
+      "id": "warden.ability.2.candidate.02",
+      "ability": "warden.ability.2",
+      "state": "candidate",
+      "path": "candidates/warden.ability.2.candidate.02.png",
+      "mediaType": "image/png",
+      "sha256": "60bf7b9c18aa9fb82c966a01f7a5e75e2e04b35f78f9c2fd4b6c1077a5e86c5f",
+      "byteLength": 466712,
+      "width": 512,
+      "height": 512,
+      "provenance": {
+        "provider": "comfyui",
+        "operation": "image.comfyui.generate@1",
+        "reproducibility": "approximate",
+        "workflow": {
+          "path": "workflow.sd15-icon.api.json",
+          "sha256": "5dd3fc731d09dfae62dc9993640ea34311a40c9fb66f1857304810419fab61ea"
+        },
+        "checkpoint": {
+          "byteLength": 4265146304,
+          "license": "creativeml-openrail-m",
+          "name": "v1-5-pruned-emaonly.safetensors",
+          "sha256": "6ce0161689b3853acaa03779ec93eafe75a02f4ced659bee03f50797806fa2fa"
+        },
+        "seed": 211206,
+        "positivePrompt": "a heavy round steel shield with a riveted central boss slamming forward, radial impact shockwave burst, cracking sparks, front view, dark fantasy game ability icon, digital oil painting, painterly brush strokes, single bold centered subject, strong clear silhouette, dramatic rim lighting, high contrast, dark smoky vignette background, polished steel and warm firelight, square composition",
+        "negativePrompt": "text, letters, words, watermark, signature, logo, frame, border, user interface, multiple subjects, cluttered, busy background, blurry, low resolution, jpeg artifacts, photograph, cropped, deformed, person, face, hands",
+        "comfyui": {
+          "commit": "98cc0bf84b7cb1383654c5b402e7612d875d6d22",
+          "version": "0.41.0"
+        },
+        "run": {
+          "promptId": "079562fe-2393-4940-a5a5-541d16d66b04",
+          "submittedPromptSha256": "8a83bd23310e230885f576ce8d7598d4a0f50035d40fc4e54afe7d854c6ee827",
+          "outputNode": "9",
+          "outputFilename": "warden-icon_00014_.png",
+          "device": "cuda:0 NVIDIA GeForce RTX 3060 Ti"
+        }
+      }
+    },
+    {
+      "id": "warden.ability.2.candidate.03",
+      "ability": "warden.ability.2",
+      "state": "candidate",
+      "path": "candidates/warden.ability.2.candidate.03.png",
+      "mediaType": "image/png",
+      "sha256": "ca08eb365c10d5d9860745a73054cf575cc5eae7c57cfac209afff1cbf45d96c",
+      "byteLength": 449717,
+      "width": 512,
+      "height": 512,
+      "provenance": {
+        "provider": "comfyui",
+        "operation": "image.comfyui.generate@1",
+        "reproducibility": "approximate",
+        "workflow": {
+          "path": "workflow.sd15-icon.api.json",
+          "sha256": "5dd3fc731d09dfae62dc9993640ea34311a40c9fb66f1857304810419fab61ea"
+        },
+        "checkpoint": {
+          "byteLength": 4265146304,
+          "license": "creativeml-openrail-m",
+          "name": "v1-5-pruned-emaonly.safetensors",
+          "sha256": "6ce0161689b3853acaa03779ec93eafe75a02f4ced659bee03f50797806fa2fa"
+        },
+        "seed": 211202,
+        "positivePrompt": "a heavy round steel shield with a riveted central boss slamming forward, radial impact shockwave burst, cracking sparks, front view, dark fantasy game ability icon, digital oil painting, painterly brush strokes, single bold centered subject, strong clear silhouette, dramatic rim lighting, high contrast, dark smoky vignette background, polished steel and warm firelight, square composition",
+        "negativePrompt": "text, letters, words, watermark, signature, logo, frame, border, user interface, multiple subjects, cluttered, busy background, blurry, low resolution, jpeg artifacts, photograph, cropped, deformed, person, face, hands",
+        "comfyui": {
+          "commit": "98cc0bf84b7cb1383654c5b402e7612d875d6d22",
+          "version": "0.41.0"
+        },
+        "run": {
+          "promptId": "baeb527d-01e6-40b6-857a-e414661c99e9",
+          "submittedPromptSha256": "f6f0e1c3bbfdcf8a867bbf8fc89fb761cba14d8e4758fcfc29a2b6818189b5fb",
+          "outputNode": "9",
+          "outputFilename": "warden-icon_00010_.png",
+          "device": "cuda:0 NVIDIA GeForce RTX 3060 Ti"
+        }
+      }
+    },
+    {
+      "id": "warden.ability.2.candidate.04",
+      "ability": "warden.ability.2",
+      "state": "candidate",
+      "path": "candidates/warden.ability.2.candidate.04.png",
+      "mediaType": "image/png",
+      "sha256": "3efc4359867b6de29431fde3f7b27545e4a663ae3297a8fa77028f531c6a67a2",
+      "byteLength": 461203,
+      "width": 512,
+      "height": 512,
+      "provenance": {
+        "provider": "comfyui",
+        "operation": "image.comfyui.generate@1",
+        "reproducibility": "approximate",
+        "workflow": {
+          "path": "workflow.sd15-icon.api.json",
+          "sha256": "5dd3fc731d09dfae62dc9993640ea34311a40c9fb66f1857304810419fab61ea"
+        },
+        "checkpoint": {
+          "byteLength": 4265146304,
+          "license": "creativeml-openrail-m",
+          "name": "v1-5-pruned-emaonly.safetensors",
+          "sha256": "6ce0161689b3853acaa03779ec93eafe75a02f4ced659bee03f50797806fa2fa"
+        },
+        "seed": 211205,
+        "positivePrompt": "a heavy round steel shield with a riveted central boss slamming forward, radial impact shockwave burst, cracking sparks, front view, dark fantasy game ability icon, digital oil painting, painterly brush strokes, single bold centered subject, strong clear silhouette, dramatic rim lighting, high contrast, dark smoky vignette background, polished steel and warm firelight, square composition",
+        "negativePrompt": "text, letters, words, watermark, signature, logo, frame, border, user interface, multiple subjects, cluttered, busy background, blurry, low resolution, jpeg artifacts, photograph, cropped, deformed, person, face, hands",
+        "comfyui": {
+          "commit": "98cc0bf84b7cb1383654c5b402e7612d875d6d22",
+          "version": "0.41.0"
+        },
+        "run": {
+          "promptId": "f0078a29-5004-48da-80e5-73318498752e",
+          "submittedPromptSha256": "ff5c342183ba7291236bfe95a6e96b12f293cb7021ffd665b641ed579a694e31",
+          "outputNode": "9",
+          "outputFilename": "warden-icon_00013_.png",
+          "device": "cuda:0 NVIDIA GeForce RTX 3060 Ti"
+        }
+      }
+    },
+    {
+      "id": "warden.ability.3.candidate.02",
+      "ability": "warden.ability.3",
+      "state": "candidate",
+      "path": "candidates/warden.ability.3.candidate.02.png",
+      "mediaType": "image/png",
+      "sha256": "95145acceb968812bd83c1b4b9999b5f22eb57b0ba630f5881e83f5ec9fbc7eb",
+      "byteLength": 510504,
+      "width": 512,
+      "height": 512,
+      "provenance": {
+        "provider": "comfyui",
+        "operation": "image.comfyui.generate@1",
+        "reproducibility": "approximate",
+        "workflow": {
+          "path": "workflow.sd15-icon.api.json",
+          "sha256": "5dd3fc731d09dfae62dc9993640ea34311a40c9fb66f1857304810419fab61ea"
+        },
+        "checkpoint": {
+          "byteLength": 4265146304,
+          "license": "creativeml-openrail-m",
+          "name": "v1-5-pruned-emaonly.safetensors",
+          "sha256": "6ce0161689b3853acaa03779ec93eafe75a02f4ced659bee03f50797806fa2fa"
+        },
+        "seed": 211318,
+        "positivePrompt": "a curved ivory war horn with bronze bands sounding a call, glowing golden sound rings rippling outward, tattered red war banner behind it, dark fantasy game ability icon, digital oil painting, painterly brush strokes, single bold centered subject, strong clear silhouette, dramatic rim lighting, high contrast, dark smoky vignette background, polished steel and warm firelight, square composition",
+        "negativePrompt": "text, letters, words, watermark, signature, logo, frame, border, user interface, multiple subjects, cluttered, busy background, blurry, low resolution, jpeg artifacts, photograph, cropped, deformed, person, face, hands",
+        "comfyui": {
+          "commit": "98cc0bf84b7cb1383654c5b402e7612d875d6d22",
+          "version": "0.41.0"
+        },
+        "run": {
+          "promptId": "76100299-5fa1-43da-9208-9f93a21d1209",
+          "submittedPromptSha256": "3fbe5f55730c2f0e7db9ba5db8a5367dbb207dc26c325af4f81e4bc48ef2cd3a",
+          "outputNode": "9",
+          "outputFilename": "warden-icon_00042_.png",
+          "device": "cuda:0 NVIDIA GeForce RTX 3060 Ti"
+        }
+      }
+    },
+    {
+      "id": "warden.ability.3.candidate.03",
+      "ability": "warden.ability.3",
+      "state": "candidate",
+      "path": "candidates/warden.ability.3.candidate.03.png",
+      "mediaType": "image/png",
+      "sha256": "bf2de796f316ebb804f1221f75b5380dbee271466f00f0e4fd70cfea9ac3a73c",
+      "byteLength": 437281,
+      "width": 512,
+      "height": 512,
+      "provenance": {
+        "provider": "comfyui",
+        "operation": "image.comfyui.generate@1",
+        "reproducibility": "approximate",
+        "workflow": {
+          "path": "workflow.sd15-icon.api.json",
+          "sha256": "5dd3fc731d09dfae62dc9993640ea34311a40c9fb66f1857304810419fab61ea"
+        },
+        "checkpoint": {
+          "byteLength": 4265146304,
+          "license": "creativeml-openrail-m",
+          "name": "v1-5-pruned-emaonly.safetensors",
+          "sha256": "6ce0161689b3853acaa03779ec93eafe75a02f4ced659bee03f50797806fa2fa"
+        },
+        "seed": 211317,
+        "positivePrompt": "a curved ivory war horn with bronze bands sounding a call, glowing golden sound rings rippling outward, tattered red war banner behind it, dark fantasy game ability icon, digital oil painting, painterly brush strokes, single bold centered subject, strong clear silhouette, dramatic rim lighting, high contrast, dark smoky vignette background, polished steel and warm firelight, square composition",
+        "negativePrompt": "text, letters, words, watermark, signature, logo, frame, border, user interface, multiple subjects, cluttered, busy background, blurry, low resolution, jpeg artifacts, photograph, cropped, deformed, person, face, hands",
+        "comfyui": {
+          "commit": "98cc0bf84b7cb1383654c5b402e7612d875d6d22",
+          "version": "0.41.0"
+        },
+        "run": {
+          "promptId": "f76e1264-c08e-4aa8-bd70-59cc866b42db",
+          "submittedPromptSha256": "49b035ca59f780ce7da211d4da0f6f79d78d6c21b1d04ff574378577a566535d",
+          "outputNode": "9",
+          "outputFilename": "warden-icon_00041_.png",
+          "device": "cuda:0 NVIDIA GeForce RTX 3060 Ti"
+        }
+      }
+    },
+    {
+      "id": "warden.ability.3.candidate.04",
+      "ability": "warden.ability.3",
+      "state": "candidate",
+      "path": "candidates/warden.ability.3.candidate.04.png",
+      "mediaType": "image/png",
+      "sha256": "2ff14195c48d7acedaf59429348a0452fe0a980cc6f78b6db969897ef4682c66",
+      "byteLength": 550874,
+      "width": 512,
+      "height": 512,
+      "provenance": {
+        "provider": "comfyui",
+        "operation": "image.comfyui.generate@1",
+        "reproducibility": "approximate",
+        "workflow": {
+          "path": "workflow.sd15-icon.api.json",
+          "sha256": "5dd3fc731d09dfae62dc9993640ea34311a40c9fb66f1857304810419fab61ea"
+        },
+        "checkpoint": {
+          "byteLength": 4265146304,
+          "license": "creativeml-openrail-m",
+          "name": "v1-5-pruned-emaonly.safetensors",
+          "sha256": "6ce0161689b3853acaa03779ec93eafe75a02f4ced659bee03f50797806fa2fa"
+        },
+        "seed": 211310,
+        "positivePrompt": "a curved ivory war horn with bronze bands sounding a call, glowing golden sound rings rippling outward, tattered red war banner behind it, dark fantasy game ability icon, digital oil painting, painterly brush strokes, single bold centered subject, strong clear silhouette, dramatic rim lighting, high contrast, dark smoky vignette background, polished steel and warm firelight, square composition",
+        "negativePrompt": "text, letters, words, watermark, signature, logo, frame, border, user interface, multiple subjects, cluttered, busy background, blurry, low resolution, jpeg artifacts, photograph, cropped, deformed, person, face, hands",
+        "comfyui": {
+          "commit": "98cc0bf84b7cb1383654c5b402e7612d875d6d22",
+          "version": "0.41.0"
+        },
+        "run": {
+          "promptId": "d03920cc-ac75-470b-a0f7-3f8c3d5e5101",
+          "submittedPromptSha256": "372c94d294fd8d7fc21fcc7754e20a40b212945bae8b7960111d278cb3d89d67",
+          "outputNode": "9",
+          "outputFilename": "warden-icon_00034_.png",
+          "device": "cuda:0 NVIDIA GeForce RTX 3060 Ti"
+        }
+      }
+    },
+    {
+      "id": "warden.ability.4.candidate.01",
+      "ability": "warden.ability.4",
+      "state": "candidate",
+      "path": "candidates/warden.ability.4.candidate.01.png",
+      "mediaType": "image/png",
+      "sha256": "01dd108e2212989ba29dc0f1fb948e92c48a25e95b275744f3c97ff7b42d8d3e",
+      "byteLength": 657740,
+      "width": 512,
+      "height": 512,
+      "provenance": {
+        "provider": "comfyui",
+        "operation": "image.comfyui.generate@1",
+        "reproducibility": "approximate",
+        "workflow": {
+          "path": "workflow.sd15-icon.api.json",
+          "sha256": "5dd3fc731d09dfae62dc9993640ea34311a40c9fb66f1857304810419fab61ea"
+        },
+        "checkpoint": {
+          "byteLength": 4265146304,
+          "license": "creativeml-openrail-m",
+          "name": "v1-5-pruned-emaonly.safetensors",
+          "sha256": "6ce0161689b3853acaa03779ec93eafe75a02f4ced659bee03f50797806fa2fa"
+        },
+        "seed": 211421,
+        "positivePrompt": "a huge broad-bladed battle axe sweeping in a wide horizontal crescent arc, glowing crimson arc trail across the whole image, dark fantasy game ability icon, digital oil painting, painterly brush strokes, single bold centered subject, strong clear silhouette, dramatic rim lighting, high contrast, dark smoky vignette background, polished steel and warm firelight, square composition",
+        "negativePrompt": "text, letters, words, watermark, signature, logo, frame, border, user interface, multiple subjects, cluttered, busy background, blurry, low resolution, jpeg artifacts, photograph, cropped, deformed, person, face, hands",
+        "comfyui": {
+          "commit": "98cc0bf84b7cb1383654c5b402e7612d875d6d22",
+          "version": "0.41.0"
+        },
+        "run": {
+          "promptId": "653d5402-7b76-4f54-8f85-aa5e14d3bfe0",
+          "submittedPromptSha256": "3a158585a5ed1dc4f365a3294f600c5209b74f66d9869133277439db95bbbeb7",
+          "outputNode": "9",
+          "outputFilename": "warden-icon_00057_.png",
+          "device": "cuda:0 NVIDIA GeForce RTX 3060 Ti"
+        }
+      }
+    },
+    {
+      "id": "warden.ability.4.candidate.02",
+      "ability": "warden.ability.4",
+      "state": "candidate",
+      "path": "candidates/warden.ability.4.candidate.02.png",
+      "mediaType": "image/png",
+      "sha256": "147721b03162232c88896b41da40fc3dfc76dfe3c56f94dcb35797e6d083769b",
+      "byteLength": 436385,
+      "width": 512,
+      "height": 512,
+      "provenance": {
+        "provider": "comfyui",
+        "operation": "image.comfyui.generate@1",
+        "reproducibility": "approximate",
+        "workflow": {
+          "path": "workflow.sd15-icon.api.json",
+          "sha256": "5dd3fc731d09dfae62dc9993640ea34311a40c9fb66f1857304810419fab61ea"
+        },
+        "checkpoint": {
+          "byteLength": 4265146304,
+          "license": "creativeml-openrail-m",
+          "name": "v1-5-pruned-emaonly.safetensors",
+          "sha256": "6ce0161689b3853acaa03779ec93eafe75a02f4ced659bee03f50797806fa2fa"
+        },
+        "seed": 211414,
+        "positivePrompt": "a huge broad-bladed battle axe sweeping in a wide horizontal crescent arc, glowing crimson arc trail across the whole image, dark fantasy game ability icon, digital oil painting, painterly brush strokes, single bold centered subject, strong clear silhouette, dramatic rim lighting, high contrast, dark smoky vignette background, polished steel and warm firelight, square composition",
+        "negativePrompt": "text, letters, words, watermark, signature, logo, frame, border, user interface, multiple subjects, cluttered, busy background, blurry, low resolution, jpeg artifacts, photograph, cropped, deformed, person, face, hands",
+        "comfyui": {
+          "commit": "98cc0bf84b7cb1383654c5b402e7612d875d6d22",
+          "version": "0.41.0"
+        },
+        "run": {
+          "promptId": "82fa81a5-82ab-4ede-9476-0ff50a801cc8",
+          "submittedPromptSha256": "e267a0457afb19d89861f3fe2120be2c564884f2c35fd980c742c5c742047aef",
+          "outputNode": "9",
+          "outputFilename": "warden-icon_00050_.png",
+          "device": "cuda:0 NVIDIA GeForce RTX 3060 Ti"
+        }
+      }
+    },
+    {
+      "id": "warden.ability.4.candidate.03",
+      "ability": "warden.ability.4",
+      "state": "candidate",
+      "path": "candidates/warden.ability.4.candidate.03.png",
+      "mediaType": "image/png",
+      "sha256": "24f3c06c89846ea68ee15bef013ef806f999660254a0ac38b595ef007655b899",
+      "byteLength": 466889,
+      "width": 512,
+      "height": 512,
+      "provenance": {
+        "provider": "comfyui",
+        "operation": "image.comfyui.generate@1",
+        "reproducibility": "approximate",
+        "workflow": {
+          "path": "workflow.sd15-icon.api.json",
+          "sha256": "5dd3fc731d09dfae62dc9993640ea34311a40c9fb66f1857304810419fab61ea"
+        },
+        "checkpoint": {
+          "byteLength": 4265146304,
+          "license": "creativeml-openrail-m",
+          "name": "v1-5-pruned-emaonly.safetensors",
+          "sha256": "6ce0161689b3853acaa03779ec93eafe75a02f4ced659bee03f50797806fa2fa"
+        },
+        "seed": 211402,
+        "positivePrompt": "a huge broad-bladed battle axe sweeping in a wide horizontal crescent arc, glowing crimson arc trail across the whole image, dark fantasy game ability icon, digital oil painting, painterly brush strokes, single bold centered subject, strong clear silhouette, dramatic rim lighting, high contrast, dark smoky vignette background, polished steel and warm firelight, square composition",
+        "negativePrompt": "text, letters, words, watermark, signature, logo, frame, border, user interface, multiple subjects, cluttered, busy background, blurry, low resolution, jpeg artifacts, photograph, cropped, deformed, person, face, hands",
+        "comfyui": {
+          "commit": "98cc0bf84b7cb1383654c5b402e7612d875d6d22",
+          "version": "0.41.0"
+        },
+        "run": {
+          "promptId": "d14b681c-f15a-4839-8d6d-e390dd4f076e",
+          "submittedPromptSha256": "feb9cecbf33065928f1da02e44cb83fe02b1ee445ce7b41c00778e1531d24fe9",
+          "outputNode": "9",
+          "outputFilename": "warden-icon_00026_.png",
+          "device": "cuda:0 NVIDIA GeForce RTX 3060 Ti"
+        }
+      }
     }
   ]
 }
