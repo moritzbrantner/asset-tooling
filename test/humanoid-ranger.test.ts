@@ -20,7 +20,7 @@ import { verifyAssetBundleTar } from "../src/asset-bundle-pack.js";
 import { GLTF_RESOURCES_BUNDLE_PROFILE, readAssetBundleAttachment, readAssetBundleGltf, verifyAssetBundle } from "../src/asset-bundle.js";
 import { validateHumanoidSocketDescriptor } from "../src/humanoid-sockets.js";
 import {
-  RANGER_BONE_MAP, RANGER_BUNDLE_KEY, RANGER_BUNDLE_VARIANT, RANGER_CLIPS, RANGER_CLIPS_ATTACHMENT, RANGER_GAITS, RANGER_MEMBERS, RANGER_V6_CLIPS, RANGER_V7_CLIPS, RANGER_V7_ARCHERY, RANGER_CLIP_ROLES, RANGER_V4_SOCKETS_DESCRIPTOR, rangerClips, RANGER_SOCKETS_ATTACHMENT,
+  RANGER_BONE_MAP, RANGER_BUNDLE_KEY, RANGER_BUNDLE_VARIANT, RANGER_CLIPS, RANGER_CLIPS_ATTACHMENT, RANGER_GAITS, RANGER_MEMBERS, RANGER_V6_CLIPS, RANGER_V7_CLIPS, RANGER_V7_ARCHERY, RANGER_FIGURES, RANGER_CLIP_ROLES, RANGER_V4_SOCKETS_DESCRIPTOR, rangerClips, RANGER_SOCKETS_ATTACHMENT,
   RANGER_DEFAULT_VERSION, RANGER_SOCKETS_DESCRIPTOR, RANGER_TEXTURE_POLICY, RANGER_V2_SOCKETS_DESCRIPTOR, rangerSocketsDescriptor, RANGER_UBC_BONE_MAP, RANGER_V2_CLIPS, RANGER_V2_EQUIPMENT,
   RANGER_V5_BONE_MAP, RANGER_V5_UBC_BONE_MAP, buildRangerCharacter, rangerBoneMaps,
 } from "../scripts/build-ranger-character.ts";
@@ -102,6 +102,14 @@ test("v7 (#113, #114) adds the owner-picked combat clips after the v6 clips, eac
   assert.equal(RANGER_CLIP_ROLES.Sword_Regular_A!.role, "sword.light-strike");
   assert.ok(!RANGER_V7_CLIPS.some((clip) => clip.name.startsWith("Melee_Hook")));
   assert.deepEqual(RANGER_V7_ARCHERY.map((item) => item.key), ["equipment.bow.long", "equipment.arrow", "equipment.quiver.back"]);
+});
+
+test("the female Ranger (#115) uses the female body, the Female_Ranger outfit and its own sockets, from v7", async () => {
+  assert.equal(RANGER_FIGURES.female.key, "humanoid.ranger.female");
+  assert.match(RANGER_FIGURES.female.body.path, /Superhero_Female_FullBody\.gltf$/);
+  assert.match(RANGER_FIGURES.female.outfit.path, /Female_Ranger\.gltf$/);
+  assert.equal(RANGER_FIGURES.male.key, RANGER_BUNDLE_KEY);
+  await assert.rejects(buildRangerCharacter({ processorCheckout: "/nonexistent", outDir: os.tmpdir(), version: 6, figure: "female" }), /starts at bundle version 7/);
 });
 
 test("v7 is the default; v2 and v3 keep the bundle-v2 sockets, v4-v6 the bundle-v4 sockets, and the texture limits are per slot", () => {

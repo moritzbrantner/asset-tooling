@@ -1,6 +1,6 @@
 // Derive the hand sockets of a humanoid-sockets-v1 descriptor anatomically from a rig's rest pose
 // (docs/humanoid-sockets.md#how-the-hand-sockets-are-derived, #113):
-//   bun examples/weapons/derive-sockets.ts [--rig <rig.gltf>] [--out <sockets.json>] [--weapon-hand r|l] [--check]
+//   bun examples/weapons/derive-sockets.ts [--rig <rig.gltf>] [--out <sockets.json>] [--character <id>] [--weapon-hand r|l] [--check]
 // Defaults: the canonical Male_Ranger rig and assets/descriptors/humanoid.ranger.male.sockets.json.
 // `--check` compares instead of writing and exits 1 on a difference.
 //
@@ -180,10 +180,10 @@ export function formatSocketDescriptor(descriptor: HumanoidSocketDescriptor): st
 }
 
 /** The Ranger descriptor (bundle v7): the derived hand sockets, the stowed sockets, then the archery sockets. */
-export function deriveRangerSockets(gltf: { nodes: Record<string, any>[]; skins?: { joints: number[] }[] }): string {
+export function deriveRangerSockets(gltf: { nodes: Record<string, any>[]; skins?: { joints: number[] }[] }, character = "humanoid.ranger.male"): string {
   const joints = gltf.skins?.[0]?.joints.map((index) => gltf.nodes[index]!.name as string);
   return formatSocketDescriptor(createHumanoidSocketDescriptor({
-    character: "humanoid.ranger.male", sockets: [...deriveHandSockets(gltf), ...RANGER_STOWED_SOCKETS, ...deriveArcherySockets(gltf)], ...(joints ? { joints } : {}),
+    character, sockets: [...deriveHandSockets(gltf), ...RANGER_STOWED_SOCKETS, ...deriveArcherySockets(gltf)], ...(joints ? { joints } : {}),
   }));
 }
 
@@ -193,7 +193,7 @@ if (import.meta.main) {
   const weaponHand = option("--weapon-hand") ?? "r";
   if (weaponHand !== "r" && weaponHand !== "l") throw new Error("--weapon-hand must be r or l");
   const gltf = JSON.parse(await readFile(rig, "utf8"));
-  const text = weaponHand === "r" ? deriveRangerSockets(gltf)
+  const text = weaponHand === "r" ? deriveRangerSockets(gltf, option("--character") ?? "humanoid.ranger.male")
     : formatSocketDescriptor(createHumanoidSocketDescriptor({ character: "humanoid.ranger.male", sockets: deriveHandSockets(gltf, { weaponHand }) }));
   if (args.includes("--check")) {
     const current = await readFile(out, "utf8").catch(() => "");

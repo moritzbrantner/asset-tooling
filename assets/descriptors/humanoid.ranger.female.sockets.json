@@ -1,0 +1,33 @@
+{
+  "schema": "humanoid-sockets-v1",
+  "character": "humanoid.ranger.female",
+  "unit": "meter",
+  "axes": "right-handed-y-up",
+  "attachFrame": "grip",
+  "sockets": [
+    {"id": "hand_r.weapon", "joint": "hand_r",
+     "translation": [-0.0324, 0.0643, -0.0002], "rotation": [0.426214, 0.564233, 0.438511, 0.554699],
+     "accepts": ["one-hand-weapon"]},
+    {"id": "hand_l.shield", "joint": "hand_l",
+     "translation": [0.0324, 0.0643, -0.0002], "rotation": [0.426214, -0.564233, -0.438511, 0.554699],
+     "accepts": ["shield"]},
+    {"id": "back.stowed", "joint": "spine_03",
+     "translation": [0, -0.061607, -0.226519], "rotation": [0, 0.993595, 0.113001, 0],
+     "accepts": ["shield"]},
+    {"id": "hip_l.stowed", "joint": "pelvis",
+     "translation": [0.175, 0.142748, 0.127956], "rotation": [-0.667907, 0.090365, -0.701309, 0.232164],
+     "accepts": ["one-hand-weapon"]},
+    {"id": "hand_l.bow", "joint": "hand_l",
+     "translation": [0.0324, 0.0643, -0.0002], "rotation": [0.008695, 0.791205, 0.611453, 0.006742],
+     "accepts": ["bow"]},
+    {"id": "hand_r.arrow", "joint": "hand_r",
+     "translation": [-0.0324, 0.0643, -0.0002], "rotation": [-0.090852, 0.0889, 0.709047, 0.69361],
+     "accepts": ["arrow"]},
+    {"id": "back.quiver", "joint": "spine_03",
+     "translation": [-0.07, 0.0521, -0.2122], "rotation": [-0.166726, 0.981057, 0.097242, 0.016526],
+     "accepts": ["quiver"]},
+    {"id": "back.bow.stowed", "joint": "spine_03",
+     "translation": [0.02, -0.0107, -0.3064], "rotation": [-0.314686, -0.944057, -0.093574, 0.031191],
+     "accepts": ["bow"]}
+  ]
+}

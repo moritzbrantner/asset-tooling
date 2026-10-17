@@ -1,6 +1,6 @@
 // Build the Ranger character bundle end to end from its canonical catalog members
 // (docs/humanoid-ranger.md):
-//   bun scripts/build-ranger-character.ts --processor-checkout <3d-lab checkout> --out <directory> [--version 1|2|3|4|5|6|7]
+//   bun scripts/build-ranger-character.ts --processor-checkout <3d-lab checkout> --out <directory> [--version 1|2|3|4|5|6|7] [--figure male|female]
 // The 3d-lab checkout must be source-clean at the commit stability/processors.json pins for
 // `three-d-animation-retarget`, with its cargo dependencies fetched (the processor runs --offline).
 // <directory> becomes the object-store root; the bundle is exported to <directory>/bundle and packed
@@ -70,6 +70,23 @@ export const RANGER_TEXTURE_POLICY = {
   maxEdgeBySlot: { baseColor: 1024, normal: 1024, metallicRoughness: 512, occlusion: 512, emissive: 1024 },
   default: 1024,
 } as const;
+
+/**
+ * The Ranger figures (#115, owner answer Q1 = A): the male Ranger, and the female Ranger built from the UBC female
+ * body and the Female_Ranger outfit with the same clips, equipment and recipe. The female figure starts at v7.
+ */
+export type RangerFigure = "male" | "female";
+export const RANGER_FIGURES = {
+  male: { key: "humanoid.ranger.male", body: RANGER_MEMBERS.body, outfit: RANGER_MEMBERS.outfit, headMeshes: ["Face", "Face.001"], minVersion: 1 },
+  female: {
+    key: "humanoid.ranger.female",
+    body: { archive: "quaternius.universal-base-characters-standard", path: "Universal Base Characters[Standard]/Base Characters/Godot - UE/Superhero_Female_FullBody.gltf" },
+    outfit: { archive: "quaternius.modular-character-outfits-fantasy-standard", path: "Modular Character Outfits - Fantasy[Standard]/Exports/glTF (Godot-Unreal)/Outfits/Female_Ranger.gltf" },
+    headMeshes: ["Eyebrows", "Eyes"],
+    minVersion: 7,
+  },
+} as const satisfies Record<RangerFigure, { key: string; body: { archive: string; path: string }; outfit: { archive: string; path: string }; headMeshes: readonly string[]; minVersion: RangerVersion }>;
+export const RANGER_FEMALE_SOCKETS_DESCRIPTOR = "assets/descriptors/humanoid.ranger.female.sockets.json";
 
 /** The head/face subset of the UBC body (docs/gltf-subset.md, owner option A on #110). */
 export const RANGER_HEAD_RECIPE = { keepJoints: ["neck_01", "Head"], minWeight: 0.5, keepMeshes: ["Face", "Face.001"], policy: POLICY };
@@ -374,9 +391,12 @@ async function buildArchery(root: string, piece: ArcheryPiece) {
   return single(await executeGltfProductionImportOperation(root, { inputs: { source: glb }, parameters: { policy: POLICY } }));
 }
 
-export async function buildRangerCharacter({ processorCheckout, outDir, version = RANGER_DEFAULT_VERSION, log = () => {} }: {
-  processorCheckout: string; outDir: string; version?: RangerVersion; log?: (line: string) => void;
+export async function buildRangerCharacter({ processorCheckout, outDir, version = RANGER_DEFAULT_VERSION, figure = "male", log = () => {} }: {
+  processorCheckout: string; outDir: string; version?: RangerVersion; figure?: RangerFigure; log?: (line: string) => void;
 }) {
+  const shape = RANGER_FIGURES[figure];
+  if (version < shape.minVersion) throw new Error(`the ${figure} Ranger starts at bundle version ${shape.minVersion}`);
+  const bundleKey = shape.key;
   if (!RANGER_VERSIONS.includes(version)) throw new Error("Ranger bundle version must be 1, 2, 3, 4, 5, 6 or 7");
   const root = path.resolve(outDir);
   await mkdir(root, { recursive: true });
@@ -412,11 +432,11 @@ export async function buildRangerCharacter({ processorCheckout, outDir, version 
   };
 
   log("import body and outfit (scene.import.gltf@2)");
-  const outfit = await importGltf(RANGER_MEMBERS.outfit);
-  const body = await importGltf(RANGER_MEMBERS.body);
+  const outfit = await importGltf(shape.outfit);
+  const body = await importGltf(shape.body);
   log("subset body to head/face (scene.subset.skinned.gltf@1)");
-  const head = single(await executeGltfSubsetSkinnedOperation(root, { inputs: { source: body }, parameters: RANGER_HEAD_RECIPE }));
-  log("compose on the Male_Ranger skeleton (scene.compose.skinned.gltf@1)");
+  const head = single(await executeGltfSubsetSkinnedOperation(root, { inputs: { source: body }, parameters: { ...RANGER_HEAD_RECIPE, keepMeshes: [...shape.headMeshes] } }));
+  log("compose on the outfit skeleton (scene.compose.skinned.gltf@1)");
   const composed = single(await executeGltfComposeSkinnedOperation(root, { inputs: { skeleton: outfit, parts: [head] }, parameters: { policy: POLICY } }));
 
   log("extract target rig and source clips (scene.extract.animation.gltf@1)");
@@ -462,15 +482,15 @@ export async function buildRangerCharacter({ processorCheckout, outDir, version 
     textures[key] = { source: glb, output: single(result), imageBytes, images };
     return single(result);
   };
-  const character = version >= 3 ? await resizeTextures(RANGER_BUNDLE_KEY, animated) : animated;
+  const character = version >= 3 ? await resizeTextures(bundleKey, animated) : animated;
 
-  const selections: Json[] = [{ key: RANGER_BUNDLE_KEY, variant: RANGER_BUNDLE_VARIANT }];
+  const selections: Json[] = [{ key: bundleKey, variant: RANGER_BUNDLE_VARIANT }];
   const assets: AssetRef[] = [character];
   const attachments: AssetRef[] = [];
   const weapons: Record<string, AssetRef> = {};
   let sockets: AssetRef | undefined;
   let clipMotion: AssetRef | undefined;
-  const descriptorPath = rangerSocketsDescriptor(version);
+  const descriptorPath = figure === "female" ? RANGER_FEMALE_SOCKETS_DESCRIPTOR : rangerSocketsDescriptor(version);
   if (descriptorPath) {
     log(`attach ${descriptorPath} as '${RANGER_SOCKETS_ATTACHMENT}'`);
     const descriptor = await readFile(path.join(REPOSITORY_ROOT, descriptorPath));
@@ -507,7 +527,7 @@ export async function buildRangerCharacter({ processorCheckout, outDir, version 
     parameters: { profile: GLTF_RESOURCES_BUNDLE_PROFILE, assets: selections },
     inputs: version >= 2 ? { assets, attachments } : { assets },
   });
-  const tarPath = path.join(root, `${RANGER_BUNDLE_KEY}.tar`);
+  const tarPath = path.join(root, `${bundleKey}.tar`);
   log("pack release tar (scripts/pack-asset-bundle.ts)");
   const pack = Bun.spawnSync(["bun", path.join(REPOSITORY_ROOT, "scripts/pack-asset-bundle.ts"), bundleDir, tarPath], { stdout: "pipe", stderr: "pipe" });
   if (pack.exitCode !== 0) throw new Error(`pack-asset-bundle failed: ${pack.stderr.toString()}`);
@@ -521,7 +541,7 @@ export async function buildRangerCharacter({ processorCheckout, outDir, version 
     bundleDir, tar: tarPath, tarSha256: packed.sha256 as string, tarByteLength: packed.byteLength as number,
     exportRef: JSON.parse(Buffer.from(refEntry.bytes).toString("utf8")) as Json, exportRefPath,
     lineage: {
-      version,
+      version, figure,
       processor: { repository: processor.repository, revision: processor.revision },
       outfit, body, head, composed, targetRig, sourceRigs, libraries: loaded, animated,
       clips: clips.map(({ name, library, source, retargeted, observations }) => ({ name, library, source, retargeted, observations })),
@@ -536,18 +556,20 @@ function parseArguments(args: string[]) {
   const options: Record<string, string> = {};
   for (let index = 0; index < args.length; index += 2) {
     const flag = args[index], value = args[index + 1];
-    if (!["--processor-checkout", "--out", "--version"].includes(flag!) || !value) return undefined;
+    if (!["--processor-checkout", "--out", "--version", "--figure"].includes(flag!) || !value) return undefined;
     options[flag!.slice(2)] = value;
   }
   if (options.version !== undefined && !RANGER_VERSIONS.map(String).includes(options.version)) return undefined;
   const version = (options.version === undefined ? RANGER_DEFAULT_VERSION : Number(options.version)) as RangerVersion;
-  return options["processor-checkout"] && options.out ? { processorCheckout: options["processor-checkout"], outDir: options.out, version } : undefined;
+  if (options.figure !== undefined && !Object.hasOwn(RANGER_FIGURES, options.figure)) return undefined;
+  const figure = (options.figure ?? "male") as RangerFigure;
+  return options["processor-checkout"] && options.out ? { processorCheckout: options["processor-checkout"], outDir: options.out, version, figure } : undefined;
 }
 
 if (import.meta.main) {
   const options = parseArguments(process.argv.slice(2));
   if (!options) {
-    console.error("Usage: bun scripts/build-ranger-character.ts --processor-checkout <absolute 3d-lab checkout> --out <directory> [--version 1|2|3|4|5|6|7]");
+    console.error("Usage: bun scripts/build-ranger-character.ts --processor-checkout <absolute 3d-lab checkout> --out <directory> [--version 1|2|3|4|5|6|7] [--figure male|female]");
     process.exit(2);
   }
   try {
