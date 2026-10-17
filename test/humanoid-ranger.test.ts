@@ -20,7 +20,7 @@ import { verifyAssetBundleTar } from "../src/asset-bundle-pack.js";
 import { GLTF_RESOURCES_BUNDLE_PROFILE, readAssetBundleAttachment, readAssetBundleGltf, verifyAssetBundle } from "../src/asset-bundle.js";
 import { validateHumanoidSocketDescriptor } from "../src/humanoid-sockets.js";
 import {
-  RANGER_BONE_MAP, RANGER_BUNDLE_KEY, RANGER_BUNDLE_VARIANT, RANGER_CLIPS, RANGER_CLIPS_ATTACHMENT, RANGER_GAITS, RANGER_MEMBERS, RANGER_V6_CLIPS, RANGER_V7_CLIPS, RANGER_V8_CLIPS, RANGER_MIXAMO_BONE_MAP, RANGER_V7_ARCHERY, RANGER_FIGURES, RANGER_CLIP_ROLES, RANGER_V4_SOCKETS_DESCRIPTOR, rangerClips, RANGER_SOCKETS_ATTACHMENT,
+  RANGER_BONE_MAP, RANGER_BUNDLE_KEY, RANGER_BUNDLE_VARIANT, RANGER_CLIPS, RANGER_CLIPS_ATTACHMENT, RANGER_GAITS, RANGER_MEMBERS, RANGER_V6_CLIPS, RANGER_V7_CLIPS, RANGER_V8_CLIPS, RANGER_MIXAMO_BONE_MAP, RANGER_APPEARANCE, RANGER_HAIR_TINTS, RANGER_V7_ARCHERY, RANGER_FIGURES, RANGER_CLIP_ROLES, RANGER_V4_SOCKETS_DESCRIPTOR, rangerClips, RANGER_SOCKETS_ATTACHMENT,
   RANGER_DEFAULT_VERSION, RANGER_SOCKETS_DESCRIPTOR, RANGER_TEXTURE_POLICY, RANGER_V2_SOCKETS_DESCRIPTOR, rangerSocketsDescriptor, RANGER_UBC_BONE_MAP, RANGER_V2_CLIPS, RANGER_V2_EQUIPMENT,
   RANGER_V5_BONE_MAP, RANGER_V5_UBC_BONE_MAP, buildRangerCharacter, rangerBoneMaps,
 } from "../scripts/build-ranger-character.ts";
@@ -124,9 +124,18 @@ test("v8 (#112) adds the owner-approved Mixamo clips by name after the v7 clips,
   assert.ok(Object.values(RANGER_MIXAMO_BONE_MAP).every(({ source }) => source.startsWith("mixamorig:")));
 });
 
-test("v8 is the default; v2 and v3 keep the bundle-v2 sockets, v4-v6 the bundle-v4 sockets, and the texture limits are per slot", () => {
-  assert.equal(RANGER_DEFAULT_VERSION, 8);
-  assert.deepEqual(([1, 2, 3, 4, 5, 6, 7, 8] as const).map(rangerSocketsDescriptor), [undefined, RANGER_V2_SOCKETS_DESCRIPTOR, RANGER_V2_SOCKETS_DESCRIPTOR, RANGER_V4_SOCKETS_DESCRIPTOR, RANGER_V4_SOCKETS_DESCRIPTOR, RANGER_V4_SOCKETS_DESCRIPTOR, RANGER_SOCKETS_DESCRIPTOR, RANGER_SOCKETS_DESCRIPTOR]);
+test("v9 (#116) declares the owner-picked appearance per figure: Light skin, hood toggle, hairstyles and tints", () => {
+  assert.deepEqual([...RANGER_APPEARANCE.male.hair], ["Hair_Buzzed", "Hair_SimpleParted", "Hair_Long"]);
+  assert.deepEqual([...RANGER_APPEARANCE.female.hair], ["Hair_Long", "Hair_Buns"]);
+  assert.equal(RANGER_APPEARANCE.male.hood, "Male_Ranger_Head_Hood");
+  assert.equal(RANGER_APPEARANCE.female.hood, "Female_Ranger_Head_Hood");
+  assert.deepEqual(Object.keys(RANGER_HAIR_TINTS), ["black", "brown", "blond"]);
+  assert.deepEqual(rangerClips(9), RANGER_V8_CLIPS, "v9 adds appearance, not clips");
+});
+
+test("v9 is the default; v2 and v3 keep the bundle-v2 sockets, v4-v6 the bundle-v4 sockets, and the texture limits are per slot", () => {
+  assert.equal(RANGER_DEFAULT_VERSION, 9);
+  assert.deepEqual(([1, 2, 3, 4, 5, 6, 7, 8, 9] as const).map(rangerSocketsDescriptor), [undefined, RANGER_V2_SOCKETS_DESCRIPTOR, RANGER_V2_SOCKETS_DESCRIPTOR, RANGER_V4_SOCKETS_DESCRIPTOR, RANGER_V4_SOCKETS_DESCRIPTOR, RANGER_V4_SOCKETS_DESCRIPTOR, RANGER_SOCKETS_DESCRIPTOR, RANGER_SOCKETS_DESCRIPTOR, RANGER_SOCKETS_DESCRIPTOR]);
   assert.notEqual(RANGER_SOCKETS_DESCRIPTOR, RANGER_V2_SOCKETS_DESCRIPTOR);
   assert.deepEqual(RANGER_TEXTURE_POLICY, {
     maxEdgeBySlot: { baseColor: 1024, normal: 1024, metallicRoughness: 512, occlusion: 512, emissive: 1024 }, default: 1024,

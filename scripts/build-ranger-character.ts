@@ -44,6 +44,8 @@ import { validateHumanoidSocketDescriptor } from "../src/humanoid-sockets.js";
 import { generateAsset } from "../src/index.js";
 import { WEAPON_PRESETS, createWeaponAssetSpec, readWeaponRecipeSource, type WeaponPiece } from "../src/weapon-recipes.js";
 import { readBlenderRecipeSource } from "../src/blender-recipe-source.js";
+import { executeImageDecodeOperation, executeImageEncodePngOperation } from "../src/image-codec-operations.js";
+import { encodeRgba8Image, parseRgba8Image, RGBA8_IMAGE_MEDIA_TYPE, type Rgba8Image } from "../src/image-rgba8.js";
 import { sha256Bytes } from "../src/hash.js";
 import { parseAssetSpec } from "../src/schema.js";
 import { ARCHERY_PRESETS, createArcheryAssetSpec, readArcheryRecipeSource, type ArcheryPiece } from "../src/archery-recipes.js";
@@ -65,9 +67,9 @@ export const RANGER_MEMBERS = {
   clips: { archive: "quaternius.universal-animation-library-standard", path: "Animation Library[Standard]/Godot/AnimationLibrary_Godot_Standard.glb" },
   clips2: { archive: "quaternius.universal-animation-library-2-standard", path: "Universal Animation Library 2 [Standard]/Unreal-Godot/UAL2_Standard.glb" },
 } as const;
-export type RangerVersion = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
-export const RANGER_VERSIONS: readonly RangerVersion[] = [1, 2, 3, 4, 5, 6, 7, 8];
-export const RANGER_DEFAULT_VERSION: RangerVersion = 8;
+export type RangerVersion = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
+export const RANGER_VERSIONS: readonly RangerVersion[] = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+export const RANGER_DEFAULT_VERSION: RangerVersion = 9;
 /** v3 (#257): per-slot maximum texture edges for browser delivery; images are never upscaled. */
 export const RANGER_TEXTURE_POLICY = {
   maxEdgeBySlot: { baseColor: 1024, normal: 1024, metallicRoughness: 512, occlusion: 512, emissive: 1024 },
@@ -90,6 +92,32 @@ export const RANGER_FIGURES = {
   },
 } as const satisfies Record<RangerFigure, { key: string; body: { archive: string; path: string }; outfit: { archive: string; path: string }; headMeshes: readonly string[]; minVersion: RangerVersion }>;
 export const RANGER_FEMALE_SOCKETS_DESCRIPTOR = "assets/descriptors/humanoid.ranger.female.sockets.json";
+
+/**
+ * v9 appearance (#116, owner answers 2026-10-17: Light and Dark skins, hairstyles per figure, both hair textures,
+ * black/brown/blond tints, a toggleable hood). Skin variants re-import the body and outfit with the Light base
+ * colours bound to their URIs; the outfit's skin texture has no Light original, so it is derived (Q13 = A).
+ */
+const UBC = "quaternius.universal-base-characters-standard";
+const UBC_HAIR_DIR = "Universal Base Characters[Standard]/Hairstyles/Origin at 0/glTF (Godot)";
+export const RANGER_APPEARANCE = {
+  male: {
+    skinLight: { body: { uri: "T_Superhero_Male_Dark.png", member: "Universal Base Characters[Standard]/Base Characters/Textures/T_Superhero_Male_Ligh.png" }, outfitUri: "T_Regular_Male_Dark_BaseColor.png" },
+    hood: "Male_Ranger_Head_Hood",
+    hair: ["Hair_Buzzed", "Hair_SimpleParted", "Hair_Long"],
+    eyebrows: "Eyebrows",
+  },
+  female: {
+    skinLight: { body: { uri: "T_Superhero_Female_Dark_BaseColor.png", member: "Universal Base Characters[Standard]/Base Characters/Textures/T_Superhero_Female_Light_BaseColor.png" }, outfitUri: "T_Regular_Female_Dark_BaseColor.png" },
+    hood: "Female_Ranger_Head_Hood",
+    hair: ["Hair_Long", "Hair_Buns"],
+    eyebrows: "Eyebrows",
+  },
+} as const;
+/** Hair tints (D4, linear RGB), applied as the base colour factor on top of `T_Hair_1`. */
+export const RANGER_HAIR_TINTS = { black: [0.02, 0.02, 0.02], brown: [0.18, 0.09, 0.04], blond: [0.62, 0.48, 0.25] } as const;
+export const RANGER_APPEARANCE_ATTACHMENT = "humanoid-appearance";
+const hairKey = (style: string) => `hair.${style.replace(/^Hair_/, "").replace(/([a-z])([A-Z])/g, "$1-$2").toLowerCase()}`;
 
 /** The head/face subset of the UBC body (docs/gltf-subset.md, owner option A on #110). */
 export const RANGER_HEAD_RECIPE = { keepJoints: ["neck_01", "Head"], minWeight: 0.5, keepMeshes: ["Face", "Face.001"], policy: POLICY };
@@ -197,7 +225,7 @@ export const RANGER_MIXAMO_LICENSE = "Mixamo (Adobe): free, royalty-free use in 
 export const RANGER_GAITS: ReadonlySet<string> = new Set(["Walk_Loop", "Jog_Fwd_Loop", "Sprint_Loop", "Crouch_Fwd_Loop"]);
 /** The clips a bundle version retargets, in bundle order. */
 export function rangerClips(version: RangerVersion): readonly RangerClip[] {
-  return version === 1 ? RANGER_CLIPS : version < 6 ? RANGER_V2_CLIPS : version === 6 ? RANGER_V6_CLIPS : version === 7 ? RANGER_V7_CLIPS : RANGER_V8_CLIPS;
+  return version === 1 ? RANGER_CLIPS : version < 6 ? RANGER_V2_CLIPS : version === 6 ? RANGER_V6_CLIPS : version === 7 ? RANGER_V7_CLIPS : RANGER_V8_CLIPS; // v9 adds appearance, not clips
 }
 export const RANGER_CLIPS_ATTACHMENT = "humanoid-clips";
 /** v2 equipment entries: weapon-recipe presets, parented at runtime through the sockets descriptor. */
@@ -489,13 +517,13 @@ export async function buildRangerCharacter({ processorCheckout, outDir, version 
   };
   const member = async (sourceId: string) =>
     (await importAssetCatalogStorageSource({ catalog, storage, sourceId, storageRoot: REPOSITORY_ROOT, objectStoreRoot: root })).asset as AssetRef;
-  const importGltf = async (entry: { archive: string; path: string }) => {
+  const importGltf = async (entry: { archive: string; path: string }, overrides: Record<string, AssetRef> = {}) => {
     const gltfId = memberId(entry);
     const source = await member(gltfId);
     const json = JSON.parse((await resolveAssetObject(root, source)).toString("utf8"));
     const uris: string[] = [...(json.buffers ?? []), ...(json.images ?? [])].map((item: Json) => item.uri);
     const resources: AssetRef[] = [];
-    for (const uri of uris) resources.push(await member(resourceId(entry.archive, gltfId, uri)));
+    for (const uri of uris) resources.push(overrides[uri] ?? await member(resourceId(entry.archive, gltfId, uri)));
     return single(await executeGltfProductionImportOperation(root, { inputs: { source, resources }, parameters: { resourceUris: uris, policy: POLICY } }));
   };
 
@@ -594,6 +622,90 @@ export async function buildRangerCharacter({ processorCheckout, outDir, version 
   const weapons: Record<string, AssetRef> = {};
   let sockets: AssetRef | undefined;
   let clipMotion: AssetRef | undefined;
+  let appearance: Awaited<ReturnType<typeof buildAppearance>> | undefined;
+  // v9 (#116): the Light skin character (same geometry and clips, other base colours), hair items and descriptor.
+  const buildAppearance = async () => {
+    const look = RANGER_APPEARANCE[figure];
+    const textureMember = (memberPath: string) => member(memberId({ archive: UBC, path: memberPath }));
+    const decode = async (texture: AssetRef) => {
+      // Catalog textures are `texture` assets; the codec takes the same PNG bytes as an `image`.
+      const image = (await storeAssetObject(root, { bytes: await resolveAssetObject(root, texture), kind: "image", mediaType: "image/png" })).asset;
+      return parseRgba8Image(await resolveAssetObject(root, single(await executeImageDecodeOperation(root, { inputs: { source: image }, parameters: {} }))));
+    };
+    // Q13 = A: the outfit's skin texture gets the body Dark -> Light per-channel mean/deviation transfer.
+    const bodyDark = await member(resourceId(UBC, memberId(shape.body), look.skinLight.body.uri));
+    const bodyLight = await textureMember(look.skinLight.body.member);
+    const regularDark = await member(resourceId(shape.outfit.archive, memberId(shape.outfit), look.skinLight.outfitUri));
+    const [dark, light, regular] = [await decode(bodyDark), await decode(bodyLight), await decode(regularDark)];
+    const stats = (image: Rgba8Image) => [0, 1, 2].map((channel) => {
+      let sum = 0, square = 0, count = 0;
+      for (let index = 0; index < image.pixels.length; index += 4) {
+        if (image.pixels[index + 3]! === 0) continue;
+        const value = image.pixels[index + channel]!;
+        sum += value; square += value * value; count += 1;
+      }
+      const mean = sum / count;
+      return { mean, deviation: Math.sqrt(Math.max(square / count - mean * mean, 1e-6)) };
+    });
+    const from = stats(dark), to = stats(light);
+    const pixels = Uint8Array.from(regular.pixels, (value, index) => {
+      const channel = index % 4;
+      if (channel === 3) return value;
+      return Math.max(0, Math.min(255, Math.round((value - from[channel]!.mean) / from[channel]!.deviation * to[channel]!.deviation + to[channel]!.mean)));
+    });
+    const rgba = (await storeAssetObject(root, { bytes: encodeRgba8Image({ width: regular.width, height: regular.height, pixels }), kind: "image", mediaType: RGBA8_IMAGE_MEDIA_TYPE })).asset;
+    const regularLight = single(await executeImageEncodePngOperation(root, { inputs: { source: rgba }, parameters: { compressionLevel: 9 } }));
+    const transfer = { from: bodyDark.sha256, to: bodyLight.sha256, source: regularDark.sha256, output: regularLight.sha256,
+      channels: [0, 1, 2].map((c) => ({ darkMean: round4(from[c]!.mean), darkDeviation: round4(from[c]!.deviation), lightMean: round4(to[c]!.mean), lightDeviation: round4(to[c]!.deviation) })) };
+
+    const outfitLight = await importGltf(shape.outfit, { [look.skinLight.outfitUri]: regularLight });
+    const bodyLightGlb = await importGltf(shape.body, { [look.skinLight.body.uri]: bodyLight });
+    const headLight = single(await executeGltfSubsetSkinnedOperation(root, { inputs: { source: bodyLightGlb }, parameters: { ...RANGER_HEAD_RECIPE, keepMeshes: [...shape.headMeshes] } }));
+    const composedLight = single(await executeGltfComposeSkinnedOperation(root, { inputs: { skeleton: outfitLight, parts: [headLight] }, parameters: { policy: POLICY } }));
+    const animatedLight = single(await executeGltfEmbedAnimationOperation(root, {
+      inputs: { source: composedLight, animations: clips.map((clip) => clip.retargeted) },
+      parameters: { clips: clips.map((clip) => ({ name: clip.name })), policy: POLICY },
+    }));
+    const lightCharacter = await resizeTextures(`${bundleKey}/skin.light`, animatedLight);
+
+    // Hair: static items on the `head.hair` socket, each with both pack textures as variants (D2).
+    const hairTexture = { 1: "T_Hair_1", 2: "T_Hair_2" } as const;
+    const hair = [];
+    for (const style of look.hair) {
+      const entry = { archive: UBC, path: `${UBC_HAIR_DIR}/${style}.gltf` };
+      const own = JSON.parse((await resolveAssetObject(root, await member(memberId(entry)))).toString("utf8")).images.map((image: Json) => image.uri as string);
+      const ownNumber = own.some((uri: string) => uri.startsWith("T_Hair_2")) ? 2 : 1;
+      const variants: Record<string, AssetRef> = {};
+      for (const number of [1, 2] as const) {
+        const overrides: Record<string, AssetRef> = {};
+        if (number !== ownNumber) for (const uri of own) overrides[uri] = await member(resourceId(UBC, memberId(entry), uri.replace(hairTexture[ownNumber], hairTexture[number])));
+        variants[`hair-${number}`] = await resizeTextures(`${hairKey(style)}/hair-${number}`, await importGltf(entry, overrides));
+      }
+      hair.push({ key: hairKey(style), style, variants });
+    }
+    const hairMaterials = async (asset: AssetRef) => (await new NodeIO().readBinary(new Uint8Array(await resolveAssetObject(root, asset)))).getRoot().listMaterials().map((material) => material.getName());
+    const characterDocument = await new NodeIO().readBinary(new Uint8Array(await resolveAssetObject(root, character)));
+    const eyebrowMaterials = characterDocument.getRoot().listNodes().filter((node) => node.getName() === look.eyebrows && node.getMesh())
+      .flatMap((node) => node.getMesh()!.listPrimitives().map((primitive) => primitive.getMaterial()?.getName() ?? ""));
+    const descriptor = {
+      schema: "humanoid-appearance-v1", character: bundleKey,
+      skins: [
+        { id: "skin.dark", variant: RANGER_BUNDLE_VARIANT, label: "Dark" },
+        { id: "skin.light", variant: "skin.light", label: "Light", derived: { "outfit-skin": transfer } },
+      ],
+      parts: [{ id: "outfit.hood", nodes: [look.hood], defaultVisible: true }],
+      hair: await Promise.all(hair.map(async ({ key, style }) => ({
+        id: key, entry: key, socket: "head.hair", source: style,
+        textures: [{ id: "hair-1", variant: "hair-1" }, { id: "hair-2", variant: "hair-2" }],
+        tintMaterials: await hairMaterials(hair.find((item) => item.key === key)!.variants["hair-1"]!),
+        requires: { "outfit.hood": false },
+      }))),
+      tints: Object.entries(RANGER_HAIR_TINTS).map(([id, color]) => ({ id: `tint.${id}`, baseColorFactor: [...color, 1], texture: "hair-1" })),
+      eyebrows: { nodes: [look.eyebrows], tintMaterials: [...new Set(eyebrowMaterials)].sort(), followsHairTint: true },
+    };
+    const descriptorAsset = (await storeAssetObject(root, { bytes: Buffer.from(`${canonicalJson(descriptor)}\n`), kind: "humanoid-appearance", mediaType: "application/json" })).asset;
+    return { light: lightCharacter, hair, descriptor: descriptorAsset, transfer, composedLight };
+  };
   const descriptorPath = figure === "female" ? RANGER_FEMALE_SOCKETS_DESCRIPTOR : rangerSocketsDescriptor(version);
   if (descriptorPath) {
     log(`attach ${descriptorPath} as '${RANGER_SOCKETS_ATTACHMENT}'`);
@@ -603,6 +715,18 @@ export async function buildRangerCharacter({ processorCheckout, outDir, version 
     sockets = (await storeAssetObject(root, { bytes: descriptor, kind: "humanoid-sockets", mediaType: "application/json" })).asset;
     selections[0]!.attachments = [{ name: RANGER_SOCKETS_ATTACHMENT }];
     attachments.push(sockets);
+    if (version >= 9) {
+      log("appearance: Light skin variant, hairstyles and the appearance descriptor (#116)");
+      appearance = await buildAppearance();
+      selections.push({ key: bundleKey, variant: "skin.light" });
+      assets.push(appearance.light);
+      for (const hair of appearance.hair) for (const [variant, asset] of Object.entries(hair.variants)) {
+        selections.push({ key: hair.key, variant });
+        assets.push(asset);
+      }
+      selections[0]!.attachments.push({ name: RANGER_APPEARANCE_ATTACHMENT });
+      attachments.push(appearance.descriptor);
+    }
     if (version >= 6) {
       log(`measure clip motion and attach '${RANGER_CLIPS_ATTACHMENT}'`);
       clipMotion = await rangerClipMotion(root, { character, targetRig, clips, roles: version >= 7 });
@@ -652,6 +776,7 @@ export async function buildRangerCharacter({ processorCheckout, outDir, version 
       ...(version >= 2 ? { sockets, socketsDescriptor: descriptorPath, weapons } : {}),
       ...(version >= 3 ? { character, textures, texturePolicy: RANGER_TEXTURE_POLICY } : {}),
       ...(version >= 6 ? { clipMotion } : {}),
+      ...(version >= 9 ? { appearance: appearance && { light: appearance.light, composedLight: appearance.composedLight, transfer: appearance.transfer, hair: appearance.hair, descriptor: appearance.descriptor } } : {}),
     },
   };
 }

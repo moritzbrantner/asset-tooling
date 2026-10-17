@@ -83,6 +83,25 @@ Owner answer #115.Q1 = A (2026-10-17) adds the female base body and the matching
 
 `Superhero_Female_FullBody.gltf` references `T_Eye_Normal_png.png`, the same exporter artifact as the male body. The same Decision 6.1.3 substitution binds it to `T_Eye_Normal.png`. Its hair normal map, `T_Hair_2_Normal.png`, resolves by name.
 
+### Light skins and hairstyles (#116)
+
+The owner's #116 answers add the Light skin base colours, used for the `skin.light` variants, and four "Origin at 0" hairstyles: `Hair_Buzzed`, `Hair_SimpleParted` and `Hair_Long` for the male figure, and `Hair_Long` and `Hair_Buns` for the female figure. They come from the same Universal Base Characters archive file.
+
+The hairstyles reference `T_Hair_1_*` or `T_Hair_2_*` in their own folder. Those files are byte-identical to the body folder's members (same SHA-256), so they resolve to the stored members by name and are not stored twice.
+
+| Member | Kind | Bytes | SHA-256 |
+| --- | --- | --- | --- |
+| `Textures/T_Superhero_Male_Ligh.png` | texture | 1,389,170 | `419f96dbb8811511e2d515bcdabc085ff2f219ec7b8b4e91050a84cba6888fe9` |
+| `Textures/T_Superhero_Female_Light_BaseColor.png` | texture | 1,317,541 | `743f811857db0b950f3ad09a0733dfa4888801ead332313ca25becea14c54f8d` |
+| `glTF (Godot)/Hair_Buzzed.gltf` | mesh | 2,006 | `43752a4c8f2464eb2494a8ab179bf7ad237638a3d47fb3de0a38361db40e1451` |
+| `glTF (Godot)/Hair_Buzzed.bin` | buffer | 19,892 | `89992fc7a5319df6f2908e44a3b694329fac4b500629a573224702e5fdd16f77` |
+| `glTF (Godot)/Hair_SimpleParted.gltf` | mesh | 2,010 | `ce6c666d00bcca2baa0c58d0442505f90f8feff952592effc4697a2341e9e56d` |
+| `glTF (Godot)/Hair_SimpleParted.bin` | buffer | 32,032 | `57c6359703a37e346ee38a9c7ba55c8dee761c0a02da99847d06f5a91728f3cc` |
+| `glTF (Godot)/Hair_Long.gltf` | mesh | 2,056 | `94500e2e37e09efc8b8b920b8c6437ef1c76ca35863992b82d0d5de6e77122e9` |
+| `glTF (Godot)/Hair_Long.bin` | buffer | 115,996 | `13996da35c7afbf8cb5097da37207ee5b7c2e2904d4ab9e2ace9843030fff8d5` |
+| `glTF (Godot)/Hair_Buns.gltf` | mesh | 2,243 | `2bb3593575e21c9af39a53e48c42c1314b0a894e9577f3f14abffcb145cd56c5` |
+| `glTF (Godot)/Hair_Buns.bin` | buffer | 131,768 | `4f6d4c010201278483da8d6d46ec40e3beb8d9e679ec2139bed216c561bccd38` |
+
 ## Declared substitution
 
 `Superhero_Male_FullBody.gltf` uses two normal-map URIs, and `Superhero_Female_FullBody.gltf` uses the eye one, that the archive does not contain under those names. Under [Atlas Decision 6.1.3](decisions/atlas.md), each one is bound to the texture in the same folder:

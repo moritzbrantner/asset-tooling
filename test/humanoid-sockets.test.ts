@@ -14,11 +14,12 @@ const hydrated=!outfitText.startsWith("version https://git-lfs.github.com/spec/v
 const socket=(change:Partial<Record<keyof HumanoidSocket,unknown>>={})=>({id:"hand_r.weapon",joint:"hand_r",translation:[0,.1,0],rotation:[0,0,0,1],accepts:["one-hand-weapon"],...change});
 const make=(sockets:unknown[])=>({schema:HUMANOID_SOCKETS_SCHEMA,character:"humanoid.ranger.male",unit:"meter",axes:"right-handed-y-up",attachFrame:"grip",sockets});
 
-test("the committed Ranger descriptor declares the hand, stowed and archery sockets",()=>{
- const d=validateHumanoidSocketDescriptor(descriptor,{joints:["hand_r","hand_l","spine_03","pelvis"]});
+test("the committed Ranger descriptor declares the hand, stowed, archery and hair sockets",()=>{
+ const d=validateHumanoidSocketDescriptor(descriptor,{joints:["hand_r","hand_l","spine_03","pelvis","Head"]});
  assert.deepEqual(d,descriptor,"the committed file is already canonical");
  assert.deepEqual(d.sockets.map(s=>[s.id,s.joint]),[["hand_r.weapon","hand_r"],["hand_l.shield","hand_l"],["back.stowed","spine_03"],["hip_l.stowed","pelvis"],
-  ["hand_l.bow","hand_l"],["hand_r.arrow","hand_r"],["back.quiver","spine_03"],["back.bow.stowed","spine_03"]]);
+  ["hand_l.bow","hand_l"],["hand_r.arrow","hand_r"],["back.quiver","spine_03"],["back.bow.stowed","spine_03"],["head.hair","Head"]]);
+ assert.deepEqual(humanoidSocketsAccepting(d,"hair"),["head.hair"]);
  assert.deepEqual(humanoidSocketsAccepting(d,"bow"),["hand_l.bow","back.bow.stowed"]);
  assert.deepEqual(humanoidSocketsAccepting(d,"arrow"),["hand_r.arrow"]);
  assert.deepEqual(humanoidSocketsAccepting(d,"quiver"),["back.quiver"]);

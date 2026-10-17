@@ -267,6 +267,54 @@
     },
     {
       "schemaVersion": 1,
+      "sourceId": "quaternius.universal-base-characters-standard.hair-buns-bin",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.universal-base-characters-standard.hair-buns-bin/Hair_Buns.bin"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.universal-base-characters-standard.hair-buns-gltf",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.universal-base-characters-standard.hair-buns-gltf/Hair_Buns.gltf"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.universal-base-characters-standard.hair-buzzed-bin",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.universal-base-characters-standard.hair-buzzed-bin/Hair_Buzzed.bin"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.universal-base-characters-standard.hair-buzzed-gltf",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.universal-base-characters-standard.hair-buzzed-gltf/Hair_Buzzed.gltf"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.universal-base-characters-standard.hair-long-bin",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.universal-base-characters-standard.hair-long-bin/Hair_Long.bin"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.universal-base-characters-standard.hair-long-gltf",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.universal-base-characters-standard.hair-long-gltf/Hair_Long.gltf"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.universal-base-characters-standard.hair-simpleparted-bin",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.universal-base-characters-standard.hair-simpleparted-bin/Hair_SimpleParted.bin"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.universal-base-characters-standard.hair-simpleparted-gltf",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.universal-base-characters-standard.hair-simpleparted-gltf/Hair_SimpleParted.gltf"
+    },
+    {
+      "schemaVersion": 1,
       "sourceId": "quaternius.universal-base-characters-standard.superhero-female-fullbody-bin",
       "storage": "git-lfs",
       "path": "assets/canonical/quaternius.universal-base-characters-standard.superhero-female-fullbody-bin/Superhero_Female_FullBody.bin"
@@ -333,6 +381,12 @@
     },
     {
       "schemaVersion": 1,
+      "sourceId": "quaternius.universal-base-characters-standard.t-superhero-female-light-basecolor-png",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.universal-base-characters-standard.t-superhero-female-light-basecolor-png/T_Superhero_Female_Light_BaseColor.png"
+    },
+    {
+      "schemaVersion": 1,
       "sourceId": "quaternius.universal-base-characters-standard.t-superhero-female-normal-png",
       "storage": "git-lfs",
       "path": "assets/canonical/quaternius.universal-base-characters-standard.t-superhero-female-normal-png/T_Superhero_Female_Normal.png"
@@ -348,6 +402,12 @@
       "sourceId": "quaternius.universal-base-characters-standard.t-superhero-male-dark-png",
       "storage": "git-lfs",
       "path": "assets/canonical/quaternius.universal-base-characters-standard.t-superhero-male-dark-png/T_Superhero_Male_Dark.png"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.universal-base-characters-standard.t-superhero-male-ligh-png",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.universal-base-characters-standard.t-superhero-male-ligh-png/T_Superhero_Male_Ligh.png"
     },
     {
       "schemaVersion": 1,

@@ -12,7 +12,8 @@ For every pose (rest, Idle_Loop mid, Walk_Loop quarter and mid) it writes a
 3 x 2 sheet: front, side (from the character's left) and back views over
 close-ups of the right hand, the left hand from outside and the left hand from
 behind. ``--poses`` replaces the default pose list; each sheet is then named
-``sheet-<clip>-<percent>.png``.
+``sheet-<clip>-<percent>.png``. ``--hide=<node>,...`` hides character objects by name (for example the hood
+when judging hair, #116).
 """
 import json
 import math
@@ -51,13 +52,17 @@ def main():
     for option in [a for a in args if a.startswith("--poses=")]:
         poses = [(f"{clip}-{round(float(fraction) * 100):03d}", clip, float(fraction))
                  for clip, fraction in (item.split("@") for item in option[len("--poses="):].split(","))]
-    args = [a for a in args if not a.startswith("--poses=")]
+    hidden = [name for option in args if option.startswith("--hide=") for name in option[len("--hide="):].split(",")]
+    args = [a for a in args if not a.startswith("--poses=") and not a.startswith("--hide=")]
     character, sockets_path, out_dir, attachments = args[0], args[1], args[2], [a.split("=", 1) for a in args[3:]]
     os.makedirs(out_dir, exist_ok=True)
     bpy.ops.object.select_all(action="SELECT")
     bpy.ops.object.delete(use_global=False)
     bpy.ops.import_scene.gltf(filepath=character, guess_original_bind_pose=False)
     armature = next(o for o in bpy.context.scene.objects if o.type == "ARMATURE")
+    for obj in list(bpy.context.scene.objects):
+        if obj.name in hidden or (obj.data is not None and obj.data.name in hidden):
+            obj.hide_render = True
     rest = gltf_rest_worlds(character)
     with open(sockets_path) as handle:
         sockets = {s["id"]: s for s in json.load(handle)["sockets"]}
