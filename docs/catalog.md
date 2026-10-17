@@ -104,6 +104,22 @@ This acquires the registered source, measures or re-verifies the exact bytes, up
 
 The preferred hosted path is the manually dispatched `Catalog Git LFS promotion` workflow. It performs the same preparation, verifies the LFS/storage boundary, stages the payload through Git LFS, commits it, and pushes a uniquely named review branch. It does **not** push to `main` and does not automatically create a PR; the review branch must be turned into a normal pull request so PR-triggered exact-head validation executes before integration.
 
+### Promoting from a local file
+
+Some shared sources have no stable download URL. itch.io, for example, only hands out short-lived signed download links. For these, the owner downloads the file once and promotes it from disk ([Atlas Decision 6.1.1](decisions/atlas.md)):
+
+```text
+bun run catalog:lfs:promote -- <catalog-source-id | archive-member-id> --from <file>
+bun run catalog:lfs:promote -- <catalog-source-id | archive-member-id> --from=<file>
+```
+
+- **What the file holds.** For a whole source it holds the source bytes. For an archive member it holds the **archive**, and the member is extracted from it exactly as from a fetched archive. A relative `--from` path is resolved against the current directory. The library option `localFile` (on `prepareAssetCatalogLfsPromotion` and `applyAssetCatalogLfsPromotion`) must be absolute. A relative or missing path is rejected before anything is written.
+- **No network.** In this mode nothing is fetched. All other checks stay the same: a pinned source or archive must match its SHA-256 and byte length exactly, an unpinned one is measured and pinned, and the license policy and the canonical path are unchanged. The file's own name doesn't matter, because the canonical name comes from the record.
+- **Provenance.** The source record keeps the provider page URL in `source.url`, the upload id in `source.upstreamId` and the original file name in `source.path`, together with its license evidence. The **SHA-256 and byte-length pin is authoritative**: it, not the URL, identifies the bytes.
+- **No hosted re-acquisition.** Once promoted, the LFS object is the durable copy. The hosted promotion workflow is not expected to re-acquire such a source, because its URL is a page, not a payload.
+
+An unknown flag or an empty `--from` prints usage and exits with status 2.
+
 Re-running promotion for an already canonical source is idempotent when the bytes and manifests are unchanged. A changed upstream response, corrupted local canonical payload, implicit path move, unaccepted license, or project-local provider fails closed.
 
 ## Archive-member sources
