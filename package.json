@@ -134,7 +134,7 @@
   },
   "devDependencies": {
     "@moritzbrantner/three-d-renderer": "github:moritzbrantner/3d-lab#df52c324a5692d04d2016d8a29f5bc4368e4aac0",
-    "@playwright/test": "1.63.0",
+    "@playwright/test": "1.64.0",
     "@types/three": "0.185.4",
     "three": "0.185.1"
   }
