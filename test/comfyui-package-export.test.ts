@@ -535,7 +535,7 @@ async function exportedBridgeTemplates(): Promise<Record<string, string>> {
   return templates;
 }
 
-test("#221: existing exported operations and bridge templates are unchanged; exactly ComfyUI and asset.bundle@3 (#223) are added", async () => {
+test("#221: existing exported operations and bridge templates are unchanged; exactly ComfyUI, asset.bundle@3 (#223) and image.generate@1 (#222) are added", async () => {
   const baseline = JSON.parse(await readFile(BASELINE_PATH, "utf8")) as { templates: Record<string, string> };
   const current = await exportedBridgeTemplates();
   const added = Object.keys(current).filter((key) => !(key in baseline.templates)).sort();
@@ -544,5 +544,9 @@ test("#221: existing exported operations and bridge templates are unchanged; exa
     .filter((key) => key in current && current[key] !== baseline.templates[key])
     .sort();
   // #223 adds asset.bundle@3 (approved PNG bundle, Decision 4.1.3) to the bundle subpath.
-  assert.deepEqual({ added, removed, changed }, { added: ["asset.bundle@3", OPERATION_KEY], removed: [], changed: [] });
+  // #222 adds image.generate@1 (provider plus pinned model profiles, Decision 5.1.4).
+  assert.deepEqual(
+    { added, removed, changed },
+    { added: ["asset.bundle@3", OPERATION_KEY, "image.generate@1"], removed: [], changed: [] },
+  );
 });

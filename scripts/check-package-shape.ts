@@ -1,6 +1,9 @@
+import { createHash } from "node:crypto";
 import { access, readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+
+import { IMAGE_GENERATE_MODEL_PROFILES } from "../src/image-generate-operation.js";
 
 type PackageJson = {
   name?: string;
@@ -88,6 +91,7 @@ const expectedSourceExports: Record<string, string> = {
   "./operations/audio/model": "./src/audio-model-operations.ts",
   "./operations/audio/model/kokoro": "./src/kokoro-audio-model.ts",
   "./operations/image/comfyui": "./src/comfyui-operation.ts",
+  "./operations/image/generate": "./src/image-generate-operation.ts",
   "./audio": "./src/audio.ts",
   "./operations/workflow": "./src/workflow-operations.ts",
   "./catalog": "./src/catalog.ts",
@@ -143,6 +147,7 @@ const requiredInternalFiles = [
   "src/processor-runtime.ts",
   "src/receipts.ts",
   "src/schema.ts",
+  "src/comfyui-transport.ts",
   "src/tool.ts",
   "src/entry.ts",
   "catalog/providers.json",
@@ -158,6 +163,16 @@ const requiredInternalFiles = [
 ];
 for (const file of requiredInternalFiles) {
   await access(path.join(root, file));
+}
+
+// image.generate@1 template workflows ship in the package and must match their profile pins.
+for (const profile of Object.values(IMAGE_GENERATE_MODEL_PROFILES)) {
+  const bytes = await readFile(path.join(root, profile.template.path));
+  const actual = createHash("sha256").update(bytes).digest("hex");
+  assert(
+    profile.template.path.startsWith("src/") && actual === profile.template.sha256,
+    `image.generate template ${profile.template.path} has sha256 ${actual}; the '${profile.id}' profile pins ${profile.template.sha256}`,
+  );
 }
 
 const cli = await readFile(path.join(root, "src/entry.ts"), "utf8");

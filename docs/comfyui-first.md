@@ -37,4 +37,5 @@ There is **one operation registry** in asset-tooling and **one implementation st
 
 - [#212](https://github.com/moritzbrantner/asset-tooling/issues/212): one real pinned ComfyUI operation through existing asset contracts, initially with the external provider (see [PRD](prd-comfyui-provider.md)).
 - [#211](https://github.com/moritzbrantner/asset-tooling/issues/211): produce, inspect, approve and export four actual MMORPG Warden ability icons using that reusable integration where appropriate.
+- [#222](https://github.com/moritzbrantner/asset-tooling/issues/222): explicit provider choice through `image.generate@1`, using pinned FLUX.2 [klein] 4B and Z-Image Turbo profiles and repository-owned templates (see [image-generate.md](image-generate.md)).
 - [#127](https://github.com/moritzbrantner/asset-tooling/issues/127): reuse the existing asset workbench for comparison/approval instead of creating a second ComfyUI editor or gallery.

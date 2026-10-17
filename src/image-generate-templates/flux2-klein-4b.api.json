@@ -1,0 +1,77 @@
+{
+  "1": {
+    "class_type": "UNETLoader",
+    "inputs": { "unet_name": "diffusion-model.safetensors", "weight_dtype": "default" },
+    "_meta": { "title": "image.generate@1 flux2-klein-4b: diffusion model (injected)" }
+  },
+  "2": {
+    "class_type": "CLIPLoader",
+    "inputs": { "clip_name": "text-encoder.safetensors", "type": "flux2", "device": "default" },
+    "_meta": { "title": "image.generate@1 flux2-klein-4b: text encoder (injected)" }
+  },
+  "3": {
+    "class_type": "VAELoader",
+    "inputs": { "vae_name": "vae.safetensors" },
+    "_meta": { "title": "image.generate@1 flux2-klein-4b: VAE (injected)" }
+  },
+  "10": {
+    "class_type": "PrimitiveInt",
+    "inputs": { "value": 1024 },
+    "_meta": { "title": "width (injected)" }
+  },
+  "11": {
+    "class_type": "PrimitiveInt",
+    "inputs": { "value": 1024 },
+    "_meta": { "title": "height (injected)" }
+  },
+  "20": {
+    "class_type": "CLIPTextEncode",
+    "inputs": { "text": "", "clip": ["2", 0] },
+    "_meta": { "title": "prompt (injected)" }
+  },
+  "21": {
+    "class_type": "ConditioningZeroOut",
+    "inputs": { "conditioning": ["20", 0] },
+    "_meta": { "title": "zeroed negative conditioning (distilled model; no negative prompt)" }
+  },
+  "30": {
+    "class_type": "CFGGuider",
+    "inputs": { "cfg": 1, "model": ["1", 0], "positive": ["20", 0], "negative": ["21", 0] },
+    "_meta": { "title": "guidance (injected)" }
+  },
+  "31": {
+    "class_type": "KSamplerSelect",
+    "inputs": { "sampler_name": "euler" },
+    "_meta": { "title": "sampler (injected)" }
+  },
+  "32": {
+    "class_type": "Flux2Scheduler",
+    "inputs": { "steps": 4, "width": ["10", 0], "height": ["11", 0] },
+    "_meta": { "title": "steps (injected)" }
+  },
+  "33": {
+    "class_type": "RandomNoise",
+    "inputs": { "noise_seed": 0 },
+    "_meta": { "title": "seed (injected)" }
+  },
+  "34": {
+    "class_type": "EmptyFlux2LatentImage",
+    "inputs": { "width": ["10", 0], "height": ["11", 0], "batch_size": 1 },
+    "_meta": { "title": "latent sized from width/height" }
+  },
+  "40": {
+    "class_type": "SamplerCustomAdvanced",
+    "inputs": { "noise": ["33", 0], "guider": ["30", 0], "sampler": ["31", 0], "sigmas": ["32", 0], "latent_image": ["34", 0] },
+    "_meta": { "title": "sample" }
+  },
+  "50": {
+    "class_type": "VAEDecode",
+    "inputs": { "samples": ["40", 0], "vae": ["3", 0] },
+    "_meta": { "title": "decode" }
+  },
+  "60": {
+    "class_type": "SaveImage",
+    "inputs": { "filename_prefix": "asset-tooling-image-generate-flux2-klein-4b", "images": ["50", 0] },
+    "_meta": { "title": "output" }
+  }
+}
