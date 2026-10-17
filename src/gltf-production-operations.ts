@@ -1,6 +1,6 @@
 /// <reference path="./gltf-validator.d.ts" />
 import { readDependencyLockSha256 } from "./dependency-lock.js";
-import { VERSION, type Document } from "@gltf-transform/core";
+import { Primitive, Root, VERSION, type Accessor, type Document } from "@gltf-transform/core";
 import { version as validatorVersion } from "gltf-validator";
 import { storeAssetObject } from "./asset-store.js";
 import { GLTF_IMPORT_OPERATION } from "./gltf-import-operations.js";
@@ -196,12 +196,30 @@ function clampColors(document: Document) {
         }
         if (excess > 0) { clampedComponentCount += 1; maxExcess = Math.max(maxExcess, excess); }
       }
-      return clampedComponentCount ? [{ array, entry: { repair, path, clampedComponentCount, maxExcess } }] : [];
+      return clampedComponentCount ? [{ primitive, semantic, accessor, entry: { repair, path, clampedComponentCount, maxExcess } }] : [];
     })));
-  for (const { array } of measured) {
+  for (const { primitive, semantic, accessor } of measured) {
+    // Clamp a private copy when the accessor also serves any non-color use, so only colors change.
+    let target = accessor;
+    if (hasNonColorUse(accessor)) {
+      target = accessor.clone().setArray(accessor.getArray()!.slice());
+      primitive.setAttribute(semantic, target);
+    }
+    const array = target.getArray()!;
     for (const [index, value] of array.entries()) if (value > 1 || value < 0) array[index] = Math.min(1, Math.max(0, value));
   }
   return measured.map(({ entry }) => entry);
+}
+
+/** True when the accessor is referenced other than as a primitive's COLOR_n attribute. */
+function hasNonColorUse(accessor: Accessor): boolean {
+  return accessor.listParents().some((parent) => {
+    if (parent instanceof Root) return false;
+    if (!(parent instanceof Primitive)) return true;
+    return parent.getIndices() === accessor
+      || parent.listSemantics().some((semantic) => !/^COLOR_\d+$/.test(semantic) && parent.getAttribute(semantic) === accessor)
+      || parent.listTargets().length > 0;
+  });
 }
 
 function singularInverseBinds(document: Document) {
