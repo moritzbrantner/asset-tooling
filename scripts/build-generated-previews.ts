@@ -26,6 +26,7 @@ import { AUTHORED_EFFECT_SEQUENCE_PRESETS, executeAuthoredEffectSequenceRecipe }
 import { FEEDBACK_KIT_PRESETS, executeFeedbackKitRecipe } from "../src/feedback-kits.js";
 import { TRANSITION_TILE_PRESET, executeTransitionTileKit, readTransitionTileConnection } from "../src/transition-tile-recipes.js";
 import { writeIfChanged } from "../examples/reconcile-file.js";
+import { buildWardenReviewPage } from "../src/warden-icon-review.js";
 
 const root = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
 const output = path.join(root, "dist", "pages", "previews");
@@ -89,6 +90,16 @@ async function runBlenderObj(id, bytes) {
 
 await rm(output, { recursive: true, force: true });
 await mkdir(output, { recursive: true });
+
+// Warden ability-icon candidates (#211): hydrated Git LFS review bytes, re-verified against their
+// committed manifest before any page is written. Runs first so an unhydrated checkout fails fast.
+const wardenOutput = path.join(root, "dist", "pages", "review", "warden-icons");
+await rm(wardenOutput, { recursive: true, force: true });
+const warden = await buildWardenReviewPage({
+  root,
+  reviewDirectory: path.join(root, "review", "warden-icons"),
+  outputDirectory: wardenOutput,
+});
 
 // Real GLBs generated from the same validated specs and pinned Blender sources as consumers.
 for (const asset of generateMedievalCharacterKit()) {
@@ -210,4 +221,7 @@ for (const id of Object.keys(index)) if (!declared.has(id)) throw new Error("orp
 await writeIfChanged(path.join(output, "index.json"), Buffer.from(canonicalJson({
   schemaVersion: 1, assets: index,
 }) + "\n"));
-console.log(JSON.stringify({ status: "built", previewAssets: declared.size, output: "dist/pages/previews" }));
+console.log(JSON.stringify({
+  status: "built", previewAssets: declared.size, output: "dist/pages/previews",
+  wardenReviewCandidates: warden.candidates.length, wardenReview: "dist/pages/review/warden-icons",
+}));
