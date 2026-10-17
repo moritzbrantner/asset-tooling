@@ -161,6 +161,27 @@ Where an internal (Diffusers) and a ComfyUI path both generate images, they sit 
 
 Re-running repository setup on a managed installation under `.artifacts/toolchain` brings it to the pinned, declared state. Re-running it on a correct installation changes nothing. `doctor` stays read-only and reports any mismatch until setup is re-run. Convergence only touches tool-managed state; user-owned or unmanaged installations are never modified. The first case is the ComfyUI CPU profile: an existing install with a CUDA torch build, or no torch record, converges to the hash-pinned `+cpu` torch and torchvision wheels (Linux x86_64, cp310–cp315 only; other platforms fail closed before installing). Other kinds of drift keep failing closed until they gain an explicit convergence step.
 
+#### Decision 5.1.4 — `image.generate@1`: provider plus pinned model profiles
+
+**Approved by owner:** 2026-10-17, answering the #222 pre-implementation questions. **Refines** Decision 5.1.2, settling the operation name and parameters that 5.1.2 left open.
+
+- **Operation:** the evolved operation is **`image.generate@1`** with a required `provider`.
+- **Model profile:** a required `model` id (initially `flux2-klein-4b` and `z-image-turbo`) pins the model files (diffusion model, text encoder, VAE), a newly authored, repository-owned template workflow and the default settings.
+- **Recipe parameters:** recipes set `prompt`, `seed`, `width` and `height`, plus an optional `steps`. The sampler settings (`sampler`, `scheduler`, `guidance`/cfg, `shift`) are **optional overrides with sensible profile defaults** ("like that but also the sampler knobs as optional parameters (with sane defaults)").
+- **Negative prompts:** `negativePrompt` is rejected by profiles that don't use one.
+- **Providers:** ComfyUI is the first provider for both models. Diffusers support for these models is a follow-up, and selecting a provider that doesn't support the chosen model fails visibly.
+- **Unchanged:** `image.stable-diffusion.generate@1`, and the #211 review workflows, which stay review provenance.
+
+#### Decision 5.1.5 — Cancelling a ComfyUI job only touches that job
+
+**Approved by owner:** 2026-10-17, answering the #224 pre-implementation questions.
+
+- **Signal:** cancellation reaches an asset operation as an `AbortSignal` passed to `runAssetOperation(..., { signal })`. The workflow executor forwards the runner's signal into it.
+- **Queued prompt:** a queued prompt of this operation is deleted.
+- **Running prompt:** it is **never interrupted**, neither globally nor by a targeted interrupt. The run is reported as ambiguous ("may still finish on the server"), and nothing is stored or cached.
+- **Completion race:** the cancel wins. An output that completed meanwhile is neither imported nor cached.
+- **Cancel during submission:** the operation looks up its own `client_id` in the queue and deletes the prompt if it is queued. Otherwise it reports an ambiguous submission and never resubmits.
+
 ## 6. Shared source acquisition
 
 ### 6.1. Sources without a stable download URL
@@ -170,3 +191,13 @@ Re-running repository setup on a managed installation under `.artifacts/toolchai
 **Approved by owner:** 2026-10-17, on [#109](https://github.com/moritzbrantner/asset-tooling/issues/109). It chose local-file promotion over an itch.io signed-URL resolver or an owner-hosted mirror.
 
 Some selected sources, such as the Quaternius Universal Base Characters and Modular Character Outfits packs, are distributed only through itch.io's short-lived signed download URLs. The owner downloads such an archive once. A **local-file mode of canonical LFS promotion** (`catalog:lfs:promote -- <id> --from <file>`) then pins and stores it. The **SHA-256 and byte-length pin is authoritative**. The source record keeps the itch.io page and upload id as provenance, along with the license evidence. Archive-member selection, license policy and the review-branch/PR validation are unchanged. The LFS object becomes the durable copy, so hosted re-acquisition of such a source is not expected.
+
+#### Decision 6.1.2 — First humanoid source set from Universal Base Characters
+
+**Approved by owner:** 2026-10-17, answering the #109 pre-implementation questions. **Applies** Decisions 1.1.3 and 6.1.1.
+
+The first humanoid source is the **Quaternius Universal Base Characters** pack (<https://quaternius.com/packs/universalbasecharacters.html>), not the Ultimate Animated Character pack that mmorpg picked up by mistake (corrected in mmorpg#210).
+
+- **Members promoted:** the **Male Ranger** outfit from Modular Character Outfits – Fantasy and the **matching male base body**, together with every buffer and texture they reference, stored as archive members in canonical LFS.
+- **Missing normal maps:** two normal maps that the base body references but the archive does not contain are left out, and that is recorded as a known import gap. No data is invented. Whether they can be derived deterministically (for example by a Blender bake) is investigated separately.
+- **Clips:** the **UAL1 Standard `Idle_Loop` and `Walk_Loop`** clips are promoted as source members. Retargeting stays with #110/#115.
