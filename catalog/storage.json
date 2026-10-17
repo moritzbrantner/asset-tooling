@@ -249,9 +249,21 @@
     },
     {
       "schemaVersion": 1,
+      "sourceId": "quaternius.universal-base-characters-standard.t-eye-normal-png",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.universal-base-characters-standard.t-eye-normal-png/T_Eye_Normal.png"
+    },
+    {
+      "schemaVersion": 1,
       "sourceId": "quaternius.universal-base-characters-standard.t-hair-1-basecolor-png",
       "storage": "git-lfs",
       "path": "assets/canonical/quaternius.universal-base-characters-standard.t-hair-1-basecolor-png/T_Hair_1_BaseColor.png"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.universal-base-characters-standard.t-hair-1-normal-png",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.universal-base-characters-standard.t-hair-1-normal-png/T_Hair_1_Normal.png"
     },
     {
       "schemaVersion": 1,
