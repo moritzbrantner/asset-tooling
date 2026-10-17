@@ -1260,6 +1260,501 @@
         "greyhaven-starter"
       ],
       "title": "Medieval Village MegaKit — DoorFrame_Flat_WoodDark (glTF)"
+    },
+    {
+      "id": "quaternius.universal-base-characters-standard",
+      "kind": "asset-pack",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/universalbasecharacters.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "application/zip",
+      "metadata": {
+        "distribution": "itch.io only (short-lived signed download URL); promoted from an owner-downloaded local file per Atlas Decision 6.1.1",
+        "purpose": "Rigged humanoid base bodies (65-joint skin) for character composition",
+        "standardContents": "Superhero_Male_FullBody and Superhero_Female_FullBody"
+      },
+      "provider": "quaternius",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 128968391,
+        "path": "Universal Base Characters[Standard].zip",
+        "sha256": "fdbf1804c90dfc1ea03e992bff7da2dfd1a79318e13270a660180f9308455f40",
+        "upstreamId": "15861669",
+        "url": "https://quaternius.itch.io/universal-base-characters"
+      },
+      "tags": [
+        "character",
+        "game",
+        "gltf",
+        "humanoid",
+        "rigged",
+        "three-d"
+      ],
+      "title": "Universal Base Characters — Standard"
+    },
+    {
+      "id": "quaternius.modular-character-outfits-fantasy-standard",
+      "kind": "asset-pack",
+      "license": {
+        "evidenceUrl": "https://quaternius.itch.io/modular-character-outfits-fantasy",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "application/zip",
+      "metadata": {
+        "distribution": "itch.io only (short-lived signed download URL); promoted from an owner-downloaded local file per Atlas Decision 6.1.1",
+        "purpose": "Rigged fantasy outfits (65-joint skin) matching the Universal Base Characters bodies"
+      },
+      "provider": "quaternius",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 294347394,
+        "path": "Modular Character Outfits - Fantasy[Standard].zip",
+        "sha256": "c3468b18871cc8c8f05ab14df7712baf22cb9f389cbd870babf130e595187f70",
+        "upstreamId": "16289385",
+        "url": "https://quaternius.itch.io/modular-character-outfits-fantasy"
+      },
+      "tags": [
+        "character",
+        "fantasy",
+        "game",
+        "gltf",
+        "humanoid",
+        "outfit",
+        "rigged",
+        "three-d"
+      ],
+      "title": "Modular Character Outfits – Fantasy — Standard"
+    },
+    {
+      "id": "quaternius.universal-animation-library-standard",
+      "kind": "asset-pack",
+      "license": {
+        "evidenceUrl": "https://opengameart.org/content/universal-animation-library",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "application/zip",
+      "metadata": {
+        "distributionMirror": "OpenGameArt upload by Quaternius",
+        "purpose": "Original Universal Animation Library (UAL1) humanoid clips, including Idle_Loop and Walk_Loop"
+      },
+      "provider": "quaternius",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 14541205,
+        "path": "universal_animation_librarystandard.zip",
+        "sha256": "18ff1a7215f4852b320203e8aaf02a1578b5c8eef9027fbaedfcedc7b85a3ac2",
+        "upstreamId": "universal-animation-library-standard",
+        "url": "https://opengameart.org/sites/default/files/universal_animation_librarystandard.zip"
+      },
+      "tags": [
+        "animation",
+        "game",
+        "humanoid",
+        "locomotion",
+        "three-d"
+      ],
+      "title": "Universal Animation Library — Standard"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.universal-base-characters-standard",
+        "path": "Universal Base Characters[Standard]/Base Characters/Godot - UE/Superhero_Male_FullBody.gltf"
+      },
+      "id": "quaternius.universal-base-characters-standard.superhero-male-fullbody-gltf",
+      "kind": "mesh",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/universalbasecharacters.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "model/gltf+json",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 30989,
+        "sha256": "e7fcea214ecf8855afbf910b50de6f9c7d1decfb71ca28bad8a4481452dafeb4"
+      },
+      "tags": [
+        "body",
+        "humanoid-baseline"
+      ],
+      "title": "Universal Base Characters — Superhero_Male_FullBody (glTF)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.universal-base-characters-standard",
+        "path": "Universal Base Characters[Standard]/Base Characters/Godot - UE/Superhero_Male_FullBody.bin"
+      },
+      "id": "quaternius.universal-base-characters-standard.superhero-male-fullbody-bin",
+      "kind": "buffer",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/universalbasecharacters.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "application/octet-stream",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 720076,
+        "sha256": "459003f9745853ae562a85506a2b94dd56515c1f37728f9fa3d2ce1a3e4cd92f"
+      },
+      "tags": [
+        "body",
+        "humanoid-baseline"
+      ],
+      "title": "Universal Base Characters — Superhero_Male_FullBody (glTF buffer)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.universal-base-characters-standard",
+        "path": "Universal Base Characters[Standard]/Base Characters/Godot - UE/T_Hair_1_BaseColor.png"
+      },
+      "id": "quaternius.universal-base-characters-standard.t-hair-1-basecolor-png",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/universalbasecharacters.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/png",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 1570376,
+        "sha256": "bc7aa863bd22ab0a995cd838cceb4d3a5186ee54ee2fb0108fad85d20c057e6e"
+      },
+      "tags": [
+        "body",
+        "humanoid-baseline"
+      ],
+      "title": "Universal Base Characters — T_Hair_1_BaseColor (texture)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.universal-base-characters-standard",
+        "path": "Universal Base Characters[Standard]/Base Characters/Godot - UE/T_Eye_Brown.png"
+      },
+      "id": "quaternius.universal-base-characters-standard.t-eye-brown-png",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/universalbasecharacters.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/png",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 35958,
+        "sha256": "d08e3356a83211bc6ca21fe3a8e39f4b5c1a3b8f85457fc2c0fb57be09935025"
+      },
+      "tags": [
+        "body",
+        "humanoid-baseline"
+      ],
+      "title": "Universal Base Characters — T_Eye_Brown (texture)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.universal-base-characters-standard",
+        "path": "Universal Base Characters[Standard]/Base Characters/Godot - UE/T_Superhero_Male_Normal.png"
+      },
+      "id": "quaternius.universal-base-characters-standard.t-superhero-male-normal-png",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/universalbasecharacters.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/png",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 4252937,
+        "sha256": "9b25cf9200216eb754b79cf4c63b5380c419780788322f3c57cdd2b3e02679a6"
+      },
+      "tags": [
+        "body",
+        "humanoid-baseline"
+      ],
+      "title": "Universal Base Characters — T_Superhero_Male_Normal (texture)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.universal-base-characters-standard",
+        "path": "Universal Base Characters[Standard]/Base Characters/Godot - UE/T_Superhero_Male_Dark.png"
+      },
+      "id": "quaternius.universal-base-characters-standard.t-superhero-male-dark-png",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/universalbasecharacters.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/png",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 1384380,
+        "sha256": "df680cbc1967a61e85998bfafb8f7bc0a36dd604bb3266486c4b06b1a184bb45"
+      },
+      "tags": [
+        "body",
+        "humanoid-baseline"
+      ],
+      "title": "Universal Base Characters — T_Superhero_Male_Dark (texture)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.universal-base-characters-standard",
+        "path": "Universal Base Characters[Standard]/Base Characters/Godot - UE/T_Superhero_Male_Roughness.png"
+      },
+      "id": "quaternius.universal-base-characters-standard.t-superhero-male-roughness-png",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/universalbasecharacters.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/png",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 3152049,
+        "sha256": "c70dabf48574cda55644d556beae1ee7cf1bdcf68a50d259d20f2f2358f27991"
+      },
+      "tags": [
+        "body",
+        "humanoid-baseline"
+      ],
+      "title": "Universal Base Characters — T_Superhero_Male_Roughness (texture)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.modular-character-outfits-fantasy-standard",
+        "path": "Modular Character Outfits - Fantasy[Standard]/Exports/glTF (Godot-Unreal)/Outfits/Male_Ranger.gltf"
+      },
+      "id": "quaternius.modular-character-outfits-fantasy-standard.male-ranger-gltf",
+      "kind": "mesh",
+      "license": {
+        "evidenceUrl": "https://quaternius.itch.io/modular-character-outfits-fantasy",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "model/gltf+json",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 41447,
+        "sha256": "e1033a212332d84d98c19bc4927c621635478d0aa15d13c79da68d3ba9e0196f"
+      },
+      "tags": [
+        "humanoid-baseline",
+        "outfit"
+      ],
+      "title": "Modular Character Outfits – Fantasy — Male_Ranger (glTF)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.modular-character-outfits-fantasy-standard",
+        "path": "Modular Character Outfits - Fantasy[Standard]/Exports/glTF (Godot-Unreal)/Outfits/Male_Ranger.bin"
+      },
+      "id": "quaternius.modular-character-outfits-fantasy-standard.male-ranger-bin",
+      "kind": "buffer",
+      "license": {
+        "evidenceUrl": "https://quaternius.itch.io/modular-character-outfits-fantasy",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "application/octet-stream",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 1746884,
+        "sha256": "5bbb0d42cb324c6c27ce00417e68a876d92978f07d161f83590f0d7c0570eff6"
+      },
+      "tags": [
+        "humanoid-baseline",
+        "outfit"
+      ],
+      "title": "Modular Character Outfits – Fantasy — Male_Ranger (glTF buffer)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.modular-character-outfits-fantasy-standard",
+        "path": "Modular Character Outfits - Fantasy[Standard]/Exports/glTF (Godot-Unreal)/Outfits/T_Ranger_Normal.png"
+      },
+      "id": "quaternius.modular-character-outfits-fantasy-standard.t-ranger-normal-png",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://quaternius.itch.io/modular-character-outfits-fantasy",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/png",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 12713653,
+        "sha256": "dd64da2af3180f0c8f0b721cfc5f0d2720c351b97da8285c6cf49e7717c84147"
+      },
+      "tags": [
+        "humanoid-baseline",
+        "outfit"
+      ],
+      "title": "Modular Character Outfits – Fantasy — T_Ranger_Normal (texture)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.modular-character-outfits-fantasy-standard",
+        "path": "Modular Character Outfits - Fantasy[Standard]/Exports/glTF (Godot-Unreal)/Outfits/T_Ranger_BaseColor.png"
+      },
+      "id": "quaternius.modular-character-outfits-fantasy-standard.t-ranger-basecolor-png",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://quaternius.itch.io/modular-character-outfits-fantasy",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/png",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 6630927,
+        "sha256": "846ef2170b04ee584ad83bb8a1e86dab57a9a43b1193204505912c274d949925"
+      },
+      "tags": [
+        "humanoid-baseline",
+        "outfit"
+      ],
+      "title": "Modular Character Outfits – Fantasy — T_Ranger_BaseColor (texture)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.modular-character-outfits-fantasy-standard",
+        "path": "Modular Character Outfits - Fantasy[Standard]/Exports/glTF (Godot-Unreal)/Outfits/T_Ranger_ORM.png"
+      },
+      "id": "quaternius.modular-character-outfits-fantasy-standard.t-ranger-orm-png",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://quaternius.itch.io/modular-character-outfits-fantasy",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/png",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 10792085,
+        "sha256": "aca03d2fba12508ef07d5968ca22267fb207ea26ae898b6b2def8a296bd44f1c"
+      },
+      "tags": [
+        "humanoid-baseline",
+        "outfit"
+      ],
+      "title": "Modular Character Outfits – Fantasy — T_Ranger_ORM (texture)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.modular-character-outfits-fantasy-standard",
+        "path": "Modular Character Outfits - Fantasy[Standard]/Exports/glTF (Godot-Unreal)/Outfits/T_Regular_Male_Normal.png"
+      },
+      "id": "quaternius.modular-character-outfits-fantasy-standard.t-regular-male-normal-png",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://quaternius.itch.io/modular-character-outfits-fantasy",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/png",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 4064184,
+        "sha256": "10cd71e2453e577fdd43e912b6016a99baf64964f0593e524bdd304855e15e2a"
+      },
+      "tags": [
+        "humanoid-baseline",
+        "outfit"
+      ],
+      "title": "Modular Character Outfits – Fantasy — T_Regular_Male_Normal (texture)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.modular-character-outfits-fantasy-standard",
+        "path": "Modular Character Outfits - Fantasy[Standard]/Exports/glTF (Godot-Unreal)/Outfits/T_Regular_Male_Dark_BaseColor.png"
+      },
+      "id": "quaternius.modular-character-outfits-fantasy-standard.t-regular-male-dark-basecolor-png",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://quaternius.itch.io/modular-character-outfits-fantasy",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/png",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 1316151,
+        "sha256": "b4dcc0f4139aab548d7c070c4655bd2080ef16caeaaabee6c4aeb693c524e802"
+      },
+      "tags": [
+        "humanoid-baseline",
+        "outfit"
+      ],
+      "title": "Modular Character Outfits – Fantasy — T_Regular_Male_Dark_BaseColor (texture)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.modular-character-outfits-fantasy-standard",
+        "path": "Modular Character Outfits - Fantasy[Standard]/Exports/glTF (Godot-Unreal)/Outfits/T_Regular_Male_Roughness.png"
+      },
+      "id": "quaternius.modular-character-outfits-fantasy-standard.t-regular-male-roughness-png",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://quaternius.itch.io/modular-character-outfits-fantasy",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/png",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 3160102,
+        "sha256": "086c2eb25bddfdb77d8e639ccbffb8df723ef4a1910d8e1b217e852f8668bfe5"
+      },
+      "tags": [
+        "humanoid-baseline",
+        "outfit"
+      ],
+      "title": "Modular Character Outfits – Fantasy — T_Regular_Male_Roughness (texture)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.universal-animation-library-standard",
+        "path": "Animation Library[Standard]/Godot/AnimationLibrary_Godot_Standard.glb"
+      },
+      "id": "quaternius.universal-animation-library-standard.animationlibrary-godot-standard-glb",
+      "kind": "animation",
+      "license": {
+        "evidenceUrl": "https://opengameart.org/content/universal-animation-library",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "model/gltf-binary",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 6671104,
+        "sha256": "1b7bf67866360665426bb99e4c71bd619f19b408453c24e30f0c3071601eee5c"
+      },
+      "tags": [
+        "clips",
+        "humanoid-baseline"
+      ],
+      "title": "Universal Animation Library — AnimationLibrary_Godot_Standard (GLB animation library)"
     }
   ]
 }

@@ -147,6 +147,54 @@
     },
     {
       "schemaVersion": 1,
+      "sourceId": "quaternius.modular-character-outfits-fantasy-standard.male-ranger-bin",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.modular-character-outfits-fantasy-standard.male-ranger-bin/Male_Ranger.bin"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.modular-character-outfits-fantasy-standard.male-ranger-gltf",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.modular-character-outfits-fantasy-standard.male-ranger-gltf/Male_Ranger.gltf"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.modular-character-outfits-fantasy-standard.t-ranger-basecolor-png",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.modular-character-outfits-fantasy-standard.t-ranger-basecolor-png/T_Ranger_BaseColor.png"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.modular-character-outfits-fantasy-standard.t-ranger-normal-png",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.modular-character-outfits-fantasy-standard.t-ranger-normal-png/T_Ranger_Normal.png"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.modular-character-outfits-fantasy-standard.t-ranger-orm-png",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.modular-character-outfits-fantasy-standard.t-ranger-orm-png/T_Ranger_ORM.png"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.modular-character-outfits-fantasy-standard.t-regular-male-dark-basecolor-png",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.modular-character-outfits-fantasy-standard.t-regular-male-dark-basecolor-png/T_Regular_Male_Dark_BaseColor.png"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.modular-character-outfits-fantasy-standard.t-regular-male-normal-png",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.modular-character-outfits-fantasy-standard.t-regular-male-normal-png/T_Regular_Male_Normal.png"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.modular-character-outfits-fantasy-standard.t-regular-male-roughness-png",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.modular-character-outfits-fantasy-standard.t-regular-male-roughness-png/T_Regular_Male_Roughness.png"
+    },
+    {
+      "schemaVersion": 1,
       "sourceId": "quaternius.stylized-nature-megakit-standard.bark-normaltree-normal-png",
       "storage": "git-lfs",
       "path": "assets/canonical/quaternius.stylized-nature-megakit-standard.bark-normaltree-normal-png/Bark_NormalTree_Normal.png"
@@ -174,6 +222,54 @@
       "sourceId": "quaternius.stylized-nature-megakit-standard.leaves-normaltree-c-png",
       "storage": "git-lfs",
       "path": "assets/canonical/quaternius.stylized-nature-megakit-standard.leaves-normaltree-c-png/Leaves_NormalTree_C.png"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.universal-animation-library-standard.animationlibrary-godot-standard-glb",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.universal-animation-library-standard.animationlibrary-godot-standard-glb/AnimationLibrary_Godot_Standard.glb"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.universal-base-characters-standard.superhero-male-fullbody-bin",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.universal-base-characters-standard.superhero-male-fullbody-bin/Superhero_Male_FullBody.bin"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.universal-base-characters-standard.superhero-male-fullbody-gltf",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.universal-base-characters-standard.superhero-male-fullbody-gltf/Superhero_Male_FullBody.gltf"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.universal-base-characters-standard.t-eye-brown-png",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.universal-base-characters-standard.t-eye-brown-png/T_Eye_Brown.png"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.universal-base-characters-standard.t-hair-1-basecolor-png",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.universal-base-characters-standard.t-hair-1-basecolor-png/T_Hair_1_BaseColor.png"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.universal-base-characters-standard.t-superhero-male-dark-png",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.universal-base-characters-standard.t-superhero-male-dark-png/T_Superhero_Male_Dark.png"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.universal-base-characters-standard.t-superhero-male-normal-png",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.universal-base-characters-standard.t-superhero-male-normal-png/T_Superhero_Male_Normal.png"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.universal-base-characters-standard.t-superhero-male-roughness-png",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.universal-base-characters-standard.t-superhero-male-roughness-png/T_Superhero_Male_Roughness.png"
     }
   ]
 }
