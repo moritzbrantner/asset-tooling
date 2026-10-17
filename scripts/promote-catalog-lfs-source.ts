@@ -17,6 +17,8 @@ function parseArguments(args) {
     if (argument === "--from") {
       value = args[index + 1];
       index += 1;
+      // A following option token is never a file name: `--from --bogus` is a usage error.
+      if (value !== undefined && value.startsWith("-")) return null;
     } else if (argument.startsWith("--from=")) {
       value = argument.slice("--from=".length);
     } else if (argument.startsWith("-")) {

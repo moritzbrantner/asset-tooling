@@ -656,10 +656,10 @@ test("local file: a relative or missing path rejects before any write or fetch",
   const download = await downloadedFile("model.glb", MODEL_BYTES);
   const spy = forbiddenFetch();
   // A relative path that would even resolve to a real file from the current directory.
+  // On Windows the temp directory can be on another drive, where no relative path to it exists.
   const relative = path.relative(process.cwd(), download.filePath);
-  assert.equal(path.isAbsolute(relative), false);
   const cases = [
-    ["relative path", relative],
+    ...(path.isAbsolute(relative) ? [] : [["relative path", relative]]),
     ["bare file name", "model.glb"],
     ["missing absolute path", path.join(download.directory, "missing.glb")],
   ];
