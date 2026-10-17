@@ -24,6 +24,15 @@ if (mode === "probe") {
         dependencies: { "three-d-animation": "0.1.0" },
         cargoLock: "fixture-animation-lock-v1",
       },
+      {
+        id: "three-d-animation-retarget",
+        version: "0.1.0",
+        algorithm: "three-d-animation-humanoid-retarget-v1",
+        protocol: "asset-tooling-process-adapter-v1",
+        codec: "three-d-animation-json-v1",
+        dependencies: { "three-d-animation": "0.1.0" },
+        cargoLock: "fixture-animation-lock-v1",
+      },
     ]),
   );
   process.exit(0);
@@ -99,6 +108,37 @@ if (request.operation === "animation.reduce") {
       maxRotationErrorRadians: 0,
       maxScaleError: 0,
       endpointsPreserved: true,
+    }),
+  );
+  process.exit(0);
+}
+
+if (request.operation === "animation.retarget") {
+  // Not a solver: a rotation channel per target binding (rest rotation), plus a translation channel
+  // for hips/root at rest, at every sample time, so tests can check the name -> index conversion.
+  const { source: sourceRig, target, sampleTimesSeconds, rootMotion } = request.parameters;
+  for (const channel of source.channels) {
+    if (channel.node >= sourceRig.nodes.length) throw new Error(`channels node ${channel.node} is outside the source rig`);
+  }
+  const channels = [];
+  for (const [bone, node] of Object.entries(target.bindings).sort((a, b) => a[1] - b[1])) {
+    const rest = target.nodes[node];
+    if (bone === "hips" || bone === "root") {
+      channels.push({ kind: "translation", node, keyframes: sampleTimesSeconds.map((time) => ({ time, value: rest.translation })) });
+    }
+    channels.push({ kind: "rotation", node, keyframes: sampleTimesSeconds.map((time) => ({ time, value: rest.rotation })) });
+  }
+  const resultKeyframeCount = channels.reduce((total, channel) => total + channel.keyframes.length, 0);
+  await writeFile(outputPath, JSON.stringify({ schemaVersion: 1, channels }));
+  await writeFile(
+    observationsPath,
+    JSON.stringify({
+      sourceKeyframeCount,
+      sampleCount: sampleTimesSeconds.length,
+      mappedBoneCount: Object.keys(target.bindings).filter((bone) => bone in sourceRig.bindings).length,
+      resultChannelCount: channels.length,
+      resultKeyframeCount,
+      rootMotion,
     }),
   );
   process.exit(0);

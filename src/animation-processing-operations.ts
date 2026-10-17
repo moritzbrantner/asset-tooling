@@ -17,14 +17,29 @@ const execFileAsync = promisify(execFile);
 
 export const THREE_D_ANIMATION_MEDIA_TYPE =
   "application/vnd.moritzbrantner.three-d.animation+json";
+/** A humanoid rig rest pose with joint names (#110), as `scene.extract.animation.gltf@1` emits it. */
+export const THREE_D_HUMANOID_RIG_MEDIA_TYPE =
+  "application/vnd.moritzbrantner.three-d-humanoid-rig+json";
 
 const PROCESSOR_PROTOCOL = "asset-tooling-process-adapter-v1";
 const PROCESSOR_CODEC = "three-d-animation-json-v1";
 const RESAMPLE_OPERATION_ID = "animation.resample";
 const REDUCE_OPERATION_ID = "animation.reduce";
+const RETARGET_OPERATION_ID = "animation.retarget";
 const OPERATION_VERSION = "1";
 const RESAMPLE_PROCESSOR_ID = "three-d-animation-resample";
 const REDUCE_PROCESSOR_ID = "three-d-animation-reduce";
+const RETARGET_PROCESSOR_ID = "three-d-animation-retarget";
+/** `three_d_animation::retarget::HumanoidBone` ids accepted by the pinned processor. */
+export const HUMANOID_BONE_IDS = Object.freeze([
+  "root", "hips", "spine", "chest", "neck", "head",
+  "left-shoulder", "left-upper-arm", "left-lower-arm", "left-hand",
+  "right-shoulder", "right-upper-arm", "right-lower-arm", "right-hand",
+  "left-upper-leg", "left-lower-leg", "left-foot", "left-toes",
+  "right-upper-leg", "right-lower-leg", "right-foot", "right-toes",
+]);
+const MAX_SAMPLE_COUNT = 100_000;
+const MAX_RIG_NODES = 1024;
 const GIT_SHA_PATTERN = /^[0-9a-f]{40}$/;
 const REPOSITORY_PATTERN = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
 const UNIT_QUATERNION_TOLERANCE = 1.0e-4;
@@ -129,6 +144,71 @@ const OPERATION_REGISTRY = createAssetOperationRegistry([
       },
     },
   },
+  {
+    schemaVersion: 1,
+    id: RETARGET_OPERATION_ID,
+    version: OPERATION_VERSION,
+    label: "Retarget humanoid animation",
+    description:
+      "Transfer a local-transform clip from a source humanoid rig onto a target rig through an explicit semantic bone map, sampled on an explicit grid, through an authoritative animation processor.",
+    category: "animation.processing",
+    inputs: [
+      {
+        id: "animation",
+        label: "Source animation on source rig node indices",
+        assetKinds: ["animation"],
+        mediaTypes: [THREE_D_ANIMATION_MEDIA_TYPE],
+      },
+      {
+        id: "source-rig",
+        label: "Source humanoid rig",
+        assetKinds: ["rig"],
+        mediaTypes: [THREE_D_HUMANOID_RIG_MEDIA_TYPE],
+      },
+      {
+        id: "target-rig",
+        label: "Target humanoid rig",
+        assetKinds: ["rig"],
+        mediaTypes: [THREE_D_HUMANOID_RIG_MEDIA_TYPE],
+      },
+    ],
+    outputs: [
+      {
+        id: "output",
+        label: "Retargeted animation on target rig node indices",
+        assetKinds: ["animation"],
+        mediaTypes: [THREE_D_ANIMATION_MEDIA_TYPE],
+      },
+    ],
+    parameterSchema: {
+      type: "object",
+      additionalProperties: false,
+      required: ["bindings", "rootMotion"],
+      properties: {
+        bindings: {
+          type: "object",
+          minProperties: 1,
+          propertyNames: { enum: [...HUMANOID_BONE_IDS] },
+          additionalProperties: {
+            type: "object",
+            additionalProperties: false,
+            required: ["source", "target"],
+            properties: {
+              source: { type: "string", minLength: 1 },
+              target: { type: "string", minLength: 1 },
+            },
+          },
+        },
+        sampleRate: { type: "number", exclusiveMinimum: 0, maximum: 1000 },
+        sampleTimesSeconds: {
+          type: "array",
+          minItems: 1,
+          items: { type: "number", minimum: 0 },
+        },
+        rootMotion: { type: "string", enum: ["keep", "in-place"] },
+      },
+    },
+  },
 ]);
 
 export const ANIMATION_RESAMPLE_OPERATION = OPERATION_REGISTRY.get(
@@ -137,6 +217,10 @@ export const ANIMATION_RESAMPLE_OPERATION = OPERATION_REGISTRY.get(
 );
 export const ANIMATION_REDUCE_OPERATION = OPERATION_REGISTRY.get(
   REDUCE_OPERATION_ID,
+  OPERATION_VERSION,
+);
+export const ANIMATION_RETARGET_OPERATION = OPERATION_REGISTRY.get(
+  RETARGET_OPERATION_ID,
   OPERATION_VERSION,
 );
 
@@ -628,6 +712,11 @@ function parseAnimationDocument(bytes, location) {
   return { channels, channelCount: channels.length, keyframeCount, startSeconds, endSeconds };
 }
 
+/** Admit a `three-d-animation-json-v1` document (the codec the animation processors exchange). */
+export function parseThreeDAnimationDocument(bytes, location = "animation") {
+  return parseAnimationDocument(Buffer.from(bytes), location);
+}
+
 function sameF32(left, right) {
   return Math.fround(left) === Math.fround(right);
 }
@@ -967,5 +1056,309 @@ export async function executeAnimationReduceOperation(
     processorId: REDUCE_PROCESSOR_ID,
     normalizeObservations: normalizeReduceObservations,
     validateOutput: validateReduceOutput,
+  });
+}
+
+// ------------------------------------------------------------------ animation.retarget@1 (#110)
+
+/**
+ * Admit a `three-d-humanoid-rig` JSON document: `{ schemaVersion: 1, jointNames, nodes, referenceHeight }`.
+ * `nodes[i]` is the local rest transform of joint `jointNames[i]` with its parent joint index (or null).
+ */
+export function parseHumanoidRigDocument(bytes, location = "humanoid rig") {
+  let value;
+  try {
+    value = JSON.parse(Buffer.from(bytes).toString("utf8"));
+  } catch (error) {
+    throw new Error(`${location} is not valid JSON: ${error.message}`);
+  }
+  const document = assertExactKeys(
+    value,
+    new Set(["schemaVersion", "jointNames", "nodes", "referenceHeight"]),
+    location,
+  );
+  if (document.schemaVersion !== 1) throw new Error(`${location} schemaVersion must be 1`);
+  if (!Array.isArray(document.nodes) || document.nodes.length === 0 || document.nodes.length > MAX_RIG_NODES) {
+    throw new Error(`${location} nodes must be a list of 1 to ${MAX_RIG_NODES} rig nodes`);
+  }
+  if (!Array.isArray(document.jointNames) || document.jointNames.length !== document.nodes.length) {
+    throw new Error(`${location} jointNames must name every rig node`);
+  }
+  const jointNames = document.jointNames.map((name, index) =>
+    assertNonEmptyString(name, `${location}.jointNames[${index}]`),
+  );
+  if (new Set(jointNames).size !== jointNames.length) {
+    throw new Error(`${location} jointNames must be unique`);
+  }
+  const vector = (raw, width, field) => {
+    if (!Array.isArray(raw) || raw.length !== width) throw new Error(`${field} must have ${width} components`);
+    return raw.map((component, index) => finiteF32(component, `${field}[${index}]`));
+  };
+  const nodes = document.nodes.map((raw, index) => {
+    const field = `${location}.nodes[${index}]`;
+    const node = assertExactKeys(raw, new Set(["parent", "translation", "rotation", "scale"]), field);
+    if (node.parent !== null && (!Number.isSafeInteger(node.parent) || node.parent < 0
+      || node.parent >= document.nodes.length || node.parent === index)) {
+      throw new Error(`${field}.parent must be null or another node index`);
+    }
+    return {
+      parent: node.parent,
+      translation: vector(node.translation, 3, `${field}.translation`),
+      rotation: vector(node.rotation, 4, `${field}.rotation`),
+      scale: vector(node.scale, 3, `${field}.scale`),
+    };
+  });
+  const referenceHeight = finiteF32(document.referenceHeight, `${location}.referenceHeight`);
+  if (!(referenceHeight > 0)) throw new Error(`${location}.referenceHeight must be positive`);
+  return { schemaVersion: 1, jointNames, nodes, referenceHeight };
+}
+
+function normalizeRetargetParameters(value) {
+  const parameters = assertPlainObject(value, `${RETARGET_OPERATION_ID} parameters`);
+  for (const key of Object.keys(parameters)) {
+    if (!["bindings", "sampleRate", "sampleTimesSeconds", "rootMotion"].includes(key)) {
+      throw new Error(`${RETARGET_OPERATION_ID} parameters contains unknown field '${key}'`);
+    }
+  }
+  const bindingsValue = assertPlainObject(parameters.bindings, "parameters.bindings");
+  const bones = Object.keys(bindingsValue).sort();
+  if (bones.length === 0) throw new Error("parameters.bindings must map at least one humanoid bone");
+  const bindings = {};
+  for (const bone of bones) {
+    if (!HUMANOID_BONE_IDS.includes(bone)) {
+      throw new Error(`parameters.bindings has unknown humanoid bone '${bone}'`);
+    }
+    const binding = assertExactKeys(bindingsValue[bone], new Set(["source", "target"]), `parameters.bindings.${bone}`);
+    bindings[bone] = {
+      source: assertNonEmptyString(binding.source, `parameters.bindings.${bone}.source`),
+      target: assertNonEmptyString(binding.target, `parameters.bindings.${bone}.target`),
+    };
+  }
+  const hasRate = parameters.sampleRate !== undefined;
+  const hasTimes = parameters.sampleTimesSeconds !== undefined;
+  if (hasRate === hasTimes) {
+    throw new Error("parameters must declare exactly one of sampleRate or sampleTimesSeconds");
+  }
+  const sampling = {};
+  if (hasRate) {
+    const rate = finiteNumber(parameters.sampleRate, "parameters.sampleRate");
+    if (!(rate > 0 && rate <= 1000)) throw new Error("parameters.sampleRate must be in (0, 1000] samples per second");
+    sampling.sampleRate = rate;
+  } else {
+    if (!Array.isArray(parameters.sampleTimesSeconds) || parameters.sampleTimesSeconds.length === 0
+      || parameters.sampleTimesSeconds.length > MAX_SAMPLE_COUNT) {
+      throw new Error(`parameters.sampleTimesSeconds must list 1 to ${MAX_SAMPLE_COUNT} times`);
+    }
+    sampling.sampleTimesSeconds = strictlyIncreasingTimes(parameters.sampleTimesSeconds, "parameters.sampleTimesSeconds");
+  }
+  if (parameters.rootMotion !== "keep" && parameters.rootMotion !== "in-place") {
+    throw new Error("parameters.rootMotion must be 'keep' or 'in-place'");
+  }
+  return { bindings, ...sampling, rootMotion: parameters.rootMotion };
+}
+
+function strictlyIncreasingTimes(values, location) {
+  let previous = -Infinity;
+  return values.map((time, index) => {
+    const normalized = finiteNonNegativeF32(time, `${location}[${index}]`);
+    if (normalized <= previous) throw new Error(`${location} must be strictly increasing after f32 normalization`);
+    previous = normalized;
+    return normalized;
+  });
+}
+
+/**
+ * The sample grid for `sampleRate`: `start + i / rate` over the clip's aggregate key domain, plus the
+ * exact end time when the grid does not land on it, so both loop endpoints are always sampled.
+ */
+export function retargetSampleTimes(startSeconds, endSeconds, sampleRate) {
+  const span = endSeconds - startSeconds;
+  const steps = Math.floor(span * sampleRate + 1e-6);
+  if (steps + 2 > MAX_SAMPLE_COUNT) throw new Error(`animation.retarget sampleRate yields more than ${MAX_SAMPLE_COUNT} samples`);
+  const times = [];
+  for (let index = 0; index <= steps; index += 1) times.push(Math.fround(startSeconds + index / sampleRate));
+  const end = Math.fround(endSeconds);
+  if (times[times.length - 1] < end) times.push(end);
+  return strictlyIncreasingTimes(times, "animation.retarget sample grid");
+}
+
+/** Converts joint-name bindings into the processor's HumanoidBone-id → node-index bindings for one rig. */
+export function humanoidRigBindings(rig, bindings, role) {
+  const indexByName = new Map(rig.jointNames.map((name, index) => [name, index]));
+  const result = {};
+  for (const [bone, binding] of Object.entries(bindings)) {
+    const name = binding[role];
+    const index = indexByName.get(name);
+    if (index === undefined) {
+      throw new Error(`RETARGET_JOINT_MISSING: parameters.bindings.${bone}.${role} names '${name}', which is not a joint of the ${role} rig`);
+    }
+    result[bone] = index;
+  }
+  const used = new Map();
+  for (const [bone, index] of Object.entries(result)) {
+    if (used.has(index)) {
+      throw new Error(`RETARGET_JOINT_DUPLICATE: ${role} joint '${rig.jointNames[index]}' is bound to both '${used.get(index)}' and '${bone}'`);
+    }
+    used.set(index, bone);
+  }
+  return result;
+}
+
+function processorRig(rig, bindings) {
+  return { nodes: rig.nodes, bindings, referenceHeight: rig.referenceHeight };
+}
+
+function normalizeRetargetObservations(value, source, output, sampleTimes, parameters) {
+  const observations = assertExactKeys(
+    value,
+    new Set(["sourceKeyframeCount", "sampleCount", "mappedBoneCount", "resultChannelCount", "resultKeyframeCount", "rootMotion"]),
+    `${RETARGET_OPERATION_ID} observations`,
+  );
+  const counts = {};
+  for (const key of ["sourceKeyframeCount", "sampleCount", "mappedBoneCount", "resultChannelCount", "resultKeyframeCount"]) {
+    counts[key] = positiveSafeInteger(observations[key], `observations.${key}`);
+  }
+  if (counts.sourceKeyframeCount !== source.keyframeCount) {
+    throw new Error("observations.sourceKeyframeCount does not match the source animation");
+  }
+  if (counts.sampleCount !== sampleTimes.length) throw new Error("observations.sampleCount does not match the sample grid");
+  if (counts.mappedBoneCount !== Object.keys(parameters.bindings).length) {
+    throw new Error("observations.mappedBoneCount does not match parameters.bindings");
+  }
+  if (counts.resultChannelCount !== output.channelCount) {
+    throw new Error("observations.resultChannelCount does not match the output animation");
+  }
+  if (counts.resultKeyframeCount !== output.keyframeCount) {
+    throw new Error("observations.resultKeyframeCount does not match the output animation");
+  }
+  if (observations.rootMotion !== parameters.rootMotion) {
+    throw new Error("observations.rootMotion does not match parameters.rootMotion");
+  }
+  return { ...counts, rootMotion: parameters.rootMotion };
+}
+
+function validateRetargetOutput(output, sampleTimes, targetRig, targetBindings) {
+  const mappedNodes = new Set(Object.values(targetBindings));
+  const rotated = new Set();
+  for (const channel of output.channels) {
+    if (channel.node >= targetRig.nodes.length) {
+      throw new Error(`animation.retarget output channel targets node ${channel.node}, outside the target rig`);
+    }
+    if (!mappedNodes.has(channel.node)) {
+      throw new Error(`animation.retarget output animates unmapped target node ${channel.node}`);
+    }
+    if (channel.kind === "rotation") rotated.add(channel.node);
+    if (channel.keyframes.length !== sampleTimes.length
+      || channel.keyframes.some((keyframe, index) => !sameF32(keyframe.time, sampleTimes[index]))) {
+      throw new Error("animation.retarget output keyframe times differ from the sample grid");
+    }
+  }
+  if (rotated.size !== mappedNodes.size) {
+    throw new Error("animation.retarget output must carry one rotation channel per mapped target node");
+  }
+}
+
+async function checkedRetargetInputs(root, invocation) {
+  const parameters = normalizeRetargetParameters(invocation.parameters ?? {});
+  const identity = createAssetOperationBuildIdentity({
+    operation: ANIMATION_RETARGET_OPERATION,
+    implementation: { id: RETARGET_PROCESSOR_ID, version: "unprobed" },
+    parameters,
+    inputs: invocation.inputs ?? {},
+  });
+  const load = async (port) => {
+    const asset = identity.inputs[port];
+    const bytes = await resolveAssetObject(root, asset);
+    return { asset, bytes };
+  };
+  const animation = await load("animation");
+  const sourceRig = await load("source-rig");
+  const targetRig = await load("target-rig");
+  return {
+    parameters: identity.parameters,
+    inputs: identity.inputs,
+    animation: { ...animation, parsed: parseAnimationDocument(animation.bytes, `${RETARGET_OPERATION_ID} source animation`) },
+    sourceRig: { ...sourceRig, parsed: parseHumanoidRigDocument(sourceRig.bytes, `${RETARGET_OPERATION_ID} source rig`) },
+    targetRig: { ...targetRig, parsed: parseHumanoidRigDocument(targetRig.bytes, `${RETARGET_OPERATION_ID} target rig`) },
+  };
+}
+
+export async function createAnimationRetargetOperationBuildIdentity(root, invocation = {}, processorValue) {
+  const checked = await checkedRetargetInputs(root, invocation);
+  humanoidRigBindings(checked.sourceRig.parsed, checked.parameters.bindings, "source");
+  humanoidRigBindings(checked.targetRig.parsed, checked.parameters.bindings, "target");
+  return createBuildIdentity(
+    root,
+    ANIMATION_RETARGET_OPERATION,
+    checked.parameters,
+    checked.inputs,
+    processorValue,
+    RETARGET_PROCESSOR_ID,
+  );
+}
+
+export async function executeAnimationRetargetOperation(root, invocation = {}, processorValue) {
+  const checked = await checkedRetargetInputs(root, invocation);
+  const { parameters, animation, sourceRig, targetRig } = checked;
+  const sourceBindings = humanoidRigBindings(sourceRig.parsed, parameters.bindings, "source");
+  const targetBindings = humanoidRigBindings(targetRig.parsed, parameters.bindings, "target");
+  for (const channel of animation.parsed.channels) {
+    if (channel.node >= sourceRig.parsed.nodes.length) {
+      throw new Error(`animation.retarget source channel targets node ${channel.node}, outside the source rig`);
+    }
+  }
+  const sampleTimes = parameters.sampleTimesSeconds
+    ?? retargetSampleTimes(animation.parsed.startSeconds, animation.parsed.endSeconds, parameters.sampleRate);
+  const identity = await processorIdentity(root, processorValue, {
+    operationId: RETARGET_OPERATION_ID,
+    processorId: RETARGET_PROCESSOR_ID,
+  });
+  const result = await runProcessAdapter({
+    executable: identity.processor.executable,
+    scriptPath: identity.processor.scriptPath,
+    prefixArguments: identity.processor.prefixArguments,
+    cwd: root,
+    environment: identity.environment,
+    outputName: "animation.json",
+    request: {
+      schemaVersion: 1,
+      operation: RETARGET_OPERATION_ID,
+      inputPath: assetObjectPortablePath(animation.asset),
+      parameters: {
+        source: processorRig(sourceRig.parsed, sourceBindings),
+        target: processorRig(targetRig.parsed, targetBindings),
+        sampleTimesSeconds: sampleTimes,
+        rootMotion: parameters.rootMotion,
+      },
+    },
+  });
+  const output = parseAnimationDocument(result.bytes, `${RETARGET_OPERATION_ID} processor output`);
+  validateRetargetOutput(output, sampleTimes, targetRig.parsed, targetBindings);
+  const observations = normalizeRetargetObservations(result.observations, animation.parsed, output, sampleTimes, parameters);
+  const stored = await storeAssetObject(root, {
+    bytes: result.bytes,
+    kind: "animation",
+    mediaType: THREE_D_ANIMATION_MEDIA_TYPE,
+    metadata: {
+      animationSchemaVersion: 1,
+      channelCount: output.channelCount,
+      keyframeCount: output.keyframeCount,
+      operation: RETARGET_OPERATION_ID,
+      sourceSha256: animation.asset.sha256,
+      sourceRigSha256: sourceRig.asset.sha256,
+      targetRigSha256: targetRig.asset.sha256,
+      rootMotion: parameters.rootMotion,
+    },
+  });
+  return normalizeAssetOperationResult(ANIMATION_RETARGET_OPERATION, {
+    outputs: { output: stored.asset },
+    observations: {
+      ...observations,
+      startSeconds: sampleTimes[0],
+      endSeconds: sampleTimes[sampleTimes.length - 1],
+      targetJointNames: Object.fromEntries(
+        Object.entries(targetBindings).map(([bone, index]) => [bone, targetRig.parsed.jointNames[index]]),
+      ),
+    },
   });
 }
