@@ -56,6 +56,12 @@ The cartoony family for My Farm starts from Quaternius' free, toy-like character
 
 For mmorpg and arpg, keep the Universal Base Characters body and head as the base for now and **author original outfits, armour and equipment in Blender** on that rig. A switch to MPFB/MakeHuman is decided by a side-by-side comparison: one MPFB character with an equivalent outfit and the same idle/walk clips, rendered next to the Ranger at the gameplay camera. Switch only if MPFB is clearly better for Decision 1.1.1's target and the transition is smooth.
 
+#### Decision 1.1.7 — Original gear: scripted Blender recipes, image-to-3D as an experiment
+
+**Approved by owner:** 2026-10-17 (live steering session).
+
+Original weapons, shields, armour and hard-surface props are authored as **scripted Blender recipes**: agent-written, versioned and rebuildable through the normal pipeline, following a written style spec per family. Image-to-3D from local FLUX/Z-Image concepts plus Blender cleanup is allowed **as an experiment** for ornate or organic pieces; it does not replace the scripted path and its outputs go through the same review as any other source.
+
 ### 1.2. Animation as character content
 
 #### Decision 1.2.1 — Rigged, moving humanoids with inspectable animation clips
