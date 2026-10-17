@@ -78,6 +78,10 @@ With `ASSET_TOOLING_BLENDER` configured, the production-import tests use an inde
 
 The approved humanoid, rendered comparisons and visual/consumer acceptance remain open under #104/#109. These proofs establish supported format preservation, sampled independent pose fidelity, analysis and replay; they do not establish art approval or arbitrary glTF support.
 
+## Skinned composition
+
+`scene.compose.skinned.gltf@1` (`asset-tooling/operations/processing/gltf-compose`) binds the skinned meshes of several imported GLBs to one shared skeleton, matched by joint name. Each part keeps its own inverse bind matrices. See [gltf-compose.md](gltf-compose.md).
+
 ## Malformed-input diagnostics
 
 `test/gltf-malformed-inputs.test.ts` holds small, independently authored fixtures. Each changes one thing in an accepted static or rigged document. The categories are: references, nonfinite values, skin weights and joints, inverse binds, animation targets and times, material resources, required and optional extensions, missing or external resources, and GLB containers. Every case must reject from `scene.import.gltf@1`, `scene.import.gltf@2` and `scene.analyze.gltf@1` as applicable, with a diagnostic that names the Khronos code and JSON pointer (or the policy rule), and must store no derived object.

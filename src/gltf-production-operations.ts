@@ -18,7 +18,8 @@ export const GLTF_WEIGHT_SUM_POLICY = Object.freeze({ policy: "gltf-weight-sum-t
 export const GLTF_SINGULAR_INVERSE_BIND_DETERMINANT = 1e-12;
 /** Owner decision Q2 (a) on #118: float COLOR_n components may leave [0, 1] by at most `maxExcess` and are clamped. */
 export const GLTF_COLOR_CLAMP_REPAIR = Object.freeze({ repair: "gltf-color-clamp-v1", maxExcess: 2e-4 });
-const ALLOWED_VALIDATOR_WARNINGS = ["NODE_SKINNED_MESH_NON_ROOT", "MESH_PRIMITIVE_GENERATED_TANGENT_SPACE"];
+export const GLTF_PRODUCTION_ALLOWED_VALIDATOR_WARNINGS: readonly string[] = Object.freeze(["NODE_SKINNED_MESH_NON_ROOT", "MESH_PRIMITIVE_GENERATED_TANGENT_SPACE"]);
+const ALLOWED_VALIDATOR_WARNINGS = [...GLTF_PRODUCTION_ALLOWED_VALIDATOR_WARNINGS];
 const REPAIRS = [GLTF_COLOR_CLAMP_REPAIR.repair];
 type Invocation = { parameters?: unknown; inputs?: unknown };
 type Policy = {
@@ -153,7 +154,7 @@ export async function createGltfAnalyzeOperationBuildIdentity(root: string, invo
 }
 
 /** Weights are never renormalized; out-of-tolerance sums fail with a located diagnostic. */
-function checkWeightSums(document: Document) {
+export function checkWeightSums(document: Document) {
   let maxAbsoluteDrift = 0;
   document.getRoot().listMeshes().forEach((mesh, meshIndex) => mesh.listPrimitives().forEach((primitive, primitiveIndex) => {
     const sets = primitive.listSemantics().filter((semantic) => /^WEIGHTS_\d+$/.test(semantic)).sort()
