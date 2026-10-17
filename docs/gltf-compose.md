@@ -1,6 +1,6 @@
 # Skinned glTF composition
 
-`scene.compose.skinned.gltf@1`, exported by `asset-tooling/operations/processing/gltf-compose`, composes several skinned characters that share one skeleton into a single self-contained GLB. It serves [#110](https://github.com/moritzbrantner/asset-tooling/issues/110): the owner's answer of 2026-10-17 asks for one GLB with the body and the Male_Ranger outfit bound to the shared skeleton, with no geometry removed.
+`scene.compose.skinned.gltf@1`, exported by `asset-tooling/operations/processing/gltf-compose`, composes several skinned characters that share one skeleton into a single self-contained GLB. It serves [#110](https://github.com/moritzbrantner/asset-tooling/issues/110): the owner's answer of 2026-10-17 asks for one GLB with the body and the Male_Ranger outfit bound to the shared skeleton, with no geometry removed. For the Ranger character the owner then chose (option A on #110) to compose only the body's head and face: [`scene.subset.skinned.gltf@1`](gltf-subset.md) keeps the body faces skinned to the neck and head joints, plus the eyes and eyebrows, before this composition.
 
 ```ts
 import {

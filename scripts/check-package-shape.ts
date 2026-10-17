@@ -67,6 +67,7 @@ const expectedSourceExports: Record<string, string> = {
   "./operations/processing/gltf-material": "./src/gltf-material-operations.ts",
   "./operations/processing/gltf-production": "./src/gltf-production-operations.ts",
   "./operations/processing/gltf-compose": "./src/gltf-compose-operations.ts",
+  "./operations/processing/gltf-subset": "./src/gltf-subset-operations.ts",
   "./operations/processing/skinning": "./src/skinning-processing-operations.ts",
   "./operations/processing/rigged-collision": "./src/rigged-collision-processing-operations.ts",
   "./operations/processing/humanoid": "./src/humanoid-processing-operations.ts",
