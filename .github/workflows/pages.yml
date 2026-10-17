@@ -94,6 +94,7 @@ jobs:
           test -s dist/pages/generate/index.html
           test -s dist/pages/generate/app.js
           test -s dist/pages/review/warden-icons/index.html
+          test -s dist/pages/review/warden-icons/images/approved/warden.ability.4.32.png
           test "$(find dist/pages/assets -name index.html -type f | wc -l)" -gt 0
 
       - name: Configure Pages
