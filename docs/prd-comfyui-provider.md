@@ -31,7 +31,7 @@ The first low-risk implementation adds `loadPreparedComfyUiApiWorkflow` and focu
 
 ## Execution slice: `image.comfyui.generate@1`
 
-[PR #219](https://github.com/moritzbrantner/asset-tooling/pull/219) adds `src/comfyui-operation.ts`. Per the owner decision of 2026-10-16, the first real run is Stable Diffusion 1.5 on CPU on local WSL. It proves the generic provider boundary, not icon quality ([#211](https://github.com/moritzbrantner/asset-tooling/issues/211)).
+[PR #219](https://github.com/moritzbrantner/asset-tooling/pull/219) adds `src/comfyui-operation.ts`. Per the owner decision of 2026-10-16, the first real run was Stable Diffusion 1.5 on CPU on local WSL (deprecated since 2026-10-17, Atlas 4.1.4). It proved the generic provider boundary, not icon quality ([#211](https://github.com/moritzbrantner/asset-tooling/issues/211)).
 
 - **Operation:** input `workflow` (`workflow` / `application/json`), output `image` (`image` / `image/png`). The workflow is loaded through `loadPreparedComfyUiApiWorkflow`.
 - **Parameters (closed):** `provider: "comfyui"`, `checkpoint { name, sha256, byteLength, license }`, `injections { checkpoint, seed, positivePrompt, negativePrompt?, width, height }` and `output { node }`. Each injection names an existing node and an existing literal (non-link) input. Nothing else in the graph changes.
@@ -42,29 +42,43 @@ The first low-risk implementation adds `loadPreparedComfyUiApiWorkflow` and focu
 
 Exported as `asset-tooling/operations/image/comfyui` and registrable in the workflow bridge through `createAssetOperationWorkflowProviderEntries` ([#221](https://github.com/moritzbrantner/asset-tooling/issues/221)); see Usage. Approval and export are the next section. Cancellation through workflow-runner#8 and provider choice against Diffusers `image.stable-diffusion.generate` remain.
 
-### Checkpoint acquisition (SD 1.5)
+### Supported local image models (Atlas 4.1.4)
 
-`scripts/acquire-huggingface-model.py` downloads a complete repository snapshot (tens of GB for this repository), so the single checkpoint file is acquired as a separate, explicit step and kept outside Git:
+FLUX.2 [klein] 4B and Z-Image Turbo are the supported models. Both are Apache-2.0 according to their official Hugging Face model cards (checked 2026-10-17 at the revisions below). Stable Diffusion 1.5 is **deprecated**: generate nothing new with it (see the end of this section).
+
+The operation hashes and injects one file, `checkpoint`. For these split models, that file is the diffusion model: point `checkpointDirectory` at `models/diffusion_models` and bind the injection to `UNETLoader.unet_name`. The text encoder and VAE are literals in the hash-pinned workflow; the operation does not hash them, so the generation driver verifies them against the pins below before it submits anything. The candidates manifest records all three identities. Multi-file pins in the operation itself remain open (#225).
+
+| Role | ComfyUI path under `models/` | Source (repository @ revision, file) | sha256 | Bytes | Licence |
+| --- | --- | --- | --- | --- | --- |
+| klein diffusion model | `diffusion_models/flux-2-klein-4b-fp8.safetensors` | `black-forest-labs/FLUX.2-klein-4b-fp8` @ `5b4408e59397a4a37ccb46afe426d8ed86379441`, `flux-2-klein-4b-fp8.safetensors` | `97ed34fe0567e436200f2faee3939b88f2b5d99f8af2a4dc16532c4245c0ccb6` | 4,070,624,520 | apache-2.0 |
+| klein VAE | `vae/flux2-vae.safetensors` | `Comfy-Org/vae-text-encorder-for-flux-klein-4b` @ `5f526678002e43af5551dadb73ce2e8c91b43afe`, `split_files/vae/flux2-vae.safetensors` | `868fe7b343cc8f3a19dbcfcafbc3d5f888802be3f89bd81b65b3621a066ce8f3` | 336,211,292 | apache-2.0 |
+| Z-Image diffusion model | `diffusion_models/z_image_turbo_bf16.safetensors` | `Comfy-Org/z_image_turbo` @ `6fc90a3b1b653e935a0d175e260736de25b84df5`, `split_files/diffusion_models/z_image_turbo_bf16.safetensors` (repackaged from `Tongyi-MAI/Z-Image-Turbo` @ `f332072aa78be7aecdf3ee76d5c247082da564a6`) | `2407613050b809ffdff18a4ac99af83ea6b95443ecebdf80e064a79c825574a6` | 12,309,866,400 | apache-2.0 |
+| Z-Image VAE | `vae/ae.safetensors` | `Comfy-Org/z_image_turbo` @ `6fc90a3b…4df5`, `split_files/vae/ae.safetensors` | `afc8e28272cd15db3919bacdb6918ce9c1ed22e96cb12c4d5ed0fba823529e38` | 335,304,388 | apache-2.0 |
+| Shared text encoder (Qwen3 4B, fp8 mixed) | `text_encoders/qwen_3_4b_fp8_mixed.safetensors` | `Comfy-Org/z_image_turbo` @ `6fc90a3b…4df5`, `split_files/text_encoders/qwen_3_4b_fp8_mixed.safetensors` | `72450b19758172c5a7273cf7de729d1c17e7f434a104a00167624cba94f68f15` | 5,631,994,051 | apache-2.0 |
+
+Every listed sha256 equals the provider's LFS sha256 at that revision. The Comfy-Org repositories are ComfyUI's official single-file repackagings of the upstream weights, and their model cards also declare apache-2.0. The FP8 klein file and the fp8 text encoder fit an 8 GB GPU. On an RTX 3060 Ti (2026-10-17), one 1024×1024 image took about 9 s with klein (4 steps) and about 24 s with Z-Image Turbo (8 steps, bf16 weights partially offloaded by ComfyUI). Both run on ComfyUI 0.41.0 without custom nodes.
+
+Acquire each file as its own explicit step, not as a repository snapshot, and keep it outside Git:
 
 ```sh
-REV=$(curl -s https://huggingface.co/api/models/stable-diffusion-v1-5/stable-diffusion-v1-5/revision/main | jq -r .sha)
-# 451f4fe16113bff5a5d2269ed5ad43b0592e9a14 on 2026-10-17; cardData.license: creativeml-openrail-m
-curl -fL -o v1-5-pruned-emaonly.safetensors \
-  "https://huggingface.co/stable-diffusion-v1-5/stable-diffusion-v1-5/resolve/$REV/v1-5-pruned-emaonly.safetensors"
-sha256sum v1-5-pruned-emaonly.safetensors
-# 6ce0161689b3853acaa03779ec93eafe75a02f4ced659bee03f50797806fa2fa, 4,265,146,304 B (equals the provider's LFS sha256)
-mv v1-5-pruned-emaonly.safetensors .artifacts/toolchain/comfy-workspace/ComfyUI/models/checkpoints/
+M=.artifacts/toolchain/comfy-workspace/ComfyUI/models
+curl -fL -o "$M/diffusion_models/flux-2-klein-4b-fp8.safetensors" \
+  "https://huggingface.co/black-forest-labs/FLUX.2-klein-4b-fp8/resolve/5b4408e59397a4a37ccb46afe426d8ed86379441/flux-2-klein-4b-fp8.safetensors"
+# likewise for every row above: https://huggingface.co/<repository>/resolve/<revision>/<file>
+sha256sum "$M"/diffusion_models/*.safetensors "$M"/vae/*.safetensors "$M"/text_encoders/*.safetensors   # compare with the table
 ```
 
-The licence is the CreativeML OpenRAIL-M licence declared in the model card at that revision. Review its use restrictions for the intended use. Keep a receipt (repository, revision, file hash and length, licence evidence) next to the file.
+The prepared workflows and the per-model pins live in `review/warden-icons/` (`workflow.flux2-klein-4b-icon.api.json`, `workflow.z-image-turbo-icon.api.json` and the `models` list of `candidates.json`). Both models are distilled for CFG 1, so they ignore negative prompts; their workflows take no `negativePrompt` injection, and style brief v2 states its exclusions in the positive prompt.
+
+**Deprecated: Stable Diffusion 1.5.** It was the first real run (owner decision of 2026-10-16): `stable-diffusion-v1-5/stable-diffusion-v1-5` @ `451f4fe16113bff5a5d2269ed5ad43b0592e9a14`, `v1-5-pruned-emaonly.safetensors`, sha256 `6ce0161689b3853acaa03779ec93eafe75a02f4ced659bee03f50797806fa2fa`, 4,265,146,304 B, CreativeML OpenRAIL-M. Its Warden candidates and workflow stay in `review/warden-icons/` as history, marked deprecated. The offline provider tests keep their small SD 1.5-shaped fixture graph, which is a protocol fixture and not a model pin.
 
 ### Usage
 
-Start the managed ComfyUI (`bun run tools:setup --profile comfyui --gpu cpu` first) on loopback:
+Start the managed ComfyUI (`bun run tools:setup --profile comfyui --gpu nvidia` first; FLUX.2 [klein] and Z-Image Turbo need a GPU in practice) on loopback:
 
 ```sh
 cd .artifacts/toolchain/comfy-workspace/ComfyUI
-.venv/bin/python main.py --cpu --listen 127.0.0.1 --port 8188 --disable-auto-launch
+.venv/bin/python main.py --listen 127.0.0.1 --port 8188 --disable-auto-launch
 ```
 
 ```ts
@@ -77,22 +91,21 @@ const registration = createComfyUiImageGenerateRegistration({
   endpoint,
   server,
   comfyuiCommit: "98cc0bf84b7cb1383654c5b402e7612d875d6d22", // from .artifacts/toolchain/comfyui-install.json
-  checkpointDirectory: ".artifacts/toolchain/comfy-workspace/ComfyUI/models/checkpoints",
+  checkpointDirectory: ".artifacts/toolchain/comfy-workspace/ComfyUI/models/diffusion_models",
 });
 const run = await runAssetOperation(root, registration, {
   inputs: { workflow }, // a stored workflow / application/json AssetRef (API format)
   parameters: {
     provider: "comfyui",
-    checkpoint: { name: "v1-5-pruned-emaonly.safetensors", sha256: "6ce01616…", byteLength: 4265146304, license: "creativeml-openrail-m" },
-    injections: {
-      checkpoint: { node: "4", input: "ckpt_name" },
-      seed: { node: "3", input: "seed", value: 212 },
-      positivePrompt: { node: "6", input: "text", value: "a painted fantasy game icon of a steel shield" },
-      negativePrompt: { node: "7", input: "text", value: "text, watermark, blurry" },
-      width: { node: "5", input: "width", value: 512 },
-      height: { node: "5", input: "height", value: 512 },
+    checkpoint: { name: "flux-2-klein-4b-fp8.safetensors", sha256: "97ed34fe…0ccb6", byteLength: 4070624520, license: "apache-2.0" },
+    injections: { // node ids of review/warden-icons/workflow.flux2-klein-4b-icon.api.json
+      checkpoint: { node: "1", input: "unet_name" },
+      seed: { node: "12", input: "noise_seed", value: 212 },
+      positivePrompt: { node: "4", input: "text", value: "A painted fantasy game icon of a steel shield." },
+      width: { node: "7", input: "value", value: 1024 },
+      height: { node: "8", input: "value", value: 1024 },
     },
-    output: { node: "9" },
+    output: { node: "15" },
   },
 });
 ```
@@ -118,7 +131,7 @@ const executor = createAssetOperationWorkflowExecutor({ root, registrations: [..
 
 Without `comfyui` (no argument, `{}` or `{ comfyui: undefined }`) both lists are empty: the editor does not offer the operation and the executor rejects a node that selects it as not registered. An invalid `comfyui` value (missing or non-loopback endpoint, credentials, missing server identity, unknown field) or an unknown provider key throws instead of registering a partial entry. The bridge entry runs the registration's checkpoint check before executing, so a missing or changed checkpoint still fails before anything is submitted. It does not use the operation result cache; use `runAssetOperation` for cached runs.
 
-The real-server acceptance is `test/comfyui-local-server.test.ts`. It is skipped unless `ASSET_TOOLING_COMFYUI_URL` and `ASSET_TOOLING_COMFYUI_CHECKPOINT` are set; see its header for the optional pin, licence, size, timeout and evidence variables. On the WSL CPU machine (2026-10-17), the 4-step SD 1.5 fixture took about 23 s at 256×256 and 44 s at 512×512, including model load.
+The real-server acceptance is `test/comfyui-local-server.test.ts`. It is skipped unless `ASSET_TOOLING_COMFYUI_URL` and `ASSET_TOOLING_COMFYUI_CHECKPOINT` are set; see its header for the optional pin, licence, size, timeout and evidence variables. Its fixture graph is SD 1.5-shaped (`CheckpointLoaderSimple`); for a supported split model, run the Warden workflows as in Usage. On the WSL CPU machine (2026-10-17), the 4-step SD 1.5 fixture took about 23 s at 256×256 and 44 s at 512×512, including model load.
 
 ## Approval and export: `asset.bundle@3` (#223)
 
