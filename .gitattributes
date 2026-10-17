@@ -3,3 +3,5 @@ review/**/*.png filter=lfs diff=lfs merge=lfs -text
 # Manifests pin the exact bytes of these files, so checkouts must not rewrite line endings.
 review/**/*.json text eol=lf
 src/image-generate-templates/*.json text eol=lf
+# Descriptors are pinned by sha256 and shipped byte for byte in bundles.
+assets/descriptors/*.json text eol=lf
