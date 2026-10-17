@@ -199,5 +199,16 @@ Some selected sources, such as the Quaternius Universal Base Characters and Modu
 The first humanoid source is the **Quaternius Universal Base Characters** pack (<https://quaternius.com/packs/universalbasecharacters.html>), not the Ultimate Animated Character pack that mmorpg picked up by mistake (corrected in mmorpg#210).
 
 - **Members promoted:** the **Male Ranger** outfit from Modular Character Outfits – Fantasy and the **matching male base body**, together with every buffer and texture they reference, stored as archive members in canonical LFS.
-- **Missing normal maps:** two normal maps that the base body references but the archive does not contain are left out, and that is recorded as a known import gap. No data is invented. Whether they can be derived deterministically (for example by a Blender bake) is investigated separately.
+- **Missing normal maps:** ~~two normal maps that the base body references but the archive does not contain are left out, and that is recorded as a known import gap. No data is invented. Whether they can be derived deterministically (for example by a Blender bake) is investigated separately.~~ Superseded by Decision 6.1.3: the known gap is replaced by a declared substitution.
 - **Clips:** the **UAL1 Standard `Idle_Loop` and `Walk_Loop`** clips are promoted as source members. Retargeting stays with #110/#115.
+
+#### Decision 6.1.3 — Declared substitution for the two misnamed normal maps
+
+**Approved by owner:** 2026-10-17, on [#109](https://github.com/moritzbrantner/asset-tooling/issues/109). **Supersedes** the known gap in Decision 6.1.2.
+
+`Superhero_Male_FullBody.gltf` references two normal maps under names the archive does not contain. This is a Blender glTF exporter `_png.png` naming artifact, not a missing bake. The two URIs are bound to the textures in the same folder:
+
+- `T_Hair_1_Normal_png.png` → `T_Hair_1_Normal.png`
+- `T_Eye_Normal_png.png` → `T_Eye_Normal.png`
+
+The substitutes are the archive's +Y (OpenGL) normal maps. They are promoted as ordinary archive members, and each record names the URI it stands in for in `metadata.substitutesFor`. **No bytes are invented or edited:** the source glTF and both textures stay exactly as the archive ships them. A minimal idempotent re-import is the provenance proof: importing again into the same object store changes nothing.

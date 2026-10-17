@@ -1755,6 +1755,66 @@
         "humanoid-baseline"
       ],
       "title": "Universal Animation Library — AnimationLibrary_Godot_Standard (GLB animation library)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.universal-base-characters-standard",
+        "path": "Universal Base Characters[Standard]/Base Characters/Godot - UE/T_Hair_1_Normal.png"
+      },
+      "id": "quaternius.universal-base-characters-standard.t-hair-1-normal-png",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/universalbasecharacters.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/png",
+      "metadata": {
+        "substitutesFor": {
+          "member": "quaternius.universal-base-characters-standard.superhero-male-fullbody-gltf",
+          "uri": "T_Hair_1_Normal_png.png"
+        }
+      },
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 4326126,
+        "sha256": "57fd0ad8c96a4d01b38769637e066cecaa285b456f6e48ce00863754a457affb"
+      },
+      "tags": [
+        "body",
+        "humanoid-baseline"
+      ],
+      "title": "Universal Base Characters — T_Hair_1_Normal (texture)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.universal-base-characters-standard",
+        "path": "Universal Base Characters[Standard]/Base Characters/Godot - UE/T_Eye_Normal.png"
+      },
+      "id": "quaternius.universal-base-characters-standard.t-eye-normal-png",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/universalbasecharacters.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/png",
+      "metadata": {
+        "substitutesFor": {
+          "member": "quaternius.universal-base-characters-standard.superhero-male-fullbody-gltf",
+          "uri": "T_Eye_Normal_png.png"
+        }
+      },
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 15099,
+        "sha256": "9ed61f7726a54fe346a78b9e5a18905d8e2b88f86235d97f53cd207a26f3f8c7"
+      },
+      "tags": [
+        "body",
+        "humanoid-baseline"
+      ],
+      "title": "Universal Base Characters — T_Eye_Normal (texture)"
     }
   ]
 }

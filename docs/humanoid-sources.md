@@ -1,6 +1,6 @@
 # Humanoid source set
 
-This is the second slice of [#109](https://github.com/moritzbrantner/asset-tooling/issues/109). It registers, pins and promotes the first humanoid source members under [Atlas Decisions 1.1.3, 6.1.1 and 6.1.2](decisions/atlas.md): the **Male Ranger** outfit from Modular Character Outfits – Fantasy, the matching **male base body** from Universal Base Characters, and the original Universal Animation Library (UAL1) Standard clips, including `Idle_Loop` and `Walk_Loop`. All three packs are CC0. Using [archive-member sources](catalog.md#archive-member-sources), the catalog pins each archive by hash and stores only the members listed below in Git LFS: 16 members, 58,283,302 bytes of unique payloads.
+This covers the second and third slices of [#109](https://github.com/moritzbrantner/asset-tooling/issues/109). It registers, pins and promotes the first humanoid source members under [Atlas Decisions 1.1.3, 6.1.1, 6.1.2 and 6.1.3](decisions/atlas.md): the **Male Ranger** outfit from Modular Character Outfits – Fantasy, the matching **male base body** from Universal Base Characters, and the original Universal Animation Library (UAL1) Standard clips, including `Idle_Loop` and `Walk_Loop`. All three packs are CC0. Using [archive-member sources](catalog.md#archive-member-sources), the catalog pins each archive by hash and stores only the members listed below in Git LFS: 18 members, 62,624,527 bytes of unique payloads.
 
 This slice covers the source payloads only. Retargeting the clips onto the outfit's skeleton stays with #110 and #115. Building the processed public bundle and proving it in a real consumer is #110.
 
@@ -16,7 +16,7 @@ The two itch.io packs have no stable download URL, because itch.io hands out onl
 
 ## Members
 
-Each selected glTF and every buffer and image it references is a separate member record. Every referenced file sits next to its glTF in the archive. The UAL1 GLB is self-contained.
+Each selected glTF and every buffer and image it references is a separate member record. Every referenced file sits next to its glTF in the archive. Two body URIs resolve through a [declared substitution](#declared-substitution) rather than by name. The UAL1 GLB is self-contained.
 
 **Body**: `Universal Base Characters[Standard]/Base Characters/Godot - UE/` in the Universal Base Characters archive.
 
@@ -29,6 +29,8 @@ Each selected glTF and every buffer and image it references is a separate member
 | `T_Superhero_Male_Normal.png` | texture | 4,252,937 | `9b25cf9200216eb754b79cf4c63b5380c419780788322f3c57cdd2b3e02679a6` |
 | `T_Superhero_Male_Dark.png` | texture | 1,384,380 | `df680cbc1967a61e85998bfafb8f7bc0a36dd604bb3266486c4b06b1a184bb45` |
 | `T_Superhero_Male_Roughness.png` | texture | 3,152,049 | `c70dabf48574cda55644d556beae1ee7cf1bdcf68a50d259d20f2f2358f27991` |
+| `T_Hair_1_Normal.png` (substitute) | texture | 4,326,126 | `57fd0ad8c96a4d01b38769637e066cecaa285b456f6e48ce00863754a457affb` |
+| `T_Eye_Normal.png` (substitute) | texture | 15,099 | `9ed61f7726a54fe346a78b9e5a18905d8e2b88f86235d97f53cd207a26f3f8c7` |
 
 **Outfit**: `Modular Character Outfits - Fantasy[Standard]/Exports/glTF (Godot-Unreal)/Outfits/` in the Modular Character Outfits – Fantasy archive.
 
@@ -51,14 +53,20 @@ Each selected glTF and every buffer and image it references is a separate member
 
 The GLB carries 46 named clips. They include exactly one `Idle_Loop` and one `Walk_Loop`, which are the clips Decision 6.1.2 selects. Its skeleton uses 52 `DEF-*` joints, while the body and outfit use a 65-joint skin, so the clips need retargeting (#110/#115) before they drive the outfit.
 
-## Known gap
+## Declared substitution
 
-`Superhero_Male_FullBody.gltf` references two normal maps that the archive does not contain under those names:
+`Superhero_Male_FullBody.gltf` uses two normal-map URIs that the archive does not contain under those names. Under [Atlas Decision 6.1.3](decisions/atlas.md), each one is bound to the texture in the same folder:
 
-- `T_Hair_1_Normal_png.png` (`images[0]`, used by `MI_Hair_1`)
-- `T_Eye_Normal_png.png` (`images[2]`, used by `MI_Eyes`)
+- `T_Hair_1_Normal_png.png` (`images[0]`, the `MI_Hair_1` normal map) → `T_Hair_1_Normal.png`
+- `T_Eye_Normal_png.png` (`images[2]`, the `MI_Eyes` normal map) → `T_Eye_Normal.png`
 
-Under Decision 6.1.2 they are **left out and recorded as a known gap**. They are not registered or stored, and no bytes are invented. The [#109 findings](https://github.com/moritzbrantner/asset-tooling/issues/109) show that this is a Blender glTF exporter naming artifact, not a missing bake: the same folder contains `T_Hair_1_Normal.png` and `T_Eye_Normal.png`. Binding those to the two URIs at import time would be a declared substitution, and that needs a separate owner choice.
+The substitutes are the same-folder +Y (OpenGL) normal maps. Their bytes are identical to the copies under `Textures/Normals Unity - Godot/`. The broken names are a Blender glTF exporter `_png.png` naming artifact, not a missing bake: the same folder also ships `T_Hair_1_BaseColor.png` and a byte-identical `T_Hair_1_BaseColor_png.png`. Both substitutes are ordinary members, promoted like the others. Each record names the URI it stands in for:
+
+```json
+"metadata": { "substitutesFor": { "member": "quaternius.universal-base-characters-standard.superhero-male-fullbody-gltf", "uri": "T_Hair_1_Normal_png.png" } }
+```
+
+The source glTF bytes stay unchanged, and no bytes are invented or edited. The broken URIs themselves are not registered or stored. A consumer binds each URI to its substitute through the glTF importer's `resourceUris`. This replaces the known gap recorded under Decision 6.1.2.
 
 ## Record conventions
 
@@ -70,7 +78,7 @@ Under Decision 6.1.2 they are **left out and recorded as a known gap**. They are
 
 ## How the members were promoted
 
-The 19 records were added to `catalog/sources.json` with the archives unpinned and every member's `source` empty. Each member was then promoted with one local-file invocation. The first promotion from each archive measured and pinned it, and every later one re-verified that pin. The tool wrote the pins, the storage entries and the payloads; Git LFS turned the staged payloads into pointers.
+The 21 records were added to `catalog/sources.json` with the archives unpinned and every member's `source` empty. Each member was then promoted with one local-file invocation. The first promotion from each archive measured and pinned it, and every later one re-verified that pin. The tool wrote the pins, the storage entries and the payloads; Git LFS turned the staged payloads into pointers.
 
 ```text
 bun run catalog:lfs:promote -- quaternius.universal-base-characters-standard.superhero-male-fullbody-gltf --from .artifacts/humanoid-candidates/base/pack.zip
@@ -80,6 +88,8 @@ bun run catalog:lfs:promote -- quaternius.universal-base-characters-standard.t-e
 bun run catalog:lfs:promote -- quaternius.universal-base-characters-standard.t-superhero-male-normal-png --from .artifacts/humanoid-candidates/base/pack.zip
 bun run catalog:lfs:promote -- quaternius.universal-base-characters-standard.t-superhero-male-dark-png --from .artifacts/humanoid-candidates/base/pack.zip
 bun run catalog:lfs:promote -- quaternius.universal-base-characters-standard.t-superhero-male-roughness-png --from .artifacts/humanoid-candidates/base/pack.zip
+bun run catalog:lfs:promote -- quaternius.universal-base-characters-standard.t-hair-1-normal-png --from .artifacts/humanoid-candidates/base/pack.zip
+bun run catalog:lfs:promote -- quaternius.universal-base-characters-standard.t-eye-normal-png --from .artifacts/humanoid-candidates/base/pack.zip
 bun run catalog:lfs:promote -- quaternius.modular-character-outfits-fantasy-standard.male-ranger-gltf --from .artifacts/humanoid-candidates/outfits/pack.zip
 bun run catalog:lfs:promote -- quaternius.modular-character-outfits-fantasy-standard.male-ranger-bin --from .artifacts/humanoid-candidates/outfits/pack.zip
 bun run catalog:lfs:promote -- quaternius.modular-character-outfits-fantasy-standard.t-ranger-normal-png --from .artifacts/humanoid-candidates/outfits/pack.zip
@@ -104,12 +114,14 @@ The archives are plain catalog sources, so another member of the same packs need
 - the archive and member records and their pins;
 - the storage entries, with no unlisted member stored;
 - the license records;
-- the known gap.
+- the declared substitution: each substitute's `metadata.substitutesFor`, and that the broken URIs are not registered.
 
 With hydrated payloads it also checks:
 
 - each payload's integrity against its pin;
-- resource closure: every URI the glTF references resolves to exactly one adjacent member, except the two known-gap URIs;
-- that the GLB contains `Idle_Loop` and `Walk_Loop`.
+- resource closure: every URI the glTF references resolves to exactly one member, either by its adjacent basename or by exactly one declared substitution;
+- that both broken URIs are used as normal textures and their substitutes are stored at their pins;
+- that the GLB contains `Idle_Loop` and `Walk_Loop`;
+- re-import: every humanoid member imports into a fresh object store, and a second import returns `unchanged` with an identical `AssetRef`, leaving the store byte-for-byte unchanged.
 
 The hosted canonical-storage job sets `ASSET_TOOLING_REQUIRE_HYDRATED_STORAGE=1`, so these hydrated checks fail there instead of skipping. `bun run catalog:storage:verify` passes from a hydrated checkout.
