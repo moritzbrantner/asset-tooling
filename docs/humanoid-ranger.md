@@ -12,13 +12,16 @@ The source members are listed in [humanoid-sources.md](humanoid-sources.md).
 
 ## Versions
 
-The recipe has two versions. `--version` selects one, and the default is 2.
+The recipe has three versions. `--version` selects one, and the default is 3.
 
 - **v1 (#110):** the character with `Idle_Loop` and `Walk_Loop`. It is one entry with no attachments, and it stays reproducible with `--version 1`, which rebuilt the recorded v1 tar `4de4cc65…` byte for byte after the v2 change.
 - **v2 ([#260](https://github.com/moritzbrantner/asset-tooling/issues/260), [#113](https://github.com/moritzbrantner/asset-tooling/issues/113)):** v2 supersedes v1 as the bundle to publish. It follows the owner answers on #113:
   - **Clips:** it adds the run gaits, a sword idle and attack, a death and a shield guard (see [Clips](#clips)).
   - **Sockets:** the [humanoid-sockets-v1](humanoid-sockets.md) descriptor ships as the `humanoid-sockets` attachment (`application/json`) of the character entry.
   - **Weapons:** the sword and shield from the [weapon recipes](weapon-recipes.md) are separate entries, `equipment.sword.arming/default` and `equipment.shield.heater/default`, which a consumer parents to the character at runtime.
+
+  It stays reproducible with `--version 2`, which rebuilt the recorded v2 tar `ccb267e4…` byte for byte after the v3 change.
+- **v3 ([#257](https://github.com/moritzbrantner/asset-tooling/issues/257)):** v3 is v2 with game-resolution textures for browser delivery. It supersedes v2 as the bundle to publish. See [Textures](#textures).
 
 ## Build
 
@@ -27,10 +30,10 @@ git clone https://github.com/moritzbrantner/3d-lab <checkout>
 git -C <checkout> checkout 86e5fe1dc6e564176de35723b31e217bf385b20a   # the stability/processors.json pin
 cargo fetch --manifest-path <checkout>/examples/asset-tooling-animation-adapter/Cargo.toml
 git lfs pull   # the humanoid members under assets/canonical/
-ASSET_TOOLING_BLENDER=<blender 5.2.2> bun scripts/build-ranger-character.ts --processor-checkout <absolute checkout> --out <directory> [--version 1|2]
+ASSET_TOOLING_BLENDER=<blender 5.2.2> bun scripts/build-ranger-character.ts --processor-checkout <absolute checkout> --out <directory> [--version 1|2|3]
 ```
 
-Version 2 generates the weapons through `external.blender.script@1`, so it needs Blender 5.2.2. `ASSET_TOOLING_BLENDER` names it, otherwise `blender` on `PATH` is used. Blender installed as a snap can only read and write under `$HOME`, so set `TMPDIR` to a directory there. Version 1 needs no Blender.
+Versions 2 and 3 generate the weapons through `external.blender.script@1`, so they need Blender 5.2.2. `ASSET_TOOLING_BLENDER` names it, otherwise `blender` on `PATH` is used. Blender installed as a snap can only read and write under `$HOME`, so set `TMPDIR` to a directory there. Version 1 needs no Blender. Version 3 also needs `ffmpeg` and `ffprobe` for the image codec.
 
 [`scripts/build-ranger-character.ts`](../scripts/build-ranger-character.ts) is the maintained recipe. It needs no network after `cargo fetch`: the processor runs `cargo run --offline`. The processor checkout must be source-clean at the pinned commit. `Cargo.lock` and `target/` may be present, but nothing else may differ. Its identity (`git-clean-exact-head`, cargo/rustc versions and the probe) is part of the `animation.retarget@1` build identity. `<directory>` becomes the object-store root, which holds every intermediate AssetRef. The script prints the bundle directory, the tar path, the tar sha256 and the export ref, and writes `lineage.json` next to them with every intermediate AssetRef and the retarget observations.
 
@@ -44,7 +47,8 @@ Version 2 generates the weapons through `external.blender.script@1`, so it needs
 | 6 | `animation.retarget@1` | Each clip with its source rig and the target rig, its library's bone map below, `sampleRate: 30` and `rootMotion: "in-place"`. |
 | 7 | `scene.embed.animation.gltf@1` | The composed GLB with every retargeted clip, under its source name, in the order of the clip table. |
 | 8 (v2) | `external.blender.script@1`, then `scene.import.gltf@2` | The `sword.arming` and `shield.heater` presets of `adapters/blender/weapon.py`, generated into `<directory>/weapons/<piece>/` and imported. |
-| 9 | `asset.bundle@4` | `gltf-resources-v1`: key `humanoid.ranger.male`, variant `default`. In v2 it also carries the `humanoid-sockets` attachment ([`assets/descriptors/humanoid.ranger.male.sockets.json`](../assets/descriptors/humanoid.ranger.male.sockets.json), validated against the rig's joints) and the two equipment entries. |
+| 8b (v3) | `scene.textures.resize.gltf@1` | The step-7 GLB with `RANGER_TEXTURE_POLICY` ([Textures](#textures)), and each weapon GLB that has images. The weapons have none, so they are bundled unchanged. |
+| 9 | `asset.bundle@4` | `gltf-resources-v1`: key `humanoid.ranger.male`, variant `default`. From v2 on it also carries the `humanoid-sockets` attachment ([`assets/descriptors/humanoid.ranger.male.sockets.json`](../assets/descriptors/humanoid.ranger.male.sockets.json), validated against the rig's joints) and the two equipment entries. |
 | 10 | `scripts/pack-asset-bundle.ts` | Packs `<directory>/bundle` into `<directory>/humanoid.ranger.male.tar` and its `.sha256`. |
 
 Every step uses the `NODE_SKINNED_MESH_NON_ROOT` and `MESH_PRIMITIVE_GENERATED_TANGENT_SPACE` validator exceptions, the same ones the bundle profile fixes.
@@ -112,11 +116,52 @@ The character keeps the Quaternius export's conventions; no transform is changed
 - **Height:** the pelvis is at 0.949 m and the head joint at 1.60 m.
 - **Root motion:** every clip is in place. The pelvis's horizontal model-space position is constant over each clip; gameplay owns position and facing (mmorpg#39).
 
+## Textures
+
+v3 runs the character GLB through [`scene.textures.resize.gltf@1`](gltf-texture-resize.md) with `RANGER_TEXTURE_POLICY`:
+
+- the longest edge is at most 1024 px for `baseColor`, `normal` and `emissive`, and at most 512 px for `metallicRoughness` and `occlusion`;
+- `default` is 1024 px;
+- smaller images, such as the 256 px eye textures, are kept byte for byte.
+
+The textures stay PNG, so no consumer needs a KTX2 or WebP decoder. Colour is averaged in linear light, ORM and roughness data as stored, and normal maps as renormalized vectors, and the PNGs are written at zlib level 9. Only image bytes change. The v3 character `.gltf` differs from v2 only in its `images` entries, the geometry and animation `.bin` is the same file, and the two equipment entries are byte-identical to v2.
+
+From the recorded v3 build (the 13 images total 53,414,027 bytes before and 7,169,668 bytes after):
+
+| Image | Slot | Before | After |
+| --- | --- | --- | --- |
+| `T_Ranger_Normal` | normal | 4096², 12,713,653 B | 1024², 962,296 B |
+| `T_Ranger_BaseColor` | baseColor | 4096², 6,630,927 B | 1024², 871,737 B |
+| `T_Ranger_ORM` | metallicRoughness | 4096², 10,792,085 B | 512², 249,136 B |
+| `T_Regular_Male_Normal` | normal | 2048², 4,064,184 B | 1024², 915,837 B |
+| `T_Regular_Male_Dark_BaseColor` | baseColor | 2048², 1,316,151 B | 1024², 473,503 B |
+| `T_Regular_Male_Roughness` | metallicRoughness | 2048², 3,160,102 B | 512², 185,123 B |
+| `T_Hair_1_BaseColor` | baseColor | 2048², 1,570,376 B | 1024², 651,218 B |
+| `T_Hair_1_Normal.png` | normal | 2048², 4,326,126 B | 1024², 1,110,405 B |
+| `T_Eye_Brown` | baseColor | 256², 35,958 B | unchanged |
+| `T_Eye_Normal.png` | normal | 256², 15,099 B | unchanged |
+| `T_Superhero_Male_Dark` | baseColor | 2048², 1,384,380 B | 1024², 499,951 B |
+| `T_Superhero_Male_Normal` | normal | 2048², 4,252,937 B | 1024², 1,013,633 B |
+| `T_Superhero_Male_Roughness` | metallicRoughness | 2048², 3,152,049 B | 512², 185,772 B |
+
+**Visual parity:** the socket sheets (`examples/weapons/socket-sheets.py`, Blender 5.2.2 Cycles) were rendered for v2 and v3 at rest, `Idle_Loop` middle, `Walk_Loop` middle and `Sword_Attack` 50 %. The renders are deterministic: a fresh v2 render matched the published v2 `Sword_Attack` sheet exactly. The v2 to v3 differences, as mean and maximum absolute RGB difference on a 0–255 scale over the 1440 × 960 sheet, were:
+
+| Pose | Mean | Max | Pixels differing by more than 16 |
+| --- | --- | --- | --- |
+| rest | 0.062 | 49 | 0.010 % |
+| `Idle_Loop` middle | 0.130 | 39 | 0.042 % |
+| `Walk_Loop` middle | 0.135 | 44 | 0.058 % |
+| `Sword_Attack` 50 % | 0.094 | 49 | 0.010 % |
+
+The largest differences are in the hand close-ups, where fine texture detail is lost.
+
+**Normal maps:** each resized normal map keeps the sign of its mean X and Y components, which rules out a flipped green channel. The mean vector length is 1.000, so the maps are not washed out. The mean angle to a plain box downscale of the source is 0.18–0.34°.
+
 ## Bundle and consumer pinning
 
-The v2 bundle has three entries:
+The v2 and v3 bundles have three entries:
 
-- **`humanoid.ranger.male` / `default`:** `scenes/humanoid.ranger.male/default.gltf` with one geometry/animation `.bin` and its 13 PNG textures as hash-addressed resources. It has 2 skins, 31,578 triangles and the eight clips above. Its `humanoid-sockets` attachment is the descriptor, byte for byte.
+- **`humanoid.ranger.male` / `default`:** `scenes/humanoid.ranger.male/default.gltf` with one geometry/animation `.bin` and its 13 PNG textures as hash-addressed resources (game resolution in v3). It has 2 skins, 31,578 triangles and the eight clips above. Its `humanoid-sockets` attachment is the descriptor, byte for byte.
 - **`equipment.sword.arming` / `default`:** 1,304 triangles, with nodes `grip` and `sword.arming`.
 - **`equipment.shield.heater` / `default`:** 1,706 triangles, with nodes `grip` and `shield.heater`.
 
@@ -130,19 +175,21 @@ A consumer pins the three things described in [Release distribution and consumer
 
 It then runs `bun scripts/pack-asset-bundle.ts --verify humanoid.ranger.male.tar --ref <pinned export.ref.json>` (or `verifyAssetBundle` after extracting). It loads the character with `readAssetBundleGltf(dir, manifest, "humanoid.ranger.male", "default")`, the weapons the same way, and the sockets with `readAssetBundleAttachment(dir, manifest, "humanoid.ranger.male", "default", "humanoid-sockets")`. Publishing the release (`gh release create`) is a separate, explicit step.
 
-Two cold v1 builds on 2026-10-17 from separate object stores produced the same tar: sha256 `4de4cc65585a0709066843a9c0bf73315820024e360326c2f1bf86b4c7955c91`, 55,587,328 bytes, with manifest sha256 `72f79132d20dae5f9d17de2b32eb0d41543f8bd74db1c0c0b2d0a9afe4b386d7` (5,364 bytes). Two v2 builds on 2026-10-17 from separate object stores (Blender 5.2.2 snap) also produced the same tar: sha256 `ccb267e4c6e21dd8d98597784569d51732612a0a76f3c6b9c067d556b3f66167`, 56,005,120 bytes, with manifest sha256 `a1170d10db2a275e59bde2e243a5163d735d6b466fb8fa0e07434c0ccfaae90e` (8,525 bytes). These are records of those runs, not a byte-exact replay contract.
+Two cold v1 builds on 2026-10-17 from separate object stores produced the same tar: sha256 `4de4cc65585a0709066843a9c0bf73315820024e360326c2f1bf86b4c7955c91`, 55,587,328 bytes, with manifest sha256 `72f79132d20dae5f9d17de2b32eb0d41543f8bd74db1c0c0b2d0a9afe4b386d7` (5,364 bytes). Two v2 builds on 2026-10-17 from separate object stores (Blender 5.2.2 snap) also produced the same tar: sha256 `ccb267e4c6e21dd8d98597784569d51732612a0a76f3c6b9c067d556b3f66167`, 56,005,120 bytes, with manifest sha256 `a1170d10db2a275e59bde2e243a5163d735d6b466fb8fa0e07434c0ccfaae90e` (8,525 bytes). Two cold v3 builds on 2026-10-17 from separate object stores also produced the same tar: sha256 `cd6393c06ef5b793032fce7ed9f2c10d92609045d874296ace0506b54971fc3f`, 9,758,720 bytes (v2: 56,005,120), with manifest sha256 `3cee42ebbc1e8fe3d405ee5d69ff5059c6a992f12c721d9df42238a17b97b1a5` (7,827 bytes). These are records of those runs, not a byte-exact replay contract.
 
 ## Tests
 
 - `bun test test/gltf-animation-operations.test.ts` uses hand-authored skinned fixtures. It covers the rig, the hips reference height through a non-joint armature, clip extraction on joint indices, skipping a non-joint channel, an extract → embed → extract round trip, and the rejection of existing or duplicate clip names and of out-of-range nodes.
 - `bun test test/animation-retarget-operations.test.ts` runs a fixture adapter. It covers the name → index binding conversion, the `sampleRate` grid, output and observation checks, and parameter failures.
 - `bun scripts/check-processor-contract.ts <checkout> <commit> moritzbrantner/3d-lab examples/asset-tooling-animation-adapter/Cargo.toml animation.retarget` runs the pinned processor on two tiny rigs, twice. This is also the hosted stability matrix entry.
-- `test/humanoid-ranger.test.ts` always checks the v2 clip list and the UAL2 same-name bone map. It also runs the whole v2 recipe and checks the bundle structurally:
+- `bun test test/gltf-texture-resize-operations.test.ts` covers the texture operation ([gltf-texture-resize.md](gltf-texture-resize.md#tests)).
+- `test/humanoid-ranger.test.ts` always checks the v2 clip list, the UAL2 same-name bone map, the v3 default and `RANGER_TEXTURE_POLICY`. It also runs the whole v3 recipe and checks the bundle structurally:
   - every clip name in order, each with a positive duration;
   - in place: the pelvis's horizontal model-space drift, with root and pelvis keys composed, is at most 1 cm;
   - only mapped joints are animated, with LINEAR samplers;
   - the two equipment entries are unskinned, unanimated and have a `grip` node;
-  - the `humanoid-sockets` attachment matches the versioned descriptor byte for byte and validates against the 65 joints.
+  - the `humanoid-sockets` attachment matches the versioned descriptor byte for byte and validates against the 65 joints;
+  - the 13 character textures fit their slot limits, none is upscaled, the image bytes shrink at least fourfold, and the equipment has no images.
 
   The full run skips unless the Git LFS payloads are hydrated, `ASSET_TOOLING_PROCESSOR_CHECKOUT_3DLAB` names the pinned checkout and `ASSET_TOOLING_BLENDER` names Blender 5.2.2.
 

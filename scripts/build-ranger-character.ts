@@ -1,16 +1,19 @@
 // Build the Ranger character bundle end to end from its canonical catalog members
 // (docs/humanoid-ranger.md):
-//   bun scripts/build-ranger-character.ts --processor-checkout <3d-lab checkout> --out <directory> [--version 1|2]
+//   bun scripts/build-ranger-character.ts --processor-checkout <3d-lab checkout> --out <directory> [--version 1|2|3]
 // The 3d-lab checkout must be source-clean at the commit stability/processors.json pins for
 // `three-d-animation-retarget`, with its cargo dependencies fetched (the processor runs --offline).
 // <directory> becomes the object-store root; the bundle is exported to <directory>/bundle and packed
 // to <directory>/humanoid.ranger.male.tar (+ .sha256) with scripts/pack-asset-bundle.ts.
-// Version 2 (the default, #260/#113) adds the run, sword, death and shield-guard clips, the sword
+// Version 2 (#260/#113) adds the run, sword, death and shield-guard clips, the sword
 // and shield weapon entries (Blender weapon recipe, ASSET_TOOLING_BLENDER) and the
 // humanoid-sockets-v1 descriptor as an attachment of the character entry. Version 1 is the #110 build.
+// Version 3 (the default, #257) is v2 with game-resolution PNG textures (scene.textures.resize.gltf@1,
+// RANGER_TEXTURE_POLICY); keys, variants, scenes, materials, UVs, clips and sockets are those of v2.
 import path from "node:path";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
+import { NodeIO } from "@gltf-transform/core";
 import { executeAnimationRetargetOperation } from "../src/animation-processing-operations.js";
 import { GLTF_RESOURCES_BUNDLE_PROFILE, exportAssetBundle } from "../src/asset-bundle.js";
 import { ASSET_BUNDLE_REF_FILE, readAssetBundleTar } from "../src/asset-bundle-pack.js";
@@ -22,6 +25,7 @@ import { executeGltfEmbedAnimationOperation, executeGltfExtractAnimationOperatio
 import { executeGltfComposeSkinnedOperation } from "../src/gltf-compose-operations.js";
 import { executeGltfProductionImportOperation } from "../src/gltf-production-operations.js";
 import { executeGltfSubsetSkinnedOperation } from "../src/gltf-subset-operations.js";
+import { executeGltfTextureResizeOperation } from "../src/gltf-texture-resize-operations.js";
 import { validateHumanoidSocketDescriptor } from "../src/humanoid-sockets.js";
 import { generateAsset } from "../src/index.js";
 import { WEAPON_PRESETS, createWeaponAssetSpec, readWeaponRecipeSource, type WeaponPiece } from "../src/weapon-recipes.js";
@@ -43,8 +47,13 @@ export const RANGER_MEMBERS = {
   clips: { archive: "quaternius.universal-animation-library-standard", path: "Animation Library[Standard]/Godot/AnimationLibrary_Godot_Standard.glb" },
   clips2: { archive: "quaternius.universal-animation-library-2-standard", path: "Universal Animation Library 2 [Standard]/Unreal-Godot/UAL2_Standard.glb" },
 } as const;
-export type RangerVersion = 1 | 2;
-export const RANGER_DEFAULT_VERSION: RangerVersion = 2;
+export type RangerVersion = 1 | 2 | 3;
+export const RANGER_DEFAULT_VERSION: RangerVersion = 3;
+/** v3 (#257): per-slot maximum texture edges for browser delivery; images are never upscaled. */
+export const RANGER_TEXTURE_POLICY = {
+  maxEdgeBySlot: { baseColor: 1024, normal: 1024, metallicRoughness: 512, occlusion: 512, emissive: 1024 },
+  default: 1024,
+} as const;
 
 /** The head/face subset of the UBC body (docs/gltf-subset.md, owner option A on #110). */
 export const RANGER_HEAD_RECIPE = { keepJoints: ["neck_01", "Head"], minWeight: 0.5, keepMeshes: ["Face", "Face.001"], policy: POLICY };
@@ -147,7 +156,7 @@ async function buildWeapon(root: string, piece: WeaponPiece) {
 export async function buildRangerCharacter({ processorCheckout, outDir, version = RANGER_DEFAULT_VERSION, log = () => {} }: {
   processorCheckout: string; outDir: string; version?: RangerVersion; log?: (line: string) => void;
 }) {
-  if (version !== 1 && version !== 2) throw new Error("Ranger bundle version must be 1 or 2");
+  if (version !== 1 && version !== 2 && version !== 3) throw new Error("Ranger bundle version must be 1, 2 or 3");
   const root = path.resolve(outDir);
   await mkdir(root, { recursive: true });
   const processor = await rangerProcessor(path.resolve(processorCheckout));
@@ -220,12 +229,25 @@ export async function buildRangerCharacter({ processorCheckout, outDir, version 
     parameters: { clips: clips.map((clip) => ({ name: clip.name })), policy: POLICY },
   }));
 
+  // v3: the same GLB with game-resolution textures; nothing but image bytes changes.
+  const textures: Record<string, Json> = {};
+  const resizeTextures = async (key: string, glb: AssetRef) => {
+    const json = await new NodeIO().binaryToJSON(await resolveAssetObject(root, glb));
+    if (!json.json.images?.length) { textures[key] = { images: 0 }; return glb; }
+    log(`resize ${key} textures (scene.textures.resize.gltf@1)`);
+    const result = await executeGltfTextureResizeOperation(root, { inputs: { source: glb }, parameters: { ...RANGER_TEXTURE_POLICY, policy: POLICY } });
+    const { images, imageBytes } = result.observations as Json;
+    textures[key] = { source: glb, output: single(result), imageBytes, images };
+    return single(result);
+  };
+  const character = version === 3 ? await resizeTextures(RANGER_BUNDLE_KEY, animated) : animated;
+
   const selections: Json[] = [{ key: RANGER_BUNDLE_KEY, variant: RANGER_BUNDLE_VARIANT }];
-  const assets: AssetRef[] = [animated];
+  const assets: AssetRef[] = [character];
   const attachments: AssetRef[] = [];
   const weapons: Record<string, AssetRef> = {};
   let sockets: AssetRef | undefined;
-  if (version === 2) {
+  if (version >= 2) {
     log(`attach ${RANGER_SOCKETS_DESCRIPTOR} as '${RANGER_SOCKETS_ATTACHMENT}'`);
     const descriptor = await readFile(path.join(REPOSITORY_ROOT, RANGER_SOCKETS_DESCRIPTOR));
     const { jointNames } = JSON.parse((await resolveAssetObject(root, targetRig)).toString("utf8"));
@@ -237,7 +259,7 @@ export async function buildRangerCharacter({ processorCheckout, outDir, version 
       log(`generate ${piece} (external.blender.script@1 weapon recipe, scene.import.gltf@2)`);
       weapons[key] = await buildWeapon(root, piece);
       selections.push({ key, variant: RANGER_BUNDLE_VARIANT });
-      assets.push(weapons[key]!);
+      assets.push(version === 3 ? await resizeTextures(key, weapons[key]!) : weapons[key]!);
     }
   }
 
@@ -245,7 +267,7 @@ export async function buildRangerCharacter({ processorCheckout, outDir, version 
   const bundleDir = path.join(root, "bundle");
   await exportAssetBundle(root, bundleDir, {
     parameters: { profile: GLTF_RESOURCES_BUNDLE_PROFILE, assets: selections },
-    inputs: version === 2 ? { assets, attachments } : { assets },
+    inputs: version >= 2 ? { assets, attachments } : { assets },
   });
   const tarPath = path.join(root, `${RANGER_BUNDLE_KEY}.tar`);
   log("pack release tar (scripts/pack-asset-bundle.ts)");
@@ -265,7 +287,8 @@ export async function buildRangerCharacter({ processorCheckout, outDir, version 
       processor: { repository: processor.repository, revision: processor.revision },
       outfit, body, head, composed, targetRig, sourceRigs, libraries: loaded, animated,
       clips: clips.map(({ name, library, source, retargeted, observations }) => ({ name, library, source, retargeted, observations })),
-      ...(version === 2 ? { sockets, weapons } : {}),
+      ...(version >= 2 ? { sockets, weapons } : {}),
+      ...(version === 3 ? { character, textures, texturePolicy: RANGER_TEXTURE_POLICY } : {}),
     },
   };
 }
@@ -277,7 +300,7 @@ function parseArguments(args: string[]) {
     if (!["--processor-checkout", "--out", "--version"].includes(flag!) || !value) return undefined;
     options[flag!.slice(2)] = value;
   }
-  if (options.version !== undefined && options.version !== "1" && options.version !== "2") return undefined;
+  if (options.version !== undefined && !["1", "2", "3"].includes(options.version)) return undefined;
   const version = (options.version === undefined ? RANGER_DEFAULT_VERSION : Number(options.version)) as RangerVersion;
   return options["processor-checkout"] && options.out ? { processorCheckout: options["processor-checkout"], outDir: options.out, version } : undefined;
 }
@@ -285,7 +308,7 @@ function parseArguments(args: string[]) {
 if (import.meta.main) {
   const options = parseArguments(process.argv.slice(2));
   if (!options) {
-    console.error("Usage: bun scripts/build-ranger-character.ts --processor-checkout <absolute 3d-lab checkout> --out <directory> [--version 1|2]");
+    console.error("Usage: bun scripts/build-ranger-character.ts --processor-checkout <absolute 3d-lab checkout> --out <directory> [--version 1|2|3]");
     process.exit(2);
   }
   try {
