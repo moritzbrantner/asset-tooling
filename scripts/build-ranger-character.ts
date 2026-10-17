@@ -1,6 +1,6 @@
 // Build the Ranger character bundle end to end from its canonical catalog members
 // (docs/humanoid-ranger.md):
-//   bun scripts/build-ranger-character.ts --processor-checkout <3d-lab checkout> --out <directory> [--version 1|2|3|4|5]
+//   bun scripts/build-ranger-character.ts --processor-checkout <3d-lab checkout> --out <directory> [--version 1|2|3|4|5|6]
 // The 3d-lab checkout must be source-clean at the commit stability/processors.json pins for
 // `three-d-animation-retarget`, with its cargo dependencies fetched (the processor runs --offline).
 // <directory> becomes the object-store root; the bundle is exported to <directory>/bundle and packed
@@ -12,15 +12,18 @@
 // RANGER_TEXTURE_POLICY); keys, variants, scenes, materials, UVs, clips and sockets are those of v2.
 // Version 4 (#113) is v3 with the anatomically derived hand sockets
 // (examples/weapons/derive-sockets.ts); v2 and v3 keep shipping the bundle-v2 descriptor.
-// Version 5 (the default, #268) is v4 with every clip retargeted through all three spine joints: the
+// Version 5 (#268) is v4 with every clip retargeted through all three spine joints: the
 // optional `upper-chest` HumanoidBone (3d-lab 4e69c0f) carries DEF-spine.003 -> spine_03, and `chest`
 // now binds the middle joint DEF-spine.002 -> spine_02 (RANGER_V5_BONE_MAP). v1-v4 keep their
 // two-bone spine map; the processor leaves an unmapped `upper-chest` exactly as before, so they
 // still build their recorded tars at the new pin.
+// Version 6 (the default, #112) is v5 with the traversal clips (UAL1 jump, crouch and roll; UAL2 climb
+// and slide) and a `humanoid-clips` attachment that records each clip's source, loop flag, duration,
+// the source root displacement removed by in-place retargeting, and the ground speed of the gaits.
 import path from "node:path";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-import { NodeIO } from "@gltf-transform/core";
+import { NodeIO, type Animation, type Document, type Node } from "@gltf-transform/core";
 import { executeAnimationRetargetOperation } from "../src/animation-processing-operations.js";
 import { GLTF_RESOURCES_BUNDLE_PROFILE, exportAssetBundle } from "../src/asset-bundle.js";
 import { ASSET_BUNDLE_REF_FILE, readAssetBundleTar } from "../src/asset-bundle-pack.js";
@@ -54,9 +57,9 @@ export const RANGER_MEMBERS = {
   clips: { archive: "quaternius.universal-animation-library-standard", path: "Animation Library[Standard]/Godot/AnimationLibrary_Godot_Standard.glb" },
   clips2: { archive: "quaternius.universal-animation-library-2-standard", path: "Universal Animation Library 2 [Standard]/Unreal-Godot/UAL2_Standard.glb" },
 } as const;
-export type RangerVersion = 1 | 2 | 3 | 4 | 5;
-export const RANGER_VERSIONS: readonly RangerVersion[] = [1, 2, 3, 4, 5];
-export const RANGER_DEFAULT_VERSION: RangerVersion = 5;
+export type RangerVersion = 1 | 2 | 3 | 4 | 5 | 6;
+export const RANGER_VERSIONS: readonly RangerVersion[] = [1, 2, 3, 4, 5, 6];
+export const RANGER_DEFAULT_VERSION: RangerVersion = 6;
 /** v3 (#257): per-slot maximum texture edges for browser delivery; images are never upscaled. */
 export const RANGER_TEXTURE_POLICY = {
   maxEdgeBySlot: { baseColor: 1024, normal: 1024, metallicRoughness: 512, occlusion: 512, emissive: 1024 },
@@ -85,6 +88,28 @@ export const RANGER_V2_CLIPS: readonly RangerClip[] = [
   { name: "Death01", library: "clips", rootMotion: "in-place" },
   { name: "Idle_Shield_Loop", library: "clips2", rootMotion: "in-place" },
 ];
+/** v6 (#112): jump, crouch, roll, climb and slide clips. The free Standard libraries have no backward, strafe, start/stop or turn clips. */
+export const RANGER_V6_CLIPS: readonly RangerClip[] = [
+  ...RANGER_V2_CLIPS,
+  { name: "Jump_Start", library: "clips", rootMotion: "in-place" },
+  { name: "Jump_Loop", library: "clips", rootMotion: "in-place" },
+  { name: "Jump_Land", library: "clips", rootMotion: "in-place" },
+  { name: "Crouch_Idle_Loop", library: "clips", rootMotion: "in-place" },
+  { name: "Crouch_Fwd_Loop", library: "clips", rootMotion: "in-place" },
+  { name: "Roll", library: "clips", rootMotion: "in-place" },
+  { name: "Roll_RM", library: "clips", rootMotion: "in-place" },
+  { name: "ClimbUp_1m_RM", library: "clips2", rootMotion: "in-place" },
+  { name: "Slide_Start", library: "clips2", rootMotion: "in-place" },
+  { name: "Slide_Loop", library: "clips2", rootMotion: "in-place" },
+  { name: "Slide_Exit", library: "clips2", rootMotion: "in-place" },
+];
+/** The forward gait loops whose ground speed the v6 `humanoid-clips` attachment records. */
+export const RANGER_GAITS: ReadonlySet<string> = new Set(["Walk_Loop", "Jog_Fwd_Loop", "Sprint_Loop", "Crouch_Fwd_Loop"]);
+/** The clips a bundle version retargets, in bundle order. */
+export function rangerClips(version: RangerVersion): readonly RangerClip[] {
+  return version === 1 ? RANGER_CLIPS : version < 6 ? RANGER_V2_CLIPS : RANGER_V6_CLIPS;
+}
+export const RANGER_CLIPS_ATTACHMENT = "humanoid-clips";
 /** v2 equipment entries: weapon-recipe presets, parented at runtime through the sockets descriptor. */
 export const RANGER_V2_EQUIPMENT: readonly { key: string; piece: WeaponPiece }[] = [
   { key: "equipment.sword.arming", piece: "sword.arming" },
@@ -183,10 +208,85 @@ async function buildWeapon(root: string, piece: WeaponPiece) {
   return single(await executeGltfProductionImportOperation(root, { inputs: { source: glb }, parameters: { policy: POLICY } }));
 }
 
+const round4 = (value: number) => Math.round(value * 1e4) / 1e4 + 0;
+
+/** Applies each channel's keyframe `pick(count)` to its node, runs `read`, then restores the rest TRS. */
+function atKey<T>(animation: Animation, pick: (count: number) => number, read: () => T): T {
+  const saved = new Map<Node, [number[], number[], number[]]>();
+  for (const channel of animation.listChannels()) {
+    const node = channel.getTargetNode()!, targetPath = channel.getTargetPath(), sampler = channel.getSampler()!;
+    if (!saved.has(node)) saved.set(node, [[...node.getTranslation()], [...node.getRotation()], [...node.getScale()]]);
+    const value: number[] = [];
+    sampler.getOutput()!.getElement(pick(sampler.getInput()!.getCount()), value);
+    if (targetPath === "translation") node.setTranslation(value as any);
+    else if (targetPath === "rotation") node.setRotation(value as any);
+    else if (targetPath === "scale") node.setScale(value as any);
+  }
+  try { return read(); } finally {
+    for (const [node, [t, r, s]] of saved) node.setTranslation(t as any).setRotation(r as any).setScale(s as any);
+  }
+}
+
+/**
+ * The v6 `humanoid-clips` descriptor (docs/humanoid-ranger.md#clip-motion): per clip its source, duration,
+ * loop flag, the source hips displacement scaled to the Ranger (x/z removed by in-place, y kept) and,
+ * for the gaits, the ground speed at which a planted foot moves backwards in the retargeted clip.
+ */
+async function rangerClipMotion(root: string, { character, targetRig, sourceRigs, libraries, clips, catalogIds }: {
+  character: AssetRef; targetRig: AssetRef; sourceRigs: Partial<Record<RangerClip["library"], AssetRef>>;
+  libraries: Partial<Record<RangerClip["library"], AssetRef>>;
+  clips: { name: string; library: string; source: AssetRef; observations: Json }[]; catalogIds: Record<RangerClip["library"], string>;
+}) {
+  const io = new NodeIO();
+  const documents = new Map<string, Document>();
+  const read = async (asset: AssetRef) => {
+    if (!documents.has(asset.sha256)) documents.set(asset.sha256, await io.readBinary(new Uint8Array(await resolveAssetObject(root, asset))));
+    return documents.get(asset.sha256)!;
+  };
+  const target = await read(character);
+  const targetNode = (name: string) => target.getRoot().listNodes().find((node) => node.getName() === name)!;
+  const feet = [targetNode("foot_l"), targetNode("foot_r")];
+  const entries: Json[] = [];
+  for (const clip of clips) {
+    const library = clip.library as RangerClip["library"];
+    const source = await read(libraries[library]!);
+    const animation = source.getRoot().listAnimations().find((candidate) => candidate.getName() === clip.name)!;
+    const hipsName = library === "clips" ? RANGER_HIPS.source : RANGER_HIPS.source2;
+    const hips = source.getRoot().listNodes().find((node) => node.getName() === hipsName)!;
+    const start = atKey(animation, () => 0, () => hips.getWorldTranslation());
+    const end = atKey(animation, (count) => count - 1, () => hips.getWorldTranslation());
+    const scale = (targetRig.metadata.referenceHeight as number) / (sourceRigs[library]!.metadata.referenceHeight as number);
+    const entry: Json = {
+      name: clip.name,
+      source: { catalogId: catalogIds[library], clip: clip.name, animationSha256: clip.source.sha256 },
+      durationSeconds: round4(clip.observations.endSeconds - clip.observations.startSeconds),
+      loop: clip.name.endsWith("_Loop"),
+      interpolation: "LINEAR",
+      rootMotion: clip.observations.rootMotion,
+      sourceRootDisplacement: { x: round4((end[0] - start[0]) * scale), y: round4((end[1] - start[1]) * scale), z: round4((end[2] - start[2]) * scale) },
+    };
+    if (RANGER_GAITS.has(clip.name)) {
+      const retargeted = target.getRoot().listAnimations().find((candidate) => candidate.getName() === clip.name)!;
+      const times = Array.from(retargeted.listSamplers()[0]!.getInput()!.getArray()!);
+      const poses = times.map((_, index) => atKey(retargeted, () => index, () => feet.map((foot) => foot.getWorldTranslation())));
+      const speeds: number[] = [];
+      for (let index = 0; index + 1 < poses.length; index += 1) {
+        const planted = poses[index]![0]![1] <= poses[index]![1]![1] ? 0 : 1;
+        speeds.push(-(poses[index + 1]![planted]![2] - poses[index]![planted]![2]) / (times[index + 1]! - times[index]!));
+      }
+      speeds.sort((a, b) => a - b);
+      entry.groundSpeedMetersPerSecond = round4(speeds[Math.floor(speeds.length / 2)]!);
+    }
+    entries.push(entry);
+  }
+  const descriptor = { schema: "humanoid-clips-v1", units: "m", up: "+Y", facing: "+Z", clips: entries };
+  return (await storeAssetObject(root, { bytes: Buffer.from(`${canonicalJson(descriptor)}\n`), kind: "humanoid-clips", mediaType: "application/json" })).asset;
+}
+
 export async function buildRangerCharacter({ processorCheckout, outDir, version = RANGER_DEFAULT_VERSION, log = () => {} }: {
   processorCheckout: string; outDir: string; version?: RangerVersion; log?: (line: string) => void;
 }) {
-  if (!RANGER_VERSIONS.includes(version)) throw new Error("Ranger bundle version must be 1, 2, 3, 4 or 5");
+  if (!RANGER_VERSIONS.includes(version)) throw new Error("Ranger bundle version must be 1, 2, 3, 4, 5 or 6");
   const root = path.resolve(outDir);
   await mkdir(root, { recursive: true });
   const processor = await rangerProcessor(path.resolve(processorCheckout));
@@ -238,7 +338,7 @@ export async function buildRangerCharacter({ processorCheckout, outDir, version 
   const loaded: Partial<Record<RangerClip["library"], AssetRef>> = {};
   const sourceRigs: Partial<Record<RangerClip["library"], AssetRef>> = {};
   const clips: { name: string; library: string; source: AssetRef; retargeted: AssetRef; observations: Json }[] = [];
-  for (const clip of version === 1 ? RANGER_CLIPS : RANGER_V2_CLIPS) {
+  for (const clip of rangerClips(version)) {
     const lib = libraries[clip.library];
     const library = loaded[clip.library] ??= await lib.member();
     const extracted = await executeGltfExtractAnimationOperation(root, {
@@ -278,6 +378,7 @@ export async function buildRangerCharacter({ processorCheckout, outDir, version 
   const attachments: AssetRef[] = [];
   const weapons: Record<string, AssetRef> = {};
   let sockets: AssetRef | undefined;
+  let clipMotion: AssetRef | undefined;
   const descriptorPath = rangerSocketsDescriptor(version);
   if (descriptorPath) {
     log(`attach ${descriptorPath} as '${RANGER_SOCKETS_ATTACHMENT}'`);
@@ -287,6 +388,12 @@ export async function buildRangerCharacter({ processorCheckout, outDir, version 
     sockets = (await storeAssetObject(root, { bytes: descriptor, kind: "humanoid-sockets", mediaType: "application/json" })).asset;
     selections[0]!.attachments = [{ name: RANGER_SOCKETS_ATTACHMENT }];
     attachments.push(sockets);
+    if (version >= 6) {
+      log(`measure clip motion and attach '${RANGER_CLIPS_ATTACHMENT}'`);
+      clipMotion = await rangerClipMotion(root, { character, targetRig, sourceRigs, libraries: loaded, clips, catalogIds: { clips: memberId(RANGER_MEMBERS.clips), clips2: memberId(RANGER_MEMBERS.clips2) } });
+      selections[0]!.attachments.push({ name: RANGER_CLIPS_ATTACHMENT });
+      attachments.push(clipMotion);
+    }
     for (const { key, piece } of RANGER_V2_EQUIPMENT) {
       log(`generate ${piece} (external.blender.script@1 weapon recipe, scene.import.gltf@2)`);
       weapons[key] = await buildWeapon(root, piece);
@@ -321,6 +428,7 @@ export async function buildRangerCharacter({ processorCheckout, outDir, version 
       clips: clips.map(({ name, library, source, retargeted, observations }) => ({ name, library, source, retargeted, observations })),
       ...(version >= 2 ? { sockets, socketsDescriptor: descriptorPath, weapons } : {}),
       ...(version >= 3 ? { character, textures, texturePolicy: RANGER_TEXTURE_POLICY } : {}),
+      ...(version >= 6 ? { clipMotion } : {}),
     },
   };
 }
@@ -340,7 +448,7 @@ function parseArguments(args: string[]) {
 if (import.meta.main) {
   const options = parseArguments(process.argv.slice(2));
   if (!options) {
-    console.error("Usage: bun scripts/build-ranger-character.ts --processor-checkout <absolute 3d-lab checkout> --out <directory> [--version 1|2|3|4|5]");
+    console.error("Usage: bun scripts/build-ranger-character.ts --processor-checkout <absolute 3d-lab checkout> --out <directory> [--version 1|2|3|4|5|6]");
     process.exit(2);
   }
   try {

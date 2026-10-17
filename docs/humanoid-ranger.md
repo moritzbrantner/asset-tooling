@@ -12,7 +12,7 @@ The source members are listed in [humanoid-sources.md](humanoid-sources.md).
 
 ## Versions
 
-The recipe has five versions. `--version` selects one, and the default is 5.
+The recipe has six versions. `--version` selects one, and the default is 6.
 
 - **v1 (#110):** the character with `Idle_Loop` and `Walk_Loop`. It is one entry with no attachments, and it stays reproducible with `--version 1`, which rebuilt the recorded v1 tar `4de4cc65…` byte for byte after the v2 change.
 - **v2 ([#260](https://github.com/moritzbrantner/asset-tooling/issues/260), [#113](https://github.com/moritzbrantner/asset-tooling/issues/113)):** v2 supersedes v1 as the bundle to publish. It follows the owner answers on #113:
@@ -25,6 +25,13 @@ The recipe has five versions. `--version` selects one, and the default is 5.
 - **v4 ([#113](https://github.com/moritzbrantner/asset-tooling/issues/113)):** v4 is v3 with the anatomically derived hand sockets ([humanoid-sockets.md](humanoid-sockets.md#how-the-hand-sockets-are-derived)), which hold up in the combat clips. It supersedes v3 as the bundle to publish. The character `.gltf`, its resources and the two equipment entries are byte-identical to v3. Only the `humanoid-sockets` attachment and the manifest change.
 - **v5 ([#268](https://github.com/moritzbrantner/asset-tooling/issues/268)):** v5 is v4 with every clip retargeted through all three spine joints. 3d-lab `4e69c0f` adds the optional `upper-chest` `HumanoidBone` between `chest` and `neck`, and the v5 bone maps bind `DEF-spine.002` → `spine_02` as `chest` and `DEF-spine.003` → `spine_03` as `upper-chest` ([Bone map](#bone-map)). This removes most of the chest error described in [Death01 ground penetration](#death01-ground-penetration). It supersedes v4 as the bundle to publish. Only the character `.gltf`, its geometry/animation `.bin` and the manifest change. The textures, the `humanoid-sockets` attachment (the v4 descriptor) and the two equipment entries are byte-identical to v4.
 
+- **v6 ([#112](https://github.com/moritzbrantner/asset-tooling/issues/112)):** v6 is v5 with 11 traversal clips and a second attachment of the character entry. It supersedes v5 as the bundle to publish.
+  - **Clips:** UAL1 `Jump_Start`, `Jump_Loop`, `Jump_Land`, `Crouch_Idle_Loop`, `Crouch_Fwd_Loop`, `Roll` and `Roll_RM`, and UAL2 `ClimbUp_1m_RM`, `Slide_Start`, `Slide_Loop` and `Slide_Exit`, after the eight v2 clips and retargeted the same way (see [Clips](#clips)).
+  - **Clip motion:** the `humanoid-clips` attachment (`application/json`) describes every clip (see [Clip motion](#clip-motion)).
+  - **Not included:** the free Standard libraries have no backward, strafe, start/stop or turn-in-place clips. Those stay open on #112 (owner answer, 2026-10-17); paid library tiers are out of scope (Decision 6.1.4).
+
+  The textures, the `humanoid-sockets` attachment and the two equipment entries are byte-identical to v5. After the v6 change, `--version 5` rebuilt the recorded v5 tar `059f9276…` byte for byte.
+
 v1–v4 keep their two-bone spine map. The processor treats an unmapped `upper-chest` exactly as before, so the new pin rebuilds them unchanged: after the v5 change, `--version 1` and `--version 4` rebuilt the recorded tars `4de4cc65…` and `222f21f8…` byte for byte at `4e69c0f`. No older processor checkout is needed.
 
 ## Build
@@ -34,10 +41,10 @@ git clone https://github.com/moritzbrantner/3d-lab <checkout>
 git -C <checkout> checkout 4e69c0f64177d3babdf0ea991a631c62f577e684   # the stability/processors.json pin
 cargo fetch --manifest-path <checkout>/examples/asset-tooling-animation-adapter/Cargo.toml
 git lfs pull   # the humanoid members under assets/canonical/
-ASSET_TOOLING_BLENDER=<blender 5.2.2> bun scripts/build-ranger-character.ts --processor-checkout <absolute checkout> --out <directory> [--version 1|2|3|4|5]
+ASSET_TOOLING_BLENDER=<blender 5.2.2> bun scripts/build-ranger-character.ts --processor-checkout <absolute checkout> --out <directory> [--version 1|2|3|4|5|6]
 ```
 
-Versions 2 to 5 generate the weapons through `external.blender.script@1`, so they need Blender 5.2.2. `ASSET_TOOLING_BLENDER` names it, otherwise `blender` on `PATH` is used. Blender installed as a snap can only read and write under `$HOME`, so set `TMPDIR` to a directory there. Version 1 needs no Blender. Versions 3 to 5 also need `ffmpeg` and `ffprobe` for the image codec.
+Versions 2 to 6 generate the weapons through `external.blender.script@1`, so they need Blender 5.2.2. `ASSET_TOOLING_BLENDER` names it, otherwise `blender` on `PATH` is used. Blender installed as a snap can only read and write under `$HOME`, so set `TMPDIR` to a directory there. Version 1 needs no Blender. Versions 3 to 6 also need `ffmpeg` and `ffprobe` for the image codec.
 
 [`scripts/build-ranger-character.ts`](../scripts/build-ranger-character.ts) is the maintained recipe. It needs no network after `cargo fetch`: the processor runs `cargo run --offline`. The processor checkout must be source-clean at the pinned commit. `Cargo.lock` and `target/` may be present, but nothing else may differ. Its identity (`git-clean-exact-head`, cargo/rustc versions and the probe) is part of the `animation.retarget@1` build identity. `<directory>` becomes the object-store root, which holds every intermediate AssetRef. The script prints the bundle directory, the tar path, the tar sha256 and the export ref, and writes `lineage.json` next to them with every intermediate AssetRef and the retarget observations.
 
@@ -158,15 +165,44 @@ From the recorded v3 build (the 13 images total 53,414,027 bytes before and 7,16
 | `Walk_Loop` middle | 0.135 | 44 | 0.058 % |
 | `Sword_Attack` 50 % | 0.094 | 49 | 0.010 % |
 
+v6 adds these clips, also in place, with 48 channels each:
+
+| Clip | Source | Use | Duration |
+| --- | --- | --- | --- |
+| `Jump_Start` | UAL1 | jump takeoff | 1.333 s |
+| `Jump_Loop` | UAL1 | airborne / fall loop | 2.5 s |
+| `Jump_Land` | UAL1 | landing | 1.267 s |
+| `Crouch_Idle_Loop` | UAL1 | crouch idle | 2.933 s |
+| `Crouch_Fwd_Loop` | UAL1 | crouch walk | 2 s |
+| `Roll` | UAL1 | dodge roll, in-place source | 1.467 s |
+| `Roll_RM` | UAL1 | dodge roll, root-motion source | 1.467 s |
+| `ClimbUp_1m_RM` | UAL2 | climb up a 1 m ledge | 0.667 s |
+| `Slide_Start` | UAL2 | slide entry | 0.833 s |
+| `Slide_Loop` | UAL2 | slide loop | 2 s |
+| `Slide_Exit` | UAL2 | slide exit | 0.5 s |
+
+In-place retargeting removes the horizontal hips travel of the `_RM` sources and keeps vertical motion. `ClimbUp_1m_RM` therefore still rises about 1 m and the slide clips drop and raise the pelvis about 0.8 m. The source travel is recorded in [Clip motion](#clip-motion), so a consumer can move the gameplay body to match.
+
+## Clip motion
+
+From v6 the character entry carries a `humanoid-clips` attachment, schema `humanoid-clips-v1`. It is canonical JSON with `units: "m"`, `up: "+Y"`, `facing: "+Z"` and one entry per clip, in bundle order:
+
+- `name`, and `source`: the library's catalog id, the source clip name and the sha256 of the extracted source animation (`lineage.json` lists the same AssetRef);
+- `durationSeconds`, `loop` (the source name ends in `_Loop`), `interpolation: "LINEAR"` and `rootMotion: "in-place"`;
+- `sourceRootDisplacement` `{x, y, z}`: the source hips' model-space travel from the first to the last key, scaled by the hips reference-height ratio (0.9491 / 0.9167). `x` and `z` were removed from the clip; `y` is still in it;
+- `groundSpeedMetersPerSecond`, only for the forward gaits `Walk_Loop`, `Jog_Fwd_Loop`, `Sprint_Loop` and `Crouch_Fwd_Loop`. It is the median speed at which the lower foot moves backwards (−Z) between consecutive samples of the retargeted clip, which is the body speed at which that foot would not slide. The source gaits are themselves in place, so this is the only speed they define.
+
+From the recorded v6 build: ground speeds 1.0434 m/s (walk), 1.7637 m/s (jog), 2.1345 m/s (sprint) and 0.657 m/s (crouch walk). Root displacement: `Roll_RM` z 5.2693 m, `ClimbUp_1m_RM` y 1.0353 m and z 1.7356 m, `Jump_Start` y 0.358 m, `Slide_Start` y −0.8079 m and `Slide_Exit` y +0.8079 m. These are measurements, not a gameplay contract: the consumer owns movement speed and collision.
+
 The largest differences are in the hand close-ups, where fine texture detail is lost.
 
 **Normal maps:** each resized normal map keeps the sign of its mean X and Y components, which rules out a flipped green channel. The mean vector length is 1.000, so the maps are not washed out. The mean angle to a plain box downscale of the source is 0.18–0.34°.
 
 ## Bundle and consumer pinning
 
-The v2–v5 bundles have three entries:
+The v2–v6 bundles have three entries:
 
-- **`humanoid.ranger.male` / `default`:** `scenes/humanoid.ranger.male/default.gltf` with one geometry/animation `.bin` and its 13 PNG textures as hash-addressed resources (game resolution from v3 on). It has 2 skins, 31,578 triangles and the eight clips above. Its `humanoid-sockets` attachment is that version's descriptor, byte for byte.
+- **`humanoid.ranger.male` / `default`:** `scenes/humanoid.ranger.male/default.gltf` with one geometry/animation `.bin` and its 13 PNG textures as hash-addressed resources (game resolution from v3 on). It has 2 skins, 31,578 triangles and the eight clips above (v6: 19 clips). Its `humanoid-sockets` attachment is that version's descriptor, byte for byte; from v6 it also has the `humanoid-clips` attachment.
 - **`equipment.sword.arming` / `default`:** 1,304 triangles, with nodes `grip` and `sword.arming`.
 - **`equipment.shield.heater` / `default`:** 1,706 triangles, with nodes `grip` and `shield.heater`.
 
@@ -178,9 +214,9 @@ A consumer pins the three things described in [Release distribution and consumer
 2. the tar sha256;
 3. its own copy of `export.ref.json`.
 
-It then runs `bun scripts/pack-asset-bundle.ts --verify humanoid.ranger.male.tar --ref <pinned export.ref.json>` (or `verifyAssetBundle` after extracting). It loads the character with `readAssetBundleGltf(dir, manifest, "humanoid.ranger.male", "default")`, the weapons the same way, and the sockets with `readAssetBundleAttachment(dir, manifest, "humanoid.ranger.male", "default", "humanoid-sockets")`. Publishing the release (`gh release create`) is a separate, explicit step.
+It then runs `bun scripts/pack-asset-bundle.ts --verify humanoid.ranger.male.tar --ref <pinned export.ref.json>` (or `verifyAssetBundle` after extracting). It loads the character with `readAssetBundleGltf(dir, manifest, "humanoid.ranger.male", "default")`, the weapons the same way, and the sockets with `readAssetBundleAttachment(dir, manifest, "humanoid.ranger.male", "default", "humanoid-sockets")` (and, from v6, the clip motion with `"humanoid-clips"`). Publishing the release (`gh release create`) is a separate, explicit step.
 
-Two cold v1 builds on 2026-10-17 from separate object stores produced the same tar: sha256 `4de4cc65585a0709066843a9c0bf73315820024e360326c2f1bf86b4c7955c91`, 55,587,328 bytes, with manifest sha256 `72f79132d20dae5f9d17de2b32eb0d41543f8bd74db1c0c0b2d0a9afe4b386d7` (5,364 bytes). Two v2 builds on 2026-10-17 from separate object stores (Blender 5.2.2 snap) also produced the same tar: sha256 `ccb267e4c6e21dd8d98597784569d51732612a0a76f3c6b9c067d556b3f66167`, 56,005,120 bytes, with manifest sha256 `a1170d10db2a275e59bde2e243a5163d735d6b466fb8fa0e07434c0ccfaae90e` (8,525 bytes). Two cold v3 builds on 2026-10-17 from separate object stores also produced the same tar: sha256 `cd6393c06ef5b793032fce7ed9f2c10d92609045d874296ace0506b54971fc3f`, 9,758,720 bytes (v2: 56,005,120), with manifest sha256 `3cee42ebbc1e8fe3d405ee5d69ff5059c6a992f12c721d9df42238a17b97b1a5` (7,827 bytes). Two cold v4 builds on 2026-10-17 from separate object stores also produced the same tar: sha256 `222f21f8df449321f4cb34b67e693186e0435a449c19eacb8dece9fb001a741f`, 9,758,720 bytes, with manifest sha256 `cdc63b4632d08c88807082109fd633aa00c3f54f2c1627ef81b4034ccebba169` (7,827 bytes). After the v4 change, `--version 2` and `--version 3` rebuilt the recorded tars `ccb267e4…` and `cd6393c0…` byte for byte. Two cold v5 builds on 2026-10-17 from separate object stores (3d-lab `4e69c0f`, Blender 5.2.2 snap) also produced the same tar: sha256 `059f92768f2181070f32d48c6102be1b77143cc4d21d99a24d6ebd7d3bd04d0c`, 9,778,176 bytes, with manifest sha256 `a127d96cdaf6a75826fad14fb9b7f53f02608f4791f9dd0d9284a4f949a12678` (7,827 bytes). These are records of those runs, not a byte-exact replay contract.
+Two cold v1 builds on 2026-10-17 from separate object stores produced the same tar: sha256 `4de4cc65585a0709066843a9c0bf73315820024e360326c2f1bf86b4c7955c91`, 55,587,328 bytes, with manifest sha256 `72f79132d20dae5f9d17de2b32eb0d41543f8bd74db1c0c0b2d0a9afe4b386d7` (5,364 bytes). Two v2 builds on 2026-10-17 from separate object stores (Blender 5.2.2 snap) also produced the same tar: sha256 `ccb267e4c6e21dd8d98597784569d51732612a0a76f3c6b9c067d556b3f66167`, 56,005,120 bytes, with manifest sha256 `a1170d10db2a275e59bde2e243a5163d735d6b466fb8fa0e07434c0ccfaae90e` (8,525 bytes). Two cold v3 builds on 2026-10-17 from separate object stores also produced the same tar: sha256 `cd6393c06ef5b793032fce7ed9f2c10d92609045d874296ace0506b54971fc3f`, 9,758,720 bytes (v2: 56,005,120), with manifest sha256 `3cee42ebbc1e8fe3d405ee5d69ff5059c6a992f12c721d9df42238a17b97b1a5` (7,827 bytes). Two cold v4 builds on 2026-10-17 from separate object stores also produced the same tar: sha256 `222f21f8df449321f4cb34b67e693186e0435a449c19eacb8dece9fb001a741f`, 9,758,720 bytes, with manifest sha256 `cdc63b4632d08c88807082109fd633aa00c3f54f2c1627ef81b4034ccebba169` (7,827 bytes). After the v4 change, `--version 2` and `--version 3` rebuilt the recorded tars `ccb267e4…` and `cd6393c0…` byte for byte. Two cold v5 builds on 2026-10-17 from separate object stores (3d-lab `4e69c0f`, Blender 5.2.2 snap) also produced the same tar: sha256 `059f92768f2181070f32d48c6102be1b77143cc4d21d99a24d6ebd7d3bd04d0c`, 9,778,176 bytes, with manifest sha256 `a127d96cdaf6a75826fad14fb9b7f53f02608f4791f9dd0d9284a4f949a12678` (7,827 bytes). Two cold v6 builds on 2026-10-17 from separate object stores (3d-lab `4e69c0f`, Blender 5.2.2 snap) also produced the same tar: sha256 `9f5d625cb0d28fde67ad002608460ab2575790aa71a02bc2249a6bc0f26f9006`, 10,396,672 bytes, with manifest sha256 `6e506a4ff266ea4e18126d1809c7157e052fae6ef8719040fcda902a0b94d061` (8,409 bytes). These are records of those runs, not a byte-exact replay contract.
 
 ## Tests
 
@@ -188,12 +224,13 @@ Two cold v1 builds on 2026-10-17 from separate object stores produced the same t
 - `bun test test/animation-retarget-operations.test.ts` runs a fixture adapter. It covers the name → index binding conversion, the `sampleRate` grid, output and observation checks, and parameter failures.
 - `bun scripts/check-processor-contract.ts <checkout> <commit> moritzbrantner/3d-lab examples/asset-tooling-animation-adapter/Cargo.toml animation.retarget` runs the pinned processor on two tiny rigs, twice, including an `upper-chest` bend that must land on the target's `upper-chest` joint. This is also the hosted stability matrix entry.
 - `bun test test/gltf-texture-resize-operations.test.ts` covers the texture operation ([gltf-texture-resize.md](gltf-texture-resize.md#tests)).
-- `test/humanoid-ranger.test.ts` always checks the v2 clip list, the UAL2 same-name bone maps, the v5 spine map (each spine joint mapped once) against the v1–v4 map, the v5 default, the sockets descriptor of each version and `RANGER_TEXTURE_POLICY`. It also runs the whole v5 recipe and checks the bundle structurally:
+- `test/humanoid-ranger.test.ts` always checks the v2 and v6 clip lists, the UAL2 same-name bone maps, the v5 spine map (each spine joint mapped once) against the v1–v4 map, the v6 default, the sockets descriptor of each version and `RANGER_TEXTURE_POLICY`. It also runs the whole v6 recipe and checks the bundle structurally:
   - every clip name in order, each with a positive duration;
   - in place: the pelvis's horizontal model-space drift, with root and pelvis keys composed, is at most 1 cm;
   - only mapped joints are animated, with LINEAR samplers, and every clip rotates `spine_02`;
   - the two equipment entries are unskinned, unanimated and have a `grip` node;
   - the `humanoid-sockets` attachment matches the versioned descriptor byte for byte and validates against the 65 joints;
+  - the `humanoid-clips` attachment lists every clip in order with its source animation sha256, loop flag and in-place root motion; the gait speeds increase from crouch walk to sprint, and `Roll_RM` and `ClimbUp_1m_RM` record their removed travel;
   - the 13 character textures fit their slot limits, none is upscaled, the image bytes shrink at least fourfold, and the equipment has no images.
 
   The full run skips unless the Git LFS payloads are hydrated, `ASSET_TOOLING_PROCESSOR_CHECKOUT_3DLAB` names the pinned checkout and `ASSET_TOOLING_BLENDER` names Blender 5.2.2.
