@@ -301,3 +301,9 @@ Stop extending 3d-lab's own Rust/WASM character runtime (skeletons, clip samplin
 **Approved by owner:** 2026-10-17 (live session). Applies the owner's "no verification ceremony" principle.
 
 Bundles carry a version, their sources and licenses — nothing more. Old bundle versions are not required to rebuild byte for byte, builds are not repeated to prove determinism, and consumers do not verify per-file SHA-256 pins. Existing pins and reproducibility checks may be removed when touched.
+
+#### Decision 7.1.3 — Use three.js and real characters as references for optional 3d-lab parity
+
+**Approved by owner:** 2026-10-17, during cross-repository 3d-lab issue reconciliation. **Refines** Decision 7.1.1; it does not reverse the off-the-shelf consumer runtime choice.
+
+Plain three.js playing actual versioned asset-tooling character bundles, authored clips and equipment (initially the Ranger v7), is the **behavioral and content reference**. "Golden" does not mean pixel-identical output, infallible artistic quality, or gameplay authority. Within 3d-lab, optional first-party alternatives may be developed **one real consumer-needed capability at a time**, with a specific consumer issue, reference scene, supported subset, observable correctness and visual comparison, and demonstrated benefit. Unmatched capabilities remain explicitly unsupported. Browser games and asset-tooling continue using standard three.js (native games use standard glTF) without waiting for 3d-lab; any switch needs separate consumer approval and evidence. See [3d-lab #141](https://github.com/moritzbrantner/3d-lab/issues/141). Decision 7.1.2 still applies to bundle distribution and verification overhead.
