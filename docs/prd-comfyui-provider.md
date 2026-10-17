@@ -139,9 +139,9 @@ The real-server acceptance is `test/comfyui-local-server.test.ts`. It is skipped
 
 Per [Decision 5.1.5](decisions/atlas.md), a run is cancelled through `runAssetOperation(root, registration, invocation, { signal })`; the workflow bridge forwards the runner's `context.signal`. Cancellation only ever touches this operation's own prompt and never calls `POST /interrupt`:
 
-- **Queued:** when `GET /queue` lists the own prompt as pending, the run sends `POST /queue {"delete": [promptId]}` once and rejects with "cancelled: … deleted from the queue".
+- **Queued:** when `GET /queue` lists the own prompt as pending (its prompt id **and** the submitted `client_id` both match; an entry with another `client_id` is never deleted and is reported as ambiguous), the run sends `POST /queue {"delete": [promptId]}` once and rejects with "cancelled: … deleted from the queue".
 - **Running:** the prompt is neither interrupted nor deleted. The run rejects as ambiguous ("may still finish on the server") and names the prompt id.
-- **Completion race:** the cancel wins. A history record or `/view` download that completes after the abort is not imported, and nothing is stored or cached.
+- **Completion race:** the cancel wins. A history record or `/view` download that completes after the abort is not imported; an output object the run newly stored when the abort arrives is removed again (an object that existed before the run is never removed), and a cache entry written as the abort arrives is removed.
 - **During `POST /prompt`:** the run looks up its own `client_id` in `GET /queue`. A pending prompt is deleted; otherwise the run rejects as an ambiguous submission naming the `client_id`. It is never resubmitted.
 
 The abort is observed during in-flight requests and between history polls, not after the poll interval. Every cancellation rejects with `name === "AbortError"` and a message starting with "cancelled". Without a signal the transport behaves as before. Tests: `test/comfyui-cancellation.test.ts` against the queue-modelling fake server.

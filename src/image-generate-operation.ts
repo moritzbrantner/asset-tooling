@@ -18,7 +18,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { storeAssetObject, type AssetOperationRunRegistration } from "./asset-store.js";
+import type { AssetOperationRunRegistration } from "./asset-store.js";
 import { canonicalJson } from "./canonical.js";
 import {
   assertKeys,
@@ -32,6 +32,7 @@ import {
   isRecord,
   normalizeEndpoint,
   pinnedFileSignature,
+  storeOutputUnlessCancelled,
   submitPrompt,
   throwIfCancelledBeforeSubmit,
   throwIfOutputCancelled,
@@ -682,12 +683,17 @@ function createComfyUiRegistration(
       // 4. Verify and import the actual bytes.
       throwIfOutputCancelled(signal, promptId);
       verifyPng(bytes, promptId, parameters.width, parameters.height);
-      const stored = await storeAssetObject(root, {
-        bytes,
-        kind: "image",
-        mediaType: "image/png",
-        metadata: { width: parameters.width, height: parameters.height },
-      });
+      const stored = await storeOutputUnlessCancelled(
+        root,
+        {
+          bytes,
+          kind: "image",
+          mediaType: "image/png",
+          metadata: { width: parameters.width, height: parameters.height },
+        },
+        signal,
+        promptId,
+      );
 
       const comfyui: CanonicalJsonObject = { version: server.comfyuiVersion as string };
       if (comfyuiCommit !== undefined) comfyui.commit = comfyuiCommit;

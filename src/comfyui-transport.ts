@@ -13,7 +13,10 @@
  */
 import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
-import { stat } from "node:fs/promises";
+import { rm, stat } from "node:fs/promises";
+import path from "node:path";
+
+import { assetObjectPortablePath, storeAssetObject, type StoreAssetObjectOptions, type StoreAssetObjectResult } from "./asset-store.js";
 
 import { canonicalJson, type CanonicalJsonValue } from "./canonical.js";
 
@@ -321,6 +324,8 @@ function describePromptError(body: unknown): string {
 interface QueueLocation {
   state: "pending" | "running";
   promptId: string;
+  /** The entry's `extra_data.client_id`, when it reports one. */
+  clientId: string | undefined;
 }
 
 /** Finds the own prompt in `GET /queue`, by prompt id or by the submission's client_id. */
@@ -346,7 +351,7 @@ async function locateInQueue(endpoint: string, match: { promptId?: string; clien
         (match.promptId !== undefined && entry[1] === match.promptId) ||
         (match.promptId === undefined && match.clientId !== undefined && extra.client_id === match.clientId)
       ) {
-        return { state, promptId: entry[1] };
+        return { state, promptId: entry[1], clientId: typeof extra.client_id === "string" ? extra.client_id : undefined };
       }
     }
   }
@@ -380,6 +385,13 @@ export async function cancelPrompt(endpoint: string, promptId: string, clientId:
   let location: QueueLocation | undefined;
   try {
     location = await locateInQueue(endpoint, { promptId });
+    // Ownership is the prompt id AND the submitted client_id: an entry this run cannot prove it
+    // owns (for example a stale or reused prompt id answered by POST /prompt) is never deleted.
+    if (location !== undefined && location.clientId !== clientId) {
+      throw cancellationError(
+        `cancelled: ComfyUI run is ambiguous: the queue entry for prompt ${promptId} carries client_id ${location.clientId ?? "(none)"}, not this run's client_id ${clientId}; it was not deleted or interrupted, this run's prompt may still finish on the server and nothing was stored`,
+      );
+    }
     if (location?.state === "pending") return await deleteOwnPending(endpoint, promptId, clientId);
   } catch (error) {
     if (isCancellationError(error)) throw error;
@@ -510,7 +522,7 @@ export async function awaitOutput(
   deadline: number,
   pollIntervalMs: number,
   signal?: AbortSignal,
-  clientId = "unknown",
+  clientId = "",
 ): Promise<OutputImage> {
   let lastTransient = "";
   for (;;) {
@@ -595,6 +607,28 @@ export function throwIfOutputCancelled(signal: AbortSignal | undefined, promptId
   if (signal?.aborted) {
     throw cancellationError(`cancelled: ComfyUI prompt ${promptId} finished, but the run was cancelled before its output was imported; nothing was stored`);
   }
+}
+
+/**
+ * Imports the verified output bytes unless the run was cancelled. When the signal aborted by the
+ * time the store settles, an object this call newly created is removed again (an object that
+ * already existed before is never touched) and the run rejects with a cancellation error.
+ */
+export async function storeOutputUnlessCancelled(
+  root: string,
+  options: StoreAssetObjectOptions,
+  signal: AbortSignal | undefined,
+  promptId: string,
+): Promise<StoreAssetObjectResult> {
+  throwIfOutputCancelled(signal, promptId);
+  const stored = await storeAssetObject(root, options);
+  if (signal?.aborted) {
+    if (stored.status === "changed") {
+      await rm(path.join(root, ...assetObjectPortablePath(stored.asset).split("/")), { force: true });
+    }
+    throwIfOutputCancelled(signal, promptId);
+  }
+  return stored;
 }
 
 export async function fetchOutput(

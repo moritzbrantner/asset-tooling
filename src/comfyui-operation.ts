@@ -10,7 +10,7 @@
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 
-import { storeAssetObject, type AssetOperationRunRegistration } from "./asset-store.js";
+import type { AssetOperationRunRegistration } from "./asset-store.js";
 import { canonicalJson } from "./canonical.js";
 import {
   DEFAULT_PROBE_TIMEOUT_MS,
@@ -26,6 +26,7 @@ import {
   normalizeEndpoint,
   pinnedFileSignature,
   readServerIdentity,
+  storeOutputUnlessCancelled,
   submitPrompt,
   throwIfCancelledBeforeSubmit,
   throwIfOutputCancelled,
@@ -393,12 +394,17 @@ export function createComfyUiImageGenerateRegistration(options: ComfyUiImageGene
       // 6. Verify and import the actual bytes.
       throwIfOutputCancelled(signal, promptId);
       verifyPng(bytes, promptId, width, height);
-      const stored = await storeAssetObject(root, {
-        bytes,
-        kind: "image",
-        mediaType: "image/png",
-        metadata: { width, height },
-      });
+      const stored = await storeOutputUnlessCancelled(
+        root,
+        {
+          bytes,
+          kind: "image",
+          mediaType: "image/png",
+          metadata: { width, height },
+        },
+        signal,
+        promptId,
+      );
 
       const comfyui: CanonicalJsonObject = { version: (server.comfyuiVersion as string) };
       if (comfyuiCommit !== undefined) comfyui.commit = comfyuiCommit;

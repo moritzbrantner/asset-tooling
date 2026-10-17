@@ -2,7 +2,7 @@ import { constants, createReadStream } from "node:fs";
 import { createHash } from "node:crypto";
 import path from "node:path";
 import { copyFile, lstat, mkdir, readFile, stat, writeFile } from "node:fs/promises";
-import { readOperationResultCache, writeOperationResultCache } from "./cache.js";
+import { readOperationResultCache, removeOperationResultCache, writeOperationResultCache } from "./cache.js";
 import { sha256Bytes } from "./hash.js";
 import {
   createAssetOperationBuildIdentity,
@@ -400,6 +400,8 @@ export async function runAssetOperation(
       inputs: structuredClone(buildIdentity.inputs),
     });
   }
+  // Cancellation wins every settlement race: it is re-checked at each step that could settle the run.
+  throwIfRunCancelled(signal, "cancelled before the asset operation started; nothing was executed or cached");
 
   const cached = await readOperationResultCache(assetRoot, cacheKey, buildIdentity).catch((error: unknown) => {
     throw unusableCacheEntry(cacheKey, error);
@@ -412,6 +414,7 @@ export async function runAssetOperation(
     } catch (error: unknown) {
       throw unusableCacheEntry(cacheKey, error);
     }
+    throwIfRunCancelled(signal, "cancelled before the cached asset operation result was reused");
     return { status: "hit", cacheKey, buildIdentity, result };
   }
 
@@ -428,6 +431,12 @@ export async function runAssetOperation(
   throwIfRunCancelled(signal, "cancelled while the asset operation ran; its result was not cached");
   const result = normalizeAssetOperationResult(registration.descriptor, executed);
   for (const asset of portRefs(result.outputs)) await verifyAssetObject(assetRoot, asset);
+  throwIfRunCancelled(signal, "cancelled while the asset operation ran; its result was not cached");
   await writeOperationResultCache(assetRoot, cacheKey, buildIdentity, result);
+  if (signal?.aborted) {
+    // A miss had no entry before this write, so removing it restores the previous cache state.
+    await removeOperationResultCache(assetRoot, cacheKey);
+    throwIfRunCancelled(signal, "cancelled while the asset operation result was recorded; the cache entry was removed");
+  }
   return { status: "miss", cacheKey, buildIdentity, result };
 }
