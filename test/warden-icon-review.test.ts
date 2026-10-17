@@ -522,11 +522,15 @@ test("rules: AGENTS.md names the review folder; canonical storage and catalog st
   assert.equal(check.status, 0, check.stderr);
 });
 
-test("Pages workflow hydrates only review/ and requires the built Warden review page", async () => {
+test("Pages workflow hydrates only review/ and the Ranger comparison members, and requires the built Warden review page", async () => {
   const workflow = await readFile(path.join(ROOT, ".github", "workflows", "pages.yml"), "utf8");
   assert.match(workflow, /lfs: false/, "the checkout itself stays unhydrated");
-  assert.match(workflow, /git lfs pull[^\n]*--include[= ]["']?review\//, "Pages must hydrate only review/");
-  assert.doesNotMatch(workflow, /git lfs pull[^\n]*assets\/canonical/);
+  const pulls = [...workflow.matchAll(/git lfs pull --include="([^"]*)"/g)].map((match) => match[1]!.split(","));
+  assert.equal(pulls.length, 1, "Pages hydrates once");
+  assert.ok(pulls[0]!.includes("review/**"), "Pages must hydrate review/");
+  // #111: beyond review/, only the Ranger comparison's humanoid members (docs/animation-viewer.md#ranger-comparison).
+  const humanoid = /^assets\/canonical\/quaternius\.(universal-base-characters-standard|modular-character-outfits-fantasy-standard|universal-animation-library-standard|universal-animation-library-2-standard)\.\*\/\*\*$/;
+  for (const pattern of pulls[0]!.filter((entry) => entry !== "review/**")) assert.match(pattern, humanoid);
   assert.match(workflow, /- "review\/\*\*"/, "review/** changes must trigger Pages");
   assert.match(workflow, /test -s dist\/pages\/review\/warden-icons\/index\.html/);
 });

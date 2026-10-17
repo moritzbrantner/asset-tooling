@@ -47,9 +47,10 @@ jobs:
           lfs: false
           persist-credentials: false
 
-      # Only the review namespace is hydrated (#211); canonical payloads stay as LFS pointers.
-      - name: Hydrate review candidates only
-        run: git lfs pull --include="review/**"
+      # The review namespace (#211) and the Ranger comparison's humanoid members (#111) are hydrated;
+      # every other canonical payload stays an LFS pointer.
+      - name: Hydrate review candidates and the Ranger comparison sources
+        run: git lfs pull --include="review/**,assets/canonical/quaternius.universal-base-characters-standard.*/**,assets/canonical/quaternius.modular-character-outfits-fantasy-standard.*/**,assets/canonical/quaternius.universal-animation-library-standard.*/**,assets/canonical/quaternius.universal-animation-library-2-standard.*/**"
 
       - name: Set up Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
@@ -73,6 +74,17 @@ jobs:
           bun -e 'import { readFile } from "node:fs/promises"; import { sha256Bytes } from "./src/hash.ts"; import { SAPLING_TREE_SOURCE } from "./src/tree-recipes.ts"; const bytes = await readFile(process.argv[1]); if (bytes.length !== SAPLING_TREE_SOURCE.byteLength || sha256Bytes(bytes) !== SAPLING_TREE_SOURCE.sha256) throw new Error("Sapling input pin mismatch")' "$RUNNER_TEMP/sapling.zip"
           echo "ASSET_TOOLING_SAPLING_ARCHIVE=$RUNNER_TEMP/sapling.zip" >> "$GITHUB_ENV"
 
+      # The comparison's processed bundle is the pinned release; writeRangerComparisonData verifies its tar.
+      - name: Download the pinned Ranger release for the comparison
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG=$(bun -e 'import { RANGER_COMPARISON_BUNDLE } from "./src/ranger-comparison.ts"; console.log(RANGER_COMPARISON_BUNDLE.tag)')
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern humanoid.ranger.male.tar --dir "$RUNNER_TEMP/ranger"
+          echo "ASSET_TOOLING_RANGER_BUNDLE_TAR=$RUNNER_TEMP/ranger/humanoid.ranger.male.tar" >> "$GITHUB_ENV"
+          echo "ASSET_TOOLING_REQUIRE_RANGER_COMPARISON=1" >> "$GITHUB_ENV"
+
       - name: Validate catalog provenance
         run: |
           bun run catalog:check
@@ -93,6 +105,8 @@ jobs:
           test -s dist/pages/previews/feedback.farm.harvest-pop.strong.wav
           test -s dist/pages/generate/index.html
           test -s dist/pages/generate/app.js
+          test -s dist/pages/compare/ranger/data.json
+          test -s dist/pages/compare/ranger/app.js
           test -s dist/pages/review/warden-icons/index.html
           test -s dist/pages/review/warden-icons/images/approved/warden.ability.4.32.png
           test "$(find dist/pages/assets -name index.html -type f | wc -l)" -gt 0

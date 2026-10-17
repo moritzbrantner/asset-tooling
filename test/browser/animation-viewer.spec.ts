@@ -414,7 +414,7 @@ test.describe("rigged source animation viewer: rendering and controls", () => {
     await expect(provenance).toHaveCount(1);
     expect(await provenance.evaluate((details) => (details as HTMLDetailsElement).open), "provenance is collapsed").toBe(false);
 
-    await expect(page.getByText(/processed comparison[\s\S]*#110|#110[\s\S]*processed comparison/i).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: "compare/ranger/" })).toHaveAttribute("href", "../compare/ranger/");
 
     await viewer.open({ asset: SIMPLE_ID });
     await viewer.expectReady();

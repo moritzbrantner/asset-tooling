@@ -1,6 +1,6 @@
 # Rigged source animation viewer
 
-First slice of [#111](https://github.com/moritzbrantner/asset-tooling/issues/111) under Decisions 1.2.1 and 2.1.1 of the [Decision Atlas](decisions/atlas.md): a Pages route for inspecting a pinned rigged catalog source and its asset-owned animation clips. It replaces the auto-rotating static preview for these sources. This slice shows the **original source only**. Synchronized source-versus-processed comparison follows once #110's processed character exists; until then the page says so rather than showing a second copy of the same bytes. Appearance swapping is the later workbench slice (#127).
+First slice of [#111](https://github.com/moritzbrantner/asset-tooling/issues/111) under Decisions 1.2.1 and 2.1.1 of the [Decision Atlas](decisions/atlas.md): a Pages route for inspecting a pinned rigged catalog source and its asset-owned animation clips. It replaces the auto-rotating static preview for these sources. This route shows the **original source only**. The synchronized source-versus-processed comparison of the Ranger is its own route, described in [Ranger comparison](#ranger-comparison). Appearance swapping is the later workbench slice (#127).
 
 The viewer is presentation and evidence. It never decides asset identity, animation math or approval. It uses the shared 3d-lab renderer (`@moritzbrantner/three-d-renderer`, `./inspection-character` export, commit-pinned as a git dev dependency in `package.json`) for pin verification, parsing, skinning and clip sampling. That export is inspection-only: it verifies the source's SHA-256 and byte length before parsing and never carries production-import provenance. The viewer bundles the renderer, three.js and the renderer's WASM pose module into `viewer/`, so it needs no CDN. It adds no glTF or skin implementation of its own.
 
@@ -29,7 +29,7 @@ The page URL keeps `asset`, `clip` (index), `t` (seconds, when paused) and `view
 - The displayed artifact is always identified: catalog id, title, `Original source`, the short SHA-256 and the license/attribution.
 - Clip name and duration, the current time, and the model bounds in metres from the renderer's root object.
 - Full provenance (catalog entry and URL) sits inside a collapsed `<details>`.
-- A note says that the processed comparison arrives with #110.
+- A note links to the [Ranger comparison](#ranger-comparison).
 
 ## Failures
 
@@ -65,4 +65,21 @@ At widths of 900px and above, the canvas sits beside a control panel. At narrow 
 - Screenshots of the normal and narrow layouts accompany the PR.
 - The ordinary gate (`bun run check`) still passes, and the Pages build produces the viewer.
 
-Processed comparison, skeleton/socket debug views, wireframe and material views, and approval workflow are follow-ups under #111 and #127.
+## Ranger comparison
+
+Route: `compare/ranger/` (`dist/pages/compare/ranger/index.html`). It follows the owner answers on #111 from 2026-10-17 (Q1 = A, Q2 = A). Four views share one clip, one time and one camera, so poses can be compared directly:
+
+1. **Original source, rest pose:** the canonical Universal Base Characters body and the Male_Ranger outfit `.gltf` files with every referenced buffer and texture, exactly as promoted in #109, including the two [declared substitutions](humanoid-sources.md#declared-substitution). The source ships no clips, so this view always shows the rest pose, and its caption says so. Two checkboxes show or hide the body and the outfit.
+2. **Source motion:** the mannequin of the clip's library (UAL1 or UAL2 GLB) playing the selected clip under its source name, before retargeting.
+3. **Processed:** the `humanoid.ranger.male/default` entry of the pinned [`humanoid-ranger-male-v6`](humanoid-ranger.md) release, playing the same clip. The clip list is that bundle's `humanoid-clips` attachment.
+4. **Primitive-built archer:** the `archer` OBJ of the [medieval character kit](medieval-character-kit.md) (scale 0.001), as the static debug fallback it replaces.
+
+Every view uses the same camera framing (a human-sized volume centred 0.9 m up), the same presets (Front, Side, Back, Gameplay), and the same orbit and zoom from any view. Controls are Clip, Play/Pause, Rest pose (views 2 and 3 show their rest pose), the numeric time and the slider. The URL keeps `clip` (by name), `t` (when paused) and `view`. Each caption identifies its artifact: catalog ids and short SHA-256s for the source and library, the release tag, tar SHA-256 and entry for the bundle, and the OBJ SHA-256 for the archer.
+
+**Verification:** the renderer's inspection-only entry checks the pin of every source document and resource before parsing (3d-lab `aad5d85`). The page checks every bundle file it reads against the manifest SHA-256 and checks the archer OBJ against its pin. A mismatch shows an alert and renders nothing.
+
+**Data:** `scripts/build-catalog-pages.ts` writes `data.json` and the pinned files with `writeRangerComparisonData` (`src/ranger-comparison.ts`). It copies the hydrated canonical members after checking each against its catalog pin. It also unpacks the release tar after checking it against `RANGER_COMPARISON_BUNDLE` (tar SHA-256 and manifest AssetRef), and it writes the archer OBJ. An ordinary build without hydrated payloads or `ASSET_TOOLING_RANGER_BUNDLE_TAR` skips the data, and the page then reports that it has none. The Pages workflow hydrates only these members, downloads the pinned release and sets `ASSET_TOOLING_REQUIRE_RANGER_COMPARISON=1`, so a missing or mismatched input fails the build. The page loads about 79 MB, mostly the source's 4096 px textures.
+
+**Evidence:** `test/browser/ranger-comparison.spec.ts` (real Chromium; it skips when the build has no data) checks the four identified views and the 19 clips, and that one clip and time move the source-motion and processed views while the source and archer stay unchanged. It also checks the UAL2 mannequin for a UAL2 clip, presets across views, URL restore after a reload, play and pause, and normal and narrow layouts without horizontal scrolling. `test/ranger-comparison.test.ts` covers the unavailable, required and wrong-tar cases. Matching poses are presentation, not visual approval. The owner judges #108 and #110 here.
+
+Skeleton/socket debug views, wireframe and material views, and approval workflow are follow-ups under #111 and #127.
