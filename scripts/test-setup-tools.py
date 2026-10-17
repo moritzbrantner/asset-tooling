@@ -1,9 +1,14 @@
 """Local setup safety regressions: no network, no GPU, no model downloads."""
 
+from collections import namedtuple
+import contextlib
+import copy
 import hashlib
 import importlib.util
 import json
 from pathlib import Path
+import subprocess
+import sys
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -13,21 +18,237 @@ spec = importlib.util.spec_from_file_location("asset_setup_tools", SOURCE)
 setup = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(setup)
 
+COMMIT = "a" * 40
+CPU_INDEX = "https://download.pytorch.org/whl/cpu"
+TORCH = "2.14.1+cpu"
+TORCHVISION = "0.29.1+cpu"
+CUDA_TORCH = "2.14.1+cu130"
+VersionInfo = namedtuple("VersionInfo", "major minor micro releaselevel serial")
+PINNED_KEY = "linux-x86_64-cp314"
+CUDA_ONLY = {"nvidia-cublas-cu13": "13.0.0", "nvidia-cudnn-cu13": "9.10.0", "nvidia-nccl-cu13": "2.27.0", "triton": "3.5.0"}
+
+
+def fake_sha(text: str) -> str:
+    return hashlib.sha256(text.encode("utf8")).hexdigest()
+
+
+def cpu_torch_fixture() -> dict:
+    wheels = {}
+    for minor in range(10, 16):
+        tag = f"cp3{minor}"
+        wheels[f"linux-x86_64-{tag}"] = [
+            {"name": "torch", "url": f"{CPU_INDEX}/torch-2.14.1%2Bcpu-{tag}-{tag}-manylinux_2_28_x86_64.whl",
+             "sha256": fake_sha(f"torch-{tag}")},
+            {"name": "torchvision", "url": f"{CPU_INDEX}/torchvision-0.29.1%2Bcpu-{tag}-{tag}-manylinux_2_28_x86_64.whl",
+             "sha256": fake_sha(f"torchvision-{tag}")},
+        ]
+    return {"indexUrl": CPU_INDEX, "packages": {"torch": TORCH, "torchvision": TORCHVISION}, "wheels": wheels}
+
+
+def wheel(name: str, key: str = PINNED_KEY) -> dict:
+    return next(item for item in cpu_torch_fixture()["wheels"][key] if item["name"] == name)
+
+
+def expected_requirement_lines(key: str = PINNED_KEY) -> list[str]:
+    return sorted(f"{item['name']} @ {item['url']} --hash=sha256:{item['sha256']}" for item in cpu_torch_fixture()["wheels"][key])
+
+
+def torch_record() -> dict:
+    return {"version": TORCH, "cuda": None,
+            "wheels": [{"name": "torch", "sha256": wheel("torch")["sha256"]},
+                       {"name": "torchvision", "sha256": wheel("torchvision")["sha256"]}]}
+
+
+@contextlib.contextmanager
+def host(system: str = "linux", machine: str = "x86_64", version: tuple[int, int] = (3, 14)):
+    """Patch only the platform identity; the module computes its key at call time."""
+    info = VersionInfo(version[0], version[1], 0, "final", 0)
+    with patch.object(setup.sys, "platform", system), \
+            patch.object(setup.platform, "machine", return_value=machine), \
+            patch.object(setup.sys, "version_info", info), \
+            patch.object(setup.shutil, "which", side_effect=lambda name: f"/usr/bin/{name}"):
+        yield
+
+
+class FakeHost:
+    """Offline stand-in for every external command setup-tools may run.
+
+    Unknown commands fail the test, so unexpected mutation is detected rather than ignored.
+    """
+
+    def __init__(self, tc, runtime_packages=None, workspace_venv=True, commit=COMMIT, origin=None):
+        self.tc = tc
+        self.cli = {"comfy-cli": "1.22.0", "comfy-mcp": "0.10.0", "click": "8.1.0"}
+        self.workspace_venv = workspace_venv
+        if workspace_venv:
+            self.runtime = dict(runtime_packages or {})
+        else:
+            self.cli.update(runtime_packages or {})
+            self.runtime = self.cli
+        self.commit = commit
+        self.origin = origin or setup.COMFY_SOURCE
+        self.calls: list[list[str]] = []
+        self.requirement_files: list[tuple[str, str]] = []
+        self.probe_override = None
+
+    # Helpers for building existing installs ---------------------------------------------
+    @staticmethod
+    def freeze_text(packages: dict) -> str:
+        return "\n".join(f"{name}=={version}" for name, version in sorted(packages.items()))
+
+    def cli_python(self) -> str:
+        return str(self.tc.binary("python"))
+
+    def workspace_python(self) -> str:
+        return str(self.tc.runtime_python("workspace"))
+
+    def runtime_python(self) -> str:
+        return self.workspace_python() if self.workspace_venv else self.cli_python()
+
+    def materialize_install(self, gpu="cpu", torch=None, runtime_sha=None, omit_torch=False):
+        tc = self.tc
+        tc.comfy_repo.mkdir(parents=True)
+        (tc.comfy_repo / "requirements.txt").write_text("numpy\n", encoding="utf8")
+        (tc.comfy_repo / "main.py").write_text("# pinned source\n", encoding="utf8")
+        tc.env.joinpath("bin").mkdir(parents=True)
+        for binary in (tc.binary("comfy"), tc.binary("python")):
+            binary.touch()
+        if self.workspace_venv:
+            Path(self.workspace_python()).parent.mkdir(parents=True)
+            Path(self.workspace_python()).touch()
+        state = {
+            "schemaVersion": 1, "commit": COMMIT, "cli": "1.22.0", "mcp": "0.10.0", "gpu": gpu,
+            "runtimeEnvironment": "workspace" if self.workspace_venv else "cli",
+            "cliEnvironmentSha256": fake_sha(self.freeze_text(self.cli)),
+            "runtimeEnvironmentSha256": runtime_sha or fake_sha(self.freeze_text(self.runtime)),
+        }
+        if not omit_torch and torch is not None:
+            state["torch"] = torch
+        tc.receipt.write_text(json.dumps(state, indent=2), encoding="utf8")
+        return state
+
+    # Classification -------------------------------------------------------------------
+    def packages_for(self, python: str) -> dict:
+        if python == self.cli_python():
+            return self.cli
+        if self.workspace_venv and python == self.workspace_python():
+            return self.runtime
+        raise AssertionError(f"unexpected Python interpreter: {python}")
+
+    def mutating_calls(self) -> list[list[str]]:
+        result = []
+        for call in self.calls:
+            if call[0] == str(self.tc.binary("comfy")) or "venv" in call[1:3]:
+                result.append(call)
+            elif "pip" in call and ("install" in call or "uninstall" in call):
+                result.append(call)
+        return result
+
+    def index(self, predicate) -> int:
+        for position, call in enumerate(self.calls):
+            if predicate(call):
+                return position
+        raise AssertionError("expected invocation not found in: " + "\n".join(" ".join(c) for c in self.calls))
+
+    def uninstalled(self) -> set[str]:
+        names = set()
+        for call in self.calls:
+            if "pip" in call and "uninstall" in call:
+                names.update(arg for arg in call[call.index("uninstall") + 1:] if not arg.startswith("-"))
+        return names
+
+    # Dispatch -------------------------------------------------------------------------
+    def __call__(self, *args, cwd=None, env=None, timeout=120, capture=True):
+        args = [str(arg) for arg in args]
+        self.calls.append(args)
+        tc = self.tc
+        executable = args[0]
+        if args[1:3] == ["-m", "venv"]:
+            tc.env.joinpath("bin").mkdir(parents=True, exist_ok=True)
+            tc.binary("python").touch()
+            tc.binary("comfy").touch()
+            return ""
+        if executable == str(tc.binary("comfy")):
+            if "install" not in args:
+                raise AssertionError(f"unexpected comfy invocation: {args}")
+            tc.comfy_repo.mkdir(parents=True, exist_ok=True)
+            (tc.comfy_repo / "requirements.txt").write_text("numpy\n", encoding="utf8")
+            if self.workspace_venv:
+                Path(self.workspace_python()).parent.mkdir(parents=True, exist_ok=True)
+                Path(self.workspace_python()).touch()
+            return ""
+        if executable == "git":
+            if "rev-parse" in args:
+                return self.commit
+            if "get-url" in args:
+                return self.origin
+            raise AssertionError(f"unexpected git invocation: {args}")
+        packages = self.packages_for(executable)
+        if "-c" in args:
+            if self.probe_override is not None:
+                return "noise from import\n" + json.dumps(self.probe_override)
+            if "torch" not in packages:
+                raise subprocess.CalledProcessError(1, args, "ModuleNotFoundError: torch")
+            version = packages["torch"]
+            return json.dumps({"version": version, "cuda": None if version.endswith("+cpu") else "13.0"})
+        if args[1:3] != ["-m", "pip"]:
+            raise AssertionError(f"unexpected invocation: {args}")
+        command = args[3]
+        if command == "freeze":
+            return self.freeze_text(packages)
+        if command == "check":
+            return "No broken requirements found."
+        if command == "show":
+            name = args[4]
+            if name not in packages:
+                raise subprocess.CalledProcessError(1, args)
+            return f"Name: {name}\nVersion: {packages[name]}"
+        if command == "uninstall":
+            for name in args[4:]:
+                if not name.startswith("-"):
+                    packages.pop(name, None)
+            return ""
+        if command == "install":
+            if "-r" in args:
+                requirement = Path(args[args.index("-r") + 1])
+                content = requirement.read_text(encoding="utf8")
+                if "--require-hashes" in args:
+                    self.requirement_files.append((executable, content))
+                    pinned = {"torch": TORCH, "torchvision": TORCHVISION}
+                    for line in content.splitlines():
+                        if " @ " in line:
+                            name = line.split(" @ ", 1)[0].strip()
+                            packages[name] = pinned[name]
+                    return ""
+                if requirement == tc.comfy_repo / "requirements.txt":
+                    packages["numpy"] = "2.3.0"
+                    return ""
+                raise AssertionError(f"unexpected requirements file: {requirement}")
+            for item in args[4:]:
+                if "==" in item:
+                    name, version = item.split("==", 1)
+                    packages[name] = version
+            return ""
+        raise AssertionError(f"unexpected pip invocation: {args}")
+
+
+def write_fixture(root: Path, cpu_torch=None, drop_cpu_torch=False) -> None:
+    scripts = root / "scripts"
+    scripts.mkdir(parents=True, exist_ok=True)
+    (root / "package.json").write_text(json.dumps({"engines": {"bun": "1.4.3"}, "packageManager": "bun@1.4.3"}))
+    comfy = {"commit": COMMIT, "comfy-cli": "1.22.0", "comfy-mcp": "0.10.0",
+             "cpuTorch": cpu_torch if cpu_torch is not None else cpu_torch_fixture()}
+    if drop_cpu_torch:
+        del comfy["cpuTorch"]
+    (scripts / "toolchain.json").write_text(json.dumps({"schemaVersion": 1, "comfyui": comfy}), encoding="utf8")
+
 
 class LocalToolSetupTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
-        scripts = self.root / "scripts"
-        scripts.mkdir()
-        (self.root / "package.json").write_text(json.dumps({"engines": {"bun": "1.4.3"}, "packageManager": "bun@1.4.3"}))
-        (scripts / "toolchain.json").write_text(json.dumps({
-            "schemaVersion": 1,
-            "comfyui": {
-                "commit": "a" * 40, "comfy-cli": "1.22.0", "comfy-mcp": "0.10.0",
-            },
-        }), encoding="utf8")
+        write_fixture(self.root)
         self.toolchain = setup.Toolchain(self.root)
 
     def test_doctor_is_read_only_when_comfyui_is_missing(self):
@@ -47,7 +268,7 @@ class LocalToolSetupTests(unittest.TestCase):
         self.toolchain.comfy_repo.mkdir(parents=True)
         marker = self.toolchain.comfy_repo / "keep.txt"
         marker.write_text("untouched")
-        with patch.object(setup, "run") as run:
+        with host(), patch.object(setup, "run") as run:
             with self.assertRaisesRegex(setup.SetupError, "refusing to modify"):
                 self.toolchain.setup_comfy("cpu")
             run.assert_not_called()
@@ -62,39 +283,16 @@ class LocalToolSetupTests(unittest.TestCase):
         self.assertEqual(list(target.iterdir()), [])
 
     def test_identical_verified_installation_is_noop(self):
-        tc = self.toolchain
-        tc.comfy_repo.mkdir(parents=True)
-        tc.env.joinpath("bin").mkdir(parents=True)
-        for binary in (tc.binary("comfy"), tc.binary("python")):
-            binary.touch()
-        digest = hashlib.sha256(b"package==1").hexdigest()
-        tc.receipt.write_text(json.dumps({
-            "schemaVersion": 1, "commit": "a" * 40, "cli": "1.22.0", "mcp": "0.10.0", "gpu": "cpu",
-            "runtimeEnvironment": "cli", "cliEnvironmentSha256": digest,
-            "runtimeEnvironmentSha256": digest,
-        }))
-
-        def fake_run(*args, **kwargs):
-            line = " ".join(args)
-            if "rev-parse" in line:
-                return "a" * 40
-            if "get-url origin" in line:
-                return setup.COMFY_SOURCE
-            if "freeze" in line:
-                return "package==1"
-            if "pip show comfy-cli" in line:
-                return "Name: comfy-cli\nVersion: 1.22.0"
-            if "pip show comfy-mcp" in line:
-                return "Name: comfy-mcp\nVersion: 0.10.0"
-            if "pip check" in line:
-                return "No broken requirements"
-            raise AssertionError(f"unexpected external invocation: {line}")
-
-        with patch.object(setup, "run", side_effect=fake_run) as invoked:
-            tc.setup_comfy("cpu")
-            self.assertTrue(invoked.called)
-            for call in invoked.call_args_list:
-                self.assertNotIn("install", " ".join(call.args))
+        # Intent kept from before #220: an intact, correct CPU install (now including the
+        # pinned +cpu torch record) is a strict no-op on re-run.
+        fake = FakeHost(self.toolchain, runtime_packages={"torch": TORCH, "torchvision": TORCHVISION, "numpy": "2.3.0"})
+        fake.materialize_install(torch=torch_record())
+        before = self.toolchain.receipt.read_bytes()
+        with host(), patch.object(setup, "run", side_effect=fake):
+            self.toolchain.setup_comfy("cpu")
+        self.assertTrue(fake.calls)
+        self.assertEqual(fake.mutating_calls(), [])
+        self.assertEqual(self.toolchain.receipt.read_bytes(), before)
 
     def test_backend_drift_refuses_changes(self):
         self.toolchain.receipt.parent.mkdir(parents=True)
@@ -103,6 +301,377 @@ class LocalToolSetupTests(unittest.TestCase):
             with self.assertRaisesRegex(setup.SetupError, "refusing to modify"):
                 self.toolchain.setup_comfy("nvidia")
             invoked.assert_not_called()
+
+
+class CpuTorchPinTests(unittest.TestCase):
+    """`comfyui.cpuTorch` is required and validated by pins()."""
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+
+    def assert_rejected(self, mutate, drop=False):
+        data = cpu_torch_fixture()
+        mutate(data)
+        write_fixture(self.root, cpu_torch=data, drop_cpu_torch=drop)
+        with self.assertRaises(setup.SetupError):
+            setup.pins(self.root)
+        self.assertFalse((self.root / ".artifacts").exists())
+
+    def test_valid_cpu_torch_pins_are_accepted(self):
+        write_fixture(self.root)
+        self.assertEqual(setup.pins(self.root)["comfyui"]["cpuTorch"]["packages"]["torch"], TORCH)
+
+    def test_repository_manifest_pins_cpu_wheels_for_linux_x86_64_cp310_to_cp315(self):
+        manifest = setup.pins(setup.ROOT)
+        cpu = manifest["comfyui"]["cpuTorch"]
+        self.assertEqual(cpu["indexUrl"], CPU_INDEX)
+        self.assertEqual(set(cpu["packages"]), {"torch", "torchvision"})
+        for version in cpu["packages"].values():
+            self.assertTrue(version.endswith("+cpu"), version)
+        self.assertEqual(set(cpu["wheels"]), {f"linux-x86_64-cp3{minor}" for minor in range(10, 16)})
+
+    def test_missing_cpu_torch_is_rejected(self):
+        self.assert_rejected(lambda data: None, drop=True)
+
+    def test_malformed_cpu_torch_is_rejected(self):
+        def bad_url_scheme(data):
+            data["wheels"][PINNED_KEY][0]["url"] = data["wheels"][PINNED_KEY][0]["url"].replace("https://", "http://")
+
+        def url_outside_index(data):
+            data["wheels"][PINNED_KEY][0]["url"] = "https://pypi.org/packages/torch-2.14.1-cp314-cp314-manylinux_2_28_x86_64.whl"
+
+        def uppercase_hash(data):
+            data["wheels"][PINNED_KEY][0]["sha256"] = data["wheels"][PINNED_KEY][0]["sha256"].upper()
+
+        def short_hash(data):
+            data["wheels"][PINNED_KEY][0]["sha256"] = "ab" * 16
+
+        def missing_torchvision(data):
+            data["wheels"][PINNED_KEY] = data["wheels"][PINNED_KEY][:1]
+
+        def extra_package(data):
+            data["wheels"][PINNED_KEY].append({"name": "torchaudio", "url": f"{CPU_INDEX}/torchaudio.whl", "sha256": fake_sha("a")})
+
+        def duplicate_torch(data):
+            data["wheels"][PINNED_KEY][1] = copy.deepcopy(data["wheels"][PINNED_KEY][0])
+
+        def cuda_version(data):
+            data["packages"]["torch"] = CUDA_TORCH
+
+        def plain_version(data):
+            data["packages"]["torchvision"] = "0.29.1"
+
+        def foreign_platform_key(data):
+            data["wheels"]["linux-aarch64-cp314"] = copy.deepcopy(data["wheels"][PINNED_KEY])
+
+        def darwin_key(data):
+            data["wheels"]["darwin-arm64-cp314"] = copy.deepcopy(data["wheels"][PINNED_KEY])
+
+        def no_wheels(data):
+            data["wheels"] = []
+
+        for mutate in (bad_url_scheme, url_outside_index, uppercase_hash, short_hash, missing_torchvision,
+                       extra_package, duplicate_torch, cuda_version, plain_version, foreign_platform_key,
+                       darwin_key, no_wheels):
+            with self.subTest(mutate.__name__):
+                self.assert_rejected(mutate)
+
+    def test_platform_key_reflects_current_host(self):
+        cases = [
+            (("linux", "x86_64", (3, 14)), "linux-x86_64-cp314"),
+            (("linux", "AMD64", (3, 10)), "linux-x86_64-cp310"),
+            (("linux", "aarch64", (3, 12)), "linux-aarch64-cp312"),
+            (("darwin", "arm64", (3, 13)), "darwin-arm64-cp313"),
+            (("win32", "AMD64", (3, 15)), "win32-x86_64-cp315"),
+        ]
+        for arguments, expected in cases:
+            with self.subTest(expected), host(*arguments):
+                self.assertEqual(setup.cpu_torch_platform_key(), expected)
+
+
+class CpuTorchSetupTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        write_fixture(self.root)
+        self.tc = setup.Toolchain(self.root)
+
+    def receipt(self) -> dict:
+        return json.loads(self.tc.receipt.read_text(encoding="utf8"))
+
+    # Fail closed on unsupported platforms -----------------------------------------------
+    def test_unpinned_platform_fails_closed_before_any_state_or_command(self):
+        cases = [
+            ("darwin", "arm64", (3, 14), "darwin-arm64-cp314"),
+            ("win32", "AMD64", (3, 14), "win32-x86_64-cp314"),
+            ("linux", "aarch64", (3, 14), "linux-aarch64-cp314"),
+            ("linux", "x86_64", (3, 16), "linux-x86_64-cp316"),
+        ]
+        for system, machine, version, key in cases:
+            with self.subTest(key), host(system, machine, version), patch.object(setup, "run") as run:
+                with self.assertRaisesRegex(setup.SetupError, key):
+                    self.tc.setup_comfy("cpu")
+                run.assert_not_called()
+                self.assertFalse((self.root / ".artifacts").exists())
+
+    # Fresh install --------------------------------------------------------------------
+    def fresh_install(self, workspace_venv=True):
+        fake = FakeHost(self.tc, workspace_venv=workspace_venv)
+        with host(), patch.object(setup, "run", side_effect=fake):
+            self.tc.setup_comfy("cpu")
+        return fake
+
+    def test_fresh_cpu_install_uses_source_only_comfy_install_then_hash_pinned_cpu_wheels(self):
+        fake = self.fresh_install()
+        comfy = [call for call in fake.calls if call[0] == str(self.tc.binary("comfy"))]
+        self.assertEqual(len(comfy), 1)
+        command = comfy[0]
+        install = command.index("install")
+        self.assertEqual(command[install:install + 9],
+                         ["install", "--url", setup.COMFY_SOURCE, "--version", "nightly", "--commit", COMMIT,
+                          "--skip-manager", "--cpu"])
+        for flag in ("--skip-torch-or-directml", "--skip-requirement"):
+            self.assertIn(flag, command)
+        self.assertNotIn("--fast-deps", command)
+        self.assertNotIn("--nvidia", command)
+
+        runtime = fake.workspace_python()
+        comfy_at = fake.index(lambda c: c[0] == str(self.tc.binary("comfy")))
+        hashed_at = fake.index(lambda c: c[0] == runtime and "install" in c and "--require-hashes" in c)
+        hashed = fake.calls[hashed_at]
+        self.assertEqual(hashed[1:3], ["-m", "pip"])
+        self.assertIn("--no-deps", hashed)
+        self.assertEqual(len(fake.requirement_files), 1)
+        python, content = fake.requirement_files[0]
+        self.assertEqual(python, runtime)
+        lines = sorted(line.strip() for line in content.splitlines() if line.strip() and not line.strip().startswith("#"))
+        self.assertEqual(lines, expected_requirement_lines(PINNED_KEY))
+
+        requirements = str(self.tc.comfy_repo / "requirements.txt")
+        requirements_at = fake.index(lambda c: c[0] == runtime and "install" in c and "-r" in c
+                                     and c[c.index("-r") + 1] == requirements)
+        self.assertNotIn("--require-hashes", fake.calls[requirements_at])
+        probe_at = fake.index(lambda c: c[0] == runtime and "-c" in c)
+        self.assertLess(comfy_at, hashed_at)
+        self.assertLess(hashed_at, requirements_at)
+        # pip check must run after requirements were installed; the probe follows the install steps.
+        self.assertTrue(any(i > requirements_at for i, c in enumerate(fake.calls)
+                            if c[0] == runtime and c[1:4] == ["-m", "pip", "check"]), "pip check after requirements")
+        self.assertLess(requirements_at, probe_at)
+
+    def test_fresh_cpu_install_pins_wheels_for_the_detected_python(self):
+        fake = FakeHost(self.tc)
+        with host("linux", "x86_64", (3, 11)), patch.object(setup, "run", side_effect=fake):
+            self.tc.setup_comfy("cpu")
+        lines = sorted(line.strip() for line in fake.requirement_files[0][1].splitlines()
+                       if line.strip() and not line.strip().startswith("#"))
+        self.assertEqual(lines, expected_requirement_lines("linux-x86_64-cp311"))
+
+    def test_fresh_cpu_install_without_workspace_venv_installs_into_cli_python(self):
+        fake = self.fresh_install(workspace_venv=False)
+        self.assertEqual(fake.requirement_files[0][0], fake.cli_python())
+        self.assertEqual(self.receipt()["runtimeEnvironment"], "cli")
+        self.assertEqual(self.receipt()["torch"], torch_record())
+
+    def test_fresh_cpu_install_writes_truthful_torch_receipt(self):
+        fake = self.fresh_install()
+        state = self.receipt()
+        self.assertEqual(state["schemaVersion"], 1)
+        self.assertEqual(state["gpu"], "cpu")
+        self.assertEqual(state["torch"], torch_record())
+        self.assertEqual(state["runtimeEnvironmentSha256"], fake_sha(fake.freeze_text(fake.runtime)))
+        self.assertEqual(state["cliEnvironmentSha256"], fake_sha(fake.freeze_text(fake.cli)))
+        self.assertFalse(any(name.startswith("nvidia-") or name == "triton" for name in fake.runtime))
+        with host(), patch.object(setup, "run", side_effect=fake):
+            ready, message = self.tc.comfy_status("cpu")
+        self.assertTrue(ready, message)
+        self.assertIn(TORCH, message)
+
+    def test_probe_reporting_cuda_torch_fails_without_receipt(self):
+        for probe in ({"version": CUDA_TORCH, "cuda": "13.0"},
+                      {"version": TORCH, "cuda": "13.0"},
+                      {"version": "2.13.0+cpu", "cuda": None}):
+            with self.subTest(probe=probe):
+                root = Path(tempfile.mkdtemp(dir=self.temp.name))
+                write_fixture(root)
+                tc = setup.Toolchain(root)
+                fake = FakeHost(tc)
+                fake.probe_override = probe
+                with host(), patch.object(setup, "run", side_effect=fake):
+                    with self.assertRaises(setup.SetupError):
+                        tc.setup_comfy("cpu")
+                self.assertTrue(any("-c" in call for call in fake.calls), "torch probe was not run")
+                self.assertFalse(tc.receipt.exists())
+
+    # Convergence ----------------------------------------------------------------------
+    def cuda_runtime(self) -> dict:
+        return {"torch": CUDA_TORCH, "torchvision": "0.29.1", "numpy": "2.3.0", **CUDA_ONLY}
+
+    def assert_converged(self, fake: FakeHost, old_state: dict):
+        tc = self.tc
+        self.assertFalse([c for c in fake.calls if c[0] == str(tc.binary("comfy"))], "comfy install was re-run")
+        self.assertFalse([c for c in fake.calls if "venv" in c[1:3]])
+        self.assertEqual(fake.uninstalled(), set(CUDA_ONLY))
+        runtime = fake.runtime_python()
+        for call in fake.calls:
+            if "uninstall" in call:
+                self.assertEqual(call[0], runtime)
+                self.assertIn("-y", call)
+        hashed_at = fake.index(lambda c: c[0] == runtime and "install" in c and "--require-hashes" in c)
+        self.assertIn("--no-deps", fake.calls[hashed_at])
+        lines = sorted(line.strip() for line in fake.requirement_files[0][1].splitlines()
+                       if line.strip() and not line.strip().startswith("#"))
+        self.assertEqual(lines, expected_requirement_lines(PINNED_KEY))
+        self.assertTrue(any(i > hashed_at for i, c in enumerate(fake.calls)
+                            if c[0] == runtime and c[1:4] == ["-m", "pip", "check"]), "pip check after wheels")
+        self.assertTrue(any(i > hashed_at for i, c in enumerate(fake.calls) if c[0] == runtime and "-c" in c),
+                        "torch probe after wheels")
+        self.assertEqual(fake.runtime["torch"], TORCH)
+        self.assertFalse(any(name.startswith("nvidia-") or name == "triton" for name in fake.runtime))
+        self.assertEqual(fake.runtime["numpy"], "2.3.0")
+        state = self.receipt()
+        self.assertEqual(state["torch"], torch_record())
+        self.assertEqual(state["schemaVersion"], 1)
+        for key in ("commit", "cli", "mcp", "gpu", "runtimeEnvironment"):
+            self.assertEqual(state[key], old_state[key], key)
+        self.assertEqual(state["runtimeEnvironmentSha256"], fake_sha(fake.freeze_text(fake.runtime)))
+        self.assertEqual(state["cliEnvironmentSha256"], fake_sha(fake.freeze_text(fake.cli)))
+        self.assertEqual((tc.comfy_repo / "main.py").read_text(), "# pinned source\n")
+        self.assertEqual((tc.comfy_repo / "requirements.txt").read_text(), "numpy\n")
+        # A second run against the converged install does nothing.
+        fake.calls.clear()
+        with host(), patch.object(setup, "run", side_effect=fake):
+            self.tc.setup_comfy("cpu")
+        self.assertEqual(fake.mutating_calls(), [])
+
+    def test_old_cpu_receipt_without_torch_record_converges(self):
+        fake = FakeHost(self.tc, runtime_packages=self.cuda_runtime())
+        old = fake.materialize_install(omit_torch=True)
+        with host(), patch.object(setup, "run", side_effect=fake):
+            self.tc.setup_comfy("cpu")
+        self.assert_converged(fake, old)
+
+    def test_cpu_receipt_recording_cuda_torch_converges(self):
+        fake = FakeHost(self.tc, runtime_packages=self.cuda_runtime())
+        old = fake.materialize_install(torch={"version": CUDA_TORCH, "cuda": "13.0", "wheels": []})
+        with host(), patch.object(setup, "run", side_effect=fake):
+            self.tc.setup_comfy("cpu")
+        self.assert_converged(fake, old)
+
+    def test_cli_runtime_cpu_receipt_without_torch_converges(self):
+        fake = FakeHost(self.tc, runtime_packages=self.cuda_runtime(), workspace_venv=False)
+        old = fake.materialize_install(omit_torch=True)
+        with host(), patch.object(setup, "run", side_effect=fake):
+            self.tc.setup_comfy("cpu")
+        self.assert_converged(fake, old)
+
+    def test_convergence_does_not_bypass_other_drift(self):
+        cases = {
+            "revision": dict(commit="b" * 40),
+            "origin": dict(origin="https://example.invalid/ComfyUI.git"),
+        }
+        for label, overrides in cases.items():
+            with self.subTest(label):
+                root = Path(tempfile.mkdtemp(dir=self.temp.name))
+                write_fixture(root)
+                tc = setup.Toolchain(root)
+                fake = FakeHost(tc, runtime_packages=self.cuda_runtime(), **overrides)
+                fake.materialize_install(omit_torch=True)
+                before = tc.receipt.read_bytes()
+                with host(), patch.object(setup, "run", side_effect=fake):
+                    with self.assertRaises(setup.SetupError):
+                        tc.setup_comfy("cpu")
+                self.assertEqual(fake.mutating_calls(), [])
+                self.assertEqual(tc.receipt.read_bytes(), before)
+
+    def test_unrelated_runtime_drift_with_correct_torch_record_fails_closed(self):
+        fake = FakeHost(self.tc, runtime_packages={"torch": TORCH, "torchvision": TORCHVISION, "numpy": "2.3.0"})
+        fake.materialize_install(torch=torch_record(), runtime_sha=fake_sha("something else"))
+        before = self.tc.receipt.read_bytes()
+        with host(), patch.object(setup, "run", side_effect=fake):
+            with self.assertRaisesRegex(setup.SetupError, "runtime dependencies changed"):
+                self.tc.setup_comfy("cpu")
+        self.assertEqual(fake.mutating_calls(), [])
+        self.assertEqual(self.tc.receipt.read_bytes(), before)
+
+    def test_backend_switches_fail_closed(self):
+        for existing, requested in (("cpu", "nvidia"), ("nvidia", "cpu")):
+            with self.subTest(f"{existing}->{requested}"):
+                root = Path(tempfile.mkdtemp(dir=self.temp.name))
+                write_fixture(root)
+                tc = setup.Toolchain(root)
+                packages = {"torch": TORCH, "torchvision": TORCHVISION} if existing == "cpu" else self.cuda_runtime()
+                fake = FakeHost(tc, runtime_packages=packages)
+                fake.materialize_install(gpu=existing, torch=torch_record() if existing == "cpu" else None)
+                before = tc.receipt.read_bytes()
+                with host(), patch.object(setup, "run", side_effect=fake):
+                    with self.assertRaisesRegex(setup.SetupError, "differs from requested"):
+                        tc.setup_comfy(requested)
+                self.assertEqual(fake.mutating_calls(), [])
+                self.assertEqual(tc.receipt.read_bytes(), before)
+
+    # Doctor ---------------------------------------------------------------------------
+    def test_doctor_reports_unpinned_cpu_torch_without_mutating(self):
+        records = {
+            "missing": None,
+            "cuda build": {"version": CUDA_TORCH, "cuda": "13.0", "wheels": []},
+            "cuda reported": {**torch_record(), "cuda": "13.0"},
+            "other cpu version": {**torch_record(), "version": "2.13.0+cpu"},
+        }
+        for label, record in records.items():
+            for gpu in ("cpu", None):
+                with self.subTest(label, gpu=gpu):
+                    root = Path(tempfile.mkdtemp(dir=self.temp.name))
+                    write_fixture(root)
+                    tc = setup.Toolchain(root)
+                    fake = FakeHost(tc, runtime_packages=self.cuda_runtime())
+                    fake.materialize_install(torch=record, omit_torch=record is None)
+                    before = tc.receipt.read_bytes()
+                    with host(), patch.object(setup, "run", side_effect=fake):
+                        ready, message = tc.comfy_status(gpu)
+                    self.assertFalse(ready)
+                    self.assertIn(TORCH, message)
+                    self.assertIn("setup", message.lower())
+                    self.assertEqual(fake.mutating_calls(), [])
+                    self.assertEqual(tc.receipt.read_bytes(), before)
+
+    def test_doctor_ready_message_names_cpu_torch(self):
+        fake = FakeHost(self.tc, runtime_packages={"torch": TORCH, "torchvision": TORCHVISION})
+        fake.materialize_install(torch=torch_record())
+        with host(), patch.object(setup, "run", side_effect=fake):
+            ready, message = self.tc.comfy_status("cpu")
+        self.assertTrue(ready, message)
+        self.assertIn(TORCH, message)
+        self.assertEqual(fake.mutating_calls(), [])
+
+    # NVIDIA unchanged -----------------------------------------------------------------
+    def test_nvidia_setup_is_unchanged_and_not_gated_by_cpu_torch(self):
+        for arguments in (("linux", "x86_64", (3, 14)), ("linux", "x86_64", (3, 16)), ("darwin", "arm64", (3, 14))):
+            with self.subTest(arguments):
+                root = Path(tempfile.mkdtemp(dir=self.temp.name))
+                write_fixture(root)
+                tc = setup.Toolchain(root)
+                fake = FakeHost(tc)
+                with host(*arguments), patch.object(setup, "run", side_effect=fake):
+                    tc.setup_comfy("nvidia")
+                comfy = [call for call in fake.calls if call[0] == str(tc.binary("comfy"))]
+                self.assertEqual(len(comfy), 1)
+                command = comfy[0]
+                install = command.index("install")
+                self.assertEqual(command[install:],
+                                 ["install", "--url", setup.COMFY_SOURCE, "--version", "nightly", "--commit", COMMIT,
+                                  "--skip-manager", "--nvidia", "--fast-deps"])
+                self.assertEqual(fake.requirement_files, [])
+                self.assertFalse([c for c in fake.calls if "--require-hashes" in c or "uninstall" in c or "-c" in c])
+                state = json.loads(tc.receipt.read_text(encoding="utf8"))
+                self.assertEqual(state["gpu"], "nvidia")
+                self.assertNotIn("torch", state)
+                with host(*arguments), patch.object(setup, "run", side_effect=fake):
+                    ready, message = tc.comfy_status("nvidia")
+                self.assertTrue(ready, message)
 
 
 if __name__ == "__main__":
