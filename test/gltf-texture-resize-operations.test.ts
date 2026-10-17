@@ -4,6 +4,7 @@
 // resampled once, normal renormalization, linear-light colour averaging, deterministic bytes, the
 // unchanged structure and accessors, the scene.import.gltf@2 policy on the output, and bad parameters.
 import test from "node:test";
+import { spawnSync } from "node:child_process";
 import assert from "node:assert/strict";
 import os from "node:os";
 import path from "node:path";
@@ -97,6 +98,9 @@ async function structure(bytes: Uint8Array) {
   };
 }
 
+// image.decode/encode run through FFmpeg; skip codec tests where it is unavailable (as gltf-pbr-material does).
+const codecAvailable = ["ffmpeg", "ffprobe"].every((tool) => spawnSync(tool, ["-version"], { timeout: 30_000, windowsHide: true }).status === 0);
+
 test("descriptor, target size and the resampling filter", () => {
   assert.deepEqual([GLTF_TEXTURE_RESIZE_OPERATION.id, GLTF_TEXTURE_RESIZE_OPERATION.version], ["scene.textures.resize.gltf", "1"]);
   assert.deepEqual(gltfTextureTargetSize(4096, 4096, 1024), { width: 1024, height: 1024 });
@@ -116,7 +120,7 @@ test("canonical RGBA8 images of 4096 px source textures parse (regex limit regre
   assert.throws(() => parseRgba8Image(Buffer.from(encodeRgba8Image({ width: 1, height: 1, pixels: new Uint8Array(4) }).toString("utf8").replace("AAAAAA==", "AAAA-A=="))), /canonical base64/);
 });
 
-test("resizes per slot, never upscales, resamples a shared image once and keeps the structure", async () => {
+test("resizes per slot, never upscales, resamples a shared image once and keeps the structure", { skip: !codecAvailable }, async () => {
   const { root, source, run } = await fixture();
   try {
     const result = await run();
@@ -162,7 +166,7 @@ test("resizes per slot, never upscales, resamples a shared image once and keeps 
   }
 });
 
-test("output bytes are deterministic across object stores and the build identity records the policy", async () => {
+test("output bytes are deterministic across object stores and the build identity records the policy", { skip: !codecAvailable }, async () => {
   const first = await fixture(), second = await fixture();
   try {
     assert.equal(first.source.sha256, second.source.sha256);
@@ -179,7 +183,7 @@ test("output bytes are deterministic across object stores and the build identity
   }
 });
 
-test("rejects unknown slots, bad limits and unknown parameters", async () => {
+test("rejects unknown slots, bad limits and unknown parameters", { skip: !codecAvailable }, async () => {
   const { root, run } = await fixture();
   try {
     await assert.rejects(run({ maxEdgeBySlot: { diffuse: 16 }, default: 8 }), /unknown texture slot 'diffuse'/);
