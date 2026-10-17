@@ -6,7 +6,9 @@ export const LINEAR_RGBA8_IMAGE_MEDIA_TYPE =
 export const LINEAR_RGBA8_IMAGE_SCHEMA_VERSION = 1;
 
 const MAX_DIMENSION = 8192;
-const BASE64_PATTERN = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
+// Alphabet only: the length check fixes the quantum and padding, and the round trip below rejects
+// non-canonical trailing bits. A grouped pattern exceeds the regex engine's limits on 2048 px images (#257).
+const BASE64_PATTERN = /^[A-Za-z0-9+/]*={0,2}$/;
 
 function assertPlainObject(value: unknown, location: string): Record<string, unknown> {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {

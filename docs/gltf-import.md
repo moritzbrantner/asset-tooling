@@ -86,6 +86,8 @@ The approved humanoid, rendered comparisons and visual/consumer acceptance remai
 
 `scene.place.gltf@1` (`asset-tooling/operations/processing/gltf-place`) wraps an imported GLB's scene roots in one named parent node with an exact translation, or with the footprint-base-centre anchor. Vertices are not baked. See [gltf-place.md](gltf-place.md).
 
+`scene.textures.resize.gltf@1` (`asset-tooling/operations/processing/gltf-texture-resize`) downscales an imported GLB's embedded images to per-slot maximum edges and re-encodes them as PNG. Nothing but image bytes changes. See [gltf-texture-resize.md](gltf-texture-resize.md).
+
 ## Clip extraction and embedding
 
 `asset-tooling/operations/processing/gltf-animation` moves clips between skinned GLBs and the `three-d-animation-json-v1` codec that the 3d-lab animation processors use ([#110](https://github.com/moritzbrantner/asset-tooling/issues/110)). The rig is the joints of `skins[0]`. Any other skin may bind only those joints, as composed parts do.

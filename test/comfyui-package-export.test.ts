@@ -535,7 +535,7 @@ async function exportedBridgeTemplates(): Promise<Record<string, string>> {
   return templates;
 }
 
-test("#221: existing exported operations and bridge templates are unchanged; exactly ComfyUI, asset.bundle@3 (#223), asset.bundle@4 (#118/#110), image.generate@1 (#222), scene.compose.skinned.gltf@1, scene.subset.skinned.gltf@1, animation.retarget@1 and the glTF clip extract/embed operations (#110) and scene.place.gltf@1 (#118) are added", async () => {
+test("#221: existing exported operations and bridge templates are unchanged; exactly ComfyUI, asset.bundle@3 (#223), asset.bundle@4 (#118/#110), image.generate@1 (#222), scene.compose.skinned.gltf@1, scene.subset.skinned.gltf@1, animation.retarget@1 and the glTF clip extract/embed operations (#110) scene.place.gltf@1 (#118) and scene.textures.resize.gltf@1 (#257) are added", async () => {
   const baseline = JSON.parse(await readFile(BASELINE_PATH, "utf8")) as { templates: Record<string, string> };
   const current = await exportedBridgeTemplates();
   const added = Object.keys(current).filter((key) => !(key in baseline.templates)).sort();
@@ -551,12 +551,13 @@ test("#221: existing exported operations and bridge templates are unchanged; exa
   // #110 adds animation.retarget@1 (asset-tooling/operations/processing/animation, 3d-lab three-d-animation-retarget).
   // #110 adds scene.extract.animation.gltf@1 and scene.embed.animation.gltf@1 (asset-tooling/operations/processing/gltf-animation).
   // #118 adds scene.place.gltf@1 (asset-tooling/operations/processing/gltf-place, owner decision Q3).
+  // #257 adds scene.textures.resize.gltf@1 (asset-tooling/operations/processing/gltf-texture-resize, game-resolution PNG textures).
   assert.deepEqual(
     { added, removed, changed },
     {
       added: [
         "animation.retarget@1", "asset.bundle@3", "asset.bundle@4", OPERATION_KEY, "image.generate@1", "scene.compose.skinned.gltf@1",
-        "scene.embed.animation.gltf@1", "scene.extract.animation.gltf@1", "scene.place.gltf@1", "scene.subset.skinned.gltf@1",
+        "scene.embed.animation.gltf@1", "scene.extract.animation.gltf@1", "scene.place.gltf@1", "scene.subset.skinned.gltf@1", "scene.textures.resize.gltf@1",
       ],
       removed: [], changed: [],
     },
