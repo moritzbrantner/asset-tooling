@@ -69,6 +69,8 @@
     "./recipes/surface-textures": "./src/surface-texture-recipes.ts",
     "./recipes/rocks": "./src/rock-recipes.ts",
     "./recipes/fence": "./src/fence-kit-recipes.ts",
+    "./recipes/weapons": "./src/weapon-recipes.ts",
+    "./humanoid/sockets": "./src/humanoid-sockets.ts",
     "./operations/image/atlas": "./src/sprite-atlas-operations.ts",
     "./operations/processing/gltf-material": "./src/gltf-material-operations.ts",
     "./recipes/render-derivatives": "./src/render-derivative-recipes.ts",
