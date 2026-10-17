@@ -1,0 +1,126 @@
+{
+  "schemaVersion": 1,
+  "briefs": {
+    "path": "briefs.json",
+    "sha256": "dc66e9d13ba8482c329aeb0861c343120b94c8495bfba56dc9d1dc1c4bfa9e3d"
+  },
+  "candidates": [
+    {
+      "id": "warden.ability.1.candidate.01",
+      "ability": "warden.ability.1",
+      "state": "candidate",
+      "path": "candidates/warden.ability.1.candidate.01.png",
+      "mediaType": "image/png",
+      "sha256": "b336e230b85f8d4ce7aa1049ec44d6113a69ac3bb284bab01edf4bd00626906e",
+      "byteLength": 563412,
+      "width": 512,
+      "height": 512,
+      "provenance": {
+        "provider": "comfyui",
+        "operation": "image.comfyui.generate@1",
+        "reproducibility": "approximate",
+        "workflow": {
+          "path": "workflow.sd15-icon.api.json",
+          "sha256": "5dd3fc731d09dfae62dc9993640ea34311a40c9fb66f1857304810419fab61ea"
+        },
+        "checkpoint": {
+          "byteLength": 4265146304,
+          "license": "creativeml-openrail-m",
+          "name": "v1-5-pruned-emaonly.safetensors",
+          "sha256": "6ce0161689b3853acaa03779ec93eafe75a02f4ced659bee03f50797806fa2fa"
+        },
+        "seed": 211101,
+        "positivePrompt": "a single gleaming longsword striking diagonally downward, blade glowing with golden light, bright slash streak, flying sparks, dark fantasy game ability icon, digital oil painting, painterly brush strokes, single bold centered subject, strong clear silhouette, dramatic rim lighting, high contrast, dark smoky vignette background, polished steel and warm firelight, square composition",
+        "negativePrompt": "text, letters, words, watermark, signature, logo, frame, border, user interface, multiple subjects, cluttered, busy background, blurry, low resolution, jpeg artifacts, photograph, cropped, deformed, person, face, hands",
+        "comfyui": {
+          "commit": "98cc0bf84b7cb1383654c5b402e7612d875d6d22",
+          "version": "0.41.0"
+        },
+        "run": {
+          "promptId": "e0d6a306-591f-421a-9439-ab6b0a7f306e",
+          "submittedPromptSha256": "cbee43a3d54fd7f68dd9fa2f4e4bf460fad45c0c83b8bd46510d4ba2a96c8d6c",
+          "outputNode": "9",
+          "outputFilename": "warden-icon_00001_.png"
+        }
+      }
+    },
+    {
+      "id": "warden.ability.2.candidate.01",
+      "ability": "warden.ability.2",
+      "state": "candidate",
+      "path": "candidates/warden.ability.2.candidate.01.png",
+      "mediaType": "image/png",
+      "sha256": "58c5b84f184b2c0c4b7d42e2ec6cd3d1f17b4fc1b6f0a04f52e777e95941c953",
+      "byteLength": 462695,
+      "width": 512,
+      "height": 512,
+      "provenance": {
+        "provider": "comfyui",
+        "operation": "image.comfyui.generate@1",
+        "reproducibility": "approximate",
+        "workflow": {
+          "path": "workflow.sd15-icon.api.json",
+          "sha256": "5dd3fc731d09dfae62dc9993640ea34311a40c9fb66f1857304810419fab61ea"
+        },
+        "checkpoint": {
+          "byteLength": 4265146304,
+          "license": "creativeml-openrail-m",
+          "name": "v1-5-pruned-emaonly.safetensors",
+          "sha256": "6ce0161689b3853acaa03779ec93eafe75a02f4ced659bee03f50797806fa2fa"
+        },
+        "seed": 211201,
+        "positivePrompt": "a heavy round steel shield with a riveted central boss slamming forward, radial impact shockwave burst, cracking sparks, front view, dark fantasy game ability icon, digital oil painting, painterly brush strokes, single bold centered subject, strong clear silhouette, dramatic rim lighting, high contrast, dark smoky vignette background, polished steel and warm firelight, square composition",
+        "negativePrompt": "text, letters, words, watermark, signature, logo, frame, border, user interface, multiple subjects, cluttered, busy background, blurry, low resolution, jpeg artifacts, photograph, cropped, deformed, person, face, hands",
+        "comfyui": {
+          "commit": "98cc0bf84b7cb1383654c5b402e7612d875d6d22",
+          "version": "0.41.0"
+        },
+        "run": {
+          "promptId": "e1df5ffa-84f8-4cbb-93e4-6618b432b288",
+          "submittedPromptSha256": "2d34443faef8cc04a11cad5a77eb71f2645331d764dd190e35629430319fbc6b",
+          "outputNode": "9",
+          "outputFilename": "warden-icon_00002_.png"
+        }
+      }
+    },
+    {
+      "id": "warden.ability.3.candidate.01",
+      "ability": "warden.ability.3",
+      "state": "candidate",
+      "path": "candidates/warden.ability.3.candidate.01.png",
+      "mediaType": "image/png",
+      "sha256": "3b905f72beea5f66426df256ceab9f55a80774723c973dc54fa8fe6a92fc14fa",
+      "byteLength": 447413,
+      "width": 512,
+      "height": 512,
+      "provenance": {
+        "provider": "comfyui",
+        "operation": "image.comfyui.generate@1",
+        "reproducibility": "approximate",
+        "workflow": {
+          "path": "workflow.sd15-icon.api.json",
+          "sha256": "5dd3fc731d09dfae62dc9993640ea34311a40c9fb66f1857304810419fab61ea"
+        },
+        "checkpoint": {
+          "byteLength": 4265146304,
+          "license": "creativeml-openrail-m",
+          "name": "v1-5-pruned-emaonly.safetensors",
+          "sha256": "6ce0161689b3853acaa03779ec93eafe75a02f4ced659bee03f50797806fa2fa"
+        },
+        "seed": 211301,
+        "positivePrompt": "a curved ivory war horn with bronze bands sounding a call, glowing golden sound rings rippling outward, tattered red war banner behind it, dark fantasy game ability icon, digital oil painting, painterly brush strokes, single bold centered subject, strong clear silhouette, dramatic rim lighting, high contrast, dark smoky vignette background, polished steel and warm firelight, square composition",
+        "negativePrompt": "text, letters, words, watermark, signature, logo, frame, border, user interface, multiple subjects, cluttered, busy background, blurry, low resolution, jpeg artifacts, photograph, cropped, deformed, person, face, hands",
+        "comfyui": {
+          "commit": "98cc0bf84b7cb1383654c5b402e7612d875d6d22",
+          "version": "0.41.0"
+        },
+        "run": {
+          "promptId": "ffabdb76-f989-40bf-b278-612ddedc35fc",
+          "submittedPromptSha256": "1d15ab52c44c87d03ab72f3581c398799ad73eed8ed9e458c5733a4c46ecc5e3",
+          "outputNode": "9",
+          "outputFilename": "warden-icon_00003_.png"
+        }
+      }
+    }
+  ]
+}
