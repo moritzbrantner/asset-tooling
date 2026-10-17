@@ -376,14 +376,31 @@ export function createAssetOperationWorkflowExecutor({
 
 const PROVIDER_ENTRY_KEYS = new Set(["comfyui"]);
 
+function workflowCancellation(signal, message) {
+  if (!signal?.aborted) return;
+  const error = new Error(message);
+  error.name = "AbortError";
+  throw error;
+}
+
+/**
+ * Bridges a `runAssetOperation` registration into the workflow executor. The runner's
+ * `context.signal` is forwarded to `execute` as `{ signal }`, the same execution context
+ * `runAssetOperation(..., { signal })` passes (Atlas Decision 5.1.5).
+ */
 function workflowRegistrationFromRun(runRegistration) {
   return {
     operation: runRegistration.descriptor,
-    async execute(root, invocation) {
+    async execute(root, invocation, context) {
+      const signal = context?.signal instanceof AbortSignal ? context.signal : undefined;
+      workflowCancellation(signal, "cancelled before the asset operation started; nothing was executed");
       if (runRegistration.verifyDependencies !== undefined) {
         await runRegistration.verifyDependencies(root, invocation);
       }
-      return runRegistration.execute(root, invocation);
+      workflowCancellation(signal, "cancelled before the asset operation started; nothing was executed");
+      const result = await runRegistration.execute(root, invocation, { signal });
+      workflowCancellation(signal, "cancelled while the asset operation ran; its result was not used");
+      return result;
     },
   };
 }

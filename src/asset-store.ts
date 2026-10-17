@@ -299,13 +299,23 @@ export interface AssetOperationRunContext {
   cacheKey: string;
 }
 
+/** Execution context `runAssetOperation` passes to `execute` when the caller gave a signal. */
+export interface AssetOperationExecutionContext {
+  /** Aborts when the caller cancels the run; executors that support cancellation observe it. */
+  signal?: AbortSignal;
+}
+
+export interface RunAssetOperationOptions {
+  /**
+   * Cancels the run (Atlas Decision 5.1.5). An already-aborted signal rejects before `execute`;
+   * a signal aborted by the time `execute` settles rejects with an `AbortError` and caches nothing.
+   */
+  signal?: AbortSignal;
+}
+
 export interface AssetOperationRunRegistration {
   descriptor: AssetOperationDescriptor | ReadonlyAssetOperationDescriptor;
   implementation: AssetOperationImplementationIdentity;
-  /**
-   * `context` is the caller's execution context (`runAssetOperation` has none and passes
-   * `undefined`); `run` carries the prepared identity. Executors may ignore both.
-   */
   /**
    * Optional pre-lookup check of declared dependencies that are not input ports (for example a
    * hash-pinned local model file). `runAssetOperation` calls it after verifying the inputs and
@@ -313,10 +323,16 @@ export interface AssetOperationRunRegistration {
    * reusing or recording a result. Without it, the run behaves exactly as before.
    */
   verifyDependencies?(root: string, invocation: AssetOperationExecutorInvocation): Promise<void>;
+  /**
+   * `context` is the caller's execution context: `runAssetOperation` passes `{ signal }` (the
+   * signal is undefined when the caller gave none), the workflow executor passes the runner
+   * context, which carries the runner's `signal`. `run` carries the prepared identity. Executors
+   * may ignore both.
+   */
   execute(
     root: string,
     invocation: AssetOperationExecutorInvocation,
-    context?: unknown,
+    context?: AssetOperationExecutionContext | unknown,
     run?: AssetOperationRunContext,
   ): Promise<AssetOperationResult>;
 }
@@ -350,11 +366,23 @@ function unusableCacheEntry(cacheKey: string, error: unknown): Error {
  * output object rejects instead of being reused. The entry is acceleration state,
  * not provenance evidence.
  */
+function throwIfRunCancelled(signal: AbortSignal | undefined, message: string): void {
+  if (!signal?.aborted) return;
+  const error = new Error(message);
+  error.name = "AbortError";
+  throw error;
+}
+
 export async function runAssetOperation(
   root: string,
   registration: AssetOperationRunRegistration,
   { parameters = {}, inputs = {} }: AssetOperationInvocation = {},
+  { signal }: RunAssetOperationOptions = {},
 ): Promise<AssetOperationRun> {
+  if (signal !== undefined && !(signal instanceof AbortSignal)) {
+    throw new Error("runAssetOperation signal must be an AbortSignal when provided");
+  }
+  throwIfRunCancelled(signal, "cancelled before the asset operation started; nothing was executed or cached");
   const assetRoot = assertRoot(root);
   const identityInput: AssetOperationBuildIdentityInput = {
     operation: registration.descriptor,
@@ -393,9 +421,11 @@ export async function runAssetOperation(
       parameters: structuredClone(buildIdentity.parameters),
       inputs: structuredClone(buildIdentity.inputs),
     },
-    undefined,
+    { signal },
     { buildIdentity: structuredClone(buildIdentity), cacheKey },
   );
+  // The cancel wins a completion race: a result that arrives after the abort is never cached.
+  throwIfRunCancelled(signal, "cancelled while the asset operation ran; its result was not cached");
   const result = normalizeAssetOperationResult(registration.descriptor, executed);
   for (const asset of portRefs(result.outputs)) await verifyAssetObject(assetRoot, asset);
   await writeOperationResultCache(assetRoot, cacheKey, buildIdentity, result);

@@ -74,6 +74,10 @@ Any mismatch fails before `POST /prompt`, and nothing is stored or cached. After
 
 The receipt records the provider, the model, the resolved parameters, the template path and sha256, all three file pins, the submitted-prompt hash, the prompt and client ids, the ComfyUI version and the output hash. Its `reproducibility` is `"approximate"`.
 
+## Cancellation
+
+Per [Decision 5.1.5](decisions/atlas.md), pass an `AbortSignal` as `runAssetOperation(root, registration, invocation, { signal })` (the workflow executor forwards its runner signal). A queued prompt of this run is deleted from the ComfyUI queue; a running one is never interrupted and is reported as ambiguous ("may still finish on the server"); an output that completes after the abort is not imported. A cancel during `POST /prompt` looks up the run's `client_id` in the queue, deletes a pending prompt and otherwise reports an ambiguous submission without resubmitting. The run rejects with an `AbortError` whose message starts with "cancelled", and nothing is stored or cached. The full behaviour is in [the ComfyUI provider PRD](prd-comfyui-provider.md#cancellation).
+
 ## Identity
 
 The build identity has two parts:

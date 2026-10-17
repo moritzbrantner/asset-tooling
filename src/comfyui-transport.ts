@@ -5,6 +5,11 @@
  * Every request goes only to an explicit loopback endpoint, never follows redirects, submits a
  * prompt at most once, and treats a lost submission or an unfinished run as ambiguous instead of
  * retrying. Pinned local files (checkpoints, model files) are hashed before use.
+ *
+ * Cancellation (Atlas Decision 5.1.5): every request and poll delay observes an optional
+ * AbortSignal. A cancel deletes only this operation's own queued prompt (`POST /queue {delete}`),
+ * reports a running prompt as ambiguous and never calls `/interrupt`. Cancellation errors have
+ * `name === "AbortError"` and a message starting with "cancelled".
  */
 import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
@@ -73,7 +78,46 @@ function isConnectionRefused(error: unknown): boolean {
   return code === "ConnectionRefused" || code === "ECONNREFUSED";
 }
 
-const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+/** An error reporting a cancellation: `name` is "AbortError", the message starts with "cancelled". */
+export function cancellationError(message: string): Error {
+  const error = new Error(message.startsWith("cancelled") ? message : `cancelled: ${message}`);
+  error.name = "AbortError";
+  return error;
+}
+
+export function isCancellationError(error: unknown): boolean {
+  return error instanceof Error && error.name === "AbortError" && error.message.startsWith("cancelled");
+}
+
+/** Waits `ms`, or resolves early (returning false) once `signal` aborts. */
+function delay(ms: number, signal?: AbortSignal): Promise<boolean> {
+  if (signal?.aborted) return Promise.resolve(false);
+  return new Promise<boolean>((resolve) => {
+    const onAbort = () => {
+      clearTimeout(timer);
+      resolve(false);
+    };
+    const timer = setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve(true);
+    }, ms);
+    signal?.addEventListener("abort", onAbort, { once: true });
+  });
+}
+
+/** The AbortSignal of an execution context (`{ signal }`), or undefined when there is none. */
+export function executionSignal(context: unknown): AbortSignal | undefined {
+  const signal = isRecord(context) ? context.signal : undefined;
+  return signal instanceof AbortSignal ? signal : undefined;
+}
+
+/** Rejects with a cancellation error when `signal` aborted before anything was submitted. */
+export function throwIfCancelledBeforeSubmit(signal: AbortSignal | undefined): void {
+  if (signal?.aborted) throw cancellationError("cancelled before the ComfyUI prompt was submitted; nothing was sent to the queue");
+}
+
+/** Short bound for the queue requests a cancel makes; they never use the (already aborted) caller signal. */
+const CANCEL_REQUEST_TIMEOUT_MS = 5_000;
 
 /** A 3xx answer; never followed, so no request or response leaves the validated loopback origin. */
 class ComfyUiRedirectError extends Error {}
@@ -82,12 +126,17 @@ class ComfyUiRedirectError extends Error {}
  * Every request goes through the current `globalThis.fetch`, only to the configured endpoint.
  * Redirects are not followed: any 3xx answer rejects with a ComfyUiRedirectError.
  */
-async function comfyFetch(endpoint: string, route: string, init: RequestInit & { timeoutMs: number }): Promise<Response> {
-  const { timeoutMs, ...rest } = init;
+async function comfyFetch(
+  endpoint: string,
+  route: string,
+  init: Omit<RequestInit, "signal"> & { timeoutMs: number; cancel?: AbortSignal | undefined },
+): Promise<Response> {
+  const { timeoutMs, cancel, ...rest } = init;
+  const timeout = AbortSignal.timeout(Math.max(1, timeoutMs));
   const response = await globalThis.fetch(`${endpoint}${route}`, {
     ...rest,
     redirect: "manual",
-    signal: AbortSignal.timeout(Math.max(1, timeoutMs)),
+    signal: cancel === undefined ? timeout : AbortSignal.any([cancel, timeout]),
   });
   if (response.type === "opaqueredirect" || (response.status >= 300 && response.status < 400)) {
     await response.body?.cancel().catch(() => undefined);
@@ -154,12 +203,13 @@ function serverIdentityFromStats(stats: unknown): ComfyUiServerIdentity {
   return JSON.parse(canonicalJson(identity)) as ComfyUiServerIdentity;
 }
 
-export async function readServerIdentity(endpoint: string, timeoutMs: number): Promise<ComfyUiServerIdentity> {
+export async function readServerIdentity(endpoint: string, timeoutMs: number, signal?: AbortSignal): Promise<ComfyUiServerIdentity> {
   let response: Response;
   try {
-    response = await comfyFetch(endpoint, "/system_stats", { method: "GET", timeoutMs });
+    response = await comfyFetch(endpoint, "/system_stats", { method: "GET", timeoutMs, cancel: signal });
   } catch (error) {
     if (error instanceof ComfyUiRedirectError) throw error;
+    if (signal?.aborted) throw cancellationError("cancelled before the ComfyUI prompt was submitted; nothing was sent to the queue");
     throw new Error(`ComfyUI server at ${endpoint} is unavailable: ${errorText(error)}`);
   }
   if (!response.ok) {
@@ -169,14 +219,20 @@ export async function readServerIdentity(endpoint: string, timeoutMs: number): P
   try {
     stats = await response.json();
   } catch {
+    if (signal?.aborted) throw cancellationError("cancelled before the ComfyUI prompt was submitted; nothing was sent to the queue");
     throw new Error(`ComfyUI server at ${endpoint} answered /system_stats with invalid JSON`);
   }
   return serverIdentityFromStats(stats);
 }
 
 /** Fail closed when the server no longer reports the identity a registration was created for. */
-export async function assertServerIdentityUnchanged(endpoint: string, expectedJson: string, timeoutMs: number): Promise<void> {
-  const current = await readServerIdentity(endpoint, Math.min(DEFAULT_PROBE_TIMEOUT_MS, timeoutMs));
+export async function assertServerIdentityUnchanged(
+  endpoint: string,
+  expectedJson: string,
+  timeoutMs: number,
+  signal?: AbortSignal,
+): Promise<void> {
+  const current = await readServerIdentity(endpoint, Math.min(DEFAULT_PROBE_TIMEOUT_MS, timeoutMs), signal);
   if (canonicalJson(current) !== expectedJson) {
     throw new Error(
       `ComfyUI server identity drifted since the probe (expected ${expectedJson}, now ${canonicalJson(current)}); re-probe and re-register before running`,
@@ -260,12 +316,122 @@ function describePromptError(body: unknown): string {
   return [head, nodes].filter(Boolean).join("; ");
 }
 
+// ─── Cancellation ───────────────────────────────────────────────────────────────────────────────
+
+interface QueueLocation {
+  state: "pending" | "running";
+  promptId: string;
+}
+
+/** Finds the own prompt in `GET /queue`, by prompt id or by the submission's client_id. */
+async function locateInQueue(endpoint: string, match: { promptId?: string; clientId?: string }): Promise<QueueLocation | undefined> {
+  const response = await comfyFetch(endpoint, "/queue", { method: "GET", timeoutMs: CANCEL_REQUEST_TIMEOUT_MS });
+  if (!response.ok) throw new Error(`GET /queue answered HTTP ${response.status}`);
+  let body: unknown;
+  try {
+    body = await response.json();
+  } catch {
+    throw new Error("GET /queue answered invalid JSON");
+  }
+  const queue = isRecord(body) ? body : {};
+  for (const [key, state] of [
+    ["queue_running", "running"],
+    ["queue_pending", "pending"],
+  ] as const) {
+    const entries = Array.isArray(queue[key]) ? (queue[key] as unknown[]) : [];
+    for (const entry of entries) {
+      if (!Array.isArray(entry) || typeof entry[1] !== "string") continue;
+      const extra = isRecord(entry[3]) ? entry[3] : {};
+      if (
+        (match.promptId !== undefined && entry[1] === match.promptId) ||
+        (match.promptId === undefined && match.clientId !== undefined && extra.client_id === match.clientId)
+      ) {
+        return { state, promptId: entry[1] };
+      }
+    }
+  }
+  return undefined;
+}
+
+/** Deletes exactly this pending prompt (never `/interrupt`), then re-reads the queue to report the outcome. */
+async function deleteOwnPending(endpoint: string, promptId: string, clientId: string): Promise<never> {
+  const response = await comfyFetch(endpoint, "/queue", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ delete: [promptId] }),
+    timeoutMs: CANCEL_REQUEST_TIMEOUT_MS,
+  });
+  await response.body?.cancel().catch(() => undefined);
+  if (!response.ok) throw new Error(`POST /queue {delete} answered HTTP ${response.status}`);
+  const after = await locateInQueue(endpoint, { promptId });
+  if (after?.state === "running") {
+    throw cancellationError(
+      `cancelled: ComfyUI run is ambiguous: prompt ${promptId} (client_id ${clientId}) started before it could be deleted from the queue and may still finish on the server; it was not interrupted and nothing was stored`,
+    );
+  }
+  throw cancellationError(`cancelled: ComfyUI prompt ${promptId} (client_id ${clientId}) was deleted from the queue before it ran; nothing was stored`);
+}
+
+/**
+ * Settles a cancelled, accepted prompt: a pending one is deleted from the queue, a running one is
+ * reported as ambiguous, a finished one is not imported. Always rejects with a cancellation error.
+ */
+export async function cancelPrompt(endpoint: string, promptId: string, clientId: string): Promise<never> {
+  let location: QueueLocation | undefined;
+  try {
+    location = await locateInQueue(endpoint, { promptId });
+    if (location?.state === "pending") return await deleteOwnPending(endpoint, promptId, clientId);
+  } catch (error) {
+    if (isCancellationError(error)) throw error;
+    throw cancellationError(
+      `cancelled: ComfyUI run is ambiguous: the queue state of prompt ${promptId} (client_id ${clientId}) could not be settled (${errorText(error)}); it was not interrupted, may still finish on the server and nothing was stored`,
+    );
+  }
+  if (location?.state === "running") {
+    throw cancellationError(
+      `cancelled: ComfyUI run is ambiguous: prompt ${promptId} (client_id ${clientId}) is already running and may still finish on the server; it was not interrupted and nothing was stored`,
+    );
+  }
+  throw cancellationError(
+    `cancelled: ComfyUI prompt ${promptId} (client_id ${clientId}) is no longer queued or running (it may have finished on the server); its output was not imported and nothing was stored`,
+  );
+}
+
+/**
+ * Settles a cancel that interrupted `POST /prompt`: the own client_id is looked up in the queue;
+ * a pending prompt is deleted, anything else is an ambiguous submission. Never resubmits.
+ */
+async function cancelSubmission(endpoint: string, clientId: string): Promise<never> {
+  let location: QueueLocation | undefined;
+  try {
+    location = await locateInQueue(endpoint, { clientId });
+    if (location?.state === "pending") return await deleteOwnPending(endpoint, location.promptId, clientId);
+  } catch (error) {
+    if (isCancellationError(error)) throw error;
+    throw cancellationError(
+      `cancelled: ComfyUI submission is ambiguous: cancelled during POST /prompt and the queue could not be read (${errorText(error)}); a prompt with client_id ${clientId} may still run on the server and was not resubmitted`,
+    );
+  }
+  if (location?.state === "running") {
+    throw cancellationError(
+      `cancelled: ComfyUI submission is ambiguous: cancelled during POST /prompt, and prompt ${location.promptId} (client_id ${clientId}) is already running and may still finish on the server; it was not interrupted or resubmitted`,
+    );
+  }
+  throw cancellationError(
+    `cancelled: ComfyUI submission is ambiguous: cancelled during POST /prompt and no prompt with client_id ${clientId} is queued; the server may still accept and run it, and it was not resubmitted`,
+  );
+}
+
+// ─── Submit, poll, fetch ────────────────────────────────────────────────────────────────────────
+
 export async function submitPrompt(
   endpoint: string,
   prompt: Record<string, any>,
   clientId: string,
   timeoutMs: number,
+  signal?: AbortSignal,
 ): Promise<string> {
+  if (signal?.aborted) throw cancellationError("cancelled before the ComfyUI prompt was submitted; nothing was sent to the queue");
   let response: Response;
   try {
     response = await comfyFetch(endpoint, "/prompt", {
@@ -273,9 +439,11 @@ export async function submitPrompt(
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ prompt, client_id: clientId }),
       timeoutMs,
+      cancel: signal,
     });
   } catch (error) {
     if (error instanceof ComfyUiRedirectError) throw error;
+    if (signal?.aborted) return cancelSubmission(endpoint, clientId);
     if (isConnectionRefused(error)) throw new Error(`ComfyUI server at ${endpoint} is unavailable: ${errorText(error)}`);
     throw new Error(
       `ComfyUI submission is ambiguous: the POST /prompt response was lost (${isTimeout(error) ? "timed out" : errorText(error)}); the job may have been accepted and was not resubmitted (client_id ${clientId})`,
@@ -285,6 +453,7 @@ export async function submitPrompt(
   try {
     body = await response.json();
   } catch {
+    if (signal?.aborted) return cancelSubmission(endpoint, clientId);
     if (response.ok) {
       throw new Error(`ComfyUI submission is ambiguous: POST /prompt answered HTTP ${response.status} without a readable prompt_id (client_id ${clientId})`);
     }
@@ -340,9 +509,12 @@ export async function awaitOutput(
   outputNode: string,
   deadline: number,
   pollIntervalMs: number,
+  signal?: AbortSignal,
+  clientId = "unknown",
 ): Promise<OutputImage> {
   let lastTransient = "";
   for (;;) {
+    if (signal?.aborted) return cancelPrompt(endpoint, promptId, clientId);
     const remaining = deadline - Date.now();
     if (remaining <= 0) {
       throw new Error(
@@ -351,7 +523,11 @@ export async function awaitOutput(
     }
     let body: unknown;
     try {
-      const response = await comfyFetch(endpoint, `/history/${encodeURIComponent(promptId)}`, { method: "GET", timeoutMs: remaining });
+      const response = await comfyFetch(endpoint, `/history/${encodeURIComponent(promptId)}`, {
+        method: "GET",
+        timeoutMs: remaining,
+        cancel: signal,
+      });
       if (!response.ok) {
         lastTransient = `GET /history answered HTTP ${response.status}`;
         body = undefined;
@@ -363,12 +539,15 @@ export async function awaitOutput(
         }
       }
     } catch (error) {
+      if (signal?.aborted) return cancelPrompt(endpoint, promptId, clientId);
       if (error instanceof ComfyUiRedirectError) throw error;
       if (error instanceof Error && error.message.startsWith("ComfyUI history")) throw error;
       lastTransient = errorText(error);
       body = undefined;
     }
 
+    // The cancel wins any completion race: a record that arrived after the abort is not used.
+    if (signal?.aborted) return cancelPrompt(endpoint, promptId, clientId);
     if (body !== undefined) {
       if (!isRecord(body)) throw new Error(`ComfyUI history for prompt ${promptId} is malformed`);
       const keys = Object.keys(body);
@@ -407,24 +586,48 @@ export async function awaitOutput(
         return { filename: image.filename, subfolder: image.subfolder, type: image.type };
       }
     }
-    await delay(Math.min(pollIntervalMs, Math.max(0, deadline - Date.now())));
+    await delay(Math.min(pollIntervalMs, Math.max(0, deadline - Date.now())), signal);
   }
 }
 
-export async function fetchOutput(endpoint: string, promptId: string, image: OutputImage, deadline: number): Promise<Buffer> {
+/** Rejects with a cancellation error once `signal` aborted after the prompt finished: its output is never imported. */
+export function throwIfOutputCancelled(signal: AbortSignal | undefined, promptId: string): void {
+  if (signal?.aborted) {
+    throw cancellationError(`cancelled: ComfyUI prompt ${promptId} finished, but the run was cancelled before its output was imported; nothing was stored`);
+  }
+}
+
+export async function fetchOutput(
+  endpoint: string,
+  promptId: string,
+  image: OutputImage,
+  deadline: number,
+  signal?: AbortSignal,
+): Promise<Buffer> {
+  throwIfOutputCancelled(signal, promptId);
   const query = new URLSearchParams({ filename: image.filename, subfolder: image.subfolder, type: image.type });
   let response: Response;
   try {
     response = await comfyFetch(endpoint, `/view?${query}`, {
       method: "GET",
       timeoutMs: Math.max(MIN_VIEW_TIMEOUT_MS, deadline - Date.now()),
+      cancel: signal,
     });
   } catch (error) {
+    throwIfOutputCancelled(signal, promptId);
     if (error instanceof ComfyUiRedirectError) throw error;
     throw new Error(`ComfyUI output for prompt ${promptId} could not be fetched: ${errorText(error)}`);
   }
   if (!response.ok) throw new Error(`ComfyUI output for prompt ${promptId} could not be fetched: GET /view answered HTTP ${response.status}`);
-  return Buffer.from(await response.arrayBuffer());
+  let bytes: Buffer;
+  try {
+    bytes = Buffer.from(await response.arrayBuffer());
+  } catch (error) {
+    throwIfOutputCancelled(signal, promptId);
+    throw error;
+  }
+  throwIfOutputCancelled(signal, promptId);
+  return bytes;
 }
 
 export function verifyPng(bytes: Buffer, promptId: string, width: number, height: number): void {
