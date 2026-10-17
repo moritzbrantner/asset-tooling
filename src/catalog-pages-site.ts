@@ -624,6 +624,7 @@ export function renderCatalogGalleryHtml(model) {
     <h1>Asset gallery</h1>
     <p>Browse reusable source assets and built-in asset recipes in one place. Source entries keep provenance and storage evidence; recipe entries show assets that asset-tooling can generate on demand.</p>
     <p class="page-actions"><a href="generate/">Generate a 3D asset in this browser</a></p>
+    <p class="page-actions"><a href="review/warden-icons/">Compare Warden ability-icon candidates</a></p>
   </header>
   <section class="controls" aria-label="Asset filters">
     <input id="search" type="search" placeholder="Search assets…" aria-label="Search assets">

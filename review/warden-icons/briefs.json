@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "style": {
+    "id": "warden.style",
+    "version": 1,
+    "description": "Original dark-fantasy painterly ability icons for the MMORPG Warden: one bold, centred subject per icon with a clear silhouette that stays readable at 32 px, dramatic rim light against a dark smoky vignette, steel and warm firelight tones, restrained detail and no text or frame.",
+    "prompt": "dark fantasy game ability icon, digital oil painting, painterly brush strokes, single bold centered subject, strong clear silhouette, dramatic rim lighting, high contrast, dark smoky vignette background, polished steel and warm firelight, square composition",
+    "negativePrompt": "text, letters, words, watermark, signature, logo, frame, border, user interface, multiple subjects, cluttered, busy background, blurry, low resolution, jpeg artifacts, photograph, cropped, deformed, person, face, hands"
+  },
+  "abilities": [
+    {
+      "id": "warden.ability.1",
+      "abilityId": 1,
+      "name": "Heroic Strike",
+      "version": 1,
+      "subject": "A single longsword swung in a diagonal downward strike, its blade glowing gold with a bright motion streak.",
+      "prompt": "a single gleaming longsword striking diagonally downward, blade glowing with golden light, bright slash streak, flying sparks"
+    },
+    {
+      "id": "warden.ability.2",
+      "abilityId": 2,
+      "name": "Shield Bash",
+      "version": 1,
+      "subject": "A heavy round steel shield thrust forward, its boss meeting a radial burst of impact and sparks.",
+      "prompt": "a heavy round steel shield with a riveted central boss slamming forward, radial impact shockwave burst, cracking sparks, front view"
+    },
+    {
+      "id": "warden.ability.3",
+      "abilityId": 3,
+      "name": "Rallying Cry",
+      "version": 1,
+      "subject": "A curved war horn sounding, with rings of golden sound rippling out and a torn banner behind it.",
+      "prompt": "a curved ivory war horn with bronze bands sounding a call, glowing golden sound rings rippling outward, tattered red war banner behind it"
+    },
+    {
+      "id": "warden.ability.4",
+      "abilityId": 4,
+      "name": "Cleave",
+      "version": 1,
+      "subject": "A broad battle axe swept through a wide horizontal crescent arc that leaves a crimson trail.",
+      "prompt": "a huge broad-bladed battle axe sweeping in a wide horizontal crescent arc, glowing crimson arc trail across the whole image"
+    }
+  ]
+}

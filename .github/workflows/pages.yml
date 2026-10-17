@@ -10,6 +10,7 @@ on:
       - "licenses/**"
       - "THIRD_PARTY_NOTICES.md"
       - "scripts/**"
+      - "review/**"
       - "adapters/blender/**"
       - "examples/reconcile-file.ts"
       - "package.json"
@@ -21,6 +22,7 @@ on:
       - "licenses/**"
       - "THIRD_PARTY_NOTICES.md"
       - "scripts/**"
+      - "review/**"
       - "adapters/blender/**"
       - "examples/reconcile-file.ts"
       - "package.json"
@@ -44,6 +46,10 @@ jobs:
         with:
           lfs: false
           persist-credentials: false
+
+      # Only the review namespace is hydrated (#211); canonical payloads stay as LFS pointers.
+      - name: Hydrate review candidates only
+        run: git lfs pull --include="review/**"
 
       - name: Set up Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
@@ -87,6 +93,7 @@ jobs:
           test -s dist/pages/previews/feedback.farm.harvest-pop.strong.wav
           test -s dist/pages/generate/index.html
           test -s dist/pages/generate/app.js
+          test -s dist/pages/review/warden-icons/index.html
           test "$(find dist/pages/assets -name index.html -type f | wc -l)" -gt 0
 
       - name: Configure Pages
