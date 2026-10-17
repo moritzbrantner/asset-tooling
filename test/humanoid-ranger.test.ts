@@ -20,7 +20,7 @@ import { verifyAssetBundleTar } from "../src/asset-bundle-pack.js";
 import { GLTF_RESOURCES_BUNDLE_PROFILE, readAssetBundleAttachment, readAssetBundleGltf, verifyAssetBundle } from "../src/asset-bundle.js";
 import { validateHumanoidSocketDescriptor } from "../src/humanoid-sockets.js";
 import {
-  RANGER_BONE_MAP, RANGER_BUNDLE_KEY, RANGER_BUNDLE_VARIANT, RANGER_CLIPS, RANGER_MEMBERS, RANGER_SOCKETS_ATTACHMENT,
+  RANGER_BONE_MAP, RANGER_BUNDLE_KEY, RANGER_BUNDLE_VARIANT, RANGER_CLIPS, RANGER_CLIPS_ATTACHMENT, RANGER_GAITS, RANGER_MEMBERS, RANGER_V6_CLIPS, rangerClips, RANGER_SOCKETS_ATTACHMENT,
   RANGER_DEFAULT_VERSION, RANGER_SOCKETS_DESCRIPTOR, RANGER_TEXTURE_POLICY, RANGER_V2_SOCKETS_DESCRIPTOR, rangerSocketsDescriptor, RANGER_UBC_BONE_MAP, RANGER_V2_CLIPS, RANGER_V2_EQUIPMENT,
   RANGER_V5_BONE_MAP, RANGER_V5_UBC_BONE_MAP, buildRangerCharacter, rangerBoneMaps,
 } from "../scripts/build-ranger-character.ts";
@@ -80,16 +80,28 @@ test("v5 (#268) retargets every spine joint exactly once; v1-v4 keep the two-bon
   assert.equal(rangerBoneMaps(4).clips2, RANGER_UBC_BONE_MAP);
 });
 
-test("v5 (#268) is the default; v2 and v3 keep the bundle-v2 sockets, and the texture limits are per slot", () => {
-  assert.equal(RANGER_DEFAULT_VERSION, 5);
-  assert.deepEqual(([1, 2, 3, 4, 5] as const).map(rangerSocketsDescriptor), [undefined, RANGER_V2_SOCKETS_DESCRIPTOR, RANGER_V2_SOCKETS_DESCRIPTOR, RANGER_SOCKETS_DESCRIPTOR, RANGER_SOCKETS_DESCRIPTOR]);
+test("v6 (#112) adds the traversal clips by source name after the v2 clips; v1-v5 keep their clip lists", () => {
+  assert.deepEqual(RANGER_V6_CLIPS.slice(RANGER_V2_CLIPS.length).map((clip) => [clip.name, clip.library]), [
+    ["Jump_Start", "clips"], ["Jump_Loop", "clips"], ["Jump_Land", "clips"], ["Crouch_Idle_Loop", "clips"], ["Crouch_Fwd_Loop", "clips"],
+    ["Roll", "clips"], ["Roll_RM", "clips"], ["ClimbUp_1m_RM", "clips2"], ["Slide_Start", "clips2"], ["Slide_Loop", "clips2"], ["Slide_Exit", "clips2"],
+  ]);
+  assert.deepEqual(RANGER_V6_CLIPS.slice(0, RANGER_V2_CLIPS.length), RANGER_V2_CLIPS);
+  assert.ok(RANGER_V6_CLIPS.every((clip) => clip.rootMotion === "in-place"));
+  assert.deepEqual(([1, 2, 3, 4, 5, 6] as const).map(rangerClips), [RANGER_CLIPS, RANGER_V2_CLIPS, RANGER_V2_CLIPS, RANGER_V2_CLIPS, RANGER_V2_CLIPS, RANGER_V6_CLIPS]);
+  assert.deepEqual([...RANGER_GAITS], ["Walk_Loop", "Jog_Fwd_Loop", "Sprint_Loop", "Crouch_Fwd_Loop"]);
+  assert.deepEqual(rangerBoneMaps(6), rangerBoneMaps(5));
+});
+
+test("v6 (#112) is the default; v2 and v3 keep the bundle-v2 sockets, and the texture limits are per slot", () => {
+  assert.equal(RANGER_DEFAULT_VERSION, 6);
+  assert.deepEqual(([1, 2, 3, 4, 5, 6] as const).map(rangerSocketsDescriptor), [undefined, RANGER_V2_SOCKETS_DESCRIPTOR, RANGER_V2_SOCKETS_DESCRIPTOR, RANGER_SOCKETS_DESCRIPTOR, RANGER_SOCKETS_DESCRIPTOR, RANGER_SOCKETS_DESCRIPTOR]);
   assert.notEqual(RANGER_SOCKETS_DESCRIPTOR, RANGER_V2_SOCKETS_DESCRIPTOR);
   assert.deepEqual(RANGER_TEXTURE_POLICY, {
     maxEdgeBySlot: { baseColor: 1024, normal: 1024, metallicRoughness: 512, occlusion: 512, emissive: 1024 }, default: 1024,
   });
 });
 
-test("the Ranger v5 recipe builds a verified bundle: in-place clips, equipment entries, the sockets attachment and game-resolution textures", { skip: await skipReason(), timeout: 900_000 }, async () => {
+test("the Ranger v6 recipe builds a verified bundle: in-place clips, equipment entries, the sockets and clips attachments and game-resolution textures", { skip: await skipReason(), timeout: 900_000 }, async () => {
   const outDir = await mkdtemp(path.join(os.tmpdir(), "humanoid-ranger-"));
   try {
     const built = await buildRangerCharacter({ processorCheckout: CHECKOUT!, outDir });
@@ -99,18 +111,39 @@ test("the Ranger v5 recipe builds a verified bundle: in-place clips, equipment e
     assert.deepEqual(manifest.assets.map((entry) => `${entry.key}/${entry.variant}`).sort(),
       [`${RANGER_BUNDLE_KEY}/${RANGER_BUNDLE_VARIANT}`, ...RANGER_V2_EQUIPMENT.map((item) => `${item.key}/default`)].sort());
     const entry = manifest.assets.find((candidate) => candidate.key === RANGER_BUNDLE_KEY)!;
-    const clipNames = RANGER_V2_CLIPS.map((clip) => clip.name);
+    const clipNames = RANGER_V6_CLIPS.map((clip) => clip.name);
     assert.deepEqual(entry.observations.animations, clipNames);
 
     // The sockets descriptor ships with the character entry, byte-identical to the versioned file.
-    assert.deepEqual(entry.attachments.map((attachment) => [attachment.name, attachment.mediaType]), [[RANGER_SOCKETS_ATTACHMENT, "application/json"]]);
+    assert.deepEqual(entry.attachments.map((attachment) => [attachment.name, attachment.mediaType]), [[RANGER_CLIPS_ATTACHMENT, "application/json"], [RANGER_SOCKETS_ATTACHMENT, "application/json"]]);
     const sockets = await readAssetBundleAttachment(built.bundleDir, manifest, RANGER_BUNDLE_KEY, RANGER_BUNDLE_VARIANT, RANGER_SOCKETS_ATTACHMENT);
     assert.deepEqual(sockets, await readFile(path.join(ROOT, RANGER_SOCKETS_DESCRIPTOR)));
+
+    // v6: one humanoid-clips entry per clip, in bundle order, with its source and motion metadata.
+    const motion = JSON.parse((await readAssetBundleAttachment(built.bundleDir, manifest, RANGER_BUNDLE_KEY, RANGER_BUNDLE_VARIANT, RANGER_CLIPS_ATTACHMENT)).toString("utf8"));
+    assert.equal(motion.schema, "humanoid-clips-v1");
+    assert.deepEqual([motion.units, motion.up, motion.facing], ["m", "+Y", "+Z"]);
+    assert.deepEqual(motion.clips.map((clip: any) => clip.name), clipNames);
+    for (const [index, clip] of motion.clips.entries()) {
+      const lineage = built.lineage.clips[index]!;
+      assert.equal(clip.source.animationSha256, lineage.source.sha256, clip.name);
+      assert.equal(clip.source.clip, clip.name);
+      assert.equal(clip.loop, clip.name.endsWith("_Loop"), clip.name);
+      assert.equal(clip.rootMotion, "in-place", clip.name);
+      assert.ok(clip.durationSeconds > 0, clip.name);
+      assert.equal("groundSpeedMetersPerSecond" in clip, RANGER_GAITS.has(clip.name), clip.name);
+    }
+    const byName = Object.fromEntries(motion.clips.map((clip: any) => [clip.name, clip]));
+    // Gaits get faster from crouch to sprint; the root-motion variants record the travel in-place removed.
+    const speeds = ["Crouch_Fwd_Loop", "Walk_Loop", "Jog_Fwd_Loop", "Sprint_Loop"].map((name) => byName[name].groundSpeedMetersPerSecond);
+    assert.ok(speeds[0] > 0.3 && speeds.every((speed: number, index: number) => index === 0 || speed > speeds[index - 1]), `gait speeds ${speeds}`);
+    assert.ok(byName.Roll_RM.sourceRootDisplacement.z > 4 && Math.abs(byName.Roll.sourceRootDisplacement.z) < 0.2);
+    assert.ok(Math.abs(byName.ClimbUp_1m_RM.sourceRootDisplacement.y - 1) < 0.1);
 
     const { gltf, resources } = await readAssetBundleGltf(built.bundleDir, manifest, RANGER_BUNDLE_KEY, RANGER_BUNDLE_VARIANT);
     const document = await new NodeIO().readJSON({ json: JSON.parse(gltf.toString("utf8")), resources: Object.fromEntries(resources) });
     // v3 and later: 13 PNG textures, each within its slot's limit, the 4096 px sources reduced and none upscaled.
-    assert.equal(built.lineage.version, 5);
+    assert.equal(built.lineage.version, 6);
     const textures = built.lineage.textures![RANGER_BUNDLE_KEY]!;
     assert.equal(document.getRoot().listTextures().length, 13);
     for (const image of textures.images) {
