@@ -279,3 +279,25 @@ The shared catalog uses **only free sources**. Paid tiers of a pack, such as the
 **Approved by owner:** 2026-10-17, on [#246](https://github.com/moritzbrantner/asset-tooling/issues/246). **Applies** Decision 6.1.4.
 
 The free Standard Modular Character Outfits – Fantasy archive has no knight or plate armor; it offers only Peasant and Ranger outfits. ARPG's interim armored knight is the **Male_Ranger outfit with its pauldron** on the Universal Base Characters male body, using the members already promoted in #109. Proper knight armor will be authored later under [#117](https://github.com/moritzbrantner/asset-tooling/issues/117). Swords and shields stay with [#113](https://github.com/moritzbrantner/asset-tooling/issues/113).
+
+#### Decision 6.1.6 — Mixamo is an allowed free clip source
+
+**Approved by owner:** 2026-10-17 (live session). **Refines** Decision 6.1.4.
+
+Mixamo is free (no payment), so it is allowed as an **animation clip source** even though its license is not open: clips may be used royalty-free inside games but raw Mixamo files must never be redistributed. Mixamo clips therefore ship only retargeted inside consumer game bundles, never as raw catalog members or standalone downloads. It is the intended source for the gaits missing from UAL Standard (backward, strafe, start/stop, turning — #112) and for bow draw/aim/hold/release (#277).
+
+## 7. Delivery and runtime
+
+### 7.1. Use off-the-shelf runtimes; keep bundles light
+
+#### Decision 7.1.1 — Games load characters with plain three.js, not a custom character runtime
+
+**Approved by owner:** 2026-10-17 (live session).
+
+Stop extending 3d-lab's own Rust/WASM character runtime (skeletons, clip sampling, retargeting, skinned characters/items). Browser consumers load asset-tooling bundles with off-the-shelf three.js (`GLTFLoader`, `AnimationMixer`, `SkeletonUtils`); native consumers use standard glTF libraries. Retargeting happens at authoring time in Blender / asset-tooling. 3d-lab keeps only what is not off-the-shelf. Limits of the custom runtime (finger bones, skinned items, clipless sources) are solved by switching, not by extending it.
+
+#### Decision 7.1.2 — No byte-for-byte rebuild or per-file hash-pin rules for bundles
+
+**Approved by owner:** 2026-10-17 (live session). Applies the owner's "no verification ceremony" principle.
+
+Bundles carry a version, their sources and licenses — nothing more. Old bundle versions are not required to rebuild byte for byte, builds are not repeated to prove determinism, and consumers do not verify per-file SHA-256 pins. Existing pins and reproducibility checks may be removed when touched.
