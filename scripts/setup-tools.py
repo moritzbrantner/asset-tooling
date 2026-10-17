@@ -24,12 +24,29 @@ import json, platform, re, sys
 from importlib import metadata
 machine = platform.machine().lower()
 machine = {"amd64": "x86_64", "x64": "x86_64"}.get(machine, machine)
-try:
-    requires = metadata.requires("torch") or []
-except metadata.PackageNotFoundError:
-    requires = []
-names = {re.sub(r"[-_.]+", "-", re.split(r"[\\s;<>=!~\\[(@]", item.strip(), maxsplit=1)[0]).lower() for item in requires}
-torchCudaRequirements = sorted(name for name in names if name.startswith("nvidia-") or name == "triton")
+def norm(name):
+    return re.sub(r"[-_.]+", "-", name).lower()
+def requirement_names(dist):
+    try:
+        requires = metadata.requires(dist) or []
+    except metadata.PackageNotFoundError:
+        return set()
+    return {norm(re.split(r"[\\s;<>=!~\\[(@]", item.strip(), maxsplit=1)[0]) for item in requires}
+def cuda_only(name):
+    return name.startswith("nvidia-") or name.startswith("cuda-") or name == "triton"
+installed = {norm(dist.metadata["Name"]) for dist in metadata.distributions() if dist.metadata["Name"]}
+# Torch's CUDA dependencies are transitive (torch -> cuda-toolkit[...] / cuda-bindings -> nvidia-*):
+# follow every installed CUDA-only requirement reachable from torch.
+pending = sorted(name for name in requirement_names("torch") if cuda_only(name))
+reached = set()
+while pending:
+    name = pending.pop()
+    if name in reached:
+        continue
+    reached.add(name)
+    if name in installed:
+        pending.extend(sorted(child for child in requirement_names(name) if cuda_only(child) and child not in reached))
+torchCudaRequirements = sorted(reached)
 print(json.dumps({"key": f"{sys.platform}-{machine}-cp{sys.version_info[0]}{sys.version_info[1]}",
                   "torchCudaRequirements": torchCudaRequirements}))
 """
