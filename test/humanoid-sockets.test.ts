@@ -82,6 +82,16 @@ test("the Ranger descriptor names only joints of the Male_Ranger rig",{skip:hydr
  validateHumanoidSocketDescriptor(descriptor,{joints});
 });
 
+test("examples/weapons/derive-sockets.ts reproduces the female Ranger descriptor from the Female_Ranger rig (#115)",async(t)=>{
+ const text=await readFile(new URL("../assets/canonical/quaternius.modular-character-outfits-fantasy-standard.female-ranger-gltf/Female_Ranger.gltf",import.meta.url),"utf8");
+ if(text.startsWith("version https://git-lfs.github.com/spec/v1")) return t.skip("Git LFS payload not hydrated");
+ const gltf=JSON.parse(text),joints:string[]=gltf.skins[0].joints.map((index:number)=>gltf.nodes[index].name);
+ const committed=await readFile(new URL("../assets/descriptors/humanoid.ranger.female.sockets.json",import.meta.url),"utf8");
+ assert.equal(deriveRangerSockets(gltf,"humanoid.ranger.female"),committed);
+ const female=validateHumanoidSocketDescriptor(JSON.parse(committed),{joints});
+ assert.deepEqual(female.sockets.map(s=>s.id),descriptor.sockets.map((s:HumanoidSocket)=>s.id),"the same socket ids as the male Ranger");
+});
+
 test("socket descriptors reject unknown joints, duplicate ids and non-finite or malformed transforms",()=>{
  const joints=["hand_r","hand_l"];
  assert.equal(createHumanoidSocketDescriptor({character:"humanoid.ranger.male",sockets:[socket() as HumanoidSocket],joints}).sockets.length,1);

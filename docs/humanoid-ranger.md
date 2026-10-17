@@ -41,6 +41,16 @@ The recipe has seven versions. `--version` selects one, and the default is 7.
 
 v1–v4 keep their two-bone spine map. The processor treats an unmapped `upper-chest` exactly as before, so the new pin rebuilds them unchanged: after the v5 change, `--version 1` and `--version 4` rebuilt the recorded tars `4de4cc65…` and `222f21f8…` byte for byte at `4e69c0f`. No older processor checkout is needed.
 
+## Female Ranger
+
+`--figure female` (#115, owner answer Q1 = A) builds `humanoid.ranger.female` with the same recipe from v7 on. It uses the Universal Base Characters `Superhero_Female_FullBody` head (`keepMeshes: ["Eyebrows", "Eyes"]`) on the full `Female_Ranger` outfit ([humanoid-sources.md](humanoid-sources.md#female-body-and-outfit-115)).
+
+Both figures share the 65-joint rig, so the female Ranger gets the same bone maps, clips (35 in v7), equipment entries and `humanoid-clips` metadata. Its hips reference height is measured on its own rig. This is the second real humanoid performing the same clip set through the shared operation path.
+
+Its sockets are derived from the Female_Ranger rig into [`humanoid.ranger.female.sockets.json`](../assets/descriptors/humanoid.ranger.female.sockets.json) (`bun examples/weapons/derive-sockets.ts --rig <Female_Ranger.gltf> --out <file> --character humanoid.ranger.female`). They have the same ids as the male sockets, and the stowed sockets keep the male joint-frame values.
+
+The character entry has 2 skins and 32,234 triangles. The tar is published as the `humanoid-ranger-female-v7` release, with socket sheets for `Sword_Idle`, `Sword_Regular_C`, `Walk_Loop` and a stowed idle.
+
 ## Build
 
 ```sh
