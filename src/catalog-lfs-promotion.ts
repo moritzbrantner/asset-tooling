@@ -1,6 +1,6 @@
 import path from "node:path";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { acquireAssetCatalogSource } from "./catalog-acquisition.js";
+import { acquireAssetCatalogSource, assertAssetCatalogLocalFile } from "./catalog-acquisition.js";
 import { createAssetCatalog } from "./catalog.js";
 import {
   canonicalAssetStoragePath,
@@ -42,6 +42,7 @@ export async function prepareAssetCatalogLfsPromotion({
   sourceId,
   repositoryRoot,
   fetchImpl = fetch,
+  localFile,
 }) {
   const providers = documentEntries(providersDocument, "providers", "catalog/providers.json");
   const sources = documentEntries(sourcesDocument, "sources", "catalog/sources.json");
@@ -49,6 +50,7 @@ export async function prepareAssetCatalogLfsPromotion({
   if (typeof repositoryRoot !== "string" || repositoryRoot.length === 0) {
     throw new Error("repositoryRoot must be a non-empty path");
   }
+  if (localFile !== undefined) await assertAssetCatalogLocalFile(localFile);
 
   const catalog = createAssetCatalog({ providers, sources });
   createAssetCatalogStorageManifest({ catalog, entries: storageEntries });
@@ -57,6 +59,7 @@ export async function prepareAssetCatalogLfsPromotion({
     sourceId,
     destinationRoot: path.join(repositoryRoot, ".artifacts", "catalog-lfs-promotion"),
     fetchImpl,
+    ...(localFile === undefined ? {} : { localFile }),
   });
   const bytes = await readFile(acquisition.filePath);
   const pinnedSource = JSON.parse(await readFile(acquisition.pinPath, "utf8"));

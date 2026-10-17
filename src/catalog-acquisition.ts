@@ -1,5 +1,5 @@
 import path from "node:path";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { canonicalJson } from "./canonical.js";
 import { inspectAssetCatalogSourceBytes, isAssetCatalogArchiveMember } from "./catalog.js";
 import { extractZipMember } from "./catalog-zip.js";
@@ -30,6 +30,30 @@ async function fetchSourceBytes(source, fetchImpl) {
   return Buffer.from(await response.arrayBuffer());
 }
 
+// Local-file mode (Atlas Decision 6.1.1): the owner downloaded the source once,
+// so its bytes come from an absolute path instead of the network. The path is
+// checked before anything is written or fetched.
+export async function assertAssetCatalogLocalFile(localFile) {
+  if (typeof localFile !== "string" || localFile.length === 0) {
+    throw new Error("localFile must be a non-empty absolute path");
+  }
+  if (!path.isAbsolute(localFile)) {
+    throw new Error(`localFile must be an absolute path, received '${localFile}'`);
+  }
+  let info;
+  try {
+    info = await stat(localFile);
+  } catch (error) {
+    if (error && error.code === "ENOENT") throw new Error(`localFile '${localFile}' does not exist`);
+    throw error;
+  }
+  if (!info.isFile()) throw new Error(`localFile '${localFile}' is not a regular file`);
+}
+
+function sourceBytes(source, { fetchImpl, localFile }) {
+  return localFile === undefined ? fetchSourceBytes(source, fetchImpl) : readFile(localFile);
+}
+
 async function writeEvidence(destinationRoot, pinnedSource, fileName, bytes) {
   const sourceDirectory = path.resolve(destinationRoot, pinnedSource.id);
   const filePath = path.join(sourceDirectory, fileName);
@@ -40,16 +64,16 @@ async function writeEvidence(destinationRoot, pinnedSource, fileName, bytes) {
   return { filePath, pinPath };
 }
 
-// Fetches the archive once, verifies its pin when present, extracts exactly
+// Fetches the archive once (or reads it from the local file), verifies its pin when present, extracts exactly
 // one member and verifies the member pin. The archive and its measured pin are
 // written as disposable evidence next to the member; nothing is written for a
 // member that fails extraction or its pin.
-async function acquireArchiveMember({ catalog, source, destinationRoot, fetchImpl }) {
+async function acquireArchiveMember({ catalog, source, destinationRoot, fetchImpl, localFile }) {
   const archive = catalog.getSource(source.archiveMember.archive);
   if (!archive) {
     throw new Error(`catalog source '${source.id}' references unregistered archive '${source.archiveMember.archive}'`);
   }
-  const archiveBytes = await fetchSourceBytes(archive, fetchImpl);
+  const archiveBytes = await sourceBytes(archive, { fetchImpl, localFile });
   const pinnedArchive = inspectAssetCatalogSourceBytes(archive, archiveBytes);
   const memberBytes = extractZipMember(archiveBytes, source.archiveMember.path);
   const pinnedMember = inspectAssetCatalogSourceBytes(source, memberBytes);
@@ -80,6 +104,7 @@ export async function acquireAssetCatalogSource({
   sourceId,
   destinationRoot,
   fetchImpl = fetch,
+  localFile,
 }) {
   assertCatalog(catalog);
   if (typeof sourceId !== "string" || sourceId.length === 0) {
@@ -89,6 +114,7 @@ export async function acquireAssetCatalogSource({
     throw new Error("destinationRoot must be a non-empty string");
   }
   if (typeof fetchImpl !== "function") throw new Error("fetchImpl must be a function");
+  if (localFile !== undefined) await assertAssetCatalogLocalFile(localFile);
 
   const source = catalog.getSource(sourceId);
   if (!source) throw new Error(`catalog source '${sourceId}' is not registered`);
@@ -107,10 +133,10 @@ export async function acquireAssetCatalogSource({
   }
 
   if (isAssetCatalogArchiveMember(source)) {
-    return acquireArchiveMember({ catalog, source, destinationRoot, fetchImpl });
+    return acquireArchiveMember({ catalog, source, destinationRoot, fetchImpl, localFile });
   }
 
-  const bytes = await fetchSourceBytes(source, fetchImpl);
+  const bytes = await sourceBytes(source, { fetchImpl, localFile });
   const pinnedSource = inspectAssetCatalogSourceBytes(source, bytes);
   const fileName = assertSafeFilename(source.source.path ?? new URL(source.source.url).pathname);
   const { filePath, pinPath } = await writeEvidence(destinationRoot, pinnedSource, fileName, bytes);
