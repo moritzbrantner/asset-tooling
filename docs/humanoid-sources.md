@@ -2,7 +2,7 @@
 
 This covers the second and third slices of [#109](https://github.com/moritzbrantner/asset-tooling/issues/109). It registers, pins and promotes the first humanoid source members under [Atlas Decisions 1.1.3, 6.1.1, 6.1.2 and 6.1.3](decisions/atlas.md): the **Male Ranger** outfit from Modular Character Outfits – Fantasy, the matching **male base body** from Universal Base Characters, and the original Universal Animation Library (UAL1) Standard clips, including `Idle_Loop` and `Walk_Loop`. All three packs are CC0. Using [archive-member sources](catalog.md#archive-member-sources), the catalog pins each archive by hash and stores only the members listed below in Git LFS: 18 members, 62,624,527 bytes of unique payloads.
 
-This slice covers the source payloads only. Retargeting the clips onto the outfit's skeleton stays with #110 and #115. Building the processed public bundle and proving it in a real consumer is #110.
+This slice covers the source payloads only. Retargeting the clips onto the outfit's skeleton stays with #110 and #115. Building the processed public bundle and proving it in a real consumer is #110. The build recipe for that bundle, with its bone map and conventions, is in [humanoid-ranger.md](humanoid-ranger.md).
 
 ## Archives and provenance
 

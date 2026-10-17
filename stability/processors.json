@@ -30,6 +30,13 @@
       "operation": "animation.reduce"
     },
     {
+      "id": "three-d-animation-retarget",
+      "repository": "moritzbrantner/3d-lab",
+      "commit": "86e5fe1dc6e564176de35723b31e217bf385b20a",
+      "manifestPath": "examples/asset-tooling-animation-adapter/Cargo.toml",
+      "operation": "animation.retarget"
+    },
+    {
       "id": "three-d-skinning-validate",
       "repository": "moritzbrantner/3d-lab",
       "commit": "9e569a23c487336eb8424e4d0c451a59d2beb9d4",

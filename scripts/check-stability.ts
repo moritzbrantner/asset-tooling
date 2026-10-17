@@ -53,6 +53,14 @@ const expectedProcessors = new Map([
     },
   ],
   [
+    "three-d-animation-retarget",
+    {
+      repository: "moritzbrantner/3d-lab",
+      manifestPath: "examples/asset-tooling-animation-adapter/Cargo.toml",
+      operation: "animation.retarget",
+    },
+  ],
+  [
     "three-d-skinning-validate",
     {
       repository: "moritzbrantner/3d-lab",

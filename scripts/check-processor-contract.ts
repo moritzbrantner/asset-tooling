@@ -5,10 +5,13 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { resolveAssetObject, storeAssetObject } from "../src/asset-store.js";
 import {
   THREE_D_ANIMATION_MEDIA_TYPE,
+  THREE_D_HUMANOID_RIG_MEDIA_TYPE,
   createAnimationReduceOperationBuildIdentity,
   createAnimationResampleOperationBuildIdentity,
+  createAnimationRetargetOperationBuildIdentity,
   executeAnimationReduceOperation,
   executeAnimationResampleOperation,
+  executeAnimationRetargetOperation,
 } from "../src/animation-processing-operations.js";
 import {
   THREE_D_LOD_CHAIN_MEDIA_TYPE,
@@ -62,10 +65,11 @@ const supportedOperations = new Set([
   "mesh.rigged-collision.fit",
   "animation.resample",
   "animation.reduce",
+  "animation.retarget",
 ]);
 if (!supportedOperations.has(operation)) {
   throw new Error(
-    "processor contract proof supports mesh.simplify, mesh.lod_chain, mesh.skinning.validate, rig.humanoid.validate, mesh.rigged-collision.fit, animation.resample, and animation.reduce",
+    "processor contract proof supports mesh.simplify, mesh.lod_chain, mesh.skinning.validate, rig.humanoid.validate, mesh.rigged-collision.fit, animation.resample, animation.reduce, and animation.retarget",
   );
 }
 
@@ -81,6 +85,7 @@ if ((await fetchProcess.exited) !== 0) {
 const prefixArguments = ["--quiet", "--offline", "--manifest-path", manifestPath];
 if (operation === "mesh.lod_chain") prefixArguments.push("--bin", "lod_chain");
 if (operation === "animation.reduce") prefixArguments.push("--bin", "animation_reduce");
+if (operation === "animation.retarget") prefixArguments.push("--bin", "animation_retarget");
 prefixArguments.push("--");
 const verifiedCheckoutOperation =
   operation.startsWith("animation.") ||
@@ -813,6 +818,101 @@ async function checkAnimationReduce(root) {
   };
 }
 
+// Two tiny humanoid rigs (#110): the eleven required HumanoidBone semantics as one chain under the hips,
+// in a different joint order and naming on each side, with different hips heights.
+const RETARGET_BONES = [
+  "hips", "spine", "head", "left-upper-arm", "left-lower-arm", "right-upper-arm",
+  "right-lower-arm", "left-upper-leg", "left-lower-leg", "right-upper-leg", "right-lower-leg",
+];
+function retargetRig(prefix, order, hipsHeight) {
+  return {
+    schemaVersion: 1,
+    jointNames: order.map((bone) => `${prefix}${bone}`),
+    nodes: order.map((bone) => ({
+      parent: bone === "hips" ? null : order.indexOf("hips"),
+      translation: bone === "hips" ? [0, hipsHeight, 0] : [0, 0.1, 0],
+      rotation: [0, 0, 0, 1],
+      scale: [1, 1, 1],
+    })),
+    referenceHeight: hipsHeight,
+  };
+}
+
+async function checkAnimationRetarget(root) {
+  const targetOrder = [...RETARGET_BONES].reverse();
+  const store = async (value, kind, mediaType) =>
+    (await storeAssetObject(root, { bytes: Buffer.from(JSON.stringify(value), "utf8"), kind, mediaType })).asset;
+  const animation = await store({
+    schemaVersion: 1,
+    channels: [
+      {
+        kind: "translation",
+        node: 0,
+        keyframes: [
+          { time: 0, value: [0, 1, 0] },
+          { time: 1, value: [0.5, 1.1, 0] },
+        ],
+      },
+      {
+        kind: "rotation",
+        node: 1,
+        keyframes: [
+          { time: 0, value: [0, 0, 0, 1] },
+          { time: 1, value: [0, 0.70710677, 0, 0.70710677] },
+        ],
+      },
+    ],
+  }, "animation", THREE_D_ANIMATION_MEDIA_TYPE);
+  const sourceRig = await store(retargetRig("src.", RETARGET_BONES, 1), "rig", THREE_D_HUMANOID_RIG_MEDIA_TYPE);
+  const targetRig = await store(retargetRig("tgt.", targetOrder, 0.9), "rig", THREE_D_HUMANOID_RIG_MEDIA_TYPE);
+  const invocation = {
+    parameters: {
+      bindings: Object.fromEntries(RETARGET_BONES.map((bone) => [bone, { source: `src.${bone}`, target: `tgt.${bone}` }])),
+      sampleRate: 4,
+      rootMotion: "in-place",
+    },
+    inputs: { animation, "source-rig": sourceRig, "target-rig": targetRig },
+  };
+  const identity = await createAnimationRetargetOperationBuildIdentity(root, invocation, processor);
+  assert.deepEqual(identity.operation, { id: operation, version: "1" });
+  assert.deepEqual(identity.implementation.source, verifiedSource);
+  assert.equal(identity.implementation.runtime.kind, "cargo-rust-v1");
+  assertProvisionedRustRuntime(identity.implementation.runtime);
+  assert.equal(identity.implementation.probe.id, "three-d-animation-retarget");
+  assert.equal(identity.implementation.probe.algorithm, "three-d-animation-humanoid-retarget-v1");
+  assert.equal(identity.implementation.probe.protocol, "asset-tooling-process-adapter-v1");
+  assert.equal(identity.implementation.probe.codec, "three-d-animation-json-v1");
+  assert.equal(identity.implementation.probe.dependencies.threeDAnimation, "0.1.0");
+
+  const first = await executeAnimationRetargetOperation(root, invocation, processor);
+  const second = await executeAnimationRetargetOperation(root, invocation, processor);
+  assert.equal(second.outputs.output.sha256, first.outputs.output.sha256);
+  assert.deepEqual(second.observations, first.observations);
+  assert.equal(first.observations.sourceKeyframeCount, 4);
+  assert.equal(first.observations.sampleCount, 5);
+  assert.equal(first.observations.mappedBoneCount, RETARGET_BONES.length);
+  assert.equal(first.observations.rootMotion, "in-place");
+  const output = JSON.parse((await resolveAssetObject(root, first.outputs.output)).toString("utf8"));
+  const hips = targetOrder.indexOf("hips");
+  const hipsTranslation = output.channels.find((channel) => channel.node === hips && channel.kind === "translation");
+  assert.ok(hipsTranslation, "hips translation channel on the target rig's hips index");
+  // In-place: the source's horizontal hips motion is removed; the vertical bob is scaled by 0.9 / 1.
+  const last = hipsTranslation.keyframes[hipsTranslation.keyframes.length - 1].value;
+  assert.ok(Math.abs(last[0]) < 1e-5 && Math.abs(last[1] - 0.99) < 1e-4, `in-place hips ${last}`);
+  assert.equal(output.channels.filter((channel) => channel.kind === "rotation").length, RETARGET_BONES.length);
+  return {
+    status: "processor-contract-valid",
+    processor: identity.implementation.source,
+    runtime: identity.implementation.runtime,
+    algorithm: identity.implementation.probe.algorithm,
+    codec: identity.implementation.probe.codec,
+    inputSha256: animation.sha256,
+    outputSha256: first.outputs.output.sha256,
+    sourceKeyframeCount: first.observations.sourceKeyframeCount,
+    resultKeyframeCount: first.observations.resultKeyframeCount,
+  };
+}
+
 const root = await mkdtemp(path.join(os.tmpdir(), "asset-tooling-real-processor-"));
 try {
   let result;
@@ -837,6 +937,9 @@ try {
       break;
     case "animation.reduce":
       result = await checkAnimationReduce(root);
+      break;
+    case "animation.retarget":
+      result = await checkAnimationRetarget(root);
       break;
     default:
       throw new Error(`unsupported processor contract operation '${operation}'`);
