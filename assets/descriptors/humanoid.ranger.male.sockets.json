@@ -28,6 +28,9 @@
      "accepts": ["quiver"]},
     {"id": "back.bow.stowed", "joint": "spine_03",
      "translation": [0.02, -0.0197, -0.3195], "rotation": [-0.314202, -0.942607, -0.107202, 0.035734],
-     "accepts": ["bow"]}
+     "accepts": ["bow"]},
+    {"id": "head.hair", "joint": "Head",
+     "translation": [0, -1.5986, 0.0637], "rotation": [-0.014485, 0, 0, 0.999895],
+     "accepts": ["hair"]}
   ]
 }

@@ -12,7 +12,7 @@ The source members are listed in [humanoid-sources.md](humanoid-sources.md).
 
 ## Versions
 
-The recipe has eight versions. `--version` selects one, and the default is 8.
+The recipe has nine versions. `--version` selects one, and the default is 9.
 
 - **v1 (#110):** the character with `Idle_Loop` and `Walk_Loop`. It is one entry with no attachments, and it stays reproducible with `--version 1`, which rebuilt the recorded v1 tar `4de4cc65…` byte for byte after the v2 change.
 - **v2 ([#260](https://github.com/moritzbrantner/asset-tooling/issues/260), [#113](https://github.com/moritzbrantner/asset-tooling/issues/113)):** v2 supersedes v1 as the bundle to publish. It follows the owner answers on #113:
@@ -50,6 +50,18 @@ The recipe has eight versions. `--version` selects one, and the default is 8.
   - **Root motion:** every clip is in place. Turns keep their rotation (owner answer Q2), so the body ends a turn rotated 90°. The removed horizontal travel is `sourceRootDisplacement`, and from v8 its speed is `sourceRootSpeedMetersPerSecond`: walk backwards 1.031, strafes 1.576, start 0.616, stop 0.306 and shove 0.444 m/s.
   - **Inputs:** `--mixamo-dir <dir>` names the author's local Mixamo downloads ("Without Skin" FBX, 30 fps, Y Bot), one `<title>.fbx` per clip. Raw Mixamo files never enter git, the catalog or a release; `humanoid-clips` records only the provider, title, FBX SHA-256 and the license note `RANGER_MIXAMO_LICENSE`. Versions 1–7 need no Mixamo files.
   - **Still open on #112:** jog-speed backward and strafe clips (files to come).
+
+- **v9 ([#116](https://github.com/moritzbrantner/asset-tooling/issues/116)):** v9 is v8 with appearance variants, following the owner answers of 2026-10-17. It supersedes v8 as the bundle to publish.
+  - **Skins:** the character entry's `default` variant is the Dark skin. A `skin.light` variant re-imports the body and outfit with the Light base colours bound to their URIs, and keeps the same geometry, clips and `.bin`.
+    - The outfit's own skin texture (`T_Regular_*_Dark_BaseColor.png`) has no Light original, so its Light version is **derived** (answer Q13 = A). It applies a per-channel mean and standard-deviation colour transfer from the body's Dark to Light base colour, over opaque pixels in 8-bit sRGB, encoded with `image.encode.png@1`.
+    - The transfer statistics and all four hashes are recorded under `skins[1].derived` in the appearance descriptor.
+  - **Hair:** static items, `hair.buzzed`, `hair.simple-parted` and `hair.long` (male) and `hair.long` and `hair.buns` (female), from the pack's "Origin at 0" hairstyles.
+    - Each has the variants `hair-1` and `hair-2`, the pack's two hair textures.
+    - They attach to the new `head.hair` socket: the inverse of the `Head` joint's rest transform, so the hair sits where it was modelled.
+    - The pack's hair textures are near-grey, so hair is meant to be tinted.
+  - **Tints:** `tint.black`, `tint.brown` and `tint.blond` (linear RGB 0.02/0.02/0.02, 0.18/0.09/0.04 and 0.62/0.48/0.25) are base-colour factors applied on top of `hair-1`, to the hair materials and to the body's eyebrows (`eyebrows.followsHairTint`).
+  - **Hood:** the `outfit.hood` part names the hood mesh node (`Male_Ranger_Head_Hood` / `Female_Ranger_Head_Hood`). A consumer hides it to show hair, and hair entries declare `requires: {"outfit.hood": false}` (answer Q14 = A).
+  - **Descriptor:** the `humanoid-appearance` attachment (`humanoid-appearance-v1`) of the character entry lists the skins, parts, hair entries and their sockets and texture variants, the tints and the eyebrow materials.
 
 v1–v4 keep their two-bone spine map. The processor treats an unmapped `upper-chest` exactly as before, so the new pin rebuilds them unchanged: after the v5 change, `--version 1` and `--version 4` rebuilt the recorded tars `4de4cc65…` and `222f21f8…` byte for byte at `4e69c0f`. No older processor checkout is needed.
 

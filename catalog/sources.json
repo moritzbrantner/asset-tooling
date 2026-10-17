@@ -2150,6 +2150,266 @@
         "humanoid-baseline"
       ],
       "title": "Universal Base Characters — T_Superhero_Female_Roughness (texture)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.universal-base-characters-standard",
+        "path": "Universal Base Characters[Standard]/Base Characters/Textures/T_Superhero_Male_Ligh.png"
+      },
+      "id": "quaternius.universal-base-characters-standard.t-superhero-male-ligh-png",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/universalbasecharacters.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/png",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 1389170,
+        "sha256": "419f96dbb8811511e2d515bcdabc085ff2f219ec7b8b4e91050a84cba6888fe9"
+      },
+      "tags": [
+        "body",
+        "humanoid-baseline",
+        "skin"
+      ],
+      "title": "Universal Base Characters — T_Superhero_Male_Ligh (texture)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.universal-base-characters-standard",
+        "path": "Universal Base Characters[Standard]/Base Characters/Textures/T_Superhero_Female_Light_BaseColor.png"
+      },
+      "id": "quaternius.universal-base-characters-standard.t-superhero-female-light-basecolor-png",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/universalbasecharacters.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/png",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 1317541,
+        "sha256": "743f811857db0b950f3ad09a0733dfa4888801ead332313ca25becea14c54f8d"
+      },
+      "tags": [
+        "body",
+        "humanoid-baseline",
+        "skin"
+      ],
+      "title": "Universal Base Characters — T_Superhero_Female_Light_BaseColor (texture)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.universal-base-characters-standard",
+        "path": "Universal Base Characters[Standard]/Hairstyles/Origin at 0/glTF (Godot)/Hair_Buzzed.gltf"
+      },
+      "id": "quaternius.universal-base-characters-standard.hair-buzzed-gltf",
+      "kind": "mesh",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/universalbasecharacters.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "model/gltf+json",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 2006,
+        "sha256": "43752a4c8f2464eb2494a8ab179bf7ad237638a3d47fb3de0a38361db40e1451"
+      },
+      "tags": [
+        "body",
+        "hair",
+        "humanoid-baseline"
+      ],
+      "title": "Universal Base Characters — Hair_Buzzed (glTF)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.universal-base-characters-standard",
+        "path": "Universal Base Characters[Standard]/Hairstyles/Origin at 0/glTF (Godot)/Hair_Buzzed.bin"
+      },
+      "id": "quaternius.universal-base-characters-standard.hair-buzzed-bin",
+      "kind": "buffer",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/universalbasecharacters.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "application/octet-stream",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 19892,
+        "sha256": "89992fc7a5319df6f2908e44a3b694329fac4b500629a573224702e5fdd16f77"
+      },
+      "tags": [
+        "body",
+        "hair",
+        "humanoid-baseline"
+      ],
+      "title": "Universal Base Characters — Hair_Buzzed (glTF buffer)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.universal-base-characters-standard",
+        "path": "Universal Base Characters[Standard]/Hairstyles/Origin at 0/glTF (Godot)/Hair_SimpleParted.gltf"
+      },
+      "id": "quaternius.universal-base-characters-standard.hair-simpleparted-gltf",
+      "kind": "mesh",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/universalbasecharacters.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "model/gltf+json",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 2010,
+        "sha256": "ce6c666d00bcca2baa0c58d0442505f90f8feff952592effc4697a2341e9e56d"
+      },
+      "tags": [
+        "body",
+        "hair",
+        "humanoid-baseline"
+      ],
+      "title": "Universal Base Characters — Hair_SimpleParted (glTF)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.universal-base-characters-standard",
+        "path": "Universal Base Characters[Standard]/Hairstyles/Origin at 0/glTF (Godot)/Hair_SimpleParted.bin"
+      },
+      "id": "quaternius.universal-base-characters-standard.hair-simpleparted-bin",
+      "kind": "buffer",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/universalbasecharacters.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "application/octet-stream",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 32032,
+        "sha256": "57c6359703a37e346ee38a9c7ba55c8dee761c0a02da99847d06f5a91728f3cc"
+      },
+      "tags": [
+        "body",
+        "hair",
+        "humanoid-baseline"
+      ],
+      "title": "Universal Base Characters — Hair_SimpleParted (glTF buffer)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.universal-base-characters-standard",
+        "path": "Universal Base Characters[Standard]/Hairstyles/Origin at 0/glTF (Godot)/Hair_Long.gltf"
+      },
+      "id": "quaternius.universal-base-characters-standard.hair-long-gltf",
+      "kind": "mesh",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/universalbasecharacters.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "model/gltf+json",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 2056,
+        "sha256": "94500e2e37e09efc8b8b920b8c6437ef1c76ca35863992b82d0d5de6e77122e9"
+      },
+      "tags": [
+        "body",
+        "hair",
+        "humanoid-baseline"
+      ],
+      "title": "Universal Base Characters — Hair_Long (glTF)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.universal-base-characters-standard",
+        "path": "Universal Base Characters[Standard]/Hairstyles/Origin at 0/glTF (Godot)/Hair_Long.bin"
+      },
+      "id": "quaternius.universal-base-characters-standard.hair-long-bin",
+      "kind": "buffer",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/universalbasecharacters.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "application/octet-stream",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 115996,
+        "sha256": "13996da35c7afbf8cb5097da37207ee5b7c2e2904d4ab9e2ace9843030fff8d5"
+      },
+      "tags": [
+        "body",
+        "hair",
+        "humanoid-baseline"
+      ],
+      "title": "Universal Base Characters — Hair_Long (glTF buffer)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.universal-base-characters-standard",
+        "path": "Universal Base Characters[Standard]/Hairstyles/Origin at 0/glTF (Godot)/Hair_Buns.gltf"
+      },
+      "id": "quaternius.universal-base-characters-standard.hair-buns-gltf",
+      "kind": "mesh",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/universalbasecharacters.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "model/gltf+json",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 2243,
+        "sha256": "2bb3593575e21c9af39a53e48c42c1314b0a894e9577f3f14abffcb145cd56c5"
+      },
+      "tags": [
+        "body",
+        "hair",
+        "humanoid-baseline"
+      ],
+      "title": "Universal Base Characters — Hair_Buns (glTF)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.universal-base-characters-standard",
+        "path": "Universal Base Characters[Standard]/Hairstyles/Origin at 0/glTF (Godot)/Hair_Buns.bin"
+      },
+      "id": "quaternius.universal-base-characters-standard.hair-buns-bin",
+      "kind": "buffer",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/universalbasecharacters.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "application/octet-stream",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 131768,
+        "sha256": "4f6d4c010201278483da8d6d46ec40e3beb8d9e679ec2139bed216c561bccd38"
+      },
+      "tags": [
+        "body",
+        "hair",
+        "humanoid-baseline"
+      ],
+      "title": "Universal Base Characters — Hair_Buns (glTF buffer)"
     }
   ]
 }

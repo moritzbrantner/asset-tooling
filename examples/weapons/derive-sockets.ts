@@ -157,6 +157,15 @@ export function deriveArcherySockets(gltf: { nodes: Record<string, any>[] }): Hu
   ];
 }
 
+/**
+ * The hair socket (#116): the "Origin at 0" hairstyles are modelled in the character's rest model space, so the
+ * socket is the inverse of the `Head` joint's rest-world transform. At rest the hair lands exactly where it was
+ * modelled, and it then follows the head.
+ */
+export function deriveHairSockets(gltf: { nodes: Record<string, any>[] }): HumanoidSocket[] {
+  return [stowedSocket(restWorlds(gltf), "head.hair", "Head", [0, 0, 0], [0, 1, 0], [0, 0, 1], ["hair"])];
+}
+
 /** The weapon socket (grip along the knuckle line, flats facing the back of the hand) and the shield socket (face out of the back of the hand, top toward the thumb). */
 export function deriveHandSockets(gltf: { nodes: Record<string, any>[] }, { weaponHand = "r" }: { weaponHand?: Side } = {}): HumanoidSocket[] {
   const worlds = restWorlds(gltf), shieldHand: Side = weaponHand === "r" ? "l" : "r";
@@ -183,7 +192,7 @@ export function formatSocketDescriptor(descriptor: HumanoidSocketDescriptor): st
 export function deriveRangerSockets(gltf: { nodes: Record<string, any>[]; skins?: { joints: number[] }[] }, character = "humanoid.ranger.male"): string {
   const joints = gltf.skins?.[0]?.joints.map((index) => gltf.nodes[index]!.name as string);
   return formatSocketDescriptor(createHumanoidSocketDescriptor({
-    character, sockets: [...deriveHandSockets(gltf), ...RANGER_STOWED_SOCKETS, ...deriveArcherySockets(gltf)], ...(joints ? { joints } : {}),
+    character, sockets: [...deriveHandSockets(gltf), ...RANGER_STOWED_SOCKETS, ...deriveArcherySockets(gltf), ...deriveHairSockets(gltf)], ...(joints ? { joints } : {}),
   }));
 }
 

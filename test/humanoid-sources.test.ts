@@ -80,6 +80,7 @@ const ROLES: readonly Role[] = ["body", "outfit", "clips"];
 const BASELINE_TAG = "humanoid-baseline";
 
 const BODY_DIR = "Universal Base Characters[Standard]/Base Characters/Godot - UE";
+const HAIR_DIR = "Universal Base Characters[Standard]/Hairstyles/Origin at 0/glTF (Godot)";
 const OUTFIT_DIR = "Modular Character Outfits - Fantasy[Standard]/Exports/glTF (Godot-Unreal)/Outfits";
 const CLIPS_PATH = "Animation Library[Standard]/Godot/AnimationLibrary_Godot_Standard.glb";
 const CLIPS2_PATH = "Universal Animation Library 2 [Standard]/Unreal-Godot/UAL2_Standard.glb";
@@ -99,6 +100,8 @@ interface Asset {
   referenced: string[];
   /** Declared substitutions for URIs that resolve by no adjacent basename. */
   substitutions: Substitution[];
+  /** URIs that resolve to an identical member stored once elsewhere in the archive (same bytes, #116 hair textures). */
+  shared?: string[];
 }
 
 // Decision 6.1.2's selected members, with every referenced resource that exists.
@@ -166,6 +169,14 @@ const ASSETS: Asset[] = [
     ].map((name) => `${OUTFIT_DIR}/${name}`),
     substitutions: [],
   },
+  // #116 (owner answers 2026-10-17): the Light skin textures and the "Origin at 0" hairstyles. The hairstyles'
+  // T_Hair_* textures are byte-identical to the body folder's members and resolve to them.
+  { role: "body", archive: BASE, root: "Universal Base Characters[Standard]/Base Characters/Textures/T_Superhero_Male_Ligh.png", referenced: [], substitutions: [] },
+  { role: "body", archive: BASE, root: "Universal Base Characters[Standard]/Base Characters/Textures/T_Superhero_Female_Light_BaseColor.png", referenced: [], substitutions: [] },
+  ...(["Hair_Buzzed", "Hair_SimpleParted", "Hair_Long", "Hair_Buns"] as const).map((hair): Asset => ({
+    role: "body", archive: BASE, root: `${HAIR_DIR}/${hair}.gltf`, referenced: [`${HAIR_DIR}/${hair}.bin`], substitutions: [],
+    shared: hair === "Hair_Long" || hair === "Hair_Buns" ? ["T_Hair_2_Normal.png", "T_Hair_2_BaseColor.png"] : ["T_Hair_1_Normal.png", "T_Hair_1_BaseColor.png"],
+  })),
   { role: "clips", archive: UAL, root: CLIPS_PATH, referenced: [], substitutions: [] },
   { role: "clips", archive: UAL2, root: CLIPS2_PATH, referenced: [], substitutions: [] },
 ];
@@ -289,10 +300,10 @@ const hydratedSkip: string | false =
 
 // ---------------------------------------------------------------- structure
 
-test("expected-member table: 31 members (16 body incl. 2 substitutes, 13 outfit, 2 clips GLBs)", () => {
-  assert.equal(EXPECTED.size, 31);
+test("expected-member table: 41 members (26 body incl. 2 substitutes, 2 light skins and 8 hair, 13 outfit, 2 clips GLBs)", () => {
+  assert.equal(EXPECTED.size, 41);
   const byRole = (role: Role) => [...EXPECTED.values()].filter((member) => member.role === role).length;
-  assert.deepEqual([byRole("body"), byRole("outfit"), byRole("clips")], [16, 13, 2]);
+  assert.deepEqual([byRole("body"), byRole("outfit"), byRole("clips")], [26, 13, 2]);
   assert.deepEqual(
     SUBSTITUTIONS.map(({ path: memberPath }) => memberId(BASE, memberPath)),
     [`${BASE}.t-hair-1-normal-png`, `${BASE}.t-eye-normal-png`, `${BASE}.t-eye-normal-png`],
@@ -557,6 +568,11 @@ test("resource closure: every URI resolves to exactly one member, by adjacent ba
         target = matches[0];
         resolvedUrisByName.add(uri);
         byName.push(adjacent);
+      } else if (asset.shared?.includes(uri)) {
+        const elsewhere = members.filter((source) => path.posix.basename(source.archiveMember.path) === uri);
+        assert.equal(elsewhere.length, 1, `'${asset.root}' shared URI '${uri}' must name exactly one member`);
+        target = elsewhere[0];
+        resolvedUrisByName.add(uri);
       } else {
         const substitutes = declarations.filter((declaration) => declaration.uri === uri);
         assert.equal(substitutes.length, 1, `'${asset.root}' URI '${uri}' must resolve by exactly one declared substitution`);
