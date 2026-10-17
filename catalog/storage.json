@@ -225,6 +225,12 @@
     },
     {
       "schemaVersion": 1,
+      "sourceId": "quaternius.universal-animation-library-2-standard.ual2-standard-glb",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.universal-animation-library-2-standard.ual2-standard-glb/UAL2_Standard.glb"
+    },
+    {
+      "schemaVersion": 1,
       "sourceId": "quaternius.universal-animation-library-standard.animationlibrary-godot-standard-glb",
       "storage": "git-lfs",
       "path": "assets/canonical/quaternius.universal-animation-library-standard.animationlibrary-godot-standard-glb/AnimationLibrary_Godot_Standard.glb"

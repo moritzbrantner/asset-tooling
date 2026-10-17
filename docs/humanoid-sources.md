@@ -1,6 +1,6 @@
 # Humanoid source set
 
-This covers the second and third slices of [#109](https://github.com/moritzbrantner/asset-tooling/issues/109). It registers, pins and promotes the first humanoid source members under [Atlas Decisions 1.1.3, 6.1.1, 6.1.2 and 6.1.3](decisions/atlas.md): the **Male Ranger** outfit from Modular Character Outfits – Fantasy, the matching **male base body** from Universal Base Characters, and the original Universal Animation Library (UAL1) Standard clips, including `Idle_Loop` and `Walk_Loop`. All three packs are CC0. Using [archive-member sources](catalog.md#archive-member-sources), the catalog pins each archive by hash and stores only the members listed below in Git LFS: 18 members, 62,624,527 bytes of unique payloads.
+This covers the second and third slices of [#109](https://github.com/moritzbrantner/asset-tooling/issues/109). It registers, pins and promotes the first humanoid source members under [Atlas Decisions 1.1.3, 6.1.1, 6.1.2 and 6.1.3](decisions/atlas.md): the **Male Ranger** outfit from Modular Character Outfits – Fantasy, the matching **male base body** from Universal Base Characters, and the original Universal Animation Library (UAL1) Standard clips, including `Idle_Loop` and `Walk_Loop`. All three packs are CC0. Using [archive-member sources](catalog.md#archive-member-sources), the catalog pins each archive by hash and stores only the members listed below in Git LFS: 18 members, 62,624,527 bytes of unique payloads. A later addition for the Ranger bundle v2 ([#260](https://github.com/moritzbrantner/asset-tooling/issues/260), [#113](https://github.com/moritzbrantner/asset-tooling/issues/113)) adds one more clips member from Universal Animation Library 2 (UAL2), for its `Idle_Shield_Loop` shield guard. That brings the set to 19 members and 70,686,127 bytes.
 
 This slice covers the source payloads only. Retargeting the clips onto the outfit's skeleton stays with #110 and #115. Building the processed public bundle and proving it in a real consumer is #110. The build recipe for that bundle, with its bone map and conventions, is in [humanoid-ranger.md](humanoid-ranger.md).
 
@@ -11,8 +11,9 @@ This slice covers the source payloads only. Retargeting the clips onto the outfi
 | `quaternius.universal-base-characters-standard` | `https://quaternius.itch.io/universal-base-characters`, itch.io upload id `15861669` | `fdbf1804c90dfc1ea03e992bff7da2dfd1a79318e13270a660180f9308455f40`, 128,968,391 | `https://quaternius.com/packs/universalbasecharacters.html`; the bundled `License_Standard.txt` states CC0 1.0 |
 | `quaternius.modular-character-outfits-fantasy-standard` | `https://quaternius.itch.io/modular-character-outfits-fantasy`, itch.io upload id `16289385` | `c3468b18871cc8c8f05ab14df7712baf22cb9f389cbd870babf130e595187f70`, 294,347,394 | the itch.io page; the bundled `License_Standard.txt` states CC0 1.0 |
 | `quaternius.universal-animation-library-standard` | `https://opengameart.org/sites/default/files/universal_animation_librarystandard.zip` (Quaternius's OpenGameArt upload) | `18ff1a7215f4852b320203e8aaf02a1578b5c8eef9027fbaedfcedc7b85a3ac2`, 14,541,205 | `https://opengameart.org/content/universal-animation-library`; the bundled `License.txt` states CC0 1.0 |
+| `quaternius.universal-animation-library-2-standard` | `https://opengameart.org/sites/default/files/universal_animation_library_2standard.zip` (Quaternius's OpenGameArt upload) | `ec0e40d6d78fe9aaad59e322f40865a8675c22f0745e291622e54520391a9217`, 10,257,419 | `https://quaternius.com/packs/universalanimationlibrary2.html`; the bundled `License.txt` states CC0 1.0 |
 
-The two itch.io packs have no stable download URL, because itch.io hands out only short-lived signed links. Under [Decision 6.1.1](decisions/atlas.md) the archive was downloaded once and promoted from that local file. The record keeps the itch.io page in `source.url`, the upload id in `source.upstreamId` and a descriptive original file name in `source.path`. The **SHA-256 and byte-length pin is authoritative**, and the LFS objects are now the durable copies. UAL1 has a stable OpenGameArt URL, but it was promoted from the same verified local copy. Its pin is authoritative too.
+The two itch.io packs have no stable download URL, because itch.io hands out only short-lived signed links. Under [Decision 6.1.1](decisions/atlas.md) the archive was downloaded once and promoted from that local file. The record keeps the itch.io page in `source.url`, the upload id in `source.upstreamId` and a descriptive original file name in `source.path`. The **SHA-256 and byte-length pin is authoritative**, and the LFS objects are now the durable copies. UAL1 and UAL2 have stable OpenGameArt URLs, but each was promoted from a verified local copy. Their pins are authoritative too. The UAL2 archive was registered earlier as an unpinned `animation-pack` record, and its first member promotion pinned it.
 
 ## Members
 
@@ -51,7 +52,15 @@ Each selected glTF and every buffer and image it references is a separate member
 | --- | --- | --- | --- |
 | `Animation Library[Standard]/Godot/AnimationLibrary_Godot_Standard.glb` | animation | 6,671,104 | `1b7bf67866360665426bb99e4c71bd619f19b408453c24e30f0c3071601eee5c` |
 
-The GLB carries 46 named clips. They include exactly one `Idle_Loop` and one `Walk_Loop`, which are the clips Decision 6.1.2 selects. Its skeleton uses 52 `DEF-*` joints, while the body and outfit use a 65-joint skin, so the clips need retargeting (#110/#115) before they drive the outfit.
+The GLB carries 46 named clips. They include exactly one `Idle_Loop` and one `Walk_Loop`, which are the clips Decision 6.1.2 selects. The Ranger bundle v2 also takes `Jog_Fwd_Loop`, `Sprint_Loop`, `Sword_Idle`, `Sword_Attack` and `Death01` from it. Its skeleton uses 52 `DEF-*` joints, while the body and outfit use a 65-joint skin, so the clips need retargeting (#110/#115) before they drive the outfit.
+
+**Clips (UAL2)**: from the UAL2 archive.
+
+| Member | Kind | Bytes | SHA-256 |
+| --- | --- | --- | --- |
+| `Universal Animation Library 2 [Standard]/Unreal-Godot/UAL2_Standard.glb` | animation | 8,061,600 | `0815dd05531cae9bc313fc9c0ba81330bc72f8e19ec45f73738e74ddc5796a43` |
+
+The GLB carries 43 named clips, including exactly one `Idle_Shield_Loop`. UAL1 has no shield guard. Its skin is the same 65-joint Unreal-style rig as the body and outfit (`root`, `pelvis`, `spine_01` …), so the Ranger recipe retargets it with a same-name bone map that absorbs the small rest-pose differences.
 
 ## Declared substitution
 
@@ -78,7 +87,7 @@ The source glTF bytes stay unchanged, and no bytes are invented or edited. The b
 
 ## How the members were promoted
 
-The 21 records were added to `catalog/sources.json` with the archives unpinned and every member's `source` empty. Each member was then promoted with one local-file invocation. The first promotion from each archive measured and pinned it, and every later one re-verified that pin. The tool wrote the pins, the storage entries and the payloads; Git LFS turned the staged payloads into pointers.
+The first 21 records were added to `catalog/sources.json` with the archives unpinned and every member's `source` empty. Each member was then promoted with one local-file invocation. The first promotion from each archive measured and pinned it, and every later one re-verified that pin. The tool wrote the pins, the storage entries and the payloads; Git LFS turned the staged payloads into pointers. The UAL2 member followed the same way: one member record with `"source": {}`, then one promotion that pinned the UAL2 archive.
 
 ```text
 bun run catalog:lfs:promote -- quaternius.universal-base-characters-standard.superhero-male-fullbody-gltf --from .artifacts/humanoid-candidates/base/pack.zip
@@ -99,6 +108,7 @@ bun run catalog:lfs:promote -- quaternius.modular-character-outfits-fantasy-stan
 bun run catalog:lfs:promote -- quaternius.modular-character-outfits-fantasy-standard.t-regular-male-dark-basecolor-png --from .artifacts/humanoid-candidates/outfits/pack.zip
 bun run catalog:lfs:promote -- quaternius.modular-character-outfits-fantasy-standard.t-regular-male-roughness-png --from .artifacts/humanoid-candidates/outfits/pack.zip
 bun run catalog:lfs:promote -- quaternius.universal-animation-library-standard.animationlibrary-godot-standard-glb --from .artifacts/humanoid-candidates/ual1.zip
+bun run catalog:lfs:promote -- quaternius.universal-animation-library-2-standard.ual2-standard-glb --from .artifacts/humanoid-candidates/animations/quaternius.universal-animation-library-2-standard/universal_animation_library_2standard.zip
 ```
 
 The `--from` file is the whole archive. Its name doesn't matter, because the pin identifies the bytes.
@@ -121,7 +131,7 @@ With hydrated payloads it also checks:
 - each payload's integrity against its pin;
 - resource closure: every URI the glTF references resolves to exactly one member, either by its adjacent basename or by exactly one declared substitution;
 - that both broken URIs are used as normal textures and their substitutes are stored at their pins;
-- that the GLB contains `Idle_Loop` and `Walk_Loop`;
+- that the UAL1 GLB contains `Idle_Loop`, `Walk_Loop` and the other Ranger clips, and that the UAL2 GLB contains `Idle_Shield_Loop` on a 65-joint skin;
 - re-import: every humanoid member imports into a fresh object store, and a second import returns `unchanged` with an identical `AssetRef`, leaving the store byte-for-byte unchanged.
 
 The hosted canonical-storage job sets `ASSET_TOOLING_REQUIRE_HYDRATED_STORAGE=1`, so these hydrated checks fail there instead of skipping. `bun run catalog:storage:verify` passes from a hydrated checkout.

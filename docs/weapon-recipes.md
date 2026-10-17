@@ -47,4 +47,4 @@ Python and TypeScript reject the same controls before the scene changes. Generat
 
 Blender installed as a snap can only read and write under `$HOME`, so set `TMPDIR` to a directory there. `test/humanoid-sockets.test.ts` checks the Ranger descriptor and the validator. When the Git LFS outfit is hydrated, it also checks the descriptor against the Male_Ranger rig's 65 joints.
 
-Not yet covered: the bow, arrow and quiver (next slice), spear and staff, textured or heraldic variants, combat clips, and the consumer smoke in arpg.
+Not yet covered: the bow, arrow and quiver (next slice), spear and staff, textured or heraldic variants, and the consumer smoke in arpg. The combat clips and the weapon bundle entries are part of the [Ranger bundle v2](humanoid-ranger.md#versions).
