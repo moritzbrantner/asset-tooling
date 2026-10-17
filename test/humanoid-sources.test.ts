@@ -32,7 +32,8 @@ const REQUIRE_HYDRATED = process.env.ASSET_TOOLING_REQUIRE_HYDRATED_STORAGE === 
 const BASE = "quaternius.universal-base-characters-standard";
 const OUTFITS = "quaternius.modular-character-outfits-fantasy-standard";
 const UAL = "quaternius.universal-animation-library-standard";
-const ARCHIVES = [BASE, OUTFITS, UAL] as const;
+const UAL2 = "quaternius.universal-animation-library-2-standard";
+const ARCHIVES = [BASE, OUTFITS, UAL, UAL2] as const;
 
 interface ArchivePin {
   url: string;
@@ -40,6 +41,8 @@ interface ArchivePin {
   sha256: string;
   byteLength: number;
   evidenceUrl?: string;
+  /** Archive record kind; the original three are `asset-pack`, UAL2 was registered earlier as an `animation-pack`. */
+  kind?: string;
 }
 
 // The pinned archives named in Decision 6.1.2 and the #109 findings.
@@ -62,6 +65,14 @@ const ARCHIVE_PINS: Record<(typeof ARCHIVES)[number], ArchivePin> = {
     sha256: "18ff1a7215f4852b320203e8aaf02a1578b5c8eef9027fbaedfcedc7b85a3ac2",
     byteLength: 14_541_205,
   },
+  [UAL2]: {
+    url: "https://opengameart.org/sites/default/files/universal_animation_library_2standard.zip",
+    upstreamId: "universal-animation-library-2-standard",
+    sha256: "ec0e40d6d78fe9aaad59e322f40865a8675c22f0745e291622e54520391a9217",
+    byteLength: 10_257_419,
+    evidenceUrl: "https://quaternius.com/packs/universalanimationlibrary2.html",
+    kind: "animation-pack",
+  },
 };
 
 type Role = "body" | "outfit" | "clips";
@@ -71,6 +82,7 @@ const BASELINE_TAG = "humanoid-baseline";
 const BODY_DIR = "Universal Base Characters[Standard]/Base Characters/Godot - UE";
 const OUTFIT_DIR = "Modular Character Outfits - Fantasy[Standard]/Exports/glTF (Godot-Unreal)/Outfits";
 const CLIPS_PATH = "Animation Library[Standard]/Godot/AnimationLibrary_Godot_Standard.glb";
+const CLIPS2_PATH = "Universal Animation Library 2 [Standard]/Unreal-Godot/UAL2_Standard.glb";
 
 interface Substitution {
   /** The URI the root references, which the archive does not contain under that name. */
@@ -124,8 +136,11 @@ const ASSETS: Asset[] = [
     substitutions: [],
   },
   { role: "clips", archive: UAL, root: CLIPS_PATH, referenced: [], substitutions: [] },
+  { role: "clips", archive: UAL2, root: CLIPS2_PATH, referenced: [], substitutions: [] },
 ];
-const REQUIRED_CLIPS = ["Idle_Loop", "Walk_Loop"];
+// The clips the Ranger bundle retargets from each library (docs/humanoid-ranger.md).
+const REQUIRED_CLIPS = ["Idle_Loop", "Walk_Loop", "Jog_Fwd_Loop", "Sprint_Loop", "Sword_Idle", "Sword_Attack", "Death01"];
+const REQUIRED_CLIPS2 = ["Idle_Shield_Loop"];
 const SUBSTITUTIONS = ASSETS.flatMap((asset) => asset.substitutions.map((substitution) => ({ asset, ...substitution })));
 
 function memberId(archive: string, memberPath: string): string {
@@ -239,10 +254,10 @@ const hydratedSkip: string | false =
 
 // ---------------------------------------------------------------- structure
 
-test("expected-member table: 18 members (9 body incl. 2 substitutes, 8 outfit, 1 clips GLB)", () => {
-  assert.equal(EXPECTED.size, 18);
+test("expected-member table: 19 members (9 body incl. 2 substitutes, 8 outfit, 2 clips GLBs)", () => {
+  assert.equal(EXPECTED.size, 19);
   const byRole = (role: Role) => [...EXPECTED.values()].filter((member) => member.role === role).length;
-  assert.deepEqual([byRole("body"), byRole("outfit"), byRole("clips")], [9, 8, 1]);
+  assert.deepEqual([byRole("body"), byRole("outfit"), byRole("clips")], [9, 8, 2]);
   assert.deepEqual(
     SUBSTITUTIONS.map(({ path: memberPath }) => memberId(BASE, memberPath)),
     [`${BASE}.t-hair-1-normal-png`, `${BASE}.t-eye-normal-png`],
@@ -255,6 +270,7 @@ test("expected-member table: 18 members (9 body incl. 2 substitutes, 8 outfit, 1
     memberId(UAL, CLIPS_PATH),
     "quaternius.universal-animation-library-standard.animationlibrary-godot-standard-glb",
   );
+  assert.equal(memberId(UAL2, CLIPS2_PATH), "quaternius.universal-animation-library-2-standard.ual2-standard-glb");
 });
 
 test("the committed catalog and storage manifest build", () => {
@@ -262,12 +278,12 @@ test("the committed catalog and storage manifest build", () => {
   createAssetCatalogStorageManifest({ catalog, entries: storageDocument.entries });
 });
 
-test("the three archives are registered, pinned, CC0 asset-pack zips with provenance and no storage entry", () => {
+test("the four archives are registered, pinned, CC0 pack zips with provenance and no storage entry", () => {
   for (const id of ARCHIVES) {
     const archive = rawSource(id);
     const pin = ARCHIVE_PINS[id];
     assert.equal(archive.schemaVersion ?? 1, 1, `'${id}' must be a schemaVersion 1 record`);
-    assert.equal(archive.kind, "asset-pack", `'${id}' kind`);
+    assert.equal(archive.kind, pin.kind ?? "asset-pack", `'${id}' kind`);
     assert.equal(archive.provider, "quaternius", `'${id}' provider`);
     assert.equal(archive.mediaType, "application/zip", `'${id}' mediaType`);
     assert.equal(archive.archiveMember, undefined, `'${id}' must not be an archive member`);
@@ -409,7 +425,7 @@ test("docs/humanoid-sources.md describes the set, provenance, local-file promoti
   for (const member of EXPECTED.values()) {
     assert.ok(doc.includes(path.posix.basename(member.path)), `doc must list member '${member.path}'`);
   }
-  for (const clip of REQUIRED_CLIPS) assert.ok(doc.includes(clip), `doc must name clip '${clip}'`);
+  for (const clip of [...REQUIRED_CLIPS, ...REQUIRED_CLIPS2]) assert.ok(doc.includes(clip), `doc must name clip '${clip}'`);
   assert.match(doc, /catalog:lfs:promote[^\n]*--from/, "doc must show the local-file promotion command");
   assert.match(doc, /substitut/i, "doc must document the declared substitution");
   const lines = doc.split("\n");
@@ -431,7 +447,7 @@ test("generic: the archives are plain catalog sources, so another member needs n
     const source = archivesOnly.getSource(id);
     assert.ok(source, `'${id}' must validate through createAssetCatalog`);
     assert.equal(source.schemaVersion, 1);
-    assert.equal(source.kind, "asset-pack");
+    assert.equal(source.kind, ARCHIVE_PINS[id].kind ?? "asset-pack");
   }
   // A future consumer (e.g. an arpg knight outfit) adds an unpinned member record
   // of the same archive; the existing catalog accepts it unchanged.
@@ -558,7 +574,7 @@ function readGlbJson(bytes: Buffer): any {
   return JSON.parse(bytes.toString("utf8", 20, 20 + chunkLength));
 }
 
-test("clips: the UAL1 GLB contains Idle_Loop and Walk_Loop among its named clips", { skip: hydratedSkip }, async () => {
+test("clips: the UAL1 GLB contains the Ranger clips (Idle_Loop, Walk_Loop, run, sword, death) among its named clips", { skip: hydratedSkip }, async () => {
   const catalog = buildCatalog();
   const stored = await readMember(catalog, memberId(UAL, CLIPS_PATH));
   const gltf = readGlbJson(stored.bytes);
@@ -567,6 +583,16 @@ test("clips: the UAL1 GLB contains Idle_Loop and Walk_Loop among its named clips
     assert.equal(names.filter((name) => name === clip).length, 1, `GLB must contain exactly one '${clip}' clip`);
   }
   assert.equal(names.length, 46, "UAL1 Standard GLB carries 46 named clips");
+});
+
+test("clips: the UAL2 GLB contains Idle_Shield_Loop on the 65-joint UE rig", { skip: hydratedSkip }, async () => {
+  const catalog = buildCatalog();
+  const gltf = readGlbJson((await readMember(catalog, memberId(UAL2, CLIPS2_PATH))).bytes);
+  const names: string[] = (gltf.animations ?? []).map((animation: any) => animation.name);
+  for (const clip of REQUIRED_CLIPS2) assert.equal(names.filter((name) => name === clip).length, 1, `GLB must contain exactly one '${clip}' clip`);
+  assert.equal(gltf.skins.length, 1);
+  assert.equal(gltf.skins[0].joints.length, 65);
+  assert.equal(gltf.nodes[gltf.skins[0].joints[1]].name, "pelvis");
 });
 
 // ------------------------------------------------- idempotent re-import (6.1.3 (b))

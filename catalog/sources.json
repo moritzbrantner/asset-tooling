@@ -1180,21 +1180,27 @@
       }
     },
     {
-      "schemaVersion": 1,
       "id": "quaternius.universal-animation-library-2-standard",
-      "provider": "quaternius",
-      "title": "Universal Animation Library 2 — Standard",
       "kind": "animation-pack",
-      "mediaType": "application/zip",
-      "source": {
-        "url": "https://opengameart.org/sites/default/files/universal_animation_library_2standard.zip",
-        "upstreamId": "universal-animation-library-2-standard",
-        "revision": "2026-01",
-        "path": "universal_animation_library_2standard.zip"
-      },
       "license": {
-        "spdx": "CC0-1.0",
-        "evidenceUrl": "https://quaternius.com/packs/universalanimationlibrary2.html"
+        "evidenceUrl": "https://quaternius.com/packs/universalanimationlibrary2.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "application/zip",
+      "metadata": {
+        "animationCount": "130+",
+        "distributionMirror": "OpenGameArt upload by Quaternius",
+        "purpose": "Humanoid animation and retargeting reference corpus for 3D and game consumers"
+      },
+      "provider": "quaternius",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 10257419,
+        "path": "universal_animation_library_2standard.zip",
+        "revision": "2026-01",
+        "sha256": "ec0e40d6d78fe9aaad59e322f40865a8675c22f0745e291622e54520391a9217",
+        "upstreamId": "universal-animation-library-2-standard",
+        "url": "https://opengameart.org/sites/default/files/universal_animation_library_2standard.zip"
       },
       "tags": [
         "animation",
@@ -1205,11 +1211,7 @@
         "retargeting",
         "three-d"
       ],
-      "metadata": {
-        "animationCount": "130+",
-        "distributionMirror": "OpenGameArt upload by Quaternius",
-        "purpose": "Humanoid animation and retargeting reference corpus for 3D and game consumers"
-      }
+      "title": "Universal Animation Library 2 — Standard"
     },
     {
       "archiveMember": {
@@ -1755,6 +1757,31 @@
         "humanoid-baseline"
       ],
       "title": "Universal Animation Library — AnimationLibrary_Godot_Standard (GLB animation library)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.universal-animation-library-2-standard",
+        "path": "Universal Animation Library 2 [Standard]/Unreal-Godot/UAL2_Standard.glb"
+      },
+      "id": "quaternius.universal-animation-library-2-standard.ual2-standard-glb",
+      "kind": "animation",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/universalanimationlibrary2.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "model/gltf-binary",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 8061600,
+        "sha256": "0815dd05531cae9bc313fc9c0ba81330bc72f8e19ec45f73738e74ddc5796a43"
+      },
+      "tags": [
+        "clips",
+        "humanoid-baseline"
+      ],
+      "title": "Universal Animation Library 2 — UAL2_Standard (GLB animation library)"
     },
     {
       "archiveMember": {

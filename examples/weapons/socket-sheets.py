@@ -1,7 +1,8 @@
 """Render humanoid-sockets-v1 inspection sheets in Blender.
 
     blender --background --factory-startup --python examples/weapons/socket-sheets.py -- \
-        <character.gltf> <sockets.json> <out-dir> <socket-id>=<item.glb> [<socket-id>=<item.glb> ...]
+        <character.gltf> <sockets.json> <out-dir> <socket-id>=<item.glb> [<socket-id>=<item.glb> ...] \
+        [--poses=<clip>@<fraction>,...]
 
 Each attached item's grip frame (its GLB origin) is placed at
 ``joint world x socket TRS``, evaluated in glTF terms. The script imports the
@@ -10,7 +11,8 @@ rest, and so recovers the glTF joint world transform at every evaluated frame.
 For every pose (rest, Idle_Loop mid, Walk_Loop quarter and mid) it writes a
 3 x 2 sheet: front, side (from the character's left) and back views over
 close-ups of the right hand, the left hand from outside and the left hand from
-behind.
+behind. ``--poses`` replaces the default pose list; each sheet is then named
+``sheet-<clip>-<percent>.png``.
 """
 import json
 import math
@@ -45,6 +47,11 @@ def gltf_rest_worlds(path):
 
 def main():
     args = sys.argv[sys.argv.index("--") + 1:]
+    poses = [("rest", None, 0), ("idle-mid", "Idle_Loop", .5), ("walk-quarter", "Walk_Loop", .25), ("walk-mid", "Walk_Loop", .5)]
+    for option in [a for a in args if a.startswith("--poses=")]:
+        poses = [(f"{clip}-{round(float(fraction) * 100):03d}", clip, float(fraction))
+                 for clip, fraction in (item.split("@") for item in option[len("--poses="):].split(","))]
+    args = [a for a in args if not a.startswith("--poses=")]
     character, sockets_path, out_dir, attachments = args[0], args[1], args[2], [a.split("=", 1) for a in args[3:]]
     os.makedirs(out_dir, exist_ok=True)
     bpy.ops.object.select_all(action="SELECT")
@@ -81,7 +88,7 @@ def main():
         for bone in armature.pose.bones:
             bone.matrix_basis = Matrix.Identity(4)
         if clip:
-            action = next(a for name, a in actions.items() if name.startswith(clip))
+            action = actions.get(clip) or next(a for name, a in actions.items() if name.startswith(clip))
             data.action = action
             if hasattr(data, "action_slot") and action.slots:
                 data.action_slot = action.slots[0]
@@ -136,7 +143,7 @@ def main():
     def hand(joint):
         return (armature.matrix_world @ armature.pose.bones[joint].matrix).translation
 
-    for name, clip, fraction in [("rest", None, 0), ("idle-mid", "Idle_Loop", .5), ("walk-quarter", "Walk_Loop", .25), ("walk-mid", "Walk_Loop", .5)]:
+    for name, clip, fraction in poses:
         pose(clip, fraction)
         tile = os.path.join(out_dir, "tile.png")
         tiles = [

@@ -31,7 +31,7 @@ A `humanoid-sockets-v1` descriptor declares the attachment frames of one humanoi
 
 ## Ranger sockets
 
-[`assets/descriptors/humanoid.ranger.male.sockets.json`](../assets/descriptors/humanoid.ranger.male.sockets.json) is the versioned descriptor for `humanoid.ranger.male` ([humanoid-ranger.md](humanoid-ranger.md)). The next Ranger bundle build adds it to the bundle.
+[`assets/descriptors/humanoid.ranger.male.sockets.json`](../assets/descriptors/humanoid.ranger.male.sockets.json) is the versioned descriptor for `humanoid.ranger.male` ([humanoid-ranger.md](humanoid-ranger.md)). The Ranger bundle v2 ships it as the `humanoid-sockets` attachment of the character entry, next to the `equipment.sword.arming` and `equipment.shield.heater` entries.
 
 | Socket | Joint | Accepts | Placement |
 | --- | --- | --- | --- |
@@ -40,10 +40,10 @@ A `humanoid-sockets-v1` descriptor declares the attachment frames of one humanoi
 | `back.stowed` | `spine_03` | `shield` | The shield is centred between the shoulder blades, face out and point down. |
 | `hip_l.stowed` | `pelvis` | `one-hand-weapon` | The hilt is at the front left hip, with the flats facing outward and the blade running down and back. |
 
-How the values were authored: the hand sockets are set in joint-local terms. In the Ranger's T-pose, `hand_*` +Y runs along the fingers and +Z toward the thumb. The palm faces −X on the right hand and +X on the left. The stowed sockets were set from rest-pose world intents and converted into the joint frames. All four were checked visually in Blender with `examples/weapons/socket-sheets.py` (or `bun examples/weapons/build.ts --sheets <default.gltf>`). The script imports the bundle's `default.gltf`, recovers each glTF joint's world transform through the importer's bone correction, places the weapon GLBs with the socket TRS, and renders front, side, back and close-up sheets at rest, at the middle of `Idle_Loop`, and at a quarter and the middle of `Walk_Loop`.
+How the values were authored: the hand sockets are set in joint-local terms. In the Ranger's T-pose, `hand_*` +Y runs along the fingers and +Z toward the thumb. The palm faces −X on the right hand and +X on the left. The stowed sockets were set from rest-pose world intents and converted into the joint frames. All four were checked visually in Blender with `examples/weapons/socket-sheets.py` (or `bun examples/weapons/build.ts --sheets <default.gltf>`). The script imports the bundle's `default.gltf`, recovers each glTF joint's world transform through the importer's bone correction, places the weapon GLBs with the socket TRS, and renders front, side, back and close-up sheets at rest, at the middle of `Idle_Loop`, and at a quarter and the middle of `Walk_Loop`. `--poses=<clip>@<fraction>,…` renders other poses instead, one `sheet-<clip>-<percent>.png` per pose.
 
 Known limits of this slice:
 
 - The Ranger's fingers keep their open rest pose because finger retargeting is #115. The fingers therefore lie along the grip and do not wrap it.
 - During `Walk_Loop`, the left hand brushes the stowed sword's hilt, and the shield's top corner comes close to the left pauldron.
-- Guard, attack and two-handed poses wait for the combat clips planned for the next Ranger bundle.
+- The combat clips of the [Ranger bundle v2](humanoid-ranger.md#visual-check-of-the-v2-clips) show where the hand sockets fall short. The sword points sideways in `Sword_Idle`, and in the `Idle_Shield_Loop` guard the shield sits on its side because its vertical axis follows the forearm. Guard-specific sockets, or a revised `hand_l.shield`, are follow-up work, as are two-handed poses.

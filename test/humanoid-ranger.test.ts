@@ -1,10 +1,12 @@
 /// <reference path="../src/gltf-validator.d.ts" />
-// End-to-end #110 Ranger recipe (docs/humanoid-ranger.md): canonical body/outfit/UAL1 members ->
-// import, head subset, compose, extract, retarget Idle_Loop/Walk_Loop through the pinned 3d-lab
-// processor, embed, gltf-resources-v1 bundle and release tar. Structural checks only (owner answer 4:
-// no byte-exact replay, no Blender oracle). Skips unless the Git LFS payloads are hydrated and
-// ASSET_TOOLING_PROCESSOR_CHECKOUT_3DLAB names a clean 3d-lab checkout at the pinned commit with its
-// cargo dependencies fetched.
+// End-to-end Ranger recipe (docs/humanoid-ranger.md): canonical body/outfit/UAL1/UAL2 members ->
+// import, head subset, compose, extract, retarget the v2 clips (#110 Idle/Walk, #260 run/attack/death,
+// #113 sword idle/attack and shield guard) through the pinned 3d-lab processor, embed, generate the
+// sword and shield through the weapon recipe, attach the humanoid-sockets-v1 descriptor, then the
+// gltf-resources-v1 bundle and release tar. Structural checks only (owner answer 4 on #110: no
+// byte-exact replay, no Blender oracle). The full build skips unless the Git LFS payloads are
+// hydrated, ASSET_TOOLING_PROCESSOR_CHECKOUT_3DLAB names a clean 3d-lab checkout at the pinned
+// commit with its cargo dependencies fetched, and ASSET_TOOLING_BLENDER names Blender for the weapons.
 import test from "node:test";
 import assert from "node:assert/strict";
 import os from "node:os";
@@ -13,14 +15,19 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { NodeIO } from "@gltf-transform/core";
 import { verifyAssetBundleTar } from "../src/asset-bundle-pack.js";
-import { GLTF_RESOURCES_BUNDLE_PROFILE, readAssetBundleGltf, verifyAssetBundle } from "../src/asset-bundle.js";
-import { RANGER_BONE_MAP, RANGER_BUNDLE_KEY, RANGER_BUNDLE_VARIANT, RANGER_MEMBERS, buildRangerCharacter } from "../scripts/build-ranger-character.ts";
+import { GLTF_RESOURCES_BUNDLE_PROFILE, readAssetBundleAttachment, readAssetBundleGltf, verifyAssetBundle } from "../src/asset-bundle.js";
+import { validateHumanoidSocketDescriptor } from "../src/humanoid-sockets.js";
+import {
+  RANGER_BONE_MAP, RANGER_BUNDLE_KEY, RANGER_BUNDLE_VARIANT, RANGER_CLIPS, RANGER_MEMBERS, RANGER_SOCKETS_ATTACHMENT,
+  RANGER_SOCKETS_DESCRIPTOR, RANGER_UBC_BONE_MAP, RANGER_V2_CLIPS, RANGER_V2_EQUIPMENT, buildRangerCharacter,
+} from "../scripts/build-ranger-character.ts";
 
 const ROOT = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
 const CHECKOUT = process.env.ASSET_TOOLING_PROCESSOR_CHECKOUT_3DLAB;
 
 async function skipReason(): Promise<string | false> {
   if (!CHECKOUT) return "set ASSET_TOOLING_PROCESSOR_CHECKOUT_3DLAB to a clean 3d-lab checkout at the pinned three-d-animation-retarget commit";
+  if (!process.env.ASSET_TOOLING_BLENDER) return "set ASSET_TOOLING_BLENDER to Blender 5.2.2 for the weapon entries (snap Blender: TMPDIR under $HOME)";
   const sources = JSON.parse(await readFile(path.join(ROOT, "catalog/sources.json"), "utf8")).sources;
   const storage = JSON.parse(await readFile(path.join(ROOT, "catalog/storage.json"), "utf8"));
   for (const member of Object.values(RANGER_MEMBERS)) {
@@ -32,40 +39,93 @@ async function skipReason(): Promise<string | false> {
   return false;
 }
 
-test("the Ranger recipe builds a verified bundle with retargeted in-place Idle_Loop and Walk_Loop", { skip: await skipReason(), timeout: 900_000 }, async () => {
+test("the v2 recipe keeps the v1 clips, adds the #260/#113 clips by source name and binds UAL2 by same-name joints", () => {
+  assert.deepEqual(RANGER_CLIPS.map((clip) => clip.name), ["Idle_Loop", "Walk_Loop"]);
+  assert.deepEqual(RANGER_V2_CLIPS.map((clip) => [clip.name, clip.library]), [
+    ["Idle_Loop", "clips"], ["Walk_Loop", "clips"], ["Jog_Fwd_Loop", "clips"], ["Sprint_Loop", "clips"],
+    ["Sword_Idle", "clips"], ["Sword_Attack", "clips"], ["Death01", "clips"], ["Idle_Shield_Loop", "clips2"],
+  ]);
+  assert.ok(RANGER_V2_CLIPS.every((clip) => clip.rootMotion === "in-place"));
+  assert.deepEqual(Object.keys(RANGER_UBC_BONE_MAP), Object.keys(RANGER_BONE_MAP));
+  for (const [bone, { source, target }] of Object.entries(RANGER_UBC_BONE_MAP)) {
+    assert.equal(source, target, bone);
+    assert.equal(target, RANGER_BONE_MAP[bone]!.target, bone);
+  }
+  assert.deepEqual(RANGER_V2_EQUIPMENT.map((item) => item.key), ["equipment.sword.arming", "equipment.shield.heater"]);
+});
+
+test("the Ranger v2 recipe builds a verified bundle: in-place clips, equipment entries and the sockets attachment", { skip: await skipReason(), timeout: 900_000 }, async () => {
   const outDir = await mkdtemp(path.join(os.tmpdir(), "humanoid-ranger-"));
   try {
     const built = await buildRangerCharacter({ processorCheckout: CHECKOUT!, outDir });
     const tar = await readFile(built.tar);
     await verifyAssetBundleTar(tar, { sha256: built.tarSha256, ref: built.exportRef });
     const { manifest } = await verifyAssetBundle(built.bundleDir, built.exportRef, { profile: GLTF_RESOURCES_BUNDLE_PROFILE });
-    const entry = manifest.assets[0]!;
-    assert.deepEqual([entry.key, entry.variant], [RANGER_BUNDLE_KEY, RANGER_BUNDLE_VARIANT]);
-    assert.deepEqual(entry.observations.animations, ["Idle_Loop", "Walk_Loop"]);
+    assert.deepEqual(manifest.assets.map((entry) => `${entry.key}/${entry.variant}`).sort(),
+      [`${RANGER_BUNDLE_KEY}/${RANGER_BUNDLE_VARIANT}`, ...RANGER_V2_EQUIPMENT.map((item) => `${item.key}/default`)].sort());
+    const entry = manifest.assets.find((candidate) => candidate.key === RANGER_BUNDLE_KEY)!;
+    const clipNames = RANGER_V2_CLIPS.map((clip) => clip.name);
+    assert.deepEqual(entry.observations.animations, clipNames);
+
+    // The sockets descriptor ships with the character entry, byte-identical to the versioned file.
+    assert.deepEqual(entry.attachments.map((attachment) => [attachment.name, attachment.mediaType]), [[RANGER_SOCKETS_ATTACHMENT, "application/json"]]);
+    const sockets = await readAssetBundleAttachment(built.bundleDir, manifest, RANGER_BUNDLE_KEY, RANGER_BUNDLE_VARIANT, RANGER_SOCKETS_ATTACHMENT);
+    assert.deepEqual(sockets, await readFile(path.join(ROOT, RANGER_SOCKETS_DESCRIPTOR)));
 
     const { gltf, resources } = await readAssetBundleGltf(built.bundleDir, manifest, RANGER_BUNDLE_KEY, RANGER_BUNDLE_VARIANT);
     const document = await new NodeIO().readJSON({ json: JSON.parse(gltf.toString("utf8")), resources: Object.fromEntries(resources) });
     const joints = document.getRoot().listSkins()[0]!.listJoints();
     assert.equal(joints.length, 65);
+    validateHumanoidSocketDescriptor(JSON.parse(sockets.toString("utf8")), { joints: joints.map((joint) => joint.getName()) });
     const mappedTargets = new Set(Object.values(RANGER_BONE_MAP).map((binding) => binding.target));
+    const root = joints.find((joint) => joint.getName() === "root")!;
+    const pelvis = joints.find((joint) => joint.getName() === "pelvis")!;
+    const rest = { root: [root.getTranslation(), root.getRotation()], pelvis: [pelvis.getTranslation(), pelvis.getRotation()] } as const;
+    assert.deepEqual(document.getRoot().listAnimations().map((animation) => animation.getName()), clipNames);
     for (const animation of document.getRoot().listAnimations()) {
+      const name = animation.getName();
       for (const channel of animation.listChannels()) {
-        assert.ok(mappedTargets.has(channel.getTargetNode()!.getName()), `${animation.getName()} animates only mapped joints`);
+        assert.ok(mappedTargets.has(channel.getTargetNode()!.getName()), `${name} animates only mapped joints`);
         assert.equal(channel.getSampler()!.getInterpolation(), "LINEAR");
       }
-      // In-place: the pelvis keeps a constant horizontal model-space position over the clip.
-      const pelvis = animation.listChannels().find((channel) => channel.getTargetNode()!.getName() === "pelvis" && channel.getTargetPath() === "translation")!;
-      const values = Array.from(pelvis.getSampler()!.getOutput()!.getArray()!);
-      const root = joints.find((joint) => joint.getName() === "root")!;
-      // root rotates -90 degrees about X, so pelvis local X/Y are model X/-Z (horizontal) and local Z is model Y.
-      assert.deepEqual(root.getRotation().map((value) => Math.round(value * 1e4) / 1e4), [-0.7071, 0, 0, 0.7071]);
-      const xs = values.filter((_, index) => index % 3 === 0), ys = values.filter((_, index) => index % 3 === 1);
-      assert.ok(Math.max(...xs) - Math.min(...xs) < 1e-4 && Math.max(...ys) - Math.min(...ys) < 1e-4, `${animation.getName()} pelvis stays in place`);
+      const duration = Math.max(...animation.listSamplers().map((sampler) => sampler.getInput()!.getMax([])[0]!));
+      assert.ok(duration > 0, `${name} has a positive duration`);
+      // In place: the pelvis's horizontal model-space position (root and pelvis keys composed) drifts at most 1 cm.
+      const keyed = (node: typeof root, targetPath: "translation" | "rotation") =>
+        animation.listChannels().find((channel) => channel.getTargetNode() === node && channel.getTargetPath() === targetPath)?.getSampler()!.getOutput()!.getArray();
+      const tracks = { rootT: keyed(root, "translation"), rootR: keyed(root, "rotation"), pelvisT: keyed(pelvis, "translation"), pelvisR: keyed(pelvis, "rotation") };
+      const samples = tracks.pelvisT!.length / 3;
+      const xs: number[] = [], zs: number[] = [];
+      for (let index = 0; index < samples; index += 1) {
+        const at = (array: ArrayLike<number> | undefined, size: number, fallback: number[]) => array ? Array.from({ length: size }, (_, k) => array[index * size + k]!) : fallback;
+        root.setTranslation(at(tracks.rootT, 3, [...rest.root[0]]) as any).setRotation(at(tracks.rootR, 4, [...rest.root[1]]) as any);
+        pelvis.setTranslation(at(tracks.pelvisT, 3, [...rest.pelvis[0]]) as any).setRotation(at(tracks.pelvisR, 4, [...rest.pelvis[1]]) as any);
+        const [x, , z] = pelvis.getWorldTranslation();
+        xs.push(x); zs.push(z);
+      }
+      root.setTranslation(rest.root[0]).setRotation(rest.root[1]);
+      pelvis.setTranslation(rest.pelvis[0]).setRotation(rest.pelvis[1]);
+      const drift = Math.hypot(Math.max(...xs) - Math.min(...xs), Math.max(...zs) - Math.min(...zs));
+      assert.ok(drift <= 0.01, `${name} pelvis horizontal drift ${drift.toFixed(4)} m must be at most 1 cm`);
     }
-    const walk = built.lineage.clips.find((clip) => clip.name === "Walk_Loop")!;
-    assert.equal(walk.observations.rootMotion, "in-place");
-    assert.equal(walk.observations.mappedBoneCount, Object.keys(RANGER_BONE_MAP).length);
-    assert.equal(walk.observations.startSeconds, 0);
+    for (const clip of built.lineage.clips) {
+      assert.equal(clip.observations.rootMotion, "in-place", clip.name);
+      assert.equal(clip.observations.mappedBoneCount, Object.keys(RANGER_BONE_MAP).length, clip.name);
+      assert.equal(clip.observations.startSeconds, 0, clip.name);
+      assert.ok(clip.observations.endSeconds > 0 && clip.observations.sampleCount > 1, clip.name);
+    }
+
+    // Weapons are separate, unskinned, unanimated entries; the consumer parents them via the sockets.
+    for (const { key, piece } of RANGER_V2_EQUIPMENT) {
+      const weapon = manifest.assets.find((candidate) => candidate.key === key)!;
+      assert.equal(weapon.observations.skins, 0, key);
+      assert.deepEqual(weapon.observations.animations, [], key);
+      assert.ok(weapon.observations.triangles > 0, key);
+      assert.deepEqual(weapon.attachments, [], key);
+      const scene = await readAssetBundleGltf(built.bundleDir, manifest, key, "default");
+      const json = JSON.parse(scene.gltf.toString("utf8"));
+      assert.deepEqual(json.nodes.map((node: any) => node.name).sort(), ["grip", piece].sort(), key);
+    }
   } finally {
     await rm(outDir, { recursive: true, force: true });
   }
