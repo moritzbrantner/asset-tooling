@@ -119,6 +119,12 @@ Use **Quaternius Medieval Village MegaKit** and **Fantasy Props MegaKit** as the
 
 Use these kits as **inspiration for our own original environment assets in the future**; their adoption does not establish them as a permanent asset dependency or mandate their exact visual style for future content. Creating original replacements is not a prerequisite for delivering [#118](https://github.com/moritzbrantner/asset-tooling/issues/118), and existing game/physics ownership boundaries remain unchanged.
 
+#### Decision 3.1.2 — Environments and props split by game like characters
+
+**Approved by owner:** 2026-10-17 (live steering session).
+
+Environment and prop style follows the consuming game, as Decision 1.1.4 does for characters: **cartoony** environments and props for **My Farm**, and the **humanlike-world** direction for **arpg and mmorpg**. The Quaternius MegaKits stay the Greyhaven starting point (Decision 3.1.1) and the inspiration for original scripted replacements (Decision 1.1.7).
+
 ## 4. Production-quality 2D game icons
 
 ### 4.1. Generated, reviewed ability artwork
