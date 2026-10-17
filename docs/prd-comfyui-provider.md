@@ -70,6 +70,8 @@ sha256sum "$M"/diffusion_models/*.safetensors "$M"/vae/*.safetensors "$M"/text_e
 
 The prepared workflows and the per-model pins live in `review/warden-icons/` (`workflow.flux2-klein-4b-icon.api.json`, `workflow.z-image-turbo-icon.api.json` and the `models` list of `candidates.json`). Both models are distilled for CFG 1, so they ignore negative prompts; their workflows take no `negativePrompt` injection, and style brief v2 states its exclusions in the positive prompt.
 
+**Warden set (Atlas 4.1.5).** The owner selected FLUX.2 [klein] 4B for the Warden icons and asked for margin-free close-ups. Style brief v3 (`briefs.v3.json`) frames every ability as a tight close-up whose subject fills the square. Manifest schema 3 groups candidates into `sets`: the tight-framed klein set `warden.v3.flux2-klein-tight` is current and shown first on the review page, and the v2 klein/Z-Image comparison and the SD 1.5 run stay there as collapsed, superseded history. Z-Image Turbo remains supported but is not used for this set.
+
 **Deprecated: Stable Diffusion 1.5.** It was the first real run (owner decision of 2026-10-16): `stable-diffusion-v1-5/stable-diffusion-v1-5` @ `451f4fe16113bff5a5d2269ed5ad43b0592e9a14`, `v1-5-pruned-emaonly.safetensors`, sha256 `6ce0161689b3853acaa03779ec93eafe75a02f4ced659bee03f50797806fa2fa`, 4,265,146,304 B, CreativeML OpenRAIL-M. Its Warden candidates and workflow stay in `review/warden-icons/` as history, marked deprecated. The offline provider tests keep their small SD 1.5-shaped fixture graph, which is a protocol fixture and not a model pin.
 
 ### Usage
