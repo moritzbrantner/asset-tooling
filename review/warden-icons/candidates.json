@@ -1,13 +1,151 @@
 {
-  "schemaVersion": 1,
-  "briefs": {
-    "path": "briefs.json",
-    "sha256": "dc66e9d13ba8482c329aeb0861c343120b94c8495bfba56dc9d1dc1c4bfa9e3d"
-  },
+  "schemaVersion": 2,
+  "briefs": [
+    {
+      "path": "briefs.json",
+      "sha256": "dc66e9d13ba8482c329aeb0861c343120b94c8495bfba56dc9d1dc1c4bfa9e3d"
+    },
+    {
+      "path": "briefs.v2.json",
+      "sha256": "9152ba14a3e3e960953e29325ae18690dd868d674720e339c3503af4336fc7a0"
+    }
+  ],
+  "models": [
+    {
+      "id": "flux2-klein-4b",
+      "label": "FLUX.2 [klein] 4B",
+      "status": "supported",
+      "since": "2026-10-17",
+      "workflow": "workflow.flux2-klein-4b-icon.api.json",
+      "sampling": "1024×1024, 4 steps, euler, Flux2Scheduler, CFG 1 (distilled; no negative prompt)",
+      "files": {
+        "diffusionModel": {
+          "name": "flux-2-klein-4b-fp8.safetensors",
+          "sha256": "97ed34fe0567e436200f2faee3939b88f2b5d99f8af2a4dc16532c4245c0ccb6",
+          "byteLength": 4070624520,
+          "license": "apache-2.0",
+          "source": {
+            "provider": "huggingface",
+            "repository": "black-forest-labs/FLUX.2-klein-4b-fp8",
+            "revision": "5b4408e59397a4a37ccb46afe426d8ed86379441",
+            "path": "flux-2-klein-4b-fp8.safetensors"
+          },
+          "directory": "diffusion_models",
+          "upstream": "official FP8 release of black-forest-labs/FLUX.2-klein-4B (model card license: apache-2.0)"
+        },
+        "textEncoder": {
+          "name": "qwen_3_4b_fp8_mixed.safetensors",
+          "sha256": "72450b19758172c5a7273cf7de729d1c17e7f434a104a00167624cba94f68f15",
+          "byteLength": 5631994051,
+          "license": "apache-2.0",
+          "source": {
+            "provider": "huggingface",
+            "repository": "Comfy-Org/z_image_turbo",
+            "revision": "6fc90a3b1b653e935a0d175e260736de25b84df5",
+            "path": "split_files/text_encoders/qwen_3_4b_fp8_mixed.safetensors"
+          },
+          "directory": "text_encoders",
+          "upstream": "Qwen3-4B (Apache-2.0), ComfyUI fp8 mixed-precision repackaging shared by both models"
+        },
+        "vae": {
+          "name": "flux2-vae.safetensors",
+          "sha256": "868fe7b343cc8f3a19dbcfcafbc3d5f888802be3f89bd81b65b3621a066ce8f3",
+          "byteLength": 336211292,
+          "license": "apache-2.0",
+          "source": {
+            "provider": "huggingface",
+            "repository": "Comfy-Org/vae-text-encorder-for-flux-klein-4b",
+            "revision": "5f526678002e43af5551dadb73ce2e8c91b43afe",
+            "path": "split_files/vae/flux2-vae.safetensors"
+          },
+          "directory": "vae",
+          "upstream": "FLUX.2 VAE repackaged for ComfyUI from black-forest-labs/FLUX.2-klein-4B (model card license: apache-2.0)"
+        }
+      }
+    },
+    {
+      "id": "z-image-turbo",
+      "label": "Z-Image Turbo",
+      "status": "supported",
+      "since": "2026-10-17",
+      "workflow": "workflow.z-image-turbo-icon.api.json",
+      "sampling": "1024×1024, 8 steps, res_multistep/simple, AuraFlow shift 3, CFG 1 (turbo; no negative prompt)",
+      "files": {
+        "diffusionModel": {
+          "name": "z_image_turbo_bf16.safetensors",
+          "sha256": "2407613050b809ffdff18a4ac99af83ea6b95443ecebdf80e064a79c825574a6",
+          "byteLength": 12309866400,
+          "license": "apache-2.0",
+          "source": {
+            "provider": "huggingface",
+            "repository": "Comfy-Org/z_image_turbo",
+            "revision": "6fc90a3b1b653e935a0d175e260736de25b84df5",
+            "path": "split_files/diffusion_models/z_image_turbo_bf16.safetensors"
+          },
+          "directory": "diffusion_models",
+          "upstream": "Tongyi-MAI/Z-Image-Turbo@f332072aa78be7aecdf3ee76d5c247082da564a6 repackaged for ComfyUI (model card license: apache-2.0)"
+        },
+        "textEncoder": {
+          "name": "qwen_3_4b_fp8_mixed.safetensors",
+          "sha256": "72450b19758172c5a7273cf7de729d1c17e7f434a104a00167624cba94f68f15",
+          "byteLength": 5631994051,
+          "license": "apache-2.0",
+          "source": {
+            "provider": "huggingface",
+            "repository": "Comfy-Org/z_image_turbo",
+            "revision": "6fc90a3b1b653e935a0d175e260736de25b84df5",
+            "path": "split_files/text_encoders/qwen_3_4b_fp8_mixed.safetensors"
+          },
+          "directory": "text_encoders",
+          "upstream": "Qwen3-4B (Apache-2.0), ComfyUI fp8 mixed-precision repackaging shared by both models"
+        },
+        "vae": {
+          "name": "ae.safetensors",
+          "sha256": "afc8e28272cd15db3919bacdb6918ce9c1ed22e96cb12c4d5ed0fba823529e38",
+          "byteLength": 335304388,
+          "license": "apache-2.0",
+          "source": {
+            "provider": "huggingface",
+            "repository": "Comfy-Org/z_image_turbo",
+            "revision": "6fc90a3b1b653e935a0d175e260736de25b84df5",
+            "path": "split_files/vae/ae.safetensors"
+          },
+          "directory": "vae",
+          "upstream": "Z-Image Turbo VAE repackaged for ComfyUI (model card license: apache-2.0)"
+        }
+      }
+    },
+    {
+      "id": "sd15",
+      "label": "Stable Diffusion 1.5",
+      "status": "deprecated",
+      "deprecatedOn": "2026-10-17",
+      "note": "Deprecated by the owner on 2026-10-17 (Decision Atlas 4.1.4) in favour of FLUX.2 [klein] 4B and Z-Image Turbo. Its candidates stay as history; do not generate new ones.",
+      "workflow": "workflow.sd15-icon.api.json",
+      "sampling": "512×512, 24 steps, dpmpp_2m/karras, CFG 7.5",
+      "files": {
+        "checkpoint": {
+          "name": "v1-5-pruned-emaonly.safetensors",
+          "sha256": "6ce0161689b3853acaa03779ec93eafe75a02f4ced659bee03f50797806fa2fa",
+          "byteLength": 4265146304,
+          "license": "creativeml-openrail-m",
+          "source": {
+            "provider": "huggingface",
+            "repository": "stable-diffusion-v1-5/stable-diffusion-v1-5",
+            "revision": "451f4fe16113bff5a5d2269ed5ad43b0592e9a14",
+            "path": "v1-5-pruned-emaonly.safetensors"
+          },
+          "directory": "checkpoints"
+        }
+      }
+    }
+  ],
   "candidates": [
     {
       "id": "warden.ability.1.candidate.01",
       "ability": "warden.ability.1",
+      "model": "sd15",
+      "briefs": "briefs.json",
       "state": "candidate",
       "path": "candidates/warden.ability.1.candidate.01.png",
       "mediaType": "image/png",
@@ -47,6 +185,8 @@
     {
       "id": "warden.ability.2.candidate.01",
       "ability": "warden.ability.2",
+      "model": "sd15",
+      "briefs": "briefs.json",
       "state": "candidate",
       "path": "candidates/warden.ability.2.candidate.01.png",
       "mediaType": "image/png",
@@ -86,6 +226,8 @@
     {
       "id": "warden.ability.3.candidate.01",
       "ability": "warden.ability.3",
+      "model": "sd15",
+      "briefs": "briefs.json",
       "state": "candidate",
       "path": "candidates/warden.ability.3.candidate.01.png",
       "mediaType": "image/png",
@@ -125,6 +267,8 @@
     {
       "id": "warden.ability.1.candidate.02",
       "ability": "warden.ability.1",
+      "model": "sd15",
+      "briefs": "briefs.json",
       "state": "candidate",
       "path": "candidates/warden.ability.1.candidate.02.png",
       "mediaType": "image/png",
@@ -165,6 +309,8 @@
     {
       "id": "warden.ability.1.candidate.03",
       "ability": "warden.ability.1",
+      "model": "sd15",
+      "briefs": "briefs.json",
       "state": "candidate",
       "path": "candidates/warden.ability.1.candidate.03.png",
       "mediaType": "image/png",
@@ -205,6 +351,8 @@
     {
       "id": "warden.ability.1.candidate.04",
       "ability": "warden.ability.1",
+      "model": "sd15",
+      "briefs": "briefs.json",
       "state": "candidate",
       "path": "candidates/warden.ability.1.candidate.04.png",
       "mediaType": "image/png",
@@ -245,6 +393,8 @@
     {
       "id": "warden.ability.2.candidate.02",
       "ability": "warden.ability.2",
+      "model": "sd15",
+      "briefs": "briefs.json",
       "state": "candidate",
       "path": "candidates/warden.ability.2.candidate.02.png",
       "mediaType": "image/png",
@@ -285,6 +435,8 @@
     {
       "id": "warden.ability.2.candidate.03",
       "ability": "warden.ability.2",
+      "model": "sd15",
+      "briefs": "briefs.json",
       "state": "candidate",
       "path": "candidates/warden.ability.2.candidate.03.png",
       "mediaType": "image/png",
@@ -325,6 +477,8 @@
     {
       "id": "warden.ability.2.candidate.04",
       "ability": "warden.ability.2",
+      "model": "sd15",
+      "briefs": "briefs.json",
       "state": "candidate",
       "path": "candidates/warden.ability.2.candidate.04.png",
       "mediaType": "image/png",
@@ -365,6 +519,8 @@
     {
       "id": "warden.ability.3.candidate.02",
       "ability": "warden.ability.3",
+      "model": "sd15",
+      "briefs": "briefs.json",
       "state": "candidate",
       "path": "candidates/warden.ability.3.candidate.02.png",
       "mediaType": "image/png",
@@ -405,6 +561,8 @@
     {
       "id": "warden.ability.3.candidate.03",
       "ability": "warden.ability.3",
+      "model": "sd15",
+      "briefs": "briefs.json",
       "state": "candidate",
       "path": "candidates/warden.ability.3.candidate.03.png",
       "mediaType": "image/png",
@@ -445,6 +603,8 @@
     {
       "id": "warden.ability.3.candidate.04",
       "ability": "warden.ability.3",
+      "model": "sd15",
+      "briefs": "briefs.json",
       "state": "candidate",
       "path": "candidates/warden.ability.3.candidate.04.png",
       "mediaType": "image/png",
@@ -485,6 +645,8 @@
     {
       "id": "warden.ability.4.candidate.01",
       "ability": "warden.ability.4",
+      "model": "sd15",
+      "briefs": "briefs.json",
       "state": "candidate",
       "path": "candidates/warden.ability.4.candidate.01.png",
       "mediaType": "image/png",
@@ -525,6 +687,8 @@
     {
       "id": "warden.ability.4.candidate.02",
       "ability": "warden.ability.4",
+      "model": "sd15",
+      "briefs": "briefs.json",
       "state": "candidate",
       "path": "candidates/warden.ability.4.candidate.02.png",
       "mediaType": "image/png",
@@ -565,6 +729,8 @@
     {
       "id": "warden.ability.4.candidate.03",
       "ability": "warden.ability.4",
+      "model": "sd15",
+      "briefs": "briefs.json",
       "state": "candidate",
       "path": "candidates/warden.ability.4.candidate.03.png",
       "mediaType": "image/png",
@@ -599,6 +765,1302 @@
           "outputNode": "9",
           "outputFilename": "warden-icon_00026_.png",
           "device": "cuda:0 NVIDIA GeForce RTX 3060 Ti"
+        }
+      }
+    },
+    {
+      "id": "warden.ability.1.candidate.flux2-klein-01",
+      "ability": "warden.ability.1",
+      "model": "flux2-klein-4b",
+      "briefs": "briefs.v2.json",
+      "state": "candidate",
+      "path": "candidates/warden.ability.1.candidate.flux2-klein-01.png",
+      "mediaType": "image/png",
+      "sha256": "8f2d99f91cc97643cf1250bf0a66b1543e0fe067a631f61bac4e1901adc6444a",
+      "byteLength": 1216818,
+      "width": 1024,
+      "height": 1024,
+      "provenance": {
+        "provider": "comfyui",
+        "operation": "image.comfyui.generate@1",
+        "reproducibility": "approximate",
+        "workflow": {
+          "path": "workflow.flux2-klein-4b-icon.api.json",
+          "sha256": "c1a6ccd82388839d72fed7c5e3efb5b523b5a5df655f004f49e843458017517f"
+        },
+        "checkpoint": {
+          "byteLength": 4070624520,
+          "license": "apache-2.0",
+          "name": "flux-2-klein-4b-fp8.safetensors",
+          "sha256": "97ed34fe0567e436200f2faee3939b88f2b5d99f8af2a4dc16532c4245c0ccb6"
+        },
+        "textEncoder": {
+          "byteLength": 5631994051,
+          "license": "apache-2.0",
+          "name": "qwen_3_4b_fp8_mixed.safetensors",
+          "sha256": "72450b19758172c5a7273cf7de729d1c17e7f434a104a00167624cba94f68f15"
+        },
+        "vae": {
+          "byteLength": 336211292,
+          "license": "apache-2.0",
+          "name": "flux2-vae.safetensors",
+          "sha256": "868fe7b343cc8f3a19dbcfcafbc3d5f888802be3f89bd81b65b3621a066ce8f3"
+        },
+        "seed": 211101,
+        "positivePrompt": "A single gleaming longsword slashing diagonally downward from upper right to lower left, its blade glowing with golden light and trailing a bright golden slash streak and flying sparks. Square fantasy game ability icon painted in a dark, painterly digital oil style with visible brush strokes. One bold subject fills the centre of the square with a strong, simple silhouette that stays readable at a tiny size. Dramatic warm rim light, high contrast, polished steel and firelight tones against a dark smoky vignette background. No text, no letters, no frame, no border, no user interface and no people.",
+        "comfyui": {
+          "commit": "98cc0bf84b7cb1383654c5b402e7612d875d6d22",
+          "version": "0.41.0"
+        },
+        "device": "cuda:0 NVIDIA GeForce RTX 3060 Ti",
+        "pytorch": "2.14.1+cu130",
+        "run": {
+          "promptId": "535e6033-2114-4fa3-88ec-186b1451981b",
+          "submittedPromptSha256": "9f42afa966cde96a806bfc034abc71d6221757b8be4d759835848b28a963d92f",
+          "outputNode": "15",
+          "outputFilename": "warden-icon-flux2-klein_00001_.png"
+        }
+      }
+    },
+    {
+      "id": "warden.ability.1.candidate.flux2-klein-02",
+      "ability": "warden.ability.1",
+      "model": "flux2-klein-4b",
+      "briefs": "briefs.v2.json",
+      "state": "candidate",
+      "path": "candidates/warden.ability.1.candidate.flux2-klein-02.png",
+      "mediaType": "image/png",
+      "sha256": "c8865dc8b2f4b3b101e5e62aa6ec196222d8d9de16488f6339c85fcee7d12bfc",
+      "byteLength": 1304522,
+      "width": 1024,
+      "height": 1024,
+      "provenance": {
+        "provider": "comfyui",
+        "operation": "image.comfyui.generate@1",
+        "reproducibility": "approximate",
+        "workflow": {
+          "path": "workflow.flux2-klein-4b-icon.api.json",
+          "sha256": "c1a6ccd82388839d72fed7c5e3efb5b523b5a5df655f004f49e843458017517f"
+        },
+        "checkpoint": {
+          "byteLength": 4070624520,
+          "license": "apache-2.0",
+          "name": "flux-2-klein-4b-fp8.safetensors",
+          "sha256": "97ed34fe0567e436200f2faee3939b88f2b5d99f8af2a4dc16532c4245c0ccb6"
+        },
+        "textEncoder": {
+          "byteLength": 5631994051,
+          "license": "apache-2.0",
+          "name": "qwen_3_4b_fp8_mixed.safetensors",
+          "sha256": "72450b19758172c5a7273cf7de729d1c17e7f434a104a00167624cba94f68f15"
+        },
+        "vae": {
+          "byteLength": 336211292,
+          "license": "apache-2.0",
+          "name": "flux2-vae.safetensors",
+          "sha256": "868fe7b343cc8f3a19dbcfcafbc3d5f888802be3f89bd81b65b3621a066ce8f3"
+        },
+        "seed": 211102,
+        "positivePrompt": "A single gleaming longsword slashing diagonally downward from upper right to lower left, its blade glowing with golden light and trailing a bright golden slash streak and flying sparks. Square fantasy game ability icon painted in a dark, painterly digital oil style with visible brush strokes. One bold subject fills the centre of the square with a strong, simple silhouette that stays readable at a tiny size. Dramatic warm rim light, high contrast, polished steel and firelight tones against a dark smoky vignette background. No text, no letters, no frame, no border, no user interface and no people.",
+        "comfyui": {
+          "commit": "98cc0bf84b7cb1383654c5b402e7612d875d6d22",
+          "version": "0.41.0"
+        },
+        "device": "cuda:0 NVIDIA GeForce RTX 3060 Ti",
+        "pytorch": "2.14.1+cu130",
+        "run": {
+          "promptId": "78026013-5b64-42d0-8653-87c6f2a4b6bb",
+          "submittedPromptSha256": "39de415ea14f25b4748ae3fc5b5a3be28143cca4ce8deca3584f000959a3f3c4",
+          "outputNode": "15",
+          "outputFilename": "warden-icon-flux2-klein_00002_.png"
+        }
+      }
+    },
+    {
+      "id": "warden.ability.1.candidate.flux2-klein-03",
+      "ability": "warden.ability.1",
+      "model": "flux2-klein-4b",
+      "briefs": "briefs.v2.json",
+      "state": "candidate",
+      "path": "candidates/warden.ability.1.candidate.flux2-klein-03.png",
+      "mediaType": "image/png",
+      "sha256": "fd7178de5bb4cb109709461b27af195229f7db42ef416afbf75ce1ef1a68a151",
+      "byteLength": 1309196,
+      "width": 1024,
+      "height": 1024,
+      "provenance": {
+        "provider": "comfyui",
+        "operation": "image.comfyui.generate@1",
+        "reproducibility": "approximate",
+        "workflow": {
+          "path": "workflow.flux2-klein-4b-icon.api.json",
+          "sha256": "c1a6ccd82388839d72fed7c5e3efb5b523b5a5df655f004f49e843458017517f"
+        },
+        "checkpoint": {
+          "byteLength": 4070624520,
+          "license": "apache-2.0",
+          "name": "flux-2-klein-4b-fp8.safetensors",
+          "sha256": "97ed34fe0567e436200f2faee3939b88f2b5d99f8af2a4dc16532c4245c0ccb6"
+        },
+        "textEncoder": {
+          "byteLength": 5631994051,
+          "license": "apache-2.0",
+          "name": "qwen_3_4b_fp8_mixed.safetensors",
+          "sha256": "72450b19758172c5a7273cf7de729d1c17e7f434a104a00167624cba94f68f15"
+        },
+        "vae": {
+          "byteLength": 336211292,
+          "license": "apache-2.0",
+          "name": "flux2-vae.safetensors",
+          "sha256": "868fe7b343cc8f3a19dbcfcafbc3d5f888802be3f89bd81b65b3621a066ce8f3"
+        },
+        "seed": 211105,
+        "positivePrompt": "A single gleaming longsword slashing diagonally downward from upper right to lower left, its blade glowing with golden light and trailing a bright golden slash streak and flying sparks. Square fantasy game ability icon painted in a dark, painterly digital oil style with visible brush strokes. One bold subject fills the centre of the square with a strong, simple silhouette that stays readable at a tiny size. Dramatic warm rim light, high contrast, polished steel and firelight tones against a dark smoky vignette background. No text, no letters, no frame, no border, no user interface and no people.",
+        "comfyui": {
+          "commit": "98cc0bf84b7cb1383654c5b402e7612d875d6d22",
+          "version": "0.41.0"
+        },
+        "device": "cuda:0 NVIDIA GeForce RTX 3060 Ti",
+        "pytorch": "2.14.1+cu130",
+        "run": {
+          "promptId": "4e6682ae-8635-4fa0-b574-0a38b37ef497",
+          "submittedPromptSha256": "7f1cd31e019910f20f10971b23d6b61b729d9f2cccdec828403e11f7b128e89d",
+          "outputNode": "15",
+          "outputFilename": "warden-icon-flux2-klein_00005_.png"
+        }
+      }
+    },
+    {
+      "id": "warden.ability.2.candidate.flux2-klein-01",
+      "ability": "warden.ability.2",
+      "model": "flux2-klein-4b",
+      "briefs": "briefs.v2.json",
+      "state": "candidate",
+      "path": "candidates/warden.ability.2.candidate.flux2-klein-01.png",
+      "mediaType": "image/png",
+      "sha256": "69eb67b2777595414f5e74724b48646fd1e83175f271c5f9ad8e21a1ef70f437",
+      "byteLength": 1621414,
+      "width": 1024,
+      "height": 1024,
+      "provenance": {
+        "provider": "comfyui",
+        "operation": "image.comfyui.generate@1",
+        "reproducibility": "approximate",
+        "workflow": {
+          "path": "workflow.flux2-klein-4b-icon.api.json",
+          "sha256": "c1a6ccd82388839d72fed7c5e3efb5b523b5a5df655f004f49e843458017517f"
+        },
+        "checkpoint": {
+          "byteLength": 4070624520,
+          "license": "apache-2.0",
+          "name": "flux-2-klein-4b-fp8.safetensors",
+          "sha256": "97ed34fe0567e436200f2faee3939b88f2b5d99f8af2a4dc16532c4245c0ccb6"
+        },
+        "textEncoder": {
+          "byteLength": 5631994051,
+          "license": "apache-2.0",
+          "name": "qwen_3_4b_fp8_mixed.safetensors",
+          "sha256": "72450b19758172c5a7273cf7de729d1c17e7f434a104a00167624cba94f68f15"
+        },
+        "vae": {
+          "byteLength": 336211292,
+          "license": "apache-2.0",
+          "name": "flux2-vae.safetensors",
+          "sha256": "868fe7b343cc8f3a19dbcfcafbc3d5f888802be3f89bd81b65b3621a066ce8f3"
+        },
+        "seed": 211201,
+        "positivePrompt": "A heavy round steel shield with a riveted central boss, seen from the front, slamming forward into a radial shockwave of impact with cracking orange sparks bursting from its rim. Square fantasy game ability icon painted in a dark, painterly digital oil style with visible brush strokes. One bold subject fills the centre of the square with a strong, simple silhouette that stays readable at a tiny size. Dramatic warm rim light, high contrast, polished steel and firelight tones against a dark smoky vignette background. No text, no letters, no frame, no border, no user interface and no people.",
+        "comfyui": {
+          "commit": "98cc0bf84b7cb1383654c5b402e7612d875d6d22",
+          "version": "0.41.0"
+        },
+        "device": "cuda:0 NVIDIA GeForce RTX 3060 Ti",
+        "pytorch": "2.14.1+cu130",
+        "run": {
+          "promptId": "a1b0881d-ca5e-451b-b6e7-adcfdf3c29a4",
+          "submittedPromptSha256": "66020c41333f3d6c98ec5d3b5379f9dd304be3006725cf62a2260f1e1e75d611",
+          "outputNode": "15",
+          "outputFilename": "warden-icon-flux2-klein_00007_.png"
+        }
+      }
+    },
+    {
+      "id": "warden.ability.2.candidate.flux2-klein-02",
+      "ability": "warden.ability.2",
+      "model": "flux2-klein-4b",
+      "briefs": "briefs.v2.json",
+      "state": "candidate",
+      "path": "candidates/warden.ability.2.candidate.flux2-klein-02.png",
+      "mediaType": "image/png",
+      "sha256": "bc4bfcb53fd866d5213aa76446eafc0b0e8e4f7a58cc6d567ec0170399f07bc3",
+      "byteLength": 1570518,
+      "width": 1024,
+      "height": 1024,
+      "provenance": {
+        "provider": "comfyui",
+        "operation": "image.comfyui.generate@1",
+        "reproducibility": "approximate",
+        "workflow": {
+          "path": "workflow.flux2-klein-4b-icon.api.json",
+          "sha256": "c1a6ccd82388839d72fed7c5e3efb5b523b5a5df655f004f49e843458017517f"
+        },
+        "checkpoint": {
+          "byteLength": 4070624520,
+          "license": "apache-2.0",
+          "name": "flux-2-klein-4b-fp8.safetensors",
+          "sha256": "97ed34fe0567e436200f2faee3939b88f2b5d99f8af2a4dc16532c4245c0ccb6"
+        },
+        "textEncoder": {
+          "byteLength": 5631994051,
+          "license": "apache-2.0",
+          "name": "qwen_3_4b_fp8_mixed.safetensors",
+          "sha256": "72450b19758172c5a7273cf7de729d1c17e7f434a104a00167624cba94f68f15"
+        },
+        "vae": {
+          "byteLength": 336211292,
+          "license": "apache-2.0",
+          "name": "flux2-vae.safetensors",
+          "sha256": "868fe7b343cc8f3a19dbcfcafbc3d5f888802be3f89bd81b65b3621a066ce8f3"
+        },
+        "seed": 211203,
+        "positivePrompt": "A heavy round steel shield with a riveted central boss, seen from the front, slamming forward into a radial shockwave of impact with cracking orange sparks bursting from its rim. Square fantasy game ability icon painted in a dark, painterly digital oil style with visible brush strokes. One bold subject fills the centre of the square with a strong, simple silhouette that stays readable at a tiny size. Dramatic warm rim light, high contrast, polished steel and firelight tones against a dark smoky vignette background. No text, no letters, no frame, no border, no user interface and no people.",
+        "comfyui": {
+          "commit": "98cc0bf84b7cb1383654c5b402e7612d875d6d22",
+          "version": "0.41.0"
+        },
+        "device": "cuda:0 NVIDIA GeForce RTX 3060 Ti",
+        "pytorch": "2.14.1+cu130",
+        "run": {
+          "promptId": "8411c0db-5d4a-4524-8a74-b3fa8bef6bd9",
+          "submittedPromptSha256": "0c9e3fc2bf0b2025dfceacfbdb617af3ef09986b7223a5d7dacbafe7509aa699",
+          "outputNode": "15",
+          "outputFilename": "warden-icon-flux2-klein_00009_.png"
+        }
+      }
+    },
+    {
+      "id": "warden.ability.2.candidate.flux2-klein-03",
+      "ability": "warden.ability.2",
+      "model": "flux2-klein-4b",
+      "briefs": "briefs.v2.json",
+      "state": "candidate",
+      "path": "candidates/warden.ability.2.candidate.flux2-klein-03.png",
+      "mediaType": "image/png",
+      "sha256": "f3e5578ded5482017d09dbf23db5925d506b7ff8d9718e9b606520da76e22e3c",
+      "byteLength": 1486930,
+      "width": 1024,
+      "height": 1024,
+      "provenance": {
+        "provider": "comfyui",
+        "operation": "image.comfyui.generate@1",
+        "reproducibility": "approximate",
+        "workflow": {
+          "path": "workflow.flux2-klein-4b-icon.api.json",
+          "sha256": "c1a6ccd82388839d72fed7c5e3efb5b523b5a5df655f004f49e843458017517f"
+        },
+        "checkpoint": {
+          "byteLength": 4070624520,
+          "license": "apache-2.0",
+          "name": "flux-2-klein-4b-fp8.safetensors",
+          "sha256": "97ed34fe0567e436200f2faee3939b88f2b5d99f8af2a4dc16532c4245c0ccb6"
+        },
+        "textEncoder": {
+          "byteLength": 5631994051,
+          "license": "apache-2.0",
+          "name": "qwen_3_4b_fp8_mixed.safetensors",
+          "sha256": "72450b19758172c5a7273cf7de729d1c17e7f434a104a00167624cba94f68f15"
+        },
+        "vae": {
+          "byteLength": 336211292,
+          "license": "apache-2.0",
+          "name": "flux2-vae.safetensors",
+          "sha256": "868fe7b343cc8f3a19dbcfcafbc3d5f888802be3f89bd81b65b3621a066ce8f3"
+        },
+        "seed": 211205,
+        "positivePrompt": "A heavy round steel shield with a riveted central boss, seen from the front, slamming forward into a radial shockwave of impact with cracking orange sparks bursting from its rim. Square fantasy game ability icon painted in a dark, painterly digital oil style with visible brush strokes. One bold subject fills the centre of the square with a strong, simple silhouette that stays readable at a tiny size. Dramatic warm rim light, high contrast, polished steel and firelight tones against a dark smoky vignette background. No text, no letters, no frame, no border, no user interface and no people.",
+        "comfyui": {
+          "commit": "98cc0bf84b7cb1383654c5b402e7612d875d6d22",
+          "version": "0.41.0"
+        },
+        "device": "cuda:0 NVIDIA GeForce RTX 3060 Ti",
+        "pytorch": "2.14.1+cu130",
+        "run": {
+          "promptId": "d988e90a-fa12-473c-8a2e-f59b92f16ca1",
+          "submittedPromptSha256": "3497a8d902eb8c6aba2f3542a913ae979bc5da1aa2a2940189e08f4077dc197f",
+          "outputNode": "15",
+          "outputFilename": "warden-icon-flux2-klein_00011_.png"
+        }
+      }
+    },
+    {
+      "id": "warden.ability.3.candidate.flux2-klein-01",
+      "ability": "warden.ability.3",
+      "model": "flux2-klein-4b",
+      "briefs": "briefs.v2.json",
+      "state": "candidate",
+      "path": "candidates/warden.ability.3.candidate.flux2-klein-01.png",
+      "mediaType": "image/png",
+      "sha256": "39d0ddc726a5e477a3194d26ee15ce8356ff9ebd5f0fd6b6a1bf18ddae3d80b5",
+      "byteLength": 1210483,
+      "width": 1024,
+      "height": 1024,
+      "provenance": {
+        "provider": "comfyui",
+        "operation": "image.comfyui.generate@1",
+        "reproducibility": "approximate",
+        "workflow": {
+          "path": "workflow.flux2-klein-4b-icon.api.json",
+          "sha256": "c1a6ccd82388839d72fed7c5e3efb5b523b5a5df655f004f49e843458017517f"
+        },
+        "checkpoint": {
+          "byteLength": 4070624520,
+          "license": "apache-2.0",
+          "name": "flux-2-klein-4b-fp8.safetensors",
+          "sha256": "97ed34fe0567e436200f2faee3939b88f2b5d99f8af2a4dc16532c4245c0ccb6"
+        },
+        "textEncoder": {
+          "byteLength": 5631994051,
+          "license": "apache-2.0",
+          "name": "qwen_3_4b_fp8_mixed.safetensors",
+          "sha256": "72450b19758172c5a7273cf7de729d1c17e7f434a104a00167624cba94f68f15"
+        },
+        "vae": {
+          "byteLength": 336211292,
+          "license": "apache-2.0",
+          "name": "flux2-vae.safetensors",
+          "sha256": "868fe7b343cc8f3a19dbcfcafbc3d5f888802be3f89bd81b65b3621a066ce8f3"
+        },
+        "seed": 211301,
+        "positivePrompt": "A curved ivory war horn with bronze bands, shown whole and large in the foreground, its bell blasting glowing golden rings of sound outward, with a tattered red war banner behind it. Square fantasy game ability icon painted in a dark, painterly digital oil style with visible brush strokes. One bold subject fills the centre of the square with a strong, simple silhouette that stays readable at a tiny size. Dramatic warm rim light, high contrast, polished steel and firelight tones against a dark smoky vignette background. No text, no letters, no frame, no border, no user interface and no people.",
+        "comfyui": {
+          "commit": "98cc0bf84b7cb1383654c5b402e7612d875d6d22",
+          "version": "0.41.0"
+        },
+        "device": "cuda:0 NVIDIA GeForce RTX 3060 Ti",
+        "pytorch": "2.14.1+cu130",
+        "run": {
+          "promptId": "101ddd53-5268-4ead-9664-ceabbc3934c9",
+          "submittedPromptSha256": "90f2fbe9efbc648b0d30c4b4790df76f5c176a2438c1c57101573ac7b14cb71d",
+          "outputNode": "15",
+          "outputFilename": "warden-icon-flux2-klein_00013_.png"
+        }
+      }
+    },
+    {
+      "id": "warden.ability.3.candidate.flux2-klein-02",
+      "ability": "warden.ability.3",
+      "model": "flux2-klein-4b",
+      "briefs": "briefs.v2.json",
+      "state": "candidate",
+      "path": "candidates/warden.ability.3.candidate.flux2-klein-02.png",
+      "mediaType": "image/png",
+      "sha256": "26e29b0012573aedb7f5eee38aaa75655c7be17915807c10e21a43f912cebabc",
+      "byteLength": 1283267,
+      "width": 1024,
+      "height": 1024,
+      "provenance": {
+        "provider": "comfyui",
+        "operation": "image.comfyui.generate@1",
+        "reproducibility": "approximate",
+        "workflow": {
+          "path": "workflow.flux2-klein-4b-icon.api.json",
+          "sha256": "c1a6ccd82388839d72fed7c5e3efb5b523b5a5df655f004f49e843458017517f"
+        },
+        "checkpoint": {
+          "byteLength": 4070624520,
+          "license": "apache-2.0",
+          "name": "flux-2-klein-4b-fp8.safetensors",
+          "sha256": "97ed34fe0567e436200f2faee3939b88f2b5d99f8af2a4dc16532c4245c0ccb6"
+        },
+        "textEncoder": {
+          "byteLength": 5631994051,
+          "license": "apache-2.0",
+          "name": "qwen_3_4b_fp8_mixed.safetensors",
+          "sha256": "72450b19758172c5a7273cf7de729d1c17e7f434a104a00167624cba94f68f15"
+        },
+        "vae": {
+          "byteLength": 336211292,
+          "license": "apache-2.0",
+          "name": "flux2-vae.safetensors",
+          "sha256": "868fe7b343cc8f3a19dbcfcafbc3d5f888802be3f89bd81b65b3621a066ce8f3"
+        },
+        "seed": 211302,
+        "positivePrompt": "A curved ivory war horn with bronze bands, shown whole and large in the foreground, its bell blasting glowing golden rings of sound outward, with a tattered red war banner behind it. Square fantasy game ability icon painted in a dark, painterly digital oil style with visible brush strokes. One bold subject fills the centre of the square with a strong, simple silhouette that stays readable at a tiny size. Dramatic warm rim light, high contrast, polished steel and firelight tones against a dark smoky vignette background. No text, no letters, no frame, no border, no user interface and no people.",
+        "comfyui": {
+          "commit": "98cc0bf84b7cb1383654c5b402e7612d875d6d22",
+          "version": "0.41.0"
+        },
+        "device": "cuda:0 NVIDIA GeForce RTX 3060 Ti",
+        "pytorch": "2.14.1+cu130",
+        "run": {
+          "promptId": "17f7aa89-d4f0-4b4a-8b45-419d8b3981d0",
+          "submittedPromptSha256": "bc6e91899065893f5727c91ff789df41fb56a0bfa08a04b6d69b0ecc3d431b57",
+          "outputNode": "15",
+          "outputFilename": "warden-icon-flux2-klein_00014_.png"
+        }
+      }
+    },
+    {
+      "id": "warden.ability.3.candidate.flux2-klein-03",
+      "ability": "warden.ability.3",
+      "model": "flux2-klein-4b",
+      "briefs": "briefs.v2.json",
+      "state": "candidate",
+      "path": "candidates/warden.ability.3.candidate.flux2-klein-03.png",
+      "mediaType": "image/png",
+      "sha256": "159db7a0965a0d5714daf3223fb86bbe3f3a1682e7d02764c3d8361461521903",
+      "byteLength": 1212749,
+      "width": 1024,
+      "height": 1024,
+      "provenance": {
+        "provider": "comfyui",
+        "operation": "image.comfyui.generate@1",
+        "reproducibility": "approximate",
+        "workflow": {
+          "path": "workflow.flux2-klein-4b-icon.api.json",
+          "sha256": "c1a6ccd82388839d72fed7c5e3efb5b523b5a5df655f004f49e843458017517f"
+        },
+        "checkpoint": {
+          "byteLength": 4070624520,
+          "license": "apache-2.0",
+          "name": "flux-2-klein-4b-fp8.safetensors",
+          "sha256": "97ed34fe0567e436200f2faee3939b88f2b5d99f8af2a4dc16532c4245c0ccb6"
+        },
+        "textEncoder": {
+          "byteLength": 5631994051,
+          "license": "apache-2.0",
+          "name": "qwen_3_4b_fp8_mixed.safetensors",
+          "sha256": "72450b19758172c5a7273cf7de729d1c17e7f434a104a00167624cba94f68f15"
+        },
+        "vae": {
+          "byteLength": 336211292,
+          "license": "apache-2.0",
+          "name": "flux2-vae.safetensors",
+          "sha256": "868fe7b343cc8f3a19dbcfcafbc3d5f888802be3f89bd81b65b3621a066ce8f3"
+        },
+        "seed": 211303,
+        "positivePrompt": "A curved ivory war horn with bronze bands, shown whole and large in the foreground, its bell blasting glowing golden rings of sound outward, with a tattered red war banner behind it. Square fantasy game ability icon painted in a dark, painterly digital oil style with visible brush strokes. One bold subject fills the centre of the square with a strong, simple silhouette that stays readable at a tiny size. Dramatic warm rim light, high contrast, polished steel and firelight tones against a dark smoky vignette background. No text, no letters, no frame, no border, no user interface and no people.",
+        "comfyui": {
+          "commit": "98cc0bf84b7cb1383654c5b402e7612d875d6d22",
+          "version": "0.41.0"
+        },
+        "device": "cuda:0 NVIDIA GeForce RTX 3060 Ti",
+        "pytorch": "2.14.1+cu130",
+        "run": {
+          "promptId": "5fb5e17a-d166-4080-9eca-54115bcb6fbc",
+          "submittedPromptSha256": "60e4e64425072707641492af0f7e5f94245f94b9b1af33ed3ddcd72ad8ab9b65",
+          "outputNode": "15",
+          "outputFilename": "warden-icon-flux2-klein_00015_.png"
+        }
+      }
+    },
+    {
+      "id": "warden.ability.4.candidate.flux2-klein-01",
+      "ability": "warden.ability.4",
+      "model": "flux2-klein-4b",
+      "briefs": "briefs.v2.json",
+      "state": "candidate",
+      "path": "candidates/warden.ability.4.candidate.flux2-klein-01.png",
+      "mediaType": "image/png",
+      "sha256": "645c88cff63398b9f37bf4df978ca2f763811e4bb4ec03546ebcbf9a6a26d912",
+      "byteLength": 1127483,
+      "width": 1024,
+      "height": 1024,
+      "provenance": {
+        "provider": "comfyui",
+        "operation": "image.comfyui.generate@1",
+        "reproducibility": "approximate",
+        "workflow": {
+          "path": "workflow.flux2-klein-4b-icon.api.json",
+          "sha256": "c1a6ccd82388839d72fed7c5e3efb5b523b5a5df655f004f49e843458017517f"
+        },
+        "checkpoint": {
+          "byteLength": 4070624520,
+          "license": "apache-2.0",
+          "name": "flux-2-klein-4b-fp8.safetensors",
+          "sha256": "97ed34fe0567e436200f2faee3939b88f2b5d99f8af2a4dc16532c4245c0ccb6"
+        },
+        "textEncoder": {
+          "byteLength": 5631994051,
+          "license": "apache-2.0",
+          "name": "qwen_3_4b_fp8_mixed.safetensors",
+          "sha256": "72450b19758172c5a7273cf7de729d1c17e7f434a104a00167624cba94f68f15"
+        },
+        "vae": {
+          "byteLength": 336211292,
+          "license": "apache-2.0",
+          "name": "flux2-vae.safetensors",
+          "sha256": "868fe7b343cc8f3a19dbcfcafbc3d5f888802be3f89bd81b65b3621a066ce8f3"
+        },
+        "seed": 211402,
+        "positivePrompt": "A huge broad-bladed battle axe sweeping through a wide horizontal crescent arc, leaving a glowing crimson arc trail across the whole image. Square fantasy game ability icon painted in a dark, painterly digital oil style with visible brush strokes. One bold subject fills the centre of the square with a strong, simple silhouette that stays readable at a tiny size. Dramatic warm rim light, high contrast, polished steel and firelight tones against a dark smoky vignette background. No text, no letters, no frame, no border, no user interface and no people.",
+        "comfyui": {
+          "commit": "98cc0bf84b7cb1383654c5b402e7612d875d6d22",
+          "version": "0.41.0"
+        },
+        "device": "cuda:0 NVIDIA GeForce RTX 3060 Ti",
+        "pytorch": "2.14.1+cu130",
+        "run": {
+          "promptId": "fe887e3a-695d-4de3-a0cb-f63e821d7692",
+          "submittedPromptSha256": "2a34741a5251689e8aa96166a1fa4398a33868511d85d40b0190886416a6fab3",
+          "outputNode": "15",
+          "outputFilename": "warden-icon-flux2-klein_00020_.png"
+        }
+      }
+    },
+    {
+      "id": "warden.ability.4.candidate.flux2-klein-02",
+      "ability": "warden.ability.4",
+      "model": "flux2-klein-4b",
+      "briefs": "briefs.v2.json",
+      "state": "candidate",
+      "path": "candidates/warden.ability.4.candidate.flux2-klein-02.png",
+      "mediaType": "image/png",
+      "sha256": "310f8db5fbfdb3de07f7d445550198d91dc8f0ab42211c0f4bfef914ee005d06",
+      "byteLength": 1224807,
+      "width": 1024,
+      "height": 1024,
+      "provenance": {
+        "provider": "comfyui",
+        "operation": "image.comfyui.generate@1",
+        "reproducibility": "approximate",
+        "workflow": {
+          "path": "workflow.flux2-klein-4b-icon.api.json",
+          "sha256": "c1a6ccd82388839d72fed7c5e3efb5b523b5a5df655f004f49e843458017517f"
+        },
+        "checkpoint": {
+          "byteLength": 4070624520,
+          "license": "apache-2.0",
+          "name": "flux-2-klein-4b-fp8.safetensors",
+          "sha256": "97ed34fe0567e436200f2faee3939b88f2b5d99f8af2a4dc16532c4245c0ccb6"
+        },
+        "textEncoder": {
+          "byteLength": 5631994051,
+          "license": "apache-2.0",
+          "name": "qwen_3_4b_fp8_mixed.safetensors",
+          "sha256": "72450b19758172c5a7273cf7de729d1c17e7f434a104a00167624cba94f68f15"
+        },
+        "vae": {
+          "byteLength": 336211292,
+          "license": "apache-2.0",
+          "name": "flux2-vae.safetensors",
+          "sha256": "868fe7b343cc8f3a19dbcfcafbc3d5f888802be3f89bd81b65b3621a066ce8f3"
+        },
+        "seed": 211403,
+        "positivePrompt": "A huge broad-bladed battle axe sweeping through a wide horizontal crescent arc, leaving a glowing crimson arc trail across the whole image. Square fantasy game ability icon painted in a dark, painterly digital oil style with visible brush strokes. One bold subject fills the centre of the square with a strong, simple silhouette that stays readable at a tiny size. Dramatic warm rim light, high contrast, polished steel and firelight tones against a dark smoky vignette background. No text, no letters, no frame, no border, no user interface and no people.",
+        "comfyui": {
+          "commit": "98cc0bf84b7cb1383654c5b402e7612d875d6d22",
+          "version": "0.41.0"
+        },
+        "device": "cuda:0 NVIDIA GeForce RTX 3060 Ti",
+        "pytorch": "2.14.1+cu130",
+        "run": {
+          "promptId": "b36c06c1-0e15-4255-99cf-eceda4dfae10",
+          "submittedPromptSha256": "164082431bc844bfd2f3412ce879ab63eb0074f14f1b8bbd4f03f03b8afd52e2",
+          "outputNode": "15",
+          "outputFilename": "warden-icon-flux2-klein_00021_.png"
+        }
+      }
+    },
+    {
+      "id": "warden.ability.4.candidate.flux2-klein-03",
+      "ability": "warden.ability.4",
+      "model": "flux2-klein-4b",
+      "briefs": "briefs.v2.json",
+      "state": "candidate",
+      "path": "candidates/warden.ability.4.candidate.flux2-klein-03.png",
+      "mediaType": "image/png",
+      "sha256": "979a6809107d693e670fdf57922b2f7546347fa275dad1a6a738bbf5c5dcafa6",
+      "byteLength": 1341442,
+      "width": 1024,
+      "height": 1024,
+      "provenance": {
+        "provider": "comfyui",
+        "operation": "image.comfyui.generate@1",
+        "reproducibility": "approximate",
+        "workflow": {
+          "path": "workflow.flux2-klein-4b-icon.api.json",
+          "sha256": "c1a6ccd82388839d72fed7c5e3efb5b523b5a5df655f004f49e843458017517f"
+        },
+        "checkpoint": {
+          "byteLength": 4070624520,
+          "license": "apache-2.0",
+          "name": "flux-2-klein-4b-fp8.safetensors",
+          "sha256": "97ed34fe0567e436200f2faee3939b88f2b5d99f8af2a4dc16532c4245c0ccb6"
+        },
+        "textEncoder": {
+          "byteLength": 5631994051,
+          "license": "apache-2.0",
+          "name": "qwen_3_4b_fp8_mixed.safetensors",
+          "sha256": "72450b19758172c5a7273cf7de729d1c17e7f434a104a00167624cba94f68f15"
+        },
+        "vae": {
+          "byteLength": 336211292,
+          "license": "apache-2.0",
+          "name": "flux2-vae.safetensors",
+          "sha256": "868fe7b343cc8f3a19dbcfcafbc3d5f888802be3f89bd81b65b3621a066ce8f3"
+        },
+        "seed": 211405,
+        "positivePrompt": "A huge broad-bladed battle axe sweeping through a wide horizontal crescent arc, leaving a glowing crimson arc trail across the whole image. Square fantasy game ability icon painted in a dark, painterly digital oil style with visible brush strokes. One bold subject fills the centre of the square with a strong, simple silhouette that stays readable at a tiny size. Dramatic warm rim light, high contrast, polished steel and firelight tones against a dark smoky vignette background. No text, no letters, no frame, no border, no user interface and no people.",
+        "comfyui": {
+          "commit": "98cc0bf84b7cb1383654c5b402e7612d875d6d22",
+          "version": "0.41.0"
+        },
+        "device": "cuda:0 NVIDIA GeForce RTX 3060 Ti",
+        "pytorch": "2.14.1+cu130",
+        "run": {
+          "promptId": "6dd55ff8-dda5-4de6-be5a-10935a97719f",
+          "submittedPromptSha256": "fa2d5fbe4781ad8c465fb6ec504d6733a6a08f9a06629b8f5aa7de10c48c2fc5",
+          "outputNode": "15",
+          "outputFilename": "warden-icon-flux2-klein_00023_.png"
+        }
+      }
+    },
+    {
+      "id": "warden.ability.1.candidate.z-image-turbo-01",
+      "ability": "warden.ability.1",
+      "model": "z-image-turbo",
+      "briefs": "briefs.v2.json",
+      "state": "candidate",
+      "path": "candidates/warden.ability.1.candidate.z-image-turbo-01.png",
+      "mediaType": "image/png",
+      "sha256": "97c9b618373daf9ce733ed6a89d61d347d27038eb8d127fb56ac9bd4adb72d77",
+      "byteLength": 1020830,
+      "width": 1024,
+      "height": 1024,
+      "provenance": {
+        "provider": "comfyui",
+        "operation": "image.comfyui.generate@1",
+        "reproducibility": "approximate",
+        "workflow": {
+          "path": "workflow.z-image-turbo-icon.api.json",
+          "sha256": "704d1b1c332d918ecebe9d2dbc4c083ddc739b7219b48ca540dd4a9cedd006c1"
+        },
+        "checkpoint": {
+          "byteLength": 12309866400,
+          "license": "apache-2.0",
+          "name": "z_image_turbo_bf16.safetensors",
+          "sha256": "2407613050b809ffdff18a4ac99af83ea6b95443ecebdf80e064a79c825574a6"
+        },
+        "textEncoder": {
+          "byteLength": 5631994051,
+          "license": "apache-2.0",
+          "name": "qwen_3_4b_fp8_mixed.safetensors",
+          "sha256": "72450b19758172c5a7273cf7de729d1c17e7f434a104a00167624cba94f68f15"
+        },
+        "vae": {
+          "byteLength": 335304388,
+          "license": "apache-2.0",
+          "name": "ae.safetensors",
+          "sha256": "afc8e28272cd15db3919bacdb6918ce9c1ed22e96cb12c4d5ed0fba823529e38"
+        },
+        "seed": 211101,
+        "positivePrompt": "A single gleaming longsword slashing diagonally downward from upper right to lower left, its blade glowing with golden light and trailing a bright golden slash streak and flying sparks. Square fantasy game ability icon painted in a dark, painterly digital oil style with visible brush strokes. One bold subject fills the centre of the square with a strong, simple silhouette that stays readable at a tiny size. Dramatic warm rim light, high contrast, polished steel and firelight tones against a dark smoky vignette background. No text, no letters, no frame, no border, no user interface and no people.",
+        "comfyui": {
+          "commit": "98cc0bf84b7cb1383654c5b402e7612d875d6d22",
+          "version": "0.41.0"
+        },
+        "device": "cuda:0 NVIDIA GeForce RTX 3060 Ti",
+        "pytorch": "2.14.1+cu130",
+        "run": {
+          "promptId": "5287aa99-6515-47e5-9c78-b89aba3a882e",
+          "submittedPromptSha256": "5d04e7fd48a5d07232b31914595613ae6f7058e86a2e9cf10f3d78485361c288",
+          "outputNode": "10",
+          "outputFilename": "warden-icon-z-image-turbo_00001_.png"
+        }
+      }
+    },
+    {
+      "id": "warden.ability.1.candidate.z-image-turbo-02",
+      "ability": "warden.ability.1",
+      "model": "z-image-turbo",
+      "briefs": "briefs.v2.json",
+      "state": "candidate",
+      "path": "candidates/warden.ability.1.candidate.z-image-turbo-02.png",
+      "mediaType": "image/png",
+      "sha256": "d1ef26e4f92a850c90645bb4e41af5344f9a09cd5fb88a4eeacb7b620fddcc7d",
+      "byteLength": 1070010,
+      "width": 1024,
+      "height": 1024,
+      "provenance": {
+        "provider": "comfyui",
+        "operation": "image.comfyui.generate@1",
+        "reproducibility": "approximate",
+        "workflow": {
+          "path": "workflow.z-image-turbo-icon.api.json",
+          "sha256": "704d1b1c332d918ecebe9d2dbc4c083ddc739b7219b48ca540dd4a9cedd006c1"
+        },
+        "checkpoint": {
+          "byteLength": 12309866400,
+          "license": "apache-2.0",
+          "name": "z_image_turbo_bf16.safetensors",
+          "sha256": "2407613050b809ffdff18a4ac99af83ea6b95443ecebdf80e064a79c825574a6"
+        },
+        "textEncoder": {
+          "byteLength": 5631994051,
+          "license": "apache-2.0",
+          "name": "qwen_3_4b_fp8_mixed.safetensors",
+          "sha256": "72450b19758172c5a7273cf7de729d1c17e7f434a104a00167624cba94f68f15"
+        },
+        "vae": {
+          "byteLength": 335304388,
+          "license": "apache-2.0",
+          "name": "ae.safetensors",
+          "sha256": "afc8e28272cd15db3919bacdb6918ce9c1ed22e96cb12c4d5ed0fba823529e38"
+        },
+        "seed": 211103,
+        "positivePrompt": "A single gleaming longsword slashing diagonally downward from upper right to lower left, its blade glowing with golden light and trailing a bright golden slash streak and flying sparks. Square fantasy game ability icon painted in a dark, painterly digital oil style with visible brush strokes. One bold subject fills the centre of the square with a strong, simple silhouette that stays readable at a tiny size. Dramatic warm rim light, high contrast, polished steel and firelight tones against a dark smoky vignette background. No text, no letters, no frame, no border, no user interface and no people.",
+        "comfyui": {
+          "commit": "98cc0bf84b7cb1383654c5b402e7612d875d6d22",
+          "version": "0.41.0"
+        },
+        "device": "cuda:0 NVIDIA GeForce RTX 3060 Ti",
+        "pytorch": "2.14.1+cu130",
+        "run": {
+          "promptId": "1f4ed6c2-66bc-4573-be73-f0a7d751d937",
+          "submittedPromptSha256": "991f20c1d0d09f26d25d9558702d47926cb4d134fd2960da1e8e283dd14a0bb9",
+          "outputNode": "10",
+          "outputFilename": "warden-icon-z-image-turbo_00003_.png"
+        }
+      }
+    },
+    {
+      "id": "warden.ability.1.candidate.z-image-turbo-03",
+      "ability": "warden.ability.1",
+      "model": "z-image-turbo",
+      "briefs": "briefs.v2.json",
+      "state": "candidate",
+      "path": "candidates/warden.ability.1.candidate.z-image-turbo-03.png",
+      "mediaType": "image/png",
+      "sha256": "b983caa49d6f48f7610ce4008d2487a054f1db32d6fff6eaa72ad9be3ce076dc",
+      "byteLength": 999778,
+      "width": 1024,
+      "height": 1024,
+      "provenance": {
+        "provider": "comfyui",
+        "operation": "image.comfyui.generate@1",
+        "reproducibility": "approximate",
+        "workflow": {
+          "path": "workflow.z-image-turbo-icon.api.json",
+          "sha256": "704d1b1c332d918ecebe9d2dbc4c083ddc739b7219b48ca540dd4a9cedd006c1"
+        },
+        "checkpoint": {
+          "byteLength": 12309866400,
+          "license": "apache-2.0",
+          "name": "z_image_turbo_bf16.safetensors",
+          "sha256": "2407613050b809ffdff18a4ac99af83ea6b95443ecebdf80e064a79c825574a6"
+        },
+        "textEncoder": {
+          "byteLength": 5631994051,
+          "license": "apache-2.0",
+          "name": "qwen_3_4b_fp8_mixed.safetensors",
+          "sha256": "72450b19758172c5a7273cf7de729d1c17e7f434a104a00167624cba94f68f15"
+        },
+        "vae": {
+          "byteLength": 335304388,
+          "license": "apache-2.0",
+          "name": "ae.safetensors",
+          "sha256": "afc8e28272cd15db3919bacdb6918ce9c1ed22e96cb12c4d5ed0fba823529e38"
+        },
+        "seed": 211106,
+        "positivePrompt": "A single gleaming longsword slashing diagonally downward from upper right to lower left, its blade glowing with golden light and trailing a bright golden slash streak and flying sparks. Square fantasy game ability icon painted in a dark, painterly digital oil style with visible brush strokes. One bold subject fills the centre of the square with a strong, simple silhouette that stays readable at a tiny size. Dramatic warm rim light, high contrast, polished steel and firelight tones against a dark smoky vignette background. No text, no letters, no frame, no border, no user interface and no people.",
+        "comfyui": {
+          "commit": "98cc0bf84b7cb1383654c5b402e7612d875d6d22",
+          "version": "0.41.0"
+        },
+        "device": "cuda:0 NVIDIA GeForce RTX 3060 Ti",
+        "pytorch": "2.14.1+cu130",
+        "run": {
+          "promptId": "dce7e813-3231-4150-9ff0-3fb3c212a5a7",
+          "submittedPromptSha256": "ddf63bb870b26512e01eaff208589db6d4b5586336ee55081700b88326e026b7",
+          "outputNode": "10",
+          "outputFilename": "warden-icon-z-image-turbo_00006_.png"
+        }
+      }
+    },
+    {
+      "id": "warden.ability.2.candidate.z-image-turbo-01",
+      "ability": "warden.ability.2",
+      "model": "z-image-turbo",
+      "briefs": "briefs.v2.json",
+      "state": "candidate",
+      "path": "candidates/warden.ability.2.candidate.z-image-turbo-01.png",
+      "mediaType": "image/png",
+      "sha256": "43822a63f717ca7ec6ce3de99dc355d1317f8c2e7805f498a3553e81df0f0cf3",
+      "byteLength": 1216220,
+      "width": 1024,
+      "height": 1024,
+      "provenance": {
+        "provider": "comfyui",
+        "operation": "image.comfyui.generate@1",
+        "reproducibility": "approximate",
+        "workflow": {
+          "path": "workflow.z-image-turbo-icon.api.json",
+          "sha256": "704d1b1c332d918ecebe9d2dbc4c083ddc739b7219b48ca540dd4a9cedd006c1"
+        },
+        "checkpoint": {
+          "byteLength": 12309866400,
+          "license": "apache-2.0",
+          "name": "z_image_turbo_bf16.safetensors",
+          "sha256": "2407613050b809ffdff18a4ac99af83ea6b95443ecebdf80e064a79c825574a6"
+        },
+        "textEncoder": {
+          "byteLength": 5631994051,
+          "license": "apache-2.0",
+          "name": "qwen_3_4b_fp8_mixed.safetensors",
+          "sha256": "72450b19758172c5a7273cf7de729d1c17e7f434a104a00167624cba94f68f15"
+        },
+        "vae": {
+          "byteLength": 335304388,
+          "license": "apache-2.0",
+          "name": "ae.safetensors",
+          "sha256": "afc8e28272cd15db3919bacdb6918ce9c1ed22e96cb12c4d5ed0fba823529e38"
+        },
+        "seed": 211201,
+        "positivePrompt": "A heavy round steel shield with a riveted central boss, seen from the front, slamming forward into a radial shockwave of impact with cracking orange sparks bursting from its rim. Square fantasy game ability icon painted in a dark, painterly digital oil style with visible brush strokes. One bold subject fills the centre of the square with a strong, simple silhouette that stays readable at a tiny size. Dramatic warm rim light, high contrast, polished steel and firelight tones against a dark smoky vignette background. No text, no letters, no frame, no border, no user interface and no people.",
+        "comfyui": {
+          "commit": "98cc0bf84b7cb1383654c5b402e7612d875d6d22",
+          "version": "0.41.0"
+        },
+        "device": "cuda:0 NVIDIA GeForce RTX 3060 Ti",
+        "pytorch": "2.14.1+cu130",
+        "run": {
+          "promptId": "e362b7a0-2609-471f-9a26-86b91113c951",
+          "submittedPromptSha256": "05470969c5084436ff39484587be06dc22e8bae26df3ec6bca6ac34615dc1dee",
+          "outputNode": "10",
+          "outputFilename": "warden-icon-z-image-turbo_00007_.png"
+        }
+      }
+    },
+    {
+      "id": "warden.ability.2.candidate.z-image-turbo-02",
+      "ability": "warden.ability.2",
+      "model": "z-image-turbo",
+      "briefs": "briefs.v2.json",
+      "state": "candidate",
+      "path": "candidates/warden.ability.2.candidate.z-image-turbo-02.png",
+      "mediaType": "image/png",
+      "sha256": "755aeda62eeccbc95235adfb27f3454ad5c8372dbdf332af6507ea847c750ec6",
+      "byteLength": 1178273,
+      "width": 1024,
+      "height": 1024,
+      "provenance": {
+        "provider": "comfyui",
+        "operation": "image.comfyui.generate@1",
+        "reproducibility": "approximate",
+        "workflow": {
+          "path": "workflow.z-image-turbo-icon.api.json",
+          "sha256": "704d1b1c332d918ecebe9d2dbc4c083ddc739b7219b48ca540dd4a9cedd006c1"
+        },
+        "checkpoint": {
+          "byteLength": 12309866400,
+          "license": "apache-2.0",
+          "name": "z_image_turbo_bf16.safetensors",
+          "sha256": "2407613050b809ffdff18a4ac99af83ea6b95443ecebdf80e064a79c825574a6"
+        },
+        "textEncoder": {
+          "byteLength": 5631994051,
+          "license": "apache-2.0",
+          "name": "qwen_3_4b_fp8_mixed.safetensors",
+          "sha256": "72450b19758172c5a7273cf7de729d1c17e7f434a104a00167624cba94f68f15"
+        },
+        "vae": {
+          "byteLength": 335304388,
+          "license": "apache-2.0",
+          "name": "ae.safetensors",
+          "sha256": "afc8e28272cd15db3919bacdb6918ce9c1ed22e96cb12c4d5ed0fba823529e38"
+        },
+        "seed": 211203,
+        "positivePrompt": "A heavy round steel shield with a riveted central boss, seen from the front, slamming forward into a radial shockwave of impact with cracking orange sparks bursting from its rim. Square fantasy game ability icon painted in a dark, painterly digital oil style with visible brush strokes. One bold subject fills the centre of the square with a strong, simple silhouette that stays readable at a tiny size. Dramatic warm rim light, high contrast, polished steel and firelight tones against a dark smoky vignette background. No text, no letters, no frame, no border, no user interface and no people.",
+        "comfyui": {
+          "commit": "98cc0bf84b7cb1383654c5b402e7612d875d6d22",
+          "version": "0.41.0"
+        },
+        "device": "cuda:0 NVIDIA GeForce RTX 3060 Ti",
+        "pytorch": "2.14.1+cu130",
+        "run": {
+          "promptId": "57397e3e-700f-4810-ac9e-96c960fbc7dd",
+          "submittedPromptSha256": "4d11cd8032ce76b4cfe86a60926f7fe2268487b27e40a88861e412f996dbc0da",
+          "outputNode": "10",
+          "outputFilename": "warden-icon-z-image-turbo_00009_.png"
+        }
+      }
+    },
+    {
+      "id": "warden.ability.2.candidate.z-image-turbo-03",
+      "ability": "warden.ability.2",
+      "model": "z-image-turbo",
+      "briefs": "briefs.v2.json",
+      "state": "candidate",
+      "path": "candidates/warden.ability.2.candidate.z-image-turbo-03.png",
+      "mediaType": "image/png",
+      "sha256": "92d0ce4ebe5aea56eb797a70866c3414e1c62c03ccb9aa65d8e05846974c41e9",
+      "byteLength": 1251172,
+      "width": 1024,
+      "height": 1024,
+      "provenance": {
+        "provider": "comfyui",
+        "operation": "image.comfyui.generate@1",
+        "reproducibility": "approximate",
+        "workflow": {
+          "path": "workflow.z-image-turbo-icon.api.json",
+          "sha256": "704d1b1c332d918ecebe9d2dbc4c083ddc739b7219b48ca540dd4a9cedd006c1"
+        },
+        "checkpoint": {
+          "byteLength": 12309866400,
+          "license": "apache-2.0",
+          "name": "z_image_turbo_bf16.safetensors",
+          "sha256": "2407613050b809ffdff18a4ac99af83ea6b95443ecebdf80e064a79c825574a6"
+        },
+        "textEncoder": {
+          "byteLength": 5631994051,
+          "license": "apache-2.0",
+          "name": "qwen_3_4b_fp8_mixed.safetensors",
+          "sha256": "72450b19758172c5a7273cf7de729d1c17e7f434a104a00167624cba94f68f15"
+        },
+        "vae": {
+          "byteLength": 335304388,
+          "license": "apache-2.0",
+          "name": "ae.safetensors",
+          "sha256": "afc8e28272cd15db3919bacdb6918ce9c1ed22e96cb12c4d5ed0fba823529e38"
+        },
+        "seed": 211205,
+        "positivePrompt": "A heavy round steel shield with a riveted central boss, seen from the front, slamming forward into a radial shockwave of impact with cracking orange sparks bursting from its rim. Square fantasy game ability icon painted in a dark, painterly digital oil style with visible brush strokes. One bold subject fills the centre of the square with a strong, simple silhouette that stays readable at a tiny size. Dramatic warm rim light, high contrast, polished steel and firelight tones against a dark smoky vignette background. No text, no letters, no frame, no border, no user interface and no people.",
+        "comfyui": {
+          "commit": "98cc0bf84b7cb1383654c5b402e7612d875d6d22",
+          "version": "0.41.0"
+        },
+        "device": "cuda:0 NVIDIA GeForce RTX 3060 Ti",
+        "pytorch": "2.14.1+cu130",
+        "run": {
+          "promptId": "04b80e72-00df-4fad-a57a-8de675cc4189",
+          "submittedPromptSha256": "2e436d8bafbe72ff799d6797730d0dc16adbdf8480dae453e3d0de1b366f4b91",
+          "outputNode": "10",
+          "outputFilename": "warden-icon-z-image-turbo_00011_.png"
+        }
+      }
+    },
+    {
+      "id": "warden.ability.3.candidate.z-image-turbo-01",
+      "ability": "warden.ability.3",
+      "model": "z-image-turbo",
+      "briefs": "briefs.v2.json",
+      "state": "candidate",
+      "path": "candidates/warden.ability.3.candidate.z-image-turbo-01.png",
+      "mediaType": "image/png",
+      "sha256": "bcfaa74540180a8006bc59ae5eea32696ed8a1445ca0c14a8207d008234bc79a",
+      "byteLength": 1083829,
+      "width": 1024,
+      "height": 1024,
+      "provenance": {
+        "provider": "comfyui",
+        "operation": "image.comfyui.generate@1",
+        "reproducibility": "approximate",
+        "workflow": {
+          "path": "workflow.z-image-turbo-icon.api.json",
+          "sha256": "704d1b1c332d918ecebe9d2dbc4c083ddc739b7219b48ca540dd4a9cedd006c1"
+        },
+        "checkpoint": {
+          "byteLength": 12309866400,
+          "license": "apache-2.0",
+          "name": "z_image_turbo_bf16.safetensors",
+          "sha256": "2407613050b809ffdff18a4ac99af83ea6b95443ecebdf80e064a79c825574a6"
+        },
+        "textEncoder": {
+          "byteLength": 5631994051,
+          "license": "apache-2.0",
+          "name": "qwen_3_4b_fp8_mixed.safetensors",
+          "sha256": "72450b19758172c5a7273cf7de729d1c17e7f434a104a00167624cba94f68f15"
+        },
+        "vae": {
+          "byteLength": 335304388,
+          "license": "apache-2.0",
+          "name": "ae.safetensors",
+          "sha256": "afc8e28272cd15db3919bacdb6918ce9c1ed22e96cb12c4d5ed0fba823529e38"
+        },
+        "seed": 211302,
+        "positivePrompt": "A curved ivory war horn with bronze bands, shown whole and large in the foreground, its bell blasting glowing golden rings of sound outward, with a tattered red war banner behind it. Square fantasy game ability icon painted in a dark, painterly digital oil style with visible brush strokes. One bold subject fills the centre of the square with a strong, simple silhouette that stays readable at a tiny size. Dramatic warm rim light, high contrast, polished steel and firelight tones against a dark smoky vignette background. No text, no letters, no frame, no border, no user interface and no people.",
+        "comfyui": {
+          "commit": "98cc0bf84b7cb1383654c5b402e7612d875d6d22",
+          "version": "0.41.0"
+        },
+        "device": "cuda:0 NVIDIA GeForce RTX 3060 Ti",
+        "pytorch": "2.14.1+cu130",
+        "run": {
+          "promptId": "62c9f13e-a827-4b3c-aea8-23a5357a616d",
+          "submittedPromptSha256": "9d5bf77671c658610d1112e4a7c9af8b2ce6f8ff9c0560d03928324b65a7b841",
+          "outputNode": "10",
+          "outputFilename": "warden-icon-z-image-turbo_00014_.png"
+        }
+      }
+    },
+    {
+      "id": "warden.ability.3.candidate.z-image-turbo-02",
+      "ability": "warden.ability.3",
+      "model": "z-image-turbo",
+      "briefs": "briefs.v2.json",
+      "state": "candidate",
+      "path": "candidates/warden.ability.3.candidate.z-image-turbo-02.png",
+      "mediaType": "image/png",
+      "sha256": "4410dcb4821732bd2a6a49846a4a1149e6e268e1c7805195a41fdd8410a7a40a",
+      "byteLength": 1139461,
+      "width": 1024,
+      "height": 1024,
+      "provenance": {
+        "provider": "comfyui",
+        "operation": "image.comfyui.generate@1",
+        "reproducibility": "approximate",
+        "workflow": {
+          "path": "workflow.z-image-turbo-icon.api.json",
+          "sha256": "704d1b1c332d918ecebe9d2dbc4c083ddc739b7219b48ca540dd4a9cedd006c1"
+        },
+        "checkpoint": {
+          "byteLength": 12309866400,
+          "license": "apache-2.0",
+          "name": "z_image_turbo_bf16.safetensors",
+          "sha256": "2407613050b809ffdff18a4ac99af83ea6b95443ecebdf80e064a79c825574a6"
+        },
+        "textEncoder": {
+          "byteLength": 5631994051,
+          "license": "apache-2.0",
+          "name": "qwen_3_4b_fp8_mixed.safetensors",
+          "sha256": "72450b19758172c5a7273cf7de729d1c17e7f434a104a00167624cba94f68f15"
+        },
+        "vae": {
+          "byteLength": 335304388,
+          "license": "apache-2.0",
+          "name": "ae.safetensors",
+          "sha256": "afc8e28272cd15db3919bacdb6918ce9c1ed22e96cb12c4d5ed0fba823529e38"
+        },
+        "seed": 211304,
+        "positivePrompt": "A curved ivory war horn with bronze bands, shown whole and large in the foreground, its bell blasting glowing golden rings of sound outward, with a tattered red war banner behind it. Square fantasy game ability icon painted in a dark, painterly digital oil style with visible brush strokes. One bold subject fills the centre of the square with a strong, simple silhouette that stays readable at a tiny size. Dramatic warm rim light, high contrast, polished steel and firelight tones against a dark smoky vignette background. No text, no letters, no frame, no border, no user interface and no people.",
+        "comfyui": {
+          "commit": "98cc0bf84b7cb1383654c5b402e7612d875d6d22",
+          "version": "0.41.0"
+        },
+        "device": "cuda:0 NVIDIA GeForce RTX 3060 Ti",
+        "pytorch": "2.14.1+cu130",
+        "run": {
+          "promptId": "00bfaf2b-8c73-4f82-9160-f7ceff19accd",
+          "submittedPromptSha256": "7b6dccf3a734a3e3b45521b3bfa9afd8c15c2d03b815a86d0c4901025ed08496",
+          "outputNode": "10",
+          "outputFilename": "warden-icon-z-image-turbo_00016_.png"
+        }
+      }
+    },
+    {
+      "id": "warden.ability.3.candidate.z-image-turbo-03",
+      "ability": "warden.ability.3",
+      "model": "z-image-turbo",
+      "briefs": "briefs.v2.json",
+      "state": "candidate",
+      "path": "candidates/warden.ability.3.candidate.z-image-turbo-03.png",
+      "mediaType": "image/png",
+      "sha256": "297dcf62bc3fae49529d840d19788d50ce0a51ddd33af6addee9af9c74b892ca",
+      "byteLength": 1107291,
+      "width": 1024,
+      "height": 1024,
+      "provenance": {
+        "provider": "comfyui",
+        "operation": "image.comfyui.generate@1",
+        "reproducibility": "approximate",
+        "workflow": {
+          "path": "workflow.z-image-turbo-icon.api.json",
+          "sha256": "704d1b1c332d918ecebe9d2dbc4c083ddc739b7219b48ca540dd4a9cedd006c1"
+        },
+        "checkpoint": {
+          "byteLength": 12309866400,
+          "license": "apache-2.0",
+          "name": "z_image_turbo_bf16.safetensors",
+          "sha256": "2407613050b809ffdff18a4ac99af83ea6b95443ecebdf80e064a79c825574a6"
+        },
+        "textEncoder": {
+          "byteLength": 5631994051,
+          "license": "apache-2.0",
+          "name": "qwen_3_4b_fp8_mixed.safetensors",
+          "sha256": "72450b19758172c5a7273cf7de729d1c17e7f434a104a00167624cba94f68f15"
+        },
+        "vae": {
+          "byteLength": 335304388,
+          "license": "apache-2.0",
+          "name": "ae.safetensors",
+          "sha256": "afc8e28272cd15db3919bacdb6918ce9c1ed22e96cb12c4d5ed0fba823529e38"
+        },
+        "seed": 211306,
+        "positivePrompt": "A curved ivory war horn with bronze bands, shown whole and large in the foreground, its bell blasting glowing golden rings of sound outward, with a tattered red war banner behind it. Square fantasy game ability icon painted in a dark, painterly digital oil style with visible brush strokes. One bold subject fills the centre of the square with a strong, simple silhouette that stays readable at a tiny size. Dramatic warm rim light, high contrast, polished steel and firelight tones against a dark smoky vignette background. No text, no letters, no frame, no border, no user interface and no people.",
+        "comfyui": {
+          "commit": "98cc0bf84b7cb1383654c5b402e7612d875d6d22",
+          "version": "0.41.0"
+        },
+        "device": "cuda:0 NVIDIA GeForce RTX 3060 Ti",
+        "pytorch": "2.14.1+cu130",
+        "run": {
+          "promptId": "87b5a021-c0f6-4ecf-ad8f-9ae32870769d",
+          "submittedPromptSha256": "931bc14b589b3a64f511b9cc8f1a05af5f1f3da9fd8732175702c00b02054e72",
+          "outputNode": "10",
+          "outputFilename": "warden-icon-z-image-turbo_00018_.png"
+        }
+      }
+    },
+    {
+      "id": "warden.ability.4.candidate.z-image-turbo-01",
+      "ability": "warden.ability.4",
+      "model": "z-image-turbo",
+      "briefs": "briefs.v2.json",
+      "state": "candidate",
+      "path": "candidates/warden.ability.4.candidate.z-image-turbo-01.png",
+      "mediaType": "image/png",
+      "sha256": "8fb6a047755ad346a4f90b3b634e70adb1fcea92c77a5e9d3917bb4f23d03489",
+      "byteLength": 1178707,
+      "width": 1024,
+      "height": 1024,
+      "provenance": {
+        "provider": "comfyui",
+        "operation": "image.comfyui.generate@1",
+        "reproducibility": "approximate",
+        "workflow": {
+          "path": "workflow.z-image-turbo-icon.api.json",
+          "sha256": "704d1b1c332d918ecebe9d2dbc4c083ddc739b7219b48ca540dd4a9cedd006c1"
+        },
+        "checkpoint": {
+          "byteLength": 12309866400,
+          "license": "apache-2.0",
+          "name": "z_image_turbo_bf16.safetensors",
+          "sha256": "2407613050b809ffdff18a4ac99af83ea6b95443ecebdf80e064a79c825574a6"
+        },
+        "textEncoder": {
+          "byteLength": 5631994051,
+          "license": "apache-2.0",
+          "name": "qwen_3_4b_fp8_mixed.safetensors",
+          "sha256": "72450b19758172c5a7273cf7de729d1c17e7f434a104a00167624cba94f68f15"
+        },
+        "vae": {
+          "byteLength": 335304388,
+          "license": "apache-2.0",
+          "name": "ae.safetensors",
+          "sha256": "afc8e28272cd15db3919bacdb6918ce9c1ed22e96cb12c4d5ed0fba823529e38"
+        },
+        "seed": 211401,
+        "positivePrompt": "A huge broad-bladed battle axe sweeping through a wide horizontal crescent arc, leaving a glowing crimson arc trail across the whole image. Square fantasy game ability icon painted in a dark, painterly digital oil style with visible brush strokes. One bold subject fills the centre of the square with a strong, simple silhouette that stays readable at a tiny size. Dramatic warm rim light, high contrast, polished steel and firelight tones against a dark smoky vignette background. No text, no letters, no frame, no border, no user interface and no people.",
+        "comfyui": {
+          "commit": "98cc0bf84b7cb1383654c5b402e7612d875d6d22",
+          "version": "0.41.0"
+        },
+        "device": "cuda:0 NVIDIA GeForce RTX 3060 Ti",
+        "pytorch": "2.14.1+cu130",
+        "run": {
+          "promptId": "1791e9ab-5ed3-48cb-8a9c-9024643df2ab",
+          "submittedPromptSha256": "ba3ba908cf7e5bb38e096f959aa879f3260a4c420974e09b6d90441416223d27",
+          "outputNode": "10",
+          "outputFilename": "warden-icon-z-image-turbo_00019_.png"
+        }
+      }
+    },
+    {
+      "id": "warden.ability.4.candidate.z-image-turbo-02",
+      "ability": "warden.ability.4",
+      "model": "z-image-turbo",
+      "briefs": "briefs.v2.json",
+      "state": "candidate",
+      "path": "candidates/warden.ability.4.candidate.z-image-turbo-02.png",
+      "mediaType": "image/png",
+      "sha256": "cde29d7871e2a1367136ad64cc3147095d17e3109ad65762c8ef9d8fafa84ddf",
+      "byteLength": 1148305,
+      "width": 1024,
+      "height": 1024,
+      "provenance": {
+        "provider": "comfyui",
+        "operation": "image.comfyui.generate@1",
+        "reproducibility": "approximate",
+        "workflow": {
+          "path": "workflow.z-image-turbo-icon.api.json",
+          "sha256": "704d1b1c332d918ecebe9d2dbc4c083ddc739b7219b48ca540dd4a9cedd006c1"
+        },
+        "checkpoint": {
+          "byteLength": 12309866400,
+          "license": "apache-2.0",
+          "name": "z_image_turbo_bf16.safetensors",
+          "sha256": "2407613050b809ffdff18a4ac99af83ea6b95443ecebdf80e064a79c825574a6"
+        },
+        "textEncoder": {
+          "byteLength": 5631994051,
+          "license": "apache-2.0",
+          "name": "qwen_3_4b_fp8_mixed.safetensors",
+          "sha256": "72450b19758172c5a7273cf7de729d1c17e7f434a104a00167624cba94f68f15"
+        },
+        "vae": {
+          "byteLength": 335304388,
+          "license": "apache-2.0",
+          "name": "ae.safetensors",
+          "sha256": "afc8e28272cd15db3919bacdb6918ce9c1ed22e96cb12c4d5ed0fba823529e38"
+        },
+        "seed": 211402,
+        "positivePrompt": "A huge broad-bladed battle axe sweeping through a wide horizontal crescent arc, leaving a glowing crimson arc trail across the whole image. Square fantasy game ability icon painted in a dark, painterly digital oil style with visible brush strokes. One bold subject fills the centre of the square with a strong, simple silhouette that stays readable at a tiny size. Dramatic warm rim light, high contrast, polished steel and firelight tones against a dark smoky vignette background. No text, no letters, no frame, no border, no user interface and no people.",
+        "comfyui": {
+          "commit": "98cc0bf84b7cb1383654c5b402e7612d875d6d22",
+          "version": "0.41.0"
+        },
+        "device": "cuda:0 NVIDIA GeForce RTX 3060 Ti",
+        "pytorch": "2.14.1+cu130",
+        "run": {
+          "promptId": "5fe63370-234a-4061-be3e-e34ab37bd1c0",
+          "submittedPromptSha256": "d6bb41164aa4757c2c29fab35ead5519fe49eb0dfe1d2197bfcc0eb6f31e6dc7",
+          "outputNode": "10",
+          "outputFilename": "warden-icon-z-image-turbo_00020_.png"
+        }
+      }
+    },
+    {
+      "id": "warden.ability.4.candidate.z-image-turbo-03",
+      "ability": "warden.ability.4",
+      "model": "z-image-turbo",
+      "briefs": "briefs.v2.json",
+      "state": "candidate",
+      "path": "candidates/warden.ability.4.candidate.z-image-turbo-03.png",
+      "mediaType": "image/png",
+      "sha256": "1f58335e7280232a870fcd8b0fe1db9f804501b68a7b7597a124eb2545e931b3",
+      "byteLength": 1193480,
+      "width": 1024,
+      "height": 1024,
+      "provenance": {
+        "provider": "comfyui",
+        "operation": "image.comfyui.generate@1",
+        "reproducibility": "approximate",
+        "workflow": {
+          "path": "workflow.z-image-turbo-icon.api.json",
+          "sha256": "704d1b1c332d918ecebe9d2dbc4c083ddc739b7219b48ca540dd4a9cedd006c1"
+        },
+        "checkpoint": {
+          "byteLength": 12309866400,
+          "license": "apache-2.0",
+          "name": "z_image_turbo_bf16.safetensors",
+          "sha256": "2407613050b809ffdff18a4ac99af83ea6b95443ecebdf80e064a79c825574a6"
+        },
+        "textEncoder": {
+          "byteLength": 5631994051,
+          "license": "apache-2.0",
+          "name": "qwen_3_4b_fp8_mixed.safetensors",
+          "sha256": "72450b19758172c5a7273cf7de729d1c17e7f434a104a00167624cba94f68f15"
+        },
+        "vae": {
+          "byteLength": 335304388,
+          "license": "apache-2.0",
+          "name": "ae.safetensors",
+          "sha256": "afc8e28272cd15db3919bacdb6918ce9c1ed22e96cb12c4d5ed0fba823529e38"
+        },
+        "seed": 211404,
+        "positivePrompt": "A huge broad-bladed battle axe sweeping through a wide horizontal crescent arc, leaving a glowing crimson arc trail across the whole image. Square fantasy game ability icon painted in a dark, painterly digital oil style with visible brush strokes. One bold subject fills the centre of the square with a strong, simple silhouette that stays readable at a tiny size. Dramatic warm rim light, high contrast, polished steel and firelight tones against a dark smoky vignette background. No text, no letters, no frame, no border, no user interface and no people.",
+        "comfyui": {
+          "commit": "98cc0bf84b7cb1383654c5b402e7612d875d6d22",
+          "version": "0.41.0"
+        },
+        "device": "cuda:0 NVIDIA GeForce RTX 3060 Ti",
+        "pytorch": "2.14.1+cu130",
+        "run": {
+          "promptId": "83ec01a3-6020-43c8-9655-cebf343afe02",
+          "submittedPromptSha256": "800520d0b2b2ffffbd804edb6f9d89dd604bf22ca84e24b3127d875c4fdb129c",
+          "outputNode": "10",
+          "outputFilename": "warden-icon-z-image-turbo_00022_.png"
         }
       }
     }

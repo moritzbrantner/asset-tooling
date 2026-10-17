@@ -1,0 +1,77 @@
+{
+  "1": {
+    "class_type": "UNETLoader",
+    "inputs": { "unet_name": "flux-2-klein-4b-fp8.safetensors", "weight_dtype": "default" },
+    "_meta": { "title": "Load FLUX.2 [klein] 4B diffusion model" }
+  },
+  "2": {
+    "class_type": "CLIPLoader",
+    "inputs": { "clip_name": "qwen_3_4b_fp8_mixed.safetensors", "type": "flux2", "device": "default" },
+    "_meta": { "title": "Load Qwen3 4B text encoder" }
+  },
+  "3": {
+    "class_type": "VAELoader",
+    "inputs": { "vae_name": "flux2-vae.safetensors" },
+    "_meta": { "title": "Load FLUX.2 VAE" }
+  },
+  "4": {
+    "class_type": "CLIPTextEncode",
+    "inputs": { "text": "positive prompt is injected per candidate", "clip": ["2", 0] },
+    "_meta": { "title": "Positive prompt" }
+  },
+  "5": {
+    "class_type": "ConditioningZeroOut",
+    "inputs": { "conditioning": ["4", 0] },
+    "_meta": { "title": "Empty negative (distilled model, CFG 1)" }
+  },
+  "6": {
+    "class_type": "CFGGuider",
+    "inputs": { "cfg": 1.0, "model": ["1", 0], "positive": ["4", 0], "negative": ["5", 0] },
+    "_meta": { "title": "CFG guider" }
+  },
+  "7": {
+    "class_type": "PrimitiveInt",
+    "inputs": { "value": 1024 },
+    "_meta": { "title": "Width" }
+  },
+  "8": {
+    "class_type": "PrimitiveInt",
+    "inputs": { "value": 1024 },
+    "_meta": { "title": "Height" }
+  },
+  "9": {
+    "class_type": "EmptyFlux2LatentImage",
+    "inputs": { "width": ["7", 0], "height": ["8", 0], "batch_size": 1 },
+    "_meta": { "title": "Empty FLUX.2 latent" }
+  },
+  "10": {
+    "class_type": "Flux2Scheduler",
+    "inputs": { "steps": 4, "width": ["7", 0], "height": ["8", 0] },
+    "_meta": { "title": "FLUX.2 scheduler (4 steps)" }
+  },
+  "11": {
+    "class_type": "KSamplerSelect",
+    "inputs": { "sampler_name": "euler" },
+    "_meta": { "title": "Sampler" }
+  },
+  "12": {
+    "class_type": "RandomNoise",
+    "inputs": { "noise_seed": 0 },
+    "_meta": { "title": "Noise seed" }
+  },
+  "13": {
+    "class_type": "SamplerCustomAdvanced",
+    "inputs": { "noise": ["12", 0], "guider": ["6", 0], "sampler": ["11", 0], "sigmas": ["10", 0], "latent_image": ["9", 0] },
+    "_meta": { "title": "Sample" }
+  },
+  "14": {
+    "class_type": "VAEDecode",
+    "inputs": { "samples": ["13", 0], "vae": ["3", 0] },
+    "_meta": { "title": "VAE Decode" }
+  },
+  "15": {
+    "class_type": "SaveImage",
+    "inputs": { "filename_prefix": "warden-icon-flux2-klein", "images": ["14", 0] },
+    "_meta": { "title": "Save Image" }
+  }
+}

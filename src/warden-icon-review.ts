@@ -1,10 +1,12 @@
 /**
- * Warden ability-icon candidate review (asset-tooling#211, first slice).
+ * Warden ability-icon candidate review (asset-tooling#211).
  *
  * Generated review candidates live in the Git LFS review namespace `review/warden-icons/`
  * (owner decision on #211, 2026-10-17), outside `assets/canonical/` and the catalog. A plain-JSON
- * manifest pins every candidate's bytes and ComfyUI provenance. This module re-verifies that folder
- * fail closed and renders a static review page with the 512 px master and true 64/48/32 px views.
+ * manifest pins every brief version, every image model (its hash-pinned files, licences and
+ * supported/deprecated status, Atlas 4.1.4) and every candidate's bytes and ComfyUI provenance.
+ * This module re-verifies that folder fail closed and renders a static review page that groups the
+ * candidates of each ability by model, each at 512 px and true 64/48/32 px.
  *
  * Candidates are never approved here. Approval is the exact sha256 named in a bundle export
  * selection (Decision Atlas 4.1.3); this page only supports comparing candidates.
@@ -24,7 +26,12 @@ export const WARDEN_ABILITIES = [
 ] as const;
 
 export const WARDEN_REVIEW_SIZES = [512, 64, 48, 32] as const;
+/** The largest review view; a candidate master is this size or the 1024 px output of newer models. */
 const MASTER_SIZE = 512;
+const MASTER_SIZES = new Set([512, 1024]);
+const MODEL_ID = /^[a-z0-9][a-z0-9.-]*$/;
+const MODEL_STATUSES = new Set(["supported", "deprecated"]);
+const MODEL_FILE_ROLES = ["checkpoint", "diffusionModel", "textEncoder", "vae"] as const;
 const SHA256 = /^[0-9a-f]{64}$/;
 const CANDIDATE_ID = /^warden\.ability\.[1-4]\.candidate\.[a-z0-9-]+$/;
 const CANDIDATE_PATH = /^candidates\/[a-z0-9][a-z0-9._-]*\.png$/;
@@ -37,7 +44,8 @@ export interface WardenStyleBrief {
   version: number;
   description: string;
   prompt: string;
-  negativePrompt: string;
+  /** Only for models that honour negative prompts; style v2 states its exclusions in `prompt`. */
+  negativePrompt?: string;
 }
 
 export interface WardenAbilityBrief {
@@ -55,11 +63,31 @@ export interface WardenBriefs {
   abilities: WardenAbilityBrief[];
 }
 
+export interface WardenModelFile {
+  name: string;
+  sha256: string;
+  byteLength: number;
+  license: string;
+  [key: string]: unknown;
+}
+
+export interface WardenImageModel {
+  id: string;
+  label: string;
+  status: "supported" | "deprecated";
+  workflow: string;
+  /** `checkpoint` (single file) or `diffusionModel` is the file the operation hashes and injects. */
+  files: Partial<Record<(typeof MODEL_FILE_ROLES)[number], WardenModelFile>>;
+  [key: string]: unknown;
+}
+
 export interface WardenCandidateProvenance {
   provider: "comfyui";
   operation: "image.comfyui.generate@1";
   workflow: { path: string; sha256: string };
   checkpoint: { name: string; sha256: string; byteLength: number; license: string };
+  textEncoder?: { name: string; sha256: string; byteLength: number; license: string };
+  vae?: { name: string; sha256: string; byteLength: number; license: string };
   seed: number;
   positivePrompt: string;
   negativePrompt?: string;
@@ -69,6 +97,8 @@ export interface WardenCandidateProvenance {
 export interface WardenCandidateEntry {
   id: string;
   ability: string;
+  model: string;
+  briefs: string;
   state: "candidate";
   path: string;
   mediaType: "image/png";
@@ -80,18 +110,23 @@ export interface WardenCandidateEntry {
 }
 
 export interface WardenCandidateManifest {
-  schemaVersion: 1;
-  briefs: { path: "briefs.json"; sha256: string };
+  schemaVersion: 2;
+  briefs: { path: string; sha256: string }[];
+  models: WardenImageModel[];
   candidates: WardenCandidateEntry[];
 }
 
 export interface WardenCandidate extends WardenCandidateEntry {
   abilityBrief: WardenAbilityBrief;
+  styleBrief: WardenStyleBrief;
+  imageModel: WardenImageModel;
   bytes: Buffer;
 }
 
 export interface WardenCandidateReview {
-  briefs: WardenBriefs;
+  /** Brief versions by file name (for example `briefs.json`, `briefs.v2.json`). */
+  briefs: Map<string, WardenBriefs>;
+  models: WardenImageModel[];
   manifest: WardenCandidateManifest;
   candidates: WardenCandidate[];
 }
@@ -103,7 +138,8 @@ export interface WardenReviewImage {
 
 export interface WardenReviewPageResult {
   page: "index.html";
-  candidates: { id: string; ability: string; images: WardenReviewImage[] }[];
+  /** `master` is the URL of the exact candidate bytes when the master is larger than 512 px. */
+  candidates: { id: string; ability: string; model: string; images: WardenReviewImage[]; master?: string }[];
 }
 
 // ─── Validation helpers ─────────────────────────────────────────────────────────────────────────
@@ -180,8 +216,10 @@ function parseBriefs(value: unknown): WardenBriefs {
     version: version(styleValue.version, "Warden style brief version"),
     description: text(styleValue.description, "Warden style brief description"),
     prompt: text(styleValue.prompt, "Warden style brief prompt"),
-    negativePrompt: text(styleValue.negativePrompt, "Warden style brief negativePrompt"),
   };
+  if (styleValue.negativePrompt !== undefined) {
+    style.negativePrompt = text(styleValue.negativePrompt, "Warden style brief negativePrompt");
+  }
   if (!/^warden\.style(?:\.[a-z0-9-]+)*$/.test(style.id)) throw new Error("Warden style brief id must start with warden.style");
   const abilityValues: unknown = briefs.abilities;
   if (!Array.isArray(abilityValues) || abilityValues.length !== WARDEN_ABILITIES.length) {
@@ -223,27 +261,83 @@ function mentionsApproval(value: unknown): boolean {
 
 // ─── Loader ─────────────────────────────────────────────────────────────────────────────────────
 
+function parseModelFile(value: unknown, location: string): WardenModelFile {
+  const file = record(value, location);
+  const name = text(file.name, `${location} name`);
+  if (!name.endsWith(".safetensors")) throw new Error(`${location} must be a .safetensors file`);
+  sha256(file.sha256, `${location} sha256`);
+  positiveInteger(file.byteLength, `${location} byteLength`);
+  text(file.license, `${location} license`);
+  return file as WardenModelFile;
+}
+
+function parseModel(value: unknown, index: number): WardenImageModel {
+  const model = record(value, `model ${index}`);
+  const id = text(model.id, `model ${index} id`);
+  if (!MODEL_ID.test(id)) throw new Error(`model id '${id}' must be lowercase letters, digits, '.' or '-'`);
+  text(model.label, `model ${id} label`);
+  if (typeof model.status !== "string" || !MODEL_STATUSES.has(model.status)) {
+    throw new Error(`model ${id} status must be "supported" or "deprecated", not ${JSON.stringify(model.status)}`);
+  }
+  if (typeof model.workflow !== "string" || !JSON_FILE.test(model.workflow)) {
+    throw new Error(`model ${id} workflow must be a JSON file in the review folder`);
+  }
+  const files = record(model.files, `model ${id} files`);
+  for (const role of Object.keys(files)) {
+    if (!(MODEL_FILE_ROLES as readonly string[]).includes(role)) throw new Error(`model ${id} file role '${role}' is unknown`);
+    parseModelFile(files[role], `model ${id} ${role}`);
+  }
+  if ((files.checkpoint === undefined) === (files.diffusionModel === undefined)) {
+    throw new Error(`model ${id} must pin exactly one of checkpoint or diffusionModel`);
+  }
+  return model as WardenImageModel;
+}
+
+function sameFile(actual: unknown, pinned: WardenModelFile, location: string): void {
+  const file = record(actual, location);
+  if (file.name !== pinned.name || file.sha256 !== pinned.sha256 || file.byteLength !== pinned.byteLength || file.license !== pinned.license) {
+    throw new Error(`${location} does not match the model's pinned ${pinned.name} (sha256 ${pinned.sha256}, ${pinned.byteLength} bytes, ${pinned.license})`);
+  }
+}
+
 /**
  * Load and re-verify a Warden candidate review folder. Rejects (and so fails any Pages build) on a
  * stale briefs or workflow hash, a missing, unhydrated (Git LFS pointer) or altered candidate, a
  * non-PNG or wrongly sized candidate, a state other than `candidate`, a path escaping the folder,
- * an empty candidate list, an ability outside the four briefs, or a candidate file the manifest
- * does not list. An ability may have no candidates yet.
+ * an empty candidate list, an ability outside the four briefs, an unknown model, provenance that
+ * does not match its model's pinned files or workflow, or a candidate file the manifest does not
+ * list. An ability may have no candidates yet.
  */
 export async function loadWardenCandidateReview(reviewDirectory: string): Promise<WardenCandidateReview> {
   if (typeof reviewDirectory !== "string" || !reviewDirectory) throw new Error("reviewDirectory must be a path");
   const directory = path.resolve(reviewDirectory);
   const manifestValue = record(parseJson(await readReviewFile(directory, "candidates.json", "candidates manifest"), "candidates.json"), "candidates manifest");
-  if (manifestValue.schemaVersion !== 1) throw new Error("candidates manifest schemaVersion must be 1");
+  if (manifestValue.schemaVersion !== 2) throw new Error("candidates manifest schemaVersion must be 2");
 
-  const briefsRef = record(manifestValue.briefs, "candidates manifest briefs");
-  if (briefsRef.path !== "briefs.json") throw new Error("candidates manifest briefs.path must be briefs.json");
-  const briefsSha = sha256(briefsRef.sha256, "candidates manifest briefs.sha256");
-  const briefBytes = await readReviewFile(directory, "briefs.json", "briefs");
-  if (sha256Bytes(briefBytes) !== briefsSha) {
-    throw new Error(`briefs.json sha256 ${sha256Bytes(briefBytes)} does not match the manifest's pinned briefs sha256 ${briefsSha}`);
+  // Every brief version a candidate was generated from stays pinned (style v1 for SD 1.5, v2 since).
+  if (!Array.isArray(manifestValue.briefs) || manifestValue.briefs.length === 0) {
+    throw new Error("candidates manifest briefs must list at least one pinned briefs file");
   }
-  const briefs = parseBriefs(parseJson(briefBytes, "briefs.json"));
+  const briefs = new Map<string, WardenBriefs>();
+  for (const [index, value] of manifestValue.briefs.entries()) {
+    const briefsRef = record(value, `candidates manifest briefs ${index}`);
+    if (typeof briefsRef.path !== "string" || !/^briefs(?:\.v[0-9]+)?\.json$/.test(briefsRef.path)) {
+      throw new Error(`candidates manifest briefs ${index} path must be briefs.json or briefs.v<n>.json`);
+    }
+    if (briefs.has(briefsRef.path)) throw new Error(`candidates manifest pins ${briefsRef.path} twice`);
+    const briefsSha = sha256(briefsRef.sha256, `candidates manifest ${briefsRef.path} sha256`);
+    const briefBytes = await readReviewFile(directory, briefsRef.path, "briefs");
+    if (sha256Bytes(briefBytes) !== briefsSha) {
+      throw new Error(`${briefsRef.path} sha256 ${sha256Bytes(briefBytes)} does not match the manifest's pinned briefs sha256 ${briefsSha}`);
+    }
+    briefs.set(briefsRef.path, parseBriefs(parseJson(briefBytes, briefsRef.path)));
+  }
+
+  if (!Array.isArray(manifestValue.models) || manifestValue.models.length === 0) {
+    throw new Error("candidates manifest models must list at least one image model");
+  }
+  const models = manifestValue.models.map(parseModel);
+  if (new Set(models.map((model) => model.id)).size !== models.length) throw new Error("candidates manifest lists a model id twice");
 
   // Owner decision on #211 (2026-10-17): candidates exist only for some abilities so far; the
   // manifest lists exactly the candidates that exist, but never none at all.
@@ -257,10 +351,14 @@ export async function loadWardenCandidateReview(reviewDirectory: string): Promis
   for (const [index, value] of manifestValue.candidates.entries()) {
     const entry = record(value, `candidate ${index}`);
     const id = text(entry.id, `candidate ${index} id`);
-    const abilityBrief = briefs.abilities.find((ability) => ability.id === entry.ability);
+    const briefSet = typeof entry.briefs === "string" ? briefs.get(entry.briefs) : undefined;
+    if (!briefSet) throw new Error(`candidate ${id} briefs ${JSON.stringify(entry.briefs)} is not a pinned briefs file`);
+    const abilityBrief = briefSet.abilities.find((ability) => ability.id === entry.ability);
     if (!abilityBrief) {
       throw new Error(`candidate ${id} ability ${JSON.stringify(entry.ability)} is not one of the four Warden ability briefs`);
     }
+    const imageModel = models.find((model) => model.id === entry.model);
+    if (!imageModel) throw new Error(`candidate ${id} model ${JSON.stringify(entry.model)} is not a listed image model`);
     if (!CANDIDATE_ID.test(id)) throw new Error(`candidate id '${id}' must look like warden.ability.<n>.candidate.<name>`);
     if (ids.has(id)) throw new Error(`duplicate candidate id ${id}`);
     ids.add(id);
@@ -276,37 +374,40 @@ export async function loadWardenCandidateReview(reviewDirectory: string): Promis
     if (hashes.has(candidateSha)) throw new Error(`candidate ${id} duplicates another candidate's bytes`);
     hashes.add(candidateSha);
     const byteLength = positiveInteger(entry.byteLength, `candidate ${id} byteLength`);
-    if (entry.width !== MASTER_SIZE || entry.height !== MASTER_SIZE) {
-      throw new Error(`candidate ${id} must be a ${MASTER_SIZE}x${MASTER_SIZE} master`);
+    if (entry.width !== entry.height || typeof entry.width !== "number" || !MASTER_SIZES.has(entry.width)) {
+      throw new Error(`candidate ${id} must be a square ${[...MASTER_SIZES].join(" or ")} px master`);
     }
+    const masterSize = entry.width;
 
     const provenanceValue = record(entry.provenance, `candidate ${id} provenance`);
     if (provenanceValue.provider !== "comfyui" || provenanceValue.operation !== "image.comfyui.generate@1") {
       throw new Error(`candidate ${id} provenance must name provider comfyui and operation image.comfyui.generate@1`);
     }
     const workflow = record(provenanceValue.workflow, `candidate ${id} provenance.workflow`);
-    if (typeof workflow.path !== "string" || !JSON_FILE.test(workflow.path)) {
-      throw new Error(`candidate ${id} workflow path must be a JSON file in the review folder`);
+    if (workflow.path !== imageModel.workflow) {
+      throw new Error(`candidate ${id} workflow ${JSON.stringify(workflow.path)} is not model ${imageModel.id}'s workflow ${imageModel.workflow}`);
     }
     const workflowSha = sha256(workflow.sha256, `candidate ${id} workflow sha256`);
-    let actualWorkflowSha = workflowHashes.get(workflow.path);
+    let actualWorkflowSha = workflowHashes.get(imageModel.workflow);
     if (actualWorkflowSha === undefined) {
-      actualWorkflowSha = sha256Bytes(await readReviewFile(directory, workflow.path, `candidate ${id} workflow`));
-      workflowHashes.set(workflow.path, actualWorkflowSha);
+      actualWorkflowSha = sha256Bytes(await readReviewFile(directory, imageModel.workflow, `candidate ${id} workflow`));
+      workflowHashes.set(imageModel.workflow, actualWorkflowSha);
     }
     if (actualWorkflowSha !== workflowSha) {
-      throw new Error(`candidate ${id} workflow ${workflow.path} sha256 ${actualWorkflowSha} does not match the pinned ${workflowSha}`);
+      throw new Error(`candidate ${id} workflow ${imageModel.workflow} sha256 ${actualWorkflowSha} does not match the pinned ${workflowSha}`);
     }
-    const checkpoint = record(provenanceValue.checkpoint, `candidate ${id} provenance.checkpoint`);
-    const checkpointName = text(checkpoint.name, `candidate ${id} checkpoint name`);
-    if (!checkpointName.endsWith(".safetensors")) throw new Error(`candidate ${id} checkpoint must be a .safetensors file`);
-    sha256(checkpoint.sha256, `candidate ${id} checkpoint sha256`);
-    positiveInteger(checkpoint.byteLength, `candidate ${id} checkpoint byteLength`);
-    text(checkpoint.license, `candidate ${id} checkpoint license`);
+    // The operation hashes and injects the checkpoint (or diffusion model); the text encoder and VAE
+    // are workflow literals whose pinned identities the candidate must also carry.
+    sameFile(provenanceValue.checkpoint, (imageModel.files.checkpoint ?? imageModel.files.diffusionModel)!, `candidate ${id} provenance.checkpoint`);
+    for (const role of ["textEncoder", "vae"] as const) {
+      const pinned = imageModel.files[role];
+      if (pinned) sameFile(provenanceValue[role], pinned, `candidate ${id} provenance.${role}`);
+      else if (provenanceValue[role] !== undefined) throw new Error(`candidate ${id} provenance.${role} is not pinned by model ${imageModel.id}`);
+    }
     const seed = provenanceValue.seed;
     if (typeof seed !== "number" || !Number.isSafeInteger(seed) || seed < 0) throw new Error(`candidate ${id} provenance needs its seed`);
     const positivePrompt = text(provenanceValue.positivePrompt, `candidate ${id} positivePrompt`);
-    if (!positivePrompt.includes(briefs.style.prompt) || !positivePrompt.includes(abilityBrief.prompt)) {
+    if (!positivePrompt.includes(briefSet.style.prompt) || !positivePrompt.includes(abilityBrief.prompt)) {
       throw new Error(`candidate ${id} positivePrompt must be built from the style brief and the ${abilityBrief.id} brief`);
     }
 
@@ -320,10 +421,10 @@ export async function loadWardenCandidateReview(reviewDirectory: string): Promis
     }
     const dimensions = pngDimensions(bytes);
     if (!dimensions) throw new Error(`candidate ${id} is not a PNG`);
-    if (dimensions.width !== MASTER_SIZE || dimensions.height !== MASTER_SIZE) {
-      throw new Error(`candidate ${id} PNG is ${dimensions.width}x${dimensions.height}, expected ${MASTER_SIZE}x${MASTER_SIZE}`);
+    if (dimensions.width !== masterSize || dimensions.height !== masterSize) {
+      throw new Error(`candidate ${id} PNG is ${dimensions.width}x${dimensions.height}, expected ${masterSize}x${masterSize}`);
     }
-    candidates.push({ ...(entry as unknown as WardenCandidateEntry), abilityBrief, bytes });
+    candidates.push({ ...(entry as unknown as WardenCandidateEntry), abilityBrief, styleBrief: briefSet.style, imageModel, bytes });
   }
 
   // Candidates are never approved in the manifest (Atlas 4.1.3): approval exists only in an export.
@@ -335,7 +436,7 @@ export async function loadWardenCandidateReview(reviewDirectory: string): Promis
     if (!listed.has(file)) throw new Error(`candidates/${file} is not listed in the candidates manifest`);
   }
 
-  return { briefs, manifest: manifestValue as unknown as WardenCandidateManifest, candidates };
+  return { briefs, models, manifest: manifestValue as unknown as WardenCandidateManifest, candidates };
 }
 
 // ─── Derived sizes ──────────────────────────────────────────────────────────────────────────────
@@ -349,11 +450,12 @@ function ffmpegVersion(executable: string): string {
 }
 
 /**
- * Derive every small view of one master in a single FFmpeg run with area-averaging downscales,
- * so 64/48/32 px views are true pixel sizes rather than CSS-scaled masters.
+ * Derive every smaller view of one master in a single FFmpeg run with area-averaging downscales,
+ * so 64/48/32 px (and, for a 1024 px master, 512 px) views are true pixel sizes rather than
+ * CSS-scaled masters. A 512 px master is its own 512 px view.
  */
 async function derivePngs(root: string, executable: string, candidate: WardenCandidate): Promise<Map<number, Buffer>> {
-  const sizes = WARDEN_REVIEW_SIZES.filter((size) => size !== MASTER_SIZE);
+  const sizes = WARDEN_REVIEW_SIZES.filter((size) => size !== candidate.width);
   await mkdir(path.join(root, ".asset-tooling"), { recursive: true });
   const scratch = await mkdtemp(path.join(root, ".asset-tooling", "warden-review-"));
   try {
@@ -369,7 +471,7 @@ async function derivePngs(root: string, executable: string, candidate: WardenCan
       const stderr = result.stderr?.toString("utf8").trim();
       throw new Error(`FFmpeg could not derive small views for ${candidate.id}: ${result.error?.message ?? stderr ?? `status ${result.status}`}`);
     }
-    const views = new Map<number, Buffer>([[MASTER_SIZE, candidate.bytes]]);
+    const views = new Map<number, Buffer>(candidate.width === MASTER_SIZE ? [[MASTER_SIZE, candidate.bytes]] : []);
     for (const size of sizes) {
       const png = await readFile(path.join(scratch, `${size}.png`));
       const dimensions = pngDimensions(png);
@@ -401,100 +503,194 @@ function imageUrl(id: string, size: number): string {
   return `images/${id}.${size}.png`;
 }
 
+function masterUrl(id: string): string {
+  return `images/${id}.master.png`;
+}
+
 function img(candidate: WardenCandidate, size: number): string {
-  return `<img src="${escapeHtml(imageUrl(candidate.id, size))}" width="${size}" height="${size}" alt="${escapeHtml(`${candidate.abilityBrief.name} candidate ${candidate.id} at ${size} px`)}" loading="lazy">`;
+  return `<img src="${escapeHtml(imageUrl(candidate.id, size))}" width="${size}" height="${size}" alt="${escapeHtml(`${candidate.abilityBrief.name} candidate ${candidate.id} (${candidate.imageModel.label}) at ${size} px`)}" loading="lazy">`;
+}
+
+function short(sha: string): string {
+  return `${sha.slice(0, 12)}…`;
+}
+
+function fileText(file: { name: string; sha256: string; license: string }): string {
+  return `${file.name} (${file.license}, sha256 ${file.sha256})`;
+}
+
+/** Supported models first, in manifest order, then deprecated ones. */
+function orderedModels(models: WardenImageModel[]): WardenImageModel[] {
+  return [...models.filter((model) => model.status === "supported"), ...models.filter((model) => model.status === "deprecated")];
+}
+
+function statusBadge(model: WardenImageModel): string {
+  return model.status === "deprecated"
+    ? `<span class="badge deprecated">deprecated</span>`
+    : `<span class="badge supported">supported</span>`;
 }
 
 function renderCandidate(candidate: WardenCandidate): string {
   const { provenance } = candidate;
   const rows: [string, string][] = [
     ["sha256", candidate.sha256],
-    ["Bytes", String(candidate.byteLength)],
+    ["Master", `${candidate.width}×${candidate.height} px, ${candidate.byteLength} bytes`],
     ["Seed", String(provenance.seed)],
-    ["Checkpoint", `${provenance.checkpoint.name} (${provenance.checkpoint.license}, sha256 ${provenance.checkpoint.sha256})`],
-    ["Workflow", `${provenance.workflow.path} (sha256 ${provenance.workflow.sha256})`],
-    ["Operation", `${provenance.operation} via ${provenance.provider}`],
+    ["Model", `${candidate.imageModel.label} (${candidate.imageModel.status})`],
+    ["Checkpoint", fileText(provenance.checkpoint)],
   ];
+  if (provenance.textEncoder) rows.push(["Text encoder", fileText(provenance.textEncoder)]);
+  if (provenance.vae) rows.push(["VAE", fileText(provenance.vae)]);
+  rows.push(
+    ["Workflow", `${provenance.workflow.path} (sha256 ${provenance.workflow.sha256})`],
+    ["Brief", `${candidate.briefs}: style ${candidate.styleBrief.id} v${candidate.styleBrief.version}, ${candidate.abilityBrief.id} v${candidate.abilityBrief.version}`],
+    ["Operation", `${provenance.operation} via ${provenance.provider}`],
+  );
+  const master = candidate.width === MASTER_SIZE
+    ? "512 px master"
+    : `512 px view · <a href="${escapeHtml(masterUrl(candidate.id))}">${candidate.width} px master</a>`;
   return `<article class="candidate" id="${escapeHtml(candidate.id)}">
-      <header><h3><code>${escapeHtml(candidate.id)}</code></h3><span class="badge">candidate</span></header>
-      <div class="views">
-        <figure class="master">${img(candidate, MASTER_SIZE)}<figcaption>512 px master</figcaption></figure>
-        <div class="small">${WARDEN_REVIEW_SIZES.filter((size) => size !== MASTER_SIZE)
-          .map((size) => `<figure>${img(candidate, size)}<figcaption>${size} px</figcaption></figure>`)
-          .join("")}</div>
-      </div>
-      <dl>${rows.map(([name, value]) => `<dt>${escapeHtml(name)}</dt><dd><code>${escapeHtml(value)}</code></dd>`).join("")}</dl>
-      <details><summary>Prompt</summary><p>${escapeHtml(provenance.positivePrompt)}</p>${provenance.negativePrompt ? `<p class="negative">Negative: ${escapeHtml(provenance.negativePrompt)}</p>` : ""}</details>
-    </article>`;
+          <header><h4><code>${escapeHtml(candidate.id)}</code></h4><span class="badge">candidate</span></header>
+          <figure class="master">${img(candidate, MASTER_SIZE)}<figcaption>${master}</figcaption></figure>
+          <div class="small">${WARDEN_REVIEW_SIZES.filter((size) => size !== MASTER_SIZE)
+            .map((size) => `<figure>${img(candidate, size)}<figcaption>${size} px</figcaption></figure>`)
+            .join("")}</div>
+          <details><summary>Provenance</summary><dl>${rows.map(([name, value]) => `<dt>${escapeHtml(name)}</dt><dd><code>${escapeHtml(value)}</code></dd>`).join("")}</dl>
+          <p>${escapeHtml(provenance.positivePrompt)}</p>${provenance.negativePrompt ? `<p class="negative">Negative: ${escapeHtml(provenance.negativePrompt)}</p>` : ""}</details>
+        </article>`;
+}
+
+function renderModelColumn(model: WardenImageModel, members: WardenCandidate[]): string {
+  return `<div class="model-column${model.status === "deprecated" ? " is-deprecated" : ""}">
+        <h3>${escapeHtml(model.label)} ${statusBadge(model)}</h3>
+        ${members.length ? members.map(renderCandidate).join("\n        ") : `<p class="none">No candidates from this model.</p>`}
+      </div>`;
+}
+
+function renderAbility(ability: WardenAbilityBrief, review: WardenCandidateReview): string {
+  const members = review.candidates.filter((candidate) => candidate.ability === ability.id);
+  const heading = `<h2 id="${escapeHtml(ability.id)}-heading">${escapeHtml(ability.name)} <span class="ability-id">${escapeHtml(ability.id)}</span></h2>
+    <p class="subject">${escapeHtml(ability.subject)}</p>`;
+  if (members.length === 0) {
+    return `<section class="ability" aria-labelledby="${escapeHtml(ability.id)}-heading">
+    ${heading}
+    <p class="none">No candidates generated yet for this ability.</p>
+  </section>`;
+  }
+  const models = orderedModels(review.models).filter((model) => model.status === "supported" || members.some((candidate) => candidate.model === model.id));
+  const bars = models
+    .map((model) => {
+      const own = members.filter((candidate) => candidate.model === model.id);
+      if (own.length === 0) return "";
+      return `<div class="bar-row"><span class="bar-label">${escapeHtml(model.label)}${model.status === "deprecated" ? " (deprecated)" : ""}</span>${[64, 48, 32]
+        .map((size) => `<div class="bar" aria-label="${escapeHtml(`${ability.name} ${model.label} candidates at ${size} px`)}">${own.map((candidate) => img(candidate, size)).join("")}</div>`)
+        .join("")}</div>`;
+    })
+    .join("\n      ");
+  const supported = models.filter((model) => model.status === "supported");
+  const deprecated = models.filter((model) => model.status === "deprecated");
+  return `<section class="ability" aria-labelledby="${escapeHtml(ability.id)}-heading">
+    ${heading}
+    <div class="bars">
+      ${bars}
+    </div>
+    <div class="models" style="--columns: ${Math.max(supported.length, 1)}">
+      ${supported.map((model) => renderModelColumn(model, members.filter((candidate) => candidate.model === model.id))).join("\n      ")}
+    </div>
+    ${deprecated
+      .map((model) => `<details class="deprecated-group"><summary>${escapeHtml(model.label)} (deprecated): ${members.filter((candidate) => candidate.model === model.id).length} earlier candidates kept as history</summary>
+      ${renderModelColumn(model, members.filter((candidate) => candidate.model === model.id))}
+    </details>`)
+      .join("\n    ")}
+  </section>`;
+}
+
+function renderModelLegend(review: WardenCandidateReview): string {
+  return orderedModels(review.models)
+    .map((model) => {
+      const files = MODEL_FILE_ROLES.filter((role) => model.files[role])
+        .map((role) => `<li>${escapeHtml(role)}: <code>${escapeHtml(model.files[role]!.name)}</code> · ${escapeHtml(model.files[role]!.license)} · sha256 <code title="${escapeHtml(model.files[role]!.sha256)}">${escapeHtml(short(model.files[role]!.sha256))}</code></li>`)
+        .join("");
+      const count = review.candidates.filter((candidate) => candidate.model === model.id).length;
+      const note = typeof model.note === "string" ? `<p class="negative">${escapeHtml(model.note)}</p>` : "";
+      return `<div class="legend-model${model.status === "deprecated" ? " is-deprecated" : ""}"><strong>${escapeHtml(model.label)}</strong> ${statusBadge(model)} <span class="negative">${count} candidates · workflow <code>${escapeHtml(model.workflow)}</code></span><ul>${files}</ul>${note}</div>`;
+    })
+    .join("\n    ");
 }
 
 function renderReviewHtml(review: WardenCandidateReview, derivedWith: string): string {
-  const { briefs, candidates } = review;
-  const sections = briefs.abilities.map((ability) => {
-    const members = candidates.filter((candidate) => candidate.ability === ability.id);
-    if (members.length === 0) {
-      return `<section class="ability" aria-labelledby="${escapeHtml(ability.id)}-heading">
-    <h2 id="${escapeHtml(ability.id)}-heading">${escapeHtml(ability.name)} <span class="ability-id">${escapeHtml(ability.id)} · brief v${ability.version}</span></h2>
-    <p class="subject">${escapeHtml(ability.subject)}</p>
-    <p class="none">No candidates generated yet for this brief.</p>
-  </section>`;
-    }
-    return `<section class="ability" aria-labelledby="${escapeHtml(ability.id)}-heading">
-    <h2 id="${escapeHtml(ability.id)}-heading">${escapeHtml(ability.name)} <span class="ability-id">${escapeHtml(ability.id)} · brief v${ability.version}</span></h2>
-    <p class="subject">${escapeHtml(ability.subject)}</p>
-    <div class="bar" aria-label="${escapeHtml(ability.name)} candidates side by side at 32 px">${members.map((candidate) => img(candidate, 32)).join("")}</div>
-    <div class="candidates">${members.map(renderCandidate).join("\n    ")}</div>
-  </section>`;
-  });
+  const { candidates } = review;
+  const latest = [...review.briefs.values()].at(-1)!;
+  const styles = [...review.briefs.entries()]
+    .map(([file, briefs]) => `<p><strong>${escapeHtml(file)}: style ${escapeHtml(briefs.style.id)} v${briefs.style.version}.</strong> ${escapeHtml(briefs.style.description)}</p>`)
+    .join("\n    ");
   return `<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Warden ability-icon candidates</title>
-  <meta name="description" content="Compare generated Warden ability-icon candidates at 512, 64, 48 and 32 px with their ComfyUI provenance.">
+  <meta name="description" content="Compare generated Warden ability-icon candidates by image model at 512, 64, 48 and 32 px with their ComfyUI provenance.">
   <style>
     :root { color-scheme: dark; font-family: ui-sans-serif, system-ui, sans-serif; }
     * { box-sizing: border-box; }
     body { margin: 0; background: #14161a; color: #e8e6e1; }
     a { color: #9cc4ff; }
-    main { max-width: 1240px; margin: 0 auto; padding: 32px 24px 80px; }
+    main { max-width: 1440px; margin: 0 auto; padding: 32px 24px 80px; }
     h1 { margin: 0 0 8px; font-size: clamp(1.8rem, 4vw, 2.8rem); }
-    .lead { max-width: 820px; line-height: 1.55; color: #b9b6ae; }
-    .style { margin: 16px 0 28px; padding: 14px 16px; border: 1px solid #2c3038; border-radius: 12px; background: #1b1e24; line-height: 1.5; }
-    .ability { margin-top: 40px; }
+    .lead { max-width: 900px; line-height: 1.55; color: #b9b6ae; }
+    .style, .legend { margin: 16px 0; padding: 14px 16px; border: 1px solid #2c3038; border-radius: 12px; background: #1b1e24; line-height: 1.5; }
+    .style p { margin: 0 0 8px; }
+    .legend { display: grid; gap: 12px; }
+    .legend ul { margin: 4px 0 0; padding-left: 20px; font-size: .85rem; overflow-wrap: anywhere; }
+    .legend-model.is-deprecated, .model-column.is-deprecated { opacity: .75; }
+    .ability { margin-top: 48px; padding-top: 8px; border-top: 1px solid #2c3038; }
     .ability h2 { margin: 0 0 4px; }
     .ability-id { font-size: .8rem; font-weight: 400; color: #8f8c85; }
     .subject { margin: 0 0 12px; color: #b9b6ae; }
+    .bars { display: grid; gap: 8px; }
+    .bar-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; }
+    .bar-label { width: 190px; font-size: .85rem; color: #b9b6ae; }
     .bar { display: inline-flex; gap: 4px; padding: 6px; border-radius: 8px; background: #0b0c0e; border: 1px solid #2c3038; }
-    .bar img { display: block; image-rendering: auto; }
-    .candidates { display: grid; gap: 20px; margin-top: 16px; }
-    .candidate { padding: 16px; border: 1px solid #2c3038; border-radius: 14px; background: #1b1e24; }
+    .bar img { display: block; }
+    .models { display: grid; grid-template-columns: repeat(var(--columns), minmax(0, 1fr)); gap: 20px; margin-top: 16px; }
+    .model-column h3 { margin: 0 0 10px; display: flex; align-items: center; gap: 10px; }
+    .candidate { margin-bottom: 16px; padding: 14px; border: 1px solid #2c3038; border-radius: 14px; background: #1b1e24; }
     .candidate header { display: flex; align-items: center; gap: 12px; }
-    .candidate h3 { margin: 0; font-size: 1rem; }
-    .badge { padding: 2px 8px; border: 1px solid #555a64; border-radius: 999px; font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; }
-    .views { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 20px; margin: 12px 0; }
-    .views img { display: block; max-width: 100%; height: auto; }
-    .small { display: flex; align-items: flex-end; gap: 16px; }
-    .small img { height: auto; max-width: none; }
+    .candidate h4 { margin: 0 0 8px; font-size: .95rem; }
+    .badge { padding: 2px 8px; border: 1px solid #555a64; border-radius: 999px; font-size: .7rem; font-weight: 400; text-transform: uppercase; letter-spacing: .06em; }
+    .badge.supported { border-color: #3f7f5a; color: #9fd8b4; }
+    .badge.deprecated { border-color: #8a5a3a; color: #e0b08a; }
+    .master img { display: block; max-width: 100%; height: auto; }
+    .small { display: flex; align-items: flex-end; gap: 16px; margin-top: 10px; }
+    .small img { display: block; max-width: none; }
     figure { margin: 0; }
     figcaption { margin-top: 4px; font-size: .75rem; color: #8f8c85; }
-    dl { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 4px 12px; margin: 0; font-size: .85rem; }
+    dl { display: grid; grid-template-columns: 100px minmax(0, 1fr); gap: 4px 12px; margin: 8px 0; font-size: .8rem; }
     dt { color: #8f8c85; }
     dd { margin: 0; overflow-wrap: anywhere; }
     code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .85em; }
     details { margin-top: 10px; font-size: .85rem; color: #b9b6ae; }
+    .deprecated-group { margin-top: 12px; padding: 10px 14px; border: 1px dashed #4a3c32; border-radius: 12px; }
+    .deprecated-group .model-column { margin-top: 12px; max-width: 720px; }
     .negative, .none { color: #8f8c85; }
-    @media (max-width: 560px) { main { padding-inline: 16px; } dl { grid-template-columns: 1fr; } }
+    @media (max-width: 900px) { .models { grid-template-columns: 1fr; } }
+    @media (max-width: 560px) { main { padding-inline: 16px; } dl { grid-template-columns: 1fr; } .bar-label { width: 100%; } }
   </style>
 </head>
 <body>
 <main>
   <a href="../../">← Back to gallery</a>
   <h1>Warden ability-icon candidates</h1>
-  <p class="lead">Generated review candidates for the MMORPG Warden abilities. Every image here is a candidate and is not approved. Approval happens only when the owner names a candidate's exact sha256 in a bundle export selection (Decision Atlas 4.1.3). The 512 px image is the exact candidate file; the 64, 48 and 32 px views are real area-downscaled PNGs (${escapeHtml(derivedWith)}) shown at their true pixel size.</p>
-  <div class="style"><strong>Style brief ${escapeHtml(briefs.style.id)} v${briefs.style.version}.</strong> ${escapeHtml(briefs.style.description)} <br><span class="negative">${candidates.length} candidates · manifest briefs sha256 <code>${escapeHtml(review.manifest.briefs.sha256)}</code></span></div>
-  ${sections.join("\n  ")}
+  <p class="lead">Generated review candidates for the MMORPG Warden abilities, grouped by ability and then by image model so the models can be compared side by side. Every image here is a candidate and is not approved. Approval happens only when the owner names a candidate's exact sha256 in a bundle export selection (Decision Atlas 4.1.3). The 512 px view is the exact candidate file for 512 px masters and an area downscale of 1024 px masters (the master is linked); the 64, 48 and 32 px views are real area-downscaled PNGs (${escapeHtml(derivedWith)}) shown at their true pixel size.</p>
+  <div class="legend">
+    ${renderModelLegend(review)}
+  </div>
+  <div class="style">
+    ${styles}
+    <span class="negative">${candidates.length} candidates · ${review.manifest.briefs.map((ref) => `${escapeHtml(ref.path)} sha256 <code>${escapeHtml(short(ref.sha256))}</code>`).join(" · ")}</span>
+  </div>
+  ${latest.abilities.map((ability) => renderAbility(ability, review)).join("\n  ")}
 </main>
 </body>
 </html>
@@ -502,10 +698,11 @@ function renderReviewHtml(review: WardenCandidateReview, derivedWith: string): s
 }
 
 /**
- * Re-verify the review folder and write `index.html` plus 512/64/48/32 px PNGs under
- * `outputDirectory/images/`. `root` is a disposable workspace for the content-addressed object
- * store that keeps the derived views. Nothing is written when verification fails, and any
- * existing `index.html` is removed first so a failed build never leaves a stale page behind.
+ * Re-verify the review folder and write `index.html` plus 512/64/48/32 px PNGs (and the exact
+ * bytes of any 1024 px master) under `outputDirectory/images/`. `root` is a disposable workspace for
+ * the content-addressed object store that keeps the derived views. Nothing is written when
+ * verification fails, and any existing `index.html` is removed first so a failed build never
+ * leaves a stale page behind.
  */
 export async function buildWardenReviewPage({
   root,
@@ -536,7 +733,12 @@ export async function buildWardenReviewPage({
       await writeFile(path.join(output, ...url.split("/")), derived.get(candidate.id)!.get(size)!);
       images.push({ size, url });
     }
-    result.candidates.push({ id: candidate.id, ability: candidate.ability, images });
+    const entry: WardenReviewPageResult["candidates"][number] = { id: candidate.id, ability: candidate.ability, model: candidate.model, images };
+    if (candidate.width !== MASTER_SIZE) {
+      entry.master = masterUrl(candidate.id);
+      await writeFile(path.join(output, ...entry.master.split("/")), candidate.bytes);
+    }
+    result.candidates.push(entry);
   }
   await writeFile(path.join(output, "index.html"), renderReviewHtml(review, derivedWith), "utf8");
   return result;

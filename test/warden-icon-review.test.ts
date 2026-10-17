@@ -1,4 +1,4 @@
-// Acceptance contract for the first slice of #211: Warden ability-icon candidates.
+// Acceptance contract for #211: Warden ability-icon candidates.
 //
 // Owner decision (2026-10-17, #211): generated review candidates live in a separate
 // Git LFS review namespace `review/warden-icons/`, outside `assets/canonical/` and
@@ -8,10 +8,13 @@
 // 512 px master on a Warden review page. Candidates are never approved here:
 // approval stays an exact-sha `approved-png-v1` export (Atlas Decision 4.1.3).
 //
+// Owner decision (2026-10-17, Atlas 4.1.4): FLUX.2 [klein] 4B and Z-Image Turbo are the supported
+// local image models; SD 1.5 is deprecated and its candidates stay only as history.
+//
 // Seams this file fixes for the implementer:
-// - review/warden-icons/briefs.json            versioned style + four ability briefs (plain JSON)
-// - review/warden-icons/workflow.sd15-icon.api.json  prepared ComfyUI API-format workflow (plain JSON)
-// - review/warden-icons/candidates.json        candidates manifest (plain JSON)
+// - review/warden-icons/briefs.json, briefs.v2.json  versioned style + four ability briefs (plain JSON)
+// - review/warden-icons/workflow.*.api.json    prepared ComfyUI API-format workflows (plain JSON)
+// - review/warden-icons/candidates.json        candidates manifest v2: briefs, models, candidates
 // - review/warden-icons/candidates/*.png       candidate bytes (Git LFS)
 // - src/warden-icon-review.ts exports
 //     loadWardenCandidateReview(reviewDirectory) -> { briefs, manifest, candidates }
@@ -40,6 +43,20 @@ const ROOT = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
 const REVIEW = "review/warden-icons";
 const REVIEW_DIR = path.join(ROOT, ...REVIEW.split("/"));
 const WORKFLOW_FILE = "workflow.sd15-icon.api.json";
+const MODEL_WORKFLOWS: Record<string, { file: string; status: string; nodes: string[] }> = {
+  "flux2-klein-4b": {
+    file: "workflow.flux2-klein-4b-icon.api.json",
+    status: "supported",
+    nodes: ["UNETLoader", "CLIPLoader", "VAELoader", "CLIPTextEncode", "EmptyFlux2LatentImage", "Flux2Scheduler", "SamplerCustomAdvanced", "SaveImage"],
+  },
+  "z-image-turbo": {
+    file: "workflow.z-image-turbo-icon.api.json",
+    status: "supported",
+    nodes: ["UNETLoader", "CLIPLoader", "VAELoader", "CLIPTextEncode", "EmptySD3LatentImage", "KSampler", "SaveImage"],
+  },
+  sd15: { file: WORKFLOW_FILE, status: "deprecated", nodes: ["CheckpointLoaderSimple", "CLIPTextEncode", "EmptyLatentImage", "KSampler", "SaveImage"] },
+};
+const SUPPORTED_MODELS = ["flux2-klein-4b", "z-image-turbo"];
 const ABILITIES = [
   { id: "warden.ability.1", abilityId: 1, name: "Heroic Strike" },
   { id: "warden.ability.2", abilityId: 2, name: "Shield Bash" },
@@ -189,6 +206,8 @@ async function writeFixtureReview(directory: string, { abilityIndices = FIXTURE_
       candidates.push({
         id: `${ability.id}.candidate.${String(k).padStart(2, "0")}`,
         ability: ability.id,
+        model: "sd15",
+        briefs: "briefs.json",
         state: "candidate",
         path: file,
         mediaType: "image/png",
@@ -209,8 +228,15 @@ async function writeFixtureReview(directory: string, { abilityIndices = FIXTURE_
     }
   }
   const manifest = {
-    schemaVersion: 1,
-    briefs: { path: "briefs.json", sha256: sha256Bytes(briefBytes) },
+    schemaVersion: 2,
+    briefs: [{ path: "briefs.json", sha256: sha256Bytes(briefBytes) }],
+    models: [{
+      id: "sd15",
+      label: "Fixture SD 1.5",
+      status: "deprecated",
+      workflow: WORKFLOW_FILE,
+      files: { checkpoint: { ...FIXTURE_CHECKPOINT } },
+    }],
     candidates,
   };
   await writeFile(path.join(directory, "candidates.json"), JSON.stringify(manifest, null, 2) + "\n");
@@ -233,16 +259,19 @@ async function withFixture<T>(run: (context: { root: string; review: string; out
 
 // =========================== committed data ===========================
 
-test("briefs: one versioned original style brief and four stable Warden ability briefs", async () => {
-  const briefs = await readJson(path.join(REVIEW_DIR, "briefs.json"));
+for (const [file, styleVersion] of [["briefs.json", 1], ["briefs.v2.json", 2]] as const) test(`briefs: ${file} is one versioned original style brief and four stable Warden ability briefs`, async () => {
+  const briefs = await readJson(path.join(REVIEW_DIR, file));
   assert.equal(briefs.schemaVersion, 1);
   const { style } = briefs;
   assert.match(style.id, /^warden\.style(?:\.[a-z0-9-]+)*$/);
-  assert(Number.isSafeInteger(style.version) && style.version >= 1, "style brief must be versioned");
-  for (const field of ["description", "prompt", "negativePrompt"]) {
+  assert.equal(style.version, styleVersion, "style brief must be versioned");
+  for (const field of ["description", "prompt"]) {
     assert.equal(typeof style[field], "string");
     assert(style[field].trim().length > 0, `style.${field} must be non-empty`);
   }
+  // Style v2 targets CFG-1 models that ignore negative prompts; its exclusions live in the prompt.
+  if (styleVersion === 1) assert(style.negativePrompt.trim());
+  else assert.match(style.prompt, /no text/i);
 
   assert.equal(briefs.abilities.length, 4);
   for (const [index, expected] of ABILITIES.entries()) {
@@ -256,13 +285,13 @@ test("briefs: one versioned original style brief and four stable Warden ability 
   }
   assert.equal(new Set(briefs.abilities.map((ability: any) => ability.prompt)).size, 4, "ability prompts must be distinct");
   // WoW/Dota are quality benchmarks only, never prompt sources (Atlas 4.1.2).
-  for (const text of [style.prompt, style.negativePrompt, ...briefs.abilities.map((ability: any) => ability.prompt)]) {
+  for (const text of [style.prompt, style.negativePrompt ?? "", ...briefs.abilities.map((ability: any) => ability.prompt)]) {
     assert.doesNotMatch(text, COPYRIGHTED_REFERENCES);
   }
 });
 
-test("workflow: the prepared SD 1.5 icon workflow is a valid API-format workflow AssetRef", async () => {
-  const bytes = await readFile(path.join(REVIEW_DIR, WORKFLOW_FILE));
+for (const [model, expected] of Object.entries(MODEL_WORKFLOWS)) test(`workflow: the prepared ${model} icon workflow is a valid API-format workflow AssetRef`, async () => {
+  const bytes = await readFile(path.join(REVIEW_DIR, expected.file));
   const root = await mkdtemp(path.join(os.tmpdir(), "asset-tooling-warden-workflow-"));
   try {
     const stored = await storeAssetObject(root, {
@@ -275,23 +304,52 @@ test("workflow: the prepared SD 1.5 icon workflow is a valid API-format workflow
     assert.equal(prepared.asset.sha256, sha256Bytes(bytes));
     const nodes = Object.values(JSON.parse(prepared.promptJson)) as any[];
     const classes = new Set(nodes.map((node) => node.class_type));
-    for (const required of ["CheckpointLoaderSimple", "CLIPTextEncode", "EmptyLatentImage", "KSampler", "SaveImage"]) {
-      assert(classes.has(required), `workflow must contain ${required}`);
+    for (const required of expected.nodes) assert(classes.has(required), `${expected.file} must contain ${required}`);
+    if (model === "sd15") {
+      const latent = nodes.find((node) => node.class_type === "EmptyLatentImage");
+      assert.deepEqual([latent.inputs.width, latent.inputs.height], [512, 512]);
+      return;
     }
-    const latent = nodes.find((node) => node.class_type === "EmptyLatentImage");
-    assert.equal(latent.inputs.width, 512);
-    assert.equal(latent.inputs.height, 512);
+    // Newer models: 1024 px, few distilled steps at CFG 1 (klein 4 steps, Z-Image Turbo 8 steps).
+    const widths = nodes.filter((node) => node.class_type === "PrimitiveInt" || /Latent/.test(node.class_type));
+    assert(widths.some((node) => node.inputs.value === 1024 || node.inputs.width === 1024), `${expected.file} renders 1024 px`);
+    const steps = nodes.find((node) => node.class_type === "Flux2Scheduler" || node.class_type === "KSampler").inputs.steps;
+    assert.equal(steps, model === "flux2-klein-4b" ? 4 : 8);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
 });
 
+test("models: FLUX.2 [klein] 4B and Z-Image Turbo are supported with pinned Apache-2.0 files; SD 1.5 is deprecated", async () => {
+  const manifest = await readJson(path.join(REVIEW_DIR, "candidates.json"));
+  assert.deepEqual(
+    manifest.models.filter((model: any) => model.status === "supported").map((model: any) => model.id),
+    SUPPORTED_MODELS,
+  );
+  assert.deepEqual(manifest.models.filter((model: any) => model.status === "deprecated").map((model: any) => model.id), ["sd15"]);
+  for (const model of manifest.models) {
+    assert.equal(model.workflow, MODEL_WORKFLOWS[model.id]!.file);
+    for (const [role, file] of Object.entries(model.files) as [string, any][]) {
+      assert.match(file.sha256, SHA256, `${model.id} ${role}`);
+      assert(Number.isSafeInteger(file.byteLength) && file.byteLength > 0);
+      assert.equal(file.source.provider, "huggingface");
+      assert.match(file.source.revision, /^[0-9a-f]{40}$/, `${model.id} ${role} is pinned to an exact revision`);
+      if (model.status === "supported") assert.equal(file.license, "apache-2.0", `${model.id} ${role} licence`);
+    }
+    if (model.status === "supported") assert.deepEqual(Object.keys(model.files).sort(), ["diffusionModel", "textEncoder", "vae"]);
+  }
+});
+
 test("manifest: provenance-pinned candidates for the four Warden briefs, all in state candidate", async () => {
   const manifest = await readJson(path.join(REVIEW_DIR, "candidates.json"));
-  const briefs = await readJson(path.join(REVIEW_DIR, "briefs.json"));
-  assert.equal(manifest.schemaVersion, 1);
-  assert.equal(manifest.briefs.path, "briefs.json");
-  assert.equal(manifest.briefs.sha256, sha256Bytes(await readFile(path.join(REVIEW_DIR, "briefs.json"))));
+  assert.equal(manifest.schemaVersion, 2);
+  const briefSets = new Map<string, any>();
+  for (const ref of manifest.briefs) {
+    assert.equal(ref.sha256, sha256Bytes(await readFile(path.join(REVIEW_DIR, ref.path))), `${ref.path} pin`);
+    briefSets.set(ref.path, await readJson(path.join(REVIEW_DIR, ref.path)));
+  }
+  assert.deepEqual([...briefSets.keys()], ["briefs.json", "briefs.v2.json"]);
+  const models = new Map<string, any>(manifest.models.map((model: any) => [model.id, model]));
 
   const ids = new Set();
   const hashes = new Set();
@@ -307,8 +365,15 @@ test("manifest: provenance-pinned candidates for the four Warden briefs, all in 
     assert(!hashes.has(candidate.sha256), `${candidate.id} duplicates another candidate's bytes`);
     hashes.add(candidate.sha256);
     assert(Number.isSafeInteger(candidate.byteLength) && candidate.byteLength > 0);
-    assert.equal(candidate.width, 512);
-    assert.equal(candidate.height, 512);
+    assert(candidate.width === 512 || candidate.width === 1024, `${candidate.id} master size`);
+    assert.equal(candidate.height, candidate.width);
+    const model = models.get(candidate.model);
+    assert(model, `${candidate.id} names a listed model`);
+    // New candidates come only from supported models; deprecated SD 1.5 keeps its 512 px history.
+    if (model.status === "deprecated") assert.equal(candidate.width, 512);
+    else assert.equal(candidate.width, 1024);
+    const briefs = briefSets.get(candidate.briefs);
+    assert(briefs, `${candidate.id} names a pinned briefs file`);
 
     const { provenance } = candidate;
     assert.equal(provenance.provider, "comfyui");
@@ -323,6 +388,11 @@ test("manifest: provenance-pinned candidates for the four Warden briefs, all in 
     assert.match(provenance.checkpoint.sha256, SHA256);
     assert(Number.isSafeInteger(provenance.checkpoint.byteLength) && provenance.checkpoint.byteLength > 0);
     assert(typeof provenance.checkpoint.license === "string" && provenance.checkpoint.license.trim());
+    assert.equal(provenance.workflow.path, model.workflow);
+    assert.equal(provenance.checkpoint.sha256, (model.files.checkpoint ?? model.files.diffusionModel).sha256);
+    for (const role of ["textEncoder", "vae"]) {
+      if (model.files[role]) assert.equal(provenance[role]?.sha256, model.files[role].sha256, `${candidate.id} ${role}`);
+    }
     assert(Number.isSafeInteger(provenance.seed) && provenance.seed >= 0, `${candidate.id} needs its seed`);
     // Coherent set: every candidate uses the shared style brief plus its own ability brief.
     const ability = briefs.abilities.find((entry: any) => entry.id === candidate.ability);
@@ -330,8 +400,14 @@ test("manifest: provenance-pinned candidates for the four Warden briefs, all in 
     assert(provenance.positivePrompt.includes(briefs.style.prompt), `${candidate.id} must use the style brief`);
     assert(provenance.positivePrompt.includes(ability.prompt), `${candidate.id} must use its ability brief`);
   }
-  // Owner decision 2026-10-17: 3 candidates in total for now, any abilities; the rest are deferred.
   assert(manifest.candidates.length >= MIN_CANDIDATES_TOTAL, "the manifest lists at least one candidate");
+  // Owner request 2026-10-17: two to three review candidates per ability from each supported model.
+  for (const model of SUPPORTED_MODELS) {
+    for (const ability of ABILITIES) {
+      const count = manifest.candidates.filter((candidate: any) => candidate.model === model && candidate.ability === ability.id).length;
+      assert(count >= 2 && count <= 3, `${model} has ${count} ${ability.id} candidates`);
+    }
+  }
   const briefIds = new Set(ABILITIES.map((ability) => ability.id));
   for (const candidate of manifest.candidates) {
     assert(briefIds.has(candidate.ability), `${candidate.id} must belong to one of the four Warden briefs`);
@@ -342,7 +418,7 @@ test("manifest: provenance-pinned candidates for the four Warden briefs, all in 
 
 test("candidate bytes: LFS-tracked PNGs that re-hash to the manifest; manifest stays plain JSON", async () => {
   const manifest = await readJson(path.join(REVIEW_DIR, "candidates.json"));
-  for (const plain of ["candidates.json", "briefs.json", WORKFLOW_FILE]) {
+  for (const plain of ["candidates.json", "briefs.json", "briefs.v2.json", ...Object.values(MODEL_WORKFLOWS).map((entry) => entry.file)]) {
     assert.notEqual(gitAttribute(`${REVIEW}/${plain}`, "filter"), "lfs", `${plain} must stay reviewable plain JSON`);
   }
   let hydrated = 0;
@@ -467,6 +543,18 @@ test("review loader validates the manifest and fails closed", async () => {
       briefs.style.version = 2;
       await writeFile(path.join(review, "briefs.json"), JSON.stringify(briefs));
     }, /brief|sha-?256|hash/i],
+    ["unknown model", async (review, manifest) => {
+      manifest.candidates[0].model = "sd99";
+      await writeFile(path.join(review, "candidates.json"), JSON.stringify(manifest));
+    }, /model/i],
+    ["checkpoint provenance differs from the model pin", async (review, manifest) => {
+      manifest.candidates[0].provenance.checkpoint.sha256 = "0".repeat(64);
+      await writeFile(path.join(review, "candidates.json"), JSON.stringify(manifest));
+    }, /checkpoint|pinned/i],
+    ["unpinned text encoder in provenance", async (review, manifest) => {
+      manifest.candidates[0].provenance.textEncoder = { ...FIXTURE_CHECKPOINT, name: "te.safetensors" };
+      await writeFile(path.join(review, "candidates.json"), JSON.stringify(manifest));
+    }, /textEncoder|pinned/i],
     ["escaping path", async (review, manifest) => {
       manifest.candidates[0].path = "../outside.png";
       await writeFile(path.join(review, "candidates.json"), JSON.stringify(manifest));
@@ -512,7 +600,7 @@ if (hasFfmpeg()) {
           const bytes = await readFile(path.join(output, ...image.url.split("/")));
           // True pixel size, not a CSS-scaled 512 master.
           assert.deepEqual(pngSize(bytes), { width: image.size, height: image.size }, image.url);
-          if (image.size === 512) {
+          if (image.size === 512 && candidate.width === 512) {
             assert.equal(sha256Bytes(bytes), candidate.sha256, "the 512 view is the exact candidate bytes");
           }
           const tag = new RegExp(`<img[^>]*src="${image.url.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"[^>]*>`);
@@ -525,6 +613,45 @@ if (hasFfmpeg()) {
       assert.match(html, /\bcandidates?\b/i, "images are labelled as candidates");
       assert.doesNotMatch(withoutNegatedApproval(html), /\bapproved\b/i, "the review page never claims approval");
       assert.doesNotMatch(html, /<svg[^>]*class="[^"]*\bicon-placeholder/i);
+    });
+  });
+
+  test("review page groups an ability by model and derives the 512 px view of a 1024 px master", async () => {
+    const { buildWardenReviewPage } = await reviewModule();
+    await withFixture(async ({ root, review, output, manifest }) => {
+      const bytes = encodePng(1024, (x, y) => (Math.abs(x - 512) + Math.abs(y - 512) < 300 ? [230, 200, 60, 255] : [16, 18, 24, 255]));
+      const file = "candidates/warden.ability.1.candidate.fixture-new-01.png";
+      await writeFile(path.join(review, ...file.split("/")), bytes);
+      const base = manifest.candidates[0];
+      manifest.models.unshift({
+        id: "fixture-new",
+        label: "Fixture New Model",
+        status: "supported",
+        workflow: WORKFLOW_FILE,
+        files: { diffusionModel: { ...FIXTURE_CHECKPOINT, name: "fixture-new.safetensors" } },
+      });
+      manifest.candidates.push({
+        ...base,
+        id: "warden.ability.1.candidate.fixture-new-01",
+        model: "fixture-new",
+        path: file,
+        sha256: sha256Bytes(bytes),
+        byteLength: bytes.length,
+        width: 1024,
+        height: 1024,
+        provenance: { ...base.provenance, checkpoint: { ...FIXTURE_CHECKPOINT, name: "fixture-new.safetensors" }, seed: 7 },
+      });
+      await writeFile(path.join(review, "candidates.json"), JSON.stringify(manifest, null, 2) + "\n");
+      const result = await buildWardenReviewPage({ root, reviewDirectory: review, outputDirectory: output });
+      const entry = result.candidates.find((candidate: any) => candidate.id === "warden.ability.1.candidate.fixture-new-01");
+      assert.equal(entry.model, "fixture-new");
+      assert.equal(sha256Bytes(await readFile(path.join(output, ...entry.master.split("/")))), sha256Bytes(bytes), "the master link is the exact bytes");
+      const view = await readFile(path.join(output, ...entry.images.find((image: any) => image.size === 512).url.split("/")));
+      assert.deepEqual(pngSize(view), { width: 512, height: 512 });
+      const html = await readFile(path.join(output, "index.html"), "utf8");
+      assert(html.indexOf("Fixture New Model") < html.indexOf("Fixture SD 1.5"), "supported models come before deprecated ones");
+      assert.match(html, /deprecated/);
+      assert(html.includes(entry.master));
     });
   });
 

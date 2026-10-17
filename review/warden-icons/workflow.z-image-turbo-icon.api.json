@@ -1,0 +1,63 @@
+{
+  "1": {
+    "class_type": "UNETLoader",
+    "inputs": { "unet_name": "z_image_turbo_bf16.safetensors", "weight_dtype": "default" },
+    "_meta": { "title": "Load Z-Image Turbo diffusion model" }
+  },
+  "2": {
+    "class_type": "CLIPLoader",
+    "inputs": { "clip_name": "qwen_3_4b_fp8_mixed.safetensors", "type": "lumina2", "device": "default" },
+    "_meta": { "title": "Load Qwen3 4B text encoder" }
+  },
+  "3": {
+    "class_type": "VAELoader",
+    "inputs": { "vae_name": "ae.safetensors" },
+    "_meta": { "title": "Load VAE" }
+  },
+  "4": {
+    "class_type": "ModelSamplingAuraFlow",
+    "inputs": { "shift": 3.0, "model": ["1", 0] },
+    "_meta": { "title": "Model sampling (shift 3)" }
+  },
+  "5": {
+    "class_type": "CLIPTextEncode",
+    "inputs": { "text": "positive prompt is injected per candidate", "clip": ["2", 0] },
+    "_meta": { "title": "Positive prompt" }
+  },
+  "6": {
+    "class_type": "ConditioningZeroOut",
+    "inputs": { "conditioning": ["5", 0] },
+    "_meta": { "title": "Empty negative (turbo model, CFG 1)" }
+  },
+  "7": {
+    "class_type": "EmptySD3LatentImage",
+    "inputs": { "width": 1024, "height": 1024, "batch_size": 1 },
+    "_meta": { "title": "Empty latent" }
+  },
+  "8": {
+    "class_type": "KSampler",
+    "inputs": {
+      "seed": 0,
+      "steps": 8,
+      "cfg": 1.0,
+      "sampler_name": "res_multistep",
+      "scheduler": "simple",
+      "denoise": 1.0,
+      "model": ["4", 0],
+      "positive": ["5", 0],
+      "negative": ["6", 0],
+      "latent_image": ["7", 0]
+    },
+    "_meta": { "title": "KSampler (8 steps)" }
+  },
+  "9": {
+    "class_type": "VAEDecode",
+    "inputs": { "samples": ["8", 0], "vae": ["3", 0] },
+    "_meta": { "title": "VAE Decode" }
+  },
+  "10": {
+    "class_type": "SaveImage",
+    "inputs": { "filename_prefix": "warden-icon-z-image-turbo", "images": ["9", 0] },
+    "_meta": { "title": "Save Image" }
+  }
+}

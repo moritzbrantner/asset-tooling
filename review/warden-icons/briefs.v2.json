@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "style": {
+    "id": "warden.style",
+    "version": 2,
+    "description": "Revision of style v1 for FLUX.2 [klein] 4B and Z-Image Turbo, which read whole sentences and ignore negative prompts at CFG 1: the same original dark-fantasy painterly treatment (one bold, centred subject, clear 32 px silhouette, dramatic rim light against a dark smoky vignette, steel and warm firelight) written as prose, with the exclusions (no text, frame, border, people or interface) stated in the positive prompt.",
+    "prompt": "Square fantasy game ability icon painted in a dark, painterly digital oil style with visible brush strokes. One bold subject fills the centre of the square with a strong, simple silhouette that stays readable at a tiny size. Dramatic warm rim light, high contrast, polished steel and firelight tones against a dark smoky vignette background. No text, no letters, no frame, no border, no user interface and no people."
+  },
+  "abilities": [
+    {
+      "id": "warden.ability.1",
+      "abilityId": 1,
+      "name": "Heroic Strike",
+      "version": 2,
+      "subject": "A single longsword swung in a diagonal downward strike, its blade glowing gold with a bright motion streak.",
+      "prompt": "A single gleaming longsword slashing diagonally downward from upper right to lower left, its blade glowing with golden light and trailing a bright golden slash streak and flying sparks."
+    },
+    {
+      "id": "warden.ability.2",
+      "abilityId": 2,
+      "name": "Shield Bash",
+      "version": 2,
+      "subject": "A heavy round steel shield thrust forward, its boss meeting a radial burst of impact and sparks.",
+      "prompt": "A heavy round steel shield with a riveted central boss, seen from the front, slamming forward into a radial shockwave of impact with cracking orange sparks bursting from its rim."
+    },
+    {
+      "id": "warden.ability.3",
+      "abilityId": 3,
+      "name": "Rallying Cry",
+      "version": 2,
+      "subject": "A curved war horn sounding, with rings of golden sound rippling out and a torn banner behind it.",
+      "prompt": "A curved ivory war horn with bronze bands, shown whole and large in the foreground, its bell blasting glowing golden rings of sound outward, with a tattered red war banner behind it."
+    },
+    {
+      "id": "warden.ability.4",
+      "abilityId": 4,
+      "name": "Cleave",
+      "version": 2,
+      "subject": "A broad battle axe swept through a wide horizontal crescent arc that leaves a crimson trail.",
+      "prompt": "A huge broad-bladed battle axe sweeping through a wide horizontal crescent arc, leaving a glowing crimson arc trail across the whole image."
+    }
+  ]
+}
