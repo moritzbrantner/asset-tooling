@@ -1,6 +1,6 @@
 // Build the Ranger character bundle end to end from its canonical catalog members
 // (docs/humanoid-ranger.md):
-//   bun scripts/build-ranger-character.ts --processor-checkout <3d-lab checkout> --out <directory> [--version 1|2|3|4|5|6|7] [--figure male|female]
+//   bun scripts/build-ranger-character.ts --processor-checkout <3d-lab checkout> --out <directory> [--version 1|2|3|4|5|6|7|8] [--figure male|female] [--mixamo-dir <dir>]
 // The 3d-lab checkout must be source-clean at the commit stability/processors.json pins for
 // `three-d-animation-retarget`, with its cargo dependencies fetched (the processor runs --offline).
 // <directory> becomes the object-store root; the bundle is exported to <directory>/bundle and packed
@@ -43,6 +43,9 @@ import { executeGltfTextureResizeOperation } from "../src/gltf-texture-resize-op
 import { validateHumanoidSocketDescriptor } from "../src/humanoid-sockets.js";
 import { generateAsset } from "../src/index.js";
 import { WEAPON_PRESETS, createWeaponAssetSpec, readWeaponRecipeSource, type WeaponPiece } from "../src/weapon-recipes.js";
+import { readBlenderRecipeSource } from "../src/blender-recipe-source.js";
+import { sha256Bytes } from "../src/hash.js";
+import { parseAssetSpec } from "../src/schema.js";
 import { ARCHERY_PRESETS, createArcheryAssetSpec, readArcheryRecipeSource, type ArcheryPiece } from "../src/archery-recipes.js";
 import type { AssetOperationResult, AssetRef } from "../src/operations.js";
 
@@ -62,9 +65,9 @@ export const RANGER_MEMBERS = {
   clips: { archive: "quaternius.universal-animation-library-standard", path: "Animation Library[Standard]/Godot/AnimationLibrary_Godot_Standard.glb" },
   clips2: { archive: "quaternius.universal-animation-library-2-standard", path: "Universal Animation Library 2 [Standard]/Unreal-Godot/UAL2_Standard.glb" },
 } as const;
-export type RangerVersion = 1 | 2 | 3 | 4 | 5 | 6 | 7;
-export const RANGER_VERSIONS: readonly RangerVersion[] = [1, 2, 3, 4, 5, 6, 7];
-export const RANGER_DEFAULT_VERSION: RangerVersion = 7;
+export type RangerVersion = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
+export const RANGER_VERSIONS: readonly RangerVersion[] = [1, 2, 3, 4, 5, 6, 7, 8];
+export const RANGER_DEFAULT_VERSION: RangerVersion = 8;
 /** v3 (#257): per-slot maximum texture edges for browser delivery; images are never upscaled. */
 export const RANGER_TEXTURE_POLICY = {
   maxEdgeBySlot: { baseColor: 1024, normal: 1024, metallicRoughness: 512, occlusion: 512, emissive: 1024 },
@@ -94,7 +97,8 @@ export const RANGER_HEAD_RECIPE = { keepJoints: ["neck_01", "Head"], minWeight: 
 /** Hips joints whose model-space height is each rig's reference height (`source` = UAL1, `source2` = UAL2). */
 export const RANGER_HIPS = { source: "DEF-hips", source2: "pelvis", target: "pelvis" } as const;
 
-export type RangerClip = { name: string; library: "clips" | "clips2"; rootMotion: "in-place" };
+/** `mixamo` clips (Atlas 6.1.6) come from a local Mixamo FBX named by `mixamo`; raw files never enter git or the catalog. */
+export type RangerClip = { name: string; library: "clips" | "clips2" | "mixamo"; rootMotion: "in-place"; mixamo?: string };
 /** The v1 UAL1 clips and how they are retargeted (in-place: root translation removed, vertical bob kept). */
 export const RANGER_CLIPS: readonly RangerClip[] = [
   { name: "Idle_Loop", library: "clips", rootMotion: "in-place" },
@@ -170,12 +174,30 @@ export const RANGER_CLIP_ROLES: Readonly<Record<string, { role: string; contact?
   Spell_Simple_Idle_Loop: { role: "cast.hold" },
   Spell_Simple_Shoot: { role: "cast.release", contact: "hand_r" },
   Spell_Simple_Exit: { role: "cast.exit" },
+  Hit_Shove_Spin: { role: "hit.shove" },
 };
+/**
+ * v8 (#112, Atlas 6.1.6): walk-speed backward, strafe, start/stop and turn clips and a heavy shove reaction from
+ * Mixamo ("Without Skin" FBX, 30 fps, Y Bot), read from `--mixamo-dir`. Travelling clips are retargeted in place;
+ * the removed travel and its speed are recorded in `humanoid-clips`.
+ */
+export const RANGER_V8_CLIPS: readonly RangerClip[] = [
+  ...RANGER_V7_CLIPS,
+  { name: "Walk_Bwd_Loop", library: "mixamo", mixamo: "Walking Backwards", rootMotion: "in-place" },
+  { name: "Walk_Strafe_Left_Loop", library: "mixamo", mixamo: "Left Strafe Walking", rootMotion: "in-place" },
+  { name: "Walk_Strafe_Right_Loop", library: "mixamo", mixamo: "Right Strafe Walking", rootMotion: "in-place" },
+  { name: "Walk_Start", library: "mixamo", mixamo: "Start Walking", rootMotion: "in-place" },
+  { name: "Walk_Stop", library: "mixamo", mixamo: "Walk To Stop", rootMotion: "in-place" },
+  { name: "Turn_Left", library: "mixamo", mixamo: "Left Turn", rootMotion: "in-place" },
+  { name: "Turn_Right", library: "mixamo", mixamo: "Right Turn", rootMotion: "in-place" },
+  { name: "Hit_Shove_Spin", library: "mixamo", mixamo: "Shoved Reaction With Spin", rootMotion: "in-place" },
+];
+export const RANGER_MIXAMO_LICENSE = "Mixamo (Adobe): free, royalty-free use in games; raw Mixamo files are not redistributed (Atlas 6.1.6)";
 /** The forward gait loops whose ground speed the v6 `humanoid-clips` attachment records. */
 export const RANGER_GAITS: ReadonlySet<string> = new Set(["Walk_Loop", "Jog_Fwd_Loop", "Sprint_Loop", "Crouch_Fwd_Loop"]);
 /** The clips a bundle version retargets, in bundle order. */
 export function rangerClips(version: RangerVersion): readonly RangerClip[] {
-  return version === 1 ? RANGER_CLIPS : version < 6 ? RANGER_V2_CLIPS : version === 6 ? RANGER_V6_CLIPS : RANGER_V7_CLIPS;
+  return version === 1 ? RANGER_CLIPS : version < 6 ? RANGER_V2_CLIPS : version === 6 ? RANGER_V6_CLIPS : version === 7 ? RANGER_V7_CLIPS : RANGER_V8_CLIPS;
 }
 export const RANGER_CLIPS_ATTACHMENT = "humanoid-clips";
 /** v2 equipment entries: weapon-recipe presets, parented at runtime through the sockets descriptor. */
@@ -242,6 +264,14 @@ const sameName = (map: Record<string, { source: string; target: string }>) =>
   Object.fromEntries(Object.entries(map).map(([bone, { target }]) => [bone, { source: target, target }]));
 export const RANGER_UBC_BONE_MAP: Record<string, { source: string; target: string }> = sameName(RANGER_BONE_MAP);
 export const RANGER_V5_UBC_BONE_MAP: Record<string, { source: string; target: string }> = sameName(RANGER_V5_BONE_MAP);
+/** HumanoidBone id -> Mixamo joint (`mixamorig:*`, three spine joints like v5). Mixamo has no separate root joint. */
+export const RANGER_MIXAMO_BONE_MAP: Record<string, { source: string; target: string }> = Object.fromEntries(Object.entries({
+  hips: "Hips", spine: "Spine", chest: "Spine1", "upper-chest": "Spine2", neck: "Neck", head: "Head",
+  "left-shoulder": "LeftShoulder", "left-upper-arm": "LeftArm", "left-lower-arm": "LeftForeArm", "left-hand": "LeftHand",
+  "right-shoulder": "RightShoulder", "right-upper-arm": "RightArm", "right-lower-arm": "RightForeArm", "right-hand": "RightHand",
+  "left-upper-leg": "LeftUpLeg", "left-lower-leg": "LeftLeg", "left-foot": "LeftFoot", "left-toes": "LeftToeBase",
+  "right-upper-leg": "RightUpLeg", "right-lower-leg": "RightLeg", "right-foot": "RightFoot", "right-toes": "RightToeBase",
+}).map(([bone, joint]) => [bone, { source: `mixamorig:${joint}`, target: RANGER_V5_BONE_MAP[bone]!.target }]));
 /** The UAL1 and UAL2 bone maps a bundle version retargets with. */
 export function rangerBoneMaps(version: RangerVersion) {
   return version >= 5 ? { clips: RANGER_V5_BONE_MAP, clips2: RANGER_V5_UBC_BONE_MAP } : { clips: RANGER_BONE_MAP, clips2: RANGER_UBC_BONE_MAP };
@@ -308,11 +338,16 @@ function atKey<T>(animation: Animation, pick: (count: number) => number, read: (
  * loop flag, the source hips displacement scaled to the Ranger (x/z removed by in-place, y kept) and,
  * for the gaits, the ground speed at which a planted foot moves backwards in the retargeted clip.
  */
-async function rangerClipMotion(root: string, { character, targetRig, sourceRigs, libraries, clips, catalogIds, roles = false }: {
-  character: AssetRef; targetRig: AssetRef; sourceRigs: Partial<Record<RangerClip["library"], AssetRef>>;
-  libraries: Partial<Record<RangerClip["library"], AssetRef>>;
-  clips: { name: string; library: string; source: AssetRef; observations: Json }[]; catalogIds: Record<RangerClip["library"], string>;
-  roles?: boolean;
+type RangerBuiltClip = {
+  name: string; library: string; source: AssetRef; retargeted: AssetRef; observations: Json;
+  /** The GLB the clip was extracted from, its source rig, hips joint and the `humanoid-clips` source fields. */
+  libraryAsset: AssetRef; sourceRig: AssetRef; hips: string; sourceInfo: Json;
+  /** Mixamo clips: the horizontal pelvis travel (glTF x, z) the Blender retarget removed. */
+  removedTravel?: [number, number];
+};
+
+async function rangerClipMotion(root: string, { character, targetRig, clips, roles = false }: {
+  character: AssetRef; targetRig: AssetRef; clips: RangerBuiltClip[]; roles?: boolean;
 }) {
   const io = new NodeIO();
   const documents = new Map<string, Document>();
@@ -325,23 +360,28 @@ async function rangerClipMotion(root: string, { character, targetRig, sourceRigs
   const feet = [targetNode("foot_l"), targetNode("foot_r")];
   const entries: Json[] = [];
   for (const clip of clips) {
-    const library = clip.library as RangerClip["library"];
-    const source = await read(libraries[library]!);
+    const source = await read(clip.libraryAsset);
     const animation = source.getRoot().listAnimations().find((candidate) => candidate.getName() === clip.name)!;
-    const hipsName = library === "clips" ? RANGER_HIPS.source : RANGER_HIPS.source2;
-    const hips = source.getRoot().listNodes().find((node) => node.getName() === hipsName)!;
+    const hips = source.getRoot().listNodes().find((node) => node.getName() === clip.hips)!;
     const start = atKey(animation, () => 0, () => hips.getWorldTranslation());
     const end = atKey(animation, (count) => count - 1, () => hips.getWorldTranslation());
-    const scale = (targetRig.metadata.referenceHeight as number) / (sourceRigs[library]!.metadata.referenceHeight as number);
+    const scale = (targetRig.metadata.referenceHeight as number) / (clip.sourceRig.metadata.referenceHeight as number);
     const entry: Json = {
       name: clip.name,
-      source: { catalogId: catalogIds[library], clip: clip.name, animationSha256: clip.source.sha256 },
+      source: { ...clip.sourceInfo, clip: clip.name, animationSha256: clip.source.sha256 },
       durationSeconds: round4(clip.observations.endSeconds - clip.observations.startSeconds),
       loop: clip.name.endsWith("_Loop"),
       interpolation: "LINEAR",
       rootMotion: clip.observations.rootMotion,
       sourceRootDisplacement: { x: round4((end[0] - start[0]) * scale), y: round4((end[1] - start[1]) * scale), z: round4((end[2] - start[2]) * scale) },
     };
+    if (clip.removedTravel) {
+      entry.sourceRootDisplacement.x = round4(clip.removedTravel[0]);
+      entry.sourceRootDisplacement.z = round4(clip.removedTravel[1]);
+      // Travelling Mixamo clips are made in place; their removed horizontal travel becomes a reference speed.
+      const travel = Math.hypot(entry.sourceRootDisplacement.x, entry.sourceRootDisplacement.z);
+      if (travel > 0.05) entry.sourceRootSpeedMetersPerSecond = round4(travel / entry.durationSeconds);
+    }
     if (RANGER_GAITS.has(clip.name)) {
       const retargeted = target.getRoot().listAnimations().find((candidate) => candidate.getName() === clip.name)!;
       const times = Array.from(retargeted.listSamplers()[0]!.getInput()!.getArray()!);
@@ -377,6 +417,34 @@ async function rangerClipMotion(root: string, { character, targetRig, sourceRigs
   return (await storeAssetObject(root, { bytes: Buffer.from(`${canonicalJson(descriptor)}\n`), kind: "humanoid-clips", mediaType: "application/json" })).asset;
 }
 
+/** Convert one local Mixamo FBX to a carrier GLB with that single clip (adapters/blender/mixamo_clip.py). */
+async function convertMixamoClip(root: string, fbx: string, clip: string, targetGlb: AssetRef) {
+  const source = await readBlenderRecipeSource("mixamo_clip.py");
+  const workspace = path.join(root, "mixamo", clip);
+  await mkdir(workspace, { recursive: true });
+  const bytes = await readFile(fbx);
+  await writeFile(path.join(workspace, "clip.fbx"), bytes);
+  const target = await resolveAssetObject(root, targetGlb);
+  await writeFile(path.join(workspace, "target.glb"), target);
+  await writeFile(path.join(workspace, "mixamo_clip.py"), source.bytes);
+  const spec = parseAssetSpec({
+    schemaVersion: 1, assetId: `mixamo.${clip}`, generator: { id: "external.blender.script", version: "1" }, randomness: { mode: "none" },
+    inputs: {
+      script: { path: "mixamo_clip.py", sha256: source.sha256 }, fbx: { path: "clip.fbx", sha256: sha256Bytes(bytes) },
+      target: { path: "target.glb", sha256: sha256Bytes(target) },
+    }, models: {},
+    parameters: { blenderVersion: source.blenderVersion, arguments: {
+      schemaVersion: 1, clip, bones: Object.fromEntries(Object.values(RANGER_MIXAMO_BONE_MAP).map(({ source, target }) => [source, target])),
+      hips: [RANGER_MIXAMO_BONE_MAP.hips!.source, RANGER_MIXAMO_BONE_MAP.hips!.target],
+    } }, output: { path: "clip.glb" }, reproducibility: { expected: "exact" },
+  });
+  const specPath = path.join(workspace, "asset.json");
+  await writeFile(specPath, `${canonicalJson(spec)}\n`);
+  const generated = await generateAsset(specPath);
+  const glb = (await storeAssetObject(root, { bytes: await readFile(path.join(workspace, "clip.glb")), kind: "animation", mediaType: "model/gltf-binary" })).asset;
+  return { glb, fbxSha256: sha256Bytes(bytes), observations: (generated.receipt.observations as Json).script as Json };
+}
+
 /** Generate one archery-recipe preset through the pinned Blender backend and import it (the bow keeps its skin). */
 async function buildArchery(root: string, piece: ArcheryPiece) {
   const source = await readArcheryRecipeSource();
@@ -391,13 +459,13 @@ async function buildArchery(root: string, piece: ArcheryPiece) {
   return single(await executeGltfProductionImportOperation(root, { inputs: { source: glb }, parameters: { policy: POLICY } }));
 }
 
-export async function buildRangerCharacter({ processorCheckout, outDir, version = RANGER_DEFAULT_VERSION, figure = "male", log = () => {} }: {
-  processorCheckout: string; outDir: string; version?: RangerVersion; figure?: RangerFigure; log?: (line: string) => void;
+export async function buildRangerCharacter({ processorCheckout, outDir, version = RANGER_DEFAULT_VERSION, figure = "male", mixamoDir, log = () => {} }: {
+  processorCheckout: string; outDir: string; version?: RangerVersion; figure?: RangerFigure; mixamoDir?: string; log?: (line: string) => void;
 }) {
   const shape = RANGER_FIGURES[figure];
   if (version < shape.minVersion) throw new Error(`the ${figure} Ranger starts at bundle version ${shape.minVersion}`);
   const bundleKey = shape.key;
-  if (!RANGER_VERSIONS.includes(version)) throw new Error("Ranger bundle version must be 1, 2, 3, 4, 5, 6 or 7");
+  if (!RANGER_VERSIONS.includes(version)) throw new Error("Ranger bundle version must be 1 to 8");
   const root = path.resolve(outDir);
   await mkdir(root, { recursive: true });
   const processor = await rangerProcessor(path.resolve(processorCheckout));
@@ -446,23 +514,59 @@ export async function buildRangerCharacter({ processorCheckout, outDir, version 
     clips: { hips: RANGER_HIPS.source, bindings: boneMaps.clips, member: () => member(memberId(RANGER_MEMBERS.clips)) },
     clips2: { hips: RANGER_HIPS.source2, bindings: boneMaps.clips2, member: () => member(memberId(RANGER_MEMBERS.clips2)) },
   } as const;
-  const loaded: Partial<Record<RangerClip["library"], AssetRef>> = {};
-  const sourceRigs: Partial<Record<RangerClip["library"], AssetRef>> = {};
-  const clips: { name: string; library: string; source: AssetRef; retargeted: AssetRef; observations: Json }[] = [];
+  const loaded: Partial<Record<string, AssetRef>> = {};
+  const sourceRigs: Partial<Record<string, AssetRef>> = {};
+  const catalogIds = { clips: memberId(RANGER_MEMBERS.clips), clips2: memberId(RANGER_MEMBERS.clips2) };
+  const clips: RangerBuiltClip[] = [];
   for (const clip of rangerClips(version)) {
-    const lib = libraries[clip.library];
-    const library = loaded[clip.library] ??= await lib.member();
+    let lib: { hips: string; bindings: Record<string, { source: string; target: string }> }, library: AssetRef, sourceInfo: Json;
+    if (clip.library === "mixamo") {
+      if (!mixamoDir) throw new Error(`clip ${clip.name} needs --mixamo-dir with '${clip.mixamo}.fbx' (Atlas 6.1.6)`);
+      lib = { hips: "mixamorig:Hips", bindings: RANGER_MIXAMO_BONE_MAP };
+      // Owner answer #112.Q6: Mixamo clips are retargeted in Blender (world-space rotation copy and bake) onto
+      // the composed rig, then extracted and re-indexed to the target joint order; animation.retarget@1 is not used.
+      log(`retarget ${clip.name} in Blender (adapters/blender/mixamo_clip.py, Mixamo '${clip.mixamo}')`);
+      const converted = await convertMixamoClip(root, path.join(mixamoDir, `${clip.mixamo}.fbx`), clip.name, composed);
+      const extractedMixamo = await executeGltfExtractAnimationOperation(root, {
+        inputs: { source: converted.glb }, parameters: { hipsJoint: RANGER_HIPS.target, clip: clip.name, policy: POLICY },
+      });
+      const fromRig = JSON.parse((await resolveAssetObject(root, single(extractedMixamo, "rig"))).toString("utf8")).jointNames as string[];
+      const toRig = JSON.parse((await resolveAssetObject(root, targetRig)).toString("utf8")).jointNames as string[];
+      const document = JSON.parse((await resolveAssetObject(root, single(extractedMixamo, "animation"))).toString("utf8"));
+      for (const channel of document.channels) {
+        const index = toRig.indexOf(fromRig[channel.node]!);
+        if (index < 0) throw new Error(`${clip.name}: joint '${fromRig[channel.node]}' is not in the Ranger rig`);
+        channel.node = index;
+      }
+      document.channels.sort((a: Json, b: Json) => a.node - b.node || ["translation", "rotation", "scale"].indexOf(a.kind) - ["translation", "rotation", "scale"].indexOf(b.kind));
+      const retargeted = (await storeAssetObject(root, {
+        bytes: Buffer.from(`${JSON.stringify(document)}\n`), kind: "animation", mediaType: (single(extractedMixamo, "animation")).mediaType,
+        metadata: { operation: "mixamo-retarget-v1", clip: clip.name, rigSha256: targetRig.sha256 },
+      })).asset;
+      const times = document.channels.flatMap((channel: Json) => channel.keyframes.map((key: Json) => key.time as number));
+      const observations = { rootMotion: "in-place", startSeconds: Math.min(...times), endSeconds: Math.max(...times), retarget: converted.observations };
+      clips.push({ name: clip.name, library: clip.library, source: converted.glb, retargeted, observations, libraryAsset: converted.glb,
+        sourceRig: single(extractedMixamo, "rig"), hips: RANGER_HIPS.target,
+        sourceInfo: { provider: "mixamo", title: clip.mixamo, fbxSha256: converted.fbxSha256, license: RANGER_MIXAMO_LICENSE },
+        removedTravel: converted.observations.removedTravel as [number, number] });
+      continue;
+    } else {
+      lib = libraries[clip.library];
+      library = loaded[clip.library] ??= await lib.member();
+      sourceInfo = { catalogId: catalogIds[clip.library] };
+    }
     const extracted = await executeGltfExtractAnimationOperation(root, {
       inputs: { source: library }, parameters: { hipsJoint: lib.hips, clip: clip.name, policy: POLICY },
     });
-    const sourceRig = sourceRigs[clip.library] = single(extracted, "rig");
+    const sourceRig = sourceRigs[clip.library === "mixamo" ? `mixamo:${clip.name}` : clip.library] = single(extracted, "rig");
     const source = single(extracted, "animation");
     log(`retarget ${clip.name} (animation.retarget@1, rootMotion ${clip.rootMotion})`);
     const retargeted = await executeAnimationRetargetOperation(root, {
       inputs: { animation: source, "source-rig": sourceRig, "target-rig": targetRig },
       parameters: { bindings: lib.bindings, sampleRate: RANGER_SAMPLE_RATE, rootMotion: clip.rootMotion },
     }, processor);
-    clips.push({ name: clip.name, library: clip.library, source, retargeted: single(retargeted), observations: retargeted.observations as Json });
+    clips.push({ name: clip.name, library: clip.library, source, retargeted: single(retargeted), observations: retargeted.observations as Json,
+      libraryAsset: library, sourceRig, hips: lib.hips, sourceInfo });
   }
 
   log("embed clips (scene.embed.animation.gltf@1)");
@@ -501,7 +605,7 @@ export async function buildRangerCharacter({ processorCheckout, outDir, version 
     attachments.push(sockets);
     if (version >= 6) {
       log(`measure clip motion and attach '${RANGER_CLIPS_ATTACHMENT}'`);
-      clipMotion = await rangerClipMotion(root, { character, targetRig, sourceRigs, libraries: loaded, clips, catalogIds: { clips: memberId(RANGER_MEMBERS.clips), clips2: memberId(RANGER_MEMBERS.clips2) }, roles: version >= 7 });
+      clipMotion = await rangerClipMotion(root, { character, targetRig, clips, roles: version >= 7 });
       selections[0]!.attachments.push({ name: RANGER_CLIPS_ATTACHMENT });
       attachments.push(clipMotion);
     }
@@ -556,20 +660,20 @@ function parseArguments(args: string[]) {
   const options: Record<string, string> = {};
   for (let index = 0; index < args.length; index += 2) {
     const flag = args[index], value = args[index + 1];
-    if (!["--processor-checkout", "--out", "--version", "--figure"].includes(flag!) || !value) return undefined;
+    if (!["--processor-checkout", "--out", "--version", "--figure", "--mixamo-dir"].includes(flag!) || !value) return undefined;
     options[flag!.slice(2)] = value;
   }
   if (options.version !== undefined && !RANGER_VERSIONS.map(String).includes(options.version)) return undefined;
   const version = (options.version === undefined ? RANGER_DEFAULT_VERSION : Number(options.version)) as RangerVersion;
   if (options.figure !== undefined && !Object.hasOwn(RANGER_FIGURES, options.figure)) return undefined;
   const figure = (options.figure ?? "male") as RangerFigure;
-  return options["processor-checkout"] && options.out ? { processorCheckout: options["processor-checkout"], outDir: options.out, version, figure } : undefined;
+  return options["processor-checkout"] && options.out ? { processorCheckout: options["processor-checkout"], outDir: options.out, version, figure, mixamoDir: options["mixamo-dir"] && path.resolve(options["mixamo-dir"]) } : undefined;
 }
 
 if (import.meta.main) {
   const options = parseArguments(process.argv.slice(2));
   if (!options) {
-    console.error("Usage: bun scripts/build-ranger-character.ts --processor-checkout <absolute 3d-lab checkout> --out <directory> [--version 1|2|3|4|5|6|7] [--figure male|female]");
+    console.error("Usage: bun scripts/build-ranger-character.ts --processor-checkout <absolute 3d-lab checkout> --out <directory> [--version 1|2|3|4|5|6|7|8] [--figure male|female] [--mixamo-dir <dir>]");
     process.exit(2);
   }
   try {

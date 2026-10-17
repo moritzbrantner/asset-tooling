@@ -20,7 +20,7 @@ import { verifyAssetBundleTar } from "../src/asset-bundle-pack.js";
 import { GLTF_RESOURCES_BUNDLE_PROFILE, readAssetBundleAttachment, readAssetBundleGltf, verifyAssetBundle } from "../src/asset-bundle.js";
 import { validateHumanoidSocketDescriptor } from "../src/humanoid-sockets.js";
 import {
-  RANGER_BONE_MAP, RANGER_BUNDLE_KEY, RANGER_BUNDLE_VARIANT, RANGER_CLIPS, RANGER_CLIPS_ATTACHMENT, RANGER_GAITS, RANGER_MEMBERS, RANGER_V6_CLIPS, RANGER_V7_CLIPS, RANGER_V7_ARCHERY, RANGER_FIGURES, RANGER_CLIP_ROLES, RANGER_V4_SOCKETS_DESCRIPTOR, rangerClips, RANGER_SOCKETS_ATTACHMENT,
+  RANGER_BONE_MAP, RANGER_BUNDLE_KEY, RANGER_BUNDLE_VARIANT, RANGER_CLIPS, RANGER_CLIPS_ATTACHMENT, RANGER_GAITS, RANGER_MEMBERS, RANGER_V6_CLIPS, RANGER_V7_CLIPS, RANGER_V8_CLIPS, RANGER_MIXAMO_BONE_MAP, RANGER_V7_ARCHERY, RANGER_FIGURES, RANGER_CLIP_ROLES, RANGER_V4_SOCKETS_DESCRIPTOR, rangerClips, RANGER_SOCKETS_ATTACHMENT,
   RANGER_DEFAULT_VERSION, RANGER_SOCKETS_DESCRIPTOR, RANGER_TEXTURE_POLICY, RANGER_V2_SOCKETS_DESCRIPTOR, rangerSocketsDescriptor, RANGER_UBC_BONE_MAP, RANGER_V2_CLIPS, RANGER_V2_EQUIPMENT,
   RANGER_V5_BONE_MAP, RANGER_V5_UBC_BONE_MAP, buildRangerCharacter, rangerBoneMaps,
 } from "../scripts/build-ranger-character.ts";
@@ -87,7 +87,7 @@ test("v6 (#112) adds the traversal clips by source name after the v2 clips; v1-v
   ]);
   assert.deepEqual(RANGER_V6_CLIPS.slice(0, RANGER_V2_CLIPS.length), RANGER_V2_CLIPS);
   assert.ok(RANGER_V6_CLIPS.every((clip) => clip.rootMotion === "in-place"));
-  assert.deepEqual(([1, 2, 3, 4, 5, 6, 7] as const).map(rangerClips), [RANGER_CLIPS, RANGER_V2_CLIPS, RANGER_V2_CLIPS, RANGER_V2_CLIPS, RANGER_V2_CLIPS, RANGER_V6_CLIPS, RANGER_V7_CLIPS]);
+  assert.deepEqual(([1, 2, 3, 4, 5, 6, 7, 8] as const).map(rangerClips), [RANGER_CLIPS, RANGER_V2_CLIPS, RANGER_V2_CLIPS, RANGER_V2_CLIPS, RANGER_V2_CLIPS, RANGER_V6_CLIPS, RANGER_V7_CLIPS, RANGER_V8_CLIPS]);
   assert.deepEqual([...RANGER_GAITS], ["Walk_Loop", "Jog_Fwd_Loop", "Sprint_Loop", "Crouch_Fwd_Loop"]);
   assert.deepEqual(rangerBoneMaps(6), rangerBoneMaps(5));
 });
@@ -112,9 +112,21 @@ test("the female Ranger (#115) uses the female body, the Female_Ranger outfit an
   await assert.rejects(buildRangerCharacter({ processorCheckout: "/nonexistent", outDir: os.tmpdir(), version: 6, figure: "female" }), /starts at bundle version 7/);
 });
 
-test("v7 is the default; v2 and v3 keep the bundle-v2 sockets, v4-v6 the bundle-v4 sockets, and the texture limits are per slot", () => {
-  assert.equal(RANGER_DEFAULT_VERSION, 7);
-  assert.deepEqual(([1, 2, 3, 4, 5, 6, 7] as const).map(rangerSocketsDescriptor), [undefined, RANGER_V2_SOCKETS_DESCRIPTOR, RANGER_V2_SOCKETS_DESCRIPTOR, RANGER_V4_SOCKETS_DESCRIPTOR, RANGER_V4_SOCKETS_DESCRIPTOR, RANGER_V4_SOCKETS_DESCRIPTOR, RANGER_SOCKETS_DESCRIPTOR]);
+test("v8 (#112) adds the owner-approved Mixamo clips by name after the v7 clips, with a full Mixamo bone map", () => {
+  assert.deepEqual(RANGER_V8_CLIPS.slice(0, RANGER_V7_CLIPS.length), RANGER_V7_CLIPS);
+  assert.deepEqual(RANGER_V8_CLIPS.slice(RANGER_V7_CLIPS.length).map((clip) => [clip.name, clip.library, clip.mixamo]), [
+    ["Walk_Bwd_Loop", "mixamo", "Walking Backwards"], ["Walk_Strafe_Left_Loop", "mixamo", "Left Strafe Walking"],
+    ["Walk_Strafe_Right_Loop", "mixamo", "Right Strafe Walking"], ["Walk_Start", "mixamo", "Start Walking"], ["Walk_Stop", "mixamo", "Walk To Stop"],
+    ["Turn_Left", "mixamo", "Left Turn"], ["Turn_Right", "mixamo", "Right Turn"], ["Hit_Shove_Spin", "mixamo", "Shoved Reaction With Spin"],
+  ]);
+  assert.equal(RANGER_CLIP_ROLES.Hit_Shove_Spin!.role, "hit.shove");
+  assert.deepEqual(Object.keys(RANGER_MIXAMO_BONE_MAP).sort(), Object.keys(RANGER_V5_BONE_MAP).filter((bone) => bone !== "root").sort());
+  assert.ok(Object.values(RANGER_MIXAMO_BONE_MAP).every(({ source }) => source.startsWith("mixamorig:")));
+});
+
+test("v8 is the default; v2 and v3 keep the bundle-v2 sockets, v4-v6 the bundle-v4 sockets, and the texture limits are per slot", () => {
+  assert.equal(RANGER_DEFAULT_VERSION, 8);
+  assert.deepEqual(([1, 2, 3, 4, 5, 6, 7, 8] as const).map(rangerSocketsDescriptor), [undefined, RANGER_V2_SOCKETS_DESCRIPTOR, RANGER_V2_SOCKETS_DESCRIPTOR, RANGER_V4_SOCKETS_DESCRIPTOR, RANGER_V4_SOCKETS_DESCRIPTOR, RANGER_V4_SOCKETS_DESCRIPTOR, RANGER_SOCKETS_DESCRIPTOR, RANGER_SOCKETS_DESCRIPTOR]);
   assert.notEqual(RANGER_SOCKETS_DESCRIPTOR, RANGER_V2_SOCKETS_DESCRIPTOR);
   assert.deepEqual(RANGER_TEXTURE_POLICY, {
     maxEdgeBySlot: { baseColor: 1024, normal: 1024, metallicRoughness: 512, occlusion: 512, emissive: 1024 }, default: 1024,
@@ -124,7 +136,8 @@ test("v7 is the default; v2 and v3 keep the bundle-v2 sockets, v4-v6 the bundle-
 test("the Ranger v7 recipe builds a verified bundle: in-place clips, equipment entries, the sockets and clips attachments and game-resolution textures", { skip: await skipReason(), timeout: 900_000 }, async () => {
   const outDir = await mkdtemp(path.join(os.tmpdir(), "humanoid-ranger-"));
   try {
-    const built = await buildRangerCharacter({ processorCheckout: CHECKOUT!, outDir });
+    // v8 needs the author's local Mixamo files (Atlas 6.1.6), so the hosted run builds v7; v8 adds clips only.
+    const built = await buildRangerCharacter({ processorCheckout: CHECKOUT!, outDir, version: 7 });
     const tar = await readFile(built.tar);
     await verifyAssetBundleTar(tar, { sha256: built.tarSha256, ref: built.exportRef });
     const { manifest } = await verifyAssetBundle(built.bundleDir, built.exportRef, { profile: GLTF_RESOURCES_BUNDLE_PROFILE });
@@ -160,7 +173,7 @@ test("the Ranger v7 recipe builds a verified bundle: in-place clips, equipment e
     assert.ok(byName.Roll_RM.sourceRootDisplacement.z > 4 && Math.abs(byName.Roll.sourceRootDisplacement.z) < 0.2);
     assert.ok(Math.abs(byName.ClimbUp_1m_RM.sourceRootDisplacement.y - 1) < 0.1);
     // v7: combat roles, and a contact time inside the clip for every strike.
-    for (const [name, { role, contact }] of Object.entries(RANGER_CLIP_ROLES)) {
+    for (const [name, { role, contact }] of Object.entries(RANGER_CLIP_ROLES).filter(([clip]) => clip in byName)) {
       assert.equal(byName[name].role, role, name);
       if (contact) assert.ok(byName[name].contact.joint === contact && byName[name].contact.seconds >= 0 && byName[name].contact.seconds <= byName[name].durationSeconds, name);
       else assert.ok(!("contact" in byName[name]), name);

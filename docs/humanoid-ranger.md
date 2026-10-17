@@ -12,7 +12,7 @@ The source members are listed in [humanoid-sources.md](humanoid-sources.md).
 
 ## Versions
 
-The recipe has seven versions. `--version` selects one, and the default is 7.
+The recipe has eight versions. `--version` selects one, and the default is 8.
 
 - **v1 (#110):** the character with `Idle_Loop` and `Walk_Loop`. It is one entry with no attachments, and it stays reproducible with `--version 1`, which rebuilt the recorded v1 tar `4de4cc65…` byte for byte after the v2 change.
 - **v2 ([#260](https://github.com/moritzbrantner/asset-tooling/issues/260), [#113](https://github.com/moritzbrantner/asset-tooling/issues/113)):** v2 supersedes v1 as the bundle to publish. It follows the owner answers on #113:
@@ -38,6 +38,18 @@ The recipe has seven versions. `--version` selects one, and the default is 7.
   - **Clips:** 16 more clips. The sword, counter, heavy and shield clips are the owner's picks on #114 after preview. Every combat clip gets a `role` in `humanoid-clips`, and strikes also get a `contact` (see [Clip motion](#clip-motion)). Bow draw and release clips are split out, because the free libraries have none.
 
   The character's textures and the sword and shield entries are byte-identical to v6. After the v7 change, `--version 6` rebuilt the recorded v6 tar `9f5d625c…` byte for byte.
+
+- **v8 ([#112](https://github.com/moritzbrantner/asset-tooling/issues/112)):** v8 is v7 with eight walk-speed clips from Mixamo (Atlas Decision 6.1.6), for both figures. It supersedes v7 as the bundle to publish.
+  - **Clips:** `Walk_Bwd_Loop`, `Walk_Strafe_Left_Loop`, `Walk_Strafe_Right_Loop`, `Walk_Start`, `Walk_Stop`, `Turn_Left`, `Turn_Right` and `Hit_Shove_Spin` (role `hit.shove`), from the Mixamo titles in `RANGER_V8_CLIPS`.
+  - **Mixamo retarget (owner answer #112.Q6):** `animation.retarget@1` transfers rotations in each joint's local frame, and Mixamo bones don't share the Ranger's joint axes. So [`adapters/blender/mixamo_clip.py`](../adapters/blender/mixamo_clip.py) retargets in Blender instead:
+    - it imports the composed Ranger with the round-trip bone heuristic;
+    - each mapped joint copies its Mixamo bone's world-space rotation, offset by the rest-pose difference (constraints, then a visual-keying bake);
+    - the pelvis keeps only the source hips' vertical motion, scaled by the hips heights.
+    
+    The build extracts the clip, re-indexes it to the character's joint order and embeds it like the other clips.
+  - **Root motion:** every clip is in place. Turns keep their rotation (owner answer Q2), so the body ends a turn rotated 90°. The removed horizontal travel is `sourceRootDisplacement`, and from v8 its speed is `sourceRootSpeedMetersPerSecond`: walk backwards 1.031, strafes 1.576, start 0.616, stop 0.306 and shove 0.444 m/s.
+  - **Inputs:** `--mixamo-dir <dir>` names the author's local Mixamo downloads ("Without Skin" FBX, 30 fps, Y Bot), one `<title>.fbx` per clip. Raw Mixamo files never enter git, the catalog or a release; `humanoid-clips` records only the provider, title, FBX SHA-256 and the license note `RANGER_MIXAMO_LICENSE`. Versions 1–7 need no Mixamo files.
+  - **Still open on #112:** jog-speed backward and strafe clips (files to come).
 
 v1–v4 keep their two-bone spine map. The processor treats an unmapped `upper-chest` exactly as before, so the new pin rebuilds them unchanged: after the v5 change, `--version 1` and `--version 4` rebuilt the recorded tars `4de4cc65…` and `222f21f8…` byte for byte at `4e69c0f`. No older processor checkout is needed.
 
