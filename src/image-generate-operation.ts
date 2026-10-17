@@ -18,7 +18,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { storeAssetObject, type AssetOperationRunRegistration } from "./asset-store.js";
+import type { AssetOperationRunRegistration } from "./asset-store.js";
 import { canonicalJson } from "./canonical.js";
 import {
   assertKeys,
@@ -27,11 +27,15 @@ import {
   assertServerIdentityUnchanged,
   assertString,
   awaitOutput,
+  executionSignal,
   fetchOutput,
   isRecord,
   normalizeEndpoint,
   pinnedFileSignature,
+  storeOutputUnlessCancelled,
   submitPrompt,
+  throwIfCancelledBeforeSubmit,
+  throwIfOutputCancelled,
   verifyPinnedFile,
   verifyPng,
   type ComfyUiServerIdentity,
@@ -652,7 +656,9 @@ function createComfyUiRegistration(
       verified.clear();
       await preflight(invocation?.parameters);
     },
-    async execute(root, invocation): Promise<AssetOperationResult> {
+    async execute(root, invocation, context): Promise<AssetOperationResult> {
+      const signal = executionSignal(context);
+      throwIfCancelledBeforeSubmit(signal);
       // 1. Local preflight: resolved parameters, pinned template bytes, pinned model files.
       let checked: Awaited<ReturnType<typeof preflight>>;
       try {
@@ -665,22 +671,29 @@ function createComfyUiRegistration(
 
       // 2. The server must still be the one this registration was created for.
       const deadline = Date.now() + timeoutMs;
-      await assertServerIdentityUnchanged(endpoint, serverJson, timeoutMs);
+      await assertServerIdentityUnchanged(endpoint, serverJson, timeoutMs, signal);
+      throwIfCancelledBeforeSubmit(signal);
 
       // 3. Submit once; await this prompt's history; fetch the declared output exactly once.
       const clientId = `asset-tooling-${randomUUID()}`;
-      const promptId = await submitPrompt(endpoint, submitted, clientId, deadline - Date.now());
-      const image = await awaitOutput(endpoint, promptId, profile.template.output, deadline, pollIntervalMs);
-      const bytes = await fetchOutput(endpoint, promptId, image, deadline);
+      const promptId = await submitPrompt(endpoint, submitted, clientId, deadline - Date.now(), signal);
+      const image = await awaitOutput(endpoint, promptId, profile.template.output, deadline, pollIntervalMs, signal, clientId);
+      const bytes = await fetchOutput(endpoint, promptId, image, deadline, signal);
 
       // 4. Verify and import the actual bytes.
+      throwIfOutputCancelled(signal, promptId);
       verifyPng(bytes, promptId, parameters.width, parameters.height);
-      const stored = await storeAssetObject(root, {
-        bytes,
-        kind: "image",
-        mediaType: "image/png",
-        metadata: { width: parameters.width, height: parameters.height },
-      });
+      const stored = await storeOutputUnlessCancelled(
+        root,
+        {
+          bytes,
+          kind: "image",
+          mediaType: "image/png",
+          metadata: { width: parameters.width, height: parameters.height },
+        },
+        signal,
+        promptId,
+      );
 
       const comfyui: CanonicalJsonObject = { version: server.comfyuiVersion as string };
       if (comfyuiCommit !== undefined) comfyui.commit = comfyuiCommit;

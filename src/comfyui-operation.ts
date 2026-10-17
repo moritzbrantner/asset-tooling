@@ -10,7 +10,7 @@
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 
-import { storeAssetObject, type AssetOperationRunRegistration } from "./asset-store.js";
+import type { AssetOperationRunRegistration } from "./asset-store.js";
 import { canonicalJson } from "./canonical.js";
 import {
   DEFAULT_PROBE_TIMEOUT_MS,
@@ -20,12 +20,16 @@ import {
   assertRecord,
   assertString,
   awaitOutput,
+  executionSignal,
   fetchOutput,
   isRecord,
   normalizeEndpoint,
   pinnedFileSignature,
   readServerIdentity,
+  storeOutputUnlessCancelled,
   submitPrompt,
+  throwIfCancelledBeforeSubmit,
+  throwIfOutputCancelled,
   verifyPinnedFile,
   verifyPng,
   type ComfyUiServerIdentity,
@@ -357,7 +361,9 @@ export function createComfyUiImageGenerateRegistration(options: ComfyUiImageGene
       const parameters = assertRecord(invocation?.parameters, "ComfyUI parameters");
       preverified = await verifyCheckpoint(checkpointDirectory, parseCheckpoint(parameters.checkpoint));
     },
-    async execute(root, invocation): Promise<AssetOperationResult> {
+    async execute(root, invocation, context): Promise<AssetOperationResult> {
+      const signal = executionSignal(context);
+      throwIfCancelledBeforeSubmit(signal);
       // 1. Local preflight: verified workflow bytes, closed parameters, declared injections.
       const inputs = assertRecord(invocation?.inputs, "ComfyUI operation inputs");
       const workflow = await loadPreparedComfyUiApiWorkflow(root, inputs.workflow);
@@ -376,22 +382,29 @@ export function createComfyUiImageGenerateRegistration(options: ComfyUiImageGene
 
       // 3. The server must still be the one this registration was created for.
       const deadline = Date.now() + timeoutMs;
-      await assertServerIdentityUnchanged(endpoint, serverJson, timeoutMs);
+      await assertServerIdentityUnchanged(endpoint, serverJson, timeoutMs, signal);
+      throwIfCancelledBeforeSubmit(signal);
 
       // 4. Submit once; 5. await this prompt's history; fetch the declared output exactly once.
       const clientId = `asset-tooling-${randomUUID()}`;
-      const promptId = await submitPrompt(endpoint, submitted, clientId, deadline - Date.now());
-      const image = await awaitOutput(endpoint, promptId, parameters.output.node, deadline, pollIntervalMs);
-      const bytes = await fetchOutput(endpoint, promptId, image, deadline);
+      const promptId = await submitPrompt(endpoint, submitted, clientId, deadline - Date.now(), signal);
+      const image = await awaitOutput(endpoint, promptId, parameters.output.node, deadline, pollIntervalMs, signal, clientId);
+      const bytes = await fetchOutput(endpoint, promptId, image, deadline, signal);
 
       // 6. Verify and import the actual bytes.
+      throwIfOutputCancelled(signal, promptId);
       verifyPng(bytes, promptId, width, height);
-      const stored = await storeAssetObject(root, {
-        bytes,
-        kind: "image",
-        mediaType: "image/png",
-        metadata: { width, height },
-      });
+      const stored = await storeOutputUnlessCancelled(
+        root,
+        {
+          bytes,
+          kind: "image",
+          mediaType: "image/png",
+          metadata: { width, height },
+        },
+        signal,
+        promptId,
+      );
 
       const comfyui: CanonicalJsonObject = { version: (server.comfyuiVersion as string) };
       if (comfyuiCommit !== undefined) comfyui.commit = comfyuiCommit;

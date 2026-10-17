@@ -383,3 +383,13 @@ export async function writeOperationResultCache(
     throw error;
   }
 }
+
+/**
+ * Remove the entry `writeOperationResultCache` just recorded for `key`, for a run whose
+ * cancellation won after the write (Atlas Decision 5.1.5). A missing entry is not an error.
+ */
+export async function removeOperationResultCache(root: string, key: string): Promise<void> {
+  const indexPortablePath = operationResultIndexPortablePath(key);
+  await assertNoSymbolicLinks(root, indexPortablePath);
+  await rm(cachePath(root, indexPortablePath), { force: true });
+}

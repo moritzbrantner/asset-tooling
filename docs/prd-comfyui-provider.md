@@ -135,6 +135,17 @@ Without `comfyui` (no argument, `{}` or `{ comfyui: undefined }`) both lists are
 
 The real-server acceptance is `test/comfyui-local-server.test.ts`. It is skipped unless `ASSET_TOOLING_COMFYUI_URL` and `ASSET_TOOLING_COMFYUI_CHECKPOINT` are set; see its header for the optional pin, licence, size, timeout and evidence variables. Its fixture graph is SD 1.5-shaped (`CheckpointLoaderSimple`); for a supported split model, run the Warden workflows as in Usage. On the WSL CPU machine (2026-10-17), the 4-step SD 1.5 fixture took about 23 s at 256×256 and 44 s at 512×512, including model load.
 
+#### Cancellation
+
+Per [Decision 5.1.5](decisions/atlas.md), a run is cancelled through `runAssetOperation(root, registration, invocation, { signal })`; the workflow bridge forwards the runner's `context.signal`. Cancellation only ever touches this operation's own prompt and never calls `POST /interrupt`:
+
+- **Queued:** when `GET /queue` lists the own prompt as pending (its prompt id **and** the submitted `client_id` both match; an entry with another `client_id` is never deleted and is reported as ambiguous), the run sends `POST /queue {"delete": [promptId]}` once and rejects with "cancelled: … deleted from the queue".
+- **Running:** the prompt is neither interrupted nor deleted. The run rejects as ambiguous ("may still finish on the server") and names the prompt id.
+- **Completion race:** the cancel wins. A history record or `/view` download that completes after the abort is not imported; an output object the run newly stored when the abort arrives is removed again (an object that existed before the run is never removed), and a cache entry written as the abort arrives is removed.
+- **During `POST /prompt`:** the run looks up its own `client_id` in `GET /queue`. A pending prompt is deleted; otherwise the run rejects as an ambiguous submission naming the `client_id`. It is never resubmitted.
+
+The abort is observed during in-flight requests and between history polls, not after the poll interval. Every cancellation rejects with `name === "AbortError"` and a message starting with "cancelled". Without a signal the transport behaves as before. Tests: `test/comfyui-cancellation.test.ts` against the queue-modelling fake server.
+
 ## Approval and export: `asset.bundle@3` (#223)
 
 Per [Decision 4.1.3](decisions/atlas.md), approval is naming the exact approved sha256 in a bundle export's selection. Every `image.comfyui.generate@1` output is a candidate. The `approved-png-v1` profile of the existing bundle machinery ([Approved PNG profile](asset-bundles.md#approved-png-profile)) exports only selections whose candidate ref and stored bytes match the named sha. It rejects mismatches, regenerated images under an old approval and missing or altered candidates before writing anything. The `schemaVersion: 3` manifest records each approval next to its source ref; a consumer verifies it with `verifyAssetBundle(dir, ref, { profile: "approved-png-v1" })` without the source store or ComfyUI. No approval store, gallery or new packer is added; bundle `@1` and `@2` are unchanged.
@@ -143,7 +154,7 @@ The journey is tested against the fake server in `test/comfyui-approval-export.t
 
 ## Further work remaining in #212
 
-The execution slice covers the provider boundary, checkpoint dependency safety, transport except scoped cancellation, and output ingestion. #223 adds exact-sha approval, export and consumer verification. Custom-node and input-file identities, candidate preview and the provider choice are still open.
+The execution slice covers the provider boundary, checkpoint dependency safety, transport and output ingestion; #224 adds scoped cancellation (see Cancellation). #223 adds exact-sha approval, export and consumer verification. Custom-node and input-file identities, candidate preview and the provider choice are still open.
 
 | Area | Evidence required |
 | --- | --- |
