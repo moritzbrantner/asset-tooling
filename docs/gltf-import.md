@@ -82,6 +82,10 @@ The approved humanoid, rendered comparisons and visual/consumer acceptance remai
 
 `scene.compose.skinned.gltf@1` (`asset-tooling/operations/processing/gltf-compose`) binds the skinned meshes of several imported GLBs to one shared skeleton, matched by joint name. Each part keeps its own inverse bind matrices. See [gltf-compose.md](gltf-compose.md).
 
+## Placement
+
+`scene.place.gltf@1` (`asset-tooling/operations/processing/gltf-place`) wraps an imported GLB's scene roots in one named parent node with an exact translation, or with the footprint-base-centre anchor. Vertices are not baked. See [gltf-place.md](gltf-place.md).
+
 ## Clip extraction and embedding
 
 `asset-tooling/operations/processing/gltf-animation` moves clips between skinned GLBs and the `three-d-animation-json-v1` codec that the 3d-lab animation processors use ([#110](https://github.com/moritzbrantner/asset-tooling/issues/110)). The rig is the joints of `skins[0]`. Any other skin may bind only those joints, as composed parts do.
