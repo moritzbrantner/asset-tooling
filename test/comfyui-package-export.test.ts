@@ -535,7 +535,7 @@ async function exportedBridgeTemplates(): Promise<Record<string, string>> {
   return templates;
 }
 
-test("#221: existing exported operations and bridge templates are unchanged; exactly ComfyUI, asset.bundle@3 (#223) and image.generate@1 (#222) are added", async () => {
+test("#221: existing exported operations and bridge templates are unchanged; exactly ComfyUI, asset.bundle@3 (#223), image.generate@1 (#222) and scene.compose.skinned.gltf@1 (#110) are added", async () => {
   const baseline = JSON.parse(await readFile(BASELINE_PATH, "utf8")) as { templates: Record<string, string> };
   const current = await exportedBridgeTemplates();
   const added = Object.keys(current).filter((key) => !(key in baseline.templates)).sort();
@@ -545,8 +545,9 @@ test("#221: existing exported operations and bridge templates are unchanged; exa
     .sort();
   // #223 adds asset.bundle@3 (approved PNG bundle, Decision 4.1.3) to the bundle subpath.
   // #222 adds image.generate@1 (provider plus pinned model profiles, Decision 5.1.4).
+  // #110 adds scene.compose.skinned.gltf@1 (asset-tooling/operations/processing/gltf-compose).
   assert.deepEqual(
     { added, removed, changed },
-    { added: ["asset.bundle@3", OPERATION_KEY, "image.generate@1"], removed: [], changed: [] },
+    { added: ["asset.bundle@3", OPERATION_KEY, "image.generate@1", "scene.compose.skinned.gltf@1"], removed: [], changed: [] },
   );
 });
