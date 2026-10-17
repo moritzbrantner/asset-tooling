@@ -41,9 +41,18 @@ Both production operations accept `parameters.policy`:
 | `maxJointsPerSkin` | `null` | Optional positive integer bound per skin |
 | `requireNormals` | `false` | Every primitive must have NORMAL |
 | `requiredClipNames` | `[]` | Each exact name must identify one clip |
-| `allowedValidatorWarnings` | `[]` | Only the explicit `NODE_SKINNED_MESH_NON_ROOT` exception is supported |
+| `allowedValidatorWarnings` | `[]` | Only the explicit `NODE_SKINNED_MESH_NON_ROOT` and `MESH_PRIMITIVE_GENERATED_TANGENT_SPACE` exceptions are supported |
+| `repairs` | `[]` | Only the declared `gltf-color-clamp-v1` repair is supported |
 
-All defaults are materialized in build identity. The named warning documents that parent transforms do not affect a skinned mesh; accepting it preserves that source meaning rather than moving nodes. Other warnings and every validation error remain failures, including the validator's missing-tangent warning for a normal-mapped primitive. Accepted warnings are retained separately for source and output in import evidence. This exception does not affect v1's strict validation.
+All defaults are materialized in build identity. The named skin warning documents that parent transforms do not affect a skinned mesh; accepting it preserves that source meaning rather than moving nodes. Other warnings and every validation error remain failures, including the validator's missing-tangent warning for a normal-mapped primitive unless its exception is declared. Accepted warnings are retained separately for source and output in import evidence. These exceptions and repairs do not affect v1's strict validation.
+
+### Tangent exception and color clamp repair
+
+These two policies follow the [owner decisions Q1 (a) and Q2 (a) on #118, 2026-10-14](https://github.com/moritzbrantner/asset-tooling/issues/118) for the Greyhaven starter sources.
+
+- **`MESH_PRIMITIVE_GENERATED_TANGENT_SPACE` is accepted only when named.** It marks a normal-mapped primitive without `TANGENT`; consumers' renderers generate MikkTSpace tangents. The import generates no tangents, so it stays exactly replayable. The warning is recorded in `validatorWarnings` and `outputValidatorWarnings`. It can be combined with the skin exception; each covers only its own code.
+- **`repairs: ["gltf-color-clamp-v1"]` clamps nearly-in-range vertex colors.** The bound is the exported `GLTF_COLOR_CLAMP_REPAIR = { repair: "gltf-color-clamp-v1", maxExcess: 2e-4 }`, recorded in build identity. Float `COLOR_n` components outside [0, 1] by at most `2e-4` are clamped in the output; in-range components keep their bits. A larger excess fails with `…/attributes/COLOR_n: COLOR_CLAMP_EXCESS_OUT_OF_BOUND` and stores nothing. Normalized integer colors and all other attributes are never changed. Observations list one `repairs` entry per repaired attribute: `{ repair, path, clampedComponentCount, maxExcess }`. Analysis reports the same entries and writes nothing.
+  - **How it applies:** only while the repair is declared, the source validator's `ACCESSOR_NON_CLAMPED` at a primitive's `COLOR_n` attribute is superseded by this bound. The source report is then not truncated, so every other issue still fails, as `ACCESSOR_NON_CLAMPED` elsewhere does. `CommonTree_1` has about 9000 such components, far over the validator's usual 100-issue limit. The output is validated strictly and must have no errors.
 
 Analysis returns no outputs and writes no objects. Its observations include node/mesh/material/texture/skin/animation counts, hierarchy and skin references, per-primitive triangle/vertex counts, mesh-local bind-pose bounds, attribute coverage/type/normalization, material factors, texture-slot color space/sampling and byte hashes, clip names/time domains/durations/targets/interpolation/key counts, source-resource inventory, policy and acceptance diagnostics with asset paths. The Khronos validator checks structural and accessor/skin/animation integrity; asset-tooling does not implement a second decoder or animation evaluator. Animated/world-space bounds and physical/gameplay meaning are outside this analysis.
 
