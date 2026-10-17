@@ -44,6 +44,12 @@ asset-tooling produces **two character style families**:
 
 Earlier wording treated a single "less cartoony" direction as universal; that was a misconception. Each family is judged against its own target; neither is a degraded version of the other.
 
+#### Decision 1.1.5 — My Farm's cartoony family starts from Quaternius toy packs
+
+**Approved by owner:** 2026-10-17 (live steering session).
+
+The cartoony family for My Farm starts from Quaternius' free, toy-like character packs (for example Ultimate Animated Character), promoted through the normal source catalog. Other free sources are added when the owner judges that better models exist elsewhere; Quaternius is a starting point, not an exclusive dependency.
+
 ### 1.2. Animation as character content
 
 #### Decision 1.2.1 — Rigged, moving humanoids with inspectable animation clips
