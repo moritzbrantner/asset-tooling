@@ -11,10 +11,14 @@
 // Owner decision (2026-10-17, Atlas 4.1.4): FLUX.2 [klein] 4B and Z-Image Turbo are the supported
 // local image models; SD 1.5 is deprecated and its candidates stay only as history.
 //
+// Owner decision (2026-10-17, Atlas 4.1.5): FLUX.2 [klein] 4B is the model for the Warden set and
+// every icon is a margin-free close-up (briefs v3). The tight-framed klein set is the current
+// candidate set; the v2 klein/Z-Image comparison and the SD 1.5 run stay as superseded sets.
+//
 // Seams this file fixes for the implementer:
-// - review/warden-icons/briefs.json, briefs.v2.json  versioned style + four ability briefs (plain JSON)
+// - review/warden-icons/briefs.json, briefs.v2.json, briefs.v3.json  versioned style + four ability briefs (plain JSON)
 // - review/warden-icons/workflow.*.api.json    prepared ComfyUI API-format workflows (plain JSON)
-// - review/warden-icons/candidates.json        candidates manifest v2: briefs, models, candidates
+// - review/warden-icons/candidates.json        candidates manifest v3: briefs, models, sets, candidates
 // - review/warden-icons/candidates/*.png       candidate bytes (Git LFS)
 // - src/warden-icon-review.ts exports
 //     loadWardenCandidateReview(reviewDirectory) -> { briefs, manifest, candidates }
@@ -57,6 +61,8 @@ const MODEL_WORKFLOWS: Record<string, { file: string; status: string; nodes: str
   sd15: { file: WORKFLOW_FILE, status: "deprecated", nodes: ["CheckpointLoaderSimple", "CLIPTextEncode", "EmptyLatentImage", "KSampler", "SaveImage"] },
 };
 const SUPPORTED_MODELS = ["flux2-klein-4b", "z-image-turbo"];
+const CURRENT_SET = { id: "warden.v3.flux2-klein-tight", model: "flux2-klein-4b", briefs: "briefs.v3.json" };
+const SUPERSEDED_SETS = ["warden.v2.model-comparison", "warden.v1.sd15"];
 const ABILITIES = [
   { id: "warden.ability.1", abilityId: 1, name: "Heroic Strike" },
   { id: "warden.ability.2", abilityId: 2, name: "Shield Bash" },
@@ -207,6 +213,7 @@ async function writeFixtureReview(directory: string, { abilityIndices = FIXTURE_
         id: `${ability.id}.candidate.${String(k).padStart(2, "0")}`,
         ability: ability.id,
         model: "sd15",
+        set: "warden.v1.fixture",
         briefs: "briefs.json",
         state: "candidate",
         path: file,
@@ -228,7 +235,7 @@ async function writeFixtureReview(directory: string, { abilityIndices = FIXTURE_
     }
   }
   const manifest = {
-    schemaVersion: 2,
+    schemaVersion: 3,
     briefs: [{ path: "briefs.json", sha256: sha256Bytes(briefBytes) }],
     models: [{
       id: "sd15",
@@ -237,6 +244,7 @@ async function writeFixtureReview(directory: string, { abilityIndices = FIXTURE_
       workflow: WORKFLOW_FILE,
       files: { checkpoint: { ...FIXTURE_CHECKPOINT } },
     }],
+    sets: [{ id: "warden.v1.fixture", label: "Fixture first run", status: "current" }],
     candidates,
   };
   await writeFile(path.join(directory, "candidates.json"), JSON.stringify(manifest, null, 2) + "\n");
@@ -259,7 +267,7 @@ async function withFixture<T>(run: (context: { root: string; review: string; out
 
 // =========================== committed data ===========================
 
-for (const [file, styleVersion] of [["briefs.json", 1], ["briefs.v2.json", 2]] as const) test(`briefs: ${file} is one versioned original style brief and four stable Warden ability briefs`, async () => {
+for (const [file, styleVersion] of [["briefs.json", 1], ["briefs.v2.json", 2], ["briefs.v3.json", 3]] as const) test(`briefs: ${file} is one versioned original style brief and four stable Warden ability briefs`, async () => {
   const briefs = await readJson(path.join(REVIEW_DIR, file));
   assert.equal(briefs.schemaVersion, 1);
   const { style } = briefs;
@@ -272,6 +280,14 @@ for (const [file, styleVersion] of [["briefs.json", 1], ["briefs.v2.json", 2]] a
   // Style v2 targets CFG-1 models that ignore negative prompts; its exclusions live in the prompt.
   if (styleVersion === 1) assert(style.negativePrompt.trim());
   else assert.match(style.prompt, /no text/i);
+  // Style v3 (Atlas 4.1.5): tight close-ups that fill the square, no wasted margin.
+  if (styleVersion >= 3) {
+    assert.match(style.prompt, /close-up/i);
+    assert.match(style.prompt, /fills the entire square/i);
+    assert.match(style.prompt, /no empty background border/i);
+    assert.match(style.prompt, /no frame/i);
+    assert.doesNotMatch(style.prompt, /vignette background/i, "v3 drops the v2 vignette background");
+  }
 
   assert.equal(briefs.abilities.length, 4);
   for (const [index, expected] of ABILITIES.entries()) {
@@ -282,6 +298,22 @@ for (const [file, styleVersion] of [["briefs.json", 1], ["briefs.v2.json", 2]] a
     assert(Number.isSafeInteger(ability.version) && ability.version >= 1, `${ability.id} must be versioned`);
     assert(typeof ability.subject === "string" && ability.subject.trim(), `${ability.id} needs a subject`);
     assert(typeof ability.prompt === "string" && ability.prompt.trim(), `${ability.id} needs a prompt`);
+    if (styleVersion >= 3) {
+      assert.equal(ability.version, 3);
+      assert.match(ability.prompt, /close-up/i, `${ability.id} v3 is framed as a close-up`);
+    }
+  }
+  if (styleVersion >= 3) {
+    // The original subjects stay; only the framing changes.
+    const [strike, bash, cry, cleave] = briefs.abilities.map((ability: any) => ability.prompt);
+    assert.match(strike, /longsword/i);
+    assert.match(strike, /slash/i);
+    assert.match(bash, /round steel shield/i);
+    assert.match(bash, /impact/i);
+    assert.match(cry, /ivory war horn/i);
+    assert.match(cry, /rings of sound/i);
+    assert.match(cleave, /battle axe/i);
+    assert.match(cleave, /arc/i);
   }
   assert.equal(new Set(briefs.abilities.map((ability: any) => ability.prompt)).size, 4, "ability prompts must be distinct");
   // WoW/Dota are quality benchmarks only, never prompt sources (Atlas 4.1.2).
@@ -342,14 +374,19 @@ test("models: FLUX.2 [klein] 4B and Z-Image Turbo are supported with pinned Apac
 
 test("manifest: provenance-pinned candidates for the four Warden briefs, all in state candidate", async () => {
   const manifest = await readJson(path.join(REVIEW_DIR, "candidates.json"));
-  assert.equal(manifest.schemaVersion, 2);
+  assert.equal(manifest.schemaVersion, 3);
   const briefSets = new Map<string, any>();
   for (const ref of manifest.briefs) {
     assert.equal(ref.sha256, sha256Bytes(await readFile(path.join(REVIEW_DIR, ref.path))), `${ref.path} pin`);
     briefSets.set(ref.path, await readJson(path.join(REVIEW_DIR, ref.path)));
   }
-  assert.deepEqual([...briefSets.keys()], ["briefs.json", "briefs.v2.json"]);
+  assert.deepEqual([...briefSets.keys()], ["briefs.json", "briefs.v2.json", "briefs.v3.json"]);
   const models = new Map<string, any>(manifest.models.map((model: any) => [model.id, model]));
+  // Atlas 4.1.5: one current set (tight-framed klein); earlier sets stay as superseded history.
+  assert.deepEqual(manifest.sets.filter((set: any) => set.status === "current").map((set: any) => set.id), [CURRENT_SET.id]);
+  assert.deepEqual(manifest.sets.filter((set: any) => set.status === "superseded").map((set: any) => set.id), SUPERSEDED_SETS);
+  const setIds = new Set(manifest.sets.map((set: any) => set.id));
+  for (const set of manifest.sets) if (set.status === "superseded") assert(setIds.has(set.supersededBy), `${set.id} names its successor`);
 
   const ids = new Set();
   const hashes = new Set();
@@ -369,9 +406,16 @@ test("manifest: provenance-pinned candidates for the four Warden briefs, all in 
     assert.equal(candidate.height, candidate.width);
     const model = models.get(candidate.model);
     assert(model, `${candidate.id} names a listed model`);
+    assert(setIds.has(candidate.set), `${candidate.id} names a listed set`);
+    if (candidate.set === CURRENT_SET.id) {
+      assert.equal(candidate.model, CURRENT_SET.model, `${candidate.id}: the current set is FLUX.2 [klein] only`);
+      assert.equal(candidate.briefs, CURRENT_SET.briefs, `${candidate.id}: the current set uses briefs v3`);
+    } else {
+      assert.notEqual(candidate.briefs, CURRENT_SET.briefs, `${candidate.id}: briefs v3 candidates belong to the current set`);
+    }
     // New candidates come only from supported models; deprecated SD 1.5 keeps its 512 px history.
     if (model.status === "deprecated") assert.equal(candidate.width, 512);
-    else assert.equal(candidate.width, 1024);
+    else assert(candidate.width >= 768 && candidate.width <= 1024, `${candidate.id} master is 768–1024 px`);
     const briefs = briefSets.get(candidate.briefs);
     assert(briefs, `${candidate.id} names a pinned briefs file`);
 
@@ -401,12 +445,15 @@ test("manifest: provenance-pinned candidates for the four Warden briefs, all in 
     assert(provenance.positivePrompt.includes(ability.prompt), `${candidate.id} must use its ability brief`);
   }
   assert(manifest.candidates.length >= MIN_CANDIDATES_TOTAL, "the manifest lists at least one candidate");
-  // Owner request 2026-10-17: two to three review candidates per ability from each supported model.
-  for (const model of SUPPORTED_MODELS) {
-    for (const ability of ABILITIES) {
-      const count = manifest.candidates.filter((candidate: any) => candidate.model === model && candidate.ability === ability.id).length;
-      assert(count >= 2 && count <= 3, `${model} has ${count} ${ability.id} candidates`);
+  // Owner request 2026-10-17: the v2 comparison kept two to three candidates per ability from each
+  // supported model; the current tight-framed klein set keeps the best three per ability.
+  for (const ability of ABILITIES) {
+    for (const model of SUPPORTED_MODELS) {
+      const count = manifest.candidates.filter((candidate: any) => candidate.set === "warden.v2.model-comparison" && candidate.model === model && candidate.ability === ability.id).length;
+      assert(count >= 2 && count <= 3, `${model} has ${count} ${ability.id} v2 candidates`);
     }
+    const current = manifest.candidates.filter((candidate: any) => candidate.set === CURRENT_SET.id && candidate.ability === ability.id).length;
+    assert.equal(current, 3, `the current set has ${current} ${ability.id} candidates`);
   }
   const briefIds = new Set(ABILITIES.map((ability) => ability.id));
   for (const candidate of manifest.candidates) {
@@ -418,7 +465,7 @@ test("manifest: provenance-pinned candidates for the four Warden briefs, all in 
 
 test("candidate bytes: LFS-tracked PNGs that re-hash to the manifest; manifest stays plain JSON", async () => {
   const manifest = await readJson(path.join(REVIEW_DIR, "candidates.json"));
-  for (const plain of ["candidates.json", "briefs.json", "briefs.v2.json", ...Object.values(MODEL_WORKFLOWS).map((entry) => entry.file)]) {
+  for (const plain of ["candidates.json", "briefs.json", "briefs.v2.json", "briefs.v3.json", ...Object.values(MODEL_WORKFLOWS).map((entry) => entry.file)]) {
     assert.notEqual(gitAttribute(`${REVIEW}/${plain}`, "filter"), "lfs", `${plain} must stay reviewable plain JSON`);
   }
   let hydrated = 0;
@@ -543,6 +590,19 @@ test("review loader validates the manifest and fails closed", async () => {
       briefs.style.version = 2;
       await writeFile(path.join(review, "briefs.json"), JSON.stringify(briefs));
     }, /brief|sha-?256|hash/i],
+    ["unknown set", async (review, manifest) => {
+      manifest.candidates[0].set = "warden.v9.missing";
+      await writeFile(path.join(review, "candidates.json"), JSON.stringify(manifest));
+    }, /set/i],
+    ["superseded set without a successor", async (review, manifest) => {
+      manifest.sets.push({ id: "warden.v0.old", label: "Old", status: "superseded" });
+      await writeFile(path.join(review, "candidates.json"), JSON.stringify(manifest));
+    }, /supersededBy|superseded/i],
+    ["no current set", async (review, manifest) => {
+      manifest.sets[0].status = "superseded";
+      manifest.sets[0].supersededBy = "warden.v1.fixture";
+      await writeFile(path.join(review, "candidates.json"), JSON.stringify(manifest));
+    }, /set/i],
     ["unknown model", async (review, manifest) => {
       manifest.candidates[0].model = "sd99";
       await writeFile(path.join(review, "candidates.json"), JSON.stringify(manifest));
@@ -616,7 +676,7 @@ if (hasFfmpeg()) {
     });
   });
 
-  test("review page groups an ability by model and derives the 512 px view of a 1024 px master", async () => {
+  test("review page shows the current set first, collapses superseded sets and derives the 512 px view of a 1024 px master", async () => {
     const { buildWardenReviewPage } = await reviewModule();
     await withFixture(async ({ root, review, output, manifest }) => {
       const bytes = encodePng(1024, (x, y) => (Math.abs(x - 512) + Math.abs(y - 512) < 300 ? [230, 200, 60, 255] : [16, 18, 24, 255]));
@@ -630,10 +690,13 @@ if (hasFfmpeg()) {
         workflow: WORKFLOW_FILE,
         files: { diffusionModel: { ...FIXTURE_CHECKPOINT, name: "fixture-new.safetensors" } },
       });
+      manifest.sets.unshift({ id: "warden.v2.fixture-new", label: "Fixture tight set", status: "current" });
+      Object.assign(manifest.sets[1], { status: "superseded", supersededBy: "warden.v2.fixture-new" });
       manifest.candidates.push({
         ...base,
         id: "warden.ability.1.candidate.fixture-new-01",
         model: "fixture-new",
+        set: "warden.v2.fixture-new",
         path: file,
         sha256: sha256Bytes(bytes),
         byteLength: bytes.length,
@@ -651,6 +714,14 @@ if (hasFfmpeg()) {
       const html = await readFile(path.join(output, "index.html"), "utf8");
       assert(html.indexOf("Fixture New Model") < html.indexOf("Fixture SD 1.5"), "supported models come before deprecated ones");
       assert.match(html, /deprecated/);
+      // Atlas 4.1.5: the current set leads each ability; superseded sets are collapsed history.
+      const section = html.slice(html.indexOf('id="warden.ability.1-heading"'));
+      const current = section.indexOf('class="set is-current"');
+      const superseded = section.indexOf('<details class="set is-superseded">');
+      assert(current >= 0 && superseded > current, "the current set comes first and the superseded set is collapsed");
+      assert(section.indexOf(entry.images.find((image: any) => image.size === 32).url) < superseded, "the current set has its 32 px strip");
+      assert(section.indexOf("warden.ability.1.candidate.01") > superseded, "older candidates sit in the collapsed set");
+      assert.match(section.slice(superseded), /<details class="set is-superseded">[\s\S]*?<\/details>/);
       assert(html.includes(entry.master));
     });
   });

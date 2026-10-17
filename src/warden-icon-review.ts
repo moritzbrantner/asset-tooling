@@ -4,9 +4,10 @@
  * Generated review candidates live in the Git LFS review namespace `review/warden-icons/`
  * (owner decision on #211, 2026-10-17), outside `assets/canonical/` and the catalog. A plain-JSON
  * manifest pins every brief version, every image model (its hash-pinned files, licences and
- * supported/deprecated status, Atlas 4.1.4) and every candidate's bytes and ComfyUI provenance.
- * This module re-verifies that folder fail closed and renders a static review page that groups the
- * candidates of each ability by model, each at 512 px and true 64/48/32 px.
+ * supported/deprecated status, Atlas 4.1.4), every candidate set (current or superseded, Atlas
+ * 4.1.5) and every candidate's bytes and ComfyUI provenance. This module re-verifies that folder
+ * fail closed and renders a static review page that shows the current set of each ability first,
+ * at 512 px and true 64/48/32 px, with superseded sets collapsed and grouped by model.
  *
  * Candidates are never approved here. Approval is the exact sha256 named in a bundle export
  * selection (Decision Atlas 4.1.3); this page only supports comparing candidates.
@@ -32,6 +33,8 @@ const MASTER_SIZES = new Set([512, 1024]);
 const MODEL_ID = /^[a-z0-9][a-z0-9.-]*$/;
 const MODEL_STATUSES = new Set(["supported", "deprecated"]);
 const MODEL_FILE_ROLES = ["checkpoint", "diffusionModel", "textEncoder", "vae"] as const;
+const SET_ID = /^warden\.v[0-9]+\.[a-z0-9-]+$/;
+const SET_STATUSES = new Set(["current", "superseded"]);
 const SHA256 = /^[0-9a-f]{64}$/;
 const CANDIDATE_ID = /^warden\.ability\.[1-4]\.candidate\.[a-z0-9-]+$/;
 const CANDIDATE_PATH = /^candidates\/[a-z0-9][a-z0-9._-]*\.png$/;
@@ -81,6 +84,16 @@ export interface WardenImageModel {
   [key: string]: unknown;
 }
 
+/** A generation round for this icon set; superseded sets stay as history (Atlas 4.1.5). */
+export interface WardenCandidateSet {
+  id: string;
+  label: string;
+  status: "current" | "superseded";
+  /** For a superseded set: the set that replaced it. */
+  supersededBy?: string;
+  [key: string]: unknown;
+}
+
 export interface WardenCandidateProvenance {
   provider: "comfyui";
   operation: "image.comfyui.generate@1";
@@ -98,6 +111,7 @@ export interface WardenCandidateEntry {
   id: string;
   ability: string;
   model: string;
+  set: string;
   briefs: string;
   state: "candidate";
   path: string;
@@ -110,9 +124,10 @@ export interface WardenCandidateEntry {
 }
 
 export interface WardenCandidateManifest {
-  schemaVersion: 2;
+  schemaVersion: 3;
   briefs: { path: string; sha256: string }[];
   models: WardenImageModel[];
+  sets: WardenCandidateSet[];
   candidates: WardenCandidateEntry[];
 }
 
@@ -120,6 +135,7 @@ export interface WardenCandidate extends WardenCandidateEntry {
   abilityBrief: WardenAbilityBrief;
   styleBrief: WardenStyleBrief;
   imageModel: WardenImageModel;
+  candidateSet: WardenCandidateSet;
   bytes: Buffer;
 }
 
@@ -127,6 +143,8 @@ export interface WardenCandidateReview {
   /** Brief versions by file name (for example `briefs.json`, `briefs.v2.json`). */
   briefs: Map<string, WardenBriefs>;
   models: WardenImageModel[];
+  /** Current sets first, then superseded ones, each in manifest order. */
+  sets: WardenCandidateSet[];
   manifest: WardenCandidateManifest;
   candidates: WardenCandidate[];
 }
@@ -139,7 +157,7 @@ export interface WardenReviewImage {
 export interface WardenReviewPageResult {
   page: "index.html";
   /** `master` is the URL of the exact candidate bytes when the master is larger than 512 px. */
-  candidates: { id: string; ability: string; model: string; images: WardenReviewImage[]; master?: string }[];
+  candidates: { id: string; ability: string; model: string; set: string; images: WardenReviewImage[]; master?: string }[];
 }
 
 // ─── Validation helpers ─────────────────────────────────────────────────────────────────────────
@@ -293,6 +311,32 @@ function parseModel(value: unknown, index: number): WardenImageModel {
   return model as WardenImageModel;
 }
 
+function parseSets(value: unknown): WardenCandidateSet[] {
+  if (!Array.isArray(value) || value.length === 0) throw new Error("candidates manifest sets must list at least one candidate set");
+  const sets = value.map((item, index) => {
+    const set = record(item, `set ${index}`);
+    const id = text(set.id, `set ${index} id`);
+    if (!SET_ID.test(id)) throw new Error(`set id '${id}' must look like warden.v<n>.<name>`);
+    text(set.label, `set ${id} label`);
+    if (typeof set.status !== "string" || !SET_STATUSES.has(set.status)) {
+      throw new Error(`set ${id} status must be "current" or "superseded", not ${JSON.stringify(set.status)}`);
+    }
+    if ((set.status === "superseded") !== (set.supersededBy !== undefined)) {
+      throw new Error(`set ${id} must name supersededBy exactly when it is superseded`);
+    }
+    return set as WardenCandidateSet;
+  });
+  const ids = new Set(sets.map((set) => set.id));
+  if (ids.size !== sets.length) throw new Error("candidates manifest lists a set id twice");
+  for (const set of sets) {
+    if (set.supersededBy !== undefined && (set.supersededBy === set.id || !ids.has(set.supersededBy))) {
+      throw new Error(`set ${set.id} supersededBy ${JSON.stringify(set.supersededBy)} is not another listed set`);
+    }
+  }
+  if (!sets.some((set) => set.status === "current")) throw new Error("candidates manifest needs a current set");
+  return [...sets.filter((set) => set.status === "current"), ...sets.filter((set) => set.status === "superseded")];
+}
+
 function sameFile(actual: unknown, pinned: WardenModelFile, location: string): void {
   const file = record(actual, location);
   if (file.name !== pinned.name || file.sha256 !== pinned.sha256 || file.byteLength !== pinned.byteLength || file.license !== pinned.license) {
@@ -312,7 +356,7 @@ export async function loadWardenCandidateReview(reviewDirectory: string): Promis
   if (typeof reviewDirectory !== "string" || !reviewDirectory) throw new Error("reviewDirectory must be a path");
   const directory = path.resolve(reviewDirectory);
   const manifestValue = record(parseJson(await readReviewFile(directory, "candidates.json", "candidates manifest"), "candidates.json"), "candidates manifest");
-  if (manifestValue.schemaVersion !== 2) throw new Error("candidates manifest schemaVersion must be 2");
+  if (manifestValue.schemaVersion !== 3) throw new Error("candidates manifest schemaVersion must be 3");
 
   // Every brief version a candidate was generated from stays pinned (style v1 for SD 1.5, v2 since).
   if (!Array.isArray(manifestValue.briefs) || manifestValue.briefs.length === 0) {
@@ -338,6 +382,7 @@ export async function loadWardenCandidateReview(reviewDirectory: string): Promis
   }
   const models = manifestValue.models.map(parseModel);
   if (new Set(models.map((model) => model.id)).size !== models.length) throw new Error("candidates manifest lists a model id twice");
+  const sets = parseSets(manifestValue.sets);
 
   // Owner decision on #211 (2026-10-17): candidates exist only for some abilities so far; the
   // manifest lists exactly the candidates that exist, but never none at all.
@@ -359,6 +404,8 @@ export async function loadWardenCandidateReview(reviewDirectory: string): Promis
     }
     const imageModel = models.find((model) => model.id === entry.model);
     if (!imageModel) throw new Error(`candidate ${id} model ${JSON.stringify(entry.model)} is not a listed image model`);
+    const candidateSet = sets.find((set) => set.id === entry.set);
+    if (!candidateSet) throw new Error(`candidate ${id} set ${JSON.stringify(entry.set)} is not a listed candidate set`);
     if (!CANDIDATE_ID.test(id)) throw new Error(`candidate id '${id}' must look like warden.ability.<n>.candidate.<name>`);
     if (ids.has(id)) throw new Error(`duplicate candidate id ${id}`);
     ids.add(id);
@@ -424,7 +471,7 @@ export async function loadWardenCandidateReview(reviewDirectory: string): Promis
     if (dimensions.width !== masterSize || dimensions.height !== masterSize) {
       throw new Error(`candidate ${id} PNG is ${dimensions.width}x${dimensions.height}, expected ${masterSize}x${masterSize}`);
     }
-    candidates.push({ ...(entry as unknown as WardenCandidateEntry), abilityBrief, styleBrief: briefSet.style, imageModel, bytes });
+    candidates.push({ ...(entry as unknown as WardenCandidateEntry), abilityBrief, styleBrief: briefSet.style, imageModel, candidateSet, bytes });
   }
 
   // Candidates are never approved in the manifest (Atlas 4.1.3): approval exists only in an export.
@@ -436,7 +483,7 @@ export async function loadWardenCandidateReview(reviewDirectory: string): Promis
     if (!listed.has(file)) throw new Error(`candidates/${file} is not listed in the candidates manifest`);
   }
 
-  return { briefs, models, manifest: manifestValue as unknown as WardenCandidateManifest, candidates };
+  return { briefs, models, sets, manifest: manifestValue as unknown as WardenCandidateManifest, candidates };
 }
 
 // ─── Derived sizes ──────────────────────────────────────────────────────────────────────────────
@@ -537,6 +584,7 @@ function renderCandidate(candidate: WardenCandidate): string {
     ["Master", `${candidate.width}×${candidate.height} px, ${candidate.byteLength} bytes`],
     ["Seed", String(provenance.seed)],
     ["Model", `${candidate.imageModel.label} (${candidate.imageModel.status})`],
+    ["Set", `${candidate.candidateSet.id} (${candidate.candidateSet.status})`],
     ["Checkpoint", fileText(provenance.checkpoint)],
   ];
   if (provenance.textEncoder) rows.push(["Text encoder", fileText(provenance.textEncoder)]);
@@ -550,7 +598,7 @@ function renderCandidate(candidate: WardenCandidate): string {
     ? "512 px master"
     : `512 px view · <a href="${escapeHtml(masterUrl(candidate.id))}">${candidate.width} px master</a>`;
   return `<article class="candidate" id="${escapeHtml(candidate.id)}">
-          <header><h4><code>${escapeHtml(candidate.id)}</code></h4><span class="badge">candidate</span></header>
+          <header><h5><code>${escapeHtml(candidate.id)}</code></h5><span class="badge">candidate</span></header>
           <figure class="master">${img(candidate, MASTER_SIZE)}<figcaption>${master}</figcaption></figure>
           <div class="small">${WARDEN_REVIEW_SIZES.filter((size) => size !== MASTER_SIZE)
             .map((size) => `<figure>${img(candidate, size)}<figcaption>${size} px</figcaption></figure>`)
@@ -562,8 +610,31 @@ function renderCandidate(candidate: WardenCandidate): string {
 
 function renderModelColumn(model: WardenImageModel, members: WardenCandidate[]): string {
   return `<div class="model-column${model.status === "deprecated" ? " is-deprecated" : ""}">
-        <h3>${escapeHtml(model.label)} ${statusBadge(model)}</h3>
-        ${members.length ? members.map(renderCandidate).join("\n        ") : `<p class="none">No candidates from this model.</p>`}
+          <h4>${escapeHtml(model.label)} ${statusBadge(model)}</h4>
+          <div class="cards">${members.map(renderCandidate).join("\n          ")}</div>
+        </div>`;
+}
+
+function setBadge(set: WardenCandidateSet): string {
+  return `<span class="badge ${set.status}">${escapeHtml(set.status)}</span>`;
+}
+
+/** One candidate set of one ability: a 64/48/32 px strip per model, then the candidates by model. */
+function renderSetBody(ability: WardenAbilityBrief, set: WardenCandidateSet, members: WardenCandidate[], review: WardenCandidateReview): string {
+  const models = orderedModels(review.models).filter((model) => members.some((candidate) => candidate.model === model.id));
+  const bars = models
+    .map((model) => {
+      const own = members.filter((candidate) => candidate.model === model.id);
+      return `<div class="bar-row"><span class="bar-label">${escapeHtml(model.label)}${model.status === "deprecated" ? " (deprecated)" : ""}</span>${[64, 48, 32]
+        .map((size) => `<div class="bar" aria-label="${escapeHtml(`${ability.name} ${set.label} ${model.label} candidates at ${size} px`)}">${own.map((candidate) => img(candidate, size)).join("")}</div>`)
+        .join("")}</div>`;
+    })
+    .join("\n        ");
+  return `<div class="bars">
+        ${bars}
+      </div>
+      <div class="models" style="--columns: ${models.length}">
+        ${models.map((model) => renderModelColumn(model, members.filter((candidate) => candidate.model === model.id))).join("\n        ")}
       </div>`;
 }
 
@@ -577,32 +648,34 @@ function renderAbility(ability: WardenAbilityBrief, review: WardenCandidateRevie
     <p class="none">No candidates generated yet for this ability.</p>
   </section>`;
   }
-  const models = orderedModels(review.models).filter((model) => model.status === "supported" || members.some((candidate) => candidate.model === model.id));
-  const bars = models
-    .map((model) => {
-      const own = members.filter((candidate) => candidate.model === model.id);
-      if (own.length === 0) return "";
-      return `<div class="bar-row"><span class="bar-label">${escapeHtml(model.label)}${model.status === "deprecated" ? " (deprecated)" : ""}</span>${[64, 48, 32]
-        .map((size) => `<div class="bar" aria-label="${escapeHtml(`${ability.name} ${model.label} candidates at ${size} px`)}">${own.map((candidate) => img(candidate, size)).join("")}</div>`)
-        .join("")}</div>`;
-    })
-    .join("\n      ");
-  const supported = models.filter((model) => model.status === "supported");
-  const deprecated = models.filter((model) => model.status === "deprecated");
+  // Current sets open, in front; superseded sets collapsed as history (Atlas 4.1.5).
+  const sets = review.sets
+    .map((set) => ({ set, own: members.filter((candidate) => candidate.set === set.id) }))
+    .filter(({ own }) => own.length > 0)
+    .map(({ set, own }) => set.status === "current"
+      ? `<div class="set is-current">
+      <h3>${escapeHtml(set.label)} ${setBadge(set)}</h3>
+      ${renderSetBody(ability, set, own, review)}
+    </div>`
+      : `<details class="set is-superseded"><summary>${escapeHtml(set.label)} ${setBadge(set)}: ${own.length} earlier candidates kept as history</summary>
+      ${renderSetBody(ability, set, own, review)}
+    </details>`)
+    .join("\n    ");
   return `<section class="ability" aria-labelledby="${escapeHtml(ability.id)}-heading">
     ${heading}
-    <div class="bars">
-      ${bars}
-    </div>
-    <div class="models" style="--columns: ${Math.max(supported.length, 1)}">
-      ${supported.map((model) => renderModelColumn(model, members.filter((candidate) => candidate.model === model.id))).join("\n      ")}
-    </div>
-    ${deprecated
-      .map((model) => `<details class="deprecated-group"><summary>${escapeHtml(model.label)} (deprecated): ${members.filter((candidate) => candidate.model === model.id).length} earlier candidates kept as history</summary>
-      ${renderModelColumn(model, members.filter((candidate) => candidate.model === model.id))}
-    </details>`)
-      .join("\n    ")}
+    ${sets}
   </section>`;
+}
+
+function renderSetLegend(review: WardenCandidateReview): string {
+  return review.sets
+    .map((set) => {
+      const count = review.candidates.filter((candidate) => candidate.set === set.id).length;
+      const replaced = set.supersededBy ? ` · superseded by <code>${escapeHtml(set.supersededBy)}</code>` : "";
+      const note = typeof set.note === "string" ? ` ${escapeHtml(set.note)}` : "";
+      return `<li><strong>${escapeHtml(set.label)}</strong> ${setBadge(set)} <span class="negative"><code>${escapeHtml(set.id)}</code> · ${count} candidates${replaced}.${note}</span></li>`;
+    })
+    .join("");
 }
 
 function renderModelLegend(review: WardenCandidateReview): string {
@@ -654,13 +727,20 @@ function renderReviewHtml(review: WardenCandidateReview, derivedWith: string): s
     .bar { display: inline-flex; gap: 4px; padding: 6px; border-radius: 8px; background: #0b0c0e; border: 1px solid #2c3038; }
     .bar img { display: block; }
     .models { display: grid; grid-template-columns: repeat(var(--columns), minmax(0, 1fr)); gap: 20px; margin-top: 16px; }
-    .model-column h3 { margin: 0 0 10px; display: flex; align-items: center; gap: 10px; }
-    .candidate { margin-bottom: 16px; padding: 14px; border: 1px solid #2c3038; border-radius: 14px; background: #1b1e24; }
+    .set { margin-top: 16px; }
+    .set h3 { margin: 0 0 10px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+    .set.is-superseded { padding: 10px 14px; border: 1px dashed #4a3c32; border-radius: 12px; }
+    .set.is-superseded .model-column { opacity: .8; }
+    .legend ul.sets { margin: 0; padding-left: 20px; font-size: .9rem; }
+    .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap: 16px; }
+    .model-column h4 { margin: 0 0 10px; display: flex; align-items: center; gap: 10px; }
+    .candidate { padding: 14px; border: 1px solid #2c3038; border-radius: 14px; background: #1b1e24; }
     .candidate header { display: flex; align-items: center; gap: 12px; }
-    .candidate h4 { margin: 0 0 8px; font-size: .95rem; }
+    .candidate h5 { margin: 0 0 8px; font-size: .95rem; }
     .badge { padding: 2px 8px; border: 1px solid #555a64; border-radius: 999px; font-size: .7rem; font-weight: 400; text-transform: uppercase; letter-spacing: .06em; }
     .badge.supported { border-color: #3f7f5a; color: #9fd8b4; }
-    .badge.deprecated { border-color: #8a5a3a; color: #e0b08a; }
+    .badge.deprecated, .badge.superseded { border-color: #8a5a3a; color: #e0b08a; }
+    .badge.current { border-color: #3f7f5a; color: #9fd8b4; }
     .master img { display: block; max-width: 100%; height: auto; }
     .small { display: flex; align-items: flex-end; gap: 16px; margin-top: 10px; }
     .small img { display: block; max-width: none; }
@@ -671,8 +751,6 @@ function renderReviewHtml(review: WardenCandidateReview, derivedWith: string): s
     dd { margin: 0; overflow-wrap: anywhere; }
     code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .85em; }
     details { margin-top: 10px; font-size: .85rem; color: #b9b6ae; }
-    .deprecated-group { margin-top: 12px; padding: 10px 14px; border: 1px dashed #4a3c32; border-radius: 12px; }
-    .deprecated-group .model-column { margin-top: 12px; max-width: 720px; }
     .negative, .none { color: #8f8c85; }
     @media (max-width: 900px) { .models { grid-template-columns: 1fr; } }
     @media (max-width: 560px) { main { padding-inline: 16px; } dl { grid-template-columns: 1fr; } .bar-label { width: 100%; } }
@@ -682,8 +760,9 @@ function renderReviewHtml(review: WardenCandidateReview, derivedWith: string): s
 <main>
   <a href="../../">← Back to gallery</a>
   <h1>Warden ability-icon candidates</h1>
-  <p class="lead">Generated review candidates for the MMORPG Warden abilities, grouped by ability and then by image model so the models can be compared side by side. Every image here is a candidate and is not approved. Approval happens only when the owner names a candidate's exact sha256 in a bundle export selection (Decision Atlas 4.1.3). The 512 px view is the exact candidate file for 512 px masters and an area downscale of 1024 px masters (the master is linked); the 64, 48 and 32 px views are real area-downscaled PNGs (${escapeHtml(derivedWith)}) shown at their true pixel size.</p>
+  <p class="lead">Generated review candidates for the MMORPG Warden abilities, grouped by ability. Each ability shows its current candidate set first; earlier sets stay collapsed below it as history, grouped by image model. Every image here is a candidate and is not approved. Approval happens only when the owner names a candidate's exact sha256 in a bundle export selection (Decision Atlas 4.1.3). The 512 px view is the exact candidate file for 512 px masters and an area downscale of 1024 px masters (the master is linked); the 64, 48 and 32 px views are real area-downscaled PNGs (${escapeHtml(derivedWith)}) shown at their true pixel size.</p>
   <div class="legend">
+    <ul class="sets">${renderSetLegend(review)}</ul>
     ${renderModelLegend(review)}
   </div>
   <div class="style">
@@ -733,7 +812,7 @@ export async function buildWardenReviewPage({
       await writeFile(path.join(output, ...url.split("/")), derived.get(candidate.id)!.get(size)!);
       images.push({ size, url });
     }
-    const entry: WardenReviewPageResult["candidates"][number] = { id: candidate.id, ability: candidate.ability, model: candidate.model, images };
+    const entry: WardenReviewPageResult["candidates"][number] = { id: candidate.id, ability: candidate.ability, model: candidate.model, set: candidate.set, images };
     if (candidate.width !== MASTER_SIZE) {
       entry.master = masterUrl(candidate.id);
       await writeFile(path.join(output, ...entry.master.split("/")), candidate.bytes);
