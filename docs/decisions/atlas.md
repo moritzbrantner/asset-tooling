@@ -212,3 +212,15 @@ The first humanoid source is the **Quaternius Universal Base Characters** pack (
 - `T_Eye_Normal_png.png` → `T_Eye_Normal.png`
 
 The substitutes are the archive's +Y (OpenGL) normal maps. They are promoted as ordinary archive members, and each record names the URI it stands in for in `metadata.substitutesFor`. **No bytes are invented or edited:** the source glTF and both textures stay exactly as the archive ships them. A minimal idempotent re-import is the provenance proof: importing again into the same object store changes nothing.
+
+#### Decision 6.1.4 — Only free sources; paid tiers are out of scope
+
+**Approved by owner:** 2026-10-17 ("I won't have paid sources"), on [#246](https://github.com/moritzbrantner/asset-tooling/issues/246).
+
+The shared catalog uses **only free sources**. Paid tiers of a pack, such as the full/Source edition of Quaternius Modular Character Outfits – Fantasy, are out of scope even when their license would allow redistribution. When a free tier lacks a needed asset, use what the free tier provides as an interim, or author an original asset. Never acquire a paid edition.
+
+#### Decision 6.1.5 — ARPG's armored knight look uses the Male Ranger outfit for now
+
+**Approved by owner:** 2026-10-17, on [#246](https://github.com/moritzbrantner/asset-tooling/issues/246). **Applies** Decision 6.1.4.
+
+The free Standard Modular Character Outfits – Fantasy archive has no knight or plate armor; it offers only Peasant and Ranger outfits. ARPG's interim armored knight is the **Male_Ranger outfit with its pauldron** on the Universal Base Characters male body, using the members already promoted in #109. Proper knight armor will be authored later under [#117](https://github.com/moritzbrantner/asset-tooling/issues/117). Swords and shields stay with [#113](https://github.com/moritzbrantner/asset-tooling/issues/113).
