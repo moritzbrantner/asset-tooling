@@ -133,6 +133,7 @@
     "examples/surface-appearances/build.ts",
     "test/tree-appearance-recipes.test.ts",
     "examples/tree-appearances/build.ts",
-    "src/warden-icon-review.ts"
+    "src/warden-icon-review.ts",
+    "src/warden-icon-export.ts"
   ]
 }

@@ -158,6 +158,15 @@ export interface WardenReviewPageResult {
   page: "index.html";
   /** `master` is the URL of the exact candidate bytes when the master is larger than 512 px. */
   candidates: { id: string; ability: string; model: string; set: string; images: WardenReviewImage[]; master?: string }[];
+  /** The committed approved-png-v1 export, when the review folder has one; images are its exact bytes. */
+  approved?: { manifestSha256: string; images: { key: string; variant: string; sha256: string; url: string }[] };
+}
+
+/** The verified committed export as the page renders it (see src/warden-icon-export.ts). */
+interface ApprovedSetView {
+  manifestRef: { sha256: string; byteLength: number };
+  selection: { bundle: string; ownerSelection: { date: string; issue: string; message: string }; license: { attribution: string } };
+  images: { key: string; name: string; candidate: string; variant: string; sha256: string; width: number; bytes: Buffer }[];
 }
 
 // ─── Validation helpers ─────────────────────────────────────────────────────────────────────────
@@ -577,7 +586,54 @@ function statusBadge(model: WardenImageModel): string {
     : `<span class="badge supported">supported</span>`;
 }
 
-function renderCandidate(candidate: WardenCandidate): string {
+const APPROVED_SET_CSS = `    .badge.approved { display: inline-block; line-height: 1.4; border-color: #c9a227; color: #f2d77a; text-decoration: none; }
+    .approved-set { margin: 24px 0 8px; padding: 18px; border: 2px solid #c9a227; border-radius: 16px; background: #1f1c14; }
+    .approved-set h2 { margin: 0 0 6px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+    .approved-set .lead { margin: 0 0 14px; overflow-wrap: anywhere; }
+    .approved-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 16px; margin-top: 16px; }
+    .approved-card { padding: 12px; border: 1px solid #5a4a1c; border-radius: 14px; background: #191710; }
+    .approved-card header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .approved-card h3 { margin: 0; font-size: 1.05rem; }
+    .candidates-heading { margin: 40px 0 0; }
+`;
+
+function approvedUrl(key: string, variant: string): string {
+  return `images/approved/${key}.${variant}.png`;
+}
+
+/** The owner-selected set as exported: 512 px views, a compact action bar at 64/48/32 px, and the consumer pin. */
+function renderApprovedSet(approved: ApprovedSetView): string {
+  const keys = [...new Set(approved.images.map((image) => image.key))];
+  const image = (key: string, variant: string) => approved.images.find((entry) => entry.key === key && entry.variant === variant)!;
+  const tag = (key: string, variant: string, size: number) => {
+    const entry = image(key, variant);
+    return `<img src="${escapeHtml(approvedUrl(key, variant))}" width="${size}" height="${size}" alt="${escapeHtml(`${entry.name} (${key}) approved icon at ${size} px`)}">`;
+  };
+  const cards = keys.map((key) => {
+    const master = image(key, "master");
+    const rows = ["master", "512", "64", "48", "32"].map((variant) => `<dt>${escapeHtml(variant === "master" ? `master ${image(key, variant).width} px` : `${variant} px`)}</dt><dd><code>${escapeHtml(image(key, variant).sha256)}</code></dd>`).join("");
+    return `<article class="approved-card" id="approved-${escapeHtml(key)}">
+        <header><h3>${escapeHtml(master.name)} <span class="ability-id">${escapeHtml(key)}</span></h3><span class="badge approved">approved · exported</span></header>
+        <figure class="master">${tag(key, "512", 512)}<figcaption>512 px · <a href="${escapeHtml(approvedUrl(key, "master"))}">${master.width} px master</a> · from <a href="#${escapeHtml(master.candidate)}"><code>${escapeHtml(master.candidate)}</code></a></figcaption></figure>
+        <div class="small">${[64, 48, 32].map((size) => `<figure>${tag(key, String(size), size)}<figcaption>${size} px</figcaption></figure>`).join("")}</div>
+        <details><summary>Exported sha256</summary><dl>${rows}</dl></details>
+      </article>`;
+  }).join("\n      ");
+  const bars = [64, 48, 32].map((size) => `<div class="bar-row"><span class="bar-label">Action bar at ${size} px</span><div class="bar" aria-label="${escapeHtml(`Approved Warden icons at ${size} px`)}">${keys.map((key) => tag(key, String(size), size)).join("")}</div></div>`).join("\n      ");
+  const owner = approved.selection.ownerSelection;
+  return `<section class="approved-set" aria-labelledby="approved-heading">
+    <h2 id="approved-heading">Approved Warden set <span class="badge approved">approved-png-v1 export</span></h2>
+    <p class="lead">The owner selected these four masters on ${escapeHtml(owner.date)} (<a href="${escapeHtml(owner.issue)}">#211</a>: “${escapeHtml(owner.message)}”). They are approved because the committed <code>approved-png-v1</code> export names their exact sha256 (Decision Atlas 4.1.3). Every image in this section is read from that verified export: manifest sha256 <code>${escapeHtml(approved.manifestRef.sha256)}</code> at <code>review/warden-icons/${escapeHtml(approved.selection.bundle)}/manifest.json</code>. ${escapeHtml(approved.selection.license.attribution)}</p>
+    <div class="bars">
+      ${bars}
+    </div>
+    <div class="approved-cards">
+      ${cards}
+    </div>
+  </section>`;
+}
+
+function renderCandidate(candidate: WardenCandidate, approvedCandidates: Set<string> = new Set()): string {
   const { provenance } = candidate;
   const rows: [string, string][] = [
     ["sha256", candidate.sha256],
@@ -598,7 +654,7 @@ function renderCandidate(candidate: WardenCandidate): string {
     ? "512 px master"
     : `512 px view · <a href="${escapeHtml(masterUrl(candidate.id))}">${candidate.width} px master</a>`;
   return `<article class="candidate" id="${escapeHtml(candidate.id)}">
-          <header><h5><code>${escapeHtml(candidate.id)}</code></h5><span class="badge">candidate</span></header>
+          <header><h5><code>${escapeHtml(candidate.id)}</code></h5><span class="badge">candidate</span>${approvedCandidates.has(candidate.id) ? `<a class="badge approved" href="#approved-${escapeHtml(candidate.ability)}">selected · approved export</a>` : ""}</header>
           <figure class="master">${img(candidate, MASTER_SIZE)}<figcaption>${master}</figcaption></figure>
           <div class="small">${WARDEN_REVIEW_SIZES.filter((size) => size !== MASTER_SIZE)
             .map((size) => `<figure>${img(candidate, size)}<figcaption>${size} px</figcaption></figure>`)
@@ -608,10 +664,10 @@ function renderCandidate(candidate: WardenCandidate): string {
         </article>`;
 }
 
-function renderModelColumn(model: WardenImageModel, members: WardenCandidate[]): string {
+function renderModelColumn(model: WardenImageModel, members: WardenCandidate[], approvedCandidates: Set<string>): string {
   return `<div class="model-column${model.status === "deprecated" ? " is-deprecated" : ""}">
           <h4>${escapeHtml(model.label)} ${statusBadge(model)}</h4>
-          <div class="cards">${members.map(renderCandidate).join("\n          ")}</div>
+          <div class="cards">${members.map((candidate) => renderCandidate(candidate, approvedCandidates)).join("\n          ")}</div>
         </div>`;
 }
 
@@ -620,7 +676,7 @@ function setBadge(set: WardenCandidateSet): string {
 }
 
 /** One candidate set of one ability: a 64/48/32 px strip per model, then the candidates by model. */
-function renderSetBody(ability: WardenAbilityBrief, set: WardenCandidateSet, members: WardenCandidate[], review: WardenCandidateReview): string {
+function renderSetBody(ability: WardenAbilityBrief, set: WardenCandidateSet, members: WardenCandidate[], review: WardenCandidateReview, approvedCandidates: Set<string>): string {
   const models = orderedModels(review.models).filter((model) => members.some((candidate) => candidate.model === model.id));
   const bars = models
     .map((model) => {
@@ -634,11 +690,11 @@ function renderSetBody(ability: WardenAbilityBrief, set: WardenCandidateSet, mem
         ${bars}
       </div>
       <div class="models" style="--columns: ${models.length}">
-        ${models.map((model) => renderModelColumn(model, members.filter((candidate) => candidate.model === model.id))).join("\n        ")}
+        ${models.map((model) => renderModelColumn(model, members.filter((candidate) => candidate.model === model.id), approvedCandidates)).join("\n        ")}
       </div>`;
 }
 
-function renderAbility(ability: WardenAbilityBrief, review: WardenCandidateReview): string {
+function renderAbility(ability: WardenAbilityBrief, review: WardenCandidateReview, approvedCandidates: Set<string>): string {
   const members = review.candidates.filter((candidate) => candidate.ability === ability.id);
   const heading = `<h2 id="${escapeHtml(ability.id)}-heading">${escapeHtml(ability.name)} <span class="ability-id">${escapeHtml(ability.id)}</span></h2>
     <p class="subject">${escapeHtml(ability.subject)}</p>`;
@@ -655,10 +711,10 @@ function renderAbility(ability: WardenAbilityBrief, review: WardenCandidateRevie
     .map(({ set, own }) => set.status === "current"
       ? `<div class="set is-current">
       <h3>${escapeHtml(set.label)} ${setBadge(set)}</h3>
-      ${renderSetBody(ability, set, own, review)}
+      ${renderSetBody(ability, set, own, review, approvedCandidates)}
     </div>`
       : `<details class="set is-superseded"><summary>${escapeHtml(set.label)} ${setBadge(set)}: ${own.length} earlier candidates kept as history</summary>
-      ${renderSetBody(ability, set, own, review)}
+      ${renderSetBody(ability, set, own, review, approvedCandidates)}
     </details>`)
     .join("\n    ");
   return `<section class="ability" aria-labelledby="${escapeHtml(ability.id)}-heading">
@@ -691,8 +747,12 @@ function renderModelLegend(review: WardenCandidateReview): string {
     .join("\n    ");
 }
 
-function renderReviewHtml(review: WardenCandidateReview, derivedWith: string): string {
+function renderReviewHtml(review: WardenCandidateReview, derivedWith: string, approved?: ApprovedSetView): string {
   const { candidates } = review;
+  const approvedCandidates = new Set(approved?.images.map((image) => image.candidate) ?? []);
+  const lead = approved
+    ? `The approved Warden set comes first, read from the committed approved-png-v1 export. Below it are the generated review candidates, grouped by ability: each ability shows its current candidate set first, and earlier sets stay collapsed as history, grouped by image model. A candidate is approved only when an export names its exact sha256 (Decision Atlas 4.1.3); the selected candidates link to their exported icons.`
+    : `Generated review candidates for the MMORPG Warden abilities, grouped by ability. Each ability shows its current candidate set first; earlier sets stay collapsed below it as history, grouped by image model. Every image here is a candidate and is not approved. Approval happens only when the owner names a candidate's exact sha256 in a bundle export selection (Decision Atlas 4.1.3).`;
   const latest = [...review.briefs.values()].at(-1)!;
   const styles = [...review.briefs.entries()]
     .map(([file, briefs]) => `<p><strong>${escapeHtml(file)}: style ${escapeHtml(briefs.style.id)} v${briefs.style.version}.</strong> ${escapeHtml(briefs.style.description)}</p>`)
@@ -702,7 +762,7 @@ function renderReviewHtml(review: WardenCandidateReview, derivedWith: string): s
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Warden ability-icon candidates</title>
+  <title>${approved ? "Warden ability icons" : "Warden ability-icon candidates"}</title>
   <meta name="description" content="Compare generated Warden ability-icon candidates by image model at 512, 64, 48 and 32 px with their ComfyUI provenance.">
   <style>
     :root { color-scheme: dark; font-family: ui-sans-serif, system-ui, sans-serif; }
@@ -741,7 +801,7 @@ function renderReviewHtml(review: WardenCandidateReview, derivedWith: string): s
     .badge.supported { border-color: #3f7f5a; color: #9fd8b4; }
     .badge.deprecated, .badge.superseded { border-color: #8a5a3a; color: #e0b08a; }
     .badge.current { border-color: #3f7f5a; color: #9fd8b4; }
-    .master img { display: block; max-width: 100%; height: auto; }
+${approved ? APPROVED_SET_CSS : ""}    .master img { display: block; max-width: 100%; height: auto; }
     .small { display: flex; align-items: flex-end; gap: 16px; margin-top: 10px; }
     .small img { display: block; max-width: none; }
     figure { margin: 0; }
@@ -759,8 +819,10 @@ function renderReviewHtml(review: WardenCandidateReview, derivedWith: string): s
 <body>
 <main>
   <a href="../../">← Back to gallery</a>
-  <h1>Warden ability-icon candidates</h1>
-  <p class="lead">Generated review candidates for the MMORPG Warden abilities, grouped by ability. Each ability shows its current candidate set first; earlier sets stay collapsed below it as history, grouped by image model. Every image here is a candidate and is not approved. Approval happens only when the owner names a candidate's exact sha256 in a bundle export selection (Decision Atlas 4.1.3). The 512 px view is the exact candidate file for 512 px masters and an area downscale of 1024 px masters (the master is linked); the 64, 48 and 32 px views are real area-downscaled PNGs (${escapeHtml(derivedWith)}) shown at their true pixel size.</p>
+  <h1>${approved ? "Warden ability icons" : "Warden ability-icon candidates"}</h1>
+  <p class="lead">${escapeHtml(lead)} The 512 px view is the exact candidate file for 512 px masters and an area downscale of 1024 px masters (the master is linked); the 64, 48 and 32 px views are real area-downscaled PNGs (${escapeHtml(derivedWith)}) shown at their true pixel size.</p>
+  ${approved ? renderApprovedSet(approved) : ""}
+  <h2 class="candidates-heading">Candidates</h2>
   <div class="legend">
     <ul class="sets">${renderSetLegend(review)}</ul>
     ${renderModelLegend(review)}
@@ -769,7 +831,7 @@ function renderReviewHtml(review: WardenCandidateReview, derivedWith: string): s
     ${styles}
     <span class="negative">${candidates.length} candidates · ${review.manifest.briefs.map((ref) => `${escapeHtml(ref.path)} sha256 <code>${escapeHtml(short(ref.sha256))}</code>`).join(" · ")}</span>
   </div>
-  ${latest.abilities.map((ability) => renderAbility(ability, review)).join("\n  ")}
+  ${latest.abilities.map((ability) => renderAbility(ability, review, approvedCandidates)).join("\n  ")}
 </main>
 </body>
 </html>
@@ -798,6 +860,11 @@ export async function buildWardenReviewPage({
   await rm(path.join(output, "index.html"), { force: true });
 
   const review = await loadWardenCandidateReview(reviewDirectory);
+  // The committed approved export, when present, is re-verified (fail closed) before anything is written.
+  const exports = await import("./warden-icon-export.js");
+  const approved: ApprovedSetView | undefined = await exports.hasWardenExportSelection(reviewDirectory)
+    ? await exports.loadApprovedWardenExport(reviewDirectory, review)
+    : undefined;
   const ffmpeg = "ffmpeg";
   const derivedWith = ffmpegVersion(ffmpeg);
   const derived = new Map<string, Map<number, Buffer>>();
@@ -819,6 +886,15 @@ export async function buildWardenReviewPage({
     }
     result.candidates.push(entry);
   }
-  await writeFile(path.join(output, "index.html"), renderReviewHtml(review, derivedWith), "utf8");
+  if (approved) {
+    await mkdir(path.join(output, "images", "approved"), { recursive: true });
+    result.approved = { manifestSha256: approved.manifestRef.sha256, images: [] };
+    for (const image of approved.images) {
+      const url = approvedUrl(image.key, image.variant);
+      await writeFile(path.join(output, ...url.split("/")), image.bytes);
+      result.approved.images.push({ key: image.key, variant: image.variant, sha256: image.sha256, url });
+    }
+  }
+  await writeFile(path.join(output, "index.html"), renderReviewHtml(review, derivedWith, approved), "utf8");
   return result;
 }

@@ -1,0 +1,104 @@
+{
+  "schemaVersion": 1,
+  "description": "Export request for the Warden ability-icon set (#211). The selections below are the approved-png-v1 export selection: naming these exact sha256 values in the export is the approval act (Decision Atlas 4.1.3). This file records the owner's selection that the export carries out; it is not a separate approval state.",
+  "profile": "approved-png-v1",
+  "bundle": "approved",
+  "ownerSelection": {
+    "date": "2026-10-17",
+    "issue": "https://github.com/moritzbrantner/asset-tooling/issues/211",
+    "message": "I pick warden.ability.1.candidate.flux2-klein-tight-01, warden.ability.2.candidate.flux2-klein-tight-01, warden.ability.3.candidate.flux2-klein-tight-01, warden.ability.4.candidate.flux2-klein-tight-02",
+    "candidateSet": "warden.v3.flux2-klein-tight"
+  },
+  "supersedes": [
+    {
+      "date": "2026-10-17",
+      "reference": "https://github.com/moritzbrantner/asset-tooling/issues/211",
+      "note": "An earlier local approved-png-v1 export named three Stable Diffusion 1.5 candidates for warden.ability.1-3 (sha256 b336e230b85f8d4ce7aa1049ec44d6113a69ac3bb284bab01edf4bd00626906e, 58c5b84f184b2c0c4b7d42e2ec6cd3d1f17b4fc1b6f0a04f52e777e95941c953, 3b905f72beea5f66426df256ceab9f55a80774723c973dc54fa8fe6a92fc14fa; manifest sha256 e4788f1b...1dfe). It was never committed or distributed. The owner's selection above replaces it for every warden.ability key; this export names none of those bytes."
+    }
+  ],
+  "license": {
+    "outputs": "Original artwork generated locally for and owned by the asset-tooling project (moritzbrantner). No third-party image, reference or copyrighted composition was used as an input; the inputs are the project's own briefs and workflow.",
+    "models": "FLUX.2 [klein] 4B (diffusion model), its Qwen3-4B text encoder and the FLUX.2 VAE are Apache-2.0 according to their official model cards; their revision-pinned files and hashes are recorded in candidates.json and on every master's provenance.",
+    "attribution": "Generated with FLUX.2 [klein] 4B (Black Forest Labs, Apache-2.0) through ComfyUI."
+  },
+  "derivation": {
+    "description": "Each derivative is produced from the exact master bytes with the existing image.decode@1, image.resize@1 (bilinear, exact 2x halving steps except one 3/4 step for 48 px) and image.encode.png@1 (compressionLevel 9) operations. Each derivative's exact sha256 is named in the selection, so a different codec build fails visibly instead of silently replacing a pinned file.",
+    "filter": "bilinear",
+    "compressionLevel": 9,
+    "chains": {
+      "512": [
+        512
+      ],
+      "64": [
+        512,
+        256,
+        128,
+        64
+      ],
+      "48": [
+        512,
+        256,
+        192,
+        96,
+        48
+      ],
+      "32": [
+        512,
+        256,
+        128,
+        64,
+        32
+      ]
+    }
+  },
+  "selections": [
+    {
+      "key": "warden.ability.1",
+      "name": "Heroic Strike",
+      "candidate": "warden.ability.1.candidate.flux2-klein-tight-01",
+      "variants": {
+        "master": "7e0f83f2ebaf5fbc97ebe8a8d3e6d0d8150d8fb50154841a2388da64208e3fed",
+        "512": "6d84a2dfc53c763dce65b9803353a9642def493708b9fd0247b7573169a4a238",
+        "64": "c9891ad6559963cb2d02b8c7fa44b9fff999a99d1b0cef8c7fb8ec26440bb4a2",
+        "48": "0887d4ca4efbbd2ce987ee0e2aa18d74d4d0210a81e5ba674115129133fd72f1",
+        "32": "5a3bace8b2c8ff3f9057a6115f69fb548c793c605e58856c8fb3fe20fdc08542"
+      }
+    },
+    {
+      "key": "warden.ability.2",
+      "name": "Shield Bash",
+      "candidate": "warden.ability.2.candidate.flux2-klein-tight-01",
+      "variants": {
+        "master": "dc8e8fcf819394e6385e9c6381c6eedcf7d5fb2dbba7c7d7e6ed956a4b22b823",
+        "512": "6c60910df4ef9be7b9b1623db2a2e3ede42844b226dc6d5746cbb5a6107dbd84",
+        "64": "2f8912262461b95fc87b1e0b54dbfbdd81f4add5af04a4d4c11e0348d031d23b",
+        "48": "03c259a236820710ed7f7e665c6640d3937c3a8c0a821e968bf84062543d6b5d",
+        "32": "b06fda0f931934d046e1390ff8d7b10924c872b5550a2305f148d10c4540b99f"
+      }
+    },
+    {
+      "key": "warden.ability.3",
+      "name": "Rallying Cry",
+      "candidate": "warden.ability.3.candidate.flux2-klein-tight-01",
+      "variants": {
+        "master": "10e17197592c5a84a19704faa7df6e3571b163807a62ee1ffb3b009cc657a9b0",
+        "512": "03add8b18c9039722b7d1eae7330ff5d039109ec3827c1e2c7362bccd06a1bfd",
+        "64": "4a7ea9a95b0c1db457a96b04cdb0080174aeb9ee4635eaf17f4e3eaede402eba",
+        "48": "ce9ea81c0a4df6bc213962c4bf01e20c854ad84896a1e641e431e76116379b98",
+        "32": "be655d950d3bd060b3bf61d4d1be04972e1e27619813328603d484be345e3bd7"
+      }
+    },
+    {
+      "key": "warden.ability.4",
+      "name": "Cleave",
+      "candidate": "warden.ability.4.candidate.flux2-klein-tight-02",
+      "variants": {
+        "master": "462ea83339d29ff4a8d4664fbbb53866f29adf3bfe1c2aefccd203592415a57d",
+        "512": "43d981022817e3f2fef58a4f698e287720f861dbb3d727f9a2f529a50b803133",
+        "64": "8d9649ec8b877b4079638bc2b0031e6c1fb83b059fab7526b079ae4f9b2881c3",
+        "48": "159bc4b5c5d92c26fc81a723115c97cce07a3d136546349b3d8441bf847eb0d4",
+        "32": "a89382412378fb0d5763302993de75f06660a389480c31f2d5556e84e588a66f"
+      }
+    }
+  ]
+}
