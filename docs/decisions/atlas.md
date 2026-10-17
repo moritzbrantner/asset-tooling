@@ -142,3 +142,25 @@ Keep generic workflow ownership separate: `workflow-editor` authors higher-level
 
 Implementation boundary and evidence: [ComfyUI-first architecture](../comfyui-first.md), [first provider slice #212](https://github.com/moritzbrantner/asset-tooling/issues/212), and [Warden consumer acceptance #211](https://github.com/moritzbrantner/asset-tooling/issues/211).
 
+
+#### Decision 5.1.2 — One evolved image-generation operation with an explicit provider
+
+**Approved by owner:** 2026-10-17 ("we will use flux and zimage turbo, but yea. That option."), on [#222](https://github.com/moritzbrantner/asset-tooling/issues/222). **Applies** Decision 5.1.1's explicit provider choice to prompt-level image generation.
+
+Where an internal (Diffusers) and a ComfyUI path both generate images, they sit behind **one evolved, versioned operation with prompt-level inputs and a required `provider` choice** (`diffusers` or `comfyui`). The ComfyUI provider fills a **repository-owned, hash-pinned template workflow** and runs it through the existing ComfyUI transport. The provider is part of the build identity. There is no implicit fallback, and an unavailable provider fails visibly. The existing `image.stable-diffusion.generate@1` stays unchanged and Diffusers-only, so past builds never switch provider. The target models are FLUX.2 [klein] 4B and Z-Image Turbo (Decision 4.1.4), not only SD 1.5. The operation's exact name and its model-specific parameters (for example guidance, scheduler, precision and text encoders) are an implementation question for #222 and still need owner confirmation. They are not settled by this Decision.
+
+#### Decision 5.1.3 — Local tool setup is idempotent and converges managed state
+
+**Approved by owner:** 2026-10-17 ("There should be idempotent scripts to set up the environment."), on [#220](https://github.com/moritzbrantner/asset-tooling/issues/220). **Replaces** the earlier setup rule that an inconsistent managed installation always fails closed instead of being upgraded.
+
+Re-running repository setup on a managed installation under `.artifacts/toolchain` brings it to the pinned, declared state. Re-running it on a correct installation changes nothing. `doctor` stays read-only and reports any mismatch until setup is re-run. Convergence only touches tool-managed state; user-owned or unmanaged installations are never modified. The first case is the ComfyUI CPU profile: an existing install with a CUDA torch build, or no torch record, converges to the hash-pinned `+cpu` torch and torchvision wheels (Linux x86_64, cp310–cp315 only; other platforms fail closed before installing). Other kinds of drift keep failing closed until they gain an explicit convergence step.
+
+## 6. Shared source acquisition
+
+### 6.1. Sources without a stable download URL
+
+#### Decision 6.1.1 — Promote itch.io-only CC0 sources from an owner-downloaded local file
+
+**Approved by owner:** 2026-10-17, on [#109](https://github.com/moritzbrantner/asset-tooling/issues/109). It chose local-file promotion over an itch.io signed-URL resolver or an owner-hosted mirror.
+
+Some selected sources, such as the Quaternius Universal Base Characters and Modular Character Outfits packs, are distributed only through itch.io's short-lived signed download URLs. The owner downloads such an archive once. A **local-file mode of canonical LFS promotion** (`catalog:lfs:promote -- <id> --from <file>`) then pins and stores it. The **SHA-256 and byte-length pin is authoritative**. The source record keeps the itch.io page and upload id as provenance, along with the license evidence. Archive-member selection, license policy and the review-branch/PR validation are unchanged. The LFS object becomes the durable copy, so hosted re-acquisition of such a source is not expected.
