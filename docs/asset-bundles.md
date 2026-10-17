@@ -120,3 +120,25 @@ Each selection has exactly `key`, `variant` and `approved: { sha256 }`; the sha 
 The manifest is canonical JSON with `schemaVersion: 3`, `profile: "approved-png-v1"` and entries sorted by key, then variant. Each entry is `{ key, variant, approved: { sha256 }, source, path }`, where `source` is the full original AssetRef and `path` is `assets/<sha256>.png`. `parseApprovedImageBundleManifest` admits this shape and rejects an entry whose `approved.sha256` differs from `source.sha256`, so a forged approval fails parsing and verification. Verification must select the approved profile explicitly; the default static verification rejects an approved bundle, and the approved profile rejects static and atlas bundles. The shared limits, recovery, counters and `result.files` allowlist rules above apply unchanged. Build identity records the approved selection (including each sha) and inputs, so `executeAssetBundleOperation` and the export agree on the manifest.
 
 `test/comfyui-approval-export.test.ts` runs candidate, approval, export and independent verification against the fake ComfyUI server, including mismatched, regenerated, missing and tampered candidates and a forged manifest. `test/comfyui-approval-local-server.test.ts` repeats the journey on a real local ComfyUI; it is skipped unless `ASSET_TOOLING_COMFYUI_URL` and `ASSET_TOOLING_COMFYUI_CHECKPOINT` are set.
+
+### Approved Warden ability icons
+
+The first committed `approved-png-v1` bundle is the Warden ability-icon set of [#211](https://github.com/moritzbrantner/asset-tooling/issues/211). On 2026-10-17 the owner picked four candidates of the current `warden.v3.flux2-klein-tight` set ("I pick warden.ability.1.candidate.flux2-klein-tight-01, warden.ability.2.candidate.flux2-klein-tight-01, warden.ability.3.candidate.flux2-klein-tight-01, warden.ability.4.candidate.flux2-klein-tight-02"). `review/warden-icons/export-selection.json` records that selection, the licence/attribution text and the derivation chains, and names the exact sha256 of every exported file. An earlier local export of three Stable Diffusion 1.5 candidates was never committed. This selection supersedes it, and none of those bytes are in the bundle.
+
+| Path | Content |
+|---|---|
+| `review/warden-icons/approved/manifest.json` | plain-JSON `approved-png-v1` manifest (20 entries) |
+| `review/warden-icons/approved/export.ref.json` | the manifest AssetRef that consumers pin |
+| `review/warden-icons/approved/assets/<sha256>.png` | Git LFS payloads |
+
+Keys are `warden.ability.1` (Heroic Strike), `.2` (Shield Bash), `.3` (Rallying Cry) and `.4` (Cleave), matching the MMORPG stable ability IDs. Each key has the variants `master` (the exact 1024 px FLUX.2 [klein] 4B candidate), `512`, `64`, `48` and `32`. The derivatives come from the master through `image.decode@1`, `image.resize@1` (bilinear 2× halving steps, plus one ¾ step for 48 px) and `image.encode.png@1` (compression level 9). Every entry's `source` AssetRef carries its provenance: the master has its ComfyUI generation record (model files and their Apache-2.0 licences, workflow, seed and prompt), and each derivative has its operation chain with input and output hashes. The images are original project-owned artwork. Attribution: "Generated with FLUX.2 [klein] 4B (Black Forest Labs, Apache-2.0) through ComfyUI."
+
+`bun run warden:export` re-verifies the review folder, re-derives every variant and exports the bundle idempotently. A derivative whose bytes differ from the named sha256 (for example, from another FFmpeg build) fails before the bundle directory changes. `bun scripts/export-warden-icons.ts --check` exports to a disposable directory and compares the result with the committed manifest. `test/warden-icon-export.test.ts` verifies the committed bundle offline. The Warden review page shows the exported set above the candidates.
+
+**Consuming the bundle (MMORPG #170/#171).** A consumer pins one asset-tooling commit and the manifest sha256 (`a59d54c4191a07de613769726ad1c41513f5256f0289281fb0b000e7fcdeddc5`, 53,124 bytes, recorded in `export.ref.json`). It then:
+
+1. Checks out that commit beside itself and hydrates only the bundle with `git lfs pull --include="review/warden-icons/approved/**"`.
+2. Admits the manifest with `verifyAssetBundle(dir, expectedRef, { profile: APPROVED_IMAGE_BUNDLE_PROFILE })` from `asset-tooling/operations/bundle`. `expectedRef` is the consumer's own pinned copy of `export.ref.json`; never trust the downloaded manifest by itself.
+3. Reads the files it ships with `readAssetBundleAsset(dir, manifest, "warden.ability.<id>", "<variant>")`. Each read re-checks the file's pin.
+
+The consumer then copies the selected PNGs and the manifest sha256 into its own packaged assets. The consumer does not need ComfyUI, MCP, a GPU, model weights or network access at game runtime.
