@@ -212,6 +212,12 @@ ${panels}
         <label class="check"><input type="checkbox" id="show-outfit" checked disabled> Male_Ranger outfit</label>
         <label class="check"><input type="checkbox" id="show-body" checked disabled> Universal Base Characters body</label>
       </div>
+      <div class="field" role="group" aria-labelledby="inspect-label">
+        <span class="group-label" id="inspect-label">Inspect</span>
+        <label class="check"><input type="checkbox" id="wireframe" disabled> Wireframe (all views)</label>
+        <label class="check"><input type="checkbox" id="skeleton" disabled> Skeleton (source motion and processed)</label>
+        <label class="check"><input type="checkbox" id="sockets" disabled> Sockets (processed)</label>
+      </div>
       <p class="note">All four views share the clip, time and camera. The original source ships no clips, so it always shows its rest pose. The source motion is the clip library's own mannequin, before retargeting. Matching poses do not mean visual approval.</p>
     </section>
   </div>
