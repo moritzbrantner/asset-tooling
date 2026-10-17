@@ -107,12 +107,31 @@ function rejectGlbExternalResources(bytes: Uint8Array, location: string) {
   }
 }
 
-export async function validateGltf(bytes: Uint8Array, format: "gltf" | "glb", resources: Record<string, Uint8Array>, location: string, allowedWarnings: readonly string[] = [], supersededCodes: readonly string[] = []) {
+/**
+ * A validator code superseded only at matching JSON pointers, because a declared repair replaces it
+ * there with its own bounded check. The code stays a failure everywhere else.
+ */
+export type LocatedValidatorSupersession = { readonly code: string; readonly pointer: RegExp };
+
+/** `ACCESSOR_NON_CLAMPED` on a primitive's COLOR_n attribute, superseded by the declared color clamp repair. */
+export const COLOR_NON_CLAMPED_SUPERSESSION: LocatedValidatorSupersession = Object.freeze({
+  code: "ACCESSOR_NON_CLAMPED", pointer: /^\/meshes\/\d+\/primitives\/\d+\/attributes\/COLOR_\d+$/,
+});
+
+export async function validateGltf(
+  bytes: Uint8Array, format: "gltf" | "glb", resources: Record<string, Uint8Array>, location: string,
+  allowedWarnings: readonly string[] = [], supersededCodes: readonly string[] = [],
+  locatedSupersessions: readonly LocatedValidatorSupersession[] = [],
+) {
   let report: Awaited<ReturnType<typeof validateBytes>>;
+  const superseded = (issue: { code: string; pointer?: string }) => supersededCodes.includes(issue.code)
+    || locatedSupersessions.some((entry) => entry.code === issue.code && entry.pointer.test(issue.pointer ?? ""));
   try {
     report = await validateBytes(bytes, {
       // Superseded codes are ignored by the validator itself, so they cannot exhaust the issue limit.
-      format, writeTimestamp: false, maxIssues: 100, ignoredIssues: [...supersededCodes],
+      // A located supersession cannot be ignored by code alone, so the report is then unlimited
+      // (one issue per repairable component) and every other issue at any pointer is still seen.
+      format, writeTimestamp: false, maxIssues: locatedSupersessions.length ? 0 : 100, ignoredIssues: [...supersededCodes],
       externalResourceFunction: async (uri) => {
         const bytes = resources[portableGltfUri(uri)];
         if (!bytes) throw new Error(`missing glTF resource '${uri}'`);
@@ -123,7 +142,7 @@ export async function validateGltf(bytes: Uint8Array, format: "gltf" | "glb", re
     // The validator can throw non-Error values for inputs it cannot model; keep them diagnosable.
     throw new Error(`${location} failed Khronos validation: validator could not process the document: ${describeFailure(error)}`);
   }
-  const failures = report.issues.messages.filter((issue) => !supersededCodes.includes(issue.code)
+  const failures = report.issues.messages.filter((issue) => !superseded(issue)
     && (issue.severity === 0 || (issue.severity === 1 && !allowedWarnings.includes(issue.code))));
   const unexplainedErrors = report.issues.numErrors > report.issues.messages.filter((issue) => issue.severity === 0).length;
   if (unexplainedErrors || failures.length || report.issues.truncated) {
@@ -131,7 +150,7 @@ export async function validateGltf(bytes: Uint8Array, format: "gltf" | "glb", re
       ...(report.issues.truncated ? ["validator issue report truncated"] : []),
       ...(unexplainedErrors ? ["validator reported errors without messages"] : [])].join("; ")}`);
   }
-  return report.issues.messages.filter((issue) => issue.severity === 1).map((issue) => ({
+  return report.issues.messages.filter((issue) => issue.severity === 1 && !superseded(issue)).map((issue) => ({
     code: issue.code, path: issue.pointer ?? "/", message: issue.message,
   }));
 }
@@ -235,16 +254,16 @@ export function gltfSummary(document: Document) {
 export async function loadCheckedGltf(
   root: string, operation: ReadonlyAssetOperationDescriptor,
   normalizedParameters: { resourceUris: string[] }, inputs: unknown, allowRigged: boolean,
-  allowedWarnings: readonly string[] = [],
+  allowedWarnings: readonly string[] = [], locatedSupersessions: readonly LocatedValidatorSupersession[] = [],
 ) {
   const checked = await checkedGltfInputs(root, operation, normalizedParameters, inputs);
-  return { ...checked, ...await parseCheckedGltfBytes(checked.source, checked.sourceBytes, checked.resourceBytes, allowRigged, allowedWarnings) };
+  return { ...checked, ...await parseCheckedGltfBytes(checked.source, checked.sourceBytes, checked.resourceBytes, allowRigged, allowedWarnings, locatedSupersessions) };
 }
 
 // The same parser/policy boundary serves object-store imports and non-mutating packaged-byte verification.
 export async function parseCheckedGltfBytes(
   source: AssetRef, sourceBytes: Buffer, resourceBytes: JSONDocument["resources"],
-  allowRigged: boolean, allowedWarnings: readonly string[] = [],
+  allowRigged: boolean, allowedWarnings: readonly string[] = [], locatedSupersessions: readonly LocatedValidatorSupersession[] = [],
 ) {
   if (sourceBytes.byteLength !== source.byteLength || sha256Bytes(sourceBytes) !== source.sha256) throw new Error("glTF bytes do not match the declared source pin");
   if (source.mediaType !== "model/gltf-binary" && source.mediaType !== "model/gltf+json") throw new Error("unsupported glTF source media type");
@@ -279,7 +298,7 @@ export async function parseCheckedGltfBytes(
   }
   structuralPreflight(jsonDocument.json, format, "scene.import.gltf source");
   const validatorWarnings = await validateGltf(sourceBytes, format, resourceBytes, "scene.import.gltf source", allowedWarnings,
-    allowRigged ? PRODUCTION_SUPERSEDED_VALIDATOR_CODES : []);
+    allowRigged ? PRODUCTION_SUPERSEDED_VALIDATOR_CODES : [], locatedSupersessions);
   supportedPolicy(jsonDocument.json, allowRigged);
   const inventory = resourceInventory(jsonDocument.json, resourceBytes, format === "glb" ? jsonDocument.resources : Object.create(null));
   const document = await io.readJSON(jsonDocument);

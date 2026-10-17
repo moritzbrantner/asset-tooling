@@ -4,7 +4,7 @@ import { VERSION, type Document } from "@gltf-transform/core";
 import { version as validatorVersion } from "gltf-validator";
 import { storeAssetObject } from "./asset-store.js";
 import { GLTF_IMPORT_OPERATION } from "./gltf-import-operations.js";
-import { PRODUCTION_SUPERSEDED_VALIDATOR_CODES, checkedGltfInputs, gltfSummary, loadCheckedGltf, portableGltfUri, validateGltf } from "./gltf-processing.js";
+import { COLOR_NON_CLAMPED_SUPERSESSION, PRODUCTION_SUPERSEDED_VALIDATOR_CODES, checkedGltfInputs, gltfSummary, loadCheckedGltf, portableGltfUri, validateGltf } from "./gltf-processing.js";
 import { sha256Bytes } from "./hash.js";
 import {
   createAssetOperationBuildIdentity, createAssetOperationDescriptor, normalizeAssetOperationResult,
@@ -16,6 +16,10 @@ const PROFILE = "gltf-core-production-v1";
 /** Owner-decided policy values (docs/gltf-import.md); they are part of the build identity. */
 export const GLTF_WEIGHT_SUM_POLICY = Object.freeze({ policy: "gltf-weight-sum-tolerance-v1", tolerance: 1e-3 });
 export const GLTF_SINGULAR_INVERSE_BIND_DETERMINANT = 1e-12;
+/** Owner decision Q2 (a) on #118: float COLOR_n components may leave [0, 1] by at most `maxExcess` and are clamped. */
+export const GLTF_COLOR_CLAMP_REPAIR = Object.freeze({ repair: "gltf-color-clamp-v1", maxExcess: 2e-4 });
+const ALLOWED_VALIDATOR_WARNINGS = ["NODE_SKINNED_MESH_NON_ROOT", "MESH_PRIMITIVE_GENERATED_TANGENT_SPACE"];
+const REPAIRS = [GLTF_COLOR_CLAMP_REPAIR.repair];
 type Invocation = { parameters?: unknown; inputs?: unknown };
 type Policy = {
   maxTriangles: number | null;
@@ -23,6 +27,7 @@ type Policy = {
   requireNormals: boolean;
   requiredClipNames: string[];
   allowedValidatorWarnings: string[];
+  repairs: string[];
 };
 type Diagnostic = { path: string; rule: keyof Policy; message: string };
 
@@ -39,7 +44,8 @@ const parameterSchema = {
         maxJointsPerSkin: { type: ["integer", "null"], minimum: 1 },
         requireNormals: { type: "boolean" },
         requiredClipNames: { type: "array", uniqueItems: true, maxItems: 256, items: { type: "string", minLength: 1 } },
-        allowedValidatorWarnings: { type: "array", uniqueItems: true, maxItems: 1, items: { enum: ["NODE_SKINNED_MESH_NON_ROOT"] } },
+        allowedValidatorWarnings: { type: "array", uniqueItems: true, maxItems: ALLOWED_VALIDATOR_WARNINGS.length, items: { enum: ALLOWED_VALIDATOR_WARNINGS } },
+        repairs: { type: "array", uniqueItems: true, maxItems: REPAIRS.length, items: { enum: REPAIRS } },
       },
     },
   },
@@ -90,7 +96,7 @@ function normalizeParameters(value: unknown) {
   const resourceUris = uris.map(portableGltfUri);
   if (new Set(resourceUris).size !== resourceUris.length) throw new Error("duplicate glTF resourceUris");
   const policy = object(input.policy ?? {}, "glTF production policy");
-  const fields = new Set(["maxTriangles", "maxJointsPerSkin", "requireNormals", "requiredClipNames", "allowedValidatorWarnings"]);
+  const fields = new Set(["maxTriangles", "maxJointsPerSkin", "requireNormals", "requiredClipNames", "allowedValidatorWarnings", "repairs"]);
   for (const key of Object.keys(policy)) {
     if (!fields.has(key)) throw new Error(`unknown glTF production policy field '${key}'`);
   }
@@ -100,15 +106,22 @@ function normalizeParameters(value: unknown) {
   }
   if (new Set(names).size !== names.length) throw new Error("duplicate requiredClipNames");
   const warnings = policy.allowedValidatorWarnings ?? [];
-  if (!Array.isArray(warnings) || warnings.length > 1 || warnings.some((code) => code !== "NODE_SKINNED_MESH_NON_ROOT")) {
-    throw new Error("allowedValidatorWarnings only supports NODE_SKINNED_MESH_NON_ROOT");
+  if (!Array.isArray(warnings) || warnings.some((code) => !ALLOWED_VALIDATOR_WARNINGS.includes(code))) {
+    throw new Error(`allowedValidatorWarnings only supports ${ALLOWED_VALIDATOR_WARNINGS.join(" and ")}`);
   }
+  if (new Set(warnings).size !== warnings.length) throw new Error("duplicate allowedValidatorWarnings");
+  const repairs = policy.repairs ?? [];
+  if (!Array.isArray(repairs) || repairs.some((repair) => !REPAIRS.includes(repair))) {
+    throw new Error(`repairs only supports ${REPAIRS.join(", ")}`);
+  }
+  if (new Set(repairs).size !== repairs.length) throw new Error("duplicate repairs");
   const normalizedPolicy: Policy = {
     maxTriangles: limit(policy.maxTriangles, "maxTriangles"),
     maxJointsPerSkin: limit(policy.maxJointsPerSkin, "maxJointsPerSkin"),
     requireNormals: boolean(policy.requireNormals, "requireNormals"),
     requiredClipNames: names,
     allowedValidatorWarnings: warnings,
+    repairs,
   };
   return { resourceUris, policy: normalizedPolicy };
 }
@@ -123,6 +136,7 @@ async function buildIdentity(root: string, invocation: Invocation, operation: Re
       policies: {
         weightSum: GLTF_WEIGHT_SUM_POLICY,
         singularInverseBindDeterminant: GLTF_SINGULAR_INVERSE_BIND_DETERMINANT,
+        colorClamp: GLTF_COLOR_CLAMP_REPAIR,
         supersededValidatorCodes: PRODUCTION_SUPERSEDED_VALIDATOR_CODES,
       },
       dependencyLockSha256: await readDependencyLockSha256(),
@@ -157,6 +171,37 @@ function checkWeightSums(document: Document) {
     }
   }));
   return { ...GLTF_WEIGHT_SUM_POLICY, maxAbsoluteDrift };
+}
+
+/**
+ * The declared `gltf-color-clamp-v1` repair: float COLOR_n components outside [0, 1] by at most the
+ * bound are clamped in the document; any larger excess fails before anything is stored. Normalized
+ * integer colors cannot leave [0, 1] and are untouched. All attributes are measured before any is
+ * changed, so an accessor shared by several attributes is reported at each of them.
+ */
+function clampColors(document: Document) {
+  const { repair, maxExcess: bound } = GLTF_COLOR_CLAMP_REPAIR;
+  const measured = document.getRoot().listMeshes().flatMap((mesh, meshIndex) => mesh.listPrimitives().flatMap((primitive, primitiveIndex) =>
+    primitive.listSemantics().filter((semantic) => /^COLOR_\d+$/.test(semantic)).sort().flatMap((semantic) => {
+      const accessor = primitive.getAttribute(semantic)!;
+      if (accessor.getComponentType() !== 5126) return [];
+      const path = `/meshes/${meshIndex}/primitives/${primitiveIndex}/attributes/${semantic}`;
+      const array = accessor.getArray()!;
+      let clampedComponentCount = 0, maxExcess = 0;
+      for (const [index, value] of array.entries()) {
+        const excess = value > 1 ? value - 1 : value < 0 ? -value : 0;
+        if (!(excess <= bound)) {
+          const size = accessor.getElementSize();
+          throw new Error(`${path}: COLOR_CLAMP_EXCESS_OUT_OF_BOUND: component ${index % size} of element ${Math.floor(index / size)} is ${value} (${repair} allows ${bound} outside [0, 1])`);
+        }
+        if (excess > 0) { clampedComponentCount += 1; maxExcess = Math.max(maxExcess, excess); }
+      }
+      return clampedComponentCount ? [{ array, entry: { repair, path, clampedComponentCount, maxExcess } }] : [];
+    })));
+  for (const { array } of measured) {
+    for (const [index, value] of array.entries()) if (value > 1 || value < 0) array[index] = Math.min(1, Math.max(0, value));
+  }
+  return measured.map(({ entry }) => entry);
 }
 
 function singularInverseBinds(document: Document) {
@@ -286,17 +331,28 @@ function analyze(document: Document, policy: Policy) {
   };
 }
 
+/** A declared repair replaces the source validator's check it repairs, only where it applies. */
+function supersessions(policy: Policy) {
+  return policy.repairs.includes(GLTF_COLOR_CLAMP_REPAIR.repair) ? [COLOR_NON_CLAMPED_SUPERSESSION] : [];
+}
+
+function applyRepairs(document: Document, policy: Policy) {
+  return policy.repairs.includes(GLTF_COLOR_CLAMP_REPAIR.repair) ? clampColors(document) : [];
+}
+
 export async function executeGltfAnalyzeOperation(root: string, invocation: Invocation = {}): Promise<AssetOperationResult> {
   const parameters = normalizeParameters(invocation.parameters ?? {});
-  const { document, inventory, validatorWarnings } = await loadCheckedGltf(root, GLTF_ANALYZE_OPERATION, parameters, invocation.inputs ?? {}, true, parameters.policy.allowedValidatorWarnings);
+  const { document, inventory, validatorWarnings } = await loadCheckedGltf(root, GLTF_ANALYZE_OPERATION, parameters, invocation.inputs ?? {}, true, parameters.policy.allowedValidatorWarnings, supersessions(parameters.policy));
+  const repairs = applyRepairs(document, parameters.policy);
   return normalizeAssetOperationResult(GLTF_ANALYZE_OPERATION, {
-    outputs: {}, observations: { ...analyze(document, parameters.policy), resources: inventory, validatorWarnings },
+    outputs: {}, observations: { ...analyze(document, parameters.policy), repairs, resources: inventory, validatorWarnings },
   });
 }
 
 export async function executeGltfProductionImportOperation(root: string, invocation: Invocation = {}): Promise<AssetOperationResult> {
   const parameters = normalizeParameters(invocation.parameters ?? {});
-  const { source, resources, document, io, inventory, validatorWarnings } = await loadCheckedGltf(root, GLTF_PRODUCTION_IMPORT_OPERATION, parameters, invocation.inputs ?? {}, true, parameters.policy.allowedValidatorWarnings);
+  const { source, resources, document, io, inventory, validatorWarnings } = await loadCheckedGltf(root, GLTF_PRODUCTION_IMPORT_OPERATION, parameters, invocation.inputs ?? {}, true, parameters.policy.allowedValidatorWarnings, supersessions(parameters.policy));
+  const repairs = applyRepairs(document, parameters.policy);
   const analysis = analyze(document, parameters.policy);
   if (!analysis.accepted) throw new Error(`glTF production policy rejected source: ${analysis.diagnostics.map((diagnostic) => `${diagnostic.path}: ${diagnostic.message}`).join("; ")}`);
   const bytes = await io.writeBinary(document);
@@ -308,5 +364,5 @@ export async function executeGltfProductionImportOperation(root: string, invocat
       resourceSha256s: resources.map((resource) => resource.sha256), coordinateSystem: "right-handed-y-up", unit: "meter",
     },
   });
-  return normalizeAssetOperationResult(GLTF_PRODUCTION_IMPORT_OPERATION, { outputs: { output: stored.asset }, observations: { ...analysis, resources: inventory, validatorWarnings, outputValidatorWarnings } });
+  return normalizeAssetOperationResult(GLTF_PRODUCTION_IMPORT_OPERATION, { outputs: { output: stored.asset }, observations: { ...analysis, repairs, resources: inventory, validatorWarnings, outputValidatorWarnings } });
 }
