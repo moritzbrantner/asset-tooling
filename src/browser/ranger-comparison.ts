@@ -83,7 +83,7 @@ async function loadSourceGltf(gltf: PinnedGltf, signal: AbortSignal): Promise<In
   return adaptPinnedCharacterSource(await fetchBytes(gltf.document.path, signal), gltf.document, { resources });
 }
 
-type MotionEntry = { name: string; source: { catalogId: string; clip: string }; durationSeconds: number; loop: boolean };
+type MotionEntry = { name: string; source: { catalogId?: string; provider?: string; clip: string }; durationSeconds: number; loop: boolean };
 type Loaded = {
   data: RangerComparisonData;
   clips: MotionEntry[];
@@ -116,7 +116,8 @@ const abort = new AbortController();
 
 const currentClip = () => state.loaded?.clips[state.clip] ?? null;
 const duration = () => currentClip()?.durationSeconds ?? 0;
-const motionLibrary = (loaded: Loaded) => loaded.libraries.get(currentClip()!.source.catalogId)!;
+/** The clip's source library mannequin, or undefined for a Mixamo clip, whose raw source is never published (Atlas 6.1.6). */
+const motionLibrary = (loaded: Loaded) => loaded.libraries.get(currentClip()!.source.catalogId ?? "");
 
 // ---------------------------------------------------------------------------
 // Rendering
@@ -159,7 +160,7 @@ function renderAll(): void {
   };
   const instances: Record<PanelId, { root: Object3D }[]> = {
     source: [...(dom.body.checked ? [loaded.body] : []), ...(dom.outfit.checked ? [loaded.outfit] : [])],
-    motion: withSkeleton(state.restPose ? library.rest : library.instance),
+    motion: library ? withSkeleton(state.restPose ? library.rest : library.instance) : [],
     processed: withSkeleton(state.restPose ? loaded.processed.rest : loaded.processed.instance),
     archer: [{ root: loaded.archer }],
   };
@@ -175,7 +176,7 @@ function seekAll(): void {
   const loaded = state.loaded;
   const clip = currentClip();
   if (!loaded || !clip) return;
-  motionLibrary(loaded).instance.seek(clip.source.clip, state.time);
+  motionLibrary(loaded)?.instance.seek(clip.source.clip, state.time);
   loaded.processed.instance.seek(clip.name, state.time);
 }
 
@@ -335,7 +336,11 @@ function renderCaptions(loaded: Loaded): void {
   const clip = currentClip()!;
   const library = motionLibrary(loaded);
   caption("source", "Original source · rest pose", `${data.ranger.outfitId} + ${data.ranger.bodyId} · ${short(data.ranger.outfit.document.sha256)} / ${short(data.ranger.body.document.sha256)} · source ships no clips`);
-  caption("motion", `Source motion · ${library.label}`, `${clip.source.catalogId} · ${clip.source.clip} · not retargeted`);
+  // Owner answer: a clip without a published source (Mixamo) hides the source-motion view; the others widen.
+  const motionView = dom.canvases.motion.parentElement!;
+  motionView.hidden = !library;
+  motionView.parentElement!.classList.toggle("three", !library);
+  if (library) caption("motion", `Source motion · ${library.label}`, `${clip.source.catalogId} · ${clip.source.clip} · not retargeted`);
   caption("processed", `Processed · ${data.bundle.tag}`, `${data.bundle.key}/${data.bundle.variant} · tar ${short(data.bundle.tarSha256)} · ${clip.name} · retargeted, in place`);
   caption("archer", "Primitive-built archer · debug fallback", `medieval-character-kit archer.obj · ${short(data.archer.file.sha256)} · static, no rig`);
 }
@@ -400,7 +405,7 @@ async function start(): Promise<void> {
       sourceAssets.push(asset);
       libraries.set(library.catalogId, { asset, instance: asset.createInstance(), rest: asset.createInstance(), label: library.label });
     }
-    const clips = motion.clips.filter((clip) => libraries.has(clip.source.catalogId));
+    const clips = motion.clips;
     const archer = await loadArcher(data.archer.file, data.archer.unitScale, signal);
     const processed = { asset: processedAsset, instance: processedAsset.createInstance(), rest: processedAsset.createInstance() };
     // Socket frames from the bundle's humanoid-sockets attachment, parented to their joints.

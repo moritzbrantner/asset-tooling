@@ -36,11 +36,11 @@ test.describe("Ranger comparison", () => {
     const errors = await open(page);
     for (const panel of PANELS) await expect(page.locator(`#canvas-${panel}`)).toBeVisible();
     await expect(page.locator("#caption-source")).toContainText("source ships no clips");
-    await expect(page.locator("#caption-processed")).toContainText("humanoid-ranger-male-v7");
+    await expect(page.locator("#caption-processed")).toContainText("humanoid-ranger-male-v8");
     await expect(page.locator("#caption-motion")).toContainText("UAL1 mannequin");
     await expect(page.locator("#caption-archer")).toContainText("debug fallback");
     const clips = await page.locator("#clip option").evaluateAll((options) => options.map((option) => (option as HTMLOptionElement).value));
-    expect(clips).toHaveLength(35);
+    expect(clips).toHaveLength(43);
     expect(clips).toEqual(expect.arrayContaining(["Idle_Loop", "Walk_Loop", "Jump_Start", "Jump_Loop", "Jump_Land", "ClimbUp_1m_RM", "Slide_Loop"]));
     expect(errors).toEqual([]);
   });
@@ -58,6 +58,10 @@ test.describe("Ranger comparison", () => {
     expect((await pixels(page, "processed")).equals(before.processed!)).toBe(false);
     expect((await pixels(page, "source")).equals(before.source!)).toBe(true);
     expect((await pixels(page, "archer")).equals(before.archer!)).toBe(true);
+    // A Mixamo clip has no published source, so the source-motion view is hidden and the other three remain.
+    await page.locator("#clip").selectOption("Walk_Strafe_Left_Loop");
+    await expect(page.locator("#canvas-motion")).toBeHidden();
+    for (const panel of ["source", "processed", "archer"]) await expect(page.locator(`#canvas-${panel}`)).toBeVisible();
     // A UAL2 clip switches the source-motion panel to the UAL2 mannequin.
     await page.locator("#clip").selectOption("Slide_Loop");
     await expect(page.locator("#caption-motion")).toContainText("UAL2 mannequin");

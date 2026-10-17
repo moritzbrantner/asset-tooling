@@ -154,6 +154,7 @@ export function renderRangerComparisonHtml(): string {
     .views { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; min-width: 0; }
     @media (min-width: 600px) { .views { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
     @media (min-width: 1500px) { .views { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+    @media (min-width: 600px) { .views.three { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
     figure { margin: 0; min-width: 0; }
     canvas { display: block; width: 100%; aspect-ratio: 3 / 4; border: 1px solid color-mix(in srgb, CanvasText 16%, Canvas); border-radius: 12px; background: color-mix(in srgb, CanvasText 6%, Canvas); touch-action: none; cursor: grab; }
     figcaption { display: grid; gap: 2px; margin-top: 6px; font-size: .82rem; overflow-wrap: anywhere; }
