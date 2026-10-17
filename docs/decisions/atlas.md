@@ -62,6 +62,24 @@ For mmorpg and arpg, keep the Universal Base Characters body and head as the bas
 
 Original weapons, shields, armour and hard-surface props are authored as **scripted Blender recipes**: agent-written, versioned and rebuildable through the normal pipeline, following a written style spec per family. Image-to-3D from local FLUX/Z-Image concepts plus Blender cleanup is allowed **as an experiment** for ornate or organic pieces; it does not replace the scripted path and its outputs go through the same review as any other source.
 
+#### Question 1.1.8 — Our own stylized humanoids at a WoW-comparable level
+
+**Raised by owner:** 2026-10-17 (live session). How far should asset-tooling go toward generating **its own** stylized humanoid characters comparable to World of Warcraft characters, rather than relying on the Quaternius base body and outfits? Inputs: the Quaternius sources as a structural oracle (bone names, rest pose, polycount, sockets, clip compatibility), Blender automation and local free tools/models.
+
+Assessment given with the question (not a Decision):
+
+- **Base body + rig — low effort.** Start from a CC0 base (MPFB/MakeHuman or Universal Base Characters) instead of modelling topology, skinning and skeleton; Decision 1.1.6's MPFB comparison (#259) informs this.
+- **Proportions / stylization — medium.** WoW's look comes from exaggerated silhouettes (hands, shoulders, heads, per-race proportions): scripted shape keys/morph targets over the CC0 base, plus one creative sculpt pass per race or silhouette.
+- **Gear and armour — high (the long tail).** Many hard-surface pieces, each fitted and weight-transferred to the body and checked for clipping across clips. Fitting can be automated (Decision 1.1.7 scripted recipes); authoring each piece cannot be fully automated.
+- **Textures — medium to high.** Hand-painted look rather than PBR, using procedural recipes plus local FLUX/Z-Image candidates with curation on consistent UV layouts.
+- **Animation — medium.** UAL clips retarget today; WoW-like snappy, exaggerated motion needs per-class hand-tuned keyframes for a small set (idle, walk, run, attacks, cast).
+- **Faces / customization — medium.** Face/hair mesh swaps, texture variants and shape-key sliders (#116) once the base is ours.
+- **Oracle limits.** The Quaternius sources can check structure automatically; artistic quality is judged by the owner, e.g. in the #111 viewer.
+
+Candidate path: (A) MPFB/UBC base plus one scripted stylization morph for one race silhouette, fitting existing free outfits by Blender automation and generated hand-painted texture candidates, judged at the gameplay camera before expanding; (B) stay on Quaternius bodies/outfits and only author original gear (Decision 1.1.6 as is); (C) full in-house character authoring per race from the start.
+
+**Open.** To be decided after the #259 MPFB comparison and the #111 viewer exist.
+
 ### 1.2. Animation as character content
 
 #### Decision 1.2.1 — Rigged, moving humanoids with inspectable animation clips
