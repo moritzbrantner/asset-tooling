@@ -64,6 +64,7 @@
     "./operations/processing/gltf-production": "./src/gltf-production-operations.ts",
     "./operations/processing/gltf-compose": "./src/gltf-compose-operations.ts",
     "./operations/processing/gltf-subset": "./src/gltf-subset-operations.ts",
+    "./operations/processing/gltf-place": "./src/gltf-place-operations.ts",
     "./operations/processing/gltf-animation": "./src/gltf-animation-operations.ts",
     "./recipes/surface-textures": "./src/surface-texture-recipes.ts",
     "./recipes/rocks": "./src/rock-recipes.ts",
