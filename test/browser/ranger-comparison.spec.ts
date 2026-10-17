@@ -89,6 +89,31 @@ test.describe("Ranger comparison", () => {
     expect(Number(await page.locator("#time").inputValue())).toBe(paused);
   });
 
+  test("wireframe, skeleton and socket views change only the views they apply to", async ({ page }) => {
+    const evidence = ensureEvidenceDir();
+    await open(page, "?clip=Idle_Loop&t=0.5&view=front");
+    const snapshot = async () => Object.fromEntries(await Promise.all(PANELS.map(async (panel) => [panel, await pixels(page, panel)] as const)));
+    const base = await snapshot();
+    await page.getByLabel("Skeleton (source motion and processed)").check();
+    let now = await snapshot();
+    expect(now.motion!.equals(base.motion!)).toBe(false);
+    expect(now.processed!.equals(base.processed!)).toBe(false);
+    expect(now.source!.equals(base.source!)).toBe(true);
+    await page.getByLabel("Skeleton (source motion and processed)").uncheck();
+    await page.getByLabel("Sockets (processed)").check();
+    now = await snapshot();
+    expect(now.processed!.equals(base.processed!)).toBe(false);
+    expect(now.motion!.equals(base.motion!)).toBe(true);
+    await page.getByLabel("Sockets (processed)").uncheck();
+    await page.getByLabel("Wireframe (all views)").check();
+    now = await snapshot();
+    for (const panel of PANELS) expect(now[panel]!.equals(base[panel]!), panel).toBe(false);
+    await page.screenshot({ path: path.join(evidence, "ranger-comparison-wireframe.png"), fullPage: true });
+    await page.getByLabel("Wireframe (all views)").uncheck();
+    now = await snapshot();
+    for (const panel of PANELS) expect(now[panel]!.equals(base[panel]!), panel).toBe(true);
+  });
+
   test("normal and narrow layouts have no horizontal scrolling; screenshots saved as evidence", async ({ page }) => {
     const evidence = ensureEvidenceDir();
     await open(page, "?clip=Jump_Start&t=0.6&view=front");

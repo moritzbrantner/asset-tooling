@@ -80,6 +80,13 @@ Every view uses the same camera framing (a human-sized volume centred 0.9 m up),
 
 **Data:** `scripts/build-catalog-pages.ts` writes `data.json` and the pinned files with `writeRangerComparisonData` (`src/ranger-comparison.ts`). It copies the hydrated canonical members after checking each against its catalog pin. It also unpacks the release tar after checking it against `RANGER_COMPARISON_BUNDLE` (tar SHA-256 and manifest AssetRef), and it writes the archer OBJ. An ordinary build without hydrated payloads or `ASSET_TOOLING_RANGER_BUNDLE_TAR` skips the data, and the page then reports that it has none. The Pages workflow hydrates only these members, downloads the pinned release and sets `ASSET_TOOLING_REQUIRE_RANGER_COMPARISON=1`, so a missing or mismatched input fails the build. The page loads about 79 MB, mostly the source's 4096 px textures.
 
-**Evidence:** `test/browser/ranger-comparison.spec.ts` (real Chromium; it skips when the build has no data) checks the four identified views and the 19 clips, and that one clip and time move the source-motion and processed views while the source and archer stay unchanged. It also checks the UAL2 mannequin for a UAL2 clip, presets across views, URL restore after a reload, play and pause, and normal and narrow layouts without horizontal scrolling. `test/ranger-comparison.test.ts` covers the unavailable, required and wrong-tar cases. Matching poses are presentation, not visual approval. The owner judges #108 and #110 here.
+**Evidence:** `test/browser/ranger-comparison.spec.ts` (real Chromium; it skips when the build has no data) checks the four identified views and the 19 clips, the inspect toggles, and that one clip and time move the source-motion and processed views while the source and archer stay unchanged. It also checks the UAL2 mannequin for a UAL2 clip, presets across views, URL restore after a reload, play and pause, and normal and narrow layouts without horizontal scrolling. `test/ranger-comparison.test.ts` covers the unavailable, required and wrong-tar cases. Matching poses are presentation, not visual approval. The owner judges #108 and #110 here.
 
-Skeleton/socket debug views, wireframe and material views, and approval workflow are follow-ups under #111 and #127.
+**Inspect toggles:** the default view shows each artifact's own materials.
+- **Wireframe** draws every view's triangles as lines.
+- **Skeleton** overlays three.js `SkeletonHelper` lines on the source-motion and processed characters. It only draws the joints the shared renderer has already posed, and it is not a second skinning path.
+- **Sockets** shows a 12 cm axis gizmo at each socket of the bundle's `humanoid-sockets` attachment, parented to its joint with the socket's translation and rotation. A socket naming a missing joint is a load failure.
+
+The browser test checks that each toggle changes only the views it applies to, and that turning wireframe off restores the original pixels.
+
+The approval workflow and appearance editing are follow-ups under #127.

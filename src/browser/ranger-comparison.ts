@@ -12,7 +12,7 @@
 import { createThreeSceneRenderer, type RendererCamera, type ThreeSceneRenderer } from "@moritzbrantner/three-d-renderer";
 import { adaptImportedCharacterBundle, readBundleAttachment, type ImportedCharacterAsset, type ImportedCharacterInstance } from "@moritzbrantner/three-d-renderer/imported-character";
 import { adaptPinnedCharacterSource, renderImportedCharacterInstances, type InspectionCharacterAsset, type InspectionCharacterInstance } from "@moritzbrantner/three-d-renderer/inspection-character";
-import { Group, Mesh, MeshStandardMaterial, PerspectiveCamera, Vector3, WebGPUCoordinateSystem, type Object3D } from "three";
+import { AxesHelper, Group, Mesh, MeshStandardMaterial, PerspectiveCamera, Quaternion, SkeletonHelper, Vector3, WebGPUCoordinateSystem, type Material, type Object3D } from "three";
 import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader.js";
 import type { PinnedFile, PinnedGltf, RangerComparisonData } from "../ranger-comparison.ts";
 
@@ -46,6 +46,9 @@ const dom = {
   scrub: element<HTMLInputElement>("scrub"),
   body: element<HTMLInputElement>("show-body"),
   outfit: element<HTMLInputElement>("show-outfit"),
+  wireframe: element<HTMLInputElement>("wireframe"),
+  skeleton: element<HTMLInputElement>("skeleton"),
+  sockets: element<HTMLInputElement>("sockets"),
   presets: [...document.querySelectorAll<HTMLButtonElement>("button[data-view]")],
   canvases: Object.fromEntries((["source", "motion", "processed", "archer"] as const).map((id) => [id, element<HTMLCanvasElement>(`canvas-${id}`)])) as Record<PanelId, HTMLCanvasElement>,
   captions: Object.fromEntries((["source", "motion", "processed", "archer"] as const).map((id) => [id, element<HTMLElement>(`caption-${id}`)])) as Record<PanelId, HTMLElement>,
@@ -90,6 +93,9 @@ type Loaded = {
   libraries: Map<string, { asset: InspectionCharacterAsset; instance: InspectionCharacterInstance; rest: InspectionCharacterInstance; label: string }>;
   processed: { asset: ImportedCharacterAsset; instance: ImportedCharacterInstance; rest: ImportedCharacterInstance };
   archer: Group;
+  /** Socket axes on the processed instances (humanoid-sockets attachment), shown with the Sockets toggle. */
+  socketAxes: AxesHelper[];
+  skeletons: Map<Object3D, SkeletonHelper>;
 };
 
 const state = {
@@ -145,10 +151,16 @@ function renderAll(): void {
   const { loaded, renderers } = state;
   if (!loaded || !renderers) return;
   const library = motionLibrary(loaded);
+  const withSkeleton = (instance: { root: Object3D }) => {
+    if (!dom.skeleton.checked) return [instance];
+    let helper = loaded.skeletons.get(instance.root);
+    if (!helper) loaded.skeletons.set(instance.root, (helper = new SkeletonHelper(instance.root)));
+    return [instance, { root: helper }];
+  };
   const instances: Record<PanelId, { root: Object3D }[]> = {
     source: [...(dom.body.checked ? [loaded.body] : []), ...(dom.outfit.checked ? [loaded.outfit] : [])],
-    motion: [state.restPose ? library.rest : library.instance],
-    processed: [state.restPose ? loaded.processed.rest : loaded.processed.instance],
+    motion: withSkeleton(state.restPose ? library.rest : library.instance),
+    processed: withSkeleton(state.restPose ? loaded.processed.rest : loaded.processed.instance),
     archer: [{ root: loaded.archer }],
   };
   for (const id of Object.keys(instances) as PanelId[]) {
@@ -259,6 +271,24 @@ dom.clip.addEventListener("change", () => selectClip(dom.clip.selectedIndex));
 dom.play.addEventListener("click", () => setPlaying(!state.playing));
 dom.rest.addEventListener("change", () => setRestPose(dom.rest.checked));
 dom.body.addEventListener("change", () => { state.dirty = true; });
+dom.skeleton.addEventListener("change", () => { state.dirty = true; });
+dom.sockets.addEventListener("change", () => {
+  for (const axes of state.loaded?.socketAxes ?? []) axes.visible = dom.sockets.checked;
+  state.dirty = true;
+});
+dom.wireframe.addEventListener("change", () => {
+  const loaded = state.loaded;
+  if (!loaded) return;
+  const roots = [loaded.body.root, loaded.outfit.root, loaded.processed.instance.root, loaded.processed.rest.root, loaded.archer,
+    ...[...loaded.libraries.values()].flatMap((library) => [library.instance.root, library.rest.root])];
+  for (const root of roots) root.traverse((node) => {
+    const material = (node as Mesh).material as Material | Material[] | undefined;
+    for (const item of Array.isArray(material) ? material : material ? [material] : []) {
+      (item as Material & { wireframe?: boolean }).wireframe = dom.wireframe.checked;
+    }
+  });
+  state.dirty = true;
+});
 dom.outfit.addEventListener("change", () => { state.dirty = true; });
 dom.time.addEventListener("keydown", (event) => { if (event.key === "Enter") { event.preventDefault(); seekTo(Number(dom.time.value)); } });
 dom.time.addEventListener("change", () => (dom.time.value.trim() === "" ? showTime() : seekTo(Number(dom.time.value))));
@@ -290,7 +320,7 @@ for (const canvas of Object.values(dom.canvases)) {
   new ResizeObserver(() => { state.dirty = true; }).observe(canvas);
 }
 function setControlsEnabled(enabled: boolean): void {
-  for (const control of [dom.clip, dom.play, dom.rest, dom.time, dom.scrub, dom.body, dom.outfit, ...dom.presets]) control.disabled = !enabled;
+  for (const control of [dom.clip, dom.play, dom.rest, dom.time, dom.scrub, dom.body, dom.outfit, dom.wireframe, dom.skeleton, dom.sockets, ...dom.presets]) control.disabled = !enabled;
 }
 
 function caption(id: PanelId, title: string, detail: string): void {
@@ -358,6 +388,7 @@ async function start(): Promise<void> {
     const bundle = { manifest, key: data.bundle.key, variant: data.bundle.variant, readResource };
     const processedAsset = await adaptImportedCharacterBundle(bundle);
     const motion = (await readBundleAttachment({ ...bundle, name: "humanoid-clips" })) as { clips: MotionEntry[] };
+    const sockets = (await readBundleAttachment({ ...bundle, name: "humanoid-sockets" })) as { sockets: { id: string; joint: string; translation: number[]; rotation: number[] }[] };
 
     dom.status.textContent = "Loading the original source and clip libraries…";
     const bodyAsset = await loadSourceGltf(data.ranger.body, signal);
@@ -371,9 +402,25 @@ async function start(): Promise<void> {
     }
     const clips = motion.clips.filter((clip) => libraries.has(clip.source.catalogId));
     const archer = await loadArcher(data.archer.file, data.archer.unitScale, signal);
+    const processed = { asset: processedAsset, instance: processedAsset.createInstance(), rest: processedAsset.createInstance() };
+    // Socket frames from the bundle's humanoid-sockets attachment, parented to their joints.
+    const socketAxes: AxesHelper[] = [];
+    for (const instance of [processed.instance, processed.rest]) {
+      for (const socket of sockets.sockets) {
+        const joint = instance.root.getObjectByName(socket.joint);
+        if (!joint) throw new Error(`socket ${socket.id} names joint ${socket.joint}, which the processed character lacks`);
+        const axes = new AxesHelper(0.12);
+        axes.name = `socket:${socket.id}`;
+        axes.position.fromArray(socket.translation);
+        axes.quaternion.copy(new Quaternion().fromArray(socket.rotation));
+        axes.visible = false;
+        joint.add(axes);
+        socketAxes.push(axes);
+      }
+    }
     const loaded: Loaded = {
       data, clips, sourceAssets, body: bodyAsset.createInstance(), outfit: outfitAsset.createInstance(), libraries,
-      processed: { asset: processedAsset, instance: processedAsset.createInstance(), rest: processedAsset.createInstance() }, archer,
+      processed, archer, socketAxes, skeletons: new Map(),
     };
     state.loaded = loaded;
     dom.clip.replaceChildren(...clips.map((clip) => {
