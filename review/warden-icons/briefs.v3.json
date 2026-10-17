@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "style": {
+    "id": "warden.style",
+    "version": 3,
+    "description": "Revision of style v2 after the owner chose FLUX.2 [klein] 4B for the Warden set (2026-10-17: \"Each icon needs to be a bit more zoomed in. We can't waste pixels on margins.\"): the same original dark-fantasy painterly treatment and in-prompt exclusions, but framed as a tight close-up whose subject fills the whole square and may run off its edges, with no empty background border, vignette margin or frame.",
+    "prompt": "Tightly cropped square fantasy game ability icon painted in a dark, painterly digital oil style with visible brush strokes. Extreme close-up: the subject is so large that it fills the entire square edge to edge and is cut off by the edges of the image, with no empty background border, no dark vignette margin and no space around it. Strong, simple silhouette that stays readable at a tiny size. Dramatic warm rim light, high contrast, polished steel and firelight tones. No text, no letters, no frame, no border, no user interface and no people."
+  },
+  "abilities": [
+    {
+      "id": "warden.ability.1",
+      "abilityId": 1,
+      "name": "Heroic Strike",
+      "version": 3,
+      "subject": "A longsword blade in a diagonal downward strike, close up, its golden glow and slash streak running off the corners.",
+      "prompt": "An extreme close-up of a gleaming longsword blade slashing diagonally across the whole square from the top-right corner to the bottom-left corner, the glowing golden blade and its blazing golden slash streak running off both corners, with flying sparks filling the rest of the image."
+    },
+    {
+      "id": "warden.ability.2",
+      "abilityId": 2,
+      "name": "Shield Bash",
+      "version": 3,
+      "subject": "A round steel shield seen close up from the front, its rim cut off by the edges, its boss meeting a radial burst of impact and sparks.",
+      "prompt": "An extreme close-up of a heavy round steel shield with a riveted central boss, seen from the front and so large that its rim is cut off by all four edges of the image, slamming forward into a radial shockwave of impact with cracking orange sparks bursting out to the corners."
+    },
+    {
+      "id": "warden.ability.3",
+      "abilityId": 3,
+      "name": "Rallying Cry",
+      "version": 3,
+      "subject": "A curved ivory war horn spanning the square, its bell sounding golden rings that fill the rest of the frame over a torn banner.",
+      "prompt": "A close-up of a curved ivory war horn with bronze bands, so large that it spans the whole square from corner to corner, its bell blasting glowing golden rings of sound that fill the rest of the image, with a tattered red war banner filling the background behind it."
+    },
+    {
+      "id": "warden.ability.4",
+      "abilityId": 4,
+      "name": "Cleave",
+      "version": 3,
+      "subject": "A broad battle-axe head swept through a horizontal crescent arc, close up, its crimson trail crossing the full width.",
+      "prompt": "An extreme close-up of a huge broad-bladed battle axe head sweeping through a horizontal crescent arc, the axe blade filling most of the square and its glowing crimson arc trail sweeping across the full width of the image and off both sides."
+    }
+  ]
+}
