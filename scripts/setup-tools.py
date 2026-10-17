@@ -17,6 +17,22 @@ COMFY_SOURCE = "https://github.com/Comfy-Org/ComfyUI.git"
 CPU_TORCH_PACKAGES = ("torch", "torchvision")
 # Probe of the runtime's torch build; the last stdout line is the JSON result.
 TORCH_PROBE = "import json, torch; print(json.dumps({'version': torch.__version__, 'cuda': torch.version.cuda}))"
+# Non-mutating probe of the runtime interpreter: its wheel platform key (same scheme as
+# cpu_torch_platform_key) and the nvidia-*/triton names the installed torch declares.
+ENV_PROBE = """
+import json, platform, re, sys
+from importlib import metadata
+machine = platform.machine().lower()
+machine = {"amd64": "x86_64", "x64": "x86_64"}.get(machine, machine)
+try:
+    requires = metadata.requires("torch") or []
+except metadata.PackageNotFoundError:
+    requires = []
+names = {re.sub(r"[-_.]+", "-", re.split(r"[\\s;<>=!~\\[(@]", item.strip(), maxsplit=1)[0]).lower() for item in requires}
+torchCudaRequirements = sorted(name for name in names if name.startswith("nvidia-") or name == "triton")
+print(json.dumps({"key": f"{sys.platform}-{machine}-cp{sys.version_info[0]}{sys.version_info[1]}",
+                  "torchCudaRequirements": torchCudaRequirements}))
+"""
 
 
 class SetupError(Exception):
@@ -31,6 +47,10 @@ def run(*args: str, cwd: Path | None = None, env: dict[str, str] | None = None, 
         timeout=timeout,
     )
     return (completed.stdout or "").strip()
+
+
+def normalize_name(name: str) -> str:
+    return re.sub(r"[-_.]+", "-", name).lower()
 
 
 def cpu_torch_platform_key() -> str:
@@ -188,6 +208,7 @@ class Toolchain:
                 return False, f"Existing ComfyUI backend {state.get('gpu')} differs from requested {gpu}", False
             if not self.comfy_repo.is_dir() or not self.binary("comfy").is_file() or not self.binary("python").is_file():
                 return False, "ComfyUI installation is incomplete", False
+            self.managed_runtime(self.runtime_python(state.get("runtimeEnvironment")))
             if run("git", "-C", str(self.comfy_repo), "rev-parse", "HEAD") != expected["commit"]:
                 return False, "ComfyUI source revision drifted from pinned commit", False
             origin = run("git", "-C", str(self.comfy_repo), "remote", "get-url", "origin")
@@ -214,6 +235,8 @@ class Toolchain:
                     return False, torch, True
                 return True, f"ComfyUI {expected['commit'][:12]} (cpu, torch {torch}); MCP installed; model readiness unverified", False
             return True, f"ComfyUI {expected['commit'][:12]} ({state['gpu']}); MCP installed; model readiness unverified", False
+        except SetupError as exc:
+            return False, str(exc), False
         except (OSError, KeyError, ValueError, AttributeError, subprocess.SubprocessError) as exc:
             return False, f"ComfyUI installation invalid: {exc}", False
 
@@ -247,8 +270,37 @@ class Toolchain:
         if not valid:
             raise SetupError(message)
 
-    def cpu_torch_key(self) -> str:
-        key = cpu_torch_platform_key()
+    def managed_runtime(self, python: Path) -> Path:
+        """The runtime venv must be a real directory tree inside managed storage (bin/python may link out)."""
+        venv = python.parent.parent
+        try:
+            relative = venv.relative_to(self.storage)
+        except ValueError:
+            raise SetupError(f"ComfyUI runtime {venv} is outside managed tool storage") from None
+        if ".." in relative.parts:
+            raise SetupError(f"ComfyUI runtime {venv} is outside managed tool storage")
+        current = self.storage
+        for part in ("",) + relative.parts:
+            current = current / part if part else current
+            if current.is_symlink():
+                raise SetupError(f"Refusing to use symlinked managed ComfyUI runtime path: {current}")
+        return python
+
+    def runtime_environment(self, runtime: Path) -> tuple[str, list[str]]:
+        """Probe the runtime interpreter for its pinned wheel key and torch's declared CUDA requirements."""
+        try:
+            output = run(str(runtime), "-c", ENV_PROBE, timeout=600)
+            probe = json.loads(output.strip().splitlines()[-1])
+            key, requirements = probe["key"], probe["torchCudaRequirements"]
+            if not isinstance(key, str) or not isinstance(requirements, list) or \
+                    not all(isinstance(name, str) for name in requirements):
+                raise ValueError(f"malformed probe result {probe!r}")
+        except (subprocess.SubprocessError, ValueError, IndexError, KeyError, TypeError) as exc:
+            raise SetupError(f"Cannot probe the ComfyUI runtime environment: {exc}") from exc
+        return self.cpu_torch_key(key), [normalize_name(name) for name in requirements]
+
+    def cpu_torch_key(self, key: str | None = None) -> str:
+        key = key or cpu_torch_platform_key()
         if key not in self.manifest["comfyui"]["cpuTorch"]["wheels"]:
             raise SetupError(f"No hash-pinned CPU torch wheels for platform {key}; "
                              "the CPU ComfyUI profile supports linux-x86_64 cp310-cp315 only")
@@ -279,12 +331,16 @@ class Toolchain:
             raise SetupError(f"ComfyUI runtime torch is {probe!r}, not the pinned {pinned} build without CUDA")
 
     @staticmethod
-    def cuda_only_packages(freeze: str) -> list[str]:
+    def installed_requirements(freeze: str, requirements: list[str]) -> list[str]:
+        """Installed distributions (as pip freeze names them) that torch declared as CUDA requirements."""
+        wanted = set(requirements)
         names = []
         for line in freeze.splitlines():
-            name = re.split(r"\s*(?:==|@)", line.strip(), maxsplit=1)[0].strip()
-            normalized = re.sub(r"[-_.]+", "-", name).lower()
-            if normalized.startswith("nvidia-") or normalized == "triton":
+            line = line.strip()
+            if not line or line.startswith(("#", "-")):
+                continue
+            name = re.split(r"\s*(?:==|@|\s)", line, maxsplit=1)[0].strip()
+            if normalize_name(name) in wanted:
                 names.append(name)
         return names
 
@@ -293,11 +349,13 @@ class Toolchain:
         temp.write_text(json.dumps(state, indent=2) + "\n", encoding="utf8")
         temp.replace(self.receipt)
 
-    def converge_cpu_torch(self, key: str) -> None:
+    def converge_cpu_torch(self) -> None:
         """Bring an otherwise intact managed CPU install to the pinned +cpu torch (Decision 5.1.3)."""
         state = json.loads(self.receipt.read_text(encoding="utf8"))
-        runtime = self.runtime_python(state["runtimeEnvironment"])
-        cuda = self.cuda_only_packages(run(str(runtime), "-m", "pip", "freeze"))
+        runtime = self.managed_runtime(self.runtime_python(state["runtimeEnvironment"]))
+        # Wheels follow the runtime's ABI, not the caller's; fail before removing anything.
+        key, requirements = self.runtime_environment(runtime)
+        cuda = self.installed_requirements(run(str(runtime), "-m", "pip", "freeze"), requirements)
         if cuda:
             run(str(runtime), "-m", "pip", "uninstall", "-y", *cuda, timeout=600, capture=False)
         self.install_cpu_torch(runtime, key)
@@ -315,12 +373,13 @@ class Toolchain:
     def setup_comfy(self, gpu: str) -> None:
         self.safe_storage()
         # CPU wheels exist only for pinned platforms; fail before touching anything elsewhere.
-        key = self.cpu_torch_key() if gpu == "cpu" else None
+        if gpu == "cpu":
+            self.cpu_torch_key()
         valid, message, convergible = self.comfy_check(gpu)
         if valid:
             return
         if convergible and gpu == "cpu":
-            self.converge_cpu_torch(key)
+            self.converge_cpu_torch()
             valid, message = self.comfy_status(gpu)
             if not valid:
                 raise SetupError(message)
@@ -367,6 +426,8 @@ class Toolchain:
         mode = "workspace" if self.runtime_python("workspace").is_file() else "cli"
         runtime = self.runtime_python(mode)
         if gpu == "cpu":
+            self.managed_runtime(runtime)
+            key, _ = self.runtime_environment(runtime)
             self.install_cpu_torch(runtime, key)
             run(str(runtime), "-m", "pip", "install", "-r", str(self.comfy_repo / "requirements.txt"),
                 timeout=3600, capture=False)
