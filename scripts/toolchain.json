@@ -3,6 +3,87 @@
   "comfyui": {
     "commit": "98cc0bf84b7cb1383654c5b402e7612d875d6d22",
     "comfy-cli": "1.22.0",
-    "comfy-mcp": "0.10.0"
+    "comfy-mcp": "0.10.0",
+    "cpuTorch": {
+      "indexUrl": "https://download.pytorch.org/whl/cpu",
+      "packages": {
+        "torch": "2.14.1+cpu",
+        "torchvision": "0.29.1+cpu"
+      },
+      "wheels": {
+        "linux-x86_64-cp310": [
+          {
+            "name": "torch",
+            "url": "https://download.pytorch.org/whl/cpu/torch-2.14.1%2Bcpu-cp310-cp310-manylinux_2_28_x86_64.whl",
+            "sha256": "4ce2a6ae7d302bba56ef7c5c92d9f752728896cfe2626a7f3e5293f879e36650"
+          },
+          {
+            "name": "torchvision",
+            "url": "https://download.pytorch.org/whl/cpu/torchvision-0.29.1%2Bcpu-cp310-cp310-manylinux_2_28_x86_64.whl",
+            "sha256": "25687959fab99dc2489c5f5ab2624101066428a9d344f9f0b45c90c019b25037"
+          }
+        ],
+        "linux-x86_64-cp311": [
+          {
+            "name": "torch",
+            "url": "https://download.pytorch.org/whl/cpu/torch-2.14.1%2Bcpu-cp311-cp311-manylinux_2_28_x86_64.whl",
+            "sha256": "5e38154c8896d426a5df58bf2276b603e82184dfae4f54d77dbb212f36e34f37"
+          },
+          {
+            "name": "torchvision",
+            "url": "https://download.pytorch.org/whl/cpu/torchvision-0.29.1%2Bcpu-cp311-cp311-manylinux_2_28_x86_64.whl",
+            "sha256": "5df6b59fccec8046df9b1ef197d6b5cd8523d1a2e0b981df69fbfd908ccbc464"
+          }
+        ],
+        "linux-x86_64-cp312": [
+          {
+            "name": "torch",
+            "url": "https://download.pytorch.org/whl/cpu/torch-2.14.1%2Bcpu-cp312-cp312-manylinux_2_28_x86_64.whl",
+            "sha256": "5a6363570c753812540a05eb82380e329469cbe668643e88111414c12627711f"
+          },
+          {
+            "name": "torchvision",
+            "url": "https://download.pytorch.org/whl/cpu/torchvision-0.29.1%2Bcpu-cp312-cp312-manylinux_2_28_x86_64.whl",
+            "sha256": "ef220d4b21878c58947851beb7337382897159105f012f0c9c07bf7e84174d7e"
+          }
+        ],
+        "linux-x86_64-cp313": [
+          {
+            "name": "torch",
+            "url": "https://download.pytorch.org/whl/cpu/torch-2.14.1%2Bcpu-cp313-cp313-manylinux_2_28_x86_64.whl",
+            "sha256": "331fa474e26e428e2e6af1143b2fdab19cee492d7d21897b8899ce1c14755662"
+          },
+          {
+            "name": "torchvision",
+            "url": "https://download.pytorch.org/whl/cpu/torchvision-0.29.1%2Bcpu-cp313-cp313-manylinux_2_28_x86_64.whl",
+            "sha256": "7b27accfa545169ad070efb8a6679b25d63acc8513bbc0c05937c3ce94c13ea5"
+          }
+        ],
+        "linux-x86_64-cp314": [
+          {
+            "name": "torch",
+            "url": "https://download.pytorch.org/whl/cpu/torch-2.14.1%2Bcpu-cp314-cp314-manylinux_2_28_x86_64.whl",
+            "sha256": "35103e180214793207f95d7e12e100ecba3ace6f5fb37e1fcefbb07e096ed180"
+          },
+          {
+            "name": "torchvision",
+            "url": "https://download.pytorch.org/whl/cpu/torchvision-0.29.1%2Bcpu-cp314-cp314-manylinux_2_28_x86_64.whl",
+            "sha256": "265b7c27a54bd17fad35494e478ddcf9028187898a8b1c73df515b8be83bc44f"
+          }
+        ],
+        "linux-x86_64-cp315": [
+          {
+            "name": "torch",
+            "url": "https://download.pytorch.org/whl/cpu/torch-2.14.1%2Bcpu-cp315-cp315-manylinux_2_28_x86_64.whl",
+            "sha256": "94edee897fbd15a73f91aa38e22e2d2b7b60ac3acf6e8afc6b8dad89229c810c"
+          },
+          {
+            "name": "torchvision",
+            "url": "https://download.pytorch.org/whl/cpu/torchvision-0.29.1%2Bcpu-cp315-cp315-manylinux_2_28_x86_64.whl",
+            "sha256": "48d50755767f08230ada71213decd6502ec59ebc9c9f67098bc2f81036f24b74"
+          }
+        ]
+      }
+    }
   }
 }

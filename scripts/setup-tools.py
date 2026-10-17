@@ -14,6 +14,9 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 COMFY_SOURCE = "https://github.com/Comfy-Org/ComfyUI.git"
+CPU_TORCH_PACKAGES = ("torch", "torchvision")
+# Probe of the runtime's torch build; the last stdout line is the JSON result.
+TORCH_PROBE = "import json, torch; print(json.dumps({'version': torch.__version__, 'cuda': torch.version.cuda}))"
 
 
 class SetupError(Exception):
@@ -30,6 +33,46 @@ def run(*args: str, cwd: Path | None = None, env: dict[str, str] | None = None, 
     return (completed.stdout or "").strip()
 
 
+def cpu_torch_platform_key() -> str:
+    """Key of the pinned CPU torch wheel set for this host, e.g. ``linux-x86_64-cp314``."""
+    machine = platform.machine().lower()
+    arch = {"amd64": "x86_64", "x64": "x86_64"}.get(machine, machine)
+    return f"{sys.platform}-{arch}-cp{sys.version_info[0]}{sys.version_info[1]}"
+
+
+def validate_cpu_torch(cpu: object) -> None:
+    """Fail closed unless the CPU profile pins exact +cpu torch/torchvision wheels by SHA-256."""
+    if not isinstance(cpu, dict):
+        raise SetupError("comfyui.cpuTorch must declare the hash-pinned CPU torch wheels")
+    index = cpu.get("indexUrl")
+    if not isinstance(index, str) or not re.fullmatch(r"https://[A-Za-z0-9.-]+(/[A-Za-z0-9._~-]+)*", index):
+        raise SetupError("comfyui.cpuTorch.indexUrl must be an https URL")
+    packages = cpu.get("packages")
+    if not isinstance(packages, dict) or set(packages) != set(CPU_TORCH_PACKAGES):
+        raise SetupError("comfyui.cpuTorch.packages must pin exactly torch and torchvision")
+    for name, version in packages.items():
+        if not isinstance(version, str) or not re.fullmatch(r"\d+\.\d+\.\d+\+cpu", version):
+            raise SetupError(f"comfyui.cpuTorch {name} must pin an exact +cpu release, not {version!r}")
+    wheels = cpu.get("wheels")
+    if not isinstance(wheels, dict) or not wheels:
+        raise SetupError("comfyui.cpuTorch.wheels must declare at least one platform")
+    for key, entries in wheels.items():
+        match = re.fullmatch(r"linux-x86_64-(cp3\d+)", key)
+        if not match:
+            raise SetupError(f"comfyui.cpuTorch has unsupported platform {key!r} (only linux-x86_64)")
+        if not isinstance(entries, list) or sorted(
+                entry.get("name") if isinstance(entry, dict) else None for entry in entries) != sorted(CPU_TORCH_PACKAGES):
+            raise SetupError(f"comfyui.cpuTorch {key} must list exactly one torch and one torchvision wheel")
+        for entry in entries:
+            name, url, digest = entry["name"], entry.get("url"), entry.get("sha256")
+            filename = f"{name}-{packages[name].replace('+', '%2B')}-{match.group(1)}-"
+            if not isinstance(url, str) or not url.startswith(index + "/") or \
+                    not url.removeprefix(index + "/").startswith(filename) or not url.endswith(".whl"):
+                raise SetupError(f"comfyui.cpuTorch {key} {name} wheel URL must be the pinned wheel under {index}")
+            if not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest):
+                raise SetupError(f"comfyui.cpuTorch {key} {name} must have a lowercase SHA-256 pin")
+
+
 def pins(root: Path) -> dict:
     manifest = json.loads((root / "scripts/toolchain.json").read_text(encoding="utf-8"))
     if manifest.get("schemaVersion") != 1:
@@ -40,6 +83,7 @@ def pins(root: Path) -> dict:
     for name in ("comfy-cli", "comfy-mcp"):
         if not re.fullmatch(r"\d+\.\d+\.\d+", comfy.get(name, "")):
             raise SetupError(f"{name} must have an exact release version")
+    validate_cpu_torch(comfy.get("cpuTorch"))
     package = json.loads((root / "package.json").read_text(encoding="utf8"))
     bun = package.get("engines", {}).get("bun")
     if not isinstance(bun, str) or not re.fullmatch(r"\d+\.\d+\.\d+", bun):
@@ -111,44 +155,71 @@ class Toolchain:
             return self.binary("python")
         raise SetupError("Unrecognized ComfyUI runtime environment in receipt")
 
-    def comfy_status(self, gpu: str | None = None) -> tuple[bool, str]:
+    def cpu_torch_record(self, key: str) -> dict:
+        cpu = self.manifest["comfyui"]["cpuTorch"]
+        return {"version": cpu["packages"]["torch"], "cuda": None,
+                "wheels": [{"name": item["name"], "sha256": item["sha256"]} for item in cpu["wheels"][key]]}
+
+    def cpu_torch_status(self, state: dict) -> tuple[bool, str]:
+        """Check the receipt's torch record against the pins (no live probe; the env hash covers it)."""
+        pinned = self.manifest["comfyui"]["cpuTorch"]["packages"]["torch"]
+        record = state.get("torch")
+        if record in (self.cpu_torch_record(key) for key in self.manifest["comfyui"]["cpuTorch"]["wheels"]):
+            return True, pinned
+        found = "no torch record" if record is None else f"recorded torch {record.get('version') if isinstance(record, dict) else record!r}"
+        if isinstance(record, dict) and record.get("cuda") is not None:
+            found += f" with CUDA {record['cuda']}"
+        return False, (f"CPU ComfyUI torch is not the hash-pinned {pinned} build ({found}); "
+                       "re-run setup --profile comfyui --gpu cpu to converge it")
+
+    def comfy_check(self, gpu: str | None = None) -> tuple[bool, str, bool]:
+        """Return (ready, message, convergible); convergible means only the CPU torch backend differs."""
         self.safe_storage()
         if not self.receipt.is_file():
-            return False, "No verified managed ComfyUI installation (models are acquired separately)"
+            return False, "No verified managed ComfyUI installation (models are acquired separately)", False
         try:
             state = json.loads(self.receipt.read_text(encoding="utf8"))
             expected = self.manifest["comfyui"]
             if (state.get("schemaVersion") != 1 or state.get("commit") != expected["commit"] or
                     state.get("cli") != expected["comfy-cli"] or
                     state.get("mcp") != expected["comfy-mcp"]):
-                return False, "ComfyUI setup receipt conflicts with repository pins"
+                return False, "ComfyUI setup receipt conflicts with repository pins", False
             if gpu and state.get("gpu") != gpu:
-                return False, f"Existing ComfyUI backend {state.get('gpu')} differs from requested {gpu}"
+                return False, f"Existing ComfyUI backend {state.get('gpu')} differs from requested {gpu}", False
             if not self.comfy_repo.is_dir() or not self.binary("comfy").is_file() or not self.binary("python").is_file():
-                return False, "ComfyUI installation is incomplete"
+                return False, "ComfyUI installation is incomplete", False
             if run("git", "-C", str(self.comfy_repo), "rev-parse", "HEAD") != expected["commit"]:
-                return False, "ComfyUI source revision drifted from pinned commit"
+                return False, "ComfyUI source revision drifted from pinned commit", False
             origin = run("git", "-C", str(self.comfy_repo), "remote", "get-url", "origin")
             if origin != COMFY_SOURCE:
-                return False, f"Unexpected ComfyUI source origin: {origin}"
+                return False, f"Unexpected ComfyUI source origin: {origin}", False
             cli_packages = run(str(self.binary("python")), "-m", "pip", "freeze")
             if hashlib.sha256(cli_packages.encode("utf8")).hexdigest() != state.get("cliEnvironmentSha256"):
-                return False, "ComfyUI CLI/MCP environment changed since setup"
+                return False, "ComfyUI CLI/MCP environment changed since setup", False
             runtime_python = self.runtime_python(state.get("runtimeEnvironment"))
             if not runtime_python.is_file():
-                return False, "Declared ComfyUI Python runtime disappeared"
+                return False, "Declared ComfyUI Python runtime disappeared", False
             packages = run(str(runtime_python), "-m", "pip", "freeze")
             if hashlib.sha256(packages.encode("utf8")).hexdigest() != state.get("runtimeEnvironmentSha256"):
-                return False, "ComfyUI runtime dependencies changed since setup"
+                return False, "ComfyUI runtime dependencies changed since setup", False
             run(str(runtime_python), "-m", "pip", "check")
             for dist, label in (("comfy-cli", "cli"), ("comfy-mcp", "mcp")):
                 package = run(str(self.binary("python")), "-m", "pip", "show", dist)
                 version = next((line.removeprefix("Version: ") for line in package.splitlines() if line.startswith("Version: ")), None)
                 if version != state[label]:
-                    return False, f"{dist} version drifted: {version}"
-            return True, f"ComfyUI {expected['commit'][:12]} ({state['gpu']}); MCP installed; model readiness unverified"
-        except (OSError, KeyError, ValueError, subprocess.SubprocessError) as exc:
-            return False, f"ComfyUI installation invalid: {exc}"
+                    return False, f"{dist} version drifted: {version}", False
+            if state["gpu"] == "cpu":
+                valid, torch = self.cpu_torch_status(state)
+                if not valid:
+                    return False, torch, True
+                return True, f"ComfyUI {expected['commit'][:12]} (cpu, torch {torch}); MCP installed; model readiness unverified", False
+            return True, f"ComfyUI {expected['commit'][:12]} ({state['gpu']}); MCP installed; model readiness unverified", False
+        except (OSError, KeyError, ValueError, AttributeError, subprocess.SubprocessError) as exc:
+            return False, f"ComfyUI installation invalid: {exc}", False
+
+    def comfy_status(self, gpu: str | None = None) -> tuple[bool, str]:
+        ready, message, _ = self.comfy_check(gpu)
+        return ready, message
 
     def setup_basic(self) -> None:
         valid, message = self.basic_status()
@@ -176,10 +247,83 @@ class Toolchain:
         if not valid:
             raise SetupError(message)
 
+    def cpu_torch_key(self) -> str:
+        key = cpu_torch_platform_key()
+        if key not in self.manifest["comfyui"]["cpuTorch"]["wheels"]:
+            raise SetupError(f"No hash-pinned CPU torch wheels for platform {key}; "
+                             "the CPU ComfyUI profile supports linux-x86_64 cp310-cp315 only")
+        return key
+
+    def install_cpu_torch(self, runtime: Path, key: str) -> None:
+        """Install the hash-pinned +cpu torch/torchvision wheels, without dependency resolution."""
+        lines = [f"{item['name']} @ {item['url']} --hash=sha256:{item['sha256']}"
+                 for item in self.manifest["comfyui"]["cpuTorch"]["wheels"][key]]
+        requirements = self.storage / "cpu-torch-requirements.txt"
+        requirements.write_text("# Generated from scripts/toolchain.json comfyui.cpuTorch\n" + "\n".join(lines) + "\n",
+                                encoding="utf8")
+        try:
+            run(str(runtime), "-m", "pip", "install", "--require-hashes", "--no-deps", "-r", str(requirements),
+                timeout=3600, capture=False)
+        finally:
+            requirements.unlink(missing_ok=True)
+
+    def verify_cpu_torch(self, runtime: Path) -> None:
+        """Live probe after installing: the runtime must import the pinned +cpu build without CUDA."""
+        pinned = self.manifest["comfyui"]["cpuTorch"]["packages"]["torch"]
+        try:
+            output = run(str(runtime), "-c", TORCH_PROBE, timeout=600)
+            probe = json.loads(output.strip().splitlines()[-1])
+        except (subprocess.SubprocessError, ValueError, IndexError) as exc:
+            raise SetupError(f"Cannot import torch in the ComfyUI runtime: {exc}") from exc
+        if not isinstance(probe, dict) or probe.get("version") != pinned or probe.get("cuda") is not None:
+            raise SetupError(f"ComfyUI runtime torch is {probe!r}, not the pinned {pinned} build without CUDA")
+
+    @staticmethod
+    def cuda_only_packages(freeze: str) -> list[str]:
+        names = []
+        for line in freeze.splitlines():
+            name = re.split(r"\s*(?:==|@)", line.strip(), maxsplit=1)[0].strip()
+            normalized = re.sub(r"[-_.]+", "-", name).lower()
+            if normalized.startswith("nvidia-") or normalized == "triton":
+                names.append(name)
+        return names
+
+    def write_receipt(self, state: dict) -> None:
+        temp = self.receipt.with_suffix(".json.tmp")
+        temp.write_text(json.dumps(state, indent=2) + "\n", encoding="utf8")
+        temp.replace(self.receipt)
+
+    def converge_cpu_torch(self, key: str) -> None:
+        """Bring an otherwise intact managed CPU install to the pinned +cpu torch (Decision 5.1.3)."""
+        state = json.loads(self.receipt.read_text(encoding="utf8"))
+        runtime = self.runtime_python(state["runtimeEnvironment"])
+        cuda = self.cuda_only_packages(run(str(runtime), "-m", "pip", "freeze"))
+        if cuda:
+            run(str(runtime), "-m", "pip", "uninstall", "-y", *cuda, timeout=600, capture=False)
+        self.install_cpu_torch(runtime, key)
+        run(str(runtime), "-m", "pip", "check")
+        self.verify_cpu_torch(runtime)
+        # In cli-runtime mode the CLI environment is the runtime, so both hashes are taken afterwards.
+        cli_packages = run(str(self.binary("python")), "-m", "pip", "freeze")
+        runtime_packages = run(str(runtime), "-m", "pip", "freeze")
+        self.write_receipt({
+            **state, "torch": self.cpu_torch_record(key),
+            "cliEnvironmentSha256": hashlib.sha256(cli_packages.encode("utf8")).hexdigest(),
+            "runtimeEnvironmentSha256": hashlib.sha256(runtime_packages.encode("utf8")).hexdigest(),
+        })
+
     def setup_comfy(self, gpu: str) -> None:
         self.safe_storage()
-        valid, message = self.comfy_status(gpu)
+        # CPU wheels exist only for pinned platforms; fail before touching anything elsewhere.
+        key = self.cpu_torch_key() if gpu == "cpu" else None
+        valid, message, convergible = self.comfy_check(gpu)
         if valid:
+            return
+        if convergible and gpu == "cpu":
+            self.converge_cpu_torch(key)
+            valid, message = self.comfy_status(gpu)
+            if not valid:
+                raise SetupError(message)
             return
         if self.receipt.exists() or self.comfy_repo.exists():
             raise SetupError(message + "; refusing to modify existing ComfyUI state")
@@ -196,32 +340,40 @@ class Toolchain:
         if not python.is_file():
             raise SetupError("Managed Python virtual environment is incomplete")
         expected = self.manifest["comfyui"]
-        for dist, key in (("comfy-cli", "comfy-cli"), ("comfy-mcp", "comfy-mcp")):
+        for dist, key_name in (("comfy-cli", "comfy-cli"), ("comfy-mcp", "comfy-mcp")):
             try:
                 version_info = run(str(python), "-m", "pip", "show", dist)
             except subprocess.SubprocessError:
                 version_info = ""
-            if f"Version: {expected[key]}\n" not in version_info + "\n":
-                run(str(python), "-m", "pip", "install", f"{dist}=={expected[key]}", timeout=600, capture=False)
-        # The official CLI owns installing ComfyUI, PyTorch and requirements.
+            if f"Version: {expected[key_name]}\n" not in version_info + "\n":
+                run(str(python), "-m", "pip", "install", f"{dist}=={expected[key_name]}", timeout=600, capture=False)
+        # The official CLI installs ComfyUI. For NVIDIA it also owns PyTorch and requirements;
+        # for CPU it installs source only, because its resolver pulls CUDA torch from PyPI (#220).
         # Never use ambient/cloud workspaces or mutate a user-managed install.
         environment = os.environ.copy()
-        for key in ("VIRTUAL_ENV", "CONDA_PREFIX", "PYTHONHOME", "PYTHONPATH"):
-            environment.pop(key, None)
+        for name in ("VIRTUAL_ENV", "CONDA_PREFIX", "PYTHONHOME", "PYTHONPATH"):
+            environment.pop(name, None)
         environment["COMFY_WHERE"] = "local"
+        backend = ["--nvidia", "--fast-deps"] if gpu == "nvidia" else ["--cpu", "--skip-torch-or-directml", "--skip-requirement"]
         run(
             str(self.binary("comfy")), "--workspace", str(self.comfy_repo), "--skip-prompt",
             # comfy-cli only accepts --commit together with the nightly version.
             "install", "--url", COMFY_SOURCE, "--version", "nightly", "--commit", expected["commit"],
-            "--skip-manager", f"--{'nvidia' if gpu == 'nvidia' else 'cpu'}", "--fast-deps",
+            "--skip-manager", *backend,
             env=environment, timeout=3600, capture=False,
         )
         if run("git", "-C", str(self.comfy_repo), "rev-parse", "HEAD") != expected["commit"]:
             raise SetupError("Official installer did not install the declared ComfyUI commit")
-        run(str(python), "-m", "pip", "check")
-        cli_packages = run(str(python), "-m", "pip", "freeze")
         mode = "workspace" if self.runtime_python("workspace").is_file() else "cli"
         runtime = self.runtime_python(mode)
+        if gpu == "cpu":
+            self.install_cpu_torch(runtime, key)
+            run(str(runtime), "-m", "pip", "install", "-r", str(self.comfy_repo / "requirements.txt"),
+                timeout=3600, capture=False)
+            run(str(runtime), "-m", "pip", "check")
+            self.verify_cpu_torch(runtime)
+        run(str(python), "-m", "pip", "check")
+        cli_packages = run(str(python), "-m", "pip", "freeze")
         run(str(runtime), "-m", "pip", "check")
         runtime_packages = run(str(runtime), "-m", "pip", "freeze")
         state = {
@@ -231,9 +383,9 @@ class Toolchain:
             "cliEnvironmentSha256": hashlib.sha256(cli_packages.encode("utf8")).hexdigest(),
             "runtimeEnvironmentSha256": hashlib.sha256(runtime_packages.encode("utf8")).hexdigest(),
         }
-        temp = self.receipt.with_suffix(".json.tmp")
-        temp.write_text(json.dumps(state, indent=2) + "\n", encoding="utf8")
-        temp.replace(self.receipt)
+        if gpu == "cpu":
+            state["torch"] = self.cpu_torch_record(key)
+        self.write_receipt(state)
         valid, message = self.comfy_status(gpu)
         if not valid:
             raise SetupError(message)
