@@ -48,6 +48,24 @@ const processor = {
   prefixArguments,
   checkoutRoot: processorCheckout,
 };
+// The stability workflow pins the Rust toolchain (Renovate bumps that pin), so
+// the expected runtime is whatever toolchain was actually provisioned for this
+// processor checkout, probed independently of the identity under test.
+function provisionedVersion(command) {
+  const probe = Bun.spawnSync([command, "-V"], { cwd: processorCheckout, stdout: "pipe", stderr: "pipe" });
+  if (probe.exitCode !== 0) throw new Error(`${command} -V failed for the processor checkout`);
+  const match = new TextDecoder().decode(probe.stdout).match(new RegExp(`^${command} (\\d+\\.\\d+\\.\\d+) `));
+  if (!match) throw new Error(`${command} -V did not report a stable release version`);
+  return match[1];
+}
+const provisionedRustVersion = provisionedVersion("rustc");
+assert.equal(provisionedVersion("cargo"), provisionedRustVersion, "cargo and rustc versions must match");
+const provisionedRustPattern = provisionedRustVersion.replaceAll(".", "\\.");
+function assertProvisionedRustRuntime(runtime) {
+  assert.match(runtime.cargo, new RegExp(`^cargo ${provisionedRustPattern} `, "m"));
+  assert.match(runtime.rustc, new RegExp(`^rustc ${provisionedRustPattern} `, "m"));
+  assert.match(runtime.rustc, new RegExp(`^release: ${provisionedRustPattern}$`, "m"));
+}
 const verifiedSource = { repository, revision, verification: "git-clean-exact-head" };
 
 function sceneDocument() {
@@ -126,8 +144,7 @@ async function storedSceneSource(root) {
 function assertRuntime(identity) {
   assert.deepEqual(identity.implementation.source, verifiedSource);
   assert.equal(identity.implementation.runtime.kind, "cargo-rust-v1");
-  assert.match(identity.implementation.runtime.cargo, /^cargo 1\.99\.0/m);
-  assert.match(identity.implementation.runtime.rustc, /^rustc 1\.99\.0/m);
+  assertProvisionedRustRuntime(identity.implementation.runtime);
   assert.equal(identity.implementation.probe.protocol, "asset-tooling-process-adapter-v1");
   assert.equal(identity.implementation.probe.dependencies.threeDScene, "0.1.0");
   assert.equal(identity.implementation.probe.dependencies.threeDExport, "0.1.0");
