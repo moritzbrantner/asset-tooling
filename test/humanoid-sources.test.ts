@@ -135,6 +135,37 @@ const ASSETS: Asset[] = [
     ].map((name) => `${OUTFIT_DIR}/${name}`),
     substitutions: [],
   },
+  // #115 (owner answer Q1 = A): the female base body and the matching Female_Ranger outfit from the same archives.
+  {
+    role: "body",
+    archive: BASE,
+    root: `${BODY_DIR}/Superhero_Female_FullBody.gltf`,
+    referenced: [
+      "Superhero_Female_FullBody.bin",
+      "T_Hair_2_Normal.png",
+      "T_Hair_2_BaseColor.png",
+      "T_Eye_Brown.png",
+      "T_Superhero_Female_Normal.png",
+      "T_Superhero_Female_Dark_BaseColor.png",
+      "T_Superhero_Female_Roughness.png",
+    ].map((name) => `${BODY_DIR}/${name}`),
+    substitutions: [{ uri: "T_Eye_Normal_png.png", path: `${BODY_DIR}/T_Eye_Normal.png` }],
+  },
+  {
+    role: "outfit",
+    archive: OUTFITS,
+    root: `${OUTFIT_DIR}/Female_Ranger.gltf`,
+    referenced: [
+      "Female_Ranger.bin",
+      "T_Ranger_Normal.png",
+      "T_Ranger_BaseColor.png",
+      "T_Ranger_ORM.png",
+      "T_Regular_Female_Normal.png",
+      "T_Regular_Female_Dark_BaseColor.png",
+      "T_Regular_Female_Roughness.png",
+    ].map((name) => `${OUTFIT_DIR}/${name}`),
+    substitutions: [],
+  },
   { role: "clips", archive: UAL, root: CLIPS_PATH, referenced: [], substitutions: [] },
   { role: "clips", archive: UAL2, root: CLIPS2_PATH, referenced: [], substitutions: [] },
 ];
@@ -173,7 +204,11 @@ const EXPECTED = new Map<string, ExpectedMember>();
 for (const asset of ASSETS) {
   for (const memberPath of [asset.root, ...asset.referenced, ...asset.substitutions.map((entry) => entry.path)]) {
     const id = memberId(asset.archive, memberPath);
-    assert.ok(!EXPECTED.has(id), `expected-member table: duplicate id '${id}'`);
+    // Members shared by the male and female assets (eye textures, the Ranger textures) are listed once.
+    if (EXPECTED.has(id)) {
+      assert.equal(EXPECTED.get(id)!.path, memberPath, `expected-member table: id '${id}' names two paths`);
+      continue;
+    }
     const type = MEDIA_TYPES[path.posix.extname(memberPath)];
     assert.ok(type, `expected-member table: no media type for '${memberPath}'`);
     EXPECTED.set(id, {
@@ -254,13 +289,13 @@ const hydratedSkip: string | false =
 
 // ---------------------------------------------------------------- structure
 
-test("expected-member table: 19 members (9 body incl. 2 substitutes, 8 outfit, 2 clips GLBs)", () => {
-  assert.equal(EXPECTED.size, 19);
+test("expected-member table: 31 members (16 body incl. 2 substitutes, 13 outfit, 2 clips GLBs)", () => {
+  assert.equal(EXPECTED.size, 31);
   const byRole = (role: Role) => [...EXPECTED.values()].filter((member) => member.role === role).length;
-  assert.deepEqual([byRole("body"), byRole("outfit"), byRole("clips")], [9, 8, 2]);
+  assert.deepEqual([byRole("body"), byRole("outfit"), byRole("clips")], [16, 13, 2]);
   assert.deepEqual(
     SUBSTITUTIONS.map(({ path: memberPath }) => memberId(BASE, memberPath)),
-    [`${BASE}.t-hair-1-normal-png`, `${BASE}.t-eye-normal-png`],
+    [`${BASE}.t-hair-1-normal-png`, `${BASE}.t-eye-normal-png`, `${BASE}.t-eye-normal-png`],
   );
   assert.equal(
     memberId(BASE, `${BODY_DIR}/Superhero_Male_FullBody.gltf`),
@@ -373,22 +408,23 @@ test("declared substitution: each substitute member names the broken URI it stan
     [
       ["T_Hair_1_Normal_png.png", "T_Hair_1_Normal.png"],
       ["T_Eye_Normal_png.png", "T_Eye_Normal.png"],
+      ["T_Eye_Normal_png.png", "T_Eye_Normal.png"],
     ],
   );
   for (const { asset, uri, path: memberPath } of SUBSTITUTIONS) {
     const id = memberId(asset.archive, memberPath);
     const source = rawSource(id);
     assert.equal(path.posix.dirname(memberPath), path.posix.dirname(asset.root), `'${id}' must be a same-folder member`);
-    assert.deepEqual(
-      source.metadata?.substitutesFor,
-      { member: memberId(asset.archive, asset.root), uri },
-      `'${id}' must carry metadata.substitutesFor naming '${uri}'`,
+    assert.ok(Array.isArray(source.metadata?.substitutesFor), `'${id}' metadata.substitutesFor must be a list`);
+    assert.equal(
+      source.metadata.substitutesFor.filter((entry: any) => entry.member === memberId(asset.archive, asset.root) && entry.uri === uri).length, 1,
+      `'${id}' must carry metadata.substitutesFor naming '${uri}' for '${asset.root}'`,
     );
   }
   assert.equal(memberId(BASE, `${BODY_DIR}/Superhero_Male_FullBody.gltf`), BODY_ROOT_ID);
   // Exactly these two records declare a substitution, and the declaration survives the public catalog.
   const declaring = rawSources.filter((source) => source.metadata?.substitutesFor !== undefined).map((source) => source.id).sort();
-  assert.deepEqual(declaring, SUBSTITUTIONS.map(({ asset, path: memberPath }) => memberId(asset.archive, memberPath)).sort());
+  assert.deepEqual(declaring, [...new Set(SUBSTITUTIONS.map(({ asset, path: memberPath }) => memberId(asset.archive, memberPath)))].sort());
   const catalog = buildCatalog();
   for (const id of declaring) {
     assert.deepEqual(catalog.getSource(id).metadata.substitutesFor, rawSource(id).metadata.substitutesFor, id);
@@ -506,7 +542,7 @@ test("resource closure: every URI resolves to exactly one member, by adjacent ba
       ...(gltf.images ?? []).map((image: any) => image.uri),
     ].filter((uri): uri is string => typeof uri === "string");
     const members = rawSources.filter((source) => source.archiveMember?.archive === asset.archive);
-    const declarations = members.filter((source) => source.metadata?.substitutesFor?.member === rootId);
+    const declarations = members.flatMap((source) => (source.metadata?.substitutesFor ?? []).filter((entry: any) => entry.member === rootId).map((entry: any) => ({ source, uri: entry.uri as string })));
 
     const byName: string[] = [];
     const bySubstitution: string[] = [];
@@ -522,9 +558,9 @@ test("resource closure: every URI resolves to exactly one member, by adjacent ba
         resolvedUrisByName.add(uri);
         byName.push(adjacent);
       } else {
-        const substitutes = declarations.filter((source) => source.metadata.substitutesFor.uri === uri);
+        const substitutes = declarations.filter((declaration) => declaration.uri === uri);
         assert.equal(substitutes.length, 1, `'${asset.root}' URI '${uri}' must resolve by exactly one declared substitution`);
-        target = substitutes[0];
+        target = substitutes[0]!.source;
         bySubstitution.push(`${uri}=>${target.archiveMember.path}`);
       }
       assert.ok(EXPECTED.has(target.id), `'${asset.root}' URI '${uri}' resolves to unlisted member '${target.id}'`);
@@ -536,8 +572,7 @@ test("resource closure: every URI resolves to exactly one member, by adjacent ba
       asset.substitutions.map(({ uri, path: memberPath }) => `${uri}=>${memberPath}`).sort(),
       `'${asset.root}' URIs resolved by substitution must be exactly the declared ones`,
     );
-    for (const declaration of declarations) {
-      const { uri } = declaration.metadata.substitutesFor;
+    for (const { source: declaration, uri } of declarations) {
       assert.ok(uris.includes(uri), `'${declaration.id}' substitutes for '${uri}', which '${asset.root}' does not reference`);
       assert.ok(!resolvedUrisByName.has(uri), `'${declaration.id}' substitutes for '${uri}', which already resolves by name`);
     }

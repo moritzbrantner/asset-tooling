@@ -393,7 +393,7 @@ export async function buildRangerCharacter({ processorCheckout, outDir, version 
   };
   // Adjacent basename, or the one member whose metadata.substitutesFor names the URI (docs/humanoid-sources.md).
   const resourceId = (archive: string, gltfId: string, uri: string) => {
-    const substitutes = rawSources.filter((source) => source.metadata?.substitutesFor?.member === gltfId && source.metadata.substitutesFor.uri === uri);
+    const substitutes = rawSources.filter((source) => source.metadata?.substitutesFor?.some((entry: Json) => entry.member === gltfId && entry.uri === uri));
     if (substitutes.length === 1) return substitutes[0]!.id as string;
     const matches = rawSources.filter((source) => source.archiveMember?.archive === archive && path.posix.basename(source.archiveMember.path) === uri);
     if (matches.length !== 1) throw new Error(`URI '${uri}' must resolve to exactly one member`);

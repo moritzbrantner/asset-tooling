@@ -147,6 +147,18 @@
     },
     {
       "schemaVersion": 1,
+      "sourceId": "quaternius.modular-character-outfits-fantasy-standard.female-ranger-bin",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.modular-character-outfits-fantasy-standard.female-ranger-bin/Female_Ranger.bin"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.modular-character-outfits-fantasy-standard.female-ranger-gltf",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.modular-character-outfits-fantasy-standard.female-ranger-gltf/Female_Ranger.gltf"
+    },
+    {
+      "schemaVersion": 1,
       "sourceId": "quaternius.modular-character-outfits-fantasy-standard.male-ranger-bin",
       "storage": "git-lfs",
       "path": "assets/canonical/quaternius.modular-character-outfits-fantasy-standard.male-ranger-bin/Male_Ranger.bin"
@@ -174,6 +186,24 @@
       "sourceId": "quaternius.modular-character-outfits-fantasy-standard.t-ranger-orm-png",
       "storage": "git-lfs",
       "path": "assets/canonical/quaternius.modular-character-outfits-fantasy-standard.t-ranger-orm-png/T_Ranger_ORM.png"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.modular-character-outfits-fantasy-standard.t-regular-female-dark-basecolor-png",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.modular-character-outfits-fantasy-standard.t-regular-female-dark-basecolor-png/T_Regular_Female_Dark_BaseColor.png"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.modular-character-outfits-fantasy-standard.t-regular-female-normal-png",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.modular-character-outfits-fantasy-standard.t-regular-female-normal-png/T_Regular_Female_Normal.png"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.modular-character-outfits-fantasy-standard.t-regular-female-roughness-png",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.modular-character-outfits-fantasy-standard.t-regular-female-roughness-png/T_Regular_Female_Roughness.png"
     },
     {
       "schemaVersion": 1,
@@ -237,6 +267,18 @@
     },
     {
       "schemaVersion": 1,
+      "sourceId": "quaternius.universal-base-characters-standard.superhero-female-fullbody-bin",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.universal-base-characters-standard.superhero-female-fullbody-bin/Superhero_Female_FullBody.bin"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.universal-base-characters-standard.superhero-female-fullbody-gltf",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.universal-base-characters-standard.superhero-female-fullbody-gltf/Superhero_Female_FullBody.gltf"
+    },
+    {
+      "schemaVersion": 1,
       "sourceId": "quaternius.universal-base-characters-standard.superhero-male-fullbody-bin",
       "storage": "git-lfs",
       "path": "assets/canonical/quaternius.universal-base-characters-standard.superhero-male-fullbody-bin/Superhero_Male_FullBody.bin"
@@ -270,6 +312,36 @@
       "sourceId": "quaternius.universal-base-characters-standard.t-hair-1-normal-png",
       "storage": "git-lfs",
       "path": "assets/canonical/quaternius.universal-base-characters-standard.t-hair-1-normal-png/T_Hair_1_Normal.png"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.universal-base-characters-standard.t-hair-2-basecolor-png",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.universal-base-characters-standard.t-hair-2-basecolor-png/T_Hair_2_BaseColor.png"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.universal-base-characters-standard.t-hair-2-normal-png",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.universal-base-characters-standard.t-hair-2-normal-png/T_Hair_2_Normal.png"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.universal-base-characters-standard.t-superhero-female-dark-basecolor-png",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.universal-base-characters-standard.t-superhero-female-dark-basecolor-png/T_Superhero_Female_Dark_BaseColor.png"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.universal-base-characters-standard.t-superhero-female-normal-png",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.universal-base-characters-standard.t-superhero-female-normal-png/T_Superhero_Female_Normal.png"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.universal-base-characters-standard.t-superhero-female-roughness-png",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.universal-base-characters-standard.t-superhero-female-roughness-png/T_Superhero_Female_Roughness.png"
     },
     {
       "schemaVersion": 1,

@@ -1735,6 +1735,131 @@
     },
     {
       "archiveMember": {
+        "archive": "quaternius.modular-character-outfits-fantasy-standard",
+        "path": "Modular Character Outfits - Fantasy[Standard]/Exports/glTF (Godot-Unreal)/Outfits/Female_Ranger.gltf"
+      },
+      "id": "quaternius.modular-character-outfits-fantasy-standard.female-ranger-gltf",
+      "kind": "mesh",
+      "license": {
+        "evidenceUrl": "https://quaternius.itch.io/modular-character-outfits-fantasy",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "model/gltf+json",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 45461,
+        "sha256": "9b98b2ae6af3b4a1ec22bf8928b939e0751f08b25b636de82bfa7364fb34d3e1"
+      },
+      "tags": [
+        "humanoid-baseline",
+        "outfit"
+      ],
+      "title": "Modular Character Outfits – Fantasy — Female_Ranger (glTF)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.modular-character-outfits-fantasy-standard",
+        "path": "Modular Character Outfits - Fantasy[Standard]/Exports/glTF (Godot-Unreal)/Outfits/Female_Ranger.bin"
+      },
+      "id": "quaternius.modular-character-outfits-fantasy-standard.female-ranger-bin",
+      "kind": "buffer",
+      "license": {
+        "evidenceUrl": "https://quaternius.itch.io/modular-character-outfits-fantasy",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "application/octet-stream",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 1959556,
+        "sha256": "d015964ba0a26eee9c9d2ea6f07aa660bba88aa536cf8bb6b67944b9e97c46df"
+      },
+      "tags": [
+        "humanoid-baseline",
+        "outfit"
+      ],
+      "title": "Modular Character Outfits – Fantasy — Female_Ranger (glTF buffer)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.modular-character-outfits-fantasy-standard",
+        "path": "Modular Character Outfits - Fantasy[Standard]/Exports/glTF (Godot-Unreal)/Outfits/T_Regular_Female_Dark_BaseColor.png"
+      },
+      "id": "quaternius.modular-character-outfits-fantasy-standard.t-regular-female-dark-basecolor-png",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://quaternius.itch.io/modular-character-outfits-fantasy",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/png",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 1348542,
+        "sha256": "3b6ab973f9f3d6f8961226a0dbd99cf6d1b72df3795a8a5c1620a55754c161c2"
+      },
+      "tags": [
+        "humanoid-baseline",
+        "outfit"
+      ],
+      "title": "Modular Character Outfits – Fantasy — T_Regular_Female_Dark_BaseColor (texture)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.modular-character-outfits-fantasy-standard",
+        "path": "Modular Character Outfits - Fantasy[Standard]/Exports/glTF (Godot-Unreal)/Outfits/T_Regular_Female_Normal.png"
+      },
+      "id": "quaternius.modular-character-outfits-fantasy-standard.t-regular-female-normal-png",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://quaternius.itch.io/modular-character-outfits-fantasy",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/png",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 3913459,
+        "sha256": "e1051d3d56df9cf061bc14c769c37253aecd595f8275f9d4c0d6e0e953c00e18"
+      },
+      "tags": [
+        "humanoid-baseline",
+        "outfit"
+      ],
+      "title": "Modular Character Outfits – Fantasy — T_Regular_Female_Normal (texture)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.modular-character-outfits-fantasy-standard",
+        "path": "Modular Character Outfits - Fantasy[Standard]/Exports/glTF (Godot-Unreal)/Outfits/T_Regular_Female_Roughness.png"
+      },
+      "id": "quaternius.modular-character-outfits-fantasy-standard.t-regular-female-roughness-png",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://quaternius.itch.io/modular-character-outfits-fantasy",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/png",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 3274215,
+        "sha256": "da541fbd4b3bffe754fada5c29f8a0d8f836bf20ce7df8273607af4729a3a5ae"
+      },
+      "tags": [
+        "humanoid-baseline",
+        "outfit"
+      ],
+      "title": "Modular Character Outfits – Fantasy — T_Regular_Female_Roughness (texture)"
+    },
+    {
+      "archiveMember": {
         "archive": "quaternius.universal-animation-library-standard",
         "path": "Animation Library[Standard]/Godot/AnimationLibrary_Godot_Standard.glb"
       },
@@ -1796,10 +1921,12 @@
       },
       "mediaType": "image/png",
       "metadata": {
-        "substitutesFor": {
-          "member": "quaternius.universal-base-characters-standard.superhero-male-fullbody-gltf",
-          "uri": "T_Hair_1_Normal_png.png"
-        }
+        "substitutesFor": [
+          {
+            "member": "quaternius.universal-base-characters-standard.superhero-male-fullbody-gltf",
+            "uri": "T_Hair_1_Normal_png.png"
+          }
+        ]
       },
       "provider": "quaternius",
       "schemaVersion": 2,
@@ -1826,10 +1953,16 @@
       },
       "mediaType": "image/png",
       "metadata": {
-        "substitutesFor": {
-          "member": "quaternius.universal-base-characters-standard.superhero-male-fullbody-gltf",
-          "uri": "T_Eye_Normal_png.png"
-        }
+        "substitutesFor": [
+          {
+            "member": "quaternius.universal-base-characters-standard.superhero-male-fullbody-gltf",
+            "uri": "T_Eye_Normal_png.png"
+          },
+          {
+            "member": "quaternius.universal-base-characters-standard.superhero-female-fullbody-gltf",
+            "uri": "T_Eye_Normal_png.png"
+          }
+        ]
       },
       "provider": "quaternius",
       "schemaVersion": 2,
@@ -1842,6 +1975,181 @@
         "humanoid-baseline"
       ],
       "title": "Universal Base Characters — T_Eye_Normal (texture)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.universal-base-characters-standard",
+        "path": "Universal Base Characters[Standard]/Base Characters/Godot - UE/Superhero_Female_FullBody.gltf"
+      },
+      "id": "quaternius.universal-base-characters-standard.superhero-female-fullbody-gltf",
+      "kind": "mesh",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/universalbasecharacters.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "model/gltf+json",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 31656,
+        "sha256": "adedf28000a0716f689b009a70314506fc62f827498f77ba852acb5610f3f3f4"
+      },
+      "tags": [
+        "body",
+        "humanoid-baseline"
+      ],
+      "title": "Universal Base Characters — Superhero_Female_FullBody (glTF)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.universal-base-characters-standard",
+        "path": "Universal Base Characters[Standard]/Base Characters/Godot - UE/Superhero_Female_FullBody.bin"
+      },
+      "id": "quaternius.universal-base-characters-standard.superhero-female-fullbody-bin",
+      "kind": "buffer",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/universalbasecharacters.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "application/octet-stream",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 990808,
+        "sha256": "3a8220a485b33d05d879115a50697728b45a151781106033afb8b8c243fca208"
+      },
+      "tags": [
+        "body",
+        "humanoid-baseline"
+      ],
+      "title": "Universal Base Characters — Superhero_Female_FullBody (glTF buffer)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.universal-base-characters-standard",
+        "path": "Universal Base Characters[Standard]/Base Characters/Godot - UE/T_Hair_2_BaseColor.png"
+      },
+      "id": "quaternius.universal-base-characters-standard.t-hair-2-basecolor-png",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/universalbasecharacters.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/png",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 1729467,
+        "sha256": "f9f4f2fb3eeeefb0b6f0fdef38b0770fd6607640c1c680b8139dd76697e9f9b3"
+      },
+      "tags": [
+        "body",
+        "humanoid-baseline"
+      ],
+      "title": "Universal Base Characters — T_Hair_2_BaseColor (texture)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.universal-base-characters-standard",
+        "path": "Universal Base Characters[Standard]/Base Characters/Godot - UE/T_Hair_2_Normal.png"
+      },
+      "id": "quaternius.universal-base-characters-standard.t-hair-2-normal-png",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/universalbasecharacters.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/png",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 4710013,
+        "sha256": "172f230aae0d4366c3cfc0402b2e6d1811b11f8487344bff28605eeacac1558d"
+      },
+      "tags": [
+        "body",
+        "humanoid-baseline"
+      ],
+      "title": "Universal Base Characters — T_Hair_2_Normal (texture)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.universal-base-characters-standard",
+        "path": "Universal Base Characters[Standard]/Base Characters/Godot - UE/T_Superhero_Female_Dark_BaseColor.png"
+      },
+      "id": "quaternius.universal-base-characters-standard.t-superhero-female-dark-basecolor-png",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/universalbasecharacters.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/png",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 1319410,
+        "sha256": "d366843ee7d9e9f37ec87a0e1c98c7f2e45573c08eeb80a51a6d9344e68cf288"
+      },
+      "tags": [
+        "body",
+        "humanoid-baseline"
+      ],
+      "title": "Universal Base Characters — T_Superhero_Female_Dark_BaseColor (texture)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.universal-base-characters-standard",
+        "path": "Universal Base Characters[Standard]/Base Characters/Godot - UE/T_Superhero_Female_Normal.png"
+      },
+      "id": "quaternius.universal-base-characters-standard.t-superhero-female-normal-png",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/universalbasecharacters.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/png",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 3940537,
+        "sha256": "cf922460b43ccd31e983e34db05514c9d451dd2f9cdd01a843978e797719f859"
+      },
+      "tags": [
+        "body",
+        "humanoid-baseline"
+      ],
+      "title": "Universal Base Characters — T_Superhero_Female_Normal (texture)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.universal-base-characters-standard",
+        "path": "Universal Base Characters[Standard]/Base Characters/Godot - UE/T_Superhero_Female_Roughness.png"
+      },
+      "id": "quaternius.universal-base-characters-standard.t-superhero-female-roughness-png",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/universalbasecharacters.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/png",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 3277022,
+        "sha256": "d2beabf2bd0313e32c68dcdbb80dca371a6e994fabf96efa97128bf9f14fa57b"
+      },
+      "tags": [
+        "body",
+        "humanoid-baseline"
+      ],
+      "title": "Universal Base Characters — T_Superhero_Female_Roughness (texture)"
     }
   ]
 }
