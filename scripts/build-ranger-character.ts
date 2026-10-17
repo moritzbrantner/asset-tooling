@@ -1,6 +1,6 @@
 // Build the Ranger character bundle end to end from its canonical catalog members
 // (docs/humanoid-ranger.md):
-//   bun scripts/build-ranger-character.ts --processor-checkout <3d-lab checkout> --out <directory> [--version 1|2|3]
+//   bun scripts/build-ranger-character.ts --processor-checkout <3d-lab checkout> --out <directory> [--version 1|2|3|4]
 // The 3d-lab checkout must be source-clean at the commit stability/processors.json pins for
 // `three-d-animation-retarget`, with its cargo dependencies fetched (the processor runs --offline).
 // <directory> becomes the object-store root; the bundle is exported to <directory>/bundle and packed
@@ -8,8 +8,10 @@
 // Version 2 (#260/#113) adds the run, sword, death and shield-guard clips, the sword
 // and shield weapon entries (Blender weapon recipe, ASSET_TOOLING_BLENDER) and the
 // humanoid-sockets-v1 descriptor as an attachment of the character entry. Version 1 is the #110 build.
-// Version 3 (the default, #257) is v2 with game-resolution PNG textures (scene.textures.resize.gltf@1,
+// Version 3 (#257) is v2 with game-resolution PNG textures (scene.textures.resize.gltf@1,
 // RANGER_TEXTURE_POLICY); keys, variants, scenes, materials, UVs, clips and sockets are those of v2.
+// Version 4 (the default, #113) is v3 with the anatomically derived hand sockets
+// (examples/weapons/derive-sockets.ts); v2 and v3 keep shipping the bundle-v2 descriptor.
 import path from "node:path";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
@@ -47,8 +49,8 @@ export const RANGER_MEMBERS = {
   clips: { archive: "quaternius.universal-animation-library-standard", path: "Animation Library[Standard]/Godot/AnimationLibrary_Godot_Standard.glb" },
   clips2: { archive: "quaternius.universal-animation-library-2-standard", path: "Universal Animation Library 2 [Standard]/Unreal-Godot/UAL2_Standard.glb" },
 } as const;
-export type RangerVersion = 1 | 2 | 3;
-export const RANGER_DEFAULT_VERSION: RangerVersion = 3;
+export type RangerVersion = 1 | 2 | 3 | 4;
+export const RANGER_DEFAULT_VERSION: RangerVersion = 4;
 /** v3 (#257): per-slot maximum texture edges for browser delivery; images are never upscaled. */
 export const RANGER_TEXTURE_POLICY = {
   maxEdgeBySlot: { baseColor: 1024, normal: 1024, metallicRoughness: 512, occlusion: 512, emissive: 1024 },
@@ -83,7 +85,14 @@ export const RANGER_V2_EQUIPMENT: readonly { key: string; piece: WeaponPiece }[]
   { key: "equipment.shield.heater", piece: "shield.heater" },
 ];
 export const RANGER_SOCKETS_ATTACHMENT = "humanoid-sockets";
+/** The current descriptor (v4, derived anatomically by examples/weapons/derive-sockets.ts). */
 export const RANGER_SOCKETS_DESCRIPTOR = "assets/descriptors/humanoid.ranger.male.sockets.json";
+/** The descriptor bundles v2 and v3 ship, kept byte for byte so those versions stay reproducible. */
+export const RANGER_V2_SOCKETS_DESCRIPTOR = "assets/descriptors/humanoid.ranger.male.sockets.bundle-v2.json";
+/** The sockets descriptor a bundle version ships (v1 has none). */
+export function rangerSocketsDescriptor(version: RangerVersion): string | undefined {
+  return version === 1 ? undefined : version < 4 ? RANGER_V2_SOCKETS_DESCRIPTOR : RANGER_SOCKETS_DESCRIPTOR;
+}
 export const RANGER_SAMPLE_RATE = 30;
 
 /** HumanoidBone id -> UAL1 Rigify `DEF-*` joint (source) and UBC/Outfits joint (target). */
@@ -156,7 +165,7 @@ async function buildWeapon(root: string, piece: WeaponPiece) {
 export async function buildRangerCharacter({ processorCheckout, outDir, version = RANGER_DEFAULT_VERSION, log = () => {} }: {
   processorCheckout: string; outDir: string; version?: RangerVersion; log?: (line: string) => void;
 }) {
-  if (version !== 1 && version !== 2 && version !== 3) throw new Error("Ranger bundle version must be 1, 2 or 3");
+  if (version !== 1 && version !== 2 && version !== 3 && version !== 4) throw new Error("Ranger bundle version must be 1, 2, 3 or 4");
   const root = path.resolve(outDir);
   await mkdir(root, { recursive: true });
   const processor = await rangerProcessor(path.resolve(processorCheckout));
@@ -229,7 +238,7 @@ export async function buildRangerCharacter({ processorCheckout, outDir, version 
     parameters: { clips: clips.map((clip) => ({ name: clip.name })), policy: POLICY },
   }));
 
-  // v3: the same GLB with game-resolution textures; nothing but image bytes changes.
+  // v3 and v4: the same GLB with game-resolution textures; nothing but image bytes changes.
   const textures: Record<string, Json> = {};
   const resizeTextures = async (key: string, glb: AssetRef) => {
     const json = await new NodeIO().binaryToJSON(await resolveAssetObject(root, glb));
@@ -240,16 +249,17 @@ export async function buildRangerCharacter({ processorCheckout, outDir, version 
     textures[key] = { source: glb, output: single(result), imageBytes, images };
     return single(result);
   };
-  const character = version === 3 ? await resizeTextures(RANGER_BUNDLE_KEY, animated) : animated;
+  const character = version >= 3 ? await resizeTextures(RANGER_BUNDLE_KEY, animated) : animated;
 
   const selections: Json[] = [{ key: RANGER_BUNDLE_KEY, variant: RANGER_BUNDLE_VARIANT }];
   const assets: AssetRef[] = [character];
   const attachments: AssetRef[] = [];
   const weapons: Record<string, AssetRef> = {};
   let sockets: AssetRef | undefined;
-  if (version >= 2) {
-    log(`attach ${RANGER_SOCKETS_DESCRIPTOR} as '${RANGER_SOCKETS_ATTACHMENT}'`);
-    const descriptor = await readFile(path.join(REPOSITORY_ROOT, RANGER_SOCKETS_DESCRIPTOR));
+  const descriptorPath = rangerSocketsDescriptor(version);
+  if (descriptorPath) {
+    log(`attach ${descriptorPath} as '${RANGER_SOCKETS_ATTACHMENT}'`);
+    const descriptor = await readFile(path.join(REPOSITORY_ROOT, descriptorPath));
     const { jointNames } = JSON.parse((await resolveAssetObject(root, targetRig)).toString("utf8"));
     validateHumanoidSocketDescriptor(JSON.parse(descriptor.toString("utf8")), { joints: jointNames });
     sockets = (await storeAssetObject(root, { bytes: descriptor, kind: "humanoid-sockets", mediaType: "application/json" })).asset;
@@ -259,7 +269,7 @@ export async function buildRangerCharacter({ processorCheckout, outDir, version 
       log(`generate ${piece} (external.blender.script@1 weapon recipe, scene.import.gltf@2)`);
       weapons[key] = await buildWeapon(root, piece);
       selections.push({ key, variant: RANGER_BUNDLE_VARIANT });
-      assets.push(version === 3 ? await resizeTextures(key, weapons[key]!) : weapons[key]!);
+      assets.push(version >= 3 ? await resizeTextures(key, weapons[key]!) : weapons[key]!);
     }
   }
 
@@ -287,8 +297,8 @@ export async function buildRangerCharacter({ processorCheckout, outDir, version 
       processor: { repository: processor.repository, revision: processor.revision },
       outfit, body, head, composed, targetRig, sourceRigs, libraries: loaded, animated,
       clips: clips.map(({ name, library, source, retargeted, observations }) => ({ name, library, source, retargeted, observations })),
-      ...(version >= 2 ? { sockets, weapons } : {}),
-      ...(version === 3 ? { character, textures, texturePolicy: RANGER_TEXTURE_POLICY } : {}),
+      ...(version >= 2 ? { sockets, socketsDescriptor: descriptorPath, weapons } : {}),
+      ...(version >= 3 ? { character, textures, texturePolicy: RANGER_TEXTURE_POLICY } : {}),
     },
   };
 }
@@ -300,7 +310,7 @@ function parseArguments(args: string[]) {
     if (!["--processor-checkout", "--out", "--version"].includes(flag!) || !value) return undefined;
     options[flag!.slice(2)] = value;
   }
-  if (options.version !== undefined && !["1", "2", "3"].includes(options.version)) return undefined;
+  if (options.version !== undefined && !["1", "2", "3", "4"].includes(options.version)) return undefined;
   const version = (options.version === undefined ? RANGER_DEFAULT_VERSION : Number(options.version)) as RangerVersion;
   return options["processor-checkout"] && options.out ? { processorCheckout: options["processor-checkout"], outDir: options.out, version } : undefined;
 }
@@ -308,7 +318,7 @@ function parseArguments(args: string[]) {
 if (import.meta.main) {
   const options = parseArguments(process.argv.slice(2));
   if (!options) {
-    console.error("Usage: bun scripts/build-ranger-character.ts --processor-checkout <absolute 3d-lab checkout> --out <directory> [--version 1|2|3]");
+    console.error("Usage: bun scripts/build-ranger-character.ts --processor-checkout <absolute 3d-lab checkout> --out <directory> [--version 1|2|3|4]");
     process.exit(2);
   }
   try {

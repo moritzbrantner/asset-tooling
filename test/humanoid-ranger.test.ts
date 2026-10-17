@@ -3,8 +3,9 @@
 // import, head subset, compose, extract, retarget the v2 clips (#110 Idle/Walk, #260 run/attack/death,
 // #113 sword idle/attack and shield guard) through the pinned 3d-lab processor, embed, generate the
 // sword and shield through the weapon recipe, attach the humanoid-sockets-v1 descriptor, then the
-// gltf-resources-v1 bundle and release tar. The default v3 (#257) adds game-resolution PNG textures
-// (scene.textures.resize.gltf@1) to that v2 content. Structural checks only (owner answer 4 on #110: no
+// gltf-resources-v1 bundle and release tar. v3 (#257) adds game-resolution PNG textures
+// (scene.textures.resize.gltf@1) to that v2 content; the default v4 (#113) is v3 with the anatomically
+// derived hand sockets. Structural checks only (owner answer 4 on #110: no
 // byte-exact replay, no Blender oracle). The full build skips unless the Git LFS payloads are
 // hydrated, ASSET_TOOLING_PROCESSOR_CHECKOUT_3DLAB names a clean 3d-lab checkout at the pinned
 // commit with its cargo dependencies fetched, and ASSET_TOOLING_BLENDER names Blender for the weapons.
@@ -20,7 +21,7 @@ import { GLTF_RESOURCES_BUNDLE_PROFILE, readAssetBundleAttachment, readAssetBund
 import { validateHumanoidSocketDescriptor } from "../src/humanoid-sockets.js";
 import {
   RANGER_BONE_MAP, RANGER_BUNDLE_KEY, RANGER_BUNDLE_VARIANT, RANGER_CLIPS, RANGER_MEMBERS, RANGER_SOCKETS_ATTACHMENT,
-  RANGER_DEFAULT_VERSION, RANGER_SOCKETS_DESCRIPTOR, RANGER_TEXTURE_POLICY, RANGER_UBC_BONE_MAP, RANGER_V2_CLIPS, RANGER_V2_EQUIPMENT,
+  RANGER_DEFAULT_VERSION, RANGER_SOCKETS_DESCRIPTOR, RANGER_TEXTURE_POLICY, RANGER_V2_SOCKETS_DESCRIPTOR, rangerSocketsDescriptor, RANGER_UBC_BONE_MAP, RANGER_V2_CLIPS, RANGER_V2_EQUIPMENT,
   buildRangerCharacter,
 } from "../scripts/build-ranger-character.ts";
 
@@ -56,14 +57,16 @@ test("the v2 recipe keeps the v1 clips, adds the #260/#113 clips by source name 
   assert.deepEqual(RANGER_V2_EQUIPMENT.map((item) => item.key), ["equipment.sword.arming", "equipment.shield.heater"]);
 });
 
-test("v3 (#257) is the default and declares game-resolution texture limits per slot", () => {
-  assert.equal(RANGER_DEFAULT_VERSION, 3);
+test("v4 (#113) is the default; v2 and v3 keep the bundle-v2 sockets, and the texture limits are per slot", () => {
+  assert.equal(RANGER_DEFAULT_VERSION, 4);
+  assert.deepEqual(([1, 2, 3, 4] as const).map(rangerSocketsDescriptor), [undefined, RANGER_V2_SOCKETS_DESCRIPTOR, RANGER_V2_SOCKETS_DESCRIPTOR, RANGER_SOCKETS_DESCRIPTOR]);
+  assert.notEqual(RANGER_SOCKETS_DESCRIPTOR, RANGER_V2_SOCKETS_DESCRIPTOR);
   assert.deepEqual(RANGER_TEXTURE_POLICY, {
     maxEdgeBySlot: { baseColor: 1024, normal: 1024, metallicRoughness: 512, occlusion: 512, emissive: 1024 }, default: 1024,
   });
 });
 
-test("the Ranger v3 recipe builds a verified bundle: in-place clips, equipment entries, the sockets attachment and game-resolution textures", { skip: await skipReason(), timeout: 900_000 }, async () => {
+test("the Ranger v4 recipe builds a verified bundle: in-place clips, equipment entries, the sockets attachment and game-resolution textures", { skip: await skipReason(), timeout: 900_000 }, async () => {
   const outDir = await mkdtemp(path.join(os.tmpdir(), "humanoid-ranger-"));
   try {
     const built = await buildRangerCharacter({ processorCheckout: CHECKOUT!, outDir });
@@ -83,8 +86,8 @@ test("the Ranger v3 recipe builds a verified bundle: in-place clips, equipment e
 
     const { gltf, resources } = await readAssetBundleGltf(built.bundleDir, manifest, RANGER_BUNDLE_KEY, RANGER_BUNDLE_VARIANT);
     const document = await new NodeIO().readJSON({ json: JSON.parse(gltf.toString("utf8")), resources: Object.fromEntries(resources) });
-    // v3: 13 PNG textures, each within its slot's limit, the 4096 px sources reduced and none upscaled.
-    assert.equal(built.lineage.version, 3);
+    // v3 and v4: 13 PNG textures, each within its slot's limit, the 4096 px sources reduced and none upscaled.
+    assert.equal(built.lineage.version, 4);
     const textures = built.lineage.textures![RANGER_BUNDLE_KEY]!;
     assert.equal(document.getRoot().listTextures().length, 13);
     for (const image of textures.images) {

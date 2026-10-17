@@ -11,7 +11,7 @@ A `humanoid-sockets-v1` descriptor declares the attachment frames of one humanoi
   "attachFrame": "grip",
   "sockets": [
     {"id": "hand_r.weapon", "joint": "hand_r",
-     "translation": [-0.035, 0.09, -0.005], "rotation": [0.298837, 0.640856, 0.298837, 0.640856],
+     "translation": [-0.0365, 0.0839, -0.0043], "rotation": [0.415728, 0.576917, 0.446029, 0.543503],
      "accepts": ["one-hand-weapon"]}
   ]
 }
@@ -31,19 +31,61 @@ A `humanoid-sockets-v1` descriptor declares the attachment frames of one humanoi
 
 ## Ranger sockets
 
-[`assets/descriptors/humanoid.ranger.male.sockets.json`](../assets/descriptors/humanoid.ranger.male.sockets.json) is the versioned descriptor for `humanoid.ranger.male` ([humanoid-ranger.md](humanoid-ranger.md)). The Ranger bundle v2 ships it as the `humanoid-sockets` attachment of the character entry, next to the `equipment.sword.arming` and `equipment.shield.heater` entries.
+[`assets/descriptors/humanoid.ranger.male.sockets.json`](../assets/descriptors/humanoid.ranger.male.sockets.json) is the versioned descriptor for `humanoid.ranger.male` ([humanoid-ranger.md](humanoid-ranger.md)). The Ranger bundle v4 ships it as the `humanoid-sockets` attachment of the character entry, next to the `equipment.sword.arming` and `equipment.shield.heater` entries. Bundles v2 and v3 ship the earlier descriptor, kept byte for byte as [`humanoid.ranger.male.sockets.bundle-v2.json`](../assets/descriptors/humanoid.ranger.male.sockets.bundle-v2.json) so that those versions stay reproducible.
 
 | Socket | Joint | Accepts | Placement |
 | --- | --- | --- | --- |
-| `hand_r.weapon` | `hand_r` | `one-hand-weapon` | The grip lies across the palm at the finger roots, 9 cm along the fingers and 3.5 cm to the palm side. The blade leaves the fist past the thumb and leans 40° toward the fingers, so the sword points forward and down from a hanging arm. |
-| `hand_l.shield` | `hand_l` | `shield` | The handle is in the palm. The face points away from the back of the hand, and the forearm axis runs back toward the elbow. With the arm hanging, the shield is upright on the outside of the forearm with its point down. |
+| `hand_r.weapon` | `hand_r` | `one-hand-weapon` | The grip centre is in the palm, 3 cm below the knuckle plane and 80 % of the way from the hand joint to the knuckles. The grip runs along the knuckle line and the blade leaves the fist on the thumb side. The edges point along the fingers, and the flats face the palm and the back of the hand. |
+| `hand_l.shield` | `hand_l` | `shield` | The handle centre is at the same grip point of the left hand. The face points out of the back of the hand and the top toward the thumb, so the point hangs below the little finger and the forearm crosses the board. |
 | `back.stowed` | `spine_03` | `shield` | The shield is centred between the shoulder blades, face out and point down. |
 | `hip_l.stowed` | `pelvis` | `one-hand-weapon` | The hilt is at the front left hip, with the flats facing outward and the blade running down and back. |
 
-How the values were authored: the hand sockets are set in joint-local terms. In the Ranger's T-pose, `hand_*` +Y runs along the fingers and +Z toward the thumb. The palm faces −X on the right hand and +X on the left. The stowed sockets were set from rest-pose world intents and converted into the joint frames. All four were checked visually in Blender with `examples/weapons/socket-sheets.py` (or `bun examples/weapons/build.ts --sheets <default.gltf>`). The script imports the bundle's `default.gltf`, recovers each glTF joint's world transform through the importer's bone correction, places the weapon GLBs with the socket TRS, and renders front, side, back and close-up sheets at rest, at the middle of `Idle_Loop`, and at a quarter and the middle of `Walk_Loop`. `--poses=<clip>@<fraction>,…` renders other poses instead, one `sheet-<clip>-<percent>.png` per pose.
+| Socket | Translation (before → after) | Rotation x, y, z, w (before → after) |
+| --- | --- | --- |
+| `hand_r.weapon` | `[-0.035, 0.09, -0.005]` → `[-0.0365, 0.0839, -0.0043]` | `[0.298837, 0.640856, 0.298837, 0.640856]` → `[0.415728, 0.576917, 0.446029, 0.543503]` |
+| `hand_l.shield` | `[0.03, 0.085, -0.005]` → `[0.0365, 0.0839, -0.0043]` | `[0.707107, 0, -0.707107, 0]` → `[0.415728, -0.576917, -0.446029, 0.543503]` |
 
-Known limits of this slice:
+### How the hand sockets are derived
+
+The bundle-v2 hand sockets were tuned for a hanging arm. The blade leaned 40° toward the fingers so that it looked right at rest, and the shield's vertical axis followed the forearm. In the combat clips, the sword then pointed sideways at hip height in `Sword_Idle`, and the shield lay on its side in the `Idle_Shield_Loop` guard. The current hand sockets are not tuned for any pose. [`examples/weapons/derive-sockets.ts`](../examples/weapons/derive-sockets.ts) derives them from the rig's rest pose in each hand joint's own frame:
+
+```sh
+bun examples/weapons/derive-sockets.ts            # writes assets/descriptors/humanoid.ranger.male.sockets.json
+bun examples/weapons/derive-sockets.ts --check    # exits 1 if the committed file differs
+bun examples/weapons/derive-sockets.ts --rig <rig.gltf> --out <sockets.json> --weapon-hand l
+```
+
+1. **Hand frame.** From the rest positions of `index_01`, `middle_01`, `ring_01`, `pinky_01` and `thumb_03`, expressed in the `hand_*` joint frame, the script takes three directions:
+   - **fingers:** the direction from the hand joint to `middle_01`;
+   - **knuckle line:** the direction from `pinky_01` to `index_01`, which points toward the thumb side;
+   - **palm normal:** the direction perpendicular to both, on the side where the thumb tip lies.
+
+   For the Ranger the fingers run along +Y and the knuckle line along +Z, leaning about 15° toward the fingers. The palm faces −X on the right hand and +X on the left.
+2. **Grip point.** The grip point is 80 % of the way from the hand joint to the knuckle centroid, then 3 cm toward the palm (`GRIP` in the script). That is where a fist's finger rings close around a grip.
+3. **One-hand weapon.** In the weapon's grip frame ([weapon-recipes.md](weapon-recipes.md)), +Y runs along the knuckle line, +Z (the flats) faces the back of the hand, and +X = Y × Z (the edges) runs along the fingers. A closed fist holds a grip along its knuckle line. In UAL1's fist poses, the circle centres of the curled fingers lie on a line within 1° of the knuckle line. That is why the blade leans with the knuckle line, not 40°.
+4. **Shield.** The handle centre is at the shield hand's grip point. +Z (the face) points out of the back of the hand, +Y (the top) points along the knuckle line toward the thumb, and +X = Y × Z. In the `Idle_Shield_Loop` guard, the fist is held thumb up in front of the chest, so the shield stands upright with its face forward and its point down. The forearm crosses the board as on enarmes.
+5. **Output.** The script writes the hand sockets after the unchanged stowed sockets of `RANGER_STOWED_SOCKETS`, validates the descriptor against the rig's skin joints, and writes it in the committed layout. Translations are rounded to 0.1 mm and quaternions to six decimals. `deriveHandSockets(gltf, {weaponHand})` and `handFrame(worlds, side)` take any rig with UE-style `hand_*`, `*_01_*` and `thumb_03_*` joint names. `--weapon-hand l` derives `hand_l.weapon` and `hand_r.shield` for a left-handed character.
+
+`test/humanoid-sockets.test.ts` checks the following:
+
+- the derived axes of the committed sockets;
+- that the derivation does not depend on where the rig is placed in the world;
+- that the script reproduces the committed file byte for byte from the canonical `Male_Ranger.gltf` (skipped without Git LFS);
+- that the bundle-v2 descriptor still has its shipped sha256.
+
+The sockets were checked visually in Blender with `examples/weapons/socket-sheets.py` (or `bun examples/weapons/build.ts --sheets <default.gltf>`). The script does the following:
+
+- It imports the bundle's `default.gltf` and recovers each glTF joint's world transform through the importer's bone correction.
+- It places the weapon GLBs with the socket TRS.
+- It renders front, side, back and close-up sheets at rest, at the middle of `Idle_Loop`, and at a quarter and the middle of `Walk_Loop`.
+- `--poses=<clip>@<fraction>,…` renders other poses instead, one `sheet-<clip>-<percent>.png` per pose.
+
+The per-pose findings for v4 are in [humanoid-ranger.md](humanoid-ranger.md#visual-check-of-the-v4-sockets).
+
+Known limits:
 
 - The Ranger's fingers keep their open rest pose because finger retargeting is #115. The fingers therefore lie along the grip and do not wrap it.
-- During `Walk_Loop`, the left hand brushes the stowed sword's hilt, and the shield's top corner comes close to the left pauldron.
-- The combat clips of the [Ranger bundle v2](humanoid-ranger.md#visual-check-of-the-v2-clips) show where the hand sockets fall short. The sword points sideways in `Sword_Idle`, and in the `Idle_Shield_Loop` guard the shield sits on its side because its vertical axis follows the forearm. Guard-specific sockets, or a revised `hand_l.shield`, are follow-up work, as are two-handed poses.
+- The shield recipe's forearm strap sits 16 cm along the shield's +Y, because the recipe assumes the forearm runs along the shield's vertical axis. With the enarmes-style socket, the forearm crosses the board instead, so the strap floats beside the wrist behind the board. Only the back and close-up views show it. A strap placed for a crossing forearm is a weapon-recipe change.
+- With a hanging arm (`Idle_Loop`, `Walk_Loop`), the shield's top tilts forward with the thumb, and the sword points forward from the hip.
+- The stowed sockets are unchanged. During `Walk_Loop` the left hand brushes the stowed sword's hilt, and the shield's top corner comes close to the left pauldron.
+- Two-handed poses are follow-up work.
