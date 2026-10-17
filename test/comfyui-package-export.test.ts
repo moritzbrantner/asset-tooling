@@ -535,7 +535,7 @@ async function exportedBridgeTemplates(): Promise<Record<string, string>> {
   return templates;
 }
 
-test("#221: existing exported operations and bridge templates are unchanged; exactly ComfyUI, asset.bundle@3 (#223), asset.bundle@4 (#118/#110), image.generate@1 (#222), scene.compose.skinned.gltf@1 and scene.subset.skinned.gltf@1 (#110) are added", async () => {
+test("#221: existing exported operations and bridge templates are unchanged; exactly ComfyUI, asset.bundle@3 (#223), asset.bundle@4 (#118/#110), image.generate@1 (#222), scene.compose.skinned.gltf@1, scene.subset.skinned.gltf@1, animation.retarget@1 and the glTF clip extract/embed operations (#110) are added", async () => {
   const baseline = JSON.parse(await readFile(BASELINE_PATH, "utf8")) as { templates: Record<string, string> };
   const current = await exportedBridgeTemplates();
   const added = Object.keys(current).filter((key) => !(key in baseline.templates)).sort();
@@ -548,8 +548,16 @@ test("#221: existing exported operations and bridge templates are unchanged; exa
   // #222 adds image.generate@1 (provider plus pinned model profiles, Decision 5.1.4).
   // #110 adds scene.compose.skinned.gltf@1 (asset-tooling/operations/processing/gltf-compose).
   // #110 adds scene.subset.skinned.gltf@1 (asset-tooling/operations/processing/gltf-subset, owner option A).
+  // #110 adds animation.retarget@1 (asset-tooling/operations/processing/animation, 3d-lab three-d-animation-retarget).
+  // #110 adds scene.extract.animation.gltf@1 and scene.embed.animation.gltf@1 (asset-tooling/operations/processing/gltf-animation).
   assert.deepEqual(
     { added, removed, changed },
-    { added: ["asset.bundle@3", "asset.bundle@4", OPERATION_KEY, "image.generate@1", "scene.compose.skinned.gltf@1", "scene.subset.skinned.gltf@1"], removed: [], changed: [] },
+    {
+      added: [
+        "animation.retarget@1", "asset.bundle@3", "asset.bundle@4", OPERATION_KEY, "image.generate@1", "scene.compose.skinned.gltf@1",
+        "scene.embed.animation.gltf@1", "scene.extract.animation.gltf@1", "scene.subset.skinned.gltf@1",
+      ],
+      removed: [], changed: [],
+    },
   );
 });
