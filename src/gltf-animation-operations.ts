@@ -154,6 +154,19 @@ function rigSkin(document: Document, code: string): Skin {
     if (!jointName) throw new Error(`/skins/0/joints/${index}: ${code}_JOINT_UNNAMED: rig joints are bound by name`);
   }
   if (new Set(names).size !== names.length) throw new Error(`/skins/0: ${code}_JOINT_NAME_DUPLICATE: rig joint names must be unique`);
+  // A joint's rig parent is its glTF parent. A non-joint helper between two joints would make the joint
+  // look like a root with a TRS relative to the omitted helper, and embedded keys would be applied in the
+  // helper's space, so such skins are rejected rather than silently disconnected.
+  const jointSet = new Set(skin.listJoints());
+  for (const [index, joint] of skin.listJoints().entries()) {
+    let ancestor = joint.getParentNode();
+    if (!ancestor || jointSet.has(ancestor)) continue;
+    const helper = ancestor;
+    while (ancestor && !jointSet.has(ancestor)) ancestor = ancestor.getParentNode();
+    if (ancestor) {
+      throw new Error(`/skins/0/joints/${index}: ${code}_JOINT_HELPER_ANCESTOR: joint '${joint.getName()}' is below joint '${ancestor.getName()}' through non-joint node '${helper.getName()}'; rig joints must be direct children of their joint parent`);
+    }
+  }
   return skin;
 }
 

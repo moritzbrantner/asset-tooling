@@ -68,7 +68,7 @@ Asset-tooling implements no part of the retargeting. Processor `three-d-animatio
 - It scales hips and root translation by the ratio of the reference heights.
 - With `in-place`, it removes the model-space horizontal part of that translation and keeps the vertical bob.
 
-The reference height of each rig is its hips joint's model-space height at rest, taken through every ancestor (`scene.extract.animation.gltf@1`): 0.9167 m for UAL1 `DEF-hips` and 0.9491 m for UBC `pelvis`. The sample grid is `start + i/30` up to the clip's last key. If the last key is not on the grid, it is added, so both loop endpoints are sampled. Output keys are written as LINEAR glTF samplers on the skin's joint nodes.
+The reference height of each rig is its hips joint's model-space height at rest, taken through every ancestor (`scene.extract.animation.gltf@1`): 0.9167 m for UAL1 `DEF-hips` and 0.9491 m for UBC `pelvis`. The sample grid is `start + i/30` up to the clip's last key. The last sample is always exactly the clip's last key, never past it, so both loop endpoints are sampled. Output keys are written as LINEAR glTF samplers on the skin's joint nodes.
 
 From the recorded build:
 

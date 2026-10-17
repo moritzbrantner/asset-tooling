@@ -1168,8 +1168,8 @@ function strictlyIncreasingTimes(values, location) {
 }
 
 /**
- * The sample grid for `sampleRate`: `start + i / rate` over the clip's aggregate key domain, plus the
- * exact end time when the grid does not land on it, so both loop endpoints are always sampled.
+ * The sample grid for `sampleRate`: `start + i / rate` over the clip's aggregate key domain, ending
+ * exactly at the clip end (never past it), so both loop endpoints are always sampled.
  */
 export function retargetSampleTimes(startSeconds, endSeconds, sampleRate) {
   const span = endSeconds - startSeconds;
@@ -1177,7 +1177,9 @@ export function retargetSampleTimes(startSeconds, endSeconds, sampleRate) {
   if (steps + 2 > MAX_SAMPLE_COUNT) throw new Error(`animation.retarget sampleRate yields more than ${MAX_SAMPLE_COUNT} samples`);
   const times = [];
   for (let index = 0; index <= steps; index += 1) times.push(Math.fround(startSeconds + index / sampleRate));
+  // The last sample is exactly the clip end: ticks at or past it, or within the fudge below it, are replaced.
   const end = Math.fround(endSeconds);
+  while (times.length > 1 && times[times.length - 1] >= end - 1e-6 / sampleRate) times.pop();
   if (times[times.length - 1] < end) times.push(end);
   return strictlyIncreasingTimes(times, "animation.retarget sample grid");
 }

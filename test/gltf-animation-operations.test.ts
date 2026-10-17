@@ -143,6 +143,19 @@ test("embed rejects an existing or duplicated clip name and nodes outside the sk
   await assert.rejects(executeGltfEmbedAnimationOperation(root, { inputs: { source: plain, animations: [outside] }, parameters: { clips: [{ name: "A" }], policy: POLICY } }), /EMBED_NODE_OUT_OF_RANGE/);
 });
 
+test("a joint below another joint through a non-joint helper is rejected, not emitted as a root", async (t) => {
+  // Regression (PR #255): root > helper (non-joint, offset) > hips must not become two disconnected roots.
+  const { root } = await workspace(t);
+  const document = await new NodeIO().readBinary(await skinnedGlb(false));
+  const joints = document.getRoot().listSkins()[0]!.listJoints();
+  const [rootJoint, hips] = [joints[0]!, joints[1]!];
+  const helper = document.createNode("helper").setTranslation([0, 0.25, 0]);
+  rootJoint.removeChild(hips); rootJoint.addChild(helper); helper.addChild(hips);
+  const source = (await storeAssetObject(root, { bytes: await new NodeIO().writeBinary(document), kind: "scene", mediaType: "model/gltf-binary" })).asset;
+  await assert.rejects(executeGltfExtractAnimationOperation(root, { inputs: { source }, parameters: { hipsJoint: "hips", policy: POLICY } }),
+    /EXTRACT_JOINT_HELPER_ANCESTOR: joint 'hips' is below joint 'root' through non-joint node 'helper'/);
+});
+
 test("the package subpath exports the same operations", async () => {
   const api = await import("asset-tooling/operations/processing/gltf-animation");
   assert.equal(api.executeGltfExtractAnimationOperation, executeGltfExtractAnimationOperation);

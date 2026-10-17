@@ -95,6 +95,11 @@ test("sampleRate grids cover both clip endpoints", () => {
   assert.deepEqual(retargetSampleTimes(0, 1, 4), [0, 0.25, 0.5, 0.75, 1]);
   assert.deepEqual(retargetSampleTimes(0, 0.9, 2), [0, 0.5, Math.fround(0.9)]);
   assert.equal(retargetSampleTimes(0, Math.fround(4 / 3), 30).length, 41);
+  // Regression (PR #255): an end just below a grid tick is the last sample, not the overshooting tick.
+  const end = Math.fround(0.99999988);
+  assert.deepEqual(retargetSampleTimes(0, end, 1), [0, end]);
+  const walk = retargetSampleTimes(0, Math.fround(4 / 3), 30);
+  assert.equal(walk[walk.length - 1], Math.fround(4 / 3));
 });
 
 test("animation.retarget@1 runs the processor on converted bindings and checks its output", async (t) => {
