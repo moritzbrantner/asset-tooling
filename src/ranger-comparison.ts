@@ -17,12 +17,12 @@ export type PinnedGltf = { document: PinnedFile; resources: Record<string, Pinne
 
 /** The processed bundle the page compares: a published release, pinned like any consumer pins it. */
 export const RANGER_COMPARISON_BUNDLE = {
-  tag: "humanoid-ranger-male-v7",
-  url: "https://github.com/moritzbrantner/asset-tooling/releases/tag/humanoid-ranger-male-v7",
-  tarSha256: "62bbe8637421f6ef22fa4f91ff329ba1b8092836bb47e202bf5e6dfa3f9b0c0a",
+  tag: "humanoid-ranger-male-v8",
+  url: "https://github.com/moritzbrantner/asset-tooling/releases/tag/humanoid-ranger-male-v8",
+  tarSha256: "e3c725611db12e499c0f84b519cb030eec3ad717c4a391d0eb47c9902e785df1",
   exportRef: {
-    byteLength: 11744, kind: "asset-bundle", mediaType: "application/vnd.moritzbrantner.asset-bundle+json",
-    metadata: {}, schemaVersion: 1, sha256: "f211bdbdcf086a4af1c887afa9ecbd34ad7945ca1067f72ef119182a8d3ed8c7",
+    byteLength: 11876, kind: "asset-bundle", mediaType: "application/vnd.moritzbrantner.asset-bundle+json",
+    metadata: {}, schemaVersion: 1, sha256: "5e2a759196706cd0c6a99ee505f6fc8b4a83f39528495a34e0031e9d4be8f827",
   },
   key: "humanoid.ranger.male",
   variant: "default",
