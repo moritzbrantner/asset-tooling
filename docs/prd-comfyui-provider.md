@@ -58,15 +58,15 @@ The operation hashes and injects one file, `checkpoint`. For these split models,
 
 Every listed sha256 equals the provider's LFS sha256 at that revision. The Comfy-Org repositories are ComfyUI's official single-file repackagings of the upstream weights, and their model cards also declare apache-2.0. The FP8 klein file and the fp8 text encoder fit an 8 GB GPU. On an RTX 3060 Ti (2026-10-17), one 1024×1024 image took about 9 s with klein (4 steps) and about 24 s with Z-Image Turbo (8 steps, bf16 weights partially offloaded by ComfyUI). Both run on ComfyUI 0.41.0 without custom nodes.
 
-Acquire each file as its own explicit step, not as a repository snapshot, and keep it outside Git:
+Acquire the files of a profile with `acquire-file` ([model-acquisition.md](model-acquisition.md#single-file-acquisition-for-comfyui)): it downloads each pinned file alone at its commit, verifies size and sha256, places it atomically with a `.receipt.json`, and is a no-op for files already present. Keep the models outside Git:
 
 ```sh
 M=.artifacts/toolchain/comfy-workspace/ComfyUI/models
-curl -fL -o "$M/diffusion_models/flux-2-klein-4b-fp8.safetensors" \
-  "https://huggingface.co/black-forest-labs/FLUX.2-klein-4b-fp8/resolve/5b4408e59397a4a37ccb46afe426d8ed86379441/flux-2-klein-4b-fp8.safetensors"
-# likewise for every row above: https://huggingface.co/<repository>/resolve/<revision>/<file>
-sha256sum "$M"/diffusion_models/*.safetensors "$M"/vae/*.safetensors "$M"/text_encoders/*.safetensors   # compare with the table
+python scripts/acquire-huggingface-model.py acquire-file --profile flux2-klein-4b --models-dir "$M"
+python scripts/acquire-huggingface-model.py acquire-file --profile z-image-turbo --models-dir "$M"
 ```
+
+SD 1.5 (deprecated, Decision 4.1.4) has no profile; its old manual download is not repeated here. If it is ever needed again, pass its pin below to `acquire-file` explicitly.
 
 The prepared workflows and the per-model pins live in `review/warden-icons/` (`workflow.flux2-klein-4b-icon.api.json`, `workflow.z-image-turbo-icon.api.json` and the `models` list of `candidates.json`). Both models are distilled for CFG 1, so they ignore negative prompts; their workflows take no `negativePrompt` injection, and style brief v2 states its exclusions in the positive prompt.
 
