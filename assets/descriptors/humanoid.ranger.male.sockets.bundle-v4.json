@@ -1,0 +1,21 @@
+{
+  "schema": "humanoid-sockets-v1",
+  "character": "humanoid.ranger.male",
+  "unit": "meter",
+  "axes": "right-handed-y-up",
+  "attachFrame": "grip",
+  "sockets": [
+    {"id": "hand_r.weapon", "joint": "hand_r",
+     "translation": [-0.0365, 0.0839, -0.0043], "rotation": [0.415728, 0.576917, 0.446029, 0.543503],
+     "accepts": ["one-hand-weapon"]},
+    {"id": "hand_l.shield", "joint": "hand_l",
+     "translation": [0.0365, 0.0839, -0.0043], "rotation": [0.415728, -0.576917, -0.446029, 0.543503],
+     "accepts": ["shield"]},
+    {"id": "back.stowed", "joint": "spine_03",
+     "translation": [0, -0.061607, -0.226519], "rotation": [0, 0.993595, 0.113001, 0],
+     "accepts": ["shield"]},
+    {"id": "hip_l.stowed", "joint": "pelvis",
+     "translation": [0.175, 0.142748, 0.127956], "rotation": [-0.667907, 0.090365, -0.701309, 0.232164],
+     "accepts": ["one-hand-weapon"]}
+  ]
+}

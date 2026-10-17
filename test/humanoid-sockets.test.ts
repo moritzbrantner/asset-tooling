@@ -14,10 +14,14 @@ const hydrated=!outfitText.startsWith("version https://git-lfs.github.com/spec/v
 const socket=(change:Partial<Record<keyof HumanoidSocket,unknown>>={})=>({id:"hand_r.weapon",joint:"hand_r",translation:[0,.1,0],rotation:[0,0,0,1],accepts:["one-hand-weapon"],...change});
 const make=(sockets:unknown[])=>({schema:HUMANOID_SOCKETS_SCHEMA,character:"humanoid.ranger.male",unit:"meter",axes:"right-handed-y-up",attachFrame:"grip",sockets});
 
-test("the committed Ranger descriptor declares the hand and stowed sockets for the weapon roles",()=>{
+test("the committed Ranger descriptor declares the hand, stowed and archery sockets",()=>{
  const d=validateHumanoidSocketDescriptor(descriptor,{joints:["hand_r","hand_l","spine_03","pelvis"]});
  assert.deepEqual(d,descriptor,"the committed file is already canonical");
- assert.deepEqual(d.sockets.map(s=>[s.id,s.joint]),[["hand_r.weapon","hand_r"],["hand_l.shield","hand_l"],["back.stowed","spine_03"],["hip_l.stowed","pelvis"]]);
+ assert.deepEqual(d.sockets.map(s=>[s.id,s.joint]),[["hand_r.weapon","hand_r"],["hand_l.shield","hand_l"],["back.stowed","spine_03"],["hip_l.stowed","pelvis"],
+  ["hand_l.bow","hand_l"],["hand_r.arrow","hand_r"],["back.quiver","spine_03"],["back.bow.stowed","spine_03"]]);
+ assert.deepEqual(humanoidSocketsAccepting(d,"bow"),["hand_l.bow","back.bow.stowed"]);
+ assert.deepEqual(humanoidSocketsAccepting(d,"arrow"),["hand_r.arrow"]);
+ assert.deepEqual(humanoidSocketsAccepting(d,"quiver"),["back.quiver"]);
  assert.deepEqual(humanoidSocketsAccepting(d,WEAPON_ROLES["sword.arming"]),["hand_r.weapon","hip_l.stowed"]);
  assert.deepEqual(humanoidSocketsAccepting(d,WEAPON_ROLES["shield.heater"]),["hand_l.shield","back.stowed"]);
  // In the hand_r frame the fingers run along +Y, the thumb side is +Z and the palm faces -X. The blade (+Y) runs
@@ -38,7 +42,13 @@ test("the bundle-v2 descriptor (shipped by Ranger v2 and v3) is kept byte for by
  const bytes=await readFile(new URL("../assets/descriptors/humanoid.ranger.male.sockets.bundle-v2.json",import.meta.url));
  assert.equal(createHash("sha256").update(bytes).digest("hex"),"3f71c0346200ddf03b45f191e35325ecedb41e937dab225c97ea31ac7542dfb1");
  const old=validateHumanoidSocketDescriptor(JSON.parse(bytes.toString("utf8")));
- assert.deepEqual(old.sockets.slice(2),descriptor.sockets.slice(2),"the stowed sockets are unchanged");
+ assert.deepEqual(old.sockets.slice(2),descriptor.sockets.slice(2,4),"the stowed sockets are unchanged");
+});
+
+test("the bundle-v4 descriptor (shipped by Ranger v4-v6) is kept byte for byte and is the v7 descriptor without the archery sockets",async()=>{
+ const bytes=await readFile(new URL("../assets/descriptors/humanoid.ranger.male.sockets.bundle-v4.json",import.meta.url));
+ const old=validateHumanoidSocketDescriptor(JSON.parse(bytes.toString("utf8")));
+ assert.deepEqual(old.sockets,descriptor.sockets.slice(0,4));
 });
 
 test("hand frames are derived in the joint's own frame, independent of the rig's world placement",()=>{

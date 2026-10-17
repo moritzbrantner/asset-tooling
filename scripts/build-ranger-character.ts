@@ -1,6 +1,6 @@
 // Build the Ranger character bundle end to end from its canonical catalog members
 // (docs/humanoid-ranger.md):
-//   bun scripts/build-ranger-character.ts --processor-checkout <3d-lab checkout> --out <directory> [--version 1|2|3|4|5|6]
+//   bun scripts/build-ranger-character.ts --processor-checkout <3d-lab checkout> --out <directory> [--version 1|2|3|4|5|6|7]
 // The 3d-lab checkout must be source-clean at the commit stability/processors.json pins for
 // `three-d-animation-retarget`, with its cargo dependencies fetched (the processor runs --offline).
 // <directory> becomes the object-store root; the bundle is exported to <directory>/bundle and packed
@@ -20,6 +20,10 @@
 // Version 6 (the default, #112) is v5 with the traversal clips (UAL1 jump, crouch and roll; UAL2 climb
 // and slide) and a `humanoid-clips` attachment that records each clip's source, loop flag, duration,
 // the source root displacement removed by in-place retargeting, and the ground speed of the gaits.
+// Version 7 (the default, #113 bow slice and #114) is v6 with the scripted bow, arrow and quiver entries
+// (adapters/blender/archery.py; the bow is skinned to `grip` and `nock`), the archery sockets, and the
+// owner-picked sword, shield, hit and cast clips; `humanoid-clips` adds each clip's combat role and,
+// for strikes, the contact time.
 import path from "node:path";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
@@ -39,6 +43,7 @@ import { executeGltfTextureResizeOperation } from "../src/gltf-texture-resize-op
 import { validateHumanoidSocketDescriptor } from "../src/humanoid-sockets.js";
 import { generateAsset } from "../src/index.js";
 import { WEAPON_PRESETS, createWeaponAssetSpec, readWeaponRecipeSource, type WeaponPiece } from "../src/weapon-recipes.js";
+import { ARCHERY_PRESETS, createArcheryAssetSpec, readArcheryRecipeSource, type ArcheryPiece } from "../src/archery-recipes.js";
 import type { AssetOperationResult, AssetRef } from "../src/operations.js";
 
 type Json = Record<string, any>;
@@ -57,9 +62,9 @@ export const RANGER_MEMBERS = {
   clips: { archive: "quaternius.universal-animation-library-standard", path: "Animation Library[Standard]/Godot/AnimationLibrary_Godot_Standard.glb" },
   clips2: { archive: "quaternius.universal-animation-library-2-standard", path: "Universal Animation Library 2 [Standard]/Unreal-Godot/UAL2_Standard.glb" },
 } as const;
-export type RangerVersion = 1 | 2 | 3 | 4 | 5 | 6;
-export const RANGER_VERSIONS: readonly RangerVersion[] = [1, 2, 3, 4, 5, 6];
-export const RANGER_DEFAULT_VERSION: RangerVersion = 6;
+export type RangerVersion = 1 | 2 | 3 | 4 | 5 | 6 | 7;
+export const RANGER_VERSIONS: readonly RangerVersion[] = [1, 2, 3, 4, 5, 6, 7];
+export const RANGER_DEFAULT_VERSION: RangerVersion = 7;
 /** v3 (#257): per-slot maximum texture edges for browser delivery; images are never upscaled. */
 export const RANGER_TEXTURE_POLICY = {
   maxEdgeBySlot: { baseColor: 1024, normal: 1024, metallicRoughness: 512, occlusion: 512, emissive: 1024 },
@@ -103,11 +108,57 @@ export const RANGER_V6_CLIPS: readonly RangerClip[] = [
   { name: "Slide_Loop", library: "clips2", rootMotion: "in-place" },
   { name: "Slide_Exit", library: "clips2", rootMotion: "in-place" },
 ];
+/** v7 (#114, owner picks 2026-10-17): sword strikes, shield, hit reactions and casting. Bow clips are split out. */
+export const RANGER_V7_CLIPS: readonly RangerClip[] = [
+  ...RANGER_V6_CLIPS,
+  { name: "Sword_Regular_A", library: "clips2", rootMotion: "in-place" },
+  { name: "Sword_Regular_A_Rec", library: "clips2", rootMotion: "in-place" },
+  { name: "Sword_Regular_B", library: "clips2", rootMotion: "in-place" },
+  { name: "Sword_Regular_B_Rec", library: "clips2", rootMotion: "in-place" },
+  { name: "Sword_Regular_C", library: "clips2", rootMotion: "in-place" },
+  { name: "Sword_Regular_Combo", library: "clips2", rootMotion: "in-place" },
+  { name: "Sword_Block", library: "clips2", rootMotion: "in-place" },
+  { name: "Idle_Shield_Break", library: "clips2", rootMotion: "in-place" },
+  { name: "Shield_OneShot", library: "clips2", rootMotion: "in-place" },
+  { name: "Hit_Chest", library: "clips", rootMotion: "in-place" },
+  { name: "Hit_Head", library: "clips", rootMotion: "in-place" },
+  { name: "Hit_Knockback", library: "clips2", rootMotion: "in-place" },
+  { name: "Spell_Simple_Enter", library: "clips", rootMotion: "in-place" },
+  { name: "Spell_Simple_Idle_Loop", library: "clips", rootMotion: "in-place" },
+  { name: "Spell_Simple_Shoot", library: "clips", rootMotion: "in-place" },
+  { name: "Spell_Simple_Exit", library: "clips", rootMotion: "in-place" },
+];
+/**
+ * v7 combat roles in `humanoid-clips` (#114 Q1, owner picks after preview): `contact` names the joint whose
+ * fastest moment is recorded as `contactSeconds` (presentation data; it never times gameplay).
+ */
+export const RANGER_CLIP_ROLES: Readonly<Record<string, { role: string; contact?: string }>> = {
+  Sword_Idle: { role: "sword.ready" },
+  Sword_Attack: { role: "sword.strike", contact: "hand_r" },
+  Death01: { role: "death" },
+  Idle_Shield_Loop: { role: "shield.guard-hold" },
+  Sword_Regular_A: { role: "sword.light-strike", contact: "hand_r" },
+  Sword_Regular_A_Rec: { role: "sword.light-strike.recovery" },
+  Sword_Regular_B: { role: "sword.counter", contact: "hand_r" },
+  Sword_Regular_B_Rec: { role: "sword.counter.recovery" },
+  Sword_Regular_C: { role: "sword.heavy-strike", contact: "hand_r" },
+  Sword_Regular_Combo: { role: "sword.light-chain", contact: "hand_r" },
+  Sword_Block: { role: "shield.block-impact" },
+  Idle_Shield_Break: { role: "shield.block-break" },
+  Shield_OneShot: { role: "shield.bash", contact: "hand_l" },
+  Hit_Chest: { role: "hit.chest" },
+  Hit_Head: { role: "hit.head" },
+  Hit_Knockback: { role: "hit.knockback" },
+  Spell_Simple_Enter: { role: "cast.enter" },
+  Spell_Simple_Idle_Loop: { role: "cast.hold" },
+  Spell_Simple_Shoot: { role: "cast.release", contact: "hand_r" },
+  Spell_Simple_Exit: { role: "cast.exit" },
+};
 /** The forward gait loops whose ground speed the v6 `humanoid-clips` attachment records. */
 export const RANGER_GAITS: ReadonlySet<string> = new Set(["Walk_Loop", "Jog_Fwd_Loop", "Sprint_Loop", "Crouch_Fwd_Loop"]);
 /** The clips a bundle version retargets, in bundle order. */
 export function rangerClips(version: RangerVersion): readonly RangerClip[] {
-  return version === 1 ? RANGER_CLIPS : version < 6 ? RANGER_V2_CLIPS : RANGER_V6_CLIPS;
+  return version === 1 ? RANGER_CLIPS : version < 6 ? RANGER_V2_CLIPS : version === 6 ? RANGER_V6_CLIPS : RANGER_V7_CLIPS;
 }
 export const RANGER_CLIPS_ATTACHMENT = "humanoid-clips";
 /** v2 equipment entries: weapon-recipe presets, parented at runtime through the sockets descriptor. */
@@ -115,14 +166,22 @@ export const RANGER_V2_EQUIPMENT: readonly { key: string; piece: WeaponPiece }[]
   { key: "equipment.sword.arming", piece: "sword.arming" },
   { key: "equipment.shield.heater", piece: "shield.heater" },
 ];
+/** v7 archery entries (#113 bow slice): archery-recipe presets, parented at runtime through the sockets descriptor. */
+export const RANGER_V7_ARCHERY: readonly { key: string; piece: ArcheryPiece }[] = [
+  { key: "equipment.bow.long", piece: "bow.long" },
+  { key: "equipment.arrow", piece: "arrow" },
+  { key: "equipment.quiver.back", piece: "quiver.back" },
+];
 export const RANGER_SOCKETS_ATTACHMENT = "humanoid-sockets";
-/** The current descriptor (v4 and v5, derived anatomically by examples/weapons/derive-sockets.ts). */
+/** The current descriptor (v7: the hand, stowed and archery sockets, derived by examples/weapons/derive-sockets.ts). */
 export const RANGER_SOCKETS_DESCRIPTOR = "assets/descriptors/humanoid.ranger.male.sockets.json";
+/** The descriptor bundles v4-v6 ship (no archery sockets), kept byte for byte so those versions stay reproducible. */
+export const RANGER_V4_SOCKETS_DESCRIPTOR = "assets/descriptors/humanoid.ranger.male.sockets.bundle-v4.json";
 /** The descriptor bundles v2 and v3 ship, kept byte for byte so those versions stay reproducible. */
 export const RANGER_V2_SOCKETS_DESCRIPTOR = "assets/descriptors/humanoid.ranger.male.sockets.bundle-v2.json";
 /** The sockets descriptor a bundle version ships (v1 has none). */
 export function rangerSocketsDescriptor(version: RangerVersion): string | undefined {
-  return version === 1 ? undefined : version < 4 ? RANGER_V2_SOCKETS_DESCRIPTOR : RANGER_SOCKETS_DESCRIPTOR;
+  return version === 1 ? undefined : version < 4 ? RANGER_V2_SOCKETS_DESCRIPTOR : version < 7 ? RANGER_V4_SOCKETS_DESCRIPTOR : RANGER_SOCKETS_DESCRIPTOR;
 }
 export const RANGER_SAMPLE_RATE = 30;
 
@@ -232,10 +291,11 @@ function atKey<T>(animation: Animation, pick: (count: number) => number, read: (
  * loop flag, the source hips displacement scaled to the Ranger (x/z removed by in-place, y kept) and,
  * for the gaits, the ground speed at which a planted foot moves backwards in the retargeted clip.
  */
-async function rangerClipMotion(root: string, { character, targetRig, sourceRigs, libraries, clips, catalogIds }: {
+async function rangerClipMotion(root: string, { character, targetRig, sourceRigs, libraries, clips, catalogIds, roles = false }: {
   character: AssetRef; targetRig: AssetRef; sourceRigs: Partial<Record<RangerClip["library"], AssetRef>>;
   libraries: Partial<Record<RangerClip["library"], AssetRef>>;
   clips: { name: string; library: string; source: AssetRef; observations: Json }[]; catalogIds: Record<RangerClip["library"], string>;
+  roles?: boolean;
 }) {
   const io = new NodeIO();
   const documents = new Map<string, Document>();
@@ -277,16 +337,47 @@ async function rangerClipMotion(root: string, { character, targetRig, sourceRigs
       speeds.sort((a, b) => a - b);
       entry.groundSpeedMetersPerSecond = round4(speeds[Math.floor(speeds.length / 2)]!);
     }
+    const combat = roles ? RANGER_CLIP_ROLES[clip.name] : undefined;
+    if (combat) {
+      entry.role = combat.role;
+      if (combat.contact) {
+        // Presentation landmark: the sample where the contact joint moves fastest in model space.
+        const retargeted = target.getRoot().listAnimations().find((candidate) => candidate.getName() === clip.name)!;
+        const joint = targetNode(combat.contact);
+        const times = Array.from(retargeted.listSamplers()[0]!.getInput()!.getArray()!);
+        const positions = times.map((_, index) => atKey(retargeted, () => index, () => joint.getWorldTranslation()));
+        let best = 0, fastest = -1;
+        for (let index = 0; index + 1 < positions.length; index += 1) {
+          const speed = Math.hypot(...positions[index + 1]!.map((v, k) => v - positions[index]![k]!)) / (times[index + 1]! - times[index]!);
+          if (speed > fastest) { fastest = speed; best = index; }
+        }
+        entry.contact = { joint: combat.contact, seconds: round4((times[best]! + times[best + 1]!) / 2 - times[0]!), speedMetersPerSecond: round4(fastest) };
+      }
+    }
     entries.push(entry);
   }
   const descriptor = { schema: "humanoid-clips-v1", units: "m", up: "+Y", facing: "+Z", clips: entries };
   return (await storeAssetObject(root, { bytes: Buffer.from(`${canonicalJson(descriptor)}\n`), kind: "humanoid-clips", mediaType: "application/json" })).asset;
 }
 
+/** Generate one archery-recipe preset through the pinned Blender backend and import it (the bow keeps its skin). */
+async function buildArchery(root: string, piece: ArcheryPiece) {
+  const source = await readArcheryRecipeSource();
+  const workspace = path.join(root, "archery", piece);
+  await mkdir(workspace, { recursive: true });
+  await writeFile(path.join(workspace, "archery.py"), source.bytes);
+  const spec = createArcheryAssetSpec({ assetId: `archery.${piece}`, parameters: ARCHERY_PRESETS[piece], scriptSha256: source.sha256, blenderVersion: source.blenderVersion });
+  const specPath = path.join(workspace, "asset.json");
+  await writeFile(specPath, `${canonicalJson(spec)}\n`);
+  await generateAsset(specPath);
+  const glb = (await storeAssetObject(root, { bytes: await readFile(path.join(workspace, "archery.glb")), kind: "mesh", mediaType: "model/gltf-binary" })).asset;
+  return single(await executeGltfProductionImportOperation(root, { inputs: { source: glb }, parameters: { policy: POLICY } }));
+}
+
 export async function buildRangerCharacter({ processorCheckout, outDir, version = RANGER_DEFAULT_VERSION, log = () => {} }: {
   processorCheckout: string; outDir: string; version?: RangerVersion; log?: (line: string) => void;
 }) {
-  if (!RANGER_VERSIONS.includes(version)) throw new Error("Ranger bundle version must be 1, 2, 3, 4, 5 or 6");
+  if (!RANGER_VERSIONS.includes(version)) throw new Error("Ranger bundle version must be 1, 2, 3, 4, 5, 6 or 7");
   const root = path.resolve(outDir);
   await mkdir(root, { recursive: true });
   const processor = await rangerProcessor(path.resolve(processorCheckout));
@@ -390,7 +481,7 @@ export async function buildRangerCharacter({ processorCheckout, outDir, version 
     attachments.push(sockets);
     if (version >= 6) {
       log(`measure clip motion and attach '${RANGER_CLIPS_ATTACHMENT}'`);
-      clipMotion = await rangerClipMotion(root, { character, targetRig, sourceRigs, libraries: loaded, clips, catalogIds: { clips: memberId(RANGER_MEMBERS.clips), clips2: memberId(RANGER_MEMBERS.clips2) } });
+      clipMotion = await rangerClipMotion(root, { character, targetRig, sourceRigs, libraries: loaded, clips, catalogIds: { clips: memberId(RANGER_MEMBERS.clips), clips2: memberId(RANGER_MEMBERS.clips2) }, roles: version >= 7 });
       selections[0]!.attachments.push({ name: RANGER_CLIPS_ATTACHMENT });
       attachments.push(clipMotion);
     }
@@ -399,6 +490,14 @@ export async function buildRangerCharacter({ processorCheckout, outDir, version 
       weapons[key] = await buildWeapon(root, piece);
       selections.push({ key, variant: RANGER_BUNDLE_VARIANT });
       assets.push(version >= 3 ? await resizeTextures(key, weapons[key]!) : weapons[key]!);
+    }
+    if (version >= 7) {
+      for (const { key, piece } of RANGER_V7_ARCHERY) {
+        log(`generate ${piece} (external.blender.script@1 archery recipe, scene.import.gltf@2)`);
+        weapons[key] = await buildArchery(root, piece);
+        selections.push({ key, variant: RANGER_BUNDLE_VARIANT });
+        assets.push(await resizeTextures(key, weapons[key]!));
+      }
     }
   }
 
@@ -448,7 +547,7 @@ function parseArguments(args: string[]) {
 if (import.meta.main) {
   const options = parseArguments(process.argv.slice(2));
   if (!options) {
-    console.error("Usage: bun scripts/build-ranger-character.ts --processor-checkout <absolute 3d-lab checkout> --out <directory> [--version 1|2|3|4|5|6]");
+    console.error("Usage: bun scripts/build-ranger-character.ts --processor-checkout <absolute 3d-lab checkout> --out <directory> [--version 1|2|3|4|5|6|7]");
     process.exit(2);
   }
   try {

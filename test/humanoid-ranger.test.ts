@@ -20,7 +20,7 @@ import { verifyAssetBundleTar } from "../src/asset-bundle-pack.js";
 import { GLTF_RESOURCES_BUNDLE_PROFILE, readAssetBundleAttachment, readAssetBundleGltf, verifyAssetBundle } from "../src/asset-bundle.js";
 import { validateHumanoidSocketDescriptor } from "../src/humanoid-sockets.js";
 import {
-  RANGER_BONE_MAP, RANGER_BUNDLE_KEY, RANGER_BUNDLE_VARIANT, RANGER_CLIPS, RANGER_CLIPS_ATTACHMENT, RANGER_GAITS, RANGER_MEMBERS, RANGER_V6_CLIPS, rangerClips, RANGER_SOCKETS_ATTACHMENT,
+  RANGER_BONE_MAP, RANGER_BUNDLE_KEY, RANGER_BUNDLE_VARIANT, RANGER_CLIPS, RANGER_CLIPS_ATTACHMENT, RANGER_GAITS, RANGER_MEMBERS, RANGER_V6_CLIPS, RANGER_V7_CLIPS, RANGER_V7_ARCHERY, RANGER_CLIP_ROLES, RANGER_V4_SOCKETS_DESCRIPTOR, rangerClips, RANGER_SOCKETS_ATTACHMENT,
   RANGER_DEFAULT_VERSION, RANGER_SOCKETS_DESCRIPTOR, RANGER_TEXTURE_POLICY, RANGER_V2_SOCKETS_DESCRIPTOR, rangerSocketsDescriptor, RANGER_UBC_BONE_MAP, RANGER_V2_CLIPS, RANGER_V2_EQUIPMENT,
   RANGER_V5_BONE_MAP, RANGER_V5_UBC_BONE_MAP, buildRangerCharacter, rangerBoneMaps,
 } from "../scripts/build-ranger-character.ts";
@@ -87,21 +87,33 @@ test("v6 (#112) adds the traversal clips by source name after the v2 clips; v1-v
   ]);
   assert.deepEqual(RANGER_V6_CLIPS.slice(0, RANGER_V2_CLIPS.length), RANGER_V2_CLIPS);
   assert.ok(RANGER_V6_CLIPS.every((clip) => clip.rootMotion === "in-place"));
-  assert.deepEqual(([1, 2, 3, 4, 5, 6] as const).map(rangerClips), [RANGER_CLIPS, RANGER_V2_CLIPS, RANGER_V2_CLIPS, RANGER_V2_CLIPS, RANGER_V2_CLIPS, RANGER_V6_CLIPS]);
+  assert.deepEqual(([1, 2, 3, 4, 5, 6, 7] as const).map(rangerClips), [RANGER_CLIPS, RANGER_V2_CLIPS, RANGER_V2_CLIPS, RANGER_V2_CLIPS, RANGER_V2_CLIPS, RANGER_V6_CLIPS, RANGER_V7_CLIPS]);
   assert.deepEqual([...RANGER_GAITS], ["Walk_Loop", "Jog_Fwd_Loop", "Sprint_Loop", "Crouch_Fwd_Loop"]);
   assert.deepEqual(rangerBoneMaps(6), rangerBoneMaps(5));
 });
 
-test("v6 (#112) is the default; v2 and v3 keep the bundle-v2 sockets, and the texture limits are per slot", () => {
-  assert.equal(RANGER_DEFAULT_VERSION, 6);
-  assert.deepEqual(([1, 2, 3, 4, 5, 6] as const).map(rangerSocketsDescriptor), [undefined, RANGER_V2_SOCKETS_DESCRIPTOR, RANGER_V2_SOCKETS_DESCRIPTOR, RANGER_SOCKETS_DESCRIPTOR, RANGER_SOCKETS_DESCRIPTOR, RANGER_SOCKETS_DESCRIPTOR]);
+test("v7 (#113, #114) adds the owner-picked combat clips after the v6 clips, each with its role", () => {
+  assert.deepEqual(RANGER_V7_CLIPS.slice(0, RANGER_V6_CLIPS.length), RANGER_V6_CLIPS);
+  const added = RANGER_V7_CLIPS.slice(RANGER_V6_CLIPS.length);
+  assert.ok(added.every((clip) => clip.rootMotion === "in-place" && RANGER_CLIP_ROLES[clip.name]), "every v7 clip has a role");
+  // Owner picks on #114: heavy = Sword_Regular_C, counter = Sword_Regular_B, light = Sword_Regular_A; Melee_Hook is not used.
+  assert.equal(RANGER_CLIP_ROLES.Sword_Regular_C!.role, "sword.heavy-strike");
+  assert.equal(RANGER_CLIP_ROLES.Sword_Regular_B!.role, "sword.counter");
+  assert.equal(RANGER_CLIP_ROLES.Sword_Regular_A!.role, "sword.light-strike");
+  assert.ok(!RANGER_V7_CLIPS.some((clip) => clip.name.startsWith("Melee_Hook")));
+  assert.deepEqual(RANGER_V7_ARCHERY.map((item) => item.key), ["equipment.bow.long", "equipment.arrow", "equipment.quiver.back"]);
+});
+
+test("v7 is the default; v2 and v3 keep the bundle-v2 sockets, v4-v6 the bundle-v4 sockets, and the texture limits are per slot", () => {
+  assert.equal(RANGER_DEFAULT_VERSION, 7);
+  assert.deepEqual(([1, 2, 3, 4, 5, 6, 7] as const).map(rangerSocketsDescriptor), [undefined, RANGER_V2_SOCKETS_DESCRIPTOR, RANGER_V2_SOCKETS_DESCRIPTOR, RANGER_V4_SOCKETS_DESCRIPTOR, RANGER_V4_SOCKETS_DESCRIPTOR, RANGER_V4_SOCKETS_DESCRIPTOR, RANGER_SOCKETS_DESCRIPTOR]);
   assert.notEqual(RANGER_SOCKETS_DESCRIPTOR, RANGER_V2_SOCKETS_DESCRIPTOR);
   assert.deepEqual(RANGER_TEXTURE_POLICY, {
     maxEdgeBySlot: { baseColor: 1024, normal: 1024, metallicRoughness: 512, occlusion: 512, emissive: 1024 }, default: 1024,
   });
 });
 
-test("the Ranger v6 recipe builds a verified bundle: in-place clips, equipment entries, the sockets and clips attachments and game-resolution textures", { skip: await skipReason(), timeout: 900_000 }, async () => {
+test("the Ranger v7 recipe builds a verified bundle: in-place clips, equipment entries, the sockets and clips attachments and game-resolution textures", { skip: await skipReason(), timeout: 900_000 }, async () => {
   const outDir = await mkdtemp(path.join(os.tmpdir(), "humanoid-ranger-"));
   try {
     const built = await buildRangerCharacter({ processorCheckout: CHECKOUT!, outDir });
@@ -109,9 +121,9 @@ test("the Ranger v6 recipe builds a verified bundle: in-place clips, equipment e
     await verifyAssetBundleTar(tar, { sha256: built.tarSha256, ref: built.exportRef });
     const { manifest } = await verifyAssetBundle(built.bundleDir, built.exportRef, { profile: GLTF_RESOURCES_BUNDLE_PROFILE });
     assert.deepEqual(manifest.assets.map((entry) => `${entry.key}/${entry.variant}`).sort(),
-      [`${RANGER_BUNDLE_KEY}/${RANGER_BUNDLE_VARIANT}`, ...RANGER_V2_EQUIPMENT.map((item) => `${item.key}/default`)].sort());
+      [`${RANGER_BUNDLE_KEY}/${RANGER_BUNDLE_VARIANT}`, ...[...RANGER_V2_EQUIPMENT, ...RANGER_V7_ARCHERY].map((item) => `${item.key}/default`)].sort());
     const entry = manifest.assets.find((candidate) => candidate.key === RANGER_BUNDLE_KEY)!;
-    const clipNames = RANGER_V6_CLIPS.map((clip) => clip.name);
+    const clipNames = RANGER_V7_CLIPS.map((clip) => clip.name);
     assert.deepEqual(entry.observations.animations, clipNames);
 
     // The sockets descriptor ships with the character entry, byte-identical to the versioned file.
@@ -139,11 +151,17 @@ test("the Ranger v6 recipe builds a verified bundle: in-place clips, equipment e
     assert.ok(speeds[0] > 0.3 && speeds.every((speed: number, index: number) => index === 0 || speed > speeds[index - 1]), `gait speeds ${speeds}`);
     assert.ok(byName.Roll_RM.sourceRootDisplacement.z > 4 && Math.abs(byName.Roll.sourceRootDisplacement.z) < 0.2);
     assert.ok(Math.abs(byName.ClimbUp_1m_RM.sourceRootDisplacement.y - 1) < 0.1);
+    // v7: combat roles, and a contact time inside the clip for every strike.
+    for (const [name, { role, contact }] of Object.entries(RANGER_CLIP_ROLES)) {
+      assert.equal(byName[name].role, role, name);
+      if (contact) assert.ok(byName[name].contact.joint === contact && byName[name].contact.seconds >= 0 && byName[name].contact.seconds <= byName[name].durationSeconds, name);
+      else assert.ok(!("contact" in byName[name]), name);
+    }
 
     const { gltf, resources } = await readAssetBundleGltf(built.bundleDir, manifest, RANGER_BUNDLE_KEY, RANGER_BUNDLE_VARIANT);
     const document = await new NodeIO().readJSON({ json: JSON.parse(gltf.toString("utf8")), resources: Object.fromEntries(resources) });
     // v3 and later: 13 PNG textures, each within its slot's limit, the 4096 px sources reduced and none upscaled.
-    assert.equal(built.lineage.version, 6);
+    assert.equal(built.lineage.version, 7);
     const textures = built.lineage.textures![RANGER_BUNDLE_KEY]!;
     assert.equal(document.getRoot().listTextures().length, 13);
     for (const image of textures.images) {
@@ -157,7 +175,7 @@ test("the Ranger v6 recipe builds a verified bundle: in-place clips, equipment e
       const [width, height] = ImageUtils.getSize(texture.getImage()!, "image/png")!;
       assert.ok(Math.max(width, height) <= 1024, texture.getName());
     }
-    for (const { key } of RANGER_V2_EQUIPMENT) assert.deepEqual(built.lineage.textures![key], { images: 0 }, key);
+    for (const { key } of [...RANGER_V2_EQUIPMENT, ...RANGER_V7_ARCHERY]) assert.deepEqual(built.lineage.textures![key], { images: 0 }, key);
 
     const joints = document.getRoot().listSkins()[0]!.listJoints();
     assert.equal(joints.length, 65);
@@ -213,6 +231,23 @@ test("the Ranger v6 recipe builds a verified bundle: in-place clips, equipment e
       const json = JSON.parse(scene.gltf.toString("utf8"));
       assert.deepEqual(json.nodes.map((node: any) => node.name).sort(), ["grip", piece].sort(), key);
     }
+    // v7 archery: the arrow and quiver are static like the weapons; the bow is skinned to grip and nock.
+    for (const { key, piece } of RANGER_V7_ARCHERY) {
+      const item = manifest.assets.find((candidate) => candidate.key === key)!;
+      assert.deepEqual(item.observations.animations, [], key);
+      const json = JSON.parse((await readAssetBundleGltf(built.bundleDir, manifest, key, "default")).gltf.toString("utf8"));
+      const names = json.nodes.map((node: any) => node.name);
+      if (piece === "bow.long") {
+        assert.equal(item.observations.skins, 1, key);
+        assert.deepEqual(json.skins[0].joints.map((index: number) => json.nodes[index].name), ["grip", "nock"]);
+        assert.ok(names.includes(piece), key);
+      } else {
+        assert.equal(item.observations.skins, 0, key);
+        assert.deepEqual(names.sort(), ["grip", piece].sort(), key);
+      }
+    }
+    const descriptor = JSON.parse(sockets.toString("utf8"));
+    for (const id of ["hand_l.bow", "hand_r.arrow", "back.quiver", "back.bow.stowed"]) assert.ok(descriptor.sockets.some((socket: any) => socket.id === id), id);
   } finally {
     await rm(outDir, { recursive: true, force: true });
   }

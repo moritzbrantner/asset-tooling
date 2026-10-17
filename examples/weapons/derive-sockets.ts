@@ -123,6 +123,40 @@ function socket(id: string, frame: HandFrame, y: Vec3, z: Vec3, accepts: string[
   };
 }
 
+/**
+ * A stowed socket authored as a rest-pose world intent: the item frame's origin at `position`, its +Y along
+ * `y` and its +Z along `z` (made orthogonal to `y`), all in the rig's rest world, converted into `joint`'s frame.
+ */
+export function stowedSocket(worlds: Map<string, Mat4>, id: string, joint: string, position: Vec3, y: Vec3, z: Vec3, accepts: string[]): HumanoidSocket {
+  const f = worlds.get(joint);
+  if (!f) throw new Error(`rig has no joint '${joint}'`);
+  const column = (c: number): Vec3 => unit([f[c * 4]!, f[c * 4 + 1]!, f[c * 4 + 2]!]);
+  const toLocal = (v: Vec3): Vec3 => [dot(column(0), v), dot(column(1), v), dot(column(2), v)];
+  const wy = unit(y), wz = unit(sub(z, scale(wy, dot(z, wy)))), wx = cross(wy, wz);
+  const offset = toLocal(sub(position, [f[12]!, f[13]!, f[14]!]));
+  return {
+    id, joint, translation: offset.map((v) => round(v, 4)) as Vec3,
+    rotation: quaternionFromAxes(toLocal(wx), toLocal(wy), toLocal(wz)).map((v) => round(v, 6)) as HumanoidSocket["rotation"], accepts,
+  };
+}
+
+/**
+ * The archery sockets (#113 bow slice): the bow in the off hand with its limbs along the knuckle line and the
+ * arrow leaving along the fingers; the arrow's nock in the weapon hand, the shaft along the knuckle line toward
+ * the index finger; the quiver on the back with its mouth over the weapon-side shoulder; and the bow slung
+ * diagonally across the back, outside the quiver, its string toward the body.
+ */
+export function deriveArcherySockets(gltf: { nodes: Record<string, any>[] }): HumanoidSocket[] {
+  const worlds = restWorlds(gltf), bowHand = handFrame(worlds, "l"), arrowHand = handFrame(worlds, "r");
+  return [
+    // The finger direction is not quite perpendicular to the knuckle line; keep its component across the grip.
+    socket("hand_l.bow", bowHand, bowHand.knuckles, unit(sub(bowHand.fingers, scale(bowHand.knuckles, dot(bowHand.fingers, bowHand.knuckles)))), ["bow"]),
+    socket("hand_r.arrow", arrowHand, arrowHand.palm, arrowHand.knuckles, ["arrow"]),
+    stowedSocket(worlds, "back.quiver", "spine_03", [-0.07, 1.3, -0.22], [-0.35, 1, 0], [0, 0, -1], ["quiver"]),
+    stowedSocket(worlds, "back.bow.stowed", "spine_03", [0.02, 1.22, -0.3], [0.75, 1, 0], [0, 0, -1], ["bow"]),
+  ];
+}
+
 /** The weapon socket (grip along the knuckle line, flats facing the back of the hand) and the shield socket (face out of the back of the hand, top toward the thumb). */
 export function deriveHandSockets(gltf: { nodes: Record<string, any>[] }, { weaponHand = "r" }: { weaponHand?: Side } = {}): HumanoidSocket[] {
   const worlds = restWorlds(gltf), shieldHand: Side = weaponHand === "r" ? "l" : "r";
@@ -145,11 +179,11 @@ export function formatSocketDescriptor(descriptor: HumanoidSocketDescriptor): st
     `  "axes": "right-handed-y-up",\n  "attachFrame": "grip",\n  "sockets": [\n${sockets.join(",\n")}\n  ]\n}\n`;
 }
 
-/** The Ranger descriptor: the derived hand sockets followed by the stowed sockets. */
+/** The Ranger descriptor (bundle v7): the derived hand sockets, the stowed sockets, then the archery sockets. */
 export function deriveRangerSockets(gltf: { nodes: Record<string, any>[]; skins?: { joints: number[] }[] }): string {
   const joints = gltf.skins?.[0]?.joints.map((index) => gltf.nodes[index]!.name as string);
   return formatSocketDescriptor(createHumanoidSocketDescriptor({
-    character: "humanoid.ranger.male", sockets: [...deriveHandSockets(gltf), ...RANGER_STOWED_SOCKETS], ...(joints ? { joints } : {}),
+    character: "humanoid.ranger.male", sockets: [...deriveHandSockets(gltf), ...RANGER_STOWED_SOCKETS, ...deriveArcherySockets(gltf)], ...(joints ? { joints } : {}),
   }));
 }
 
