@@ -264,9 +264,9 @@ confection==0.1.5 \
     # via
     #   thinc
     #   weasel
-csvw==4.1.0 \
-    --hash=sha256:bfe2b64442552b392577a8d30edf886510c8d05e665606fa5caa1508365fd700 \
-    --hash=sha256:d432d4cccd8dcdf31ccb2272d6d7ad40a9ebde7de3c7d6ced9033afb23bb76dd
+csvw==4.1.1 \
+    --hash=sha256:5714d43d744e4069e2b6d0e58a67829ca1bf8d0578aad92cfc74e87d69e6cb31 \
+    --hash=sha256:fce2c461899290771eaec28c770e2fd0f6bc1324edb81d688c89e09cf222fcdb
     # via segments
 curated-tokenizers==0.0.10 \
     --hash=sha256:01e1c5a0e0cbf5cfc44f88f498b3d567a5a7b1f7a92cc2e73d0bf9a18f6336c0 \
