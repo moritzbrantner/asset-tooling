@@ -12,7 +12,7 @@ The source members are listed in [humanoid-sources.md](humanoid-sources.md).
 
 ## Versions
 
-The recipe has four versions. `--version` selects one, and the default is 4.
+The recipe has five versions. `--version` selects one, and the default is 5.
 
 - **v1 (#110):** the character with `Idle_Loop` and `Walk_Loop`. It is one entry with no attachments, and it stays reproducible with `--version 1`, which rebuilt the recorded v1 tar `4de4cc65…` byte for byte after the v2 change.
 - **v2 ([#260](https://github.com/moritzbrantner/asset-tooling/issues/260), [#113](https://github.com/moritzbrantner/asset-tooling/issues/113)):** v2 supersedes v1 as the bundle to publish. It follows the owner answers on #113:
@@ -23,18 +23,21 @@ The recipe has four versions. `--version` selects one, and the default is 4.
   It stays reproducible with `--version 2`, which rebuilt the recorded v2 tar `ccb267e4…` byte for byte after the v3 change.
 - **v3 ([#257](https://github.com/moritzbrantner/asset-tooling/issues/257)):** v3 is v2 with game-resolution textures for browser delivery. It superseded v2 as the bundle to publish. See [Textures](#textures). v2 and v3 ship the hanging-arm sockets descriptor [`humanoid.ranger.male.sockets.bundle-v2.json`](../assets/descriptors/humanoid.ranger.male.sockets.bundle-v2.json). That file is kept byte for byte, so `--version 2` and `--version 3` still build the recorded tars.
 - **v4 ([#113](https://github.com/moritzbrantner/asset-tooling/issues/113)):** v4 is v3 with the anatomically derived hand sockets ([humanoid-sockets.md](humanoid-sockets.md#how-the-hand-sockets-are-derived)), which hold up in the combat clips. It supersedes v3 as the bundle to publish. The character `.gltf`, its resources and the two equipment entries are byte-identical to v3. Only the `humanoid-sockets` attachment and the manifest change.
+- **v5 ([#268](https://github.com/moritzbrantner/asset-tooling/issues/268)):** v5 is v4 with every clip retargeted through all three spine joints. 3d-lab `4e69c0f` adds the optional `upper-chest` `HumanoidBone` between `chest` and `neck`, and the v5 bone maps bind `DEF-spine.002` → `spine_02` as `chest` and `DEF-spine.003` → `spine_03` as `upper-chest` ([Bone map](#bone-map)). This removes most of the chest error described in [Death01 ground penetration](#death01-ground-penetration). It supersedes v4 as the bundle to publish. Only the character `.gltf`, its geometry/animation `.bin` and the manifest change. The textures, the `humanoid-sockets` attachment (the v4 descriptor) and the two equipment entries are byte-identical to v4.
+
+v1–v4 keep their two-bone spine map. The processor treats an unmapped `upper-chest` exactly as before, so the new pin rebuilds them unchanged: after the v5 change, `--version 1` and `--version 4` rebuilt the recorded tars `4de4cc65…` and `222f21f8…` byte for byte at `4e69c0f`. No older processor checkout is needed.
 
 ## Build
 
 ```sh
 git clone https://github.com/moritzbrantner/3d-lab <checkout>
-git -C <checkout> checkout 86e5fe1dc6e564176de35723b31e217bf385b20a   # the stability/processors.json pin
+git -C <checkout> checkout 4e69c0f64177d3babdf0ea991a631c62f577e684   # the stability/processors.json pin
 cargo fetch --manifest-path <checkout>/examples/asset-tooling-animation-adapter/Cargo.toml
 git lfs pull   # the humanoid members under assets/canonical/
-ASSET_TOOLING_BLENDER=<blender 5.2.2> bun scripts/build-ranger-character.ts --processor-checkout <absolute checkout> --out <directory> [--version 1|2|3|4]
+ASSET_TOOLING_BLENDER=<blender 5.2.2> bun scripts/build-ranger-character.ts --processor-checkout <absolute checkout> --out <directory> [--version 1|2|3|4|5]
 ```
 
-Versions 2 and 3 generate the weapons through `external.blender.script@1`, so they need Blender 5.2.2. `ASSET_TOOLING_BLENDER` names it, otherwise `blender` on `PATH` is used. Blender installed as a snap can only read and write under `$HOME`, so set `TMPDIR` to a directory there. Version 1 needs no Blender. Versions 3 and 4 also need `ffmpeg` and `ffprobe` for the image codec.
+Versions 2 to 5 generate the weapons through `external.blender.script@1`, so they need Blender 5.2.2. `ASSET_TOOLING_BLENDER` names it, otherwise `blender` on `PATH` is used. Blender installed as a snap can only read and write under `$HOME`, so set `TMPDIR` to a directory there. Version 1 needs no Blender. Versions 3 to 5 also need `ffmpeg` and `ffprobe` for the image codec.
 
 [`scripts/build-ranger-character.ts`](../scripts/build-ranger-character.ts) is the maintained recipe. It needs no network after `cargo fetch`: the processor runs `cargo run --offline`. The processor checkout must be source-clean at the pinned commit. `Cargo.lock` and `target/` may be present, but nothing else may differ. Its identity (`git-clean-exact-head`, cargo/rustc versions and the probe) is part of the `animation.retarget@1` build identity. `<directory>` becomes the object-store root, which holds every intermediate AssetRef. The script prints the bundle directory, the tar path, the tar sha256 and the export ref, and writes `lineage.json` next to them with every intermediate AssetRef and the retarget observations.
 
@@ -45,25 +48,26 @@ Versions 2 and 3 generate the weapons through `external.blender.script@1`, so th
 | 3 | `scene.compose.skinned.gltf@1` | Skeleton = outfit, parts = the head subset. |
 | 4 | `scene.extract.animation.gltf@1` | The composed GLB with `hipsJoint: "pelvis"`: the target rig only. |
 | 5 | `scene.extract.animation.gltf@1` | Once per clip: the UAL1 GLB with `hipsJoint: "DEF-hips"`, or for `Idle_Shield_Loop` the UAL2 GLB with `hipsJoint: "pelvis"`. Each run yields the source rig and the clip. |
-| 6 | `animation.retarget@1` | Each clip with its source rig and the target rig, its library's bone map below, `sampleRate: 30` and `rootMotion: "in-place"`. |
+| 6 | `animation.retarget@1` | Each clip with its source rig and the target rig, its library's bone map for the version (below), `sampleRate: 30` and `rootMotion: "in-place"`. |
 | 7 | `scene.embed.animation.gltf@1` | The composed GLB with every retargeted clip, under its source name, in the order of the clip table. |
 | 8 (v2) | `external.blender.script@1`, then `scene.import.gltf@2` | The `sword.arming` and `shield.heater` presets of `adapters/blender/weapon.py`, generated into `<directory>/weapons/<piece>/` and imported. |
-| 8b (v3, v4) | `scene.textures.resize.gltf@1` | The step-7 GLB with `RANGER_TEXTURE_POLICY` ([Textures](#textures)), and each weapon GLB that has images. The weapons have none, so they are bundled unchanged. |
-| 9 | `asset.bundle@4` | `gltf-resources-v1`: key `humanoid.ranger.male`, variant `default`. From v2 on it also carries the `humanoid-sockets` attachment, validated against the rig's joints, and the two equipment entries. v2 and v3 attach [`humanoid.ranger.male.sockets.bundle-v2.json`](../assets/descriptors/humanoid.ranger.male.sockets.bundle-v2.json), and v4 attaches [`humanoid.ranger.male.sockets.json`](../assets/descriptors/humanoid.ranger.male.sockets.json). |
+| 8b (v3–v5) | `scene.textures.resize.gltf@1` | The step-7 GLB with `RANGER_TEXTURE_POLICY` ([Textures](#textures)), and each weapon GLB that has images. The weapons have none, so they are bundled unchanged. |
+| 9 | `asset.bundle@4` | `gltf-resources-v1`: key `humanoid.ranger.male`, variant `default`. From v2 on it also carries the `humanoid-sockets` attachment, validated against the rig's joints, and the two equipment entries. v2 and v3 attach [`humanoid.ranger.male.sockets.bundle-v2.json`](../assets/descriptors/humanoid.ranger.male.sockets.bundle-v2.json), and v4 and v5 attach [`humanoid.ranger.male.sockets.json`](../assets/descriptors/humanoid.ranger.male.sockets.json). |
 | 10 | `scripts/pack-asset-bundle.ts` | Packs `<directory>/bundle` into `<directory>/humanoid.ranger.male.tar` and its `.sha256`. |
 
 Every step uses the `NODE_SKINNED_MESH_NON_ROOT` and `MESH_PRIMITIVE_GENERATED_TANGENT_SPACE` validator exceptions, the same ones the bundle profile fixes.
 
 ## Bone map
 
-`animation.retarget@1` binds 3d-lab `HumanoidBone` ids to a joint name in each rig. The UAL1 rig is a 53-joint Rigify `DEF-*` skeleton. The UBC/Outfits rig has 65 joints in the Unreal style.
+`animation.retarget@1` binds 3d-lab `HumanoidBone` ids to a joint name in each rig. The UAL1 rig is a 53-joint Rigify `DEF-*` skeleton. The UBC/Outfits rig has 65 joints in the Unreal style. Both have three spine joints. v5 (`RANGER_V5_BONE_MAP`) maps each of them exactly once through the optional `upper-chest` bone, which sits between `chest` and `neck` (3d-lab `4e69c0f`). v1–v4 (`RANGER_BONE_MAP`) have no `upper-chest` and bind `chest` to `DEF-spine.003` / `spine_03`, leaving the middle joint unmapped.
 
 | HumanoidBone | UAL1 joint | UBC/Outfits joint |
 | --- | --- | --- |
 | `root` | `root` | `root` |
 | `hips` | `DEF-hips` | `pelvis` |
 | `spine` | `DEF-spine.001` | `spine_01` |
-| `chest` | `DEF-spine.003` | `spine_03` |
+| `chest` | v5: `DEF-spine.002`; v1–v4: `DEF-spine.003` | v5: `spine_02`; v1–v4: `spine_03` |
+| `upper-chest` (v5) | `DEF-spine.003` | `spine_03` |
 | `neck` | `DEF-neck` | `neck_01` |
 | `head` | `DEF-head` | `Head` |
 | `left-shoulder` / `right-shoulder` | `DEF-shoulder.L` / `.R` | `clavicle_l` / `_r` |
@@ -75,13 +79,13 @@ Every step uses the `NODE_SKINNED_MESH_NON_ROOT` and `MESH_PRIMITIVE_GENERATED_T
 | `left-foot` / `right-foot` | `DEF-foot.L` / `.R` | `foot_l` / `_r` |
 | `left-toes` / `right-toes` | `DEF-toe.L` / `.R` | `ball_l` / `_r` |
 
-Several joints are not mapped: `spine_02`, the fingers and thumbs, and the `*_leaf` joints. They keep their rest pose, so the hands stay in their rest grip. Finger retargeting belongs to the broader library work in #115.
+Several joints are not mapped: the fingers and thumbs, the `*_leaf` joints, and in v1–v4 also `spine_02`. They keep their rest pose, so the hands stay in their rest grip. Finger retargeting belongs to the broader library work in #115.
 
-UAL2 uses the same 65-joint Unreal-style rig as UBC/Outfits. `RANGER_UBC_BONE_MAP` therefore binds the same 22 `HumanoidBone` ids to the same joint name on both sides, for example `hips` → `pelvis` / `pelvis`. Its rest pose is close to the Ranger's but not identical. The retarget transfers rotation deltas from each rig's own rest, so the difference does not leak into the result.
+UAL2 uses the same 65-joint Unreal-style rig as UBC/Outfits. `RANGER_UBC_BONE_MAP` (v1–v4, 22 ids) and `RANGER_V5_UBC_BONE_MAP` (v5, 23 ids) therefore bind each `HumanoidBone` id to the same joint name on both sides, for example `hips` → `pelvis` / `pelvis`. Its rest pose is close to the Ranger's but not identical. The retarget transfers rotation deltas from each rig's own rest, so the difference does not leak into the result.
 
 ## Retargeting
 
-Asset-tooling implements no part of the retargeting. Processor `three-d-animation-retarget` (3d-lab `86e5fe1`, contract in 3d-lab `docs/contracts/animation-processing.md`) does all of it:
+Asset-tooling implements no part of the retargeting. Processor `three-d-animation-retarget` (3d-lab `4e69c0f`, contract in 3d-lab `docs/contracts/animation-processing.md`) does all of it:
 
 - It samples the source clip at each sample time.
 - It transfers each mapped bone's local rotation delta onto the target's rest pose.
@@ -105,7 +109,7 @@ Clip names are the source names. Every clip is in place. From the recorded v2 bu
 | `Death01` | UAL1 | death (#260) | 2.4 s | 73 | 46 | 3,358 |
 | `Idle_Shield_Loop` | UAL2 | shield guard (#113) | 2.5 s | 76 | 46 | 3,496 |
 
-Across the 22 mapped bones, each clip has 22 rotation channels, 2 translation channels (hips and root) and 22 scale channels. The scale channels appear because both libraries key scale on every mapped bone; for UAL1 the keyed scale stays within 4e-7 of 1. UAL1 also ships `Sword_Attack_RM`, a root-motion variant. The bundle takes the plain `Sword_Attack`, and `in-place` removes any remaining horizontal hips travel. `Death01` keeps its vertical drop, because in-place removes only horizontal motion.
+Across the 22 mapped bones, each clip has 22 rotation channels, 2 translation channels (hips and root) and 22 scale channels. v5 maps 23 bones, so each clip has 48 channels instead of 46, with the same samples: 3,648 keys for `Idle_Loop` and `Idle_Shield_Loop`, 1,968 for `Walk_Loop`, 1,392 for `Jog_Fwd_Loop`, 1,008 for `Sprint_Loop`, 2,448 for `Sword_Idle`, 2,256 for `Sword_Attack` and 3,504 for `Death01`. The scale channels appear because both libraries key scale on every mapped bone; for UAL1 the keyed scale stays within 4e-7 of 1. UAL1 also ships `Sword_Attack_RM`, a root-motion variant. The bundle takes the plain `Sword_Attack`, and `in-place` removes any remaining horizontal hips travel. `Death01` keeps its vertical drop, because in-place removes only horizontal motion.
 
 ## Conventions
 
@@ -160,7 +164,7 @@ The largest differences are in the hand close-ups, where fine texture detail is 
 
 ## Bundle and consumer pinning
 
-The v2, v3 and v4 bundles have three entries:
+The v2–v5 bundles have three entries:
 
 - **`humanoid.ranger.male` / `default`:** `scenes/humanoid.ranger.male/default.gltf` with one geometry/animation `.bin` and its 13 PNG textures as hash-addressed resources (game resolution from v3 on). It has 2 skins, 31,578 triangles and the eight clips above. Its `humanoid-sockets` attachment is that version's descriptor, byte for byte.
 - **`equipment.sword.arming` / `default`:** 1,304 triangles, with nodes `grip` and `sword.arming`.
@@ -176,18 +180,18 @@ A consumer pins the three things described in [Release distribution and consumer
 
 It then runs `bun scripts/pack-asset-bundle.ts --verify humanoid.ranger.male.tar --ref <pinned export.ref.json>` (or `verifyAssetBundle` after extracting). It loads the character with `readAssetBundleGltf(dir, manifest, "humanoid.ranger.male", "default")`, the weapons the same way, and the sockets with `readAssetBundleAttachment(dir, manifest, "humanoid.ranger.male", "default", "humanoid-sockets")`. Publishing the release (`gh release create`) is a separate, explicit step.
 
-Two cold v1 builds on 2026-10-17 from separate object stores produced the same tar: sha256 `4de4cc65585a0709066843a9c0bf73315820024e360326c2f1bf86b4c7955c91`, 55,587,328 bytes, with manifest sha256 `72f79132d20dae5f9d17de2b32eb0d41543f8bd74db1c0c0b2d0a9afe4b386d7` (5,364 bytes). Two v2 builds on 2026-10-17 from separate object stores (Blender 5.2.2 snap) also produced the same tar: sha256 `ccb267e4c6e21dd8d98597784569d51732612a0a76f3c6b9c067d556b3f66167`, 56,005,120 bytes, with manifest sha256 `a1170d10db2a275e59bde2e243a5163d735d6b466fb8fa0e07434c0ccfaae90e` (8,525 bytes). Two cold v3 builds on 2026-10-17 from separate object stores also produced the same tar: sha256 `cd6393c06ef5b793032fce7ed9f2c10d92609045d874296ace0506b54971fc3f`, 9,758,720 bytes (v2: 56,005,120), with manifest sha256 `3cee42ebbc1e8fe3d405ee5d69ff5059c6a992f12c721d9df42238a17b97b1a5` (7,827 bytes). Two cold v4 builds on 2026-10-17 from separate object stores also produced the same tar: sha256 `222f21f8df449321f4cb34b67e693186e0435a449c19eacb8dece9fb001a741f`, 9,758,720 bytes, with manifest sha256 `cdc63b4632d08c88807082109fd633aa00c3f54f2c1627ef81b4034ccebba169` (7,827 bytes). After the v4 change, `--version 2` and `--version 3` rebuilt the recorded tars `ccb267e4…` and `cd6393c0…` byte for byte. These are records of those runs, not a byte-exact replay contract.
+Two cold v1 builds on 2026-10-17 from separate object stores produced the same tar: sha256 `4de4cc65585a0709066843a9c0bf73315820024e360326c2f1bf86b4c7955c91`, 55,587,328 bytes, with manifest sha256 `72f79132d20dae5f9d17de2b32eb0d41543f8bd74db1c0c0b2d0a9afe4b386d7` (5,364 bytes). Two v2 builds on 2026-10-17 from separate object stores (Blender 5.2.2 snap) also produced the same tar: sha256 `ccb267e4c6e21dd8d98597784569d51732612a0a76f3c6b9c067d556b3f66167`, 56,005,120 bytes, with manifest sha256 `a1170d10db2a275e59bde2e243a5163d735d6b466fb8fa0e07434c0ccfaae90e` (8,525 bytes). Two cold v3 builds on 2026-10-17 from separate object stores also produced the same tar: sha256 `cd6393c06ef5b793032fce7ed9f2c10d92609045d874296ace0506b54971fc3f`, 9,758,720 bytes (v2: 56,005,120), with manifest sha256 `3cee42ebbc1e8fe3d405ee5d69ff5059c6a992f12c721d9df42238a17b97b1a5` (7,827 bytes). Two cold v4 builds on 2026-10-17 from separate object stores also produced the same tar: sha256 `222f21f8df449321f4cb34b67e693186e0435a449c19eacb8dece9fb001a741f`, 9,758,720 bytes, with manifest sha256 `cdc63b4632d08c88807082109fd633aa00c3f54f2c1627ef81b4034ccebba169` (7,827 bytes). After the v4 change, `--version 2` and `--version 3` rebuilt the recorded tars `ccb267e4…` and `cd6393c0…` byte for byte. Two cold v5 builds on 2026-10-17 from separate object stores (3d-lab `4e69c0f`, Blender 5.2.2 snap) also produced the same tar: sha256 `059f92768f2181070f32d48c6102be1b77143cc4d21d99a24d6ebd7d3bd04d0c`, 9,778,176 bytes, with manifest sha256 `a127d96cdaf6a75826fad14fb9b7f53f02608f4791f9dd0d9284a4f949a12678` (7,827 bytes). These are records of those runs, not a byte-exact replay contract.
 
 ## Tests
 
 - `bun test test/gltf-animation-operations.test.ts` uses hand-authored skinned fixtures. It covers the rig, the hips reference height through a non-joint armature, clip extraction on joint indices, skipping a non-joint channel, an extract → embed → extract round trip, and the rejection of existing or duplicate clip names and of out-of-range nodes.
 - `bun test test/animation-retarget-operations.test.ts` runs a fixture adapter. It covers the name → index binding conversion, the `sampleRate` grid, output and observation checks, and parameter failures.
-- `bun scripts/check-processor-contract.ts <checkout> <commit> moritzbrantner/3d-lab examples/asset-tooling-animation-adapter/Cargo.toml animation.retarget` runs the pinned processor on two tiny rigs, twice. This is also the hosted stability matrix entry.
+- `bun scripts/check-processor-contract.ts <checkout> <commit> moritzbrantner/3d-lab examples/asset-tooling-animation-adapter/Cargo.toml animation.retarget` runs the pinned processor on two tiny rigs, twice, including an `upper-chest` bend that must land on the target's `upper-chest` joint. This is also the hosted stability matrix entry.
 - `bun test test/gltf-texture-resize-operations.test.ts` covers the texture operation ([gltf-texture-resize.md](gltf-texture-resize.md#tests)).
-- `test/humanoid-ranger.test.ts` always checks the v2 clip list, the UAL2 same-name bone map, the v4 default, the sockets descriptor of each version and `RANGER_TEXTURE_POLICY`. It also runs the whole v4 recipe and checks the bundle structurally:
+- `test/humanoid-ranger.test.ts` always checks the v2 clip list, the UAL2 same-name bone maps, the v5 spine map (each spine joint mapped once) against the v1–v4 map, the v5 default, the sockets descriptor of each version and `RANGER_TEXTURE_POLICY`. It also runs the whole v5 recipe and checks the bundle structurally:
   - every clip name in order, each with a positive duration;
   - in place: the pelvis's horizontal model-space drift, with root and pelvis keys composed, is at most 1 cm;
-  - only mapped joints are animated, with LINEAR samplers;
+  - only mapped joints are animated, with LINEAR samplers, and every clip rotates `spine_02`;
   - the two equipment entries are unskinned, unanimated and have a `grip` node;
   - the `humanoid-sockets` attachment matches the versioned descriptor byte for byte and validates against the 65 joints;
   - the 13 character textures fit their slot limits, none is upscaled, the image bytes shrink at least fourfold, and the equipment has no images.
@@ -201,7 +205,7 @@ The socket sheets were rendered with the sword in `hand_r.weapon` and the shield
 - **Hands:** the fingers keep their open rest pose (#115), so the sword lies across an open hand in every clip.
 - **Sword angle (bundle-v2 sockets, fixed in v4):** the `hand_r.weapon` socket was authored for a hanging arm. In `Sword_Idle` the blade points sideways at hip height rather than forward, and in `Sword_Attack` it follows the extended arm.
 - **Shield guard (bundle-v2 sockets, fixed in v4):** `hand_l.shield` aligns the shield's vertical axis with the forearm. In `Idle_Shield_Loop` the forearm is held across the body, so the shield sits on its side with the point toward the character's left instead of down.
-- **Death:** at the end of `Death01` the character lies on its back with the pelvis joint 6.5 cm above the ground, and the right hand's fingertip joints sink up to 9 cm below it. See [Death01 ground penetration](#death01-ground-penetration) for the cause.
+- **Death:** at the end of `Death01` the character lies on its back with the pelvis joint 6.5 cm above the ground, and the right hand's fingertip joints sink up to 9 cm below it. See [Death01 ground penetration](#death01-ground-penetration) for the cause, fixed in v5.
 
 ## Visual check of the v4 sockets
 
@@ -235,6 +239,20 @@ The sheets show no gross clipping. Known limits:
 - The hanging-arm poses tilt the shield forward.
 - The `Sword_Idle` stance itself is turned, and with it the guard.
 
+## Visual check of v5
+
+The socket sheets were rendered from the v5 bundle with the same setup as for v4, at `Sword_Idle` 50 %, `Sword_Attack` 50 %, the end of `Death01`, `Idle_Shield_Loop` 50 % and the middle of `Walk_Loop`, and compared with the v4 sheets. The legs, the pelvis and the in-place behaviour are unchanged. The chest now follows the source's middle spine bend, so the upper body changes as follows:
+
+| Pose | Change from v4 |
+| --- | --- |
+| `Walk_Loop` middle | No visible change. |
+| `Sword_Idle` 50 % | The upper body leans further forward and the head is lower. The blade is close to level instead of raised about 24°. The shield hangs lower in front of the left hip. |
+| `Sword_Attack` 50 % | The torso is hunched forward over the lunge, with the head down. The thrust now points forward and down instead of level. The shield is raised high on the left, with its rim beside the hood. |
+| `Idle_Shield_Loop` 50 % | The head is tilted further down, and the shield's top edge is at eye height instead of chin height. The sword points further down. |
+| `Death01` end | The body lies the same way, but the shoulders and head are higher and both hands lie on the ground instead of below it. The sword and shield lie flat beside the body. The sheets have no ground plane, so whether their edges touch it cannot be read from them. |
+
+The sheets show no inverted or twisted limbs and no gross clipping. The known limits of v4 (open fingers, the floating shield strap, the turned `Sword_Idle` stance) still apply.
+
 ## Death01 ground penetration
 
 At the end of `Death01`, the right fingertip joints of the v2–v4 bundles are 8.7 cm below the ground. UAL1's own fingers are about 2 cm above it. The cause is not the retarget's height handling:
@@ -243,28 +261,26 @@ At the end of `Death01`, the right fingertip joints of the v2–v4 bundles are 8
 - **Root translation:** in-place removes only the horizontal part.
 - **Limb length:** the Ranger's upper arm (0.251 m) and forearm (0.240 m) are shorter than UAL1's (0.274 m and 0.273 m), not longer.
 
-The cause is the bone map. UAL1 has three spine joints (`DEF-spine.001`, `.002` and `.003`). The pinned processor's 22-bone `HumanoidBone` vocabulary has only `spine` and `chest`, and these are bound to `spine_01` and `spine_03`. The local rotation of `DEF-spine.002` is therefore dropped, and the Ranger's `spine_02` keeps its rest pose. The chest's world orientation is off by the bend of `DEF-spine.002`. At the end of `Death01` that bend is 6.0°, and the arm hangs from the chest. Correcting only the chest orientation would raise the right shoulder from 2.3 to 4.7 cm above the ground and the fingertip from −8.7 to −0.6 cm. The remaining offset is the rigs' different clavicle placement.
+The cause is the bone map. UAL1 has three spine joints (`DEF-spine.001`, `.002` and `.003`). The 22-bone `HumanoidBone` vocabulary of 3d-lab `86e5fe1` had only `spine` and `chest`, and v1–v4 bind these to `spine_01` and `spine_03`. The local rotation of `DEF-spine.002` is therefore dropped, and the Ranger's `spine_02` keeps its rest pose. The chest's world orientation is off by the bend of `DEF-spine.002`. At the end of `Death01` that bend is 6.0°, and the arm hangs from the chest.
 
-The same dropped joint turns the chest of other clips, up to the following maximum errors:
+**Fix (v5, [#268](https://github.com/moritzbrantner/asset-tooling/issues/268)):** 3d-lab `4e69c0f` adds the optional `upper-chest` bone, and v5 maps all three spine joints ([Bone map](#bone-map)). IK would not have fixed this, and a fold of `DEF-spine.002` into `DEF-spine.003` before the retarget would have put animation semantics into asset-tooling.
 
-| Clip | Maximum chest error |
-| --- | --- |
-| `Idle_Loop` | 5.9° |
-| `Walk_Loop` | 5.2° |
-| `Jog_Fwd_Loop` | 16.1° |
-| `Sprint_Loop` | 11.8° |
-| `Sword_Idle` | 20.4° |
-| `Sword_Attack` | 29.8° |
-| `Death01` | 14.4° |
+The chest error is the angle between the world-frame rotation deltas from rest, W(t) · W(rest)⁻¹, of the Ranger's `spine_03` and the source's `DEF-spine.003` (for `Idle_Shield_Loop`, UAL2's `spine_03`). It is measured at 11 evenly spaced samples per clip, from the start to the last key:
 
-The errors were measured over 11 samples per clip, as the world rotation delta of `spine_03` against UAL1's `DEF-spine.003`.
+| Clip | Maximum chest error, v4 | Maximum chest error, v5 |
+| --- | --- | --- |
+| `Idle_Loop` | 5.9° | 0.5° |
+| `Walk_Loop` | 5.2° | 0.7° |
+| `Jog_Fwd_Loop` | 16.1° | 5.5° |
+| `Sprint_Loop` | 11.8° | 4.2° |
+| `Sword_Idle` | 20.4° | 1.9° |
+| `Sword_Attack` | 29.8° | 11.3° |
+| `Death01` | 14.4° | 1.8° |
+| `Idle_Shield_Loop` | 12.9° | 2.2° |
 
-IK would not fix this. Either of two changes would:
+At the end of `Death01` in v5, the lowest right fingertip joint (`ring_04_leaf_r`) is 0.9 cm above the ground (v4: `middle_04_leaf_r`, 8.7 cm below). The right shoulder (`upperarm_r`) is at 6.2 cm (v4: 2.3 cm), the wrists (`hand_r`, `hand_l`) at 3.6 and 2.6 cm (v4: −4.1 and −2.8 cm), and the lowest left fingertip at 0.2 cm (v4: −7.3 cm). The pelvis stays at 6.5 cm.
 
-- a third spine bone in 3d-lab's `HumanoidBone`;
-- a step before the retarget that folds `DEF-spine.002` into `DEF-spine.003`.
-
-Either change alters every clip, so it is follow-up work and not part of v4. The v4 sockets were checked against the clips as they are.
+**Remaining error:** in v5, the pelvis, `spine_01` and `spine_02` follow the source within 1.6°. The rest of the error appears at `spine_03`. In `Sword_Attack`, `DEF-spine.003` twists up to 75° from its rest, and the rest orientations of `spine_03` and `DEF-spine.003` differ by 11.1° in world space. The processor transfers each bone's local rotation delta onto the target's rest, so a large twist of a joint whose rest axes differ from the source's is applied about slightly different world axes. That is a property of `three-d-animation-humanoid-retarget-v1` in 3d-lab, not of the bone map.
 
 ## Not covered here
 

@@ -4,8 +4,8 @@
 // #113 sword idle/attack and shield guard) through the pinned 3d-lab processor, embed, generate the
 // sword and shield through the weapon recipe, attach the humanoid-sockets-v1 descriptor, then the
 // gltf-resources-v1 bundle and release tar. v3 (#257) adds game-resolution PNG textures
-// (scene.textures.resize.gltf@1) to that v2 content; the default v4 (#113) is v3 with the anatomically
-// derived hand sockets. Structural checks only (owner answer 4 on #110: no
+// (scene.textures.resize.gltf@1) to that v2 content; v4 (#113) is v3 with the anatomically derived hand
+// sockets, and the default v5 (#268) is v4 retargeted through all three spine joints (`upper-chest`). Structural checks only (owner answer 4 on #110: no
 // byte-exact replay, no Blender oracle). The full build skips unless the Git LFS payloads are
 // hydrated, ASSET_TOOLING_PROCESSOR_CHECKOUT_3DLAB names a clean 3d-lab checkout at the pinned
 // commit with its cargo dependencies fetched, and ASSET_TOOLING_BLENDER names Blender for the weapons.
@@ -22,7 +22,7 @@ import { validateHumanoidSocketDescriptor } from "../src/humanoid-sockets.js";
 import {
   RANGER_BONE_MAP, RANGER_BUNDLE_KEY, RANGER_BUNDLE_VARIANT, RANGER_CLIPS, RANGER_MEMBERS, RANGER_SOCKETS_ATTACHMENT,
   RANGER_DEFAULT_VERSION, RANGER_SOCKETS_DESCRIPTOR, RANGER_TEXTURE_POLICY, RANGER_V2_SOCKETS_DESCRIPTOR, rangerSocketsDescriptor, RANGER_UBC_BONE_MAP, RANGER_V2_CLIPS, RANGER_V2_EQUIPMENT,
-  buildRangerCharacter,
+  RANGER_V5_BONE_MAP, RANGER_V5_UBC_BONE_MAP, buildRangerCharacter, rangerBoneMaps,
 } from "../scripts/build-ranger-character.ts";
 
 const ROOT = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
@@ -49,24 +49,47 @@ test("the v2 recipe keeps the v1 clips, adds the #260/#113 clips by source name 
     ["Sword_Idle", "clips"], ["Sword_Attack", "clips"], ["Death01", "clips"], ["Idle_Shield_Loop", "clips2"],
   ]);
   assert.ok(RANGER_V2_CLIPS.every((clip) => clip.rootMotion === "in-place"));
-  assert.deepEqual(Object.keys(RANGER_UBC_BONE_MAP), Object.keys(RANGER_BONE_MAP));
-  for (const [bone, { source, target }] of Object.entries(RANGER_UBC_BONE_MAP)) {
-    assert.equal(source, target, bone);
-    assert.equal(target, RANGER_BONE_MAP[bone]!.target, bone);
+  for (const [ubc, ual1] of [[RANGER_UBC_BONE_MAP, RANGER_BONE_MAP], [RANGER_V5_UBC_BONE_MAP, RANGER_V5_BONE_MAP]] as const) {
+    assert.deepEqual(Object.keys(ubc), Object.keys(ual1));
+    for (const [bone, { source, target }] of Object.entries(ubc)) {
+      assert.equal(source, target, bone);
+      assert.equal(target, ual1[bone]!.target, bone);
+    }
   }
   assert.deepEqual(RANGER_V2_EQUIPMENT.map((item) => item.key), ["equipment.sword.arming", "equipment.shield.heater"]);
 });
 
-test("v4 (#113) is the default; v2 and v3 keep the bundle-v2 sockets, and the texture limits are per slot", () => {
-  assert.equal(RANGER_DEFAULT_VERSION, 4);
-  assert.deepEqual(([1, 2, 3, 4] as const).map(rangerSocketsDescriptor), [undefined, RANGER_V2_SOCKETS_DESCRIPTOR, RANGER_V2_SOCKETS_DESCRIPTOR, RANGER_SOCKETS_DESCRIPTOR]);
+test("v5 (#268) retargets every spine joint exactly once; v1-v4 keep the two-bone spine map", () => {
+  const spine = (map: Record<string, { source: string; target: string }>) =>
+    Object.entries(map).filter(([, { target }]) => target.startsWith("spine_")).map(([bone, { source, target }]) => [bone, source, target]);
+  assert.deepEqual(spine(RANGER_V5_BONE_MAP), [
+    ["spine", "DEF-spine.001", "spine_01"], ["chest", "DEF-spine.002", "spine_02"], ["upper-chest", "DEF-spine.003", "spine_03"],
+  ]);
+  assert.deepEqual(spine(RANGER_BONE_MAP), [["spine", "DEF-spine.001", "spine_01"], ["chest", "DEF-spine.003", "spine_03"]]);
+  assert.deepEqual(Object.keys(RANGER_V5_BONE_MAP).filter((bone) => !(bone in RANGER_BONE_MAP)), ["upper-chest"]);
+  for (const map of [RANGER_V5_BONE_MAP, RANGER_V5_UBC_BONE_MAP]) {
+    for (const side of ["source", "target"] as const) {
+      const joints = Object.values(map).map((binding) => binding[side]);
+      assert.equal(new Set(joints).size, joints.length, `${side} joints are mapped once`);
+    }
+  }
+  assert.deepEqual(([1, 2, 3, 4, 5] as const).map((version) => rangerBoneMaps(version).clips), [
+    RANGER_BONE_MAP, RANGER_BONE_MAP, RANGER_BONE_MAP, RANGER_BONE_MAP, RANGER_V5_BONE_MAP,
+  ]);
+  assert.equal(rangerBoneMaps(5).clips2, RANGER_V5_UBC_BONE_MAP);
+  assert.equal(rangerBoneMaps(4).clips2, RANGER_UBC_BONE_MAP);
+});
+
+test("v5 (#268) is the default; v2 and v3 keep the bundle-v2 sockets, and the texture limits are per slot", () => {
+  assert.equal(RANGER_DEFAULT_VERSION, 5);
+  assert.deepEqual(([1, 2, 3, 4, 5] as const).map(rangerSocketsDescriptor), [undefined, RANGER_V2_SOCKETS_DESCRIPTOR, RANGER_V2_SOCKETS_DESCRIPTOR, RANGER_SOCKETS_DESCRIPTOR, RANGER_SOCKETS_DESCRIPTOR]);
   assert.notEqual(RANGER_SOCKETS_DESCRIPTOR, RANGER_V2_SOCKETS_DESCRIPTOR);
   assert.deepEqual(RANGER_TEXTURE_POLICY, {
     maxEdgeBySlot: { baseColor: 1024, normal: 1024, metallicRoughness: 512, occlusion: 512, emissive: 1024 }, default: 1024,
   });
 });
 
-test("the Ranger v4 recipe builds a verified bundle: in-place clips, equipment entries, the sockets attachment and game-resolution textures", { skip: await skipReason(), timeout: 900_000 }, async () => {
+test("the Ranger v5 recipe builds a verified bundle: in-place clips, equipment entries, the sockets attachment and game-resolution textures", { skip: await skipReason(), timeout: 900_000 }, async () => {
   const outDir = await mkdtemp(path.join(os.tmpdir(), "humanoid-ranger-"));
   try {
     const built = await buildRangerCharacter({ processorCheckout: CHECKOUT!, outDir });
@@ -86,8 +109,8 @@ test("the Ranger v4 recipe builds a verified bundle: in-place clips, equipment e
 
     const { gltf, resources } = await readAssetBundleGltf(built.bundleDir, manifest, RANGER_BUNDLE_KEY, RANGER_BUNDLE_VARIANT);
     const document = await new NodeIO().readJSON({ json: JSON.parse(gltf.toString("utf8")), resources: Object.fromEntries(resources) });
-    // v3 and v4: 13 PNG textures, each within its slot's limit, the 4096 px sources reduced and none upscaled.
-    assert.equal(built.lineage.version, 4);
+    // v3 and later: 13 PNG textures, each within its slot's limit, the 4096 px sources reduced and none upscaled.
+    assert.equal(built.lineage.version, 5);
     const textures = built.lineage.textures![RANGER_BUNDLE_KEY]!;
     assert.equal(document.getRoot().listTextures().length, 13);
     for (const image of textures.images) {
@@ -106,7 +129,7 @@ test("the Ranger v4 recipe builds a verified bundle: in-place clips, equipment e
     const joints = document.getRoot().listSkins()[0]!.listJoints();
     assert.equal(joints.length, 65);
     validateHumanoidSocketDescriptor(JSON.parse(sockets.toString("utf8")), { joints: joints.map((joint) => joint.getName()) });
-    const mappedTargets = new Set(Object.values(RANGER_BONE_MAP).map((binding) => binding.target));
+    const mappedTargets = new Set(Object.values(RANGER_V5_BONE_MAP).map((binding) => binding.target));
     const root = joints.find((joint) => joint.getName() === "root")!;
     const pelvis = joints.find((joint) => joint.getName() === "pelvis")!;
     const rest = { root: [root.getTranslation(), root.getRotation()], pelvis: [pelvis.getTranslation(), pelvis.getRotation()] } as const;
@@ -117,6 +140,8 @@ test("the Ranger v4 recipe builds a verified bundle: in-place clips, equipment e
         assert.ok(mappedTargets.has(channel.getTargetNode()!.getName()), `${name} animates only mapped joints`);
         assert.equal(channel.getSampler()!.getInterpolation(), "LINEAR");
       }
+      // v5 (#268): the middle spine joint carries the source bend instead of staying at rest.
+      assert.ok(animation.listChannels().some((channel) => channel.getTargetNode()!.getName() === "spine_02" && channel.getTargetPath() === "rotation"), `${name} rotates spine_02`);
       const duration = Math.max(...animation.listSamplers().map((sampler) => sampler.getInput()!.getMax([])[0]!));
       assert.ok(duration > 0, `${name} has a positive duration`);
       // In place: the pelvis's horizontal model-space position (root and pelvis keys composed) drifts at most 1 cm.
@@ -139,7 +164,7 @@ test("the Ranger v4 recipe builds a verified bundle: in-place clips, equipment e
     }
     for (const clip of built.lineage.clips) {
       assert.equal(clip.observations.rootMotion, "in-place", clip.name);
-      assert.equal(clip.observations.mappedBoneCount, Object.keys(RANGER_BONE_MAP).length, clip.name);
+      assert.equal(clip.observations.mappedBoneCount, Object.keys(RANGER_V5_BONE_MAP).length, clip.name);
       assert.equal(clip.observations.startSeconds, 0, clip.name);
       assert.ok(clip.observations.endSeconds > 0 && clip.observations.sampleCount > 1, clip.name);
     }

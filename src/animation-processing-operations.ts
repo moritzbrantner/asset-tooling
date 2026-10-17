@@ -30,9 +30,12 @@ const OPERATION_VERSION = "1";
 const RESAMPLE_PROCESSOR_ID = "three-d-animation-resample";
 const REDUCE_PROCESSOR_ID = "three-d-animation-reduce";
 const RETARGET_PROCESSOR_ID = "three-d-animation-retarget";
-/** `three_d_animation::retarget::HumanoidBone` ids accepted by the pinned processor. */
+/**
+ * `three_d_animation::retarget::HumanoidBone` ids accepted by the pinned processor. `upper-chest` (3d-lab
+ * 4e69c0f, #268) is optional and sits between `chest` and `neck` for three-segment spines.
+ */
 export const HUMANOID_BONE_IDS = Object.freeze([
-  "root", "hips", "spine", "chest", "neck", "head",
+  "root", "hips", "spine", "chest", "upper-chest", "neck", "head",
   "left-shoulder", "left-upper-arm", "left-lower-arm", "left-hand",
   "right-shoulder", "right-upper-arm", "right-lower-arm", "right-hand",
   "left-upper-leg", "left-lower-leg", "left-foot", "left-toes",

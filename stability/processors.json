@@ -32,7 +32,7 @@
     {
       "id": "three-d-animation-retarget",
       "repository": "moritzbrantner/3d-lab",
-      "commit": "86e5fe1dc6e564176de35723b31e217bf385b20a",
+      "commit": "4e69c0f64177d3babdf0ea991a631c62f577e684",
       "manifestPath": "examples/asset-tooling-animation-adapter/Cargo.toml",
       "operation": "animation.retarget"
     },

@@ -1,6 +1,6 @@
 // Build the Ranger character bundle end to end from its canonical catalog members
 // (docs/humanoid-ranger.md):
-//   bun scripts/build-ranger-character.ts --processor-checkout <3d-lab checkout> --out <directory> [--version 1|2|3|4]
+//   bun scripts/build-ranger-character.ts --processor-checkout <3d-lab checkout> --out <directory> [--version 1|2|3|4|5]
 // The 3d-lab checkout must be source-clean at the commit stability/processors.json pins for
 // `three-d-animation-retarget`, with its cargo dependencies fetched (the processor runs --offline).
 // <directory> becomes the object-store root; the bundle is exported to <directory>/bundle and packed
@@ -10,8 +10,13 @@
 // humanoid-sockets-v1 descriptor as an attachment of the character entry. Version 1 is the #110 build.
 // Version 3 (#257) is v2 with game-resolution PNG textures (scene.textures.resize.gltf@1,
 // RANGER_TEXTURE_POLICY); keys, variants, scenes, materials, UVs, clips and sockets are those of v2.
-// Version 4 (the default, #113) is v3 with the anatomically derived hand sockets
+// Version 4 (#113) is v3 with the anatomically derived hand sockets
 // (examples/weapons/derive-sockets.ts); v2 and v3 keep shipping the bundle-v2 descriptor.
+// Version 5 (the default, #268) is v4 with every clip retargeted through all three spine joints: the
+// optional `upper-chest` HumanoidBone (3d-lab 4e69c0f) carries DEF-spine.003 -> spine_03, and `chest`
+// now binds the middle joint DEF-spine.002 -> spine_02 (RANGER_V5_BONE_MAP). v1-v4 keep their
+// two-bone spine map; the processor leaves an unmapped `upper-chest` exactly as before, so they
+// still build their recorded tars at the new pin.
 import path from "node:path";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
@@ -49,8 +54,9 @@ export const RANGER_MEMBERS = {
   clips: { archive: "quaternius.universal-animation-library-standard", path: "Animation Library[Standard]/Godot/AnimationLibrary_Godot_Standard.glb" },
   clips2: { archive: "quaternius.universal-animation-library-2-standard", path: "Universal Animation Library 2 [Standard]/Unreal-Godot/UAL2_Standard.glb" },
 } as const;
-export type RangerVersion = 1 | 2 | 3 | 4;
-export const RANGER_DEFAULT_VERSION: RangerVersion = 4;
+export type RangerVersion = 1 | 2 | 3 | 4 | 5;
+export const RANGER_VERSIONS: readonly RangerVersion[] = [1, 2, 3, 4, 5];
+export const RANGER_DEFAULT_VERSION: RangerVersion = 5;
 /** v3 (#257): per-slot maximum texture edges for browser delivery; images are never upscaled. */
 export const RANGER_TEXTURE_POLICY = {
   maxEdgeBySlot: { baseColor: 1024, normal: 1024, metallicRoughness: 512, occlusion: 512, emissive: 1024 },
@@ -85,7 +91,7 @@ export const RANGER_V2_EQUIPMENT: readonly { key: string; piece: WeaponPiece }[]
   { key: "equipment.shield.heater", piece: "shield.heater" },
 ];
 export const RANGER_SOCKETS_ATTACHMENT = "humanoid-sockets";
-/** The current descriptor (v4, derived anatomically by examples/weapons/derive-sockets.ts). */
+/** The current descriptor (v4 and v5, derived anatomically by examples/weapons/derive-sockets.ts). */
 export const RANGER_SOCKETS_DESCRIPTOR = "assets/descriptors/humanoid.ranger.male.sockets.json";
 /** The descriptor bundles v2 and v3 ship, kept byte for byte so those versions stay reproducible. */
 export const RANGER_V2_SOCKETS_DESCRIPTOR = "assets/descriptors/humanoid.ranger.male.sockets.bundle-v2.json";
@@ -95,7 +101,10 @@ export function rangerSocketsDescriptor(version: RangerVersion): string | undefi
 }
 export const RANGER_SAMPLE_RATE = 30;
 
-/** HumanoidBone id -> UAL1 Rigify `DEF-*` joint (source) and UBC/Outfits joint (target). */
+/**
+ * HumanoidBone id -> UAL1 Rigify `DEF-*` joint (source) and UBC/Outfits joint (target), as v1-v4 bind it:
+ * two spine bones, so DEF-spine.002 / spine_02 stay unmapped (#268).
+ */
 export const RANGER_BONE_MAP: Record<string, { source: string; target: string }> = {
   root: { source: "root", target: "root" },
   hips: { source: "DEF-hips", target: "pelvis" },
@@ -120,10 +129,22 @@ export const RANGER_BONE_MAP: Record<string, { source: string; target: string }>
   "right-foot": { source: "DEF-foot.R", target: "foot_r" },
   "right-toes": { source: "DEF-toe.R", target: "ball_r" },
 };
-/** UAL2 shares the UBC/Outfits joint names, so its map binds the same name on both sides. */
-export const RANGER_UBC_BONE_MAP: Record<string, { source: string; target: string }> = Object.fromEntries(
-  Object.entries(RANGER_BONE_MAP).map(([bone, { target }]) => [bone, { source: target, target }]),
+/** v5 (#268): all three spine joints, each mapped exactly once (`upper-chest` sits between `chest` and `neck`). */
+export const RANGER_V5_BONE_MAP: Record<string, { source: string; target: string }> = Object.fromEntries(
+  Object.entries(RANGER_BONE_MAP).flatMap(([bone, binding]) =>
+    bone === "chest"
+      ? [["chest", { source: "DEF-spine.002", target: "spine_02" }], ["upper-chest", { source: "DEF-spine.003", target: "spine_03" }]]
+      : [[bone, binding]]),
 );
+/** UAL2 shares the UBC/Outfits joint names, so its map binds the same name on both sides. */
+const sameName = (map: Record<string, { source: string; target: string }>) =>
+  Object.fromEntries(Object.entries(map).map(([bone, { target }]) => [bone, { source: target, target }]));
+export const RANGER_UBC_BONE_MAP: Record<string, { source: string; target: string }> = sameName(RANGER_BONE_MAP);
+export const RANGER_V5_UBC_BONE_MAP: Record<string, { source: string; target: string }> = sameName(RANGER_V5_BONE_MAP);
+/** The UAL1 and UAL2 bone maps a bundle version retargets with. */
+export function rangerBoneMaps(version: RangerVersion) {
+  return version >= 5 ? { clips: RANGER_V5_BONE_MAP, clips2: RANGER_V5_UBC_BONE_MAP } : { clips: RANGER_BONE_MAP, clips2: RANGER_UBC_BONE_MAP };
+}
 
 function single(result: AssetOperationResult, port = "output"): AssetRef {
   const output = result.outputs[port];
@@ -165,7 +186,7 @@ async function buildWeapon(root: string, piece: WeaponPiece) {
 export async function buildRangerCharacter({ processorCheckout, outDir, version = RANGER_DEFAULT_VERSION, log = () => {} }: {
   processorCheckout: string; outDir: string; version?: RangerVersion; log?: (line: string) => void;
 }) {
-  if (version !== 1 && version !== 2 && version !== 3 && version !== 4) throw new Error("Ranger bundle version must be 1, 2, 3 or 4");
+  if (!RANGER_VERSIONS.includes(version)) throw new Error("Ranger bundle version must be 1, 2, 3, 4 or 5");
   const root = path.resolve(outDir);
   await mkdir(root, { recursive: true });
   const processor = await rangerProcessor(path.resolve(processorCheckout));
@@ -209,9 +230,10 @@ export async function buildRangerCharacter({ processorCheckout, outDir, version 
 
   log("extract target rig and source clips (scene.extract.animation.gltf@1)");
   const targetRig = single(await executeGltfExtractAnimationOperation(root, { inputs: { source: composed }, parameters: { hipsJoint: RANGER_HIPS.target, policy: POLICY } }), "rig");
+  const boneMaps = rangerBoneMaps(version);
   const libraries = {
-    clips: { hips: RANGER_HIPS.source, bindings: RANGER_BONE_MAP, member: () => member(memberId(RANGER_MEMBERS.clips)) },
-    clips2: { hips: RANGER_HIPS.source2, bindings: RANGER_UBC_BONE_MAP, member: () => member(memberId(RANGER_MEMBERS.clips2)) },
+    clips: { hips: RANGER_HIPS.source, bindings: boneMaps.clips, member: () => member(memberId(RANGER_MEMBERS.clips)) },
+    clips2: { hips: RANGER_HIPS.source2, bindings: boneMaps.clips2, member: () => member(memberId(RANGER_MEMBERS.clips2)) },
   } as const;
   const loaded: Partial<Record<RangerClip["library"], AssetRef>> = {};
   const sourceRigs: Partial<Record<RangerClip["library"], AssetRef>> = {};
@@ -238,7 +260,7 @@ export async function buildRangerCharacter({ processorCheckout, outDir, version 
     parameters: { clips: clips.map((clip) => ({ name: clip.name })), policy: POLICY },
   }));
 
-  // v3 and v4: the same GLB with game-resolution textures; nothing but image bytes changes.
+  // v3 and later: the same GLB with game-resolution textures; nothing but image bytes changes.
   const textures: Record<string, Json> = {};
   const resizeTextures = async (key: string, glb: AssetRef) => {
     const json = await new NodeIO().binaryToJSON(await resolveAssetObject(root, glb));
@@ -310,7 +332,7 @@ function parseArguments(args: string[]) {
     if (!["--processor-checkout", "--out", "--version"].includes(flag!) || !value) return undefined;
     options[flag!.slice(2)] = value;
   }
-  if (options.version !== undefined && !["1", "2", "3", "4"].includes(options.version)) return undefined;
+  if (options.version !== undefined && !RANGER_VERSIONS.map(String).includes(options.version)) return undefined;
   const version = (options.version === undefined ? RANGER_DEFAULT_VERSION : Number(options.version)) as RangerVersion;
   return options["processor-checkout"] && options.out ? { processorCheckout: options["processor-checkout"], outDir: options.out, version } : undefined;
 }
@@ -318,7 +340,7 @@ function parseArguments(args: string[]) {
 if (import.meta.main) {
   const options = parseArguments(process.argv.slice(2));
   if (!options) {
-    console.error("Usage: bun scripts/build-ranger-character.ts --processor-checkout <absolute 3d-lab checkout> --out <directory> [--version 1|2|3|4]");
+    console.error("Usage: bun scripts/build-ranger-character.ts --processor-checkout <absolute 3d-lab checkout> --out <directory> [--version 1|2|3|4|5]");
     process.exit(2);
   }
   try {

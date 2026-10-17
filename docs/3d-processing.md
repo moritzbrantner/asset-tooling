@@ -34,7 +34,7 @@ The initial 3D processing vocabulary is intentionally small:
 - `mesh.lod_chain`: derive an ordered family of levels from the same source mesh.
 - `animation.resample`: bake animation channels onto an explicit time grid.
 - `animation.reduce`: remove redundant animation keys while staying within explicit error tolerances.
-- `animation.retarget`: transfer a clip from a source humanoid rig onto a target rig through an explicit semantic bone map, sampled on an explicit grid, with root motion kept or removed (`in-place`). It takes rig JSON AssetRefs plus joint-name bindings, which are converted to the processor's node indices; see [humanoid-ranger.md](humanoid-ranger.md).
+- `animation.retarget`: transfer a clip from a source humanoid rig onto a target rig through an explicit semantic bone map, sampled on an explicit grid, with root motion kept or removed (`in-place`). It takes rig JSON AssetRefs plus joint-name bindings, which are converted to the processor's node indices. The binding keys are 3d-lab `HumanoidBone` ids, including the optional `upper-chest` between `chest` and `neck` for three-segment spines (3d-lab `4e69c0f`, [#268](https://github.com/moritzbrantner/asset-tooling/issues/268)); see [humanoid-ranger.md](humanoid-ranger.md#bone-map).
 - `rig.humanoid.validate`: validate a production humanoid skeleton/rest-pose package, semantic bone mapping, Root/Hips separation, and standard attachment sockets through the authoritative `three-d-animation` contract.
 
 Runtime playback, interpolation, cross-fading, renderer LOD selection, and physics interpolation are not asset-processing operations. They belong to their runtime owners and should not be smuggled into an asset receipt.
