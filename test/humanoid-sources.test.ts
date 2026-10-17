@@ -1,5 +1,9 @@
-// Acceptance for the first humanoid source members (#109, slice 2), per Atlas
-// Decisions 1.1.3, 6.1.1 and 6.1.2 and docs/humanoid-sources.md. Mirrors
+// Acceptance for the first humanoid source members (#109, slices 2 and 3), per Atlas
+// Decisions 1.1.3, 6.1.1, 6.1.2 and 6.1.3 and docs/humanoid-sources.md. Slice 3
+// (owner answers 2026-10-17): the two broken normal-map URIs of the body glTF are
+// bound by a declared substitution to the same-folder textures, which are promoted
+// as body members carrying metadata.substitutesFor; and every humanoid member
+// re-imports idempotently through the public storage→AssetRef boundary. Mirrors
 // test/greyhaven-starter-sources.test.ts. The structure checks read the
 // committed catalog and run in ordinary `bun run check`. The resource-closure,
 // clip and integrity checks need hydrated Git LFS payloads: they skip with a
@@ -9,12 +13,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import path from "node:path";
-import { readFile } from "node:fs/promises";
+import os from "node:os";
+import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { sha256Bytes } from "../src/hash.js";
 import { createAssetCatalog } from "../src/catalog.js";
 import {
   createAssetCatalogStorageManifest,
+  importAssetCatalogStorageSource,
   readAssetCatalogStorageSource,
   verifyAssetCatalogStorageBytes,
 } from "../src/catalog-storage.js";
@@ -66,14 +72,21 @@ const BODY_DIR = "Universal Base Characters[Standard]/Base Characters/Godot - UE
 const OUTFIT_DIR = "Modular Character Outfits - Fantasy[Standard]/Exports/glTF (Godot-Unreal)/Outfits";
 const CLIPS_PATH = "Animation Library[Standard]/Godot/AnimationLibrary_Godot_Standard.glb";
 
+interface Substitution {
+  /** The URI the root references, which the archive does not contain under that name. */
+  uri: string;
+  /** The same-folder member that stands in for it (Decision 6.1.3). */
+  path: string;
+}
+
 interface Asset {
   role: Role;
   archive: string;
   /** The root member: a .gltf whose URIs are closed over, or a self-contained .glb. */
   root: string;
   referenced: string[];
-  /** URIs the root references that the archive does not contain (recorded known gap). */
-  knownGap: string[];
+  /** Declared substitutions for URIs that resolve by no adjacent basename. */
+  substitutions: Substitution[];
 }
 
 // Decision 6.1.2's selected members, with every referenced resource that exists.
@@ -90,7 +103,10 @@ const ASSETS: Asset[] = [
       "T_Superhero_Male_Dark.png",
       "T_Superhero_Male_Roughness.png",
     ].map((name) => `${BODY_DIR}/${name}`),
-    knownGap: ["T_Hair_1_Normal_png.png", "T_Eye_Normal_png.png"],
+    substitutions: [
+      { uri: "T_Hair_1_Normal_png.png", path: `${BODY_DIR}/T_Hair_1_Normal.png` },
+      { uri: "T_Eye_Normal_png.png", path: `${BODY_DIR}/T_Eye_Normal.png` },
+    ],
   },
   {
     role: "outfit",
@@ -105,12 +121,12 @@ const ASSETS: Asset[] = [
       "T_Regular_Male_Dark_BaseColor.png",
       "T_Regular_Male_Roughness.png",
     ].map((name) => `${OUTFIT_DIR}/${name}`),
-    knownGap: [],
+    substitutions: [],
   },
-  { role: "clips", archive: UAL, root: CLIPS_PATH, referenced: [], knownGap: [] },
+  { role: "clips", archive: UAL, root: CLIPS_PATH, referenced: [], substitutions: [] },
 ];
 const REQUIRED_CLIPS = ["Idle_Loop", "Walk_Loop"];
-const KNOWN_GAP = ASSETS.flatMap((asset) => asset.knownGap.map((uri) => ({ asset, uri })));
+const SUBSTITUTIONS = ASSETS.flatMap((asset) => asset.substitutions.map((substitution) => ({ asset, ...substitution })));
 
 function memberId(archive: string, memberPath: string): string {
   const slug = path.posix
@@ -140,7 +156,7 @@ interface ExpectedMember {
 
 const EXPECTED = new Map<string, ExpectedMember>();
 for (const asset of ASSETS) {
-  for (const memberPath of [asset.root, ...asset.referenced]) {
+  for (const memberPath of [asset.root, ...asset.referenced, ...asset.substitutions.map((entry) => entry.path)]) {
     const id = memberId(asset.archive, memberPath);
     assert.ok(!EXPECTED.has(id), `expected-member table: duplicate id '${id}'`);
     const type = MEDIA_TYPES[path.posix.extname(memberPath)];
@@ -201,7 +217,8 @@ async function detectHydration(): Promise<Hydration> {
   // Nothing promoted yet: the registration tests already fail closed on that.
   if (!anyStored) return { state: "unregistered" };
   const pointers: string[] = [];
-  for (const member of EXPECTED.values()) {
+  // Members without a storage entry are failed by the registration/storage tests.
+  for (const member of [...EXPECTED.values()].filter((candidate) => rawEntries.some((entry) => entry.sourceId === candidate.id))) {
     let bytes: Buffer;
     try {
       bytes = await readFile(path.join(ROOT, ...member.storagePath.split("/")));
@@ -222,10 +239,14 @@ const hydratedSkip: string | false =
 
 // ---------------------------------------------------------------- structure
 
-test("expected-member table: 16 members (7 body, 8 outfit, 1 clips GLB)", () => {
-  assert.equal(EXPECTED.size, 16);
+test("expected-member table: 18 members (9 body incl. 2 substitutes, 8 outfit, 1 clips GLB)", () => {
+  assert.equal(EXPECTED.size, 18);
   const byRole = (role: Role) => [...EXPECTED.values()].filter((member) => member.role === role).length;
-  assert.deepEqual([byRole("body"), byRole("outfit"), byRole("clips")], [7, 8, 1]);
+  assert.deepEqual([byRole("body"), byRole("outfit"), byRole("clips")], [9, 8, 1]);
+  assert.deepEqual(
+    SUBSTITUTIONS.map(({ path: memberPath }) => memberId(BASE, memberPath)),
+    [`${BASE}.t-hair-1-normal-png`, `${BASE}.t-eye-normal-png`],
+  );
   assert.equal(
     memberId(BASE, `${BODY_DIR}/Superhero_Male_FullBody.gltf`),
     "quaternius.universal-base-characters-standard.superhero-male-fullbody-gltf",
@@ -328,21 +349,47 @@ test("no unlisted member of these archives is registered or stored", () => {
   assert.deepEqual(stored, [...EXPECTED.keys()].sort());
 });
 
-test("known gap: the two absent normal-map URIs are neither registered nor stored", () => {
+const BODY_ROOT_ID = memberId(BASE, `${BODY_DIR}/Superhero_Male_FullBody.gltf`);
+
+test("declared substitution: each substitute member names the broken URI it stands in for", () => {
   assert.deepEqual(
-    KNOWN_GAP.map(({ uri }) => uri),
-    ["T_Hair_1_Normal_png.png", "T_Eye_Normal_png.png"],
+    SUBSTITUTIONS.map(({ uri, path: memberPath }) => [uri, path.posix.basename(memberPath)]),
+    [
+      ["T_Hair_1_Normal_png.png", "T_Hair_1_Normal.png"],
+      ["T_Eye_Normal_png.png", "T_Eye_Normal.png"],
+    ],
   );
-  for (const { asset, uri } of KNOWN_GAP) {
-    const gapPath = `${path.posix.dirname(asset.root)}/${uri}`;
+  for (const { asset, uri, path: memberPath } of SUBSTITUTIONS) {
+    const id = memberId(asset.archive, memberPath);
+    const source = rawSource(id);
+    assert.equal(path.posix.dirname(memberPath), path.posix.dirname(asset.root), `'${id}' must be a same-folder member`);
+    assert.deepEqual(
+      source.metadata?.substitutesFor,
+      { member: memberId(asset.archive, asset.root), uri },
+      `'${id}' must carry metadata.substitutesFor naming '${uri}'`,
+    );
+  }
+  assert.equal(memberId(BASE, `${BODY_DIR}/Superhero_Male_FullBody.gltf`), BODY_ROOT_ID);
+  // Exactly these two records declare a substitution, and the declaration survives the public catalog.
+  const declaring = rawSources.filter((source) => source.metadata?.substitutesFor !== undefined).map((source) => source.id).sort();
+  assert.deepEqual(declaring, SUBSTITUTIONS.map(({ asset, path: memberPath }) => memberId(asset.archive, memberPath)).sort());
+  const catalog = buildCatalog();
+  for (const id of declaring) {
+    assert.deepEqual(catalog.getSource(id).metadata.substitutesFor, rawSource(id).metadata.substitutesFor, id);
+  }
+});
+
+test("declared substitution: the broken URIs themselves remain neither registered nor stored", () => {
+  for (const { asset, uri } of SUBSTITUTIONS) {
+    const brokenPath = `${path.posix.dirname(asset.root)}/${uri}`;
     assert.equal(
       rawSources.filter(
         (source) =>
-          source.id === memberId(asset.archive, gapPath) ||
+          source.id === memberId(asset.archive, brokenPath) ||
           (source.archiveMember && path.posix.basename(source.archiveMember.path) === uri),
       ).length,
       0,
-      `'${uri}' must not be registered (no member, no invented bytes)`,
+      `'${uri}' must not be registered (no member named after it, no invented bytes)`,
     );
     assert.equal(
       rawEntries.filter((entry) => path.posix.basename(entry.path) === uri).length,
@@ -352,7 +399,7 @@ test("known gap: the two absent normal-map URIs are neither registered nor store
   }
 });
 
-test("docs/humanoid-sources.md describes the set, provenance, local-file promotion and the known gap", async () => {
+test("docs/humanoid-sources.md describes the set, provenance, local-file promotion and the declared substitution", async () => {
   const doc = await readDoc();
   for (const id of ARCHIVES) assert.ok(doc.includes(id), `doc must name archive '${id}'`);
   for (const pin of Object.values(ARCHIVE_PINS)) {
@@ -364,9 +411,17 @@ test("docs/humanoid-sources.md describes the set, provenance, local-file promoti
   }
   for (const clip of REQUIRED_CLIPS) assert.ok(doc.includes(clip), `doc must name clip '${clip}'`);
   assert.match(doc, /catalog:lfs:promote[^\n]*--from/, "doc must show the local-file promotion command");
-  assert.match(doc, /known gap/i, "doc must record the known gap");
-  for (const { uri } of KNOWN_GAP) assert.ok(doc.includes(uri), `doc must list known-gap URI '${uri}'`);
+  assert.match(doc, /substitut/i, "doc must document the declared substitution");
+  const lines = doc.split("\n");
+  for (const { uri, path: memberPath } of SUBSTITUTIONS) {
+    const substitute = path.posix.basename(memberPath);
+    assert.ok(
+      lines.some((line) => line.includes(uri) && line.includes(substitute)),
+      `doc must state the mapping '${uri}' -> '${substitute}' (both on one line)`,
+    );
+  }
   assert.ok(doc.includes("6.1.2"), "doc must cite Atlas Decision 6.1.2");
+  assert.ok(doc.includes("6.1.3"), "doc must cite Atlas Decision 6.1.3");
 });
 
 test("generic: the archives are plain catalog sources, so another member needs no code", () => {
@@ -424,35 +479,74 @@ test("integrity: every stored payload matches its pin through the public storage
   }
 });
 
-test("resource closure: every present URI resolves to exactly one adjacent member; gap URIs resolve to none", { skip: hydratedSkip }, async () => {
+test("resource closure: every URI resolves to exactly one member, by adjacent basename or by one declared substitution", { skip: hydratedSkip }, async () => {
   const catalog = buildCatalog();
   for (const asset of ASSETS.filter((candidate) => candidate.root.endsWith(".gltf"))) {
-    const stored = await readMember(catalog, memberId(asset.archive, asset.root));
+    const rootId = memberId(asset.archive, asset.root);
+    const stored = await readMember(catalog, rootId);
     const gltf = JSON.parse(stored.bytes.toString("utf8"));
     const uris: string[] = [
       ...(gltf.buffers ?? []).map((buffer: any) => buffer.uri),
       ...(gltf.images ?? []).map((image: any) => image.uri),
     ].filter((uri): uri is string => typeof uri === "string");
     const members = rawSources.filter((source) => source.archiveMember?.archive === asset.archive);
+    const declarations = members.filter((source) => source.metadata?.substitutesFor?.member === rootId);
 
-    const resolved: string[] = [];
-    const unresolved: string[] = [];
+    const byName: string[] = [];
+    const bySubstitution: string[] = [];
+    const resolvedUrisByName = new Set<string>();
     for (const uri of uris) {
       assert.ok(!/^[a-z][a-z0-9+.-]*:/i.test(uri), `'${asset.root}' URI '${uri}' must be a relative file reference`);
       const adjacent = path.posix.normalize(path.posix.join(path.posix.dirname(asset.root), decodeURIComponent(uri)));
       const matches = members.filter((source) => source.archiveMember.path === adjacent);
       assert.ok(matches.length <= 1, `'${asset.root}' URI '${uri}' resolves to several members`);
-      if (matches.length === 0) {
-        unresolved.push(uri);
-        continue;
+      let target: any;
+      if (matches.length === 1) {
+        target = matches[0];
+        resolvedUrisByName.add(uri);
+        byName.push(adjacent);
+      } else {
+        const substitutes = declarations.filter((source) => source.metadata.substitutesFor.uri === uri);
+        assert.equal(substitutes.length, 1, `'${asset.root}' URI '${uri}' must resolve by exactly one declared substitution`);
+        target = substitutes[0];
+        bySubstitution.push(`${uri}=>${target.archiveMember.path}`);
       }
-      const id = matches[0].id;
-      assert.ok(EXPECTED.has(id), `'${asset.root}' URI '${uri}' resolves to unlisted member '${id}'`);
-      assert.equal(rawEntries.filter((entry) => entry.sourceId === id).length, 1, `'${adjacent}' must be stored once`);
-      resolved.push(adjacent);
+      assert.ok(EXPECTED.has(target.id), `'${asset.root}' URI '${uri}' resolves to unlisted member '${target.id}'`);
+      assert.equal(rawEntries.filter((entry) => entry.sourceId === target.id).length, 1, `'${target.id}' must be stored once`);
     }
-    assert.deepEqual(resolved.sort(), [...asset.referenced].sort(), `'${asset.root}' URI→member mapping`);
-    assert.deepEqual(unresolved.sort(), [...asset.knownGap].sort(), `'${asset.root}' unresolved URIs must be exactly the known gap`);
+    assert.deepEqual(byName.sort(), [...asset.referenced].sort(), `'${asset.root}' URI→member mapping by name`);
+    assert.deepEqual(
+      bySubstitution.sort(),
+      asset.substitutions.map(({ uri, path: memberPath }) => `${uri}=>${memberPath}`).sort(),
+      `'${asset.root}' URIs resolved by substitution must be exactly the declared ones`,
+    );
+    for (const declaration of declarations) {
+      const { uri } = declaration.metadata.substitutesFor;
+      assert.ok(uris.includes(uri), `'${declaration.id}' substitutes for '${uri}', which '${asset.root}' does not reference`);
+      assert.ok(!resolvedUrisByName.has(uri), `'${declaration.id}' substitutes for '${uri}', which already resolves by name`);
+    }
+  }
+});
+
+test("declared substitution: the body glTF uses each broken URI as a normalTexture; each substitute is stored at its pin", { skip: hydratedSkip }, async () => {
+  const catalog = buildCatalog();
+  const body = await readMember(catalog, BODY_ROOT_ID);
+  const gltf = JSON.parse(body.bytes.toString("utf8"));
+  const normalImageUris = new Set<string>(
+    (gltf.materials ?? [])
+      .map((material: any) => material.normalTexture?.index)
+      .filter((index: unknown): index is number => typeof index === "number")
+      .map((index: number) => gltf.images?.[gltf.textures?.[index]?.source]?.uri),
+  );
+  for (const { asset, uri, path: memberPath } of SUBSTITUTIONS) {
+    const images = (gltf.images ?? []).filter((image: any) => image.uri === uri);
+    assert.equal(images.length, 1, `body images[] must contain '${uri}' exactly once`);
+    assert.ok(normalImageUris.has(uri), `'${uri}' must be used as a normalTexture`);
+    const id = memberId(asset.archive, memberPath);
+    const stored = await readMember(catalog, id);
+    assert.equal(sha256Bytes(stored.bytes), rawSource(id).source.sha256, `'${id}' stored sha256 must equal the catalog pin`);
+    assert.equal(stored.bytes.byteLength, rawSource(id).source.byteLength, `'${id}' stored byteLength must equal the catalog pin`);
+    assert.equal(stored.bytes.toString("latin1", 1, 4), "PNG", `'${id}' must be a PNG`);
   }
 });
 
@@ -473,4 +567,56 @@ test("clips: the UAL1 GLB contains Idle_Loop and Walk_Loop among its named clips
     assert.equal(names.filter((name) => name === clip).length, 1, `GLB must contain exactly one '${clip}' clip`);
   }
   assert.equal(names.length, 46, "UAL1 Standard GLB carries 46 named clips");
+});
+
+// ------------------------------------------------- idempotent re-import (6.1.3 (b))
+
+async function snapshot(root: string): Promise<Record<string, string>> {
+  const files: Record<string, string> = {};
+  for (const relative of (await readdir(root, { recursive: true })).map(String).sort()) {
+    try {
+      files[relative] = sha256Bytes(await readFile(path.join(root, relative)));
+    } catch (error: any) {
+      if (error?.code !== "EISDIR") throw error;
+      files[relative] = "<dir>";
+    }
+  }
+  return files;
+}
+
+test("re-import: every humanoid member imports twice into a fresh object store with identical AssetRefs and no second-run change", { skip: hydratedSkip, timeout: 300_000 }, async () => {
+  const catalog = buildCatalog();
+  const humanoid = rawSources
+    .filter((source) => source.archiveMember && archiveSet.has(source.archiveMember.archive))
+    .map((source) => source.id as string)
+    .sort();
+  assert.ok(humanoid.length > 0, "no humanoid member is registered");
+  const objectStoreRoot = await mkdtemp(path.join(os.tmpdir(), "humanoid-reimport-"));
+  try {
+    const importAll = async () => {
+      const results: Record<string, any> = {};
+      for (const sourceId of humanoid) {
+        results[sourceId] = await importAssetCatalogStorageSource({
+          catalog, storage: storageDocument, sourceId, storageRoot: ROOT, objectStoreRoot,
+        });
+      }
+      return results;
+    };
+    const first = await importAll();
+    const afterFirst = await snapshot(objectStoreRoot);
+    const second = await importAll();
+    const afterSecond = await snapshot(objectStoreRoot);
+    for (const sourceId of humanoid) {
+      const source = rawSource(sourceId);
+      assert.equal(first[sourceId].status, "changed", `'${sourceId}' first import into a fresh store must change it`);
+      assert.equal(second[sourceId].status, "unchanged", `'${sourceId}' second import must change nothing`);
+      assert.deepEqual(second[sourceId].asset, first[sourceId].asset, `'${sourceId}' AssetRef must be identical across imports`);
+      assert.equal(first[sourceId].asset.sha256, source.source.sha256, `'${sourceId}' AssetRef sha256 must equal the pin`);
+      assert.equal(first[sourceId].asset.metadata.catalog.id, sourceId);
+      assert.equal(first[sourceId].asset.metadata.catalog.archiveMemberPath, source.archiveMember.path);
+    }
+    assert.deepEqual(afterSecond, afterFirst, "the second import must leave the object store file set and bytes unchanged");
+  } finally {
+    await rm(objectStoreRoot, { recursive: true, force: true });
+  }
 });
