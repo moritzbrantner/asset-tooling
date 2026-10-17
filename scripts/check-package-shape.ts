@@ -106,6 +106,8 @@ const expectedSourceExports: Record<string, string> = {
   "./recipes/medieval-character-materials": "./src/medieval-character-materials.ts",
   "./recipes/rocks": "./src/rock-recipes.ts",
   "./recipes/fence": "./src/fence-kit-recipes.ts",
+  "./recipes/weapons": "./src/weapon-recipes.ts",
+  "./humanoid/sockets": "./src/humanoid-sockets.ts",
   "./recipes/render-derivatives": "./src/render-derivative-recipes.ts",
   "./operations/image/atlas": "./src/sprite-atlas-operations.ts",
   "./recipes/surface-textures": "./src/surface-texture-recipes.ts",

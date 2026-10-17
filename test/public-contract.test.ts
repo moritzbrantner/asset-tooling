@@ -14,6 +14,7 @@ const PUBLISHED_SCHEMA_BLOBS = {
   "audio-asset-v1.schema.json": "193934f6128ff2ad94152018d60713b5e0e03b4b",
   "generation-receipt-v1.schema.json": "472719e19daa3373de50cfd54ab52519bcbe60d5",
   "generation-receipt-v2.schema.json": "6503467dfdd69f05e32b3d9ec630939f442d80d1",
+  "humanoid-sockets-v1.schema.json": "4524e391215aabc02bc535e8fc13a9b1f9d63ed5",
   "model-acquisition-receipt-v1.schema.json": "acf30491a7e44c665b02e773492ee56407751759",
   "processing-handoff-v1.schema.json": "a3786363ec227307207e9331c3257701f01abbc2",
   "processing-receipt-v1.schema.json": "30bbc442c12fbf65f62073fbbec58247f79f6293",
