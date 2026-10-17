@@ -12,7 +12,7 @@ The source members are listed in [humanoid-sources.md](humanoid-sources.md).
 
 ## Versions
 
-The recipe has six versions. `--version` selects one, and the default is 6.
+The recipe has seven versions. `--version` selects one, and the default is 7.
 
 - **v1 (#110):** the character with `Idle_Loop` and `Walk_Loop`. It is one entry with no attachments, and it stays reproducible with `--version 1`, which rebuilt the recorded v1 tar `4de4cc65…` byte for byte after the v2 change.
 - **v2 ([#260](https://github.com/moritzbrantner/asset-tooling/issues/260), [#113](https://github.com/moritzbrantner/asset-tooling/issues/113)):** v2 supersedes v1 as the bundle to publish. It follows the owner answers on #113:
@@ -32,6 +32,13 @@ The recipe has six versions. `--version` selects one, and the default is 6.
 
   The textures, the `humanoid-sockets` attachment and the two equipment entries are byte-identical to v5. After the v6 change, `--version 5` rebuilt the recorded v5 tar `059f9276…` byte for byte.
 
+- **v7 ([#113](https://github.com/moritzbrantner/asset-tooling/issues/113), [#114](https://github.com/moritzbrantner/asset-tooling/issues/114)):** v7 is v6 with the archery gear and the combat clips. It supersedes v6 as the bundle to publish.
+  - **Equipment:** three more entries from the [archery recipes](weapon-recipes.md#archery): `equipment.bow.long` (skinned to `grip` and `nock`), `equipment.arrow` and `equipment.quiver.back`.
+  - **Sockets:** the `humanoid-sockets` attachment is the v7 descriptor with the [archery sockets](humanoid-sockets.md#archery-sockets-bundle-v7).
+  - **Clips:** 16 more clips. The sword, counter, heavy and shield clips are the owner's picks on #114 after preview. Every combat clip gets a `role` in `humanoid-clips`, and strikes also get a `contact` (see [Clip motion](#clip-motion)). Bow draw and release clips are split out, because the free libraries have none.
+
+  The character's textures and the sword and shield entries are byte-identical to v6. After the v7 change, `--version 6` rebuilt the recorded v6 tar `9f5d625c…` byte for byte.
+
 v1–v4 keep their two-bone spine map. The processor treats an unmapped `upper-chest` exactly as before, so the new pin rebuilds them unchanged: after the v5 change, `--version 1` and `--version 4` rebuilt the recorded tars `4de4cc65…` and `222f21f8…` byte for byte at `4e69c0f`. No older processor checkout is needed.
 
 ## Build
@@ -41,10 +48,10 @@ git clone https://github.com/moritzbrantner/3d-lab <checkout>
 git -C <checkout> checkout 4e69c0f64177d3babdf0ea991a631c62f577e684   # the stability/processors.json pin
 cargo fetch --manifest-path <checkout>/examples/asset-tooling-animation-adapter/Cargo.toml
 git lfs pull   # the humanoid members under assets/canonical/
-ASSET_TOOLING_BLENDER=<blender 5.2.2> bun scripts/build-ranger-character.ts --processor-checkout <absolute checkout> --out <directory> [--version 1|2|3|4|5|6]
+ASSET_TOOLING_BLENDER=<blender 5.2.2> bun scripts/build-ranger-character.ts --processor-checkout <absolute checkout> --out <directory> [--version 1|2|3|4|5|6|7]
 ```
 
-Versions 2 to 6 generate the weapons through `external.blender.script@1`, so they need Blender 5.2.2. `ASSET_TOOLING_BLENDER` names it, otherwise `blender` on `PATH` is used. Blender installed as a snap can only read and write under `$HOME`, so set `TMPDIR` to a directory there. Version 1 needs no Blender. Versions 3 to 6 also need `ffmpeg` and `ffprobe` for the image codec.
+Versions 2 to 7 generate the weapons through `external.blender.script@1`, so they need Blender 5.2.2. `ASSET_TOOLING_BLENDER` names it, otherwise `blender` on `PATH` is used. Blender installed as a snap can only read and write under `$HOME`, so set `TMPDIR` to a directory there. Version 1 needs no Blender. Versions 3 to 7 also need `ffmpeg` and `ffprobe` for the image codec.
 
 [`scripts/build-ranger-character.ts`](../scripts/build-ranger-character.ts) is the maintained recipe. It needs no network after `cargo fetch`: the processor runs `cargo run --offline`. The processor checkout must be source-clean at the pinned commit. `Cargo.lock` and `target/` may be present, but nothing else may differ. Its identity (`git-clean-exact-head`, cargo/rustc versions and the probe) is part of the `animation.retarget@1` build identity. `<directory>` becomes the object-store root, which holds every intermediate AssetRef. The script prints the bundle directory, the tar path, the tar sha256 and the export ref, and writes `lineage.json` next to them with every intermediate AssetRef and the retarget observations.
 
@@ -183,6 +190,22 @@ v6 adds these clips, also in place, with 48 channels each:
 
 In-place retargeting removes the horizontal hips travel of the `_RM` sources and keeps vertical motion. `ClimbUp_1m_RM` therefore still rises about 1 m and the slide clips drop and raise the pelvis about 0.8 m. The source travel is recorded in [Clip motion](#clip-motion), so a consumer can move the gameplay body to match.
 
+v7 adds these clips (UAL2 unless noted), also in place:
+
+| Clip | `role` | Duration | Contact (`hand_r` unless noted) |
+| --- | --- | --- | --- |
+| `Sword_Regular_A`, `_A_Rec` | `sword.light-strike`, `.recovery` | 0.433 s, 0.967 s | 0.25 s |
+| `Sword_Regular_B`, `_B_Rec` | `sword.counter`, `.recovery` | 0.533 s, 1.033 s | 0.25 s |
+| `Sword_Regular_C` | `sword.heavy-strike` | 2 s | 0.65 s |
+| `Sword_Regular_Combo` | `sword.light-chain` | 3 s | 1.55 s |
+| `Sword_Block` | `shield.block-impact` | 1.233 s | |
+| `Idle_Shield_Break` | `shield.block-break` | 1.067 s | |
+| `Shield_OneShot` | `shield.bash` | 0.833 s | 0.083 s (`hand_l`) |
+| `Hit_Chest`, `Hit_Head` (UAL1), `Hit_Knockback` | `hit.chest`, `hit.head`, `hit.knockback` | 0.333, 0.433, 0.833 s | |
+| `Spell_Simple_Enter`, `_Idle_Loop`, `_Shoot`, `_Exit` (UAL1) | `cast.enter`, `cast.hold`, `cast.release`, `cast.exit` | 0.533, 2.1, 0.5, 0.433 s | 0.083 s (`_Shoot`) |
+
+The v2 clips `Sword_Idle`, `Sword_Attack`, `Death01` and `Idle_Shield_Loop` get the roles `sword.ready`, `sword.strike` (contact 0.383 s), `death` and `shield.guard-hold`.
+
 ## Clip motion
 
 From v6 the character entry carries a `humanoid-clips` attachment, schema `humanoid-clips-v1`. It is canonical JSON with `units: "m"`, `up: "+Y"`, `facing: "+Z"` and one entry per clip, in bundle order:
@@ -190,6 +213,7 @@ From v6 the character entry carries a `humanoid-clips` attachment, schema `human
 - `name`, and `source`: the library's catalog id, the source clip name and the sha256 of the extracted source animation (`lineage.json` lists the same AssetRef);
 - `durationSeconds`, `loop` (the source name ends in `_Loop`), `interpolation: "LINEAR"` and `rootMotion: "in-place"`;
 - `sourceRootDisplacement` `{x, y, z}`: the source hips' model-space travel from the first to the last key, scaled by the hips reference-height ratio (0.9491 / 0.9167). `x` and `z` were removed from the clip; `y` is still in it;
+- from v7, `role` for the combat clips, and for strikes `contact` `{joint, seconds, speedMetersPerSecond}`: the midpoint of the sample interval in which that joint moves fastest in model space. This is a presentation landmark. It never times gameplay, and the consumer owns windup, active and recovery phases;
 - `groundSpeedMetersPerSecond`, only for the forward gaits `Walk_Loop`, `Jog_Fwd_Loop`, `Sprint_Loop` and `Crouch_Fwd_Loop`. It is the median speed at which the lower foot moves backwards (−Z) between consecutive samples of the retargeted clip, which is the body speed at which that foot would not slide. The source gaits are themselves in place, so this is the only speed they define.
 
 From the recorded v6 build: ground speeds 1.0434 m/s (walk), 1.7637 m/s (jog), 2.1345 m/s (sprint) and 0.657 m/s (crouch walk). Root displacement: `Roll_RM` z 5.2693 m, `ClimbUp_1m_RM` y 1.0353 m and z 1.7356 m, `Jump_Start` y 0.358 m, `Slide_Start` y −0.8079 m and `Slide_Exit` y +0.8079 m. These are measurements, not a gameplay contract: the consumer owns movement speed and collision.
@@ -200,7 +224,7 @@ The largest differences are in the hand close-ups, where fine texture detail is 
 
 ## Bundle and consumer pinning
 
-The v2–v6 bundles have three entries:
+The v2–v6 bundles have three entries, and v7 adds `equipment.bow.long`, `equipment.arrow` and `equipment.quiver.back`:
 
 - **`humanoid.ranger.male` / `default`:** `scenes/humanoid.ranger.male/default.gltf` with one geometry/animation `.bin` and its 13 PNG textures as hash-addressed resources (game resolution from v3 on). It has 2 skins, 31,578 triangles and the eight clips above (v6: 19 clips). Its `humanoid-sockets` attachment is that version's descriptor, byte for byte; from v6 it also has the `humanoid-clips` attachment.
 - **`equipment.sword.arming` / `default`:** 1,304 triangles, with nodes `grip` and `sword.arming`.
@@ -216,7 +240,7 @@ A consumer pins the three things described in [Release distribution and consumer
 
 It then runs `bun scripts/pack-asset-bundle.ts --verify humanoid.ranger.male.tar --ref <pinned export.ref.json>` (or `verifyAssetBundle` after extracting). It loads the character with `readAssetBundleGltf(dir, manifest, "humanoid.ranger.male", "default")`, the weapons the same way, and the sockets with `readAssetBundleAttachment(dir, manifest, "humanoid.ranger.male", "default", "humanoid-sockets")` (and, from v6, the clip motion with `"humanoid-clips"`). Publishing the release (`gh release create`) is a separate, explicit step.
 
-Two cold v1 builds on 2026-10-17 from separate object stores produced the same tar: sha256 `4de4cc65585a0709066843a9c0bf73315820024e360326c2f1bf86b4c7955c91`, 55,587,328 bytes, with manifest sha256 `72f79132d20dae5f9d17de2b32eb0d41543f8bd74db1c0c0b2d0a9afe4b386d7` (5,364 bytes). Two v2 builds on 2026-10-17 from separate object stores (Blender 5.2.2 snap) also produced the same tar: sha256 `ccb267e4c6e21dd8d98597784569d51732612a0a76f3c6b9c067d556b3f66167`, 56,005,120 bytes, with manifest sha256 `a1170d10db2a275e59bde2e243a5163d735d6b466fb8fa0e07434c0ccfaae90e` (8,525 bytes). Two cold v3 builds on 2026-10-17 from separate object stores also produced the same tar: sha256 `cd6393c06ef5b793032fce7ed9f2c10d92609045d874296ace0506b54971fc3f`, 9,758,720 bytes (v2: 56,005,120), with manifest sha256 `3cee42ebbc1e8fe3d405ee5d69ff5059c6a992f12c721d9df42238a17b97b1a5` (7,827 bytes). Two cold v4 builds on 2026-10-17 from separate object stores also produced the same tar: sha256 `222f21f8df449321f4cb34b67e693186e0435a449c19eacb8dece9fb001a741f`, 9,758,720 bytes, with manifest sha256 `cdc63b4632d08c88807082109fd633aa00c3f54f2c1627ef81b4034ccebba169` (7,827 bytes). After the v4 change, `--version 2` and `--version 3` rebuilt the recorded tars `ccb267e4…` and `cd6393c0…` byte for byte. Two cold v5 builds on 2026-10-17 from separate object stores (3d-lab `4e69c0f`, Blender 5.2.2 snap) also produced the same tar: sha256 `059f92768f2181070f32d48c6102be1b77143cc4d21d99a24d6ebd7d3bd04d0c`, 9,778,176 bytes, with manifest sha256 `a127d96cdaf6a75826fad14fb9b7f53f02608f4791f9dd0d9284a4f949a12678` (7,827 bytes). Two cold v6 builds on 2026-10-17 from separate object stores (3d-lab `4e69c0f`, Blender 5.2.2 snap) also produced the same tar: sha256 `9f5d625cb0d28fde67ad002608460ab2575790aa71a02bc2249a6bc0f26f9006`, 10,396,672 bytes, with manifest sha256 `6e506a4ff266ea4e18126d1809c7157e052fae6ef8719040fcda902a0b94d061` (8,409 bytes). These are records of those runs, not a byte-exact replay contract.
+Two cold v1 builds on 2026-10-17 from separate object stores produced the same tar: sha256 `4de4cc65585a0709066843a9c0bf73315820024e360326c2f1bf86b4c7955c91`, 55,587,328 bytes, with manifest sha256 `72f79132d20dae5f9d17de2b32eb0d41543f8bd74db1c0c0b2d0a9afe4b386d7` (5,364 bytes). Two v2 builds on 2026-10-17 from separate object stores (Blender 5.2.2 snap) also produced the same tar: sha256 `ccb267e4c6e21dd8d98597784569d51732612a0a76f3c6b9c067d556b3f66167`, 56,005,120 bytes, with manifest sha256 `a1170d10db2a275e59bde2e243a5163d735d6b466fb8fa0e07434c0ccfaae90e` (8,525 bytes). Two cold v3 builds on 2026-10-17 from separate object stores also produced the same tar: sha256 `cd6393c06ef5b793032fce7ed9f2c10d92609045d874296ace0506b54971fc3f`, 9,758,720 bytes (v2: 56,005,120), with manifest sha256 `3cee42ebbc1e8fe3d405ee5d69ff5059c6a992f12c721d9df42238a17b97b1a5` (7,827 bytes). Two cold v4 builds on 2026-10-17 from separate object stores also produced the same tar: sha256 `222f21f8df449321f4cb34b67e693186e0435a449c19eacb8dece9fb001a741f`, 9,758,720 bytes, with manifest sha256 `cdc63b4632d08c88807082109fd633aa00c3f54f2c1627ef81b4034ccebba169` (7,827 bytes). After the v4 change, `--version 2` and `--version 3` rebuilt the recorded tars `ccb267e4…` and `cd6393c0…` byte for byte. Two cold v5 builds on 2026-10-17 from separate object stores (3d-lab `4e69c0f`, Blender 5.2.2 snap) also produced the same tar: sha256 `059f92768f2181070f32d48c6102be1b77143cc4d21d99a24d6ebd7d3bd04d0c`, 9,778,176 bytes, with manifest sha256 `a127d96cdaf6a75826fad14fb9b7f53f02608f4791f9dd0d9284a4f949a12678` (7,827 bytes). Two cold v6 builds on 2026-10-17 from separate object stores (3d-lab `4e69c0f`, Blender 5.2.2 snap) also produced the same tar: sha256 `9f5d625cb0d28fde67ad002608460ab2575790aa71a02bc2249a6bc0f26f9006`, 10,396,672 bytes, with manifest sha256 `6e506a4ff266ea4e18126d1809c7157e052fae6ef8719040fcda902a0b94d061` (8,409 bytes). Two cold v7 builds on 2026-10-17 from separate object stores (3d-lab `4e69c0f`, Blender 5.2.2 snap) also produced the same tar: sha256 `62bbe8637421f6ef22fa4f91ff329ba1b8092836bb47e202bf5e6dfa3f9b0c0a`, 11,194,368 bytes, with manifest sha256 `f211bdbdcf086a4af1c887afa9ecbd34ad7945ca1067f72ef119182a8d3ed8c7` (11,744 bytes). These are records of those runs, not a byte-exact replay contract.
 
 ## Tests
 

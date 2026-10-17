@@ -16,6 +16,18 @@
      "accepts": ["shield"]},
     {"id": "hip_l.stowed", "joint": "pelvis",
      "translation": [0.175, 0.142748, 0.127956], "rotation": [-0.667907, 0.090365, -0.701309, 0.232164],
-     "accepts": ["one-hand-weapon"]}
+     "accepts": ["one-hand-weapon"]},
+    {"id": "hand_l.bow", "joint": "hand_l",
+     "translation": [0.0365, 0.0839, -0.0043], "rotation": [0.021426, 0.792256, 0.609354, 0.023628],
+     "accepts": ["bow"]},
+    {"id": "hand_r.arrow", "joint": "hand_r",
+     "translation": [-0.0365, 0.0839, -0.0043], "rotation": [-0.09035, 0.092552, 0.723332, 0.678279],
+     "accepts": ["arrow"]},
+    {"id": "back.quiver", "joint": "spine_03",
+     "translation": [-0.07, 0.0403, -0.2236], "rotation": [-0.16647, 0.97955, 0.111403, 0.018933],
+     "accepts": ["quiver"]},
+    {"id": "back.bow.stowed", "joint": "spine_03",
+     "translation": [0.02, -0.0197, -0.3195], "rotation": [-0.314202, -0.942607, -0.107202, 0.035734],
+     "accepts": ["bow"]}
   ]
 }

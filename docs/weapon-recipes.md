@@ -47,4 +47,35 @@ Python and TypeScript reject the same controls before the scene changes. Generat
 
 Blender installed as a snap can only read and write under `$HOME`, so set `TMPDIR` to a directory there. `test/humanoid-sockets.test.ts` checks the Ranger descriptor and the validator. When the Git LFS outfit is hydrated, it also checks the descriptor against the Male_Ranger rig's 65 joints.
 
-Not yet covered: the bow, arrow and quiver (next slice), spear and staff, textured or heraldic variants, and the consumer smoke in arpg. The combat clips and the weapon bundle entries are part of the [Ranger bundle v2](humanoid-ranger.md#versions).
+## Archery
+
+`src/archery-recipes.ts` (`ARCHERY_PRESETS`, `createArcheryAssetSpec`, `readArcheryRecipeSource`) authors the #113 bow slice with [`adapters/blender/archery.py`](../adapters/blender/archery.py), through the same backend and style spec (owner answer Q1 = A, 2026-10-17).
+
+| Piece | Role | Geometry | Preset triangles | Budget |
+| --- | --- | --- | --- | --- |
+| `bow.long` | `bow` | A 1.5 m braced longbow. It has a riser with a leather grip, tapered chamfered limbs that bend toward the string, horn nocks and a string with a serving at the nock point. The brace height is 0.18 m. | 840 | 2,500 |
+| `arrow` | `arrow` | A 0.76 m shaft with a nock block, a flat broadhead and three vanes. | 142 | 800 |
+| `quiver.back` | `quiver` | A 0.5 m leather tube with a wooden base, iron bands, two strap loops and five arrow tails. | 532 | 6,000 |
+
+Frames (`ARCHERY_GRIP_CONTRACT`):
+
+- **bow:** the origin is the centre of the hand's contact on the riser. The limbs run along ±Y, the arrow leaves toward +Z and the string is on the −Z side.
+- **arrow:** the origin is the nock, and the shaft runs toward +Z.
+- **quiver:** the origin is the tube's centre. The mouth points to +Y and the back faces −Z.
+
+**Draw (`BOW_DRAW_CONTRACT`):** the bow is the one skinned item. Its skin has two joints: `grip` is the root at the origin, and `nock` sits at the string's middle, at rest at `[0, 0, -braceHeight]`. Each string vertex is weighted linearly from `grip` at the tip to `nock` at the middle, so translating `nock` toward −Z in the bow frame draws the string, and both halves stay straight. The limbs follow `grip` only and do not bend. The arrow and quiver are static and have an empty `grip` node at the origin. Controls:
+
+- **bow:** `length` (1.2–1.9), `braceHeight` (0.12–0.24), `limbWidth` (0.02–0.05) and integer `limbSegments` (6–24);
+- **arrow:** `length` (0.55–0.95), `shaftRadius` (0.003–0.007) and integer `radialSegments` (5–12);
+- **quiver:** `length` (0.35–0.7), `radius` (0.035–0.08), integer `arrows` (0–8) and integer `radialSegments` (8–24).
+
+`bun test test/archery-recipes.test.ts` checks the control bounds. With `ASSET_TOOLING_BLENDER` set, it also generates the presets and checks:
+
+- the budgets;
+- the bow's `grip`/`nock` skin and its nock rest;
+- that only string vertices follow `nock`;
+- the static `grip` frames of the arrow and quiver.
+
+The 3d-lab item loader (`adaptImportedItemBundle`) accepts static items only, so consumers cannot load the skinned bow there yet.
+
+Not yet covered: bow draw and release clips (split out of #114), spear and staff, textured or heraldic variants, and the consumer smoke in arpg. The combat clips and the weapon bundle entries are part of the [Ranger bundle v2](humanoid-ranger.md#versions).

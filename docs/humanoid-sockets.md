@@ -45,6 +45,19 @@ A `humanoid-sockets-v1` descriptor declares the attachment frames of one humanoi
 | `hand_r.weapon` | `[-0.035, 0.09, -0.005]` → `[-0.0365, 0.0839, -0.0043]` | `[0.298837, 0.640856, 0.298837, 0.640856]` → `[0.415728, 0.576917, 0.446029, 0.543503]` |
 | `hand_l.shield` | `[0.03, 0.085, -0.005]` → `[0.0365, 0.0839, -0.0043]` | `[0.707107, 0, -0.707107, 0]` → `[0.415728, -0.576917, -0.446029, 0.543503]` |
 
+### Archery sockets (bundle v7)
+
+The v7 descriptor appends four archery sockets (#113 bow slice). Bundles v4–v6 keep shipping the earlier descriptor, kept byte for byte as [`humanoid.ranger.male.sockets.bundle-v4.json`](../assets/descriptors/humanoid.ranger.male.sockets.bundle-v4.json).
+
+| Socket | Joint | Accepts | Placement |
+| --- | --- | --- | --- |
+| `hand_l.bow` | `hand_l` | `bow` | The riser sits at the grip point of the left hand. The limbs (+Y) run along the knuckle line and the arrow direction (+Z) along the fingers. |
+| `hand_r.arrow` | `hand_r` | `arrow` | The nock sits at the grip point of the right hand, and the shaft (+Z) runs along the knuckle line toward the index finger. |
+| `back.quiver` | `spine_03` | `quiver` | The quiver sits on the back with its mouth over the right shoulder, from the rest-pose world intent: centre `[-0.07, 1.3, -0.22]`, mouth along `[-0.35, 1, 0]`, back against the body. |
+| `back.bow.stowed` | `spine_03` | `bow` | The bow is slung diagonally across the back outside the quiver, its upper limb over the left shoulder and its string toward the body: centre `[0.02, 1.22, -0.3]`, limbs along `[0.75, 1, 0]`. |
+
+`stowedSocket` in `examples/weapons/derive-sockets.ts` converts such a rest-pose world intent into the joint's frame. The held and stowed archery socket sheets are attached to the `humanoid-ranger-male-v7` release.
+
 ### How the hand sockets are derived
 
 The bundle-v2 hand sockets were tuned for a hanging arm. The blade leaned 40° toward the fingers so that it looked right at rest, and the shield's vertical axis followed the forearm. In the combat clips, the sword then pointed sideways at hip height in `Sword_Idle`, and the shield lay on its side in the `Idle_Shield_Loop` guard. The current hand sockets are not tuned for any pose. [`examples/weapons/derive-sockets.ts`](../examples/weapons/derive-sockets.ts) derives them from the rig's rest pose in each hand joint's own frame:
