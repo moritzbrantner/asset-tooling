@@ -338,6 +338,70 @@ test("pack produces a deterministic release tar that verifies offline and reject
   assert.equal((await run(["--verify", out])).code, 1);
 });
 
+test("Codex P2 (#254): --verify requires exactly one valid sha256sum line in the sidecar", async (t) => {
+  const { root, directory, invocation } = await workspace(t);
+  await exportAssetBundle(root, directory, invocation);
+  const script = fileURLToPath(new URL("../scripts/pack-asset-bundle.ts", import.meta.url));
+  const out = path.join(root, "bundle.tar");
+  const run = async (args: string[]) => {
+    const child = Bun.spawn([process.execPath, script, ...args], { stdout: "pipe", stderr: "pipe" });
+    const [stderr, code] = await Promise.all([new Response(child.stderr).text(), child.exited]);
+    return { stderr, code };
+  };
+  assert.equal((await run([directory, out])).code, 0);
+  const good = await readFile(`${out}.sha256`, "utf8"), digest = good.slice(0, 64);
+  for (const sidecar of ["", "  \n", `${digest}\n`, `${digest.toUpperCase()}  bundle.tar\n`, `${digest}  other.tar\n`, `${good}${good}`, `${digest}  bundle.tar extra\n`]) {
+    await writeFile(`${out}.sha256`, sidecar);
+    const result = await run(["--verify", out]);
+    assert.equal(result.code, 1, JSON.stringify(sidecar));
+    assert.match(result.stderr, /must be exactly one line/, JSON.stringify(sidecar));
+  }
+  await writeFile(`${out}.sha256`, good);
+  assert.equal((await run(["--verify", out])).code, 0);
+});
+
+test("Codex P2 (#254): verification counts scene .gltf bytes toward the 256 MiB distinct-payload budget", async (t) => {
+  const { root, directory, invocation } = await workspace(t);
+  await exportAssetBundle(root, directory, invocation);
+  // Declared resources/attachments fill the budget to one byte below 256 MiB; only the scene bytes push it over.
+  const ref = await forge(directory, (m) => {
+    const declared = new Map<string, number>();
+    for (const entry of m.assets) for (const file of [...entry.resources, ...entry.attachments]) declared.set(file.path, file.byteLength);
+    let remaining = 256 * 1024 * 1024 - 1 - [...declared.values()].reduce((sum, n) => sum + n, 0);
+    const fakes: Json[] = [];
+    for (let index = 0; remaining > 0; index += 1) {
+      const byteLength = Math.min(remaining, 64 * 1024 * 1024), sha256 = sha256Bytes(`fake-${index}`);
+      fakes.push({ uri: `../../resources/${sha256}.bin`, path: `resources/${sha256}.bin`, sha256, byteLength, mediaType: "application/octet-stream" });
+      remaining -= byteLength;
+    }
+    m.assets[0].resources = [...m.assets[0].resources, ...fakes].sort((a: Json, b: Json) => (a.path < b.path ? -1 : 1));
+  });
+  parseGltfResourcesBundleManifest(await readFile(path.join(directory, "manifest.json")));
+  await assert.rejects(verifyAssetBundle(directory, ref, profile), /256 MiB unique payload budget/);
+});
+
+test("Codex P2 (#254): tar parsing rejects checksum-correct but non-canonical ustar headers", async (t) => {
+  const { root, directory, invocation } = await workspace(t);
+  await exportAssetBundle(root, directory, invocation);
+  const { tar } = await packAssetBundle(directory);
+  const rechecksum = (block: Buffer) => {
+    block.fill(0x20, 148, 156);
+    block.write(`${block.reduce((sum, byte) => sum + byte, 0).toString(8).padStart(6, "0")}\0 `, 148, "ascii");
+  };
+  const edits: [string, (block: Buffer) => void][] = [
+    ["owner name", (block) => { block.write("root", 265, "ascii"); }],
+    ["ustar version", (block) => { block.write("01", 263, "ascii"); }],
+    ["link name", (block) => { block.write("elsewhere", 157, "ascii"); }],
+    ["reserved padding", (block) => { block[511] = 1; }],
+  ];
+  for (const [label, change] of edits) {
+    const copy = Buffer.from(tar), block = copy.subarray(0, 512);
+    change(block); rechecksum(block);
+    assert.throws(() => readAssetBundleTar(copy), /non-canonical/, label);
+  }
+  assert.equal(readAssetBundleTar(tar).length > 0, true);
+});
+
 // ------------------------------------------------------- real hydrated sources
 
 const ROOT = path.resolve(fileURLToPath(new URL("..", import.meta.url)));

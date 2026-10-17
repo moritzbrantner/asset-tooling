@@ -88,6 +88,8 @@ export function readAssetBundleTar(tar: Uint8Array): AssetBundleTarEntry[] {
   }
   if (entries.some((entry, index) => index > 0 && compareCodeUnitStrings(entries[index - 1]!.path, entry.path) >= 0)) throw new Error("bundle tar entries must be uniquely sorted");
   if (entries.some((entry) => entry.mode !== 0o644 || entry.uid || entry.gid || entry.mtime)) throw new Error("bundle tar entries must have mode 0644, uid/gid 0 and mtime 0");
+  // Every other header field (version, owner names, link/device fields, reserved bytes) must be what the writer emits.
+  if (!writeAssetBundleTar(entries).equals(bytes)) throw new Error("bundle tar is not the canonical serialization of its entries (non-canonical ustar header)");
   return entries;
 }
 function manifestProfile(bytes: Buffer): Profile {

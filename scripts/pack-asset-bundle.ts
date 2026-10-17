@@ -14,9 +14,13 @@ async function main(args: string[]): Promise<number> {
     const [, tarFile, flag, refFile, ...rest] = args;
     if (!tarFile || rest.length || (flag !== undefined && (flag !== "--ref" || !refFile))) { console.error(USAGE); return 2; }
     const tar = await readFile(path.resolve(tarFile));
-    const pinned = (await readFile(`${path.resolve(tarFile)}.sha256`, "utf8")).trim().split(/\s+/)[0];
+    // The sidecar must be exactly one sha256sum line for this tar: "<64 lowercase hex>  <basename>\n".
+    const sidecar = await readFile(`${path.resolve(tarFile)}.sha256`, "utf8");
+    const match = /^([0-9a-f]{64}) {2}([^\n]+)\n$/.exec(sidecar);
+    if (!match || match[2] !== path.basename(tarFile)) throw new Error(`${path.basename(tarFile)}.sha256 must be exactly one line '<64 lowercase hex sha256>  ${path.basename(tarFile)}'`);
+    const pinned = match[1]!;
     const ref = refFile ? JSON.parse(await readFile(path.resolve(refFile), "utf8")) : undefined;
-    const checked = await verifyAssetBundleTar(tar, { ...(pinned ? { sha256: pinned } : {}), ...(ref ? { ref } : {}) });
+    const checked = await verifyAssetBundleTar(tar, { sha256: pinned, ...(ref ? { ref } : {}) });
     console.log(JSON.stringify({ verified: true, sha256: pinned, profile: checked.manifest.profile, manifest: checked.ref.sha256, files: checked.files.length }));
     return 0;
   }

@@ -815,7 +815,15 @@ async function readGltfEntry(directory:string,entry:GltfResourcesBundleEntry,cac
   return {gltf,resources};
 }
 async function verifyGltfResources(directory:string,manifest:GltfResourcesBundleManifest):Promise<number> {
-  const cache=new Map<string,Buffer>(),attachments=new Set<string>();
+  const cache=new Map<string,Buffer>(),attachments=new Set<string>(),declared=new Map<string,number>();
+  for(const entry of manifest.assets) for(const file of [...entry.resources,...entry.attachments]) declared.set(file.path,file.byteLength);
+  // Scene .gltf files count toward the distinct-payload budget too; measure them before reading any payload.
+  let total=[...declared.values()].reduce((sum,n)=>sum+n,0);
+  for(const entry of manifest.assets) {
+    const file=path.join(directory,...entry.path.split("/"));await assertRegular(file);
+    total+=(await lstat(file)).size;
+    if(total>MAX_BUNDLE_BYTES) throw new Error("bundle exceeds the 256 MiB unique payload budget");
+  }
   for(const entry of manifest.assets) {
     const location=`gltf-resources bundle '${entry.key}/${entry.variant}'`,{gltf,resources}=await readGltfEntry(directory,entry,cache);
     const observations=gltfObservations(await checkExportedGltf(gltf,resources,`${location} glTF`));
