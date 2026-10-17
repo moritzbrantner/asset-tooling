@@ -120,6 +120,8 @@ bun run catalog:lfs:promote -- <catalog-source-id | archive-member-id> --from=<f
 
 An unknown flag or an empty `--from` prints usage and exits with status 2.
 
+[Humanoid sources](humanoid-sources.md) shows this mode in use: two itch.io archives and one OpenGameArt archive, with each archive member promoted with its own `--from` invocation. For an earlier archive-member set promoted from stable URLs, see [Greyhaven starter environment sources](greyhaven-starter-sources.md).
+
 Re-running promotion for an already canonical source is idempotent when the bytes and manifests are unchanged. A changed upstream response, corrupted local canonical payload, implicit path move, unaccepted license, or project-local provider fails closed.
 
 ## Archive-member sources
