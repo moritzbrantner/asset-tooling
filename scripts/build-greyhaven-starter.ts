@@ -1,0 +1,353 @@
+// Build the #118 Greyhaven starter environment bundle from its canonical catalog members
+// (docs/greyhaven-starter-bundle.md):
+//   bun scripts/build-greyhaven-starter.ts --out <directory>
+// Needs the hydrated Git LFS members under assets/canonical/ (docs/greyhaven-starter-sources.md).
+// <directory> becomes the object-store root; the bundle is exported to <directory>/bundle and packed
+// to <directory>/greyhaven.starter.tar (+ .sha256) with scripts/pack-asset-bundle.ts.
+import path from "node:path";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
+import { NodeIO, type Document } from "@gltf-transform/core";
+import { GLTF_RESOURCES_BUNDLE_PROFILE, exportAssetBundle } from "../src/asset-bundle.js";
+import { ASSET_BUNDLE_REF_FILE, readAssetBundleTar } from "../src/asset-bundle-pack.js";
+import { resolveAssetObject, storeAssetObject } from "../src/asset-store.js";
+import { canonicalJson } from "../src/canonical.js";
+import { createAssetCatalog } from "../src/catalog.js";
+import { importAssetCatalogStorageSource } from "../src/catalog-storage.js";
+import { executeGltfPlaceOperation } from "../src/gltf-place-operations.js";
+import { executeGltfProductionImportOperation } from "../src/gltf-production-operations.js";
+import type { AssetOperationResult, AssetRef } from "../src/operations.js";
+
+type Json = Record<string, any>;
+export type Vec3 = [number, number, number];
+const REPOSITORY_ROOT = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
+const TANGENT_WARNING = "MESH_PRIMITIVE_GENERATED_TANGENT_SPACE";
+const COLOR_CLAMP_REPAIR = "gltf-color-clamp-v1";
+
+const MEDIEVAL = "quaternius.medieval-village-megakit-standard";
+const FANTASY = "quaternius.fantasy-props-megakit-standard";
+const NATURE = "quaternius.stylized-nature-megakit-standard";
+
+export const GREYHAVEN_DESCRIPTOR_SCHEMA = "greyhaven-starter-descriptor-v1";
+export const GREYHAVEN_DESCRIPTOR_ATTACHMENT = "starter-descriptor";
+export const GREYHAVEN_BUNDLE_VARIANT = "default";
+export const GREYHAVEN_TAR_NAME = "greyhaven.starter.tar";
+
+export type GreyhavenRole = "wall" | "door" | "door-frame" | "barrel" | "tree";
+export interface GreyhavenMember { role: GreyhavenRole; key: string; archive: string; gltf: string; repairs?: string[]; pivotNode?: string }
+
+/** The five starter members, in build order (docs/greyhaven-starter-sources.md). */
+export const GREYHAVEN_MEMBERS: readonly GreyhavenMember[] = [
+  { role: "wall", key: "greyhaven.starter.wall", archive: MEDIEVAL, gltf: "glTF/Wall_Plaster_Door_Flat.gltf" },
+  // The door's hinge is the source node origin: the leaf spans x −0.046..1.072 from it.
+  { role: "door", key: "greyhaven.starter.door", archive: MEDIEVAL, gltf: "glTF/Door_1_Flat.gltf", pivotNode: "Door_1_Flat" },
+  { role: "door-frame", key: "greyhaven.starter.door-frame", archive: MEDIEVAL, gltf: "glTF/DoorFrame_Flat_WoodDark.gltf" },
+  { role: "barrel", key: "greyhaven.starter.barrel", archive: FANTASY, gltf: "Exports/glTF/Barrel.gltf" },
+  { role: "tree", key: "greyhaven.starter.tree", archive: NATURE, gltf: "glTF/CommonTree_1.gltf", repairs: [COLOR_CLAMP_REPAIR] },
+];
+
+/** Doorway measurement: the ray grid and the band of the trunk used for the tree's trunk proxy. */
+export const DOORWAY_RAY_STEP = 0.005;
+export const DOORWAY_RAY_TOLERANCE = 1e-5;
+export const TRUNK_BAND = { minY: 0.5, maxY: 1.0 } as const;
+
+function single(result: AssetOperationResult, port = "output"): AssetRef {
+  const output = result.outputs[port];
+  if (!output || Array.isArray(output)) throw new Error(`operation output '${port}' is missing`);
+  return output;
+}
+
+async function readJson(file: string): Promise<Json> {
+  return JSON.parse(await readFile(path.join(REPOSITORY_ROOT, file), "utf8"));
+}
+
+const round = (value: number) => { const r = Math.round(value * 1e6) / 1e6; return r === 0 ? 0 : r; };
+const round3 = (v: readonly number[]): Vec3 => [round(v[0]!), round(v[1]!), round(v[2]!)];
+
+/** World-space triangles of every mesh instance (static meshes; the starter members have no skins). */
+export function worldTriangles(document: Document): { positions: Float64Array; materials: string[] } {
+  const out: number[] = [];
+  const materials: string[] = [];
+  for (const node of document.getRoot().listNodes()) {
+    const mesh = node.getMesh();
+    if (!mesh) continue;
+    const m = node.getWorldMatrix();
+    for (const primitive of mesh.listPrimitives()) {
+      const position = primitive.getAttribute("POSITION")!;
+      const indices = primitive.getIndices();
+      const count = indices ? indices.getCount() : position.getCount();
+      const p: number[] = [0, 0, 0];
+      const material = primitive.getMaterial()?.getName() ?? "";
+      for (let i = 0; i < count; i += 1) {
+        const index = indices ? indices.getScalar(i) : i;
+        position.getElement(index, p);
+        out.push(m[0] * p[0]! + m[4] * p[1]! + m[8] * p[2]! + m[12], m[1] * p[0]! + m[5] * p[1]! + m[9] * p[2]! + m[13], m[2] * p[0]! + m[6] * p[1]! + m[10] * p[2]! + m[14]);
+        if (i % 3 === 0) materials.push(material);
+      }
+    }
+  }
+  return { positions: Float64Array.from(out), materials };
+}
+
+/** z of every triangle hit by the ray through (x, y) parallel to Z (the wall's thickness axis). */
+export function rayHitsZ(triangles: Float64Array, x: number, y: number): number[] {
+  const hits: number[] = [];
+  for (let t = 0; t < triangles.length; t += 9) {
+    const ax = triangles[t]!, ay = triangles[t + 1]!, az = triangles[t + 2]!;
+    const bx = triangles[t + 3]!, by = triangles[t + 4]!, bz = triangles[t + 5]!;
+    const cx = triangles[t + 6]!, cy = triangles[t + 7]!, cz = triangles[t + 8]!;
+    if (x < Math.min(ax, bx, cx) || x > Math.max(ax, bx, cx) || y < Math.min(ay, by, cy) || y > Math.max(ay, by, cy)) continue;
+    const d = (by - cy) * (ax - cx) + (cx - bx) * (ay - cy);
+    if (Math.abs(d) < 1e-14) continue; // parallel to the ray
+    const u = ((by - cy) * (x - cx) + (cx - bx) * (y - cy)) / d;
+    const v = ((cy - ay) * (x - cx) + (ax - cx) * (y - cy)) / d;
+    const w = 1 - u - v;
+    if (u < 0 || v < 0 || w < 0) continue;
+    hits.push(u * az + v * bz + w * cz);
+  }
+  return hits;
+}
+
+/**
+ * Measure the doorway as the clear rectangle through the wall's whole thickness that contains `seed`:
+ * from the seed, rays parallel to Z march outwards in DOORWAY_RAY_STEP steps until they hit geometry,
+ * and each boundary is bisected to DOORWAY_RAY_TOLERANCE. Width is the narrowest span over 21 rows,
+ * height the lowest top over 21 columns; depth is the Z extent of the geometry hit just outside both
+ * jambs. Coordinates are the placed wall's frame.
+ */
+export function measureDoorway(triangles: Float64Array, bounds: { min: Vec3; max: Vec3 }, seed: [number, number]) {
+  const blocked = (x: number, y: number) => rayHitsZ(triangles, x, y).length > 0;
+  if (blocked(seed[0], seed[1])) throw new Error(`doorway seed (${seed.join(", ")}) is not open`);
+  // March from `from` along +/- one axis until blocked (or `limit`), then bisect the boundary.
+  const edge = (from: number, direction: 1 | -1, limit: number, probe: (value: number) => boolean) => {
+    let open = from;
+    for (;;) {
+      const next = open + direction * DOORWAY_RAY_STEP;
+      if (direction > 0 ? next >= limit : next <= limit) return probe(limit) ? bisect(open, limit, probe) : limit;
+      if (probe(next)) return bisect(open, next, probe);
+      open = next;
+    }
+  };
+  const bisect = (open: number, closed: number, probe: (value: number) => boolean) => {
+    while (Math.abs(closed - open) > DOORWAY_RAY_TOLERANCE) {
+      const middle = (open + closed) / 2;
+      if (probe(middle)) closed = middle; else open = middle;
+    }
+    return (open + closed) / 2;
+  };
+  const verticalSpan = (x: number) => ({
+    bottom: edge(seed[1], -1, bounds.min[1], (y) => blocked(x, y)),
+    top: edge(seed[1], 1, bounds.max[1], (y) => blocked(x, y)),
+  });
+  const horizontalSpan = (y: number) => ({
+    left: edge(seed[0], -1, bounds.min[0], (x) => blocked(x, y)),
+    right: edge(seed[0], 1, bounds.max[0], (x) => blocked(x, y)),
+  });
+  const samples = (a: number, b: number, inset: number) => Array.from({ length: 21 }, (_, i) => a + inset + ((b - a - 2 * inset) * i) / 20);
+  let { bottom, top } = verticalSpan(seed[0]);
+  let left = -Infinity, right = Infinity;
+  for (let pass = 0; pass < 2; pass += 1) {
+    left = -Infinity; right = Infinity;
+    for (const y of samples(bottom, top, 0.01)) { const span = horizontalSpan(y); left = Math.max(left, span.left); right = Math.min(right, span.right); }
+    let lowestTop = Infinity, highestBottom = -Infinity;
+    for (const x of samples(left, right, 0.01)) { const span = verticalSpan(x); lowestTop = Math.min(lowestTop, span.top); highestBottom = Math.max(highestBottom, span.bottom); }
+    top = lowestTop; bottom = highestBottom;
+  }
+  // Depth: geometry hit just outside each jamb, over the doorway's height.
+  const zs: number[] = [];
+  for (const x of [left - 0.02, right + 0.02]) for (const y of samples(bottom, top, 0.05)) zs.push(...rayHitsZ(triangles, x, y));
+  if (zs.length === 0) throw new Error("no wall geometry beside the doorway");
+  const zMin = Math.min(...zs), zMax = Math.max(...zs);
+  return {
+    min: [left, bottom, zMin] as Vec3, max: [right, top, zMax] as Vec3,
+    center: [(left + right) / 2, (bottom + top) / 2, (zMin + zMax) / 2] as Vec3,
+    width: right - left, height: top - bottom, depth: zMax - zMin,
+  };
+}
+
+/** The trunk box: X/Z extent of the trunk (bark) vertices in TRUNK_BAND, from the ground to the lowest leaf. */
+export function measureTrunk(triangles: Float64Array, materials: string[], barkMaterial: string) {
+  let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity, leavesMinY = Infinity;
+  for (let t = 0; t < materials.length; t += 1) {
+    for (let k = 0; k < 3; k += 1) {
+      const x = triangles[t * 9 + k * 3]!, y = triangles[t * 9 + k * 3 + 1]!, z = triangles[t * 9 + k * 3 + 2]!;
+      if (materials[t] !== barkMaterial) { leavesMinY = Math.min(leavesMinY, y); continue; }
+      if (y < TRUNK_BAND.minY || y > TRUNK_BAND.maxY) continue;
+      minX = Math.min(minX, x); maxX = Math.max(maxX, x); minZ = Math.min(minZ, z); maxZ = Math.max(maxZ, z);
+    }
+  }
+  if (!Number.isFinite(minX) || !Number.isFinite(leavesMinY)) throw new Error("tree has no trunk vertices in the trunk band or no leaves");
+  return { min: [minX, 0, minZ] as Vec3, max: [maxX, leavesMinY, maxZ] as Vec3 };
+}
+
+const box = (min: readonly number[], max: readonly number[], tag: string, name: string) => ({
+  name, tag,
+  center: round3([(min[0]! + max[0]!) / 2, (min[1]! + max[1]!) / 2, (min[2]! + max[2]!) / 2]),
+  size: round3([max[0]! - min[0]!, max[1]! - min[1]!, max[2]! - min[2]!]),
+});
+
+export async function buildGreyhavenStarter({ outDir, log = () => {} }: { outDir: string; log?: (line: string) => void }) {
+  const root = path.resolve(outDir);
+  await mkdir(root, { recursive: true });
+  const providers = await readJson("catalog/providers.json");
+  const sources = await readJson("catalog/sources.json");
+  const storage = await readJson("catalog/storage.json");
+  const rawSources: Json[] = sources.sources;
+  const catalog = createAssetCatalog({ providers: providers.providers, sources: sources.sources });
+  const memberId = (archive: string, memberPath: string) => {
+    const matches = rawSources.filter((source) => source.archiveMember?.archive === archive && source.archiveMember?.path === memberPath);
+    if (matches.length !== 1) throw new Error(`'${memberPath}' must be registered exactly once`);
+    return matches[0]!.id as string;
+  };
+  // The one registered member of the archive with the URI's basename (docs/greyhaven-starter-sources.md).
+  const resourceId = (archive: string, uri: string) => {
+    const name = path.posix.basename(decodeURIComponent(uri));
+    const matches = rawSources.filter((source) => source.archiveMember?.archive === archive && path.posix.basename(source.archiveMember.path) === name);
+    if (matches.length !== 1) throw new Error(`URI '${uri}' must resolve to exactly one member of '${archive}'`);
+    return matches[0]!.id as string;
+  };
+  const member = async (sourceId: string) =>
+    (await importAssetCatalogStorageSource({ catalog, storage, sourceId, storageRoot: REPOSITORY_ROOT, objectStoreRoot: root })).asset as AssetRef;
+
+  const io = new NodeIO();
+  const built: Json[] = [];
+  const lineage: Json = { members: {} };
+  for (const entry of GREYHAVEN_MEMBERS) {
+    const source = await member(memberId(entry.archive, entry.gltf));
+    const json = JSON.parse((await resolveAssetObject(root, source)).toString("utf8"));
+    const uris: string[] = [...(json.buffers ?? []), ...(json.images ?? [])].map((item: Json) => item.uri);
+    const resources: AssetRef[] = [];
+    for (const uri of uris) resources.push(await member(resourceId(entry.archive, uri)));
+    const policy = { allowedValidatorWarnings: [TANGENT_WARNING], ...(entry.repairs ? { repairs: entry.repairs } : {}) };
+    log(`import ${entry.role} ${entry.gltf} (scene.import.gltf@2${entry.repairs ? `, ${entry.repairs.join(", ")}` : ""})`);
+    const importResult = await executeGltfProductionImportOperation(root, { inputs: { source, resources }, parameters: { resourceUris: uris, policy } });
+    const imported = single(importResult);
+    const parentName = `greyhaven.${entry.role}`;
+    log(`place ${entry.role} under '${parentName}' (scene.place.gltf@1, footprint-base-center)`);
+    const placeResult = await executeGltfPlaceOperation(root, {
+      inputs: { source: imported },
+      parameters: { parentName, anchor: "footprint-base-center", ...(entry.pivotNode ? { sourcePivot: { node: entry.pivotNode } } : {}), policy: { allowedValidatorWarnings: [TANGENT_WARNING] } },
+    });
+    const placed = single(placeResult);
+    const observations = placeResult.observations as Json;
+    const document = await io.readBinary(new Uint8Array(await resolveAssetObject(root, placed)));
+    built.push({ entry, source, resources, imported, placed, parentName, observations, document });
+    lineage.members[entry.role] = {
+      key: entry.key, gltf: entry.gltf, source, resources, imported, placed,
+      ...(importResult.observations as Json).repairs ? { repairs: (importResult.observations as Json).repairs } : {},
+      placement: { parentName, translation: observations.translation, footprint: observations.footprint, ...(observations.sourcePivot ? { sourcePivot: observations.sourcePivot } : {}) },
+    };
+  }
+  const byRole = (role: GreyhavenRole) => built.find((item) => item.entry.role === role)!;
+
+  log("measure doorway and collision proxies");
+  const wall = byRole("wall"), door = byRole("door"), frame = byRole("door-frame"), barrel = byRole("barrel"), tree = byRole("tree");
+  const wallBounds = wall.observations.bounds.placed as { min: Vec3; max: Vec3; center: Vec3 };
+  const doorBounds = door.observations.bounds.placed as { min: Vec3; max: Vec3; size: Vec3 };
+  const wallTriangles = worldTriangles(wall.document).positions;
+  // Seed: the wall's centre line at half the door's height.
+  const doorway = measureDoorway(wallTriangles, wallBounds, [wallBounds.center[0], wallBounds.min[1] + doorBounds.size[1] / 2]);
+  const solidZ = [doorway.min[2], doorway.max[2]];
+  const wallProxies = [
+    box([wallBounds.min[0], wallBounds.min[1], solidZ[0]!], [doorway.min[0], wallBounds.max[1], solidZ[1]!], "solid", "left-jamb"),
+    box([doorway.max[0], wallBounds.min[1], solidZ[0]!], [wallBounds.max[0], wallBounds.max[1], solidZ[1]!], "solid", "right-jamb"),
+    box([doorway.min[0], doorway.max[1], solidZ[0]!], [doorway.max[0], wallBounds.max[1], solidZ[1]!], "solid", "lintel"),
+  ];
+  const trunkTriangles = worldTriangles(tree.document);
+  const barkMaterial = tree.document.getRoot().listMaterials().find((material: Json) => /bark/i.test(material.getName()))?.getName();
+  if (!barkMaterial) throw new Error("tree has no bark material");
+  const trunk = measureTrunk(trunkTriangles.positions, trunkTriangles.materials, barkMaterial);
+  const boundsBox = (item: Json, tag: string, name: string) => box(item.observations.bounds.placed.min, item.observations.bounds.placed.max, tag, name);
+  const wallTranslation = wall.observations.translation as Vec3;
+  const frameTranslation = frame.observations.translation as Vec3;
+
+  const assetEntry = (item: Json, extra: Json) => ({
+    key: item.entry.key, role: item.entry.role, parentName: item.parentName,
+    placement: { anchor: "footprint-base-center", translation: item.observations.translation },
+    footprint: { width: round(item.observations.footprint.width), depth: round(item.observations.footprint.depth), height: round(item.observations.footprint.height) },
+    bounds: { min: round3(item.observations.bounds.placed.min), max: round3(item.observations.bounds.placed.max) },
+    ...extra,
+  });
+  const descriptor = {
+    schema: GREYHAVEN_DESCRIPTOR_SCHEMA,
+    units: "metre", up: "+Y", facing: "+Z", handedness: "right",
+    origin: "footprint-base-center",
+    frame: "Each asset's values are in its own placed frame (its parent node at the origin). `mount` places an asset in the wall's placed frame.",
+    collisionProxies: "Axis-aligned boxes for presentation and inspection; game physics stays with the consumer.",
+    assets: [
+      assetEntry(wall, {
+        doorway: { center: round3(doorway.center), width: round(doorway.width), height: round(doorway.height), depth: round(doorway.depth), min: round3(doorway.min), max: round3(doorway.max) },
+        collisionProxies: wallProxies,
+      }),
+      assetEntry(door, {
+        sourcePivot: { node: door.observations.sourcePivot.node, sourceWorldPosition: round3(door.observations.sourcePivot.sourceWorldPosition), placedWorldPosition: round3(door.observations.sourcePivot.placedWorldPosition) },
+        // Closed in the doorway: footprint centred in X and Z, base on the doorway's bottom.
+        mount: { parent: wall.entry.key, translation: round3([doorway.center[0], doorway.min[1], doorway.center[2]]) },
+        collisionProxies: [boundsBox(door, "dynamic-door", "door")],
+      }),
+      assetEntry(frame, {
+        // The kit's pieces share one source grid, so the frame goes back to its source offset from the wall.
+        mount: { parent: wall.entry.key, translation: round3([wallTranslation[0] - frameTranslation[0], wallTranslation[1] - frameTranslation[1], wallTranslation[2] - frameTranslation[2]]) },
+        collisionProxies: [],
+      }),
+      assetEntry(barrel, { collisionProxies: [boundsBox(barrel, "solid", "barrel")] }),
+      assetEntry(tree, { collisionProxies: [box(trunk.min, trunk.max, "solid", "trunk")] }),
+    ].sort((a, b) => (a.key < b.key ? -1 : 1)),
+  };
+  const descriptorRef = (await storeAssetObject(root, {
+    bytes: Buffer.from(`${canonicalJson(descriptor)}\n`), kind: "descriptor", mediaType: "application/json",
+    metadata: { schema: GREYHAVEN_DESCRIPTOR_SCHEMA },
+  })).asset;
+  lineage.descriptor = descriptorRef;
+
+  log(`export gltf-resources-v1 bundle (asset.bundle@4, ${GREYHAVEN_MEMBERS.length} entries)`);
+  const bundleDir = path.join(root, "bundle");
+  const exported = await exportAssetBundle(root, bundleDir, {
+    parameters: {
+      profile: GLTF_RESOURCES_BUNDLE_PROFILE,
+      assets: built.map((item) => ({
+        key: item.entry.key, variant: GREYHAVEN_BUNDLE_VARIANT,
+        ...(item.entry.role === "wall" ? { attachments: [{ name: GREYHAVEN_DESCRIPTOR_ATTACHMENT }] } : {}),
+      })),
+    },
+    inputs: { assets: built.map((item) => item.placed), attachments: [descriptorRef] },
+  });
+  const tarPath = path.join(root, GREYHAVEN_TAR_NAME);
+  log("pack release tar (scripts/pack-asset-bundle.ts)");
+  const pack = Bun.spawnSync(["bun", path.join(REPOSITORY_ROOT, "scripts/pack-asset-bundle.ts"), bundleDir, tarPath], { stdout: "pipe", stderr: "pipe" });
+  if (pack.exitCode !== 0) throw new Error(`pack-asset-bundle failed: ${pack.stderr.toString()}`);
+  const packed = JSON.parse(pack.stdout.toString());
+  // The consumer pin is the tar's own content-only export.ref.json (docs/asset-bundles.md).
+  const refEntry = readAssetBundleTar(await readFile(tarPath)).find((item) => item.path === ASSET_BUNDLE_REF_FILE);
+  if (!refEntry) throw new Error(`packed tar has no ${ASSET_BUNDLE_REF_FILE}`);
+  const exportRefPath = path.join(root, ASSET_BUNDLE_REF_FILE);
+  await writeFile(exportRefPath, refEntry.bytes);
+  return {
+    bundleDir, manifest: exported.manifest, descriptor, descriptorRef,
+    tar: tarPath, tarSha256: packed.sha256 as string, tarByteLength: packed.byteLength as number,
+    exportRef: JSON.parse(Buffer.from(refEntry.bytes).toString("utf8")) as Json, exportRefPath, lineage,
+  };
+}
+
+function parseArguments(args: string[]) {
+  return args.length === 2 && args[0] === "--out" && args[1] ? { outDir: args[1] } : undefined;
+}
+
+if (import.meta.main) {
+  const options = parseArguments(process.argv.slice(2));
+  if (!options) {
+    console.error("Usage: bun scripts/build-greyhaven-starter.ts --out <directory>");
+    process.exit(2);
+  }
+  try {
+    const result = await buildGreyhavenStarter({ ...options, log: (line) => console.error(`[greyhaven] ${line}`) });
+    await writeFile(path.join(path.resolve(options.outDir), "lineage.json"), `${JSON.stringify(result.lineage, null, 2)}\n`);
+    console.log(JSON.stringify({
+      bundle: result.bundleDir, tar: result.tar, tarSha256: result.tarSha256, tarByteLength: result.tarByteLength,
+      exportRef: result.exportRef, exportRefPath: result.exportRefPath, descriptor: result.descriptor,
+    }, null, 2));
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exit(1);
+  }
+}

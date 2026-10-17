@@ -2,7 +2,7 @@
 
 This is the first source slice of [#118](https://github.com/moritzbrantner/asset-tooling/issues/118) under [Decision 3.1.1](decisions/atlas.md). It covers Quaternius Medieval Village and Fantasy Props MegaKits for the building and the everyday prop, plus the owner-approved Stylized Nature MegaKit for the tree. All three are CC0. Using the [archive-member sources](catalog.md#archive-member-sources) capability, the catalog pins each archive by hash and stores only the members listed below in Git LFS. The owner approved about 49 MB of unique member payloads for this first set ([comment](https://github.com/moritzbrantner/asset-tooling/issues/118)).
 
-This slice registers, pins and promotes the source payloads only. Normalizing the assets into the production profile, composing the scene recipe and bundling are the next #118 slice.
+This slice registers, pins and promotes the source payloads only. Normalizing, placing and bundling them is the [Greyhaven starter bundle](greyhaven-starter-bundle.md) recipe.
 
 ## Archives
 
