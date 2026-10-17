@@ -1,7 +1,7 @@
 # PRD: ComfyUI-backed image generation
 
 **Issue:** [#212](https://github.com/moritzbrantner/asset-tooling/issues/212)  
-**Status:** Owner-approved product direction. Offline preflight (#215), the execution slice `image.comfyui.generate@1` (#219) and candidate approval with verified export (#223, `asset.bundle@3`) are implemented; preview UI, custom-node identities and provider choice remain.  
+**Status:** Owner-approved product direction. Offline preflight (#215), the execution slice `image.comfyui.generate@1` (#219) and candidate approval with verified export (#223, `asset.bundle@3`) are implemented, and so is the provider choice, through `image.generate@1` (#222, [image-generate.md](image-generate.md)). Preview UI and custom-node identities remain.  
 **Authority:** [Decision Atlas 5.1.1](decisions/atlas.md) and [ComfyUI-first architecture](comfyui-first.md). This PRD specifies acceptance; it is not a second decision registry or implementation status tracker.
 
 ## User outcome
@@ -40,13 +40,13 @@ The first low-risk implementation adds `loadPreparedComfyUiApiWorkflow` and focu
 - **Import and receipt:** the PNG signature and IHDR size must match the injected width × height. The receipt (`observations`) records provider, `reproducibility: "approximate"`, prompt and client ids, workflow and submitted-prompt hashes, ComfyUI version and commit, checkpoint identity and the output file and hash.
 - **Reuse:** the build identity covers workflow bytes, injections, checkpoint identity and licence, the server identity from the probe and the commit. A hit does not contact the server, but it still re-verifies the checkpoint.
 
-Exported as `asset-tooling/operations/image/comfyui` and registrable in the workflow bridge through `createAssetOperationWorkflowProviderEntries` ([#221](https://github.com/moritzbrantner/asset-tooling/issues/221)); see Usage. Approval and export are the next section. Cancellation through workflow-runner#8 and provider choice against Diffusers `image.stable-diffusion.generate` remain.
+Exported as `asset-tooling/operations/image/comfyui` and registrable in the workflow bridge through `createAssetOperationWorkflowProviderEntries` ([#221](https://github.com/moritzbrantner/asset-tooling/issues/221)); see Usage. Approval and export are the next section. Cancellation through workflow-runner#8 remains. The explicit provider choice is `image.generate@1`: prompt-level parameters, a required `provider` and pinned model profiles. It fills a repository-owned template and uses this transport; see [image-generate.md](image-generate.md).
 
 ### Supported local image models (Atlas 4.1.4)
 
 FLUX.2 [klein] 4B and Z-Image Turbo are the supported models. Both are Apache-2.0 according to their official Hugging Face model cards (checked 2026-10-17 at the revisions below). Stable Diffusion 1.5 is **deprecated**: generate nothing new with it (see the end of this section).
 
-The operation hashes and injects one file, `checkpoint`. For these split models, that file is the diffusion model: point `checkpointDirectory` at `models/diffusion_models` and bind the injection to `UNETLoader.unet_name`. The text encoder and VAE are literals in the hash-pinned workflow; the operation does not hash them, so the generation driver verifies them against the pins below before it submits anything. The candidates manifest records all three identities. Multi-file pins in the operation itself remain open (#225).
+The operation hashes and injects one file, `checkpoint`. For these split models, that file is the diffusion model: point `checkpointDirectory` at `models/diffusion_models` and bind the injection to `UNETLoader.unet_name`. The text encoder and VAE are literals in the hash-pinned workflow; the operation does not hash them, so the generation driver verifies them against the pins below before it submits anything. The candidates manifest records all three identities. Multi-file pins in this operation remain open (#225). `image.generate@1` already pins and verifies all three files per profile ([image-generate.md](image-generate.md)).
 
 | Role | ComfyUI path under `models/` | Source (repository @ revision, file) | sha256 | Bytes | Licence |
 | --- | --- | --- | --- | --- | --- |
