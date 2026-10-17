@@ -20,8 +20,8 @@
       "abilityId": 2,
       "name": "Shield Bash",
       "version": 3,
-      "subject": "A round steel shield seen close up from the front, its rim cut off by the edges, its boss meeting a radial burst of impact and sparks.",
-      "prompt": "An extreme close-up of a heavy round steel shield with a riveted central boss, seen from the front and so large that its rim is cut off by all four edges of the image, slamming forward into a radial shockwave of impact with cracking orange sparks bursting out to the corners."
+      "subject": "The face of a round steel shield seen close up from the front, so large that its rim is cut off by the edges, its boss meeting a radial burst of impact and sparks.",
+      "prompt": "An extreme close-up of the face of a heavy round steel shield with a riveted central boss, seen from the front; the shield is larger than the image, so its outer rim is cut off at all four edges and its steel surface covers the whole square, with cracking orange sparks and a radial shockwave of impact bursting from the boss."
     },
     {
       "id": "warden.ability.3",

@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "briefs": [
     {
       "path": "briefs.json",
@@ -8,6 +8,10 @@
     {
       "path": "briefs.v2.json",
       "sha256": "9152ba14a3e3e960953e29325ae18690dd868d674720e339c3503af4336fc7a0"
+    },
+    {
+      "path": "briefs.v3.json",
+      "sha256": "4d081d8a2e585968fee5c8da1ae7ad034cad4c58e6166eff9e7b5f9f1733c600"
     }
   ],
   "models": [
@@ -140,11 +144,697 @@
       }
     }
   ],
+  "sets": [
+    {
+      "id": "warden.v3.flux2-klein-tight",
+      "label": "FLUX.2 [klein] 4B, tight framing (briefs v3)",
+      "status": "current",
+      "since": "2026-10-17",
+      "note": "The owner chose FLUX.2 [klein] 4B for this set and asked for margin-free close-ups (Decision Atlas 4.1.5)."
+    },
+    {
+      "id": "warden.v2.model-comparison",
+      "label": "FLUX.2 [klein] 4B and Z-Image Turbo comparison (briefs v2)",
+      "status": "superseded",
+      "supersededBy": "warden.v3.flux2-klein-tight",
+      "since": "2026-10-17",
+      "note": "Side-by-side model comparison of Decision Atlas 4.1.4; superseded for this set by the tight-framed FLUX.2 [klein] set (Decision Atlas 4.1.5)."
+    },
+    {
+      "id": "warden.v1.sd15",
+      "label": "Stable Diffusion 1.5 first run (briefs v1)",
+      "status": "superseded",
+      "supersededBy": "warden.v2.model-comparison",
+      "since": "2026-10-17",
+      "note": "First real ComfyUI run; its model is deprecated (Decision Atlas 4.1.4)."
+    }
+  ],
   "candidates": [
+    {
+      "id": "warden.ability.1.candidate.flux2-klein-tight-01",
+      "ability": "warden.ability.1",
+      "model": "flux2-klein-4b",
+      "set": "warden.v3.flux2-klein-tight",
+      "briefs": "briefs.v3.json",
+      "state": "candidate",
+      "path": "candidates/warden.ability.1.candidate.flux2-klein-tight-01.png",
+      "mediaType": "image/png",
+      "sha256": "7e0f83f2ebaf5fbc97ebe8a8d3e6d0d8150d8fb50154841a2388da64208e3fed",
+      "byteLength": 1462588,
+      "width": 1024,
+      "height": 1024,
+      "provenance": {
+        "provider": "comfyui",
+        "operation": "image.comfyui.generate@1",
+        "reproducibility": "approximate",
+        "workflow": {
+          "path": "workflow.flux2-klein-4b-icon.api.json",
+          "sha256": "c1a6ccd82388839d72fed7c5e3efb5b523b5a5df655f004f49e843458017517f"
+        },
+        "checkpoint": {
+          "name": "flux-2-klein-4b-fp8.safetensors",
+          "sha256": "97ed34fe0567e436200f2faee3939b88f2b5d99f8af2a4dc16532c4245c0ccb6",
+          "byteLength": 4070624520,
+          "license": "apache-2.0"
+        },
+        "textEncoder": {
+          "name": "qwen_3_4b_fp8_mixed.safetensors",
+          "sha256": "72450b19758172c5a7273cf7de729d1c17e7f434a104a00167624cba94f68f15",
+          "byteLength": 5631994051,
+          "license": "apache-2.0"
+        },
+        "vae": {
+          "name": "flux2-vae.safetensors",
+          "sha256": "868fe7b343cc8f3a19dbcfcafbc3d5f888802be3f89bd81b65b3621a066ce8f3",
+          "byteLength": 336211292,
+          "license": "apache-2.0"
+        },
+        "seed": 213101,
+        "positivePrompt": "An extreme close-up of a gleaming longsword blade slashing diagonally across the whole square from the top-right corner to the bottom-left corner, the glowing golden blade and its blazing golden slash streak running off both corners, with flying sparks filling the rest of the image. Tightly cropped square fantasy game ability icon painted in a dark, painterly digital oil style with visible brush strokes. Extreme close-up: the subject is so large that it fills the entire square edge to edge and is cut off by the edges of the image, with no empty background border, no dark vignette margin and no space around it. Strong, simple silhouette that stays readable at a tiny size. Dramatic warm rim light, high contrast, polished steel and firelight tones. No text, no letters, no frame, no border, no user interface and no people.",
+        "comfyui": {
+          "commit": "98cc0bf84b7cb1383654c5b402e7612d875d6d22",
+          "version": "0.41.0"
+        },
+        "device": "cuda:0 NVIDIA GeForce RTX 3060 Ti",
+        "pytorch": "2.14.1+cu130",
+        "run": {
+          "promptId": "f17543af-a6b1-4058-bb29-8ff240cbdf52",
+          "submittedPromptSha256": "9c2ee2cf860131ba5e3e889164b2c42ebcbbabe05488fa572b5acea8b1081372",
+          "outputNode": "15",
+          "outputFilename": "warden-icon-flux2-klein_00025_.png"
+        }
+      }
+    },
+    {
+      "id": "warden.ability.1.candidate.flux2-klein-tight-02",
+      "ability": "warden.ability.1",
+      "model": "flux2-klein-4b",
+      "set": "warden.v3.flux2-klein-tight",
+      "briefs": "briefs.v3.json",
+      "state": "candidate",
+      "path": "candidates/warden.ability.1.candidate.flux2-klein-tight-02.png",
+      "mediaType": "image/png",
+      "sha256": "ab3d4acb7722f3e4e1773a15158b5efcac8db913f97fb8f447392c150d9965a6",
+      "byteLength": 1537242,
+      "width": 1024,
+      "height": 1024,
+      "provenance": {
+        "provider": "comfyui",
+        "operation": "image.comfyui.generate@1",
+        "reproducibility": "approximate",
+        "workflow": {
+          "path": "workflow.flux2-klein-4b-icon.api.json",
+          "sha256": "c1a6ccd82388839d72fed7c5e3efb5b523b5a5df655f004f49e843458017517f"
+        },
+        "checkpoint": {
+          "name": "flux-2-klein-4b-fp8.safetensors",
+          "sha256": "97ed34fe0567e436200f2faee3939b88f2b5d99f8af2a4dc16532c4245c0ccb6",
+          "byteLength": 4070624520,
+          "license": "apache-2.0"
+        },
+        "textEncoder": {
+          "name": "qwen_3_4b_fp8_mixed.safetensors",
+          "sha256": "72450b19758172c5a7273cf7de729d1c17e7f434a104a00167624cba94f68f15",
+          "byteLength": 5631994051,
+          "license": "apache-2.0"
+        },
+        "vae": {
+          "name": "flux2-vae.safetensors",
+          "sha256": "868fe7b343cc8f3a19dbcfcafbc3d5f888802be3f89bd81b65b3621a066ce8f3",
+          "byteLength": 336211292,
+          "license": "apache-2.0"
+        },
+        "seed": 213106,
+        "positivePrompt": "An extreme close-up of a gleaming longsword blade slashing diagonally across the whole square from the top-right corner to the bottom-left corner, the glowing golden blade and its blazing golden slash streak running off both corners, with flying sparks filling the rest of the image. Tightly cropped square fantasy game ability icon painted in a dark, painterly digital oil style with visible brush strokes. Extreme close-up: the subject is so large that it fills the entire square edge to edge and is cut off by the edges of the image, with no empty background border, no dark vignette margin and no space around it. Strong, simple silhouette that stays readable at a tiny size. Dramatic warm rim light, high contrast, polished steel and firelight tones. No text, no letters, no frame, no border, no user interface and no people.",
+        "comfyui": {
+          "commit": "98cc0bf84b7cb1383654c5b402e7612d875d6d22",
+          "version": "0.41.0"
+        },
+        "device": "cuda:0 NVIDIA GeForce RTX 3060 Ti",
+        "pytorch": "2.14.1+cu130",
+        "run": {
+          "promptId": "cbf808b9-9727-409c-bd7b-0b17f95f289e",
+          "submittedPromptSha256": "47fd533537c793e7e110b6b92a1ba797db1008b59b06f7dc83bbf0e87ebde48a",
+          "outputNode": "15",
+          "outputFilename": "warden-icon-flux2-klein_00030_.png"
+        }
+      }
+    },
+    {
+      "id": "warden.ability.1.candidate.flux2-klein-tight-03",
+      "ability": "warden.ability.1",
+      "model": "flux2-klein-4b",
+      "set": "warden.v3.flux2-klein-tight",
+      "briefs": "briefs.v3.json",
+      "state": "candidate",
+      "path": "candidates/warden.ability.1.candidate.flux2-klein-tight-03.png",
+      "mediaType": "image/png",
+      "sha256": "b7ef446b5b73be2cd6a146328ef0f2f364e817f56dea65f657d3e9857b4dbdd4",
+      "byteLength": 1505600,
+      "width": 1024,
+      "height": 1024,
+      "provenance": {
+        "provider": "comfyui",
+        "operation": "image.comfyui.generate@1",
+        "reproducibility": "approximate",
+        "workflow": {
+          "path": "workflow.flux2-klein-4b-icon.api.json",
+          "sha256": "c1a6ccd82388839d72fed7c5e3efb5b523b5a5df655f004f49e843458017517f"
+        },
+        "checkpoint": {
+          "name": "flux-2-klein-4b-fp8.safetensors",
+          "sha256": "97ed34fe0567e436200f2faee3939b88f2b5d99f8af2a4dc16532c4245c0ccb6",
+          "byteLength": 4070624520,
+          "license": "apache-2.0"
+        },
+        "textEncoder": {
+          "name": "qwen_3_4b_fp8_mixed.safetensors",
+          "sha256": "72450b19758172c5a7273cf7de729d1c17e7f434a104a00167624cba94f68f15",
+          "byteLength": 5631994051,
+          "license": "apache-2.0"
+        },
+        "vae": {
+          "name": "flux2-vae.safetensors",
+          "sha256": "868fe7b343cc8f3a19dbcfcafbc3d5f888802be3f89bd81b65b3621a066ce8f3",
+          "byteLength": 336211292,
+          "license": "apache-2.0"
+        },
+        "seed": 213108,
+        "positivePrompt": "An extreme close-up of a gleaming longsword blade slashing diagonally across the whole square from the top-right corner to the bottom-left corner, the glowing golden blade and its blazing golden slash streak running off both corners, with flying sparks filling the rest of the image. Tightly cropped square fantasy game ability icon painted in a dark, painterly digital oil style with visible brush strokes. Extreme close-up: the subject is so large that it fills the entire square edge to edge and is cut off by the edges of the image, with no empty background border, no dark vignette margin and no space around it. Strong, simple silhouette that stays readable at a tiny size. Dramatic warm rim light, high contrast, polished steel and firelight tones. No text, no letters, no frame, no border, no user interface and no people.",
+        "comfyui": {
+          "commit": "98cc0bf84b7cb1383654c5b402e7612d875d6d22",
+          "version": "0.41.0"
+        },
+        "device": "cuda:0 NVIDIA GeForce RTX 3060 Ti",
+        "pytorch": "2.14.1+cu130",
+        "run": {
+          "promptId": "0935c9e7-6296-4401-b78f-70a390b3fd4d",
+          "submittedPromptSha256": "2b0c1982e8a498e4df19e0bf5dfab62eeb650d526417a242fe36f7407d0173b2",
+          "outputNode": "15",
+          "outputFilename": "warden-icon-flux2-klein_00032_.png"
+        }
+      }
+    },
+    {
+      "id": "warden.ability.2.candidate.flux2-klein-tight-01",
+      "ability": "warden.ability.2",
+      "model": "flux2-klein-4b",
+      "set": "warden.v3.flux2-klein-tight",
+      "briefs": "briefs.v3.json",
+      "state": "candidate",
+      "path": "candidates/warden.ability.2.candidate.flux2-klein-tight-01.png",
+      "mediaType": "image/png",
+      "sha256": "dc8e8fcf819394e6385e9c6381c6eedcf7d5fb2dbba7c7d7e6ed956a4b22b823",
+      "byteLength": 1702995,
+      "width": 1024,
+      "height": 1024,
+      "provenance": {
+        "provider": "comfyui",
+        "operation": "image.comfyui.generate@1",
+        "reproducibility": "approximate",
+        "workflow": {
+          "path": "workflow.flux2-klein-4b-icon.api.json",
+          "sha256": "c1a6ccd82388839d72fed7c5e3efb5b523b5a5df655f004f49e843458017517f"
+        },
+        "checkpoint": {
+          "name": "flux-2-klein-4b-fp8.safetensors",
+          "sha256": "97ed34fe0567e436200f2faee3939b88f2b5d99f8af2a4dc16532c4245c0ccb6",
+          "byteLength": 4070624520,
+          "license": "apache-2.0"
+        },
+        "textEncoder": {
+          "name": "qwen_3_4b_fp8_mixed.safetensors",
+          "sha256": "72450b19758172c5a7273cf7de729d1c17e7f434a104a00167624cba94f68f15",
+          "byteLength": 5631994051,
+          "license": "apache-2.0"
+        },
+        "vae": {
+          "name": "flux2-vae.safetensors",
+          "sha256": "868fe7b343cc8f3a19dbcfcafbc3d5f888802be3f89bd81b65b3621a066ce8f3",
+          "byteLength": 336211292,
+          "license": "apache-2.0"
+        },
+        "seed": 213201,
+        "positivePrompt": "An extreme close-up of the face of a heavy round steel shield with a riveted central boss, seen from the front; the shield is larger than the image, so its outer rim is cut off at all four edges and its steel surface covers the whole square, with cracking orange sparks and a radial shockwave of impact bursting from the boss. Tightly cropped square fantasy game ability icon painted in a dark, painterly digital oil style with visible brush strokes. Extreme close-up: the subject is so large that it fills the entire square edge to edge and is cut off by the edges of the image, with no empty background border, no dark vignette margin and no space around it. Strong, simple silhouette that stays readable at a tiny size. Dramatic warm rim light, high contrast, polished steel and firelight tones. No text, no letters, no frame, no border, no user interface and no people.",
+        "comfyui": {
+          "commit": "98cc0bf84b7cb1383654c5b402e7612d875d6d22",
+          "version": "0.41.0"
+        },
+        "device": "cuda:0 NVIDIA GeForce RTX 3060 Ti",
+        "pytorch": "2.14.1+cu130",
+        "run": {
+          "promptId": "86eb1282-ac4f-4b6a-973b-9abdb6c7e690",
+          "submittedPromptSha256": "723f3a61958a9519d1419d7c48a16bbce110ae781c734a6f9313c5c132777efa",
+          "outputNode": "15",
+          "outputFilename": "warden-icon-flux2-klein_00057_.png"
+        }
+      }
+    },
+    {
+      "id": "warden.ability.2.candidate.flux2-klein-tight-02",
+      "ability": "warden.ability.2",
+      "model": "flux2-klein-4b",
+      "set": "warden.v3.flux2-klein-tight",
+      "briefs": "briefs.v3.json",
+      "state": "candidate",
+      "path": "candidates/warden.ability.2.candidate.flux2-klein-tight-02.png",
+      "mediaType": "image/png",
+      "sha256": "225848b45b1901e2f9d904758145acef17df61c3245a8179bc6595766a3c0821",
+      "byteLength": 1603769,
+      "width": 1024,
+      "height": 1024,
+      "provenance": {
+        "provider": "comfyui",
+        "operation": "image.comfyui.generate@1",
+        "reproducibility": "approximate",
+        "workflow": {
+          "path": "workflow.flux2-klein-4b-icon.api.json",
+          "sha256": "c1a6ccd82388839d72fed7c5e3efb5b523b5a5df655f004f49e843458017517f"
+        },
+        "checkpoint": {
+          "name": "flux-2-klein-4b-fp8.safetensors",
+          "sha256": "97ed34fe0567e436200f2faee3939b88f2b5d99f8af2a4dc16532c4245c0ccb6",
+          "byteLength": 4070624520,
+          "license": "apache-2.0"
+        },
+        "textEncoder": {
+          "name": "qwen_3_4b_fp8_mixed.safetensors",
+          "sha256": "72450b19758172c5a7273cf7de729d1c17e7f434a104a00167624cba94f68f15",
+          "byteLength": 5631994051,
+          "license": "apache-2.0"
+        },
+        "vae": {
+          "name": "flux2-vae.safetensors",
+          "sha256": "868fe7b343cc8f3a19dbcfcafbc3d5f888802be3f89bd81b65b3621a066ce8f3",
+          "byteLength": 336211292,
+          "license": "apache-2.0"
+        },
+        "seed": 213205,
+        "positivePrompt": "An extreme close-up of the face of a heavy round steel shield with a riveted central boss, seen from the front; the shield is larger than the image, so its outer rim is cut off at all four edges and its steel surface covers the whole square, with cracking orange sparks and a radial shockwave of impact bursting from the boss. Tightly cropped square fantasy game ability icon painted in a dark, painterly digital oil style with visible brush strokes. Extreme close-up: the subject is so large that it fills the entire square edge to edge and is cut off by the edges of the image, with no empty background border, no dark vignette margin and no space around it. Strong, simple silhouette that stays readable at a tiny size. Dramatic warm rim light, high contrast, polished steel and firelight tones. No text, no letters, no frame, no border, no user interface and no people.",
+        "comfyui": {
+          "commit": "98cc0bf84b7cb1383654c5b402e7612d875d6d22",
+          "version": "0.41.0"
+        },
+        "device": "cuda:0 NVIDIA GeForce RTX 3060 Ti",
+        "pytorch": "2.14.1+cu130",
+        "run": {
+          "promptId": "bb5c1058-163d-4bdf-abce-bfcbd7dcb70b",
+          "submittedPromptSha256": "72eb26030f6fd84339312d2afc5bd3af7d07244032a2f1a309c1a4e087787b5d",
+          "outputNode": "15",
+          "outputFilename": "warden-icon-flux2-klein_00061_.png"
+        }
+      }
+    },
+    {
+      "id": "warden.ability.2.candidate.flux2-klein-tight-03",
+      "ability": "warden.ability.2",
+      "model": "flux2-klein-4b",
+      "set": "warden.v3.flux2-klein-tight",
+      "briefs": "briefs.v3.json",
+      "state": "candidate",
+      "path": "candidates/warden.ability.2.candidate.flux2-klein-tight-03.png",
+      "mediaType": "image/png",
+      "sha256": "a87046611e9d73c672e144efea7116da61112971cad625c4c8d9397aadc9a57c",
+      "byteLength": 1652718,
+      "width": 1024,
+      "height": 1024,
+      "provenance": {
+        "provider": "comfyui",
+        "operation": "image.comfyui.generate@1",
+        "reproducibility": "approximate",
+        "workflow": {
+          "path": "workflow.flux2-klein-4b-icon.api.json",
+          "sha256": "c1a6ccd82388839d72fed7c5e3efb5b523b5a5df655f004f49e843458017517f"
+        },
+        "checkpoint": {
+          "name": "flux-2-klein-4b-fp8.safetensors",
+          "sha256": "97ed34fe0567e436200f2faee3939b88f2b5d99f8af2a4dc16532c4245c0ccb6",
+          "byteLength": 4070624520,
+          "license": "apache-2.0"
+        },
+        "textEncoder": {
+          "name": "qwen_3_4b_fp8_mixed.safetensors",
+          "sha256": "72450b19758172c5a7273cf7de729d1c17e7f434a104a00167624cba94f68f15",
+          "byteLength": 5631994051,
+          "license": "apache-2.0"
+        },
+        "vae": {
+          "name": "flux2-vae.safetensors",
+          "sha256": "868fe7b343cc8f3a19dbcfcafbc3d5f888802be3f89bd81b65b3621a066ce8f3",
+          "byteLength": 336211292,
+          "license": "apache-2.0"
+        },
+        "seed": 213202,
+        "positivePrompt": "An extreme close-up of the face of a heavy round steel shield with a riveted central boss, seen from the front; the shield is larger than the image, so its outer rim is cut off at all four edges and its steel surface covers the whole square, with cracking orange sparks and a radial shockwave of impact bursting from the boss. Tightly cropped square fantasy game ability icon painted in a dark, painterly digital oil style with visible brush strokes. Extreme close-up: the subject is so large that it fills the entire square edge to edge and is cut off by the edges of the image, with no empty background border, no dark vignette margin and no space around it. Strong, simple silhouette that stays readable at a tiny size. Dramatic warm rim light, high contrast, polished steel and firelight tones. No text, no letters, no frame, no border, no user interface and no people.",
+        "comfyui": {
+          "commit": "98cc0bf84b7cb1383654c5b402e7612d875d6d22",
+          "version": "0.41.0"
+        },
+        "device": "cuda:0 NVIDIA GeForce RTX 3060 Ti",
+        "pytorch": "2.14.1+cu130",
+        "run": {
+          "promptId": "6d44017a-2306-4995-8f77-590092c46384",
+          "submittedPromptSha256": "ad161e3f42d6f544b4e893e3b2411b50ef69885ecabb45c67e782b8a27d0f2fb",
+          "outputNode": "15",
+          "outputFilename": "warden-icon-flux2-klein_00058_.png"
+        }
+      }
+    },
+    {
+      "id": "warden.ability.3.candidate.flux2-klein-tight-01",
+      "ability": "warden.ability.3",
+      "model": "flux2-klein-4b",
+      "set": "warden.v3.flux2-klein-tight",
+      "briefs": "briefs.v3.json",
+      "state": "candidate",
+      "path": "candidates/warden.ability.3.candidate.flux2-klein-tight-01.png",
+      "mediaType": "image/png",
+      "sha256": "10e17197592c5a84a19704faa7df6e3571b163807a62ee1ffb3b009cc657a9b0",
+      "byteLength": 1480828,
+      "width": 1024,
+      "height": 1024,
+      "provenance": {
+        "provider": "comfyui",
+        "operation": "image.comfyui.generate@1",
+        "reproducibility": "approximate",
+        "workflow": {
+          "path": "workflow.flux2-klein-4b-icon.api.json",
+          "sha256": "c1a6ccd82388839d72fed7c5e3efb5b523b5a5df655f004f49e843458017517f"
+        },
+        "checkpoint": {
+          "name": "flux-2-klein-4b-fp8.safetensors",
+          "sha256": "97ed34fe0567e436200f2faee3939b88f2b5d99f8af2a4dc16532c4245c0ccb6",
+          "byteLength": 4070624520,
+          "license": "apache-2.0"
+        },
+        "textEncoder": {
+          "name": "qwen_3_4b_fp8_mixed.safetensors",
+          "sha256": "72450b19758172c5a7273cf7de729d1c17e7f434a104a00167624cba94f68f15",
+          "byteLength": 5631994051,
+          "license": "apache-2.0"
+        },
+        "vae": {
+          "name": "flux2-vae.safetensors",
+          "sha256": "868fe7b343cc8f3a19dbcfcafbc3d5f888802be3f89bd81b65b3621a066ce8f3",
+          "byteLength": 336211292,
+          "license": "apache-2.0"
+        },
+        "seed": 213301,
+        "positivePrompt": "A close-up of a curved ivory war horn with bronze bands, so large that it spans the whole square from corner to corner, its bell blasting glowing golden rings of sound that fill the rest of the image, with a tattered red war banner filling the background behind it. Tightly cropped square fantasy game ability icon painted in a dark, painterly digital oil style with visible brush strokes. Extreme close-up: the subject is so large that it fills the entire square edge to edge and is cut off by the edges of the image, with no empty background border, no dark vignette margin and no space around it. Strong, simple silhouette that stays readable at a tiny size. Dramatic warm rim light, high contrast, polished steel and firelight tones. No text, no letters, no frame, no border, no user interface and no people.",
+        "comfyui": {
+          "commit": "98cc0bf84b7cb1383654c5b402e7612d875d6d22",
+          "version": "0.41.0"
+        },
+        "device": "cuda:0 NVIDIA GeForce RTX 3060 Ti",
+        "pytorch": "2.14.1+cu130",
+        "run": {
+          "promptId": "88714bb1-8654-497a-ae64-7c88ed1f06b6",
+          "submittedPromptSha256": "95c989c66c6816a91f268afe193e9d919fb63582b74db7daf52e09d84b5d427f",
+          "outputNode": "15",
+          "outputFilename": "warden-icon-flux2-klein_00041_.png"
+        }
+      }
+    },
+    {
+      "id": "warden.ability.3.candidate.flux2-klein-tight-02",
+      "ability": "warden.ability.3",
+      "model": "flux2-klein-4b",
+      "set": "warden.v3.flux2-klein-tight",
+      "briefs": "briefs.v3.json",
+      "state": "candidate",
+      "path": "candidates/warden.ability.3.candidate.flux2-klein-tight-02.png",
+      "mediaType": "image/png",
+      "sha256": "edc0eeeca33201317d1d3a46f96de75634b8971e136f28867b8442f24c1ab819",
+      "byteLength": 1616994,
+      "width": 1024,
+      "height": 1024,
+      "provenance": {
+        "provider": "comfyui",
+        "operation": "image.comfyui.generate@1",
+        "reproducibility": "approximate",
+        "workflow": {
+          "path": "workflow.flux2-klein-4b-icon.api.json",
+          "sha256": "c1a6ccd82388839d72fed7c5e3efb5b523b5a5df655f004f49e843458017517f"
+        },
+        "checkpoint": {
+          "name": "flux-2-klein-4b-fp8.safetensors",
+          "sha256": "97ed34fe0567e436200f2faee3939b88f2b5d99f8af2a4dc16532c4245c0ccb6",
+          "byteLength": 4070624520,
+          "license": "apache-2.0"
+        },
+        "textEncoder": {
+          "name": "qwen_3_4b_fp8_mixed.safetensors",
+          "sha256": "72450b19758172c5a7273cf7de729d1c17e7f434a104a00167624cba94f68f15",
+          "byteLength": 5631994051,
+          "license": "apache-2.0"
+        },
+        "vae": {
+          "name": "flux2-vae.safetensors",
+          "sha256": "868fe7b343cc8f3a19dbcfcafbc3d5f888802be3f89bd81b65b3621a066ce8f3",
+          "byteLength": 336211292,
+          "license": "apache-2.0"
+        },
+        "seed": 213303,
+        "positivePrompt": "A close-up of a curved ivory war horn with bronze bands, so large that it spans the whole square from corner to corner, its bell blasting glowing golden rings of sound that fill the rest of the image, with a tattered red war banner filling the background behind it. Tightly cropped square fantasy game ability icon painted in a dark, painterly digital oil style with visible brush strokes. Extreme close-up: the subject is so large that it fills the entire square edge to edge and is cut off by the edges of the image, with no empty background border, no dark vignette margin and no space around it. Strong, simple silhouette that stays readable at a tiny size. Dramatic warm rim light, high contrast, polished steel and firelight tones. No text, no letters, no frame, no border, no user interface and no people.",
+        "comfyui": {
+          "commit": "98cc0bf84b7cb1383654c5b402e7612d875d6d22",
+          "version": "0.41.0"
+        },
+        "device": "cuda:0 NVIDIA GeForce RTX 3060 Ti",
+        "pytorch": "2.14.1+cu130",
+        "run": {
+          "promptId": "9c64d05b-02be-417e-99e4-d73315db20e1",
+          "submittedPromptSha256": "1dab4c4a3347bed72c05597216620e984656fa1ffa5a4dec99e81eaa29bc0b52",
+          "outputNode": "15",
+          "outputFilename": "warden-icon-flux2-klein_00043_.png"
+        }
+      }
+    },
+    {
+      "id": "warden.ability.3.candidate.flux2-klein-tight-03",
+      "ability": "warden.ability.3",
+      "model": "flux2-klein-4b",
+      "set": "warden.v3.flux2-klein-tight",
+      "briefs": "briefs.v3.json",
+      "state": "candidate",
+      "path": "candidates/warden.ability.3.candidate.flux2-klein-tight-03.png",
+      "mediaType": "image/png",
+      "sha256": "93a24452baeb396503322454d6c240d129aefc3b1bcdccc88481a7aeed30594d",
+      "byteLength": 1641151,
+      "width": 1024,
+      "height": 1024,
+      "provenance": {
+        "provider": "comfyui",
+        "operation": "image.comfyui.generate@1",
+        "reproducibility": "approximate",
+        "workflow": {
+          "path": "workflow.flux2-klein-4b-icon.api.json",
+          "sha256": "c1a6ccd82388839d72fed7c5e3efb5b523b5a5df655f004f49e843458017517f"
+        },
+        "checkpoint": {
+          "name": "flux-2-klein-4b-fp8.safetensors",
+          "sha256": "97ed34fe0567e436200f2faee3939b88f2b5d99f8af2a4dc16532c4245c0ccb6",
+          "byteLength": 4070624520,
+          "license": "apache-2.0"
+        },
+        "textEncoder": {
+          "name": "qwen_3_4b_fp8_mixed.safetensors",
+          "sha256": "72450b19758172c5a7273cf7de729d1c17e7f434a104a00167624cba94f68f15",
+          "byteLength": 5631994051,
+          "license": "apache-2.0"
+        },
+        "vae": {
+          "name": "flux2-vae.safetensors",
+          "sha256": "868fe7b343cc8f3a19dbcfcafbc3d5f888802be3f89bd81b65b3621a066ce8f3",
+          "byteLength": 336211292,
+          "license": "apache-2.0"
+        },
+        "seed": 213305,
+        "positivePrompt": "A close-up of a curved ivory war horn with bronze bands, so large that it spans the whole square from corner to corner, its bell blasting glowing golden rings of sound that fill the rest of the image, with a tattered red war banner filling the background behind it. Tightly cropped square fantasy game ability icon painted in a dark, painterly digital oil style with visible brush strokes. Extreme close-up: the subject is so large that it fills the entire square edge to edge and is cut off by the edges of the image, with no empty background border, no dark vignette margin and no space around it. Strong, simple silhouette that stays readable at a tiny size. Dramatic warm rim light, high contrast, polished steel and firelight tones. No text, no letters, no frame, no border, no user interface and no people.",
+        "comfyui": {
+          "commit": "98cc0bf84b7cb1383654c5b402e7612d875d6d22",
+          "version": "0.41.0"
+        },
+        "device": "cuda:0 NVIDIA GeForce RTX 3060 Ti",
+        "pytorch": "2.14.1+cu130",
+        "run": {
+          "promptId": "ca3d38f3-575a-495c-b1ca-6b9e3966b483",
+          "submittedPromptSha256": "cfeb3ea9b19ad44c35a36e141410897172c3c59c9193ffc23fafa8fd89772e4b",
+          "outputNode": "15",
+          "outputFilename": "warden-icon-flux2-klein_00045_.png"
+        }
+      }
+    },
+    {
+      "id": "warden.ability.4.candidate.flux2-klein-tight-01",
+      "ability": "warden.ability.4",
+      "model": "flux2-klein-4b",
+      "set": "warden.v3.flux2-klein-tight",
+      "briefs": "briefs.v3.json",
+      "state": "candidate",
+      "path": "candidates/warden.ability.4.candidate.flux2-klein-tight-01.png",
+      "mediaType": "image/png",
+      "sha256": "28df3434a30219e65aad1150bb6c64f0aba8d1bc921b80425a65b18d446e6187",
+      "byteLength": 1364532,
+      "width": 1024,
+      "height": 1024,
+      "provenance": {
+        "provider": "comfyui",
+        "operation": "image.comfyui.generate@1",
+        "reproducibility": "approximate",
+        "workflow": {
+          "path": "workflow.flux2-klein-4b-icon.api.json",
+          "sha256": "c1a6ccd82388839d72fed7c5e3efb5b523b5a5df655f004f49e843458017517f"
+        },
+        "checkpoint": {
+          "name": "flux-2-klein-4b-fp8.safetensors",
+          "sha256": "97ed34fe0567e436200f2faee3939b88f2b5d99f8af2a4dc16532c4245c0ccb6",
+          "byteLength": 4070624520,
+          "license": "apache-2.0"
+        },
+        "textEncoder": {
+          "name": "qwen_3_4b_fp8_mixed.safetensors",
+          "sha256": "72450b19758172c5a7273cf7de729d1c17e7f434a104a00167624cba94f68f15",
+          "byteLength": 5631994051,
+          "license": "apache-2.0"
+        },
+        "vae": {
+          "name": "flux2-vae.safetensors",
+          "sha256": "868fe7b343cc8f3a19dbcfcafbc3d5f888802be3f89bd81b65b3621a066ce8f3",
+          "byteLength": 336211292,
+          "license": "apache-2.0"
+        },
+        "seed": 213401,
+        "positivePrompt": "An extreme close-up of a huge broad-bladed battle axe head sweeping through a horizontal crescent arc, the axe blade filling most of the square and its glowing crimson arc trail sweeping across the full width of the image and off both sides. Tightly cropped square fantasy game ability icon painted in a dark, painterly digital oil style with visible brush strokes. Extreme close-up: the subject is so large that it fills the entire square edge to edge and is cut off by the edges of the image, with no empty background border, no dark vignette margin and no space around it. Strong, simple silhouette that stays readable at a tiny size. Dramatic warm rim light, high contrast, polished steel and firelight tones. No text, no letters, no frame, no border, no user interface and no people.",
+        "comfyui": {
+          "commit": "98cc0bf84b7cb1383654c5b402e7612d875d6d22",
+          "version": "0.41.0"
+        },
+        "device": "cuda:0 NVIDIA GeForce RTX 3060 Ti",
+        "pytorch": "2.14.1+cu130",
+        "run": {
+          "promptId": "2243705b-f757-4674-9b4a-81b0db0db3b5",
+          "submittedPromptSha256": "a9c0201e1d6c9061750fc2e4127ab312eb054e53422f393220096c380e4b64d7",
+          "outputNode": "15",
+          "outputFilename": "warden-icon-flux2-klein_00049_.png"
+        }
+      }
+    },
+    {
+      "id": "warden.ability.4.candidate.flux2-klein-tight-02",
+      "ability": "warden.ability.4",
+      "model": "flux2-klein-4b",
+      "set": "warden.v3.flux2-klein-tight",
+      "briefs": "briefs.v3.json",
+      "state": "candidate",
+      "path": "candidates/warden.ability.4.candidate.flux2-klein-tight-02.png",
+      "mediaType": "image/png",
+      "sha256": "462ea83339d29ff4a8d4664fbbb53866f29adf3bfe1c2aefccd203592415a57d",
+      "byteLength": 1305583,
+      "width": 1024,
+      "height": 1024,
+      "provenance": {
+        "provider": "comfyui",
+        "operation": "image.comfyui.generate@1",
+        "reproducibility": "approximate",
+        "workflow": {
+          "path": "workflow.flux2-klein-4b-icon.api.json",
+          "sha256": "c1a6ccd82388839d72fed7c5e3efb5b523b5a5df655f004f49e843458017517f"
+        },
+        "checkpoint": {
+          "name": "flux-2-klein-4b-fp8.safetensors",
+          "sha256": "97ed34fe0567e436200f2faee3939b88f2b5d99f8af2a4dc16532c4245c0ccb6",
+          "byteLength": 4070624520,
+          "license": "apache-2.0"
+        },
+        "textEncoder": {
+          "name": "qwen_3_4b_fp8_mixed.safetensors",
+          "sha256": "72450b19758172c5a7273cf7de729d1c17e7f434a104a00167624cba94f68f15",
+          "byteLength": 5631994051,
+          "license": "apache-2.0"
+        },
+        "vae": {
+          "name": "flux2-vae.safetensors",
+          "sha256": "868fe7b343cc8f3a19dbcfcafbc3d5f888802be3f89bd81b65b3621a066ce8f3",
+          "byteLength": 336211292,
+          "license": "apache-2.0"
+        },
+        "seed": 213405,
+        "positivePrompt": "An extreme close-up of a huge broad-bladed battle axe head sweeping through a horizontal crescent arc, the axe blade filling most of the square and its glowing crimson arc trail sweeping across the full width of the image and off both sides. Tightly cropped square fantasy game ability icon painted in a dark, painterly digital oil style with visible brush strokes. Extreme close-up: the subject is so large that it fills the entire square edge to edge and is cut off by the edges of the image, with no empty background border, no dark vignette margin and no space around it. Strong, simple silhouette that stays readable at a tiny size. Dramatic warm rim light, high contrast, polished steel and firelight tones. No text, no letters, no frame, no border, no user interface and no people.",
+        "comfyui": {
+          "commit": "98cc0bf84b7cb1383654c5b402e7612d875d6d22",
+          "version": "0.41.0"
+        },
+        "device": "cuda:0 NVIDIA GeForce RTX 3060 Ti",
+        "pytorch": "2.14.1+cu130",
+        "run": {
+          "promptId": "94035d92-5c83-4931-8e70-4940ea5c1321",
+          "submittedPromptSha256": "0006072baa521017607f7b4922af36bb288e3ab3dbc074b29b9498224c6308db",
+          "outputNode": "15",
+          "outputFilename": "warden-icon-flux2-klein_00053_.png"
+        }
+      }
+    },
+    {
+      "id": "warden.ability.4.candidate.flux2-klein-tight-03",
+      "ability": "warden.ability.4",
+      "model": "flux2-klein-4b",
+      "set": "warden.v3.flux2-klein-tight",
+      "briefs": "briefs.v3.json",
+      "state": "candidate",
+      "path": "candidates/warden.ability.4.candidate.flux2-klein-tight-03.png",
+      "mediaType": "image/png",
+      "sha256": "2d229f192ffde3831bc8c1830cbc2ffcc274fa6ced9e23e03bc7a0850874d3ba",
+      "byteLength": 1254027,
+      "width": 1024,
+      "height": 1024,
+      "provenance": {
+        "provider": "comfyui",
+        "operation": "image.comfyui.generate@1",
+        "reproducibility": "approximate",
+        "workflow": {
+          "path": "workflow.flux2-klein-4b-icon.api.json",
+          "sha256": "c1a6ccd82388839d72fed7c5e3efb5b523b5a5df655f004f49e843458017517f"
+        },
+        "checkpoint": {
+          "name": "flux-2-klein-4b-fp8.safetensors",
+          "sha256": "97ed34fe0567e436200f2faee3939b88f2b5d99f8af2a4dc16532c4245c0ccb6",
+          "byteLength": 4070624520,
+          "license": "apache-2.0"
+        },
+        "textEncoder": {
+          "name": "qwen_3_4b_fp8_mixed.safetensors",
+          "sha256": "72450b19758172c5a7273cf7de729d1c17e7f434a104a00167624cba94f68f15",
+          "byteLength": 5631994051,
+          "license": "apache-2.0"
+        },
+        "vae": {
+          "name": "flux2-vae.safetensors",
+          "sha256": "868fe7b343cc8f3a19dbcfcafbc3d5f888802be3f89bd81b65b3621a066ce8f3",
+          "byteLength": 336211292,
+          "license": "apache-2.0"
+        },
+        "seed": 213406,
+        "positivePrompt": "An extreme close-up of a huge broad-bladed battle axe head sweeping through a horizontal crescent arc, the axe blade filling most of the square and its glowing crimson arc trail sweeping across the full width of the image and off both sides. Tightly cropped square fantasy game ability icon painted in a dark, painterly digital oil style with visible brush strokes. Extreme close-up: the subject is so large that it fills the entire square edge to edge and is cut off by the edges of the image, with no empty background border, no dark vignette margin and no space around it. Strong, simple silhouette that stays readable at a tiny size. Dramatic warm rim light, high contrast, polished steel and firelight tones. No text, no letters, no frame, no border, no user interface and no people.",
+        "comfyui": {
+          "commit": "98cc0bf84b7cb1383654c5b402e7612d875d6d22",
+          "version": "0.41.0"
+        },
+        "device": "cuda:0 NVIDIA GeForce RTX 3060 Ti",
+        "pytorch": "2.14.1+cu130",
+        "run": {
+          "promptId": "7b494ad5-09fc-406d-8509-17c41b306d79",
+          "submittedPromptSha256": "7afe25bbfee4c0ef8a2aa9124f65bbd94a59be5998530947b90b62b40a033da3",
+          "outputNode": "15",
+          "outputFilename": "warden-icon-flux2-klein_00054_.png"
+        }
+      }
+    },
     {
       "id": "warden.ability.1.candidate.01",
       "ability": "warden.ability.1",
       "model": "sd15",
+      "set": "warden.v1.sd15",
       "briefs": "briefs.json",
       "state": "candidate",
       "path": "candidates/warden.ability.1.candidate.01.png",
@@ -186,6 +876,7 @@
       "id": "warden.ability.2.candidate.01",
       "ability": "warden.ability.2",
       "model": "sd15",
+      "set": "warden.v1.sd15",
       "briefs": "briefs.json",
       "state": "candidate",
       "path": "candidates/warden.ability.2.candidate.01.png",
@@ -227,6 +918,7 @@
       "id": "warden.ability.3.candidate.01",
       "ability": "warden.ability.3",
       "model": "sd15",
+      "set": "warden.v1.sd15",
       "briefs": "briefs.json",
       "state": "candidate",
       "path": "candidates/warden.ability.3.candidate.01.png",
@@ -268,6 +960,7 @@
       "id": "warden.ability.1.candidate.02",
       "ability": "warden.ability.1",
       "model": "sd15",
+      "set": "warden.v1.sd15",
       "briefs": "briefs.json",
       "state": "candidate",
       "path": "candidates/warden.ability.1.candidate.02.png",
@@ -310,6 +1003,7 @@
       "id": "warden.ability.1.candidate.03",
       "ability": "warden.ability.1",
       "model": "sd15",
+      "set": "warden.v1.sd15",
       "briefs": "briefs.json",
       "state": "candidate",
       "path": "candidates/warden.ability.1.candidate.03.png",
@@ -352,6 +1046,7 @@
       "id": "warden.ability.1.candidate.04",
       "ability": "warden.ability.1",
       "model": "sd15",
+      "set": "warden.v1.sd15",
       "briefs": "briefs.json",
       "state": "candidate",
       "path": "candidates/warden.ability.1.candidate.04.png",
@@ -394,6 +1089,7 @@
       "id": "warden.ability.2.candidate.02",
       "ability": "warden.ability.2",
       "model": "sd15",
+      "set": "warden.v1.sd15",
       "briefs": "briefs.json",
       "state": "candidate",
       "path": "candidates/warden.ability.2.candidate.02.png",
@@ -436,6 +1132,7 @@
       "id": "warden.ability.2.candidate.03",
       "ability": "warden.ability.2",
       "model": "sd15",
+      "set": "warden.v1.sd15",
       "briefs": "briefs.json",
       "state": "candidate",
       "path": "candidates/warden.ability.2.candidate.03.png",
@@ -478,6 +1175,7 @@
       "id": "warden.ability.2.candidate.04",
       "ability": "warden.ability.2",
       "model": "sd15",
+      "set": "warden.v1.sd15",
       "briefs": "briefs.json",
       "state": "candidate",
       "path": "candidates/warden.ability.2.candidate.04.png",
@@ -520,6 +1218,7 @@
       "id": "warden.ability.3.candidate.02",
       "ability": "warden.ability.3",
       "model": "sd15",
+      "set": "warden.v1.sd15",
       "briefs": "briefs.json",
       "state": "candidate",
       "path": "candidates/warden.ability.3.candidate.02.png",
@@ -562,6 +1261,7 @@
       "id": "warden.ability.3.candidate.03",
       "ability": "warden.ability.3",
       "model": "sd15",
+      "set": "warden.v1.sd15",
       "briefs": "briefs.json",
       "state": "candidate",
       "path": "candidates/warden.ability.3.candidate.03.png",
@@ -604,6 +1304,7 @@
       "id": "warden.ability.3.candidate.04",
       "ability": "warden.ability.3",
       "model": "sd15",
+      "set": "warden.v1.sd15",
       "briefs": "briefs.json",
       "state": "candidate",
       "path": "candidates/warden.ability.3.candidate.04.png",
@@ -646,6 +1347,7 @@
       "id": "warden.ability.4.candidate.01",
       "ability": "warden.ability.4",
       "model": "sd15",
+      "set": "warden.v1.sd15",
       "briefs": "briefs.json",
       "state": "candidate",
       "path": "candidates/warden.ability.4.candidate.01.png",
@@ -688,6 +1390,7 @@
       "id": "warden.ability.4.candidate.02",
       "ability": "warden.ability.4",
       "model": "sd15",
+      "set": "warden.v1.sd15",
       "briefs": "briefs.json",
       "state": "candidate",
       "path": "candidates/warden.ability.4.candidate.02.png",
@@ -730,6 +1433,7 @@
       "id": "warden.ability.4.candidate.03",
       "ability": "warden.ability.4",
       "model": "sd15",
+      "set": "warden.v1.sd15",
       "briefs": "briefs.json",
       "state": "candidate",
       "path": "candidates/warden.ability.4.candidate.03.png",
@@ -772,6 +1476,7 @@
       "id": "warden.ability.1.candidate.flux2-klein-01",
       "ability": "warden.ability.1",
       "model": "flux2-klein-4b",
+      "set": "warden.v2.model-comparison",
       "briefs": "briefs.v2.json",
       "state": "candidate",
       "path": "candidates/warden.ability.1.candidate.flux2-klein-01.png",
@@ -826,6 +1531,7 @@
       "id": "warden.ability.1.candidate.flux2-klein-02",
       "ability": "warden.ability.1",
       "model": "flux2-klein-4b",
+      "set": "warden.v2.model-comparison",
       "briefs": "briefs.v2.json",
       "state": "candidate",
       "path": "candidates/warden.ability.1.candidate.flux2-klein-02.png",
@@ -880,6 +1586,7 @@
       "id": "warden.ability.1.candidate.flux2-klein-03",
       "ability": "warden.ability.1",
       "model": "flux2-klein-4b",
+      "set": "warden.v2.model-comparison",
       "briefs": "briefs.v2.json",
       "state": "candidate",
       "path": "candidates/warden.ability.1.candidate.flux2-klein-03.png",
@@ -934,6 +1641,7 @@
       "id": "warden.ability.2.candidate.flux2-klein-01",
       "ability": "warden.ability.2",
       "model": "flux2-klein-4b",
+      "set": "warden.v2.model-comparison",
       "briefs": "briefs.v2.json",
       "state": "candidate",
       "path": "candidates/warden.ability.2.candidate.flux2-klein-01.png",
@@ -988,6 +1696,7 @@
       "id": "warden.ability.2.candidate.flux2-klein-02",
       "ability": "warden.ability.2",
       "model": "flux2-klein-4b",
+      "set": "warden.v2.model-comparison",
       "briefs": "briefs.v2.json",
       "state": "candidate",
       "path": "candidates/warden.ability.2.candidate.flux2-klein-02.png",
@@ -1042,6 +1751,7 @@
       "id": "warden.ability.2.candidate.flux2-klein-03",
       "ability": "warden.ability.2",
       "model": "flux2-klein-4b",
+      "set": "warden.v2.model-comparison",
       "briefs": "briefs.v2.json",
       "state": "candidate",
       "path": "candidates/warden.ability.2.candidate.flux2-klein-03.png",
@@ -1096,6 +1806,7 @@
       "id": "warden.ability.3.candidate.flux2-klein-01",
       "ability": "warden.ability.3",
       "model": "flux2-klein-4b",
+      "set": "warden.v2.model-comparison",
       "briefs": "briefs.v2.json",
       "state": "candidate",
       "path": "candidates/warden.ability.3.candidate.flux2-klein-01.png",
@@ -1150,6 +1861,7 @@
       "id": "warden.ability.3.candidate.flux2-klein-02",
       "ability": "warden.ability.3",
       "model": "flux2-klein-4b",
+      "set": "warden.v2.model-comparison",
       "briefs": "briefs.v2.json",
       "state": "candidate",
       "path": "candidates/warden.ability.3.candidate.flux2-klein-02.png",
@@ -1204,6 +1916,7 @@
       "id": "warden.ability.3.candidate.flux2-klein-03",
       "ability": "warden.ability.3",
       "model": "flux2-klein-4b",
+      "set": "warden.v2.model-comparison",
       "briefs": "briefs.v2.json",
       "state": "candidate",
       "path": "candidates/warden.ability.3.candidate.flux2-klein-03.png",
@@ -1258,6 +1971,7 @@
       "id": "warden.ability.4.candidate.flux2-klein-01",
       "ability": "warden.ability.4",
       "model": "flux2-klein-4b",
+      "set": "warden.v2.model-comparison",
       "briefs": "briefs.v2.json",
       "state": "candidate",
       "path": "candidates/warden.ability.4.candidate.flux2-klein-01.png",
@@ -1312,6 +2026,7 @@
       "id": "warden.ability.4.candidate.flux2-klein-02",
       "ability": "warden.ability.4",
       "model": "flux2-klein-4b",
+      "set": "warden.v2.model-comparison",
       "briefs": "briefs.v2.json",
       "state": "candidate",
       "path": "candidates/warden.ability.4.candidate.flux2-klein-02.png",
@@ -1366,6 +2081,7 @@
       "id": "warden.ability.4.candidate.flux2-klein-03",
       "ability": "warden.ability.4",
       "model": "flux2-klein-4b",
+      "set": "warden.v2.model-comparison",
       "briefs": "briefs.v2.json",
       "state": "candidate",
       "path": "candidates/warden.ability.4.candidate.flux2-klein-03.png",
@@ -1420,6 +2136,7 @@
       "id": "warden.ability.1.candidate.z-image-turbo-01",
       "ability": "warden.ability.1",
       "model": "z-image-turbo",
+      "set": "warden.v2.model-comparison",
       "briefs": "briefs.v2.json",
       "state": "candidate",
       "path": "candidates/warden.ability.1.candidate.z-image-turbo-01.png",
@@ -1474,6 +2191,7 @@
       "id": "warden.ability.1.candidate.z-image-turbo-02",
       "ability": "warden.ability.1",
       "model": "z-image-turbo",
+      "set": "warden.v2.model-comparison",
       "briefs": "briefs.v2.json",
       "state": "candidate",
       "path": "candidates/warden.ability.1.candidate.z-image-turbo-02.png",
@@ -1528,6 +2246,7 @@
       "id": "warden.ability.1.candidate.z-image-turbo-03",
       "ability": "warden.ability.1",
       "model": "z-image-turbo",
+      "set": "warden.v2.model-comparison",
       "briefs": "briefs.v2.json",
       "state": "candidate",
       "path": "candidates/warden.ability.1.candidate.z-image-turbo-03.png",
@@ -1582,6 +2301,7 @@
       "id": "warden.ability.2.candidate.z-image-turbo-01",
       "ability": "warden.ability.2",
       "model": "z-image-turbo",
+      "set": "warden.v2.model-comparison",
       "briefs": "briefs.v2.json",
       "state": "candidate",
       "path": "candidates/warden.ability.2.candidate.z-image-turbo-01.png",
@@ -1636,6 +2356,7 @@
       "id": "warden.ability.2.candidate.z-image-turbo-02",
       "ability": "warden.ability.2",
       "model": "z-image-turbo",
+      "set": "warden.v2.model-comparison",
       "briefs": "briefs.v2.json",
       "state": "candidate",
       "path": "candidates/warden.ability.2.candidate.z-image-turbo-02.png",
@@ -1690,6 +2411,7 @@
       "id": "warden.ability.2.candidate.z-image-turbo-03",
       "ability": "warden.ability.2",
       "model": "z-image-turbo",
+      "set": "warden.v2.model-comparison",
       "briefs": "briefs.v2.json",
       "state": "candidate",
       "path": "candidates/warden.ability.2.candidate.z-image-turbo-03.png",
@@ -1744,6 +2466,7 @@
       "id": "warden.ability.3.candidate.z-image-turbo-01",
       "ability": "warden.ability.3",
       "model": "z-image-turbo",
+      "set": "warden.v2.model-comparison",
       "briefs": "briefs.v2.json",
       "state": "candidate",
       "path": "candidates/warden.ability.3.candidate.z-image-turbo-01.png",
@@ -1798,6 +2521,7 @@
       "id": "warden.ability.3.candidate.z-image-turbo-02",
       "ability": "warden.ability.3",
       "model": "z-image-turbo",
+      "set": "warden.v2.model-comparison",
       "briefs": "briefs.v2.json",
       "state": "candidate",
       "path": "candidates/warden.ability.3.candidate.z-image-turbo-02.png",
@@ -1852,6 +2576,7 @@
       "id": "warden.ability.3.candidate.z-image-turbo-03",
       "ability": "warden.ability.3",
       "model": "z-image-turbo",
+      "set": "warden.v2.model-comparison",
       "briefs": "briefs.v2.json",
       "state": "candidate",
       "path": "candidates/warden.ability.3.candidate.z-image-turbo-03.png",
@@ -1906,6 +2631,7 @@
       "id": "warden.ability.4.candidate.z-image-turbo-01",
       "ability": "warden.ability.4",
       "model": "z-image-turbo",
+      "set": "warden.v2.model-comparison",
       "briefs": "briefs.v2.json",
       "state": "candidate",
       "path": "candidates/warden.ability.4.candidate.z-image-turbo-01.png",
@@ -1960,6 +2686,7 @@
       "id": "warden.ability.4.candidate.z-image-turbo-02",
       "ability": "warden.ability.4",
       "model": "z-image-turbo",
+      "set": "warden.v2.model-comparison",
       "briefs": "briefs.v2.json",
       "state": "candidate",
       "path": "candidates/warden.ability.4.candidate.z-image-turbo-02.png",
@@ -2014,6 +2741,7 @@
       "id": "warden.ability.4.candidate.z-image-turbo-03",
       "ability": "warden.ability.4",
       "model": "z-image-turbo",
+      "set": "warden.v2.model-comparison",
       "briefs": "briefs.v2.json",
       "state": "candidate",
       "path": "candidates/warden.ability.4.candidate.z-image-turbo-03.png",
