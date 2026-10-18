@@ -1,5 +1,5 @@
 // The Ranger comparison data (#111, docs/animation-viewer.md#ranger-comparison) is optional in ordinary
-// builds and required in the Pages workflow; a tar that does not match the pinned release always fails.
+// builds and required in the Pages workflow; malformed working archives fail visibly.
 import test from "node:test";
 import assert from "node:assert/strict";
 import os from "node:os";
@@ -22,14 +22,14 @@ test("without a bundle tar the data is unavailable, or a build failure when requ
   }
 });
 
-test("a tar that is not the pinned release is rejected once the sources are hydrated", async (t) => {
+test("a malformed working tar is rejected once the sources are hydrated", async (t) => {
   const outDir = await mkdtemp(path.join(os.tmpdir(), "ranger-comparison-"));
   const tar = path.join(outDir, "fake.tar");
   await writeFile(tar, Buffer.alloc(1024));
   try {
     const result = await writeRangerComparisonData({ repositoryRoot: ROOT, outDir: path.join(outDir, "out"), bundleTar: tar }).catch((error: Error) => error);
     if (!(result instanceof Error) && result.status === "unavailable") return t.skip(result.reason);
-    assert.ok(result instanceof Error && /sha256 does not match its pin/.test(result.message), String(result));
+    assert.ok(result instanceof Error && /manifest.json/.test(result.message), String(result));
   } finally {
     await rm(outDir, { recursive: true, force: true });
   }

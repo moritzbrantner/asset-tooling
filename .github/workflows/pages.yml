@@ -27,6 +27,8 @@ on:
       - "examples/reconcile-file.ts"
       - "package.json"
       - ".github/workflows/pages.yml"
+  release:
+    types: [published]
   workflow_dispatch:
 
 permissions:
@@ -44,6 +46,8 @@ jobs:
       - name: Check out repository without LFS hydration
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
+          # A release event points at a tag; always publish the current main site, not an older tagged checkout.
+          ref: ${{ github.event_name == 'release' && 'main' || github.ref }}
           lfs: false
           persist-credentials: false
 
@@ -74,15 +78,69 @@ jobs:
           bun -e 'import { readFile } from "node:fs/promises"; import { sha256Bytes } from "./src/hash.ts"; import { SAPLING_TREE_SOURCE } from "./src/tree-recipes.ts"; const bytes = await readFile(process.argv[1]); if (bytes.length !== SAPLING_TREE_SOURCE.byteLength || sha256Bytes(bytes) !== SAPLING_TREE_SOURCE.sha256) throw new Error("Sapling input pin mismatch")' "$RUNNER_TEMP/sapling.zip"
           echo "ASSET_TOOLING_SAPLING_ARCHIVE=$RUNNER_TEMP/sapling.zip" >> "$GITHUB_ENV"
 
-      # The comparison's processed bundle is the pinned release; writeRangerComparisonData verifies its tar.
-      - name: Download the pinned Ranger release for the comparison
+      # Build the public review against the latest published Ranger output; no hand-maintained tar hash.
+      - name: Download current Ranger output for comparison
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG=$(bun -e 'import { RANGER_COMPARISON_BUNDLE } from "./src/ranger-comparison.ts"; console.log(RANGER_COMPARISON_BUNDLE.tag)')
+          TAG=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 200 --json tagName,isDraft --jq '.[] | select(.isDraft == false) | .tagName' | grep -E '^humanoid-ranger-male-v[0-9]+
+
+      - name: Validate catalog provenance
+        run: |
+          bun run catalog:check
+          bun run catalog:storage:check
+
+      - name: Build real previews from accepted recipes
+        run: bun run pages:previews
+
+      - name: Build deterministic catalog site
+        run: |
+          bun run pages:build
+          test -s dist/pages/index.html
+          test -s dist/pages/catalog.json
+          test -s dist/pages/previews/index.json
+          test -s dist/pages/previews/rock.rounded.glb
+          test -s dist/pages/previews/wheat.mature.glb
+          test -s dist/pages/previews/surface.soil-fine.png
+          test -s dist/pages/previews/feedback.farm.harvest-pop.strong.wav
+          test -s dist/pages/generate/index.html
+          test -s dist/pages/generate/app.js
+          test -s dist/pages/compare/ranger/data.json
+          test -s dist/pages/compare/ranger/app.js
+          test -s dist/pages/review/warden-icons/index.html
+          test -s dist/pages/review/warden-icons/images/approved/warden.ability.4.32.png
+          test "$(find dist/pages/assets -name index.html -type f | wc -l)" -gt 0
+
+      - name: Configure Pages
+        if: github.event_name != 'pull_request'
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6
+
+      - name: Upload Pages artifact
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5
+        with:
+          path: dist/pages
+
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5
+ | sort -V | tail -n 1)
+          test -n "$TAG"
           gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern humanoid.ranger.male.tar --dir "$RUNNER_TEMP/ranger"
           echo "ASSET_TOOLING_RANGER_BUNDLE_TAR=$RUNNER_TEMP/ranger/humanoid.ranger.male.tar" >> "$GITHUB_ENV"
+          echo "ASSET_TOOLING_RANGER_BUNDLE_LABEL=$TAG" >> "$GITHUB_ENV"
           echo "ASSET_TOOLING_REQUIRE_RANGER_COMPARISON=1" >> "$GITHUB_ENV"
 
       - name: Validate catalog provenance

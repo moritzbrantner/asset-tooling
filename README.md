@@ -4,6 +4,12 @@ Reproducible, traceable tooling for generating and processing game and applicati
 
 The repository treats generated and processed assets as build artifacts. Generation intent, generator/model identity, declared dependency bytes, execution environment, outputs, processing observations, and replay evidence are recorded so reproducibility can be tested instead of assumed.
 
+## Review current assets
+
+Start with the [asset gallery](https://moritzbrantner.github.io/asset-tooling/). It links directly to the [Ranger animation comparison](https://moritzbrantner.github.io/asset-tooling/compare/ranger/), the [Warden icon review](https://moritzbrantner.github.io/asset-tooling/review/warden-icons/), and the [browser 3D studio](https://moritzbrantner.github.io/asset-tooling/generate/). Compare at the intended camera, animation frame and action-bar size before requesting a new generator or foundation capability.
+
+During experimentation, generated outputs are replaceable **current** work, not a series of required release versions. The public Ranger comparison automatically shows the latest published Ranger release at Pages build time and identifies it in the caption; a local build can supply any working Ranger tar. It does not automatically inspect uncommitted local candidates. Once a consumer accepts an artifact, that consumer deliberately updates its input. Source licenses and the checks needed to load compatible assets remain separate from disposable-output history. See [Decision 7.1.4](docs/decisions/atlas.md).
+
 ## Stability
 
 The reusable core has completed its first stabilization milestone. Published schema versions are immutable compatibility contracts, CLI exit semantics and the deliberately small root programmatic API are protected by deterministic tests, generation cache reuse is fail-closed and content-addressed, and the package shape is validated without publishing it.
