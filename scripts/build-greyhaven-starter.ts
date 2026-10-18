@@ -17,6 +17,7 @@ import { importAssetCatalogStorageSource } from "../src/catalog-storage.js";
 import { executeGltfPlaceOperation } from "../src/gltf-place-operations.js";
 import { executeGltfProductionImportOperation } from "../src/gltf-production-operations.js";
 import { sliceResizeDocument } from "../src/gltf-slice-resize.js";
+import { executeGltfTextureResizeOperation } from "../src/gltf-texture-resize-operations.js";
 import { LOD_LEVELS, LOD_RATIOS, LOD_SWITCH_DISTANCE_HINTS, generateLodLevel } from "../src/lod-recipe.js";
 import type { AssetOperationResult, AssetRef } from "../src/operations.js";
 
@@ -35,6 +36,11 @@ export const GREYHAVEN_DESCRIPTOR_SCHEMA = "greyhaven-starter-descriptor-v1";
 export const GREYHAVEN_DESCRIPTOR_ATTACHMENT = "starter-descriptor";
 export const GREYHAVEN_BUNDLE_VARIANT = "default";
 export const GREYHAVEN_TAR_NAME = "greyhaven.starter.tar";
+/** #124: per-slot maximum texture edges for game delivery (the Ranger's #257 limits); images are never upscaled. */
+export const GREYHAVEN_TEXTURE_POLICY = {
+  maxEdgeBySlot: { baseColor: 1024, normal: 1024, metallicRoughness: 512, occlusion: 512, emissive: 1024 },
+  default: 1024,
+} as const;
 
 export type GreyhavenRole = string;
 export type GreyhavenCategory = "structure" | "vegetation" | "prop";
@@ -292,7 +298,10 @@ export async function buildGreyhavenStarter({ outDir, lods = true, log = () => {
       inputs: { source: imported },
       parameters: { parentName, anchor: "footprint-base-center", ...(entry.pivotNode ? { sourcePivot: { node: entry.pivotNode } } : {}), policy: { allowedValidatorWarnings: warnings } },
     });
-    const placed = single(placeResult);
+    // #124: game-resolution textures (the kit's sources are up to 4096 px), as the Ranger has since #257.
+    const placed = single(await executeGltfTextureResizeOperation(root, {
+      inputs: { source: single(placeResult) }, parameters: { ...GREYHAVEN_TEXTURE_POLICY, policy: { allowedValidatorWarnings: warnings } },
+    }));
     const observations = placeResult.observations as Json;
     const document = await io.readBinary(new Uint8Array(await resolveAssetObject(root, placed)));
     built.push({ entry, source, resources, imported, placed, parentName, observations, document });

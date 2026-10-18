@@ -177,7 +177,7 @@ Each entry is `scenes/<key>/default.gltf` with one `.bin` and its PNGs as hash-a
 | `greyhaven.starter.barrel` | 824 | 7 | 0.698 × 0.698 × 0.898 |
 | `greyhaven.starter.tree` | 6,265 | 4 | 4.311 × 4.578 × 7.265 |
 
-Across the whole kit there are 48 distinct resources, because the trim-sheet textures are shared, and the tar is about 69 MB. A consumer pins the three things described in [Release distribution and consumer pinning](asset-bundles.md#release-distribution-and-consumer-pinning):
+Across the whole kit there are 48 distinct resources, because the trim-sheet textures are shared. Since #124 every member's textures are resized to game resolution after placement (`GREYHAVEN_TEXTURE_POLICY`: 1024 px colour and normal, 512 px data maps, never upscaled), and the tar is about 22 MB. A consumer pins the three things described in [Release distribution and consumer pinning](asset-bundles.md#release-distribution-and-consumer-pinning):
 
 1. the release (`greyhaven-starter`, rolling);
 2. the tar sha256;

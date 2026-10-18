@@ -32,8 +32,32 @@ export function textureEncoding(slots: ReadonlySet<string>): TextureEncoding {
   return "etc1s-linear";
 }
 
-export function ktxArguments(encoding: TextureEncoding, input: string, output: string): string[] {
-  const common = ["create", "--generate-mipmap"];
+/** Pixel size of a KTX2 file's base level, from its header (identifier, vkFormat, typeSize, pixelWidth, pixelHeight). */
+export function ktx2Size(bytes: Uint8Array): { width: number; height: number } {
+  const identifier = [0xab, 0x4b, 0x54, 0x58, 0x20, 0x32, 0x30, 0xbb, 0x0d, 0x0a, 0x1a, 0x0a];
+  if (bytes.length < 28 || identifier.some((value, index) => bytes[index] !== value)) throw new Error("not a KTX2 file");
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  return { width: view.getUint32(20, true), height: view.getUint32(24, true) };
+}
+
+function triangleCount(document: Document): number {
+  let triangles = 0;
+  for (const node of document.getRoot().listNodes()) {
+    for (const primitive of node.getMesh()?.listPrimitives() ?? []) {
+      const count = primitive.getIndices()?.getCount() ?? primitive.getAttribute("POSITION")?.getCount() ?? 0;
+      triangles += primitive.getMode() === 4 ? count / 3 : 0;
+    }
+  }
+  return triangles;
+}
+
+/** The nearest power of two: block-compressed GPU formats and full mip chains need it (#124). */
+export function powerOfTwo(value: number): number {
+  return 2 ** Math.max(0, Math.round(Math.log2(value)));
+}
+
+export function ktxArguments(encoding: TextureEncoding, input: string, output: string, size?: { width: number; height: number }): string[] {
+  const common = ["create", "--generate-mipmap", ...(size ? ["--width", String(size.width), "--height", String(size.height)] : [])];
   if (encoding === "uastc") {
     return [...common, "--format", "R8G8B8A8_UNORM", "--assign-tf", "linear", "--encode", "uastc", "--uastc-quality", "2", "--zstd", "18", input, output];
   }
@@ -113,7 +137,13 @@ export async function packDownloads({ bundleDir, outDir, name, clips, log = () =
         if (!file) {
           const input = path.join(scratch, `${encoded.size}.png`), output = path.join(scratch, `${encoded.size}.ktx2`);
           await writeFile(input, png);
-          const run = Bun.spawnSync([ktx, ...ktxArguments(encoding, input, output)], { stdout: "pipe", stderr: "pipe" });
+          // Non-power-of-two images (for example a 1008 x 981 flower sheet) are resampled to the nearest power of two:
+          // they otherwise decode black on WebGL's block-compressed path.
+          const view = new DataView(png.buffer, png.byteOffset, png.byteLength);
+          const [width, height] = [view.getUint32(16), view.getUint32(20)];
+          const target = { width: powerOfTwo(width), height: powerOfTwo(height) };
+          const resize = target.width !== width || target.height !== height ? target : undefined;
+          const run = Bun.spawnSync([ktx, ...ktxArguments(encoding, input, output, resize)], { stdout: "pipe", stderr: "pipe" });
           if (run.exitCode !== 0) throw new Error(`ktx create failed for ${id} texture '${texture.getName()}': ${run.stderr.toString()}`);
           const bytes = await readFile(output);
           file = await written(`tex-${sha256Bytes(bytes).slice(0, 16)}.ktx2`, bytes);
@@ -134,7 +164,18 @@ export async function packDownloads({ bundleDir, outDir, name, clips, log = () =
       }
       const unique = [...new Set(textureFiles)].sort();
       const bytes = (await Promise.all([...files, ...unique].map(size))).reduce((sum, value) => sum + value, 0);
+      // #124: what the entry costs at runtime, separately from its download bytes. GPU memory is estimated from the
+      // KTX2 headers: Basis transcodes to a 1-byte-per-texel block format (BC7/ETC2/ASTC 4x4), and an RGBA8 fallback
+      // would take 4 bytes per texel; a full mip chain adds a third.
+      const gpu = { compressedBytes: 0, rgba8FallbackBytes: 0 };
+      for (const file of unique) {
+        const { width, height } = ktx2Size(await readFile(path.join(outDir, file)));
+        gpu.compressedBytes += Math.round(width * height * 4 / 3);
+        gpu.rgba8FallbackBytes += Math.round(width * height * 4 * 4 / 3);
+      }
+      const drawCalls = root.listNodes().reduce((sum, node) => sum + (node.getMesh()?.listPrimitives().length ?? 0), 0);
       entries.push({ key: asset.key, variant: asset.variant, files, textures: unique, bytes,
+        runtime: { textureMemoryEstimate: gpu, materials: root.listMaterials().length, drawCalls, triangles: triangleCount(document) },
         ...(clips && asset.key === clips.split("/")[0] && clipsFile ? { clips: clipsFile } : {}) });
       log(`${id}: ${(bytes / 1e6).toFixed(2)} MB (${files.length} files, ${unique.length} textures)`);
     }
