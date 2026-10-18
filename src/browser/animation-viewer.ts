@@ -1,20 +1,14 @@
 // Browser client of the rigged source animation viewer (#111), bundled into
 // dist/pages/viewer/app.js by scripts/build-catalog-pages.ts.
 //
-// Presentation and evidence only: the shared 3d-lab renderer verifies the
-// catalog pin, parses, skins and samples clips. This file decides eligibility
-// from the runtime catalog.json, drives the controls, and maps renderer
-// failures to user-facing alerts. Contract: docs/animation-viewer.md.
-import { createThreeSceneRenderer, type RendererCamera, type ThreeSceneRenderer } from "@moritzbrantner/three-d-renderer";
-import {
-  adaptPinnedCharacterSource,
-  renderImportedCharacterInstances,
-  type InspectionCharacterAsset,
-  type InspectionCharacterClip,
-  type InspectionCharacterInstance,
-} from "@moritzbrantner/three-d-renderer/inspection-character";
-import { Box3, PerspectiveCamera, Vector3, WebGPUCoordinateSystem, type Object3D, type SkinnedMesh } from "three";
+// Presentation and evidence only, in plain three.js (Atlas Decision 7.1.1, #281): the fetched third-party
+// source is checked against its catalog pin, then GLTFLoader parses it and an AnimationMixer plays its clips.
+// This file decides eligibility from the runtime catalog.json, drives the controls, and maps failures to
+// user-facing alerts. Contract: docs/animation-viewer.md.
+import { Box3, PerspectiveCamera, Vector3, WebGLRenderer, type Group, type Object3D, type Scene, type SkinnedMesh } from "three";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { animationViewerIneligibility } from "../animation-viewer-eligibility.ts";
+import { characterAsset, viewerScene, type CharacterAsset, type CharacterClip, type CharacterInstance } from "./three-character.ts";
 
 // ---------------------------------------------------------------------------
 // Catalog
@@ -46,7 +40,18 @@ class ViewerFailure extends Error {
   }
 }
 
-/** Map the renderer's admission errors (inspection-character.js) to viewer failures. */
+async function sha256Hex(bytes: Uint8Array): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", bytes as BufferSource);
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+/** A third-party source is fetched over the network, so it is checked against its catalog pin before parsing. */
+async function verifyPin(bytes: Uint8Array, entry: CatalogEntry): Promise<void> {
+  if (bytes.byteLength !== entry.source.byteLength) throw new Error(`byte length ${bytes.byteLength} does not match`);
+  if ((await sha256Hex(bytes)) !== entry.source.sha256) throw new Error("SHA-256 does not match");
+}
+
+/** Map pin and loader errors to viewer failures. */
 function rendererFailure(error: unknown, entry: CatalogEntry, fetched: number): ViewerFailure {
   const message = error instanceof Error ? error.message : String(error);
   if (/byte length .* does not match/i.test(message)) {
@@ -106,7 +111,7 @@ function roundTime(seconds: number): number {
   return Object.is(rounded, -0) ? 0 : rounded;
 }
 const formatTime = (seconds: number): string => String(roundTime(seconds));
-const clipLabel = (clip: InspectionCharacterClip): string =>
+const clipLabel = (clip: CharacterClip): string =>
   `${clip.name ?? `Clip ${clip.index}`} · ${formatTime(clip.duration)} s`;
 
 function element<T extends HTMLElement>(id: string): T {
@@ -140,9 +145,9 @@ const dom = {
 
 interface Loaded {
   entry: CatalogEntry;
-  asset: InspectionCharacterAsset;
-  instance: InspectionCharacterInstance;
-  rest: InspectionCharacterInstance | null;
+  asset: CharacterAsset;
+  instance: CharacterInstance;
+  rest: CharacterInstance | null;
   center: Vector3;
   radius: number;
   /** Rest-pose bounds of the renderer's root object in metres (W, H, D). */
@@ -153,7 +158,7 @@ const state = {
   generation: 0,
   abort: null as AbortController | null,
   loaded: null as Loaded | null,
-  renderer: null as ThreeSceneRenderer | null,
+  renderer: null as { renderer: WebGLRenderer; scene: Scene; content: Group } | null,
   clip: 0,
   time: 0,
   playing: false,
@@ -166,7 +171,7 @@ const state = {
   lastFrame: null as number | null,
 };
 
-function currentClip(): InspectionCharacterClip | null {
+function currentClip(): CharacterClip | null {
   return state.loaded?.asset.clips[state.clip] ?? null;
 }
 function clipDuration(): number {
@@ -177,9 +182,8 @@ function clipDuration(): number {
 // Rendering
 
 const camera = new PerspectiveCamera(35, 4 / 3, 0.01, 100);
-camera.coordinateSystem = WebGPUCoordinateSystem;
 
-function frameCamera(loaded: Loaded): RendererCamera {
+function frameCamera(loaded: Loaded): PerspectiveCamera {
   const width = Math.max(1, dom.canvas.clientWidth);
   const height = Math.max(1, dom.canvas.clientHeight);
   const preset = VIEWS[state.view];
@@ -201,10 +205,7 @@ function frameCamera(loaded: Loaded): RendererCamera {
   camera.lookAt(loaded.center);
   camera.updateMatrixWorld(true);
   camera.updateProjectionMatrix();
-  return {
-    viewMatrix: [...camera.matrixWorldInverse.elements] as RendererCamera["viewMatrix"],
-    projectionMatrix: [...camera.projectionMatrix.elements] as RendererCamera["projectionMatrix"],
-  };
+  return camera;
 }
 
 function renderNow(): void {
@@ -213,9 +214,12 @@ function renderNow(): void {
   const width = dom.canvas.clientWidth;
   const height = dom.canvas.clientHeight;
   if (width <= 0 || height <= 0) return;
-  renderer.setSize(width, height, window.devicePixelRatio || 1);
+  renderer.renderer.setPixelRatio(window.devicePixelRatio || 1);
+  renderer.renderer.setSize(width, height, false);
   const shown = state.restPose ? (loaded.rest ??= loaded.asset.createInstance()) : loaded.instance;
-  renderImportedCharacterInstances(renderer, { camera: frameCamera(loaded), instances: [shown] });
+  renderer.content.clear();
+  renderer.content.add(shown.root);
+  renderer.renderer.render(renderer.scene, frameCamera(loaded));
 }
 
 function tick(timestamp: number): void {
@@ -587,10 +591,10 @@ async function start(): Promise<void> {
     const bytes = await fetchSource(entry, abort.signal);
     if (!current()) return;
 
-    let asset: InspectionCharacterAsset;
+    let asset: CharacterAsset;
     try {
-      // The renderer verifies SHA-256 and byte length before it parses anything.
-      asset = await adaptPinnedCharacterSource(bytes, { sha256: entry.source.sha256, byteLength: entry.source.byteLength });
+      await verifyPin(bytes, entry);
+      asset = characterAsset(await new GLTFLoader().parseAsync(bytes.slice().buffer as ArrayBuffer, new URL(".", entry.source.url).href));
     } catch (error) {
       throw rendererFailure(error, entry, bytes.byteLength);
     }
@@ -630,7 +634,7 @@ async function start(): Promise<void> {
     seekTo(Number.isFinite(t) ? t : 0);
     syncPlayButton();
 
-    state.renderer ??= createThreeSceneRenderer(dom.canvas, { alpha: true, antialias: true });
+    state.renderer ??= { renderer: new WebGLRenderer({ canvas: dom.canvas, alpha: true, antialias: true, preserveDrawingBuffer: true }), ...viewerScene() };
     dom.status.hidden = true;
     dom.workspace.hidden = false;
     setControlsEnabled(true);
@@ -646,7 +650,7 @@ async function start(): Promise<void> {
 window.addEventListener("pagehide", () => {
   state.generation += 1;
   release();
-  state.renderer?.dispose();
+  state.renderer?.renderer.dispose();
   state.renderer = null;
 });
 window.addEventListener("pageshow", (event) => {

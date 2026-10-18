@@ -6,18 +6,17 @@
 //   2. the source motion: the clip library's own mannequin playing the selected clip;
 //   3. the processed humanoid-ranger-male bundle playing the same clip;
 //   4. the primitive-built archer (a static debug fallback).
-// Presentation only: the shared 3d-lab renderer verifies original source pins, parses, skins and
-// samples clips. A working processed bundle needs valid declared resources, not a historical release pin.
+// Presentation only, in plain three.js (Atlas Decision 7.1.1, #281): GLTFLoader loads every character and
+// AnimationMixer plays the clips. Files are not rehashed in the browser (Decision 7.1.2); the build copies the
+// pinned sources, and a working processed bundle only needs its declared resources.
 // Contract: docs/animation-viewer.md#ranger-comparison.
-import { createThreeSceneRenderer, type RendererCamera, type ThreeSceneRenderer } from "@moritzbrantner/three-d-renderer";
-import { adaptImportedCharacterBundle, readBundleAttachment, type ImportedCharacterAsset, type ImportedCharacterInstance } from "@moritzbrantner/three-d-renderer/imported-character";
-import { adaptPinnedCharacterSource, renderImportedCharacterInstances, type InspectionCharacterAsset, type InspectionCharacterInstance } from "@moritzbrantner/three-d-renderer/inspection-character";
-import { AxesHelper, Group, Mesh, MeshStandardMaterial, PerspectiveCamera, Quaternion, SkeletonHelper, Vector3, WebGPUCoordinateSystem, type Material, type Object3D } from "three";
+import { AxesHelper, Group, LoadingManager, Mesh, MeshStandardMaterial, PerspectiveCamera, Quaternion, Scene, SkeletonHelper, Vector3, WebGLRenderer, type Material, type Object3D } from "three";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader.js";
+import { characterAsset, viewerScene, type CharacterAsset, type CharacterInstance } from "./three-character.ts";
 import type { PinnedFile, PinnedGltf, RangerComparisonData } from "../ranger-comparison.ts";
 
 type PanelId = "source" | "motion" | "processed" | "archer";
-type Seekable = { root: Object3D; seek(clip: string, seconds: number): void; dispose(): void };
 
 const VIEWS = {
   front: { yaw: 0, pitch: 0.06, distance: 1 },
@@ -59,39 +58,33 @@ const formatTime = (seconds: number) => String(roundTime(seconds));
 const clampTime = (seconds: number, duration: number) => Math.max(0, Math.min(roundTime(Number.isFinite(seconds) ? seconds : 0), Math.floor(duration * 1000) / 1000));
 const short = (sha256: string) => `${sha256.slice(0, 12)}…`;
 
-async function sha256Hex(bytes: Uint8Array): Promise<string> {
-  const digest = await crypto.subtle.digest("SHA-256", bytes as BufferSource);
-  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
-}
 async function fetchBytes(url: string, signal: AbortSignal): Promise<Uint8Array> {
   const response = await fetch(new URL(url, location.href), { signal });
   if (!response.ok) throw new Error(`${url} answered HTTP ${response.status}`);
   return new Uint8Array(await response.arrayBuffer());
 }
-/** Fetches one pinned file and refuses bytes that do not match its pin. */
-async function fetchPinned(file: PinnedFile, signal: AbortSignal): Promise<Uint8Array> {
-  const bytes = await fetchBytes(file.path, signal);
-  if (bytes.byteLength !== file.byteLength || (await sha256Hex(bytes)) !== file.sha256) throw new Error(`${file.path} does not match its pinned SHA-256 and byte length`);
-  return bytes;
-}
-async function loadSourceGltf(gltf: PinnedGltf, signal: AbortSignal): Promise<InspectionCharacterAsset> {
-  const resources: Record<string, { bytes: Uint8Array; sha256: string; byteLength: number }> = {};
-  for (const [uri, file] of Object.entries(gltf.resources)) {
-    resources[uri] = { bytes: await fetchBytes(file.path, signal), sha256: file.sha256, byteLength: file.byteLength };
-  }
-  // The renderer verifies the document pin and every resource pin before it parses anything.
-  return adaptPinnedCharacterSource(await fetchBytes(gltf.document.path, signal), gltf.document, { resources });
+
+/** Loads a source glTF whose buffers and images were copied under content-addressed names. */
+async function loadSourceGltf(gltf: PinnedGltf, signal: AbortSignal): Promise<CharacterAsset> {
+  const manager = new LoadingManager();
+  manager.setURLModifier((url) => {
+    const name = decodeURIComponent(url.split("/").pop() ?? "");
+    const file = gltf.resources[name];
+    return file ? new URL(file.path, location.href).href : url;
+  });
+  const text = new TextDecoder().decode(await fetchBytes(gltf.document.path, signal));
+  return characterAsset(await new GLTFLoader(manager).parseAsync(text, new URL(".", location.href).href));
 }
 
 type MotionEntry = { name: string; source: { catalogId?: string; provider?: string; clip: string }; durationSeconds: number; loop: boolean };
 type Loaded = {
   data: RangerComparisonData;
   clips: MotionEntry[];
-  sourceAssets: InspectionCharacterAsset[];
-  body: InspectionCharacterInstance;
-  outfit: InspectionCharacterInstance;
-  libraries: Map<string, { asset: InspectionCharacterAsset; instance: InspectionCharacterInstance; rest: InspectionCharacterInstance; label: string }>;
-  processed: { asset: ImportedCharacterAsset; instance: ImportedCharacterInstance; rest: ImportedCharacterInstance };
+  sourceAssets: CharacterAsset[];
+  body: CharacterInstance;
+  outfit: CharacterInstance;
+  libraries: Map<string, { asset: CharacterAsset; instance: CharacterInstance; rest: CharacterInstance; label: string }>;
+  processed: { asset: CharacterAsset; instance: CharacterInstance; rest: CharacterInstance };
   archer: Group;
   /** Socket axes on the processed instances (humanoid-sockets attachment), shown with the Sockets toggle. */
   socketAxes: AxesHelper[];
@@ -100,7 +93,7 @@ type Loaded = {
 
 const state = {
   loaded: null as Loaded | null,
-  renderers: null as Record<PanelId, ThreeSceneRenderer> | null,
+  renderers: null as Record<PanelId, { renderer: WebGLRenderer; scene: Scene; content: Group }> | null,
   clip: 0,
   time: 0,
   playing: false,
@@ -123,8 +116,7 @@ const motionLibrary = (loaded: Loaded) => loaded.libraries.get(currentClip()!.so
 // Rendering
 
 const camera = new PerspectiveCamera(35, 4 / 3, 0.01, 100);
-camera.coordinateSystem = WebGPUCoordinateSystem;
-function frameCamera(canvas: HTMLCanvasElement): RendererCamera {
+function frameCamera(canvas: HTMLCanvasElement): PerspectiveCamera {
   const preset = VIEWS[state.view];
   const yaw = preset.yaw + state.yaw;
   const pitch = Math.max(-1.45, Math.min(1.45, preset.pitch + state.pitch));
@@ -142,11 +134,9 @@ function frameCamera(canvas: HTMLCanvasElement): RendererCamera {
   camera.lookAt(FRAME.center);
   camera.updateMatrixWorld(true);
   camera.updateProjectionMatrix();
-  return {
-    viewMatrix: [...camera.matrixWorldInverse.elements] as RendererCamera["viewMatrix"],
-    projectionMatrix: [...camera.projectionMatrix.elements] as RendererCamera["projectionMatrix"],
-  };
+  return camera;
 }
+
 
 function renderAll(): void {
   const { loaded, renderers } = state;
@@ -167,8 +157,12 @@ function renderAll(): void {
   for (const id of Object.keys(instances) as PanelId[]) {
     const canvas = dom.canvases[id];
     if (canvas.clientWidth <= 0 || canvas.clientHeight <= 0) continue;
-    renderers[id].setSize(canvas.clientWidth, canvas.clientHeight, window.devicePixelRatio || 1);
-    renderImportedCharacterInstances(renderers[id], { camera: frameCamera(canvas), instances: instances[id] });
+    const { renderer, content, scene } = renderers[id];
+    renderer.setPixelRatio(window.devicePixelRatio || 1);
+    renderer.setSize(canvas.clientWidth, canvas.clientHeight, false);
+    content.clear();
+    for (const instance of instances[id]) content.add(instance.root);
+    renderer.render(scene, frameCamera(canvas));
   }
 }
 
@@ -364,7 +358,7 @@ function showFailure(message: string): void {
 }
 
 async function loadArcher(file: PinnedFile, unitScale: number, signal: AbortSignal): Promise<Group> {
-  const bytes = await fetchPinned(file, signal);
+  const bytes = await fetchBytes(file.path, signal);
   const group = new OBJLoader().parse(new TextDecoder().decode(bytes));
   const material = new MeshStandardMaterial({ color: 0x8c8c8c, roughness: 0.8 });
   group.traverse((node) => { if ((node as Mesh).isMesh) (node as Mesh).material = material; });
@@ -389,10 +383,21 @@ async function start(): Promise<void> {
       if (!declared.has(file)) throw new Error(`bundle file ${file} is not declared in the manifest`);
       return fetchBytes(`bundle/${file}`, signal);
     };
-    const bundle = { manifest, key: data.bundle.key, variant: data.bundle.variant, readResource };
-    const processedAsset = await adaptImportedCharacterBundle(bundle);
-    const motion = (await readBundleAttachment({ ...bundle, name: "humanoid-clips" })) as { clips: MotionEntry[] };
-    const sockets = (await readBundleAttachment({ ...bundle, name: "humanoid-sockets" })) as { sockets: { id: string; joint: string; translation: number[]; rotation: number[] }[] };
+    const attachment = async (name: string) => {
+      const declaredAttachment = entry.attachments.find((item: { name: string }) => item.name === name);
+      if (!declaredAttachment) throw new Error(`processed Ranger entry has no ${name} attachment`);
+      return JSON.parse(new TextDecoder().decode(await readResource(declaredAttachment.path)));
+    };
+    // The bundle's scene refers to its resources relatively, so GLTFLoader resolves them under bundle/.
+    const manager = new LoadingManager();
+    manager.setURLModifier((url) => {
+      const relative = new URL(url, location.href).pathname.split("/bundle/")[1];
+      if (relative !== undefined && !declared.has(relative)) throw new Error(`bundle file ${relative} is not declared in the manifest`);
+      return url;
+    });
+    const processedAsset = characterAsset(await new GLTFLoader(manager).loadAsync(new URL(`bundle/${entry.path}`, location.href).href));
+    const motion = (await attachment("humanoid-clips")) as { clips: MotionEntry[] };
+    const sockets = (await attachment("humanoid-sockets")) as { sockets: { id: string; joint: string; translation: number[]; rotation: number[] }[] };
 
     dom.status.textContent = "Loading the original source and clip libraries…";
     const bodyAsset = await loadSourceGltf(data.ranger.body, signal);
@@ -400,7 +405,7 @@ async function start(): Promise<void> {
     const libraries: Loaded["libraries"] = new Map();
     const sourceAssets = [bodyAsset, outfitAsset];
     for (const library of data.libraries) {
-      const asset = await adaptPinnedCharacterSource(await fetchBytes(library.file.path, signal), library.file);
+      const asset = characterAsset(await new GLTFLoader().parseAsync((await fetchBytes(library.file.path, signal)).buffer as ArrayBuffer, ""));
       sourceAssets.push(asset);
       libraries.set(library.catalogId, { asset, instance: asset.createInstance(), rest: asset.createInstance(), label: library.label });
     }
@@ -436,7 +441,8 @@ async function start(): Promise<void> {
     const params = new URLSearchParams(location.search);
     const requested = clips.findIndex((clip) => clip.name === params.get("clip"));
     const view = params.get("view")?.toLowerCase() ?? null;
-    state.renderers = Object.fromEntries(Object.entries(dom.canvases).map(([id, canvas]) => [id, createThreeSceneRenderer(canvas, { alpha: true, antialias: true })])) as Record<PanelId, ThreeSceneRenderer>;
+    state.renderers = Object.fromEntries(Object.entries(dom.canvases).map(([id, canvas]) =>
+      [id, { renderer: new WebGLRenderer({ canvas, alpha: true, antialias: true, preserveDrawingBuffer: true }), ...viewerScene() }])) as NonNullable<typeof state.renderers>;
     selectView(isView(view) ? view : "front");
     selectClip(requested >= 0 ? requested : 0);
     const t = Number(params.get("t") ?? "0");
@@ -460,7 +466,7 @@ window.addEventListener("pagehide", () => {
     loaded.processed.asset.dispose();
     for (const asset of loaded.sourceAssets) asset.dispose();
   }
-  for (const renderer of Object.values(state.renderers ?? {})) renderer.dispose();
+  for (const panel of Object.values(state.renderers ?? {})) panel.renderer.dispose();
   state.renderers = null;
 });
 window.addEventListener("pageshow", (event) => { if (event.persisted) window.location.reload(); });

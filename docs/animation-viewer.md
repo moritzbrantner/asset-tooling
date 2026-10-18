@@ -2,7 +2,7 @@
 
 First slice of [#111](https://github.com/moritzbrantner/asset-tooling/issues/111) under Decisions 1.2.1 and 2.1.1 of the [Decision Atlas](decisions/atlas.md): a Pages route for inspecting a pinned rigged catalog source and its asset-owned animation clips. It replaces the auto-rotating static preview for these sources. This route shows the **original source only**. The synchronized source-versus-processed comparison of the Ranger is its own route, described in [Ranger comparison](#ranger-comparison). Appearance swapping is the later workbench slice (#127).
 
-The viewer is presentation and evidence. It never decides asset identity, animation math or approval. It uses the shared 3d-lab renderer (`@moritzbrantner/three-d-renderer`, `./inspection-character` export, commit-pinned as a git dev dependency in `package.json`) for pin verification, parsing, skinning and clip sampling. That export is inspection-only: it verifies the source's SHA-256 and byte length before parsing and never carries production-import provenance. The viewer bundles the renderer, three.js and the renderer's WASM pose module into `viewer/`, so it needs no CDN. It adds no glTF or skin implementation of its own.
+The viewer is presentation and evidence. It never decides asset identity, animation math or approval. It uses plain three.js (Atlas Decision 7.1.1, #281): `GLTFLoader` parses the source, `SkeletonUtils.clone` makes a posable copy and an `AnimationMixer` seeks the selected clip; the shared helpers are in `src/browser/three-character.ts`. Before parsing, the viewer checks the fetched bytes' SHA-256 and byte length against the catalog pin, because the source is an external third-party file. The viewer bundles three.js into `viewer/`, so it needs no CDN or WASM. It adds no glTF, skin or clip-sampling implementation of its own.
 
 ## Route and eligible assets
 
@@ -76,7 +76,7 @@ Route: `compare/ranger/` (`dist/pages/compare/ranger/index.html`). It follows th
 
 Every view uses the same camera framing (a human-sized volume centred 0.9 m up), the same presets (Front, Side, Back, Gameplay), and the same orbit and zoom from any view. Controls are Clip, Play/Pause, Rest pose (views 2 and 3 show their rest pose), the numeric time and the slider. The URL keeps `clip` (by name), `t` (when paused) and `view`. Each caption identifies its artifact: catalog ids and short SHA-256s for external sources, the chosen working bundle label and entry, and the OBJ reference for the archer.
 
-**Preview checks:** original third-party source resources keep catalog pin verification (3d-lab `aad5d85`). The working processed tar is checked for valid archive structure, a manifest and its intended logical Ranger entry; the browser loads only declared resources, but does not hash each generated file. Missing/invalid files show a failure, not a misleading preview. Consumer distribution has its own acceptance.
+**Preview checks:** the page uses the same plain three.js loading as the viewer (`GLTFLoader` and an `AnimationMixer` per view; no 3d-lab renderer). The original third-party source resources are checked against their catalog pins when the Pages build copies them (`writeRangerComparisonData`); the browser does not hash them again. The working processed tar is checked for valid archive structure, a manifest and its intended logical Ranger entry; the browser loads only declared resources, but does not hash each generated file. Missing/invalid files show a failure, not a misleading preview. Consumer distribution has its own acceptance.
 
 **Data:** `scripts/build-catalog-pages.ts` writes `data.json` and the pinned files with `writeRangerComparisonData` (`src/ranger-comparison.ts`). It copies the hydrated canonical members after checking each against its catalog pin. It also unpacks the supplied Ranger tar without requiring a historical tar hash and writes the archer OBJ. An ordinary build without hydrated payloads or `ASSET_TOOLING_RANGER_BUNDLE_TAR` skips the data; a local build can pass `ASSET_TOOLING_RANGER_BUNDLE_LABEL` to identify its working candidate. The Pages workflow hydrates only required source members, chooses the newest published Ranger release tag automatically, and requires usable comparison data. The page loads about 79 MB, mostly the source's 4096 px textures.
 
@@ -84,7 +84,7 @@ Every view uses the same camera framing (a human-sized volume centred 0.9 m up),
 
 **Inspect toggles:** the default view shows each artifact's own materials.
 - **Wireframe** draws every view's triangles as lines.
-- **Skeleton** overlays three.js `SkeletonHelper` lines on the source-motion and processed characters. It only draws the joints the shared renderer has already posed, and it is not a second skinning path.
+- **Skeleton** overlays three.js `SkeletonHelper` lines on the source-motion and processed characters. It only draws the joints the `AnimationMixer` has already posed, and it is not a second skinning path.
 - **Sockets** shows a 12 cm axis gizmo at each socket of the bundle's `humanoid-sockets` attachment, parented to its joint with the socket's translation and rotation. A socket naming a missing joint is a load failure.
 
 The browser test checks that each toggle changes only the views it applies to, and that turning wireframe off restores the original pixels.

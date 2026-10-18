@@ -11,7 +11,6 @@
       "devDependencies": {
         "@gltf-transform/extensions": "4.5.1",
         "@gltf-transform/functions": "4.5.1",
-        "@moritzbrantner/three-d-renderer": "github:moritzbrantner/3d-lab#0d755267a0f411f3d876d81ca8739a8c7b716a81",
         "@playwright/test": "1.64.1",
         "@types/three": "0.186.0",
         "meshoptimizer": "1.1.1",
@@ -84,8 +83,6 @@
 
     "@img/sharp-win32-x64": ["@img/sharp-win32-x64@0.35.5", "", { "os": "win32", "cpu": "x64" }, "sha512-x76eH0vEiHlcMQu8Y8IenntaACtddpT6W0wmXtWrnKcnKI7ME5DdgqhAD6SEWOEl1v2zDvkZDhFA9KnURwpfqg=="],
 
-    "@moritzbrantner/three-d-renderer": ["@moritzbrantner/three-d-renderer@github:moritzbrantner/3d-lab#0d75526", { "dependencies": { "three": "0.185.1" } }, "moritzbrantner-3d-lab-0d75526", "sha512-Ua2PYos/i54ToLgQyh3YzOZ2QNewdz8VAQ/n0Kq8HjCHY2ah7KYNpL7EB/W+ZI2iCP23mkb3PXlidj80OyW09A=="],
-
     "@playwright/test": ["@playwright/test@1.64.1", "", { "dependencies": { "playwright": "1.64.1" }, "bin": { "playwright": "cli.js" } }, "sha512-IaYGml/nSOiZWROfPtuIL7neuu9qDOZ3TNvNljUIrhDMxiGTgPjzj/g9p9RxpS2tSepPDRY+UwAaEeiKtUvIAg=="],
 
     "@tweenjs/tween.js": ["@tweenjs/tween.js@23.1.3", "", {}, "sha512-vJmvvwFxYuGnF2axRtPYocag6Clbb5YS7kLL+SO/TeVFzHqDIWrNKYtcsPMibjDx9O+bu+psAy9NKfWklassUA=="],
@@ -137,7 +134,5 @@
     "tslib": ["tslib@2.8.1", "", {}, "sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w=="],
 
     "uniq": ["uniq@1.0.1", "", {}, "sha512-Gw+zz50YNKPDKXs+9d+aKAjVwpjNwqzvNpLigIruT4HA9lMZNdMqs9x07kKHB/L9WRzqp4+DlTU5s4wG2esdoA=="],
-
-    "@moritzbrantner/three-d-renderer/three": ["three@0.185.1", "", {}, "sha512-5aojFCXKwnjBRZvUnt3WFfEcvUJgkN5LlijRFN95hMy8WVkG4I0QNcJE+OuWvuJ0bOdStrbfXn0pkd6/QyiAlg=="],
   }
 }

@@ -144,7 +144,6 @@
   "devDependencies": {
     "@gltf-transform/extensions": "4.5.1",
     "@gltf-transform/functions": "4.5.1",
-    "@moritzbrantner/three-d-renderer": "github:moritzbrantner/3d-lab#0d755267a0f411f3d876d81ca8739a8c7b716a81",
     "@playwright/test": "1.64.1",
     "@types/three": "0.186.0",
     "meshoptimizer": "1.1.1",

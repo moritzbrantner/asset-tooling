@@ -2,7 +2,7 @@
 // Chromium against the built Pages site. The page's data needs the hydrated humanoid payloads and the
 // pinned release tar at build time (ASSET_TOOLING_RANGER_BUNDLE_TAR); without them these tests skip.
 import { expect, test, type Page } from "@playwright/test";
-import { ensureEvidenceDir } from "./viewer-harness.ts";
+import { canvasFrame, ensureEvidenceDir } from "./viewer-harness.ts";
 import path from "node:path";
 
 const ROUTE = "compare/ranger/";
@@ -23,7 +23,7 @@ async function open(page: Page, query = ""): Promise<string[]> {
 
 async function pixels(page: Page, panel: (typeof PANELS)[number]): Promise<Buffer> {
   await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
-  return page.locator(`#canvas-${panel}`).screenshot();
+  return canvasFrame(page.locator(`#canvas-${panel}`));
 }
 
 test.describe("Ranger comparison", () => {

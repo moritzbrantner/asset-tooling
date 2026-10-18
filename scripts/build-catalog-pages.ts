@@ -123,14 +123,6 @@ if (!viewerBuild.success) {
       viewerBuild.logs.map((entry) => entry.message).join("\n"),
   );
 }
-// The renderer's wasm-bindgen glue loads its pose authority relative to the
-// bundle (`new URL("character_bg.wasm", import.meta.url)`), so it ships beside app.js.
-const rendererPackage = path.dirname(fileURLToPath(import.meta.resolve("@moritzbrantner/three-d-renderer/inspection-character")));
-await copyFile(
-  path.join(rendererPackage, "imported-character-wasm", "character_bg.wasm"),
-  path.join(viewerRoot, "character_bg.wasm"),
-);
-
 // Ranger source-versus-processed comparison (#111). Its data needs the hydrated humanoid payloads and the
 // pinned release tar (ASSET_TOOLING_RANGER_BUNDLE_TAR); without them the page reports that it has no data,
 // unless ASSET_TOOLING_REQUIRE_RANGER_COMPARISON=1 (the Pages workflow) makes that a build failure.
@@ -149,7 +141,6 @@ const comparisonBuild = await Bun.build({
 if (!comparisonBuild.success) {
   throw new Error("ranger comparison bundle failed:\n" + comparisonBuild.logs.map((entry) => entry.message).join("\n"));
 }
-await copyFile(path.join(rendererPackage, "imported-character-wasm", "character_bg.wasm"), path.join(comparisonRoot, "character_bg.wasm"));
 
 console.log(JSON.stringify({
   status: "built",

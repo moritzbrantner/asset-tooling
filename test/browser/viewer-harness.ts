@@ -422,15 +422,21 @@ export class Viewer {
     );
   }
 
-  /** Screenshot of the canvas only, after the frame settled. */
+  /** The rendered frame (the canvas drawing buffer, without CSS border or compositor anti-aliasing), after it settled. */
   async shot(): Promise<Buffer> {
     await this.settle();
-    return this.canvas.screenshot({ animations: "disabled", caret: "hide" });
+    return canvasFrame(this.canvas);
   }
 
   async params(): Promise<URLSearchParams> {
     return new URL(this.page.url()).searchParams;
   }
+}
+
+/** PNG bytes of a WebGL canvas's drawing buffer (the viewers keep it with preserveDrawingBuffer). */
+export async function canvasFrame(canvas: Locator): Promise<Buffer> {
+  const url = await canvas.evaluate((element) => (element as HTMLCanvasElement).toDataURL("image/png"));
+  return Buffer.from(url.slice(url.indexOf(",") + 1), "base64");
 }
 
 export function sameBytes(a: Buffer, b: Buffer): boolean {
