@@ -50,7 +50,6 @@ test("a source-to-documentation rename keeps source validation required", () => 
   );
 });
 
-
 test("test-only changes select extended checks without Stability or Pages", () => {
   expect(classify(["test/core.test.ts\t"])).toBe(
     "extended=true\nstability=false\npages=false\nallow-skipped=[\"stability-validation\",\"pages-validation\"]\n",
@@ -66,8 +65,9 @@ test("Stability manifest changes require all contracts without Pages", () => {
 for (const key of ["consumers", "processors"]) {
   test(`${key} workflow matrix emission rejects empty and invalid manifests`, () => {
     const workflow = readFileSync(".github/workflows/stability.yml", "utf8");
-    const command = workflow.split("\n").find((line) =>
-      line.includes("node -e '") && line.includes(`stability/${key}.json`),
+    const command = workflow.split("\n").find(
+      (line) =>
+        line.includes("node -e '") && line.includes(`stability/${key}.json`),
     );
     if (!command) throw new Error(`Missing actual ${key} matrix command`);
     const root = mkdtempSync(join(tmpdir(), "asset-stability-matrix-"));
@@ -75,7 +75,13 @@ for (const key of ["consumers", "processors"]) {
       mkdirSync(join(root, "stability"));
       const output = join(root, "output");
       const manifest = join(root, "stability", `${key}.json`);
-      for (const invalid of ["{", "{}", JSON.stringify({ [key]: [] }), JSON.stringify({ [key]: {} })]) {
+      const invalidManifests = [
+        "{",
+        "{}",
+        JSON.stringify({ [key]: [] }),
+        JSON.stringify({ [key]: {} }),
+      ];
+      for (const invalid of invalidManifests) {
         writeFileSync(manifest, invalid);
         writeFileSync(output, "");
         const result = spawnSync("bash", ["-e", "-c", command], {
