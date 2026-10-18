@@ -580,8 +580,11 @@ export function renderCatalogGalleryHtml(model) {
     header { max-width: 760px; margin-bottom: 28px; }
     h1 { margin: 0 0 8px; font-size: clamp(2rem, 5vw, 3.5rem); letter-spacing: -0.04em; }
     header p { margin: 0; line-height: 1.55; color: color-mix(in srgb, CanvasText 70%, Canvas); }
-    .page-actions { margin-top: 12px; }
-    .page-actions a { font-weight: 700; color: LinkText; }
+    .review-shortcuts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 22px 0 28px; }
+    .review-shortcuts a { display: block; padding: 15px; border: 1px solid color-mix(in srgb, CanvasText 20%, Canvas); border-radius: 12px; text-decoration: none; }
+    .review-shortcuts a:hover, .review-shortcuts a:focus-visible { border-color: LinkText; }
+    .review-shortcuts strong { display: block; margin-bottom: 5px; }
+    .review-shortcuts span { display: block; font-size: .86rem; line-height: 1.45; color: color-mix(in srgb, CanvasText 68%, Canvas); }
     .controls { display: grid; grid-template-columns: minmax(240px, 2fr) repeat(3, minmax(140px, 1fr)); gap: 12px; margin: 28px 0 16px; }
     input, select { width: 100%; padding: 11px 12px; border: 1px solid color-mix(in srgb, CanvasText 20%, Canvas); border-radius: 10px; background: Canvas; color: CanvasText; font: inherit; }
     #summary { margin: 0 0 18px; color: color-mix(in srgb, CanvasText 64%, Canvas); }
@@ -614,6 +617,7 @@ export function renderCatalogGalleryHtml(model) {
     .member-state { color: color-mix(in srgb, CanvasText 58%, Canvas); font-size: .75rem; }
     .empty { grid-column: 1 / -1; padding: 32px 0; color: color-mix(in srgb, CanvasText 62%, Canvas); }
     [hidden] { display: none !important; }
+    @media (max-width: 760px) { .review-shortcuts { grid-template-columns: 1fr; } }
     @media (max-width: 760px) { .controls { grid-template-columns: 1fr 1fr; } }
     @media (max-width: 480px) { main { padding-inline: 16px; } .controls { grid-template-columns: 1fr; } #results { grid-template-columns: 1fr; } }
   </style>
@@ -623,9 +627,12 @@ export function renderCatalogGalleryHtml(model) {
   <header>
     <h1>Asset gallery</h1>
     <p>Browse reusable source assets and built-in asset recipes in one place. Source entries keep provenance and storage evidence; recipe entries show assets that asset-tooling can generate on demand.</p>
-    <p class="page-actions"><a href="generate/">Generate a 3D asset in this browser</a></p>
-    <p class="page-actions"><a href="review/warden-icons/">Warden ability icons: approved set and candidates</a></p>
   </header>
+  <section class="review-shortcuts" aria-label="Review generated assets">
+    <a href="compare/ranger/"><strong>Ranger animation comparison</strong><span>Compare sources, motion, equipment and processed poses at a shared camera.</span></a>
+    <a href="review/warden-icons/"><strong>Warden icon review</strong><span>See the selected images and alternatives at 512, 64, 48 and 32 px.</span></a>
+    <a href="generate/"><strong>Image-to-3D studio</strong><span>Generate a local GLB and inspect it with orbit and zoom.</span></a>
+  </section>
   <section class="controls" aria-label="Asset filters">
     <input id="search" type="search" placeholder="Search assets…" aria-label="Search assets">
     <select id="state" aria-label="Filter by state"><option value="">All states</option>${selectOptions(states)}</select>
