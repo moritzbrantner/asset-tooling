@@ -286,6 +286,12 @@ The free Standard Modular Character Outfits – Fantasy archive has no knight or
 
 Mixamo is free (no payment), so it is allowed as an **animation clip source** even though its license is not open: clips may be used royalty-free inside games but raw Mixamo files must never be redistributed. Mixamo clips therefore ship only retargeted inside consumer game bundles, never as raw catalog members or standalone downloads. It is the intended source for the gaits missing from UAL Standard (backward, strafe, start/stop, turning — #112) and for bow draw/aim/hold/release (#277).
 
+#### Decision 6.1.7 — Mixamo is inspiration; we author our own characters and animations
+
+**Approved by owner:** 2026-10-18 (live session, answer on #20). **Refines** Decision 6.1.6.
+
+Raw Mixamo files stay out of the shared catalog, Git LFS and releases because of their license. The long-term direction is **our own models with our own animations**: Mixamo clips serve as motion reference and inspiration for original clips authored in Blender, not as the content foundation. Mixamo-retargeted clips that already ship in consumer bundles, and gap clips the owner explicitly downloads (for example for #112), may ship as interim content under Decision 6.1.6 until original clips replace them. New animation work (#112, #117, #277 and related) should prefer original authoring wherever practical.
+
 ## 7. Delivery and runtime
 
 ### 7.1. Use off-the-shelf runtimes; keep bundles light
