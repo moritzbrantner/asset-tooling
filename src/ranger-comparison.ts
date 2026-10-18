@@ -1,13 +1,12 @@
 // Data for the Ranger source-versus-processed comparison page (#111, owner answers Q1 = A and
 // Q2 = A, 2026-10-17), written to dist/pages/compare/ranger/ by scripts/build-catalog-pages.ts.
-// It copies the exact canonical bytes of the Ranger source (Universal Base Characters body and
-// Male_Ranger outfit with every referenced resource) and of the two clip libraries, the verified
-// release tar of the processed bundle, and the primitive-built archer OBJ. Every copied file is
-// pinned in data.json; the browser re-verifies each pin before rendering.
+// It copies canonical source and clip-library bytes and a selected working Ranger bundle tar,
+// plus the primitive-built archer OBJ. Original third-party sources retain catalog pins;
+// experimental processed outputs can be replaced without changing a stored release hash.
 // Contract: docs/animation-viewer.md#ranger-comparison.
 import path from "node:path";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
-import { readAssetBundleTar, verifyAssetBundleTar } from "./asset-bundle-pack.js";
+import { readAssetBundleTar } from "./asset-bundle-pack.js";
 import { sha256Bytes } from "./hash.js";
 import { generateMedievalCharacterObj } from "./medieval-character-kit.js";
 
@@ -15,15 +14,8 @@ type Json = Record<string, any>;
 export type PinnedFile = { path: string; sha256: string; byteLength: number };
 export type PinnedGltf = { document: PinnedFile; resources: Record<string, PinnedFile> };
 
-/** The processed bundle the page compares: a published release, pinned like any consumer pins it. */
+/** Logical selection in a working Ranger output. No release or content pin is required for preview. */
 export const RANGER_COMPARISON_BUNDLE = {
-  tag: "humanoid-ranger-male-v8",
-  url: "https://github.com/moritzbrantner/asset-tooling/releases/tag/humanoid-ranger-male-v8",
-  tarSha256: "e3c725611db12e499c0f84b519cb030eec3ad717c4a391d0eb47c9902e785df1",
-  exportRef: {
-    byteLength: 11876, kind: "asset-bundle", mediaType: "application/vnd.moritzbrantner.asset-bundle+json",
-    metadata: {}, schemaVersion: 1, sha256: "5e2a759196706cd0c6a99ee505f6fc8b4a83f39528495a34e0031e9d4be8f827",
-  },
   key: "humanoid.ranger.male",
   variant: "default",
 } as const;
@@ -44,7 +36,7 @@ export type RangerComparisonData = {
   schema: "ranger-comparison-v1";
   ranger: { body: PinnedGltf; outfit: PinnedGltf; bodyId: string; outfitId: string };
   libraries: { catalogId: string; label: string; file: PinnedFile }[];
-  bundle: { tag: string; url: string; tarSha256: string; key: string; variant: string; manifest: string };
+  bundle: { label: string; key: string; variant: string; manifest: string };
   archer: { file: PinnedFile; unitScale: number };
 };
 
@@ -53,8 +45,8 @@ export type RangerComparisonData = {
  * anything when the canonical payloads are LFS pointers or no bundle tar is given, unless `require` is
  * set, in which case it throws. Any pin mismatch always throws.
  */
-export async function writeRangerComparisonData({ repositoryRoot, outDir, bundleTar, require = false }: {
-  repositoryRoot: string; outDir: string; bundleTar?: string; require?: boolean;
+export async function writeRangerComparisonData({ repositoryRoot, outDir, bundleTar, bundleLabel = "current working bundle", require = false }: {
+  repositoryRoot: string; outDir: string; bundleTar?: string; bundleLabel?: string; require?: boolean;
 }): Promise<{ status: "built"; data: RangerComparisonData } | { status: "unavailable"; reason: string }> {
   const sources: Json[] = JSON.parse(await readFile(path.join(repositoryRoot, "catalog/sources.json"), "utf8")).sources;
   const storage: Json[] = JSON.parse(await readFile(path.join(repositoryRoot, "catalog/storage.json"), "utf8")).entries;
@@ -118,11 +110,17 @@ export async function writeRangerComparisonData({ repositoryRoot, outDir, bundle
     libraries.push({ catalogId, label: library.label, file: add(member.bytes, member.name) });
   }
   if (!body || !outfit) return unavailable("the canonical humanoid payloads are Git LFS pointers; run 'git lfs pull'");
-  if (!bundleTar) return unavailable(`no ${RANGER_COMPARISON_BUNDLE.tag} tar given (ASSET_TOOLING_RANGER_BUNDLE_TAR)`);
+  if (!bundleTar) return unavailable("no working Ranger bundle tar given (ASSET_TOOLING_RANGER_BUNDLE_TAR)");
 
-  const tar = await readFile(bundleTar);
-  await verifyAssetBundleTar(tar, { sha256: RANGER_COMPARISON_BUNDLE.tarSha256, ref: RANGER_COMPARISON_BUNDLE.exportRef });
-  for (const entry of readAssetBundleTar(tar)) files.set(`bundle/${entry.path}`, entry.bytes);
+  const entries = readAssetBundleTar(await readFile(bundleTar));
+  const manifestBytes = entries.find((entry) => entry.path === "manifest.json")?.bytes;
+  if (!manifestBytes) throw new Error("Ranger comparison bundle has no manifest.json");
+  const manifest: Json = JSON.parse(manifestBytes.toString("utf8"));
+  if (!Array.isArray(manifest.assets) || !manifest.assets.some((entry: Json) =>
+    entry.key === RANGER_COMPARISON_BUNDLE.key && entry.variant === RANGER_COMPARISON_BUNDLE.variant)) {
+    throw new Error("Ranger comparison bundle has no humanoid.ranger.male/default entry");
+  }
+  for (const entry of entries) files.set(`bundle/${entry.path}`, entry.bytes);
 
   const archer = add(Buffer.from(generateMedievalCharacterObj("archer").bytes), "archer.obj");
   const data: RangerComparisonData = {
@@ -130,7 +128,7 @@ export async function writeRangerComparisonData({ repositoryRoot, outDir, bundle
     ranger: { body, outfit, bodyId: memberId(RANGER_COMPARISON_SOURCES.body), outfitId: memberId(RANGER_COMPARISON_SOURCES.outfit) },
     libraries,
     bundle: {
-      tag: RANGER_COMPARISON_BUNDLE.tag, url: RANGER_COMPARISON_BUNDLE.url, tarSha256: RANGER_COMPARISON_BUNDLE.tarSha256,
+      label: bundleLabel,
       key: RANGER_COMPARISON_BUNDLE.key, variant: RANGER_COMPARISON_BUNDLE.variant, manifest: "bundle/manifest.json",
     },
     archer: { file: archer, unitScale: 0.001 },
