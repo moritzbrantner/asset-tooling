@@ -461,22 +461,6 @@ async function authorJogClip(root: string, clip: string, target: AssetRef) {
   return { glb, observations: (generated.receipt.observations as Json).script as Json };
 }
 
-/** Re-index a stored clip's channels from one rig's joint order to another's, by joint name. */
-async function reorderClip(root: string, animation: AssetRef, fromRig: string[], toRig: string[], clip: string) {
-  if (JSON.stringify(fromRig) === JSON.stringify(toRig)) return animation;
-  const document = JSON.parse((await resolveAssetObject(root, animation)).toString("utf8"));
-  for (const channel of document.channels) {
-    const index = toRig.indexOf(fromRig[channel.node]!);
-    if (index < 0) throw new Error(`${clip}: joint '${fromRig[channel.node]}' is not in the level's rig`);
-    channel.node = index;
-  }
-  document.channels.sort((a: Json, b: Json) => a.node - b.node || ["translation", "rotation", "scale"].indexOf(a.kind) - ["translation", "rotation", "scale"].indexOf(b.kind));
-  return (await storeAssetObject(root, {
-    bytes: Buffer.from(`${JSON.stringify(document)}\n`), kind: "animation", mediaType: animation.mediaType,
-    metadata: { operation: "clip-reorder-v1", clip, from: animation.sha256 },
-  })).asset;
-}
-
 /** Re-index an extracted clip's channels from its carrier GLB's joint order to the target rig's joint order. */
 async function reindexClip(root: string, extracted: AssetOperationResult, targetRig: AssetRef, clip: string) {
   const fromRig = JSON.parse((await resolveAssetObject(root, single(extracted, "rig"))).toString("utf8")).jointNames as string[];
@@ -677,10 +661,23 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
   };
   const character = await resizeTextures(bundleKey, animated);
 
-  // #123 (owner answer A): lod1/lod2 of each character variant. Blender decimates the clip-less composition; the
-  // clips are re-indexed to the level's joint order (Blender may reorder joints) and embedded again, so every
-  // level plays the same clips. Light-skin levels reuse the Dark level's geometry with the Light textures.
-  const { jointNames: rigJoints } = JSON.parse((await resolveAssetObject(root, targetRig)).toString("utf8"));
+  // #123 (owner answer A): lod1/lod2 of each character variant, decimated in Blender from the clip-less composition.
+  // Clips ship once, in `default` (round 4): every other variant and level has the same joints (by name) at the same
+  // rest pose, which the build checks, so a consumer plays the default's clips on it by joint name. Light-skin
+  // levels reuse the Dark level's geometry with the Light textures.
+  const targetRigDocument = JSON.parse((await resolveAssetObject(root, targetRig)).toString("utf8"));
+  /** Fails unless `rig` has exactly the target rig's joints, by name, with the same rest TRS (within 1e-4). */
+  const assertSameSkeleton = async (rig: AssetRef, label: string) => {
+    const other = JSON.parse((await resolveAssetObject(root, rig)).toString("utf8"));
+    const rest = (document: Json) => new Map<string, Json>((document.jointNames as string[]).map((name, index) => [name, document.nodes[index]]));
+    const mine = rest(targetRigDocument), theirs = rest(other);
+    if (mine.size !== theirs.size || [...mine.keys()].some((name) => !theirs.has(name))) throw new Error(`${label}: its joints differ from the Ranger rig`);
+    for (const [name, node] of mine) {
+      const a = [...(node.translation ?? [0, 0, 0]), ...(node.rotation ?? [0, 0, 0, 1])], b = [...(theirs.get(name)!.translation ?? [0, 0, 0]), ...(theirs.get(name)!.rotation ?? [0, 0, 0, 1])];
+      const sign = a.slice(3).reduce((sum, value, k) => sum + value * b[3 + k]!, 0) < 0 ? -1 : 1;
+      if (a.some((value, k) => Math.abs(value - (k >= 3 ? sign : 1) * b[k]!) > 1e-4)) throw new Error(`${label}: joint '${name}' rests differently from the Ranger rig`);
+    }
+  };
   const lodVariants: { variant: string; asset: AssetRef; triangles: number; ratio: number }[] = [];
   const characterLods = async (composition: AssetRef, variant: string) => {
     const levels: Partial<Record<LodLevel, AssetRef>> = {};
@@ -690,14 +687,9 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
       const lod = await generateLodLevel(root, composition, ratio, `${variant}.${level}`);
       const imported = single(await executeGltfProductionImportOperation(root, { inputs: { source: lod.glb }, parameters: { policy: POLICY } }));
       const rig = single(await executeGltfExtractAnimationOperation(root, { inputs: { source: imported }, parameters: { hipsJoint: RANGER_HIPS.target, policy: POLICY } }), "rig");
-      const lodJoints = JSON.parse((await resolveAssetObject(root, rig)).toString("utf8")).jointNames as string[];
-      const animations = [];
-      for (const clip of clips) animations.push(await reorderClip(root, clip.retargeted, rigJoints, lodJoints, clip.name));
-      const embedded = single(await executeGltfEmbedAnimationOperation(root, {
-        inputs: { source: imported, animations }, parameters: { clips: clips.map((clip) => ({ name: clip.name })), policy: POLICY },
-      }));
       const name = variant === RANGER_BUNDLE_VARIANT ? level : `${variant}.${level}`;
-      levels[level] = await resizeTextures(`${bundleKey}/${name}`, embedded);
+      await assertSameSkeleton(rig, name);
+      levels[level] = await resizeTextures(`${bundleKey}/${name}`, imported);
       lodVariants.push({ variant: name, asset: levels[level]!, triangles: lod.observations.trianglesAfter, ratio });
     }
     return levels as Record<LodLevel, AssetRef>;
@@ -770,11 +762,8 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
     const bodyLightGlb = await importGltf(shape.body, { [look.skinLight.body.uri]: bodyLight });
     const headLight = single(await executeGltfSubsetSkinnedOperation(root, { inputs: { source: bodyLightGlb }, parameters: { ...RANGER_HEAD_RECIPE, keepMeshes: [...shape.headMeshes] } }));
     const composedLight = single(await executeGltfComposeSkinnedOperation(root, { inputs: { skeleton: outfitLight, parts: [headLight] }, parameters: { policy: POLICY } }));
-    const animatedLight = single(await executeGltfEmbedAnimationOperation(root, {
-      inputs: { source: composedLight, animations: clips.map((clip) => clip.retargeted) },
-      parameters: { clips: clips.map((clip) => ({ name: clip.name })), policy: POLICY },
-    }));
-    const lightCharacter = await resizeTextures(`${bundleKey}/skin.light`, animatedLight);
+    // Clips ship once, in `default`; the Light character shares its skeleton and plays them by joint name.
+    const lightCharacter = await resizeTextures(`${bundleKey}/skin.light`, composedLight);
     await lightLods(defaultLods, character, lightCharacter, "skin.light");
 
     // Hair: static items on the `head.hair` socket, each with both pack textures as variants (D2).
@@ -823,12 +812,10 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
           if (JSON.stringify(JSON.parse((await resolveAssetObject(root, kitRig)).toString("utf8")).jointNames) !== JSON.stringify(jointNames)) {
             throw new Error(`the ${kit} outfit's joints differ from the Ranger rig, so the clips cannot be shared`);
           }
-          const animatedKit = single(await executeGltfEmbedAnimationOperation(root, {
-            inputs: { source: composedKit, animations: clips.map((clip) => clip.retargeted) },
-            parameters: { clips: clips.map((clip) => ({ name: clip.name })), policy: POLICY },
-          }));
           const variant = skin === "skin.dark" ? `outfit.${kit}` : `outfit.${kit}.${skin}`;
-          const outfitCharacter = await resizeTextures(`${bundleKey}/${variant}`, animatedKit);
+          await assertSameSkeleton(kitRig, variant);
+          // Clips ship once, in `default`; the outfit plays them by joint name.
+          const outfitCharacter = await resizeTextures(`${bundleKey}/${variant}`, composedKit);
           variants.push({ variant, character: outfitCharacter });
           if (skin === "skin.dark") darkKit = { lods: await characterLods(composedKit, variant), character: outfitCharacter };
           else await lightLods(darkKit!.lods, darkKit!.character, outfitCharacter, variant);

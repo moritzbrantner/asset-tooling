@@ -28,7 +28,7 @@ Every Greyhaven starter entry, including the #121 variations, gets `lod1` and `l
 
 Every Ranger character variant gets levels: `default`, `skin.light`, `outfit.soldier`, `outfit.knight` and their Light variants. Characters use the 25 % LOD2.
 
-- **Skin and clips:** Blender decimates the clip-less composition, keeping the skin weights. Blender may reorder the skin's joints, so each clip's channels are re-indexed to the level's joint order by name. The clips are then embedded again, so every level plays exactly the same clips.
+- **Skin and clips:** Blender decimates the clip-less composition and keeps the skin weights. The clips ship **once**, in `humanoid.ranger.male/default`. Every other variant and level has the same joints, by name, at the same rest pose. The build checks this for each one. A consumer therefore plays the default's clips on any variant or level by joint name; three.js `AnimationMixer` tracks bind by node name. Blender may reorder a level's skin joints, but name binding makes the order irrelevant, so nothing is re-indexed or embedded again.
 - **Light skin:** a Light level is its Dark level with the Light textures swapped in. The geometry is shared and not decimated twice.
 - **Descriptor:** the `humanoid-appearance` descriptor lists them under `levelsOfDetail` (`of`, `level`, `variant`, `ratio`, `triangles`, `switchDistanceHint`).
 - **Items:** the armour, weapon and hair items keep only LOD0.
