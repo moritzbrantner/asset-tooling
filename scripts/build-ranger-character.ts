@@ -1,6 +1,6 @@
 // Build the Ranger character bundle end to end from its canonical catalog members
 // (docs/humanoid-ranger.md):
-//   bun scripts/build-ranger-character.ts --processor-checkout <3d-lab checkout> --out <directory> [--version 1..10] [--figure male|female] [--mixamo-dir <dir>]
+//   bun scripts/build-ranger-character.ts --processor-checkout <3d-lab checkout> --out <directory> [--version 1..11] [--figure male|female] [--mixamo-dir <dir>]
 // The 3d-lab checkout must be source-clean at the commit stability/processors.json pins for
 // `three-d-animation-retarget`, with its cargo dependencies fetched (the processor runs --offline).
 // <directory> becomes the object-store root; the bundle is exported to <directory>/bundle and packed
@@ -68,9 +68,9 @@ export const RANGER_MEMBERS = {
   clips: { archive: "quaternius.universal-animation-library-standard", path: "Animation Library[Standard]/Godot/AnimationLibrary_Godot_Standard.glb" },
   clips2: { archive: "quaternius.universal-animation-library-2-standard", path: "Universal Animation Library 2 [Standard]/Unreal-Godot/UAL2_Standard.glb" },
 } as const;
-export type RangerVersion = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
-export const RANGER_VERSIONS: readonly RangerVersion[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-export const RANGER_DEFAULT_VERSION: RangerVersion = 10;
+export type RangerVersion = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11;
+export const RANGER_VERSIONS: readonly RangerVersion[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+export const RANGER_DEFAULT_VERSION: RangerVersion = 11;
 /** v3 (#257): per-slot maximum texture edges for browser delivery; images are never upscaled. */
 export const RANGER_TEXTURE_POLICY = {
   maxEdgeBySlot: { baseColor: 1024, normal: 1024, metallicRoughness: 512, occlusion: 512, emissive: 1024 },
@@ -229,9 +229,15 @@ export const RANGER_V8_CLIPS: readonly RangerClip[] = [
   { name: "Hit_Shove_Spin", library: "mixamo", mixamo: "Shoved Reaction With Spin", rootMotion: "in-place" },
 ];
 export const RANGER_MIXAMO_LICENSE = "Mixamo (Adobe): free, royalty-free use in games; raw Mixamo files are not redistributed (Atlas 6.1.6)";
+/**
+ * v11 (#112, owner answer 2026-10-18, Atlas 6.1.7): original jog-speed backward and strafe clips authored in Blender
+ * (adapters/blender/jog_clips.py) from the CC0 UAL1 `Jog_Fwd_Loop` and explicit foot trajectories. No Mixamo data.
+ */
+export const RANGER_V11_AUTHORED_CLIPS = ["Jog_Bwd_Loop", "Jog_Strafe_Left_Loop", "Jog_Strafe_Right_Loop"] as const;
 /** The forward gait loops whose ground speed the v6 `humanoid-clips` attachment records. */
-export const RANGER_GAITS: ReadonlySet<string> = new Set(["Walk_Loop", "Jog_Fwd_Loop", "Sprint_Loop", "Crouch_Fwd_Loop"]);
+export const RANGER_GAITS: ReadonlySet<string> = new Set(["Walk_Loop", "Jog_Fwd_Loop", "Sprint_Loop", "Crouch_Fwd_Loop", "Jog_Bwd_Loop"]);
 /** The clips a bundle version retargets, in bundle order. */
+/** The library clips a version retargets; v11 adds RANGER_V11_AUTHORED_CLIPS after them. */
 export function rangerClips(version: RangerVersion): readonly RangerClip[] { // v9 and v10 add appearance, not clips
   return version === 1 ? RANGER_CLIPS : version < 6 ? RANGER_V2_CLIPS : version === 6 ? RANGER_V6_CLIPS : version === 7 ? RANGER_V7_CLIPS : RANGER_V8_CLIPS; // v9 adds appearance, not clips
 }
@@ -425,7 +431,8 @@ async function rangerClipMotion(root: string, { character, targetRig, clips, rol
       const speeds: number[] = [];
       for (let index = 0; index + 1 < poses.length; index += 1) {
         const planted = poses[index]![0]![1] <= poses[index]![1]![1] ? 0 : 1;
-        speeds.push(-(poses[index + 1]![planted]![2] - poses[index]![planted]![2]) / (times[index + 1]! - times[index]!));
+        // A backward gait's planted foot moves forward (+Z); its speed is reported as a positive magnitude too.
+        speeds.push((clip.name === "Jog_Bwd_Loop" ? 1 : -1) * (poses[index + 1]![planted]![2] - poses[index]![planted]![2]) / (times[index + 1]! - times[index]!));
       }
       speeds.sort((a, b) => a - b);
       entry.groundSpeedMetersPerSecond = round4(speeds[Math.floor(speeds.length / 2)]!);
@@ -481,6 +488,43 @@ async function convertMixamoClip(root: string, fbx: string, clip: string, target
   return { glb, fbxSha256: sha256Bytes(bytes), observations: (generated.receipt.observations as Json).script as Json };
 }
 
+/** Author one original jog clip on the animated Ranger (adapters/blender/jog_clips.py). */
+async function authorJogClip(root: string, clip: string, target: AssetRef) {
+  const source = await readBlenderRecipeSource("jog_clips.py");
+  const workspace = path.join(root, "authored", clip);
+  await mkdir(workspace, { recursive: true });
+  await writeFile(path.join(workspace, "jog_clips.py"), source.bytes);
+  const targetBytes = await resolveAssetObject(root, target);
+  await writeFile(path.join(workspace, "target.glb"), targetBytes);
+  const spec = parseAssetSpec({
+    schemaVersion: 1, assetId: `authored.${clip}`, generator: { id: "external.blender.script", version: "1" }, randomness: { mode: "none" },
+    inputs: { script: { path: "jog_clips.py", sha256: source.sha256 }, target: { path: "target.glb", sha256: sha256Bytes(targetBytes) } }, models: {},
+    parameters: { blenderVersion: source.blenderVersion, arguments: { schemaVersion: 1, clip } }, output: { path: "clip.glb" }, reproducibility: { expected: "exact" },
+  });
+  const specPath = path.join(workspace, "asset.json");
+  await writeFile(specPath, `${canonicalJson(spec)}\n`);
+  const generated = await generateAsset(specPath);
+  const glb = (await storeAssetObject(root, { bytes: await readFile(path.join(workspace, "clip.glb")), kind: "animation", mediaType: "model/gltf-binary" })).asset;
+  return { glb, observations: (generated.receipt.observations as Json).script as Json };
+}
+
+/** Re-index an extracted clip's channels from its carrier GLB's joint order to the target rig's joint order. */
+async function reindexClip(root: string, extracted: AssetOperationResult, targetRig: AssetRef, clip: string) {
+  const fromRig = JSON.parse((await resolveAssetObject(root, single(extracted, "rig"))).toString("utf8")).jointNames as string[];
+  const toRig = JSON.parse((await resolveAssetObject(root, targetRig)).toString("utf8")).jointNames as string[];
+  const document = JSON.parse((await resolveAssetObject(root, single(extracted, "animation"))).toString("utf8"));
+  for (const channel of document.channels) {
+    const index = toRig.indexOf(fromRig[channel.node]!);
+    if (index < 0) throw new Error(`${clip}: joint '${fromRig[channel.node]}' is not in the Ranger rig`);
+    channel.node = index;
+  }
+  document.channels.sort((a: Json, b: Json) => a.node - b.node || ["translation", "rotation", "scale"].indexOf(a.kind) - ["translation", "rotation", "scale"].indexOf(b.kind));
+  return (await storeAssetObject(root, {
+    bytes: Buffer.from(`${JSON.stringify(document)}\n`), kind: "animation", mediaType: single(extracted, "animation").mediaType,
+    metadata: { operation: "clip-reindex-v1", clip, rigSha256: targetRig.sha256 },
+  })).asset;
+}
+
 /** Fit one armour kit's plates or cloth to the base character (adapters/blender/armor.py) and import the GLB. */
 async function buildArmor(root: string, kit: ArmorKit, output: ArmorOutput, target: AssetRef) {
   const source = await readArmorRecipeSource();
@@ -519,8 +563,7 @@ export async function buildRangerCharacter({ processorCheckout, outDir, version 
   const shape = RANGER_FIGURES[figure];
   if (version < shape.minVersion) throw new Error(`the ${figure} Ranger starts at bundle version ${shape.minVersion}`);
   const bundleKey = shape.key;
-  if (!RANGER_VERSIONS.includes(version)) throw new Error("Ranger bundle version must be 1 to 10");
-  if (version >= 10 && figure !== "male") throw new Error("the v10 outfits are male-only for now (#117 Q8); build the female figure at --version 9");
+  if (!RANGER_VERSIONS.includes(version)) throw new Error("Ranger bundle version must be 1 to 11");
   const root = path.resolve(outDir);
   await mkdir(root, { recursive: true });
   const processor = await rangerProcessor(path.resolve(processorCheckout));
@@ -625,10 +668,34 @@ export async function buildRangerCharacter({ processorCheckout, outDir, version 
   }
 
   log("embed clips (scene.embed.animation.gltf@1)");
-  const animated = single(await executeGltfEmbedAnimationOperation(root, {
+  let animated = single(await executeGltfEmbedAnimationOperation(root, {
     inputs: { source: composed, animations: clips.map((clip) => clip.retargeted) },
     parameters: { clips: clips.map((clip) => ({ name: clip.name })), policy: POLICY },
   }));
+  if (version >= 11) {
+    // Authored from the retargeted Jog_Fwd_Loop on this rig, then embedded with the other clips.
+    for (const name of RANGER_V11_AUTHORED_CLIPS) {
+      log(`author ${name} in Blender (adapters/blender/jog_clips.py)`);
+      const authored = await authorJogClip(root, name, animated);
+      const extracted = await executeGltfExtractAnimationOperation(root, {
+        inputs: { source: authored.glb }, parameters: { hipsJoint: RANGER_HIPS.target, clip: name, policy: POLICY },
+      });
+      const retargeted = await reindexClip(root, extracted, targetRig, name);
+      const times = JSON.parse((await resolveAssetObject(root, retargeted)).toString("utf8")).channels
+        .flatMap((channel: Json) => channel.keyframes.map((key: Json) => key.time as number));
+      const observations = { rootMotion: "in-place", startSeconds: Math.min(...times), endSeconds: Math.max(...times), authored: authored.observations };
+      const speed = authored.observations.referenceSpeedMetersPerSecond as number | undefined;
+      const duration = observations.endSeconds - observations.startSeconds;
+      clips.push({ name, library: "authored", source: authored.glb, retargeted, observations, libraryAsset: authored.glb,
+        sourceRig: single(extracted, "rig"), hips: RANGER_HIPS.target,
+        sourceInfo: { authored: "adapters/blender/jog_clips.py", basedOn: { catalogId: catalogIds.clips, clip: "Jog_Fwd_Loop" } },
+        ...(speed ? { removedTravel: [(authored.observations.direction === "left" ? 1 : -1) * speed * duration, 0] as [number, number] } : {}) });
+    }
+    animated = single(await executeGltfEmbedAnimationOperation(root, {
+      inputs: { source: composed, animations: clips.map((clip) => clip.retargeted) },
+      parameters: { clips: clips.map((clip) => ({ name: clip.name })), policy: POLICY },
+    }));
+  }
 
   // v3 and later: the same GLB with game-resolution textures; nothing but image bytes changes.
   const textures: Record<string, Json> = {};
@@ -714,7 +781,8 @@ export async function buildRangerCharacter({ processorCheckout, outDir, version 
     // v10 (#117): the soldier and knight outfit variants and their rigid armour entries.
     const outfits: Json[] = [{ id: "outfit.archer", variant: RANGER_BUNDLE_VARIANT, label: "Archer" }];
     const kits: { kit: ArmorKit; variant: string; character: AssetRef; plates: AssetRef; cloth: AssetRef; fitTarget: AssetRef; observations: Json[] }[] = [];
-    if (version >= 10) {
+    // The soldier and knight outfits are male-only for now (#117 Q8).
+    if (version >= 10 && figure === "male") {
       log("outfits: Peasant base and fitted armour (#117)");
       const peasant = await importGltf(RANGER_PEASANT_OUTFIT);
       const fitTarget = single(await executeGltfComposeSkinnedOperation(root, { inputs: { skeleton: peasant, parts: [head] }, parameters: { policy: POLICY } }));
@@ -869,7 +937,7 @@ function parseArguments(args: string[]) {
 if (import.meta.main) {
   const options = parseArguments(process.argv.slice(2));
   if (!options) {
-    console.error("Usage: bun scripts/build-ranger-character.ts --processor-checkout <absolute 3d-lab checkout> --out <directory> [--version 1..10] [--figure male|female] [--mixamo-dir <dir>]");
+    console.error("Usage: bun scripts/build-ranger-character.ts --processor-checkout <absolute 3d-lab checkout> --out <directory> [--version 1..11] [--figure male|female] [--mixamo-dir <dir>]");
     process.exit(2);
   }
   try {

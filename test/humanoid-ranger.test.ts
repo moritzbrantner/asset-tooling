@@ -21,7 +21,7 @@ import { GLTF_RESOURCES_BUNDLE_PROFILE, readAssetBundleAttachment, readAssetBund
 import { validateHumanoidSocketDescriptor } from "../src/humanoid-sockets.js";
 import {
   RANGER_BONE_MAP, RANGER_BUNDLE_KEY, RANGER_BUNDLE_VARIANT, RANGER_CLIPS, RANGER_CLIPS_ATTACHMENT, RANGER_GAITS, RANGER_MEMBERS, RANGER_V6_CLIPS, RANGER_V7_CLIPS, RANGER_V8_CLIPS, RANGER_MIXAMO_BONE_MAP, RANGER_APPEARANCE, RANGER_HAIR_TINTS, RANGER_V7_ARCHERY, RANGER_FIGURES, RANGER_CLIP_ROLES, RANGER_V4_SOCKETS_DESCRIPTOR, rangerClips, RANGER_SOCKETS_ATTACHMENT,
-  RANGER_DEFAULT_VERSION, RANGER_SOCKETS_DESCRIPTOR, RANGER_TEXTURE_POLICY, RANGER_V2_SOCKETS_DESCRIPTOR, rangerSocketsDescriptor, RANGER_UBC_BONE_MAP, RANGER_V2_CLIPS, RANGER_V2_EQUIPMENT,
+  RANGER_DEFAULT_VERSION, RANGER_V11_AUTHORED_CLIPS, RANGER_SOCKETS_DESCRIPTOR, RANGER_TEXTURE_POLICY, RANGER_V2_SOCKETS_DESCRIPTOR, rangerSocketsDescriptor, RANGER_UBC_BONE_MAP, RANGER_V2_CLIPS, RANGER_V2_EQUIPMENT,
   RANGER_V5_BONE_MAP, RANGER_V5_UBC_BONE_MAP, buildRangerCharacter, rangerBoneMaps,
 } from "../scripts/build-ranger-character.ts";
 
@@ -88,7 +88,7 @@ test("v6 (#112) adds the traversal clips by source name after the v2 clips; v1-v
   assert.deepEqual(RANGER_V6_CLIPS.slice(0, RANGER_V2_CLIPS.length), RANGER_V2_CLIPS);
   assert.ok(RANGER_V6_CLIPS.every((clip) => clip.rootMotion === "in-place"));
   assert.deepEqual(([1, 2, 3, 4, 5, 6, 7, 8] as const).map(rangerClips), [RANGER_CLIPS, RANGER_V2_CLIPS, RANGER_V2_CLIPS, RANGER_V2_CLIPS, RANGER_V2_CLIPS, RANGER_V6_CLIPS, RANGER_V7_CLIPS, RANGER_V8_CLIPS]);
-  assert.deepEqual([...RANGER_GAITS], ["Walk_Loop", "Jog_Fwd_Loop", "Sprint_Loop", "Crouch_Fwd_Loop"]);
+  assert.deepEqual([...RANGER_GAITS], ["Walk_Loop", "Jog_Fwd_Loop", "Sprint_Loop", "Crouch_Fwd_Loop", "Jog_Bwd_Loop"]);
   assert.deepEqual(rangerBoneMaps(6), rangerBoneMaps(5));
 });
 
@@ -132,11 +132,13 @@ test("v9 (#116) declares the owner-picked appearance per figure: Light skin, hoo
   assert.deepEqual(Object.keys(RANGER_HAIR_TINTS), ["black", "brown", "blond"]);
   assert.deepEqual(rangerClips(9), RANGER_V8_CLIPS, "v9 adds appearance, not clips");
   assert.deepEqual(rangerClips(10), RANGER_V8_CLIPS, "v10 adds outfits, not clips");
+  assert.deepEqual(rangerClips(11), RANGER_V8_CLIPS, "v11 authors its jog clips after the library clips");
+  assert.deepEqual([...RANGER_V11_AUTHORED_CLIPS], ["Jog_Bwd_Loop", "Jog_Strafe_Left_Loop", "Jog_Strafe_Right_Loop"]);
 });
 
-test("v10 is the default; v2 and v3 keep the bundle-v2 sockets, v4-v6 the bundle-v4 sockets, and the texture limits are per slot", () => {
-  assert.equal(RANGER_DEFAULT_VERSION, 10);
-  assert.deepEqual(([1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const).map(rangerSocketsDescriptor), [undefined, RANGER_V2_SOCKETS_DESCRIPTOR, RANGER_V2_SOCKETS_DESCRIPTOR, RANGER_V4_SOCKETS_DESCRIPTOR, RANGER_V4_SOCKETS_DESCRIPTOR, RANGER_V4_SOCKETS_DESCRIPTOR, RANGER_SOCKETS_DESCRIPTOR, RANGER_SOCKETS_DESCRIPTOR, RANGER_SOCKETS_DESCRIPTOR, RANGER_SOCKETS_DESCRIPTOR]);
+test("v11 is the default; v2 and v3 keep the bundle-v2 sockets, v4-v6 the bundle-v4 sockets, and the texture limits are per slot", () => {
+  assert.equal(RANGER_DEFAULT_VERSION, 11);
+  assert.deepEqual(([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] as const).map(rangerSocketsDescriptor), [undefined, RANGER_V2_SOCKETS_DESCRIPTOR, RANGER_V2_SOCKETS_DESCRIPTOR, RANGER_V4_SOCKETS_DESCRIPTOR, RANGER_V4_SOCKETS_DESCRIPTOR, RANGER_V4_SOCKETS_DESCRIPTOR, RANGER_SOCKETS_DESCRIPTOR, RANGER_SOCKETS_DESCRIPTOR, RANGER_SOCKETS_DESCRIPTOR, RANGER_SOCKETS_DESCRIPTOR, RANGER_SOCKETS_DESCRIPTOR]);
   assert.notEqual(RANGER_SOCKETS_DESCRIPTOR, RANGER_V2_SOCKETS_DESCRIPTOR);
   assert.deepEqual(RANGER_TEXTURE_POLICY, {
     maxEdgeBySlot: { baseColor: 1024, normal: 1024, metallicRoughness: 512, occlusion: 512, emissive: 1024 }, default: 1024,

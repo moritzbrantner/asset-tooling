@@ -12,7 +12,7 @@ The source members are listed in [humanoid-sources.md](humanoid-sources.md).
 
 ## Versions
 
-The recipe has ten versions. `--version` selects one, and the default is 10.
+The recipe has eleven versions. `--version` selects one, and the default is 11.
 
 - **v1 (#110):** the character with `Idle_Loop` and `Walk_Loop`. It is one entry with no attachments, and it stays reproducible with `--version 1`, which rebuilt the recorded v1 tar `4de4cc65…` byte for byte after the v2 change.
 - **v2 ([#260](https://github.com/moritzbrantner/asset-tooling/issues/260), [#113](https://github.com/moritzbrantner/asset-tooling/issues/113)):** v2 supersedes v1 as the bundle to publish. It follows the owner answers on #113:
@@ -49,7 +49,7 @@ The recipe has ten versions. `--version` selects one, and the default is 10.
     The build extracts the clip, re-indexes it to the character's joint order and embeds it like the other clips.
   - **Root motion:** every clip is in place. Turns keep their rotation (owner answer Q2), so the body ends a turn rotated 90°. The removed horizontal travel is `sourceRootDisplacement`, and from v8 its speed is `sourceRootSpeedMetersPerSecond`: walk backwards 1.031, strafes 1.576, start 0.616, stop 0.306 and shove 0.444 m/s.
   - **Inputs:** `--mixamo-dir <dir>` names the author's local Mixamo downloads ("Without Skin" FBX, 30 fps, Y Bot), one `<title>.fbx` per clip. Raw Mixamo files never enter git, the catalog or a release; `humanoid-clips` records only the provider, title, FBX SHA-256 and the license note `RANGER_MIXAMO_LICENSE`. Versions 1–7 need no Mixamo files.
-  - **Still open on #112:** jog-speed backward and strafe clips (files to come).
+  - **Jog-speed backward and strafe clips:** these are authored originally in v11 instead of taken from Mixamo (Atlas Decision 6.1.7).
 
 - **v9 ([#116](https://github.com/moritzbrantner/asset-tooling/issues/116)):** v9 is v8 with appearance variants, following the owner answers of 2026-10-17. It supersedes v8 as the bundle to publish.
   - **Skins:** the character entry's `default` variant is the Dark skin. A `skin.light` variant re-imports the body and outfit with the Light base colours bound to their URIs, and keeps the same geometry, clips and `.bin`.
@@ -68,6 +68,15 @@ The recipe has ten versions. `--version` selects one, and the default is 10.
   - **Armour entries:** `armor.soldier` and `armor.knight` are static GLBs with one node per rigid piece. Each node rides its joint's `<joint>.armor` socket, which the sockets descriptor now declares ([humanoid-sockets.md](humanoid-sockets.md#armour-sockets-bundle-v10)).
   - **Descriptor:** `humanoid-appearance` gains `outfits`: `outfit.archer` (the `default` variant), `outfit.soldier` and `outfit.knight`, each with its variant, armour pieces and sockets, garments, hidden base nodes and faction slot.
   - Under Decision 7.1.4 this is the replaceable current candidate for review, not a published release.
+
+- **v11 ([#112](https://github.com/moritzbrantner/asset-tooling/issues/112), owner answer 2026-10-18):** v11 is v10 with three original jog-speed clips. [`adapters/blender/jog_clips.py`](../adapters/blender/jog_clips.py) authors them in Blender on the animated Ranger. No Mixamo data is used; Mixamo clips were watched only as motion reference (Atlas Decision 6.1.7).
+  - **`Jog_Bwd_Loop`:** the CC0 UAL1 `Jog_Fwd_Loop` played backwards, with the lowest spine joint pitched 18° back so the torso leans away from the travel direction. `humanoid-clips` records its ground speed like the forward gaits.
+  - **`Jog_Strafe_Left_Loop` / `Jog_Strafe_Right_Loop`:** an authored side-gallop with a 0.5 s cycle at a reference speed of 1.4 m/s (`sourceRootSpeedMetersPerSecond`).
+    - **Feet:** each foot follows an explicit in-place trajectory. A planted foot slides against the travel direction at the reference speed. The lead foot swings out, then the trail foot swings in and lands 12 cm short of it, so the legs never cross.
+    - **Legs:** a two-bone solve keeps the knees forward and the feet level.
+    - **Pelvis:** it bobs and drops as far as the spread legs need.
+    - **Upper body:** it keeps the jog's mean posture, with the arm and spine swing damped to 45 % and rolled 6° into the travel direction.
+  - The clips are added after the v8 clips, for both figures. The soldier and knight variants get them too. Under Decision 7.1.4 they are the current candidates for review.
 
 v1–v4 keep their two-bone spine map. The processor treats an unmapped `upper-chest` exactly as before, so the new pin rebuilds them unchanged: after the v5 change, `--version 1` and `--version 4` rebuilt the recorded tars `4de4cc65…` and `222f21f8…` byte for byte at `4e69c0f`. No older processor checkout is needed.
 
