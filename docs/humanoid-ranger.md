@@ -27,6 +27,7 @@ The `humanoid.ranger.male` bundle holds the following.
     - `humanoid-sockets`: the [sockets descriptor](humanoid-sockets.md), with hand, stowed, archery, hair and armour sockets.
     - `humanoid-clips`: per-clip motion metadata ([Clip motion](#clip-motion)).
     - `humanoid-appearance` (`humanoid-appearance-v1`): skins, the toggleable hood (`outfit.hood`), hairstyles with their textures and tints, eyebrows that follow the hair tint, and the outfits.
+- **Levels of detail (#123):** every character variant has `lod1` and `lod2` variants (`lod1`/`lod2` for `default`, `<variant>.lod1`/`.lod2` otherwise). They are listed in `humanoid-appearance.levelsOfDetail` ([levels-of-detail.md](levels-of-detail.md)).
 - **Clips:** every clip is in place. In bundle order:
   - the UAL1/UAL2 library clips retargeted with 3d-lab (idle, walk, the run gaits, sword, shield, death, the #112 traversal clips and the #114 combat clips with their roles);
   - the Mixamo walk-speed clips retargeted in Blender (`Walk_Bwd_Loop`, `Walk_Strafe_*`, `Walk_Start`, `Walk_Stop`, `Turn_*` and `Hit_Shove_Spin`; [Mixamo retarget](#mixamo-retarget));

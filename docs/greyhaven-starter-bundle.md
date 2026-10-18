@@ -161,6 +161,10 @@ Keys are `greyhaven.starter.<variation>`. A new variation is one more `GREYHAVEN
 
 `examples/greyhaven-kit/variations.json` lines every variation up next to its source for review (`render-composition.py`).
 
+## Levels of detail (#123)
+
+Every entry, including the variations, also ships `lod1` (about 50 % of its triangles) and `lod2` (about 20 %) variants, decimated in Blender. The descriptor's `lods` list gives each level's ratio, triangle count and switch-distance hint (15 m and 35 m). See [levels-of-detail.md](levels-of-detail.md).
+
 ## Bundle and consumer pinning
 
 Each entry is `scenes/<key>/default.gltf` with one `.bin` and its PNGs as hash-addressed resources. The first five entries (#118) are:
