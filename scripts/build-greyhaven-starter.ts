@@ -17,6 +17,7 @@ import { importAssetCatalogStorageSource } from "../src/catalog-storage.js";
 import { executeGltfPlaceOperation } from "../src/gltf-place-operations.js";
 import { executeGltfProductionImportOperation } from "../src/gltf-production-operations.js";
 import { sliceResizeDocument } from "../src/gltf-slice-resize.js";
+import { LOD_LEVELS, LOD_RATIOS, LOD_SWITCH_DISTANCE_HINTS, generateLodLevel } from "../src/lod-recipe.js";
 import type { AssetOperationResult, AssetRef } from "../src/operations.js";
 
 type Json = Record<string, any>;
@@ -243,7 +244,12 @@ function documentWorldBounds(document: Document) {
   return { min, max };
 }
 
-export async function buildGreyhavenStarter({ outDir, log = () => {} }: { outDir: string; log?: (line: string) => void }) {
+export async function buildGreyhavenStarter({ outDir, lods = true, log = () => {} }: {
+  outDir: string;
+  /** Build the Blender lod1/lod2 variants (#123). Off only where Blender is unavailable, e.g. the hosted storage job. */
+  lods?: boolean;
+  log?: (line: string) => void;
+}) {
   const root = path.resolve(outDir);
   await mkdir(root, { recursive: true });
   const providers = await readJson("catalog/providers.json");
@@ -318,6 +324,19 @@ export async function buildGreyhavenStarter({ outDir, log = () => {} }: { outDir
     lineage.members[variation.role] = { key: variation.key, base: variation.base, placed: checked, variation: { size: variation.size, margin: variation.margin, dropMaterials: variation.dropMaterials ?? [], resized } };
   }
 
+  // #123: lod1/lod2 of every entry, decimated in Blender from the placed LOD0 and re-validated on import.
+  for (const item of built) {
+    item.lods = [];
+    for (const level of lods ? LOD_LEVELS : []) {
+      log(`${level} of ${item.entry.role} (lod.py, ratio ${LOD_RATIOS.static[level]})`);
+      const lod = await generateLodLevel(root, item.placed, LOD_RATIOS.static[level], `${item.entry.role}.${level}`);
+      const warnings = item.entry.rigged ? [SKINNED_WARNING, TANGENT_WARNING] : [TANGENT_WARNING];
+      const checked = single(await executeGltfProductionImportOperation(root, { inputs: { source: lod.glb }, parameters: { policy: { allowedValidatorWarnings: warnings } } }));
+      item.lods.push({ level, placed: checked, ratio: LOD_RATIOS.static[level], triangles: lod.observations.trianglesAfter, source: lod.observations.trianglesBefore });
+      lineage.members[item.entry.role].lods = item.lods.map((entry: Json) => ({ level: entry.level, ratio: entry.ratio, placed: entry.placed, triangles: entry.triangles }));
+    }
+  }
+
   log("measure doorway and collision proxies");
   const wall = byRole("wall"), door = byRole("door"), frame = byRole("door-frame"), barrel = byRole("barrel"), tree = byRole("tree");
   const wallBounds = wall.observations.bounds.placed as { min: Vec3; max: Vec3; center: Vec3 };
@@ -347,6 +366,9 @@ export async function buildGreyhavenStarter({ outDir, log = () => {} }: { outDir
     placement: { anchor: "footprint-base-center", translation: item.observations.translation },
     footprint: { width: round(item.observations.footprint.width), depth: round(item.observations.footprint.depth), height: round(item.observations.footprint.height) },
     bounds: { min: round3(item.observations.bounds.placed.min), max: round3(item.observations.bounds.placed.max) },
+    lods: [{ variant: GREYHAVEN_BUNDLE_VARIANT, triangles: worldTriangles(item.document).positions.length / 9 }, ...item.lods.map((lod: Json) => ({
+      variant: lod.level, ratio: lod.ratio, triangles: lod.triangles, switchDistanceHint: LOD_SWITCH_DISTANCE_HINTS[lod.level as "lod1" | "lod2"],
+    }))],
     ...extra,
   });
   const descriptor = {
@@ -391,12 +413,12 @@ export async function buildGreyhavenStarter({ outDir, log = () => {} }: { outDir
   const exported = await exportAssetBundle(root, bundleDir, {
     parameters: {
       profile: GLTF_RESOURCES_BUNDLE_PROFILE,
-      assets: built.map((item) => ({
+      assets: built.flatMap((item) => [{
         key: item.entry.key, variant: GREYHAVEN_BUNDLE_VARIANT,
         ...(item.entry.role === "wall" ? { attachments: [{ name: GREYHAVEN_DESCRIPTOR_ATTACHMENT }] } : {}),
-      })),
+      }, ...item.lods.map((lod: Json) => ({ key: item.entry.key, variant: lod.level }))]),
     },
-    inputs: { assets: built.map((item) => item.placed), attachments: [descriptorRef] },
+    inputs: { assets: built.flatMap((item) => [item.placed, ...item.lods.map((lod: Json) => lod.placed)]), attachments: [descriptorRef] },
   });
   const tarPath = path.join(root, GREYHAVEN_TAR_NAME);
   log("pack release tar (scripts/pack-asset-bundle.ts)");

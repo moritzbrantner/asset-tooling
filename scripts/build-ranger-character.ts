@@ -31,6 +31,7 @@ import { executeImageDecodeOperation, executeImageEncodePngOperation } from "../
 import { encodeRgba8Image, parseRgba8Image, RGBA8_IMAGE_MEDIA_TYPE, type Rgba8Image } from "../src/image-rgba8.js";
 import { sha256Bytes } from "../src/hash.js";
 import { parseAssetSpec } from "../src/schema.js";
+import { LOD_LEVELS, LOD_RATIOS, LOD_SWITCH_DISTANCE_HINTS, generateLodLevel, type LodLevel } from "../src/lod-recipe.js";
 import { ARMOR_FACTION, ARMOR_KITS, createArmorAssetSpec, readArmorRecipeSource, type ArmorKit, type ArmorOutput } from "../src/armor-recipes.js";
 import { ARCHERY_PRESETS, createArcheryAssetSpec, readArcheryRecipeSource, type ArcheryPiece } from "../src/archery-recipes.js";
 import type { AssetOperationResult, AssetRef } from "../src/operations.js";
@@ -460,6 +461,22 @@ async function authorJogClip(root: string, clip: string, target: AssetRef) {
   return { glb, observations: (generated.receipt.observations as Json).script as Json };
 }
 
+/** Re-index a stored clip's channels from one rig's joint order to another's, by joint name. */
+async function reorderClip(root: string, animation: AssetRef, fromRig: string[], toRig: string[], clip: string) {
+  if (JSON.stringify(fromRig) === JSON.stringify(toRig)) return animation;
+  const document = JSON.parse((await resolveAssetObject(root, animation)).toString("utf8"));
+  for (const channel of document.channels) {
+    const index = toRig.indexOf(fromRig[channel.node]!);
+    if (index < 0) throw new Error(`${clip}: joint '${fromRig[channel.node]}' is not in the level's rig`);
+    channel.node = index;
+  }
+  document.channels.sort((a: Json, b: Json) => a.node - b.node || ["translation", "rotation", "scale"].indexOf(a.kind) - ["translation", "rotation", "scale"].indexOf(b.kind));
+  return (await storeAssetObject(root, {
+    bytes: Buffer.from(`${JSON.stringify(document)}\n`), kind: "animation", mediaType: animation.mediaType,
+    metadata: { operation: "clip-reorder-v1", clip, from: animation.sha256 },
+  })).asset;
+}
+
 /** Re-index an extracted clip's channels from its carrier GLB's joint order to the target rig's joint order. */
 async function reindexClip(root: string, extracted: AssetOperationResult, targetRig: AssetRef, clip: string) {
   const fromRig = JSON.parse((await resolveAssetObject(root, single(extracted, "rig"))).toString("utf8")).jointNames as string[];
@@ -660,6 +677,53 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
   };
   const character = await resizeTextures(bundleKey, animated);
 
+  // #123 (owner answer A): lod1/lod2 of each character variant. Blender decimates the clip-less composition; the
+  // clips are re-indexed to the level's joint order (Blender may reorder joints) and embedded again, so every
+  // level plays the same clips. Light-skin levels reuse the Dark level's geometry with the Light textures.
+  const { jointNames: rigJoints } = JSON.parse((await resolveAssetObject(root, targetRig)).toString("utf8"));
+  const lodVariants: { variant: string; asset: AssetRef; triangles: number; ratio: number }[] = [];
+  const characterLods = async (composition: AssetRef, variant: string) => {
+    const levels: Partial<Record<LodLevel, AssetRef>> = {};
+    for (const level of LOD_LEVELS) {
+      const ratio = LOD_RATIOS.character[level];
+      log(`${level} of ${variant} (lod.py, ratio ${ratio})`);
+      const lod = await generateLodLevel(root, composition, ratio, `${variant}.${level}`);
+      const imported = single(await executeGltfProductionImportOperation(root, { inputs: { source: lod.glb }, parameters: { policy: POLICY } }));
+      const rig = single(await executeGltfExtractAnimationOperation(root, { inputs: { source: imported }, parameters: { hipsJoint: RANGER_HIPS.target, policy: POLICY } }), "rig");
+      const lodJoints = JSON.parse((await resolveAssetObject(root, rig)).toString("utf8")).jointNames as string[];
+      const animations = [];
+      for (const clip of clips) animations.push(await reorderClip(root, clip.retargeted, rigJoints, lodJoints, clip.name));
+      const embedded = single(await executeGltfEmbedAnimationOperation(root, {
+        inputs: { source: imported, animations }, parameters: { clips: clips.map((clip) => ({ name: clip.name })), policy: POLICY },
+      }));
+      const name = variant === RANGER_BUNDLE_VARIANT ? level : `${variant}.${level}`;
+      levels[level] = await resizeTextures(`${bundleKey}/${name}`, embedded);
+      lodVariants.push({ variant: name, asset: levels[level]!, triangles: lod.observations.trianglesAfter, ratio });
+    }
+    return levels as Record<LodLevel, AssetRef>;
+  };
+  /** The Light-skin level: the Dark level with every texture the Dark and Light characters name differently swapped. */
+  const lightLods = async (darkLevels: Record<LodLevel, AssetRef>, dark: AssetRef, light: AssetRef, variant: string) => {
+    const io = new NodeIO();
+    const images = async (asset: AssetRef) => new Map((await io.readBinary(new Uint8Array(await resolveAssetObject(root, asset)))).getRoot()
+      .listTextures().map((texture) => [texture.getName(), texture.getImage()!] as const));
+    const darkImages = await images(dark), lightImages = await images(light);
+    for (const level of LOD_LEVELS) {
+      const document = await io.readBinary(new Uint8Array(await resolveAssetObject(root, darkLevels[level])));
+      for (const texture of document.getRoot().listTextures()) {
+        const swap = lightImages.get(texture.getName());
+        if (swap && Buffer.compare(Buffer.from(swap), Buffer.from(darkImages.get(texture.getName()) ?? new Uint8Array())) !== 0) texture.setImage(swap);
+      }
+      const asset = (await storeAssetObject(root, { bytes: Buffer.from(await io.writeBinary(document)), kind: darkLevels[level].kind, mediaType: darkLevels[level].mediaType,
+        metadata: { lod: level, skin: "skin.light", from: darkLevels[level].sha256 } })).asset;
+      const name = `${variant}.${level}`;
+      const darkEntry = lodVariants.find((entry) => entry.asset === darkLevels[level])!;
+      lodVariants.push({ variant: name, asset, triangles: darkEntry.triangles, ratio: darkEntry.ratio });
+    }
+  };
+  log("character levels of detail (#123)");
+  const defaultLods = await characterLods(composed, RANGER_BUNDLE_VARIANT);
+
   const selections: Json[] = [{ key: bundleKey, variant: RANGER_BUNDLE_VARIANT }];
   const assets: AssetRef[] = [character];
   const attachments: AssetRef[] = [];
@@ -711,6 +775,7 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
       parameters: { clips: clips.map((clip) => ({ name: clip.name })), policy: POLICY },
     }));
     const lightCharacter = await resizeTextures(`${bundleKey}/skin.light`, animatedLight);
+    await lightLods(defaultLods, character, lightCharacter, "skin.light");
 
     // Hair: static items on the `head.hair` socket, each with both pack textures as variants (D2).
     const hairTexture = { 1: "T_Hair_1", 2: "T_Hair_2" } as const;
@@ -748,6 +813,7 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
         const hidden = [...new Set(pieces.flatMap((piece) => piece.hides as string[]))].sort();
         // The hidden-body-region list (Q12): base nodes a garment fully covers are left out of the variant.
         const variants: { variant: string; character: AssetRef }[] = [];
+        let darkKit: { lods: Record<LodLevel, AssetRef>; character: AssetRef } | undefined;
         for (const [skin, outfitSource, headPart] of [["skin.dark", peasant, head], ["skin.light", peasantLight, headLight]] as const) {
           const base = hidden.length === 0 ? outfitSource : single(await executeGltfSubsetSkinnedOperation(root, {
             inputs: { source: outfitSource }, parameters: { keepJoints: ["root"], minWeight: 1, keepMeshes: peasantMeshes.filter((name) => !hidden.includes(name)), policy: POLICY },
@@ -762,7 +828,10 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
             parameters: { clips: clips.map((clip) => ({ name: clip.name })), policy: POLICY },
           }));
           const variant = skin === "skin.dark" ? `outfit.${kit}` : `outfit.${kit}.${skin}`;
-          variants.push({ variant, character: await resizeTextures(`${bundleKey}/${variant}`, animatedKit) });
+          const outfitCharacter = await resizeTextures(`${bundleKey}/${variant}`, animatedKit);
+          variants.push({ variant, character: outfitCharacter });
+          if (skin === "skin.dark") darkKit = { lods: await characterLods(composedKit, variant), character: outfitCharacter };
+          else await lightLods(darkKit!.lods, darkKit!.character, outfitCharacter, variant);
         }
         const variant = variants[0]!.variant;
         kits.push({ kit, variants, plates: plates.glb, cloth: cloth.glb, fitTarget, observations: pieces });
@@ -795,6 +864,12 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
       tints: Object.entries(RANGER_HAIR_TINTS).map(([id, color]) => ({ id: `tint.${id}`, baseColorFactor: [...color, 1], texture: "hair-1" })),
       eyebrows: { nodes: [look.eyebrows], tintMaterials: [...new Set(eyebrowMaterials)].sort(), followsHairTint: true },
       ...(figure === "male" ? { outfits } : {}),
+      // #123: the levels of detail of each character variant; switch distances are hints, consumers choose.
+      levelsOfDetail: lodVariants.map(({ variant, triangles, ratio }) => {
+        const level = variant.endsWith("lod1") ? "lod1" : "lod2";
+        const of = variant === level ? RANGER_BUNDLE_VARIANT : variant.slice(0, -(level.length + 1));
+        return { of, level, variant, ratio, triangles, switchDistanceHint: LOD_SWITCH_DISTANCE_HINTS[level] };
+      }),
     };
     const descriptorAsset = (await storeAssetObject(root, { bytes: Buffer.from(`${canonicalJson(descriptor)}\n`), kind: "humanoid-appearance", mediaType: "application/json" })).asset;
     return { light: lightCharacter, hair, descriptor: descriptorAsset, transfer, composedLight, kits };
@@ -826,6 +901,10 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
         assets.push(kit.plates);
       }
       selections[0]!.attachments.push({ name: RANGER_APPEARANCE_ATTACHMENT });
+      for (const { variant, asset } of lodVariants) {
+        selections.push({ key: bundleKey, variant });
+        assets.push(asset);
+      }
       attachments.push(appearance.descriptor);
     }
     {

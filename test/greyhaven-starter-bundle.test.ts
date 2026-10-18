@@ -65,7 +65,9 @@ test("hydration state of the starter bundle members", () => {
 test("the Greyhaven starter recipe builds a verified bundle with a measured doorway and open collision proxies", { skip, timeout: 600_000 }, async () => {
   const outDir = await mkdtemp(path.join(os.tmpdir(), "greyhaven-starter-"));
   try {
-    const built = await buildGreyhavenStarter({ outDir });
+    // The lod1/lod2 variants need Blender (#123); the hosted storage job has none and checks the LOD0 entries.
+    const lods = Boolean(process.env.ASSET_TOOLING_BLENDER);
+    const built = await buildGreyhavenStarter({ outDir, lods });
 
     // Bundle and tar verify against the content-only export ref.
     const checked = await verifyAssetBundle(built.bundleDir, built.exportRef, { profile: GLTF_RESOURCES_BUNDLE_PROFILE });
@@ -74,11 +76,12 @@ test("the Greyhaven starter recipe builds a verified bundle with a measured door
     await verifyAssetBundleTar(tar, { sha256: built.tarSha256, ref: built.exportRef });
     assert.equal((await readFile(`${built.tar}.sha256`, "utf8")).split(/\s+/)[0], built.tarSha256);
     const keys = [...GREYHAVEN_MEMBERS, ...GREYHAVEN_VARIATIONS].map((member) => member.key);
-    assert.deepEqual(manifest.assets.map((entry) => [entry.key, entry.variant]).sort(), keys.map((key) => [key, GREYHAVEN_BUNDLE_VARIANT]).sort());
+    const variants = lods ? [GREYHAVEN_BUNDLE_VARIANT, "lod1", "lod2"] : [GREYHAVEN_BUNDLE_VARIANT];
+    assert.deepEqual(manifest.assets.map((entry) => [entry.key, entry.variant]).sort(), keys.flatMap((key) => variants.map((variant) => [key, variant])).sort());
 
     // The WoodTrim textures shared by wall, door and door frame are stored once.
     const pins = WOODTRIM.map((id) => sources.find((source) => source.id === id)!.source.sha256 as string);
-    const entry = (key: string) => manifest.assets.find((candidate) => candidate.key === key)!;
+    const entry = (key: string) => manifest.assets.find((candidate) => candidate.key === key && candidate.variant === GREYHAVEN_BUNDLE_VARIANT)!;
     for (const sha256 of pins) {
       const users = ["greyhaven.starter.wall", "greyhaven.starter.door", "greyhaven.starter.door-frame"]
         .map((key) => entry(key).resources.filter((resource) => resource.sha256 === sha256).map((resource) => resource.path));
@@ -98,6 +101,16 @@ test("the Greyhaven starter recipe builds a verified bundle with a measured door
     assert.equal(descriptor.up, "+Y");
     const asset = (role: string) => descriptor.assets.find((item: Json) => item.role === role);
     assert.deepEqual(descriptor.assets.map((item: Json) => item.key).sort(), [...keys].sort());
+    // #123: each level has fewer triangles than the one before and shares its LOD0's textures.
+    for (const described of descriptor.assets) {
+      const levels = described.lods as Json[];
+      assert.equal(levels.length, lods ? 3 : 1, described.key);
+      for (let index = 1; index < levels.length; index += 1) assert.ok(levels[index]!.triangles < levels[index - 1]!.triangles, `${described.key} ${levels[index]!.variant}`);
+      if (lods) {
+        const images = (variant: string) => new Set(manifest.assets.find((item) => item.key === described.key && item.variant === variant)!.resources.filter((resource) => resource.path.endsWith(".png")).map((resource) => resource.path));
+        for (const image of images("lod2")) assert.ok(images(GREYHAVEN_BUNDLE_VARIANT).has(image), `${described.key} lod2 shares ${image}`);
+      }
+    }
     // #121 variations: their requested size, their source recorded, and the source's textures shared, not copied.
     for (const variation of GREYHAVEN_VARIATIONS) {
       const described = descriptor.assets.find((item: Json) => item.key === variation.key);
