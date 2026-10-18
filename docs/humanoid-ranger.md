@@ -5,7 +5,7 @@ This is the build recipe for the first clothed, skinned humanoid of [#110](https
 - The clips are retargeted with 3d-lab's `three_d_animation::retarget` and an explicit semantic bone map.
 - The walk is in place.
 - The conventions are metres, +Y up, facing +Z and the origin between the feet.
-- The result is a `gltf-resources-v1` bundle ([asset-bundles.md](asset-bundles.md#gltf-resources-profile)), published as a versioned GitHub Release.
+- The result is a `gltf-resources-v1` bundle ([asset-bundles.md](asset-bundles.md#gltf-resources-profile)). It is published to the rolling GitHub release `humanoid-ranger-male` (`humanoid-ranger-female` for the female figure), whose assets are replaced in place on each update (Atlas Decision 7.1.5). The numbered releases `humanoid-ranger-male-v1` … `-v9` stay published for consumers that pin them, but no new numbered releases are made. The recipe's `--version` steps below select build behaviour; they are not release names.
 - Acceptance is structural checks, the #111 viewer snapshots and consumer smoke tests. There is no byte-exact replay and no Blender world-space oracle.
 
 The source members are listed in [humanoid-sources.md](humanoid-sources.md).
@@ -91,6 +91,15 @@ Its sockets are derived from the Female_Ranger rig into [`humanoid.ranger.female
 The character entry has 2 skins and 32,234 triangles. The tar is published as the `humanoid-ranger-female-v7` release, with socket sheets for `Sword_Idle`, `Sword_Regular_C`, `Walk_Loop` and a stowed idle.
 
 ## Build
+
+To update the rolling release after a build, replace its assets and rebuild Pages:
+
+```sh
+gh release upload humanoid-ranger-male <out>/humanoid.ranger.male.tar <out>/humanoid.ranger.male.tar.sha256 <out>/export.ref.json --clobber
+gh workflow run pages.yml
+```
+
+(Create the release once with `gh release create humanoid-ranger-male --title humanoid-ranger-male --notes …` if it does not exist.)
 
 ```sh
 git clone https://github.com/moritzbrantner/3d-lab <checkout>
