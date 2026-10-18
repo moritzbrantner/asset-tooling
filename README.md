@@ -8,7 +8,7 @@ The repository treats generated and processed assets as build artifacts. Generat
 
 Start with the [asset gallery](https://moritzbrantner.github.io/asset-tooling/). It links directly to the [Ranger animation comparison](https://moritzbrantner.github.io/asset-tooling/compare/ranger/), the [Warden icon review](https://moritzbrantner.github.io/asset-tooling/review/warden-icons/), and the [browser 3D studio](https://moritzbrantner.github.io/asset-tooling/generate/). Compare at the intended camera, animation frame and action-bar size before requesting a new generator or foundation capability.
 
-During experimentation, generated outputs are replaceable **current** work, not a series of required release versions. The Ranger comparison currently shows a selected published bundle (v8), not automatically the newest working Ranger (v9); its route must identify what it actually displays. Once a consumer accepts an artifact, that consumer deliberately updates its input. Source licenses and the checks needed to load compatible assets remain separate from disposable-output history. See [Decision 7.1.4](docs/decisions/atlas.md).
+During experimentation, generated outputs are replaceable **current** work, not a series of required release versions. The public Ranger comparison automatically shows the latest published Ranger release at Pages build time and identifies it in the caption; a local build can supply any working Ranger tar. It does not automatically inspect uncommitted local candidates. Once a consumer accepts an artifact, that consumer deliberately updates its input. Source licenses and the checks needed to load compatible assets remain separate from disposable-output history. See [Decision 7.1.4](docs/decisions/atlas.md).
 
 ## Stability
 
