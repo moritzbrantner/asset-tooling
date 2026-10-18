@@ -188,6 +188,12 @@ export const RANGER_CLIP_ROLES: Readonly<Record<string, { role: string; contact?
   Spell_Simple_Shoot: { role: "cast.release", contact: "hand_r" },
   Spell_Simple_Exit: { role: "cast.exit" },
   Hit_Shove_Spin: { role: "hit.shove" },
+  Bow_Aim_Loop: { role: "bow.aim" },
+  Bow_Draw: { role: "bow.draw" },
+  Bow_Hold_Loop: { role: "bow.hold" },
+  Bow_Release: { role: "bow.release", contact: "hand_r" },
+  Bow_Recovery: { role: "bow.recovery" },
+  Bow_Cancel: { role: "bow.cancel" },
 };
 /**
  * #112 (Atlas 6.1.6): walk-speed backward, strafe, start/stop and turn clips and a heavy shove reaction from
@@ -210,6 +216,12 @@ export const RANGER_MIXAMO_LICENSE = "Mixamo (Adobe): free, royalty-free use in 
  * (adapters/blender/jog_clips.py) from the CC0 UAL1 `Jog_Fwd_Loop` and explicit foot trajectories. No Mixamo data.
  */
 export const RANGER_AUTHORED_CLIPS = ["Jog_Bwd_Loop", "Jog_Strafe_Left_Loop", "Jog_Strafe_Right_Loop"] as const;
+/**
+ * #277 (owner answer 2026-10-18: original keyframes in Blender, Mixamo as reference only): bow clips authored on the
+ * animated Ranger by adapters/blender/bow_clips.py from explicit archery targets and the figure's archery sockets.
+ * They follow the jog clips in bundle order. Each records the string draw for the bow's `nock` joint.
+ */
+export const RANGER_BOW_CLIPS = ["Bow_Aim_Loop", "Bow_Draw", "Bow_Hold_Loop", "Bow_Release", "Bow_Recovery", "Bow_Cancel"] as const;
 /** The gait loops whose ground speed the `humanoid-clips` attachment records. */
 export const RANGER_GAITS: ReadonlySet<string> = new Set(["Walk_Loop", "Jog_Fwd_Loop", "Sprint_Loop", "Crouch_Fwd_Loop", "Jog_Bwd_Loop"]);
 /** The library clips the Ranger retargets, in bundle order; RANGER_AUTHORED_CLIPS follow them. */
@@ -339,7 +351,11 @@ type RangerBuiltClip = {
   libraryAsset: AssetRef; sourceRig: AssetRef; hips: string; sourceInfo: Json;
   /** Mixamo clips: the horizontal pelvis travel (glTF x, z) the Blender retarget removed. */
   removedTravel?: [number, number];
+  /** Authored bow clips (#277): the string draw per frame for the bow's `nock` joint, and the archery marks. */
+  bow?: Json;
 };
+
+const pick = (source: Json, keys: string[]) => Object.fromEntries(keys.filter((key) => source[key] !== undefined).map((key) => [key, source[key]]));
 
 async function rangerClipMotion(root: string, { character, targetRig, clips, roles = false }: {
   character: AssetRef; targetRig: AssetRef; clips: RangerBuiltClip[]; roles?: boolean;
@@ -390,6 +406,7 @@ async function rangerClipMotion(root: string, { character, targetRig, clips, rol
       speeds.sort((a, b) => a - b);
       entry.groundSpeedMetersPerSecond = round4(speeds[Math.floor(speeds.length / 2)]!);
     }
+    if (clip.bow) entry.bow = clip.bow;
     const combat = roles ? RANGER_CLIP_ROLES[clip.name] : undefined;
     if (combat) {
       entry.role = combat.role;
@@ -453,6 +470,35 @@ async function authorJogClip(root: string, clip: string, target: AssetRef) {
     schemaVersion: 1, assetId: `authored.${clip}`, generator: { id: "external.blender.script", version: "1" }, randomness: { mode: "none" },
     inputs: { script: { path: "jog_clips.py", sha256: source.sha256 }, target: { path: "target.glb", sha256: sha256Bytes(targetBytes) } }, models: {},
     parameters: { blenderVersion: source.blenderVersion, arguments: { schemaVersion: 1, clip } }, output: { path: "clip.glb" }, reproducibility: { expected: "exact" },
+  });
+  const specPath = path.join(workspace, "asset.json");
+  await writeFile(specPath, `${canonicalJson(spec)}\n`);
+  const generated = await generateAsset(specPath);
+  const glb = (await storeAssetObject(root, { bytes: await readFile(path.join(workspace, "clip.glb")), kind: "animation", mediaType: "model/gltf-binary" })).asset;
+  return { glb, observations: (generated.receipt.observations as Json).script as Json };
+}
+
+/** Author one original bow clip on the animated Ranger (adapters/blender/bow_clips.py). */
+async function authorBowClip(root: string, clip: string, target: AssetRef, socketsDescriptor: Json) {
+  const source = await readBlenderRecipeSource("bow_clips.py");
+  const workspace = path.join(root, "authored", clip);
+  await mkdir(workspace, { recursive: true });
+  await writeFile(path.join(workspace, "bow_clips.py"), source.bytes);
+  const targetBytes = await resolveAssetObject(root, target);
+  await writeFile(path.join(workspace, "target.glb"), targetBytes);
+  const socket = (id: string) => {
+    const found = (socketsDescriptor.sockets as Json[]).find((candidate) => candidate.id === id);
+    if (!found) throw new Error(`${clip}: the sockets descriptor has no ${id}`);
+    return { joint: found.joint, translation: found.translation, rotation: found.rotation };
+  };
+  const spec = parseAssetSpec({
+    schemaVersion: 1, assetId: `authored.${clip}`, generator: { id: "external.blender.script", version: "1" }, randomness: { mode: "none" },
+    inputs: { script: { path: "bow_clips.py", sha256: source.sha256 }, target: { path: "target.glb", sha256: sha256Bytes(targetBytes) } }, models: {},
+    parameters: { blenderVersion: source.blenderVersion, arguments: {
+      schemaVersion: 1, clip,
+      sockets: { bow: socket("hand_l.bow"), arrow: socket("hand_r.arrow"), quiver: socket("back.quiver") },
+      braceHeight: ARCHERY_PRESETS["bow.long"].braceHeight, arrowLength: ARCHERY_PRESETS.arrow.length, quiverLength: ARCHERY_PRESETS["quiver.back"].length,
+    } }, output: { path: "clip.glb" }, reproducibility: { expected: "exact" },
   });
   const specPath = path.join(workspace, "asset.json");
   await writeFile(specPath, `${canonicalJson(spec)}\n`);
@@ -625,6 +671,7 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
   }));
   {
     // Authored from the retargeted Jog_Fwd_Loop on this rig, then embedded with the other clips.
+    const socketsDescriptor = JSON.parse(await readFile(path.join(REPOSITORY_ROOT, figure === "female" ? RANGER_FEMALE_SOCKETS_DESCRIPTOR : RANGER_SOCKETS_DESCRIPTOR), "utf8"));
     for (const name of RANGER_AUTHORED_CLIPS) {
       log(`author ${name} in Blender (adapters/blender/jog_clips.py)`);
       const authored = await authorJogClip(root, name, animated);
@@ -641,6 +688,22 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
         sourceRig: single(extracted, "rig"), hips: RANGER_HIPS.target,
         sourceInfo: { authored: "adapters/blender/jog_clips.py", basedOn: { catalogId: catalogIds.clips, clip: "Jog_Fwd_Loop" } },
         ...(speed ? { removedTravel: [(authored.observations.direction === "left" ? 1 : -1) * speed * duration, 0] as [number, number] } : {}) });
+    }
+    for (const name of RANGER_BOW_CLIPS) {
+      log(`author ${name} in Blender (adapters/blender/bow_clips.py)`);
+      const authored = await authorBowClip(root, name, animated, socketsDescriptor);
+      const extracted = await executeGltfExtractAnimationOperation(root, {
+        inputs: { source: authored.glb }, parameters: { hipsJoint: RANGER_HIPS.target, clip: name, policy: POLICY },
+      });
+      const retargeted = await reindexClip(root, extracted, targetRig, name);
+      const times = JSON.parse((await resolveAssetObject(root, retargeted)).toString("utf8")).channels
+        .flatMap((channel: Json) => channel.keyframes.map((key: Json) => key.time as number));
+      const { drawMeters, fps, frames, recipe, clip: _clip, ...marks } = authored.observations;
+      clips.push({ name, library: "authored", source: authored.glb, retargeted, libraryAsset: authored.glb,
+        observations: { rootMotion: "in-place", startSeconds: Math.min(...times), endSeconds: Math.max(...times), authored: { recipe, fps, frames, ...marks } },
+        sourceRig: single(extracted, "rig"), hips: RANGER_HIPS.target,
+        sourceInfo: { authored: "adapters/blender/bow_clips.py", basedOn: { catalogId: catalogIds.clips, clip: "Idle_Loop" } },
+        bow: { sampleRate: fps, drawMeters, ...pick(marks, ["releaseSeconds", "arrowDrawnSeconds", "nockedSeconds"]) } });
     }
     animated = single(await executeGltfEmbedAnimationOperation(root, {
       inputs: { source: composed, animations: clips.map((clip) => clip.retargeted) },

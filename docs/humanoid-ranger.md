@@ -56,6 +56,36 @@ The build extracts each clip, re-indexes it to the character's joint order and e
   - A two-bone solve keeps the knees forward and the feet level, and the pelvis drops as far as the spread legs need.
   - The upper body keeps the jog's mean posture, with the swing damped to 45 % and rolled 6° into the travel direction.
 
+### Authored bow clips
+
+[`adapters/blender/bow_clips.py`](../adapters/blender/bow_clips.py) authors the bow clips in Blender on the animated Ranger (#277, owner answer 2026-10-18: original keyframes, Mixamo only as reference). They follow the jog clips in bundle order. No Mixamo data is used.
+
+| Clip | Role | Length | Motion |
+| --- | --- | --- | --- |
+| `Bow_Aim_Loop` | `bow.aim` | 2.5 s loop | Bow raised at the target, arrow nocked, the string set (partly drawn). |
+| `Bow_Draw` | `bow.draw` | 0.7 s | From the set string to full draw; the chest turns side-on. |
+| `Bow_Hold_Loop` | `bow.hold` | 2.5 s loop | Held at full draw, the nock at the right cheek. |
+| `Bow_Release` | `bow.release` | 0.47 s | The string hand lets go on the second frame, flies back and opens; the bow arm drops a little. |
+| `Bow_Recovery` | `bow.recovery` | 1.1 s | The string hand reaches the back quiver, then nocks and sets the next arrow. |
+| `Bow_Cancel` | `bow.cancel` | 0.6 s | From full draw, the string is let down to the set pose. |
+
+The clips form one loop: aim → draw → hold → release → recovery → aim, with cancel from hold back to aim.
+
+- **Stance:** the pelvis turns 40° and each spine joint up to 15° more (5° at the set pose), so the left shoulder points at the target and the neck and head turn back to face it. The feet spread and turn with the pelvis.
+- **Arms:** the bow sits in the left hand through `hand_l.bow`, and the arrow's nock in the right through `hand_r.arrow`. A two-bone solve places each arm; the elbow hinges about the joint's local X axis, and half of the wrist twist moves into the forearm.
+- **Breathing:** the loops keep the breathing of the CC0 UAL1 `Idle_Loop`; the one-shots use its first frame.
+- **Fingers:** they curl toward the palm: a fist on the bow's grip, a three-finger hook on the string, and an open hand after the release.
+
+Each clip's `humanoid-clips` entry has a `bow` object:
+
+- `sampleRate` (30) and `drawMeters`, one value per frame: how far the arrow socket sits behind the braced string along the bow's draw axis, 0 when the hand is off the string.
+  - A consumer drives the bow's `nock` joint by this distance along `BOW_DRAW_CONTRACT.drawAxis`, or places `nock` at the `hand_r.arrow` socket.
+  - The set pose is about 0.27 m, and full draw is 0.48 m: the nock 0.66 m behind the grip.
+- `releaseSeconds` (`Bow_Release`): the string leaves the hand, the moment to launch the arrow.
+- `arrowDrawnSeconds` and `nockedSeconds` (`Bow_Recovery`): the hand at the quiver, and the next arrow on the string.
+
+`Bow_Release` also has the usual `contact` on `hand_r`.
+
 ## Female Ranger
 
 `--figure female` (#115, owner answer Q1 = A) builds `humanoid.ranger.female` with the same recipe (without the soldier and knight outfits). It uses the Universal Base Characters `Superhero_Female_FullBody` head (`keepMeshes: ["Eyebrows", "Eyes"]`) on the full `Female_Ranger` outfit ([humanoid-sources.md](humanoid-sources.md#female-body-and-outfit-115)).
