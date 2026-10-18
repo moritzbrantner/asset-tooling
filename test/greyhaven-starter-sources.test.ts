@@ -32,7 +32,7 @@ const NATURE_BYTE_LENGTH = 104_088_529;
 const NATURE_SHA256 = "298f6732b872e4cf7b30e6e7abf9641c7f6dc6b326df37ac089533ed7e3d58c9";
 const NATURE_EVIDENCE_URL = "https://quaternius.com/packs/stylizednaturemegakit.html";
 
-type Role = "building" | "door" | "door-frame" | "prop" | "tree";
+type Role = "building" | "door" | "door-frame" | "prop" | "tree" | "kit";
 const ROLES: readonly Role[] = ["building", "door", "door-frame", "prop", "tree"];
 
 /** Expands one brace set, e.g. `glTF/T_WoodTrim_{Normal,BaseColor}.png`. */
@@ -95,7 +95,22 @@ const ASSETS: Asset[] = [
       "glTF/Bark_NormalTree.png",
       "glTF/Leaves_NormalTree_C.png",
     ],
-  },
+  },  // #119: the starter-kit expansion, with every resource each glTF references.
+  { role: "kit", archive: MEDIEVAL, gltf: "glTF/Wall_Plaster_Straight.gltf", referenced: ["glTF/Wall_Plaster_Straight.bin", "glTF/T_WoodTrim_Normal.png", "glTF/T_WoodTrim_BaseColor.png", "glTF/T_WoodTrim_Roughness.png", "glTF/T_Plaster_Normal.png", "glTF/T_Plaster_BaseColor.png", "glTF/T_Plaster_ORM.png"] },
+  { role: "kit", archive: MEDIEVAL, gltf: "glTF/Corner_Exterior_Wood.gltf", referenced: ["glTF/Corner_Exterior_Wood.bin", "glTF/T_WoodTrim_Normal.png", "glTF/T_WoodTrim_BaseColor.png", "glTF/T_WoodTrim_Roughness.png"] },
+  { role: "kit", archive: MEDIEVAL, gltf: "glTF/Roof_RoundTiles_4x4.gltf", referenced: ["glTF/Roof_RoundTiles_4x4.bin", "glTF/T_WoodTrim_Normal.png", "glTF/T_WoodTrim_BaseColor.png", "glTF/T_WoodTrim_Roughness.png", "glTF/T_RoundTiles_Normal.png", "glTF/T_RoundTiles_BaseColor.png", "glTF/T_RoundTiles_Roughness.png"] },
+  { role: "kit", archive: MEDIEVAL, gltf: "glTF/Roof_Front_Brick4.gltf", referenced: ["glTF/Roof_Front_Brick4.bin", "glTF/T_WoodTrim_Normal.png", "glTF/T_WoodTrim_BaseColor.png", "glTF/T_WoodTrim_Roughness.png", "glTF/T_Plaster_Normal.png", "glTF/T_Plaster_BaseColor.png", "glTF/T_Plaster_ORM.png"] },
+  { role: "kit", archive: MEDIEVAL, gltf: "glTF/Prop_WoodenFence_Single.gltf", referenced: ["glTF/Prop_WoodenFence_Single.bin", "glTF/T_WoodTrim_Normal.png", "glTF/T_WoodTrim_BaseColor.png", "glTF/T_WoodTrim_Roughness.png"] },
+  { role: "kit", archive: MEDIEVAL, gltf: "glTF/Prop_WoodenFence_Extension1.gltf", referenced: ["glTF/Prop_WoodenFence_Extension1.bin", "glTF/T_WoodTrim_Normal.png", "glTF/T_WoodTrim_BaseColor.png", "glTF/T_WoodTrim_Roughness.png"] },
+  { role: "kit", archive: NATURE, gltf: "glTF/Pine_1.gltf", referenced: ["glTF/Pine_1.bin", "glTF/Bark_NormalTree_Normal.png", "glTF/Bark_NormalTree.png", "glTF/Leaf_Pine_C.png"] },
+  { role: "kit", archive: NATURE, gltf: "glTF/Bush_Common_Flowers.gltf", referenced: ["glTF/Bush_Common_Flowers.bin", "glTF/Leaves_NormalTree_C.png", "glTF/Flowers.png"] },
+  { role: "kit", archive: NATURE, gltf: "glTF/Grass_Common_Short.gltf", referenced: ["glTF/Grass_Common_Short.bin", "glTF/Grass.png"] },
+  { role: "kit", archive: NATURE, gltf: "glTF/Rock_Medium_1.gltf", referenced: ["glTF/Rock_Medium_1.bin", "glTF/Rocks_Diffuse.png"] },
+  { role: "kit", archive: FANTASY, gltf: "Exports/glTF/Crate_Wooden.gltf", referenced: ["Exports/glTF/Crate_Wooden.bin", "Textures/T_Trim_Furniture_Normal.png", "Textures/T_Trim_Furniture_BaseColor.png", "Textures/T_Trim_Furniture_ORM.png", "Textures/T_Trim_Metal_Normal.png", "Textures/T_Trim_Metal_BaseColor.png", "Textures/T_Trim_Metal_ORM.png"] },
+  { role: "kit", archive: FANTASY, gltf: "Exports/glTF/Chest_Wood.gltf", referenced: ["Exports/glTF/Chest_Wood.bin", "Textures/T_Trim_Furniture_Normal.png", "Textures/T_Trim_Furniture_BaseColor.png", "Textures/T_Trim_Furniture_ORM.png", "Textures/T_Trim_Metal_Normal.png", "Textures/T_Trim_Metal_BaseColor.png", "Textures/T_Trim_Metal_ORM.png"] },
+  { role: "kit", archive: FANTASY, gltf: "Exports/glTF/Bench.gltf", referenced: ["Exports/glTF/Bench.bin", "Textures/T_Trim_Furniture_Normal.png", "Textures/T_Trim_Furniture_BaseColor.png", "Textures/T_Trim_Furniture_ORM.png", "Textures/T_Trim_Metal_Normal.png", "Textures/T_Trim_Metal_BaseColor.png", "Textures/T_Trim_Metal_ORM.png"] },
+  { role: "kit", archive: FANTASY, gltf: "Exports/glTF/Lantern_Wall.gltf", referenced: ["Exports/glTF/Lantern_Wall.bin", "Textures/T_Trim_Metal_Normal.png", "Textures/T_Trim_Metal_BaseColor.png", "Textures/T_Trim_Metal_ORM.png"] },
+  { role: "kit", archive: FANTASY, gltf: "Exports/glTF/Stall_Cart_Empty.gltf", referenced: ["Exports/glTF/Stall_Cart_Empty.bin", "Textures/T_Trim_Metal_Normal.png", "Textures/T_Trim_Metal_BaseColor.png", "Textures/T_Trim_Metal_ORM.png", "Textures/T_Trim_Furniture_Normal.png", "Textures/T_Trim_Furniture_BaseColor.png", "Textures/T_Trim_Furniture_ORM.png", "Textures/T_Trim_Cloth_Normal.png", "Textures/T_Trim_Cloth_BaseColor.png", "Textures/T_Trim_Cloth_ORM.png"] },
 ];
 
 function memberId(archive: string, memberPath: string): string {
@@ -190,11 +205,11 @@ const hydratedSkip: string | false =
 
 // ---------------------------------------------------------------- structure
 
-test("expected-member table: 28 unique members, shared WoodTrim set counted once", () => {
-  assert.equal(EXPECTED.size, 28);
+test("expected-member table: 68 unique members (28 from #118, 40 from #119), shared WoodTrim set counted once", () => {
+  assert.equal(EXPECTED.size, 68);
   for (const name of expand("glTF/T_WoodTrim_{Normal,BaseColor,Roughness}.png")) {
     const member = EXPECTED.get(memberId(MEDIEVAL, name));
-    assert.deepEqual([...(member?.roles ?? [])].sort(), ["building", "door", "door-frame"]);
+    assert.deepEqual([...(member?.roles ?? [])].sort(), ["building", "door", "door-frame", "kit"]);
   }
 });
 

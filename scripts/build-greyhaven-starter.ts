@@ -22,6 +22,7 @@ type Json = Record<string, any>;
 export type Vec3 = [number, number, number];
 const REPOSITORY_ROOT = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
 const TANGENT_WARNING = "MESH_PRIMITIVE_GENERATED_TANGENT_SPACE";
+const SKINNED_WARNING = "NODE_SKINNED_MESH_NON_ROOT";
 const COLOR_CLAMP_REPAIR = "gltf-color-clamp-v1";
 
 const MEDIEVAL = "quaternius.medieval-village-megakit-standard";
@@ -33,17 +34,41 @@ export const GREYHAVEN_DESCRIPTOR_ATTACHMENT = "starter-descriptor";
 export const GREYHAVEN_BUNDLE_VARIANT = "default";
 export const GREYHAVEN_TAR_NAME = "greyhaven.starter.tar";
 
-export type GreyhavenRole = "wall" | "door" | "door-frame" | "barrel" | "tree";
-export interface GreyhavenMember { role: GreyhavenRole; key: string; archive: string; gltf: string; repairs?: string[]; pivotNode?: string }
+export type GreyhavenRole = string;
+export type GreyhavenCategory = "structure" | "vegetation" | "prop";
+export interface GreyhavenMember {
+  role: GreyhavenRole; key: string; category: GreyhavenCategory; archive: string; gltf: string; repairs?: string[]; pivotNode?: string;
+  /** How the member's collision proxy is derived: its placed bounds, the tree trunk, or none (walk-through or presentation-only). */
+  collision?: "bounds" | "trunk" | "none";
+  /** A rigged member (the chest's lid joint): its skinned meshes are not scene roots. */
+  rigged?: boolean;
+}
 
-/** The five starter members, in build order (docs/greyhaven-starter-sources.md). */
+/** The starter kit (#118 first slice, #119 expansion), in build order (docs/greyhaven-starter-sources.md). */
 export const GREYHAVEN_MEMBERS: readonly GreyhavenMember[] = [
-  { role: "wall", key: "greyhaven.starter.wall", archive: MEDIEVAL, gltf: "glTF/Wall_Plaster_Door_Flat.gltf" },
+  { role: "wall", key: "greyhaven.starter.wall", category: "structure", archive: MEDIEVAL, gltf: "glTF/Wall_Plaster_Door_Flat.gltf" },
   // The door's hinge is the source node origin: the leaf spans x −0.046..1.072 from it.
-  { role: "door", key: "greyhaven.starter.door", archive: MEDIEVAL, gltf: "glTF/Door_1_Flat.gltf", pivotNode: "Door_1_Flat" },
-  { role: "door-frame", key: "greyhaven.starter.door-frame", archive: MEDIEVAL, gltf: "glTF/DoorFrame_Flat_WoodDark.gltf" },
-  { role: "barrel", key: "greyhaven.starter.barrel", archive: FANTASY, gltf: "Exports/glTF/Barrel.gltf" },
-  { role: "tree", key: "greyhaven.starter.tree", archive: NATURE, gltf: "glTF/CommonTree_1.gltf", repairs: [COLOR_CLAMP_REPAIR] },
+  { role: "door", key: "greyhaven.starter.door", category: "structure", archive: MEDIEVAL, gltf: "glTF/Door_1_Flat.gltf", pivotNode: "Door_1_Flat" },
+  { role: "door-frame", key: "greyhaven.starter.door-frame", category: "structure", archive: MEDIEVAL, gltf: "glTF/DoorFrame_Flat_WoodDark.gltf", collision: "none" },
+  { role: "barrel", key: "greyhaven.starter.barrel", category: "prop", archive: FANTASY, gltf: "Exports/glTF/Barrel.gltf" },
+  { role: "tree", key: "greyhaven.starter.tree", category: "vegetation", archive: NATURE, gltf: "glTF/CommonTree_1.gltf", repairs: [COLOR_CLAMP_REPAIR], collision: "trunk" },
+  // #119: modular structures, vegetation and props from the same three kits (Atlas Decision 3.1.1).
+  { role: "wall-plain", key: "greyhaven.starter.wall-plain", category: "structure", archive: MEDIEVAL, gltf: "glTF/Wall_Plaster_Straight.gltf" },
+  { role: "corner", key: "greyhaven.starter.corner", category: "structure", archive: MEDIEVAL, gltf: "glTF/Corner_Exterior_Wood.gltf" },
+  { role: "roof", key: "greyhaven.starter.roof", category: "structure", archive: MEDIEVAL, gltf: "glTF/Roof_RoundTiles_4x4.gltf" },
+  // The roof's gable ends: the roof pieces leave them open.
+  { role: "gable", key: "greyhaven.starter.gable", category: "structure", archive: MEDIEVAL, gltf: "glTF/Roof_Front_Brick4.gltf" },
+  { role: "fence", key: "greyhaven.starter.fence", category: "structure", archive: MEDIEVAL, gltf: "glTF/Prop_WoodenFence_Single.gltf" },
+  { role: "fence-extension", key: "greyhaven.starter.fence-extension", category: "structure", archive: MEDIEVAL, gltf: "glTF/Prop_WoodenFence_Extension1.gltf" },
+  { role: "pine", key: "greyhaven.starter.pine", category: "vegetation", archive: NATURE, gltf: "glTF/Pine_1.gltf", repairs: [COLOR_CLAMP_REPAIR], collision: "trunk" },
+  { role: "bush", key: "greyhaven.starter.bush", category: "vegetation", archive: NATURE, gltf: "glTF/Bush_Common_Flowers.gltf", repairs: [COLOR_CLAMP_REPAIR], collision: "none" },
+  { role: "grass", key: "greyhaven.starter.grass", category: "vegetation", archive: NATURE, gltf: "glTF/Grass_Common_Short.gltf", repairs: [COLOR_CLAMP_REPAIR], collision: "none" },
+  { role: "rock", key: "greyhaven.starter.rock", category: "vegetation", archive: NATURE, gltf: "glTF/Rock_Medium_1.gltf", repairs: [COLOR_CLAMP_REPAIR] },
+  { role: "crate", key: "greyhaven.starter.crate", category: "prop", archive: FANTASY, gltf: "Exports/glTF/Crate_Wooden.gltf" },
+  { role: "chest", key: "greyhaven.starter.chest", category: "prop", archive: FANTASY, gltf: "Exports/glTF/Chest_Wood.gltf", rigged: true, pivotNode: "Chest_Top" },
+  { role: "bench", key: "greyhaven.starter.bench", category: "prop", archive: FANTASY, gltf: "Exports/glTF/Bench.gltf" },
+  { role: "lantern", key: "greyhaven.starter.lantern", category: "prop", archive: FANTASY, gltf: "Exports/glTF/Lantern_Wall.gltf", collision: "none" },
+  { role: "cart", key: "greyhaven.starter.cart", category: "prop", archive: FANTASY, gltf: "Exports/glTF/Stall_Cart_Empty.gltf" },
 ];
 
 /** Doorway measurement: the ray grid and the band of the trunk used for the tree's trunk proxy. */
@@ -218,7 +243,8 @@ export async function buildGreyhavenStarter({ outDir, log = () => {} }: { outDir
     const uris: string[] = [...(json.buffers ?? []), ...(json.images ?? [])].map((item: Json) => item.uri);
     const resources: AssetRef[] = [];
     for (const uri of uris) resources.push(await member(resourceId(entry.archive, uri)));
-    const policy = { allowedValidatorWarnings: [TANGENT_WARNING], ...(entry.repairs ? { repairs: entry.repairs } : {}) };
+    const warnings = entry.rigged ? [SKINNED_WARNING, TANGENT_WARNING] : [TANGENT_WARNING];
+    const policy = { allowedValidatorWarnings: warnings, ...(entry.repairs ? { repairs: entry.repairs } : {}) };
     log(`import ${entry.role} ${entry.gltf} (scene.import.gltf@2${entry.repairs ? `, ${entry.repairs.join(", ")}` : ""})`);
     const importResult = await executeGltfProductionImportOperation(root, { inputs: { source, resources }, parameters: { resourceUris: uris, policy } });
     const imported = single(importResult);
@@ -226,7 +252,7 @@ export async function buildGreyhavenStarter({ outDir, log = () => {} }: { outDir
     log(`place ${entry.role} under '${parentName}' (scene.place.gltf@1, footprint-base-center)`);
     const placeResult = await executeGltfPlaceOperation(root, {
       inputs: { source: imported },
-      parameters: { parentName, anchor: "footprint-base-center", ...(entry.pivotNode ? { sourcePivot: { node: entry.pivotNode } } : {}), policy: { allowedValidatorWarnings: [TANGENT_WARNING] } },
+      parameters: { parentName, anchor: "footprint-base-center", ...(entry.pivotNode ? { sourcePivot: { node: entry.pivotNode } } : {}), policy: { allowedValidatorWarnings: warnings } },
     });
     const placed = single(placeResult);
     const observations = placeResult.observations as Json;
@@ -253,16 +279,19 @@ export async function buildGreyhavenStarter({ outDir, log = () => {} }: { outDir
     box([doorway.max[0], wallBounds.min[1], solidZ[0]!], [wallBounds.max[0], wallBounds.max[1], solidZ[1]!], "solid", "right-jamb"),
     box([doorway.min[0], doorway.max[1], solidZ[0]!], [doorway.max[0], wallBounds.max[1], solidZ[1]!], "solid", "lintel"),
   ];
-  const trunkTriangles = worldTriangles(tree.document);
-  const barkMaterial = tree.document.getRoot().listMaterials().find((material: Json) => /bark/i.test(material.getName()))?.getName();
-  if (!barkMaterial) throw new Error("tree has no bark material");
-  const trunk = measureTrunk(trunkTriangles.positions, trunkTriangles.materials, barkMaterial);
+  const trunkBox = (item: Json) => {
+    const triangles = worldTriangles(item.document);
+    const barkMaterial = item.document.getRoot().listMaterials().find((material: Json) => /bark/i.test(material.getName()))?.getName();
+    if (!barkMaterial) throw new Error(`${item.entry.role} has no bark material`);
+    const trunk = measureTrunk(triangles.positions, triangles.materials, barkMaterial);
+    return box(trunk.min, trunk.max, "solid", "trunk");
+  };
   const boundsBox = (item: Json, tag: string, name: string) => box(item.observations.bounds.placed.min, item.observations.bounds.placed.max, tag, name);
   const wallTranslation = wall.observations.translation as Vec3;
   const frameTranslation = frame.observations.translation as Vec3;
 
   const assetEntry = (item: Json, extra: Json) => ({
-    key: item.entry.key, role: item.entry.role, parentName: item.parentName,
+    key: item.entry.key, role: item.entry.role, category: item.entry.category, parentName: item.parentName,
     placement: { anchor: "footprint-base-center", translation: item.observations.translation },
     footprint: { width: round(item.observations.footprint.width), depth: round(item.observations.footprint.depth), height: round(item.observations.footprint.height) },
     bounds: { min: round3(item.observations.bounds.placed.min), max: round3(item.observations.bounds.placed.max) },
@@ -291,7 +320,11 @@ export async function buildGreyhavenStarter({ outDir, log = () => {} }: { outDir
         collisionProxies: [],
       }),
       assetEntry(barrel, { collisionProxies: [boundsBox(barrel, "solid", "barrel")] }),
-      assetEntry(tree, { collisionProxies: [box(trunk.min, trunk.max, "solid", "trunk")] }),
+      assetEntry(tree, { collisionProxies: [trunkBox(tree)] }),
+      ...built.filter((item) => ![wall, door, frame, barrel, tree].includes(item)).map((item) => assetEntry(item, {
+        ...(item.observations.sourcePivot ? { sourcePivot: { node: item.observations.sourcePivot.node, sourceWorldPosition: round3(item.observations.sourcePivot.sourceWorldPosition), placedWorldPosition: round3(item.observations.sourcePivot.placedWorldPosition) } } : {}),
+        collisionProxies: item.entry.collision === "none" ? [] : item.entry.collision === "trunk" ? [trunkBox(item)] : [boundsBox(item, "solid", item.entry.role)],
+      })),
     ].sort((a, b) => (a.key < b.key ? -1 : 1)),
   };
   const descriptorRef = (await storeAssetObject(root, {

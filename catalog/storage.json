@@ -21,6 +21,84 @@
     },
     {
       "schemaVersion": 1,
+      "sourceId": "quaternius.fantasy-props-megakit-standard.bench-bin",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.fantasy-props-megakit-standard.bench-bin/Bench.bin"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.fantasy-props-megakit-standard.bench-gltf",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.fantasy-props-megakit-standard.bench-gltf/Bench.gltf"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.fantasy-props-megakit-standard.chest-wood-bin",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.fantasy-props-megakit-standard.chest-wood-bin/Chest_Wood.bin"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.fantasy-props-megakit-standard.chest-wood-gltf",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.fantasy-props-megakit-standard.chest-wood-gltf/Chest_Wood.gltf"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.fantasy-props-megakit-standard.crate-wooden-bin",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.fantasy-props-megakit-standard.crate-wooden-bin/Crate_Wooden.bin"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.fantasy-props-megakit-standard.crate-wooden-gltf",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.fantasy-props-megakit-standard.crate-wooden-gltf/Crate_Wooden.gltf"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.fantasy-props-megakit-standard.lantern-wall-bin",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.fantasy-props-megakit-standard.lantern-wall-bin/Lantern_Wall.bin"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.fantasy-props-megakit-standard.lantern-wall-gltf",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.fantasy-props-megakit-standard.lantern-wall-gltf/Lantern_Wall.gltf"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.fantasy-props-megakit-standard.stall-cart-empty-bin",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.fantasy-props-megakit-standard.stall-cart-empty-bin/Stall_Cart_Empty.bin"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.fantasy-props-megakit-standard.stall-cart-empty-gltf",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.fantasy-props-megakit-standard.stall-cart-empty-gltf/Stall_Cart_Empty.gltf"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.fantasy-props-megakit-standard.t-trim-cloth-basecolor-png",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.fantasy-props-megakit-standard.t-trim-cloth-basecolor-png/T_Trim_Cloth_BaseColor.png"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.fantasy-props-megakit-standard.t-trim-cloth-normal-png",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.fantasy-props-megakit-standard.t-trim-cloth-normal-png/T_Trim_Cloth_Normal.png"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.fantasy-props-megakit-standard.t-trim-cloth-orm-png",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.fantasy-props-megakit-standard.t-trim-cloth-orm-png/T_Trim_Cloth_ORM.png"
+    },
+    {
+      "schemaVersion": 1,
       "sourceId": "quaternius.fantasy-props-megakit-standard.t-trim-furniture-basecolor-png",
       "storage": "git-lfs",
       "path": "assets/canonical/quaternius.fantasy-props-megakit-standard.t-trim-furniture-basecolor-png/T_Trim_Furniture_BaseColor.png"
@@ -57,6 +135,18 @@
     },
     {
       "schemaVersion": 1,
+      "sourceId": "quaternius.medieval-village-megakit-standard.corner-exterior-wood-bin",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.medieval-village-megakit-standard.corner-exterior-wood-bin/Corner_Exterior_Wood.bin"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.medieval-village-megakit-standard.corner-exterior-wood-gltf",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.medieval-village-megakit-standard.corner-exterior-wood-gltf/Corner_Exterior_Wood.gltf"
+    },
+    {
+      "schemaVersion": 1,
       "sourceId": "quaternius.medieval-village-megakit-standard.door-1-flat-bin",
       "storage": "git-lfs",
       "path": "assets/canonical/quaternius.medieval-village-megakit-standard.door-1-flat-bin/Door_1_Flat.bin"
@@ -78,6 +168,54 @@
       "sourceId": "quaternius.medieval-village-megakit-standard.doorframe-flat-wooddark-gltf",
       "storage": "git-lfs",
       "path": "assets/canonical/quaternius.medieval-village-megakit-standard.doorframe-flat-wooddark-gltf/DoorFrame_Flat_WoodDark.gltf"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.medieval-village-megakit-standard.prop-woodenfence-extension1-bin",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.medieval-village-megakit-standard.prop-woodenfence-extension1-bin/Prop_WoodenFence_Extension1.bin"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.medieval-village-megakit-standard.prop-woodenfence-extension1-gltf",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.medieval-village-megakit-standard.prop-woodenfence-extension1-gltf/Prop_WoodenFence_Extension1.gltf"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.medieval-village-megakit-standard.prop-woodenfence-single-bin",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.medieval-village-megakit-standard.prop-woodenfence-single-bin/Prop_WoodenFence_Single.bin"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.medieval-village-megakit-standard.prop-woodenfence-single-gltf",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.medieval-village-megakit-standard.prop-woodenfence-single-gltf/Prop_WoodenFence_Single.gltf"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.medieval-village-megakit-standard.roof-front-brick4-bin",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.medieval-village-megakit-standard.roof-front-brick4-bin/Roof_Front_Brick4.bin"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.medieval-village-megakit-standard.roof-front-brick4-gltf",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.medieval-village-megakit-standard.roof-front-brick4-gltf/Roof_Front_Brick4.gltf"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.medieval-village-megakit-standard.roof-roundtiles-4x4-bin",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.medieval-village-megakit-standard.roof-roundtiles-4x4-bin/Roof_RoundTiles_4x4.bin"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.medieval-village-megakit-standard.roof-roundtiles-4x4-gltf",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.medieval-village-megakit-standard.roof-roundtiles-4x4-gltf/Roof_RoundTiles_4x4.gltf"
     },
     {
       "schemaVersion": 1,
@@ -117,6 +255,24 @@
     },
     {
       "schemaVersion": 1,
+      "sourceId": "quaternius.medieval-village-megakit-standard.t-roundtiles-basecolor-png",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.medieval-village-megakit-standard.t-roundtiles-basecolor-png/T_RoundTiles_BaseColor.png"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.medieval-village-megakit-standard.t-roundtiles-normal-png",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.medieval-village-megakit-standard.t-roundtiles-normal-png/T_RoundTiles_Normal.png"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.medieval-village-megakit-standard.t-roundtiles-roughness-png",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.medieval-village-megakit-standard.t-roundtiles-roughness-png/T_RoundTiles_Roughness.png"
+    },
+    {
+      "schemaVersion": 1,
       "sourceId": "quaternius.medieval-village-megakit-standard.t-woodtrim-basecolor-png",
       "storage": "git-lfs",
       "path": "assets/canonical/quaternius.medieval-village-megakit-standard.t-woodtrim-basecolor-png/T_WoodTrim_BaseColor.png"
@@ -144,6 +300,18 @@
       "sourceId": "quaternius.medieval-village-megakit-standard.wall-plaster-door-flat-gltf",
       "storage": "git-lfs",
       "path": "assets/canonical/quaternius.medieval-village-megakit-standard.wall-plaster-door-flat-gltf/Wall_Plaster_Door_Flat.gltf"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.medieval-village-megakit-standard.wall-plaster-straight-bin",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.medieval-village-megakit-standard.wall-plaster-straight-bin/Wall_Plaster_Straight.bin"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.medieval-village-megakit-standard.wall-plaster-straight-gltf",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.medieval-village-megakit-standard.wall-plaster-straight-gltf/Wall_Plaster_Straight.gltf"
     },
     {
       "schemaVersion": 1,
@@ -267,6 +435,18 @@
     },
     {
       "schemaVersion": 1,
+      "sourceId": "quaternius.stylized-nature-megakit-standard.bush-common-flowers-bin",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.stylized-nature-megakit-standard.bush-common-flowers-bin/Bush_Common_Flowers.bin"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.stylized-nature-megakit-standard.bush-common-flowers-gltf",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.stylized-nature-megakit-standard.bush-common-flowers-gltf/Bush_Common_Flowers.gltf"
+    },
+    {
+      "schemaVersion": 1,
       "sourceId": "quaternius.stylized-nature-megakit-standard.commontree-1-bin",
       "storage": "git-lfs",
       "path": "assets/canonical/quaternius.stylized-nature-megakit-standard.commontree-1-bin/CommonTree_1.bin"
@@ -279,9 +459,69 @@
     },
     {
       "schemaVersion": 1,
+      "sourceId": "quaternius.stylized-nature-megakit-standard.flowers-png",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.stylized-nature-megakit-standard.flowers-png/Flowers.png"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.stylized-nature-megakit-standard.grass-common-short-bin",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.stylized-nature-megakit-standard.grass-common-short-bin/Grass_Common_Short.bin"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.stylized-nature-megakit-standard.grass-common-short-gltf",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.stylized-nature-megakit-standard.grass-common-short-gltf/Grass_Common_Short.gltf"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.stylized-nature-megakit-standard.grass-png",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.stylized-nature-megakit-standard.grass-png/Grass.png"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.stylized-nature-megakit-standard.leaf-pine-c-png",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.stylized-nature-megakit-standard.leaf-pine-c-png/Leaf_Pine_C.png"
+    },
+    {
+      "schemaVersion": 1,
       "sourceId": "quaternius.stylized-nature-megakit-standard.leaves-normaltree-c-png",
       "storage": "git-lfs",
       "path": "assets/canonical/quaternius.stylized-nature-megakit-standard.leaves-normaltree-c-png/Leaves_NormalTree_C.png"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.stylized-nature-megakit-standard.pine-1-bin",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.stylized-nature-megakit-standard.pine-1-bin/Pine_1.bin"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.stylized-nature-megakit-standard.pine-1-gltf",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.stylized-nature-megakit-standard.pine-1-gltf/Pine_1.gltf"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.stylized-nature-megakit-standard.rock-medium-1-bin",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.stylized-nature-megakit-standard.rock-medium-1-bin/Rock_Medium_1.bin"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.stylized-nature-megakit-standard.rock-medium-1-gltf",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.stylized-nature-megakit-standard.rock-medium-1-gltf/Rock_Medium_1.gltf"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.stylized-nature-megakit-standard.rocks-diffuse-png",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.stylized-nature-megakit-standard.rocks-diffuse-png/Rocks_Diffuse.png"
     },
     {
       "schemaVersion": 1,
