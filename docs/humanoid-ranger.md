@@ -28,7 +28,7 @@ The `humanoid.ranger.male` bundle holds the following.
     - `humanoid-clips`: per-clip motion metadata ([Clip motion](#clip-motion)).
     - `humanoid-appearance` (`humanoid-appearance-v1`): skins, the toggleable hood (`outfit.hood`), hairstyles with their textures and tints, eyebrows that follow the hair tint, and the outfits.
 - **Levels of detail (#123):** every character variant has `lod1` and `lod2` variants (`lod1`/`lod2` for `default`, `<variant>.lod1`/`.lod2` otherwise). They are listed in `humanoid-appearance.levelsOfDetail` ([levels-of-detail.md](levels-of-detail.md)).
-- **Clips:** every clip is in place. In bundle order:
+- **Clips:** they ship once, embedded in `default`. Every other character variant and level shares the same joints and rest pose, and plays them by joint name. Every clip is in place. In bundle order:
   - the UAL1/UAL2 library clips retargeted with 3d-lab (idle, walk, the run gaits, sword, shield, death, the #112 traversal clips and the #114 combat clips with their roles);
   - the Mixamo walk-speed clips retargeted in Blender (`Walk_Bwd_Loop`, `Walk_Strafe_*`, `Walk_Start`, `Walk_Stop`, `Turn_*` and `Hit_Shove_Spin`; [Mixamo retarget](#mixamo-retarget));
   - the original authored jog clips `Jog_Bwd_Loop`, `Jog_Strafe_Left_Loop` and `Jog_Strafe_Right_Loop` ([Authored jog clips](#authored-jog-clips)).
@@ -72,6 +72,8 @@ To update the rolling release after a build, replace its assets and rebuild Page
 
 ```sh
 gh release upload humanoid-ranger-male <out>/humanoid.ranger.male.tar <out>/humanoid.ranger.male.tar.sha256 <out>/export.ref.json --clobber
+ASSET_TOOLING_KTX=<ktx CLI> bun scripts/pack-downloads.ts --bundle <out>/bundle --out <downloads> --name humanoid-ranger-male --clips humanoid.ranger.male/default
+gh release upload humanoid-ranger-male <downloads>/* --clobber   # per-entry downloads (docs/release-downloads.md)
 gh workflow run pages.yml
 ```
 
