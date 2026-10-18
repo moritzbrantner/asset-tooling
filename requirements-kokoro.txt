@@ -334,9 +334,9 @@ curated-tokenizers==0.0.10 \
     --hash=sha256:fba8ea4a957101eef064f103528c4af460a88411a82d9db25d49f89d2a8fc9ba \
     --hash=sha256:ffce976759da63aa1859a6d6d0ab263e5440ffaeecee5af05c9d9ab5ea19a633
     # via spacy-curated-transformers
-curated-transformers==0.1.1 \
-    --hash=sha256:4671f03314df30efda2ec2b59bc7692ea34fcea44cb65382342c16684e8a2119 \
-    --hash=sha256:d716063d73d803c6925d2dab56fde9b9ab8e89e663c2c0587804944ba488ff01
+curated-transformers==0.9.1 \
+    --hash=sha256:9d33821178ff7243e34f14cfc977611e9f3f71066a237753cddb4e52a1685463 \
+    --hash=sha256:e95fb500f190261ded0a95cda6bbc7c295be5e6f86a1726578b2c83992ad6d33
     # via spacy-curated-transformers
 cymem==2.0.13 \
     --hash=sha256:03cb7bdb55718d5eb6ef0340b1d2430ba1386db30d33e9134d01ba9d6d34d705 \
