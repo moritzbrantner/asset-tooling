@@ -1,7 +1,7 @@
 name: Stability
 
 on:
-  pull_request:
+  workflow_call:
   push:
     branches: [main]
   workflow_dispatch:
@@ -201,3 +201,15 @@ jobs:
             "$GITHUB_WORKSPACE/workflow-runner" \
             "${{ steps.stack.outputs.editor_commit }}" \
             "${{ steps.stack.outputs.runner_commit }}"
+
+  stability-result:
+    name: Stability required validations
+    if: ${{ always() }}
+    needs: ["impact", "local-contract", "consumer-matrix", "consumer-contract", "processor-matrix", "processor-contract", "workflow-bridge"]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: moritzbrantner/reusable-workflows/.github/actions/merge-ready@b0f25f241d76af2584dfc9e375084ff5c5cb97da
+        with:
+          needs: ${{ toJSON(needs) }}
+          required: '["impact", "local-contract", "consumer-matrix", "consumer-contract", "processor-matrix", "processor-contract", "workflow-bridge"]'
+          allow-skipped: ${{ github.event_name == 'pull_request' && needs.impact.outputs.relevant == 'false' && '["local-contract", "consumer-matrix", "consumer-contract", "processor-matrix", "processor-contract", "workflow-bridge"]' || '[]' }}

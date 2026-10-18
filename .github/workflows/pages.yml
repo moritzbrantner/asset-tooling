@@ -15,18 +15,7 @@ on:
       - "examples/reconcile-file.ts"
       - "package.json"
       - ".github/workflows/pages.yml"
-  pull_request:
-    paths:
-      - "catalog/**"
-      - "src/**"
-      - "licenses/**"
-      - "THIRD_PARTY_NOTICES.md"
-      - "scripts/**"
-      - "review/**"
-      - "adapters/blender/**"
-      - "examples/reconcile-file.ts"
-      - "package.json"
-      - ".github/workflows/pages.yml"
+  workflow_call:
   release:
     types: [published]
   workflow_dispatch:
