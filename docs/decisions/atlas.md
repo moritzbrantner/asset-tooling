@@ -237,6 +237,20 @@ Re-running repository setup on a managed installation under `.artifacts/toolchai
 - **Completion race:** the cancel wins. An output that completed meanwhile is neither imported nor cached.
 - **Cancel during submission:** the operation looks up its own `client_id` in the queue and deletes the prompt if it is queued. Otherwise it reports an ambiguous submission and never resubmits.
 
+
+#### Decision 5.1.6 — Blender is the authoring and finishing tool; optimise for model quality
+
+**Approved by owner:** 2026-10-18 (live session, on [#120](https://github.com/moritzbrantner/asset-tooling/issues/120)): "The option that gives us the best results when it comes to models. I guess we should make use of the whole Blender tool as long as we can't replace it."
+
+Until something demonstrably replaces it, **Blender is the authoring and finishing tool** for 3D assets. Asset-tooling drives Blender directly through the pinned script backend, with no custom runtime wrapped around it. It uses Blender's full toolset wherever that measurably improves model quality:
+
+- modifiers: bevel, subdivision, weighted normals, decimate/remesh for LODs;
+- proper UV unwrap and packing;
+- texture baking, such as ambient occlusion or normals from high-poly;
+- geometry nodes for variation;
+- material clean-up.
+
+Each step is proven on real kit assets, such as the starter kit's props and the soldier and knight armour, with before/after review at the gameplay camera, not built as an abstract framework. Real forks (which maps to bake, LOD targets) go to the owner. Model quality, not minimal tooling, is the optimisation target. Review-first output rules (Decision 7.1.4) still apply.
 ## 6. Shared source acquisition
 
 ### 6.1. Sources without a stable download URL
