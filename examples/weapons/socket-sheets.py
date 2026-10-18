@@ -15,7 +15,7 @@ behind. ``--poses`` replaces the default pose list; each sheet is then named
 ``sheet-<clip>-<percent>.png``. ``--hide=<node>,...`` hides character objects by name (for example the hood
 when judging hair, #116). ``--armor=<armor.glb>,<appearance.json>,<outfit id>`` places every rigid armour piece of
 that outfit (#117) at its socket: the appearance descriptor's ``outfits[].armor.pieces`` name each GLB node and its
-socket.
+socket. ``--clips=<gltf>`` takes the clips from another file of the same skeleton (they ship once, in ``default``).
 """
 import json
 import math
@@ -56,7 +56,8 @@ def main():
                  for clip, fraction in (item.split("@") for item in option[len("--poses="):].split(","))]
     hidden = [name for option in args if option.startswith("--hide=") for name in option[len("--hide="):].split(",")]
     armor = [option[len("--armor="):].split(",") for option in args if option.startswith("--armor=")]
-    args = [a for a in args if not a.startswith(("--poses=", "--hide=", "--armor="))]
+    clip_source = next((option[len("--clips="):] for option in args if option.startswith("--clips=")), None)
+    args = [a for a in args if not a.startswith(("--poses=", "--hide=", "--armor=", "--clips="))]
     character, sockets_path, out_dir, attachments = args[0], args[1], args[2], [a.split("=", 1) for a in args[3:]]
     os.makedirs(out_dir, exist_ok=True)
     bpy.ops.object.select_all(action="SELECT")
@@ -66,6 +67,13 @@ def main():
     for obj in list(bpy.context.scene.objects):
         if obj.name in hidden or (obj.data is not None and obj.data.name in hidden):
             obj.hide_render = True
+    if clip_source:
+        # Clips ship once (in the default variant): import them from there and keep only their actions. The bone
+        # names and rests match, so they drive this character's armature by name.
+        before = set(bpy.context.scene.objects)
+        bpy.ops.import_scene.gltf(filepath=clip_source, guess_original_bind_pose=False)
+        for obj in set(bpy.context.scene.objects) - before:
+            bpy.data.objects.remove(obj, do_unlink=True)
     rest = gltf_rest_worlds(character)
     with open(sockets_path) as handle:
         sockets = {s["id"]: s for s in json.load(handle)["sockets"]}

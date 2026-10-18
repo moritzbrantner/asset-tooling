@@ -392,7 +392,10 @@ def plate_surfaces(body, rig, kit):
         calf = body.select([f"calf_{side}"], minimum=.5)
         if kit == "soldier":
             # Front greaves over the boots, open behind the calf.
-            greave = ring_grid(body, calf, knee, ankle, FRONT, out, (.08, .8), 9, (-math.radians(105), math.radians(105)), 13, .012)
+            # #309: fitted only to vertices fully on the calf, and starting below the knee, so the bending knee and the
+            # boot cuff do not push the plate away from the shin in the walk.
+            shin = body.select([f"calf_{side}"], minimum=.95)
+            greave = ring_grid(body, shin, knee, ankle, FRONT, out, (.2, .82), 9, (-math.radians(100), math.radians(100)), 13, .008)
         else:
             greave = ring_grid(body, calf, knee, ankle, FRONT, out, (.04, .86), 10, None, 20, .013)
         pieces.append((f"{kit}.greave_{side}", f"calf_{side}", "iron" if kit == "soldier" else "steel", greave, None, None, .003))
@@ -521,7 +524,9 @@ def cloth_surfaces(body, rig, kit):
                          middle + normal * .035, FRONT, along, (0, 1), 3, None, 40, .026, slab=.03)
         garments.append(("soldier.sash", "faction", sash, None))
     else:
-        surface = tabard_surface(body, rig)
+        # The tabard also clears the breastplate's own surface (keel and rim), not only the body under it (#309).
+        plate = next(surface for name, _joint, _slot, surface, *_rest in plate_surfaces(body, rig, "knight") if name == "knight.breastplate")
+        surface = tabard_surface(body, rig, [p for row in plate["grid"] for p in row])
         garments.append(("knight.tabard", "faction", surface, tabard_mask(surface)))
     return garments
 
@@ -530,7 +535,7 @@ TABARD_HALF_WIDTH = .155
 ARM_JOINTS = {f"{joint}_{side}" for joint in ("clavicle", "upperarm", "lowerarm", "hand") for side in "lr"}
 
 
-def tabard_surface(body, rig):
+def tabard_surface(body, rig, obstacles=()):
     """Front and back panels hanging from the shoulders, over the breastplate, joined across the shoulders."""
     torso = body.select(None, meshes=[SHIRT, "Male_Peasant_Legs"], minimum=0)
     torso = [i for i in torso if max(body.weights[i], key=body.weights[i].get) not in
@@ -539,7 +544,8 @@ def tabard_surface(body, rig):
     zc = float(points[:, 2].mean())
     columns = 15
     xs = [-TABARD_HALF_WIDTH + 2 * TABARD_HALF_WIDTH * j / (columns - 1) for j in range(columns)]
-    ys = [.6 + (1.44 - .6) * i / 23 for i in range(24)]
+    # The panels rise above the breastplate's top edge (1.45 m), so its rim never shows at the collar (#309).
+    ys = [.6 + (1.475 - .6) * i / 23 for i in range(24)]
 
     def extreme(x, y, front):
         near = (numpy.abs(points[:, 0] - x) < .04) & (numpy.abs(points[:, 1] - y) < .035)
@@ -558,6 +564,9 @@ def tabard_surface(body, rig):
             for j, x in enumerate(xs):
                 z = extreme(x, y, front)
                 z = (zc + (.12 if front else -.12)) if z is None else z + (clearance if front else -clearance)
+                near = [p.z for p in obstacles if abs(p.x - x) < .03 and abs(p.y - y) < .03]
+                if near:
+                    z = max(z, max(near) + .018) if front else min(z, min(near) - .018)
                 if previous is not None:
                     # Hang: below the chest the cloth falls almost straight instead of following the waist.
                     z = max(z, previous[j] - .2 * (ys[1] - ys[0])) if front else min(z, previous[j] + .2 * (ys[1] - ys[0]))
@@ -573,8 +582,10 @@ def tabard_surface(body, rig):
         shoulder.append(float(points[near][:, 1].max()) + .03 if near.any() else 1.5)
     def drape(x, y, z, side):
         # #301: below the waist the cloth widens and falls in soft vertical folds that deepen toward the hem.
-        hang = min(1.0, max(0.0, (1.05 - y) / .45))
-        return Vector((x * (1 + .2 * hang), y, z + side * .016 * hang * math.sin(2 * math.pi * x / .105)))
+        hang = min(1.0, max(0.0, (1.12 - y) / .5))
+        # Deeper folds with a little irregularity, and a hem that rises and falls with them, so it reads as cloth (#309).
+        fold = math.sin(2 * math.pi * x / .105) + .35 * math.sin(2 * math.pi * x / .047 + 1.3)
+        return Vector((x * (1 + .22 * hang), y + .012 * hang * hang * fold, z + side * .024 * hang * fold))
     grid = [[drape(x, ys[i], front[i][j], 1) for j, x in enumerate(xs)] for i in range(len(ys))]
     grid.append([Vector((x, shoulder[j], zc)) for j, x in enumerate(xs)])
     grid += [[drape(x, ys[i], back[i][j], -1) for j, x in enumerate(xs)] for i in reversed(range(len(ys)))]
@@ -588,9 +599,11 @@ def tabard_mask(surface):
     def mask(i, j):
         x = (grid[i][j].x + grid[i][j + 1].x) / 2
         y = min(grid[i][j].y, grid[i + 1][j].y)
-        if abs(x) > .07:
+        if abs(x) > .075:
             return True
-        return not (y > (1.435 if i < front_rows else 1.42))
+        # Only the strips that bridge over the shoulders are opened for the neck (#309): the panels themselves stay
+        # whole, so no slot shows across the chest.
+        return not (front_rows - 1 <= i <= front_rows)
     return mask
 
 
@@ -777,8 +790,8 @@ def generate(output_path, arguments, inputs):
             builder.shell(surface, .005 if slot == "faction" else .006, 0, mask)
             points = list(builder.points)
             allowed = body.select(None, meshes=[SHIRT, "Male_Peasant_Legs"], minimum=0)
-            if name == "knight.tabard":
-                # The tabard rides the torso over the rigid breastplate: arm and shoulder joints must not pull it in.
+            if name in ("knight.tabard", "soldier.sash"):
+                # These ride the torso: arm and shoulder joints must not pull them off the shoulder or into a plate (#309).
                 allowed = [i for i in allowed if max(body.weights[i], key=body.weights[i].get) not in ARM_JOINTS]
             tree = cloth_tree(body, allowed)
             weights = [blend_weights(body, tree, Vector(p)) for p in builder.points]
@@ -787,6 +800,9 @@ def generate(output_path, arguments, inputs):
                 # it blends back to the body's own weights between the plate's lower edge and the hips.
                 weights = [follow(w, "spine_03", (p[1] - TABARD_RIGID_FROM[0]) / (TABARD_RIGID_FROM[1] - TABARD_RIGID_FROM[0]))
                            for w, p in zip(weights, builder.points)]
+            if name == "soldier.sash":
+                # Over the shoulder the sash rides the upper chest, so the arm swing cannot lift it off (#309).
+                weights = [follow(w, "spine_03", (p[1] - 1.25) / .15) for w, p in zip(weights, builder.points)]
             mesh, triangles = finish_mesh(builder, name, [palette[slot]])
             # bmesh keeps vertex order through triangulation, so the weights stay aligned with the vertices.
             parts = [skinned_object(name if name != "soldier.gambeson" else "soldier.gambeson-skirt", mesh, rig_object, weights)]
