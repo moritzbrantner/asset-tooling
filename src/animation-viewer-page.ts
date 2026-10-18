@@ -173,6 +173,11 @@ export function renderRangerComparisonHtml(): string {
     .presets button { flex: 1 1 auto; padding: 8px 10px; }
     :is(select, input, button, canvas, a):focus-visible { outline: 3px solid Highlight; outline-offset: 2px; }
     .note { margin: 0; padding: 10px 12px; border-radius: 10px; font-size: .88rem; line-height: 1.45; background: color-mix(in srgb, CanvasText 5%, Canvas); }
+    fieldset.compose { margin: 0; padding: 12px; border: 1px solid color-mix(in srgb, CanvasText 16%, Canvas); border-radius: 12px; }
+    fieldset.compose > label { font-weight: 650; font-size: .9rem; }
+    fieldset.compose > label.check { margin-top: 2px; }
+    input[type="color"] { width: 100%; height: 38px; padding: 2px; border: 1px solid color-mix(in srgb, CanvasText 24%, Canvas); border-radius: 10px; background: Canvas; }
+    .compose-error { margin: 0; padding: 8px 10px; border-radius: 10px; font-size: .88rem; border: 1px solid color-mix(in srgb, #d22 55%, Canvas); background: color-mix(in srgb, #d22 9%, Canvas); overflow-wrap: anywhere; }
     [hidden] { display: none !important; }
     @media (max-width: 480px) { main { padding-inline: 16px; } }
   </style>
@@ -208,6 +213,27 @@ ${panels}
         <span class="group-label" id="camera-label">Camera (all views)</span>
         <div class="presets">${presets}</div>
       </div>
+      <fieldset class="field compose" id="compose" disabled>
+        <legend class="group-label">Processed character</legend>
+        <label for="outfit">Outfit</label>
+        <select id="outfit"></select>
+        <label for="skin">Skin</label>
+        <select id="skin"></select>
+        <label class="check"><input type="checkbox" id="hood"> Hood</label>
+        <label for="hair">Hair</label>
+        <select id="hair"></select>
+        <label for="hair-color">Hair colour</label>
+        <select id="hair-color"></select>
+        <label for="faction">Faction colour</label>
+        <input id="faction" type="color" value="#808080">
+        <label for="lod">Level of detail</label>
+        <select id="lod"></select>
+        <p id="compose-error" class="compose-error" role="alert" hidden></p>
+        <div class="row">
+          <button type="button" id="export">Export GLB</button>
+          <button type="button" id="reset-look">Reset</button>
+        </div>
+      </fieldset>
       <div class="field" role="group" aria-labelledby="parts-label">
         <span class="group-label" id="parts-label">Original source parts</span>
         <label class="check"><input type="checkbox" id="show-outfit" checked disabled> Male_Ranger outfit</label>

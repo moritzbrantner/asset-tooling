@@ -118,6 +118,100 @@ test.describe("Ranger comparison", () => {
     for (const panel of PANELS) expect(now[panel]!.equals(base[panel]!), panel).toBe(true);
   });
 
+  test("editing journey: outfit, skin, hood, hair and tint, faction colour and LOD recompose the processed character", async ({ page }) => {
+    const evidence = ensureEvidenceDir();
+    const errors = await open(page, "?clip=Idle_Loop&t=0.5&view=front");
+    const caption = page.locator("#caption-processed");
+    await expect(caption).toContainText("humanoid.ranger.male/default");
+    const archer = await pixels(page, "processed");
+    const motion = await pixels(page, "motion");
+
+    await page.getByLabel("Outfit", { exact: true }).selectOption("outfit.knight");
+    await expect(caption).toContainText("humanoid.ranger.male/outfit.knight ·");
+    await expect(page).toHaveURL(/outfit=outfit\.knight/);
+    const knight = await pixels(page, "processed");
+    expect(knight.equals(archer)).toBe(false);
+    expect((await pixels(page, "motion")).equals(motion), "other views are unchanged").toBe(true);
+    // The variant has no hood, so the hood control is off and disabled.
+    await expect(page.getByLabel("Hood", { exact: true })).toBeDisabled();
+
+    await page.getByLabel("Faction colour", { exact: true }).fill("#1040c0");
+    await expect(page).toHaveURL(/faction=1040c0/);
+    const blue = await pixels(page, "processed");
+    expect(blue.equals(knight)).toBe(false);
+
+    await page.getByLabel("Skin", { exact: true }).selectOption("skin.light");
+    await expect(caption).toContainText("outfit.knight.skin.light");
+    await page.getByLabel("Level of detail", { exact: true }).selectOption("lod2");
+    await expect(caption).toContainText("outfit.knight.skin.light.lod2");
+    await page.getByLabel("Level of detail", { exact: true }).selectOption("lod0");
+
+    // A clip still drives the recomposed character (the clips ship once, in the default variant).
+    await page.locator("#time").fill("1.2");
+    await page.locator("#time").press("Enter");
+    expect((await pixels(page, "processed")).equals(await (async () => { await page.locator("#time").fill("0.5"); await page.locator("#time").press("Enter"); return pixels(page, "processed"); })())).toBe(false);
+    await page.screenshot({ path: path.join(evidence, "ranger-edit-knight.png"), fullPage: true });
+
+    // Back to the archer: hair needs the hood off, so choosing it with the hood on is refused and nothing changes.
+    await page.getByLabel("Outfit", { exact: true }).selectOption("outfit.archer");
+    await page.getByLabel("Skin", { exact: true }).selectOption("skin.dark");
+    await expect(page.getByLabel("Hood", { exact: true })).toBeChecked();
+    const hooded = await pixels(page, "processed");
+    await page.getByLabel("Hair", { exact: true }).selectOption("hair.long");
+    await expect(page.locator("#compose-error")).toContainText("hair.long requires outfit.hood off");
+    await expect(page.getByLabel("Hair", { exact: true })).toHaveValue("");
+    expect((await pixels(page, "processed")).equals(hooded)).toBe(true);
+
+    await page.getByLabel("Hood", { exact: true }).uncheck();
+    await expect(page.locator("#compose-error")).toBeHidden();
+    await page.getByLabel("Hair", { exact: true }).selectOption("hair.long");
+    await expect(caption).toContainText("hair.long (tint.black)");
+    const black = await pixels(page, "processed");
+    await page.getByLabel("Hair colour", { exact: true }).selectOption("tint.blond");
+    await expect(caption).toContainText("hair.long (tint.blond)");
+    expect((await pixels(page, "processed")).equals(black)).toBe(false);
+    await page.screenshot({ path: path.join(evidence, "ranger-edit-archer-hair.png"), fullPage: true });
+
+    // The look is in the URL and survives a reload.
+    await expect(page).toHaveURL(/hood=0&hair=hair\.long&color=tint\.blond/);
+    const look = await pixels(page, "processed");
+    await page.reload();
+    await expect(page.locator("#workspace")).toBeVisible({ timeout: 120_000 });
+    await expect(page.getByLabel("Hair colour", { exact: true })).toHaveValue("tint.blond");
+    await expect(caption).toContainText("hair.long (tint.blond)");
+    expect((await pixels(page, "processed")).equals(look)).toBe(true);
+    expect(errors).toEqual([]);
+  });
+
+  test("export downloads one GLB of the composed character and reloads it with its clips", async ({ page }) => {
+    await open(page, "?clip=Walk_Loop&t=0.3&view=front&outfit=outfit.soldier");
+    const caption = page.locator("#caption-processed");
+    await expect(caption).toContainText("outfit.soldier");
+    const download = page.waitForEvent("download");
+    await page.getByRole("button", { name: "Export GLB" }).click();
+    const file = await download;
+    expect(file.suggestedFilename()).toBe("humanoid.ranger.male.outfit.soldier.glb");
+    const bytes = await (await import("node:fs/promises")).readFile(await file.path());
+    expect(bytes.subarray(0, 4).toString("latin1")).toBe("glTF");
+    await expect(caption).toContainText("exported GLB, reloaded");
+    await expect(caption).toContainText("humanoid.ranger.male.outfit.soldier.glb");
+    const clips = await page.locator("#clip option").count();
+    await expect(caption).toContainText(`${clips} clips`);
+    const at03 = await pixels(page, "processed");
+    await page.locator("#time").fill("0.9");
+    await page.locator("#time").press("Enter");
+    expect((await pixels(page, "processed")).equals(at03), "the reloaded export plays the clip").toBe(false);
+    // Any edit recomposes from the bundle again.
+    await page.getByRole("button", { name: "Reset" }).click();
+    await expect(caption).toContainText("humanoid.ranger.male/default");
+  });
+
+  test("a URL look that cannot be composed falls back to the default with the reason shown", async ({ page }) => {
+    await open(page, "?outfit=outfit.archer&hood=1&hair=hair.buzzed");
+    await expect(page.locator("#compose-error")).toContainText("hair.buzzed requires outfit.hood off");
+    await expect(page.locator("#caption-processed")).toContainText("humanoid.ranger.male/default");
+  });
+
   test("normal and narrow layouts have no horizontal scrolling; screenshots saved as evidence", async ({ page }) => {
     const evidence = ensureEvidenceDir();
     await open(page, "?clip=Jump_Start&t=0.6&view=front");
