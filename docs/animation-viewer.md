@@ -85,8 +85,25 @@ Every view uses the same camera framing (a human-sized volume centred 0.9 m up),
 **Inspect toggles:** the default view shows each artifact's own materials.
 - **Wireframe** draws every view's triangles as lines.
 - **Skeleton** overlays three.js `SkeletonHelper` lines on the source-motion and processed characters. It only draws the joints the `AnimationMixer` has already posed, and it is not a second skinning path.
-- **Sockets** shows a 12 cm axis gizmo at each socket of the bundle's `humanoid-sockets` attachment, parented to its joint with the socket's translation and rotation. A socket naming a missing joint is a load failure.
+- **Sockets** shows a 12 cm axis gizmo at each socket of the bundle's `humanoid-sockets` attachment, parented to its joint with the socket's translation and rotation.
 
 The browser test checks that each toggle changes only the views it applies to, and that turning wireframe off restores the original pixels.
 
-The approval workflow and appearance editing are follow-ups under #127.
+### Editing the processed character
+
+The **Processed character** controls compose the processed view from the same working bundle (#127 humanoid editing journey). `src/browser/humanoid-composer.ts` reads the bundle's `humanoid-appearance` and `humanoid-sockets` attachments; the page has no list of its own.
+
+- **Outfit** (Archer, Soldier, Knight) and **Skin** pick the character variant. **Level of detail** picks its `lod1`/`lod2` variant from `levelsOfDetail`.
+- The armour pieces of the outfit's `armor` entry ride their `<joint>.armor` sockets, and the nodes listed as hidden are hidden.
+- **Hood** toggles the `outfit.hood` part. It is disabled for a variant without the hood.
+- **Hair** parents a hair entry under `head.hair`. **Hair colour** is a tint over its `hair-1` texture or the untinted `hair-2` texture. Tinted eyebrows follow the hair tint.
+- **Faction colour** sets the base colour of the outfit's `faction` materials (soldier sash, knight tabard).
+- The clips ship once, in the `default` variant. Every composed variant plays them through the shared joint names, so the clip and time stay in step with the other views after any change.
+
+The look is kept in the URL (`outfit`, `skin`, `hood`, `hair`, `color`, `faction`, `lod`; defaults are omitted), so a reload restores it.
+
+An incompatible choice is refused. For example, a hairstyle whose `requires` says `outfit.hood: false` is refused while the hood is shown. The previous character and controls stay, and the reason appears under the controls. A URL look that cannot be composed falls back to the default look and shows the reason. Each change is a new request, so a slower earlier composition never replaces a newer one.
+
+**Export GLB** writes the shown composition with three.js `GLTFExporter` as one binary glTF with every clip, for example `humanoid.ranger.male.outfit.soldier.glb`. The page downloads it, parses it back with `GLTFLoader` and shows the reloaded file in the processed view, captioned with its name, size and clip count. Any later edit, or **Reset**, composes from the bundle again. The export is a preview of the composed look, not a release artifact; consumers keep loading the bundle entries.
+
+Approval is not part of this page. Matching poses and a successful export do not mean visual approval.
