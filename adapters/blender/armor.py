@@ -593,10 +593,63 @@ def finish_mesh(builder, name, materials):
 # Blender finishing for rigid plates (Atlas Decision 5.1.6): a narrow bevel rounds every hard edge so plate rims catch
 # light instead of reading as knife edges, and weighted normals keep the large faces flat-shaded and clean.
 PLATE_BEVEL = {"width": .0025, "segments": 2, "angle": math.radians(40)}
+# Owner answer on #120 (option A): Smart-UV unwrap and pack, then a baked ambient-occlusion map per piece, bound as the
+# glTF occlusion texture so crevices and overlaps read at the game camera.
+PLATE_AO = {"size": 512, "samples": 64, "distance": .08, "island_margin": .02, "bake_margin": 4}
 
 
-def finish_plate(obj):
-    """Apply the plate finishing modifiers to ``obj`` in place and return its triangle count."""
+def gltf_output_group():
+    """The node group the glTF exporter reads extra outputs from (its `Occlusion` input becomes occlusionTexture)."""
+    group = bpy.data.node_groups.get("glTF Material Output")
+    if group is None:
+        group = bpy.data.node_groups.new("glTF Material Output", "ShaderNodeTree")
+        group.interface.new_socket("Occlusion", in_out="INPUT", socket_type="NodeSocketFloat")
+    return group
+
+
+def bake_ambient_occlusion(obj, base):
+    """Unwrap ``obj``, bake its AO into a PNG and give it its own copy of ``base`` with that occlusion map."""
+    bpy.ops.object.select_all(action="DESELECT")
+    obj.select_set(True)
+    bpy.context.view_layer.objects.active = obj
+    bpy.ops.object.mode_set(mode="EDIT")
+    bpy.ops.mesh.select_all(action="SELECT")
+    bpy.ops.uv.smart_project(island_margin=PLATE_AO["island_margin"])
+    bpy.ops.uv.pack_islands(margin=PLATE_AO["island_margin"])
+    bpy.ops.object.mode_set(mode="OBJECT")
+    material = base.copy()
+    material.name = f"{base.name}.{obj.name}"
+    obj.data.materials.clear()
+    obj.data.materials.append(material)
+    image = bpy.data.images.new(f"{obj.name}-ao", PLATE_AO["size"], PLATE_AO["size"], alpha=False)
+    image.colorspace_settings.name = "Non-Color"
+    nodes = material.node_tree.nodes
+    texture = nodes.new("ShaderNodeTexImage")
+    texture.image = image
+    nodes.active = texture
+    scene = bpy.context.scene
+    scene.render.engine = "CYCLES"
+    scene.cycles.device = "CPU"
+    scene.cycles.samples = PLATE_AO["samples"]
+    scene.cycles.seed = 0
+    scene.world = scene.world or bpy.data.worlds.new("bake")
+    scene.world.light_settings.distance = PLATE_AO["distance"]
+    scene.render.bake.margin = PLATE_AO["bake_margin"]
+    bpy.ops.object.bake(type="AO", margin=PLATE_AO["bake_margin"], use_clear=True)
+    image.filepath_raw = f"//{obj.name}-ao.png"
+    image.file_format = "PNG"
+    image.pack()
+    # Bind it: the red channel of the baked image feeds the glTF output group's Occlusion socket.
+    separate = nodes.new("ShaderNodeSeparateColor")
+    material.node_tree.links.new(texture.outputs["Color"], separate.inputs["Color"])
+    output = nodes.new("ShaderNodeGroup")
+    output.node_tree = gltf_output_group()
+    material.node_tree.links.new(separate.outputs["Red"], output.inputs["Occlusion"])
+    return material
+
+
+def finish_plate(obj, base):
+    """Apply the plate finishing modifiers and the AO bake to ``obj`` in place and return its triangle count."""
     bevel = obj.modifiers.new("bevel", "BEVEL")
     bevel.width, bevel.segments = PLATE_BEVEL["width"], PLATE_BEVEL["segments"]
     bevel.limit_method, bevel.angle_limit = "ANGLE", PLATE_BEVEL["angle"]
@@ -606,6 +659,7 @@ def finish_plate(obj):
     bpy.context.view_layer.objects.active = obj
     for modifier in list(obj.modifiers):
         bpy.ops.object.modifier_apply(modifier=modifier.name)
+    bake_ambient_occlusion(obj, base)
     mesh = obj.data
     bm = bmesh.new()
     bm.from_mesh(mesh)
@@ -661,9 +715,9 @@ def generate(output_path, arguments, inputs):
             mesh, triangles = finish_mesh(builder, name, [palette[slot]])
             obj = bpy.data.objects.new(name, mesh)
             bpy.context.scene.collection.objects.link(obj)
-            triangles = finish_plate(obj)
+            triangles = finish_plate(obj, palette[slot])
             exported.append(obj)
-            pieces.append({"node": name, "kind": "rigid", "joint": joint, "materials": [slot], "triangleCount": triangles,
+            pieces.append({"node": name, "kind": "rigid", "joint": joint, "materials": [obj.data.materials[0].name], "triangleCount": triangles,
                            "bounds": bounds(points), "hides": HIDES.get(name, [])})
     else:
         shirt = next(o for o in bpy.context.scene.objects if o.type == "MESH" and o.name == SHIRT)
@@ -713,7 +767,7 @@ def generate(output_path, arguments, inputs):
     bpy.context.view_layer.objects.active = exported[0]
     bpy.ops.export_scene.gltf(
         filepath=output_path, export_format="GLB", use_selection=True,
-        export_yup=True, export_texcoords=False, export_normals=True, export_tangents=False,
+        export_yup=True, export_texcoords=output == "plates", export_normals=True, export_tangents=False,
         export_animations=False, export_skins=output == "cloth", export_morph=False,
         export_cameras=False, export_lights=False, export_extras=False)
     meshes = [obj.data for obj in exported if obj.type == "MESH"]

@@ -61,7 +61,9 @@ Under Atlas Decision 5.1.6, every rigid plate goes through Blender finishing bef
 - a 2.5 mm, two-segment **bevel** on edges sharper than 40°, so rims catch light instead of reading as knife edges;
 - **weighted normals** that keep sharp edges, so large faces shade flat and clean.
 
-The modifiers are applied, and the observations report the finished triangle count. Armour sheets light the scene with a procedural sky (`--armor`). Steel reflects its environment and reads as metal only against one with contrast; a flat grey world made it look white.
+- **ambient occlusion** (owner answer on #120, option A): a Smart-UV unwrap and pack (2 % island margin), then a 512 px AO bake in Cycles (64 samples, 8 cm distance, fixed seed). The other plates and the body under the plate occlude it. The map is bound as the glTF `occlusionTexture`, through the exporter's `glTF Material Output` group, on a per-piece copy of the material, for example `steel.knight.pauldron_l`.
+
+The modifiers are applied, and the observations report the finished triangle count. Blender's own renderer ignores glTF occlusion, so the AO shows in glTF viewers and in three.js (`aoMap`), not in the Blender sheets. Armour sheets light the scene with a procedural sky (`--armor`). Steel reflects its environment and reads as metal only against one with contrast; a flat grey world made it look white.
 
 ## Review
 
