@@ -171,7 +171,7 @@ jobs:
     uses: ./.github/workflows/pages.yml
 
   merge-ready:
-    name: merge-ready
+    name: ${{ github.event_name == 'pull_request' && 'merge-ready' || 'validation-summary' }}
     if: ${{ always() }}
     needs: ["impact", "validate", "selected-bundle-consumer", "blender-script", "canonical-storage", "processing-contract", "stability-validation", "pages-validation"]
     runs-on: ubuntu-latest
