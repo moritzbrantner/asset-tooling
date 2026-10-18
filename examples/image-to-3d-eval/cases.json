@@ -1,0 +1,10 @@
+{
+  "note": "#122 workload (owner answer A): clean renders of existing CC0 kit and recipe assets, so every reconstruction has a ground truth. No statue exists among the free kit assets yet; the five categories are rock, tree, container prop, decorative prop and equipment item.",
+  "cases": [
+    { "id": "rock", "category": "rock", "bundle": "kit", "key": "greyhaven.starter.rock", "gameplayDistance": 9 },
+    { "id": "pine", "category": "tree", "bundle": "kit", "key": "greyhaven.starter.pine", "gameplayDistance": 14 },
+    { "id": "barrel", "category": "container prop", "bundle": "kit", "key": "greyhaven.starter.barrel", "gameplayDistance": 6 },
+    { "id": "lantern", "category": "decorative prop", "bundle": "kit", "key": "greyhaven.starter.lantern", "gameplayDistance": 6 },
+    { "id": "shield", "category": "equipment item", "bundle": "ranger", "key": "equipment.shield.heater", "gameplayDistance": 4 }
+  ]
+}
