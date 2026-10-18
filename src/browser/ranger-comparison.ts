@@ -6,8 +6,8 @@
 //   2. the source motion: the clip library's own mannequin playing the selected clip;
 //   3. the processed humanoid-ranger-male bundle playing the same clip;
 //   4. the primitive-built archer (a static debug fallback).
-// Presentation and evidence only: the shared 3d-lab renderer verifies the source pins, parses, skins and
-// samples clips; this file verifies the bundle and OBJ bytes and drives the controls.
+// Presentation only: the shared 3d-lab renderer verifies original source pins, parses, skins and
+// samples clips. A working processed bundle needs valid declared resources, not a historical release pin.
 // Contract: docs/animation-viewer.md#ranger-comparison.
 import { createThreeSceneRenderer, type RendererCamera, type ThreeSceneRenderer } from "@moritzbrantner/three-d-renderer";
 import { adaptImportedCharacterBundle, readBundleAttachment, type ImportedCharacterAsset, type ImportedCharacterInstance } from "@moritzbrantner/three-d-renderer/imported-character";
@@ -341,7 +341,7 @@ function renderCaptions(loaded: Loaded): void {
   motionView.hidden = !library;
   motionView.parentElement!.classList.toggle("three", !library);
   if (library) caption("motion", `Source motion · ${library.label}`, `${clip.source.catalogId} · ${clip.source.clip} · not retargeted`);
-  caption("processed", `Processed · ${data.bundle.tag}`, `${data.bundle.key}/${data.bundle.variant} · tar ${short(data.bundle.tarSha256)} · ${clip.name} · retargeted, in place`);
+  caption("processed", `Processed · ${data.bundle.label}`, `${data.bundle.key}/${data.bundle.variant} · ${clip.name} · retargeted, in place`);
   caption("archer", "Primitive-built archer · debug fallback", `medieval-character-kit archer.obj · ${short(data.archer.file.sha256)} · static, no rig`);
 }
 
@@ -382,13 +382,12 @@ async function start(): Promise<void> {
     const manifestBytes = await fetchBytes(data.bundle.manifest, signal);
     const manifest = JSON.parse(new TextDecoder().decode(manifestBytes));
     const entry = manifest.assets.find((asset: { key: string; variant: string }) => asset.key === data.bundle.key && asset.variant === data.bundle.variant);
-    const declared = new Map<string, string>([[entry.path, entry.sha256], ...entry.resources.map((resource: { path: string; sha256: string }) => [resource.path, resource.sha256] as [string, string]), ...entry.attachments.map((attachment: { path: string; sha256: string }) => [attachment.path, attachment.sha256] as [string, string])]);
-    // Content verification of every bundle file the page reads, against the manifest.
+    if (!entry) throw new Error("processed Ranger entry is missing from the bundle manifest");
+    const declared = new Set<string>([entry.path, ...entry.resources.map((resource: { path: string }) => resource.path), ...entry.attachments.map((attachment: { path: string }) => attachment.path)]);
+    // Preview only: prevent undeclared loads and report missing files; do not rehash every working output.
     const readResource = async (file: string) => {
-      const bytes = await fetchBytes(`bundle/${file}`, signal);
-      const expected = declared.get(file);
-      if (!expected || (await sha256Hex(bytes)) !== expected) throw new Error(`bundle file ${file} does not match its manifest SHA-256`);
-      return bytes;
+      if (!declared.has(file)) throw new Error(`bundle file ${file} is not declared in the manifest`);
+      return fetchBytes(`bundle/${file}`, signal);
     };
     const bundle = { manifest, key: data.bundle.key, variant: data.bundle.variant, readResource };
     const processedAsset = await adaptImportedCharacterBundle(bundle);
