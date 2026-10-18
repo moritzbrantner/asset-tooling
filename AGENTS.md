@@ -6,6 +6,14 @@ The owner-controlled product intent is in `docs/decisions/atlas.md`. Read the re
 
 `asset-tooling` owns reproducible asset-generation and processing contracts. It does not own game-specific runtime semantics.
 
+## Experimental asset iteration (Decision 7.1.4)
+
+- For disposable generated output, use **current → inspect → adjust → replace**, with optional side-by-side candidates. Do not add output release tags, archive histories, per-file consumer pins or byte-identical historical rebuild requirements solely for each visual revision. Existing published consumer bundles remain unchanged until the consumer intentionally adopts a replacement.
+- Open the current output in the existing Pages gallery/review surfaces and in a real consumer at gameplay scale. Do not mistake a passing import/receipt test for good-looking art, and do not claim a fixed published comparison shows a newer local output.
+- The exact-replay rules below remain for operations that explicitly promise deterministic bytes, not for every provisional preview. Keep source licensing, safe model/source acquisition, format validity, declared dependencies and public API compatibility; do not use disposable-output policy to bypass those boundaries.
+- Before developing a broader internal foundation, check an established Blender/ComfyUI/three.js reference and identify the specific missing quality, control or cost. A scoped internal improvement may come first, but must not hold unrelated consumers hostage.
+- Flag cross-repository ownership changes: Blender and ComfyUI author; `asset-tooling` prepares/reviews/exports; `workflow-editor` authors workflows, `workflow-runner` executes, `workflow-engine` orchestrates; games own gameplay/world placement and use established renderers. Do not duplicate those owners.
+
 ## Boundaries
 
 - Asset intent is declared in versioned specs. Generators consume validated specs instead of ad-hoc prompts or ambient state.
