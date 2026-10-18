@@ -22,7 +22,7 @@ The `humanoid.ranger.male` bundle holds the following.
   - **Variants:**
     - `default`: the archer, Dark skin.
     - `skin.light`: the Light skin, with the outfit's skin texture derived by a colour transfer (#116 Q13).
-    - `outfit.soldier` and `outfit.knight`: the Peasant outfit under the [armour](armor-recipes.md) (#117, male only).
+    - `outfit.soldier` and `outfit.knight`, plus their `.skin.light` variants: the Peasant outfit under the [armour](armor-recipes.md) (#117, #301, male only).
   - **Attachments:**
     - `humanoid-sockets`: the [sockets descriptor](humanoid-sockets.md), with hand, stowed, archery, hair and armour sockets.
     - `humanoid-clips`: per-clip motion metadata ([Clip motion](#clip-motion)).

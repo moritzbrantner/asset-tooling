@@ -4,9 +4,21 @@
 
 - **Archer:** the existing Ranger outfit, which is the character's `default` variant.
 - **Soldier:** the Quaternius Peasant outfit, with an original gambeson-style tunic over it, a kettle hat, a belt and front greaves. The sash carries the faction colour.
-- **Knight:** the Peasant outfit, with original plate over it: bascinet, breastplate, pauldrons, couters, gauntlets, cuisses with knee cops, greaves and sabatons. The tabard carries the faction colour.
+- **Knight:** the Peasant outfit, with original plate over it: bascinet, breastplate, spaulders and pauldrons, couters, gauntlets, cuisses with knee cops, greaves and sabatons. The tabard carries the faction colour.
 
 The pieces are scripted originals following the [humanlike style spec](style-humanlike.md). They are not copied from any game or pack, and they use factor-only materials: `steel`, `iron`, `leather`, `gambeson` and the `faction` slot. The faction slot defaults to muted dark red (linear 0.25/0.04/0.04, Q11), and a consumer recolours it through the material's base-colour factor.
+
+## Refinements (#301)
+
+After the owner's first review, the knight's shapes were reworked:
+
+- **Bascinet:** an analytic skull fitted to the head's extents, no longer a scan of the head. It is a rounded dome that narrows to a point set back over the crown. The sides and back fall almost straight to the jaw and nape, flaring slightly at the rim. The face opening is an arch whose top follows the brow and whose sides drop toward the cheeks.
+- **Shoulders:** a **spaulder** (the shoulder cop) rides `clavicle_*` through a new `clavicle_*.armor` socket, so it stays on the shoulder when the arm hangs or rises. The **pauldron** lames below it ride the upper arm and slide under the cop.
+- **Gauntlets:** a mitten shell over the whole hand and fingers, closed at the fingertips, plus the flared cuff.
+- **Breastplate:** finer sampling and a central keel down the front.
+- **Rims:** the finishing bevel is 4 mm with three segments, so the plate edges read as rolled rims.
+- **Tabard:** shaped cloth instead of flat boards (see Outputs).
+- **Skins:** the soldier and knight are built for both skins: `outfit.<kit>` (Dark) and `outfit.<kit>.skin.light` (Light, with the same derived skin texture as the Ranger). Each outfit in `humanoid-appearance` lists its `skins`.
 
 ## Fitting
 
@@ -25,7 +37,7 @@ The recipe's declared input `target` is the base character at rest: the Peasant 
 - **`cloth`**: the garments that must deform with the body, skinned to the target's own joints:
   - the soldier's gambeson: the Peasant shirt's surface and skin weights pushed 12 mm out, plus a quilted skirt;
   - the soldier's sash;
-  - the knight's tabard: front and back panels hanging over the breastplate and the cuisses.
+  - the knight's tabard: front and back panels hanging over the breastplate and the cuisses. Below the waist they widen and fall in soft vertical folds that deepen toward the hem.
 
   The skirt, sash and tabard are fitted surfaces. Each vertex blends the weights of the nearest base vertices, and the tabard ignores arm and shoulder joints so that it rides the torso over the rigid breastplate. The build composes the cloth into the outfit variant with `scene.compose.skinned.gltf@1`.
 
@@ -58,7 +70,7 @@ The `humanoid-appearance` attachment gains `outfits`. Each outfit lists its char
 
 Under Atlas Decision 5.1.6, every rigid plate goes through Blender finishing before export (`finish_plate`):
 
-- a 2.5 mm, two-segment **bevel** on edges sharper than 40°, so rims catch light instead of reading as knife edges;
+- a 4 mm, three-segment **bevel** on edges sharper than 40°, so rims catch light instead of reading as knife edges;
 - **weighted normals** that keep sharp edges, so large faces shade flat and clean.
 
 - **ambient occlusion** (owner answer on #120, option A): a Smart-UV unwrap and pack (2 % island margin), then a 512 px AO bake in Cycles (64 samples, 8 cm distance, fixed seed). The other plates and the body under the plate occlude it. The map is bound as the glTF `occlusionTexture`, through the exporter's `glTF Material Output` group, on a per-piece copy of the material, for example `steel.knight.pauldron_l`.
@@ -71,7 +83,5 @@ The pose sheets are rendered with `examples/weapons/socket-sheets.py` and its `-
 
 Known limits of this first candidate:
 
-- The gauntlets cover the cuff and the back of the hand. The fingers stay bare, because the plate would clip the fingers as they move.
 - The sabatons ride `foot_*` only, so the toe plate does not bend with the toes.
-- The pauldrons ride the upper arm, so in raised-arm poses they come close to the helmet.
-- Only the Dark skin is built for the soldier and knight.
+- The mitten gauntlets follow the fingers' rest pose, which is spread. The bone maps never move the fingers, so the shells fit, but the hands look wide.

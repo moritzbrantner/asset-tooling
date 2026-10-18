@@ -318,6 +318,46 @@ def head_centre(body):
     return Vector((float(points[:, 0].mean()), float(points[:, 1].max()), float(points[:, 2].mean()))), indices
 
 
+def bascinet(body, centre, indices):
+    """A bascinet (#301): a smooth skull fitted to the head's extents, rising to a point set back over the crown, with
+    sides and back falling to the jaw and nape, and an arched open face. Analytic, so it reads as a forged shape
+    instead of a scan of the head."""
+    points = body.array[indices]
+    top = centre.y
+    half_x = float(points[:, 0].max() - points[:, 0].min()) / 2 + .024
+    half_z = float(points[:, 2].max() - points[:, 2].min()) / 2 + .026
+    mid_z = float(points[:, 2].max() + points[:, 2].min()) / 2
+    brow = top - .075
+    bottom, crown_top = top - .27, top + .045
+    rows, columns = 30, 56
+    thetas = [2 * math.pi * j / columns for j in range(columns)]
+    grid, ts = [], []
+    for i in range(rows):
+        t = i / rows
+        y = bottom + (crown_top - bottom) * t
+        if y <= brow:
+            # Below the brow the walls fall almost straight, flaring slightly outward toward the rim.
+            r, back = 1 + .06 * (brow - y) / (brow - bottom), 0.0
+        else:
+            u = (y - brow) / (crown_top - brow)
+            # A superellipse that narrows to a point; the point leans back over the crown.
+            r, back = (1 - u ** 2.4) ** (1 / 2.4), -.035 * u * u
+        row = [Vector((centre.x + half_x * r * math.sin(theta), y, mid_z + back + half_z * r * math.cos(theta))) for theta in thetas]
+        grid.append(row)
+        ts.append(t)
+    surface = {"grid": grid, "closed": True, "axis": (Vector((centre.x, bottom, mid_z)), Vector((0, 1, 0))), "thetas": thetas, "ts": ts}
+
+    def mask(i, j):
+        # The face opening: an arch whose top is the brow and whose sides drop to the cheeks.
+        theta = abs((surface["thetas"][j] + math.pi / columns + math.pi) % (2 * math.pi) - math.pi)
+        y = (grid[i][j].y + grid[i + 1][j].y) / 2
+        if theta > math.radians(58):
+            return True
+        return y > brow - .025 * (theta / math.radians(58)) ** 2
+    apex = Vector((centre.x, crown_top + .03, mid_z - .05))
+    return surface, mask, apex
+
+
 def helmet(body, kit):
     """Bascinet (knight) or kettle hat (soldier): a dome fitted around the head, closed at the crown."""
     centre, indices = head_centre(body)
@@ -325,18 +365,7 @@ def helmet(body, kit):
     base = Vector((centre.x, top - .28, centre.z))
     crown = Vector((centre.x, top + .02, centre.z))
     if kit == "knight":
-        # Down to the jaw at the sides and the nape at the back; open face from the brow down.
-        def profile(t, theta, r):
-            return r * (1 + .05 * max(0, .35 - t))
-        surface = ring_grid(body, indices, base, crown, FRONT, Vector((1, 0, 0)), (.05, .97), 14, None, 24, .018, profile)
-        brow = top - .085
-        def mask(i, j):
-            y = surface["grid"][i][j].y
-            theta = surface["thetas"][j]
-            front = abs((theta + math.pi) % (2 * math.pi) - math.pi) < math.radians(62)
-            return not (front and y < brow)
-        apex = crown + Vector((0, .045, -.03))
-        return surface, mask, apex
+        return bascinet(body, centre, indices)
     def profile(t, theta, r):
         return r
     dome = ring_grid(body, indices, base, crown, FRONT, Vector((1, 0, 0)), (.62, .97), 7, None, 24, .02, profile)
@@ -387,8 +416,13 @@ def plate_surfaces(body, rig, kit):
         upper = body.select([f"upperarm_{side}", f"clavicle_{side}"], minimum=.5)
         def lames(t, theta, r):
             return r + .004 * math.floor(t * 3.999) + .006 * (1 - t)
-        pauldron = ring_grid(body, upper, shoulder - arm * .01, shoulder + arm * .12, UP, FRONT, (0, 1), 9,
-                             (-math.radians(80), math.radians(80)), 11, .012, lames)
+        # #301: the shoulder cop rides the clavicle, so it stays on the shoulder when the arm hangs or rises; the lames
+        # below it ride the upper arm and slide under the cop.
+        cop_surface = ring_grid(body, upper, shoulder - arm * .06, shoulder + arm * .05, UP, FRONT, (0, 1), 9,
+                                (-math.radians(85), math.radians(85)), 15, .022, lambda t, theta, r: r + .01 * math.sin(math.pi * t))
+        pieces.append((f"knight.spaulder_{side}", f"clavicle_{side}", "steel", cop_surface, None, None, .003))
+        pauldron = ring_grid(body, upper, shoulder + arm * .03, shoulder + arm * .15, UP, FRONT, (0, 1), 9,
+                             (-math.radians(80), math.radians(80)), 15, .012, lames)
         pieces.append((f"knight.pauldron_{side}", f"upperarm_{side}", "steel", pauldron, None, None, .003))
         around = body.select([f"upperarm_{side}", f"lowerarm_{side}"], minimum=.5)
         def cop(t, theta, r):
@@ -401,17 +435,23 @@ def plate_surfaces(body, rig, kit):
             return r + .022 * (1 - t) ** 2
         cuff = ring_grid(body, forearm, wrist - arm * .1, wrist + arm * .015, UP, FRONT, (0, 1), 6, None, 16, .012, flare)
         pieces.append((f"knight.gauntlet_{side}", f"hand_{side}", "steel", cuff, None, None, .003))
-        knuckles = (rig.at(f"index_01_{side}") + rig.at(f"pinky_01_{side}")) / 2
-        hand = body.select([f"hand_{side}"], minimum=.6)
-        back = ring_grid(body, hand, wrist, knuckles + arm * .012, UP, FRONT, (.05, 1), 5, (-math.radians(70), math.radians(70)), 9, .008)
-        pieces.append((f"knight.gauntlet_{side}", f"hand_{side}", "steel", back, None, None, .003))
+        # #301: a mitten gauntlet over the whole hand and fingers. The bone maps leave the fingers at their rest pose,
+        # so a rigid shell on the hand fits in every clip.
+        fingers = [name for name in rig.worlds if name.endswith(f"_{side}") and name.split("_")[0] in ("index", "middle", "ring", "pinky", "thumb")]
+        hand = body.select([f"hand_{side}", *fingers], minimum=.5)
+        reach = max(float((body.array[i] - numpy.array(tuple(wrist))) @ numpy.array(tuple(arm))) for i in hand)
+        def mitten(t, theta, r):
+            return r + .004 * math.sin(math.pi * min(1.0, t * 1.2))
+        glove = ring_grid(body, hand, wrist - arm * .01, wrist + arm * (reach + .01), UP, FRONT, (0, 1), 12, None, 20, .009, mitten)
+        pieces.append((f"knight.gauntlet_{side}", f"hand_{side}", "steel", glove, None, wrist + arm * (reach + .018), .003))
     if kit == "knight":
         torso = body.select(["spine_01", "spine_02", "spine_03", "clavicle_l", "clavicle_r", "pelvis"], meshes=[SHIRT], minimum=.5)
         centre = Vector((0, 0, float(body.array[torso][:, 2].mean())))
         def breast(t, theta, r):
-            return r + .012 * max(0, .25 - t) / .25
+            # A flared lower edge and a central keel down the front (#301).
+            return r + .012 * max(0, .25 - t) / .25 + .014 * max(0.0, math.cos(theta)) ** 10 * (1 - .5 * t)
         plate = ring_grid(body, torso, centre + Vector((0, 1.13, 0)), centre + Vector((0, 1.45, 0)), FRONT, Vector((1, 0, 0)),
-                          (0, 1), 12, None, 28, .022, breast)
+                          (0, 1), 16, None, 40, .022, breast)
         def armholes(i, j):
             p = plate["grid"][i][j]
             return not (abs(p.x) > .115 and p.y > 1.33)
@@ -481,7 +521,8 @@ def cloth_surfaces(body, rig, kit):
                          middle + normal * .035, FRONT, along, (0, 1), 3, None, 40, .026, slab=.03)
         garments.append(("soldier.sash", "faction", sash, None))
     else:
-        garments.append(("knight.tabard", "faction", tabard_surface(body, rig), tabard_mask))
+        surface = tabard_surface(body, rig)
+        garments.append(("knight.tabard", "faction", surface, tabard_mask(surface)))
     return garments
 
 
@@ -496,9 +537,9 @@ def tabard_surface(body, rig):
              {"upperarm_l", "upperarm_r", "lowerarm_l", "lowerarm_r"}]
     points = body.array[torso]
     zc = float(points[:, 2].mean())
-    columns = 9
+    columns = 15
     xs = [-TABARD_HALF_WIDTH + 2 * TABARD_HALF_WIDTH * j / (columns - 1) for j in range(columns)]
-    ys = [.6 + (1.44 - .6) * i / 14 for i in range(15)]
+    ys = [.6 + (1.44 - .6) * i / 23 for i in range(24)]
 
     def extreme(x, y, front):
         near = (numpy.abs(points[:, 0] - x) < .04) & (numpy.abs(points[:, 1] - y) < .035)
@@ -512,7 +553,7 @@ def tabard_surface(body, rig):
         previous = None
         for y in reversed(ys):
             # Over the breastplate, then over the cuisses below it.
-            clearance = (.05 if front else .07) if y >= 1.0 else .042
+            clearance = (.066 if front else .07) if y >= 1.0 else .042
             row = []
             for j, x in enumerate(xs):
                 z = extreme(x, y, front)
@@ -530,17 +571,27 @@ def tabard_surface(body, rig):
     for x in xs:
         near = (numpy.abs(points[:, 0] - x) < .03) & (numpy.abs(points[:, 2] - zc) < .07)
         shoulder.append(float(points[near][:, 1].max()) + .03 if near.any() else 1.5)
-    grid = [[Vector((x, ys[i], front[i][j])) for j, x in enumerate(xs)] for i in range(len(ys))]
+    def drape(x, y, z, side):
+        # #301: below the waist the cloth widens and falls in soft vertical folds that deepen toward the hem.
+        hang = min(1.0, max(0.0, (1.05 - y) / .45))
+        return Vector((x * (1 + .2 * hang), y, z + side * .016 * hang * math.sin(2 * math.pi * x / .105)))
+    grid = [[drape(x, ys[i], front[i][j], 1) for j, x in enumerate(xs)] for i in range(len(ys))]
     grid.append([Vector((x, shoulder[j], zc)) for j, x in enumerate(xs)])
-    grid += [[Vector((x, ys[i], back[i][j])) for j, x in enumerate(xs)] for i in reversed(range(len(ys)))]
-    return {"grid": grid, "closed": False, "axis": (Vector((0, 1.0, zc)), Vector((1, 0, 0))), "thetas": xs, "ts": list(range(len(grid)))}
+    grid += [[drape(x, ys[i], back[i][j], -1) for j, x in enumerate(xs)] for i in reversed(range(len(ys)))]
+    return {"grid": grid, "closed": False, "axis": (Vector((0, 1.0, zc)), Vector((1, 0, 0))), "thetas": xs, "ts": list(range(len(grid))),
+            "frontRows": len(ys)}
 
 
-def tabard_mask(i, j):
-    # The neck opening: the middle columns stop below the collar, deeper in front than behind.
-    if 3 <= j <= 4:
-        return not (14 <= i <= 16)
-    return True
+def tabard_mask(surface):
+    """The neck opening: the middle columns stop below the collar, deeper in front than behind."""
+    grid, front_rows = surface["grid"], surface["frontRows"]
+    def mask(i, j):
+        x = (grid[i][j].x + grid[i][j + 1].x) / 2
+        y = min(grid[i][j].y, grid[i + 1][j].y)
+        if abs(x) > .07:
+            return True
+        return not (y > (1.435 if i < front_rows else 1.42))
+    return mask
 
 
 def skinned_object(name, mesh, rig_object, weights):
@@ -592,7 +643,7 @@ def finish_mesh(builder, name, materials):
 
 # Blender finishing for rigid plates (Atlas Decision 5.1.6): a narrow bevel rounds every hard edge so plate rims catch
 # light instead of reading as knife edges, and weighted normals keep the large faces flat-shaded and clean.
-PLATE_BEVEL = {"width": .0025, "segments": 2, "angle": math.radians(40)}
+PLATE_BEVEL = {"width": .004, "segments": 3, "angle": math.radians(40)}
 # Owner answer on #120 (option A): Smart-UV unwrap and pack, then a baked ambient-occlusion map per piece, bound as the
 # glTF occlusion texture so crevices and overlaps read at the game camera.
 PLATE_AO = {"size": 512, "samples": 64, "distance": .08, "island_margin": .02, "bake_margin": 4}
