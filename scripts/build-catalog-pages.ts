@@ -137,6 +137,7 @@ await copyFile(
 const comparisonRoot = path.join(outputRoot, "compare", "ranger");
 const comparison = await writeRangerComparisonData({
   repositoryRoot: root, outDir: comparisonRoot, bundleTar: process.env.ASSET_TOOLING_RANGER_BUNDLE_TAR || undefined,
+  bundleLabel: process.env.ASSET_TOOLING_RANGER_BUNDLE_LABEL || undefined,
   require: process.env.ASSET_TOOLING_REQUIRE_RANGER_COMPARISON === "1",
 });
 await mkdir(comparisonRoot, { recursive: true });
