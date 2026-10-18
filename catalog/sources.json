@@ -1860,6 +1860,141 @@
     },
     {
       "archiveMember": {
+        "archive": "quaternius.modular-character-outfits-fantasy-standard",
+        "path": "Modular Character Outfits - Fantasy[Standard]/Exports/glTF (Godot-Unreal)/Outfits/Male_Peasant.gltf"
+      },
+      "id": "quaternius.modular-character-outfits-fantasy-standard.male-peasant-gltf",
+      "kind": "mesh",
+      "license": {
+        "evidenceUrl": "https://quaternius.itch.io/modular-character-outfits-fantasy",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "model/gltf+json",
+      "metadata": {
+        "purpose": "Peasant base outfit under the soldier and knight armour (#117)"
+      },
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 32681,
+        "sha256": "8f5a6cf6c1cf96e0a0f8e1a861b4245d42b7f88d44e5076da3d48f3fc52f4e76"
+      },
+      "tags": [
+        "humanoid-baseline",
+        "outfit"
+      ],
+      "title": "Modular Character Outfits – Fantasy — Male_Peasant (glTF)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.modular-character-outfits-fantasy-standard",
+        "path": "Modular Character Outfits - Fantasy[Standard]/Exports/glTF (Godot-Unreal)/Outfits/Male_Peasant.bin"
+      },
+      "id": "quaternius.modular-character-outfits-fantasy-standard.male-peasant-bin",
+      "kind": "buffer",
+      "license": {
+        "evidenceUrl": "https://quaternius.itch.io/modular-character-outfits-fantasy",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "application/octet-stream",
+      "metadata": {
+        "purpose": "Peasant base outfit under the soldier and knight armour (#117)"
+      },
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 674764,
+        "sha256": "e46bde795f7b69b351d322d7a5628e07131cfb48ed0afe366293f1b3f530433c"
+      },
+      "tags": [
+        "humanoid-baseline",
+        "outfit"
+      ],
+      "title": "Modular Character Outfits – Fantasy — Male_Peasant (glTF buffer)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.modular-character-outfits-fantasy-standard",
+        "path": "Modular Character Outfits - Fantasy[Standard]/Exports/glTF (Godot-Unreal)/Outfits/T_Peasant_BaseColor.png"
+      },
+      "id": "quaternius.modular-character-outfits-fantasy-standard.t-peasant-basecolor-png",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://quaternius.itch.io/modular-character-outfits-fantasy",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/png",
+      "metadata": {
+        "purpose": "Peasant base outfit under the soldier and knight armour (#117)"
+      },
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 5055760,
+        "sha256": "a43635628d95571cd62fd4db0cc3a6ea32778b2bc02f242dda224c89d07f1ade"
+      },
+      "tags": [
+        "humanoid-baseline",
+        "outfit"
+      ],
+      "title": "Modular Character Outfits – Fantasy — T_Peasant_BaseColor (texture)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.modular-character-outfits-fantasy-standard",
+        "path": "Modular Character Outfits - Fantasy[Standard]/Exports/glTF (Godot-Unreal)/Outfits/T_Peasant_Normal.png"
+      },
+      "id": "quaternius.modular-character-outfits-fantasy-standard.t-peasant-normal-png",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://quaternius.itch.io/modular-character-outfits-fantasy",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/png",
+      "metadata": {
+        "purpose": "Peasant base outfit under the soldier and knight armour (#117)"
+      },
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 14110336,
+        "sha256": "7598fa7b63e46fd4dac29708bf5a81e05eb9a67280f7b13c61e28a9110eeb679"
+      },
+      "tags": [
+        "humanoid-baseline",
+        "outfit"
+      ],
+      "title": "Modular Character Outfits – Fantasy — T_Peasant_Normal (texture)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.modular-character-outfits-fantasy-standard",
+        "path": "Modular Character Outfits - Fantasy[Standard]/Exports/glTF (Godot-Unreal)/Outfits/T_Peasant_ORM.png"
+      },
+      "id": "quaternius.modular-character-outfits-fantasy-standard.t-peasant-orm-png",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://quaternius.itch.io/modular-character-outfits-fantasy",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/png",
+      "metadata": {
+        "purpose": "Peasant base outfit under the soldier and knight armour (#117)"
+      },
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 9903835,
+        "sha256": "e1932f5f91104afca89c501416a5fec09069b8552734237fc09045fabc4ca9b4"
+      },
+      "tags": [
+        "humanoid-baseline",
+        "outfit"
+      ],
+      "title": "Modular Character Outfits – Fantasy — T_Peasant_ORM (texture)"
+    },
+    {
+      "archiveMember": {
         "archive": "quaternius.universal-animation-library-standard",
         "path": "Animation Library[Standard]/Godot/AnimationLibrary_Godot_Standard.glb"
       },

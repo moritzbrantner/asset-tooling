@@ -169,6 +169,22 @@ const ASSETS: Asset[] = [
     ].map((name) => `${OUTFIT_DIR}/${name}`),
     substitutions: [],
   },
+  // #117 (owner answers 2026-10-17): the Male_Peasant outfit under the soldier and knight armour; its skin textures are the Ranger's.
+  {
+    role: "outfit",
+    archive: OUTFITS,
+    root: `${OUTFIT_DIR}/Male_Peasant.gltf`,
+    referenced: [
+      "Male_Peasant.bin",
+      "T_Peasant_Normal.png",
+      "T_Peasant_BaseColor.png",
+      "T_Peasant_ORM.png",
+      "T_Regular_Male_Normal.png",
+      "T_Regular_Male_Dark_BaseColor.png",
+      "T_Regular_Male_Roughness.png",
+    ].map((name) => `${OUTFIT_DIR}/${name}`),
+    substitutions: [],
+  },
   // #116 (owner answers 2026-10-17): the Light skin textures and the "Origin at 0" hairstyles. The hairstyles'
   // T_Hair_* textures are byte-identical to the body folder's members and resolve to them.
   { role: "body", archive: BASE, root: "Universal Base Characters[Standard]/Base Characters/Textures/T_Superhero_Male_Ligh.png", referenced: [], substitutions: [] },
@@ -300,10 +316,10 @@ const hydratedSkip: string | false =
 
 // ---------------------------------------------------------------- structure
 
-test("expected-member table: 41 members (26 body incl. 2 substitutes, 2 light skins and 8 hair, 13 outfit, 2 clips GLBs)", () => {
-  assert.equal(EXPECTED.size, 41);
+test("expected-member table: 46 members (26 body incl. 2 substitutes, 2 light skins and 8 hair, 18 outfit, 2 clips GLBs)", () => {
+  assert.equal(EXPECTED.size, 46);
   const byRole = (role: Role) => [...EXPECTED.values()].filter((member) => member.role === role).length;
-  assert.deepEqual([byRole("body"), byRole("outfit"), byRole("clips")], [26, 13, 2]);
+  assert.deepEqual([byRole("body"), byRole("outfit"), byRole("clips")], [26, 18, 2]);
   assert.deepEqual(
     SUBSTITUTIONS.map(({ path: memberPath }) => memberId(BASE, memberPath)),
     [`${BASE}.t-hair-1-normal-png`, `${BASE}.t-eye-normal-png`, `${BASE}.t-eye-normal-png`],

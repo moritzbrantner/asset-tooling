@@ -5,6 +5,7 @@ import {createHash} from "node:crypto";
 import {createHumanoidSocketDescriptor,humanoidSocketMatrix,humanoidSocketsAccepting,validateHumanoidSocketDescriptor,
  HUMANOID_SOCKETS_SCHEMA,type HumanoidSocket} from "../src/humanoid-sockets.js";
 import {WEAPON_ROLES} from "../src/weapon-recipes.js";
+import {ARMOR_JOINTS} from "../src/armor-recipes.js";
 import {deriveHandSockets,deriveRangerSockets,handFrame,quaternionFromAxes,restWorlds} from "../examples/weapons/derive-sockets.ts";
 
 const descriptor=JSON.parse(await readFile(new URL("../assets/descriptors/humanoid.ranger.male.sockets.json",import.meta.url),"utf8"));
@@ -14,12 +15,14 @@ const hydrated=!outfitText.startsWith("version https://git-lfs.github.com/spec/v
 const socket=(change:Partial<Record<keyof HumanoidSocket,unknown>>={})=>({id:"hand_r.weapon",joint:"hand_r",translation:[0,.1,0],rotation:[0,0,0,1],accepts:["one-hand-weapon"],...change});
 const make=(sockets:unknown[])=>({schema:HUMANOID_SOCKETS_SCHEMA,character:"humanoid.ranger.male",unit:"meter",axes:"right-handed-y-up",attachFrame:"grip",sockets});
 
-test("the committed Ranger descriptor declares the hand, stowed, archery and hair sockets",()=>{
- const d=validateHumanoidSocketDescriptor(descriptor,{joints:["hand_r","hand_l","spine_03","pelvis","Head"]});
+test("the committed Ranger descriptor declares the hand, stowed, archery, hair and armour sockets",()=>{
+ const d=validateHumanoidSocketDescriptor(descriptor,{joints:["hand_r","hand_l","spine_03","pelvis",...ARMOR_JOINTS]});
  assert.deepEqual(d,descriptor,"the committed file is already canonical");
  assert.deepEqual(d.sockets.map(s=>[s.id,s.joint]),[["hand_r.weapon","hand_r"],["hand_l.shield","hand_l"],["back.stowed","spine_03"],["hip_l.stowed","pelvis"],
-  ["hand_l.bow","hand_l"],["hand_r.arrow","hand_r"],["back.quiver","spine_03"],["back.bow.stowed","spine_03"],["head.hair","Head"]]);
+  ["hand_l.bow","hand_l"],["hand_r.arrow","hand_r"],["back.quiver","spine_03"],["back.bow.stowed","spine_03"],["head.hair","Head"],
+  ...ARMOR_JOINTS.map(joint=>[`${joint.toLowerCase()}.armor`,joint])]);
  assert.deepEqual(humanoidSocketsAccepting(d,"hair"),["head.hair"]);
+ assert.deepEqual(humanoidSocketsAccepting(d,"armor"),ARMOR_JOINTS.map(joint=>`${joint.toLowerCase()}.armor`));
  assert.deepEqual(humanoidSocketsAccepting(d,"bow"),["hand_l.bow","back.bow.stowed"]);
  assert.deepEqual(humanoidSocketsAccepting(d,"arrow"),["hand_r.arrow"]);
  assert.deepEqual(humanoidSocketsAccepting(d,"quiver"),["back.quiver"]);

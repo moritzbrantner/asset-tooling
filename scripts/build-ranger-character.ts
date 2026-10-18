@@ -1,6 +1,6 @@
 // Build the Ranger character bundle end to end from its canonical catalog members
 // (docs/humanoid-ranger.md):
-//   bun scripts/build-ranger-character.ts --processor-checkout <3d-lab checkout> --out <directory> [--version 1|2|3|4|5|6|7|8] [--figure male|female] [--mixamo-dir <dir>]
+//   bun scripts/build-ranger-character.ts --processor-checkout <3d-lab checkout> --out <directory> [--version 1..10] [--figure male|female] [--mixamo-dir <dir>]
 // The 3d-lab checkout must be source-clean at the commit stability/processors.json pins for
 // `three-d-animation-retarget`, with its cargo dependencies fetched (the processor runs --offline).
 // <directory> becomes the object-store root; the bundle is exported to <directory>/bundle and packed
@@ -48,6 +48,7 @@ import { executeImageDecodeOperation, executeImageEncodePngOperation } from "../
 import { encodeRgba8Image, parseRgba8Image, RGBA8_IMAGE_MEDIA_TYPE, type Rgba8Image } from "../src/image-rgba8.js";
 import { sha256Bytes } from "../src/hash.js";
 import { parseAssetSpec } from "../src/schema.js";
+import { ARMOR_FACTION, ARMOR_KITS, createArmorAssetSpec, readArmorRecipeSource, type ArmorKit, type ArmorOutput } from "../src/armor-recipes.js";
 import { ARCHERY_PRESETS, createArcheryAssetSpec, readArcheryRecipeSource, type ArcheryPiece } from "../src/archery-recipes.js";
 import type { AssetOperationResult, AssetRef } from "../src/operations.js";
 
@@ -67,9 +68,9 @@ export const RANGER_MEMBERS = {
   clips: { archive: "quaternius.universal-animation-library-standard", path: "Animation Library[Standard]/Godot/AnimationLibrary_Godot_Standard.glb" },
   clips2: { archive: "quaternius.universal-animation-library-2-standard", path: "Universal Animation Library 2 [Standard]/Unreal-Godot/UAL2_Standard.glb" },
 } as const;
-export type RangerVersion = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
-export const RANGER_VERSIONS: readonly RangerVersion[] = [1, 2, 3, 4, 5, 6, 7, 8, 9];
-export const RANGER_DEFAULT_VERSION: RangerVersion = 9;
+export type RangerVersion = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
+export const RANGER_VERSIONS: readonly RangerVersion[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+export const RANGER_DEFAULT_VERSION: RangerVersion = 10;
 /** v3 (#257): per-slot maximum texture edges for browser delivery; images are never upscaled. */
 export const RANGER_TEXTURE_POLICY = {
   maxEdgeBySlot: { baseColor: 1024, normal: 1024, metallicRoughness: 512, occlusion: 512, emissive: 1024 },
@@ -117,6 +118,13 @@ export const RANGER_APPEARANCE = {
 /** Hair tints (D4, linear RGB), applied as the base colour factor on top of `T_Hair_1`. */
 export const RANGER_HAIR_TINTS = { black: [0.02, 0.02, 0.02], brown: [0.18, 0.09, 0.04], blond: [0.62, 0.48, 0.25] } as const;
 export const RANGER_APPEARANCE_ATTACHMENT = "humanoid-appearance";
+/**
+ * v10 outfits (#117, owner answers 2026-10-17): the archer is the Ranger outfit (`default`); the soldier and the knight
+ * wear the Peasant outfit under original armour from adapters/blender/armor.py (male figure first, Q8). Each outfit is a
+ * character variant with the same skeleton and clips; its rigid plates are one `armor.<kit>` entry whose nodes ride the
+ * `<joint>.armor` sockets, and its skinned garments are composed into the variant.
+ */
+export const RANGER_PEASANT_OUTFIT = { archive: "quaternius.modular-character-outfits-fantasy-standard", path: "Modular Character Outfits - Fantasy[Standard]/Exports/glTF (Godot-Unreal)/Outfits/Male_Peasant.gltf" } as const;
 const hairKey = (style: string) => `hair.${style.replace(/^Hair_/, "").replace(/([a-z])([A-Z])/g, "$1-$2").toLowerCase()}`;
 
 /** The head/face subset of the UBC body (docs/gltf-subset.md, owner option A on #110). */
@@ -224,7 +232,7 @@ export const RANGER_MIXAMO_LICENSE = "Mixamo (Adobe): free, royalty-free use in 
 /** The forward gait loops whose ground speed the v6 `humanoid-clips` attachment records. */
 export const RANGER_GAITS: ReadonlySet<string> = new Set(["Walk_Loop", "Jog_Fwd_Loop", "Sprint_Loop", "Crouch_Fwd_Loop"]);
 /** The clips a bundle version retargets, in bundle order. */
-export function rangerClips(version: RangerVersion): readonly RangerClip[] {
+export function rangerClips(version: RangerVersion): readonly RangerClip[] { // v9 and v10 add appearance, not clips
   return version === 1 ? RANGER_CLIPS : version < 6 ? RANGER_V2_CLIPS : version === 6 ? RANGER_V6_CLIPS : version === 7 ? RANGER_V7_CLIPS : RANGER_V8_CLIPS; // v9 adds appearance, not clips
 }
 export const RANGER_CLIPS_ATTACHMENT = "humanoid-clips";
@@ -473,6 +481,24 @@ async function convertMixamoClip(root: string, fbx: string, clip: string, target
   return { glb, fbxSha256: sha256Bytes(bytes), observations: (generated.receipt.observations as Json).script as Json };
 }
 
+/** Fit one armour kit's plates or cloth to the base character (adapters/blender/armor.py) and import the GLB. */
+async function buildArmor(root: string, kit: ArmorKit, output: ArmorOutput, target: AssetRef) {
+  const source = await readArmorRecipeSource();
+  const workspace = path.join(root, "armor", `${kit}-${output}`);
+  await mkdir(workspace, { recursive: true });
+  await writeFile(path.join(workspace, "armor.py"), source.bytes);
+  const targetBytes = await resolveAssetObject(root, target);
+  await writeFile(path.join(workspace, "target.glb"), targetBytes);
+  const spec = createArmorAssetSpec({ assetId: `armor.${kit}.${output}`, parameters: { schemaVersion: 1, kit, output },
+    scriptSha256: source.sha256, targetSha256: sha256Bytes(targetBytes), blenderVersion: source.blenderVersion });
+  const specPath = path.join(workspace, "asset.json");
+  await writeFile(specPath, `${canonicalJson(spec)}\n`);
+  const generated = await generateAsset(specPath);
+  const glb = (await storeAssetObject(root, { bytes: await readFile(path.join(workspace, "armor.glb")), kind: "mesh", mediaType: "model/gltf-binary" })).asset;
+  return { glb: single(await executeGltfProductionImportOperation(root, { inputs: { source: glb }, parameters: { policy: POLICY } })),
+    observations: (generated.receipt.observations as Json).script as Json };
+}
+
 /** Generate one archery-recipe preset through the pinned Blender backend and import it (the bow keeps its skin). */
 async function buildArchery(root: string, piece: ArcheryPiece) {
   const source = await readArcheryRecipeSource();
@@ -493,7 +519,8 @@ export async function buildRangerCharacter({ processorCheckout, outDir, version 
   const shape = RANGER_FIGURES[figure];
   if (version < shape.minVersion) throw new Error(`the ${figure} Ranger starts at bundle version ${shape.minVersion}`);
   const bundleKey = shape.key;
-  if (!RANGER_VERSIONS.includes(version)) throw new Error("Ranger bundle version must be 1 to 8");
+  if (!RANGER_VERSIONS.includes(version)) throw new Error("Ranger bundle version must be 1 to 10");
+  if (version >= 10 && figure !== "male") throw new Error("the v10 outfits are male-only for now (#117 Q8); build the female figure at --version 9");
   const root = path.resolve(outDir);
   await mkdir(root, { recursive: true });
   const processor = await rangerProcessor(path.resolve(processorCheckout));
@@ -684,6 +711,45 @@ export async function buildRangerCharacter({ processorCheckout, outDir, version 
       hair.push({ key: hairKey(style), style, variants });
     }
     const hairMaterials = async (asset: AssetRef) => (await new NodeIO().readBinary(new Uint8Array(await resolveAssetObject(root, asset)))).getRoot().listMaterials().map((material) => material.getName());
+    // v10 (#117): the soldier and knight outfit variants and their rigid armour entries.
+    const outfits: Json[] = [{ id: "outfit.archer", variant: RANGER_BUNDLE_VARIANT, label: "Archer" }];
+    const kits: { kit: ArmorKit; variant: string; character: AssetRef; plates: AssetRef; cloth: AssetRef; fitTarget: AssetRef; observations: Json[] }[] = [];
+    if (version >= 10) {
+      log("outfits: Peasant base and fitted armour (#117)");
+      const peasant = await importGltf(RANGER_PEASANT_OUTFIT);
+      const fitTarget = single(await executeGltfComposeSkinnedOperation(root, { inputs: { skeleton: peasant, parts: [head] }, parameters: { policy: POLICY } }));
+      const peasantMeshes = (await new NodeIO().readBinary(new Uint8Array(await resolveAssetObject(root, peasant)))).getRoot().listMeshes().map((mesh) => mesh.getName());
+      const { jointNames } = JSON.parse((await resolveAssetObject(root, targetRig)).toString("utf8"));
+      for (const kit of ARMOR_KITS) {
+        log(`fit ${kit} armour (external.blender.script@1 armor recipe)`);
+        const plates = await buildArmor(root, kit, "plates", fitTarget);
+        const cloth = await buildArmor(root, kit, "cloth", fitTarget);
+        const pieces: Json[] = [...plates.observations.pieces, ...cloth.observations.pieces];
+        const hidden = [...new Set(pieces.flatMap((piece) => piece.hides as string[]))].sort();
+        // The hidden-body-region list (Q12): base nodes a garment fully covers are left out of the variant.
+        const base = hidden.length === 0 ? peasant : single(await executeGltfSubsetSkinnedOperation(root, {
+          inputs: { source: peasant }, parameters: { keepJoints: ["root"], minWeight: 1, keepMeshes: peasantMeshes.filter((name) => !hidden.includes(name)), policy: POLICY },
+        }));
+        const composedKit = single(await executeGltfComposeSkinnedOperation(root, { inputs: { skeleton: base, parts: [head, cloth.glb] }, parameters: { policy: POLICY } }));
+        const kitRig = single(await executeGltfExtractAnimationOperation(root, { inputs: { source: composedKit }, parameters: { hipsJoint: RANGER_HIPS.target, policy: POLICY } }), "rig");
+        if (JSON.stringify(JSON.parse((await resolveAssetObject(root, kitRig)).toString("utf8")).jointNames) !== JSON.stringify(jointNames)) {
+          throw new Error(`the ${kit} outfit's joints differ from the Ranger rig, so the clips cannot be shared`);
+        }
+        const animatedKit = single(await executeGltfEmbedAnimationOperation(root, {
+          inputs: { source: composedKit, animations: clips.map((clip) => clip.retargeted) },
+          parameters: { clips: clips.map((clip) => ({ name: clip.name })), policy: POLICY },
+        }));
+        const variant = `outfit.${kit}`;
+        kits.push({ kit, variant, character: await resizeTextures(`${bundleKey}/${variant}`, animatedKit), plates: plates.glb, cloth: cloth.glb, fitTarget, observations: pieces });
+        outfits.push({
+          id: variant, variant, label: kit === "soldier" ? "Soldier" : "Knight",
+          base: { outfit: "Male_Peasant", hidden },
+          armor: { entry: `armor.${kit}`, pieces: (plates.observations.pieces as Json[]).map((piece) => ({ node: piece.node, socket: `${String(piece.joint).toLowerCase()}.armor`, hides: piece.hides })) },
+          garments: (cloth.observations.pieces as Json[]).map((piece) => ({ id: piece.node, nodes: piece.nodes, hides: piece.hides })),
+          faction: { materials: [ARMOR_FACTION.material], defaultBaseColorFactor: [...ARMOR_FACTION.default, 1] },
+        });
+      }
+    }
     const characterDocument = await new NodeIO().readBinary(new Uint8Array(await resolveAssetObject(root, character)));
     const eyebrowMaterials = characterDocument.getRoot().listNodes().filter((node) => node.getName() === look.eyebrows && node.getMesh())
       .flatMap((node) => node.getMesh()!.listPrimitives().map((primitive) => primitive.getMaterial()?.getName() ?? ""));
@@ -702,9 +768,10 @@ export async function buildRangerCharacter({ processorCheckout, outDir, version 
       }))),
       tints: Object.entries(RANGER_HAIR_TINTS).map(([id, color]) => ({ id: `tint.${id}`, baseColorFactor: [...color, 1], texture: "hair-1" })),
       eyebrows: { nodes: [look.eyebrows], tintMaterials: [...new Set(eyebrowMaterials)].sort(), followsHairTint: true },
+      ...(version >= 10 ? { outfits } : {}),
     };
     const descriptorAsset = (await storeAssetObject(root, { bytes: Buffer.from(`${canonicalJson(descriptor)}\n`), kind: "humanoid-appearance", mediaType: "application/json" })).asset;
-    return { light: lightCharacter, hair, descriptor: descriptorAsset, transfer, composedLight };
+    return { light: lightCharacter, hair, descriptor: descriptorAsset, transfer, composedLight, kits };
   };
   const descriptorPath = figure === "female" ? RANGER_FEMALE_SOCKETS_DESCRIPTOR : rangerSocketsDescriptor(version);
   if (descriptorPath) {
@@ -723,6 +790,10 @@ export async function buildRangerCharacter({ processorCheckout, outDir, version 
       for (const hair of appearance.hair) for (const [variant, asset] of Object.entries(hair.variants)) {
         selections.push({ key: hair.key, variant });
         assets.push(asset);
+      }
+      for (const kit of appearance.kits) {
+        selections.push({ key: bundleKey, variant: kit.variant }, { key: `armor.${kit.kit}`, variant: RANGER_BUNDLE_VARIANT });
+        assets.push(kit.character, kit.plates);
       }
       selections[0]!.attachments.push({ name: RANGER_APPEARANCE_ATTACHMENT });
       attachments.push(appearance.descriptor);
@@ -776,7 +847,7 @@ export async function buildRangerCharacter({ processorCheckout, outDir, version 
       ...(version >= 2 ? { sockets, socketsDescriptor: descriptorPath, weapons } : {}),
       ...(version >= 3 ? { character, textures, texturePolicy: RANGER_TEXTURE_POLICY } : {}),
       ...(version >= 6 ? { clipMotion } : {}),
-      ...(version >= 9 ? { appearance: appearance && { light: appearance.light, composedLight: appearance.composedLight, transfer: appearance.transfer, hair: appearance.hair, descriptor: appearance.descriptor } } : {}),
+      ...(version >= 9 ? { appearance: appearance && { light: appearance.light, composedLight: appearance.composedLight, transfer: appearance.transfer, hair: appearance.hair, descriptor: appearance.descriptor, kits: appearance.kits } } : {}),
     },
   };
 }
@@ -798,7 +869,7 @@ function parseArguments(args: string[]) {
 if (import.meta.main) {
   const options = parseArguments(process.argv.slice(2));
   if (!options) {
-    console.error("Usage: bun scripts/build-ranger-character.ts --processor-checkout <absolute 3d-lab checkout> --out <directory> [--version 1|2|3|4|5|6|7|8] [--figure male|female] [--mixamo-dir <dir>]");
+    console.error("Usage: bun scripts/build-ranger-character.ts --processor-checkout <absolute 3d-lab checkout> --out <directory> [--version 1..10] [--figure male|female] [--mixamo-dir <dir>]");
     process.exit(2);
   }
   try {
