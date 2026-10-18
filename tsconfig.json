@@ -30,6 +30,7 @@
     "src/animation-viewer-eligibility.ts",
     "src/animation-viewer-page.ts",
     "src/browser/animation-viewer.ts",
+    "src/browser/three-character.ts",
     "examples/grass-clumps/build.ts",
     "test/grass-recipes.test.ts",
     "src/grass-recipes.ts",
