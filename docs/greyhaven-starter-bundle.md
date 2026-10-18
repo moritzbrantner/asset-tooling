@@ -131,6 +131,36 @@ blender --background --factory-startup --python examples/greyhaven-kit/render-co
 
 `--figure` adds a character for scale, for example the Ranger. The compositions are review data only. Placement, opening state and collision policy in a game stay with mmorpg and arpg.
 
+## Variations (#121)
+
+[#121](https://github.com/moritzbrantner/asset-tooling/issues/121) adds controlled variations of four kit families, so the kit gains usable sizes and constructions without new source assets. `GREYHAVEN_VARIATIONS` declares each one as recipe data, and `sliceResizeDocument` ([`src/gltf-slice-resize.ts`](../src/gltf-slice-resize.ts)) builds it from the placed source member:
+
+- **Margins and middle:** each axis is cut into a fixed margin at both ends and a stretchable middle. Vertices in a margin move with their end, so rims, trims, posts and fittings keep their size. The middle is scaled to reach the requested outer size.
+- **Placement:** X and Z stay centred and Y keeps its base, so a variation stands where its source stands.
+- **Normals:** stretched normals are corrected with the inverse scale.
+- **Construction choice:** `dropMaterials` removes a part by material, for example the crate's metal fittings.
+- **Shared resources:** UVs, materials and textures are unchanged. A variation therefore shares its source's trim-sheet textures in the bundle; they are stored once.
+- **Validation:** each variation goes back through `scene.import.gltf@2` and gets a descriptor entry with `variationOf`, `label`, its measured footprint and a bounds collision proxy.
+
+| Family | Variation key | Change |
+| --- | --- | --- |
+| crate | `crate-long` | 1.5 m wide |
+| crate | `crate-low` | 0.5 m high |
+| crate | `crate-plain` | without the metal fittings (`MI_Trim_Metal`) |
+| barrel | `keg` | 0.56 m in every axis |
+| barrel | `barrel-tall` | 1.25 m high |
+| barrel | `tub` | 1.0 m wide and deep, 0.55 m high |
+| wall | `wall-plain-1m`, `wall-plain-3m`, `wall-plain-4m` | 1, 3 and 4 m modules (end posts kept, middle stretched) |
+| fence | `fence-1m`, `fence-3m` | 1 and 3 m sections between the two posts |
+| fence | `fence-tall` | 1.3 m high |
+
+Keys are `greyhaven.starter.<variation>`. A new variation is one more `GREYHAVEN_VARIATIONS` row; no consumer code changes. Limits:
+
+- Stretching scales the middle's texture with it, so plaster and planks get longer. Small changes read fine at gameplay distance, and the 4 m wall shows it most.
+- Only static members can be resized. Rigged members such as the chest are rejected.
+
+`examples/greyhaven-kit/variations.json` lines every variation up next to its source for review (`render-composition.py`).
+
 ## Bundle and consumer pinning
 
 Each entry is `scenes/<key>/default.gltf` with one `.bin` and its PNGs as hash-addressed resources. The first five entries (#118) are:

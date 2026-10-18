@@ -16,6 +16,7 @@ import { createAssetCatalog } from "../src/catalog.js";
 import { importAssetCatalogStorageSource } from "../src/catalog-storage.js";
 import { executeGltfPlaceOperation } from "../src/gltf-place-operations.js";
 import { executeGltfProductionImportOperation } from "../src/gltf-production-operations.js";
+import { sliceResizeDocument } from "../src/gltf-slice-resize.js";
 import type { AssetOperationResult, AssetRef } from "../src/operations.js";
 
 type Json = Record<string, any>;
@@ -69,6 +70,30 @@ export const GREYHAVEN_MEMBERS: readonly GreyhavenMember[] = [
   { role: "bench", key: "greyhaven.starter.bench", category: "prop", archive: FANTASY, gltf: "Exports/glTF/Bench.gltf" },
   { role: "lantern", key: "greyhaven.starter.lantern", category: "prop", archive: FANTASY, gltf: "Exports/glTF/Lantern_Wall.gltf", collision: "none" },
   { role: "cart", key: "greyhaven.starter.cart", category: "prop", archive: FANTASY, gltf: "Exports/glTF/Stall_Cart_Empty.gltf" },
+];
+
+/**
+ * #121 controlled variations: each resizes a kit member to new outer dimensions with `sliceResizeDocument`, keeping
+ * fixed end margins (rims, trims, posts) and stretching the middle, and may drop a construction part by material.
+ * They share the source's materials and trim-sheet textures. Sizes are footprint W (x) × H (y) × D (z) in metres.
+ */
+export interface GreyhavenVariation {
+  role: string; key: string; base: GreyhavenRole; label: string;
+  size: Partial<Record<"x" | "y" | "z", number>>; margin: Record<"x" | "y" | "z", number>; dropMaterials?: string[];
+}
+export const GREYHAVEN_VARIATIONS: readonly GreyhavenVariation[] = [
+  { role: "crate-long", key: "greyhaven.starter.crate-long", base: "crate", label: "long crate", size: { x: 1.5 }, margin: { x: 0.12, y: 0.12, z: 0.12 } },
+  { role: "crate-low", key: "greyhaven.starter.crate-low", base: "crate", label: "low crate", size: { y: 0.5 }, margin: { x: 0.12, y: 0.12, z: 0.12 } },
+  { role: "crate-plain", key: "greyhaven.starter.crate-plain", base: "crate", label: "crate without metal fittings", size: {}, margin: { x: 0.12, y: 0.12, z: 0.12 }, dropMaterials: ["MI_Trim_Metal"] },
+  { role: "keg", key: "greyhaven.starter.keg", base: "barrel", label: "keg", size: { x: 0.56, y: 0.56, z: 0.56 }, margin: { x: 0, y: 0.1, z: 0 } },
+  { role: "barrel-tall", key: "greyhaven.starter.barrel-tall", base: "barrel", label: "tall barrel", size: { y: 1.25 }, margin: { x: 0, y: 0.1, z: 0 } },
+  { role: "tub", key: "greyhaven.starter.tub", base: "barrel", label: "wide tub", size: { x: 1.0, y: 0.55, z: 1.0 }, margin: { x: 0, y: 0.1, z: 0 } },
+  { role: "wall-plain-1m", key: "greyhaven.starter.wall-plain-1m", base: "wall-plain", label: "1 m wall", size: { x: 1 }, margin: { x: 0.12, y: 0.25, z: 0.05 } },
+  { role: "wall-plain-3m", key: "greyhaven.starter.wall-plain-3m", base: "wall-plain", label: "3 m wall", size: { x: 3 }, margin: { x: 0.12, y: 0.25, z: 0.05 } },
+  { role: "wall-plain-4m", key: "greyhaven.starter.wall-plain-4m", base: "wall-plain", label: "4 m wall", size: { x: 4 }, margin: { x: 0.12, y: 0.25, z: 0.05 } },
+  { role: "fence-1m", key: "greyhaven.starter.fence-1m", base: "fence", label: "1 m fence", size: { x: 1.06 }, margin: { x: 0.12, y: 0.05, z: 0.02 } },
+  { role: "fence-3m", key: "greyhaven.starter.fence-3m", base: "fence", label: "3 m fence", size: { x: 3.06 }, margin: { x: 0.12, y: 0.05, z: 0.02 } },
+  { role: "fence-tall", key: "greyhaven.starter.fence-tall", base: "fence", label: "tall fence", size: { y: 1.3 }, margin: { x: 0.12, y: 0.12, z: 0.02 } },
 ];
 
 /** Doorway measurement: the ray grid and the band of the trunk used for the tree's trunk proxy. */
@@ -211,6 +236,13 @@ const box = (min: readonly number[], max: readonly number[], tag: string, name: 
   size: round3([max[0]! - min[0]!, max[1]! - min[1]!, max[2]! - min[2]!]),
 });
 
+function documentWorldBounds(document: Document) {
+  const triangles = worldTriangles(document).positions;
+  const min: Vec3 = [Infinity, Infinity, Infinity], max: Vec3 = [-Infinity, -Infinity, -Infinity];
+  for (let i = 0; i < triangles.length; i += 3) for (let a = 0; a < 3; a += 1) { min[a] = Math.min(min[a]!, triangles[i + a]!); max[a] = Math.max(max[a]!, triangles[i + a]!); }
+  return { min, max };
+}
+
 export async function buildGreyhavenStarter({ outDir, log = () => {} }: { outDir: string; log?: (line: string) => void }) {
   const root = path.resolve(outDir);
   await mkdir(root, { recursive: true });
@@ -265,6 +297,26 @@ export async function buildGreyhavenStarter({ outDir, log = () => {} }: { outDir
     };
   }
   const byRole = (role: GreyhavenRole) => built.find((item) => item.entry.role === role)!;
+
+  for (const variation of GREYHAVEN_VARIATIONS) {
+    const base = byRole(variation.base);
+    log(`vary ${variation.base} -> ${variation.role} (slice resize${variation.dropMaterials ? `, drop ${variation.dropMaterials.join(", ")}` : ""})`);
+    const document = await io.readBinary(new Uint8Array(await resolveAssetObject(root, base.placed)));
+    const resized = sliceResizeDocument(document, { size: variation.size, margin: variation.margin, dropMaterials: variation.dropMaterials });
+    const bytes = await io.writeBinary(document);
+    const placed = (await storeAssetObject(root, { bytes: Buffer.from(bytes), kind: "mesh", mediaType: "model/gltf-binary",
+      metadata: { variation: variation.role, base: base.placed.sha256 } })).asset;
+    // Re-validate through the same import boundary, then measure it like the other members.
+    const checked = single(await executeGltfProductionImportOperation(root, { inputs: { source: placed }, parameters: { policy: { allowedValidatorWarnings: [TANGENT_WARNING] } } }));
+    const reread = await io.readBinary(new Uint8Array(await resolveAssetObject(root, checked)));
+    const parent = reread.getRoot().listNodes().find((node) => node.getName() === base.parentName)!;
+    const bounds = documentWorldBounds(reread);
+    const footprint = { width: bounds.max[0]! - bounds.min[0]!, depth: bounds.max[2]! - bounds.min[2]!, height: bounds.max[1]! - bounds.min[1]! };
+    const entry: GreyhavenMember = { role: variation.role, key: variation.key, category: base.entry.category, archive: base.entry.archive, gltf: base.entry.gltf };
+    built.push({ entry, placed: checked, parentName: base.parentName, document: reread, variation: { ...variation, resized },
+      observations: { translation: parent.getTranslation(), footprint, bounds: { placed: bounds } } });
+    lineage.members[variation.role] = { key: variation.key, base: variation.base, placed: checked, variation: { size: variation.size, margin: variation.margin, dropMaterials: variation.dropMaterials ?? [], resized } };
+  }
 
   log("measure doorway and collision proxies");
   const wall = byRole("wall"), door = byRole("door"), frame = byRole("door-frame"), barrel = byRole("barrel"), tree = byRole("tree");
@@ -322,6 +374,7 @@ export async function buildGreyhavenStarter({ outDir, log = () => {} }: { outDir
       assetEntry(barrel, { collisionProxies: [boundsBox(barrel, "solid", "barrel")] }),
       assetEntry(tree, { collisionProxies: [trunkBox(tree)] }),
       ...built.filter((item) => ![wall, door, frame, barrel, tree].includes(item)).map((item) => assetEntry(item, {
+        ...(item.variation ? { variationOf: byRole(item.variation.base).entry.key, label: item.variation.label } : {}),
         ...(item.observations.sourcePivot ? { sourcePivot: { node: item.observations.sourcePivot.node, sourceWorldPosition: round3(item.observations.sourcePivot.sourceWorldPosition), placedWorldPosition: round3(item.observations.sourcePivot.placedWorldPosition) } } : {}),
         collisionProxies: item.entry.collision === "none" ? [] : item.entry.collision === "trunk" ? [trunkBox(item)] : [boundsBox(item, "solid", item.entry.role)],
       })),
@@ -333,7 +386,7 @@ export async function buildGreyhavenStarter({ outDir, log = () => {} }: { outDir
   })).asset;
   lineage.descriptor = descriptorRef;
 
-  log(`export gltf-resources-v1 bundle (asset.bundle@4, ${GREYHAVEN_MEMBERS.length} entries)`);
+  log(`export gltf-resources-v1 bundle (asset.bundle@4, ${built.length} entries)`);
   const bundleDir = path.join(root, "bundle");
   const exported = await exportAssetBundle(root, bundleDir, {
     parameters: {

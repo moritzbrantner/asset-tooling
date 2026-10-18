@@ -1,0 +1,20 @@
+{"title": "#121 variations next to their sources: crates, barrels, walls and fences",
+ "camera": [0, 3.6, 11.5], "target": [0, 1.1, -1.5], "lens": 32, "figure": {"at": [-5.6, 0, 1.2]},
+ "items": [
+  {"key": "greyhaven.starter.crate", "at": [-4.4, 0, 1.2]},
+  {"key": "greyhaven.starter.crate-long", "at": [-3.0, 0, 1.2]},
+  {"key": "greyhaven.starter.crate-low", "at": [-1.5, 0, 1.2]},
+  {"key": "greyhaven.starter.crate-plain", "at": [-0.4, 0, 1.2]},
+  {"key": "greyhaven.starter.barrel", "at": [0.9, 0, 1.2]},
+  {"key": "greyhaven.starter.keg", "at": [1.8, 0, 1.2]},
+  {"key": "greyhaven.starter.barrel-tall", "at": [2.7, 0, 1.2]},
+  {"key": "greyhaven.starter.tub", "at": [3.9, 0, 1.2]},
+  {"key": "greyhaven.starter.wall-plain-1m", "at": [-6.0, 0, -2.5]},
+  {"key": "greyhaven.starter.wall-plain", "at": [-4.3, 0, -2.5]},
+  {"key": "greyhaven.starter.wall-plain-3m", "at": [-1.6, 0, -2.5]},
+  {"key": "greyhaven.starter.wall-plain-4m", "at": [2.3, 0, -2.5]},
+  {"key": "greyhaven.starter.fence-1m", "at": [-5.5, 0, -0.6]},
+  {"key": "greyhaven.starter.fence", "at": [-3.6, 0, -0.6]},
+  {"key": "greyhaven.starter.fence-3m", "at": [-0.6, 0, -0.6]},
+  {"key": "greyhaven.starter.fence-tall", "at": [2.8, 0, -0.6]}
+ ]}
