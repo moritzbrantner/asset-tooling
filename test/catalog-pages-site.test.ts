@@ -59,9 +59,9 @@ test("gallery renders compact linked cards with image thumbnails and no provenan
 test("gallery offers direct visual review of generated outputs", () => {
   const html = renderCatalogGalleryHtml(model());
   assert.match(html, /aria-label="Review generated assets"/);
-  assert.match(html, /href="compare\\/ranger\\/"/);
-  assert.match(html, /href="review\\/warden-icons\\/"/);
-  assert.match(html, /href="generate\\/"/);
+  assert.match(html, /href="compare\/ranger\/"/);
+  assert.match(html, /href="review\/warden-icons\/"/);
+  assert.match(html, /href="generate\/"/);
   assert.match(html, /512, 64, 48 and 32 px/);
 });
 
