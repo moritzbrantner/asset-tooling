@@ -20,6 +20,7 @@ import {
   GREYHAVEN_BUNDLE_VARIANT, GREYHAVEN_DESCRIPTOR_ATTACHMENT, GREYHAVEN_DESCRIPTOR_SCHEMA, GREYHAVEN_MEMBERS, GREYHAVEN_VARIATIONS,
   buildGreyhavenStarter, worldTriangles,
 } from "../scripts/build-greyhaven-starter.ts";
+import { DEBRIS_PLANES, DEBRIS_VARIANT } from "../src/debris-recipe.js";
 
 type Json = Record<string, any>;
 const ROOT = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
@@ -77,7 +78,27 @@ test("the Greyhaven starter recipe builds a verified bundle with a measured door
     assert.equal((await readFile(`${built.tar}.sha256`, "utf8")).split(/\s+/)[0], built.tarSha256);
     const keys = [...GREYHAVEN_MEMBERS, ...GREYHAVEN_VARIATIONS].map((member) => member.key);
     const variants = lods ? [GREYHAVEN_BUNDLE_VARIANT, "lod1", "lod2"] : [GREYHAVEN_BUNDLE_VARIANT];
-    assert.deepEqual(manifest.assets.map((entry) => [entry.key, entry.variant]).sort(), keys.flatMap((key) => variants.map((variant) => [key, variant])).sort());
+    // #319: the crate, barrel and fence also ship pre-fractured debris (Blender, with the LODs).
+    const breakable = new Set(Object.keys(DEBRIS_PLANES).map((role) => `greyhaven.starter.${role}`));
+    assert.deepEqual(manifest.assets.map((entry) => [entry.key, entry.variant]).sort(), keys.flatMap((key) => [
+      ...variants.map((variant) => [key, variant]), ...(lods && breakable.has(key) ? [[key, DEBRIS_VARIANT]] : []),
+    ]).sort());
+    if (lods) {
+      for (const key of breakable) {
+        const debris = (built.descriptor.assets as Json[]).find((asset) => asset.key === key)!.debris as Json;
+        assert.equal(debris.variant, DEBRIS_VARIANT, key);
+        assert.ok(debris.chunks.length >= 4 && debris.chunks.length <= 8, `${key}: ${debris.chunks.length} chunks`);
+        assert.ok(Math.abs(debris.chunks.reduce((sum: number, chunk: Json) => sum + chunk.volumeShare, 0) - 1) < 0.01, key);
+        const { gltf } = await readAssetBundleGltf(built.bundleDir, manifest, key, DEBRIS_VARIANT);
+        const nodes = JSON.parse(gltf.toString("utf8")).nodes as Json[];
+        for (const chunk of debris.chunks) {
+          const node = nodes.find((candidate) => candidate.name === chunk.node);
+          assert.ok(node && node.mesh !== undefined, chunk.node);
+          assert.ok((node.translation as number[]).every((v, axis) => Math.abs(v - chunk.translation[axis]) < 1e-3), chunk.node);
+          assert.ok(chunk.collisionProxy.size.every((size: number) => size > 0), chunk.node);
+        }
+      }
+    }
 
     // The WoodTrim textures shared by wall, door and door frame are stored once (resized for the game since #124,
     // so they are matched by image name rather than by their source pins).
