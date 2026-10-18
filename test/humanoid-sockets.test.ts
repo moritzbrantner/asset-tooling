@@ -1,7 +1,6 @@
 import {test} from "node:test";
 import assert from "node:assert/strict";
 import {readFile} from "node:fs/promises";
-import {createHash} from "node:crypto";
 import {createHumanoidSocketDescriptor,humanoidSocketMatrix,humanoidSocketsAccepting,validateHumanoidSocketDescriptor,
  HUMANOID_SOCKETS_SCHEMA,type HumanoidSocket} from "../src/humanoid-sockets.js";
 import {WEAPON_ROLES} from "../src/weapon-recipes.js";
@@ -40,19 +39,6 @@ test("the committed Ranger descriptor declares the hand, stowed, archery, hair a
  assert.ok(face[0]!<-.99 && top[2]!>.95,`shield face ${face}, top ${top}`);
  // The two hand sockets mirror each other across the hand's palm plane.
  assert.deepEqual([s[12]!,s[13]!,s[14]!],[-m[12]!,m[13]!,m[14]!]);
-});
-
-test("the bundle-v2 descriptor (shipped by Ranger v2 and v3) is kept byte for byte",async()=>{
- const bytes=await readFile(new URL("../assets/descriptors/humanoid.ranger.male.sockets.bundle-v2.json",import.meta.url));
- assert.equal(createHash("sha256").update(bytes).digest("hex"),"3f71c0346200ddf03b45f191e35325ecedb41e937dab225c97ea31ac7542dfb1");
- const old=validateHumanoidSocketDescriptor(JSON.parse(bytes.toString("utf8")));
- assert.deepEqual(old.sockets.slice(2),descriptor.sockets.slice(2,4),"the stowed sockets are unchanged");
-});
-
-test("the bundle-v4 descriptor (shipped by Ranger v4-v6) is kept byte for byte and is the v7 descriptor without the archery sockets",async()=>{
- const bytes=await readFile(new URL("../assets/descriptors/humanoid.ranger.male.sockets.bundle-v4.json",import.meta.url));
- const old=validateHumanoidSocketDescriptor(JSON.parse(bytes.toString("utf8")));
- assert.deepEqual(old.sockets,descriptor.sockets.slice(0,4));
 });
 
 test("hand frames are derived in the joint's own frame, independent of the rig's world placement",()=>{

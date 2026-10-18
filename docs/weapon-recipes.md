@@ -78,4 +78,4 @@ Frames (`ARCHERY_GRIP_CONTRACT`):
 
 The 3d-lab item loader (`adaptImportedItemBundle`) accepts static items only, so consumers cannot load the skinned bow there yet.
 
-Not yet covered: bow draw and release clips (split out of #114), spear and staff, textured or heraldic variants, and the consumer smoke in arpg. The combat clips and the weapon bundle entries are part of the [Ranger bundle v2](humanoid-ranger.md#versions).
+Not yet covered: bow draw and release clips (split out of #114), spear and staff, textured or heraldic variants, and the consumer smoke in arpg. The combat clips and the weapon bundle entries are part of the [Ranger bundle](humanoid-ranger.md#contents).

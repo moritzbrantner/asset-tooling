@@ -1,29 +1,12 @@
-// Build the Ranger character bundle end to end from its canonical catalog members
+// Build the current Ranger character bundle end to end from its canonical catalog members
 // (docs/humanoid-ranger.md):
-//   bun scripts/build-ranger-character.ts --processor-checkout <3d-lab checkout> --out <directory> [--version 1..11] [--figure male|female] [--mixamo-dir <dir>]
+//   bun scripts/build-ranger-character.ts --processor-checkout <3d-lab checkout> --out <directory> --mixamo-dir <dir> [--figure male|female]
 // The 3d-lab checkout must be source-clean at the commit stability/processors.json pins for
 // `three-d-animation-retarget`, with its cargo dependencies fetched (the processor runs --offline).
 // <directory> becomes the object-store root; the bundle is exported to <directory>/bundle and packed
-// to <directory>/humanoid.ranger.male.tar (+ .sha256) with scripts/pack-asset-bundle.ts.
-// Version 2 (#260/#113) adds the run, sword, death and shield-guard clips, the sword
-// and shield weapon entries (Blender weapon recipe, ASSET_TOOLING_BLENDER) and the
-// humanoid-sockets-v1 descriptor as an attachment of the character entry. Version 1 is the #110 build.
-// Version 3 (#257) is v2 with game-resolution PNG textures (scene.textures.resize.gltf@1,
-// RANGER_TEXTURE_POLICY); keys, variants, scenes, materials, UVs, clips and sockets are those of v2.
-// Version 4 (#113) is v3 with the anatomically derived hand sockets
-// (examples/weapons/derive-sockets.ts); v2 and v3 keep shipping the bundle-v2 descriptor.
-// Version 5 (#268) is v4 with every clip retargeted through all three spine joints: the
-// optional `upper-chest` HumanoidBone (3d-lab 4e69c0f) carries DEF-spine.003 -> spine_03, and `chest`
-// now binds the middle joint DEF-spine.002 -> spine_02 (RANGER_V5_BONE_MAP). v1-v4 keep their
-// two-bone spine map; the processor leaves an unmapped `upper-chest` exactly as before, so they
-// still build their recorded tars at the new pin.
-// Version 6 (the default, #112) is v5 with the traversal clips (UAL1 jump, crouch and roll; UAL2 climb
-// and slide) and a `humanoid-clips` attachment that records each clip's source, loop flag, duration,
-// the source root displacement removed by in-place retargeting, and the ground speed of the gaits.
-// Version 7 (the default, #113 bow slice and #114) is v6 with the scripted bow, arrow and quiver entries
-// (adapters/blender/archery.py; the bow is skinned to `grip` and `nock`), the archery sockets, and the
-// owner-picked sword, shield, hit and cast clips; `humanoid-clips` adds each clip's combat role and,
-// for strikes, the contact time.
+// to <directory>/humanoid.ranger.male.tar (+ .sha256) with scripts/pack-asset-bundle.ts. There is one
+// current recipe and no numbered bundle versions (Atlas Decision 7.1.5); the result replaces the assets of
+// the rolling `humanoid-ranger-male` release.
 import path from "node:path";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
@@ -68,10 +51,7 @@ export const RANGER_MEMBERS = {
   clips: { archive: "quaternius.universal-animation-library-standard", path: "Animation Library[Standard]/Godot/AnimationLibrary_Godot_Standard.glb" },
   clips2: { archive: "quaternius.universal-animation-library-2-standard", path: "Universal Animation Library 2 [Standard]/Unreal-Godot/UAL2_Standard.glb" },
 } as const;
-export type RangerVersion = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11;
-export const RANGER_VERSIONS: readonly RangerVersion[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
-export const RANGER_DEFAULT_VERSION: RangerVersion = 11;
-/** v3 (#257): per-slot maximum texture edges for browser delivery; images are never upscaled. */
+/** #257: per-slot maximum texture edges for browser delivery; images are never upscaled. */
 export const RANGER_TEXTURE_POLICY = {
   maxEdgeBySlot: { baseColor: 1024, normal: 1024, metallicRoughness: 512, occlusion: 512, emissive: 1024 },
   default: 1024,
@@ -79,23 +59,22 @@ export const RANGER_TEXTURE_POLICY = {
 
 /**
  * The Ranger figures (#115, owner answer Q1 = A): the male Ranger, and the female Ranger built from the UBC female
- * body and the Female_Ranger outfit with the same clips, equipment and recipe. The female figure starts at v7.
+ * body and the Female_Ranger outfit with the same clips, equipment and recipe.
  */
 export type RangerFigure = "male" | "female";
 export const RANGER_FIGURES = {
-  male: { key: "humanoid.ranger.male", body: RANGER_MEMBERS.body, outfit: RANGER_MEMBERS.outfit, headMeshes: ["Face", "Face.001"], minVersion: 1 },
+  male: { key: "humanoid.ranger.male", body: RANGER_MEMBERS.body, outfit: RANGER_MEMBERS.outfit, headMeshes: ["Face", "Face.001"] },
   female: {
     key: "humanoid.ranger.female",
     body: { archive: "quaternius.universal-base-characters-standard", path: "Universal Base Characters[Standard]/Base Characters/Godot - UE/Superhero_Female_FullBody.gltf" },
     outfit: { archive: "quaternius.modular-character-outfits-fantasy-standard", path: "Modular Character Outfits - Fantasy[Standard]/Exports/glTF (Godot-Unreal)/Outfits/Female_Ranger.gltf" },
     headMeshes: ["Eyebrows", "Eyes"],
-    minVersion: 7,
   },
-} as const satisfies Record<RangerFigure, { key: string; body: { archive: string; path: string }; outfit: { archive: string; path: string }; headMeshes: readonly string[]; minVersion: RangerVersion }>;
+} as const satisfies Record<RangerFigure, { key: string; body: { archive: string; path: string }; outfit: { archive: string; path: string }; headMeshes: readonly string[] }>;
 export const RANGER_FEMALE_SOCKETS_DESCRIPTOR = "assets/descriptors/humanoid.ranger.female.sockets.json";
 
 /**
- * v9 appearance (#116, owner answers 2026-10-17: Light and Dark skins, hairstyles per figure, both hair textures,
+ * Appearance (#116, owner answers 2026-10-17: Light and Dark skins, hairstyles per figure, both hair textures,
  * black/brown/blond tints, a toggleable hood). Skin variants re-import the body and outfit with the Light base
  * colours bound to their URIs; the outfit's skin texture has no Light original, so it is derived (Q13 = A).
  */
@@ -119,7 +98,7 @@ export const RANGER_APPEARANCE = {
 export const RANGER_HAIR_TINTS = { black: [0.02, 0.02, 0.02], brown: [0.18, 0.09, 0.04], blond: [0.62, 0.48, 0.25] } as const;
 export const RANGER_APPEARANCE_ATTACHMENT = "humanoid-appearance";
 /**
- * v10 outfits (#117, owner answers 2026-10-17): the archer is the Ranger outfit (`default`); the soldier and the knight
+ * Outfits (#117, owner answers 2026-10-17): the archer is the Ranger outfit (`default`); the soldier and the knight
  * wear the Peasant outfit under original armour from adapters/blender/armor.py (male figure first, Q8). Each outfit is a
  * character variant with the same skeleton and clips; its rigid plates are one `armor.<kit>` entry whose nodes ride the
  * `<joint>.armor` sockets, and its skinned garments are composed into the variant.
@@ -135,14 +114,13 @@ export const RANGER_HIPS = { source: "DEF-hips", source2: "pelvis", target: "pel
 
 /** `mixamo` clips (Atlas 6.1.6) come from a local Mixamo FBX named by `mixamo`; raw files never enter git or the catalog. */
 export type RangerClip = { name: string; library: "clips" | "clips2" | "mixamo"; rootMotion: "in-place"; mixamo?: string };
-/** The v1 UAL1 clips and how they are retargeted (in-place: root translation removed, vertical bob kept). */
-export const RANGER_CLIPS: readonly RangerClip[] = [
+/** Idle and walk (#110), retargeted in place: root translation removed, vertical bob kept. */
+const BASE_CLIPS: readonly RangerClip[] = [
   { name: "Idle_Loop", library: "clips", rootMotion: "in-place" },
   { name: "Walk_Loop", library: "clips", rootMotion: "in-place" },
 ];
-/** v2 (#260, #113): run gaits, sword idle/attack and death from UAL1, the shield guard from UAL2; source names kept. */
-export const RANGER_V2_CLIPS: readonly RangerClip[] = [
-  ...RANGER_CLIPS,
+/** #260, #113: run gaits, sword idle/attack and death from UAL1, the shield guard from UAL2; source names kept. */
+const GAIT_COMBAT_CLIPS: readonly RangerClip[] = [
   { name: "Jog_Fwd_Loop", library: "clips", rootMotion: "in-place" },
   { name: "Sprint_Loop", library: "clips", rootMotion: "in-place" },
   { name: "Sword_Idle", library: "clips", rootMotion: "in-place" },
@@ -150,9 +128,8 @@ export const RANGER_V2_CLIPS: readonly RangerClip[] = [
   { name: "Death01", library: "clips", rootMotion: "in-place" },
   { name: "Idle_Shield_Loop", library: "clips2", rootMotion: "in-place" },
 ];
-/** v6 (#112): jump, crouch, roll, climb and slide clips. The free Standard libraries have no backward, strafe, start/stop or turn clips. */
-export const RANGER_V6_CLIPS: readonly RangerClip[] = [
-  ...RANGER_V2_CLIPS,
+/** #112: jump, crouch, roll, climb and slide clips. */
+const TRAVERSAL_CLIPS: readonly RangerClip[] = [
   { name: "Jump_Start", library: "clips", rootMotion: "in-place" },
   { name: "Jump_Loop", library: "clips", rootMotion: "in-place" },
   { name: "Jump_Land", library: "clips", rootMotion: "in-place" },
@@ -165,9 +142,8 @@ export const RANGER_V6_CLIPS: readonly RangerClip[] = [
   { name: "Slide_Loop", library: "clips2", rootMotion: "in-place" },
   { name: "Slide_Exit", library: "clips2", rootMotion: "in-place" },
 ];
-/** v7 (#114, owner picks 2026-10-17): sword strikes, shield, hit reactions and casting. Bow clips are split out. */
-export const RANGER_V7_CLIPS: readonly RangerClip[] = [
-  ...RANGER_V6_CLIPS,
+/** #114 (owner picks 2026-10-17): sword strikes, shield, hit reactions and casting. Bow clips are split out (#277). */
+const COMBAT_CLIPS: readonly RangerClip[] = [
   { name: "Sword_Regular_A", library: "clips2", rootMotion: "in-place" },
   { name: "Sword_Regular_A_Rec", library: "clips2", rootMotion: "in-place" },
   { name: "Sword_Regular_B", library: "clips2", rootMotion: "in-place" },
@@ -186,7 +162,7 @@ export const RANGER_V7_CLIPS: readonly RangerClip[] = [
   { name: "Spell_Simple_Exit", library: "clips", rootMotion: "in-place" },
 ];
 /**
- * v7 combat roles in `humanoid-clips` (#114 Q1, owner picks after preview): `contact` names the joint whose
+ * Combat roles in `humanoid-clips` (#114 Q1, owner picks after preview): `contact` names the joint whose
  * fastest moment is recorded as `contactSeconds` (presentation data; it never times gameplay).
  */
 export const RANGER_CLIP_ROLES: Readonly<Record<string, { role: string; contact?: string }>> = {
@@ -213,12 +189,11 @@ export const RANGER_CLIP_ROLES: Readonly<Record<string, { role: string; contact?
   Hit_Shove_Spin: { role: "hit.shove" },
 };
 /**
- * v8 (#112, Atlas 6.1.6): walk-speed backward, strafe, start/stop and turn clips and a heavy shove reaction from
+ * #112 (Atlas 6.1.6): walk-speed backward, strafe, start/stop and turn clips and a heavy shove reaction from
  * Mixamo ("Without Skin" FBX, 30 fps, Y Bot), read from `--mixamo-dir`. Travelling clips are retargeted in place;
  * the removed travel and its speed are recorded in `humanoid-clips`.
  */
-export const RANGER_V8_CLIPS: readonly RangerClip[] = [
-  ...RANGER_V7_CLIPS,
+const MIXAMO_CLIPS: readonly RangerClip[] = [
   { name: "Walk_Bwd_Loop", library: "mixamo", mixamo: "Walking Backwards", rootMotion: "in-place" },
   { name: "Walk_Strafe_Left_Loop", library: "mixamo", mixamo: "Left Strafe Walking", rootMotion: "in-place" },
   { name: "Walk_Strafe_Right_Loop", library: "mixamo", mixamo: "Right Strafe Walking", rootMotion: "in-place" },
@@ -230,51 +205,41 @@ export const RANGER_V8_CLIPS: readonly RangerClip[] = [
 ];
 export const RANGER_MIXAMO_LICENSE = "Mixamo (Adobe): free, royalty-free use in games; raw Mixamo files are not redistributed (Atlas 6.1.6)";
 /**
- * v11 (#112, owner answer 2026-10-18, Atlas 6.1.7): original jog-speed backward and strafe clips authored in Blender
+ * #112, owner answer 2026-10-18, Atlas 6.1.7): original jog-speed backward and strafe clips authored in Blender
  * (adapters/blender/jog_clips.py) from the CC0 UAL1 `Jog_Fwd_Loop` and explicit foot trajectories. No Mixamo data.
  */
-export const RANGER_V11_AUTHORED_CLIPS = ["Jog_Bwd_Loop", "Jog_Strafe_Left_Loop", "Jog_Strafe_Right_Loop"] as const;
-/** The forward gait loops whose ground speed the v6 `humanoid-clips` attachment records. */
+export const RANGER_AUTHORED_CLIPS = ["Jog_Bwd_Loop", "Jog_Strafe_Left_Loop", "Jog_Strafe_Right_Loop"] as const;
+/** The gait loops whose ground speed the `humanoid-clips` attachment records. */
 export const RANGER_GAITS: ReadonlySet<string> = new Set(["Walk_Loop", "Jog_Fwd_Loop", "Sprint_Loop", "Crouch_Fwd_Loop", "Jog_Bwd_Loop"]);
-/** The clips a bundle version retargets, in bundle order. */
-/** The library clips a version retargets; v11 adds RANGER_V11_AUTHORED_CLIPS after them. */
-export function rangerClips(version: RangerVersion): readonly RangerClip[] { // v9 and v10 add appearance, not clips
-  return version === 1 ? RANGER_CLIPS : version < 6 ? RANGER_V2_CLIPS : version === 6 ? RANGER_V6_CLIPS : version === 7 ? RANGER_V7_CLIPS : RANGER_V8_CLIPS; // v9 adds appearance, not clips
-}
+/** The library clips the Ranger retargets, in bundle order; RANGER_AUTHORED_CLIPS follow them. */
+export const RANGER_CLIPS: readonly RangerClip[] = [...BASE_CLIPS, ...GAIT_COMBAT_CLIPS, ...TRAVERSAL_CLIPS, ...COMBAT_CLIPS, ...MIXAMO_CLIPS];
 export const RANGER_CLIPS_ATTACHMENT = "humanoid-clips";
-/** v2 equipment entries: weapon-recipe presets, parented at runtime through the sockets descriptor. */
-export const RANGER_V2_EQUIPMENT: readonly { key: string; piece: WeaponPiece }[] = [
+/** Weapon entries: weapon-recipe presets, parented at runtime through the sockets descriptor. */
+export const RANGER_WEAPONS: readonly { key: string; piece: WeaponPiece }[] = [
   { key: "equipment.sword.arming", piece: "sword.arming" },
   { key: "equipment.shield.heater", piece: "shield.heater" },
 ];
-/** v7 archery entries (#113 bow slice): archery-recipe presets, parented at runtime through the sockets descriptor. */
-export const RANGER_V7_ARCHERY: readonly { key: string; piece: ArcheryPiece }[] = [
+/** Archery entries (#113 bow slice): archery-recipe presets, parented at runtime through the sockets descriptor. */
+export const RANGER_ARCHERY: readonly { key: string; piece: ArcheryPiece }[] = [
   { key: "equipment.bow.long", piece: "bow.long" },
   { key: "equipment.arrow", piece: "arrow" },
   { key: "equipment.quiver.back", piece: "quiver.back" },
 ];
 export const RANGER_SOCKETS_ATTACHMENT = "humanoid-sockets";
-/** The current descriptor (v7: the hand, stowed and archery sockets, derived by examples/weapons/derive-sockets.ts). */
+/** The male sockets descriptor (hand, stowed, archery, hair and armour sockets; examples/weapons/derive-sockets.ts). */
 export const RANGER_SOCKETS_DESCRIPTOR = "assets/descriptors/humanoid.ranger.male.sockets.json";
-/** The descriptor bundles v4-v6 ship (no archery sockets), kept byte for byte so those versions stay reproducible. */
-export const RANGER_V4_SOCKETS_DESCRIPTOR = "assets/descriptors/humanoid.ranger.male.sockets.bundle-v4.json";
-/** The descriptor bundles v2 and v3 ship, kept byte for byte so those versions stay reproducible. */
-export const RANGER_V2_SOCKETS_DESCRIPTOR = "assets/descriptors/humanoid.ranger.male.sockets.bundle-v2.json";
-/** The sockets descriptor a bundle version ships (v1 has none). */
-export function rangerSocketsDescriptor(version: RangerVersion): string | undefined {
-  return version === 1 ? undefined : version < 4 ? RANGER_V2_SOCKETS_DESCRIPTOR : version < 7 ? RANGER_V4_SOCKETS_DESCRIPTOR : RANGER_SOCKETS_DESCRIPTOR;
-}
 export const RANGER_SAMPLE_RATE = 30;
 
 /**
- * HumanoidBone id -> UAL1 Rigify `DEF-*` joint (source) and UBC/Outfits joint (target), as v1-v4 bind it:
- * two spine bones, so DEF-spine.002 / spine_02 stay unmapped (#268).
+ * HumanoidBone id -> UAL1 Rigify `DEF-*` joint (source) and UBC/Outfits joint (target). All three spine joints are
+ * mapped exactly once: `upper-chest` (3d-lab 4e69c0f) sits between `chest` and `neck` (#268).
  */
 export const RANGER_BONE_MAP: Record<string, { source: string; target: string }> = {
   root: { source: "root", target: "root" },
   hips: { source: "DEF-hips", target: "pelvis" },
   spine: { source: "DEF-spine.001", target: "spine_01" },
-  chest: { source: "DEF-spine.003", target: "spine_03" },
+  chest: { source: "DEF-spine.002", target: "spine_02" },
+  "upper-chest": { source: "DEF-spine.003", target: "spine_03" },
   neck: { source: "DEF-neck", target: "neck_01" },
   head: { source: "DEF-head", target: "Head" },
   "left-shoulder": { source: "DEF-shoulder.L", target: "clavicle_l" },
@@ -294,31 +259,18 @@ export const RANGER_BONE_MAP: Record<string, { source: string; target: string }>
   "right-foot": { source: "DEF-foot.R", target: "foot_r" },
   "right-toes": { source: "DEF-toe.R", target: "ball_r" },
 };
-/** v5 (#268): all three spine joints, each mapped exactly once (`upper-chest` sits between `chest` and `neck`). */
-export const RANGER_V5_BONE_MAP: Record<string, { source: string; target: string }> = Object.fromEntries(
-  Object.entries(RANGER_BONE_MAP).flatMap(([bone, binding]) =>
-    bone === "chest"
-      ? [["chest", { source: "DEF-spine.002", target: "spine_02" }], ["upper-chest", { source: "DEF-spine.003", target: "spine_03" }]]
-      : [[bone, binding]]),
-);
 /** UAL2 shares the UBC/Outfits joint names, so its map binds the same name on both sides. */
 const sameName = (map: Record<string, { source: string; target: string }>) =>
   Object.fromEntries(Object.entries(map).map(([bone, { target }]) => [bone, { source: target, target }]));
 export const RANGER_UBC_BONE_MAP: Record<string, { source: string; target: string }> = sameName(RANGER_BONE_MAP);
-export const RANGER_V5_UBC_BONE_MAP: Record<string, { source: string; target: string }> = sameName(RANGER_V5_BONE_MAP);
-/** HumanoidBone id -> Mixamo joint (`mixamorig:*`, three spine joints like v5). Mixamo has no separate root joint. */
+/** HumanoidBone id -> Mixamo joint (`mixamorig:*`, three spine joints). Mixamo has no separate root joint. */
 export const RANGER_MIXAMO_BONE_MAP: Record<string, { source: string; target: string }> = Object.fromEntries(Object.entries({
   hips: "Hips", spine: "Spine", chest: "Spine1", "upper-chest": "Spine2", neck: "Neck", head: "Head",
   "left-shoulder": "LeftShoulder", "left-upper-arm": "LeftArm", "left-lower-arm": "LeftForeArm", "left-hand": "LeftHand",
   "right-shoulder": "RightShoulder", "right-upper-arm": "RightArm", "right-lower-arm": "RightForeArm", "right-hand": "RightHand",
   "left-upper-leg": "LeftUpLeg", "left-lower-leg": "LeftLeg", "left-foot": "LeftFoot", "left-toes": "LeftToeBase",
   "right-upper-leg": "RightUpLeg", "right-lower-leg": "RightLeg", "right-foot": "RightFoot", "right-toes": "RightToeBase",
-}).map(([bone, joint]) => [bone, { source: `mixamorig:${joint}`, target: RANGER_V5_BONE_MAP[bone]!.target }]));
-/** The UAL1 and UAL2 bone maps a bundle version retargets with. */
-export function rangerBoneMaps(version: RangerVersion) {
-  return version >= 5 ? { clips: RANGER_V5_BONE_MAP, clips2: RANGER_V5_UBC_BONE_MAP } : { clips: RANGER_BONE_MAP, clips2: RANGER_UBC_BONE_MAP };
-}
-
+}).map(([bone, joint]) => [bone, { source: `mixamorig:${joint}`, target: RANGER_BONE_MAP[bone]!.target }]));
 function single(result: AssetOperationResult, port = "output"): AssetRef {
   const output = result.outputs[port];
   if (!output || Array.isArray(output)) throw new Error(`operation output '${port}' is missing`);
@@ -376,7 +328,7 @@ function atKey<T>(animation: Animation, pick: (count: number) => number, read: (
 }
 
 /**
- * The v6 `humanoid-clips` descriptor (docs/humanoid-ranger.md#clip-motion): per clip its source, duration,
+ * The `humanoid-clips` descriptor (docs/humanoid-ranger.md#clip-motion): per clip its source, duration,
  * loop flag, the source hips displacement scaled to the Ranger (x/z removed by in-place, y kept) and,
  * for the gaits, the ground speed at which a planted foot moves backwards in the retargeted clip.
  */
@@ -557,13 +509,11 @@ async function buildArchery(root: string, piece: ArcheryPiece) {
   return single(await executeGltfProductionImportOperation(root, { inputs: { source: glb }, parameters: { policy: POLICY } }));
 }
 
-export async function buildRangerCharacter({ processorCheckout, outDir, version = RANGER_DEFAULT_VERSION, figure = "male", mixamoDir, log = () => {} }: {
-  processorCheckout: string; outDir: string; version?: RangerVersion; figure?: RangerFigure; mixamoDir?: string; log?: (line: string) => void;
+export async function buildRangerCharacter({ processorCheckout, outDir, figure = "male", mixamoDir, log = () => {} }: {
+  processorCheckout: string; outDir: string; figure?: RangerFigure; mixamoDir?: string; log?: (line: string) => void;
 }) {
   const shape = RANGER_FIGURES[figure];
-  if (version < shape.minVersion) throw new Error(`the ${figure} Ranger starts at bundle version ${shape.minVersion}`);
   const bundleKey = shape.key;
-  if (!RANGER_VERSIONS.includes(version)) throw new Error("Ranger bundle version must be 1 to 11");
   const root = path.resolve(outDir);
   await mkdir(root, { recursive: true });
   const processor = await rangerProcessor(path.resolve(processorCheckout));
@@ -607,7 +557,7 @@ export async function buildRangerCharacter({ processorCheckout, outDir, version 
 
   log("extract target rig and source clips (scene.extract.animation.gltf@1)");
   const targetRig = single(await executeGltfExtractAnimationOperation(root, { inputs: { source: composed }, parameters: { hipsJoint: RANGER_HIPS.target, policy: POLICY } }), "rig");
-  const boneMaps = rangerBoneMaps(version);
+  const boneMaps = { clips: RANGER_BONE_MAP, clips2: RANGER_UBC_BONE_MAP };
   const libraries = {
     clips: { hips: RANGER_HIPS.source, bindings: boneMaps.clips, member: () => member(memberId(RANGER_MEMBERS.clips)) },
     clips2: { hips: RANGER_HIPS.source2, bindings: boneMaps.clips2, member: () => member(memberId(RANGER_MEMBERS.clips2)) },
@@ -616,7 +566,7 @@ export async function buildRangerCharacter({ processorCheckout, outDir, version 
   const sourceRigs: Partial<Record<string, AssetRef>> = {};
   const catalogIds = { clips: memberId(RANGER_MEMBERS.clips), clips2: memberId(RANGER_MEMBERS.clips2) };
   const clips: RangerBuiltClip[] = [];
-  for (const clip of rangerClips(version)) {
+  for (const clip of RANGER_CLIPS) {
     let lib: { hips: string; bindings: Record<string, { source: string; target: string }> }, library: AssetRef, sourceInfo: Json;
     if (clip.library === "mixamo") {
       if (!mixamoDir) throw new Error(`clip ${clip.name} needs --mixamo-dir with '${clip.mixamo}.fbx' (Atlas 6.1.6)`);
@@ -672,9 +622,9 @@ export async function buildRangerCharacter({ processorCheckout, outDir, version 
     inputs: { source: composed, animations: clips.map((clip) => clip.retargeted) },
     parameters: { clips: clips.map((clip) => ({ name: clip.name })), policy: POLICY },
   }));
-  if (version >= 11) {
+  {
     // Authored from the retargeted Jog_Fwd_Loop on this rig, then embedded with the other clips.
-    for (const name of RANGER_V11_AUTHORED_CLIPS) {
+    for (const name of RANGER_AUTHORED_CLIPS) {
       log(`author ${name} in Blender (adapters/blender/jog_clips.py)`);
       const authored = await authorJogClip(root, name, animated);
       const extracted = await executeGltfExtractAnimationOperation(root, {
@@ -697,7 +647,7 @@ export async function buildRangerCharacter({ processorCheckout, outDir, version 
     }));
   }
 
-  // v3 and later: the same GLB with game-resolution textures; nothing but image bytes changes.
+  // The same GLB with game-resolution textures; nothing but image bytes changes.
   const textures: Record<string, Json> = {};
   const resizeTextures = async (key: string, glb: AssetRef) => {
     const json = await new NodeIO().binaryToJSON(await resolveAssetObject(root, glb));
@@ -708,7 +658,7 @@ export async function buildRangerCharacter({ processorCheckout, outDir, version 
     textures[key] = { source: glb, output: single(result), imageBytes, images };
     return single(result);
   };
-  const character = version >= 3 ? await resizeTextures(bundleKey, animated) : animated;
+  const character = await resizeTextures(bundleKey, animated);
 
   const selections: Json[] = [{ key: bundleKey, variant: RANGER_BUNDLE_VARIANT }];
   const assets: AssetRef[] = [character];
@@ -717,7 +667,7 @@ export async function buildRangerCharacter({ processorCheckout, outDir, version 
   let sockets: AssetRef | undefined;
   let clipMotion: AssetRef | undefined;
   let appearance: Awaited<ReturnType<typeof buildAppearance>> | undefined;
-  // v9 (#116): the Light skin character (same geometry and clips, other base colours), hair items and descriptor.
+  // #116: the Light skin character (same geometry and clips, other base colours), hair items and descriptor.
   const buildAppearance = async () => {
     const look = RANGER_APPEARANCE[figure];
     const textureMember = (memberPath: string) => member(memberId({ archive: UBC, path: memberPath }));
@@ -778,11 +728,11 @@ export async function buildRangerCharacter({ processorCheckout, outDir, version 
       hair.push({ key: hairKey(style), style, variants });
     }
     const hairMaterials = async (asset: AssetRef) => (await new NodeIO().readBinary(new Uint8Array(await resolveAssetObject(root, asset)))).getRoot().listMaterials().map((material) => material.getName());
-    // v10 (#117): the soldier and knight outfit variants and their rigid armour entries.
+    // #117: the soldier and knight outfit variants and their rigid armour entries.
     const outfits: Json[] = [{ id: "outfit.archer", variant: RANGER_BUNDLE_VARIANT, label: "Archer" }];
     const kits: { kit: ArmorKit; variant: string; character: AssetRef; plates: AssetRef; cloth: AssetRef; fitTarget: AssetRef; observations: Json[] }[] = [];
     // The soldier and knight outfits are male-only for now (#117 Q8).
-    if (version >= 10 && figure === "male") {
+    if (figure === "male") {
       log("outfits: Peasant base and fitted armour (#117)");
       const peasant = await importGltf(RANGER_PEASANT_OUTFIT);
       const fitTarget = single(await executeGltfComposeSkinnedOperation(root, { inputs: { skeleton: peasant, parts: [head] }, parameters: { policy: POLICY } }));
@@ -836,12 +786,12 @@ export async function buildRangerCharacter({ processorCheckout, outDir, version 
       }))),
       tints: Object.entries(RANGER_HAIR_TINTS).map(([id, color]) => ({ id: `tint.${id}`, baseColorFactor: [...color, 1], texture: "hair-1" })),
       eyebrows: { nodes: [look.eyebrows], tintMaterials: [...new Set(eyebrowMaterials)].sort(), followsHairTint: true },
-      ...(version >= 10 ? { outfits } : {}),
+      ...(figure === "male" ? { outfits } : {}),
     };
     const descriptorAsset = (await storeAssetObject(root, { bytes: Buffer.from(`${canonicalJson(descriptor)}\n`), kind: "humanoid-appearance", mediaType: "application/json" })).asset;
     return { light: lightCharacter, hair, descriptor: descriptorAsset, transfer, composedLight, kits };
   };
-  const descriptorPath = figure === "female" ? RANGER_FEMALE_SOCKETS_DESCRIPTOR : rangerSocketsDescriptor(version);
+  const descriptorPath = figure === "female" ? RANGER_FEMALE_SOCKETS_DESCRIPTOR : RANGER_SOCKETS_DESCRIPTOR;
   if (descriptorPath) {
     log(`attach ${descriptorPath} as '${RANGER_SOCKETS_ATTACHMENT}'`);
     const descriptor = await readFile(path.join(REPOSITORY_ROOT, descriptorPath));
@@ -850,7 +800,7 @@ export async function buildRangerCharacter({ processorCheckout, outDir, version 
     sockets = (await storeAssetObject(root, { bytes: descriptor, kind: "humanoid-sockets", mediaType: "application/json" })).asset;
     selections[0]!.attachments = [{ name: RANGER_SOCKETS_ATTACHMENT }];
     attachments.push(sockets);
-    if (version >= 9) {
+    {
       log("appearance: Light skin variant, hairstyles and the appearance descriptor (#116)");
       appearance = await buildAppearance();
       selections.push({ key: bundleKey, variant: "skin.light" });
@@ -866,20 +816,20 @@ export async function buildRangerCharacter({ processorCheckout, outDir, version 
       selections[0]!.attachments.push({ name: RANGER_APPEARANCE_ATTACHMENT });
       attachments.push(appearance.descriptor);
     }
-    if (version >= 6) {
+    {
       log(`measure clip motion and attach '${RANGER_CLIPS_ATTACHMENT}'`);
-      clipMotion = await rangerClipMotion(root, { character, targetRig, clips, roles: version >= 7 });
+      clipMotion = await rangerClipMotion(root, { character, targetRig, clips, roles: true });
       selections[0]!.attachments.push({ name: RANGER_CLIPS_ATTACHMENT });
       attachments.push(clipMotion);
     }
-    for (const { key, piece } of RANGER_V2_EQUIPMENT) {
+    for (const { key, piece } of RANGER_WEAPONS) {
       log(`generate ${piece} (external.blender.script@1 weapon recipe, scene.import.gltf@2)`);
       weapons[key] = await buildWeapon(root, piece);
       selections.push({ key, variant: RANGER_BUNDLE_VARIANT });
-      assets.push(version >= 3 ? await resizeTextures(key, weapons[key]!) : weapons[key]!);
+      assets.push(await resizeTextures(key, weapons[key]!));
     }
-    if (version >= 7) {
-      for (const { key, piece } of RANGER_V7_ARCHERY) {
+    {
+      for (const { key, piece } of RANGER_ARCHERY) {
         log(`generate ${piece} (external.blender.script@1 archery recipe, scene.import.gltf@2)`);
         weapons[key] = await buildArchery(root, piece);
         selections.push({ key, variant: RANGER_BUNDLE_VARIANT });
@@ -892,7 +842,7 @@ export async function buildRangerCharacter({ processorCheckout, outDir, version 
   const bundleDir = path.join(root, "bundle");
   await exportAssetBundle(root, bundleDir, {
     parameters: { profile: GLTF_RESOURCES_BUNDLE_PROFILE, assets: selections },
-    inputs: version >= 2 ? { assets, attachments } : { assets },
+    inputs: { assets, attachments },
   });
   const tarPath = path.join(root, `${bundleKey}.tar`);
   log("pack release tar (scripts/pack-asset-bundle.ts)");
@@ -908,14 +858,14 @@ export async function buildRangerCharacter({ processorCheckout, outDir, version 
     bundleDir, tar: tarPath, tarSha256: packed.sha256 as string, tarByteLength: packed.byteLength as number,
     exportRef: JSON.parse(Buffer.from(refEntry.bytes).toString("utf8")) as Json, exportRefPath,
     lineage: {
-      version, figure,
+      figure,
       processor: { repository: processor.repository, revision: processor.revision },
       outfit, body, head, composed, targetRig, sourceRigs, libraries: loaded, animated,
       clips: clips.map(({ name, library, source, retargeted, observations }) => ({ name, library, source, retargeted, observations })),
-      ...(version >= 2 ? { sockets, socketsDescriptor: descriptorPath, weapons } : {}),
-      ...(version >= 3 ? { character, textures, texturePolicy: RANGER_TEXTURE_POLICY } : {}),
-      ...(version >= 6 ? { clipMotion } : {}),
-      ...(version >= 9 ? { appearance: appearance && { light: appearance.light, composedLight: appearance.composedLight, transfer: appearance.transfer, hair: appearance.hair, descriptor: appearance.descriptor, kits: appearance.kits } } : {}),
+      sockets, socketsDescriptor: descriptorPath, weapons,
+      character, textures, texturePolicy: RANGER_TEXTURE_POLICY,
+      clipMotion,
+      appearance: appearance && { light: appearance.light, composedLight: appearance.composedLight, transfer: appearance.transfer, hair: appearance.hair, descriptor: appearance.descriptor, kits: appearance.kits },
     },
   };
 }
@@ -924,20 +874,18 @@ function parseArguments(args: string[]) {
   const options: Record<string, string> = {};
   for (let index = 0; index < args.length; index += 2) {
     const flag = args[index], value = args[index + 1];
-    if (!["--processor-checkout", "--out", "--version", "--figure", "--mixamo-dir"].includes(flag!) || !value) return undefined;
+    if (!["--processor-checkout", "--out", "--figure", "--mixamo-dir"].includes(flag!) || !value) return undefined;
     options[flag!.slice(2)] = value;
   }
-  if (options.version !== undefined && !RANGER_VERSIONS.map(String).includes(options.version)) return undefined;
-  const version = (options.version === undefined ? RANGER_DEFAULT_VERSION : Number(options.version)) as RangerVersion;
   if (options.figure !== undefined && !Object.hasOwn(RANGER_FIGURES, options.figure)) return undefined;
   const figure = (options.figure ?? "male") as RangerFigure;
-  return options["processor-checkout"] && options.out ? { processorCheckout: options["processor-checkout"], outDir: options.out, version, figure, mixamoDir: options["mixamo-dir"] && path.resolve(options["mixamo-dir"]) } : undefined;
+  return options["processor-checkout"] && options.out ? { processorCheckout: options["processor-checkout"], outDir: options.out, figure, mixamoDir: options["mixamo-dir"] && path.resolve(options["mixamo-dir"]) } : undefined;
 }
 
 if (import.meta.main) {
   const options = parseArguments(process.argv.slice(2));
   if (!options) {
-    console.error("Usage: bun scripts/build-ranger-character.ts --processor-checkout <absolute 3d-lab checkout> --out <directory> [--version 1..11] [--figure male|female] [--mixamo-dir <dir>]");
+    console.error("Usage: bun scripts/build-ranger-character.ts --processor-checkout <absolute 3d-lab checkout> --out <directory> --mixamo-dir <dir> [--figure male|female]");
     process.exit(2);
   }
   try {

@@ -31,7 +31,7 @@ A `humanoid-sockets-v1` descriptor declares the attachment frames of one humanoi
 
 ## Ranger sockets
 
-[`assets/descriptors/humanoid.ranger.male.sockets.json`](../assets/descriptors/humanoid.ranger.male.sockets.json) is the versioned descriptor for `humanoid.ranger.male` ([humanoid-ranger.md](humanoid-ranger.md)). The Ranger bundles v4 and v5 ship it as the `humanoid-sockets` attachment of the character entry, next to the `equipment.sword.arming` and `equipment.shield.heater` entries. Bundles v2 and v3 ship the earlier descriptor, kept byte for byte as [`humanoid.ranger.male.sockets.bundle-v2.json`](../assets/descriptors/humanoid.ranger.male.sockets.bundle-v2.json) so that those versions stay reproducible.
+[`assets/descriptors/humanoid.ranger.male.sockets.json`](../assets/descriptors/humanoid.ranger.male.sockets.json) is the descriptor for `humanoid.ranger.male` ([humanoid-ranger.md](humanoid-ranger.md)). The Ranger bundle ships it as the `humanoid-sockets` attachment of the character entry, next to the equipment entries. The numbered releases keep the descriptors they shipped. The recipe no longer rebuilds them (Atlas Decision 7.1.5).
 
 | Socket | Joint | Accepts | Placement |
 | --- | --- | --- | --- |
@@ -45,9 +45,9 @@ A `humanoid-sockets-v1` descriptor declares the attachment frames of one humanoi
 | `hand_r.weapon` | `[-0.035, 0.09, -0.005]` → `[-0.0365, 0.0839, -0.0043]` | `[0.298837, 0.640856, 0.298837, 0.640856]` → `[0.415728, 0.576917, 0.446029, 0.543503]` |
 | `hand_l.shield` | `[0.03, 0.085, -0.005]` → `[0.0365, 0.0839, -0.0043]` | `[0.707107, 0, -0.707107, 0]` → `[0.415728, -0.576917, -0.446029, 0.543503]` |
 
-### Archery sockets (bundle v7)
+### Archery sockets
 
-The v7 descriptor appends four archery sockets (#113 bow slice). Bundles v4–v6 keep shipping the earlier descriptor, kept byte for byte as [`humanoid.ranger.male.sockets.bundle-v4.json`](../assets/descriptors/humanoid.ranger.male.sockets.bundle-v4.json).
+The descriptor declares four archery sockets (#113 bow slice).
 
 | Socket | Joint | Accepts | Placement |
 | --- | --- | --- | --- |
@@ -58,13 +58,13 @@ The v7 descriptor appends four archery sockets (#113 bow slice). Bundles v4–v6
 
 `stowedSocket` in `examples/weapons/derive-sockets.ts` converts such a rest-pose world intent into the joint's frame. The held and stowed archery socket sheets are attached to the `humanoid-ranger-male-v7` release.
 
-### Armour sockets (bundle v10)
+### Armour sockets
 
-The v10 descriptor appends one `<joint>.armor` socket for each joint that a rigid [armour piece](armor-recipes.md) rides: `head.armor`, `spine_03.armor`, `pelvis.armor`, and the `upperarm`, `lowerarm`, `hand`, `thigh`, `calf` and `foot` sockets on both sides. Each accepts the role `armor`. Armour is fitted in the character's rest model space, so each socket is the inverse of its joint's rest-world transform, like `head.hair` (`deriveArmorSockets` in `examples/weapons/derive-sockets.ts`). The female descriptor declares the same sockets, derived from her own rig.
+The descriptor declares one `<joint>.armor` socket for each joint that a rigid [armour piece](armor-recipes.md) rides: `head.armor`, `spine_03.armor`, `pelvis.armor`, and the `upperarm`, `lowerarm`, `hand`, `thigh`, `calf` and `foot` sockets on both sides. Each accepts the role `armor`. Armour is fitted in the character's rest model space, so each socket is the inverse of its joint's rest-world transform, like `head.hair` (`deriveArmorSockets` in `examples/weapons/derive-sockets.ts`). The female descriptor declares the same sockets, derived from her own rig.
 
 ### How the hand sockets are derived
 
-The bundle-v2 hand sockets were tuned for a hanging arm. The blade leaned 40° toward the fingers so that it looked right at rest, and the shield's vertical axis followed the forearm. In the combat clips, the sword then pointed sideways at hip height in `Sword_Idle`, and the shield lay on its side in the `Idle_Shield_Loop` guard. The current hand sockets are not tuned for any pose. [`examples/weapons/derive-sockets.ts`](../examples/weapons/derive-sockets.ts) derives them from the rig's rest pose in each hand joint's own frame:
+The first hand sockets (numbered releases v2 and v3) were tuned for a hanging arm. The blade leaned 40° toward the fingers so that it looked right at rest, and the shield's vertical axis followed the forearm. In the combat clips, the sword then pointed sideways at hip height in `Sword_Idle`, and the shield lay on its side in the `Idle_Shield_Loop` guard. The current hand sockets are not tuned for any pose. [`examples/weapons/derive-sockets.ts`](../examples/weapons/derive-sockets.ts) derives them from the rig's rest pose in each hand joint's own frame:
 
 ```sh
 bun examples/weapons/derive-sockets.ts            # writes assets/descriptors/humanoid.ranger.male.sockets.json
@@ -88,7 +88,6 @@ bun examples/weapons/derive-sockets.ts --rig <rig.gltf> --out <sockets.json> --w
 - the derived axes of the committed sockets;
 - that the derivation does not depend on where the rig is placed in the world;
 - that the script reproduces the committed file byte for byte from the canonical `Male_Ranger.gltf` (skipped without Git LFS);
-- that the bundle-v2 descriptor still has its shipped sha256.
 
 The sockets were checked visually in Blender with `examples/weapons/socket-sheets.py` (or `bun examples/weapons/build.ts --sheets <default.gltf>`). The script does the following:
 

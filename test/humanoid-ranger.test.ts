@@ -1,14 +1,11 @@
 /// <reference path="../src/gltf-validator.d.ts" />
-// End-to-end Ranger recipe (docs/humanoid-ranger.md): canonical body/outfit/UAL1/UAL2 members ->
-// import, head subset, compose, extract, retarget the v2 clips (#110 Idle/Walk, #260 run/attack/death,
-// #113 sword idle/attack and shield guard) through the pinned 3d-lab processor, embed, generate the
-// sword and shield through the weapon recipe, attach the humanoid-sockets-v1 descriptor, then the
-// gltf-resources-v1 bundle and release tar. v3 (#257) adds game-resolution PNG textures
-// (scene.textures.resize.gltf@1) to that v2 content; v4 (#113) is v3 with the anatomically derived hand
-// sockets, and the default v5 (#268) is v4 retargeted through all three spine joints (`upper-chest`). Structural checks only (owner answer 4 on #110: no
-// byte-exact replay, no Blender oracle). The full build skips unless the Git LFS payloads are
-// hydrated, ASSET_TOOLING_PROCESSOR_CHECKOUT_3DLAB names a clean 3d-lab checkout at the pinned
-// commit with its cargo dependencies fetched, and ASSET_TOOLING_BLENDER names Blender for the weapons.
+// End-to-end Ranger recipe (docs/humanoid-ranger.md): canonical body/outfit/UAL1/UAL2 members -> import, head
+// subset, compose, extract, retarget the library clips through the pinned 3d-lab processor, retarget the Mixamo
+// clips in Blender, author the jog clips, embed, generate the equipment, attach the descriptors, then the
+// gltf-resources-v1 bundle and release tar. Structural checks only (owner answer 4 on #110: no byte-exact replay,
+// no Blender oracle). The full build skips unless the Git LFS payloads are hydrated,
+// ASSET_TOOLING_PROCESSOR_CHECKOUT_3DLAB names a clean 3d-lab checkout at the pinned commit with its cargo
+// dependencies fetched, ASSET_TOOLING_BLENDER names Blender and ASSET_TOOLING_MIXAMO_DIR names the local Mixamo FBX files.
 import test from "node:test";
 import assert from "node:assert/strict";
 import os from "node:os";
@@ -20,9 +17,9 @@ import { verifyAssetBundleTar } from "../src/asset-bundle-pack.js";
 import { GLTF_RESOURCES_BUNDLE_PROFILE, readAssetBundleAttachment, readAssetBundleGltf, verifyAssetBundle } from "../src/asset-bundle.js";
 import { validateHumanoidSocketDescriptor } from "../src/humanoid-sockets.js";
 import {
-  RANGER_BONE_MAP, RANGER_BUNDLE_KEY, RANGER_BUNDLE_VARIANT, RANGER_CLIPS, RANGER_CLIPS_ATTACHMENT, RANGER_GAITS, RANGER_MEMBERS, RANGER_V6_CLIPS, RANGER_V7_CLIPS, RANGER_V8_CLIPS, RANGER_MIXAMO_BONE_MAP, RANGER_APPEARANCE, RANGER_HAIR_TINTS, RANGER_V7_ARCHERY, RANGER_FIGURES, RANGER_CLIP_ROLES, RANGER_V4_SOCKETS_DESCRIPTOR, rangerClips, RANGER_SOCKETS_ATTACHMENT,
-  RANGER_DEFAULT_VERSION, RANGER_V11_AUTHORED_CLIPS, RANGER_SOCKETS_DESCRIPTOR, RANGER_TEXTURE_POLICY, RANGER_V2_SOCKETS_DESCRIPTOR, rangerSocketsDescriptor, RANGER_UBC_BONE_MAP, RANGER_V2_CLIPS, RANGER_V2_EQUIPMENT,
-  RANGER_V5_BONE_MAP, RANGER_V5_UBC_BONE_MAP, buildRangerCharacter, rangerBoneMaps,
+  RANGER_APPEARANCE, RANGER_ARCHERY, RANGER_AUTHORED_CLIPS, RANGER_BONE_MAP, RANGER_BUNDLE_KEY, RANGER_BUNDLE_VARIANT, RANGER_CLIPS,
+  RANGER_CLIPS_ATTACHMENT, RANGER_CLIP_ROLES, RANGER_FIGURES, RANGER_GAITS, RANGER_HAIR_TINTS, RANGER_MEMBERS, RANGER_MIXAMO_BONE_MAP,
+  RANGER_SOCKETS_ATTACHMENT, RANGER_SOCKETS_DESCRIPTOR, RANGER_TEXTURE_POLICY, RANGER_UBC_BONE_MAP, RANGER_WEAPONS, buildRangerCharacter,
 } from "../scripts/build-ranger-character.ts";
 
 const ROOT = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
@@ -31,6 +28,7 @@ const CHECKOUT = process.env.ASSET_TOOLING_PROCESSOR_CHECKOUT_3DLAB;
 async function skipReason(): Promise<string | false> {
   if (!CHECKOUT) return "set ASSET_TOOLING_PROCESSOR_CHECKOUT_3DLAB to a clean 3d-lab checkout at the pinned three-d-animation-retarget commit";
   if (!process.env.ASSET_TOOLING_BLENDER) return "set ASSET_TOOLING_BLENDER to Blender 5.2.2 for the weapon entries (snap Blender: TMPDIR under $HOME)";
+  if (!process.env.ASSET_TOOLING_MIXAMO_DIR) return "set ASSET_TOOLING_MIXAMO_DIR to the local Mixamo FBX files (Atlas 6.1.6)";
   const sources = JSON.parse(await readFile(path.join(ROOT, "catalog/sources.json"), "utf8")).sources;
   const storage = JSON.parse(await readFile(path.join(ROOT, "catalog/storage.json"), "utf8"));
   for (const member of Object.values(RANGER_MEMBERS)) {
@@ -42,125 +40,78 @@ async function skipReason(): Promise<string | false> {
   return false;
 }
 
-test("the v2 recipe keeps the v1 clips, adds the #260/#113 clips by source name and binds UAL2 by same-name joints", () => {
-  assert.deepEqual(RANGER_CLIPS.map((clip) => clip.name), ["Idle_Loop", "Walk_Loop"]);
-  assert.deepEqual(RANGER_V2_CLIPS.map((clip) => [clip.name, clip.library]), [
-    ["Idle_Loop", "clips"], ["Walk_Loop", "clips"], ["Jog_Fwd_Loop", "clips"], ["Sprint_Loop", "clips"],
-    ["Sword_Idle", "clips"], ["Sword_Attack", "clips"], ["Death01", "clips"], ["Idle_Shield_Loop", "clips2"],
+test("the Ranger retargets the library clips in bundle order, then authors the jog clips", () => {
+  const names = RANGER_CLIPS.map((clip) => clip.name);
+  assert.equal(new Set(names).size, names.length, "clip names are unique");
+  assert.deepEqual(names.slice(0, 8), ["Idle_Loop", "Walk_Loop", "Jog_Fwd_Loop", "Sprint_Loop", "Sword_Idle", "Sword_Attack", "Death01", "Idle_Shield_Loop"]);
+  assert.ok(RANGER_CLIPS.every((clip) => clip.rootMotion === "in-place"));
+  assert.deepEqual(RANGER_CLIPS.filter((clip) => clip.library === "mixamo").map((clip) => [clip.name, clip.mixamo]), [
+    ["Walk_Bwd_Loop", "Walking Backwards"], ["Walk_Strafe_Left_Loop", "Left Strafe Walking"], ["Walk_Strafe_Right_Loop", "Right Strafe Walking"],
+    ["Walk_Start", "Start Walking"], ["Walk_Stop", "Walk To Stop"], ["Turn_Left", "Left Turn"], ["Turn_Right", "Right Turn"], ["Hit_Shove_Spin", "Shoved Reaction With Spin"],
   ]);
-  assert.ok(RANGER_V2_CLIPS.every((clip) => clip.rootMotion === "in-place"));
-  for (const [ubc, ual1] of [[RANGER_UBC_BONE_MAP, RANGER_BONE_MAP], [RANGER_V5_UBC_BONE_MAP, RANGER_V5_BONE_MAP]] as const) {
-    assert.deepEqual(Object.keys(ubc), Object.keys(ual1));
-    for (const [bone, { source, target }] of Object.entries(ubc)) {
-      assert.equal(source, target, bone);
-      assert.equal(target, ual1[bone]!.target, bone);
-    }
-  }
-  assert.deepEqual(RANGER_V2_EQUIPMENT.map((item) => item.key), ["equipment.sword.arming", "equipment.shield.heater"]);
-});
-
-test("v5 (#268) retargets every spine joint exactly once; v1-v4 keep the two-bone spine map", () => {
-  const spine = (map: Record<string, { source: string; target: string }>) =>
-    Object.entries(map).filter(([, { target }]) => target.startsWith("spine_")).map(([bone, { source, target }]) => [bone, source, target]);
-  assert.deepEqual(spine(RANGER_V5_BONE_MAP), [
-    ["spine", "DEF-spine.001", "spine_01"], ["chest", "DEF-spine.002", "spine_02"], ["upper-chest", "DEF-spine.003", "spine_03"],
-  ]);
-  assert.deepEqual(spine(RANGER_BONE_MAP), [["spine", "DEF-spine.001", "spine_01"], ["chest", "DEF-spine.003", "spine_03"]]);
-  assert.deepEqual(Object.keys(RANGER_V5_BONE_MAP).filter((bone) => !(bone in RANGER_BONE_MAP)), ["upper-chest"]);
-  for (const map of [RANGER_V5_BONE_MAP, RANGER_V5_UBC_BONE_MAP]) {
-    for (const side of ["source", "target"] as const) {
-      const joints = Object.values(map).map((binding) => binding[side]);
-      assert.equal(new Set(joints).size, joints.length, `${side} joints are mapped once`);
-    }
-  }
-  assert.deepEqual(([1, 2, 3, 4, 5] as const).map((version) => rangerBoneMaps(version).clips), [
-    RANGER_BONE_MAP, RANGER_BONE_MAP, RANGER_BONE_MAP, RANGER_BONE_MAP, RANGER_V5_BONE_MAP,
-  ]);
-  assert.equal(rangerBoneMaps(5).clips2, RANGER_V5_UBC_BONE_MAP);
-  assert.equal(rangerBoneMaps(4).clips2, RANGER_UBC_BONE_MAP);
-});
-
-test("v6 (#112) adds the traversal clips by source name after the v2 clips; v1-v5 keep their clip lists", () => {
-  assert.deepEqual(RANGER_V6_CLIPS.slice(RANGER_V2_CLIPS.length).map((clip) => [clip.name, clip.library]), [
-    ["Jump_Start", "clips"], ["Jump_Loop", "clips"], ["Jump_Land", "clips"], ["Crouch_Idle_Loop", "clips"], ["Crouch_Fwd_Loop", "clips"],
-    ["Roll", "clips"], ["Roll_RM", "clips"], ["ClimbUp_1m_RM", "clips2"], ["Slide_Start", "clips2"], ["Slide_Loop", "clips2"], ["Slide_Exit", "clips2"],
-  ]);
-  assert.deepEqual(RANGER_V6_CLIPS.slice(0, RANGER_V2_CLIPS.length), RANGER_V2_CLIPS);
-  assert.ok(RANGER_V6_CLIPS.every((clip) => clip.rootMotion === "in-place"));
-  assert.deepEqual(([1, 2, 3, 4, 5, 6, 7, 8] as const).map(rangerClips), [RANGER_CLIPS, RANGER_V2_CLIPS, RANGER_V2_CLIPS, RANGER_V2_CLIPS, RANGER_V2_CLIPS, RANGER_V6_CLIPS, RANGER_V7_CLIPS, RANGER_V8_CLIPS]);
+  assert.deepEqual([...RANGER_AUTHORED_CLIPS], ["Jog_Bwd_Loop", "Jog_Strafe_Left_Loop", "Jog_Strafe_Right_Loop"]);
+  assert.ok(RANGER_AUTHORED_CLIPS.every((name) => !names.includes(name)));
   assert.deepEqual([...RANGER_GAITS], ["Walk_Loop", "Jog_Fwd_Loop", "Sprint_Loop", "Crouch_Fwd_Loop", "Jog_Bwd_Loop"]);
-  assert.deepEqual(rangerBoneMaps(6), rangerBoneMaps(5));
-});
-
-test("v7 (#113, #114) adds the owner-picked combat clips after the v6 clips, each with its role", () => {
-  assert.deepEqual(RANGER_V7_CLIPS.slice(0, RANGER_V6_CLIPS.length), RANGER_V6_CLIPS);
-  const added = RANGER_V7_CLIPS.slice(RANGER_V6_CLIPS.length);
-  assert.ok(added.every((clip) => clip.rootMotion === "in-place" && RANGER_CLIP_ROLES[clip.name]), "every v7 clip has a role");
   // Owner picks on #114: heavy = Sword_Regular_C, counter = Sword_Regular_B, light = Sword_Regular_A; Melee_Hook is not used.
   assert.equal(RANGER_CLIP_ROLES.Sword_Regular_C!.role, "sword.heavy-strike");
   assert.equal(RANGER_CLIP_ROLES.Sword_Regular_B!.role, "sword.counter");
   assert.equal(RANGER_CLIP_ROLES.Sword_Regular_A!.role, "sword.light-strike");
-  assert.ok(!RANGER_V7_CLIPS.some((clip) => clip.name.startsWith("Melee_Hook")));
-  assert.deepEqual(RANGER_V7_ARCHERY.map((item) => item.key), ["equipment.bow.long", "equipment.arrow", "equipment.quiver.back"]);
+  assert.equal(RANGER_CLIP_ROLES.Hit_Shove_Spin!.role, "hit.shove");
+  assert.ok(!names.some((name) => name.startsWith("Melee_Hook")));
 });
 
-test("the female Ranger (#115) uses the female body, the Female_Ranger outfit and its own sockets, from v7", async () => {
+test("every spine joint is retargeted exactly once; UAL2 and Mixamo bind the same target joints", () => {
+  const spine = Object.entries(RANGER_BONE_MAP).filter(([, { target }]) => target.startsWith("spine_")).map(([bone, { source, target }]) => [bone, source, target]);
+  assert.deepEqual(spine, [["spine", "DEF-spine.001", "spine_01"], ["chest", "DEF-spine.002", "spine_02"], ["upper-chest", "DEF-spine.003", "spine_03"]]);
+  for (const side of ["source", "target"] as const) {
+    const joints = Object.values(RANGER_BONE_MAP).map((binding) => binding[side]);
+    assert.equal(new Set(joints).size, joints.length, `${side} joints are mapped once`);
+  }
+  assert.deepEqual(Object.keys(RANGER_UBC_BONE_MAP), Object.keys(RANGER_BONE_MAP));
+  for (const [bone, { source, target }] of Object.entries(RANGER_UBC_BONE_MAP)) {
+    assert.equal(source, target, bone);
+    assert.equal(target, RANGER_BONE_MAP[bone]!.target, bone);
+  }
+  assert.deepEqual(Object.keys(RANGER_MIXAMO_BONE_MAP).sort(), Object.keys(RANGER_BONE_MAP).filter((bone) => bone !== "root").sort());
+  assert.ok(Object.values(RANGER_MIXAMO_BONE_MAP).every(({ source }) => source.startsWith("mixamorig:")));
+});
+
+test("the Ranger declares its equipment, figures, appearance and texture limits", () => {
+  assert.deepEqual(RANGER_WEAPONS.map((item) => item.key), ["equipment.sword.arming", "equipment.shield.heater"]);
+  assert.deepEqual(RANGER_ARCHERY.map((item) => item.key), ["equipment.bow.long", "equipment.arrow", "equipment.quiver.back"]);
   assert.equal(RANGER_FIGURES.female.key, "humanoid.ranger.female");
   assert.match(RANGER_FIGURES.female.body.path, /Superhero_Female_FullBody\.gltf$/);
   assert.match(RANGER_FIGURES.female.outfit.path, /Female_Ranger\.gltf$/);
   assert.equal(RANGER_FIGURES.male.key, RANGER_BUNDLE_KEY);
-  await assert.rejects(buildRangerCharacter({ processorCheckout: "/nonexistent", outDir: os.tmpdir(), version: 6, figure: "female" }), /starts at bundle version 7/);
-});
-
-test("v8 (#112) adds the owner-approved Mixamo clips by name after the v7 clips, with a full Mixamo bone map", () => {
-  assert.deepEqual(RANGER_V8_CLIPS.slice(0, RANGER_V7_CLIPS.length), RANGER_V7_CLIPS);
-  assert.deepEqual(RANGER_V8_CLIPS.slice(RANGER_V7_CLIPS.length).map((clip) => [clip.name, clip.library, clip.mixamo]), [
-    ["Walk_Bwd_Loop", "mixamo", "Walking Backwards"], ["Walk_Strafe_Left_Loop", "mixamo", "Left Strafe Walking"],
-    ["Walk_Strafe_Right_Loop", "mixamo", "Right Strafe Walking"], ["Walk_Start", "mixamo", "Start Walking"], ["Walk_Stop", "mixamo", "Walk To Stop"],
-    ["Turn_Left", "mixamo", "Left Turn"], ["Turn_Right", "mixamo", "Right Turn"], ["Hit_Shove_Spin", "mixamo", "Shoved Reaction With Spin"],
-  ]);
-  assert.equal(RANGER_CLIP_ROLES.Hit_Shove_Spin!.role, "hit.shove");
-  assert.deepEqual(Object.keys(RANGER_MIXAMO_BONE_MAP).sort(), Object.keys(RANGER_V5_BONE_MAP).filter((bone) => bone !== "root").sort());
-  assert.ok(Object.values(RANGER_MIXAMO_BONE_MAP).every(({ source }) => source.startsWith("mixamorig:")));
-});
-
-test("v9 (#116) declares the owner-picked appearance per figure: Light skin, hood toggle, hairstyles and tints", () => {
   assert.deepEqual([...RANGER_APPEARANCE.male.hair], ["Hair_Buzzed", "Hair_SimpleParted", "Hair_Long"]);
   assert.deepEqual([...RANGER_APPEARANCE.female.hair], ["Hair_Long", "Hair_Buns"]);
   assert.equal(RANGER_APPEARANCE.male.hood, "Male_Ranger_Head_Hood");
   assert.equal(RANGER_APPEARANCE.female.hood, "Female_Ranger_Head_Hood");
   assert.deepEqual(Object.keys(RANGER_HAIR_TINTS), ["black", "brown", "blond"]);
-  assert.deepEqual(rangerClips(9), RANGER_V8_CLIPS, "v9 adds appearance, not clips");
-  assert.deepEqual(rangerClips(10), RANGER_V8_CLIPS, "v10 adds outfits, not clips");
-  assert.deepEqual(rangerClips(11), RANGER_V8_CLIPS, "v11 authors its jog clips after the library clips");
-  assert.deepEqual([...RANGER_V11_AUTHORED_CLIPS], ["Jog_Bwd_Loop", "Jog_Strafe_Left_Loop", "Jog_Strafe_Right_Loop"]);
-});
-
-test("v11 is the default; v2 and v3 keep the bundle-v2 sockets, v4-v6 the bundle-v4 sockets, and the texture limits are per slot", () => {
-  assert.equal(RANGER_DEFAULT_VERSION, 11);
-  assert.deepEqual(([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] as const).map(rangerSocketsDescriptor), [undefined, RANGER_V2_SOCKETS_DESCRIPTOR, RANGER_V2_SOCKETS_DESCRIPTOR, RANGER_V4_SOCKETS_DESCRIPTOR, RANGER_V4_SOCKETS_DESCRIPTOR, RANGER_V4_SOCKETS_DESCRIPTOR, RANGER_SOCKETS_DESCRIPTOR, RANGER_SOCKETS_DESCRIPTOR, RANGER_SOCKETS_DESCRIPTOR, RANGER_SOCKETS_DESCRIPTOR, RANGER_SOCKETS_DESCRIPTOR]);
-  assert.notEqual(RANGER_SOCKETS_DESCRIPTOR, RANGER_V2_SOCKETS_DESCRIPTOR);
   assert.deepEqual(RANGER_TEXTURE_POLICY, {
     maxEdgeBySlot: { baseColor: 1024, normal: 1024, metallicRoughness: 512, occlusion: 512, emissive: 1024 }, default: 1024,
   });
 });
 
-test("the Ranger v7 recipe builds a verified bundle: in-place clips, equipment entries, the sockets and clips attachments and game-resolution textures", { skip: await skipReason(), timeout: 900_000 }, async () => {
+test("the Ranger recipe builds a verified bundle: in-place clips, equipment entries, the sockets and clips attachments and game-resolution textures", { skip: await skipReason(), timeout: 900_000 }, async () => {
   const outDir = await mkdtemp(path.join(os.tmpdir(), "humanoid-ranger-"));
   try {
-    // v8 needs the author's local Mixamo files (Atlas 6.1.6), so the hosted run builds v7; v8 adds clips only.
-    const built = await buildRangerCharacter({ processorCheckout: CHECKOUT!, outDir, version: 7 });
+    const built = await buildRangerCharacter({ processorCheckout: CHECKOUT!, outDir, mixamoDir: process.env.ASSET_TOOLING_MIXAMO_DIR });
     const tar = await readFile(built.tar);
     await verifyAssetBundleTar(tar, { sha256: built.tarSha256, ref: built.exportRef });
     const { manifest } = await verifyAssetBundle(built.bundleDir, built.exportRef, { profile: GLTF_RESOURCES_BUNDLE_PROFILE });
-    assert.deepEqual(manifest.assets.map((entry) => `${entry.key}/${entry.variant}`).sort(),
-      [`${RANGER_BUNDLE_KEY}/${RANGER_BUNDLE_VARIANT}`, ...[...RANGER_V2_EQUIPMENT, ...RANGER_V7_ARCHERY].map((item) => `${item.key}/default`)].sort());
+    const entries = manifest.assets.map((entry) => `${entry.key}/${entry.variant}`);
+    for (const expected of [`${RANGER_BUNDLE_KEY}/${RANGER_BUNDLE_VARIANT}`, `${RANGER_BUNDLE_KEY}/skin.light`, `${RANGER_BUNDLE_KEY}/outfit.soldier`,
+      `${RANGER_BUNDLE_KEY}/outfit.knight`, "armor.soldier/default", "armor.knight/default", ...[...RANGER_WEAPONS, ...RANGER_ARCHERY].map((item) => `${item.key}/default`)]) {
+      assert.ok(entries.includes(expected), expected);
+    }
     const entry = manifest.assets.find((candidate) => candidate.key === RANGER_BUNDLE_KEY)!;
-    const clipNames = RANGER_V7_CLIPS.map((clip) => clip.name);
+    const clipNames = [...RANGER_CLIPS.map((clip) => clip.name), ...RANGER_AUTHORED_CLIPS];
+    const libraryClips = new Set(RANGER_CLIPS.filter((clip) => clip.library !== "mixamo").map((clip) => clip.name));
     assert.deepEqual(entry.observations.animations, clipNames);
 
     // The sockets descriptor ships with the character entry, byte-identical to the versioned file.
-    assert.deepEqual(entry.attachments.map((attachment) => [attachment.name, attachment.mediaType]), [[RANGER_CLIPS_ATTACHMENT, "application/json"], [RANGER_SOCKETS_ATTACHMENT, "application/json"]]);
+    assert.deepEqual(entry.attachments.map((attachment) => attachment.name).sort(), [RANGER_CLIPS_ATTACHMENT, "humanoid-appearance", RANGER_SOCKETS_ATTACHMENT].sort());
     const sockets = await readAssetBundleAttachment(built.bundleDir, manifest, RANGER_BUNDLE_KEY, RANGER_BUNDLE_VARIANT, RANGER_SOCKETS_ATTACHMENT);
     assert.deepEqual(sockets, await readFile(path.join(ROOT, RANGER_SOCKETS_DESCRIPTOR)));
 
@@ -194,7 +145,6 @@ test("the Ranger v7 recipe builds a verified bundle: in-place clips, equipment e
     const { gltf, resources } = await readAssetBundleGltf(built.bundleDir, manifest, RANGER_BUNDLE_KEY, RANGER_BUNDLE_VARIANT);
     const document = await new NodeIO().readJSON({ json: JSON.parse(gltf.toString("utf8")), resources: Object.fromEntries(resources) });
     // v3 and later: 13 PNG textures, each within its slot's limit, the 4096 px sources reduced and none upscaled.
-    assert.equal(built.lineage.version, 7);
     const textures = built.lineage.textures![RANGER_BUNDLE_KEY]!;
     assert.equal(document.getRoot().listTextures().length, 13);
     for (const image of textures.images) {
@@ -208,12 +158,12 @@ test("the Ranger v7 recipe builds a verified bundle: in-place clips, equipment e
       const [width, height] = ImageUtils.getSize(texture.getImage()!, "image/png")!;
       assert.ok(Math.max(width, height) <= 1024, texture.getName());
     }
-    for (const { key } of [...RANGER_V2_EQUIPMENT, ...RANGER_V7_ARCHERY]) assert.deepEqual(built.lineage.textures![key], { images: 0 }, key);
+    for (const { key } of [...RANGER_WEAPONS, ...RANGER_ARCHERY]) assert.deepEqual(built.lineage.textures![key], { images: 0 }, key);
 
     const joints = document.getRoot().listSkins()[0]!.listJoints();
     assert.equal(joints.length, 65);
     validateHumanoidSocketDescriptor(JSON.parse(sockets.toString("utf8")), { joints: joints.map((joint) => joint.getName()) });
-    const mappedTargets = new Set(Object.values(RANGER_V5_BONE_MAP).map((binding) => binding.target));
+    const mappedTargets = new Set(Object.values(RANGER_BONE_MAP).map((binding) => binding.target));
     const root = joints.find((joint) => joint.getName() === "root")!;
     const pelvis = joints.find((joint) => joint.getName() === "pelvis")!;
     const rest = { root: [root.getTranslation(), root.getRotation()], pelvis: [pelvis.getTranslation(), pelvis.getRotation()] } as const;
@@ -221,10 +171,11 @@ test("the Ranger v7 recipe builds a verified bundle: in-place clips, equipment e
     for (const animation of document.getRoot().listAnimations()) {
       const name = animation.getName();
       for (const channel of animation.listChannels()) {
-        assert.ok(mappedTargets.has(channel.getTargetNode()!.getName()), `${name} animates only mapped joints`);
+        // Retargeted library clips animate only mapped joints; Blender-made clips (Mixamo, authored) key every joint.
+        if (libraryClips.has(name)) assert.ok(mappedTargets.has(channel.getTargetNode()!.getName()), `${name} animates only mapped joints`);
         assert.equal(channel.getSampler()!.getInterpolation(), "LINEAR");
       }
-      // v5 (#268): the middle spine joint carries the source bend instead of staying at rest.
+      // #268: the middle spine joint carries the source bend instead of staying at rest.
       assert.ok(animation.listChannels().some((channel) => channel.getTargetNode()!.getName() === "spine_02" && channel.getTargetPath() === "rotation"), `${name} rotates spine_02`);
       const duration = Math.max(...animation.listSamplers().map((sampler) => sampler.getInput()!.getMax([])[0]!));
       assert.ok(duration > 0, `${name} has a positive duration`);
@@ -246,15 +197,15 @@ test("the Ranger v7 recipe builds a verified bundle: in-place clips, equipment e
       const drift = Math.hypot(Math.max(...xs) - Math.min(...xs), Math.max(...zs) - Math.min(...zs));
       assert.ok(drift <= 0.01, `${name} pelvis horizontal drift ${drift.toFixed(4)} m must be at most 1 cm`);
     }
-    for (const clip of built.lineage.clips) {
+    for (const clip of built.lineage.clips.filter((candidate) => libraryClips.has(candidate.name))) {
       assert.equal(clip.observations.rootMotion, "in-place", clip.name);
-      assert.equal(clip.observations.mappedBoneCount, Object.keys(RANGER_V5_BONE_MAP).length, clip.name);
+      assert.equal(clip.observations.mappedBoneCount, Object.keys(RANGER_BONE_MAP).length, clip.name);
       assert.equal(clip.observations.startSeconds, 0, clip.name);
       assert.ok(clip.observations.endSeconds > 0 && clip.observations.sampleCount > 1, clip.name);
     }
 
     // Weapons are separate, unskinned, unanimated entries; the consumer parents them via the sockets.
-    for (const { key, piece } of RANGER_V2_EQUIPMENT) {
+    for (const { key, piece } of RANGER_WEAPONS) {
       const weapon = manifest.assets.find((candidate) => candidate.key === key)!;
       assert.equal(weapon.observations.skins, 0, key);
       assert.deepEqual(weapon.observations.animations, [], key);
@@ -265,7 +216,7 @@ test("the Ranger v7 recipe builds a verified bundle: in-place clips, equipment e
       assert.deepEqual(json.nodes.map((node: any) => node.name).sort(), ["grip", piece].sort(), key);
     }
     // v7 archery: the arrow and quiver are static like the weapons; the bow is skinned to grip and nock.
-    for (const { key, piece } of RANGER_V7_ARCHERY) {
+    for (const { key, piece } of RANGER_ARCHERY) {
       const item = manifest.assets.find((candidate) => candidate.key === key)!;
       assert.deepEqual(item.observations.animations, [], key);
       const json = JSON.parse((await readAssetBundleGltf(built.bundleDir, manifest, key, "default")).gltf.toString("utf8"));
