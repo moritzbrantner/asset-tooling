@@ -45,6 +45,8 @@ Use `python3 scripts/setup-tools.py doctor --profile all --json` for read-only l
 
 Run `bun run check` for the ordinary deterministic gate. It validates catalog and storage-manifest structure without hydrating the whole LFS corpus.
 
+While iterating, run the affected files with `bun test <file>` rather than the whole suite. Tests that spawn Blender run only with `BLENDER_TESTS=1` and `ASSET_TOOLING_BLENDER` set (Blender 5.2.2; snap Blender needs `TMPDIR` under `$HOME`); otherwise they skip. The hosted `blender-script` job sets both.
+
 Run `bun run catalog:storage:verify` from a Git LFS-hydrated checkout when changing canonical payload storage. Hosted `Validate / canonical-storage` additionally runs `git lfs fsck` and verifies every hydrated payload against its catalog SHA-256 and byte length.
 
 The test suite covers canonical hashing, published-contract immutability, package shape, fail-closed dependency checks, content-addressed cache integrity, idempotent generation, exact rebuild verification, output/cache tampering, catalog acquisition/promotion boundaries, canonical-storage identity and consumer materialization, model-acquisition deterministic packaging/offline verification/tamper rejection, and environment drift reporting.

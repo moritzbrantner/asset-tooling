@@ -1,3 +1,5 @@
 [test]
 # Playwright specs run with `bun run test:browser`, not `bun test`.
 pathIgnorePatterns = ["test/browser/**"]
+# Blender-spawning tests run only with BLENDER_TESTS=1 (see test/preload.ts).
+preload = ["./test/preload.ts"]

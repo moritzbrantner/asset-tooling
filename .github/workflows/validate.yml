@@ -88,6 +88,8 @@ jobs:
           bun -e 'import { readFile } from "node:fs/promises"; import { sha256Bytes } from "./src/hash.ts"; import { SAPLING_TREE_SOURCE } from "./src/tree-recipes.ts"; const bytes = await readFile(process.argv[1]); if (bytes.length !== SAPLING_TREE_SOURCE.byteLength || sha256Bytes(bytes) !== SAPLING_TREE_SOURCE.sha256) throw new Error("Sapling input pin mismatch")' "$RUNNER_TEMP/sapling.zip"
           echo "ASSET_TOOLING_SAPLING_ARCHIVE=$RUNNER_TEMP/sapling.zip" >> "$GITHUB_ENV"
       - name: Blender script backend round trips
+        env:
+          BLENDER_TESTS: "1"
         run: |
           bun install --frozen-lockfile
           bun test test/blender-script.test.ts test/greyhaven-inn.test.ts test/archery-recipes.test.ts test/blender-input-snapshot.test.ts test/gltf-production-operations.test.ts test/rock-recipes.test.ts test/render-derivative-recipes.test.ts test/shared-render-framing.test.ts test/tree-recipes.test.ts test/wheat-recipes.test.ts test/corn-recipes.test.ts test/grass-recipes.test.ts test/fence-kit-recipes.test.ts
