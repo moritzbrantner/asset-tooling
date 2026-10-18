@@ -138,6 +138,13 @@ def main():
     world.use_nodes = True
     world.node_tree.nodes["Background"].inputs[0].default_value = (.55, .58, .62, 1)
     world.node_tree.nodes["Background"].inputs[1].default_value = .9
+    if armor:
+        # Metal reads only against an environment with contrast: a procedural sky with a darker ground (#120).
+        sky = world.node_tree.nodes.new("ShaderNodeTexSky")
+        if hasattr(sky, "sun_disc"):
+            sky.sun_disc = False
+        world.node_tree.links.new(sky.outputs["Color"], world.node_tree.nodes["Background"].inputs[0])
+        world.node_tree.nodes["Background"].inputs[1].default_value = .06
     sun = bpy.data.objects.new("sun", bpy.data.lights.new("sun", "SUN"))
     sun.data.energy = 3.5
     sun.rotation_euler = (math.radians(50), 0, math.radians(-30))

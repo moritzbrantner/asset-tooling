@@ -590,6 +590,31 @@ def finish_mesh(builder, name, materials):
     return mesh, triangles
 
 
+# Blender finishing for rigid plates (Atlas Decision 5.1.6): a narrow bevel rounds every hard edge so plate rims catch
+# light instead of reading as knife edges, and weighted normals keep the large faces flat-shaded and clean.
+PLATE_BEVEL = {"width": .0025, "segments": 2, "angle": math.radians(40)}
+
+
+def finish_plate(obj):
+    """Apply the plate finishing modifiers to ``obj`` in place and return its triangle count."""
+    bevel = obj.modifiers.new("bevel", "BEVEL")
+    bevel.width, bevel.segments = PLATE_BEVEL["width"], PLATE_BEVEL["segments"]
+    bevel.limit_method, bevel.angle_limit = "ANGLE", PLATE_BEVEL["angle"]
+    bevel.harden_normals = False
+    weighted = obj.modifiers.new("weighted-normals", "WEIGHTED_NORMAL")
+    weighted.keep_sharp = True
+    bpy.context.view_layer.objects.active = obj
+    for modifier in list(obj.modifiers):
+        bpy.ops.object.modifier_apply(modifier=modifier.name)
+    mesh = obj.data
+    bm = bmesh.new()
+    bm.from_mesh(mesh)
+    bmesh.ops.triangulate(bm, faces=bm.faces, quad_method="FIXED", ngon_method="EAR_CLIP")
+    count = len(bm.faces)
+    bm.free()
+    return count
+
+
 def geometry_hash(meshes):
     digest = hashlib.sha256()
     for mesh in meshes:
@@ -636,6 +661,7 @@ def generate(output_path, arguments, inputs):
             mesh, triangles = finish_mesh(builder, name, [palette[slot]])
             obj = bpy.data.objects.new(name, mesh)
             bpy.context.scene.collection.objects.link(obj)
+            triangles = finish_plate(obj)
             exported.append(obj)
             pieces.append({"node": name, "kind": "rigid", "joint": joint, "materials": [slot], "triangleCount": triangles,
                            "bounds": bounds(points), "hides": HIDES.get(name, [])})

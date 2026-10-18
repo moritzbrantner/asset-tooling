@@ -54,6 +54,15 @@ The Ranger bundle ([humanoid-ranger.md](humanoid-ranger.md#contents)) builds the
 
 The `humanoid-appearance` attachment gains `outfits`. Each outfit lists its character variant, its armour entry with every node and its socket, its garments, the hidden base nodes and the faction slot.
 
+## Finishing
+
+Under Atlas Decision 5.1.6, every rigid plate goes through Blender finishing before export (`finish_plate`):
+
+- a 2.5 mm, two-segment **bevel** on edges sharper than 40°, so rims catch light instead of reading as knife edges;
+- **weighted normals** that keep sharp edges, so large faces shade flat and clean.
+
+The modifiers are applied, and the observations report the finished triangle count. Armour sheets light the scene with a procedural sky (`--armor`). Steel reflects its environment and reads as metal only against one with contrast; a flat grey world made it look white.
+
 ## Review
 
 The pose sheets are rendered with `examples/weapons/socket-sheets.py` and its `--armor=<armor.gltf>,<appearance.json>,<outfit id>` option. The poses are idle, walk, `Sword_Regular_C` (raised arm), `Crouch_Idle_Loop` (deep knee), `Idle_Shield_Loop` (shield) and `Spell_Simple_Idle_Loop` (both arms forward). The free libraries have no bow draw clip (#277), so a bow pose can't be shown yet.
