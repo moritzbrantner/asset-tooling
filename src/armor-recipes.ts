@@ -18,7 +18,7 @@ export const ARMOR_BASE_NODES = ["Male_Peasant_Arms", "Male_Peasant_Body", "Male
 export const ARMOR_FACTION = { material: "faction", default: [0.25, 0.04, 0.04] } as const;
 /** The rigid pieces ride these joints; each has a `<joint>.armor` socket (lowercase joint) that is the inverse of its rest transform. */
 export const ARMOR_JOINTS = [
-  "Head", "spine_03", "pelvis", "upperarm_l", "upperarm_r", "lowerarm_l", "lowerarm_r", "hand_l", "hand_r",
+  "Head", "spine_03", "pelvis", "clavicle_l", "clavicle_r", "upperarm_l", "upperarm_r", "lowerarm_l", "lowerarm_r", "hand_l", "hand_r",
   "thigh_l", "thigh_r", "calf_l", "calf_r", "foot_l", "foot_r",
 ] as const;
 

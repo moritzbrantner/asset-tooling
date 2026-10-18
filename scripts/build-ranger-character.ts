@@ -730,11 +730,13 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
     const hairMaterials = async (asset: AssetRef) => (await new NodeIO().readBinary(new Uint8Array(await resolveAssetObject(root, asset)))).getRoot().listMaterials().map((material) => material.getName());
     // #117: the soldier and knight outfit variants and their rigid armour entries.
     const outfits: Json[] = [{ id: "outfit.archer", variant: RANGER_BUNDLE_VARIANT, label: "Archer" }];
-    const kits: { kit: ArmorKit; variant: string; character: AssetRef; plates: AssetRef; cloth: AssetRef; fitTarget: AssetRef; observations: Json[] }[] = [];
+    const kits: { kit: ArmorKit; variants: { variant: string; character: AssetRef }[]; plates: AssetRef; cloth: AssetRef; fitTarget: AssetRef; observations: Json[] }[] = [];
     // The soldier and knight outfits are male-only for now (#117 Q8).
     if (figure === "male") {
       log("outfits: Peasant base and fitted armour (#117)");
       const peasant = await importGltf(RANGER_PEASANT_OUTFIT);
+      // #301: the Light skin too; the Peasant outfit's skin texture is the same derived Light texture as the Ranger's.
+      const peasantLight = await importGltf(RANGER_PEASANT_OUTFIT, { [look.skinLight.outfitUri]: regularLight });
       const fitTarget = single(await executeGltfComposeSkinnedOperation(root, { inputs: { skeleton: peasant, parts: [head] }, parameters: { policy: POLICY } }));
       const peasantMeshes = (await new NodeIO().readBinary(new Uint8Array(await resolveAssetObject(root, peasant)))).getRoot().listMeshes().map((mesh) => mesh.getName());
       const { jointNames } = JSON.parse((await resolveAssetObject(root, targetRig)).toString("utf8"));
@@ -745,22 +747,28 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
         const pieces: Json[] = [...plates.observations.pieces, ...cloth.observations.pieces];
         const hidden = [...new Set(pieces.flatMap((piece) => piece.hides as string[]))].sort();
         // The hidden-body-region list (Q12): base nodes a garment fully covers are left out of the variant.
-        const base = hidden.length === 0 ? peasant : single(await executeGltfSubsetSkinnedOperation(root, {
-          inputs: { source: peasant }, parameters: { keepJoints: ["root"], minWeight: 1, keepMeshes: peasantMeshes.filter((name) => !hidden.includes(name)), policy: POLICY },
-        }));
-        const composedKit = single(await executeGltfComposeSkinnedOperation(root, { inputs: { skeleton: base, parts: [head, cloth.glb] }, parameters: { policy: POLICY } }));
-        const kitRig = single(await executeGltfExtractAnimationOperation(root, { inputs: { source: composedKit }, parameters: { hipsJoint: RANGER_HIPS.target, policy: POLICY } }), "rig");
-        if (JSON.stringify(JSON.parse((await resolveAssetObject(root, kitRig)).toString("utf8")).jointNames) !== JSON.stringify(jointNames)) {
-          throw new Error(`the ${kit} outfit's joints differ from the Ranger rig, so the clips cannot be shared`);
+        const variants: { variant: string; character: AssetRef }[] = [];
+        for (const [skin, outfitSource, headPart] of [["skin.dark", peasant, head], ["skin.light", peasantLight, headLight]] as const) {
+          const base = hidden.length === 0 ? outfitSource : single(await executeGltfSubsetSkinnedOperation(root, {
+            inputs: { source: outfitSource }, parameters: { keepJoints: ["root"], minWeight: 1, keepMeshes: peasantMeshes.filter((name) => !hidden.includes(name)), policy: POLICY },
+          }));
+          const composedKit = single(await executeGltfComposeSkinnedOperation(root, { inputs: { skeleton: base, parts: [headPart, cloth.glb] }, parameters: { policy: POLICY } }));
+          const kitRig = single(await executeGltfExtractAnimationOperation(root, { inputs: { source: composedKit }, parameters: { hipsJoint: RANGER_HIPS.target, policy: POLICY } }), "rig");
+          if (JSON.stringify(JSON.parse((await resolveAssetObject(root, kitRig)).toString("utf8")).jointNames) !== JSON.stringify(jointNames)) {
+            throw new Error(`the ${kit} outfit's joints differ from the Ranger rig, so the clips cannot be shared`);
+          }
+          const animatedKit = single(await executeGltfEmbedAnimationOperation(root, {
+            inputs: { source: composedKit, animations: clips.map((clip) => clip.retargeted) },
+            parameters: { clips: clips.map((clip) => ({ name: clip.name })), policy: POLICY },
+          }));
+          const variant = skin === "skin.dark" ? `outfit.${kit}` : `outfit.${kit}.${skin}`;
+          variants.push({ variant, character: await resizeTextures(`${bundleKey}/${variant}`, animatedKit) });
         }
-        const animatedKit = single(await executeGltfEmbedAnimationOperation(root, {
-          inputs: { source: composedKit, animations: clips.map((clip) => clip.retargeted) },
-          parameters: { clips: clips.map((clip) => ({ name: clip.name })), policy: POLICY },
-        }));
-        const variant = `outfit.${kit}`;
-        kits.push({ kit, variant, character: await resizeTextures(`${bundleKey}/${variant}`, animatedKit), plates: plates.glb, cloth: cloth.glb, fitTarget, observations: pieces });
+        const variant = variants[0]!.variant;
+        kits.push({ kit, variants, plates: plates.glb, cloth: cloth.glb, fitTarget, observations: pieces });
         outfits.push({
           id: variant, variant, label: kit === "soldier" ? "Soldier" : "Knight",
+          skins: [{ id: "skin.dark", variant: variants[0]!.variant }, { id: "skin.light", variant: variants[1]!.variant }],
           base: { outfit: "Male_Peasant", hidden },
           armor: { entry: `armor.${kit}`, pieces: (plates.observations.pieces as Json[]).map((piece) => ({ node: piece.node, socket: `${String(piece.joint).toLowerCase()}.armor`, hides: piece.hides })) },
           garments: (cloth.observations.pieces as Json[]).map((piece) => ({ id: piece.node, nodes: piece.nodes, hides: piece.hides })),
@@ -810,8 +818,12 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
         assets.push(asset);
       }
       for (const kit of appearance.kits) {
-        selections.push({ key: bundleKey, variant: kit.variant }, { key: `armor.${kit.kit}`, variant: RANGER_BUNDLE_VARIANT });
-        assets.push(kit.character, kit.plates);
+        for (const { variant, character: outfitCharacter } of kit.variants) {
+          selections.push({ key: bundleKey, variant });
+          assets.push(outfitCharacter);
+        }
+        selections.push({ key: `armor.${kit.kit}`, variant: RANGER_BUNDLE_VARIANT });
+        assets.push(kit.plates);
       }
       selections[0]!.attachments.push({ name: RANGER_APPEARANCE_ATTACHMENT });
       attachments.push(appearance.descriptor);
