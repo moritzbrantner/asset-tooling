@@ -24,6 +24,14 @@ Each selected glTF and **every** buffer and image URI it references is a separat
 | Everyday prop | Fantasy Props | `Exports/glTF/Barrel.gltf` | `Exports/glTF/Barrel.bin`; `Textures/T_Trim_Furniture_{Normal,BaseColor,ORM}.png`; `Textures/T_Trim_Metal_{Normal,BaseColor,ORM}.png` |
 | Tree | Stylized Nature | `glTF/CommonTree_1.gltf` | `glTF/CommonTree_1.bin`; `glTF/Bark_NormalTree_Normal.png`; `glTF/Bark_NormalTree.png`; `glTF/Leaves_NormalTree_C.png` |
 
+**#119 starter-kit expansion.** These glTF members are added from the same verified archives, each with every buffer and image it references:
+
+- **Medieval Village:** `Wall_Plaster_Straight`, `Corner_Exterior_Wood`, `Roof_RoundTiles_4x4` (plus the `T_RoundTiles_*` set), `Roof_Front_Brick4`, `Prop_WoodenFence_Single` and `Prop_WoodenFence_Extension1`.
+- **Stylized Nature:** `Pine_1` (`Leaf_Pine_C.png`), `Bush_Common_Flowers` (`Flowers.png`), `Grass_Common_Short` (`Grass.png`) and `Rock_Medium_1` (`Rocks_Diffuse.png`).
+- **Fantasy Props:** `Crate_Wooden`, `Chest_Wood`, `Bench`, `Lantern_Wall` and `Stall_Cart_Empty`, plus the `Textures/T_Trim_Cloth_*` set.
+
+That makes 40 new member records and about 20.7 MB of new LFS payloads. The trim-sheet textures they share with the first slice are not stored twice. The archives were re-downloaded from their OpenGameArt URLs and matched their catalog pins. Some Fantasy Props glTFs name textures that sit only in the archive's `Textures/` folder; they resolve there, as they do for the barrel.
+
 Shared textures, such as the WoodTrim set used by the wall, the door and the door frame, have exactly one member record and one stored payload.
 
 The door frame answers #118 Q8 (owner decision, 2026-10-14): the wall has no faces across its 0.2 m thickness inside the doorway, so the kit's matching frame member is pinned and promoted like the other members. Selection (routine; the owner can object): `DoorFrame_Flat_WoodDark` is the flat-topped frame that matches the flat doorway and the wooden door, and it adds only its 3,792-byte buffer, because its textures are the WoodTrim records already stored. It spans x −0.786..0.788, y −0.009..2.304 and z −0.243..0.145 m around the 1.2956 × 2.1511 m opening. `DoorFrame_Flat_Brick` (RockTrim, 58,928-byte buffer) and the `Round` variants were not selected.

@@ -6,7 +6,7 @@ This is the build recipe for the first Greyhaven environment bundle of [#118](ht
 - **Q2:** the tree's vertex colours get the declared `gltf-color-clamp-v1` repair (bound 2e-4).
 - **Q3:** every asset is placed with `scene.place.gltf@1` ([gltf-place.md](gltf-place.md)). Vertices are not baked.
 - **Q4:** the result is a `gltf-resources-v1` bundle ([asset-bundles.md](asset-bundles.md#gltf-resources-profile)). Images are external files stored once by hash, and the doorway/collision descriptor is an attachment.
-- **Q5:** the bundle is distributed as a versioned GitHub Release.
+- **Q5:** the bundle is distributed as a GitHub release. Under Atlas Decision 7.1.5 that is the rolling `greyhaven-starter` release, whose assets are replaced in place. The first numbered `greyhaven-starter-v1` stays published for consumers that pin it.
 - **Routine defaults:** the origin is at the footprint's base centre, the door's hinge is recorded as `sourcePivot`, no occlusion map is bound from the ORM textures, and the starter's collision proxies are separate boxes with an open doorway.
 
 ## Build
@@ -68,9 +68,72 @@ From the recorded build, the doorway is 1.295596 m wide and 2.151056 m high, fro
 
 These proxies are presentation and inspection metadata. Game physics, traversability and collider policy stay with the consumers (mmorpg#39, arpg#72), which may use, replace or ignore them.
 
+## Starter kit (#119)
+
+[#119](https://github.com/moritzbrantner/asset-tooling/issues/119) grows the five-asset slice into a 20-entry kit from the same three CC0 MegaKits (Atlas Decision 3.1.1):
+
+- modular structure pieces;
+- matching vegetation;
+- everyday props.
+
+Every member goes through the same import → place → descriptor path. `category` in the descriptor groups them into `structure`, `vegetation` and `prop`. Members that only render, such as the frame, bush, grass and lantern, get no collision proxy. The pine's trunk proxy is measured like the tree's, and every other member gets its placed bounds.
+
+| Key | Category | Triangles | Footprint W × D × H (m) | Collision proxies |
+| --- | --- | --- | --- | --- |
+| `greyhaven.starter.barrel` | prop | 824 | 0.698 × 0.698 × 0.898 | `barrel` |
+| `greyhaven.starter.bench` | prop | 404 | 2.777 × 0.534 × 0.533 | `bench` |
+| `greyhaven.starter.bush` | vegetation | 1,368 | 1.915 × 1.965 × 1.582 | none |
+| `greyhaven.starter.cart` | prop | 3,936 | 3.021 × 1.060 × 2.632 | `cart` |
+| `greyhaven.starter.chest` | prop | 2,546 | 1.276 × 0.755 × 0.715 | `chest` |
+| `greyhaven.starter.corner` | structure | 12 | 0.210 × 0.240 × 3.000 | `corner` |
+| `greyhaven.starter.crate` | prop | 1,576 | 0.842 × 0.908 × 0.931 | `crate` |
+| `greyhaven.starter.door` | structure | 314 | 1.118 × 0.121 × 2.100 | `door` |
+| `greyhaven.starter.door-frame` | structure | 56 | 1.574 × 0.388 × 2.312 | none |
+| `greyhaven.starter.fence` | structure | 40 | 2.064 × 0.120 × 0.838 | `fence` |
+| `greyhaven.starter.fence-extension` | structure | 32 | 2.045 × 0.110 × 0.838 | `fence-extension` |
+| `greyhaven.starter.gable` | structure | 252 | 4.400 × 1.129 × 3.069 | `gable` |
+| `greyhaven.starter.grass` | vegetation | 155 | 0.639 × 0.737 × 1.334 | none |
+| `greyhaven.starter.lantern` | prop | 2,822 | 0.357 × 1.302 × 1.337 | none |
+| `greyhaven.starter.pine` | vegetation | 3,947 | 4.945 × 4.538 × 7.317 | `trunk` |
+| `greyhaven.starter.rock` | vegetation | 342 | 3.225 × 2.989 × 2.260 | `rock` |
+| `greyhaven.starter.roof` | structure | 1,996 | 5.513 × 5.561 × 4.249 | `roof` |
+| `greyhaven.starter.tree` | vegetation | 6,265 | 4.311 × 4.578 × 7.265 | `trunk` |
+| `greyhaven.starter.wall` | structure | 92 | 2.000 × 0.406 × 3.123 | `left-jamb`, `right-jamb`, `lintel` |
+| `greyhaven.starter.wall-plain` | structure | 86 | 2.000 × 0.406 × 3.125 | `wall-plain` |
+
+**Connections.** The structure pieces share the kit's grid.
+
+- **Walls:** `wall` and `wall-plain` are 2.000 m modules, about 3.12 m high, placed at module centres 2 m apart. A wall turned 90° about +Y forms a side.
+- **Corners:** `corner` posts sit on the module ends.
+- **Roof:** `roof` (the 4 × 4 tile roof) covers a 4 × 4 m footprint from the wall top, with its ridge along Z.
+- **Gables:** a `gable` closes each open roof end at the front and back.
+- **Fences:** `fence` and `fence-extension` are 2 m sections.
+
+The composition files below give working placements.
+
+**Moving parts.**
+
+- **Door:** hinges at its recorded `sourcePivot`.
+- **Chest:** rigged. Its lid is the `Chest_Top` joint, recorded as the chest's `sourcePivot`, and a consumer rotates that joint to open it. The chest is imported with the `NODE_SKINNED_MESH_NON_ROOT` exception, because the kit's skinned meshes sit under its armature.
+
+**Scale.** The pieces keep the kit's own units. Grass and the medium rock are large next to a 1.8 m character (1.33 m and 3.2 m), the same as in the source kits. A consumer may scale vegetation instances.
+
+**Compositions.** [`examples/greyhaven-kit/`](../examples/greyhaven-kit/) holds two review compositions built from the same kit:
+
+- `greyhaven-yard.json`: a 4 × 4 m house from wall modules, corners, roof and gables, with the door, a wall lantern, an open chest, props, a fence and vegetation, at a near third-person camera.
+- `arpg-camp.json`: a cart-and-supply camp under a high action-RPG camera.
+
+`render-composition.py` renders either with Blender from a built bundle:
+
+```sh
+blender --background --factory-startup --python examples/greyhaven-kit/render-composition.py -- <bundle> examples/greyhaven-kit/greyhaven-yard.json yard.png [--figure=<character.gltf>]
+```
+
+`--figure` adds a character for scale, for example the Ranger. The compositions are review data only. Placement, opening state and collision policy in a game stay with mmorpg and arpg.
+
 ## Bundle and consumer pinning
 
-The bundle has five entries, each `scenes/<key>/default.gltf` with one `.bin` and its PNGs as hash-addressed resources:
+Each entry is `scenes/<key>/default.gltf` with one `.bin` and its PNGs as hash-addressed resources. The first five entries (#118) are:
 
 | Key | Triangles | Resources | Footprint W × D × H (m) |
 | --- | --- | --- | --- |
@@ -80,9 +143,9 @@ The bundle has five entries, each `scenes/<key>/default.gltf` with one `.bin` an
 | `greyhaven.starter.barrel` | 824 | 7 | 0.698 × 0.698 × 0.898 |
 | `greyhaven.starter.tree` | 6,265 | 4 | 4.311 × 4.578 × 7.265 |
 
-There are 23 distinct resources, because the three WoodTrim textures are shared. A consumer pins the three things described in [Release distribution and consumer pinning](asset-bundles.md#release-distribution-and-consumer-pinning):
+Across the whole kit there are 48 distinct resources, because the trim-sheet textures are shared, and the tar is about 69 MB. A consumer pins the three things described in [Release distribution and consumer pinning](asset-bundles.md#release-distribution-and-consumer-pinning):
 
-1. the release tag;
+1. the release (`greyhaven-starter`, rolling);
 2. the tar sha256;
 3. its own copy of `export.ref.json`.
 

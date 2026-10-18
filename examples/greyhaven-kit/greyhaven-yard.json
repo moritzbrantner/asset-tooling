@@ -1,0 +1,277 @@
+{
+ "title": "Greyhaven yard: a 4 x 4 m house from 2 m wall modules, corners, roof and gables, with props and vegetation",
+ "camera": [
+  7.5,
+  4.2,
+  9.5
+ ],
+ "target": [
+  0,
+  1.4,
+  -1.2
+ ],
+ "lens": 30,
+ "figure": {
+  "at": [
+   0.3,
+   0,
+   2.0
+  ]
+ },
+ "items": [
+  {
+   "key": "greyhaven.starter.wall-plain",
+   "at": [
+    -1,
+    0,
+    0
+   ]
+  },
+  {
+   "key": "greyhaven.starter.wall",
+   "at": [
+    1,
+    0,
+    0
+   ]
+  },
+  {
+   "key": "greyhaven.starter.door-frame",
+   "at": [
+    1,
+    0,
+    0.0
+   ]
+  },
+  {
+   "key": "greyhaven.starter.door",
+   "at": [
+    1,
+    0,
+    0.05
+   ]
+  },
+  {
+   "key": "greyhaven.starter.wall-plain",
+   "at": [
+    2,
+    0,
+    -1
+   ],
+   "yaw": 90
+  },
+  {
+   "key": "greyhaven.starter.wall-plain",
+   "at": [
+    2,
+    0,
+    -3
+   ],
+   "yaw": 90
+  },
+  {
+   "key": "greyhaven.starter.wall-plain",
+   "at": [
+    -2,
+    0,
+    -1
+   ],
+   "yaw": 90
+  },
+  {
+   "key": "greyhaven.starter.wall-plain",
+   "at": [
+    -2,
+    0,
+    -3
+   ],
+   "yaw": 90
+  },
+  {
+   "key": "greyhaven.starter.wall-plain",
+   "at": [
+    -1,
+    0,
+    -4
+   ]
+  },
+  {
+   "key": "greyhaven.starter.wall-plain",
+   "at": [
+    1,
+    0,
+    -4
+   ]
+  },
+  {
+   "key": "greyhaven.starter.corner",
+   "at": [
+    2,
+    0,
+    0
+   ]
+  },
+  {
+   "key": "greyhaven.starter.corner",
+   "at": [
+    -2,
+    0,
+    0
+   ]
+  },
+  {
+   "key": "greyhaven.starter.lantern",
+   "at": [
+    2.25,
+    1.9,
+    0.0
+   ]
+  },
+  {
+   "key": "greyhaven.starter.barrel",
+   "at": [
+    -1.4,
+    0,
+    0.7
+   ]
+  },
+  {
+   "key": "greyhaven.starter.crate",
+   "at": [
+    -0.4,
+    0,
+    0.9
+   ],
+   "yaw": 20
+  },
+  {
+   "key": "greyhaven.starter.bench",
+   "at": [
+    4.2,
+    0,
+    1.6
+   ],
+   "yaw": -10
+  },
+  {
+   "key": "greyhaven.starter.cart",
+   "at": [
+    -4.6,
+    0,
+    1.8
+   ],
+   "yaw": 30
+  },
+  {
+   "key": "greyhaven.starter.chest",
+   "at": [
+    3.0,
+    0,
+    -1.2
+   ],
+   "yaw": -90,
+   "open": true,
+   "pivotNode": "Chest_Top"
+  },
+  {
+   "key": "greyhaven.starter.fence",
+   "at": [
+    5.3,
+    0,
+    -2.5
+   ],
+   "yaw": 90
+  },
+  {
+   "key": "greyhaven.starter.fence-extension",
+   "at": [
+    5.3,
+    0,
+    -0.5
+   ],
+   "yaw": 90
+  },
+  {
+   "key": "greyhaven.starter.tree",
+   "at": [
+    -6,
+    0,
+    -5
+   ]
+  },
+  {
+   "key": "greyhaven.starter.pine",
+   "at": [
+    6.5,
+    0,
+    -7
+   ]
+  },
+  {
+   "key": "greyhaven.starter.bush",
+   "at": [
+    -3.6,
+    0,
+    -0.4
+   ]
+  },
+  {
+   "key": "greyhaven.starter.rock",
+   "at": [
+    -7.5,
+    0,
+    2.5
+   ]
+  },
+  {
+   "key": "greyhaven.starter.roof",
+   "at": [
+    0,
+    3.12,
+    -2
+   ],
+   "yaw": 0
+  },
+  {
+   "key": "greyhaven.starter.gable",
+   "at": [
+    0,
+    3.12,
+    0
+   ]
+  },
+  {
+   "key": "greyhaven.starter.gable",
+   "at": [
+    0,
+    3.12,
+    -4
+   ],
+   "yaw": 180
+  },
+  {
+   "key": "greyhaven.starter.grass",
+   "at": [
+    3.6,
+    0,
+    3.0
+   ]
+  },
+  {
+   "key": "greyhaven.starter.grass",
+   "at": [
+    -2.6,
+    0,
+    3.4
+   ]
+  },
+  {
+   "key": "greyhaven.starter.grass",
+   "at": [
+    2.2,
+    0,
+    1.2
+   ]
+  }
+ ]
+}
