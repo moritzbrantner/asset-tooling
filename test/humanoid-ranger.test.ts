@@ -17,7 +17,7 @@ import { verifyAssetBundleTar } from "../src/asset-bundle-pack.js";
 import { GLTF_RESOURCES_BUNDLE_PROFILE, readAssetBundleAttachment, readAssetBundleGltf, verifyAssetBundle } from "../src/asset-bundle.js";
 import { validateHumanoidSocketDescriptor } from "../src/humanoid-sockets.js";
 import {
-  RANGER_APPEARANCE, RANGER_ARCHERY, RANGER_AUTHORED_CLIPS, RANGER_BONE_MAP, RANGER_BUNDLE_KEY, RANGER_BUNDLE_VARIANT, RANGER_CLIPS,
+  RANGER_APPEARANCE, RANGER_ARCHERY, RANGER_AUTHORED_CLIPS, RANGER_BOW_CLIPS, RANGER_BONE_MAP, RANGER_BUNDLE_KEY, RANGER_BUNDLE_VARIANT, RANGER_CLIPS,
   RANGER_CLIPS_ATTACHMENT, RANGER_CLIP_ROLES, RANGER_FIGURES, RANGER_GAITS, RANGER_HAIR_TINTS, RANGER_MEMBERS, RANGER_MIXAMO_BONE_MAP,
   RANGER_SOCKETS_ATTACHMENT, RANGER_SOCKETS_DESCRIPTOR, RANGER_TEXTURE_POLICY, RANGER_UBC_BONE_MAP, RANGER_WEAPONS, buildRangerCharacter,
 } from "../scripts/build-ranger-character.ts";
@@ -51,6 +51,10 @@ test("the Ranger retargets the library clips in bundle order, then authors the j
   ]);
   assert.deepEqual([...RANGER_AUTHORED_CLIPS], ["Jog_Bwd_Loop", "Jog_Strafe_Left_Loop", "Jog_Strafe_Right_Loop"]);
   assert.ok(RANGER_AUTHORED_CLIPS.every((name) => !names.includes(name)));
+  // #277: original bow clips, each with a bow role; only the release has a contact.
+  assert.deepEqual([...RANGER_BOW_CLIPS], ["Bow_Aim_Loop", "Bow_Draw", "Bow_Hold_Loop", "Bow_Release", "Bow_Recovery", "Bow_Cancel"]);
+  assert.ok(RANGER_BOW_CLIPS.every((name) => RANGER_CLIP_ROLES[name]!.role.startsWith("bow.") && !names.includes(name)));
+  assert.deepEqual(RANGER_BOW_CLIPS.filter((name) => RANGER_CLIP_ROLES[name]!.contact), ["Bow_Release"]);
   assert.deepEqual([...RANGER_GAITS], ["Walk_Loop", "Jog_Fwd_Loop", "Sprint_Loop", "Crouch_Fwd_Loop", "Jog_Bwd_Loop"]);
   // Owner picks on #114: heavy = Sword_Regular_C, counter = Sword_Regular_B, light = Sword_Regular_A; Melee_Hook is not used.
   assert.equal(RANGER_CLIP_ROLES.Sword_Regular_C!.role, "sword.heavy-strike");
@@ -106,7 +110,7 @@ test("the Ranger recipe builds a verified bundle: in-place clips, equipment entr
       assert.ok(entries.includes(expected), expected);
     }
     const entry = manifest.assets.find((candidate) => candidate.key === RANGER_BUNDLE_KEY)!;
-    const clipNames = [...RANGER_CLIPS.map((clip) => clip.name), ...RANGER_AUTHORED_CLIPS];
+    const clipNames = [...RANGER_CLIPS.map((clip) => clip.name), ...RANGER_AUTHORED_CLIPS, ...RANGER_BOW_CLIPS];
     const libraryClips = new Set(RANGER_CLIPS.filter((clip) => clip.library !== "mixamo").map((clip) => clip.name));
     assert.deepEqual(entry.observations.animations, clipNames);
 
@@ -130,6 +134,15 @@ test("the Ranger recipe builds a verified bundle: in-place clips, equipment entr
       assert.equal("groundSpeedMetersPerSecond" in clip, RANGER_GAITS.has(clip.name), clip.name);
     }
     const byName = Object.fromEntries(motion.clips.map((clip: any) => [clip.name, clip]));
+    // #277: every bow clip records the string draw per frame; full draw is longer than the set string.
+    for (const name of RANGER_BOW_CLIPS) {
+      const bow = byName[name].bow;
+      assert.equal(bow.sampleRate, 30, name);
+      assert.equal(bow.drawMeters.length, Math.round(byName[name].durationSeconds * 30) + 1, name);
+    }
+    assert.ok(byName.Bow_Hold_Loop.bow.drawMeters[0] > byName.Bow_Aim_Loop.bow.drawMeters[0] + 0.1);
+    assert.equal(byName.Bow_Release.bow.drawMeters[1], 0);
+    assert.ok(byName.Bow_Release.bow.releaseSeconds > 0 && byName.Bow_Recovery.bow.nockedSeconds > byName.Bow_Recovery.bow.arrowDrawnSeconds);
     // Gaits get faster from crouch to sprint; the root-motion variants record the travel in-place removed.
     const speeds = ["Crouch_Fwd_Loop", "Walk_Loop", "Jog_Fwd_Loop", "Sprint_Loop"].map((name) => byName[name].groundSpeedMetersPerSecond);
     assert.ok(speeds[0] > 0.3 && speeds.every((speed: number, index: number) => index === 0 || speed > speeds[index - 1]), `gait speeds ${speeds}`);
