@@ -21,7 +21,7 @@ The recipe's declared input `target` is the base character at rest: the Peasant 
 
 `arguments` is `{schemaVersion: 1, kit: "soldier" | "knight", output: "plates" | "cloth"}`.
 
-- **`plates`** (Q2 = A, rigid pieces on single joints): one static GLB with one mesh node per piece, named `<kit>.<piece>`, for example `knight.pauldron_l`, each with an identity transform. Geometry is in the character's rest model space (metres, +Y up, facing +Z). Each piece rides one joint through that joint's `<joint>.armor` socket. The socket is the inverse of the joint's rest transform, the same idea as the hair's `head.hair` socket ([humanoid-sockets.md](humanoid-sockets.md#armour-sockets-bundle-v10)), so a piece sits where it was fitted and then follows its joint.
+- **`plates`** (Q2 = A, rigid pieces on single joints): one static GLB with one mesh node per piece, named `<kit>.<piece>`, for example `knight.pauldron_l`, each with an identity transform. Geometry is in the character's rest model space (metres, +Y up, facing +Z). Each piece rides one joint through that joint's `<joint>.armor` socket. The socket is the inverse of the joint's rest transform, the same idea as the hair's `head.hair` socket ([humanoid-sockets.md](humanoid-sockets.md#armour-sockets)), so a piece sits where it was fitted and then follows its joint.
 - **`cloth`**: the garments that must deform with the body, skinned to the target's own joints:
   - the soldier's gambeson: the Peasant shirt's surface and skin weights pushed 12 mm out, plus a quilted skirt;
   - the soldier's sash;
@@ -44,7 +44,7 @@ The plates sit over the Peasant clothing with 1–2.5 cm of clearance instead of
 
 ## In the Ranger bundle
 
-The Ranger bundle v10 ([humanoid-ranger.md](humanoid-ranger.md#versions)) builds the soldier and knight like this:
+The Ranger bundle ([humanoid-ranger.md](humanoid-ranger.md#contents)) builds the soldier and knight like this:
 
 1. It composes the fitting target from `Male_Peasant` and the head subset.
 2. It runs both outputs for both kits.

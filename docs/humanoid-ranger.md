@@ -5,90 +5,65 @@ This is the build recipe for the first clothed, skinned humanoid of [#110](https
 - The clips are retargeted with 3d-lab's `three_d_animation::retarget` and an explicit semantic bone map.
 - The walk is in place.
 - The conventions are metres, +Y up, facing +Z and the origin between the feet.
-- The result is a `gltf-resources-v1` bundle ([asset-bundles.md](asset-bundles.md#gltf-resources-profile)). It is published to the rolling GitHub release `humanoid-ranger-male` (`humanoid-ranger-female` for the female figure), whose assets are replaced in place on each update (Atlas Decision 7.1.5). The numbered releases `humanoid-ranger-male-v1` … `-v9` stay published for consumers that pin them, but no new numbered releases are made. The recipe's `--version` steps below select build behaviour; they are not release names.
+- The result is a `gltf-resources-v1` bundle ([asset-bundles.md](asset-bundles.md#gltf-resources-profile)). It is published to the rolling GitHub release `humanoid-ranger-male` (`humanoid-ranger-female` for the female figure), whose assets are replaced in place on each update (Atlas Decision 7.1.5). The numbered releases `humanoid-ranger-male-v1` … `-v9` stay published for consumers that pin them, but no new numbered releases are made. 
 - Acceptance is structural checks, the #111 viewer snapshots and consumer smoke tests. There is no byte-exact replay and no Blender world-space oracle.
 
 The source members are listed in [humanoid-sources.md](humanoid-sources.md).
 
-## Versions
+## Contents
 
-The recipe has eleven versions. `--version` selects one, and the default is 11.
+There is one current recipe and no numbered bundle versions (Atlas Decision 7.1.5). Each build replaces the assets of the rolling release. The older numbered releases (`humanoid-ranger-male-v1` … `-v9`, `humanoid-ranger-female-v7` … `-v9`) stay published for consumers that pin them, but the recipe no longer reproduces them.
 
-- **v1 (#110):** the character with `Idle_Loop` and `Walk_Loop`. It is one entry with no attachments, and it stays reproducible with `--version 1`, which rebuilt the recorded v1 tar `4de4cc65…` byte for byte after the v2 change.
-- **v2 ([#260](https://github.com/moritzbrantner/asset-tooling/issues/260), [#113](https://github.com/moritzbrantner/asset-tooling/issues/113)):** v2 supersedes v1 as the bundle to publish. It follows the owner answers on #113:
-  - **Clips:** it adds the run gaits, a sword idle and attack, a death and a shield guard (see [Clips](#clips)).
-  - **Sockets:** the [humanoid-sockets-v1](humanoid-sockets.md) descriptor ships as the `humanoid-sockets` attachment (`application/json`) of the character entry.
-  - **Weapons:** the sword and shield from the [weapon recipes](weapon-recipes.md) are separate entries, `equipment.sword.arming/default` and `equipment.shield.heater/default`, which a consumer parents to the character at runtime.
+The `humanoid.ranger.male` bundle holds the following.
 
-  It stays reproducible with `--version 2`, which rebuilt the recorded v2 tar `ccb267e4…` byte for byte after the v3 change.
-- **v3 ([#257](https://github.com/moritzbrantner/asset-tooling/issues/257)):** v3 is v2 with game-resolution textures for browser delivery. It superseded v2 as the bundle to publish. See [Textures](#textures). v2 and v3 ship the hanging-arm sockets descriptor [`humanoid.ranger.male.sockets.bundle-v2.json`](../assets/descriptors/humanoid.ranger.male.sockets.bundle-v2.json). That file is kept byte for byte, so `--version 2` and `--version 3` still build the recorded tars.
-- **v4 ([#113](https://github.com/moritzbrantner/asset-tooling/issues/113)):** v4 is v3 with the anatomically derived hand sockets ([humanoid-sockets.md](humanoid-sockets.md#how-the-hand-sockets-are-derived)), which hold up in the combat clips. It supersedes v3 as the bundle to publish. The character `.gltf`, its resources and the two equipment entries are byte-identical to v3. Only the `humanoid-sockets` attachment and the manifest change.
-- **v5 ([#268](https://github.com/moritzbrantner/asset-tooling/issues/268)):** v5 is v4 with every clip retargeted through all three spine joints. 3d-lab `4e69c0f` adds the optional `upper-chest` `HumanoidBone` between `chest` and `neck`, and the v5 bone maps bind `DEF-spine.002` → `spine_02` as `chest` and `DEF-spine.003` → `spine_03` as `upper-chest` ([Bone map](#bone-map)). This removes most of the chest error described in [Death01 ground penetration](#death01-ground-penetration). It supersedes v4 as the bundle to publish. Only the character `.gltf`, its geometry/animation `.bin` and the manifest change. The textures, the `humanoid-sockets` attachment (the v4 descriptor) and the two equipment entries are byte-identical to v4.
+- **Character entry `humanoid.ranger.male`:**
+  - **Composition:** the Male_Ranger outfit composed with the Universal Base Characters head subset on the shared 65-joint skeleton.
+  - **Textures:** game-resolution PNGs ([Textures](#textures)).
+  - **Variants:**
+    - `default`: the archer, Dark skin.
+    - `skin.light`: the Light skin, with the outfit's skin texture derived by a colour transfer (#116 Q13).
+    - `outfit.soldier` and `outfit.knight`: the Peasant outfit under the [armour](armor-recipes.md) (#117, male only).
+  - **Attachments:**
+    - `humanoid-sockets`: the [sockets descriptor](humanoid-sockets.md), with hand, stowed, archery, hair and armour sockets.
+    - `humanoid-clips`: per-clip motion metadata ([Clip motion](#clip-motion)).
+    - `humanoid-appearance` (`humanoid-appearance-v1`): skins, the toggleable hood (`outfit.hood`), hairstyles with their textures and tints, eyebrows that follow the hair tint, and the outfits.
+- **Clips:** every clip is in place. In bundle order:
+  - the UAL1/UAL2 library clips retargeted with 3d-lab (idle, walk, the run gaits, sword, shield, death, the #112 traversal clips and the #114 combat clips with their roles);
+  - the Mixamo walk-speed clips retargeted in Blender (`Walk_Bwd_Loop`, `Walk_Strafe_*`, `Walk_Start`, `Walk_Stop`, `Turn_*` and `Hit_Shove_Spin`; [Mixamo retarget](#mixamo-retarget));
+  - the original authored jog clips `Jog_Bwd_Loop`, `Jog_Strafe_Left_Loop` and `Jog_Strafe_Right_Loop` ([Authored jog clips](#authored-jog-clips)).
+- **Equipment entries:** `equipment.sword.arming`, `equipment.shield.heater` ([weapon recipes](weapon-recipes.md)) and `equipment.bow.long` (skinned to `grip` and `nock`), `equipment.arrow` and `equipment.quiver.back` ([archery](weapon-recipes.md#archery)), all parented at runtime through the sockets.
+- **Hair entries:** `hair.buzzed`, `hair.simple-parted` and `hair.long` (male) or `hair.long` and `hair.buns` (female), each with the variants `hair-1` and `hair-2`, on the `head.hair` socket.
+- **Armour entries:** `armor.soldier` and `armor.knight` (male).
 
-- **v6 ([#112](https://github.com/moritzbrantner/asset-tooling/issues/112)):** v6 is v5 with 11 traversal clips and a second attachment of the character entry. It supersedes v5 as the bundle to publish.
-  - **Clips:** UAL1 `Jump_Start`, `Jump_Loop`, `Jump_Land`, `Crouch_Idle_Loop`, `Crouch_Fwd_Loop`, `Roll` and `Roll_RM`, and UAL2 `ClimbUp_1m_RM`, `Slide_Start`, `Slide_Loop` and `Slide_Exit`, after the eight v2 clips and retargeted the same way (see [Clips](#clips)).
-  - **Clip motion:** the `humanoid-clips` attachment (`application/json`) describes every clip (see [Clip motion](#clip-motion)).
-  - **Not included:** the free Standard libraries have no backward, strafe, start/stop or turn-in-place clips. Those stay open on #112 (owner answer, 2026-10-17); paid library tiers are out of scope (Decision 6.1.4).
+### Mixamo retarget
 
-  The textures, the `humanoid-sockets` attachment and the two equipment entries are byte-identical to v5. After the v6 change, `--version 5` rebuilt the recorded v5 tar `059f9276…` byte for byte.
+`animation.retarget@1` transfers rotations in each joint's local frame, and Mixamo bones don't share the Ranger's joint axes (owner answer #112.Q6). So [`adapters/blender/mixamo_clip.py`](../adapters/blender/mixamo_clip.py) retargets in Blender instead:
 
-- **v7 ([#113](https://github.com/moritzbrantner/asset-tooling/issues/113), [#114](https://github.com/moritzbrantner/asset-tooling/issues/114)):** v7 is v6 with the archery gear and the combat clips. It supersedes v6 as the bundle to publish.
-  - **Equipment:** three more entries from the [archery recipes](weapon-recipes.md#archery): `equipment.bow.long` (skinned to `grip` and `nock`), `equipment.arrow` and `equipment.quiver.back`.
-  - **Sockets:** the `humanoid-sockets` attachment is the v7 descriptor with the [archery sockets](humanoid-sockets.md#archery-sockets-bundle-v7).
-  - **Clips:** 16 more clips. The sword, counter, heavy and shield clips are the owner's picks on #114 after preview. Every combat clip gets a `role` in `humanoid-clips`, and strikes also get a `contact` (see [Clip motion](#clip-motion)). Bow draw and release clips are split out, because the free libraries have none.
+- It imports the composed Ranger with the round-trip bone heuristic.
+- Each mapped joint copies its Mixamo bone's world-space rotation, offset by the rest-pose difference (constraints, then a visual-keying bake).
+- The pelvis keeps only the source hips' vertical motion, scaled by the hips heights.
 
-  The character's textures and the sword and shield entries are byte-identical to v6. After the v7 change, `--version 6` rebuilt the recorded v6 tar `9f5d625c…` byte for byte.
+The build extracts each clip, re-indexes it to the character's joint order and embeds it. `--mixamo-dir <dir>` names the author's local Mixamo downloads ("Without Skin" FBX, 30 fps, Y Bot), one `<title>.fbx` per clip. Raw Mixamo files never enter git, the catalog or a release. `humanoid-clips` records only the provider, title, FBX SHA-256 and the license note `RANGER_MIXAMO_LICENSE` (Atlas 6.1.6, 6.1.7). Turns keep their rotation (owner answer Q2), so the body ends a turn rotated 90°. The removed horizontal travel is `sourceRootDisplacement`, and its speed is `sourceRootSpeedMetersPerSecond`.
 
-- **v8 ([#112](https://github.com/moritzbrantner/asset-tooling/issues/112)):** v8 is v7 with eight walk-speed clips from Mixamo (Atlas Decision 6.1.6), for both figures. It supersedes v7 as the bundle to publish.
-  - **Clips:** `Walk_Bwd_Loop`, `Walk_Strafe_Left_Loop`, `Walk_Strafe_Right_Loop`, `Walk_Start`, `Walk_Stop`, `Turn_Left`, `Turn_Right` and `Hit_Shove_Spin` (role `hit.shove`), from the Mixamo titles in `RANGER_V8_CLIPS`.
-  - **Mixamo retarget (owner answer #112.Q6):** `animation.retarget@1` transfers rotations in each joint's local frame, and Mixamo bones don't share the Ranger's joint axes. So [`adapters/blender/mixamo_clip.py`](../adapters/blender/mixamo_clip.py) retargets in Blender instead:
-    - it imports the composed Ranger with the round-trip bone heuristic;
-    - each mapped joint copies its Mixamo bone's world-space rotation, offset by the rest-pose difference (constraints, then a visual-keying bake);
-    - the pelvis keeps only the source hips' vertical motion, scaled by the hips heights.
-    
-    The build extracts the clip, re-indexes it to the character's joint order and embeds it like the other clips.
-  - **Root motion:** every clip is in place. Turns keep their rotation (owner answer Q2), so the body ends a turn rotated 90°. The removed horizontal travel is `sourceRootDisplacement`, and from v8 its speed is `sourceRootSpeedMetersPerSecond`: walk backwards 1.031, strafes 1.576, start 0.616, stop 0.306 and shove 0.444 m/s.
-  - **Inputs:** `--mixamo-dir <dir>` names the author's local Mixamo downloads ("Without Skin" FBX, 30 fps, Y Bot), one `<title>.fbx` per clip. Raw Mixamo files never enter git, the catalog or a release; `humanoid-clips` records only the provider, title, FBX SHA-256 and the license note `RANGER_MIXAMO_LICENSE`. Versions 1–7 need no Mixamo files.
-  - **Jog-speed backward and strafe clips:** these are authored originally in v11 instead of taken from Mixamo (Atlas Decision 6.1.7).
+### Authored jog clips
 
-- **v9 ([#116](https://github.com/moritzbrantner/asset-tooling/issues/116)):** v9 is v8 with appearance variants, following the owner answers of 2026-10-17. It supersedes v8 as the bundle to publish.
-  - **Skins:** the character entry's `default` variant is the Dark skin. A `skin.light` variant re-imports the body and outfit with the Light base colours bound to their URIs, and keeps the same geometry, clips and `.bin`.
-    - The outfit's own skin texture (`T_Regular_*_Dark_BaseColor.png`) has no Light original, so its Light version is **derived** (answer Q13 = A). It applies a per-channel mean and standard-deviation colour transfer from the body's Dark to Light base colour, over opaque pixels in 8-bit sRGB, encoded with `image.encode.png@1`.
-    - The transfer statistics and all four hashes are recorded under `skins[1].derived` in the appearance descriptor.
-  - **Hair:** static items, `hair.buzzed`, `hair.simple-parted` and `hair.long` (male) and `hair.long` and `hair.buns` (female), from the pack's "Origin at 0" hairstyles.
-    - Each has the variants `hair-1` and `hair-2`, the pack's two hair textures.
-    - They attach to the new `head.hair` socket: the inverse of the `Head` joint's rest transform, so the hair sits where it was modelled.
-    - The pack's hair textures are near-grey, so hair is meant to be tinted.
-  - **Tints:** `tint.black`, `tint.brown` and `tint.blond` (linear RGB 0.02/0.02/0.02, 0.18/0.09/0.04 and 0.62/0.48/0.25) are base-colour factors applied on top of `hair-1`, to the hair materials and to the body's eyebrows (`eyebrows.followsHairTint`).
-  - **Hood:** the `outfit.hood` part names the hood mesh node (`Male_Ranger_Head_Hood` / `Female_Ranger_Head_Hood`). A consumer hides it to show hair, and hair entries declare `requires: {"outfit.hood": false}` (answer Q14 = A).
-  - **Descriptor:** the `humanoid-appearance` attachment (`humanoid-appearance-v1`) of the character entry lists the skins, parts, hair entries and their sockets and texture variants, the tints and the eyebrow materials.
+[`adapters/blender/jog_clips.py`](../adapters/blender/jog_clips.py) authors these clips in Blender on the animated Ranger (#112, owner answer 2026-10-18, Atlas 6.1.7). No Mixamo data is used.
 
-- **v10 ([#117](https://github.com/moritzbrantner/asset-tooling/issues/117)):** v10 is v9 with the soldier and knight outfits ([armor-recipes.md](armor-recipes.md)). It is male-only for now (owner answer Q8); build the female figure with `--version 9`.
-  - **Outfit variants:** the character entry gains `outfit.soldier` and `outfit.knight`. Each is the Peasant outfit (minus the base nodes its garments hide), the head subset and the kit's skinned garments, with the same skeleton and clips as `default`. Both use the Dark skin.
-  - **Armour entries:** `armor.soldier` and `armor.knight` are static GLBs with one node per rigid piece. Each node rides its joint's `<joint>.armor` socket, which the sockets descriptor now declares ([humanoid-sockets.md](humanoid-sockets.md#armour-sockets-bundle-v10)).
-  - **Descriptor:** `humanoid-appearance` gains `outfits`: `outfit.archer` (the `default` variant), `outfit.soldier` and `outfit.knight`, each with its variant, armour pieces and sockets, garments, hidden base nodes and faction slot.
-  - Under Decision 7.1.4 this is the replaceable current candidate for review, not a published release.
-
-- **v11 ([#112](https://github.com/moritzbrantner/asset-tooling/issues/112), owner answer 2026-10-18):** v11 is v10 with three original jog-speed clips. [`adapters/blender/jog_clips.py`](../adapters/blender/jog_clips.py) authors them in Blender on the animated Ranger. No Mixamo data is used; Mixamo clips were watched only as motion reference (Atlas Decision 6.1.7).
-  - **`Jog_Bwd_Loop`:** the CC0 UAL1 `Jog_Fwd_Loop` played backwards, with the lowest spine joint pitched 18° back so the torso leans away from the travel direction. `humanoid-clips` records its ground speed like the forward gaits.
-  - **`Jog_Strafe_Left_Loop` / `Jog_Strafe_Right_Loop`:** an authored side-gallop with a 0.5 s cycle at a reference speed of 1.4 m/s (`sourceRootSpeedMetersPerSecond`).
-    - **Feet:** each foot follows an explicit in-place trajectory. A planted foot slides against the travel direction at the reference speed. The lead foot swings out, then the trail foot swings in and lands 12 cm short of it, so the legs never cross.
-    - **Legs:** a two-bone solve keeps the knees forward and the feet level.
-    - **Pelvis:** it bobs and drops as far as the spread legs need.
-    - **Upper body:** it keeps the jog's mean posture, with the arm and spine swing damped to 45 % and rolled 6° into the travel direction.
-  - The clips are added after the v8 clips, for both figures. The soldier and knight variants get them too. Under Decision 7.1.4 they are the current candidates for review.
-
-v1–v4 keep their two-bone spine map. The processor treats an unmapped `upper-chest` exactly as before, so the new pin rebuilds them unchanged: after the v5 change, `--version 1` and `--version 4` rebuilt the recorded tars `4de4cc65…` and `222f21f8…` byte for byte at `4e69c0f`. No older processor checkout is needed.
+- **`Jog_Bwd_Loop`:** the CC0 UAL1 `Jog_Fwd_Loop` played backwards, with the lowest spine joint pitched 18° back. `humanoid-clips` records its ground speed like the forward gaits.
+- **`Jog_Strafe_Left_Loop` / `Jog_Strafe_Right_Loop`:** a side-gallop with a 0.5 s cycle at a reference speed of 1.4 m/s (`sourceRootSpeedMetersPerSecond`).
+  - Each foot follows an explicit in-place trajectory. A planted foot slides against the travel direction at the reference speed. The lead foot swings out, and the trail foot swings in and lands 12 cm short of it, so the legs never cross.
+  - A two-bone solve keeps the knees forward and the feet level, and the pelvis drops as far as the spread legs need.
+  - The upper body keeps the jog's mean posture, with the swing damped to 45 % and rolled 6° into the travel direction.
 
 ## Female Ranger
 
-`--figure female` (#115, owner answer Q1 = A) builds `humanoid.ranger.female` with the same recipe from v7 on. It uses the Universal Base Characters `Superhero_Female_FullBody` head (`keepMeshes: ["Eyebrows", "Eyes"]`) on the full `Female_Ranger` outfit ([humanoid-sources.md](humanoid-sources.md#female-body-and-outfit-115)).
+`--figure female` (#115, owner answer Q1 = A) builds `humanoid.ranger.female` with the same recipe (without the soldier and knight outfits). It uses the Universal Base Characters `Superhero_Female_FullBody` head (`keepMeshes: ["Eyebrows", "Eyes"]`) on the full `Female_Ranger` outfit ([humanoid-sources.md](humanoid-sources.md#female-body-and-outfit-115)).
 
-Both figures share the 65-joint rig, so the female Ranger gets the same bone maps, clips (35 in v7), equipment entries and `humanoid-clips` metadata. Its hips reference height is measured on its own rig. This is the second real humanoid performing the same clip set through the shared operation path.
+Both figures share the 65-joint rig, so the female Ranger gets the same bone maps, clips, equipment entries and `humanoid-clips` metadata. Its hips reference height is measured on its own rig. This is the second real humanoid performing the same clip set through the shared operation path.
 
 Its sockets are derived from the Female_Ranger rig into [`humanoid.ranger.female.sockets.json`](../assets/descriptors/humanoid.ranger.female.sockets.json) (`bun examples/weapons/derive-sockets.ts --rig <Female_Ranger.gltf> --out <file> --character humanoid.ranger.female`). They have the same ids as the male sockets, and the stowed sockets keep the male joint-frame values.
 
-The character entry has 2 skins and 32,234 triangles. The tar is published as the `humanoid-ranger-female-v7` release, with socket sheets for `Sword_Idle`, `Sword_Regular_C`, `Walk_Loop` and a stowed idle.
+Its tar goes to the rolling `humanoid-ranger-female` release.
 
 ## Build
 
@@ -106,10 +81,10 @@ git clone https://github.com/moritzbrantner/3d-lab <checkout>
 git -C <checkout> checkout 4e69c0f64177d3babdf0ea991a631c62f577e684   # the stability/processors.json pin
 cargo fetch --manifest-path <checkout>/examples/asset-tooling-animation-adapter/Cargo.toml
 git lfs pull   # the humanoid members under assets/canonical/
-ASSET_TOOLING_BLENDER=<blender 5.2.2> bun scripts/build-ranger-character.ts --processor-checkout <absolute checkout> --out <directory> [--version 1|2|3|4|5|6|7]
+ASSET_TOOLING_BLENDER=<blender 5.2.2> bun scripts/build-ranger-character.ts --processor-checkout <absolute checkout> --out <directory> --mixamo-dir <dir> [--figure male|female]
 ```
 
-Versions 2 to 7 generate the weapons through `external.blender.script@1`, so they need Blender 5.2.2. `ASSET_TOOLING_BLENDER` names it, otherwise `blender` on `PATH` is used. Blender installed as a snap can only read and write under `$HOME`, so set `TMPDIR` to a directory there. Version 1 needs no Blender. Versions 3 to 7 also need `ffmpeg` and `ffprobe` for the image codec.
+The equipment, armour, Mixamo and authored clips run through `external.blender.script@1`, so the build needs Blender 5.2.2. `ASSET_TOOLING_BLENDER` names it, otherwise `blender` on `PATH` is used. Blender installed as a snap can only read and write under `$HOME`, so set `TMPDIR` to a directory there. The image codec also needs `ffmpeg` and `ffprobe`.
 
 [`scripts/build-ranger-character.ts`](../scripts/build-ranger-character.ts) is the maintained recipe. It needs no network after `cargo fetch`: the processor runs `cargo run --offline`. The processor checkout must be source-clean at the pinned commit. `Cargo.lock` and `target/` may be present, but nothing else may differ. Its identity (`git-clean-exact-head`, cargo/rustc versions and the probe) is part of the `animation.retarget@1` build identity. `<directory>` becomes the object-store root, which holds every intermediate AssetRef. The script prints the bundle directory, the tar path, the tar sha256 and the export ref, and writes `lineage.json` next to them with every intermediate AssetRef and the retarget observations.
 
@@ -120,26 +95,26 @@ Versions 2 to 7 generate the weapons through `external.blender.script@1`, so the
 | 3 | `scene.compose.skinned.gltf@1` | Skeleton = outfit, parts = the head subset. |
 | 4 | `scene.extract.animation.gltf@1` | The composed GLB with `hipsJoint: "pelvis"`: the target rig only. |
 | 5 | `scene.extract.animation.gltf@1` | Once per clip: the UAL1 GLB with `hipsJoint: "DEF-hips"`, or for `Idle_Shield_Loop` the UAL2 GLB with `hipsJoint: "pelvis"`. Each run yields the source rig and the clip. |
-| 6 | `animation.retarget@1` | Each clip with its source rig and the target rig, its library's bone map for the version (below), `sampleRate: 30` and `rootMotion: "in-place"`. |
+| 6 | `animation.retarget@1` | Each library clip with its source rig and the target rig, its library's bone map (below), `sampleRate: 30` and `rootMotion: "in-place"`. Mixamo and authored clips come from Blender instead (see [Contents](#contents)). |
 | 7 | `scene.embed.animation.gltf@1` | The composed GLB with every retargeted clip, under its source name, in the order of the clip table. |
-| 8 (v2) | `external.blender.script@1`, then `scene.import.gltf@2` | The `sword.arming` and `shield.heater` presets of `adapters/blender/weapon.py`, generated into `<directory>/weapons/<piece>/` and imported. |
-| 8b (v3–v5) | `scene.textures.resize.gltf@1` | The step-7 GLB with `RANGER_TEXTURE_POLICY` ([Textures](#textures)), and each weapon GLB that has images. The weapons have none, so they are bundled unchanged. |
-| 9 | `asset.bundle@4` | `gltf-resources-v1`: key `humanoid.ranger.male`, variant `default`. From v2 on it also carries the `humanoid-sockets` attachment, validated against the rig's joints, and the two equipment entries. v2 and v3 attach [`humanoid.ranger.male.sockets.bundle-v2.json`](../assets/descriptors/humanoid.ranger.male.sockets.bundle-v2.json), and v4 and v5 attach [`humanoid.ranger.male.sockets.json`](../assets/descriptors/humanoid.ranger.male.sockets.json). |
+| 8 | `external.blender.script@1`, then `scene.import.gltf@2` | The weapon, archery and armour recipes, the hairstyles, the Light skin and the outfit variants (see [Contents](#contents)). |
+| 8b | `scene.textures.resize.gltf@1` | Every character and item GLB with `RANGER_TEXTURE_POLICY` ([Textures](#textures)). GLBs without images are bundled unchanged. |
+| 9 | `asset.bundle@4` | `gltf-resources-v1` with every entry and attachment listed under [Contents](#contents). The sockets descriptor is validated against the rig's joints. |
 | 10 | `scripts/pack-asset-bundle.ts` | Packs `<directory>/bundle` into `<directory>/humanoid.ranger.male.tar` and its `.sha256`. |
 
 Every step uses the `NODE_SKINNED_MESH_NON_ROOT` and `MESH_PRIMITIVE_GENERATED_TANGENT_SPACE` validator exceptions, the same ones the bundle profile fixes.
 
 ## Bone map
 
-`animation.retarget@1` binds 3d-lab `HumanoidBone` ids to a joint name in each rig. The UAL1 rig is a 53-joint Rigify `DEF-*` skeleton. The UBC/Outfits rig has 65 joints in the Unreal style. Both have three spine joints. v5 (`RANGER_V5_BONE_MAP`) maps each of them exactly once through the optional `upper-chest` bone, which sits between `chest` and `neck` (3d-lab `4e69c0f`). v1–v4 (`RANGER_BONE_MAP`) have no `upper-chest` and bind `chest` to `DEF-spine.003` / `spine_03`, leaving the middle joint unmapped.
+`animation.retarget@1` binds 3d-lab `HumanoidBone` ids to a joint name in each rig. The UAL1 rig is a 53-joint Rigify `DEF-*` skeleton. The UBC/Outfits rig has 65 joints in the Unreal style. Both have three spine joints. `RANGER_BONE_MAP` maps each of them exactly once through the optional `upper-chest` bone, which sits between `chest` and `neck` (3d-lab `4e69c0f`).
 
 | HumanoidBone | UAL1 joint | UBC/Outfits joint |
 | --- | --- | --- |
 | `root` | `root` | `root` |
 | `hips` | `DEF-hips` | `pelvis` |
 | `spine` | `DEF-spine.001` | `spine_01` |
-| `chest` | v5: `DEF-spine.002`; v1–v4: `DEF-spine.003` | v5: `spine_02`; v1–v4: `spine_03` |
-| `upper-chest` (v5) | `DEF-spine.003` | `spine_03` |
+| `chest` | `DEF-spine.002` | `spine_02` |
+| `upper-chest` | `DEF-spine.003` | `spine_03` |
 | `neck` | `DEF-neck` | `neck_01` |
 | `head` | `DEF-head` | `Head` |
 | `left-shoulder` / `right-shoulder` | `DEF-shoulder.L` / `.R` | `clavicle_l` / `_r` |
@@ -151,9 +126,9 @@ Every step uses the `NODE_SKINNED_MESH_NON_ROOT` and `MESH_PRIMITIVE_GENERATED_T
 | `left-foot` / `right-foot` | `DEF-foot.L` / `.R` | `foot_l` / `_r` |
 | `left-toes` / `right-toes` | `DEF-toe.L` / `.R` | `ball_l` / `_r` |
 
-Several joints are not mapped: the fingers and thumbs, the `*_leaf` joints, and in v1–v4 also `spine_02`. They keep their rest pose, so the hands stay in their rest grip. Finger retargeting belongs to the broader library work in #115.
+Several joints are not mapped: the fingers and thumbs and the `*_leaf` joints. They keep their rest pose, so the hands stay in their rest grip. Finger retargeting belongs to the broader library work in #115.
 
-UAL2 uses the same 65-joint Unreal-style rig as UBC/Outfits. `RANGER_UBC_BONE_MAP` (v1–v4, 22 ids) and `RANGER_V5_UBC_BONE_MAP` (v5, 23 ids) therefore bind each `HumanoidBone` id to the same joint name on both sides, for example `hips` → `pelvis` / `pelvis`. Its rest pose is close to the Ranger's but not identical. The retarget transfers rotation deltas from each rig's own rest, so the difference does not leak into the result.
+UAL2 uses the same 65-joint Unreal-style rig as UBC/Outfits. `RANGER_UBC_BONE_MAP` (23 ids) therefore binds each `HumanoidBone` id to the same joint name on both sides, for example `hips` → `pelvis` / `pelvis`. Its rest pose is close to the Ranger's but not identical. The retarget transfers rotation deltas from each rig's own rest, so the difference does not leak into the result.
 
 ## Retargeting
 
@@ -168,7 +143,7 @@ The reference height of each rig is its hips joint's model-space height at rest,
 
 ## Clips
 
-Clip names are the source names. Every clip is in place. From the recorded v2 build:
+Clip names are the source names. Every clip is in place. These measurements come from the recorded build of the numbered release v2:
 
 | Clip | Source | Use | Duration | Samples | Channels | Keys |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -195,7 +170,7 @@ The character keeps the Quaternius export's conventions; no transform is changed
 
 ## Textures
 
-v3 runs the character GLB through [`scene.textures.resize.gltf@1`](gltf-texture-resize.md) with `RANGER_TEXTURE_POLICY`:
+The build runs every character GLB through [`scene.textures.resize.gltf@1`](gltf-texture-resize.md) with `RANGER_TEXTURE_POLICY`:
 
 - the longest edge is at most 1024 px for `baseColor`, `normal` and `emissive`, and at most 512 px for `metallicRoughness` and `occlusion`;
 - `default` is 1024 px;
@@ -282,23 +257,15 @@ The largest differences are in the hand close-ups, where fine texture detail is 
 
 ## Bundle and consumer pinning
 
-The v2–v6 bundles have three entries, and v7 adds `equipment.bow.long`, `equipment.arrow` and `equipment.quiver.back`:
+The entries are listed under [Contents](#contents). The character's `default.gltf` has one geometry/animation `.bin` and its PNG textures as hash-addressed resources. Items are unskinned and unanimated except the bow. A consumer parents an item's scene root under the socket joint with the socket's TRS ([humanoid-sockets.md](humanoid-sockets.md)). `manifest.json` records each embedded GLB's AssetRef as `source`, and `lineage.json` from the build links every entry back to the canonical members.
 
-- **`humanoid.ranger.male` / `default`:** `scenes/humanoid.ranger.male/default.gltf` with one geometry/animation `.bin` and its 13 PNG textures as hash-addressed resources (game resolution from v3 on). It has 2 skins, 31,578 triangles and the eight clips above (v6: 19 clips). Its `humanoid-sockets` attachment is that version's descriptor, byte for byte; from v6 it also has the `humanoid-clips` attachment.
-- **`equipment.sword.arming` / `default`:** 1,304 triangles, with nodes `grip` and `sword.arming`.
-- **`equipment.shield.heater` / `default`:** 1,706 triangles, with nodes `grip` and `shield.heater`.
+A consumer downloads `humanoid.ranger.male.tar` from the rolling `humanoid-ranger-male` release (Decision 7.1.5). It checks the tar against the release's `export.ref.json` with `bun scripts/pack-asset-bundle.ts --verify humanoid.ranger.male.tar --ref export.ref.json` (or `verifyAssetBundle` after extracting). It loads:
 
-The weapons are unskinned and unanimated. A consumer parents an item's scene root under the socket joint with the socket's TRS ([humanoid-sockets.md](humanoid-sockets.md)). `manifest.json` records each embedded GLB's AssetRef as `source`, and `lineage.json` from the build links the character GLB back to the canonical members and lists the weapon and sockets AssetRefs. The v1 bundle has only the character entry, with the clips `Idle_Loop` and `Walk_Loop` and no attachment.
+- the character with `readAssetBundleGltf(dir, manifest, "humanoid.ranger.male", "<variant>")`;
+- the items the same way;
+- the attachments with `readAssetBundleAttachment(dir, manifest, "humanoid.ranger.male", "default", "<name>")`.
 
-A consumer pins the three things described in [Release distribution and consumer pinning](asset-bundles.md#release-distribution-and-consumer-pinning):
-
-1. the release tag;
-2. the tar sha256;
-3. its own copy of `export.ref.json`.
-
-It then runs `bun scripts/pack-asset-bundle.ts --verify humanoid.ranger.male.tar --ref <pinned export.ref.json>` (or `verifyAssetBundle` after extracting). It loads the character with `readAssetBundleGltf(dir, manifest, "humanoid.ranger.male", "default")`, the weapons the same way, and the sockets with `readAssetBundleAttachment(dir, manifest, "humanoid.ranger.male", "default", "humanoid-sockets")` (and, from v6, the clip motion with `"humanoid-clips"`). Publishing the release (`gh release create`) is a separate, explicit step.
-
-Two cold v1 builds on 2026-10-17 from separate object stores produced the same tar: sha256 `4de4cc65585a0709066843a9c0bf73315820024e360326c2f1bf86b4c7955c91`, 55,587,328 bytes, with manifest sha256 `72f79132d20dae5f9d17de2b32eb0d41543f8bd74db1c0c0b2d0a9afe4b386d7` (5,364 bytes). Two v2 builds on 2026-10-17 from separate object stores (Blender 5.2.2 snap) also produced the same tar: sha256 `ccb267e4c6e21dd8d98597784569d51732612a0a76f3c6b9c067d556b3f66167`, 56,005,120 bytes, with manifest sha256 `a1170d10db2a275e59bde2e243a5163d735d6b466fb8fa0e07434c0ccfaae90e` (8,525 bytes). Two cold v3 builds on 2026-10-17 from separate object stores also produced the same tar: sha256 `cd6393c06ef5b793032fce7ed9f2c10d92609045d874296ace0506b54971fc3f`, 9,758,720 bytes (v2: 56,005,120), with manifest sha256 `3cee42ebbc1e8fe3d405ee5d69ff5059c6a992f12c721d9df42238a17b97b1a5` (7,827 bytes). Two cold v4 builds on 2026-10-17 from separate object stores also produced the same tar: sha256 `222f21f8df449321f4cb34b67e693186e0435a449c19eacb8dece9fb001a741f`, 9,758,720 bytes, with manifest sha256 `cdc63b4632d08c88807082109fd633aa00c3f54f2c1627ef81b4034ccebba169` (7,827 bytes). After the v4 change, `--version 2` and `--version 3` rebuilt the recorded tars `ccb267e4…` and `cd6393c0…` byte for byte. Two cold v5 builds on 2026-10-17 from separate object stores (3d-lab `4e69c0f`, Blender 5.2.2 snap) also produced the same tar: sha256 `059f92768f2181070f32d48c6102be1b77143cc4d21d99a24d6ebd7d3bd04d0c`, 9,778,176 bytes, with manifest sha256 `a127d96cdaf6a75826fad14fb9b7f53f02608f4791f9dd0d9284a4f949a12678` (7,827 bytes). Two cold v6 builds on 2026-10-17 from separate object stores (3d-lab `4e69c0f`, Blender 5.2.2 snap) also produced the same tar: sha256 `9f5d625cb0d28fde67ad002608460ab2575790aa71a02bc2249a6bc0f26f9006`, 10,396,672 bytes, with manifest sha256 `6e506a4ff266ea4e18126d1809c7157e052fae6ef8719040fcda902a0b94d061` (8,409 bytes). Two cold v7 builds on 2026-10-17 from separate object stores (3d-lab `4e69c0f`, Blender 5.2.2 snap) also produced the same tar: sha256 `62bbe8637421f6ef22fa4f91ff329ba1b8092836bb47e202bf5e6dfa3f9b0c0a`, 11,194,368 bytes, with manifest sha256 `f211bdbdcf086a4af1c887afa9ecbd34ad7945ca1067f72ef119182a8d3ed8c7` (11,744 bytes). These are records of those runs, not a byte-exact replay contract.
+A consumer that needs a fixed input keeps its own copy of the tar. Adopting a newer rolling build is a deliberate consumer change. The numbered releases remain for consumers that still pin them: mmorpg (v7), arpg (v1, v4) and 3d-lab (v8).
 
 ## Tests
 
@@ -306,16 +273,17 @@ Two cold v1 builds on 2026-10-17 from separate object stores produced the same t
 - `bun test test/animation-retarget-operations.test.ts` runs a fixture adapter. It covers the name → index binding conversion, the `sampleRate` grid, output and observation checks, and parameter failures.
 - `bun scripts/check-processor-contract.ts <checkout> <commit> moritzbrantner/3d-lab examples/asset-tooling-animation-adapter/Cargo.toml animation.retarget` runs the pinned processor on two tiny rigs, twice, including an `upper-chest` bend that must land on the target's `upper-chest` joint. This is also the hosted stability matrix entry.
 - `bun test test/gltf-texture-resize-operations.test.ts` covers the texture operation ([gltf-texture-resize.md](gltf-texture-resize.md#tests)).
-- `test/humanoid-ranger.test.ts` always checks the v2 and v6 clip lists, the UAL2 same-name bone maps, the v5 spine map (each spine joint mapped once) against the v1–v4 map, the v6 default, the sockets descriptor of each version and `RANGER_TEXTURE_POLICY`. It also runs the whole v6 recipe and checks the bundle structurally:
+- `test/humanoid-ranger.test.ts` always checks the clip list, the Mixamo and authored clips, the combat roles, the bone maps (each spine joint mapped once, UAL2 and Mixamo binding the same targets), the equipment, figures, appearance and `RANGER_TEXTURE_POLICY`. It also runs the whole recipe and checks the bundle structurally:
   - every clip name in order, each with a positive duration;
   - in place: the pelvis's horizontal model-space drift, with root and pelvis keys composed, is at most 1 cm;
-  - only mapped joints are animated, with LINEAR samplers, and every clip rotates `spine_02`;
-  - the two equipment entries are unskinned, unanimated and have a `grip` node;
-  - the `humanoid-sockets` attachment matches the versioned descriptor byte for byte and validates against the 65 joints;
+  - retargeted library clips animate only mapped joints; every clip has LINEAR samplers and rotates `spine_02`;
+  - the weapon entries are unskinned, unanimated and have a `grip` node, and the bow is skinned to `grip` and `nock`;
+  - the variants and armour entries are present;
+  - the `humanoid-sockets` attachment matches the committed descriptor byte for byte and validates against the 65 joints;
   - the `humanoid-clips` attachment lists every clip in order with its source animation sha256, loop flag and in-place root motion; the gait speeds increase from crouch walk to sprint, and `Roll_RM` and `ClimbUp_1m_RM` record their removed travel;
   - the 13 character textures fit their slot limits, none is upscaled, the image bytes shrink at least fourfold, and the equipment has no images.
 
-  The full run skips unless the Git LFS payloads are hydrated, `ASSET_TOOLING_PROCESSOR_CHECKOUT_3DLAB` names the pinned checkout and `ASSET_TOOLING_BLENDER` names Blender 5.2.2.
+  The full run skips unless the Git LFS payloads are hydrated, `ASSET_TOOLING_PROCESSOR_CHECKOUT_3DLAB` names the pinned checkout, `ASSET_TOOLING_BLENDER` names Blender 5.2.2 and `ASSET_TOOLING_MIXAMO_DIR` names the local Mixamo files.
 
 ## Visual check of the v2 clips
 
