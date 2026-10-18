@@ -28,12 +28,12 @@ fi
 awk -F '\t' '{ print $1; if ($2 != "") print $2 }' "$RUNNER_TEMP/pr-files.tsv" > "$RUNNER_TEMP/pr-changed-paths"
 
 extended=true
-if ! grep -Eqv '(^docs/|(^|/)[^/]+[.]md$|^src/browser/|^test/browser/|^src/(animation-viewer-eligibility|animation-viewer-page|browser-pages-site|catalog-pages-site|catalog-pages|catalog-preview-hints|generated-gallery-assets)[.]ts$|^test/(animation-viewer-eligibility|catalog-pages-site|catalog-pages|generated-gallery-assets)[.]test[.]ts$|^scripts/(build-catalog-pages|build-generated-previews|serve-pages)[.]ts$|^[.]github/workflows/pages[.]yml$)' "$RUNNER_TEMP/pr-changed-paths"; then
+if ! grep -Eqv '(^docs/|(^|/)[^/]+[.]md$|^src/browser/|^test/browser/|^src/(animation-viewer-eligibility|animation-viewer-page|browser-pages-site|catalog-pages-site|catalog-pages|catalog-preview-hints|generated-gallery-assets|ranger-comparison)[.]ts$|^test/(animation-viewer-eligibility|catalog-pages-site|catalog-pages|generated-gallery-assets|ranger-comparison)[.]test[.]ts$|^scripts/(build-catalog-pages|build-generated-previews|serve-pages)[.]ts$|^[.]github/workflows/pages[.]yml$)' "$RUNNER_TEMP/pr-changed-paths"; then
   extended=false
 fi
 
 stability=true
-if ! grep -Eqv '(^docs/|(^|/)[^/]+[.]md$|^test/|^src/browser/|^src/(animation-viewer-eligibility|animation-viewer-page|browser-pages-site|catalog-pages|catalog-preview-hints|generated-gallery-assets)[.]ts$|^scripts/(build-catalog-pages|build-generated-previews|serve-pages)[.]ts$|^[.]github/workflows/(validate|pages)[.]yml$)' "$RUNNER_TEMP/pr-changed-paths"; then
+if ! grep -Eqv '(^docs/|(^|/)[^/]+[.]md$|^test/|^src/browser/|^src/(animation-viewer-eligibility|animation-viewer-page|browser-pages-site|catalog-pages-site|catalog-pages|catalog-preview-hints|generated-gallery-assets|ranger-comparison)[.]ts$|^scripts/(build-catalog-pages|build-generated-previews|serve-pages)[.]ts$|^[.]github/workflows/(validate|pages)[.]yml$)' "$RUNNER_TEMP/pr-changed-paths"; then
   stability=false
 fi
 
