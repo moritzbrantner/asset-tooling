@@ -1,5 +1,5 @@
 // The Ranger comparison data (#111, docs/animation-viewer.md#ranger-comparison) is optional in ordinary
-// builds and required in the Pages workflow; a tar that does not match the pinned release always fails.
+// builds and required in the Pages workflow; malformed working archives fail visibly.
 import test from "node:test";
 import assert from "node:assert/strict";
 import os from "node:os";
