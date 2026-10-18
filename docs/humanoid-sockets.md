@@ -58,6 +58,10 @@ The v7 descriptor appends four archery sockets (#113 bow slice). Bundles v4–v6
 
 `stowedSocket` in `examples/weapons/derive-sockets.ts` converts such a rest-pose world intent into the joint's frame. The held and stowed archery socket sheets are attached to the `humanoid-ranger-male-v7` release.
 
+### Armour sockets (bundle v10)
+
+The v10 descriptor appends one `<joint>.armor` socket for each joint that a rigid [armour piece](armor-recipes.md) rides: `head.armor`, `spine_03.armor`, `pelvis.armor`, and the `upperarm`, `lowerarm`, `hand`, `thigh`, `calf` and `foot` sockets on both sides. Each accepts the role `armor`. Armour is fitted in the character's rest model space, so each socket is the inverse of its joint's rest-world transform, like `head.hair` (`deriveArmorSockets` in `examples/weapons/derive-sockets.ts`). The female descriptor declares the same sockets, derived from her own rig.
+
 ### How the hand sockets are derived
 
 The bundle-v2 hand sockets were tuned for a hanging arm. The blade leaned 40° toward the fingers so that it looked right at rest, and the shield's vertical axis followed the forearm. In the combat clips, the sword then pointed sideways at hip height in `Sword_Idle`, and the shield lay on its side in the `Idle_Shield_Loop` guard. The current hand sockets are not tuned for any pose. [`examples/weapons/derive-sockets.ts`](../examples/weapons/derive-sockets.ts) derives them from the rig's rest pose in each hand joint's own frame:

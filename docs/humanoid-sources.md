@@ -177,3 +177,15 @@ With hydrated payloads it also checks:
 - re-import: every humanoid member imports into a fresh object store, and a second import returns `unchanged` with an identical `AssetRef`, leaving the store byte-for-byte unchanged.
 
 The hosted canonical-storage job sets `ASSET_TOOLING_REQUIRE_HYDRATED_STORAGE=1`, so these hydrated checks fail there instead of skipping. `bun run catalog:storage:verify` passes from a hydrated checkout.
+
+### Peasant outfit (#117)
+
+The soldier and knight wear the Peasant outfit under their armour (owner answers on #117, 2026-10-17). These members were promoted from the same verified local archive. The outfit's skin textures (`T_Regular_Male_*`) are shared with the Male_Ranger and stored once.
+
+| Member | Kind | Bytes | SHA-256 |
+| --- | --- | --- | --- |
+| `Male_Peasant.gltf` | mesh | 32,681 | `8f5a6cf6c1cf96e0a0f8e1a861b4245d42b7f88d44e5076da3d48f3fc52f4e76` |
+| `Male_Peasant.bin` | buffer | 674,764 | `e46bde795f7b69b351d322d7a5628e07131cfb48ed0afe366293f1b3f530433c` |
+| `T_Peasant_BaseColor.png` | texture | 5,055,760 | `a43635628d95571cd62fd4db0cc3a6ea32778b2bc02f242dda224c89d07f1ade` |
+| `T_Peasant_Normal.png` | texture | 14,110,336 | `7598fa7b63e46fd4dac29708bf5a81e05eb9a67280f7b13c61e28a9110eeb679` |
+| `T_Peasant_ORM.png` | texture | 9,903,835 | `e1932f5f91104afca89c501416a5fec09069b8552734237fc09045fabc4ca9b4` |

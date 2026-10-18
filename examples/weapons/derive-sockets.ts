@@ -15,6 +15,7 @@
 import path from "node:path";
 import { readFile, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
+import { ARMOR_JOINTS } from "../../src/armor-recipes.js";
 import { createHumanoidSocketDescriptor, type HumanoidSocket, type HumanoidSocketDescriptor } from "../../src/humanoid-sockets.js";
 
 type Vec3 = [number, number, number];
@@ -166,6 +167,15 @@ export function deriveHairSockets(gltf: { nodes: Record<string, any>[] }): Human
   return [stowedSocket(restWorlds(gltf), "head.hair", "Head", [0, 0, 0], [0, 1, 0], [0, 0, 1], ["hair"])];
 }
 
+/**
+ * The armour sockets (#117): rigid armour pieces are fitted in the character's rest model space, so each joint they
+ * ride gets a `<joint>.armor` socket (lowercase joint) that is the inverse of its rest-world transform, like `head.hair`.
+ */
+export function deriveArmorSockets(gltf: { nodes: Record<string, any>[] }): HumanoidSocket[] {
+  const worlds = restWorlds(gltf);
+  return ARMOR_JOINTS.map((joint) => stowedSocket(worlds, `${joint.toLowerCase()}.armor`, joint, [0, 0, 0], [0, 1, 0], [0, 0, 1], ["armor"]));
+}
+
 /** The weapon socket (grip along the knuckle line, flats facing the back of the hand) and the shield socket (face out of the back of the hand, top toward the thumb). */
 export function deriveHandSockets(gltf: { nodes: Record<string, any>[] }, { weaponHand = "r" }: { weaponHand?: Side } = {}): HumanoidSocket[] {
   const worlds = restWorlds(gltf), shieldHand: Side = weaponHand === "r" ? "l" : "r";
@@ -192,7 +202,7 @@ export function formatSocketDescriptor(descriptor: HumanoidSocketDescriptor): st
 export function deriveRangerSockets(gltf: { nodes: Record<string, any>[]; skins?: { joints: number[] }[] }, character = "humanoid.ranger.male"): string {
   const joints = gltf.skins?.[0]?.joints.map((index) => gltf.nodes[index]!.name as string);
   return formatSocketDescriptor(createHumanoidSocketDescriptor({
-    character, sockets: [...deriveHandSockets(gltf), ...RANGER_STOWED_SOCKETS, ...deriveArcherySockets(gltf), ...deriveHairSockets(gltf)], ...(joints ? { joints } : {}),
+    character, sockets: [...deriveHandSockets(gltf), ...RANGER_STOWED_SOCKETS, ...deriveArcherySockets(gltf), ...deriveHairSockets(gltf), ...deriveArmorSockets(gltf)], ...(joints ? { joints } : {}),
   }));
 }
 

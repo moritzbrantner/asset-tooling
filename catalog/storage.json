@@ -159,6 +159,18 @@
     },
     {
       "schemaVersion": 1,
+      "sourceId": "quaternius.modular-character-outfits-fantasy-standard.male-peasant-bin",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.modular-character-outfits-fantasy-standard.male-peasant-bin/Male_Peasant.bin"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.modular-character-outfits-fantasy-standard.male-peasant-gltf",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.modular-character-outfits-fantasy-standard.male-peasant-gltf/Male_Peasant.gltf"
+    },
+    {
+      "schemaVersion": 1,
       "sourceId": "quaternius.modular-character-outfits-fantasy-standard.male-ranger-bin",
       "storage": "git-lfs",
       "path": "assets/canonical/quaternius.modular-character-outfits-fantasy-standard.male-ranger-bin/Male_Ranger.bin"
@@ -168,6 +180,24 @@
       "sourceId": "quaternius.modular-character-outfits-fantasy-standard.male-ranger-gltf",
       "storage": "git-lfs",
       "path": "assets/canonical/quaternius.modular-character-outfits-fantasy-standard.male-ranger-gltf/Male_Ranger.gltf"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.modular-character-outfits-fantasy-standard.t-peasant-basecolor-png",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.modular-character-outfits-fantasy-standard.t-peasant-basecolor-png/T_Peasant_BaseColor.png"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.modular-character-outfits-fantasy-standard.t-peasant-normal-png",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.modular-character-outfits-fantasy-standard.t-peasant-normal-png/T_Peasant_Normal.png"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.modular-character-outfits-fantasy-standard.t-peasant-orm-png",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.modular-character-outfits-fantasy-standard.t-peasant-orm-png/T_Peasant_ORM.png"
     },
     {
       "schemaVersion": 1,

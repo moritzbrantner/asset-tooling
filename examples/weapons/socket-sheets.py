@@ -13,7 +13,9 @@ For every pose (rest, Idle_Loop mid, Walk_Loop quarter and mid) it writes a
 close-ups of the right hand, the left hand from outside and the left hand from
 behind. ``--poses`` replaces the default pose list; each sheet is then named
 ``sheet-<clip>-<percent>.png``. ``--hide=<node>,...`` hides character objects by name (for example the hood
-when judging hair, #116).
+when judging hair, #116). ``--armor=<armor.glb>,<appearance.json>,<outfit id>`` places every rigid armour piece of
+that outfit (#117) at its socket: the appearance descriptor's ``outfits[].armor.pieces`` name each GLB node and its
+socket.
 """
 import json
 import math
@@ -53,7 +55,8 @@ def main():
         poses = [(f"{clip}-{round(float(fraction) * 100):03d}", clip, float(fraction))
                  for clip, fraction in (item.split("@") for item in option[len("--poses="):].split(","))]
     hidden = [name for option in args if option.startswith("--hide=") for name in option[len("--hide="):].split(",")]
-    args = [a for a in args if not a.startswith("--poses=") and not a.startswith("--hide=")]
+    armor = [option[len("--armor="):].split(",") for option in args if option.startswith("--armor=")]
+    args = [a for a in args if not a.startswith(("--poses=", "--hide=", "--armor="))]
     character, sockets_path, out_dir, attachments = args[0], args[1], args[2], [a.split("=", 1) for a in args[3:]]
     os.makedirs(out_dir, exist_ok=True)
     bpy.ops.object.select_all(action="SELECT")
@@ -82,6 +85,19 @@ def main():
         socket = sockets[socket_id]
         local = A @ trs(socket["translation"], socket["rotation"], socket.get("scale", (1, 1, 1))) @ A.inverted()
         items.append((root, socket["joint"], local))
+    for path, appearance_path, outfit_id in armor:
+        with open(appearance_path) as handle:
+            outfit = next(o for o in json.load(handle)["outfits"] if o["id"] == outfit_id)
+        before = set(bpy.context.scene.objects)
+        bpy.ops.import_scene.gltf(filepath=path)
+        imported = {obj.name: obj for obj in set(bpy.context.scene.objects) - before}
+        for piece in outfit["armor"]["pieces"]:
+            root = bpy.data.objects.new(f"attach-{piece['node']}", None)
+            bpy.context.scene.collection.objects.link(root)
+            imported[piece["node"]].parent = root
+            socket = sockets[piece["socket"]]
+            local = A @ trs(socket["translation"], socket["rotation"], socket.get("scale", (1, 1, 1))) @ A.inverted()
+            items.append((root, socket["joint"], local))
     data = armature.animation_data_create()
     for track in list(data.nla_tracks):
         data.nla_tracks.remove(track)
@@ -153,8 +169,12 @@ def main():
         tile = os.path.join(out_dir, "tile.png")
         tiles = [
             shot((0, 0, .95), (0, -1, 0), 2.2, tile), shot((0, 0, .95), (1, 0, 0), 2.2, tile), shot((0, 0, .95), (0, 1, 0), 2.2, tile),
-            shot(hand("hand_r"), (-.6, -1, .25), .5, tile), shot(hand("hand_l"), (.8, -1, .25), .9, tile), shot(hand("hand_l"), (.3, 1, .2), .9, tile),
         ]
+        if armor:
+            # Outfit sheets: two three-quarter views and the head instead of the hand close-ups.
+            tiles += [shot((0, 0, .95), (.7, -.7, .25), 2.2, tile), shot((0, 0, .95), (-.7, .7, .25), 2.2, tile), shot(hand("Head"), (.4, -1, .15), .6, tile)]
+        else:
+            tiles += [shot(hand("hand_r"), (-.6, -1, .25), .5, tile), shot(hand("hand_l"), (.8, -1, .25), .9, tile), shot(hand("hand_l"), (.3, 1, .2), .9, tile)]
         # Blender images are stored bottom row first: the top sheet row is front | left side | back.
         sheet = numpy.concatenate([numpy.concatenate(tiles[3:], axis=1), numpy.concatenate(tiles[:3], axis=1)], axis=0)
         image = bpy.data.images.new(f"sheet-{name}", TILE * 3, TILE * 2, alpha=True)
