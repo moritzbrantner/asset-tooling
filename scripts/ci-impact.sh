@@ -2,7 +2,17 @@
 set -euo pipefail
 
 emit() {
-  printf 'extended=%s\nstability=%s\npages=%s\n' "$1" "$2" "$3" >> "$GITHUB_OUTPUT"
+  local skipped=''
+  if [[ "$1" == false ]]; then
+    skipped='"selected-bundle-consumer","blender-script","canonical-storage","processing-contract",'
+  fi
+  if [[ "$2" == false ]]; then
+    skipped+='"stability-validation",'
+  fi
+  if [[ "$3" == false ]]; then
+    skipped+='"pages-validation",'
+  fi
+  printf 'extended=%s\nstability=%s\npages=%s\nallow-skipped=[%s]\n' "$1" "$2" "$3" "${skipped%,}" >> "$GITHUB_OUTPUT"
 }
 
 if [[ "$GITHUB_EVENT_NAME" != 'pull_request' ]]; then

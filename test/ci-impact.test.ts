@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { delimiter, join, resolve } from "node:path";
 
@@ -34,18 +34,69 @@ const classify = (rows: string[]) => {
 
 test("documentation-only changes keep all expensive scopes disabled", () => {
   expect(classify(["docs/architecture.md\t"])).toBe(
-    "extended=false\nstability=false\npages=false\n",
+    "extended=false\nstability=false\npages=false\nallow-skipped=[\"selected-bundle-consumer\",\"blender-script\",\"canonical-storage\",\"processing-contract\",\"stability-validation\",\"pages-validation\"]\n",
   );
 });
 
 test("gallery changes require Pages while preserving existing contract exceptions", () => {
   expect(classify(["src/catalog-pages-site.ts\t"])).toBe(
-    "extended=false\nstability=false\npages=true\n",
+    "extended=false\nstability=false\npages=true\nallow-skipped=[\"selected-bundle-consumer\",\"blender-script\",\"canonical-storage\",\"processing-contract\",\"stability-validation\"]\n",
   );
 });
 
 test("a source-to-documentation rename keeps source validation required", () => {
   expect(classify(["docs/retired.md\tsrc/core.ts"])).toBe(
-    "extended=true\nstability=true\npages=true\n",
+    "extended=true\nstability=true\npages=true\nallow-skipped=[]\n",
   );
 });
+
+
+test("test-only changes select extended checks without Stability or Pages", () => {
+  expect(classify(["test/core.test.ts\t"])).toBe(
+    "extended=true\nstability=false\npages=false\nallow-skipped=[\"stability-validation\",\"pages-validation\"]\n",
+  );
+});
+
+test("Stability manifest changes require all contracts without Pages", () => {
+  expect(classify(["stability/consumers.json\t"])).toBe(
+    "extended=true\nstability=true\npages=false\nallow-skipped=[\"pages-validation\"]\n",
+  );
+});
+
+for (const key of ["consumers", "processors"]) {
+  test(`${key} workflow matrix emission rejects empty and invalid manifests`, () => {
+    const workflow = readFileSync(".github/workflows/stability.yml", "utf8");
+    const command = workflow.split("\n").find((line) =>
+      line.includes("node -e '") && line.includes(`stability/${key}.json`),
+    );
+    if (!command) throw new Error(`Missing actual ${key} matrix command`);
+    const root = mkdtempSync(join(tmpdir(), "asset-stability-matrix-"));
+    try {
+      mkdirSync(join(root, "stability"));
+      const output = join(root, "output");
+      const manifest = join(root, "stability", `${key}.json`);
+      for (const invalid of ["{", "{}", JSON.stringify({ [key]: [] }), JSON.stringify({ [key]: {} })]) {
+        writeFileSync(manifest, invalid);
+        writeFileSync(output, "");
+        const result = spawnSync("bash", ["-e", "-c", command], {
+          cwd: root,
+          env: { ...process.env, GITHUB_OUTPUT: output },
+        });
+        expect(result.status).not.toBe(0);
+        expect(readFileSync(output, "utf8")).toBe("");
+      }
+      const accepted = JSON.parse(readFileSync(`stability/${key}.json`, "utf8"));
+      writeFileSync(manifest, JSON.stringify(accepted));
+      const result = spawnSync("bash", ["-e", "-c", command], {
+        cwd: root,
+        env: { ...process.env, GITHUB_OUTPUT: output },
+      });
+      expect(result.status).toBe(0);
+      expect(readFileSync(output, "utf8")).toBe(
+        `matrix=${JSON.stringify({ include: accepted[key] })}\n`,
+      );
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+}

@@ -20,6 +20,8 @@ jobs:
     outputs:
       extended: ${{ steps.detect.outputs.extended }}
       pages: ${{ steps.detect.outputs.pages }}
+      stability: ${{ steps.detect.outputs.stability }}
+      allow-skipped: ${{ steps.detect.outputs.allow-skipped }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
@@ -155,7 +157,7 @@ jobs:
 
   stability-validation:
     needs: impact
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && needs.impact.outputs.stability == 'true'
     permissions:
       contents: read
       pull-requests: read
@@ -180,4 +182,4 @@ jobs:
         with:
           needs: ${{ toJSON(needs) }}
           required: '["impact", "validate", "selected-bundle-consumer", "blender-script", "canonical-storage", "processing-contract", "stability-validation", "pages-validation"]'
-          allow-skipped: ${{ github.event_name != 'pull_request' && '["pages-validation", "stability-validation"]' || (needs.impact.outputs.extended == 'false' && (needs.impact.outputs.pages == 'false' && '["selected-bundle-consumer", "blender-script", "canonical-storage", "processing-contract", "pages-validation"]' || '["selected-bundle-consumer", "blender-script", "canonical-storage", "processing-contract"]') || (needs.impact.outputs.pages == 'false' && '["pages-validation"]' || '[]')) }}
+          allow-skipped: ${{ github.event_name != 'pull_request' && '["pages-validation", "stability-validation"]' || needs.impact.outputs.allow-skipped || '[]' }}
