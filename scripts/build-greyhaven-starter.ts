@@ -18,6 +18,7 @@ import { executeGltfPlaceOperation } from "../src/gltf-place-operations.js";
 import { executeGltfProductionImportOperation } from "../src/gltf-production-operations.js";
 import { sliceResizeDocument } from "../src/gltf-slice-resize.js";
 import { executeGltfTextureResizeOperation } from "../src/gltf-texture-resize-operations.js";
+import { DEBRIS_PLANES, DEBRIS_VARIANT, generateDebris, type DebrisPlane } from "../src/debris-recipe.js";
 import { LOD_LEVELS, LOD_RATIOS, LOD_SWITCH_DISTANCE_HINTS, generateLodLevel } from "../src/lod-recipe.js";
 import type { AssetOperationResult, AssetRef } from "../src/operations.js";
 
@@ -250,10 +251,12 @@ function documentWorldBounds(document: Document) {
   return { min, max };
 }
 
-export async function buildGreyhavenStarter({ outDir, lods = true, log = () => {} }: {
+export async function buildGreyhavenStarter({ outDir, lods = true, debris = lods, log = () => {} }: {
   outDir: string;
   /** Build the Blender lod1/lod2 variants (#123). Off only where Blender is unavailable, e.g. the hosted storage job. */
   lods?: boolean;
+  /** #319: the `debris` variant of the crate, barrel and fence (Blender; defaults to `lods`). */
+  debris?: boolean;
   log?: (line: string) => void;
 }) {
   const root = path.resolve(outDir);
@@ -346,6 +349,17 @@ export async function buildGreyhavenStarter({ outDir, lods = true, log = () => {
     }
   }
 
+  // #319 (mmorpg#288): pre-fractured debris of the breakable props, cut in Blender from the placed LOD0.
+  for (const item of built) {
+    const planes = (DEBRIS_PLANES as Record<string, readonly DebrisPlane[]>)[item.entry.role];
+    if (!debris || !planes) continue;
+    log(`debris of ${item.entry.role} (debris.py, ${planes.length} planes)`);
+    const split = await generateDebris(root, item.placed, item.entry.role, planes);
+    const checked = single(await executeGltfProductionImportOperation(root, { inputs: { source: split.glb }, parameters: { policy: { allowedValidatorWarnings: [TANGENT_WARNING] } } }));
+    item.debris = { placed: checked, chunks: split.observations.chunks };
+    lineage.members[item.entry.role].debris = { placed: checked, planes, chunks: split.observations.chunks };
+  }
+
   log("measure doorway and collision proxies");
   const wall = byRole("wall"), door = byRole("door"), frame = byRole("door-frame"), barrel = byRole("barrel"), tree = byRole("tree");
   const wallBounds = wall.observations.bounds.placed as { min: Vec3; max: Vec3; center: Vec3 };
@@ -375,6 +389,13 @@ export async function buildGreyhavenStarter({ outDir, lods = true, log = () => {
     placement: { anchor: "footprint-base-center", translation: item.observations.translation },
     footprint: { width: round(item.observations.footprint.width), depth: round(item.observations.footprint.depth), height: round(item.observations.footprint.height) },
     bounds: { min: round3(item.observations.bounds.placed.min), max: round3(item.observations.bounds.placed.max) },
+    ...(item.debris ? { debris: {
+      variant: DEBRIS_VARIANT,
+      chunks: item.debris.chunks.map((chunk: Json) => ({
+        node: chunk.node, translation: chunk.center, volumeShare: chunk.volumeShare, triangles: chunk.triangles,
+        collisionProxy: { name: chunk.node, tag: "debris", center: [0, 0, 0], size: round3(chunk.halfExtents.map((half: number) => 2 * half)) },
+      })),
+    } } : {}),
     lods: [{ variant: GREYHAVEN_BUNDLE_VARIANT, triangles: worldTriangles(item.document).positions.length / 9 }, ...item.lods.map((lod: Json) => ({
       variant: lod.level, ratio: lod.ratio, triangles: lod.triangles, switchDistanceHint: LOD_SWITCH_DISTANCE_HINTS[lod.level as "lod1" | "lod2"],
     }))],
@@ -425,9 +446,10 @@ export async function buildGreyhavenStarter({ outDir, lods = true, log = () => {
       assets: built.flatMap((item) => [{
         key: item.entry.key, variant: GREYHAVEN_BUNDLE_VARIANT,
         ...(item.entry.role === "wall" ? { attachments: [{ name: GREYHAVEN_DESCRIPTOR_ATTACHMENT }] } : {}),
-      }, ...item.lods.map((lod: Json) => ({ key: item.entry.key, variant: lod.level }))]),
+      }, ...item.lods.map((lod: Json) => ({ key: item.entry.key, variant: lod.level })),
+      ...(item.debris ? [{ key: item.entry.key, variant: DEBRIS_VARIANT }] : [])]),
     },
-    inputs: { assets: built.flatMap((item) => [item.placed, ...item.lods.map((lod: Json) => lod.placed)]), attachments: [descriptorRef] },
+    inputs: { assets: built.flatMap((item) => [item.placed, ...item.lods.map((lod: Json) => lod.placed), ...(item.debris ? [item.debris.placed] : [])]), attachments: [descriptorRef] },
   });
   const tarPath = path.join(root, GREYHAVEN_TAR_NAME);
   log("pack release tar (scripts/pack-asset-bundle.ts)");

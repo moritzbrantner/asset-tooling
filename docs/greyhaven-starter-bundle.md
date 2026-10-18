@@ -165,6 +165,26 @@ Keys are `greyhaven.starter.<variation>`. A new variation is one more `GREYHAVEN
 
 Every entry, including the variations, also ships `lod1` (about 50 % of its triangles) and `lod2` (about 20 %) variants, decimated in Blender. The descriptor's `lods` list gives each level's ratio, triangle count and switch-distance hint (15 m and 35 m). See [levels-of-detail.md](levels-of-detail.md).
 
+## Debris (#319)
+
+For breakable props (mmorpg#288), `greyhaven.starter.crate`, `greyhaven.starter.barrel` and `greyhaven.starter.fence` also ship a `debris` variant. [`adapters/blender/debris.py`](../adapters/blender/debris.py) splits the placed LOD0 in Blender with the fixed planes of `DEBRIS_PLANES` (`src/debris-recipe.ts`). There is no randomness and no add-on.
+
+- Each cut is capped. The cap takes the material of the face it cuts through, with a planar UV projection, so the chunks keep the prop's textures.
+- Parts of a piece whose boxes do not touch become separate chunks, such as two fence rails cut free of their posts. Chunks smaller than 1 % of the prop's bounds volume are dropped.
+- The crate breaks into 8 corner chunks, the barrel into 6 wedges of staves and hoops, and the fence into 6 pieces: both posts with their rail stubs, and four loose rail pieces.
+- Each chunk is one node, `<role>.chunk<NN>`, in the same placed frame as the intact prop. Its translation is the centre of its bounds, so a consumer spawns the chunks as dynamic bodies where the prop stood.
+
+The descriptor entry gains `debris: { variant: "debris", chunks[] }`. Each chunk has:
+
+- `node` and `translation`;
+- `volumeShare`, the chunk's share of the summed box volume, for splitting the prop's mass;
+- `triangles`;
+- `collisionProxy`, a box `{ name, tag: "debris", center, size }` in the chunk's node frame.
+
+Breaking, physics, despawn and loot stay with the consumer.
+
+`examples/greyhaven-kit/debris.json` shows each breakable prop next to its debris with the chunks pushed apart. Render it with `render-composition.py`; an item's `variant` and `explode` select the debris and push its chunks apart.
+
 ## Bundle and consumer pinning
 
 Each entry is `scenes/<key>/default.gltf` with one `.bin` and its PNGs as hash-addressed resources. The first five entries (#118) are:

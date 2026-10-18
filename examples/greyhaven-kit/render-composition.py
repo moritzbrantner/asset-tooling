@@ -3,7 +3,9 @@
     blender --background --factory-startup --python examples/greyhaven-kit/render-composition.py -- \
         <bundle dir> <composition.json> <out.png> [--figure=<character .gltf>]
 
-Each item places a bundle entry (`scenes/<key>/default.gltf`) at `at` (glTF metres) with an optional `yaw` in degrees.
+Each item places a bundle entry (`scenes/<key>/<variant>.gltf`, `default` unless `variant` is given) at `at` (glTF
+metres) with an optional `yaw` in degrees. `explode` pushes each root node away from the item's centre by that factor,
+for example to show the chunks of a `debris` variant (#319).
 An item with `open` and `pivotNode` rotates that joint, for example the chest lid. `--figure` places a character at
 the composition's `figure.at` for scale. Placement and scene meaning stay with the consuming game.
 """
@@ -18,8 +20,14 @@ if figure:
 bpy.ops.object.select_all(action="SELECT"); bpy.ops.object.delete()
 for item in layout["items"]:
     before = set(bpy.context.scene.objects)
-    bpy.ops.import_scene.gltf(filepath=item.get("file") or os.path.join(bundle, "scenes", item["key"], "default.gltf"))
+    bpy.ops.import_scene.gltf(filepath=item.get("file") or os.path.join(bundle, "scenes", item["key"], item.get("variant", "default") + ".gltf"))
     new = [o for o in bpy.context.scene.objects if o not in before]
+    if item.get("explode"):
+        tops = [o for o in new if o.parent is None]
+        centre = sum((o.location for o in tops), Vector()) / len(tops)
+        for o in tops:
+            offset = o.location - centre
+            o.location = o.location + Vector((offset.x, offset.y, max(offset.z, 0))) * item["explode"]
     root = bpy.data.objects.new("place:" + item["key"], None); bpy.context.scene.collection.objects.link(root)
     for o in new:
         if o.parent is None: o.parent = root
