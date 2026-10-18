@@ -15,7 +15,7 @@ gh release upload humanoid-ranger-male <downloads>/* --clobber
 | `tex-<hash>.ktx2` | Textures as KTX2 (`KHR_texture_basisu`), content-addressed and shared by every entry that uses them, so a Dark/Light pair or a level chain downloads them once. |
 | `<key>.clips.glb` | Ranger only: the joints and every clip, with no meshes. Every character entry has the same joints at the same rest pose, so a consumer plays these clips on any variant or level by joint name. |
 | `<key>.<variant>.<attachment>.json` | The entry's attachments, for example `humanoid.ranger.male.default.humanoid-sockets.json`. |
-| `<name>.index.json` | `asset-downloads-v1`: each entry's files, textures and total bytes, the clips file and each texture's encoding. |
+| `<name>.index.json` | `asset-downloads-v1`: each entry's files, textures and total bytes, the clips file, each texture's encoding, and a `runtime` cost per entry (#124): draw calls, materials, triangles, and the texture memory estimated from the KTX2 headers. That estimate is 1 byte per texel after Basis transcodes to a block format (BC7/ETC2/ASTC), against 4 bytes per texel for an RGBA8 fallback, with a third added for mips. |
 
 **Texture encoding**, chosen per texture by the material slots that use it:
 
@@ -23,7 +23,7 @@ gh release upload humanoid-ranger-male <downloads>/* --clobber
 - **Base colour and emissive:** ETC1S (BasisLZ, `qlevel` 160), sRGB.
 - **Data maps** (ORM, roughness, occlusion such as the armour's AO): ETC1S, linear.
 
-All textures get mipmaps. The encoder is KTX-Software's `ktx create` (4.4.2, Apache-2.0). Set `ASSET_TOOLING_KTX` to its CLI; it is not bundled.
+All textures get mipmaps. Images whose sides are not powers of two, such as the 1008 × 981 flower sheet, are resampled to the nearest power of two; otherwise they decoded black on WebGL's block-compressed path (#124). The encoder is KTX-Software's `ktx create` (4.4.2, Apache-2.0). Set `ASSET_TOOLING_KTX` to its CLI; it is not bundled.
 
 **Consumer setup (three.js):**
 
@@ -49,4 +49,14 @@ The index lists what to fetch. An entry's `.gltf` refers to its `.bin` and its `
 - one character entry with its textures: about 4.9–5.3 MB;
 - a variant with all three levels: about 5.4–5.9 MB, because the levels share the textures.
 
-The starter kit tar is 72.2 MB; its downloads total 36 MB.
+The starter kit now resizes to game resolution before bundling (#124, the Ranger's per-slot limits: 1024 px colour and normal, 512 px data maps). Its tar dropped from 72.2 MB to 21.6 MB, and its downloads total 11 MB. Example runtime costs per entry: the wall is 3.6 MB to download, with about 9.4 MB of transcoded texture memory (37.7 MB as RGBA8); the barrel is 2.1 MB with about 6.3 MB.
+
+## Review
+
+[`examples/compressed-review/review.ts`](../examples/compressed-review/review.ts) renders an entry in headless Chromium with three.js, side by side: the bundle's PNG scene on the left and the KTX2 + meshopt download on the right, from the same camera distance. Checked on 2026-10-18 at gameplay distances:
+
+- Ranger default at 2.6 m and 10 m;
+- knight at 2.6 m;
+- wall, barrel, tree and flowering bush.
+
+Normal maps, alpha cut-outs and the packed ORM channels read the same. The ETC1S alpha edges of the flower petals show a faint fringe close up.

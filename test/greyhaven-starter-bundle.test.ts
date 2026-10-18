@@ -79,15 +79,19 @@ test("the Greyhaven starter recipe builds a verified bundle with a measured door
     const variants = lods ? [GREYHAVEN_BUNDLE_VARIANT, "lod1", "lod2"] : [GREYHAVEN_BUNDLE_VARIANT];
     assert.deepEqual(manifest.assets.map((entry) => [entry.key, entry.variant]).sort(), keys.flatMap((key) => variants.map((variant) => [key, variant])).sort());
 
-    // The WoodTrim textures shared by wall, door and door frame are stored once.
-    const pins = WOODTRIM.map((id) => sources.find((source) => source.id === id)!.source.sha256 as string);
+    // The WoodTrim textures shared by wall, door and door frame are stored once (resized for the game since #124,
+    // so they are matched by image name rather than by their source pins).
     const entry = (key: string) => manifest.assets.find((candidate) => candidate.key === key && candidate.variant === GREYHAVEN_BUNDLE_VARIANT)!;
-    for (const sha256 of pins) {
-      const users = ["greyhaven.starter.wall", "greyhaven.starter.door", "greyhaven.starter.door-frame"]
-        .map((key) => entry(key).resources.filter((resource) => resource.sha256 === sha256).map((resource) => resource.path));
-      assert.ok(users.every((paths) => paths.length === 1), `WoodTrim ${sha256} is a resource of wall, door and frame`);
-      assert.equal(new Set(users.flat()).size, 1, `WoodTrim ${sha256} has one path`);
-      assert.equal(readAssetBundleTar(tar).filter((file) => file.path.includes(sha256)).length, 1, `WoodTrim ${sha256} is in the tar once`);
+    const woodTrim = async (key: string) => {
+      const json = JSON.parse((await readAssetBundleGltf(built.bundleDir, manifest, key, GREYHAVEN_BUNDLE_VARIANT)).gltf.toString("utf8"));
+      return new Map<string, string>((json.images as Json[]).filter((image) => /^T_WoodTrim_/.test(image.name ?? "")).map((image) => [image.name, path.posix.basename(image.uri)]));
+    };
+    const [wallTrim, doorTrim, frameTrim] = await Promise.all(["greyhaven.starter.wall", "greyhaven.starter.door", "greyhaven.starter.door-frame"].map(woodTrim));
+    assert.equal(wallTrim!.size, WOODTRIM.length, "the wall uses the three WoodTrim textures");
+    for (const [name, file] of wallTrim!) {
+      assert.equal(doorTrim!.get(name), file, `${name} is one resource of wall and door`);
+      assert.equal(frameTrim!.get(name), file, `${name} is one resource of wall and door frame`);
+      assert.equal(readAssetBundleTar(tar).filter((item) => path.posix.basename(item.path) === file).length, 1, `${name} is in the tar once`);
     }
     const distinct = new Set(manifest.assets.flatMap((item) => item.resources.map((resource) => resource.path)));
     assert.deepEqual((await readdir(path.join(built.bundleDir, "resources"))).sort(), [...distinct].map((p) => path.posix.basename(p)).sort());

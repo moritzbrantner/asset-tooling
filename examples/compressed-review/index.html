@@ -1,0 +1,36 @@
+<!doctype html><html><body style="margin:0;background:#8899aa"><canvas id="c" width="1200" height="600"></canvas>
+<script type="importmap">{"imports":{"three":"/three/build/three.module.js","three/addons/":"/three/examples/jsm/"}}</script>
+<script type="module">
+// Side by side: the uncompressed review bundle (PNG, left) and the compressed download (KTX2 + meshopt, right),
+// framed at a chosen distance; clips (if any) are played from the shared clips file by joint name.
+import * as THREE from "three";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { KTX2Loader } from "three/addons/loaders/KTX2Loader.js";
+import { MeshoptDecoder } from "three/addons/libs/meshopt_decoder.module.js";
+const p = new URLSearchParams(location.search);
+const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById("c"), antialias: true });
+const loader = new GLTFLoader().setKTX2Loader(new KTX2Loader().setTranscoderPath("/three/examples/jsm/libs/basis/").detectSupport(renderer)).setMeshoptDecoder(MeshoptDecoder);
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0x8899aa);
+scene.add(new THREE.HemisphereLight(0xffffff, 0x445544, 1.6));
+const sun = new THREE.DirectionalLight(0xffffff, 2.2); sun.position.set(2, 4, 3); scene.add(sun);
+try {
+  const left = await loader.loadAsync(p.get("left")), right = await loader.loadAsync(p.get("right"));
+  scene.add(left.scene);
+  const clipsFile = p.get("clips");
+  const clips = clipsFile ? (await loader.loadAsync(clipsFile)).animations : [];
+  const pose = (g) => { if (clips.length) { const m = new THREE.AnimationMixer(g.scene); m.clipAction(THREE.AnimationClip.findByName(clips, p.get("clip") || "Idle_Loop")).play(); m.setTime(Number(p.get("t") || 0.5)); } };
+  pose(left); pose(right);
+  const box = new THREE.Box3().setFromObject(left.scene), centre = box.getCenter(new THREE.Vector3());
+  const distance = Number(p.get("distance") || 3);
+  // Each half of the canvas shows one model from the same camera, so the two are compared at the same distance.
+  const camera = new THREE.PerspectiveCamera(30, 1, 0.05, 500);
+  camera.position.set(centre.x, centre.y + distance * 0.25, centre.z + distance); camera.lookAt(centre);
+  renderer.setScissorTest(true);
+  for (const [index, g] of [[0, left], [1, right]]) {
+    scene.remove(left.scene, right.scene); scene.add(g.scene);
+    renderer.setViewport(index * 600, 0, 600, 600); renderer.setScissor(index * 600, 0, 600, 600);
+    renderer.render(scene, camera);
+  }
+  document.title = "ok";
+} catch (e) { document.title = "error " + e; }
+</script></body></html>

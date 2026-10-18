@@ -112,6 +112,8 @@ jobs:
           git lfs fsck
       - name: Verify hydrated canonical asset bytes
         run: bun run catalog:storage:verify
+      - name: Install declared image codec
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
       - name: Verify Greyhaven starter source members
         env:
           ASSET_TOOLING_REQUIRE_HYDRATED_STORAGE: "1"
