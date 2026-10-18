@@ -17,7 +17,7 @@ import {
   type GltfResourcesBundleManifest,
 } from "../src/asset-bundle.js";
 import {
-  GREYHAVEN_BUNDLE_VARIANT, GREYHAVEN_DESCRIPTOR_ATTACHMENT, GREYHAVEN_DESCRIPTOR_SCHEMA, GREYHAVEN_MEMBERS,
+  GREYHAVEN_BUNDLE_VARIANT, GREYHAVEN_DESCRIPTOR_ATTACHMENT, GREYHAVEN_DESCRIPTOR_SCHEMA, GREYHAVEN_MEMBERS, GREYHAVEN_VARIATIONS,
   buildGreyhavenStarter, worldTriangles,
 } from "../scripts/build-greyhaven-starter.ts";
 
@@ -73,8 +73,8 @@ test("the Greyhaven starter recipe builds a verified bundle with a measured door
     const tar = await readFile(built.tar);
     await verifyAssetBundleTar(tar, { sha256: built.tarSha256, ref: built.exportRef });
     assert.equal((await readFile(`${built.tar}.sha256`, "utf8")).split(/\s+/)[0], built.tarSha256);
-    assert.deepEqual(manifest.assets.map((entry) => [entry.key, entry.variant]),
-      GREYHAVEN_MEMBERS.map((member) => [member.key, GREYHAVEN_BUNDLE_VARIANT]).sort());
+    const keys = [...GREYHAVEN_MEMBERS, ...GREYHAVEN_VARIATIONS].map((member) => member.key);
+    assert.deepEqual(manifest.assets.map((entry) => [entry.key, entry.variant]).sort(), keys.map((key) => [key, GREYHAVEN_BUNDLE_VARIANT]).sort());
 
     // The WoodTrim textures shared by wall, door and door frame are stored once.
     const pins = WOODTRIM.map((id) => sources.find((source) => source.id === id)!.source.sha256 as string);
@@ -97,7 +97,18 @@ test("the Greyhaven starter recipe builds a verified bundle with a measured door
     assert.equal(descriptor.units, "metre");
     assert.equal(descriptor.up, "+Y");
     const asset = (role: string) => descriptor.assets.find((item: Json) => item.role === role);
-    assert.deepEqual(descriptor.assets.map((item: Json) => item.key).sort(), GREYHAVEN_MEMBERS.map((member) => member.key).sort());
+    assert.deepEqual(descriptor.assets.map((item: Json) => item.key).sort(), [...keys].sort());
+    // #121 variations: their requested size, their source recorded, and the source's textures shared, not copied.
+    for (const variation of GREYHAVEN_VARIATIONS) {
+      const described = descriptor.assets.find((item: Json) => item.key === variation.key);
+      const base = GREYHAVEN_MEMBERS.find((member) => member.role === variation.base)!;
+      assert.equal(described.variationOf, base.key, variation.key);
+      for (const [axis, field] of [["x", "width"], ["y", "height"], ["z", "depth"]] as const) {
+        if (variation.size[axis] !== undefined) assert.ok(Math.abs(described.footprint[field] - variation.size[axis]!) < 1e-4, `${variation.key} ${field}`);
+      }
+      const images = (key: string) => new Set(entry(key).resources.filter((resource) => resource.path.endsWith(".png")).map((resource) => resource.path));
+      for (const image of images(variation.key)) assert.ok(images(base.key).has(image), `${variation.key} shares ${image} with ${base.key}`);
+    }
 
     // Every placed asset stands on y = 0, measured on the bundled glTF, under its greyhaven.<role> parent.
     const io = new NodeIO();
