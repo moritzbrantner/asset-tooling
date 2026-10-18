@@ -1,0 +1,17 @@
+{
+  "note": "Each provider is one run of the same workload through mesh.image-to-3d.generate@1. Add a provider by filling its bundle paths; pending providers are skipped.",
+  "providers": [
+    {
+      "id": "triposr", "status": "ready", "license": "MIT",
+      "modelId": "stabilityai/TripoSR", "modelRevision": "5b521936b01fbe1890f6f9baed0254ab6351c04a",
+      "assets": ["model"], "materials": "geometry", "viewMedia": "rgb",
+      "parameters": { "bundleId": "triposr-local-bundle", "preprocessMode": "prepared", "device": "cuda", "chunkSize": 8192, "mcResolution": 256, "deterministicAlgorithms": false }
+    },
+    {
+      "id": "stable-fast-3d", "status": "pending-owner-token", "license": "Stability AI Community License (free below USD 1M revenue)",
+      "modelId": "stabilityai/stable-fast-3d", "modelRevision": null,
+      "assets": ["source", "model", "tokenizer"], "materials": "textured", "viewMedia": "rgba",
+      "parameters": { "sourceBundleId": "stable-fast-3d-source", "modelBundleId": "stabilityai/stable-fast-3d", "tokenizerBundleId": "facebook/dinov2-large", "preprocessMode": "prepared-rgba", "device": "cuda", "textureResolution": 1024, "remesh": "triangle", "targetVertexCount": 12000, "deterministicAlgorithms": false }
+    }
+  ]
+}

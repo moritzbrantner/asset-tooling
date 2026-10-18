@@ -164,6 +164,28 @@ def candidate_bundle_root(path: Path) -> Path:
     raise AssertionError("unreachable")
 
 
+def resolve_local_hub_files() -> None:
+    """Upstream TripoSR reads the DINO config with ``hf_hub_download(repo_id=..., filename=...)``. Current
+    huggingface_hub rejects a local directory as a repo id, so a local directory resolves to its file instead.
+    Anything else still goes to the original function, which is offline here and fails closed."""
+    try:
+        import huggingface_hub
+    except ImportError as error:
+        fail(f"required Python package 'huggingface_hub' is not installed: {error}")
+    original = huggingface_hub.hf_hub_download
+
+    def local_first(repo_id, filename, *args, **kwargs):
+        directory = Path(str(repo_id))
+        if directory.is_dir():
+            candidate = directory / filename
+            if not candidate.is_file():
+                fail(f"bundled model directory {directory.name!r} has no {filename!r}")
+            return str(candidate)
+        return original(repo_id, filename, *args, **kwargs)
+
+    huggingface_hub.hf_hub_download = local_first
+
+
 def patch_local_dino(bundle_root: Path) -> str:
     try:
         from omegaconf import OmegaConf
@@ -232,6 +254,7 @@ def generate(request_path: Path, output_path: Path, observations_path: Path) -> 
         patched_config_name = patch_local_dino(bundle_root)
 
         sys.path.insert(0, str(bundle_root))
+        resolve_local_hub_files()
         try:
             import torch
             from tsr.system import TSR
