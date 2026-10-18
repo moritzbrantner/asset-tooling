@@ -20,6 +20,12 @@ After the owner's first review, the knight's shapes were reworked:
 - **Tabard:** shaped cloth instead of flat boards (see Outputs).
 - **Skins:** the soldier and knight are built for both skins: `outfit.<kit>` (Dark) and `outfit.<kit>.skin.light` (Light, with the same derived skin texture as the Ranger). Each outfit in `humanoid-appearance` lists its `skins`.
 
+## Motion fixes (#309)
+
+- **Tabard:** the panels rise above the breastplate's rim and also clear the breastplate's own surface (keel and rim) by 18 mm. Only the strips that bridge the shoulders open for the neck, so no slot shows across the chest. The lower folds are deeper and slightly irregular, and the hem rises and falls with them.
+- **Soldier greaves:** fitted only to vertices fully on the calf, starting below the knee, with 8 mm clearance. The bending knee and the boot cuff no longer push them off the shin in the walk.
+- **Sash:** like the tabard, it ignores arm and shoulder joints, and it rides `spine_03` over the shoulder, so the arm swing doesn't lift it.
+
 ## Fitting
 
 The recipe's declared input `target` is the base character at rest: the Peasant outfit composed with the head subset on the shared 65-joint skeleton. Each piece is fitted to the real geometry under it:
