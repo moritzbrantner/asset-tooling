@@ -25,6 +25,8 @@
   },
   "include": [
     "playwright.config.ts",
+    "scripts/prepare-native-downloads.ts",
+    "test/prepare-native-downloads.test.ts",
     "test/browser/animation-viewer.spec.ts",
     "test/browser/viewer-harness.ts",
     "src/animation-viewer-eligibility.ts",

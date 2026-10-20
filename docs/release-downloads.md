@@ -60,3 +60,18 @@ The starter kit now resizes to game resolution before bundling (#124, the Ranger
 - wall, barrel, tree and flowering bush.
 
 Normal maps, alpha cut-outs and the packed ORM channels read the same. The ETC1S alpha edges of the flower petals show a faint fringe close up.
+
+## Standard native import
+
+A native importer without Meshopt or Basis support can prepare its selected downloads offline with the existing external codecs:
+
+```sh
+ASSET_TOOLING_KTX=<KTX-Software 4.4.2 ktx CLI> bun scripts/prepare-native-downloads.ts \
+  --index <downloads>/humanoid-ranger-male.index.json \
+  --entries humanoid.ranger.male/default \
+  --out <native-downloads>
+```
+
+Acquire only the selected entries' `files`, `textures` and `clips` from the index first, keeping them beside the index. The command performs no network acquisition. glTF Transform and meshoptimizer decode geometry; Khronos KTX-Software transcodes textures to PNG. The output is a self-contained `<key>.<variant>.native.glb` with float attributes for standard glTF import. Select multiple entries with comma-separated `key/variant` names.
+
+The shared clips GLB is also decoded once as `<key>.clips.native.glb` into the output directory and remains separate: load its animation channels and bind their target joint names to the selected character's joints. Keep attachments, the original index, release identity and source/license metadata with the acquired inputs. Preparation neither changes the rolling release nor promotes a candidate. Keep that local input copy until deliberately adopting a replacement; the command does not refresh it.
