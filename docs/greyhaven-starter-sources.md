@@ -36,6 +36,10 @@ Shared textures, such as the WoodTrim set used by the wall, the door and the doo
 
 The door frame answers #118 Q8 (owner decision, 2026-10-14): the wall has no faces across its 0.2 m thickness inside the doorway, so the kit's matching frame member is pinned and promoted like the other members. Selection (routine; the owner can object): `DoorFrame_Flat_WoodDark` is the flat-topped frame that matches the flat doorway and the wooden door, and it adds only its 3,792-byte buffer, because its textures are the WoodTrim records already stored. It spans x −0.786..0.788, y −0.009..2.304 and z −0.243..0.145 m around the 1.2956 × 2.1511 m opening. `DoorFrame_Flat_Brick` (RockTrim, 58,928-byte buffer) and the `Round` variants were not selected.
 
+## Dedicated nature delivery (#270)
+
+The same pinned Stylized Nature archive additionally supplies `glTF/Rock_Medium_2.{gltf,bin}` and `glTF/Rock_Medium_3.{gltf,bin}` for the [dedicated nature bundle](greyhaven-nature-bundle.md). These four new LFS members total 33,213 bytes and share the existing `glTF/Rocks_Diffuse.png`; the collection now contains 72 unique members. These are source additions; the starter bundle's selected meshes remain unchanged.
+
 ## Record conventions
 
 - **Member ids** are `<archive id>.<slug>`, where the slug is the member's basename in lowercase with `_` and `.` replaced by `-`. Example: `quaternius.medieval-village-megakit-standard.door-1-flat-gltf`.

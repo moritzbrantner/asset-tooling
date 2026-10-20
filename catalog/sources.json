@@ -3545,6 +3545,110 @@
         "starter-kit"
       ],
       "title": "Stylized Nature MegaKit — Grass_Common_Short (glTF buffer)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.stylized-nature-megakit-standard",
+        "path": "glTF/Rock_Medium_2.gltf"
+      },
+      "id": "quaternius.stylized-nature-megakit-standard.rock-medium-2-gltf",
+      "kind": "mesh",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/stylizednaturemegakit.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "model/gltf+json",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 1825,
+        "sha256": "fac2d05a05f2d0d2098de59c09b58f42cc875c9caca4fd4c4bd57f3d36e7b12e"
+      },
+      "tags": [
+        "greyhaven-nature",
+        "greyhaven-starter",
+        "starter-kit"
+      ],
+      "title": "Stylized Nature MegaKit — Rock_Medium_2 (gltf)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.stylized-nature-megakit-standard",
+        "path": "glTF/Rock_Medium_2.bin"
+      },
+      "id": "quaternius.stylized-nature-megakit-standard.rock-medium-2-bin",
+      "kind": "buffer",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/stylizednaturemegakit.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "application/octet-stream",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 9432,
+        "sha256": "76b60bf8349f71abdb0ed462b3223d93c2dcabdfb5754bc132e18b021cc6c805"
+      },
+      "tags": [
+        "greyhaven-nature",
+        "greyhaven-starter",
+        "starter-kit"
+      ],
+      "title": "Stylized Nature MegaKit — Rock_Medium_2 (bin)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.stylized-nature-megakit-standard",
+        "path": "glTF/Rock_Medium_3.gltf"
+      },
+      "id": "quaternius.stylized-nature-megakit-standard.rock-medium-3-gltf",
+      "kind": "mesh",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/stylizednaturemegakit.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "model/gltf+json",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 1832,
+        "sha256": "9a575b911372cf91693aa3a56aea8137ec2251c2b99fb34a31272ee64503047f"
+      },
+      "tags": [
+        "greyhaven-nature",
+        "greyhaven-starter",
+        "starter-kit"
+      ],
+      "title": "Stylized Nature MegaKit — Rock_Medium_3 (gltf)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.stylized-nature-megakit-standard",
+        "path": "glTF/Rock_Medium_3.bin"
+      },
+      "id": "quaternius.stylized-nature-megakit-standard.rock-medium-3-bin",
+      "kind": "buffer",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/stylizednaturemegakit.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "application/octet-stream",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 20124,
+        "sha256": "63f94bce2d3fb3fe25b2d6c843a828b1bec76855dbaac93fcf5d43582309caad"
+      },
+      "tags": [
+        "greyhaven-nature",
+        "greyhaven-starter",
+        "starter-kit"
+      ],
+      "title": "Stylized Nature MegaKit — Rock_Medium_3 (bin)"
     }
   ]
 }
