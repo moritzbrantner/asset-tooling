@@ -343,3 +343,11 @@ Remove redundant proof ceremonies from the disposable-output path, but keep sour
 **Approved by owner:** 2026-10-18 (live session). **Refines** Decision 7.1.4.
 
 Experimental asset bundles are not published as numbered releases. Each bundle has **one rolling GitHub release named after the bundle**, for example `humanoid-ranger-male`. Every update replaces that release's assets in place ("don't create a million versions of some experimental asset"). Review surfaces such as the Pages Ranger comparison read that fixed name. Existing numbered releases (`humanoid-ranger-male-v1` … `-v9`, `humanoid-ranger-female-v7` … `-v9`, `greyhaven-starter-v1`, `greyhaven-inn-v1`) stay published because consumers may still pin them. No new numbered releases are made. Consumers switch to the rolling name in their own issues, when they deliberately adopt the current output.
+
+#### Decision 7.1.6 — Show real consumer-camera art review before adoption
+
+**Approved by owner:** 2026-10-20 (visual-review reconciliation). **Refines** Decisions 7.1.4–7.1.5 and the existing workbench [#127](https://github.com/moritzbrantner/asset-tooling/issues/127).
+
+The initial review flow uses a small set of real current/candidate previews in the existing gallery, deeper 3D inspection when useful, and a **matched-camera, matched-time before/after from the actual consuming game** before adoption. First consumer: [MMORPG #346](https://github.com/moritzbrantner/mmorpg/issues/346). The game owns its actual scene and captures; asset-tooling owns generation, candidate identity, review/export and existing gallery. Provide directly viewable images from the GitHub issue/PR, usable on mobile, and identify exactly which output was rendered rather than claiming a stale Pages view is current.
+
+Keep one replaceable working output with only meaningful active alternatives; a plain issue/PR reply selecting, adjusting or rejecting it is enough. No second viewer, approval database, new release per iteration or universal screenshot CI gate. A valid import and preview are not approval; only deliberate consumer adoption changes a game's accepted visual or runtime assets. Keep the existing ownership, rights and compatibility boundaries.
