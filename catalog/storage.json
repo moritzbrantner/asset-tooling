@@ -519,6 +519,30 @@
     },
     {
       "schemaVersion": 1,
+      "sourceId": "quaternius.stylized-nature-megakit-standard.rock-medium-2-bin",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.stylized-nature-megakit-standard.rock-medium-2-bin/Rock_Medium_2.bin"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.stylized-nature-megakit-standard.rock-medium-2-gltf",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.stylized-nature-megakit-standard.rock-medium-2-gltf/Rock_Medium_2.gltf"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.stylized-nature-megakit-standard.rock-medium-3-bin",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.stylized-nature-megakit-standard.rock-medium-3-bin/Rock_Medium_3.bin"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.stylized-nature-megakit-standard.rock-medium-3-gltf",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.stylized-nature-megakit-standard.rock-medium-3-gltf/Rock_Medium_3.gltf"
+    },
+    {
+      "schemaVersion": 1,
       "sourceId": "quaternius.stylized-nature-megakit-standard.rocks-diffuse-png",
       "storage": "git-lfs",
       "path": "assets/canonical/quaternius.stylized-nature-megakit-standard.rocks-diffuse-png/Rocks_Diffuse.png"

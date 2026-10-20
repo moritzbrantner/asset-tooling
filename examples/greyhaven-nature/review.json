@@ -1,0 +1,11 @@
+{
+  "title": "Greyhaven nature: broadleaf, conifer and three rock shapes at source metre scale",
+  "camera": [9, 5, 15], "target": [0, 3, 0], "lens": 38,
+  "items": [
+    { "key": "greyhaven.nature.tree.broadleaf", "at": [-3, 0, 0] },
+    { "key": "greyhaven.nature.tree.conifer", "at": [3, 0, -1] },
+    { "key": "greyhaven.nature.rock.1", "at": [-2.5, 0, 3] },
+    { "key": "greyhaven.nature.rock.2", "at": [0, 0, 3] },
+    { "key": "greyhaven.nature.rock.3", "at": [2.5, 0, 3] }
+  ]
+}
