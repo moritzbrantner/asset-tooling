@@ -102,11 +102,11 @@ export async function packDownloads({ bundleDir, outDir, name, clips, log = () =
     for (const asset of manifest.assets) {
       const id = `${asset.key}/${asset.variant}`;
       const { gltf, resources } = await readAssetBundleGltf(bundleDir, manifest, asset.key, asset.variant);
-      const document = await io.readJSON({ json: JSON.parse(gltf.toString("utf8")), resources: Object.fromEntries(resources) as Record<string, Uint8Array> });
+      const document = await io.readJSON({ json: JSON.parse(gltf.toString("utf8")), resources: Object.fromEntries([...resources].map(([uri, bytes]) => [uri, new Uint8Array(bytes)])) });
       const root = document.getRoot();
       if (clips === id && root.listAnimations().length > 0) {
         // The shared clips: the skeleton's nodes and every animation, without meshes, skins or materials.
-        const clipDocument = await io.readJSON({ json: JSON.parse(gltf.toString("utf8")), resources: Object.fromEntries(resources) as Record<string, Uint8Array> });
+        const clipDocument = await io.readJSON({ json: JSON.parse(gltf.toString("utf8")), resources: Object.fromEntries([...resources].map(([uri, bytes]) => [uri, new Uint8Array(bytes)])) });
         for (const node of clipDocument.getRoot().listNodes()) { node.setMesh(null); node.setSkin(null); }
         for (const mesh of clipDocument.getRoot().listMeshes()) mesh.dispose();
         for (const skin of clipDocument.getRoot().listSkins()) skin.dispose();
@@ -123,7 +123,8 @@ export async function packDownloads({ bundleDir, outDir, name, clips, log = () =
           for (const sampler of animation.listSamplers()) { sampler.getInput()?.dispose(); sampler.getOutput()?.dispose(); sampler.dispose(); }
           animation.dispose();
         }
-        await document.transform(prune());
+        // Empty named leaves include equipment grip frames used by real consumers.
+        await document.transform(prune({ keepLeaves: true }));
       }
       // Textures: shared KTX2 files, encoded once per source image and encoding.
       const textureFiles: string[] = [];
@@ -200,6 +201,7 @@ if (import.meta.main) {
     console.error("Usage: bun scripts/pack-downloads.ts --bundle <dir> --out <dir> --name <release name> [--clips <key>/<variant>]");
     process.exit(2);
   }
-  const { index, indexFile } = await packDownloads({ bundleDir: path.resolve(bundleDir), outDir: path.resolve(outDir), name, clips: option("--clips"), log: (line) => console.error(`[downloads] ${line}`) });
+  const clips = option("--clips");
+  const { index, indexFile } = await packDownloads({ bundleDir: path.resolve(bundleDir), outDir: path.resolve(outDir), name, ...(clips ? { clips } : {}), log: (line) => console.error(`[downloads] ${line}`) });
   console.log(JSON.stringify({ index: indexFile, entries: index.entries.length }, null, 2));
 }
