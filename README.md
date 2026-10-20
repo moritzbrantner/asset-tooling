@@ -4,6 +4,8 @@ Reproducible, traceable tooling for generating and processing game and applicati
 
 The repository treats generated and processed assets as build artifacts. Generation intent, generator/model identity, declared dependency bytes, execution environment, outputs, processing observations, and replay evidence are recorded so reproducibility can be tested instead of assumed.
 
+The [Greyhaven nature bundle](docs/greyhaven-nature-bundle.md) delivers game-resolution broadleaf, conifer and rock families for the MMORPG.
+
 ## Review current assets
 
 Start with the [asset gallery](https://moritzbrantner.github.io/asset-tooling/). It links directly to the [Ranger animation comparison](https://moritzbrantner.github.io/asset-tooling/compare/ranger/), the [Warden icon review](https://moritzbrantner.github.io/asset-tooling/review/warden-icons/), and the [browser 3D studio](https://moritzbrantner.github.io/asset-tooling/generate/). Compare at the intended camera, animation frame and action-bar size before requesting a new generator or foundation capability.
