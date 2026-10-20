@@ -31,3 +31,30 @@ test("selected local entries become self-contained native GLBs while clips stay 
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+test("packing and native preparation retain static equipment grip transforms", async () => {
+  const { packDownloads } = await import("../scripts/pack-downloads.ts");
+  const { storeAssetObject } = await import("../src/asset-store.ts");
+  const { exportAssetBundle, GLTF_RESOURCES_BUNDLE_PROFILE } = await import("../src/asset-bundle.ts");
+  const directory = await mkdtemp(path.join(os.tmpdir(), "equipment-grip-test-"));
+  try {
+    const document = new Document();
+    const buffer = document.createBuffer();
+    const positions = document.createAccessor().setType("VEC3").setArray(new Float32Array([0, 0, 0, 1, 0, 0, 0, 1, 0])).setBuffer(buffer);
+    const primitive = document.createPrimitive().setAttribute("POSITION", positions);
+    document.createScene().addChild(document.createNode("sword").setMesh(document.createMesh().addPrimitive(primitive)))
+      .addChild(document.createNode("grip").setTranslation([0.1, 0.2, 0.3]));
+    const io = new NodeIO();
+    const source = (await storeAssetObject(directory, { bytes: Buffer.from(await io.writeBinary(document)), kind: "scene", mediaType: "model/gltf-binary", metadata: { license: "CC0-1.0", sourceId: "fixture.original" } })).asset;
+    const bundle = path.join(directory, "bundle");
+    await exportAssetBundle(directory, bundle, { parameters: { profile: GLTF_RESOURCES_BUNDLE_PROFILE, assets: [{ key: "sword", variant: "default" }] }, inputs: { assets: [source] } });
+    const packed = path.join(directory, "packed");
+    await packDownloads({ bundleDir: bundle, outDir: packed, name: "equipment", clips: "character/default" });
+    const native = path.join(directory, "native");
+    const result = await prepareNativeDownloads({ index: path.join(packed, "equipment.index.json"), entries: ["sword/default"], outDir: native });
+    const model = await io.read(path.join(native, result.entries[0]!.file));
+    assert.deepEqual(model.getRoot().listNodes().find((node) => node.getName() === "grip")?.getTranslation(), [0.1, 0.2, 0.3]);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
