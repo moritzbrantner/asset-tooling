@@ -39,7 +39,7 @@ const knight = await loader.loadAsync("humanoid.ranger.male.outfit.knight.gltf")
 new THREE.AnimationMixer(knight.scene).clipAction(THREE.AnimationClip.findByName(clips, "Walk_Loop")).play();
 ```
 
-The index lists what to fetch. An entry's `.gltf` refers to its `.bin` and its `tex-*.ktx2` by relative URI, so the files must sit side by side, for example when downloaded into one folder or served from the release download URL.
+Packing preserves empty attachment-frame nodes, including static equipment `grip` frames. The index lists what to fetch. An entry's `.gltf` refers to its `.bin` and its `tex-*.ktx2` by relative URI, so the files must sit side by side, for example when downloaded into one folder or served from the release download URL.
 
 **Verified:** the packed knight, Light-skin soldier, knight LOD2 and Light-skin LOD1 were loaded in headless Chromium (three.js 0.186, swiftshader WebGL) with this setup. They played the shared clips correctly.
 

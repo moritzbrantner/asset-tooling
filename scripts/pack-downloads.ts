@@ -123,7 +123,8 @@ export async function packDownloads({ bundleDir, outDir, name, clips, log = () =
           for (const sampler of animation.listSamplers()) { sampler.getInput()?.dispose(); sampler.getOutput()?.dispose(); sampler.dispose(); }
           animation.dispose();
         }
-        await document.transform(prune());
+        // Empty named leaves include equipment grip frames used by real consumers.
+        await document.transform(prune({ keepLeaves: true }));
       }
       // Textures: shared KTX2 files, encoded once per source image and encoding.
       const textureFiles: string[] = [];
