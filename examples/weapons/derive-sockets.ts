@@ -1,4 +1,4 @@
-// Derive the hand sockets of a humanoid-sockets-v1 descriptor anatomically from a rig's rest pose
+// Derive the hand sockets of a humanoid-sockets-v2 descriptor anatomically from a rig's rest pose
 // (docs/humanoid-sockets.md#how-the-hand-sockets-are-derived, #113):
 //   bun examples/weapons/derive-sockets.ts [--rig <rig.gltf>] [--out <sockets.json>] [--character <id>] [--weapon-hand r|l] [--check]
 // Defaults: the canonical Male_Ranger rig and assets/descriptors/humanoid.ranger.male.sockets.json.
@@ -31,8 +31,8 @@ export const GRIP = { alongPalm: 0.8, depth: 0.03 } as const;
 
 /** The stowed Ranger sockets (rest-pose world intents converted into the joint frames, unchanged since bundle v2). */
 export const RANGER_STOWED_SOCKETS: readonly HumanoidSocket[] = [
-  { id: "back.stowed", joint: "spine_03", translation: [0, -0.061607, -0.226519], rotation: [0, 0.993595, 0.113001, 0], accepts: ["shield"] },
-  { id: "hip_l.stowed", joint: "pelvis", translation: [0.175, 0.142748, 0.127956], rotation: [-0.667907, 0.090365, -0.701309, 0.232164], accepts: ["one-hand-weapon"] },
+  { id: "back.stowed", joint: "spine_03", translation: [0, -0.061607, -0.226519], rotation: [0, 0.993595, 0.113001, 0], attachFrame: "grip", accepts: ["shield"] },
+  { id: "hip_l.stowed", joint: "pelvis", translation: [0.175, 0.142748, 0.127956], rotation: [-0.667907, 0.090365, -0.701309, 0.232164], attachFrame: "grip", accepts: ["one-hand-weapon"] },
 ];
 
 const sub = (a: Vec3, b: Vec3): Vec3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
@@ -120,7 +120,7 @@ function socket(id: string, frame: HandFrame, y: Vec3, z: Vec3, accepts: string[
     id, joint: frame.joint,
     translation: frame.grip.map((v) => round(v, 4)) as Vec3,
     rotation: quaternionFromAxes(x, y, z).map((v) => round(v, 6)) as HumanoidSocket["rotation"],
-    accepts,
+    attachFrame: "grip", accepts,
   };
 }
 
@@ -137,7 +137,7 @@ export function stowedSocket(worlds: Map<string, Mat4>, id: string, joint: strin
   const offset = toLocal(sub(position, [f[12]!, f[13]!, f[14]!]));
   return {
     id, joint, translation: offset.map((v) => round(v, 4)) as Vec3,
-    rotation: quaternionFromAxes(toLocal(wx), toLocal(wy), toLocal(wz)).map((v) => round(v, 6)) as HumanoidSocket["rotation"], accepts,
+    rotation: quaternionFromAxes(toLocal(wx), toLocal(wy), toLocal(wz)).map((v) => round(v, 6)) as HumanoidSocket["rotation"], attachFrame: "grip", accepts,
   };
 }
 
@@ -187,22 +187,34 @@ export function deriveHandSockets(gltf: { nodes: Record<string, any>[] }, { weap
   ];
 }
 
+/**
+ * Both handednesses (#264): the right-handed weapon and shield sockets, then their left-handed counterparts, each
+ * pair declaring the other as its `mirror` so one loadout serves a left-handed character.
+ */
+export function deriveMirroredHandSockets(gltf: { nodes: Record<string, any>[] }): HumanoidSocket[] {
+  const [weaponR, shieldL] = deriveHandSockets(gltf), [weaponL, shieldR] = deriveHandSockets(gltf, { weaponHand: "l" });
+  return [
+    { ...weaponR!, mirror: weaponL!.id }, { ...shieldL!, mirror: shieldR!.id },
+    { ...weaponL!, mirror: weaponR!.id }, { ...shieldR!, mirror: shieldL!.id },
+  ];
+}
+
 /** The committed layout: one socket per three lines. */
 export function formatSocketDescriptor(descriptor: HumanoidSocketDescriptor): string {
   const list = (values: readonly unknown[]) => `[${values.map((v) => JSON.stringify(v)).join(", ")}]`;
   const sockets = descriptor.sockets.map((s) =>
     `    {"id": ${JSON.stringify(s.id)}, "joint": ${JSON.stringify(s.joint)},\n` +
     `     "translation": ${list(s.translation)}, "rotation": ${list(s.rotation)},${s.scale ? ` "scale": ${list(s.scale)},` : ""}\n` +
-    `     "accepts": ${list(s.accepts)}}`);
+    `     "attachFrame": ${JSON.stringify(s.attachFrame)}, "accepts": ${list(s.accepts)}${s.mirror ? `, "mirror": ${JSON.stringify(s.mirror)}` : ""}}`);
   return `{\n  "schema": ${JSON.stringify(descriptor.schema)},\n  "character": ${JSON.stringify(descriptor.character)},\n  "unit": "meter",\n` +
-    `  "axes": "right-handed-y-up",\n  "attachFrame": "grip",\n  "sockets": [\n${sockets.join(",\n")}\n  ]\n}\n`;
+    `  "axes": "right-handed-y-up",\n  "sockets": [\n${sockets.join(",\n")}\n  ]\n}\n`;
 }
 
-/** The Ranger descriptor (bundle v7): the derived hand sockets, the stowed sockets, then the archery sockets. */
+/** The Ranger descriptor: the mirrored hand sockets, the stowed sockets, the archery, hair and armour sockets. */
 export function deriveRangerSockets(gltf: { nodes: Record<string, any>[]; skins?: { joints: number[] }[] }, character = "humanoid.ranger.male"): string {
   const joints = gltf.skins?.[0]?.joints.map((index) => gltf.nodes[index]!.name as string);
   return formatSocketDescriptor(createHumanoidSocketDescriptor({
-    character, sockets: [...deriveHandSockets(gltf), ...RANGER_STOWED_SOCKETS, ...deriveArcherySockets(gltf), ...deriveHairSockets(gltf), ...deriveArmorSockets(gltf)], ...(joints ? { joints } : {}),
+    character, sockets: [...deriveMirroredHandSockets(gltf), ...RANGER_STOWED_SOCKETS, ...deriveArcherySockets(gltf), ...deriveHairSockets(gltf), ...deriveArmorSockets(gltf)], ...(joints ? { joints } : {}),
   }));
 }
 

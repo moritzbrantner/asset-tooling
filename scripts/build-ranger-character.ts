@@ -23,9 +23,9 @@ import { executeGltfComposeSkinnedOperation } from "../src/gltf-compose-operatio
 import { executeGltfProductionImportOperation } from "../src/gltf-production-operations.js";
 import { executeGltfSubsetSkinnedOperation } from "../src/gltf-subset-operations.js";
 import { executeGltfTextureResizeOperation } from "../src/gltf-texture-resize-operations.js";
-import { validateHumanoidSocketDescriptor } from "../src/humanoid-sockets.js";
+import { createHumanoidItemDescriptor, validateHumanoidSocketDescriptor, type HumanoidItemDescriptor } from "../src/humanoid-sockets.js";
 import { generateAsset } from "../src/index.js";
-import { WEAPON_PRESETS, createWeaponAssetSpec, readWeaponRecipeSource, type WeaponPiece } from "../src/weapon-recipes.js";
+import { WEAPON_PRESETS, WEAPON_ROLES, createWeaponAssetSpec, readWeaponRecipeSource, type WeaponPiece } from "../src/weapon-recipes.js";
 import { readBlenderRecipeSource } from "../src/blender-recipe-source.js";
 import { executeImageDecodeOperation, executeImageEncodePngOperation } from "../src/image-codec-operations.js";
 import { encodeRgba8Image, parseRgba8Image, RGBA8_IMAGE_MEDIA_TYPE, type Rgba8Image } from "../src/image-rgba8.js";
@@ -33,7 +33,7 @@ import { sha256Bytes } from "../src/hash.js";
 import { parseAssetSpec } from "../src/schema.js";
 import { LOD_LEVELS, LOD_RATIOS, LOD_SWITCH_DISTANCE_HINTS, generateLodLevel, type LodLevel } from "../src/lod-recipe.js";
 import { ARMOR_FACTION, ARMOR_KITS, createArmorAssetSpec, readArmorRecipeSource, type ArmorKit, type ArmorOutput } from "../src/armor-recipes.js";
-import { ARCHERY_PRESETS, createArcheryAssetSpec, readArcheryRecipeSource, type ArcheryPiece } from "../src/archery-recipes.js";
+import { ARCHERY_PRESETS, ARCHERY_ROLES, createArcheryAssetSpec, readArcheryRecipeSource, type ArcheryPiece } from "../src/archery-recipes.js";
 import { HEADWEAR_CONTRACT, HEADWEAR_HIDES, HEADWEAR_PRESETS, createHeadwearAssetSpec, readHeadwearRecipeSource, type HeadwearPiece } from "../src/headwear-recipes.js";
 import type { AssetOperationResult, AssetRef } from "../src/operations.js";
 
@@ -301,6 +301,12 @@ export const RANGER_HEADWEAR: readonly { key: string; piece: HeadwearPiece; labe
   { key: "equipment.helm.ironcrest", piece: "helm.ironcrest", label: "Ironcrest Helm" },
 ];
 export const RANGER_SOCKETS_ATTACHMENT = "humanoid-sockets";
+/** Each equipment entry's `humanoid-item-v1` attachment (#264): its role and its `grip` frame. */
+export const RANGER_ITEM_ATTACHMENT = "humanoid-item";
+/** Every recipe GLB's origin is its grip frame, so `grip` is the identity in the item's scene frame. */
+export function rangerItemDescriptor(item: string, role: string): HumanoidItemDescriptor {
+  return createHumanoidItemDescriptor({ item, roles: [role], frames: [{ name: "grip", translation: [0, 0, 0], rotation: [0, 0, 0, 1] }] });
+}
 /** The male sockets descriptor (hand, stowed, archery, hair and armour sockets; examples/weapons/derive-sockets.ts). */
 export const RANGER_SOCKETS_DESCRIPTOR = "assets/descriptors/humanoid.ranger.male.sockets.json";
 export const RANGER_SAMPLE_RATE = 30;
@@ -1061,26 +1067,29 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
       selections[0]!.attachments.push({ name: RANGER_CLIPS_ATTACHMENT });
       attachments.push(clipMotion);
     }
+    const selectItem = async (key: string, role: string, asset: AssetRef) => {
+      selections.push({ key, variant: RANGER_BUNDLE_VARIANT, attachments: [{ name: RANGER_ITEM_ATTACHMENT }] });
+      assets.push(asset);
+      const bytes = Buffer.from(`${canonicalJson(rangerItemDescriptor(key, role))}\n`);
+      attachments.push((await storeAssetObject(root, { bytes, kind: RANGER_ITEM_ATTACHMENT, mediaType: "application/json" })).asset);
+    };
     for (const { key, piece } of RANGER_WEAPONS) {
       log(`generate ${piece} (external.blender.script@1 weapon recipe, scene.import.gltf@2)`);
       weapons[key] = await buildWeapon(root, piece);
-      selections.push({ key, variant: RANGER_BUNDLE_VARIANT });
-      assets.push(await resizeTextures(key, weapons[key]!));
+      await selectItem(key, WEAPON_ROLES[piece], await resizeTextures(key, weapons[key]!));
     }
     {
       for (const { key, piece } of RANGER_ARCHERY) {
         log(`generate ${piece} (external.blender.script@1 archery recipe, scene.import.gltf@2)`);
         weapons[key] = await buildArchery(root, piece);
-        selections.push({ key, variant: RANGER_BUNDLE_VARIANT });
-        assets.push(await resizeTextures(key, weapons[key]!));
+        await selectItem(key, ARCHERY_ROLES[piece], await resizeTextures(key, weapons[key]!));
       }
     }
     if (figure === "male") {
       for (const { key, piece } of RANGER_HEADWEAR) {
         log(`generate ${piece} (external.blender.script@1 headwear recipe, scene.import.gltf@2)`);
         weapons[key] = await buildHeadwear(root, piece);
-        selections.push({ key, variant: RANGER_BUNDLE_VARIANT });
-        assets.push(weapons[key]!);
+        await selectItem(key, HEADWEAR_CONTRACT.role, weapons[key]!);
       }
     }
   }

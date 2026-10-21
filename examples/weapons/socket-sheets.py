@@ -1,4 +1,4 @@
-"""Render humanoid-sockets-v1 inspection sheets in Blender.
+"""Render humanoid-sockets-v2 inspection sheets in Blender.
 
     blender --background --factory-startup --python examples/weapons/socket-sheets.py -- \
         <character.gltf> <sockets.json> <out-dir> <socket-id>=<item.glb> [<socket-id>=<item.glb> ...] \

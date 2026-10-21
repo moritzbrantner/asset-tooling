@@ -1,5 +1,5 @@
 // Generate and exactly verify the sword and shield presets into .artifacts/weapons/.
-// With `--sheets <character.gltf>`, also render humanoid-sockets-v1 inspection sheets through
+// With `--sheets <character.gltf>`, also render humanoid-sockets-v2 inspection sheets through
 // examples/weapons/socket-sheets.py with the Ranger socket descriptor (held and stowed).
 import assert from "node:assert/strict";
 import path from "node:path";

@@ -19,8 +19,10 @@ import { validateHumanoidSocketDescriptor } from "../src/humanoid-sockets.js";
 import {
   RANGER_APPEARANCE, RANGER_ARCHERY, RANGER_AUTHORED_CLIPS, RANGER_BOW_CLIPS, RANGER_BONE_MAP, RANGER_BUNDLE_KEY, RANGER_BUNDLE_VARIANT, RANGER_CLIPS,
   RANGER_CLIPS_ATTACHMENT, RANGER_CLIP_ROLES, RANGER_FIGURES, RANGER_GAITS, RANGER_HAIR_TINTS, RANGER_MEMBERS, RANGER_MIXAMO_BONE_MAP,
-  RANGER_SOCKETS_ATTACHMENT, RANGER_SOCKETS_DESCRIPTOR, RANGER_TEXTURE_POLICY, RANGER_UBC_BONE_MAP, RANGER_WEAPONS, buildRangerCharacter,
+  RANGER_ITEM_ATTACHMENT, RANGER_SOCKETS_ATTACHMENT, RANGER_SOCKETS_DESCRIPTOR, RANGER_TEXTURE_POLICY, RANGER_UBC_BONE_MAP, RANGER_WEAPONS,
+  buildRangerCharacter, rangerItemDescriptor,
 } from "../scripts/build-ranger-character.ts";
+import { WEAPON_ROLES } from "../src/weapon-recipes.js";
 
 const ROOT = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
 const CHECKOUT = process.env.ASSET_TOOLING_PROCESSOR_CHECKOUT_3DLAB;
@@ -223,7 +225,10 @@ test("the Ranger recipe builds a verified bundle: in-place clips, equipment entr
       assert.equal(weapon.observations.skins, 0, key);
       assert.deepEqual(weapon.observations.animations, [], key);
       assert.ok(weapon.observations.triangles > 0, key);
-      assert.deepEqual(weapon.attachments, [], key);
+      // Each item ships its humanoid-item-v1 descriptor (#264): its role and its identity `grip` frame.
+      assert.deepEqual(weapon.attachments.map((attachment: any) => attachment.name), [RANGER_ITEM_ATTACHMENT], key);
+      const item = JSON.parse((await readAssetBundleAttachment(built.bundleDir, manifest, key, "default", RANGER_ITEM_ATTACHMENT)).toString("utf8"));
+      assert.deepEqual(item, rangerItemDescriptor(key, WEAPON_ROLES[piece]), key);
       const scene = await readAssetBundleGltf(built.bundleDir, manifest, key, "default");
       const json = JSON.parse(scene.gltf.toString("utf8"));
       assert.deepEqual(json.nodes.map((node: any) => node.name).sort(), ["grip", piece].sort(), key);

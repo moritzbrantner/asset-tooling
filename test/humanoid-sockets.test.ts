@@ -1,8 +1,8 @@
 import {test} from "node:test";
 import assert from "node:assert/strict";
 import {readFile} from "node:fs/promises";
-import {createHumanoidSocketDescriptor,humanoidSocketMatrix,humanoidSocketsAccepting,validateHumanoidSocketDescriptor,
- HUMANOID_SOCKETS_SCHEMA,type HumanoidSocket} from "../src/humanoid-sockets.js";
+import {createHumanoidItemDescriptor,createHumanoidSocketDescriptor,humanoidAttachmentMatrix,humanoidItemFrameMatrix,humanoidSocketMatrix,humanoidSocketMirror,
+ humanoidSocketsAccepting,validateHumanoidItemDescriptor,validateHumanoidSocketDescriptor,HUMANOID_ITEM_SCHEMA,HUMANOID_SOCKETS_SCHEMA,type HumanoidSocket} from "../src/humanoid-sockets.js";
 import {WEAPON_ROLES} from "../src/weapon-recipes.js";
 import {ARMOR_JOINTS} from "../src/armor-recipes.js";
 import {deriveHandSockets,deriveRangerSockets,handFrame,quaternionFromAxes,restWorlds} from "../examples/weapons/derive-sockets.ts";
@@ -11,13 +11,13 @@ const descriptor=JSON.parse(await readFile(new URL("../assets/descriptors/humano
 const outfit=new URL("../assets/canonical/quaternius.modular-character-outfits-fantasy-standard.male-ranger-gltf/Male_Ranger.gltf",import.meta.url);
 const outfitText=await readFile(outfit,"utf8");
 const hydrated=!outfitText.startsWith("version https://git-lfs.github.com/spec/v1");
-const socket=(change:Partial<Record<keyof HumanoidSocket,unknown>>={})=>({id:"hand_r.weapon",joint:"hand_r",translation:[0,.1,0],rotation:[0,0,0,1],accepts:["one-hand-weapon"],...change});
-const make=(sockets:unknown[])=>({schema:HUMANOID_SOCKETS_SCHEMA,character:"humanoid.ranger.male",unit:"meter",axes:"right-handed-y-up",attachFrame:"grip",sockets});
+const socket=(change:Partial<Record<keyof HumanoidSocket,unknown>>={})=>({id:"hand_r.weapon",joint:"hand_r",translation:[0,.1,0],rotation:[0,0,0,1],attachFrame:"grip",accepts:["one-hand-weapon"],...change});
+const make=(sockets:unknown[])=>({schema:HUMANOID_SOCKETS_SCHEMA,character:"humanoid.ranger.male",unit:"meter",axes:"right-handed-y-up",sockets});
 
 test("the committed Ranger descriptor declares the hand, stowed, archery, hair and armour sockets",()=>{
  const d=validateHumanoidSocketDescriptor(descriptor,{joints:["hand_r","hand_l","spine_03","pelvis",...ARMOR_JOINTS]});
  assert.deepEqual(d,descriptor,"the committed file is already canonical");
- assert.deepEqual(d.sockets.map(s=>[s.id,s.joint]),[["hand_r.weapon","hand_r"],["hand_l.shield","hand_l"],["back.stowed","spine_03"],["hip_l.stowed","pelvis"],
+ assert.deepEqual(d.sockets.map(s=>[s.id,s.joint]),[["hand_r.weapon","hand_r"],["hand_l.shield","hand_l"],["hand_l.weapon","hand_l"],["hand_r.shield","hand_r"],["back.stowed","spine_03"],["hip_l.stowed","pelvis"],
   ["hand_l.bow","hand_l"],["hand_r.arrow","hand_r"],["back.quiver","spine_03"],["back.bow.stowed","spine_03"],["head.hair","Head"],
   ...ARMOR_JOINTS.map(joint=>[`${joint.toLowerCase()}.armor`,joint])]);
  assert.deepEqual(humanoidSocketsAccepting(d,"hair"),["head.hair"]);
@@ -25,8 +25,8 @@ test("the committed Ranger descriptor declares the hand, stowed, archery, hair a
  assert.deepEqual(humanoidSocketsAccepting(d,"bow"),["hand_l.bow","back.bow.stowed"]);
  assert.deepEqual(humanoidSocketsAccepting(d,"arrow"),["hand_r.arrow"]);
  assert.deepEqual(humanoidSocketsAccepting(d,"quiver"),["back.quiver"]);
- assert.deepEqual(humanoidSocketsAccepting(d,WEAPON_ROLES["sword.arming"]),["hand_r.weapon","hip_l.stowed"]);
- assert.deepEqual(humanoidSocketsAccepting(d,WEAPON_ROLES["shield.heater"]),["hand_l.shield","back.stowed"]);
+ assert.deepEqual(humanoidSocketsAccepting(d,WEAPON_ROLES["sword.arming"]),["hand_r.weapon","hand_l.weapon","hip_l.stowed"]);
+ assert.deepEqual(humanoidSocketsAccepting(d,WEAPON_ROLES["shield.heater"]),["hand_l.shield","hand_r.shield","back.stowed"]);
  // In the hand_r frame the fingers run along +Y, the thumb side is +Z and the palm faces -X. The blade (+Y) runs
  // along the knuckle line out of the thumb side, about 15° toward the fingers; the flats (±Z) face palm and back of hand.
  const m=humanoidSocketMatrix(d.sockets[0]!),blade=[m[4]!,m[5]!,m[6]!],flat=[m[8]!,m[9]!,m[10]!];
@@ -89,10 +89,10 @@ test("socket descriptors reject unknown joints, duplicate ids and non-finite or 
  assert.throws(()=>validateHumanoidSocketDescriptor(make([socket(),socket({joint:"hand_l"})])),/duplicate socket id 'hand_r.weapon'/);
  for(const bad of [{translation:[0,NaN,0]},{translation:[0,Infinity,0]},{translation:[0,0]},{translation:[0,0,11]},{rotation:[0,0,0,NaN]},
   {rotation:[0,0,0,2]},{rotation:[0,0,1]},{scale:[1,0,1]},{scale:[1,-1,1]},{scale:[1,1,Infinity]},{accepts:[]},{accepts:["shield","shield"]},
-  {accepts:["Shield"]},{id:"weapon"},{id:"Hand_r.weapon"},{joint:""},{extra:1}]) {
+  {accepts:["Shield"]},{attachFrame:"Grip"},{attachFrame:""},{mirror:"hand_r.weapon"},{mirror:"x"},{id:"weapon"},{id:"Hand_r.weapon"},{joint:""},{extra:1}]) {
   assert.throws(()=>validateHumanoidSocketDescriptor(make([socket(bad as never)])),Error,JSON.stringify(bad));
  }
- for(const change of [{schema:"humanoid-sockets-v2"},{unit:"centimeter"},{axes:"z-up"},{attachFrame:"origin"},{sockets:[]},{character:"Ranger"},{extra:1}]) {
+ for(const change of [{schema:"humanoid-sockets-v1"},{unit:"centimeter"},{axes:"z-up"},{attachFrame:"grip"},{sockets:[]},{character:"Ranger"},{extra:1}]) {
   assert.throws(()=>validateHumanoidSocketDescriptor({...make([socket()]),...change}),Error,JSON.stringify(change));
  }
  assert.deepEqual(validateHumanoidSocketDescriptor(make([socket({scale:[1,2,1]})])).sockets[0]!.scale,[1,2,1]);
@@ -106,12 +106,61 @@ test("socket matrices compose translation, rotation and scale column-major",()=>
  assert.deepEqual(m.slice(4,7).map(v=>Math.round(v*1e9)/1e9+0),[-1,0,0]);
 });
 
-test("the humanoid-sockets-v1 schema mirrors the validator's fields",async()=>{
- const schema=JSON.parse(await readFile(new URL("../schemas/humanoid-sockets-v1.schema.json",import.meta.url),"utf8"));
- assert.deepEqual(schema.required,["schema","character","unit","axes","attachFrame","sockets"]);
+test("the humanoid-sockets-v2 and humanoid-item-v1 schemas mirror the validators' fields",async()=>{
+ const schema=JSON.parse(await readFile(new URL("../schemas/humanoid-sockets-v2.schema.json",import.meta.url),"utf8"));
+ assert.deepEqual(schema.required,["schema","character","unit","axes","sockets"]);
  assert.equal(schema.properties.schema.const,HUMANOID_SOCKETS_SCHEMA);
- assert.deepEqual(schema.$defs.socket.required,["id","joint","translation","rotation","accepts"]);
- const id=new RegExp(schema.$defs.socket.properties.id.pattern);
+ assert.deepEqual(schema.$defs.socket.required,["id","joint","translation","rotation","attachFrame","accepts"]);
+ assert.deepEqual(Object.keys(schema.$defs.socket.properties),["id","joint","translation","rotation","scale","attachFrame","accepts","mirror"]);
+ const id=new RegExp(schema.$defs.socketId.pattern);
  for(const s of descriptor.sockets) assert.ok(id.test(s.id),s.id);
  assert.equal(id.test("weapon"),false);
+ const item=JSON.parse(await readFile(new URL("../schemas/humanoid-item-v1.schema.json",import.meta.url),"utf8"));
+ assert.deepEqual(item.required,["schema","item","unit","axes","roles","frames"]);
+ assert.equal(item.properties.schema.const,HUMANOID_ITEM_SCHEMA);
+ assert.deepEqual(item.$defs.frame.required,["name","translation","rotation"]);
+ const frame=new RegExp(item.$defs.frame.properties.name.pattern);
+ assert.ok(frame.test("grip") && frame.test("grip.offhand") && !frame.test("Grip"));
+});
+
+test("mirror pairs are symmetric and hold the same frame and roles (#264)",()=>{
+ const d=validateHumanoidSocketDescriptor(descriptor);
+ assert.equal(humanoidSocketMirror(d,"hand_r.weapon")!.id,"hand_l.weapon");
+ assert.equal(humanoidSocketMirror(d,"hand_l.shield")!.id,"hand_r.shield");
+ assert.equal(humanoidSocketMirror(d,"back.stowed"),undefined);
+ // The left-handed weapon socket mirrors the right-handed one across the palm plane.
+ const r=humanoidSocketMatrix(d.sockets[0]!),l=humanoidSocketMatrix(humanoidSocketMirror(d,"hand_r.weapon")!);
+ assert.deepEqual([l[12]!,l[13]!,l[14]!],[-r[12]!,r[13]!,r[14]!]);
+ const pair=(a:Record<string,unknown>,b:Record<string,unknown>)=>make([socket({mirror:"hand_l.weapon",...a}),socket({id:"hand_l.weapon",joint:"hand_l",mirror:"hand_r.weapon",...b})]);
+ assert.equal(validateHumanoidSocketDescriptor(pair({},{})).sockets[1]!.mirror,"hand_r.weapon");
+ assert.throws(()=>validateHumanoidSocketDescriptor(pair({},{mirror:undefined})),/must mirror 'hand_r.weapon' back/);
+ assert.throws(()=>validateHumanoidSocketDescriptor(pair({},{accepts:["shield"]})),/same frame and accept the same roles/);
+ assert.throws(()=>validateHumanoidSocketDescriptor(pair({},{attachFrame:"grip.offhand"})),/same frame/);
+ assert.throws(()=>validateHumanoidSocketDescriptor(make([socket({mirror:"hand_l.weapon"})])),/mirrors unknown socket 'hand_l.weapon'/);
+});
+
+test("item descriptors declare roles and named frames; attachment puts the held frame on the socket (#264)",()=>{
+ const sword=createHumanoidItemDescriptor({item:"equipment.sword.long",roles:["two-hand-weapon"],frames:[
+  {name:"grip",translation:[0,0,0],rotation:[0,0,0,1]},{name:"grip.offhand",translation:[0,.2,0],rotation:[0,0,0,1]}]});
+ assert.deepEqual(validateHumanoidItemDescriptor(JSON.parse(JSON.stringify(sword))),sword);
+ const base={schema:HUMANOID_ITEM_SCHEMA,item:"equipment.sword.long",unit:"meter",axes:"right-handed-y-up",roles:["two-hand-weapon"],frames:sword.frames};
+ for(const change of [{schema:"humanoid-item-v2"},{item:"Sword"},{roles:[]},{roles:["a","a"]},{frames:[]},{frames:[sword.frames[0],sword.frames[0]]},
+  {frames:[{name:"Grip",translation:[0,0,0],rotation:[0,0,0,1]}]},{frames:[{name:"grip",translation:[0,0,0],rotation:[0,0,0,2]}]},
+  {frames:[{name:"grip",translation:[0,0,0],rotation:[0,0,0,1],scale:[0,1,1]}]},{frames:[{name:"grip",translation:[0,0,0],rotation:[0,0,0,1],extra:1}]},{extra:1}]) {
+  assert.throws(()=>validateHumanoidItemDescriptor({...base,...change}),Error,JSON.stringify(change));
+ }
+ const right=socket({id:"hand_r.weapon",accepts:["two-hand-weapon"]}) as HumanoidSocket;
+ const left=socket({id:"hand_l.weapon",joint:"hand_l",attachFrame:"grip.offhand",accepts:["two-hand-weapon"]}) as HumanoidSocket;
+ // Held by `grip` (identity), the item root sits on the socket; held by `grip.offhand`, it sits 0.2 m below the socket along +Y.
+ assert.deepEqual(humanoidAttachmentMatrix(right,sword),humanoidSocketMatrix(right));
+ assert.deepEqual(humanoidAttachmentMatrix(left,sword).slice(12,15).map(v=>Math.round(v*1e9)/1e9+0),[0,-.1,0]);
+ assert.throws(()=>humanoidAttachmentMatrix(socket() as HumanoidSocket,sword),/accepts none of the roles/);
+ assert.throws(()=>humanoidAttachmentMatrix(socket({attachFrame:"strap",accepts:["two-hand-weapon"]}) as HumanoidSocket,sword),/no 'strap' frame/);
+ // socket × inverse(frame) × frame = socket, for a rotated and scaled frame as well.
+ const quarter=Math.SQRT1_2,frame={name:"strap",translation:[.1,.2,.3] as [number,number,number],rotation:[0,quarter,0,quarter] as [number,number,number,number],scale:[2,1,.5] as [number,number,number]};
+ const shield=createHumanoidItemDescriptor({item:"equipment.shield.round",roles:["shield"],frames:[frame]});
+ const held=socket({attachFrame:"strap",accepts:["shield"],rotation:[quarter,0,0,quarter]}) as HumanoidSocket;
+ const a=humanoidAttachmentMatrix(held,shield),f=humanoidItemFrameMatrix(frame),product=new Array<number>(16).fill(0);
+ for(let c=0;c<4;c++) for(let r=0;r<4;r++) for(let k=0;k<4;k++) product[c*4+r]!+=a[k*4+r]!*f[c*4+k]!;
+ humanoidSocketMatrix(held).forEach((v,i)=>assert.ok(Math.abs(v-product[i]!)<1e-12,`element ${i}: ${product[i]} vs ${v}`));
 });
