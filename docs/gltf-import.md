@@ -121,7 +121,7 @@ Policies for cases the validator alone does not settle ([owner decisions on #104
 
 Plan for [#194](https://github.com/moritzbrantner/asset-tooling/issues/194). Import behaviour stays as described above. Nothing here changes source data during import.
 
-**Survey (2026-10-21).** No source we hold has a singular inverse bind matrix. Checked: every skinned glTF/GLB under `assets/canonical/` (8 files, 446 joints: the Quaternius base characters, outfits, animation libraries and the skinned chest) plus the 3 skinned GLBs under `dist/` and `test/`. Every joint's 3×3 determinant lies within `3e-6` of 1, so every bind is a pure rotation and translation. The causes listed in #194 (near-zero scale, exporter bugs, degenerate rest poses) are therefore hypothetical for now. The warning has only fired on hand-made test fixtures.
+**Survey (2026-10-21).** No source we hold has a singular inverse bind matrix. Checked: every skinned glTF/GLB under `assets/canonical/` (8 files, 446 joints: the Quaternius base characters, outfits, animation libraries and the skinned chest) plus the 3 skinned GLBs under `dist/` and `test/`. Every joint's 3×3 determinant lies within `3e-6` of 1, which fits unscaled binds. The causes listed in #194 (near-zero scale, exporter bugs, degenerate rest poses) are therefore hypothetical for now. The warning has only fired on hand-made test fixtures.
 
 **Candidate fixes**
 
