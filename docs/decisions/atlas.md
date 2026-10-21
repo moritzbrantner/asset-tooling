@@ -251,6 +251,17 @@ Until something demonstrably replaces it, **Blender is the authoring and finishi
 - material clean-up.
 
 Each step is proven on real kit assets, such as the starter kit's props and the soldier and knight armour, with before/after review at the gameplay camera, not built as an abstract framework. Real forks (which maps to bake, LOD targets) go to the owner. Model quality, not minimal tooling, is the optimisation target. Review-first output rules (Decision 7.1.4) still apply.
+
+#### Decision 5.1.7 — Fast asset authoring: adapt CC0 first, iterate in live Blender
+
+**Approved by owner:** 2026-10-18 (live session): model creation "should be much faster". **Refines** Decision 5.1.6; Decisions 6.1.4 and 7.1.4 still apply.
+
+Blind geometry scripts plus full rebuilds of every Blender job per tweak made each iteration take 20–30 minutes and still produced blocky results. Asset work therefore follows four rules:
+
+1. **Adapt an existing free/CC0 model first.** Before authoring an asset, look for a fitting CC0 source (Kenney, Quaternius, Poly Haven and similar) and adapt it. Author from scratch in Blender only when nothing fits. Paid sources stay out (Decision 6.1.4); raw Mixamo stays out of the catalog (Decision 6.1.7).
+2. **Incremental builds.** Rebuild only what changed: Blender step outputs are reused by spec hash (the generation cache, [cache.md](../cache.md)), so rebuild into the same output directory instead of a fresh one. A review build may limit itself to the one variant under review.
+3. **Live Blender for shaping.** Shape and inspect interactively in a running Blender through the Blender MCP add-on (the owner starts Blender and its MCP server). The scripted recipe stays the reproducible build; changes found interactively go back into the recipe.
+4. **Light review loop.** Iterate with quick single renders. Run the full browser suite and the review sheets only before merge.
 ## 6. Shared source acquisition
 
 ### 6.1. Sources without a stable download URL

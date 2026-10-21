@@ -12,6 +12,7 @@ The owner-controlled product intent is in `docs/decisions/atlas.md`. Read the re
 - Open the current output in the existing Pages gallery/review surfaces and in a real consumer at gameplay scale. Do not mistake a passing import/receipt test for good-looking art, and do not claim a fixed published comparison shows a newer local output.
 - The exact-replay rules below remain for operations that explicitly promise deterministic bytes, not for every provisional preview. Keep source licensing, safe model/source acquisition, format validity, declared dependencies and public API compatibility; do not use disposable-output policy to bypass those boundaries.
 - Before developing a broader internal foundation, check an established Blender/ComfyUI/three.js reference and identify the specific missing quality, control or cost. A scoped internal improvement may come first, but must not hold unrelated consumers hostage.
+- Author fast (Decision 5.1.7): adapt a fitting free/CC0 model before authoring from scratch, rebuild incrementally into the same output directory, shape interactively in a live Blender through its MCP add-on, and iterate on quick single renders; run full suites and review sheets only before merge.
 - Flag cross-repository ownership changes: Blender and ComfyUI author; `asset-tooling` prepares/reviews/exports; `workflow-editor` authors workflows, `workflow-runner` executes, `workflow-engine` orchestrates; games own gameplay/world placement and use established renderers. Do not duplicate those owners.
 
 ## Boundaries
