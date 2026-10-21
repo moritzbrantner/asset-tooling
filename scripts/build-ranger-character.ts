@@ -34,6 +34,7 @@ import { parseAssetSpec } from "../src/schema.js";
 import { LOD_LEVELS, LOD_RATIOS, LOD_SWITCH_DISTANCE_HINTS, generateLodLevel, type LodLevel } from "../src/lod-recipe.js";
 import { ARMOR_FACTION, ARMOR_KITS, createArmorAssetSpec, readArmorRecipeSource, type ArmorKit, type ArmorOutput } from "../src/armor-recipes.js";
 import { ARCHERY_PRESETS, createArcheryAssetSpec, readArcheryRecipeSource, type ArcheryPiece } from "../src/archery-recipes.js";
+import { HEADWEAR_CONTRACT, HEADWEAR_HIDES, HEADWEAR_PRESETS, createHeadwearAssetSpec, readHeadwearRecipeSource, type HeadwearPiece } from "../src/headwear-recipes.js";
 import type { AssetOperationResult, AssetRef } from "../src/operations.js";
 
 type Json = Record<string, any>;
@@ -237,6 +238,14 @@ export const RANGER_ARCHERY: readonly { key: string; piece: ArcheryPiece }[] = [
   { key: "equipment.bow.long", piece: "bow.long" },
   { key: "equipment.arrow", piece: "arrow" },
   { key: "equipment.quiver.back", piece: "quiver.back" },
+];
+/**
+ * Headwear entries (#336, male only): headwear-recipe presets fitted in the male rest model space, parented at runtime
+ * through the `head.armor` socket. The appearance descriptor's `headwear` list names each entry and the parts it hides.
+ */
+export const RANGER_HEADWEAR: readonly { key: string; piece: HeadwearPiece; label: string }[] = [
+  { key: "equipment.cap.ranger", piece: "cap.ranger", label: "Ranger's Cap" },
+  { key: "equipment.helm.ironcrest", piece: "helm.ironcrest", label: "Ironcrest Helm" },
 ];
 export const RANGER_SOCKETS_ATTACHMENT = "humanoid-sockets";
 /** The male sockets descriptor (hand, stowed, archery, hair and armour sockets; examples/weapons/derive-sockets.ts). */
@@ -540,6 +549,27 @@ async function buildArmor(root: string, kit: ArmorKit, output: ArmorOutput, targ
   const glb = (await storeAssetObject(root, { bytes: await readFile(path.join(workspace, "armor.glb")), kind: "mesh", mediaType: "model/gltf-binary" })).asset;
   return { glb: single(await executeGltfProductionImportOperation(root, { inputs: { source: glb }, parameters: { policy: POLICY } })),
     observations: (generated.receipt.observations as Json).script as Json };
+}
+
+/** Generate one headwear-recipe preset through the pinned Blender backend and store it. */
+export async function buildHeadwear(root: string, piece: HeadwearPiece) {
+  const source = await readHeadwearRecipeSource();
+  const workspace = path.join(root, "headwear", piece);
+  await mkdir(workspace, { recursive: true });
+  await writeFile(path.join(workspace, "headwear.py"), source.bytes);
+  const spec = createHeadwearAssetSpec({ assetId: `headwear.${piece}`, parameters: HEADWEAR_PRESETS[piece], scriptSha256: source.sha256, blenderVersion: source.blenderVersion });
+  const specPath = path.join(workspace, "asset.json");
+  await writeFile(specPath, `${canonicalJson(spec)}\n`);
+  await generateAsset(specPath);
+  const glb = (await storeAssetObject(root, { bytes: await readFile(path.join(workspace, "headwear.glb")), kind: "mesh", mediaType: "model/gltf-binary" })).asset;
+  return single(await executeGltfProductionImportOperation(root, { inputs: { source: glb }, parameters: { policy: POLICY } }));
+}
+
+/** The appearance descriptor's `headwear` list (#336): each piece's entry, socket and the appearance parts it hides. */
+export function rangerHeadwearAppearance() {
+  return RANGER_HEADWEAR.map(({ key, piece, label }) => ({
+    id: key, entry: key, label, socket: HEADWEAR_CONTRACT.socket, hides: [...HEADWEAR_HIDES[piece]],
+  }));
 }
 
 /** Generate one archery-recipe preset through the pinned Blender backend and import it (the bow keeps its skin). */
@@ -913,7 +943,7 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
       }))),
       tints: Object.entries(RANGER_HAIR_TINTS).map(([id, color]) => ({ id: `tint.${id}`, baseColorFactor: [...color, 1], texture: "hair-1" })),
       eyebrows: { nodes: [look.eyebrows], tintMaterials: [...new Set(eyebrowMaterials)].sort(), followsHairTint: true },
-      ...(figure === "male" ? { outfits } : {}),
+      ...(figure === "male" ? { outfits, headwear: rangerHeadwearAppearance() } : {}),
       // #123: the levels of detail of each character variant; switch distances are hints, consumers choose.
       levelsOfDetail: lodVariants.map(({ variant, triangles, ratio }) => {
         const level = variant.endsWith("lod1") ? "lod1" : "lod2";
@@ -975,6 +1005,14 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
         weapons[key] = await buildArchery(root, piece);
         selections.push({ key, variant: RANGER_BUNDLE_VARIANT });
         assets.push(await resizeTextures(key, weapons[key]!));
+      }
+    }
+    if (figure === "male") {
+      for (const { key, piece } of RANGER_HEADWEAR) {
+        log(`generate ${piece} (external.blender.script@1 headwear recipe, scene.import.gltf@2)`);
+        weapons[key] = await buildHeadwear(root, piece);
+        selections.push({ key, variant: RANGER_BUNDLE_VARIANT });
+        assets.push(weapons[key]!);
       }
     }
   }
