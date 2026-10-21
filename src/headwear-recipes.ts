@@ -14,8 +14,8 @@ export const HEADWEAR_MATERIALS=Object.freeze({"cap.ranger":Object.freeze(["felt
  */
 export const HEADWEAR_CONTRACT=Object.freeze({schemaVersion:1,unit:"meter",axes:"right-handed-y-up",origin:"grip",gripNode:"grip",
  space:"rest-model",socket:"head.armor",role:"armor"});
-/** The appearance parts each piece hides while worn (owner answer on #336: the helm hides the hair, the cap keeps it). */
-export const HEADWEAR_HIDES=Object.freeze({"cap.ranger":Object.freeze(["outfit.hood"]),"helm.ironcrest":Object.freeze(["outfit.hood","hair"])}) satisfies Record<HeadwearPiece,readonly string[]>;
+/** The appearance parts each piece hides while worn (owner answers on #336: both hide the hood and the hair). */
+export const HEADWEAR_HIDES=Object.freeze({"cap.ranger":Object.freeze(["outfit.hood","hair"]),"helm.ironcrest":Object.freeze(["outfit.hood","hair"])}) satisfies Record<HeadwearPiece,readonly string[]>;
 
 export function normalizeHeadwearParameters(value:unknown):HeadwearParameters {
  if(!value || typeof value!=="object" || Array.isArray(value) || ![Object.prototype,null].includes(Object.getPrototypeOf(value))) throw new Error("headwear parameters must be a plain object");

@@ -87,15 +87,68 @@ export const RANGER_APPEARANCE = {
     skinLight: { body: { uri: "T_Superhero_Male_Dark.png", member: "Universal Base Characters[Standard]/Base Characters/Textures/T_Superhero_Male_Ligh.png" }, outfitUri: "T_Regular_Male_Dark_BaseColor.png" },
     hood: "Male_Ranger_Head_Hood",
     hair: ["Hair_Buzzed", "Hair_SimpleParted", "Hair_Long"],
+    // #336: Hair_Long is only a fringe and a back curtain; the buzzed cap covers its bare crown in the same entry.
+    crowns: { Hair_Long: "Hair_Buzzed" } as Record<string, string>,
     eyebrows: "Eyebrows",
   },
   female: {
     skinLight: { body: { uri: "T_Superhero_Female_Dark_BaseColor.png", member: "Universal Base Characters[Standard]/Base Characters/Textures/T_Superhero_Female_Light_BaseColor.png" }, outfitUri: "T_Regular_Female_Dark_BaseColor.png" },
     hood: "Female_Ranger_Head_Hood",
     hair: ["Hair_Long", "Hair_Buns"],
+    crowns: {} as Record<string, string>,
     eyebrows: "Eyebrows",
   },
 } as const;
+/**
+ * One glTF from several static source glTFs with one buffer each (#336): every top-level array concatenated with its
+ * references rebased, the buffers joined into one (4-byte aligned) named `bufferUri`, and one scene holding every
+ * part's root nodes. Image URIs stay as they are and must not collide.
+ */
+export function mergeStaticGltfJson(parts: readonly { json: Json; buffer: Uint8Array }[], bufferUri: string): { json: Json; buffer: Uint8Array } {
+  const out: Json = { asset: parts[0]!.json.asset, scene: 0, scenes: [{ nodes: [] }], buffers: [] };
+  const arrays = ["bufferViews", "accessors", "images", "samplers", "textures", "materials", "meshes", "nodes"] as const;
+  for (const name of arrays) out[name] = [];
+  const uris = new Set<string>(), chunks: Uint8Array[] = [];
+  let offset = 0;
+  for (const { json: part, buffer } of parts) {
+    if (part.skins?.length || part.animations?.length) throw new Error("mergeStaticGltfJson merges static glTFs only");
+    if (part.buffers?.length !== 1 || part.buffers[0].byteLength !== buffer.byteLength) throw new Error("each merged glTF part needs exactly its one buffer");
+    const base = Object.fromEntries(arrays.map((name) => [name, out[name].length])) as Record<(typeof arrays)[number], number>;
+    const copy = (value: unknown) => structuredClone(value) as Json;
+    const texture = (info: Json | undefined) => info && { ...info, index: info.index + base.textures };
+    for (const image of part.images ?? []) {
+      if (uris.has(image.uri)) throw new Error(`merged glTF parts share the URI '${image.uri}'`);
+      uris.add(image.uri); out.images.push(copy(image));
+    }
+    for (const view of part.bufferViews ?? []) out.bufferViews.push({ ...copy(view), buffer: 0, byteOffset: (view.byteOffset ?? 0) + offset });
+    for (const accessor of part.accessors ?? []) out.accessors.push({ ...copy(accessor), ...(accessor.bufferView === undefined ? {} : { bufferView: accessor.bufferView + base.bufferViews }) });
+    for (const sampler of part.samplers ?? []) out.samplers.push(copy(sampler));
+    for (const item of part.textures ?? []) out.textures.push({ ...copy(item), source: item.source + base.images, ...(item.sampler === undefined ? {} : { sampler: item.sampler + base.samplers }) });
+    for (const material of part.materials ?? []) {
+      const result = copy(material), pbr = result.pbrMetallicRoughness;
+      for (const key of ["normalTexture", "occlusionTexture", "emissiveTexture"]) if (result[key]) result[key] = texture(result[key]);
+      if (pbr) for (const key of ["baseColorTexture", "metallicRoughnessTexture"]) if (pbr[key]) pbr[key] = texture(pbr[key]);
+      out.materials.push(result);
+    }
+    for (const mesh of part.meshes ?? []) out.meshes.push({ ...copy(mesh), primitives: mesh.primitives.map((primitive: Json) => ({
+      ...copy(primitive),
+      attributes: Object.fromEntries(Object.entries(primitive.attributes as Record<string, number>).map(([key, index]) => [key, index + base.accessors])),
+      ...(primitive.indices === undefined ? {} : { indices: primitive.indices + base.accessors }),
+      ...(primitive.material === undefined ? {} : { material: primitive.material + base.materials }),
+    })) });
+    for (const node of part.nodes ?? []) out.nodes.push({ ...copy(node), ...(node.mesh === undefined ? {} : { mesh: node.mesh + base.meshes }),
+      ...(node.children ? { children: node.children.map((child: number) => child + base.nodes) } : {}) });
+    for (const root of part.scenes[part.scene ?? 0].nodes) out.scenes[0].nodes.push(root + base.nodes);
+    const padded = (buffer.byteLength + 3) & ~3;
+    chunks.push(buffer, new Uint8Array(padded - buffer.byteLength));
+    offset += padded;
+  }
+  const joined = new Uint8Array(offset);
+  let at = 0;
+  for (const chunk of chunks) { joined.set(chunk, at); at += chunk.byteLength; }
+  out.buffers = [{ uri: bufferUri, byteLength: offset }];
+  return { json: out, buffer: joined };
+}
 /** Hair tints (D4, linear RGB), applied as the base colour factor on top of `T_Hair_1`. */
 export const RANGER_HAIR_TINTS = { black: [0.02, 0.02, 0.02], brown: [0.18, 0.09, 0.04], blond: [0.62, 0.48, 0.25] } as const;
 export const RANGER_APPEARANCE_ATTACHMENT = "humanoid-appearance";
@@ -859,19 +912,34 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
     const lightCharacter = await resizeTextures(`${bundleKey}/skin.light`, composedLight);
     await lightLods(defaultLods, character, lightCharacter, "skin.light");
 
-    // Hair: static items on the `head.hair` socket, each with both pack textures as variants (D2).
-    const hairTexture = { 1: "T_Hair_1", 2: "T_Hair_2" } as const;
+    // Hair: static items on the `head.hair` socket. #336: T_Hair_1 and T_Hair_2 are per-mesh bakes with different UV
+    // layouts, so a style only ever uses its own pack; both variant names (D2) stay and carry it. A style with a crown
+    // (`look.crowns`) gets that style's cap merged into the same entry, each part with its own pack.
+    const hairEntry = (style: string) => ({ archive: UBC, path: `${UBC_HAIR_DIR}/${style}.gltf` });
+    const importHair = async (style: string) => {
+      const crown = (look.crowns as Record<string, string>)[style];
+      if (!crown) return importGltf(hairEntry(style));
+      const entries = [hairEntry(style), hairEntry(crown)];
+      const sources = await Promise.all(entries.map(async (entry) => {
+        const gltfId = memberId(entry), first = await member(gltfId);
+        const json = JSON.parse((await resolveAssetObject(root, first)).toString("utf8"));
+        const buffer = new Uint8Array(await resolveAssetObject(root, await member(resourceId(UBC, gltfId, json.buffers[0].uri))));
+        const images = await Promise.all(json.images.map((image: Json) => member(resourceId(UBC, gltfId, image.uri))));
+        return { first, json, buffer, images, imageUris: json.images.map((image: Json) => image.uri as string) };
+      }));
+      const bufferUri = `${style}_${crown}.bin`;
+      const merged = mergeStaticGltfJson(sources, bufferUri);
+      const { first } = sources[0]!;
+      const source = (await storeAssetObject(root, { bytes: Buffer.from(JSON.stringify(merged.json)), kind: first.kind, mediaType: first.mediaType })).asset;
+      const buffer = (await storeAssetObject(root, { bytes: Buffer.from(merged.buffer), kind: "buffer", mediaType: "application/octet-stream" })).asset;
+      return single(await executeGltfProductionImportOperation(root, { inputs: { source, resources: [buffer, ...sources.flatMap(({ images }) => images)] },
+        parameters: { resourceUris: [bufferUri, ...sources.flatMap(({ imageUris }) => imageUris)], policy: POLICY } }));
+    };
     const hair = [];
     for (const style of look.hair) {
-      const entry = { archive: UBC, path: `${UBC_HAIR_DIR}/${style}.gltf` };
-      const own = JSON.parse((await resolveAssetObject(root, await member(memberId(entry)))).toString("utf8")).images.map((image: Json) => image.uri as string);
-      const ownNumber = own.some((uri: string) => uri.startsWith("T_Hair_2")) ? 2 : 1;
+      const imported = await importHair(style);
       const variants: Record<string, AssetRef> = {};
-      for (const number of [1, 2] as const) {
-        const overrides: Record<string, AssetRef> = {};
-        if (number !== ownNumber) for (const uri of own) overrides[uri] = await member(resourceId(UBC, memberId(entry), uri.replace(hairTexture[ownNumber], hairTexture[number])));
-        variants[`hair-${number}`] = await resizeTextures(`${hairKey(style)}/hair-${number}`, await importGltf(entry, overrides));
-      }
+      for (const number of [1, 2] as const) variants[`hair-${number}`] = await resizeTextures(`${hairKey(style)}/hair-${number}`, imported);
       hair.push({ key: hairKey(style), style, variants });
     }
     const hairMaterials = async (asset: AssetRef) => (await new NodeIO().readBinary(new Uint8Array(await resolveAssetObject(root, asset)))).getRoot().listMaterials().map((material) => material.getName());
