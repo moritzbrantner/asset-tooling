@@ -116,3 +116,25 @@ Policies for cases the validator alone does not settle ([owner decisions on #104
   - **How it applies:** the production operations treat the validator's `ACCESSOR_WEIGHTS_NON_NORMALIZED` as superseded by this tolerance. A sum outside it fails with `…/attributes/WEIGHTS_n: WEIGHTS_SUM_OUT_OF_TOLERANCE`, naming the vertex and its sum. Observations report `weightSums: { policy, tolerance, maxAbsoluteDrift }`. All other weight checks (negative, nonfinite, duplicate joints) keep their validator diagnostics.
 - **Unused animation samplers and single-keyframe channels are accepted and reported.** Each clip in the analysis lists `unusedSamplers` (sampler indices that no channel references) and `singleKeyframeChannels` (channel indices whose sampler has one keyframe). Neither affects `accepted`.
 - **GLB external resources name their URI and pointer.** A GLB that refers to an external buffer or image fails with `/buffers/N/uri` or `/images/N/uri`, the code `GLB_EXTERNAL_RESOURCE` and the unresolved URI. The words "external buffer" or "external image" appear in the message.
+
+### Singular inverse bind remediation plan
+
+Plan for [#194](https://github.com/moritzbrantner/asset-tooling/issues/194). Import behaviour stays as described above. Nothing here changes source data during import.
+
+**Survey (2026-10-21).** No source we hold has a singular inverse bind matrix. Checked: every skinned glTF/GLB under `assets/canonical/` (8 files, 446 joints: the Quaternius base characters, outfits, animation libraries and the skinned chest) plus the 3 skinned GLBs under `dist/` and `test/`. Every joint's 3×3 determinant lies within `3e-6` of 1, which fits unscaled binds. The causes listed in #194 (near-zero scale, exporter bugs, degenerate rest poses) are therefore hypothetical for now. The warning has only fired on hand-made test fixtures.
+
+**Candidate fixes**
+
+| Candidate | Result |
+| --- | --- |
+| Recompute in asset-tooling from the bind pose | Rejected. glTF does not store the bind pose apart from the inverse bind matrices, so a recompute would have to treat the node rest pose as the bind pose. That is a guess, and it would add skinning maths here that belongs to Blender. |
+| Repair through Blender (re-import and re-export) | Chosen. Measured on `Male_Ranger.gltf` with `neck_01` corrupted twice: once with a zero block, once scaled to determinant `1e-15`. Blender 5.2.2's default import (`guess_original_bind_pose=True`) inverts the broken matrix and exports wrong but non-singular binds, with errors up to about `1.6e16`. That would hide the fault from the warning. Importing with `guess_original_bind_pose=False` takes the rest pose from the node transforms. The re-export then reproduces the uncorrupted file's inverse binds exactly: the difference is `0` against a round trip of the clean file, and at most `2.2e-6` against the source. |
+| Reject at import | Not now. The owner decision on #104 accepts these files with a warning. Rejecting them only makes sense once a repair path exists, and even then it would need a separate owner decision. |
+
+**Chosen approach**
+
+1. Import and analysis keep `SKIN_INVERSE_BIND_MATRIX_SINGULAR` as a warning. The stored source is never changed.
+2. The repair is an explicit derived step, never part of import. It runs Blender's glTF import with `guess_original_bind_pose=False`, then Blender's glTF export. The output is a new derived asset with the usual provenance; the source keeps its own identity.
+3. The repair only applies when the node rest pose is the bind pose. Check this on the joints that are not singular: each one's inverse bind matrix times its joint world matrix must be close to identity. If that check fails, the rest pose is not the bind pose, and the asset needs re-authoring in Blender instead of a mechanical repair.
+
+**Implementation issues.** None are cut yet, because no real source needs the repair. When the first real source or generated output triggers the warning, open one issue for the derived repair operation in step 2 with the check in step 3, using that asset as its fixture.
