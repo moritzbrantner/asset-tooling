@@ -25,12 +25,12 @@ PIECES = {"cap.ranger": {"segments": (12, 24, True)}, "helm.ironcrest": {"segmen
 # Style-spec triangle ceilings (docs/style-humanlike.md); maxTriangles may only lower them.
 BUDGETS = {"cap.ranger": 2000, "helm.ironcrest": 2500}
 MATERIALS = {
-    # name: (linear base colour, metallic, roughness); tuned under the game's environment lighting (rough metal, deep felt)
+    # name: (linear base colour, metallic, roughness); tuned under the game's environment lighting (rough, part-metallic metal: the game has little environment reflection, so full metal reads black; deep felt)
     "felt": ((.07, .13, .05), 0.0, .85),
     "leather": ((.24, .13, .06), 0.0, .75),
     "feather": ((.75, .7, .6), 0.0, .8),
-    "iron": ((.30, .30, .31), 1.0, .65),
-    "brass": ((.55, .38, .14), 1.0, .55),
+    "iron": ((.30, .30, .31), .35, .65),
+    "brass": ((.55, .38, .14), .45, .55),
 }
 PIECE_MATERIALS = {"cap.ranger": ["felt", "leather", "feather"], "helm.ironcrest": ["iron", "brass"]}
 SHARP_ANGLE = math.radians(35)
