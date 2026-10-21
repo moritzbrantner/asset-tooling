@@ -2,25 +2,35 @@
 set -euo pipefail
 
 emit() {
-  printf 'extended=%s\nstability=%s\n' "$1" "$2" >> "$GITHUB_OUTPUT"
+  local skipped=''
+  if [[ "$1" == false ]]; then
+    skipped='"selected-bundle-consumer","blender-script","canonical-storage","processing-contract",'
+  fi
+  if [[ "$2" == false ]]; then
+    skipped+='"stability-validation",'
+  fi
+  if [[ "$3" == false ]]; then
+    skipped+='"pages-validation",'
+  fi
+  printf 'extended=%s\nstability=%s\npages=%s\nallow-skipped=[%s]\n' "$1" "$2" "$3" "${skipped%,}" >> "$GITHUB_OUTPUT"
 }
 
 if [[ "$GITHUB_EVENT_NAME" != 'pull_request' ]]; then
-  emit true true
+  emit true true true
   exit 0
 fi
 
 # GitHub caps PR-file enumeration and workflow path filters at 3,000.
 # Incomplete file lists must not skip acceptance checks.
 if [[ ! "$PR_CHANGED_FILES" =~ ^[0-9]+$ ]] || (( PR_CHANGED_FILES >= 3000 )); then
-  emit true true
+  emit true true true
   exit 0
 fi
 
 gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/files?per_page=100" \
   --jq '.[] | [.filename, (.previous_filename // "")] | @tsv' > "$RUNNER_TEMP/pr-files.tsv"
 if (( $(wc -l < "$RUNNER_TEMP/pr-files.tsv") != PR_CHANGED_FILES )) || (( PR_CHANGED_FILES == 0 )); then
-  emit true true
+  emit true true true
   exit 0
 fi
 
@@ -37,4 +47,9 @@ if ! grep -Eqv '(^docs/|(^|/)[^/]+[.]md$|^test/|^src/browser/|^src/(animation-vi
   stability=false
 fi
 
-emit "$extended" "$stability"
+pages=false
+if grep -Eq '(^catalog/|^src/|^licenses/|^THIRD_PARTY_NOTICES[.]md$|^scripts/|^review/|^adapters/blender/|^examples/reconcile-file[.]ts$|^package[.]json$|^[.]github/workflows/(pages|validate)[.]yml$)' "$RUNNER_TEMP/pr-changed-paths"; then
+  pages=true
+fi
+
+emit "$extended" "$stability" "$pages"

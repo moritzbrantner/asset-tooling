@@ -19,6 +19,9 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       extended: ${{ steps.detect.outputs.extended }}
+      pages: ${{ steps.detect.outputs.pages }}
+      stability: ${{ steps.detect.outputs.stability }}
+      allow-skipped: ${{ steps.detect.outputs.allow-skipped }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
@@ -151,3 +154,32 @@ jobs:
           examples/mesh-lod-chain-receipt.json
           examples/animation-resample-receipt.json
           examples/animation-reduce-receipt.json
+
+  stability-validation:
+    needs: impact
+    if: github.event_name == 'pull_request' && needs.impact.outputs.stability == 'true'
+    permissions:
+      contents: read
+      pull-requests: read
+    uses: ./.github/workflows/stability.yml
+
+  pages-validation:
+    needs: impact
+    if: github.event_name == 'pull_request' && needs.impact.outputs.pages == 'true'
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    uses: ./.github/workflows/pages.yml
+
+  merge-ready:
+    name: ${{ github.event_name == 'pull_request' && 'merge-ready' || 'validation-summary' }}
+    if: ${{ always() }}
+    needs: ["impact", "validate", "selected-bundle-consumer", "blender-script", "canonical-storage", "processing-contract", "stability-validation", "pages-validation"]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: moritzbrantner/reusable-workflows/.github/actions/merge-ready@b0f25f241d76af2584dfc9e375084ff5c5cb97da
+        with:
+          needs: ${{ toJSON(needs) }}
+          required: '["impact", "validate", "selected-bundle-consumer", "blender-script", "canonical-storage", "processing-contract", "stability-validation", "pages-validation"]'
+          allow-skipped: ${{ github.event_name != 'pull_request' && '["pages-validation", "stability-validation"]' || needs.impact.outputs.allow-skipped || '[]' }}
