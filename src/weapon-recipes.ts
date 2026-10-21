@@ -11,7 +11,7 @@ export type WeaponParameters=SwordParameters|ShieldParameters;
 
 /** Style-spec triangle ceilings (docs/style-humanlike.md). `maxTriangles` may lower, never raise, them. */
 export const WEAPON_TRIANGLE_BUDGETS=Object.freeze({"sword.arming":2500,"shield.heater":3000}) satisfies Record<WeaponPiece,number>;
-/** The attachment role each piece declares; humanoid-sockets-v1 sockets list the roles they accept. */
+/** The attachment role each piece declares; humanoid-sockets-v2 sockets list the roles they accept. */
 export const WEAPON_ROLES=Object.freeze({"sword.arming":"one-hand-weapon","shield.heater":"shield"}) satisfies Record<WeaponPiece,WeaponRole>;
 export const WEAPON_MATERIALS=Object.freeze({"sword.arming":Object.freeze(["steel","iron","leather"] as const),
  "shield.heater":Object.freeze(["paint","wood","iron","leather"] as const)}) satisfies Record<WeaponPiece,readonly string[]>;

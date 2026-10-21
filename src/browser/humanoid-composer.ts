@@ -1,4 +1,4 @@
-// Composes a humanoid bundle character from its `humanoid-appearance-v1` and `humanoid-sockets-v1` attachments
+// Composes a humanoid bundle character from its `humanoid-appearance-v1` and `humanoid-sockets-v2` attachments
 // in plain three.js (#127 humanoid editing journey, docs/animation-viewer.md#editing-the-processed-character).
 // The bundle variant supplies the skinned body and outfit, hair and armour entries are parented under their
 // sockets, and the clips of the `default` variant play on every variant through the shared joint names.
