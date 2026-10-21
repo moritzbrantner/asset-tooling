@@ -525,9 +525,24 @@ def cloth_surfaces(body, rig, kit):
         garments.append(("soldier.sash", "faction", sash, None))
     else:
         # The tabard also clears the breastplate's own surface (keel and rim), not only the body under it (#309).
-        plate = next(surface for name, _joint, _slot, surface, *_rest in plate_surfaces(body, rig, "knight") if name == "knight.breastplate")
+        plates = plate_surfaces(body, rig, "knight")
+        plate = next(surface for name, _joint, _slot, surface, *_rest in plates if name == "knight.breastplate")
         surface = tabard_surface(body, rig, [p for row in plate["grid"] for p in row])
-        garments.append(("knight.tabard", "faction", surface, tabard_mask(surface)))
+        mask = tabard_mask(surface)
+        # The cloth falls over the body and the breastplate (#314). The cuisses sit inside the hanging skirt's clearance
+        # already, and as colliders they snag the gathered cloth at the hips.
+        colliders = []
+        for name, _joint, _slot, plate_surface, plate_mask, apex, thickness in plates:
+            if name == "knight.breastplate":
+                builder = Builder()
+                builder.shell(plate_surface, thickness, 0, plate_mask, apex)
+                collider_mesh = bpy.data.meshes.new(f"{name}-collider")
+                builder.bm.to_mesh(collider_mesh)
+                builder.bm.free()
+                colliders.append((name, collider_mesh))
+        bodies = [o for o in bpy.context.scene.objects if o.type == "MESH" and o.name in (SHIRT, "Male_Peasant_Legs")]
+        settle_tabard(surface, mask, bodies, colliders)
+        garments.append(("knight.tabard", "faction", surface, mask))
     return garments
 
 
@@ -542,7 +557,7 @@ def tabard_surface(body, rig, obstacles=()):
              {"upperarm_l", "upperarm_r", "lowerarm_l", "lowerarm_r"}]
     points = body.array[torso]
     zc = float(points[:, 2].mean())
-    columns = 15
+    columns = 23
     xs = [-TABARD_HALF_WIDTH + 2 * TABARD_HALF_WIDTH * j / (columns - 1) for j in range(columns)]
     # The panels rise above the breastplate's top edge (1.45 m), so its rim never shows at the collar (#309).
     ys = [.6 + (1.475 - .6) * i / 23 for i in range(24)]
@@ -591,6 +606,96 @@ def tabard_surface(body, rig, obstacles=()):
     grid += [[drape(x, ys[i], back[i][j], -1) for j, x in enumerate(xs)] for i in reversed(range(len(ys)))]
     return {"grid": grid, "closed": False, "axis": (Vector((0, 1.0, zc)), Vector((1, 0, 0))), "thetas": xs, "ts": list(range(len(grid))),
             "frontRows": len(ys)}
+
+
+# #314: the tabard's drape is a Blender cloth simulation over the knight's body and breastplate, baked into its rest
+# shape. The panels stay pinned where they ride the breastplate (above TABARD_PIN_FROM). Just under the breastplate's
+# rim the cloth is gathered to TABARD_GATHER of its width (TABARD_BELT), so the wider skirt below it buckles into
+# real folds as it settles instead of hanging as a flat panel.
+TABARD_PIN_FROM = TABARD_RIGID_FROM[0]
+TABARD_BELT = (.9, .95)
+TABARD_GATHER = .78
+TABARD_CLOTH = {"frames": 72, "quality": 8, "mass": .2, "tension": 12.0, "compression": 12.0, "shear": 5.0, "bending": .6,
+                "air": 1.0, "collision": .008, "round": 1e-5}
+
+
+def collider(name, mesh):
+    obj = bpy.data.objects.new(name, mesh)
+    bpy.context.scene.collection.objects.link(obj)
+    modifier = obj.modifiers.new("collision", "COLLISION")
+    obj.collision.thickness_outer = TABARD_CLOTH["collision"]
+    obj.collision.cloth_friction = 5.0
+    return obj, modifier
+
+
+def settle_tabard(surface, mask, body_objects, plates):
+    """Simulate the tabard grid as cloth over the body and plates and write the settled positions back into it."""
+    grid = surface["grid"]
+    rows, columns = len(grid), len(grid[0])
+    bm = bmesh.new()
+    verts = [[bm.verts.new(to_blender(grid[i][j])) for j in range(columns)] for i in range(rows)]
+    for i in range(rows - 1):
+        for j in range(columns - 1):
+            if mask(i, j):
+                bm.faces.new([verts[i][j], verts[i][j + 1], verts[i + 1][j + 1], verts[i + 1][j]])
+    mesh = bpy.data.meshes.new("tabard-sim")
+    bm.to_mesh(mesh)
+    bm.free()
+    cloth = bpy.data.objects.new("tabard-sim", mesh)
+    bpy.context.scene.collection.objects.link(cloth)
+    pin = cloth.vertex_groups.new(name="pin")
+    cloth.shape_key_add(name="rest")
+    gathered = cloth.shape_key_add(name="gathered", from_mix=False)
+    gathered.value = 1.0
+    for index in range(rows * columns):
+        point = grid[index // columns][index % columns]
+        if point.y >= TABARD_PIN_FROM or TABARD_BELT[0] <= point.y <= TABARD_BELT[1]:
+            pin.add([index], 1.0, "REPLACE")
+        if point.y < TABARD_PIN_FROM:
+            # Full gather at the belt, easing back to the cut width over the plate above it.
+            amount = 1.0 if point.y <= TABARD_BELT[1] else 1 - (point.y - TABARD_BELT[1]) / (TABARD_PIN_FROM - TABARD_BELT[1])
+            scale = 1 - (1 - TABARD_GATHER) * amount if point.y >= TABARD_BELT[0] else 1.0
+            gathered.data[index].co.x = point.x * scale
+    temporary = [cloth]
+    for obj in body_objects:
+        copy = bpy.data.objects.new(f"{obj.name}-collider", obj.data)
+        copy.matrix_world = obj.matrix_world.copy()
+        bpy.context.scene.collection.objects.link(copy)
+        copy.modifiers.new("collision", "COLLISION")
+        copy.collision.thickness_outer = TABARD_CLOTH["collision"]
+        temporary.append(copy)
+    for name, mesh_data in plates:
+        temporary.append(collider(name, mesh_data)[0])
+    modifier = cloth.modifiers.new("cloth", "CLOTH")
+    settings = modifier.settings
+    settings.quality = TABARD_CLOTH["quality"]
+    settings.mass = TABARD_CLOTH["mass"]
+    settings.tension_stiffness = TABARD_CLOTH["tension"]
+    settings.compression_stiffness = TABARD_CLOTH["compression"]
+    settings.shear_stiffness = TABARD_CLOTH["shear"]
+    settings.bending_stiffness = TABARD_CLOTH["bending"]
+    settings.air_damping = TABARD_CLOTH["air"]
+    settings.vertex_group_mass = "pin"
+    # The springs keep the cut (ungathered) lengths, so the gathered cloth buckles instead of shrinking.
+    settings.rest_shape_key = cloth.data.shape_keys.key_blocks["rest"]
+    modifier.collision_settings.distance_min = TABARD_CLOTH["collision"]
+    modifier.collision_settings.use_self_collision = False
+    cache = modifier.point_cache
+    cache.frame_start, cache.frame_end = 1, TABARD_CLOTH["frames"]
+    scene = bpy.context.scene
+    scene.frame_start, scene.frame_end = 1, TABARD_CLOTH["frames"]
+    for frame in range(1, TABARD_CLOTH["frames"] + 1):
+        scene.frame_set(frame)
+    evaluated = cloth.evaluated_get(bpy.context.evaluated_depsgraph_get())
+    step = TABARD_CLOTH["round"]
+    settled = [to_gltf(evaluated.matrix_world @ vertex.co) for vertex in evaluated.data.vertices]
+    for index, point in enumerate(settled):
+        grid[index // columns][index % columns] = Vector(tuple(round(c / step) * step for c in point))
+    scene.frame_set(1)
+    for obj in temporary:
+        bpy.data.objects.remove(obj, do_unlink=True)
+    bpy.data.meshes.remove(mesh)
+    return surface
 
 
 def tabard_mask(surface):

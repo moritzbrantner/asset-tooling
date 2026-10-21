@@ -26,6 +26,10 @@ After the owner's first review, the knight's shapes were reworked:
 - **Soldier greaves:** fitted only to vertices fully on the calf, starting below the knee, with 8 mm clearance. The bending knee and the boot cuff no longer push them off the shin in the walk.
 - **Sash:** like the tabard, it ignores arm and shoulder joints, and it rides `spine_03` over the shoulder, so the arm swing doesn't lift it.
 
+## Cloth drape (#314)
+
+- **Tabard:** the drape is a Blender cloth simulation, baked into the rest shape. The panels are cut wider (23 columns) and stay pinned where they ride the breastplate. Just below the breastplate's rim they are gathered to 78% of their width at the hips, while the springs keep the cut lengths, so the skirt below buckles into real folds as it settles over the body and the breastplate (72 frames, colliders only during the build). The settled positions are rounded to 0.01 mm. The skinned weights and the clearance over the breastplate are unchanged. Per-pose corrections (shape keys) are not baked yet.
+
 ## Fitting
 
 The recipe's declared input `target` is the base character at rest: the Peasant outfit composed with the head subset on the shared 65-joint skeleton. Each piece is fitted to the real geometry under it:
@@ -43,7 +47,7 @@ The recipe's declared input `target` is the base character at rest: the Peasant 
 - **`cloth`**: the garments that must deform with the body, skinned to the target's own joints:
   - the soldier's gambeson: the Peasant shirt's surface and skin weights pushed 12 mm out, plus a quilted skirt;
   - the soldier's sash;
-  - the knight's tabard: front and back panels hanging over the breastplate and the cuisses. Below the waist they widen and fall in soft vertical folds that deepen toward the hem.
+  - the knight's tabard: front and back panels hanging over the breastplate and the cuisses. Below the waist they widen, are gathered at the hips and settle into folds in a cloth simulation (#314).
 
   The skirt, sash and tabard are fitted surfaces. Each vertex blends the weights of the nearest base vertices, and the tabard ignores arm and shoulder joints so that it rides the torso over the rigid breastplate. The build composes the cloth into the outfit variant with `scene.compose.skinned.gltf@1`.
 
