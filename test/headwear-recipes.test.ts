@@ -22,7 +22,7 @@ test("headwear controls are bounded and the appearance list names what each piec
  for(const bad of [{...cap,piece:"hat.wide"},{...cap,segments:11},{...cap,segments:12.5},{...helm,maxTriangles:2501},{...cap,extra:1},{...cap,schemaVersion:2}])
   assert.throws(()=>normalizeHeadwearParameters(bad),Error,JSON.stringify(bad));
  assert.deepEqual(rangerHeadwearAppearance(),[
-  {id:"equipment.cap.ranger",entry:"equipment.cap.ranger",label:"Ranger's Cap",socket:"head.armor",hides:["outfit.hood"]},
+  {id:"equipment.cap.ranger",entry:"equipment.cap.ranger",label:"Ranger's Cap",socket:"head.armor",hides:["outfit.hood","hair"]},
   {id:"equipment.helm.ironcrest",entry:"equipment.helm.ironcrest",label:"Ironcrest Helm",socket:"head.armor",hides:["outfit.hood","hair"]},
  ]);
 });
