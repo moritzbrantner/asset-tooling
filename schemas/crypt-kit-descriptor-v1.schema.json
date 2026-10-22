@@ -1,0 +1,134 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://moritzbrantner.github.io/asset-tooling/schemas/crypt-kit-descriptor-v1.schema.json",
+  "title": "asset-tooling crypt kit descriptor v1",
+  "description": "Grid, doorway, hinge, light and box-collision metadata of the undead crypt kit (docs/crypt-kit.md). Every value is in metres in its module's own frame: +Y up, front +Z, origin at the module's base centre. Collision proxies are presentation metadata; game physics stays with the consumer.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "units", "up", "facing", "handedness", "origin", "grid", "assets"],
+  "properties": {
+    "schema": { "const": "crypt-kit-descriptor-v1" },
+    "units": { "const": "metre" },
+    "up": { "const": "+Y" },
+    "facing": { "const": "+Z" },
+    "handedness": { "const": "right" },
+    "origin": { "const": "module-base-center" },
+    "grid": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["module", "wallHeight", "wallThickness", "floorTop"],
+      "properties": {
+        "module": { "type": "number", "exclusiveMinimum": 0 },
+        "wallHeight": { "type": "number", "exclusiveMinimum": 0 },
+        "wallThickness": { "type": "number", "exclusiveMinimum": 0 },
+        "floorTop": { "type": "number" }
+      }
+    },
+    "assets": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/asset" } }
+  },
+  "$defs": {
+    "vec3": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 },
+    "box": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["min", "max"],
+      "properties": { "min": { "$ref": "#/$defs/vec3" }, "max": { "$ref": "#/$defs/vec3" } }
+    },
+    "proxy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "tag", "center", "size"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "tag": { "enum": ["solid", "floor", "dynamic-door"] },
+        "center": { "$ref": "#/$defs/vec3" },
+        "size": { "$ref": "#/$defs/vec3" }
+      }
+    },
+    "asset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "role", "category", "parentName", "triangles", "footprint", "bounds", "collisionProxies"],
+      "properties": {
+        "key": { "type": "string", "pattern": "^crypt\\.kit\\.[a-z]+(?:-[a-z]+)*$" },
+        "role": { "type": "string" },
+        "category": { "enum": ["structure", "prop"] },
+        "parentName": { "type": "string" },
+        "triangles": { "type": "integer", "minimum": 1 },
+        "footprint": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["width", "depth", "height"],
+          "properties": { "width": { "type": "number" }, "depth": { "type": "number" }, "height": { "type": "number" } }
+        },
+        "bounds": { "$ref": "#/$defs/box" },
+        "collisionProxies": { "type": "array", "items": { "$ref": "#/$defs/proxy" } },
+        "module": {
+          "description": "Grid module of a wall, doorway or floor tile.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["width", "height", "depth"],
+          "properties": { "width": { "type": "number" }, "height": { "type": "number" }, "depth": { "type": "number" }, "top": { "type": "number" } }
+        },
+        "doorway": {
+          "description": "The open doorway of a doorway module.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["center", "width", "height", "depth", "min", "max"],
+          "properties": {
+            "center": { "$ref": "#/$defs/vec3" },
+            "width": { "type": "number" },
+            "height": { "type": "number" },
+            "depth": { "type": "number" },
+            "min": { "$ref": "#/$defs/vec3" },
+            "max": { "$ref": "#/$defs/vec3" }
+          }
+        },
+        "hinge": {
+          "description": "The door's hinge: rotating openAngle about axis at position turns the closed leaf (closedAlong) towards opensTowards.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["node", "position", "axis", "closedAlong", "opensTowards", "openAngle"],
+          "properties": {
+            "node": { "type": "string" },
+            "position": { "$ref": "#/$defs/vec3" },
+            "axis": { "$ref": "#/$defs/vec3" },
+            "closedAlong": { "type": "string" },
+            "opensTowards": { "type": "string" },
+            "openAngle": { "type": "number" }
+          }
+        },
+        "mount": {
+          "description": "On the door, the hinge's translation in its doorway's frame; on the doorway, the door it takes.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["translation"],
+          "properties": { "parent": { "type": "string" }, "door": { "type": "string" }, "translation": { "$ref": "#/$defs/vec3" } }
+        },
+        "lights": {
+          "description": "Suggested point lights at the candle flames.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["node", "position", "color", "suggestedIntensityCandela", "suggestedRange"],
+            "properties": {
+              "node": { "type": "string" },
+              "position": { "$ref": "#/$defs/vec3" },
+              "color": { "$ref": "#/$defs/vec3" },
+              "suggestedIntensityCandela": { "type": "number" },
+              "suggestedRange": { "type": "number" }
+            }
+          }
+        },
+        "lid": {
+          "description": "The sarcophagus lid node and its resting placement.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["node", "translation", "yawDegrees"],
+          "properties": { "node": { "type": "string" }, "translation": { "$ref": "#/$defs/vec3" }, "yawDegrees": { "type": "number" } }
+        }
+      }
+    }
+  }
+}

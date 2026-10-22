@@ -12,6 +12,7 @@ const PUBLISHED_SCHEMA_BLOBS = {
   "asset-bundle-v4.schema.json": "66c12b7bbab9dd4b49aad129ac8e86929f144dfa",
   "asset-spec-v1.schema.json": "9e0cd63b4e5d83a02cbb3628e7e1e59aec024588",
   "audio-asset-v1.schema.json": "193934f6128ff2ad94152018d60713b5e0e03b4b",
+  "crypt-kit-descriptor-v1.schema.json": "c81fb47595a9b94c4db764c151ac7248d122fb7e",
   "generation-receipt-v1.schema.json": "472719e19daa3373de50cfd54ab52519bcbe60d5",
   "generation-receipt-v2.schema.json": "6503467dfdd69f05e32b3d9ec630939f442d80d1",
   "humanoid-sockets-v1.schema.json": "4524e391215aabc02bc535e8fc13a9b1f9d63ed5",
