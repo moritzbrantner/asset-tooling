@@ -171,6 +171,18 @@
     },
     {
       "schemaVersion": 1,
+      "sourceId": "quaternius.medieval-village-megakit-standard.floor-wooddark-bin",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.medieval-village-megakit-standard.floor-wooddark-bin/Floor_WoodDark.bin"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.medieval-village-megakit-standard.floor-wooddark-gltf",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.medieval-village-megakit-standard.floor-wooddark-gltf/Floor_WoodDark.gltf"
+    },
+    {
+      "schemaVersion": 1,
       "sourceId": "quaternius.medieval-village-megakit-standard.prop-woodenfence-extension1-bin",
       "storage": "git-lfs",
       "path": "assets/canonical/quaternius.medieval-village-megakit-standard.prop-woodenfence-extension1-bin/Prop_WoodenFence_Extension1.bin"

@@ -109,6 +109,8 @@ const ASSETS: Asset[] = [
   // #270: additional canonical nature sources; the starter bundle membership stays unchanged.
   { role: "kit", archive: NATURE, gltf: "glTF/Rock_Medium_2.gltf", referenced: ["glTF/Rock_Medium_2.bin", "glTF/Rocks_Diffuse.png"] },
   { role: "kit", archive: NATURE, gltf: "glTF/Rock_Medium_3.gltf", referenced: ["glTF/Rock_Medium_3.bin", "glTF/Rocks_Diffuse.png"] },
+  // #318: the floor piece for destructible buildings; its textures are the shared WoodTrim set.
+  { role: "kit", archive: MEDIEVAL, gltf: "glTF/Floor_WoodDark.gltf", referenced: ["glTF/Floor_WoodDark.bin", "glTF/T_WoodTrim_Normal.png", "glTF/T_WoodTrim_BaseColor.png", "glTF/T_WoodTrim_Roughness.png"] },
   { role: "kit", archive: FANTASY, gltf: "Exports/glTF/Crate_Wooden.gltf", referenced: ["Exports/glTF/Crate_Wooden.bin", "Textures/T_Trim_Furniture_Normal.png", "Textures/T_Trim_Furniture_BaseColor.png", "Textures/T_Trim_Furniture_ORM.png", "Textures/T_Trim_Metal_Normal.png", "Textures/T_Trim_Metal_BaseColor.png", "Textures/T_Trim_Metal_ORM.png"] },
   { role: "kit", archive: FANTASY, gltf: "Exports/glTF/Chest_Wood.gltf", referenced: ["Exports/glTF/Chest_Wood.bin", "Textures/T_Trim_Furniture_Normal.png", "Textures/T_Trim_Furniture_BaseColor.png", "Textures/T_Trim_Furniture_ORM.png", "Textures/T_Trim_Metal_Normal.png", "Textures/T_Trim_Metal_BaseColor.png", "Textures/T_Trim_Metal_ORM.png"] },
   { role: "kit", archive: FANTASY, gltf: "Exports/glTF/Bench.gltf", referenced: ["Exports/glTF/Bench.bin", "Textures/T_Trim_Furniture_Normal.png", "Textures/T_Trim_Furniture_BaseColor.png", "Textures/T_Trim_Furniture_ORM.png", "Textures/T_Trim_Metal_Normal.png", "Textures/T_Trim_Metal_BaseColor.png", "Textures/T_Trim_Metal_ORM.png"] },
@@ -208,8 +210,8 @@ const hydratedSkip: string | false =
 
 // ---------------------------------------------------------------- structure
 
-test("expected-member table: 72 unique members (28 from #118, 40 from #119, 4 from #270), shared WoodTrim set counted once", () => {
-  assert.equal(EXPECTED.size, 72);
+test("expected-member table: 74 unique members (28 from #118, 40 from #119, 4 from #270, 2 from #318), shared WoodTrim set counted once", () => {
+  assert.equal(EXPECTED.size, 74);
   for (const name of expand("glTF/T_WoodTrim_{Normal,BaseColor,Roughness}.png")) {
     const member = EXPECTED.get(memberId(MEDIEVAL, name));
     assert.deepEqual([...(member?.roles ?? [])].sort(), ["building", "door", "door-frame", "kit"]);

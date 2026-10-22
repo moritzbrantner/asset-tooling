@@ -21,6 +21,7 @@ import {
   buildGreyhavenStarter, worldTriangles,
 } from "../scripts/build-greyhaven-starter.ts";
 import { DEBRIS_PLANES, DEBRIS_VARIANT } from "../src/debris-recipe.js";
+import { DAMAGE_RECIPES, DAMAGE_STATES, damageLodVariant } from "../src/damage-recipe.js";
 
 type Json = Record<string, any>;
 const ROOT = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
@@ -63,7 +64,7 @@ test("hydration state of the starter bundle members", () => {
   if (REQUIRE_HYDRATED) assert.deepEqual(state.pointers, [], "ASSET_TOOLING_REQUIRE_HYDRATED_STORAGE=1 but payloads are LFS pointers");
 });
 
-test("the Greyhaven starter recipe builds a verified bundle with a measured doorway and open collision proxies", { skip, timeout: 600_000 }, async () => {
+test("the Greyhaven starter recipe builds a verified bundle with a measured doorway and open collision proxies", { skip, timeout: 2_400_000 }, async () => {
   const outDir = await mkdtemp(path.join(os.tmpdir(), "greyhaven-starter-"));
   try {
     // The lod1/lod2 variants need Blender (#123); the hosted storage job has none and checks the LOD0 entries.
@@ -78,16 +79,20 @@ test("the Greyhaven starter recipe builds a verified bundle with a measured door
     assert.equal((await readFile(`${built.tar}.sha256`, "utf8")).split(/\s+/)[0], built.tarSha256);
     const keys = [...GREYHAVEN_MEMBERS, ...GREYHAVEN_VARIATIONS].map((member) => member.key);
     const variants = lods ? [GREYHAVEN_BUNDLE_VARIANT, "lod1", "lod2"] : [GREYHAVEN_BUNDLE_VARIANT];
-    // #319: the crate, barrel and fence also ship pre-fractured debris (Blender, with the LODs).
+    // #319/#318: breakable props and building pieces also ship pre-fractured debris, and the building pieces their
+    // damaged and destroyed states with LODs (Blender, with the LODs).
     const breakable = new Set(Object.keys(DEBRIS_PLANES).map((role) => `greyhaven.starter.${role}`));
+    const destructible = new Set(Object.keys(DAMAGE_RECIPES).map((role) => `greyhaven.starter.${role}`));
+    const damageVariants = DAMAGE_STATES.flatMap((state) => [state, damageLodVariant(state, "lod1"), damageLodVariant(state, "lod2")]);
     assert.deepEqual(manifest.assets.map((entry) => [entry.key, entry.variant]).sort(), keys.flatMap((key) => [
       ...variants.map((variant) => [key, variant]), ...(lods && breakable.has(key) ? [[key, DEBRIS_VARIANT]] : []),
+      ...(lods && destructible.has(key) ? damageVariants.map((variant) => [key, variant]) : []),
     ]).sort());
     if (lods) {
       for (const key of breakable) {
         const debris = (built.descriptor.assets as Json[]).find((asset) => asset.key === key)!.debris as Json;
         assert.equal(debris.variant, DEBRIS_VARIANT, key);
-        assert.ok(debris.chunks.length >= 4 && debris.chunks.length <= 8, `${key}: ${debris.chunks.length} chunks`);
+        assert.ok(debris.chunks.length >= 3 && debris.chunks.length <= 12, `${key}: ${debris.chunks.length} chunks`);
         assert.ok(Math.abs(debris.chunks.reduce((sum: number, chunk: Json) => sum + chunk.volumeShare, 0) - 1) < 0.01, key);
         const { gltf } = await readAssetBundleGltf(built.bundleDir, manifest, key, DEBRIS_VARIANT);
         const nodes = JSON.parse(gltf.toString("utf8")).nodes as Json[];
@@ -96,6 +101,32 @@ test("the Greyhaven starter recipe builds a verified bundle with a measured door
           assert.ok(node && node.mesh !== undefined, chunk.node);
           assert.ok((node.translation as number[]).every((v, axis) => Math.abs(v - chunk.translation[axis]) < 1e-3), chunk.node);
           assert.ok(chunk.collisionProxy.size.every((size: number) => size > 0), chunk.node);
+        }
+      }
+    }
+
+    if (lods) {
+      for (const key of destructible) {
+        const described = (built.descriptor.assets as Json[]).find((asset) => asset.key === key)!;
+        const states = described.damage.states as Json[];
+        assert.deepEqual(states.map((state) => state.variant), [GREYHAVEN_BUNDLE_VARIANT, ...DAMAGE_STATES], key);
+        const textures = (variant: string) => new Set(manifest.assets.find((item) => item.key === key && item.variant === variant)!.resources.filter((resource) => resource.path.endsWith(".png")).map((resource) => resource.path));
+        for (const state of states.slice(1)) {
+          // Each state keeps the piece's shared textures and has lighter LODs.
+          for (const image of textures(state.variant)) assert.ok(textures(GREYHAVEN_BUNDLE_VARIANT).has(image), `${key} ${state.variant} shares ${image}`);
+          assert.deepEqual(state.lods.map((lod: Json) => lod.variant), [damageLodVariant(state.state, "lod1"), damageLodVariant(state.state, "lod2")]);
+          assert.ok(state.lods[0].triangles < state.triangles && state.lods[1].triangles < state.lods[0].triangles, `${key} ${state.variant} LODs`);
+          assert.ok(state.collisionProxies.length > 0, `${key} ${state.variant} keeps collision`);
+          for (const proxy of state.collisionProxies) assert.ok(proxy.size.every((size: number) => size > 0), `${key} ${state.variant} ${proxy.name}`);
+        }
+        const [, damaged, destroyed] = states;
+        // Damaged proxies leave every breach open; the stub is lower than the intact piece and its proxies fit inside it.
+        for (const breach of damaged.breaches) for (const proxy of damaged.collisionProxies) assert.equal(overlapVolume(boxOf(proxy), breach), 0, `${key} ${proxy.name} leaves the breach open`);
+        const boundsVolume = (b: Json) => [0, 1, 2].reduce((v, i) => v * (b.max[i] - b.min[i]), 1);
+        assert.ok(boundsVolume(destroyed.bounds) < boundsVolume(described.bounds) * 0.6, `${key}: the stub is a fraction of the piece`);
+        for (const proxy of destroyed.collisionProxies) {
+          const proxyBox = boxOf(proxy);
+          for (const i of [0, 1, 2]) assert.ok(proxyBox.min[i]! >= destroyed.bounds.min[i] - 1e-5 && proxyBox.max[i]! <= destroyed.bounds.max[i] + 1e-5, `${key} ${proxy.name} inside the stub`);
         }
       }
     }

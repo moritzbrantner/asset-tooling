@@ -70,10 +70,11 @@ def cut(bm, co, no, keep_below):
     return True
 
 
-def touching_groups(bm, gap=.005):
+def touching_groups(bm, gap=.025):
     """Split ``bm`` into groups of connected parts whose boxes touch (within ``gap``); a group moves as one body.
 
-    Separate parts that do not touch, such as two fence rails cut free of their post, become separate chunks.
+    Separate parts that do not touch, such as two fence rails cut free of their post, become separate chunks. The
+    2.5 cm gap keeps open shells together, such as the floor's separate top and bottom planks 2 cm apart.
     """
     faces = set(bm.faces)
     islands = []
