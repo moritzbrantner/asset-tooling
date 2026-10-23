@@ -40,6 +40,10 @@ The door frame answers #118 Q8 (owner decision, 2026-10-14): the wall has no fac
 
 The same pinned Stylized Nature archive additionally supplies `glTF/Rock_Medium_2.{gltf,bin}` and `glTF/Rock_Medium_3.{gltf,bin}` for the [dedicated nature bundle](greyhaven-nature-bundle.md). These four new LFS members total 33,213 bytes and share the existing `glTF/Rocks_Diffuse.png`; the collection now contains 72 unique members. These are source additions; the starter bundle's selected meshes remain unchanged.
 
+## Floor piece (#318)
+
+For [destructible building pieces](greyhaven-starter-bundle.md#destructible-building-pieces-318), the same Medieval Village archive supplies `glTF/Floor_WoodDark.{gltf,bin}`. These are two new LFS members, about 4.4 KB in total. The floor's textures are the WoodTrim records that are already stored, which brings the collection to 74 unique members.
+
 ## Record conventions
 
 - **Member ids** are `<archive id>.<slug>`, where the slug is the member's basename in lowercase with `_` and `.` replaced by `-`. Example: `quaternius.medieval-village-megakit-standard.door-1-flat-gltf`.

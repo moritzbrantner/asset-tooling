@@ -19,6 +19,7 @@ import { executeGltfProductionImportOperation } from "../src/gltf-production-ope
 import { sliceResizeDocument } from "../src/gltf-slice-resize.js";
 import { executeGltfTextureResizeOperation } from "../src/gltf-texture-resize-operations.js";
 import { DEBRIS_PLANES, DEBRIS_VARIANT, generateDebris, type DebrisPlane } from "../src/debris-recipe.js";
+import { DAMAGE_RECIPES, DAMAGE_STATES, clipBox, damageLodVariant, generateDamageState, subtractBox, type Box } from "../src/damage-recipe.js";
 import { LOD_LEVELS, LOD_RATIOS, LOD_SWITCH_DISTANCE_HINTS, generateLodLevel } from "../src/lod-recipe.js";
 import type { AssetOperationResult, AssetRef } from "../src/operations.js";
 
@@ -78,6 +79,8 @@ export const GREYHAVEN_MEMBERS: readonly GreyhavenMember[] = [
   { role: "bench", key: "greyhaven.starter.bench", category: "prop", archive: FANTASY, gltf: "Exports/glTF/Bench.gltf" },
   { role: "lantern", key: "greyhaven.starter.lantern", category: "prop", archive: FANTASY, gltf: "Exports/glTF/Lantern_Wall.gltf", collision: "none" },
   { role: "cart", key: "greyhaven.starter.cart", category: "prop", archive: FANTASY, gltf: "Exports/glTF/Stall_Cart_Empty.gltf" },
+  // #318: the floor piece of destructible buildings (WoodTrim, like the door).
+  { role: "floor", key: "greyhaven.starter.floor", category: "structure", archive: MEDIEVAL, gltf: "glTF/Floor_WoodDark.gltf" },
 ];
 
 /**
@@ -255,7 +258,8 @@ export async function buildGreyhavenStarter({ outDir, lods = true, debris = lods
   outDir: string;
   /** Build the Blender lod1/lod2 variants (#123). Off only where Blender is unavailable, e.g. the hosted storage job. */
   lods?: boolean;
-  /** #319: the `debris` variant of the crate, barrel and fence (Blender; defaults to `lods`). */
+  /** #319/#318: the `debris` variant of the breakable props and building pieces, and the building pieces'
+   * `damaged`/`destroyed` states (Blender; defaults to `lods`). */
   debris?: boolean;
   log?: (line: string) => void;
 }) {
@@ -360,6 +364,27 @@ export async function buildGreyhavenStarter({ outDir, lods = true, debris = lods
     lineage.members[item.entry.role].debris = { placed: checked, planes, chunks: split.observations.chunks };
   }
 
+  // #318: damaged and destroyed states of the building pieces, cut in Blender from the placed LOD0, each with its LODs.
+  for (const item of built) {
+    const recipe = DAMAGE_RECIPES[item.entry.role];
+    if (!debris || !recipe) continue;
+    item.damage = [];
+    for (const state of DAMAGE_STATES) {
+      log(`${state} ${item.entry.role} (damage.py)`);
+      const cut = await generateDamageState(root, item.placed, item.entry.role, state, recipe);
+      const checked = single(await executeGltfProductionImportOperation(root, { inputs: { source: cut.glb }, parameters: { policy: { allowedValidatorWarnings: [TANGENT_WARNING] } } }));
+      const stateLods: Json[] = [];
+      for (const level of lods ? LOD_LEVELS : []) {
+        const lod = await generateLodLevel(root, checked, LOD_RATIOS.static[level], `${item.entry.role}.${state}.${level}`);
+        stateLods.push({ level, variant: damageLodVariant(state, level), ratio: LOD_RATIOS.static[level], triangles: lod.observations.trianglesAfter,
+          placed: single(await executeGltfProductionImportOperation(root, { inputs: { source: lod.glb }, parameters: { policy: { allowedValidatorWarnings: [TANGENT_WARNING] } } })) });
+      }
+      item.damage.push({ state, placed: checked, observations: cut.observations, lods: stateLods });
+    }
+    lineage.members[item.entry.role].damage = { recipe, states: item.damage.map((entry: Json) => ({ state: entry.state, placed: entry.placed,
+      lods: entry.lods.map((lod: Json) => ({ variant: lod.variant, ratio: lod.ratio, placed: lod.placed, triangles: lod.triangles })) })) };
+  }
+
   log("measure doorway and collision proxies");
   const wall = byRole("wall"), door = byRole("door"), frame = byRole("door-frame"), barrel = byRole("barrel"), tree = byRole("tree");
   const wallBounds = wall.observations.bounds.placed as { min: Vec3; max: Vec3; center: Vec3 };
@@ -384,6 +409,33 @@ export async function buildGreyhavenStarter({ outDir, lods = true, debris = lods
   const wallTranslation = wall.observations.translation as Vec3;
   const frameTranslation = frame.observations.translation as Vec3;
 
+  // #318: per-state collision proxies, derived from the intact ones: breaches are subtracted, and the stub clips them.
+  const proxyBox = (proxy: Json): Box => ({ min: proxy.center.map((c: number, i: number) => c - proxy.size[i] / 2), max: proxy.center.map((c: number, i: number) => c + proxy.size[i] / 2) });
+  const stateProxies = (intact: Json[], entry: Json) => {
+    if (entry.state === "destroyed") {
+      return intact.flatMap((proxy) => {
+        const clipped = clipBox(proxyBox(proxy), entry.observations.bounds);
+        return clipped ? [box(clipped.min, clipped.max, proxy.tag, proxy.name)] : [];
+      });
+    }
+    return intact.flatMap((proxy) => {
+      let pieces = [proxyBox(proxy)];
+      for (const breach of entry.observations.breaches as Json[]) pieces = pieces.flatMap((piece) => subtractBox(piece, breach.box));
+      return pieces.length === 1 ? [box(pieces[0]!.min, pieces[0]!.max, proxy.tag, proxy.name)] : pieces.map((piece, index) => box(piece.min, piece.max, proxy.tag, `${proxy.name}-${index + 1}`));
+    });
+  };
+  const damageEntry = (item: Json, intact: Json[]) => ({
+    states: [
+      { state: "intact", variant: GREYHAVEN_BUNDLE_VARIANT, collisionProxies: intact },
+      ...item.damage.map((entry: Json) => ({
+        state: entry.state, variant: entry.state, triangles: entry.observations.triangles,
+        bounds: { min: round3(entry.observations.bounds.min), max: round3(entry.observations.bounds.max) },
+        ...(entry.observations.breaches ? { breaches: entry.observations.breaches.map((breach: Json) => ({ min: round3(breach.box.min), max: round3(breach.box.max) })) } : {}),
+        lods: entry.lods.map((lod: Json) => ({ variant: lod.variant, ratio: lod.ratio, triangles: lod.triangles, switchDistanceHint: LOD_SWITCH_DISTANCE_HINTS[lod.level as "lod1" | "lod2"] })),
+        collisionProxies: stateProxies(intact, entry),
+      })),
+    ],
+  });
   const assetEntry = (item: Json, extra: Json) => ({
     key: item.entry.key, role: item.entry.role, category: item.entry.category, parentName: item.parentName,
     placement: { anchor: "footprint-base-center", translation: item.observations.translation },
@@ -400,6 +452,7 @@ export async function buildGreyhavenStarter({ outDir, lods = true, debris = lods
       variant: lod.level, ratio: lod.ratio, triangles: lod.triangles, switchDistanceHint: LOD_SWITCH_DISTANCE_HINTS[lod.level as "lod1" | "lod2"],
     }))],
     ...extra,
+    ...(item.damage ? { damage: damageEntry(item, extra.collisionProxies) } : {}),
   });
   const descriptor = {
     schema: GREYHAVEN_DESCRIPTOR_SCHEMA,
@@ -447,9 +500,11 @@ export async function buildGreyhavenStarter({ outDir, lods = true, debris = lods
         key: item.entry.key, variant: GREYHAVEN_BUNDLE_VARIANT,
         ...(item.entry.role === "wall" ? { attachments: [{ name: GREYHAVEN_DESCRIPTOR_ATTACHMENT }] } : {}),
       }, ...item.lods.map((lod: Json) => ({ key: item.entry.key, variant: lod.level })),
-      ...(item.debris ? [{ key: item.entry.key, variant: DEBRIS_VARIANT }] : [])]),
+      ...(item.debris ? [{ key: item.entry.key, variant: DEBRIS_VARIANT }] : []),
+      ...(item.damage ?? []).flatMap((entry: Json) => [{ key: item.entry.key, variant: entry.state }, ...entry.lods.map((lod: Json) => ({ key: item.entry.key, variant: lod.variant }))])]),
     },
-    inputs: { assets: built.flatMap((item) => [item.placed, ...item.lods.map((lod: Json) => lod.placed), ...(item.debris ? [item.debris.placed] : [])]), attachments: [descriptorRef] },
+    inputs: { assets: built.flatMap((item) => [item.placed, ...item.lods.map((lod: Json) => lod.placed), ...(item.debris ? [item.debris.placed] : []),
+      ...(item.damage ?? []).flatMap((entry: Json) => [entry.placed, ...entry.lods.map((lod: Json) => lod.placed)])]), attachments: [descriptorRef] },
   });
   const tarPath = path.join(root, GREYHAVEN_TAR_NAME);
   log("pack release tar (scripts/pack-asset-bundle.ts)");

@@ -2574,6 +2574,56 @@
     {
       "archiveMember": {
         "archive": "quaternius.medieval-village-megakit-standard",
+        "path": "glTF/Floor_WoodDark.bin"
+      },
+      "id": "quaternius.medieval-village-megakit-standard.floor-wooddark-bin",
+      "kind": "buffer",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/medievalvillagemegakit.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "application/octet-stream",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 2240,
+        "sha256": "cb43341c0969b62d82c11e2759caec854ea97ecba3bcb505d3300d57ebba7b81"
+      },
+      "tags": [
+        "greyhaven-starter",
+        "starter-kit"
+      ],
+      "title": "Medieval Village MegaKit — Floor_WoodDark (glTF buffer)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.medieval-village-megakit-standard",
+        "path": "glTF/Floor_WoodDark.gltf"
+      },
+      "id": "quaternius.medieval-village-megakit-standard.floor-wooddark-gltf",
+      "kind": "mesh",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/medievalvillagemegakit.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "model/gltf+json",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 2143,
+        "sha256": "2ee57724a06289164fee75ad62eb770f7f8cc9cb1b51c041da477c086775cd8d"
+      },
+      "tags": [
+        "greyhaven-starter",
+        "starter-kit"
+      ],
+      "title": "Medieval Village MegaKit — Floor_WoodDark (glTF)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.medieval-village-megakit-standard",
         "path": "glTF/Wall_Plaster_Straight.bin"
       },
       "id": "quaternius.medieval-village-megakit-standard.wall-plaster-straight-bin",

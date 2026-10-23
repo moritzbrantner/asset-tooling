@@ -167,7 +167,7 @@ Every entry, including the variations, also ships `lod1` (about 50 % of its tria
 
 ## Debris (#319)
 
-For breakable props (mmorpg#288), `greyhaven.starter.crate`, `greyhaven.starter.barrel` and `greyhaven.starter.fence` also ship a `debris` variant. [`adapters/blender/debris.py`](../adapters/blender/debris.py) splits the placed LOD0 in Blender with the fixed planes of `DEBRIS_PLANES` (`src/debris-recipe.ts`). There is no randomness and no add-on.
+For breakable props (mmorpg#288), `greyhaven.starter.crate`, `greyhaven.starter.barrel` and `greyhaven.starter.fence` also ship a `debris` variant, and so do the [destructible building pieces](#destructible-building-pieces-318). [`adapters/blender/debris.py`](../adapters/blender/debris.py) splits the placed LOD0 in Blender with the fixed planes of `DEBRIS_PLANES` (`src/debris-recipe.ts`). There is no randomness and no add-on.
 
 - Each cut is capped. The cap takes the material of the face it cuts through, with a planar UV projection, so the chunks keep the prop's textures.
 - Parts of a piece whose boxes do not touch become separate chunks, such as two fence rails cut free of their posts. Chunks smaller than 1 % of the prop's bounds volume are dropped.
@@ -184,6 +184,27 @@ The descriptor entry gains `debris: { variant: "debris", chunks[] }`. Each chunk
 Breaking, physics, despawn and loot stay with the consumer.
 
 `examples/greyhaven-kit/debris.json` shows each breakable prop next to its debris with the chunks pushed apart. Render it with `render-composition.py`; an item's `variant` and `explode` select the debris and push its chunks apart.
+
+## Destructible building pieces (#318)
+
+This section follows the owner decisions of 2026-10-18 on #318 for MMORPG destructible buildings: Battlefield-style staged destruction of authored pieces, with no real-time fracture.
+
+The wall with a doorway, the plain wall, the corner post, the roof and the floor (`greyhaven.starter.floor`, the kit's `Floor_WoodDark`) each ship three more states:
+
+- **`damaged`** ([`adapters/blender/damage.py`](../adapters/blender/damage.py)). An exact Boolean difference removes each breach of `DAMAGE_RECIPES` (`src/damage-recipe.ts`) from the placed LOD0. A breach is an irregular convex lump: 32 points on an ellipsoid, pulled in by a fixed jitter table. The faces cut into the piece take the material of the piece's largest surface, with box-mapped UVs.
+- **`destroyed`**. A stub: the piece below a few tilted planes, with the cuts capped. Parts that no longer rest on the base, directly or through parts they touch, are dropped.
+- **`debris`**. The pre-fractured chunks of [Debris](#debris-319), cut from the intact piece with that piece's `DEBRIS_PLANES` entry.
+
+Each state keeps the piece's materials and shared textures and has its own LODs: `damaged-lod1`, `damaged-lod2`, `destroyed-lod1` and `destroyed-lod2`, at the static ratios. Every state stays in the piece's placed frame, so a consumer swaps the variant in place. Nothing is random.
+
+The descriptor entry gains `damage.states[]`, in the order `intact` (`default`), `damaged`, `destroyed`. Each state gives its `variant` and `collisionProxies`. The damaged and destroyed states also give `triangles`, `bounds` and `lods`, and `damaged` adds its `breaches` boxes. The proxies come from the intact ones:
+
+- the damaged state subtracts each breach box, splitting a proxy into up to six boxes named `<name>-<n>`;
+- the destroyed state clips each proxy to the stub's bounds.
+
+Piece health, structural support between pieces, regrowth or repair, replication and physics stay with the consumer (Rapier, server-authoritative).
+
+To review the pieces, render `examples/greyhaven-kit/destruction.json` with `render-composition.py`. It shows every piece intact, damaged, destroyed and as exploded debris.
 
 ## Bundle and consumer pinning
 

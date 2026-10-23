@@ -12,6 +12,7 @@ import { parseAssetSpec } from "./schema.js";
  * Pre-fractured debris for breakable props (#319 for mmorpg#288): adapters/blender/debris.py cuts the placed prop with
  * fixed planes into a few chunks that keep its materials and textures. The chunks ship as the `debris` variant of the
  * same bundle entry. A plane's point is in fractions of the prop's bounds, and its normal is in the placed glTF frame.
+ * The #318 building pieces use the same recipe for the debris of their destruction (src/damage-recipe.ts).
  */
 export type DebrisPlane = { point: [number, number, number]; normal: [number, number, number] };
 export const DEBRIS_VARIANT = "debris";
@@ -35,6 +36,32 @@ export const DEBRIS_PLANES = Object.freeze({
     { point: [0.28, 0.5, 0.5], normal: [1, 0.25, 0] },
     { point: [0.55, 0.5, 0.5], normal: [1, -0.3, 0] },
     { point: [0.8, 0.5, 0.5], normal: [1, 0.2, 0] },
+  ],
+  // #318 building pieces: what falls when a piece is destroyed. Walls break into panels and beam pieces.
+  wall: [
+    { point: [0.3, 0.5, 0.5], normal: [1, 0.2, 0] },
+    { point: [0.7, 0.5, 0.5], normal: [1, -0.25, 0] },
+    { point: [0.5, 0.45, 0.5], normal: [0.15, 1, 0] },
+  ],
+  "wall-plain": [
+    { point: [0.35, 0.5, 0.5], normal: [1, 0.3, 0] },
+    { point: [0.68, 0.5, 0.5], normal: [1, -0.2, 0] },
+    { point: [0.5, 0.55, 0.5], normal: [-0.2, 1, 0] },
+  ],
+  // The corner post snaps into three lengths.
+  corner: [
+    { point: [0.5, 0.35, 0.5], normal: [0.4, 1, 0.2] },
+    { point: [0.5, 0.7, 0.5], normal: [-0.3, 1, 0.3] },
+  ],
+  roof: [
+    { point: [0.5, 0.5, 0.5], normal: [1, 0.1, 0.05] },
+    { point: [0.5, 0.5, 0.35], normal: [0.1, 0.05, 1] },
+    { point: [0.5, 0.5, 0.7], normal: [-0.1, 0.05, 1] },
+  ],
+  floor: [
+    { point: [0.35, 0.5, 0.5], normal: [1, 0, 0.2] },
+    { point: [0.7, 0.5, 0.5], normal: [1, 0, -0.3] },
+    { point: [0.5, 0.5, 0.5], normal: [0.15, 0, 1] },
   ],
 } satisfies Record<string, DebrisPlane[]>);
 
