@@ -48,7 +48,7 @@ jobs:
       - name: Set up Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
-          bun-version: 1.4.3
+          bun-version: latest
       - name: Test and validate example contract
         run: bun run check
 
@@ -61,7 +61,7 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
-          bun-version: 1.4.3
+          bun-version: latest
       - name: Install declared image codec
         run: sudo apt-get update && sudo apt-get install -y ffmpeg
       - run: bun install --frozen-lockfile
@@ -78,7 +78,7 @@ jobs:
       - name: Set up Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
-          bun-version: 1.4.3
+          bun-version: latest
       - name: Install pinned Blender
         run: echo "ASSET_TOOLING_BLENDER=$(bun scripts/install-blender.ts "$RUNNER_TEMP/blender")" >> "$GITHUB_ENV"
       - name: Install image inspection codec
@@ -109,7 +109,7 @@ jobs:
       - name: Set up Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
-          bun-version: 1.4.3
+          bun-version: latest
       - run: bun install --frozen-lockfile
       - name: Verify Git LFS object integrity
         run: |
