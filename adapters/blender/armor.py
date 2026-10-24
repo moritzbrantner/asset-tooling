@@ -16,6 +16,10 @@ a clearance, so the plate follows the real body and clothing instead of a primit
   character. The gambeson copies the Peasant shirt's surface and skin weights, offset outward, and adds a quilted
   skirt; the other garments are fitted surfaces whose weights blend the nearest body vertices.
 
+The resident kits (#376) reuse the fitting for plain clothes: ``farmer`` (smock), ``innkeeper`` (apron) and ``monk``
+(ankle-length habit), each with a belt as its plate. The ``beard`` kit has plates only: the facial hair shells fitted to
+the head (``beard.full``, ``beard.short``, ``beard.moustache``), riding ``Head``.
+
 Materials are factor-only PBR (docs/style-humanlike.md): ``steel``, ``iron``, ``leather``, ``gambeson`` and the
 ``faction`` slot (owner answer Q11: the knight's tabard and the soldier's sash, default muted dark red). The
 observations list, per piece, the joint it rides on and the base-character mesh nodes it hides (the per-piece
@@ -31,7 +35,11 @@ import bpy
 import numpy
 from mathutils import Matrix, Quaternion, Vector, kdtree
 
-KITS = ("soldier", "knight")
+KITS = ("soldier", "knight", "farmer", "innkeeper", "monk", "beard")
+# Resident outfits (#376): plain clothes over the Peasant base; their only rigid piece is a belt.
+RESIDENT_KITS = ("farmer", "innkeeper", "monk")
+# Facial hair (#376): rigid shells fitted to the head that ride ``Head``; plates only, worn with any outfit.
+BEARD_KIT = "beard"
 OUTPUTS = ("plates", "cloth")
 MATERIALS = {
     # name: (linear base colour, metallic, roughness)
@@ -40,11 +48,20 @@ MATERIALS = {
     "leather": ((.2, .1, .05), 0.0, .72),
     "gambeson": ((.42, .36, .26), 0.0, .9),
     "faction": ((.25, .04, .04), 0.0, .8),
+    # Resident cloth (#376): plant-dyed and undyed wool and linen, told apart by colour at the game camera.
+    "smock": ((.16, .17, .08), 0.0, .9),
+    "linen": ((.62, .6, .52), 0.0, .85),
+    "habit": ((.09, .055, .03), 0.0, .92),
+    "rope": ((.36, .28, .15), 0.0, .9),
+    # Facial hair: a consumer tints it with the hair tint through the base-colour factor.
+    "beard": ((.05, .025, .011), 0.0, .95),
 }
 SHARP_ANGLE = math.radians(35)
 SHIRT = "Male_Peasant_Body"
 # Pieces whose wearer hides a base mesh node completely (the hidden-body-region list, Q12).
-HIDES = {"soldier.gambeson": [SHIRT]}
+HIDES = {"soldier.gambeson": [SHIRT], "farmer.smock": [SHIRT], "monk.habit": [SHIRT]}
+# Tunics: the Peasant shirt's surface and skin weights pushed out (material, offset), plus a fitted skirt.
+TUNICS = {"soldier.gambeson": ("gambeson", .012), "farmer.smock": ("smock", .01), "monk.habit": ("habit", .012)}
 
 
 def validate(p, inputs):
@@ -53,7 +70,9 @@ def validate(p, inputs):
     if type(p["schemaVersion"]) is not int or p["schemaVersion"] != 1:
         raise ValueError("armor schemaVersion must be 1")
     if p["kit"] not in KITS or p["output"] not in OUTPUTS:
-        raise ValueError("armor kit must be soldier or knight and output plates or cloth")
+        raise ValueError(f"armor kit must be one of {', '.join(KITS)} and output plates or cloth")
+    if p["kit"] == BEARD_KIT and p["output"] != "plates":
+        raise ValueError("the beard kit has plates only")
     if set(inputs) != {"target"}:
         raise ValueError("armor takes exactly the declared input target")
 
@@ -380,8 +399,66 @@ def helmet(body, kit):
     return dome, None, crown + Vector((0, .012, 0))
 
 
+# Facial hair (#376) in the head's frame: heights in metres, angles in degrees from the front around the head's
+# vertical axis. ``top``/``hem`` give the upper and lower edge at the front and at the sides (linear in between, by
+# |angle| / ``reach``); below the chin the shell hangs, losing at most ``slope`` metres of radius per metre of height.
+BEARDS = {
+    "beard.full": {"reach": 115, "top": (1.598, 1.705), "hem": (1.49, 1.6), "clearance": .013, "slope": .25, "thickness": .012},
+    "beard.short": {"reach": 110, "top": (1.598, 1.69), "hem": (1.545, 1.6), "clearance": .007, "slope": .9, "thickness": .006},
+}
+BEARD_ROWS = 12
+MOUSTACHE = {"reach": 40, "rows": (1.617, 1.645), "droop": .03, "clearance": .007, "thickness": .007}
+
+
+def beard_plates(body):
+    centre, indices = head_centre(body)
+    head = body.select(["Head", "neck_01"], minimum=.5)
+    a = Vector((centre.x, 1.44, centre.z))
+    u, e1, e2 = Vector((0, 1, 0)), FRONT, Vector((1, 0, 0))
+    pieces = []
+    for name, spec in sorted(BEARDS.items()):
+        reach = math.radians(spec["reach"])
+        columns = 2 * int(spec["reach"] // 8) + 1
+        # The head's radius on a fine height table, then hung below the chin.
+        fine = numpy.arange(spec["hem"][0] - .01, 1.725, .004) - a.y
+        thetas = [-reach + 2 * reach * j / (columns - 1) for j in range(columns)]
+        radii = fit_radii(body, head, a, u, e1, e2, list(fine), thetas, .006, math.radians(5), False) + spec["clearance"]
+        for i in range(len(fine) - 2, -1, -1):
+            radii[i] = numpy.maximum(radii[i], radii[i + 1] - spec["slope"] * (fine[i + 1] - fine[i]))
+        # Each column runs from the hem to the top edge at its angle, so the outline is smooth.
+        grid = []
+        for i in range(BEARD_ROWS):
+            v = i / (BEARD_ROWS - 1)
+            row = []
+            for j, theta in enumerate(thetas):
+                k = min(1.0, abs(theta) / reach)
+                hem = spec["hem"][0] + (spec["hem"][1] - spec["hem"][0]) * k ** .7
+                top = spec["top"][0] + (spec["top"][1] - spec["top"][0]) * k ** 1.6
+                t = hem + (top - hem) * v - a.y
+                r = float(numpy.interp(t, fine, radii[:, j]))
+                row.append(a + u * t + (e1 * math.cos(theta) + e2 * math.sin(theta)) * r)
+            grid.append(row)
+        surface = {"grid": grid, "closed": False, "axis": (a, u), "thetas": thetas, "ts": list(range(BEARD_ROWS))}
+        pieces.append((name, "Head", "beard", surface, None, None, spec["thickness"]))
+    # The moustache: a band over the upper lip whose ends droop past the corners of the mouth.
+    reach = math.radians(MOUSTACHE["reach"])
+    low, high = MOUSTACHE["rows"]
+    ts = [low - a.y + (high - low) * i / 3 for i in range(4)]
+    thetas = [-reach + 2 * reach * j / 10 for j in range(11)]
+    radii = fit_radii(body, head, a, u, e1, e2, ts, thetas, .006, math.radians(6), False) + MOUSTACHE["clearance"]
+    grid = [[a + u * (t - MOUSTACHE["droop"] * (theta / reach) ** 2) + (e1 * math.cos(theta) + e2 * math.sin(theta)) * float(radii[i, j])
+             for j, theta in enumerate(thetas)] for i, t in enumerate(ts)]
+    pieces.append(("beard.moustache", "Head", "beard", {"grid": grid, "closed": False, "axis": (a, u), "thetas": thetas, "ts": ts},
+                   None, None, MOUSTACHE["thickness"]))
+    return pieces
+
+
 def plate_surfaces(body, rig, kit):
     """Every rigid piece of the kit: (node name, joint, material, surface, mask, apex, thickness)."""
+    if kit in RESIDENT_KITS:
+        return resident_plates(body, kit)
+    if kit == BEARD_KIT:
+        return beard_plates(body)
     pieces = []
     surface, mask, apex = helmet(body, kit)
     pieces.append((f"{kit}.{'bascinet' if kit == 'knight' else 'kettle-hat'}", "Head", "iron" if kit == "soldier" else "steel",
@@ -506,14 +583,10 @@ def cloth_tree(body, indices):
 def cloth_surfaces(body, rig, kit):
     """Skinned garments: list of (node name, material, builder vertices -> weights, kind)."""
     garments = []
+    if kit in RESIDENT_KITS:
+        return resident_cloth(body, kit)
     if kit == "soldier":
-        hips = body.select(["pelvis", "spine_01", "thigh_l", "thigh_r"], meshes=[SHIRT, "Male_Peasant_Legs"], minimum=.5)
-        centre = Vector((0, 0, float(body.array[hips][:, 2].mean())))
-        def skirt_profile(t, theta, r):
-            quilt = .003 * math.cos(theta * 14)
-            return r + .02 * t + quilt
-        skirt = ring_grid(body, hips, centre + Vector((0, 1.0, 0)), centre + Vector((0, .70, 0)), FRONT, Vector((1, 0, 0)),
-                          (0, 1), 8, None, 32, .016, skirt_profile, slab=.03)
+        skirt = tunic_skirt(body, .70, .02, 8, lambda theta: .003 * math.cos(theta * 14))
         garments.append(("soldier.gambeson", "gambeson", skirt, None))
         torso = body.select(["spine_01", "spine_02", "spine_03", "clavicle_l", "clavicle_r"], meshes=[SHIRT], minimum=.5)
         middle = Vector((0, 1.25, float(body.array[torso][:, 2].mean())))
@@ -544,6 +617,80 @@ def cloth_surfaces(body, rig, kit):
         settle_tabard(surface, mask, bodies, colliders)
         garments.append(("knight.tabard", "faction", surface, mask))
     return garments
+
+
+def tunic_skirt(body, bottom, flare, rows, ripple=None):
+    """A skirt fitted around the hips from the waist (1.0 m) down to ``bottom``, widening by ``flare`` at the hem."""
+    hips = body.select(["pelvis", "spine_01", "thigh_l", "thigh_r"], meshes=[SHIRT, "Male_Peasant_Legs"], minimum=.5)
+    centre = Vector((0, 0, float(body.array[hips][:, 2].mean())))
+    def profile(t, theta, r):
+        return r + flare * t + (ripple(theta) if ripple else 0)
+    return ring_grid(body, hips, centre + Vector((0, 1.0, 0)), centre + Vector((0, bottom, 0)), FRONT, Vector((1, 0, 0)),
+                     (0, 1), rows, None, 32, .016, profile, slab=.03)
+
+
+# Resident skirts (#376): (bottom height, hem flare, rows). The smock ends above the knee, the habit at the ankle.
+RESIDENT_SKIRTS = {"farmer.smock": (.6, .05, 10), "monk.habit": (.16, .15, 20)}
+# How far each long skirt blends toward the pelvis at its hem: (amount, from height, hem height).
+SETTLE = {"farmer.smock": (.3, 1.0, .6), "monk.habit": (.6, 1.0, .16), "innkeeper.apron": (.3, 1.03, .66)}
+# How far each side of a skirt follows the thigh on that side at its hem: (amount, from height, hem height, half-width of
+# the middle strip that blends between the thighs).
+STRIDE = {"farmer.smock": (1.0, 1.0, .6, .03), "monk.habit": (.6, 1.0, .16, .05), "innkeeper.apron": (.8, 1.03, .66, .05)}
+# The innkeeper's apron: bib from the chest to the waist, a wider skirt from the waist to mid-thigh; below the waist
+# the thighs move it (STRIDE).
+APRON = {"top": 1.37, "waist": 1.03, "hem": .66, "bib": .1, "skirt": .17, "clearance": .012, "rows": 20, "columns": 15}
+
+
+def resident_plates(body, kit):
+    """The resident kits' one rigid piece: a rope (farmer, monk) or leather (innkeeper) belt at the waist."""
+    waist = body.select(["pelvis", "spine_01", "thigh_l", "thigh_r"], meshes=[SHIRT, "Male_Peasant_Legs"], minimum=.5)
+    centre = Vector((0, 0, float(body.array[waist][:, 2].mean())))
+    leather = kit == "innkeeper"
+    low, high = (.985, 1.03) if leather else (.99, 1.015)
+    belt = ring_grid(body, waist, centre + Vector((0, low, 0)), centre + Vector((0, high, 0)), FRONT, Vector((1, 0, 0)),
+                     (0, 1), 3, None, 28, .03 if kit != "monk" else .032, slab=.03)
+    return [(f"{kit}.belt", "pelvis", "leather" if leather else "rope", belt, None, None, .006 if leather else .008)]
+
+
+def apron_surface(body):
+    """A front panel that follows the chest and belly, then hangs straight from the waist with soft folds."""
+    allowed = [i for i in body.select(None, meshes=[SHIRT, "Male_Peasant_Legs"], minimum=0)
+               if max(body.weights[i], key=body.weights[i].get) not in ARM_JOINTS]
+    points = body.array[allowed]
+    top, waist, hem, rows, columns = APRON["top"], APRON["waist"], APRON["hem"], APRON["rows"], APRON["columns"]
+    ys = [hem + (top - hem) * i / (rows - 1) for i in range(rows)]
+    step = ys[1] - ys[0]
+    grid, previous = [], None
+    for y in reversed(ys):
+        below = min(1.0, max(0.0, (waist + .03 - y) / .09))
+        half = APRON["bib"] + (APRON["skirt"] - APRON["bib"]) * below
+        hang = min(1.0, max(0.0, (waist - y) / .35))
+        row = []
+        for j in range(columns):
+            x = -half + 2 * half * j / (columns - 1)
+            near = (numpy.abs(points[:, 0] - x) < .035) & (numpy.abs(points[:, 1] - y) < .03)
+            z = float(points[near][:, 2].max()) + APRON["clearance"] + .02 * hang if near.any() else None
+            if previous is not None:
+                # Below the waist the cloth hangs: it never falls back toward the legs faster than a slight slope.
+                z = previous[j][2] - .15 * step if z is None else max(z, previous[j][2] - (.15 + .85 * (1 - hang)) * step)
+            if z is None:
+                raise ValueError("the apron found no body at its top edge")
+            fold = .008 * hang * math.sin(2 * math.pi * x / .09)
+            row.append(Vector((x, y, z + fold)))
+        grid.append(row)
+        previous = row
+    grid.reverse()
+    zc = float(points[:, 2].mean())
+    return {"grid": grid, "closed": False, "axis": (Vector((0, 1.0, zc)), Vector((1, 0, 0))),
+            "thetas": [p.x for p in grid[0]], "ts": ys}
+
+
+def resident_cloth(body, kit):
+    if kit == "innkeeper":
+        return [("innkeeper.apron", "linen", apron_surface(body), None)]
+    name = f"{kit}.{'smock' if kit == 'farmer' else 'habit'}"
+    bottom, flare, rows = RESIDENT_SKIRTS[name]
+    return [(name, TUNICS[name][0], tunic_skirt(body, bottom, flare, rows), None)]
 
 
 TABARD_HALF_WIDTH = .155
@@ -727,10 +874,10 @@ def skinned_object(name, mesh, rig_object, weights):
     return obj
 
 
-def offset_shirt(source, distance):
+def offset_shirt(source, distance, name):
     """The Peasant shirt's surface and skin weights, pushed ``distance`` outward along its normals."""
     mesh = source.data.copy()
-    mesh.name = "soldier.gambeson-shirt"
+    mesh.name = name
     for vertex in mesh.vertices:
         vertex.co = vertex.co + vertex.normal * distance
     while mesh.uv_layers:
@@ -895,7 +1042,7 @@ def generate(output_path, arguments, inputs):
             builder.shell(surface, .005 if slot == "faction" else .006, 0, mask)
             points = list(builder.points)
             allowed = body.select(None, meshes=[SHIRT, "Male_Peasant_Legs"], minimum=0)
-            if name in ("knight.tabard", "soldier.sash"):
+            if name in ("knight.tabard", "soldier.sash", "innkeeper.apron"):
                 # These ride the torso: arm and shoulder joints must not pull them off the shoulder or into a plate (#309).
                 allowed = [i for i in allowed if max(body.weights[i], key=body.weights[i].get) not in ARM_JOINTS]
             tree = cloth_tree(body, allowed)
@@ -905,16 +1052,28 @@ def generate(output_path, arguments, inputs):
                 # it blends back to the body's own weights between the plate's lower edge and the hips.
                 weights = [follow(w, "spine_03", (p[1] - TABARD_RIGID_FROM[0]) / (TABARD_RIGID_FROM[1] - TABARD_RIGID_FROM[0]))
                            for w, p in zip(weights, builder.points)]
+            if name in SETTLE:
+                # Long resident skirts blend toward the pelvis down to the hem, so a striding thigh does not drag the
+                # whole hem with it.
+                amount, top, bottom = SETTLE[name]
+                weights = [follow(w, "pelvis", amount * (top - p[1]) / (top - bottom)) for w, p in zip(weights, builder.points)]
+            if name in STRIDE:
+                # Then each side of the skirt swings with the thigh on that side, so a striding knee cannot push through;
+                # only a narrow strip down the middle stretches between them.
+                amount, top, bottom, middle = STRIDE[name]
+                weights = [follow(w, "thigh_l" if p[0] > 0 else "thigh_r", amount * (top - p[1]) / (top - bottom) * min(1.0, abs(p[0]) / middle))
+                           for w, p in zip(weights, builder.points)]
             if name == "soldier.sash":
                 # Over the shoulder the sash rides the upper chest, so the arm swing cannot lift it off (#309).
                 weights = [follow(w, "spine_03", (p[1] - 1.25) / .15) for w, p in zip(weights, builder.points)]
             mesh, triangles = finish_mesh(builder, name, [palette[slot]])
             # bmesh keeps vertex order through triangulation, so the weights stay aligned with the vertices.
-            parts = [skinned_object(name if name != "soldier.gambeson" else "soldier.gambeson-skirt", mesh, rig_object, weights)]
-            if name == "soldier.gambeson":
-                shirt_mesh = offset_shirt(shirt, .012)
-                shirt_mesh.materials.append(palette["gambeson"])
-                copy = bpy.data.objects.new("soldier.gambeson", shirt_mesh)
+            parts = [skinned_object(name if name not in TUNICS else f"{name}-skirt", mesh, rig_object, weights)]
+            if name in TUNICS:
+                tunic_material, offset = TUNICS[name]
+                shirt_mesh = offset_shirt(shirt, offset, f"{name}-shirt")
+                shirt_mesh.materials.append(palette[tunic_material])
+                copy = bpy.data.objects.new(name, shirt_mesh)
                 bpy.context.scene.collection.objects.link(copy)
                 copy.matrix_world = shirt.matrix_world.copy()
                 copy.parent = rig_object

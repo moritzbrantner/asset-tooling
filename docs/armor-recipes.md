@@ -1,4 +1,4 @@
-# Soldier and knight armour
+# Soldier and knight armour, resident clothes and beards
 
 [`adapters/blender/armor.py`](../adapters/blender/armor.py) (with `src/armor-recipes.ts`) authors the [#117](https://github.com/moritzbrantner/asset-tooling/issues/117) soldier and knight outfits. It runs through the pinned Blender script backend ([blender-script.md](blender-script.md)) and follows the owner answers of 2026-10-17. The male figure comes first (Q8).
 
@@ -29,6 +29,20 @@ After the owner's first review, the knight's shapes were reworked:
 ## Cloth drape (#314)
 
 - **Tabard:** the drape is a Blender cloth simulation, baked into the rest shape. The panels are cut wider (23 columns) and stay pinned where they ride the breastplate. Just below the breastplate's rim they are gathered to 78% of their width at the hips, while the springs keep the cut lengths, so the skirt below buckles into real folds as it settles over the body and the breastplate (72 frames, colliders only during the build). The settled positions are rounded to 0.01 mm. The skinned weights and the clearance over the breastplate are unchanged. Per-pose corrections (shape keys) are not baked yet.
+
+## Resident outfits (#376)
+
+The same recipe dresses the named Greyhaven residents ([humanoid-ranger.md](humanoid-ranger.md#resident-presets)). These are plain clothes over the Peasant outfit, scripted originals with factor-only materials: `smock` (plant-dyed green), `linen` (off-white), `habit` (dark brown wool) and `rope`.
+
+| Kit | Cloth | Plates | Hides |
+| --- | --- | --- | --- |
+| `farmer` | `farmer.smock`: the Peasant shirt pushed 10 mm out, with a fitted skirt to above the knee | `farmer.belt` (rope) | the shirt |
+| `innkeeper` | `innkeeper.apron`: a bib from the chest to the waist, then a wider skirt to mid-thigh that hangs straight, with soft folds | `innkeeper.belt` (leather, over the apron) | nothing |
+| `monk` | `monk.habit`: the shirt pushed 12 mm out, with a skirt to the ankle that widens toward the hem | `monk.belt` (rope) | the shirt |
+
+- **Skirts in motion:** the skirts blend their weights toward `pelvis` from the waist down to the hem (`SETTLE`: smock and apron 30 %, habit 60 %), then each side follows the thigh on its side (`STRIDE`: smock 100 %, apron 80 %, habit 60 % at the hem), so a striding knee does not push through; only a strip 3–5 cm either side of the middle blends between the thighs. The apron, like the tabard, ignores arm and shoulder joints.
+- **Beard kit:** `kit: "beard"` takes `output: "plates"` only. It fits `beard.full`, `beard.short` and `beard.moustache` to the head: each is a shell around the lower face whose radius follows the head's outermost vertices at each height and angle plus a clearance, hangs below the chin (it loses at most `slope` of radius per metre of height), and runs between a hem and a top edge that rise from the front to the sideburns. The moustache is a band over the upper lip whose ends droop past the mouth's corners. Every piece rides `Head` through the `head.armor` socket and has the `beard` material, which a consumer tints like the hair.
+- **Straw hat:** the farmer's hat is a [headwear](humanoid-ranger.md#contents) piece (`hat.straw` in `adapters/blender/headwear.py`), so any outfit can wear it.
 
 ## Fitting
 
@@ -69,12 +83,12 @@ The plates sit over the Peasant clothing with 1–2.5 cm of clearance instead of
 The Ranger bundle ([humanoid-ranger.md](humanoid-ranger.md#contents)) builds the soldier and knight like this:
 
 1. It composes the fitting target from `Male_Peasant` and the head subset.
-2. It runs both outputs for both kits.
+2. It runs both outputs for every outfit kit (soldier, knight and the [resident kits](#resident-outfits-376)), and the plates of the beard kit.
 3. It composes each outfit variant: the Peasant base without its hidden nodes, then the head and the kit's cloth. The variant gets the same retargeted clips; the build checks that its joints match the Ranger rig before embedding them.
-4. It ships the variants as `humanoid.ranger.male/outfit.soldier` and `/outfit.knight`.
-5. It ships the plates as the entries `armor.soldier` and `armor.knight`.
+4. It ships the variants as `humanoid.ranger.male/outfit.<kit>`.
+5. It ships the plates as the entries `armor.<kit>`, and the beards as `facial-hair.beards`.
 
-The `humanoid-appearance` attachment gains `outfits`. Each outfit lists its character variant, its armour entry with every node and its socket, its garments, the hidden base nodes and the faction slot.
+The `humanoid-appearance` attachment gains `outfits`. Each outfit lists its character variant, its armour entry with every node and its socket, its garments, the hidden base nodes and (soldier and knight) the faction slot.
 
 ## Finishing
 

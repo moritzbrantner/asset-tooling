@@ -6,11 +6,24 @@ import { parseAssetSpec } from "./schema.js";
  * `plates` is a static GLB of rigid pieces, one node per piece, in the character's rest model space; each piece
  * rides one joint through that joint's `<joint>.armor` socket. `cloth` is a GLB of garments skinned to the target's
  * own joints, composed into the character with `scene.compose.skinned.gltf@1`.
+ *
+ * The resident kits (#376) use the same fitting for plain clothes: the farmer's smock, the innkeeper's apron and the
+ * monk's habit, each with a belt as its one rigid piece. The `beard` kit has plates only: the facial hair pieces,
+ * fitted to the head and riding `Head`, worn with any outfit.
  */
-export type ArmorKit = "soldier" | "knight";
+export type ArmorOutfitKit = "soldier" | "knight" | "farmer" | "innkeeper" | "monk";
+export type ArmorKit = ArmorOutfitKit | "beard";
 export type ArmorOutput = "plates" | "cloth";
 export type ArmorParameters = { schemaVersion: 1; kit: ArmorKit; output: ArmorOutput };
-export const ARMOR_KITS: readonly ArmorKit[] = ["soldier", "knight"];
+/** The kits that dress the Peasant base as an outfit variant, in bundle order. */
+export const ARMOR_OUTFIT_KITS: readonly ArmorOutfitKit[] = ["soldier", "knight", "farmer", "innkeeper", "monk"];
+export const ARMOR_KITS: readonly ArmorKit[] = [...ARMOR_OUTFIT_KITS, "beard"];
+/** Outfit labels for the appearance descriptor. */
+export const ARMOR_KIT_LABELS = { soldier: "Soldier", knight: "Knight", farmer: "Farmer", innkeeper: "Innkeeper", monk: "Monk" } as const satisfies Record<ArmorOutfitKit, string>;
+/** The kits whose cloth carries the recolourable faction slot. */
+export const ARMOR_FACTION_KITS: readonly ArmorOutfitKit[] = ["soldier", "knight"];
+/** Facial hair pieces of the `beard` kit (node names in its plates GLB) with their labels. */
+export const ARMOR_BEARDS = { "beard.full": "Full beard", "beard.short": "Short beard", "beard.moustache": "Moustache" } as const;
 export const ARMOR_OUTPUTS: readonly ArmorOutput[] = ["plates", "cloth"];
 /** The base mesh nodes the armour is fitted over (the Male_Peasant outfit, owner answers #117 Q1/Q10). */
 export const ARMOR_BASE_NODES = ["Male_Peasant_Arms", "Male_Peasant_Body", "Male_Peasant_Feet", "Male_Peasant_Legs"] as const;
@@ -26,8 +39,9 @@ export function normalizeArmorParameters(value: unknown): ArmorParameters {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("armor parameters must be a plain object");
   const p = value as Record<string, unknown>;
   if (Object.keys(p).length !== 3 || p.schemaVersion !== 1) throw new Error("armor requires exactly schemaVersion 1, kit and output");
-  if (!ARMOR_KITS.includes(p.kit as ArmorKit)) throw new Error("armor kit must be soldier or knight");
+  if (!ARMOR_KITS.includes(p.kit as ArmorKit)) throw new Error(`armor kit must be one of ${ARMOR_KITS.join(", ")}`);
   if (!ARMOR_OUTPUTS.includes(p.output as ArmorOutput)) throw new Error("armor output must be plates or cloth");
+  if (p.kit === "beard" && p.output !== "plates") throw new Error("the beard kit has plates only");
   return { schemaVersion: 1, kit: p.kit as ArmorKit, output: p.output as ArmorOutput };
 }
 

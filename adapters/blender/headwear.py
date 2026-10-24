@@ -1,6 +1,7 @@
 """Original Ranger headwear (#336) for the pinned Blender script backend.
 
-Pieces: ``cap.ranger`` (soft felt cap with a leather band and a tapered plume, no peak) and ``helm.ironcrest``
+Pieces: ``cap.ranger`` (soft felt cap with a leather band and a tapered plume, no peak), ``hat.straw`` (#376: a farmer's
+wide-brimmed straw hat with a low flat crown and a band) and ``helm.ironcrest``
 (iron dome to the brow with a short neck guard, a brass rim, a nasal bar and a brass crest fin along the crown).
 The owner approved both shapes on the live Ranger (2026-10-21). The style rules are docs/style-humanlike.md.
 
@@ -21,9 +22,9 @@ import bmesh
 import bpy
 
 COMMON = {"schemaVersion", "piece", "maxTriangles"}
-PIECES = {"cap.ranger": {"segments": (12, 24, True)}, "helm.ironcrest": {"segments": (12, 24, True)}}
+PIECES = {"cap.ranger": {"segments": (12, 24, True)}, "helm.ironcrest": {"segments": (12, 24, True)}, "hat.straw": {"segments": (12, 24, True)}}
 # Style-spec triangle ceilings (docs/style-humanlike.md); maxTriangles may only lower them.
-BUDGETS = {"cap.ranger": 2000, "helm.ironcrest": 2500}
+BUDGETS = {"cap.ranger": 2000, "helm.ironcrest": 2500, "hat.straw": 2000}
 MATERIALS = {
     # name: (linear base colour, metallic, roughness); tuned under the game's environment lighting (rough, part-metallic metal: the game has little environment reflection, so full metal reads black; deep felt)
     "felt": ((.07, .13, .05), 0.0, .85),
@@ -31,8 +32,9 @@ MATERIALS = {
     "feather": ((.75, .7, .6), 0.0, .8),
     "iron": ((.30, .30, .31), .35, .65),
     "brass": ((.55, .38, .14), .45, .55),
+    "straw": ((.52, .4, .17), 0.0, .9),
 }
-PIECE_MATERIALS = {"cap.ranger": ["felt", "leather", "feather"], "helm.ironcrest": ["iron", "brass"]}
+PIECE_MATERIALS = {"cap.ranger": ["felt", "leather", "feather"], "helm.ironcrest": ["iron", "brass"], "hat.straw": ["straw", "leather"]}
 SHARP_ANGLE = math.radians(35)
 # The male Ranger's skull centre in rest model space (glTF axes), measured from the composed head.
 SKULL = (0.0, 1.70, .004)
@@ -44,7 +46,7 @@ def _number(value):
 
 def validate(p, inputs):
     if type(p) is not dict or p.get("piece") not in PIECES:
-        raise ValueError("headwear piece must be cap.ranger or helm.ironcrest")
+        raise ValueError("headwear piece must be one of " + ", ".join(sorted(PIECES)))
     piece = p["piece"]
     if set(p) != COMMON | set(PIECES[piece]):
         raise ValueError("headwear requires exactly the declared controls")
@@ -159,6 +161,30 @@ def cap(p):
     return [felt, band, plume]
 
 
+def straw_hat(p):
+    """A low crown with a flat, slightly sunken top, a band, and a wide brim that droops at its edge (#376)."""
+    straw, band = Part(0, .006, 1), Part(1, .006, 1)
+    n = p["segments"] * 2
+    cx, _cy, cz = SKULL
+    rx, rz, base = .112, .134, 1.728
+
+    def ring(scale, y, drop=0.0):
+        rows = []
+        for j in range(n):
+            a = 2 * math.pi * j / n
+            back = max(0.0, -math.cos(a))
+            rows.append((cx + rx * scale * math.sin(a), y - drop - .02 * back ** 1.5, cz + rz * scale * math.cos(a)))
+        return rows
+    # Brim from the outer edge in to the crown, so its quads face up like the crown's.
+    brim = [ring(1 + w, base - .004 + .006 * w, .03 * max(0.0, w - .55) ** 1.5 / .45 ** 1.5) for w in (1.0, .8, .55, .3, .12)]
+    crown = [ring(1.0, base), ring(.98, base + .045), ring(.94, base + .09), ring(.86, base + .112), ring(.7, base + .118)]
+    rows = [[straw.vert(q) for q in r] for r in brim + crown]
+    rows.append([straw.vert((cx, base + .112, cz))])
+    straw.quads(rows, cyclic=True)
+    band.quads([[band.vert(q) for q in ring(1.012, base + .004)], [band.vert(q) for q in ring(1.004, base + .03)]], cyclic=True)
+    return [straw, band]
+
+
 def helm(p):
     iron, rim, nasal, crest = Part(0, .008, 1), Part(1, .008, 1), Part(0, 0, 0), Part(1, .012, 0)
     n = p["segments"]
@@ -230,7 +256,7 @@ def generate(output_path, arguments, inputs):
     p, piece = arguments, arguments["piece"]
     bpy.ops.object.select_all(action="SELECT")
     bpy.ops.object.delete(use_global=False)
-    parts = (cap if piece == "cap.ranger" else helm)(p)
+    parts = {"cap.ranger": cap, "helm.ironcrest": helm, "hat.straw": straw_hat}[piece](p)
     points = [point for part in parts for point in part.points]
     names = PIECE_MATERIALS[piece]
     obj = build(parts, names)

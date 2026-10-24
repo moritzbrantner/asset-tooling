@@ -23,10 +23,12 @@ The `humanoid.ranger.male` bundle holds the following.
     - `default`: the archer, Dark skin.
     - `skin.light`: the Light skin, with the outfit's skin texture derived by a colour transfer (#116 Q13).
     - `outfit.soldier` and `outfit.knight`, plus their `.skin.light` variants: the Peasant outfit under the [armour](armor-recipes.md) (#117, #301, male only).
+    - `outfit.farmer`, `outfit.innkeeper` and `outfit.monk`, plus their `.skin.light` variants: the Peasant outfit with the [resident clothes](armor-recipes.md#resident-outfits-376) (#376, male only).
   - **Attachments:**
     - `humanoid-sockets`: the [sockets descriptor](humanoid-sockets.md), with hand, stowed, archery, hair and armour sockets.
     - `humanoid-clips`: per-clip motion metadata ([Clip motion](#clip-motion)).
     - `humanoid-appearance` (`humanoid-appearance-v1`): skins, the toggleable hood (`outfit.hood`), hairstyles with their textures and tints, eyebrows that follow the hair tint, and the outfits, and (male) the `headwear` list: each piece's `entry`, `label`, `socket` and the appearance parts it `hides` while worn (`outfit.hood` and `hair`). The `face` section lists the [facial variants](#facial-variants).
+      - Male only: `facialHair` and `presets` ([Resident presets](#resident-presets)).
 - **Facial variants (#348):** see [Facial variants](#facial-variants).
 - **Levels of detail (#123):** every character variant has `lod1` and `lod2` variants (`lod1`/`lod2` for `default`, `<variant>.lod1`/`.lod2` otherwise). They are listed in `humanoid-appearance.levelsOfDetail` ([levels-of-detail.md](levels-of-detail.md)).
 - **Clips:** they ship once, embedded in `default`. Every other character variant and level shares the same joints and rest pose, and plays them by joint name. Every clip is in place. In bundle order:
@@ -35,8 +37,9 @@ The `humanoid.ranger.male` bundle holds the following.
   - the original authored jog clips `Jog_Bwd_Loop`, `Jog_Strafe_Left_Loop` and `Jog_Strafe_Right_Loop` ([Authored jog clips](#authored-jog-clips)).
 - **Equipment entries:** `equipment.sword.arming`, `equipment.shield.heater` ([weapon recipes](weapon-recipes.md)) and `equipment.bow.long` (skinned to `grip` and `nock`), `equipment.arrow` and `equipment.quiver.back` ([archery](weapon-recipes.md#archery)), all parented at runtime through the sockets.
 - **Hair entries:** `hair.buzzed`, `hair.simple-parted` and `hair.long` (male) or `hair.long` and `hair.buns` (female), each with the variants `hair-1` and `hair-2`, on the `head.hair` socket. The pack textures `T_Hair_1` and `T_Hair_2` are per-mesh bakes with different UV layouts, so every style carries its own pack in both variants (#336; swapping packs garbled the strands). The male `hair.long` also merges the `Hair_Buzzed` cap as its crown, because Quaternius `Hair_Long` is only a fringe and a back curtain; its `tintMaterials` are `MI_Hair_2` (strands) and `MI_Hair_1` (crown). The hair materials are opaque, like the source: the packs have no alpha.
-- **Armour entries:** `armor.soldier` and `armor.knight` (male).
-- **Headwear entries (#336, male):** `equipment.cap.ranger` (Ranger's Cap: felt crown, leather band and plume) and `equipment.helm.ironcrest` (Ironcrest Helm: iron dome, brass rim and crest fin, nasal bar) from the [headwear recipe](../adapters/blender/headwear.py). Each GLB holds one mesh node named after its piece and an identity `grip` node; the geometry is in the male rest model space around the head, so the `head.armor` socket places it. The owner approved both shapes on the live Ranger (2026-10-21). Both hide the hair (owner answer, 2026-10-21).
+- **Armour entries:** `armor.soldier`, `armor.knight`, `armor.farmer`, `armor.innkeeper` and `armor.monk` (male).
+- **Facial hair entry (#376, male):** `facial-hair.beards`, with the nodes `beard.full`, `beard.short` and `beard.moustache` ([Resident presets](#resident-presets)).
+- **Headwear entries (#336, #376, male):** `equipment.cap.ranger` (Ranger's Cap: felt crown, leather band and plume), `equipment.hat.straw` (Straw Hat: low flat crown, leather band, wide brim drooping at the edge; #376) and `equipment.helm.ironcrest` (Ironcrest Helm: iron dome, brass rim and crest fin, nasal bar) from the [headwear recipe](../adapters/blender/headwear.py). Each GLB holds one mesh node named after its piece and an identity `grip` node; the geometry is in the male rest model space around the head, so the `head.armor` socket places it. The owner approved the cap and helm on the live Ranger (2026-10-21). All three hide the hair (owner answer, 2026-10-21).
 
 ### Facial variants
 
@@ -54,6 +57,25 @@ Face shape, eyes, nose and mouth can each be chosen independently (#348). Each f
 - **Descriptor:** `humanoid-appearance.face` has `nodes` (the meshes carrying the targets), `features` (each with `id`, `label`, `default` and `options`; each option's `morphs` maps target names to weights, empty for the base), `variants` (the full-detail character variants that carry the targets: `default`, `skin.light` and the outfit variants) and `unsupported`. A consumer sets the weights on `mesh.morphTargetInfluences` by `morphTargetDictionary` name.
 - **Unsupported:** the `lod1`/`lod2` variants carry no morph targets and show the base face (`face.unsupported`). A consumer must refuse a non-base option on them, or use the full-detail variant. At their switch distances (15 m and more) the face is a few pixels.
 - **Build:** the plain composition stays the clip-authoring rig, the armour fit target and the source of the default levels of detail. The shipped characters compose the head part with the morph targets.
+
+### Resident presets
+
+The named Greyhaven residents of [mmorpg#418](https://github.com/moritzbrantner/mmorpg/issues/418) get one complete look each (#376), all on the male figure and its clips. A preset only combines options the descriptor already offers, and the build fails if one names an option that is missing (`validateAppearancePresets`).
+
+| Preset | Resident | Outfit | Skin | Hair and tint | Headwear | Facial hair | Face, eyes, nose, mouth |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `resident.marshal` | Marshal Elden Greywatch | `outfit.knight` without `knight.bascinet`, Greyhaven faction colour | Light | `hair.simple-parted`, grey | none | full beard, moustache | broad, narrow, long, thin |
+| `resident.guard` | the four Greyhaven Guards | `outfit.soldier` (kettle hat), Greyhaven faction colour | Dark | `hair.buzzed`, black | none | short beard | broad, base, broad, base |
+| `resident.innkeeper` | Innkeeper Bram Tolliver | `outfit.innkeeper` (white apron, leather belt) | Light | `hair.buzzed`, brown | none | moustache | broad, large, broad, full |
+| `resident.farmer` | Farmer Osric Mill | `outfit.farmer` (green smock, rope belt) | Dark | hidden, blond | straw hat | short beard | narrow, base, long, base |
+| `resident.healer` | Brother Aldous | `outfit.monk` (brown ankle-length habit, rope belt) | Light | `hair.buzzed`, grey | none | full beard | narrow, narrow, long, thin |
+
+Tanner Hilda Brook is not covered yet: the resident outfits exist for the male figure only.
+
+- **Descriptor:** `humanoid-appearance.presets` lists each preset's `id`, `label`, `outfit`, `skin`, `hair` (absent when the headwear hides it), `tint`, `headwear`, `facialHair` (ids), `face` (one option per feature), `hiddenArmor` (plate nodes of the outfit's armour entry to leave off) and `faction` (a linear RGBA base-colour factor for the outfit's faction material, for the soldier and knight). A consumer resolves the outfit's variant for the preset's skin through `outfits[].skins`.
+- **Facial hair:** `humanoid-appearance.facialHair` names the entry `facial-hair.beards` and its `options`. Each option is one node with its `socket` (`head.armor`) and `tintMaterials`; several can be worn together. The pieces are rigid shells fitted to the head by the armour recipe ([armor-recipes.md](armor-recipes.md#resident-outfits-376)) and ride `Head`. Their materials have no texture, so `facialHair.tints` gives each hair tint's matching base-colour factor: the tint times the mean colour of `T_Hair_1` (`RANGER_HAIR_TEXTURE_MEAN`, 0.275).
+- **Grey hair:** the `tint.grey` hair tint (#376) is close to white, so the hair shows the grey of its texture.
+- **Greyhaven faction colour:** `RANGER_GREYHAVEN_FACTION`, a dark slate blue (linear 0.05, 0.08, 0.15).
 
 ### Mixamo retarget
 

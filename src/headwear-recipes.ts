@@ -1,13 +1,13 @@
 import {readBlenderRecipeSource} from "./blender-recipe-source.js";
 import {parseAssetSpec} from "./schema.js";
 
-export type HeadwearPiece="cap.ranger"|"helm.ironcrest";
+export type HeadwearPiece="cap.ranger"|"helm.ironcrest"|"hat.straw";
 export type HeadwearParameters={schemaVersion:1;piece:HeadwearPiece;segments:number;maxTriangles:number};
 
 /** Style-spec triangle ceilings (docs/style-humanlike.md). `maxTriangles` may lower, never raise, them. */
-export const HEADWEAR_TRIANGLE_BUDGETS=Object.freeze({"cap.ranger":2000,"helm.ironcrest":2500}) satisfies Record<HeadwearPiece,number>;
+export const HEADWEAR_TRIANGLE_BUDGETS=Object.freeze({"cap.ranger":2000,"helm.ironcrest":2500,"hat.straw":2000}) satisfies Record<HeadwearPiece,number>;
 export const HEADWEAR_MATERIALS=Object.freeze({"cap.ranger":Object.freeze(["felt","leather","feather"] as const),
- "helm.ironcrest":Object.freeze(["iron","brass"] as const)}) satisfies Record<HeadwearPiece,readonly string[]>;
+ "helm.ironcrest":Object.freeze(["iron","brass"] as const),"hat.straw":Object.freeze(["straw","leather"] as const)}) satisfies Record<HeadwearPiece,readonly string[]>;
 /**
  * Every GLB's geometry is in the male Ranger's rest model space around its head; the empty node `grip` sits at the
  * origin with an identity transform, so the `head.armor` socket (the inverse Head rest transform) places it.
@@ -15,13 +15,14 @@ export const HEADWEAR_MATERIALS=Object.freeze({"cap.ranger":Object.freeze(["felt
 export const HEADWEAR_CONTRACT=Object.freeze({schemaVersion:1,unit:"meter",axes:"right-handed-y-up",origin:"grip",gripNode:"grip",
  space:"rest-model",socket:"head.armor",role:"armor"});
 /** The appearance parts each piece hides while worn (owner answers on #336: both hide the hood and the hair). */
-export const HEADWEAR_HIDES=Object.freeze({"cap.ranger":Object.freeze(["outfit.hood","hair"]),"helm.ironcrest":Object.freeze(["outfit.hood","hair"])}) satisfies Record<HeadwearPiece,readonly string[]>;
+export const HEADWEAR_HIDES=Object.freeze({"cap.ranger":Object.freeze(["outfit.hood","hair"]),"helm.ironcrest":Object.freeze(["outfit.hood","hair"]),
+ "hat.straw":Object.freeze(["outfit.hood","hair"])}) satisfies Record<HeadwearPiece,readonly string[]>;
 
 export function normalizeHeadwearParameters(value:unknown):HeadwearParameters {
  if(!value || typeof value!=="object" || Array.isArray(value) || ![Object.prototype,null].includes(Object.getPrototypeOf(value))) throw new Error("headwear parameters must be a plain object");
  // Admit the external JSON record before reading its declared controls.
  const p=value as Record<string,unknown>;
- if(typeof p.piece!=="string" || !Object.hasOwn(HEADWEAR_TRIANGLE_BUDGETS,p.piece)) throw new Error("headwear piece must be cap.ranger or helm.ironcrest");
+ if(typeof p.piece!=="string" || !Object.hasOwn(HEADWEAR_TRIANGLE_BUDGETS,p.piece)) throw new Error(`headwear piece must be one of ${Object.keys(HEADWEAR_TRIANGLE_BUDGETS).join(", ")}`);
  const piece=p.piece as HeadwearPiece,keys=["schemaVersion","piece","segments","maxTriangles"];
  if(Object.keys(p).length!==keys.length || keys.some(k=>!Object.hasOwn(p,k))) throw new Error("headwear requires exactly the declared controls");
  if(p.schemaVersion!==1) throw new Error("headwear schemaVersion must be 1");
@@ -49,4 +50,5 @@ export function createHeadwearAssetSpec({assetId,parameters,scriptSha256,blender
 export const HEADWEAR_PRESETS=Object.freeze({
  "cap.ranger":Object.freeze({schemaVersion:1,piece:"cap.ranger",segments:16,maxTriangles:2000}),
  "helm.ironcrest":Object.freeze({schemaVersion:1,piece:"helm.ironcrest",segments:16,maxTriangles:2500}),
+ "hat.straw":Object.freeze({schemaVersion:1,piece:"hat.straw",segments:16,maxTriangles:2000}),
 }) satisfies Record<HeadwearPiece,HeadwearParameters>;

@@ -7,6 +7,10 @@ test("armour parameters name a kit and an output and nothing else", () => {
   assert.throws(() => normalizeArmorParameters({ schemaVersion: 1, kit: "archer", output: "plates" }), /kit/);
   assert.throws(() => normalizeArmorParameters({ schemaVersion: 1, kit: "soldier", output: "boots" }), /output/);
   assert.throws(() => normalizeArmorParameters({ schemaVersion: 1, kit: "soldier", output: "cloth", extra: 1 }), /exactly/);
+  // #376: the resident kits have both outputs; the beard kit has plates only.
+  for (const kit of ["farmer", "innkeeper", "monk"]) for (const output of ["plates", "cloth"]) normalizeArmorParameters({ schemaVersion: 1, kit, output });
+  assert.deepEqual(normalizeArmorParameters({ schemaVersion: 1, kit: "beard", output: "plates" }), { schemaVersion: 1, kit: "beard", output: "plates" });
+  assert.throws(() => normalizeArmorParameters({ schemaVersion: 1, kit: "beard", output: "cloth" }), /plates only/);
 });
 
 test("the armour spec declares the recipe script and the fitting target as hash-pinned inputs", async () => {

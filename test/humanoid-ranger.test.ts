@@ -19,11 +19,13 @@ import { validateHumanoidSocketDescriptor } from "../src/humanoid-sockets.js";
 import {
   RANGER_APPEARANCE, RANGER_ARCHERY, RANGER_AUTHORED_CLIPS, RANGER_BOW_CLIPS, RANGER_BONE_MAP, RANGER_BUNDLE_KEY, RANGER_BUNDLE_VARIANT, RANGER_CLIPS,
   RANGER_CLIPS_ATTACHMENT, RANGER_CLIP_ROLES, RANGER_FIGURES, RANGER_GAITS, RANGER_HAIR_TINTS, RANGER_MEMBERS, RANGER_MIXAMO_BONE_MAP,
-  RANGER_ITEM_ATTACHMENT, RANGER_SOCKETS_ATTACHMENT, RANGER_SOCKETS_DESCRIPTOR, RANGER_TEXTURE_POLICY, RANGER_UBC_BONE_MAP, RANGER_WEAPONS,
+  RANGER_FACIAL_HAIR_ENTRY, RANGER_ITEM_ATTACHMENT, RANGER_RESIDENT_PRESETS, RANGER_SOCKETS_ATTACHMENT, RANGER_SOCKETS_DESCRIPTOR, RANGER_TEXTURE_POLICY,
+  RANGER_UBC_BONE_MAP, RANGER_WEAPONS, validateAppearancePresets,
   buildRangerCharacter, rangerItemDescriptor,
 } from "../scripts/build-ranger-character.ts";
 import { WEAPON_ROLES } from "../src/weapon-recipes.js";
 import { FACE_MORPH_NODES, FACE_MORPH_TARGETS } from "../src/face-variants.js";
+import { ARMOR_OUTFIT_KITS } from "../src/armor-recipes.js";
 
 const ROOT = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
 const CHECKOUT = process.env.ASSET_TOOLING_PROCESSOR_CHECKOUT_3DLAB;
@@ -83,6 +85,26 @@ test("every spine joint is retargeted exactly once; UAL2 and Mixamo bind the sam
   assert.ok(Object.values(RANGER_MIXAMO_BONE_MAP).every(({ source }) => source.startsWith("mixamorig:")));
 });
 
+test("resident presets must name options the appearance descriptor offers", () => {
+  const options = (...ids: string[]) => ids.map((id) => ({ id }));
+  const descriptor: any = {
+    skins: options("skin.dark", "skin.light"), hair: options("hair.buzzed", "hair.simple-parted"), tints: options("tint.black", "tint.brown", "tint.blond", "tint.grey"),
+    headwear: options("equipment.hat.straw"), facialHair: { options: options("beard.full", "beard.short", "beard.moustache") },
+    face: { features: ["face", "eyes", "nose", "mouth"].map((feature) => ({ id: feature, options: options(...["base", "broad", "narrow", "large", "long", "full", "thin"].map((o) => `${feature}.${o}`)) })) },
+    outfits: [
+      { id: "outfit.knight", skins: options("skin.dark", "skin.light"), armor: { pieces: [{ node: "knight.bascinet" }] }, faction: {} },
+      { id: "outfit.soldier", skins: options("skin.dark", "skin.light"), armor: { pieces: [] }, faction: {} },
+      ...["farmer", "innkeeper", "monk"].map((kit) => ({ id: `outfit.${kit}`, skins: options("skin.dark", "skin.light"), armor: { pieces: [] } })),
+    ],
+  };
+  validateAppearancePresets(descriptor, RANGER_RESIDENT_PRESETS);
+  const [marshal] = RANGER_RESIDENT_PRESETS;
+  assert.throws(() => validateAppearancePresets(descriptor, [{ ...marshal!, facialHair: ["beard.braided"] }]), /facial hair/);
+  assert.throws(() => validateAppearancePresets(descriptor, [{ ...marshal!, hiddenArmor: ["knight.visor"] }]), /plate/);
+  assert.throws(() => validateAppearancePresets(descriptor, [{ ...marshal!, outfit: "outfit.farmer" }]), /plate|faction/);
+  assert.throws(() => validateAppearancePresets(descriptor, [{ ...marshal!, hair: undefined }]), /hair or headwear/);
+});
+
 test("the Ranger declares its equipment, figures, appearance and texture limits", () => {
   assert.deepEqual(RANGER_WEAPONS.map((item) => item.key), ["equipment.sword.arming", "equipment.shield.heater"]);
   assert.deepEqual(RANGER_ARCHERY.map((item) => item.key), ["equipment.bow.long", "equipment.arrow", "equipment.quiver.back"]);
@@ -94,7 +116,7 @@ test("the Ranger declares its equipment, figures, appearance and texture limits"
   assert.deepEqual([...RANGER_APPEARANCE.female.hair], ["Hair_Long", "Hair_Buns"]);
   assert.equal(RANGER_APPEARANCE.male.hood, "Male_Ranger_Head_Hood");
   assert.equal(RANGER_APPEARANCE.female.hood, "Female_Ranger_Head_Hood");
-  assert.deepEqual(Object.keys(RANGER_HAIR_TINTS), ["black", "brown", "blond"]);
+  assert.deepEqual(Object.keys(RANGER_HAIR_TINTS), ["black", "brown", "blond", "grey"]);
   assert.deepEqual(RANGER_TEXTURE_POLICY, {
     maxEdgeBySlot: { baseColor: 1024, normal: 1024, metallicRoughness: 512, occlusion: 512, emissive: 1024 }, default: 1024,
   });
@@ -109,7 +131,8 @@ test("the Ranger recipe builds a verified bundle: in-place clips, equipment entr
     const { manifest } = await verifyAssetBundle(built.bundleDir, built.exportRef, { profile: GLTF_RESOURCES_BUNDLE_PROFILE });
     const entries = manifest.assets.map((entry) => `${entry.key}/${entry.variant}`);
     for (const expected of [`${RANGER_BUNDLE_KEY}/${RANGER_BUNDLE_VARIANT}`, `${RANGER_BUNDLE_KEY}/skin.light`, `${RANGER_BUNDLE_KEY}/outfit.soldier`,
-      `${RANGER_BUNDLE_KEY}/outfit.knight`, "armor.soldier/default", "armor.knight/default", ...[...RANGER_WEAPONS, ...RANGER_ARCHERY].map((item) => `${item.key}/default`)]) {
+      ...["knight", "farmer", "innkeeper", "monk"].map((kit) => `${RANGER_BUNDLE_KEY}/outfit.${kit}`), ...ARMOR_OUTFIT_KITS.map((kit) => `armor.${kit}/default`),
+      `${RANGER_FACIAL_HAIR_ENTRY}/default`, ...[...RANGER_WEAPONS, ...RANGER_ARCHERY].map((item) => `${item.key}/default`)]) {
       assert.ok(entries.includes(expected), expected);
     }
     const entry = manifest.assets.find((candidate) => candidate.key === RANGER_BUNDLE_KEY)!;
@@ -186,6 +209,10 @@ test("the Ranger recipe builds a verified bundle: in-place clips, equipment entr
     };
     for (const variant of appearance.face.variants) assert.deepEqual(await morphNodes(variant), [...FACE_MORPH_NODES.male].sort(), variant);
     for (const variant of appearance.face.unsupported.variants) assert.deepEqual(await morphNodes(variant), [], variant);
+    // #376: the resident presets and the facial hair they name ship in the descriptor.
+    assert.deepEqual(appearance.presets.map((preset: any) => preset.id), RANGER_RESIDENT_PRESETS.map((preset) => preset.id));
+    assert.deepEqual(appearance.facialHair.options.map((option: any) => option.id).sort(), ["beard.full", "beard.moustache", "beard.short"]);
+    validateAppearancePresets(appearance, RANGER_RESIDENT_PRESETS);
     for (const { key } of [...RANGER_WEAPONS, ...RANGER_ARCHERY]) assert.deepEqual(built.lineage.textures![key], { images: 0 }, key);
 
     const joints = document.getRoot().listSkins()[0]!.listJoints();
