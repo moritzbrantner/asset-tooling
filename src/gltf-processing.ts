@@ -183,8 +183,9 @@ function supportedPolicy(json: GLTF.IGLTF, allowRigged: boolean) {
   inspectExtensions(json, "");
   for (const [meshIndex, mesh] of (json.meshes ?? []).entries()) {
     for (const [index, primitive] of mesh.primitives.entries()) {
-      if ((primitive.mode ?? 4) !== 4 || primitive.targets?.length) {
-        throw new Error(`${profile} requires non-morph triangles at /meshes/${meshIndex}/primitives/${index}`);
+      // Rigged characters may carry morph targets (the Ranger face variants, #348); static geometry may not.
+      if ((primitive.mode ?? 4) !== 4 || (!allowRigged && primitive.targets?.length)) {
+        throw new Error(`${profile} requires ${allowRigged ? "" : "non-morph "}triangles at /meshes/${meshIndex}/primitives/${index}`);
       }
     }
   }

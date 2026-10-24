@@ -97,10 +97,11 @@ The **Processed character** controls compose the processed view from the same wo
 - The armour pieces of the outfit's `armor` entry ride their `<joint>.armor` sockets, and the nodes listed as hidden are hidden.
 - **Hood** toggles the `outfit.hood` part. It is disabled for a variant without the hood.
 - **Hair** parents a hair entry under `head.hair`. **Hair colour** is a tint over its `hair-1` texture or the untinted `hair-2` texture. Tinted eyebrows follow the hair tint.
+- **Face shape**, **Eyes**, **Nose** and **Mouth** (#348) set the morph weights of the options in `humanoid-appearance.face`. Each changes only its own feature. A level of detail has no face morph targets, so a non-base face option is refused on it.
 - **Faction colour** sets the base colour of the outfit's `faction` materials (soldier sash, knight tabard).
 - The clips ship once, in the `default` variant. Every composed variant plays them through the shared joint names, so the clip and time stay in step with the other views after any change.
 
-The look is kept in the URL (`outfit`, `skin`, `hood`, `hair`, `color`, `faction`, `lod`; defaults are omitted), so a reload restores it.
+The look is kept in the URL (`outfit`, `skin`, `hood`, `hair`, `color`, `faction`, `lod`, `face`, `eyes`, `nose`, `mouth`; defaults are omitted), so a reload restores it.
 
 An incompatible choice is refused. For example, a hairstyle whose `requires` says `outfit.hood: false` is refused while the hood is shown. The previous character and controls stay, and the reason appears under the controls. A URL look that cannot be composed falls back to the default look and shows the reason. Each change is a new request, so a slower earlier composition never replaces a newer one.
 

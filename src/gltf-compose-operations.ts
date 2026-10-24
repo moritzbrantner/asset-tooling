@@ -75,7 +75,7 @@ function normalizeParameters(value: unknown): { policy: Policy } {
 async function checkedInputs(root: string, invocation: Invocation) {
   const parameters = normalizeParameters(invocation.parameters ?? {});
   const identity = createAssetOperationBuildIdentity({
-    operation: GLTF_COMPOSE_SKINNED_OPERATION, implementation: { id: "gltf-transform-skinned-compose", version: "1" },
+    operation: GLTF_COMPOSE_SKINNED_OPERATION, implementation: { id: "gltf-transform-skinned-compose", version: "2" },
     parameters, inputs: invocation.inputs ?? {},
   });
   const skeleton = identity.inputs.skeleton as AssetRef;
@@ -93,7 +93,7 @@ export async function createGltfComposeSkinnedOperationBuildIdentity(root: strin
   return createAssetOperationBuildIdentity({
     operation: GLTF_COMPOSE_SKINNED_OPERATION, parameters: identity.parameters, inputs: identity.inputs,
     implementation: {
-      id: "gltf-transform-skinned-compose", version: "1", gltfTransform: VERSION, validator: validatorVersion(),
+      id: "gltf-transform-skinned-compose", version: "2", gltfTransform: VERSION, validator: validatorVersion(),
       policies: {
         weightSum: GLTF_WEIGHT_SUM_POLICY, restTolerance: GLTF_COMPOSE_REST_TOLERANCE,
         supersededValidatorCodes: PRODUCTION_SUPERSEDED_VALIDATOR_CODES,
@@ -203,7 +203,7 @@ function composePart(output: Document, part: Document, joints: Map<string, Node>
     let copy = accessors.get(value);
     if (!copy) {
       copy = output.createAccessor(value.getName()).setType(value.getType()).setArray(value.getArray()!.slice())
-        .setNormalized(value.getNormalized()).setBuffer(buffer).setExtras(structuredClone(value.getExtras()));
+        .setNormalized(value.getNormalized()).setSparse(value.getSparse()).setBuffer(buffer).setExtras(structuredClone(value.getExtras()));
       accessors.set(value, copy);
     }
     return copy;
@@ -212,11 +212,17 @@ function composePart(output: Document, part: Document, joints: Map<string, Node>
   const mesh = (value: Mesh) => {
     let copy = meshes.get(value);
     if (copy) return copy;
-    copy = output.createMesh(value.getName()).setExtras(structuredClone(value.getExtras()));
+    copy = output.createMesh(value.getName()).setExtras(structuredClone(value.getExtras())).setWeights([...value.getWeights()]);
     for (const primitive of value.listPrimitives()) {
       const target = output.createPrimitive().setMode(primitive.getMode()).setIndices(accessor(primitive.getIndices()))
         .setMaterial(material(primitive.getMaterial())).setExtras(structuredClone(primitive.getExtras()));
       for (const semantic of primitive.listSemantics()) target.setAttribute(semantic, accessor(primitive.getAttribute(semantic)));
+      // Morph targets (e.g. the Ranger facial variants, #348) travel with their primitive.
+      for (const morph of primitive.listTargets()) {
+        const copied = output.createPrimitiveTarget(morph.getName()).setExtras(structuredClone(morph.getExtras()));
+        for (const semantic of morph.listSemantics()) copied.setAttribute(semantic, accessor(morph.getAttribute(semantic)));
+        target.addTarget(copied);
+      }
       copy.addPrimitive(target);
     }
     meshes.set(value, copy);

@@ -43,6 +43,9 @@ def generate(output_path, arguments, inputs):
     levels = []
     for obj in meshes:
         before = triangles(obj)
+        # Levels carry no morph targets (e.g. the #348 face variants): they keep the basis shape.
+        if obj.data.shape_keys:
+            obj.shape_key_clear()
         # glTF splits vertices at UV and normal seams; weld them first so the collapse sees one connected surface
         # (Blender keeps UVs per face corner, so the seams survive). Without this, collapse shreds seamed meshes.
         bm = bmesh.new()

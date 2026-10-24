@@ -35,6 +35,7 @@ import { LOD_LEVELS, LOD_RATIOS, LOD_SWITCH_DISTANCE_HINTS, generateLodLevel, ty
 import { ARMOR_FACTION, ARMOR_KITS, createArmorAssetSpec, readArmorRecipeSource, type ArmorKit, type ArmorOutput } from "../src/armor-recipes.js";
 import { ARCHERY_PRESETS, ARCHERY_ROLES, createArcheryAssetSpec, readArcheryRecipeSource, type ArcheryPiece } from "../src/archery-recipes.js";
 import { HEADWEAR_CONTRACT, HEADWEAR_HIDES, HEADWEAR_PRESETS, createHeadwearAssetSpec, readHeadwearRecipeSource, type HeadwearPiece } from "../src/headwear-recipes.js";
+import { FACE_MORPH_NODES, addFaceVariants, applyFaceVariants, faceAppearance } from "../src/face-variants.js";
 import type { AssetOperationResult, AssetRef } from "../src/operations.js";
 
 type Json = Record<string, any>;
@@ -690,6 +691,11 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
   const head = single(await executeGltfSubsetSkinnedOperation(root, { inputs: { source: body }, parameters: { ...RANGER_HEAD_RECIPE, keepMeshes: [...shape.headMeshes] } }));
   log("compose on the outfit skeleton (scene.compose.skinned.gltf@1)");
   const composed = single(await executeGltfComposeSkinnedOperation(root, { inputs: { skeleton: outfit, parts: [head] }, parameters: { policy: POLICY } }));
+  // #348: the facial variants are morph targets on the head part. The plain composition stays the clip-authoring
+  // rig, armour fit target and level-of-detail source; the shipped characters carry the morph targets.
+  log("face variants: shape keys in Blender (adapters/blender/face_variants.py), morph targets onto the head part (#348)");
+  const face = await addFaceVariants(root, head, bundleKey);
+  const composedFace = single(await executeGltfComposeSkinnedOperation(root, { inputs: { skeleton: outfit, parts: [face.glb] }, parameters: { policy: POLICY } }));
 
   log("extract target rig and source clips (scene.extract.animation.gltf@1)");
   const targetRig = single(await executeGltfExtractAnimationOperation(root, { inputs: { source: composed }, parameters: { hipsJoint: RANGER_HIPS.target, policy: POLICY } }), "rig");
@@ -795,7 +801,7 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
         bow: { sampleRate: fps, drawMeters, ...pick(marks, ["releaseSeconds", "arrowDrawnSeconds", "nockedSeconds"]) } });
     }
     animated = single(await executeGltfEmbedAnimationOperation(root, {
-      inputs: { source: composed, animations: clips.map((clip) => clip.retargeted) },
+      inputs: { source: composedFace, animations: clips.map((clip) => clip.retargeted) },
       parameters: { clips: clips.map((clip) => ({ name: clip.name })), policy: POLICY },
     }));
   }
@@ -912,7 +918,8 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
 
     const outfitLight = await importGltf(shape.outfit, { [look.skinLight.outfitUri]: regularLight });
     const bodyLightGlb = await importGltf(shape.body, { [look.skinLight.body.uri]: bodyLight });
-    const headLight = single(await executeGltfSubsetSkinnedOperation(root, { inputs: { source: bodyLightGlb }, parameters: { ...RANGER_HEAD_RECIPE, keepMeshes: [...shape.headMeshes] } }));
+    const headLightBase = single(await executeGltfSubsetSkinnedOperation(root, { inputs: { source: bodyLightGlb }, parameters: { ...RANGER_HEAD_RECIPE, keepMeshes: [...shape.headMeshes] } }));
+    const headLight = (await applyFaceVariants(root, headLightBase, face.authored)).glb;
     const composedLight = single(await executeGltfComposeSkinnedOperation(root, { inputs: { skeleton: outfitLight, parts: [headLight] }, parameters: { policy: POLICY } }));
     // Clips ship once, in `default`; the Light character shares its skeleton and plays them by joint name.
     const lightCharacter = await resizeTextures(`${bundleKey}/skin.light`, composedLight);
@@ -970,7 +977,7 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
         // The hidden-body-region list (Q12): base nodes a garment fully covers are left out of the variant.
         const variants: { variant: string; character: AssetRef }[] = [];
         let darkKit: { lods: Record<LodLevel, AssetRef>; character: AssetRef } | undefined;
-        for (const [skin, outfitSource, headPart] of [["skin.dark", peasant, head], ["skin.light", peasantLight, headLight]] as const) {
+        for (const [skin, outfitSource, headPart] of [["skin.dark", peasant, face.glb], ["skin.light", peasantLight, headLight]] as const) {
           const base = hidden.length === 0 ? outfitSource : single(await executeGltfSubsetSkinnedOperation(root, {
             inputs: { source: outfitSource }, parameters: { keepJoints: ["root"], minWeight: 1, keepMeshes: peasantMeshes.filter((name) => !hidden.includes(name)), policy: POLICY },
           }));
@@ -1018,6 +1025,12 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
       tints: Object.entries(RANGER_HAIR_TINTS).map(([id, color]) => ({ id: `tint.${id}`, baseColorFactor: [...color, 1], texture: "hair-1" })),
       eyebrows: { nodes: [look.eyebrows], tintMaterials: [...new Set(eyebrowMaterials)].sort(), followsHairTint: true },
       ...(figure === "male" ? { outfits, headwear: rangerHeadwearAppearance() } : {}),
+      // #348: face, eyes, nose and mouth options as morph weights on every full-detail character variant.
+      face: faceAppearance({
+        nodes: FACE_MORPH_NODES[figure],
+        variants: [RANGER_BUNDLE_VARIANT, "skin.light", ...kits.flatMap((kit) => kit.variants.map(({ variant }) => variant))],
+        unsupported: lodVariants.map(({ variant }) => variant),
+      }),
       // #123: the levels of detail of each character variant; switch distances are hints, consumers choose.
       levelsOfDetail: lodVariants.map(({ variant, triangles, ratio }) => {
         const level = variant.endsWith("lod1") ? "lod1" : "lod2";
@@ -1121,6 +1134,7 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
       sockets, socketsDescriptor: descriptorPath, weapons,
       character, textures, texturePolicy: RANGER_TEXTURE_POLICY,
       clipMotion,
+      face: { head: face.glb, composed: composedFace, observations: face.observations },
       appearance: appearance && { light: appearance.light, composedLight: appearance.composedLight, transfer: appearance.transfer, hair: appearance.hair, descriptor: appearance.descriptor, kits: appearance.kits },
     },
   };

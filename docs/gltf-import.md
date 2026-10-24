@@ -31,7 +31,7 @@ Run `bun test test/gltf-import-operations.test.ts` for independent small fixture
 
 `asset-tooling/operations/processing/gltf-production` exports `GLTF_PRODUCTION_IMPORT_OPERATION` (`scene.import.gltf@2`) and `GLTF_ANALYZE_OPERATION` (`scene.analyze.gltf@1`), with corresponding `createGltfProductionImportOperationBuildIdentity`, `executeGltfProductionImportOperation`, `createGltfAnalyzeOperationBuildIdentity` and `executeGltfAnalyzeOperation` functions. V1 continues to reject skins and animations.
 
-V2 retains supported core skins, joint order/references, inverse-bind matrices, influence attributes, node/root hierarchy, named clips, interpolation and all key times/values. The same one-buffer, resource and unsupported-extension/morph/primitive limits apply. glTF Transform normalizes matrix/TRS representation and omits near-default TRS components; byte replay is exact for repeated builds, while source/output computed transform comparisons use an explicit tolerance. Axes and units retain the glTF contract; arbitrary source conventions are not inferred or repaired.
+V2 retains supported core skins, joint order/references, inverse-bind matrices, influence attributes, node/root hierarchy, named clips, interpolation and all key times/values. The same one-buffer, resource and unsupported-extension/primitive limits apply; morph targets are kept (the Ranger facial variants, #348). glTF Transform normalizes matrix/TRS representation and omits near-default TRS components; byte replay is exact for repeated builds, while source/output computed transform comparisons use an explicit tolerance. Axes and units retain the glTF contract; arbitrary source conventions are not inferred or repaired.
 
 Both production operations accept `parameters.policy`:
 
