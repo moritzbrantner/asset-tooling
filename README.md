@@ -20,6 +20,8 @@ The [toy zoo scenery](docs/zoo-scenery.md) is a scripted Blender recipe for Zoo:
 
 The [Zoo particle flipbooks](docs/zoo-effects.md) are baked 16-frame dust, leaf and splash atlases with matching `BurstPreset`s for 3d-lab's seeded bursts, from a deterministic 2D recipe.
 
+The [combat sounds](docs/combat-sounds.md) are 35 CC0 mono WAV clips (Kenney and OpenGameArt) for arpg's combat, pickup, encounter and UI cues, trimmed and normalised, with a game-audio `SoundManifest`.
+
 ## Review current assets
 
 Start with the [asset gallery](https://moritzbrantner.github.io/asset-tooling/). It links directly to the [Ranger animation comparison](https://moritzbrantner.github.io/asset-tooling/compare/ranger/), the [Warden icon review](https://moritzbrantner.github.io/asset-tooling/review/warden-icons/), and the [browser 3D studio](https://moritzbrantner.github.io/asset-tooling/generate/). Compare at the intended camera, animation frame and action-bar size before requesting a new generator or foundation capability.

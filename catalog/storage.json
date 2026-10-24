@@ -744,6 +744,252 @@
       "sourceId": "quaternius.universal-base-characters-standard.t-superhero-male-roughness-png",
       "storage": "git-lfs",
       "path": "assets/canonical/quaternius.universal-base-characters-standard.t-superhero-male-roughness-png/T_Superhero_Male_Roughness.png"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "kenney.impact-sounds.impact-metal-heavy-000-ogg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/kenney.impact-sounds.impact-metal-heavy-000-ogg/impactMetal_heavy_000.ogg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "kenney.impact-sounds.impact-metal-heavy-001-ogg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/kenney.impact-sounds.impact-metal-heavy-001-ogg/impactMetal_heavy_001.ogg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "kenney.impact-sounds.impact-metal-heavy-003-ogg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/kenney.impact-sounds.impact-metal-heavy-003-ogg/impactMetal_heavy_003.ogg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "kenney.impact-sounds.impact-metal-light-001-ogg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/kenney.impact-sounds.impact-metal-light-001-ogg/impactMetal_light_001.ogg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "kenney.impact-sounds.impact-metal-medium-000-ogg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/kenney.impact-sounds.impact-metal-medium-000-ogg/impactMetal_medium_000.ogg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "kenney.impact-sounds.impact-metal-medium-001-ogg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/kenney.impact-sounds.impact-metal-medium-001-ogg/impactMetal_medium_001.ogg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "kenney.impact-sounds.impact-metal-medium-003-ogg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/kenney.impact-sounds.impact-metal-medium-003-ogg/impactMetal_medium_003.ogg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "kenney.impact-sounds.impact-mining-000-ogg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/kenney.impact-sounds.impact-mining-000-ogg/impactMining_000.ogg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "kenney.impact-sounds.impact-mining-001-ogg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/kenney.impact-sounds.impact-mining-001-ogg/impactMining_001.ogg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "kenney.impact-sounds.impact-punch-heavy-000-ogg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/kenney.impact-sounds.impact-punch-heavy-000-ogg/impactPunch_heavy_000.ogg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "kenney.impact-sounds.impact-punch-heavy-001-ogg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/kenney.impact-sounds.impact-punch-heavy-001-ogg/impactPunch_heavy_001.ogg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "kenney.impact-sounds.impact-punch-heavy-002-ogg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/kenney.impact-sounds.impact-punch-heavy-002-ogg/impactPunch_heavy_002.ogg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "kenney.impact-sounds.impact-punch-medium-000-ogg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/kenney.impact-sounds.impact-punch-medium-000-ogg/impactPunch_medium_000.ogg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "kenney.impact-sounds.impact-punch-medium-001-ogg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/kenney.impact-sounds.impact-punch-medium-001-ogg/impactPunch_medium_001.ogg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "kenney.impact-sounds.impact-punch-medium-002-ogg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/kenney.impact-sounds.impact-punch-medium-002-ogg/impactPunch_medium_002.ogg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "kenney.impact-sounds.impact-soft-heavy-000-ogg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/kenney.impact-sounds.impact-soft-heavy-000-ogg/impactSoft_heavy_000.ogg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "kenney.impact-sounds.impact-soft-heavy-001-ogg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/kenney.impact-sounds.impact-soft-heavy-001-ogg/impactSoft_heavy_001.ogg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "kenney.impact-sounds.impact-soft-heavy-002-ogg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/kenney.impact-sounds.impact-soft-heavy-002-ogg/impactSoft_heavy_002.ogg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "kenney.impact-sounds.impact-soft-medium-000-ogg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/kenney.impact-sounds.impact-soft-medium-000-ogg/impactSoft_medium_000.ogg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "kenney.impact-sounds.impact-soft-medium-001-ogg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/kenney.impact-sounds.impact-soft-medium-001-ogg/impactSoft_medium_001.ogg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "kenney.impact-sounds.impact-soft-medium-002-ogg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/kenney.impact-sounds.impact-soft-medium-002-ogg/impactSoft_medium_002.ogg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "kenney.impact-sounds.impact-wood-heavy-000-ogg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/kenney.impact-sounds.impact-wood-heavy-000-ogg/impactWood_heavy_000.ogg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "kenney.impact-sounds.impact-wood-heavy-001-ogg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/kenney.impact-sounds.impact-wood-heavy-001-ogg/impactWood_heavy_001.ogg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "kenney.impact-sounds.impact-wood-light-000-ogg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/kenney.impact-sounds.impact-wood-light-000-ogg/impactWood_light_000.ogg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "kenney.impact-sounds.impact-wood-medium-000-ogg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/kenney.impact-sounds.impact-wood-medium-000-ogg/impactWood_medium_000.ogg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "kenney.interface-sounds.back-001-ogg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/kenney.interface-sounds.back-001-ogg/back_001.ogg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "kenney.interface-sounds.click-001-ogg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/kenney.interface-sounds.click-001-ogg/click_001.ogg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "kenney.interface-sounds.confirmation-001-ogg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/kenney.interface-sounds.confirmation-001-ogg/confirmation_001.ogg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "kenney.interface-sounds.error-008-ogg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/kenney.interface-sounds.error-008-ogg/error_008.ogg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "kenney.interface-sounds.glass-001-ogg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/kenney.interface-sounds.glass-001-ogg/glass_001.ogg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "kenney.music-jingles.jingles-sax01-ogg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/kenney.music-jingles.jingles-sax01-ogg/jingles_SAX01.ogg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "kenney.music-jingles.jingles-steel02-ogg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/kenney.music-jingles.jingles-steel02-ogg/jingles_STEEL02.ogg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "kenney.rpg-audio.creak1-ogg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/kenney.rpg-audio.creak1-ogg/creak1.ogg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "opengameart.battle-sound-effects.bow-wav",
+      "storage": "git-lfs",
+      "path": "assets/canonical/opengameart.battle-sound-effects.bow-wav/Bow.wav"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "opengameart.battle-sound-effects.swish-2-wav",
+      "storage": "git-lfs",
+      "path": "assets/canonical/opengameart.battle-sound-effects.swish-2-wav/swish_2.wav"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "opengameart.rpg-sound-pack.coin-wav",
+      "storage": "git-lfs",
+      "path": "assets/canonical/opengameart.rpg-sound-pack.coin-wav/coin.wav"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "opengameart.rpg-sound-pack.coin3-wav",
+      "storage": "git-lfs",
+      "path": "assets/canonical/opengameart.rpg-sound-pack.coin3-wav/coin3.wav"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "opengameart.rpg-sound-pack.swing-wav",
+      "storage": "git-lfs",
+      "path": "assets/canonical/opengameart.rpg-sound-pack.swing-wav/swing.wav"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "opengameart.rpg-sound-pack.swing2-wav",
+      "storage": "git-lfs",
+      "path": "assets/canonical/opengameart.rpg-sound-pack.swing2-wav/swing2.wav"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "opengameart.rpg-sound-pack.swing3-wav",
+      "storage": "git-lfs",
+      "path": "assets/canonical/opengameart.rpg-sound-pack.swing3-wav/swing3.wav"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "opengameart.their-coming-horn-ogg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/opengameart.their-coming-horn-ogg/theircoming.ogg"
     }
   ]
 }

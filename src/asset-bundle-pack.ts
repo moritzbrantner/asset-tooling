@@ -11,13 +11,13 @@ import { canonicalJson, compareCodeUnitStrings } from "./canonical.js";
 import { sha256Bytes } from "./hash.js";
 import { createAssetRef, type AssetRef } from "./operations.js";
 import {
-  APPROVED_IMAGE_BUNDLE_PROFILE, ASSET_BUNDLE_MEDIA_TYPE, GLTF_RESOURCES_BUNDLE_PROFILE, SPRITE_ATLAS_BUNDLE_PROFILE,
+  APPROVED_IMAGE_BUNDLE_PROFILE, ASSET_BUNDLE_MEDIA_TYPE, AUDIO_BUNDLE_PROFILE, GLTF_RESOURCES_BUNDLE_PROFILE, SPRITE_ATLAS_BUNDLE_PROFILE,
   STATIC_ASSET_BUNDLE_PROFILE, listAssetBundleFiles, verifyAssetBundle, type AnyAssetBundleManifest,
 } from "./asset-bundle.js";
 
 export const ASSET_BUNDLE_REF_FILE = "export.ref.json";
 const BLOCK = 512, MAX_TAR_BYTES = 512 * 1024 * 1024;
-const PROFILES = [STATIC_ASSET_BUNDLE_PROFILE, SPRITE_ATLAS_BUNDLE_PROFILE, APPROVED_IMAGE_BUNDLE_PROFILE, GLTF_RESOURCES_BUNDLE_PROFILE] as const;
+const PROFILES = [STATIC_ASSET_BUNDLE_PROFILE, SPRITE_ATLAS_BUNDLE_PROFILE, APPROVED_IMAGE_BUNDLE_PROFILE, GLTF_RESOURCES_BUNDLE_PROFILE, AUDIO_BUNDLE_PROFILE] as const;
 type Profile = typeof PROFILES[number];
 export type AssetBundleTarEntry = { path: string; bytes: Buffer; mode: number; uid: number; gid: number; mtime: number };
 

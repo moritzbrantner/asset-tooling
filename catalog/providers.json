@@ -43,6 +43,14 @@
     },
     {
       "schemaVersion": 1,
+      "id": "opengameart",
+      "label": "OpenGameArt.org",
+      "homepage": "https://opengameart.org/",
+      "distribution": "shared",
+      "acceptedLicenses": ["CC0-1.0"]
+    },
+    {
+      "schemaVersion": 1,
       "id": "poly-haven",
       "label": "Poly Haven",
       "homepage": "https://polyhaven.com/",

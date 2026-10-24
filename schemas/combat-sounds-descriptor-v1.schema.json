@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://moritzbrantner.github.io/asset-tooling/schemas/combat-sounds-descriptor-v1.schema.json",
+  "title": "asset-tooling combat sounds descriptor v1",
+  "description": "The combat-sounds bundle descriptor (#297, docs/combat-sounds.md): each cue kind with its clip variants, the bundle path and pin of every mono PCM-16 WAV clip, its duration and loudness, how it was processed, and per-layer CC0 provenance. The bundle's game-audio SoundManifest (soundManifest key) carries the same cues in game-audio's shape.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "release", "soundManifest", "format", "cues", "archives", "sources"],
+  "properties": {
+    "schema": { "const": "combat-sounds-descriptor-v1" },
+    "release": { "const": "combat-sounds" },
+    "soundManifest": { "const": "combat-sounds.sound-manifest" },
+    "format": {
+      "type": "object", "additionalProperties": false,
+      "required": ["mediaType", "codec", "sampleRate", "channels", "peakTarget", "peakTargetDbfs"],
+      "properties": {
+        "mediaType": { "const": "audio/wav" },
+        "codec": { "const": "pcm-s16le" },
+        "sampleRate": { "const": 44100 },
+        "channels": { "const": 1 },
+        "peakTarget": { "type": "integer", "minimum": 1, "maximum": 32767 },
+        "peakTargetDbfs": { "type": "number" }
+      }
+    },
+    "cues": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["kind", "tag", "event", "sound", "bus", "spatial", "priority", "maxVoices", "cooldownMs", "gainDb", "pitchJitter", "durationTargetMs", "clips"],
+        "properties": {
+          "kind": { "type": "string", "pattern": "^[a-z]+(?:\\.[a-zA-Z]+)+$" },
+          "tag": { "type": "string", "pattern": "^sfx\\.[a-z0-9]+(?:[._-][a-z0-9]+)*$" },
+          "event": { "type": "string" },
+          "sound": { "type": "string" },
+          "bus": { "enum": ["effects", "ui"] },
+          "spatial": { "type": "boolean" },
+          "priority": { "type": "integer", "minimum": 0, "maximum": 255 },
+          "maxVoices": { "type": "integer", "minimum": 1, "maximum": 255 },
+          "cooldownMs": { "type": "integer", "minimum": 0 },
+          "gainDb": { "type": "number" },
+          "pitchJitter": { "type": "number", "minimum": 0, "maximum": 1 },
+          "durationTargetMs": { "type": "array", "items": { "type": "integer", "minimum": 0 }, "minItems": 2, "maxItems": 2 },
+          "clips": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/clip" } }
+        }
+      }
+    },
+    "archives": { "type": "array", "items": { "$ref": "#/$defs/archive" } },
+    "sources": { "type": "array", "items": { "$ref": "#/$defs/source" } }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "clip": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "key", "path", "sha256", "byteLength", "frameCount", "durationMs", "peakDbfs", "rmsDbfs", "cut", "processing", "layers"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*$" },
+        "key": { "type": "string", "pattern": "^sfx\\.[a-z0-9]+(?:[._-][a-z0-9]+)*$" },
+        "path": { "type": "string", "pattern": "^assets/[0-9a-f]{64}\\.wav$" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "byteLength": { "type": "integer", "minimum": 46 },
+        "frameCount": { "type": "integer", "minimum": 1 },
+        "durationMs": { "type": "number", "exclusiveMinimum": 0 },
+        "peakDbfs": { "type": "number", "maximum": 0 },
+        "rmsDbfs": { "type": "number", "maximum": 0 },
+        "cut": { "type": "boolean", "description": "The clip reached its cue's maximum duration and was cut with a 30 ms fade." },
+        "processing": {
+          "type": "object", "additionalProperties": false, "required": ["trim", "fade", "gain"],
+          "properties": {
+            "trim": { "type": "object", "additionalProperties": false, "required": ["startFrame", "endFrame"], "properties": { "startFrame": { "type": "integer", "minimum": 0 }, "endFrame": { "type": "integer", "minimum": 1 } } },
+            "fade": { "type": "object", "additionalProperties": false, "required": ["fadeInFrames", "fadeOutFrames"], "properties": { "fadeInFrames": { "type": "integer", "minimum": 0 }, "fadeOutFrames": { "type": "integer", "minimum": 0 } } },
+            "gain": { "type": "object", "additionalProperties": false, "required": ["numerator", "denominator"], "properties": { "numerator": { "type": "integer" }, "denominator": { "type": "integer", "minimum": 1 } } }
+          }
+        },
+        "layers": {
+          "type": "array", "minItems": 1,
+          "items": {
+            "allOf": [{ "$ref": "#/$defs/source" }],
+            "required": ["offsetMs", "gain"],
+            "properties": {
+              "offsetMs": { "type": "number", "minimum": 0 },
+              "gain": { "type": "array", "items": { "type": "integer" }, "minItems": 2, "maxItems": 2 }
+            }
+          }
+        }
+      }
+    },
+    "archive": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "title", "author", "url", "evidenceUrl", "license", "sha256", "byteLength"],
+      "properties": {
+        "id": { "type": "string" }, "title": { "type": "string" }, "author": { "type": "string" },
+        "url": { "type": "string", "format": "uri" }, "evidenceUrl": { "type": "string", "format": "uri" },
+        "license": { "const": "CC0-1.0" }, "sha256": { "$ref": "#/$defs/sha256" }, "byteLength": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "source": {
+      "type": "object",
+      "required": ["sourceId", "title", "author", "license", "evidenceUrl", "url", "sha256", "byteLength"],
+      "properties": {
+        "sourceId": { "type": "string" }, "title": { "type": "string" }, "author": { "type": "string" },
+        "license": { "const": "CC0-1.0" }, "evidenceUrl": { "type": "string", "format": "uri" }, "url": { "type": "string", "format": "uri" },
+        "archive": {
+          "type": "object", "additionalProperties": false, "required": ["id", "sha256", "member"],
+          "properties": { "id": { "type": "string" }, "sha256": { "$ref": "#/$defs/sha256" }, "member": { "type": "string" } }
+        },
+        "sha256": { "$ref": "#/$defs/sha256" }, "byteLength": { "type": "integer", "minimum": 1 },
+        "licenseNote": { "type": "string" }
+      }
+    }
+  }
+}
