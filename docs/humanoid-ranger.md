@@ -26,7 +26,8 @@ The `humanoid.ranger.male` bundle holds the following.
   - **Attachments:**
     - `humanoid-sockets`: the [sockets descriptor](humanoid-sockets.md), with hand, stowed, archery, hair and armour sockets.
     - `humanoid-clips`: per-clip motion metadata ([Clip motion](#clip-motion)).
-    - `humanoid-appearance` (`humanoid-appearance-v1`): skins, the toggleable hood (`outfit.hood`), hairstyles with their textures and tints, eyebrows that follow the hair tint, and the outfits, and (male) the `headwear` list: each piece's `entry`, `label`, `socket` and the appearance parts it `hides` while worn (`outfit.hood` and `hair`).
+    - `humanoid-appearance` (`humanoid-appearance-v1`): skins, the toggleable hood (`outfit.hood`), hairstyles with their textures and tints, eyebrows that follow the hair tint, and the outfits, and (male) the `headwear` list: each piece's `entry`, `label`, `socket` and the appearance parts it `hides` while worn (`outfit.hood` and `hair`). The `face` section lists the [facial variants](#facial-variants).
+- **Facial variants (#348):** see [Facial variants](#facial-variants).
 - **Levels of detail (#123):** every character variant has `lod1` and `lod2` variants (`lod1`/`lod2` for `default`, `<variant>.lod1`/`.lod2` otherwise). They are listed in `humanoid-appearance.levelsOfDetail` ([levels-of-detail.md](levels-of-detail.md)).
 - **Clips:** they ship once, embedded in `default`. Every other character variant and level shares the same joints and rest pose, and plays them by joint name. Every clip is in place. In bundle order:
   - the UAL1/UAL2 library clips retargeted with 3d-lab (idle, walk, the run gaits, sword, shield, death, the #112 traversal clips and the #114 combat clips with their roles);
@@ -36,6 +37,23 @@ The `humanoid.ranger.male` bundle holds the following.
 - **Hair entries:** `hair.buzzed`, `hair.simple-parted` and `hair.long` (male) or `hair.long` and `hair.buns` (female), each with the variants `hair-1` and `hair-2`, on the `head.hair` socket. The pack textures `T_Hair_1` and `T_Hair_2` are per-mesh bakes with different UV layouts, so every style carries its own pack in both variants (#336; swapping packs garbled the strands). The male `hair.long` also merges the `Hair_Buzzed` cap as its crown, because Quaternius `Hair_Long` is only a fringe and a back curtain; its `tintMaterials` are `MI_Hair_2` (strands) and `MI_Hair_1` (crown). The hair materials are opaque, like the source: the packs have no alpha.
 - **Armour entries:** `armor.soldier` and `armor.knight` (male).
 - **Headwear entries (#336, male):** `equipment.cap.ranger` (Ranger's Cap: felt crown, leather band and plume) and `equipment.helm.ironcrest` (Ironcrest Helm: iron dome, brass rim and crest fin, nasal bar) from the [headwear recipe](../adapters/blender/headwear.py). Each GLB holds one mesh node named after its piece and an identity `grip` node; the geometry is in the male rest model space around the head, so the `head.armor` socket places it. The owner approved both shapes on the live Ranger (2026-10-21). Both hide the hair (owner answer, 2026-10-21).
+
+### Facial variants
+
+Face shape, eyes, nose and mouth can each be chosen independently (#348). Each feature has a base and two authored options. Every option except the base is a glTF morph target on the head (`SuperHero_Male` or `Superhero_Female`) and on the `Eyes` and `Eyebrows` meshes:
+
+| Feature | Options |
+| --- | --- |
+| `face` | `face.base`, `face.broad` (square, wider jaw and chin), `face.narrow` (slimmer cheeks, longer chin) |
+| `eyes` | `eyes.base`, `eyes.large` (larger eyeballs and lids), `eyes.narrow` (almond lids, outer corners raised) |
+| `nose` | `nose.base`, `nose.broad` (wide wings, flatter tip), `nose.long` (longer, prominent tip, raised bridge) |
+| `mouth` | `mouth.base`, `mouth.full` (fuller, wider lips), `mouth.thin` (thinner, narrower lips) |
+
+- **Authoring:** [`adapters/blender/face_variants.py`](../adapters/blender/face_variants.py) adds one shape key per option to the head part in Blender. Each key is a smooth displacement field placed on landmarks measured from the mesh (eye centres, nose tip, mouth line, chin), so the same recipe fits the male and the female head. It was shaped and reviewed in the live Blender. Only the morph targets come back onto the original head part, matched vertex by vertex by position (`src/face-variants.ts`), so the shipped skin, materials and attributes never pass through Blender. The targets are sparse accessors where most vertices stay still.
+- **Compatibility:** no key moves the cranium above the brows, the ears and back of the head, or the neck down to the cut where the head meets the outfit; the recipe fails if one does. Hair, headwear, the hood, the head sockets and every skin and outfit therefore stay compatible. The keys of different features touch separate regions and add up. Lids slide over the eyeball's sphere, so they never cut into it. The morph is applied before skinning, so the face follows every clip like the rest of the head.
+- **Descriptor:** `humanoid-appearance.face` has `nodes` (the meshes carrying the targets), `features` (each with `id`, `label`, `default` and `options`; each option's `morphs` maps target names to weights, empty for the base), `variants` (the full-detail character variants that carry the targets: `default`, `skin.light` and the outfit variants) and `unsupported`. A consumer sets the weights on `mesh.morphTargetInfluences` by `morphTargetDictionary` name.
+- **Unsupported:** the `lod1`/`lod2` variants carry no morph targets and show the base face (`face.unsupported`). A consumer must refuse a non-base option on them, or use the full-detail variant. At their switch distances (15 m and more) the face is a few pixels.
+- **Build:** the plain composition stays the clip-authoring rig, the armour fit target and the source of the default levels of detail. The shipped characters compose the head part with the morph targets.
 
 ### Mixamo retarget
 
@@ -127,6 +145,7 @@ The equipment, armour, Mixamo and authored clips run through `external.blender.s
 | 1 | `scene.import.gltf@2` | The Male_Ranger outfit, and the Superhero body with its two [declared substitutions](humanoid-sources.md#declared-substitution). |
 | 2 | `scene.subset.skinned.gltf@1` | The body, cut down to its head and face with the [Ranger recipe](gltf-subset.md#ranger-character-recipe). |
 | 3 | `scene.compose.skinned.gltf@1` | Skeleton = outfit, parts = the head subset. |
+| 3b | `external.blender.script@1`, then `scene.compose.skinned.gltf@1` | [`face_variants.py`](../adapters/blender/face_variants.py) on the head subset; its morph targets are copied onto the head subset, which is composed with the outfit again for the shipped characters ([Facial variants](#facial-variants)). |
 | 4 | `scene.extract.animation.gltf@1` | The composed GLB with `hipsJoint: "pelvis"`: the target rig only. |
 | 5 | `scene.extract.animation.gltf@1` | Once per clip: the UAL1 GLB with `hipsJoint: "DEF-hips"`, or for `Idle_Shield_Loop` the UAL2 GLB with `hipsJoint: "pelvis"`. Each run yields the source rig and the clip. |
 | 6 | `animation.retarget@1` | Each library clip with its source rig and the target rig, its library's bone map (below), `sampleRate: 30` and `rootMotion: "in-place"`. Mixamo and authored clips come from Blender instead (see [Contents](#contents)). |
@@ -315,7 +334,9 @@ A consumer that needs a fixed input keeps its own copy of the tar. Adopting a ne
   - the variants and armour entries are present;
   - the `humanoid-sockets` attachment matches the committed descriptor byte for byte and validates against the 65 joints;
   - the `humanoid-clips` attachment lists every clip in order with its source animation sha256, loop flag and in-place root motion; the gait speeds increase from crouch walk to sprint, and `Roll_RM` and `ClimbUp_1m_RM` record their removed travel;
-  - the 13 character textures fit their slot limits, none is upscaled, the image bytes shrink at least fourfold, and the equipment has no images.
+  - the 13 character textures fit their slot limits, none is upscaled, the image bytes shrink at least fourfold, and the equipment has no images;
+  - every variant in `humanoid-appearance.face.variants` carries the eight face morph targets on the head, eyes and eyebrows, and the levels of detail carry none.
+- `test/face-variants.test.ts` checks the option table against the Blender recipe and the morph-target transfer. With `BLENDER_TESTS=1`, `ASSET_TOOLING_BLENDER` and hydrated LFS, it authors the keys on the real male and female head parts, checks that every key visibly moves the head and leaves the cranium, ears and neck still, and composes the result onto the outfit with the targets intact.
 
   The full run skips unless the Git LFS payloads are hydrated, `ASSET_TOOLING_PROCESSOR_CHECKOUT_3DLAB` names the pinned checkout, `ASSET_TOOLING_BLENDER` names Blender 5.2.2 and `ASSET_TOOLING_MIXAMO_DIR` names the local Mixamo files.
 

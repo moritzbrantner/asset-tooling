@@ -183,6 +183,27 @@ test.describe("Ranger comparison", () => {
     expect(errors).toEqual([]);
   });
 
+  test("face, eyes, nose and mouth change the processed face independently; a level of detail refuses them", async ({ page }) => {
+    const evidence = ensureEvidenceDir();
+    const errors = await open(page, "?clip=Walk_Loop&t=0.3&view=front");
+    const caption = page.locator("#caption-processed");
+    await expect(caption).toContainText("humanoid.ranger.male/default");
+    let previous = await pixels(page, "processed");
+    for (const [label, option] of [["Face shape", "face.broad"], ["Eyes", "eyes.large"], ["Nose", "nose.long"], ["Mouth", "mouth.full"]] as const) {
+      await page.getByLabel(label, { exact: true }).selectOption(option);
+      await expect(caption).toContainText(option);
+      const next = await pixels(page, "processed");
+      expect(next.equals(previous), `${option} changes the face`).toBe(false);
+      previous = next;
+    }
+    await expect(page).toHaveURL(/face=face\.broad&eyes=eyes\.large&nose=nose\.long&mouth=mouth\.full/);
+    await page.screenshot({ path: path.join(evidence, "ranger-edit-face.png"), fullPage: true });
+    await page.getByLabel("Level of detail", { exact: true }).selectOption("lod1");
+    await expect(page.locator("#compose-error")).toContainText("face options need a full-detail character");
+    await expect(caption).toContainText("mouth.full");
+    expect(errors).toEqual([]);
+  });
+
   test("export downloads one GLB of the composed character and reloads it with its clips", async ({ page }) => {
     await open(page, "?clip=Walk_Loop&t=0.3&view=front&outfit=outfit.soldier");
     const caption = page.locator("#caption-processed");

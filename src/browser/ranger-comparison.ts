@@ -59,6 +59,7 @@ const dom = {
   hood: element<HTMLInputElement>("hood"),
   hair: element<HTMLSelectElement>("hair"),
   hairColor: element<HTMLSelectElement>("hair-color"),
+  faceControls: element<HTMLDivElement>("face-controls"),
   faction: element<HTMLInputElement>("faction"),
   lod: element<HTMLSelectElement>("lod"),
   composeError: element<HTMLParagraphElement>("compose-error"),
@@ -244,6 +245,7 @@ function syncUrl(): void {
     if (look.hairColor !== initial.hairColor) params.set("color", look.hairColor);
     if (look.faction !== initial.faction) params.set("faction", look.faction.slice(1));
     if (look.lod !== initial.lod) params.set("lod", look.lod);
+    for (const [feature, option] of Object.entries(look.face)) if (option !== initial.face[feature]) params.set(feature, option);
   }
   history.replaceState(history.state, "", `${location.pathname}?${params.toString()}${location.hash}`);
 }
@@ -434,12 +436,16 @@ function showLook(look: HumanoidSelection): void {
   const outfit = state.loaded?.appearance.outfits.find((candidate) => candidate.id === look.outfit);
   dom.faction.disabled = !outfit?.faction;
   dom.hairColor.disabled = !look.hair;
+  for (const select of faceSelects()) select.value = look.face[select.dataset.feature!] ?? select.value;
 }
+
+const faceSelects = () => [...dom.faceControls.querySelectorAll<HTMLSelectElement>("select[data-feature]")];
 
 function lookFromControls(): HumanoidSelection {
   return {
     outfit: dom.outfitSelect.value, skin: dom.skin.value, hood: dom.hood.disabled ? (state.selection?.hood ?? false) : dom.hood.checked, hair: dom.hair.value || null,
     hairColor: dom.hairColor.value, faction: dom.faction.value, lod: dom.lod.value,
+    face: Object.fromEntries(faceSelects().map((select) => [select.dataset.feature!, select.value])),
   };
 }
 
@@ -480,7 +486,8 @@ async function applyLook(look: HumanoidSelection): Promise<boolean> {
   dom.hood.disabled = !instance.hasHood;
   if (!instance.hasHood) dom.hood.checked = false;
   const outfit = loaded.appearance.outfits.find((candidate) => candidate.id === look.outfit)!;
-  const parts = [outfit.label, look.skin, instance.hasHood ? (look.hood ? "hood" : "no hood") : "", look.hair ? `${look.hair} (${look.hairColor})` : "", look.lod];
+  const parts = [outfit.label, look.skin, instance.hasHood ? (look.hood ? "hood" : "no hood") : "", look.hair ? `${look.hair} (${look.hairColor})` : "",
+    ...Object.values(look.face).filter((option) => !option.endsWith(".base")), look.lod];
   replaceProcessed(loaded, {
     instance, rest, label: loaded.data.bundle.label,
     detail: `${loaded.appearance.character}/${instance.variant} · ${parts.filter(Boolean).join(", ")} · ${Math.round(instance.triangles)} triangles`,
@@ -552,6 +559,10 @@ function lookFromUrl(appearance: HumanoidAppearance, params: URLSearchParams): H
   if (faction && /^[0-9a-f]{6}$/i.test(faction)) look.faction = `#${faction.toLowerCase()}`;
   const lod = params.get("lod");
   if (lod) look.lod = lod;
+  for (const feature of Object.keys(look.face)) {
+    const option = params.get(feature);
+    if (option) look.face[feature] = option;
+  }
   return look;
 }
 
@@ -564,6 +575,18 @@ function fillLookControls(appearance: HumanoidAppearance): void {
   options(dom.hairColor, hairColors(appearance).map((color) => ({ value: color.id, label: color.label })));
   const levels = [...new Set(appearance.levelsOfDetail.map((level) => level.level))];
   options(dom.lod, [{ value: "lod0", label: "lod0 (full)" }, ...levels.map((level) => ({ value: level, label: level }))]);
+  // #348: one select per face feature, from the bundle's descriptor.
+  dom.faceControls.replaceChildren(...(appearance.face?.features ?? []).flatMap((feature) => {
+    const label = document.createElement("label");
+    label.htmlFor = `face-${feature.id}`;
+    label.textContent = feature.label;
+    const select = document.createElement("select");
+    select.id = `face-${feature.id}`;
+    select.dataset.feature = feature.id;
+    options(select, feature.options.map((option) => ({ value: option.id, label: option.label })));
+    select.addEventListener("change", () => void applyLook(lookFromControls()));
+    return [label, select];
+  }));
 }
 
 // ---------------------------------------------------------------------------

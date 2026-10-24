@@ -224,6 +224,7 @@ ${panels}
         <select id="hair"></select>
         <label for="hair-color">Hair colour</label>
         <select id="hair-color"></select>
+        <div id="face-controls" class="face-controls"></div>
         <label for="faction">Faction colour</label>
         <input id="faction" type="color" value="#808080">
         <label for="lod">Level of detail</label>

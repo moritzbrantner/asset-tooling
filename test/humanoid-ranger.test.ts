@@ -23,6 +23,7 @@ import {
   buildRangerCharacter, rangerItemDescriptor,
 } from "../scripts/build-ranger-character.ts";
 import { WEAPON_ROLES } from "../src/weapon-recipes.js";
+import { FACE_MORPH_NODES, FACE_MORPH_TARGETS } from "../src/face-variants.js";
 
 const ROOT = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
 const CHECKOUT = process.env.ASSET_TOOLING_PROCESSOR_CHECKOUT_3DLAB;
@@ -173,6 +174,18 @@ test("the Ranger recipe builds a verified bundle: in-place clips, equipment entr
       const [width, height] = ImageUtils.getSize(texture.getImage()!, "image/png")!;
       assert.ok(Math.max(width, height) <= 1024, texture.getName());
     }
+    // #348: every full-detail variant the appearance lists carries the face morph targets; levels of detail do not.
+    const appearance = JSON.parse((await readAssetBundleAttachment(built.bundleDir, manifest, RANGER_BUNDLE_KEY, RANGER_BUNDLE_VARIANT, "humanoid-appearance")).toString("utf8"));
+    assert.deepEqual(appearance.face.nodes, FACE_MORPH_NODES.male);
+    assert.deepEqual(appearance.face.features.map((feature: any) => feature.options.length), [3, 3, 3, 3]);
+    const morphNodes = async (variant: string) => {
+      const read = await readAssetBundleGltf(built.bundleDir, manifest, RANGER_BUNDLE_KEY, variant);
+      const variantDocument = await new NodeIO().readJSON({ json: JSON.parse(read.gltf.toString("utf8")), resources: Object.fromEntries(read.resources) });
+      return variantDocument.getRoot().listNodes().filter((node) => node.getMesh()?.listPrimitives().some((primitive) => primitive.listTargets().length))
+        .map((node) => { assert.deepEqual((node.getMesh()!.getExtras() as any).targetNames, FACE_MORPH_TARGETS, node.getName()); return node.getName(); }).sort();
+    };
+    for (const variant of appearance.face.variants) assert.deepEqual(await morphNodes(variant), [...FACE_MORPH_NODES.male].sort(), variant);
+    for (const variant of appearance.face.unsupported.variants) assert.deepEqual(await morphNodes(variant), [], variant);
     for (const { key } of [...RANGER_WEAPONS, ...RANGER_ARCHERY]) assert.deepEqual(built.lineage.textures![key], { images: 0 }, key);
 
     const joints = document.getRoot().listSkins()[0]!.listJoints();

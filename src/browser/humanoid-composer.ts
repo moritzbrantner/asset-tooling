@@ -25,11 +25,18 @@ export type HumanoidAppearance = {
     faction?: { materials: string[]; defaultBaseColorFactor: Rgba };
   }[];
   levelsOfDetail: { level: string; of: string; variant: string; triangles: number }[];
+  /** #348: face, eyes, nose and mouth options as morph weights on `nodes`, for the character variants in `variants`. */
+  face?: {
+    nodes: string[]; variants: string[]; unsupported: { variants: string[]; reason: string };
+    features: { id: string; label: string; default: string; options: { id: string; label: string; morphs: Record<string, number> }[] }[];
+  };
 };
 export type HumanoidSockets = { sockets: { id: string; joint: string; translation: number[]; rotation: number[] }[] };
 
-/** One editable look. `hairColor` is a tint id or, untinted, a hair texture id. */
-export type HumanoidSelection = { skin: string; outfit: string; hood: boolean; hair: string | null; hairColor: string; lod: string; faction: string };
+/** One editable look. `hairColor` is a tint id or, untinted, a hair texture id; `face` maps each face feature to its option. */
+export type HumanoidSelection = {
+  skin: string; outfit: string; hood: boolean; hair: string | null; hairColor: string; lod: string; faction: string; face: Record<string, string>;
+};
 
 /** Loads one bundle entry (key + variant) as parsed glTF; the caller caches and declares the files. */
 export type EntryLoader = (key: string, variant: string) => Promise<GLTF>;
@@ -47,7 +54,24 @@ export function defaultSelection(appearance: HumanoidAppearance): HumanoidSelect
     hairColor: appearance.tints[0]?.id ?? "",
     lod: LOD0,
     faction: factorToHex(outfit.faction?.defaultBaseColorFactor),
+    face: Object.fromEntries((appearance.face?.features ?? []).map((feature) => [feature.id, feature.default])),
   };
+}
+
+/** The morph weights of the selected face options, or why they cannot be applied to `variant`. */
+export function faceMorphs(appearance: HumanoidAppearance, selection: HumanoidSelection, variant: string): { morphs: Record<string, number> } | { problem: string } {
+  const morphs: Record<string, number> = {};
+  const features = appearance.face?.features ?? [];
+  for (const [id, choice] of Object.entries(selection.face)) {
+    const feature = features.find((candidate) => candidate.id === id);
+    const option = feature?.options.find((candidate) => candidate.id === choice);
+    if (!feature || !option) return { problem: `unknown face option ${id}=${choice}` };
+    Object.assign(morphs, option.morphs);
+  }
+  if (Object.keys(morphs).length && !appearance.face!.variants.includes(variant)) {
+    return { problem: `face options need a full-detail character; ${variant}: ${appearance.face!.unsupported.reason}` };
+  }
+  return { morphs };
 }
 
 /** Hair colour choices: every tint, then each hair texture that no tint is drawn over. */
@@ -140,6 +164,8 @@ export async function composeHumanoid({ appearance, sockets, selection, clips, l
   const outfit = appearance.outfits.find((candidate) => candidate.id === selection.outfit);
   if (!outfit) throw new Error(`unknown outfit ${selection.outfit}`);
   const variant = variantFor(appearance, selection);
+  const face = faceMorphs(appearance, selection, variant);
+  if ("problem" in face) throw new Error(face.problem);
   const body = await load(appearance.character, variant);
   const hair = selection.hair ? appearance.hair.find((candidate) => candidate.id === selection.hair) : undefined;
   if (selection.hair && !hair) throw new Error(`unknown hairstyle ${selection.hair}`);
@@ -158,6 +184,22 @@ export async function composeHumanoid({ appearance, sockets, selection, clips, l
   const problem = incompatibility(appearance, selection, hasHood);
   if (problem) throw new Error(problem);
   for (const node of hoodNodes) node.visible = selection.hood;
+  if (appearance.face && appearance.face.variants.includes(variant)) {
+    for (const name of appearance.face.nodes) {
+      const node = byName(root, name);
+      if (!node) throw new Error(`${variant} has no face node ${name}`);
+      for (const mesh of meshes(node)) {
+        const dictionary = mesh.morphTargetDictionary, influences = mesh.morphTargetInfluences;
+        if (!dictionary || !influences) throw new Error(`${variant} face node ${name} has no morph targets`);
+        influences.fill(0);
+        for (const [target, weight] of Object.entries(face.morphs)) {
+          const index = dictionary[target];
+          if (index === undefined) throw new Error(`${variant} face node ${name} lacks the morph target ${target}`);
+          influences[index] = weight;
+        }
+      }
+    }
+  }
   for (const name of [...(outfit.base?.hidden ?? []), ...(outfit.garments ?? []).flatMap((garment) => garment.hides)]) {
     const node = byName(root, name);
     if (node) node.visible = false;
