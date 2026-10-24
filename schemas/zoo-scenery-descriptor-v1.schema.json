@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://moritzbrantner.github.io/asset-tooling/schemas/zoo-scenery-descriptor-v1.schema.json",
   "title": "asset-tooling Zoo scenery descriptor v1",
-  "description": "Measured size and bounds of the toy-style, flat-colour Zoo scenery pieces (docs/zoo-scenery.md). Every value is in metres (one Zoo tile is 1 m) in the piece's own frame: +Y up, front +Z, origin at the centre of the footprint on the ground. Each piece fits the footprint.",
+  "description": "Measured size and bounds of the toy-style, flat-colour Zoo scenery pieces (docs/zoo-scenery.md). Every value is in metres (one Zoo tile is 1 m) in the piece's own frame: +Y up, front +Z, origin at the centre of the footprint on the ground. Each piece stands on the footprint; only a wide tree crown (the acacia) may overhang it slightly.",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema", "units", "tile", "up", "facing", "handedness", "origin", "footprint", "assets"],
@@ -32,7 +32,7 @@
       "properties": {
         "key": { "type": "string", "pattern": "^[a-z]+\\.mesh$" },
         "variant": { "type": "string", "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*$" },
-        "role": { "enum": ["tree", "bush", "rock"] },
+        "role": { "enum": ["tree", "bush", "grass", "rock"] },
         "triangles": { "type": "integer" },
         "visual": {
           "type": "object",

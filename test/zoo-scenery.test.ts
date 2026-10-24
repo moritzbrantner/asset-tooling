@@ -43,7 +43,7 @@ test("the zoo-scenery spec runs the packaged recipe with exactly one piece", () 
   const spec = createZooSceneryAssetSpec({ piece: { kind: "tree", variant: "pine" }, scriptSha256: "a".repeat(64), blenderVersion: "5.2.2" });
   assert.deepEqual(spec.parameters, { blenderVersion: "5.2.2", arguments: { schemaVersion: 1, kind: "tree", variant: "pine" } });
   assert.equal(spec.assetId, "zoo.tree.pine");
-  assert.deepEqual([...new Set(ZOO_SCENERY_PIECES.map((p) => zooMeshKey(p.kind)))].sort(), ["bush.mesh", "rock.mesh", "tree.mesh"]);
+  assert.deepEqual([...new Set(ZOO_SCENERY_PIECES.map((p) => zooMeshKey(p.kind)))].sort(), ["bush.mesh", "grass.mesh", "rock.mesh", "tree.mesh"]);
   assert.equal(ZOO_RELEASE, "zoo-scenery", "one rolling release, never numbered");
 });
 
@@ -85,12 +85,18 @@ test("the zoo recipe builds a verified, reproducible package of grounded, untext
       const id = `${asset.role}/${asset.variant}`;
       assert.equal(asset.bounds.min[1], 0, `${id} stands on y = 0`);
       for (const k of [0, 2]) assert.ok(Math.abs(asset.bounds.min[k] + asset.bounds.max[k]) < 0.15, `${id} is centred on the footprint`);
-      assert.ok(asset.visual.width <= ZOO_FOOTPRINT.width && asset.visual.depth <= ZOO_FOOTPRINT.depth, `${id} fits one tile`);
-      assert.ok(asset.visual.width >= 0.5, `${id} is chunky enough to read at the park camera`);
+      // Only the acacia's flat crown may overhang its tile, by a little.
+      const overhang = id === "tree/acacia" ? 1.2 : 1;
+      assert.ok(asset.visual.width <= ZOO_FOOTPRINT.width * overhang && asset.visual.depth <= ZOO_FOOTPRINT.depth * overhang, `${id} fits one tile`);
+      assert.ok(asset.visual.width >= (asset.role === "grass" ? 0.2 : 0.5), `${id} is chunky enough to read at the park camera`);
       assert.ok(asset.triangles < 1_000, `${id} stays light for instance batches`);
     }
     const height = (role: string) => Math.min(...d.assets.filter((a: any) => a.role === role).map((a: any) => a.visual.height));
-    assert.ok(height("tree") > 1.2 && height("tree") > height("bush") && height("bush") > height("rock"), "trees over bushes over rocks");
+    assert.ok(height("tree") > 1.2 && height("tree") > height("bush") && height("bush") > height("rock") && height("rock") > height("grass"), "trees over bushes over rocks over grass");
+    const tuft = d.assets.find((a: any) => a.role === "grass");
+    assert.ok(d.assets.every((a: any) => a === tuft || a.triangles > tuft.triangles), "the grass tuft, repeated the most, has the fewest triangles");
+    const acacia = d.assets.find((a: any) => a.variant === "acacia");
+    assert.ok(acacia.visual.width > acacia.visual.height * 0.75, "the acacia has a wide, flat crown");
 
     const replay = await buildZooScenery({ outDir: replayDir });
     assert.equal(replay.tarSha256, built.tarSha256, "an independent rebuild packs the same tar");
