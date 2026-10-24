@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://moritzbrantner.github.io/asset-tooling/schemas/combat-effects-descriptor-v1.schema.json",
+  "title": "asset-tooling combat effects descriptor v1",
+  "description": "Layout and burst presets of arpg's baked combat flipbooks (docs/combat-effects.md). Each atlas is a straight-alpha sRGB PNG divided into columns x rows cells, frames row-major from the top-left, played once over a particle's lifetime by 3d-lab's three-d-renderer frame.effects bursts or single instances. Presets are BurstPresets in seconds and metres, +Y up.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "units", "up", "renderer", "effects"],
+  "properties": {
+    "schema": { "const": "combat-effects-descriptor-v1" },
+    "units": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["time", "distance"],
+      "properties": { "time": { "const": "second" }, "distance": { "const": "metre" } }
+    },
+    "up": { "const": "+Y" },
+    "renderer": { "const": "three-d-renderer frame.effects" },
+    "effects": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/effect" } }
+  },
+  "$defs": {
+    "vec3": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 },
+    "rgb": { "type": "array", "items": { "type": "integer" }, "minItems": 3, "maxItems": 3 },
+    "atlas": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["width", "height", "columns", "rows", "frameCount", "filter", "cell", "colorSpace", "alpha", "rowOrder", "transparentRgb"],
+      "properties": {
+        "width": { "type": "integer" },
+        "height": { "type": "integer" },
+        "columns": { "type": "integer" },
+        "rows": { "type": "integer" },
+        "frameCount": { "type": "integer" },
+        "filter": { "enum": ["linear", "nearest"] },
+        "cell": { "type": "integer" },
+        "colorSpace": { "const": "srgb" },
+        "alpha": { "const": "straight" },
+        "rowOrder": { "const": "top-first" },
+        "transparentRgb": { "$ref": "#/$defs/rgb" }
+      }
+    },
+    "preset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["count", "lifetime", "emitDuration", "speed", "direction", "spread", "gravity", "endScale", "fadeOut"],
+      "properties": {
+        "count": { "type": "integer" },
+        "lifetime": { "type": "number" },
+        "emitDuration": { "type": "number" },
+        "speed": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 },
+        "direction": { "$ref": "#/$defs/vec3" },
+        "spread": { "type": "number" },
+        "gravity": { "$ref": "#/$defs/vec3" },
+        "endScale": { "type": "number" },
+        "fadeOut": { "type": "boolean" }
+      }
+    },
+    "trailInstances": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["segments", "stagger"],
+      "properties": { "segments": { "type": "integer" }, "stagger": { "type": "number" } }
+    },
+    "effect": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "variant", "role", "description", "atlas", "png", "scale", "presets"],
+      "properties": {
+        "key": { "type": "string", "pattern": "^[a-z][a-z0-9-]*\\.flipbook$" },
+        "variant": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+        "role": { "enum": ["spark", "block-spark", "impact-dust", "trail"] },
+        "description": { "type": "string" },
+        "atlas": { "$ref": "#/$defs/atlas" },
+        "png": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["sha256", "byteLength"],
+          "properties": { "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }, "byteLength": { "type": "integer" } }
+        },
+        "scale": { "type": "number" },
+        "presets": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["standard", "subtle"],
+          "properties": { "standard": { "$ref": "#/$defs/preset" }, "subtle": { "$ref": "#/$defs/preset" }, "heavy": { "$ref": "#/$defs/preset" } }
+        },
+        "instances": {
+          "description": "Trail only: how many single instances to draw along a swing arc and their start offset in seconds; each lasts the matching preset's lifetime.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["standard", "subtle"],
+          "properties": { "standard": { "$ref": "#/$defs/trailInstances" }, "subtle": { "$ref": "#/$defs/trailInstances" } }
+        }
+      }
+    }
+  }
+}

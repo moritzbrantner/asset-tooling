@@ -3,7 +3,7 @@
 This is the first usable slice of [#136](https://github.com/moritzbrantner/asset-tooling/issues/136): baked particle flipbooks and burst presets for Zoo's keeper effects ([zoo#86](https://github.com/moritzbrantner/zoo/issues/86); owner answer of 2026-10-24: real particles, off under reduced motion).
 
 - **Renderer:** the effects are played by 3d-lab's `frame.effects.bursts` ([3d-lab#161](https://github.com/moritzbrantner/3d-lab/pull/161), `docs/contracts/browser-renderer.md`, "Seeded bursts" and "Flipbook input from asset tooling"). The renderer owns particle motion and sampling. This recipe supplies the atlas and a `BurstPreset` that passes through unchanged.
-- **Source:** a deterministic 2D rasterizer, [`src/zoo-effect-flipbooks.ts`](../src/zoo-effect-flipbooks.ts). It draws flat-colour circles, ellipses and leaf lenses, each with a darker rim, supersampled 4×4 per pixel. There is no randomness, no third-party art, no model, no Blender and no GPU.
+- **Source:** the frames in [`src/zoo-effect-flipbooks.ts`](../src/zoo-effect-flipbooks.ts), drawn by the shared deterministic 2D rasterizer [`src/effect-flipbook-raster.ts`](../src/effect-flipbook-raster.ts) (also used by the [ARPG combat flipbooks](combat-effects.md)). It draws flat-colour circles, ellipses and leaf lenses, each with a darker rim, supersampled 4×4 per pixel. There is no randomness, no third-party art, no model, no Blender and no GPU.
 - **Release:** one rolling release, `zoo-effects` (Atlas Decision 7.1.5), never a numbered one.
 
 ## Build

@@ -5,63 +5,19 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import os from "node:os";
 import path from "node:path";
-import { inflateSync } from "node:zlib";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { verifyAssetBundleTar } from "../src/asset-bundle-pack.js";
+import { burstPresetErrors } from "../src/effect-flipbook-raster.ts";
+import { conforms, decodePng } from "./effect-flipbook-helpers.ts";
 import { readAssetBundleAsset, verifyAssetBundle } from "../src/asset-bundle.js";
 import {
-  ZOO_EFFECT_KINDS, ZOO_EFFECT_LAYOUT, ZOO_EFFECT_RECIPES, burstPresetErrors, rasterizeZooEffectAtlas, transparentRgb,
+  ZOO_EFFECT_KINDS, ZOO_EFFECT_LAYOUT, ZOO_EFFECT_RECIPES, rasterizeZooEffectAtlas, transparentRgb,
 } from "../src/zoo-effect-flipbooks.ts";
 import {
   ZOO_EFFECTS_DESCRIPTOR_SCHEMA, ZOO_EFFECTS_RELEASE, ZOO_EFFECT_VARIANT, buildZooEffects, zooEffectKey,
 } from "../scripts/build-zoo-effects.ts";
 
 const schemaUrl = new URL("../schemas/zoo-effects-descriptor-v1.schema.json", import.meta.url);
-
-/** The JSON Schema subset the descriptor schema uses: const, enum, type, pattern, required, additionalProperties, items, $ref. */
-function conforms(schema: any, value: any, root: any, at = "$"): string[] {
-  if (schema.$ref) return conforms(root.$defs[schema.$ref.split("/").pop()], value, root, at);
-  if ("const" in schema) return value === schema.const ? [] : [`${at} is not ${schema.const}`];
-  if (schema.enum) return schema.enum.includes(value) ? [] : [`${at} is not one of ${schema.enum}`];
-  if (schema.type === "number" || schema.type === "integer") return typeof value === "number" && (schema.type === "number" || Number.isInteger(value)) ? [] : [`${at} is not a ${schema.type}`];
-  if (schema.type === "boolean") return typeof value === "boolean" ? [] : [`${at} is not a boolean`];
-  if (schema.type === "string") return typeof value === "string" && (!schema.pattern || new RegExp(schema.pattern).test(value)) ? [] : [`${at} is not a matching string`];
-  if (schema.type === "array") {
-    if (!Array.isArray(value)) return [`${at} is not an array`];
-    if ((schema.minItems ?? 0) > value.length || (schema.maxItems ?? Infinity) < value.length) return [`${at} has the wrong length`];
-    return value.flatMap((item, i) => conforms(schema.items, item, root, `${at}[${i}]`));
-  }
-  if (schema.type === "object") {
-    if (!value || typeof value !== "object" || Array.isArray(value)) return [`${at} is not an object`];
-    const errors = (schema.required ?? []).filter((key: string) => !(key in value)).map((key: string) => `${at}.${key} is missing`);
-    for (const [key, child] of Object.entries(value)) {
-      if (schema.properties?.[key]) errors.push(...conforms(schema.properties[key], child, root, `${at}.${key}`));
-      else if (schema.additionalProperties === false) errors.push(`${at}.${key} is not allowed`);
-    }
-    return errors;
-  }
-  return [];
-}
-
-/** Decode an 8-bit RGBA, non-interlaced PNG with only filter-0 rows (what the recipe writes). */
-function decodePng(png: Uint8Array) {
-  const bytes = Buffer.from(png);
-  assert.equal(bytes.toString("latin1", 1, 4), "PNG");
-  let offset = 8, width = 0, height = 0;
-  const idat: Buffer[] = [];
-  while (offset < bytes.length) {
-    const length = bytes.readUInt32BE(offset), type = bytes.toString("latin1", offset + 4, offset + 8), data = bytes.subarray(offset + 8, offset + 8 + length);
-    if (type === "IHDR") { width = data.readUInt32BE(0); height = data.readUInt32BE(4); assert.deepEqual([...data.subarray(8)], [8, 6, 0, 0, 0]); }
-    if (type === "IDAT") idat.push(data);
-    offset += length + 12;
-  }
-  const raw = inflateSync(Buffer.concat(idat)), pixels = new Uint8Array(width * height * 4);
-  for (let y = 0; y < height; y += 1) {
-    assert.equal(raw[y * (width * 4 + 1)], 0);
-    pixels.set(raw.subarray(y * (width * 4 + 1) + 1, (y + 1) * (width * 4 + 1)), y * width * 4);
-  }
-  return { width, height, pixels };
-}
 
 test("every recipe preset stays inside 3d-lab's BurstPreset bounds, and bad presets are rejected", () => {
   for (const kind of ZOO_EFFECT_KINDS) for (const [name, preset] of Object.entries(ZOO_EFFECT_RECIPES[kind].presets)) {

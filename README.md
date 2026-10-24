@@ -20,6 +20,8 @@ The [toy zoo scenery](docs/zoo-scenery.md) is a scripted Blender recipe for Zoo:
 
 The [Zoo particle flipbooks](docs/zoo-effects.md) are baked 16-frame dust, leaf and splash atlases with matching `BurstPreset`s for 3d-lab's seeded bursts, from a deterministic 2D recipe.
 
+The [ARPG combat flipbooks](docs/combat-effects.md) are baked 16-frame hit-spark, block-spark, impact-dust and weapon-trail atlases with matching `BurstPreset`s for arpg's strike feedback, from the same deterministic 2D rasterizer.
+
 The [combat sounds](docs/combat-sounds.md) are 35 CC0 mono WAV clips (Kenney and OpenGameArt) for arpg's combat, pickup, encounter and UI cues, trimmed and normalised, with a game-audio `SoundManifest`.
 
 ## Review current assets
