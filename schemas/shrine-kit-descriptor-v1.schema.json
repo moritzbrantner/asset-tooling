@@ -1,0 +1,138 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://moritzbrantner.github.io/asset-tooling/schemas/shrine-kit-descriptor-v1.schema.json",
+  "title": "asset-tooling sunken shrine kit descriptor v1",
+  "description": "Grid, arch opening, relic, light, cave passage, air-pocket and box-collision metadata of the sunken shrine and cave kit (docs/shrine-kit.md). Every value is in metres in its module's own frame: +Y up, front +Z, the cave along +X, origin at the module's base centre. Collision proxies are presentation metadata; game physics stays with the consumer.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "units", "up", "facing", "handedness", "origin", "grid", "assets"],
+  "properties": {
+    "schema": { "const": "shrine-kit-descriptor-v1" },
+    "units": { "const": "metre" },
+    "up": { "const": "+Y" },
+    "facing": { "const": "+Z" },
+    "handedness": { "const": "right" },
+    "origin": { "const": "module-base-center" },
+    "grid": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["module", "wallHeight", "wallThickness", "floorTop", "caveWidth", "caveHeight"],
+      "properties": {
+        "module": { "type": "number", "exclusiveMinimum": 0 },
+        "wallHeight": { "type": "number", "exclusiveMinimum": 0 },
+        "wallThickness": { "type": "number", "exclusiveMinimum": 0 },
+        "floorTop": { "type": "number" },
+        "caveWidth": { "type": "number", "exclusiveMinimum": 0 },
+        "caveHeight": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+    "assets": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/asset" } }
+  },
+  "$defs": {
+    "vec3": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 },
+    "box": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["min", "max"],
+      "properties": { "min": { "$ref": "#/$defs/vec3" }, "max": { "$ref": "#/$defs/vec3" } }
+    },
+    "proxy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "tag", "center", "size"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "tag": { "enum": ["solid", "floor"] },
+        "center": { "$ref": "#/$defs/vec3" },
+        "size": { "$ref": "#/$defs/vec3" }
+      }
+    },
+    "asset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "role", "category", "parentName", "triangles", "footprint", "bounds", "collisionProxies"],
+      "properties": {
+        "key": { "type": "string", "pattern": "^shrine\\.kit\\.[a-z]+(?:-[a-z]+)*$" },
+        "role": { "type": "string" },
+        "category": { "enum": ["structure", "cave", "prop"] },
+        "parentName": { "type": "string" },
+        "triangles": { "type": "integer", "minimum": 1 },
+        "footprint": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["width", "depth", "height"],
+          "properties": { "width": { "type": "number" }, "depth": { "type": "number" }, "height": { "type": "number" } }
+        },
+        "bounds": { "$ref": "#/$defs/box" },
+        "collisionProxies": { "type": "array", "items": { "$ref": "#/$defs/proxy" } },
+        "module": {
+          "description": "Grid module of a wall, the arch, the floor tile or a cave module.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["width", "height", "depth"],
+          "properties": { "width": { "type": "number" }, "height": { "type": "number" }, "depth": { "type": "number" }, "top": { "type": "number" } }
+        },
+        "opening": {
+          "description": "The arch's round-headed opening: straight jambs up to springline, a semicircle up to crown; min/max bound it.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["shape", "width", "springline", "crown", "depth", "min", "max"],
+          "properties": {
+            "shape": { "const": "round-arch" },
+            "width": { "type": "number" },
+            "springline": { "type": "number" },
+            "crown": { "type": "number" },
+            "depth": { "type": "number" },
+            "min": { "$ref": "#/$defs/vec3" },
+            "max": { "$ref": "#/$defs/vec3" }
+          }
+        },
+        "relic": {
+          "description": "The altar's empty node where the Sunken Relic rests.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["node", "position"],
+          "properties": { "node": { "type": "string" }, "position": { "$ref": "#/$defs/vec3" } }
+        },
+        "lights": {
+          "description": "Suggested lights: a point light at the relic, a spot light down the cave mouth's light shaft. The GLBs contain no lights.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["node", "kind", "position", "color", "suggestedIntensityCandela", "suggestedRange"],
+            "properties": {
+              "node": { "type": "string" },
+              "kind": { "enum": ["point", "spot"] },
+              "position": { "$ref": "#/$defs/vec3" },
+              "direction": { "$ref": "#/$defs/vec3" },
+              "color": { "$ref": "#/$defs/vec3" },
+              "suggestedIntensityCandela": { "type": "number" },
+              "suggestedRange": { "type": "number" }
+            }
+          }
+        },
+        "tunnel": {
+          "description": "A cave module's passage along axis: its open ends and the clear box no geometry or proxy enters.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["axis", "length", "ends", "clear"],
+          "properties": {
+            "axis": { "const": "+X" },
+            "length": { "type": "number" },
+            "ends": { "type": "array", "items": { "enum": ["-X", "+X"] } },
+            "clear": { "$ref": "#/$defs/box" }
+          }
+        },
+        "airPocket": { "description": "The air-pocket room's clear interior, where a consumer may author its breathable box.", "$ref": "#/$defs/box" },
+        "anchor": {
+          "description": "A hanging prop's origin: the anchor at its top, hanging along -Y.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["at", "position", "hangs"],
+          "properties": { "at": { "const": "top" }, "position": { "$ref": "#/$defs/vec3" }, "hangs": { "const": "-Y" } }
+        }
+      }
+    }
+  }
+}
