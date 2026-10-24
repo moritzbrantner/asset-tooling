@@ -237,20 +237,22 @@ def set_cloth(material, colour):
         p.inputs["Base Color"].default_value = (*rgb, 1)
 
 
-def mantle(body, centre, top, bottom, n=40, rows=8, clearance=.02, tatter=0.0, flare=1.0, seed=0, collar=None):
+def mantle(body, centre, top, bottom, n=40, rows=8, clearance=.02, tatter=0.0, flare=1.0, seed=0, collar=None, arc=None):
     """A capelet around ``centre`` (x, y): rings from ``top`` (z, rx, ry_front, ry_back) down to
-    ``bottom`` (z_front, z_back, rx, ry_front, ry_back), pushed clear of ``body``. Returns a bmesh."""
+    ``bottom`` (z_front, z_back, rx, ry_front, ry_back), pushed clear of ``body``. ``arc`` (degrees, from +X
+    toward the back +Y) leaves the rest open, for cloaks and one-shoulder capes. Returns a bmesh."""
     import random
     rnd = random.Random(seed)
     bm = bmesh.new()
     grid = []
     cx, cy = centre
-    jag = [rnd.uniform(0, 1) for _ in range(n)]
+    cols = n + 1 if arc else n
+    jag = [rnd.uniform(0, 1) for _ in range(cols)]
     rings = rows + (1 if collar else 0)
     for r in range(rings + 1):
         row = []
-        for i in range(n):
-            t = 2 * math.pi * i / n
+        for i in range(cols):
+            t = math.radians(arc[0] + (arc[1] - arc[0]) * i / n) if arc else 2 * math.pi * i / n
             s, c = math.sin(t), math.cos(t)
             back = s > 0
             if collar and r == 0:
@@ -277,7 +279,7 @@ def mantle(body, centre, top, bottom, n=40, rows=8, clearance=.02, tatter=0.0, f
         grid.append(row)
     for r in range(rings):
         for i in range(n):
-            j = (i + 1) % n
+            j = i + 1 if arc else (i + 1) % n
             bm.faces.new([grid[r][i], grid[r][j], grid[r + 1][j], grid[r + 1][i]])
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
     return bm
@@ -331,3 +333,96 @@ def baldric(body, centre, z_high, z_low, width=.06, n=40, clearance=.015, side=1
         j = (i + 1) % n
         bm.faces.new([top[i], top[j], bot[j], bot[i]])
     return bm
+
+
+def rest_mode(arm):
+    x = arm.location.x
+    arm.location.x = 0
+    arm.data.pose_position = "REST"
+    bpy.context.view_layer.update()
+    return x
+
+
+def pose_mode(arm, x):
+    arm.location.x = x
+    arm.data.pose_position = "POSE"
+    SC.frame_set(1)
+
+
+def transplant(src, arm, cname, name, material=None):
+    """Copy a skinned mesh of another character (same rig) onto ``arm``."""
+    o = bpy.data.objects.new(f"{cname}.{name}", src.data.copy())
+    bpy.data.collections[cname].objects.link(o)
+    for g in src.vertex_groups:
+        o.vertex_groups.new(name=g.name)
+    for v, sv in zip(o.data.vertices, src.data.vertices):
+        for g in sv.groups:
+            o.vertex_groups[src.vertex_groups[g.group].name].add([v.index], g.weight, "REPLACE")
+    o.parent = arm
+    o.modifiers.new("arm", "ARMATURE").object = arm
+    if material is not None:
+        o.data.materials.clear()
+        o.data.materials.append(material)
+    return o
+
+
+def hide(obj):
+    obj.hide_render = obj.hide_viewport = True
+
+
+def sleeve(body, arm, side, start=.05, end=1.08, rows=10, n=16, clearance=.012, flare=0.0, tatter=0.0, seed=0):
+    """A long sleeve tube along the rest arm (upperarm head -> past the wrist), fitted to ``body`` and opening by
+    ``flare`` metres at the cuff; ``tatter`` cuts the cuff into uneven points. Returns a bmesh in rest space."""
+    import random
+    rnd = random.Random(seed)
+    a = bone_head(arm, f"upperarm_{side}")
+    b = bone_head(arm, f"hand_{side}")
+    u = (b - a).normalized()
+    e1 = Vector((0, 1, 0))
+    e1 = (e1 - u * e1.dot(u)).normalized()
+    e2 = u.cross(e1)
+    bm = bmesh.new()
+    grid = []
+    for r in range(rows + 1):
+        k = r / rows
+        t = start + (end - start) * k
+        c = a + (b - a) * t
+        row = []
+        for i in range(n):
+            th = 2 * math.pi * i / n
+            d = e1 * math.cos(th) + e2 * math.sin(th)
+            hit = surface(body, c, d, reach=.14)
+            rad = ((hit - c).length if hit else .05) + clearance
+            if r == rows - 1 or r == rows:
+                rad = max(rad, .05)
+            rad += flare * k ** 2
+            p = c + d * rad
+            # cuffs hang: open toward the ground side when flared
+            if r == rows and tatter:
+                p += u * (tatter * (rnd.uniform(.3, 1) if i % 2 else 0))
+            row.append(bm.verts.new(p))
+        grid.append(row)
+    for r in range(rows):
+        for i in range(n):
+            j = (i + 1) % n
+            bm.faces.new([grid[r][i], grid[r][j], grid[r + 1][j], grid[r + 1][i]])
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    return bm
+
+
+def skinned_piece(cname, name, bm, arm, source, material, thickness=.006):
+    me = bpy.data.meshes.new(name)
+    bm.to_mesh(me)
+    bm.free()
+    for p in me.polygons:
+        p.use_smooth = True
+    me.materials.append(material)
+    o = bpy.data.objects.new(f"{cname}.{name}", me)
+    bpy.data.collections[cname].objects.link(o)
+    bpy.context.view_layer.update()
+    skin_like(o, source, arm)
+    if thickness:
+        s = o.modifiers.new("solid", "SOLIDIFY")
+        s.thickness = thickness
+        s.offset = 1
+    return o

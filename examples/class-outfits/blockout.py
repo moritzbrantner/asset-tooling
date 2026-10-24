@@ -323,7 +323,7 @@ def druid():
     return arm
 
 
-def review(out_dir):
+def review(out_dir, suffix=""):
     """Line-up at the mmorpg game camera (12 m, 0.42 rad pitch, 50 deg vertical fov, pivot 0.6 m) and a front close-up
     sheet, lit like the armour sheets (procedural sky at 0.06 plus a 3.5 sun)."""
     import numpy
@@ -366,7 +366,7 @@ def review(out_dir):
     SC.cycles.samples, SC.cycles.use_denoising = 48, True
     SC.view_settings.view_transform = "Standard"
     r = SC.render
-    r.resolution_x, r.resolution_y, r.filepath = 1920, 1080, os.path.join(out_dir, "class-lineup-12m.png")
+    r.resolution_x, r.resolution_y, r.filepath = 1920, 1080, os.path.join(out_dir, f"class-lineup-12m{suffix}.png")
     bpy.ops.render.render(write_still=True, scene=SC.name)
     close = bpy.data.objects.new("review.close-cam", bpy.data.cameras.new("review.close-cam"))
     col.objects.link(close)
@@ -390,23 +390,150 @@ def review(out_dir):
         tiles.append(px.reshape(H, W, 4))
     img = bpy.data.images.new("class-closeup", W * len(ORDER), H, alpha=True)
     img.pixels.foreach_set(numpy.concatenate(tiles, axis=1).ravel())
-    img.filepath_raw, img.file_format = os.path.join(out_dir, "class-front-closeup.png"), "PNG"
+    img.filepath_raw, img.file_format = os.path.join(out_dir, f"class-front-closeup{suffix}.png"), "PNG"
     img.save()
     SC.camera = cam
 
 
-def build(out_dir=None):
+def revision_1b():
+    """Owner review of the first sheet (2026-10-25): long robes only, plain functional boots, and per-class fixes."""
+    # Plain boots: the Ranger's tall buckled boots read as decorative; the Ranger and Rogue wear the Peasant boots.
+    peasant = bpy.data.objects["necro.Male_Peasant_Feet"]
+    for C in ("ranger", "rogue"):
+        arm = bpy.data.objects[C + ".rig"]
+        hide(bpy.data.objects[C + ".Male_Ranger_Feet_Boots"])
+        boots = transplant(peasant, arm, C, "boots")
+        boots.data.materials[0] = peasant.data.materials[0].copy()
+        if C == "rogue":
+            tint_textured(boots.data.materials[0], (.35, .32, .3), .3)
+
+    # Ranger: a hip-length hooded cloak (the hood takes the cloak's cloth) and a forest-green class sash.
+    C = "ranger"
+    arm = bpy.data.objects[C + ".rig"]
+    rest_mode(arm)
+    body = [bpy.data.objects[C + n] for n in (".Male_Ranger_Body", ".Male_Ranger_Body_Belt_1", ".Male_Ranger_Body_Belt_2",
+                                              ".Male_Ranger_Acc_Pauldron")]
+    cloak = mat("ranger.cloak", "#4d4a3b", rough=.95)
+    solid(rig_mesh("cloak", mantle(body, (0, .02), (1.50, .13, .10, .11), (1.0, .90, .32, .20, .23), rows=12, arc=(-40, 220),
+                                   flare=.3, clearance=.025, seed=2), arm, "spine_03", cloak, C))
+    bpy.data.objects[C + ".Male_Ranger_Head_Hood"].data.materials[0] = cloak
+    solid(rig_mesh("sash", baldric(body[:3], (0, .03), 1.40, 1.0, side=1), arm, "spine_02", mat("ranger.sash", "#2f5a2c"), C), .006)
+    for h in (C + ".back.quiver", C + ".back.bow.stowed"):
+        bpy.data.objects[h].matrix_world = Matrix.Translation((0, .05, 0)) @ bpy.data.objects[h].matrix_world  # over the cloak
+    pose_mode(arm, 0)
+
+    # Rogue: an asymmetric short cape over the left shoulder and cloth-wrapped forearms instead of the bracers.
+    C = "rogue"
+    arm = bpy.data.objects[C + ".rig"]
+    rest_mode(arm)
+    hide(bpy.data.objects[C + ".Male_Ranger_Arms_Bracer"])
+    body = [bpy.data.objects[C + n] for n in (".Male_Ranger_Body", ".Male_Ranger_Body_Belt_1", ".Male_Ranger_Body_Belt_2")]
+    solid(rig_mesh("shoulder-cape", mantle(body, (0, .02), (1.50, .12, .10, .11), (1.22, 1.10, .27, .18, .2), rows=8, arc=(-70, 150),
+                                           flare=.4, clearance=.03, tatter=.04, seed=9), arm, "spine_03", mat("rogue.cape", "#2b2826"), C))
+    arms = bpy.data.objects[C + ".Male_Ranger_Arms"]
+    for s in ("l", "r"):
+        wrap = skinned_piece(C, f"wrap_{s}", sleeve([arms], arm, s, start=.52, end=.97, rows=9, n=12, clearance=.008), arm, arms,
+                             mat("rogue.wrap", "#57504a", rough=.95), thickness=.004)
+        wrap.data.materials.append(mat("rogue.wrap-dark", "#3a3430", rough=.95))
+        for f in wrap.data.polygons:
+            f.material_index = (f.index // 12) % 2
+    pose_mode(arm, 0)
+
+    # Long sleeves tell the robed classes apart: tattered (Necromancer), bell (Arcanist), fitted with gold cuffs
+    # (Cleric), loose and frayed (Druid).
+    for C, colour, kw in (("necro", "#2a2333", {"flare": .07, "tatter": .09}), ("arcanist", "#4a4d75", {"flare": .10, "end": 1.02}),
+                          ("cleric", "#e0d8c4", {"flare": .03, "end": 1.0}), ("druid", "#4f4a37", {"flare": .04, "end": 1.0, "tatter": .04})):
+        arm = bpy.data.objects[C + ".rig"]
+        rest_mode(arm)
+        arms, shirt = bpy.data.objects[C + ".Male_Peasant_Arms"], bpy.data.objects[C + ".robe-shirt"]
+        for i, s in enumerate(("l", "r")):
+            skinned_piece(C, f"sleeve_{s}", sleeve([arms, shirt], arm, s, seed=3 + i, **kw), arm, arms, mat(C + ".sleeve", colour, rough=.9))
+            if C == "cleric":
+                skinned_piece(C, f"cuff_{s}", sleeve([arms, shirt], arm, s, start=.9, end=1.0, rows=2, clearance=.02, flare=.035),
+                              arm, arms, bpy.data.materials["co.gold"])
+        pose_mode(arm, 0)
+
+    # Arcanist: its own slim crystal-topped staff (equipment.staff.crystal), grip frame +Z, foot 0.8 m below the grip.
+    C = "arcanist"
+    arm = bpy.data.objects[C + ".rig"]
+    rest_mode(arm)
+    w, j = socket_world("hand_r.staff")
+    bm = bmesh.new()
+    cone(bm, (0, 0, -.80), (0, 0, .92), .014, .012, seg=8)
+    cone(bm, (0, 0, .90), (0, 0, .96), .02, .02, seg=8)
+    for k in range(3):
+        d = Vector((math.cos(2 * math.pi * k / 3), math.sin(2 * math.pi * k / 3), 0))
+        cone(bm, Vector((0, 0, .95)) + d * .012, Vector((0, 0, 1.06)) + d * .035, .006, .003, seg=5)
+    gem = bmesh.new()
+    bmesh.ops.create_cone(gem, cap_ends=True, segments=6, radius1=.035, radius2=0, depth=.11, matrix=Matrix.Translation((0, 0, 1.09)))
+    bmesh.ops.create_cone(gem, cap_ends=True, segments=6, radius1=0, radius2=.035, depth=.05, matrix=Matrix.Translation((0, 0, 1.01)))
+    crystal = mat("arcanist.crystal", "#8fd6ff", rough=.1)
+    p = next(n for n in crystal.node_tree.nodes if n.type == "BSDF_PRINCIPLED")
+    p.inputs["Emission Color"].default_value = (*srgb("#7cc8ff"), 1)
+    p.inputs["Emission Strength"].default_value = 2.0
+    for name, b, m in (("staff.crystal", bm, mat("arcanist.staff", "#8a8fa8", rough=.5)), ("staff.crystal-gem", gem, crystal)):
+        o = rig_mesh(name, b, arm, j, m, C)
+        o.parent = None
+        o.matrix_world = w
+        attach(o, arm, j)
+    pose_mode(arm, 0)
+
+    # Cleric: gold edging along the tabard's sides and hem, so it stands out from the ivory robe.
+    C = "cleric"
+    arm = bpy.data.objects[C + ".rig"]
+    rest_mode(arm)
+    tab = bpy.data.objects[C + ".tabard"]
+    trim = tab.copy()
+    trim.data = tab.data.copy()
+    bpy.data.collections[C].objects.link(trim)
+    trim.name = C + ".tabard-trim"
+    bm = bmesh.new()
+    bm.from_mesh(trim.data)
+    from collections import defaultdict
+    rows, cols = defaultdict(list), defaultdict(list)
+    for v in bm.verts:
+        rows[(v.co.y < .02, round(v.co.z / .02))].append(v.co.x)
+        cols[(v.co.y < .02, round(v.co.x / .03))].append(v.co.z)
+
+    def edge(v):
+        front = v.co.y < .02
+        xs = rows[(front, round(v.co.z / .02))]
+        return v.co.z < 1.42 and (v.co.x < min(xs) + .022 or v.co.x > max(xs) - .022
+                                  or v.co.z < min(cols[(front, round(v.co.x / .03))]) + .055)
+    marked = {v for v in bm.verts if edge(v)}
+    bmesh.ops.delete(bm, geom=[f for f in bm.faces if sum(v in marked for v in f.verts) < 3], context="FACES")
+    bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context="VERTS")
+    bm.normal_update()
+    for v in bm.verts:
+        v.co += v.normal * .002
+        d = Vector((v.co.x * .3, v.co.y - .02, 0))
+        if d.length > 1e-4:
+            v.co += d.normalized() * .004
+    bm.to_mesh(trim.data)
+    bm.free()
+    trim.data.materials[0] = bpy.data.materials["co.gold"]
+    trim.modifiers.new("solid", "SOLIDIFY").thickness = .004
+    pose_mode(arm, 0)
+
+    # Druid: the greens muted toward the Marshal's palette.
+    set_cloth(bpy.data.objects["druid.robe"].data.materials[0], "#4b4f3a")
+    set_cloth(bpy.data.objects["druid.robe-shirt"].data.materials[0], "#565a43")
+    set_cloth(bpy.data.materials["co.druid.leaf"], "#53613a")
+
+
+def build(out_dir=None, suffix="-v2"):
     rigs = {}
     # The Ranger first: the Necromancer borrows its hood; the Warden first among the plate users: the Cleric borrows its tabard.
     for name, fn in (("ranger", ranger), ("warden", warden), ("arcanist", arcanist), ("necro", necromancer),
                      ("rogue", rogue), ("cleric", cleric), ("druid", druid)):
         rigs[name] = fn()
         pose(rigs[name])
+    revision_1b()
     for i, c in enumerate(ORDER):
         rigs[c].location.x = -6 + 2 * i
     SC.frame_set(1)
     if out_dir:
-        review(out_dir)
+        review(out_dir, suffix)
 
 
 build()
