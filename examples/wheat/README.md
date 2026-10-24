@@ -10,7 +10,8 @@ stream, collision choice or wind playback.
 appearance is a chunky sheaf of `stalkCount` thick stalks fanned around an upright centre stalk,
 with plump braided golden ears (`grainRows` rows of four fat kernels plus a tip and three short
 awns), fat lens-profiled leaves and a saturated sRGB palette coherent with the toy Farmhouse/Silo.
-Young Wheat is an upright grassy tuft; harvested Wheat is a cluster of cut straw stubble.
+Mature Wheat is mostly fruit: short stalks splayed wide so each oversized ear reads on its own
+(owner, #355). Young Wheat is an upright grassy tuft; harvested Wheat is a cluster of straw stubble.
 
 Run from a checkout with the pinned Blender installation (see `adapters/blender`):
 
@@ -25,7 +26,7 @@ and the Blender glTF exporter. Bounds, stage controls, seed, resolution and a
 combined triangle budget are explicit. Each self-contained GLB uses meters,
 right-handed Y-up, an identity root transform and a ground anchor at `[0,0,0]`
 within a declared 0.7 × 0.7 meter footprint. This footprint is a producer envelope,
-not a collision or planting-spacing contract. Current presets use 1,360 / 5,148 /
+not a collision or planting-spacing contract. Current presets use 1,360 / 4,276 /
 252 triangles for early / mature / harvested respectively.
 
 Use `asset-tooling/recipes/wheat` to read the packaged Python source, validate

@@ -113,7 +113,7 @@ test("actual Wheat stages are bounded rooted static GLBs with exact replay, UVs 
   }
   assert.ok(Math.abs(minY)<1e-6);assert.ok(maxY<=p.stemHeight+p.earLength*1.5+p.leafLength*1.3+1e-6);
   assert.ok(triangles>0 && triangles<=p.maxTriangles);
-  assert.equal(triangles,{early:1360,mature:5148,harvested:252}[p.stage]);
+  assert.equal(triangles,{early:1360,mature:4276,harvested:252}[p.stage]);
   const evidence=result.receipt.observations.script;
   assert.deepEqual(evidence.footprint,{width:.7,depth:.7});assert.equal(evidence.unit,"meter");assert.equal(evidence.axes,"right-handed-y-up");
   assert.equal(evidence.origin,"native-root-ground-anchor");assert.equal(evidence.wind,"none");assert.equal(evidence.stage,p.stage);

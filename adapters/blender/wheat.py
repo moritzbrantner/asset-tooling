@@ -257,7 +257,7 @@ def generate(output_path, arguments, inputs):
             continue
         yaw = (i - 1) * math.tau / (p["stalkCount"] - 1) + rng.uniform(-.25, .25)
         spread = r * 2.2
-        stalks.append((stalk_matrix(spread * math.cos(yaw), spread * math.sin(yaw), yaw, rng.uniform(.18, .26), r),
+        stalks.append((stalk_matrix(spread * math.cos(yaw), spread * math.sin(yaw), yaw, rng.uniform(.26, .34), r),
                        h * rng.uniform(.82, .94)))
 
     for matrix, height in stalks:

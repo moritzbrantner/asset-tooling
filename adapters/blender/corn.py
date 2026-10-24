@@ -114,7 +114,7 @@ def generate(output_path, arguments, inputs):
         bpy.data.objects.remove(profile, do_unlink=True)
     if p["kernelRows"]:
         ear, length = cob_matrix(h, r, p["earLength"]), p["earLength"]
-        radius = length * .22
+        radius = length * .26  # a fat cob dominates the mature silhouette (owner, #355)
         record("grain", place(cone(radius * .9, radius * .7, length, vertices=10), ear))
         record("grain", place(sphere(radius * .75, (0, 0, 0), segments=10, rings=5), ear, location=(0, 0, length), scale=(1, 1, .9)))
         for row in range(p["kernelRows"]):

@@ -65,6 +65,6 @@ export function createWheatAssetSpec({assetId,parameters,scriptSha256,blenderVer
 const common={schemaVersion:1,seed:"133",curveSegments:4,maxTriangles:8000} as const;
 export const WHEAT_PRESETS=Object.freeze({
  early:Object.freeze({...common,stage:"early",stalkCount:4,stemHeight:.14,stemRadius:.012,leafCount:8,leafLength:.26,leafWidth:.05,earLength:0,grainRows:0} as const),
- mature:Object.freeze({...common,stage:"mature",stalkCount:5,stemHeight:.55,stemRadius:.02,leafCount:4,leafLength:.24,leafWidth:.06,earLength:.28,grainRows:5} as const),
+ mature:Object.freeze({...common,stage:"mature",stalkCount:5,stemHeight:.3,stemRadius:.02,leafCount:3,leafLength:.16,leafWidth:.05,earLength:.34,grainRows:4} as const),
  harvested:Object.freeze({...common,stage:"harvested",stalkCount:7,stemHeight:.13,stemRadius:.02,leafCount:0,leafLength:0,leafWidth:0,earLength:0,grainRows:0} as const),
 });

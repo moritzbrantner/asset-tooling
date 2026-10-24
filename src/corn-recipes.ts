@@ -68,6 +68,6 @@ export function createCornAssetSpec({assetId,parameters,scriptSha256,authoringSh
 const common={schemaVersion:1,seed:"133",curveSegments:4,maxTriangles:7000} as const;
 export const CORN_PRESETS=Object.freeze({
  early:Object.freeze({...common,stage:"early",stemHeight:.3,stemRadius:.04,leafCount:3,leafLength:.36,leafWidth:.17,earLength:0,kernelRows:0} as const),
- mature:Object.freeze({...common,stage:"mature",stemHeight:1.15,stemRadius:.05,leafCount:6,leafLength:.48,leafWidth:.17,earLength:.42,kernelRows:6} as const),
+ mature:Object.freeze({...common,stage:"mature",stemHeight:.85,stemRadius:.05,leafCount:4,leafLength:.32,leafWidth:.14,earLength:.45,kernelRows:6} as const),
  harvested:Object.freeze({...common,stage:"harvested",stemHeight:.16,stemRadius:.06,leafCount:0,leafLength:0,leafWidth:0,earLength:0,kernelRows:0} as const),
 });

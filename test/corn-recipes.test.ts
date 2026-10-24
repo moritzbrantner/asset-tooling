@@ -116,7 +116,7 @@ test("actual Corn stages are bounded rooted static GLBs with exact replay, UVs a
   }
   assert.ok(Math.abs(minY)<1e-6);assert.ok(maxY<=p.stemHeight+.12+p.leafLength*.5+1e-6);
   assert.ok(triangles>0 && triangles<=p.maxTriangles);
-  assert.equal(triangles,{early:572,mature:3390,harvested:348}[p.stage]);
+  assert.equal(triangles,{early:572,mature:3086,harvested:348}[p.stage]);
   const evidence=result.receipt.observations.script;
   assert.deepEqual(evidence.footprint,{width:1.1,depth:1.1});assert.equal(evidence.unit,"meter");assert.equal(evidence.axes,"right-handed-y-up");
   assert.equal(evidence.origin,"native-root-ground-anchor");assert.equal(evidence.wind,"none");assert.equal(evidence.stage,p.stage);

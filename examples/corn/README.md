@@ -8,7 +8,8 @@ stream, collision choice or wind playback.
 
 **Bright-toy style** (asset-tooling#355, for my-farm#278): one tall, thick, segmented green stalk
 with broad arching lens-profiled leaves, a big bright-yellow cob (eight kernel columns) cupped by two
-husk leaves and a fanned orange tassel. Young Corn is a short stalk with three broad leaves; harvested
+husk leaves and a fanned orange tassel; the mature stalk is short and the cob dominates the silhouette
+(owner, #355). Young Corn is a short stalk with three broad leaves; harvested
 Corn is a thick tan stump with two flopped dry leaves, so neither stage reads as Wheat.
 
 Run from a checkout with the pinned Blender installation (see `adapters/blender`):
@@ -29,7 +30,7 @@ Bounds, stage controls, seed, resolution and a
 combined triangle budget are explicit. Each self-contained GLB uses meters,
 right-handed Y-up, an identity root transform and a ground anchor at `[0,0,0]`
 within a declared 1.1 × 1.1 meter footprint. This footprint is a producer envelope,
-not a collision or planting-spacing contract. Current presets use 572 / 3,390 /
+not a collision or planting-spacing contract. Current presets use 572 / 3,086 /
 348 triangles for early / mature / harvested respectively.
 
 Use `asset-tooling/recipes/corn` to read the packaged Python source, validate
