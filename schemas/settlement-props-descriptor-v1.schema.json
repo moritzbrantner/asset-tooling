@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://moritzbrantner.github.io/asset-tooling/schemas/settlement-props-descriptor-v1.schema.json",
+  "title": "asset-tooling Greyhaven settlement props descriptor v1",
+  "description": "Family, footprint, box-collision, attachment-node and composition metadata of the Greyhaven settlement props (docs/settlement-props.md). Every value is in metres in its prop's own frame: +Y up, the front towards +Z, the origin on the ground at the footprint's centre. Collision proxies are presentation metadata; game physics stays with the consumer.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "units", "up", "facing", "handedness", "origin", "assets", "compositions"],
+  "properties": {
+    "schema": { "const": "settlement-props-descriptor-v1" },
+    "units": { "const": "metre" },
+    "up": { "const": "+Y" },
+    "facing": { "const": "+Z" },
+    "handedness": { "const": "right" },
+    "origin": { "const": "footprint-base-center" },
+    "assets": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/asset" } },
+    "compositions": {
+      "description": "Working placements of the props in one small public space, in a centre-ground frame.",
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/composition" }
+    }
+  },
+  "$defs": {
+    "vec3": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 },
+    "box": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["min", "max"],
+      "properties": { "min": { "$ref": "#/$defs/vec3" }, "max": { "$ref": "#/$defs/vec3" } }
+    },
+    "proxy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "tag", "center", "size"],
+      "properties": {
+        "name": { "type": "string" },
+        "tag": { "const": "solid" },
+        "center": { "$ref": "#/$defs/vec3" },
+        "size": { "$ref": "#/$defs/vec3" }
+      }
+    },
+    "node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["node", "position"],
+      "properties": { "node": { "type": "string" }, "position": { "$ref": "#/$defs/vec3" } }
+    },
+    "composition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["footprint", "walkway", "items"],
+      "properties": {
+        "footprint": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["width", "depth"],
+          "properties": { "width": { "type": "number" }, "depth": { "type": "number" } }
+        },
+        "walkway": { "description": "A box that no item's collision proxy enters.", "$ref": "#/$defs/box" },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["key", "variant", "translation", "yawDegrees"],
+            "properties": {
+              "key": { "type": "string", "pattern": "^settlement\\.props\\.[a-z]+(?:-[a-z]+)*$" },
+              "variant": { "const": "default" },
+              "translation": { "$ref": "#/$defs/vec3" },
+              "yawDegrees": { "type": "number" }
+            }
+          }
+        }
+      }
+    },
+    "asset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "role", "family", "parentName", "triangles", "footprint", "bounds", "collisionProxies"],
+      "properties": {
+        "key": { "type": "string", "pattern": "^settlement\\.props\\.[a-z]+(?:-[a-z]+)*$" },
+        "role": { "type": "string" },
+        "family": { "enum": ["market", "street", "dressing"] },
+        "parentName": { "type": "string" },
+        "triangles": { "type": "integer", "minimum": 1 },
+        "footprint": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["width", "depth", "height"],
+          "properties": { "width": { "type": "number" }, "depth": { "type": "number" }, "height": { "type": "number" } }
+        },
+        "bounds": { "$ref": "#/$defs/box" },
+        "collisionProxies": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/proxy" } },
+        "stackTop": { "description": "crate, barrel: the height another one stacks on.", "type": "number" },
+        "seat": {
+          "description": "bench: the seat height, length and depth.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["height", "length", "depth"],
+          "properties": { "height": { "type": "number" }, "length": { "type": "number" }, "depth": { "type": "number" } }
+        },
+        "module": {
+          "description": "fence: the segment's grid width and height; neighbouring segments share their end post.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["width", "height"],
+          "properties": { "width": { "type": "number" }, "height": { "type": "number" } }
+        },
+        "light": { "description": "lantern-post: the empty node at the lantern's flame, for a consumer's light.", "$ref": "#/$defs/node" },
+        "sign": {
+          "description": "signpost: the empty node at the hanging board's centre and the board's box.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["node", "board"],
+          "properties": { "node": { "type": "string" }, "board": { "$ref": "#/$defs/box" } }
+        }
+      }
+    }
+  }
+}

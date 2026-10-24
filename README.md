@@ -14,6 +14,8 @@ The [sunken shrine and cave kit](docs/shrine-kit.md) is a scripted Blender recip
 
 The [Greyhaven Outpost building kit](docs/outpost-kit.md) is a scripted Blender recipe for the MMORPG's Outpost house and smithy exteriors: 2 m timber-frame wall modules with windows and a doorway, a hinged plank door, corner posts, a gable, shingle or slate roof sections and a chimney, with compositions for the house and smithy footprints.
 
+The [Greyhaven settlement props](docs/settlement-props.md) are a scripted Blender prop set in the same style for an Outpost public space: a market stall, handcart, crate and barrel, a signpost, lantern post and bench, and a fence segment, planter and woodpile, with a market-square composition.
+
 The [toy-like farm structures](docs/farm-structures.md) are a scripted Blender recipe for My Farm: a chunky red-and-white Farmhouse with a dark roof and a pale domed Silo, sized for 2 × 2 tile footprints.
 
 The [toy zoo scenery](docs/zoo-scenery.md) is a scripted Blender recipe for Zoo: flat-colour, untextured round and pine trees, a berry bush and a boulder, each fitting one 1 m tile.
