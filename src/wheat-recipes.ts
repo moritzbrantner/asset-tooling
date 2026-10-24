@@ -2,9 +2,10 @@ import {readBlenderRecipeSource} from "./blender-recipe-source.js";
 import {parseAssetSpec} from "./schema.js";
 
 export type WheatStage="early"|"mature"|"harvested";
-export type WheatParameters={schemaVersion:1;stage:WheatStage;seed:string;stemHeight:number;stemRadius:number;
- leafCount:number;leafLength:number;leafWidth:number;earLength:number;grainPairs:number;curveSegments:number;maxTriangles:number};
-const keys=["schemaVersion","stage","seed","stemHeight","stemRadius","leafCount","leafLength","leafWidth","earLength","grainPairs","curveSegments","maxTriangles"];
+/** Toy-like Wheat sheaf controls (asset-tooling#355): `stalkCount` thick stalks, plump `grainRows` ears. */
+export type WheatParameters={schemaVersion:1;stage:WheatStage;seed:string;stalkCount:number;stemHeight:number;stemRadius:number;
+ leafCount:number;leafLength:number;leafWidth:number;earLength:number;grainRows:number;curveSegments:number;maxTriangles:number};
+const keys=["schemaVersion","stage","seed","stalkCount","stemHeight","stemRadius","leafCount","leafLength","leafWidth","earLength","grainRows","curveSegments","maxTriangles"];
 function number(value:unknown,label:string,min:number,max:number,integer=false):number {
  if(typeof value!=="number" || !Number.isFinite(value) || value<min || value>max || (integer && !Number.isSafeInteger(value))) {
   throw new Error(`${label} must be ${integer?"an integer":"finite"} in ${min}..${max}`);
@@ -23,24 +24,25 @@ export function normalizeWheatParameters(value:unknown):WheatParameters {
   throw new Error("Wheat seed must be canonical decimal in 0..2147483647");
  }
  if(p.stage!=="early" && p.stage!=="mature" && p.stage!=="harvested") {throw new Error("unsupported Wheat stage");}
- const result:WheatParameters={schemaVersion:1,stage:p.stage,seed:p.seed,stemHeight:number(p.stemHeight,"stemHeight",.1,1.3),
-  stemRadius:number(p.stemRadius,"stemRadius",.003,.025),leafCount:number(p.leafCount,"leafCount",0,6,true),
-  leafLength:number(p.leafLength,"leafLength",0,.3),leafWidth:number(p.leafWidth,"leafWidth",0,.08),earLength:number(p.earLength,"earLength",0,.3),
-  grainPairs:number(p.grainPairs,"grainPairs",0,8,true),curveSegments:number(p.curveSegments,"curveSegments",2,6,true),maxTriangles:number(p.maxTriangles,"maxTriangles",100,20000,true)};
+ const result:WheatParameters={schemaVersion:1,stage:p.stage,seed:p.seed,stalkCount:number(p.stalkCount,"stalkCount",1,7,true),
+  stemHeight:number(p.stemHeight,"stemHeight",.1,1.3),stemRadius:number(p.stemRadius,"stemRadius",.005,.05),
+  leafCount:number(p.leafCount,"leafCount",0,8,true),leafLength:number(p.leafLength,"leafLength",0,.32),leafWidth:number(p.leafWidth,"leafWidth",0,.12),
+  earLength:number(p.earLength,"earLength",0,.4),grainRows:number(p.grainRows,"grainRows",0,8,true),
+  curveSegments:number(p.curveSegments,"curveSegments",2,6,true),maxTriangles:number(p.maxTriangles,"maxTriangles",100,20000,true)};
  switch(result.stage) {
   case "harvested": {
-   if(result.leafCount!==0 || result.leafLength!==0 || result.leafWidth!==0 || result.earLength!==0 || result.grainPairs!==0 || result.stemHeight>.3) {
-    throw new Error("harvested appearance requires a short bare stem and no foliage/ear controls");
+   if(result.leafCount!==0 || result.leafLength!==0 || result.leafWidth!==0 || result.earLength!==0 || result.grainRows!==0 || result.stemHeight>.3) {
+    throw new Error("harvested appearance requires short bare stubble and no foliage/ear controls");
    }
    break;
   }
   case "early":
   case "mature": {
-   if(result.leafCount<2 || result.leafLength<.05 || result.leafWidth<.008) {throw new Error("early/mature Wheat requires bounded visible leaves");}
-   if(result.stage==="early" && (result.earLength!==0 || result.grainPairs!==0 || result.stemHeight>.5 || result.leafCount>4)) {
-    throw new Error("early Wheat requires a short leafy stem without an ear");
+   if(result.leafCount<2 || result.leafLength<.05 || result.leafWidth<.02) {throw new Error("early/mature Wheat requires bounded visible leaves");}
+   if(result.stage==="early" && (result.earLength!==0 || result.grainRows!==0 || result.stemHeight>.5)) {
+    throw new Error("early Wheat requires a short leafy tuft without ears");
    }
-   if(result.stage==="mature" && (result.earLength<.08 || result.grainPairs<4)) {throw new Error("mature Wheat requires a visible bounded grain ear");}
+   if(result.stage==="mature" && (result.earLength<.1 || result.grainRows<3)) {throw new Error("mature Wheat requires visible plump grain ears");}
    break;
   }
   default: {
@@ -60,9 +62,9 @@ export function createWheatAssetSpec({assetId,parameters,scriptSha256,blenderVer
   inputs:{script:{path:scriptPath,sha256:scriptSha256}},models:{},parameters:{blenderVersion,arguments:normalizeWheatParameters(parameters)},
   output:{path:outputPath},reproducibility:{expected:"approximate"}});
 }
-const common={schemaVersion:1,seed:"133",curveSegments:4,maxTriangles:6000} as const;
+const common={schemaVersion:1,seed:"133",curveSegments:4,maxTriangles:8000} as const;
 export const WHEAT_PRESETS=Object.freeze({
- early:Object.freeze({...common,stage:"early",stemHeight:.25,stemRadius:.007,leafCount:3,leafLength:.14,leafWidth:.025,earLength:0,grainPairs:0} as const),
- mature:Object.freeze({...common,stage:"mature",stemHeight:.9,stemRadius:.011,leafCount:4,leafLength:.24,leafWidth:.032,earLength:.22,grainPairs:7} as const),
- harvested:Object.freeze({...common,stage:"harvested",stemHeight:.12,stemRadius:.011,leafCount:0,leafLength:0,leafWidth:0,earLength:0,grainPairs:0} as const),
+ early:Object.freeze({...common,stage:"early",stalkCount:4,stemHeight:.14,stemRadius:.012,leafCount:8,leafLength:.26,leafWidth:.05,earLength:0,grainRows:0} as const),
+ mature:Object.freeze({...common,stage:"mature",stalkCount:5,stemHeight:.3,stemRadius:.02,leafCount:3,leafLength:.16,leafWidth:.05,earLength:.34,grainRows:4} as const),
+ harvested:Object.freeze({...common,stage:"harvested",stalkCount:7,stemHeight:.13,stemRadius:.02,leafCount:0,leafLength:0,leafWidth:0,earLength:0,grainRows:0} as const),
 });

@@ -23,8 +23,8 @@ export function normalizeCornParameters(value:unknown):CornParameters {
  }
  if(p.stage!=="early" && p.stage!=="mature" && p.stage!=="harvested") {throw new Error("unsupported Corn stage");}
  const result:CornParameters={schemaVersion:1,stage:p.stage,seed:p.seed,stemHeight:number(p.stemHeight,"stemHeight",.1,2.4),
-  stemRadius:number(p.stemRadius,"stemRadius",.006,.035),leafCount:number(p.leafCount,"leafCount",0,8,true),leafLength:number(p.leafLength,"leafLength",0,.45),
-  leafWidth:number(p.leafWidth,"leafWidth",0,.12),earLength:number(p.earLength,"earLength",0,.3),kernelRows:number(p.kernelRows,"kernelRows",0,8,true),
+  stemRadius:number(p.stemRadius,"stemRadius",.01,.08),leafCount:number(p.leafCount,"leafCount",0,8,true),leafLength:number(p.leafLength,"leafLength",0,.55),
+  leafWidth:number(p.leafWidth,"leafWidth",0,.2),earLength:number(p.earLength,"earLength",0,.45),kernelRows:number(p.kernelRows,"kernelRows",0,8,true),
   curveSegments:number(p.curveSegments,"curveSegments",2,6,true),maxTriangles:number(p.maxTriangles,"maxTriangles",100,12000,true)};
  switch(result.stage) {
   case "harvested": {
@@ -34,14 +34,14 @@ export function normalizeCornParameters(value:unknown):CornParameters {
    break;
   }
   case "early": {
-   if(result.leafCount<2 || result.leafCount>4 || result.leafLength<.1 || result.leafWidth<.02 || result.stemHeight>.6 || result.leafLength*.05>result.stemHeight*.16 || result.earLength!==0 || result.kernelRows!==0) {
+   if(result.leafCount<2 || result.leafCount>4 || result.leafLength<.1 || result.leafWidth<.04 || result.stemHeight>.6 || result.earLength!==0 || result.kernelRows!==0) {
     throw new Error("early Corn requires short broad foliage without an ear");
    }
    break;
   }
   case "mature": {
-   if(result.leafCount<4 || result.leafLength<.2 || result.leafWidth<.04 || result.stemHeight<.8 || result.earLength<.12 || result.kernelRows<4) {
-    throw new Error("mature Corn requires broad foliage and a bounded ear");
+   if(result.leafCount<4 || result.leafLength<.2 || result.leafWidth<.08 || result.stemHeight<.8 || result.earLength<.15 || result.kernelRows<4) {
+    throw new Error("mature Corn requires broad foliage and a big cob");
    }
    break;
   }
@@ -67,7 +67,7 @@ export function createCornAssetSpec({assetId,parameters,scriptSha256,authoringSh
 }
 const common={schemaVersion:1,seed:"133",curveSegments:4,maxTriangles:7000} as const;
 export const CORN_PRESETS=Object.freeze({
- early:Object.freeze({...common,stage:"early",stemHeight:.4,stemRadius:.012,leafCount:3,leafLength:.24,leafWidth:.05,earLength:0,kernelRows:0} as const),
- mature:Object.freeze({...common,stage:"mature",stemHeight:1.5,stemRadius:.018,leafCount:6,leafLength:.38,leafWidth:.09,earLength:.21,kernelRows:6} as const),
- harvested:Object.freeze({...common,stage:"harvested",stemHeight:.15,stemRadius:.018,leafCount:0,leafLength:0,leafWidth:0,earLength:0,kernelRows:0} as const),
+ early:Object.freeze({...common,stage:"early",stemHeight:.3,stemRadius:.04,leafCount:3,leafLength:.36,leafWidth:.17,earLength:0,kernelRows:0} as const),
+ mature:Object.freeze({...common,stage:"mature",stemHeight:.85,stemRadius:.05,leafCount:4,leafLength:.32,leafWidth:.14,earLength:.45,kernelRows:6} as const),
+ harvested:Object.freeze({...common,stage:"harvested",stemHeight:.16,stemRadius:.06,leafCount:0,leafLength:0,leafWidth:0,earLength:0,kernelRows:0} as const),
 });

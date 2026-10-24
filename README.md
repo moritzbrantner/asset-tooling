@@ -167,7 +167,7 @@ The [selected-bundle adoption example](examples/selected-bundle/README.md) consu
 
 [Surface appearance families](docs/surface-appearances.md) derive dry/damp/wet-style states from one tileable surface. Height and normal stay shared and verified, and only each state's color and roughness are rebuilt.
 
-[Authored Wheat appearances](examples/wheat/README.md) provide bounded early/mature/harvested-looking static meshes, isolated leaf palettes and derived icons through the existing Blender, material and bundle contracts. [Corn appearances](examples/corn/README.md) reuse the same native authoring and selected-package path with broader leaves, a side ear and a tassel.
+[Authored Wheat appearances](examples/wheat/README.md) provide bounded early/mature/harvested-looking static meshes, isolated leaf palettes and derived icons through the existing Blender, material and bundle contracts. [Corn appearances](examples/corn/README.md) reuse the same native authoring and selected-package path in the same bright-toy style (asset-tooling#355): a golden Wheat sheaf and a tall green Corn stalk with a big yellow cob and an orange tassel.
 
 [Grass/soil corner tiles](docs/transition-tiles.md) provide a complete sixteen-piece 2D transition family, ordered edge ports, selected atlas bundles and independently checked pixel seams.
 

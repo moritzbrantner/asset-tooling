@@ -33,12 +33,12 @@ test("Corn appearances use the existing offline backend with complete stage cont
 test("Corn rejects unsupported stages, malformed bounds and incompatible appearance controls",()=>{
  const bad=[{schemaVersion:2},{stage:"ready"},{seed:"-1"},{seed:"2147483648"},{seed:"01"},{seed:"1\n"},{seed:"1\u2028"},
   {stemHeight:0},{stemHeight:Infinity},{stemRadius:0},{stemRadius:.1},{leafCount:9},{leafCount:1.5},{leafLength:.6},
-  {leafWidth:.2},{kernelRows:9},{earLength:.4},{curveSegments:1},{curveSegments:7},{maxTriangles:99},{maxTriangles:12001},{wind:true},
+  {leafWidth:.25},{kernelRows:9},{earLength:.5},{leafWidth:.05},{earLength:.1},{curveSegments:1},{curveSegments:7},{maxTriangles:99},{maxTriangles:12001},{wind:true},
   {stage:"early"},{stage:"harvested"},{kernelRows:0},{earLength:0}];
  for(const delta of bad) {assert.throws(()=>normalizeCornParameters({...CORN_PRESETS.mature,...delta}));}
  assert.throws(()=>spec({...CORN_PRESETS.early,kernelRows:1}),/early/);
  assert.throws(()=>spec({...CORN_PRESETS.harvested,leafCount:1}),/harvested/);
- assert.throws(()=>spec({...CORN_PRESETS.early,stemHeight:.1,leafLength:.45}),/early/);
+ assert.throws(()=>spec({...CORN_PRESETS.early,leafWidth:.02}),/early/);
  assert.throws(()=>createCornAssetSpec({assetId:"corn",parameters:CORN_PRESETS.early,scriptSha256:source.sha256,authoringSha256:source.authoring.sha256,blenderVersion:"current"}),/exact/);
 });
 test("pinned Blender and TypeScript admit identical authored controls before scene mutation",{
@@ -116,7 +116,7 @@ test("actual Corn stages are bounded rooted static GLBs with exact replay, UVs a
   }
   assert.ok(Math.abs(minY)<1e-6);assert.ok(maxY<=p.stemHeight+.12+p.leafLength*.5+1e-6);
   assert.ok(triangles>0 && triangles<=p.maxTriangles);
-  assert.equal(triangles,{early:322,mature:3194,harvested:28}[p.stage]);
+  assert.equal(triangles,{early:572,mature:3086,harvested:348}[p.stage]);
   const evidence=result.receipt.observations.script;
   assert.deepEqual(evidence.footprint,{width:1.1,depth:1.1});assert.equal(evidence.unit,"meter");assert.equal(evidence.axes,"right-handed-y-up");
   assert.equal(evidence.origin,"native-root-ground-anchor");assert.equal(evidence.wind,"none");assert.equal(evidence.stage,p.stage);

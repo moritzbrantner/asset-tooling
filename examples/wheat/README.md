@@ -6,6 +6,13 @@ producer geometry; a consumer maps its authoritative Crop state to these IDs.
 The recipe introduces no saved growth state, inventory item, simulation random
 stream, collision choice or wind playback.
 
+**Bright-toy style** (asset-tooling#355, for my-farm#278; owner answers on my-farm#234): each
+appearance is a chunky sheaf of `stalkCount` thick stalks fanned around an upright centre stalk,
+with plump braided golden ears (`grainRows` rows of four fat kernels plus a tip and three short
+awns), fat lens-profiled leaves and a saturated sRGB palette coherent with the toy Farmhouse/Silo.
+Mature Wheat is mostly fruit: short stalks splayed wide so each oversized ear reads on its own
+(owner, #355). Young Wheat is an upright grassy tuft; harvested Wheat is a cluster of straw stubble.
+
 Run from a checkout with the pinned Blender installation (see `adapters/blender`):
 
 ```sh
@@ -19,8 +26,8 @@ and the Blender glTF exporter. Bounds, stage controls, seed, resolution and a
 combined triangle budget are explicit. Each self-contained GLB uses meters,
 right-handed Y-up, an identity root transform and a ground anchor at `[0,0,0]`
 within a declared 0.7 × 0.7 meter footprint. This footprint is a producer envelope,
-not a collision or planting-spacing contract. Current presets use 322 / 1,232 /
-28 triangles for early / mature / harvested respectively.
+not a collision or planting-spacing contract. Current presets use 1,360 / 4,276 /
+252 triangles for early / mature / harvested respectively.
 
 Use `asset-tooling/recipes/wheat` to read the packaged Python source, validate
 controls and declare a hash-pinned spec. Generation and verification use the
@@ -30,7 +37,8 @@ The native UV-sphere operation varies polygon enumeration between processes;
 ordering its existing BMesh faces before joining makes the local replay stable
 without changing their vertices, loops or UVs.
 
-The example also creates two mature leaf palettes using existing gradient, PNG
+The example also creates two mature leaf palettes (Wheat: green and golden straw; Corn: green and a
+sunlit lime "straw" that stays green so Corn never reads as Wheat) using existing gradient, PNG
 codec and named glTF material operations. Both retain every mesh attribute and
 index, node transform, stem/grain material setting and the original mature source
 ref. The example records the complete operation build identities and accepted
