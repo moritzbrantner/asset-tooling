@@ -82,6 +82,25 @@ function textureSlots(document: Document): Map<Texture, Set<string>> {
   return slots;
 }
 
+/**
+ * Strip a document to the shared clips: the skeleton's nodes and every animation, without meshes, skins, materials
+ * or textures. Primitives and their morph targets are disposed with their meshes; otherwise their accessors are
+ * written without data, which strict glTF readers (the Rust `gltf` crate) reject.
+ */
+export function stripToClips(document: Document): Document {
+  const root = document.getRoot();
+  for (const node of root.listNodes()) { node.setMesh(null); node.setSkin(null); }
+  for (const mesh of root.listMeshes()) {
+    for (const primitive of mesh.listPrimitives()) { for (const target of primitive.listTargets()) target.dispose(); primitive.dispose(); }
+    mesh.dispose();
+  }
+  for (const skin of root.listSkins()) skin.dispose();
+  for (const material of root.listMaterials()) material.dispose();
+  for (const texture of root.listTextures()) texture.dispose();
+  for (const accessor of root.listAccessors()) if (accessor.listParents().every((parent) => parent === root)) accessor.dispose();
+  return document;
+}
+
 export async function packDownloads({ bundleDir, outDir, name, clips, log = () => {} }: {
   bundleDir: string; outDir: string; name: string; clips?: string; log?: (line: string) => void;
 }) {
@@ -106,13 +125,7 @@ export async function packDownloads({ bundleDir, outDir, name, clips, log = () =
       const root = document.getRoot();
       if (clips === id && root.listAnimations().length > 0) {
         // The shared clips: the skeleton's nodes and every animation, without meshes, skins or materials.
-        const clipDocument = await io.readJSON({ json: JSON.parse(gltf.toString("utf8")), resources: Object.fromEntries([...resources].map(([uri, bytes]) => [uri, new Uint8Array(bytes)])) });
-        for (const node of clipDocument.getRoot().listNodes()) { node.setMesh(null); node.setSkin(null); }
-        for (const mesh of clipDocument.getRoot().listMeshes()) mesh.dispose();
-        for (const skin of clipDocument.getRoot().listSkins()) skin.dispose();
-        for (const material of clipDocument.getRoot().listMaterials()) material.dispose();
-        for (const texture of clipDocument.getRoot().listTextures()) texture.dispose();
-        for (const accessor of clipDocument.getRoot().listAccessors()) if (accessor.listParents().every((parent) => parent === clipDocument.getRoot())) accessor.dispose();
+        const clipDocument = stripToClips(await io.readJSON({ json: JSON.parse(gltf.toString("utf8")), resources: Object.fromEntries([...resources].map(([uri, bytes]) => [uri, new Uint8Array(bytes)])) }));
         await clipDocument.transform(meshopt({ encoder: MeshoptEncoder, level: "medium" }));
         clipsFile = await written(`${asset.key}.clips.glb`, await io.writeBinary(clipDocument));
         log(`clips ${clipsFile} (${root.listAnimations().length} clips)`);
