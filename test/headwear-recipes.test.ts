@@ -24,6 +24,7 @@ test("headwear controls are bounded and the appearance list names what each piec
  assert.deepEqual(rangerHeadwearAppearance(),[
   {id:"equipment.cap.ranger",entry:"equipment.cap.ranger",label:"Ranger's Cap",socket:"head.armor",hides:["outfit.hood","hair"]},
   {id:"equipment.helm.ironcrest",entry:"equipment.helm.ironcrest",label:"Ironcrest Helm",socket:"head.armor",hides:["outfit.hood","hair"]},
+  {id:"equipment.hat.straw",entry:"equipment.hat.straw",label:"Straw Hat",socket:"head.armor",hides:["outfit.hood","hair"]},
  ]);
 });
 
@@ -46,6 +47,8 @@ test("headwear GLBs are grip-anchored, budgeted and fitted around the Ranger's h
   // Around the skull (centre ~(0, 1.70, 0) m), from about the brow up over the crown, a little wider than the head.
   const {min,max}=evidence.bounds;
   assert.ok(min[1]!>1.6 && min[1]!<1.73 && max[1]!>1.83 && max[1]!<1.9,`height ${min[1]}..${max[1]}`);
-  assert.ok(max[0]!>.1 && max[0]!<.15 && max[2]!>.12 && min[2]!<-.12,`footprint ${min} ${max}`);
+  // The straw hat's brim reaches about twice the head's half-width.
+  const reach=p.piece==="hat.straw"?.27:.15;
+  assert.ok(max[0]!>.1 && max[0]!<reach && max[2]!>.12 && min[2]!<-.12,`footprint ${min} ${max}`);
  }
 });

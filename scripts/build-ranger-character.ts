@@ -32,7 +32,7 @@ import { encodeRgba8Image, parseRgba8Image, RGBA8_IMAGE_MEDIA_TYPE, type Rgba8Im
 import { sha256Bytes } from "../src/hash.js";
 import { parseAssetSpec } from "../src/schema.js";
 import { LOD_LEVELS, LOD_RATIOS, LOD_SWITCH_DISTANCE_HINTS, generateLodLevel, type LodLevel } from "../src/lod-recipe.js";
-import { ARMOR_FACTION, ARMOR_KITS, createArmorAssetSpec, readArmorRecipeSource, type ArmorKit, type ArmorOutput } from "../src/armor-recipes.js";
+import { ARMOR_BEARDS, ARMOR_FACTION, ARMOR_FACTION_KITS, ARMOR_KIT_LABELS, ARMOR_OUTFIT_KITS, createArmorAssetSpec, readArmorRecipeSource, type ArmorKit, type ArmorOutfitKit, type ArmorOutput } from "../src/armor-recipes.js";
 import { ARCHERY_PRESETS, ARCHERY_ROLES, createArcheryAssetSpec, readArcheryRecipeSource, type ArcheryPiece } from "../src/archery-recipes.js";
 import { HEADWEAR_CONTRACT, HEADWEAR_HIDES, HEADWEAR_PRESETS, createHeadwearAssetSpec, readHeadwearRecipeSource, type HeadwearPiece } from "../src/headwear-recipes.js";
 import { FACE_MORPH_NODES, addFaceVariants, applyFaceVariants, faceAppearance } from "../src/face-variants.js";
@@ -151,7 +151,60 @@ export function mergeStaticGltfJson(parts: readonly { json: Json; buffer: Uint8A
   return { json: out, buffer: joined };
 }
 /** Hair tints (D4, linear RGB), applied as the base colour factor on top of `T_Hair_1`. */
-export const RANGER_HAIR_TINTS = { black: [0.02, 0.02, 0.02], brown: [0.18, 0.09, 0.04], blond: [0.62, 0.48, 0.25] } as const;
+export const RANGER_HAIR_TINTS = { black: [0.02, 0.02, 0.02], brown: [0.18, 0.09, 0.04], blond: [0.62, 0.48, 0.25], grey: [0.9, 0.9, 0.88] } as const;
+/**
+ * Facial hair (#376) has factor-only materials, so it takes the colour the hair shows: the tint times the mean linear
+ * colour of `T_Hair_1` (measured 0.275, neutral). The `grey` tint (#376) is nearly the plain texture, which reads grey.
+ */
+export const RANGER_HAIR_TEXTURE_MEAN = 0.275;
+export const RANGER_FACIAL_HAIR_ENTRY = "facial-hair.beards";
+/**
+ * Resident appearance presets (#376, for mmorpg#418): one complete look per named Greyhaven resident, as ids of the
+ * descriptor's own options. `hair` is omitted under headwear that hides it; `hiddenArmor` lists outfit plates left off
+ * (the Marshal shows his face); `faction` overrides the outfit's faction colour (linear RGB).
+ */
+export const RANGER_GREYHAVEN_FACTION = [0.05, 0.08, 0.15] as const;
+export type RangerAppearancePreset = {
+  id: string; label: string; outfit: string; skin: "skin.dark" | "skin.light"; hair?: string; tint: string; headwear?: string;
+  facialHair: string[]; face: Record<"face" | "eyes" | "nose" | "mouth", string>; hiddenArmor?: string[]; faction?: readonly number[];
+};
+export const RANGER_RESIDENT_PRESETS: readonly RangerAppearancePreset[] = [
+  { id: "resident.marshal", label: "Marshal", outfit: "outfit.knight", skin: "skin.light", hair: "hair.simple-parted", tint: "tint.grey",
+    facialHair: ["beard.full", "beard.moustache"], face: { face: "face.broad", eyes: "eyes.narrow", nose: "nose.long", mouth: "mouth.thin" },
+    hiddenArmor: ["knight.bascinet"], faction: RANGER_GREYHAVEN_FACTION },
+  { id: "resident.guard", label: "Gate guard", outfit: "outfit.soldier", skin: "skin.dark", hair: "hair.buzzed", tint: "tint.black",
+    facialHair: ["beard.short"], face: { face: "face.broad", eyes: "eyes.base", nose: "nose.broad", mouth: "mouth.base" }, faction: RANGER_GREYHAVEN_FACTION },
+  { id: "resident.innkeeper", label: "Innkeeper", outfit: "outfit.innkeeper", skin: "skin.light", hair: "hair.buzzed", tint: "tint.brown",
+    facialHair: ["beard.moustache"], face: { face: "face.broad", eyes: "eyes.large", nose: "nose.broad", mouth: "mouth.full" } },
+  { id: "resident.farmer", label: "Farmer", outfit: "outfit.farmer", skin: "skin.dark", tint: "tint.blond", headwear: "equipment.hat.straw",
+    facialHair: ["beard.short"], face: { face: "face.narrow", eyes: "eyes.base", nose: "nose.long", mouth: "mouth.base" } },
+  { id: "resident.healer", label: "Healer", outfit: "outfit.monk", skin: "skin.light", hair: "hair.buzzed", tint: "tint.grey",
+    facialHair: ["beard.full"], face: { face: "face.narrow", eyes: "eyes.narrow", nose: "nose.long", mouth: "mouth.thin" } },
+];
+
+/** Fail the build if a preset names an option the descriptor does not offer. */
+export function validateAppearancePresets(descriptor: Json, presets: readonly RangerAppearancePreset[]) {
+  const ids = (list: Json[] | undefined) => new Set((list ?? []).map((item) => item.id as string));
+  const outfits = new Map<string, Json>((descriptor.outfits ?? []).map((outfit: Json) => [outfit.id, outfit]));
+  const hair = ids(descriptor.hair), tints = ids(descriptor.tints), headwear = ids(descriptor.headwear), skins = ids(descriptor.skins);
+  const beards = ids(descriptor.facialHair?.options);
+  const features = new Map<string, Set<string>>((descriptor.face?.features ?? []).map((feature: Json) => [feature.id, ids(feature.options)]));
+  for (const preset of presets) {
+    const fail = (what: string): never => { throw new Error(`appearance preset ${preset.id}: ${what}`); };
+    const outfit = outfits.get(preset.outfit) ?? fail(`unknown outfit ${preset.outfit}`);
+    const outfitSkins: Json[] = outfit.skins ?? descriptor.skins;
+    if (!skins.has(preset.skin) || !outfitSkins.some((skin) => skin.id === preset.skin)) fail(`unknown skin ${preset.skin}`);
+    if (preset.hair !== undefined && !hair.has(preset.hair)) fail(`unknown hair ${preset.hair}`);
+    if (!tints.has(preset.tint)) fail(`unknown tint ${preset.tint}`);
+    if (preset.headwear !== undefined && !headwear.has(preset.headwear)) fail(`unknown headwear ${preset.headwear}`);
+    if (preset.hair === undefined && preset.headwear === undefined) fail("needs hair or headwear");
+    for (const beard of preset.facialHair) if (!beards.has(beard)) fail(`unknown facial hair ${beard}`);
+    for (const [feature, option] of Object.entries(preset.face)) if (!features.get(feature)?.has(option)) fail(`unknown ${feature} option ${option}`);
+    const plates = new Set<string>((outfit.armor?.pieces ?? []).map((piece: Json) => piece.node as string));
+    for (const node of preset.hiddenArmor ?? []) if (!plates.has(node)) fail(`outfit ${preset.outfit} has no plate ${node}`);
+    if (preset.faction !== undefined && !outfit.faction) fail(`outfit ${preset.outfit} has no faction colour`);
+  }
+}
 export const RANGER_APPEARANCE_ATTACHMENT = "humanoid-appearance";
 /**
  * Outfits (#117, owner answers 2026-10-17): the archer is the Ranger outfit (`default`); the soldier and the knight
@@ -307,6 +360,7 @@ export const RANGER_ARCHERY: readonly { key: string; piece: ArcheryPiece }[] = [
 export const RANGER_HEADWEAR: readonly { key: string; piece: HeadwearPiece; label: string }[] = [
   { key: "equipment.cap.ranger", piece: "cap.ranger", label: "Ranger's Cap" },
   { key: "equipment.helm.ironcrest", piece: "helm.ironcrest", label: "Ironcrest Helm" },
+  { key: "equipment.hat.straw", piece: "hat.straw", label: "Straw Hat" },
 ];
 export const RANGER_SOCKETS_ATTACHMENT = "humanoid-sockets";
 /** Each equipment entry's `humanoid-item-v1` attachment (#264): its role and its `grip` frame. */
@@ -963,10 +1017,11 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
       hair.push({ key: hairKey(style), style, variants });
     }
     const hairMaterials = async (asset: AssetRef) => (await new NodeIO().readBinary(new Uint8Array(await resolveAssetObject(root, asset)))).getRoot().listMaterials().map((material) => material.getName());
-    // #117: the soldier and knight outfit variants and their rigid armour entries.
+    // #117: the soldier and knight outfit variants and their rigid armour entries; #376: the resident outfits.
     const outfits: Json[] = [{ id: "outfit.archer", variant: RANGER_BUNDLE_VARIANT, label: "Archer" }];
-    const kits: { kit: ArmorKit; variants: { variant: string; character: AssetRef }[]; plates: AssetRef; cloth: AssetRef; fitTarget: AssetRef; observations: Json[] }[] = [];
-    // The soldier and knight outfits are male-only for now (#117 Q8).
+    const kits: { kit: ArmorOutfitKit; variants: { variant: string; character: AssetRef }[]; plates: AssetRef; cloth: AssetRef; fitTarget: AssetRef; observations: Json[] }[] = [];
+    let beards: Awaited<ReturnType<typeof buildArmor>> | undefined;
+    // The Peasant-based outfits are male-only for now (#117 Q8).
     if (figure === "male") {
       log("outfits: Peasant base and fitted armour (#117)");
       const peasant = await importGltf(RANGER_PEASANT_OUTFIT);
@@ -975,7 +1030,7 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
       const fitTarget = single(await executeGltfComposeSkinnedOperation(root, { inputs: { skeleton: peasant, parts: [head] }, parameters: { policy: POLICY } }));
       const peasantMeshes = (await new NodeIO().readBinary(new Uint8Array(await resolveAssetObject(root, peasant)))).getRoot().listMeshes().map((mesh) => mesh.getName());
       const { jointNames } = JSON.parse((await resolveAssetObject(root, targetRig)).toString("utf8"));
-      for (const kit of ARMOR_KITS) {
+      for (const kit of ARMOR_OUTFIT_KITS) {
         log(`fit ${kit} armour (external.blender.script@1 armor recipe)`);
         const plates = await buildArmor(root, kit, "plates", fitTarget);
         const cloth = await buildArmor(root, kit, "cloth", fitTarget);
@@ -1004,14 +1059,17 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
         const variant = variants[0]!.variant;
         kits.push({ kit, variants, plates: plates.glb, cloth: cloth.glb, fitTarget, observations: pieces });
         outfits.push({
-          id: variant, variant, label: kit === "soldier" ? "Soldier" : "Knight",
+          id: variant, variant, label: ARMOR_KIT_LABELS[kit],
           skins: [{ id: "skin.dark", variant: variants[0]!.variant }, { id: "skin.light", variant: variants[1]!.variant }],
           base: { outfit: "Male_Peasant", hidden },
           armor: { entry: `armor.${kit}`, pieces: (plates.observations.pieces as Json[]).map((piece) => ({ node: piece.node, socket: `${String(piece.joint).toLowerCase()}.armor`, hides: piece.hides })) },
           garments: (cloth.observations.pieces as Json[]).map((piece) => ({ id: piece.node, nodes: piece.nodes, hides: piece.hides })),
-          faction: { materials: [ARMOR_FACTION.material], defaultBaseColorFactor: [...ARMOR_FACTION.default, 1] },
+          ...(ARMOR_FACTION_KITS.includes(kit) ? { faction: { materials: [ARMOR_FACTION.material], defaultBaseColorFactor: [...ARMOR_FACTION.default, 1] } } : {}),
         });
       }
+      // #376: facial hair, fitted to the same head and worn with any outfit through the `head.armor` socket.
+      log("fit facial hair (external.blender.script@1 armor recipe, beard kit)");
+      beards = await buildArmor(root, "beard", "plates", fitTarget);
     }
     const characterDocument = await new NodeIO().readBinary(new Uint8Array(await resolveAssetObject(root, character)));
     const eyebrowMaterials = characterDocument.getRoot().listNodes().filter((node) => node.getName() === look.eyebrows && node.getMesh())
@@ -1032,6 +1090,17 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
       tints: Object.entries(RANGER_HAIR_TINTS).map(([id, color]) => ({ id: `tint.${id}`, baseColorFactor: [...color, 1], texture: "hair-1" })),
       eyebrows: { nodes: [look.eyebrows], tintMaterials: [...new Set(eyebrowMaterials)].sort(), followsHairTint: true },
       ...(figure === "male" ? { outfits, headwear: rangerHeadwearAppearance() } : {}),
+      // #376: facial hair pieces of one entry, coloured like the hair under each tint.
+      ...(beards ? { facialHair: {
+        entry: RANGER_FACIAL_HAIR_ENTRY, followsHairTint: true,
+        tints: Object.entries(RANGER_HAIR_TINTS).map(([id, color]) => ({ id: `tint.${id}`, baseColorFactor: [...color.map((value) => round4(value * RANGER_HAIR_TEXTURE_MEAN)), 1] })),
+        options: (beards.observations.pieces as Json[]).map((piece) => ({
+          id: piece.node, label: ARMOR_BEARDS[piece.node as keyof typeof ARMOR_BEARDS], node: piece.node,
+          socket: `${String(piece.joint).toLowerCase()}.armor`, tintMaterials: piece.materials,
+        })),
+      } } : {}),
+      // #376: one complete look per named Greyhaven resident (mmorpg#418).
+      ...(figure === "male" ? { presets: RANGER_RESIDENT_PRESETS.map((preset) => ({ ...preset, ...(preset.faction ? { faction: [...preset.faction, 1] } : {}) })) } : {}),
       // #348: face, eyes, nose and mouth options as morph weights on every full-detail character variant.
       face: faceAppearance({
         nodes: FACE_MORPH_NODES[figure],
@@ -1045,8 +1114,9 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
         return { of, level, variant, ratio, triangles, switchDistanceHint: LOD_SWITCH_DISTANCE_HINTS[level] };
       }),
     };
+    if (figure === "male") validateAppearancePresets(descriptor, RANGER_RESIDENT_PRESETS);
     const descriptorAsset = (await storeAssetObject(root, { bytes: Buffer.from(`${canonicalJson(descriptor)}\n`), kind: "humanoid-appearance", mediaType: "application/json" })).asset;
-    return { light: lightCharacter, hair, descriptor: descriptorAsset, transfer, composedLight, kits };
+    return { light: lightCharacter, hair, descriptor: descriptorAsset, transfer, composedLight, kits, beards: beards?.glb };
   };
   const descriptorPath = figure === "female" ? RANGER_FEMALE_SOCKETS_DESCRIPTOR : RANGER_SOCKETS_DESCRIPTOR;
   if (descriptorPath) {
@@ -1073,6 +1143,10 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
         }
         selections.push({ key: `armor.${kit.kit}`, variant: RANGER_BUNDLE_VARIANT });
         assets.push(kit.plates);
+      }
+      if (appearance.beards) {
+        selections.push({ key: RANGER_FACIAL_HAIR_ENTRY, variant: RANGER_BUNDLE_VARIANT });
+        assets.push(appearance.beards);
       }
       selections[0]!.attachments.push({ name: RANGER_APPEARANCE_ATTACHMENT });
       for (const { variant, asset } of lodVariants) {
@@ -1142,7 +1216,7 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
       character, textures, texturePolicy: RANGER_TEXTURE_POLICY,
       clipMotion,
       face: { head: face.glb, composed: composedFace, observations: face.observations },
-      appearance: appearance && { light: appearance.light, composedLight: appearance.composedLight, transfer: appearance.transfer, hair: appearance.hair, descriptor: appearance.descriptor, kits: appearance.kits },
+      appearance: appearance && { light: appearance.light, composedLight: appearance.composedLight, transfer: appearance.transfer, hair: appearance.hair, descriptor: appearance.descriptor, kits: appearance.kits, beards: appearance.beards },
     },
   };
 }
