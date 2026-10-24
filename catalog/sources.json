@@ -3699,6 +3699,120 @@
         "starter-kit"
       ],
       "title": "Stylized Nature MegaKit — Rock_Medium_3 (bin)"
+    },
+    {
+      "id": "quaternius.animal-pack-vol2",
+      "kind": "asset-pack",
+      "license": {
+        "evidenceUrl": "https://opengameart.org/content/animated-animales-low-poly",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "application/zip",
+      "metadata": {
+        "distributionMirror": "OpenGameArt upload by Quaternius",
+        "purpose": "Rigged low-poly cat with Idle and Walking actions for Greyhaven ambient animals (#364)"
+      },
+      "provider": "quaternius",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 2069972,
+        "path": "Animal Pack Vol.2 by @Quaternius.zip",
+        "sha256": "6d8f6789d65dbdb352ebad98a4209f26b41b384e87d81bc05e9ca76139db1248",
+        "upstreamId": "animated-animales-low-poly",
+        "url": "https://opengameart.org/sites/default/files/Animal%20Pack%20Vol.2%20by%20%40Quaternius.zip"
+      },
+      "tags": [
+        "animal",
+        "animated",
+        "game",
+        "three-d"
+      ],
+      "title": "Animal Pack Vol.2 (animated wolf, eagle, dog, cat, piranha)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.animal-pack-vol2",
+        "path": "Animal Pack Vol.2 by @Quaternius/Blends/Cat.blend"
+      },
+      "id": "quaternius.animal-pack-vol2.cat-blend",
+      "kind": "mesh",
+      "license": {
+        "evidenceUrl": "https://opengameart.org/content/animated-animales-low-poly",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "application/x-blender",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 813748,
+        "sha256": "e9836027dc8591fd2da03e6d8d6575972bc5c7aebaa17a0762b82f7bc37264de"
+      },
+      "tags": [
+        "animal",
+        "greyhaven-ambient-animals"
+      ],
+      "title": "Animal Pack Vol.2 — Cat (.blend)"
+    },
+    {
+      "id": "quaternius.ultimate-animated-animals-shibainu-glb",
+      "kind": "mesh",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/ultimateanimatedanimals.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "model/gltf-binary",
+      "metadata": {
+        "distributionMirror": "github.com/trebeljahr/quaternius-showcase (byte copy of the CC0 pack GLB; official download is a rate-limited Google Drive folder)",
+        "purpose": "Rigged dog with Idle and Walk clips for Greyhaven ambient animals (#364)"
+      },
+      "provider": "quaternius",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 540592,
+        "path": "public/glb/animals_pack/ShibaInu.glb",
+        "revision": "478a184d29af65637ba335ea3127995066fe11b6",
+        "sha256": "4c8d4d9361a3abd4ef08a9a09aeabf1eb5d4cbddfd4ce271aacf64a254f1dbc1",
+        "upstreamId": "ultimate-animated-animals/ShibaInu",
+        "url": "https://raw.githubusercontent.com/trebeljahr/quaternius-showcase/478a184d29af65637ba335ea3127995066fe11b6/public/glb/animals_pack/ShibaInu.glb"
+      },
+      "tags": [
+        "animal",
+        "animated",
+        "gltf",
+        "greyhaven-ambient-animals"
+      ],
+      "title": "Ultimate Animated Animals — ShibaInu (GLB)"
+    },
+    {
+      "id": "quaternius.easy-enemy-rat-glb",
+      "kind": "mesh",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/easyenemy.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "model/gltf-binary",
+      "metadata": {
+        "distributionMirror": "github.com/trebeljahr/quaternius-showcase (the same bytes mmorpg vendors as assets/quaternius/Rat.glb)",
+        "purpose": "Rigged rodent with Rat_Idle and Rat_Walk clips, re-tinted as Greyhaven's ambient rodent (#364)"
+      },
+      "provider": "quaternius",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 550764,
+        "path": "public/glb/easy_enemies_pack/Rat.glb",
+        "revision": "478a184d29af65637ba335ea3127995066fe11b6",
+        "sha256": "68f67077981102e957059fd00aaf3799e6867c269de900bd52c9f12cec1d5f56",
+        "upstreamId": "easy-enemy/Rat",
+        "url": "https://raw.githubusercontent.com/trebeljahr/quaternius-showcase/478a184d29af65637ba335ea3127995066fe11b6/public/glb/easy_enemies_pack/Rat.glb"
+      },
+      "tags": [
+        "animal",
+        "animated",
+        "gltf",
+        "greyhaven-ambient-animals"
+      ],
+      "title": "Easy Enemy — Rat (GLB)"
     }
   ]
 }
