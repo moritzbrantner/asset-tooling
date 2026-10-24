@@ -28,15 +28,18 @@ Procedural detail stays in the geometry and stays small: a helical leather wrap 
 | Piece | Triangle ceiling |
 | --- | --- |
 | one-handed weapon (`sword.arming`) | 2,500 |
+| dagger (`dagger.blackened`) | 1,500 |
+| staff (`staff.bone`, `staff.gilded`, `staff.gnarled`) | 2,500 |
 | shield (`shield.heater`) | 3,000 |
 
-A recipe's `maxTriangles` may lower the ceiling but never raise it. Python and TypeScript both reject a higher value. The presets use about half the budget: 1,304 triangles for the sword and 1,706 for the shield.
+A recipe's `maxTriangles` may lower the ceiling but never raise it. Python and TypeScript both reject a higher value. The presets use about half the budget or less: 1,304 triangles for the sword, 1,016 for the dagger, 948 to 1,120 for the staffs and 1,706 for the shield.
 
 ## Conventions
 
 - **Units and axes:** metres and glTF right-handed **+Y up**, the same as the Ranger ([humanoid-ranger.md](humanoid-ranger.md#conventions)).
 - **Origin = grip.** Every held item's origin is its grip frame, and the GLB contains an empty node named **`grip`** at that origin with an identity transform. Sockets in [humanoid-sockets-v1](humanoid-sockets.md) place this frame. Each piece documents its own frame:
-  - **sword:** the centre of the hand's contact on the grip. The blade points along +Y, the cutting edges along ±X, and the flats face ±Z.
+  - **sword and dagger:** the centre of the hand's contact on the grip. The blade points along +Y, the cutting edges along ±X, and the flats face ±Z.
+  - **staff:** the centre of the hand's contact on the shaft, which runs along +Y from the foot to the head and orb.
   - **shield:** the centre of the hand handle, which runs along X. The face points to +Z, the point to −Y, and the forearm runs from the handle along +Y to the forearm strap. The back of the hand and the forearm rest against the board.
 - **Naming:** a piece id is `<category>.<type>`, for example `sword.arming` or `shield.heater`. The mesh node takes the piece id, the geometry is named `<piece>-geometry`, and the materials use the lowercase names in the table above.
 - **Determinism:** recipes take no seed and use no randomness. Generation uses `randomness: none` and exact reproducibility, so a rebuild must produce the same bytes.

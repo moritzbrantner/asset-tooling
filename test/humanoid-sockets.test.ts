@@ -19,8 +19,15 @@ test("the committed Ranger descriptor declares the hand, stowed, archery, hair a
  assert.deepEqual(d,descriptor,"the committed file is already canonical");
  assert.deepEqual(d.sockets.map(s=>[s.id,s.joint]),[["hand_r.weapon","hand_r"],["hand_l.shield","hand_l"],["hand_l.weapon","hand_l"],["hand_r.shield","hand_r"],["back.stowed","spine_03"],["hip_l.stowed","pelvis"],
   ["hand_l.bow","hand_l"],["hand_r.arrow","hand_r"],["back.quiver","spine_03"],["back.bow.stowed","spine_03"],["head.hair","Head"],
-  ...ARMOR_JOINTS.map(joint=>[`${joint.toLowerCase()}.armor`,joint])]);
+  ...ARMOR_JOINTS.map(joint=>[`${joint.toLowerCase()}.armor`,joint]),["hand_r.staff","hand_r"],["hand_l.staff","hand_l"]]);
  assert.deepEqual(humanoidSocketsAccepting(d,"hair"),["head.hair"]);
+ assert.deepEqual(humanoidSocketsAccepting(d,WEAPON_ROLES["staff.gnarled"]),["hand_r.staff","hand_l.staff"]);
+ assert.deepEqual(humanoidSocketsAccepting(d,WEAPON_ROLES["dagger.blackened"]),humanoidSocketsAccepting(d,WEAPON_ROLES["sword.arming"]));
+ // The staff (#372) shares the weapon grip point; its shaft (+Y) rises from the palm toward the wrist (-Y), turned
+ // toward the thumb side (+Z) and leaning out of the back of the hand (+X), so it stands upright in the idle.
+ const staff=humanoidSocketMatrix(d.sockets.find(s=>s.id==="hand_r.staff")!),shaft=[staff[4]!,staff[5]!,staff[6]!];
+ assert.ok(shaft[1]!<-.7 && shaft[2]!>.45 && shaft[0]!>.1 && shaft[0]!<.35,`staff shaft ${shaft}`);
+ assert.deepEqual(staff.slice(12,15),humanoidSocketMatrix(d.sockets[0]!).slice(12,15));
  assert.deepEqual(humanoidSocketsAccepting(d,"armor"),ARMOR_JOINTS.map(joint=>`${joint.toLowerCase()}.armor`));
  assert.deepEqual(humanoidSocketsAccepting(d,"bow"),["hand_l.bow","back.bow.stowed"]);
  assert.deepEqual(humanoidSocketsAccepting(d,"arrow"),["hand_r.arrow"]);

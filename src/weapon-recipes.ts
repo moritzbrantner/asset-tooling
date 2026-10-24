@@ -1,29 +1,51 @@
 import {readBlenderRecipeSource} from "./blender-recipe-source.js";
 import {parseAssetSpec} from "./schema.js";
 
-export type WeaponPiece="sword.arming"|"shield.heater";
-export type WeaponRole="one-hand-weapon"|"shield";
-export type SwordParameters={schemaVersion:1;piece:"sword.arming";bladeLength:number;bladeWidth:number;bladeThickness:number;
+export type StaffPiece="staff.bone"|"staff.gilded"|"staff.gnarled";
+export type WeaponPiece="sword.arming"|"dagger.blackened"|"shield.heater"|StaffPiece;
+export type WeaponRole="one-hand-weapon"|"shield"|"staff";
+type BladeControls={schemaVersion:1;bladeLength:number;bladeWidth:number;bladeThickness:number;
  fullerLength:number;guardWidth:number;gripLength:number;pommelRadius:number;radialSegments:number;maxTriangles:number};
+export type SwordParameters=BladeControls&{piece:"sword.arming"};
+export type DaggerParameters=BladeControls&{piece:"dagger.blackened"};
 export type ShieldParameters={schemaVersion:1;piece:"shield.heater";width:number;height:number;curvature:number;thickness:number;
  rimWidth:number;bossRadius:number;outlineSegments:number;maxTriangles:number};
-export type WeaponParameters=SwordParameters|ShieldParameters;
+export type StaffParameters={schemaVersion:1;piece:StaffPiece;length:number;footLength:number;shaftRadius:number;orbRadius:number;
+ radialSegments:number;maxTriangles:number};
+export type WeaponParameters=SwordParameters|DaggerParameters|ShieldParameters|StaffParameters;
+
+export const WEAPON_STAFFS=Object.freeze(["staff.bone","staff.gilded","staff.gnarled"] as const) satisfies readonly StaffPiece[];
+const isStaff=(piece:WeaponPiece):piece is StaffPiece=>(WEAPON_STAFFS as readonly string[]).includes(piece);
 
 /** Style-spec triangle ceilings (docs/style-humanlike.md). `maxTriangles` may lower, never raise, them. */
-export const WEAPON_TRIANGLE_BUDGETS=Object.freeze({"sword.arming":2500,"shield.heater":3000}) satisfies Record<WeaponPiece,number>;
+export const WEAPON_TRIANGLE_BUDGETS=Object.freeze({"sword.arming":2500,"dagger.blackened":1500,"shield.heater":3000,
+ "staff.bone":2500,"staff.gilded":2500,"staff.gnarled":2500}) satisfies Record<WeaponPiece,number>;
 /** The attachment role each piece declares; humanoid-sockets-v2 sockets list the roles they accept. */
-export const WEAPON_ROLES=Object.freeze({"sword.arming":"one-hand-weapon","shield.heater":"shield"}) satisfies Record<WeaponPiece,WeaponRole>;
+export const WEAPON_ROLES=Object.freeze({"sword.arming":"one-hand-weapon","dagger.blackened":"one-hand-weapon","shield.heater":"shield",
+ "staff.bone":"staff","staff.gilded":"staff","staff.gnarled":"staff"}) satisfies Record<WeaponPiece,WeaponRole>;
 export const WEAPON_MATERIALS=Object.freeze({"sword.arming":Object.freeze(["steel","iron","leather"] as const),
- "shield.heater":Object.freeze(["paint","wood","iron","leather"] as const)}) satisfies Record<WeaponPiece,readonly string[]>;
+ "dagger.blackened":Object.freeze(["steel","charcoal","leather.dark"] as const),
+ "shield.heater":Object.freeze(["paint","wood","iron","leather"] as const),
+ "staff.bone":Object.freeze(["bone","orb.green"] as const),
+ "staff.gilded":Object.freeze(["ivory","gold","orb.gold"] as const),
+ "staff.gnarled":Object.freeze(["wood.dark","orb.moss"] as const)}) satisfies Record<WeaponPiece,readonly string[]>;
+/** The glowing orb materials; their base colour is also their glTF emissive factor. */
+export const WEAPON_EMISSIVE_MATERIALS=Object.freeze(["orb.green","orb.gold","orb.moss"] as const);
 /** Every GLB's origin is its grip frame; the empty node `grip` sits there with an identity transform. */
 export const WEAPON_GRIP_CONTRACT=Object.freeze({schemaVersion:1,unit:"meter",axes:"right-handed-y-up",origin:"grip",gripNode:"grip",
  "sword.arming":"origin at the centre of the hand's contact on the grip; blade along +Y, cutting edges along +X/-X, flats facing +Z/-Z",
- "shield.heater":"origin at the centre of the hand handle, which runs along X; face toward +Z, point toward -Y, forearm from the handle along +Y; the back of the hand and the forearm rest against the board"});
+ "dagger.blackened":"as the sword",
+ "shield.heater":"origin at the centre of the hand handle, which runs along X; face toward +Z, point toward -Y, forearm from the handle along +Y; the back of the hand and the forearm rest against the board",
+ staff:"origin at the centre of the hand's contact on the shaft; shaft along +Y from the foot (footLength below) to the head and orb at the top"});
 
+const STAFF={length:[1.5,2.2],footLength:[.5,1],shaftRadius:[.014,.03],orbRadius:[.04,.1],radialSegments:[6,16,true]} as const;
 const RANGES={
  "sword.arming":{bladeLength:[.5,1],bladeWidth:[.03,.07],bladeThickness:[.004,.012],fullerLength:[0,.8],guardWidth:[.12,.3],
   gripLength:[.08,.22],pommelRadius:[.015,.04],radialSegments:[6,24,true]},
+ "dagger.blackened":{bladeLength:[.2,.45],bladeWidth:[.02,.045],bladeThickness:[.003,.01],fullerLength:[0,.8],guardWidth:[.05,.14],
+  gripLength:[.07,.13],pommelRadius:[.01,.025],radialSegments:[6,24,true]},
  "shield.heater":{width:[.36,.8],height:[.45,1],curvature:[0,.12],thickness:[.008,.04],rimWidth:[.008,.05],bossRadius:[.03,.12],outlineSegments:[6,32,true]},
+ "staff.bone":STAFF,"staff.gilded":STAFF,"staff.gnarled":STAFF,
 } as const satisfies Record<WeaponPiece,Record<string,readonly [number,number]|readonly [number,number,true]>>;
 
 function number(value:unknown,label:string,min:number,max:number,integer=false):number {
@@ -34,7 +56,7 @@ export function normalizeWeaponParameters(value:unknown):WeaponParameters {
  if(!value || typeof value!=="object" || Array.isArray(value) || ![Object.prototype,null].includes(Object.getPrototypeOf(value))) throw new Error("weapon parameters must be a plain object");
  // Admit the external JSON record before reading its declared controls.
  const p=value as Record<string,unknown>;
- if(typeof p.piece!=="string" || !Object.hasOwn(RANGES,p.piece)) throw new Error("weapon piece must be sword.arming or shield.heater");
+ if(typeof p.piece!=="string" || !Object.hasOwn(RANGES,p.piece)) throw new Error(`weapon piece must be one of ${Object.keys(RANGES).join(", ")}`);
  const piece=p.piece as WeaponPiece,ranges:Record<string,readonly number[]|readonly [number,number,true]>=RANGES[piece];
  const keys=["schemaVersion","piece","maxTriangles",...Object.keys(ranges)];
  if(Object.keys(p).length!==keys.length || keys.some(k=>!Object.hasOwn(p,k))) throw new Error("weapon requires exactly the declared controls");
@@ -42,8 +64,13 @@ export function normalizeWeaponParameters(value:unknown):WeaponParameters {
  const result:Record<string,unknown>={schemaVersion:1,piece};
  for(const [key,[min,max,integer]] of Object.entries(ranges)) result[key]=number(p[key],key,min!,max!,integer===true);
  result.maxTriangles=number(p.maxTriangles,"maxTriangles",12,WEAPON_TRIANGLE_BUDGETS[piece],true);
- if(piece==="sword.arming") {
-  const s=result as SwordParameters;
+ if(isStaff(piece)) {
+  const s=result as StaffParameters;
+  if(s.footLength>s.length/2 || s.orbRadius<s.shaftRadius*2) throw new Error("staff foot must be at most half its length and the orb twice as wide as the shaft");
+  return s;
+ }
+ if(piece==="sword.arming" || piece==="dagger.blackened") {
+  const s=result as SwordParameters|DaggerParameters;
   if(s.bladeThickness*3>s.bladeWidth || s.guardWidth<s.bladeWidth*2) throw new Error("sword blade must be three times as wide as thick and the guard twice as wide as the blade");
   return s;
  }
@@ -64,9 +91,15 @@ export function createWeaponAssetSpec({assetId,parameters,scriptSha256,blenderVe
   output:{path:outputPath},reproducibility:{expected:"exact"}});
 }
 
+/** The class staffs share mmorpg's procedural staff proportions: 1.85 m, the grip 0.8 m above the foot, a 7.5 cm orb. */
+const staff=<P extends StaffPiece>(piece:P)=>Object.freeze({schemaVersion:1,piece,length:1.85,footLength:.8,shaftRadius:.022,orbRadius:.075,
+ radialSegments:10,maxTriangles:2500} as const);
 export const WEAPON_PRESETS=Object.freeze({
  "sword.arming":Object.freeze({schemaVersion:1,piece:"sword.arming",bladeLength:.755,bladeWidth:.05,bladeThickness:.008,fullerLength:.6,
   guardWidth:.2,gripLength:.13,pommelRadius:.026,radialSegments:16,maxTriangles:2500}),
+ "dagger.blackened":Object.freeze({schemaVersion:1,piece:"dagger.blackened",bladeLength:.35,bladeWidth:.034,bladeThickness:.007,fullerLength:.5,
+  guardWidth:.095,gripLength:.1,pommelRadius:.017,radialSegments:12,maxTriangles:1500}),
  "shield.heater":Object.freeze({schemaVersion:1,piece:"shield.heater",width:.56,height:.72,curvature:.06,thickness:.016,rimWidth:.022,
   bossRadius:.07,outlineSegments:16,maxTriangles:3000}),
-}) satisfies {"sword.arming":SwordParameters;"shield.heater":ShieldParameters};
+ "staff.bone":staff("staff.bone"),"staff.gilded":staff("staff.gilded"),"staff.gnarled":staff("staff.gnarled"),
+}) satisfies {[P in WeaponPiece]:WeaponParameters&{piece:P}};

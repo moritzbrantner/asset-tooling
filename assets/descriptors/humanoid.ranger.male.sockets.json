@@ -87,6 +87,12 @@
      "attachFrame": "grip", "accepts": ["armor"]},
     {"id": "foot_r.armor", "joint": "foot_r",
      "translation": [0.0906, 0.117, 0.0381], "rotation": [-0.850946, 0, 0, 0.525253],
-     "attachFrame": "grip", "accepts": ["armor"]}
+     "attachFrame": "grip", "accepts": ["armor"]},
+    {"id": "hand_r.staff", "joint": "hand_r",
+     "translation": [-0.0365, 0.0839, -0.0043], "rotation": [0.68443, 0.296967, 0.652274, 0.133809],
+     "attachFrame": "grip", "accepts": ["staff"], "mirror": "hand_l.staff"},
+    {"id": "hand_l.staff", "joint": "hand_l",
+     "translation": [0.0365, 0.0839, -0.0043], "rotation": [0.68443, -0.296967, -0.652274, 0.133809],
+     "attachFrame": "grip", "accepts": ["staff"], "mirror": "hand_r.staff"}
   ]
 }

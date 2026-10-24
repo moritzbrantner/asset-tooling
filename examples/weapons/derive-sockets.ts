@@ -199,6 +199,25 @@ export function deriveMirroredHandSockets(gltf: { nodes: Record<string, any>[] }
   ];
 }
 
+/**
+ * How a staff stands in the hand (#372): the shaft runs from the palm up past the wrist, turned `tiltDegrees` from
+ * the forearm line toward the thumb side and leaning `outward` (of the palm normal) away from the body. In the
+ * Ranger's hanging-arm idle this stands the staff nearly upright beside the leg, its foot near the ground.
+ */
+export const STAFF_GRIP = { tiltDegrees: 34, outward: 0.15 } as const;
+
+/** The held staff sockets: shaft (+Y) as in STAFF_GRIP, +Z toward the back of the hand; a mirrored pair. */
+export function deriveStaffSockets(gltf: { nodes: Record<string, any>[] }): HumanoidSocket[] {
+  const worlds = restWorlds(gltf), tilt = STAFF_GRIP.tiltDegrees * Math.PI / 180;
+  const [right, left] = (["r", "l"] as const).map((side) => {
+    const frame = handFrame(worlds, side);
+    const y = unit(add(add(scale(frame.fingers, -Math.cos(tilt)), scale(frame.knuckles, Math.sin(tilt))), scale(frame.palm, -STAFF_GRIP.outward)));
+    const back = scale(frame.palm, -1);
+    return socket(`hand_${side}.staff`, frame, y, unit(sub(back, scale(y, dot(back, y)))), ["staff"]);
+  });
+  return [{ ...right!, mirror: left!.id }, { ...left!, mirror: right!.id }];
+}
+
 /** The committed layout: one socket per three lines. */
 export function formatSocketDescriptor(descriptor: HumanoidSocketDescriptor): string {
   const list = (values: readonly unknown[]) => `[${values.map((v) => JSON.stringify(v)).join(", ")}]`;
@@ -210,11 +229,12 @@ export function formatSocketDescriptor(descriptor: HumanoidSocketDescriptor): st
     `  "axes": "right-handed-y-up",\n  "sockets": [\n${sockets.join(",\n")}\n  ]\n}\n`;
 }
 
-/** The Ranger descriptor: the mirrored hand sockets, the stowed sockets, the archery, hair and armour sockets. */
+/** The Ranger descriptor: the mirrored hand sockets, the stowed sockets, the archery, hair, armour and staff sockets. */
 export function deriveRangerSockets(gltf: { nodes: Record<string, any>[]; skins?: { joints: number[] }[] }, character = "humanoid.ranger.male"): string {
   const joints = gltf.skins?.[0]?.joints.map((index) => gltf.nodes[index]!.name as string);
   return formatSocketDescriptor(createHumanoidSocketDescriptor({
-    character, sockets: [...deriveMirroredHandSockets(gltf), ...RANGER_STOWED_SOCKETS, ...deriveArcherySockets(gltf), ...deriveHairSockets(gltf), ...deriveArmorSockets(gltf)], ...(joints ? { joints } : {}),
+    character, sockets: [...deriveMirroredHandSockets(gltf), ...RANGER_STOWED_SOCKETS, ...deriveArcherySockets(gltf), ...deriveHairSockets(gltf),
+      ...deriveArmorSockets(gltf), ...deriveStaffSockets(gltf)], ...(joints ? { joints } : {}),
   }));
 }
 
