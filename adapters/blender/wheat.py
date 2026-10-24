@@ -20,6 +20,7 @@ BOUNDS = [
     ("maxTriangles", 100, 20000, True),
 ]
 HALF_FOOTPRINT = .35
+SMOOTH_ANGLE = math.radians(50)
 
 # role: (sRGB base colour by stage, roughness); saturated toy palette.
 COLOURS = {
@@ -59,7 +60,20 @@ def srgb_to_linear(c):
     return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
 
 
-def author_material(prefix, name, colour, roughness=.6):
+def author_material(prefix, name, color):
+    """A plain material from a linear colour (shared with the Grass recipe; unchanged)."""
+    import bpy
+    result = bpy.data.materials.new(prefix + "-" + name)
+    result.diffuse_color = (*color, 1)
+    if result.node_tree is None:
+        result.use_nodes = True
+    node = next(n for n in result.node_tree.nodes if n.type == "BSDF_PRINCIPLED")
+    node.inputs["Base Color"].default_value = (*color, 1)
+    node.inputs["Roughness"].default_value = .88
+    return result
+
+
+def author_toy_material(prefix, name, colour, roughness=.6):
     """A plain toy material from an sRGB colour (no textures, no vertex colours)."""
     import bpy
     linear = tuple(srgb_to_linear(c) for c in colour) + (1,)
@@ -82,6 +96,23 @@ def place(obj, matrix, location=(0, 0, 0), rotation=(0, 0, 0), scale=(1, 1, 1)):
 
 
 def author_leaf_profile(name, width):
+    """A thin rectangular cross-section (shared with the Grass recipe; unchanged)."""
+    import bpy
+    profile = bpy.data.curves.new(name, "CURVE")
+    profile.dimensions = "2D"
+    spline = profile.splines.new("POLY")
+    spline.points.add(3)
+    half = width / 2
+    for point, co in zip(spline.points, [(-half, -.0005, 0, 1), (half, -.0005, 0, 1),
+                                        (half, .0005, 0, 1), (-half, .0005, 0, 1)]):
+        point.co = co
+    spline.use_cyclic_u = True
+    bevel = bpy.data.objects.new(name, profile)
+    bpy.context.collection.objects.link(bevel)
+    return bevel
+
+
+def author_thick_leaf_profile(name, width):
     """A thick lens cross-section, so leaves read as chunky toy blades rather than paper."""
     import bpy
     profile = bpy.data.curves.new(name, "CURVE")
@@ -164,7 +195,7 @@ def stalk_matrix(x, y, yaw, tilt, radius=0.0):
     return Matrix.Translation((x, y, lift)) @ Matrix.Rotation(yaw, 4, "Z") @ Matrix.Rotation(tilt, 4, "Y")
 
 
-def export_native_crop(parts, output_path, max_triangles, half_footprint):
+def export_native_crop(parts, output_path, max_triangles, half_footprint, smooth_angle=None):
     import bpy
     counts, geometry = {}, {}
     for role, objects in parts.items():
@@ -178,8 +209,9 @@ def export_native_crop(parts, output_path, max_triangles, half_footprint):
         obj = bpy.context.object
         obj.name = role
         bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
-        # Toy look: rounded parts shade smoothly; cut ends and creases stay crisp.
-        bpy.ops.object.shade_smooth_by_angle(angle=math.radians(50))
+        # Toy crops: rounded parts shade smoothly; cut ends and creases stay crisp. Grass keeps flat blades.
+        if smooth_angle is not None:
+            bpy.ops.object.shade_smooth_by_angle(angle=smooth_angle)
         obj.data.calc_loop_triangles()
         if any(not math.isfinite(v) for vertex in obj.data.vertices for v in vertex.co):
             raise ValueError("non-finite Crop geometry")
@@ -187,7 +219,7 @@ def export_native_crop(parts, output_path, max_triangles, half_footprint):
         if min(v.co.z for v in obj.data.vertices) < -1e-6 or reach > half_footprint:
             raise ValueError(f"Crop {role} exceeds its ground/footprint contract (reach {reach:.3f} m)")
         counts[role] = {"vertices": len(obj.data.vertices), "triangles": len(obj.data.loop_triangles)}
-        geometry[role] = hashlib.sha256(json.dumps({"vertices": [[round(c, 6) for c in v.co] for v in obj.data.vertices],
+        geometry[role] = hashlib.sha256(json.dumps({"vertices": [list(v.co) for v in obj.data.vertices],
             "faces": [list(f.vertices) for f in obj.data.polygons]}, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
     if sum(c["triangles"] for c in counts.values()) > max_triangles:
         raise ValueError("Crop exceeds maxTriangles")
@@ -207,7 +239,7 @@ def generate(output_path, arguments, inputs):
     bpy.ops.object.select_all(action="SELECT")
     bpy.ops.object.delete(use_global=False)
 
-    materials = {role: author_material("wheat", role, colour) for role, colour in COLOURS[stage].items()}
+    materials = {role: author_toy_material("wheat", role, colour) for role, colour in COLOURS[stage].items()}
     parts = {role: [] for role in ("stem", "foliage", "grain")}
 
     def record(role, obj):
@@ -260,7 +292,7 @@ def generate(output_path, arguments, inputs):
 
     if p["leafCount"]:
         # Fat rounded blades fanning from the base of the tuft.
-        bevel = author_leaf_profile("wheat-leaf-profile", p["leafWidth"])
+        bevel = author_thick_leaf_profile("wheat-leaf-profile", p["leafWidth"])
         for i in range(p["leafCount"]):
             length = p["leafLength"] * rng.uniform(.85, 1)
             lift = 1.7 if stage == "early" else .9  # young Wheat: an upright grassy tuft
@@ -272,7 +304,7 @@ def generate(output_path, arguments, inputs):
             record("foliage", leaf)
         bpy.data.objects.remove(bevel, do_unlink=True)
 
-    counts, geometry = export_native_crop(parts, output_path, p["maxTriangles"], HALF_FOOTPRINT)
+    counts, geometry = export_native_crop(parts, output_path, p["maxTriangles"], HALF_FOOTPRINT, SMOOTH_ANGLE)
     return {"authoring": "blender-authored-toy-wheat", "parameters": p, "unit": "meter", "axes": "right-handed-y-up",
             "origin": "native-root-ground-anchor", "footprint": {"width": .7, "depth": .7}, "stage": stage,
             "componentCounts": counts, "componentGeometrySha256": geometry, "randomness": "isolated-seeded-authoring", "wind": "none"}

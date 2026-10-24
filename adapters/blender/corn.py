@@ -61,7 +61,7 @@ def generate(output_path, arguments, inputs):
     rng = random.Random(int(p["seed"]))
     bpy.ops.object.select_all(action="SELECT")
     bpy.ops.object.delete(use_global=False)
-    materials = {role: native["author_material"]("corn", role, colour) for role, colour in COLOURS[stage].items()}
+    materials = {role: native["author_toy_material"]("corn", role, colour) for role, colour in COLOURS[stage].items()}
     parts = {role: [] for role in COLOURS[stage]}
     place, cone, sphere = native["place"], native["author_cone"], native["author_ordered_sphere"]
     identity = Matrix.Identity(4)
@@ -76,7 +76,7 @@ def generate(output_path, arguments, inputs):
     record("stem", cone(r, r * (.9 if stage == "harvested" else .7), h, vertices=12))
     if stage == "harvested":
         # Two dry leaves flop from the cut stalk, so the stump still reads as Corn and not as Wheat stubble.
-        profile = native["author_leaf_profile"]("corn-dry-profile", r * 2.2)
+        profile = native["author_thick_leaf_profile"]("corn-dry-profile", r * 2.2)
         for i, yaw in enumerate((.6, .6 + math.pi * .95)):
             length = h * 2.4
             controls = [(0, 0, h * .55), (.35 * length, 0, h * .55 + .25 * length),
@@ -90,7 +90,7 @@ def generate(output_path, arguments, inputs):
             node = sphere(r * 1.3, (0, 0, 0), segments=12, rings=4)
             record("stem", place(node, identity, location=(0, 0, h * z), scale=(1, 1, .45)))
     if p["leafCount"]:
-        profile = native["author_leaf_profile"]("corn-leaf-profile", p["leafWidth"])
+        profile = native["author_thick_leaf_profile"]("corn-leaf-profile", p["leafWidth"])
         for i in range(p["leafCount"]):
             length = p["leafLength"] * rng.uniform(.88, 1)
             base = h * (.12 + (.62 / max(1, p["leafCount"] - 1)) * i) if stage == "mature" else h * (.2 + .25 * i) + p["leafWidth"] * .4
@@ -103,7 +103,7 @@ def generate(output_path, arguments, inputs):
         if p["kernelRows"]:
             # Two husk leaves cup the lower half of the cob.
             ear = cob_matrix(h, r, p["earLength"])
-            husk_profile = native["author_leaf_profile"]("corn-husk-profile", p["earLength"] * .42)
+            husk_profile = native["author_thick_leaf_profile"]("corn-husk-profile", p["earLength"] * .42)
             for side in (-1, 1):
                 controls = [(0, side * .01, 0), (side * .02, side * .04, p["earLength"] * .3),
                             (side * .015, side * .05, p["earLength"] * .6), (0, side * .03, p["earLength"] * .8)]
@@ -130,7 +130,7 @@ def generate(output_path, arguments, inputs):
             yaw = i * math.tau / 7
             spike = cone(r * .22, 0, h * (.16 if i else .2), vertices=6)
             record("tassel", place(spike, identity, location=(0, 0, h - r * .2), rotation=(0, 0 if i == 0 else .7, yaw)))
-    counts, geometry = native["export_native_crop"](parts, output_path, p["maxTriangles"], HALF_FOOTPRINT)
+    counts, geometry = native["export_native_crop"](parts, output_path, p["maxTriangles"], HALF_FOOTPRINT, native["SMOOTH_ANGLE"])
     return {"authoring": "blender-authored-toy-corn", "parameters": p, "unit": "meter", "axes": "right-handed-y-up",
             "origin": "native-root-ground-anchor", "footprint": {"width": 1.1, "depth": 1.1}, "stage": stage,
             "componentCounts": counts, "componentGeometrySha256": geometry, "randomness": "isolated-seeded-authoring", "wind": "none"}
