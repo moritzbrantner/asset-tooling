@@ -10,6 +10,8 @@ The [undead crypt kit](docs/crypt-kit.md) is a scripted Blender recipe for ARPG'
 
 The [sunken shrine and cave kit](docs/shrine-kit.md) is a scripted Blender recipe for the MMORPG's Sunken Shrine in Stillwater Lake: 4 m limestone wall and arch modules with a carved fish-and-wave frieze, fluted pillars, a relic altar, joinable cave tunnel modules, a wider air-pocket room and props.
 
+The [toy-like farm structures](docs/farm-structures.md) are a scripted Blender recipe for My Farm: a chunky red-and-white Farmhouse with a dark roof and a pale domed Silo, sized for 2 × 2 tile footprints.
+
 ## Review current assets
 
 Start with the [asset gallery](https://moritzbrantner.github.io/asset-tooling/). It links directly to the [Ranger animation comparison](https://moritzbrantner.github.io/asset-tooling/compare/ranger/), the [Warden icon review](https://moritzbrantner.github.io/asset-tooling/review/warden-icons/), and the [browser 3D studio](https://moritzbrantner.github.io/asset-tooling/generate/). Compare at the intended camera, animation frame and action-bar size before requesting a new generator or foundation capability.

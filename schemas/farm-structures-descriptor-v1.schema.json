@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://moritzbrantner.github.io/asset-tooling/schemas/farm-structures-descriptor-v1.schema.json",
+  "title": "asset-tooling My Farm structures descriptor v1",
+  "description": "Gameplay footprint, measured visual size and bounds of the toy-like My Farm structures (docs/farm-structures.md). Every value is in metres (one My Farm tile is 1 m) in the structure's own frame: +Y up, front +Z, origin at the centre of the gameplay footprint on the ground. The visual may exceed the gameplay footprint by up to maxVisualScale; gameplay occupancy stays with the consumer.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "units", "tile", "up", "facing", "handedness", "origin", "maxVisualScale", "assets"],
+  "properties": {
+    "schema": { "const": "farm-structures-descriptor-v1" },
+    "units": { "const": "metre" },
+    "tile": { "const": 1 },
+    "up": { "const": "+Y" },
+    "facing": { "const": "+Z" },
+    "handedness": { "const": "right" },
+    "origin": { "const": "footprint-ground-center" },
+    "maxVisualScale": { "type": "number", "exclusiveMinimum": 0 },
+    "assets": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/asset" } }
+  },
+  "$defs": {
+    "vec3": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 },
+    "asset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "variant", "role", "triangles", "gameplayFootprint", "visual", "bounds", "structure"],
+      "properties": {
+        "key": { "type": "string", "pattern": "^[a-z]+\\.mesh$" },
+        "variant": { "type": "string", "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*$" },
+        "role": { "enum": ["farmhouse", "silo"] },
+        "triangles": { "type": "integer" },
+        "gameplayFootprint": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["width", "depth"],
+          "properties": { "width": { "type": "integer" }, "depth": { "type": "integer" } }
+        },
+        "visual": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["width", "depth", "height"],
+          "properties": { "width": { "type": "number" }, "depth": { "type": "number" }, "height": { "type": "number" } }
+        },
+        "bounds": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["min", "max"],
+          "properties": { "min": { "$ref": "#/$defs/vec3" }, "max": { "$ref": "#/$defs/vec3" } }
+        },
+        "structure": { "type": "object" }
+      }
+    }
+  }
+}
