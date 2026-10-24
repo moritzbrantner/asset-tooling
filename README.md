@@ -12,6 +12,8 @@ The [sunken shrine and cave kit](docs/shrine-kit.md) is a scripted Blender recip
 
 The [toy-like farm structures](docs/farm-structures.md) are a scripted Blender recipe for My Farm: a chunky red-and-white Farmhouse with a dark roof and a pale domed Silo, sized for 2 × 2 tile footprints.
 
+The [toy zoo scenery](docs/zoo-scenery.md) is a scripted Blender recipe for Zoo: flat-colour, untextured round and pine trees, a berry bush and a boulder, each fitting one 1 m tile.
+
 ## Review current assets
 
 Start with the [asset gallery](https://moritzbrantner.github.io/asset-tooling/). It links directly to the [Ranger animation comparison](https://moritzbrantner.github.io/asset-tooling/compare/ranger/), the [Warden icon review](https://moritzbrantner.github.io/asset-tooling/review/warden-icons/), and the [browser 3D studio](https://moritzbrantner.github.io/asset-tooling/generate/). Compare at the intended camera, animation frame and action-bar size before requesting a new generator or foundation capability.

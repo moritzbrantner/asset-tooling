@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://moritzbrantner.github.io/asset-tooling/schemas/zoo-scenery-descriptor-v1.schema.json",
+  "title": "asset-tooling Zoo scenery descriptor v1",
+  "description": "Measured size and bounds of the toy-style, flat-colour Zoo scenery pieces (docs/zoo-scenery.md). Every value is in metres (one Zoo tile is 1 m) in the piece's own frame: +Y up, front +Z, origin at the centre of the footprint on the ground. Each piece fits the footprint.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "units", "tile", "up", "facing", "handedness", "origin", "footprint", "assets"],
+  "properties": {
+    "schema": { "const": "zoo-scenery-descriptor-v1" },
+    "units": { "const": "metre" },
+    "tile": { "const": 1 },
+    "up": { "const": "+Y" },
+    "facing": { "const": "+Z" },
+    "handedness": { "const": "right" },
+    "origin": { "const": "footprint-ground-center" },
+    "footprint": { "$ref": "#/$defs/footprint" },
+    "assets": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/asset" } }
+  },
+  "$defs": {
+    "vec3": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 },
+    "footprint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["width", "depth"],
+      "properties": { "width": { "type": "integer" }, "depth": { "type": "integer" } }
+    },
+    "asset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "variant", "role", "triangles", "visual", "bounds", "piece"],
+      "properties": {
+        "key": { "type": "string", "pattern": "^[a-z]+\\.mesh$" },
+        "variant": { "type": "string", "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*$" },
+        "role": { "enum": ["tree", "bush", "rock"] },
+        "triangles": { "type": "integer" },
+        "visual": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["width", "depth", "height"],
+          "properties": { "width": { "type": "number" }, "depth": { "type": "number" }, "height": { "type": "number" } }
+        },
+        "bounds": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["min", "max"],
+          "properties": { "min": { "$ref": "#/$defs/vec3" }, "max": { "$ref": "#/$defs/vec3" } }
+        },
+        "piece": { "type": "object" }
+      }
+    }
+  }
+}
