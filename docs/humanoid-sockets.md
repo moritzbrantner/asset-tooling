@@ -19,7 +19,7 @@ A `humanoid-sockets-v2` descriptor declares the attachment frames of one humanoi
 - **`joint`** names a joint of the character's skin. Joint names in this rig are UE-style: `hand_r`, `hand_l`, `spine_03`, `pelvis` and so on.
 - **`translation`, `rotation` (x, y, z, w) and optional `scale`** form the socket's local transform in that joint's glTF frame, in metres. The item frame the socket holds is placed at `jointWorld × T × R × S`.
 - **`attachFrame`** names the item frame that lands on the socket, for example `grip`, `grip.offhand` or `strap`. Each socket names its own frame, so one two-handed sword can be held by `grip` in `hand_r.weapon` while a consumer uses its `grip.offhand` frame as the IK target for the other hand.
-- **`accepts`** lists the item roles the socket takes. The recipes declare `one-hand-weapon` (`sword.arming`), `shield` (`shield.heater`), `bow`, `arrow`, `quiver` and `armor` (headwear).
+- **`accepts`** lists the item roles the socket takes. The recipes declare `one-hand-weapon` (`sword.arming`, `dagger.blackened`), `staff` (`staff.bone`, `staff.gilded`, `staff.gnarled`), `shield` (`shield.heater`), `bow`, `arrow`, `quiver` and `armor` (headwear).
 - **`mirror`** (optional) names the counterpart socket on the other side, for example `hand_r.weapon` ↔ `hand_l.weapon`. A left-handed character then uses the same loadout data through the mirrored sockets. Both sockets of a pair must name each other, hold the same frame and accept the same roles.
 - **`id`** is `<joint-ish>.<purpose>`, for example `hand_l.shield` or `back.stowed`, and is unique within the descriptor.
 
@@ -68,6 +68,7 @@ The Ranger bundle attaches each equipment entry's descriptor as `humanoid-item` 
 | `hand_r.shield` | `hand_r` | `shield` | The left-handed mirror of `hand_l.shield` (`mirror` pair, #264). |
 | `back.stowed` | `spine_03` | `shield` | The shield is centred between the shoulder blades, face out and point down. |
 | `hip_l.stowed` | `pelvis` | `one-hand-weapon` | The hilt is at the front left hip, with the flats facing outward and the blade running down and back. |
+| `hand_r.staff`, `hand_l.staff` | `hand_r`, `hand_l` | `staff` | A mirrored pair (#372) at the weapon grip point. The shaft rises from the palm past the wrist, turned 34° from the forearm line toward the thumb side and leaning out of the back of the hand (`STAFF_GRIP`), so in the hanging-arm `Idle_Loop` the staff stands nearly upright beside the leg with its foot just above the ground. In the sword clips it swings orb first. +Z faces the back of the hand. |
 
 | Socket | Translation (before → after) | Rotation x, y, z, w (before → after) |
 | --- | --- | --- |
@@ -111,6 +112,7 @@ bun examples/weapons/derive-sockets.ts --rig <rig.gltf> --out <sockets.json> --w
 3. **One-hand weapon.** In the weapon's grip frame ([weapon-recipes.md](weapon-recipes.md)), +Y runs along the knuckle line, +Z (the flats) faces the back of the hand, and +X = Y × Z (the edges) runs along the fingers. A closed fist holds a grip along its knuckle line. In UAL1's fist poses, the circle centres of the curled fingers lie on a line within 1° of the knuckle line. That is why the blade leans with the knuckle line, not 40°.
 4. **Shield.** The handle centre is at the shield hand's grip point. +Z (the face) points out of the back of the hand, +Y (the top) points along the knuckle line toward the thumb, and +X = Y × Z. In the `Idle_Shield_Loop` guard, the fist is held thumb up in front of the chest, so the shield stands upright with its face forward and its point down. The forearm crosses the board as on enarmes.
 5. **Output.** The script writes both handednesses of the hand sockets as mirror pairs (`deriveMirroredHandSockets`), followed by the unchanged stowed sockets of `RANGER_STOWED_SOCKETS`, validates the descriptor against the rig's skin joints, and writes it in the committed layout. Translations are rounded to 0.1 mm and quaternions to six decimals. `deriveHandSockets(gltf, {weaponHand})` and `handFrame(worlds, side)` take any rig with UE-style `hand_*`, `*_01_*` and `thumb_03_*` joint names. `--weapon-hand l` derives `hand_l.weapon` and `hand_r.shield` for a left-handed character.
+6. **Staff sockets (#372).** A staff along the knuckle line would stick out forward like a lance from the hanging arm of `Idle_Loop`, the clip the imported characters stand in. So `deriveStaffSockets` is the one hand socket chosen for a pose: from the same grip point, the shaft runs `-fingers·cos 34° + knuckles·sin 34° − 0.15·palm` (`STAFF_GRIP`), which stands it upright beside the leg in the idle, the walk and the cast hold. It was picked by eye on the live Ranger at 6 m and 12 m.
 
 `test/humanoid-sockets.test.ts` checks the following:
 

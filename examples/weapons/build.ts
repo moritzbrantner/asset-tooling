@@ -1,6 +1,6 @@
-// Generate and exactly verify the sword and shield presets into .artifacts/weapons/.
+// Generate and exactly verify the weapon presets (sword, dagger, shield and the class staffs) into .artifacts/weapons/.
 // With `--sheets <character.gltf>`, also render humanoid-sockets-v2 inspection sheets through
-// examples/weapons/socket-sheets.py with the Ranger socket descriptor (held and stowed).
+// examples/weapons/socket-sheets.py with the Ranger socket descriptor (held, stowed, and each staff with the dagger).
 import assert from "node:assert/strict";
 import path from "node:path";
 import {spawnSync} from "node:child_process";
@@ -27,7 +27,8 @@ if(sheets>=0) {
  const character=path.resolve(process.argv[sheets+1]!),sockets=path.join(root,"assets/descriptors/humanoid.ranger.male.sockets.json");
  const script=path.join(root,"examples/weapons/socket-sheets.py"),blender=process.env.ASSET_TOOLING_BLENDER ?? "blender";
  for(const [name,attach] of [["held",[`hand_r.weapon=${outputs["sword.arming"]}`,`hand_l.shield=${outputs["shield.heater"]}`]],
-  ["stowed",[`hip_l.stowed=${outputs["sword.arming"]}`,`back.stowed=${outputs["shield.heater"]}`]]] as const) {
+  ["stowed",[`hip_l.stowed=${outputs["sword.arming"]}`,`back.stowed=${outputs["shield.heater"]}`]],
+  ...(["staff.bone","staff.gilded","staff.gnarled"] as const).map(staff=>[staff,[`hand_r.staff=${outputs[staff]}`,`hand_l.weapon=${outputs["dagger.blackened"]}`]] as const)] as const) {
   const run=spawnSync(blender,["--background","--factory-startup","--python-exit-code","1","--python",script,"--",character,sockets,
    path.join(directory,"sheets",name),...attach],{stdio:"inherit"});
   assert.equal(run.status,0,`socket sheets (${name}) failed`);

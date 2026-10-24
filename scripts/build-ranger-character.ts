@@ -282,10 +282,17 @@ export const RANGER_GAITS: ReadonlySet<string> = new Set(["Walk_Loop", "Jog_Fwd_
 /** The library clips the Ranger retargets, in bundle order; RANGER_AUTHORED_CLIPS follow them. */
 export const RANGER_CLIPS: readonly RangerClip[] = [...BASE_CLIPS, ...GAIT_COMBAT_CLIPS, ...TRAVERSAL_CLIPS, ...COMBAT_CLIPS, ...MIXAMO_CLIPS];
 export const RANGER_CLIPS_ATTACHMENT = "humanoid-clips";
-/** Weapon entries: weapon-recipe presets, parented at runtime through the sockets descriptor. */
+/**
+ * Weapon entries: weapon-recipe presets, parented at runtime through the sockets descriptor. The dagger and the class
+ * staffs (#372) are held in `hand_r.weapon` and `hand_r.staff`.
+ */
 export const RANGER_WEAPONS: readonly { key: string; piece: WeaponPiece }[] = [
   { key: "equipment.sword.arming", piece: "sword.arming" },
   { key: "equipment.shield.heater", piece: "shield.heater" },
+  { key: "equipment.dagger.blackened", piece: "dagger.blackened" },
+  { key: "equipment.staff.bone", piece: "staff.bone" },
+  { key: "equipment.staff.gilded", piece: "staff.gilded" },
+  { key: "equipment.staff.gnarled", piece: "staff.gnarled" },
 ];
 /** Archery entries (#113 bow slice): archery-recipe presets, parented at runtime through the sockets descriptor. */
 export const RANGER_ARCHERY: readonly { key: string; piece: ArcheryPiece }[] = [
@@ -308,7 +315,7 @@ export const RANGER_ITEM_ATTACHMENT = "humanoid-item";
 export function rangerItemDescriptor(item: string, role: string): HumanoidItemDescriptor {
   return createHumanoidItemDescriptor({ item, roles: [role], frames: [{ name: "grip", translation: [0, 0, 0], rotation: [0, 0, 0, 1] }] });
 }
-/** The male sockets descriptor (hand, stowed, archery, hair and armour sockets; examples/weapons/derive-sockets.ts). */
+/** The male sockets descriptor (hand, stowed, archery, hair, armour and staff sockets; examples/weapons/derive-sockets.ts). */
 export const RANGER_SOCKETS_DESCRIPTOR = "assets/descriptors/humanoid.ranger.male.sockets.json";
 export const RANGER_SAMPLE_RATE = 30;
 

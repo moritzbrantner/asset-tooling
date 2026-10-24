@@ -84,7 +84,8 @@ test("every spine joint is retargeted exactly once; UAL2 and Mixamo bind the sam
 });
 
 test("the Ranger declares its equipment, figures, appearance and texture limits", () => {
-  assert.deepEqual(RANGER_WEAPONS.map((item) => item.key), ["equipment.sword.arming", "equipment.shield.heater"]);
+  assert.deepEqual(RANGER_WEAPONS.map((item) => item.key), ["equipment.sword.arming", "equipment.shield.heater", "equipment.dagger.blackened",
+    "equipment.staff.bone", "equipment.staff.gilded", "equipment.staff.gnarled"]);
   assert.deepEqual(RANGER_ARCHERY.map((item) => item.key), ["equipment.bow.long", "equipment.arrow", "equipment.quiver.back"]);
   assert.equal(RANGER_FIGURES.female.key, "humanoid.ranger.female");
   assert.match(RANGER_FIGURES.female.body.path, /Superhero_Female_FullBody\.gltf$/);
