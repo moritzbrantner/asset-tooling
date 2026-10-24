@@ -97,7 +97,7 @@ jobs:
           BLENDER_TESTS: "1"
         run: |
           bun install --frozen-lockfile
-          bun test test/blender-script.test.ts test/greyhaven-inn.test.ts test/crypt-kit.test.ts test/shrine-kit.test.ts test/farm-structures.test.ts test/zoo-scenery.test.ts test/greyhaven-ambient-animals.test.ts test/archery-recipes.test.ts test/blender-input-snapshot.test.ts test/gltf-production-operations.test.ts test/rock-recipes.test.ts test/render-derivative-recipes.test.ts test/shared-render-framing.test.ts test/tree-recipes.test.ts test/wheat-recipes.test.ts test/corn-recipes.test.ts test/grass-recipes.test.ts test/fence-kit-recipes.test.ts
+          bun test test/blender-script.test.ts test/greyhaven-inn.test.ts test/crypt-kit.test.ts test/shrine-kit.test.ts test/outpost-kit.test.ts test/farm-structures.test.ts test/zoo-scenery.test.ts test/greyhaven-ambient-animals.test.ts test/archery-recipes.test.ts test/blender-input-snapshot.test.ts test/gltf-production-operations.test.ts test/rock-recipes.test.ts test/render-derivative-recipes.test.ts test/shared-render-framing.test.ts test/tree-recipes.test.ts test/wheat-recipes.test.ts test/corn-recipes.test.ts test/grass-recipes.test.ts test/fence-kit-recipes.test.ts
 
   canonical-storage:
     needs: impact

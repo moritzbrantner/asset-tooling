@@ -1,0 +1,200 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://moritzbrantner.github.io/asset-tooling/schemas/outpost-kit-descriptor-v1.schema.json",
+  "title": "asset-tooling Greyhaven Outpost building kit descriptor v1",
+  "description": "Grid, openings, door hinge and mount, roof, chimney, box-collision and composition metadata of the Greyhaven Outpost building kit (docs/outpost-kit.md). Every value is in metres in its module's own frame: +Y up, the outside towards +Z. Collision proxies are presentation metadata; game physics stays with the consumer.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "units", "up", "facing", "handedness", "origin", "grid", "assets", "compositions"],
+  "properties": {
+    "schema": { "const": "outpost-kit-descriptor-v1" },
+    "units": { "const": "metre" },
+    "up": { "const": "+Y" },
+    "facing": { "const": "+Z" },
+    "handedness": { "const": "right" },
+    "origin": { "const": "module-anchor" },
+    "grid": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["module", "halfModule", "wallHeight", "wallThickness", "plinthHeight", "span", "pitchDegrees", "eaveOverhang", "vergeOverhang"],
+      "properties": {
+        "module": { "type": "number" },
+        "halfModule": { "type": "number" },
+        "wallHeight": { "type": "number" },
+        "wallThickness": { "type": "number" },
+        "plinthHeight": { "type": "number" },
+        "span": { "type": "number" },
+        "pitchDegrees": { "type": "number" },
+        "eaveOverhang": { "type": "number" },
+        "vergeOverhang": { "type": "number" }
+      }
+    },
+    "assets": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/asset" } },
+    "compositions": {
+      "description": "Working placements of the modules on mmorpg's Outpost house and smithy footprints, in a footprint-base-centre frame whose +Z side has the door.",
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/composition" }
+    }
+  },
+  "$defs": {
+    "vec3": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 },
+    "box": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["min", "max"],
+      "properties": { "min": { "$ref": "#/$defs/vec3" }, "max": { "$ref": "#/$defs/vec3" } }
+    },
+    "proxy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "tag", "center", "size"],
+      "properties": {
+        "name": { "type": "string" },
+        "tag": { "enum": ["solid", "dynamic-door", "roof"] },
+        "center": { "$ref": "#/$defs/vec3" },
+        "size": { "$ref": "#/$defs/vec3" }
+      }
+    },
+    "composition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["footprint", "items"],
+      "properties": {
+        "footprint": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["width", "depth"],
+          "properties": { "width": { "type": "number" }, "depth": { "type": "number" } }
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["key", "variant", "translation", "yawDegrees"],
+            "properties": {
+              "key": { "type": "string", "pattern": "^outpost\\.kit\\.[a-z]+(?:-[a-z]+)*$" },
+              "variant": { "enum": ["default", "slate"] },
+              "translation": { "$ref": "#/$defs/vec3" },
+              "yawDegrees": { "type": "number" }
+            }
+          }
+        }
+      }
+    },
+    "asset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "role", "category", "parentName", "triangles", "footprint", "bounds", "collisionProxies"],
+      "properties": {
+        "key": { "type": "string", "pattern": "^outpost\\.kit\\.[a-z]+(?:-[a-z]+)*$" },
+        "role": { "type": "string" },
+        "category": { "enum": ["wall", "door", "corner", "roof", "chimney"] },
+        "parentName": { "type": "string" },
+        "triangles": { "type": "integer", "minimum": 1 },
+        "footprint": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["width", "depth", "height"],
+          "properties": { "width": { "type": "number" }, "depth": { "type": "number" }, "height": { "type": "number" } }
+        },
+        "bounds": { "$ref": "#/$defs/box" },
+        "collisionProxies": { "type": "array", "items": { "$ref": "#/$defs/proxy" } },
+        "module": {
+          "description": "A wall module's grid width, height and wall thickness.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["width", "height", "depth"],
+          "properties": { "width": { "type": "number" }, "height": { "type": "number" }, "depth": { "type": "number" } }
+        },
+        "window": {
+          "description": "The window opening: glazed, its sill height, and min/max from the glass to the outer face.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["center", "width", "height", "sill", "glazed", "min", "max"],
+          "properties": {
+            "center": { "$ref": "#/$defs/vec3" },
+            "width": { "type": "number" },
+            "height": { "type": "number" },
+            "sill": { "type": "number" },
+            "glazed": { "type": "boolean" },
+            "min": { "$ref": "#/$defs/vec3" },
+            "max": { "$ref": "#/$defs/vec3" }
+          }
+        },
+        "doorway": {
+          "description": "The clear doorway through the wall, which no geometry or proxy enters.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["center", "width", "height", "depth", "min", "max"],
+          "properties": {
+            "center": { "$ref": "#/$defs/vec3" },
+            "width": { "type": "number" },
+            "height": { "type": "number" },
+            "depth": { "type": "number" },
+            "min": { "$ref": "#/$defs/vec3" },
+            "max": { "$ref": "#/$defs/vec3" }
+          }
+        },
+        "mount": {
+          "description": "Where the door's hinge sits in the wall-door module: the empty node and its translation.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["key", "node", "translation"],
+          "properties": { "key": { "type": "string" }, "node": { "type": "string" }, "translation": { "$ref": "#/$defs/vec3" } }
+        },
+        "hinge": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["node", "axis", "closedAngle", "openAngle", "swing"],
+          "properties": {
+            "node": { "type": "string" },
+            "axis": { "$ref": "#/$defs/vec3" },
+            "closedAngle": { "type": "number" },
+            "openAngle": { "type": "number" },
+            "swing": { "const": "inward" },
+            "note": { "type": "string" }
+          }
+        },
+        "leafBounds": { "$ref": "#/$defs/box" },
+        "roof": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["span", "pitchDegrees", "eaveOverhang", "length", "wallTop", "ridgeTop", "eaveHeight"],
+          "properties": {
+            "span": { "type": "number" },
+            "pitchDegrees": { "type": "number" },
+            "eaveOverhang": { "type": "number" },
+            "vergeOverhang": { "type": "number" },
+            "length": { "type": "number" },
+            "wallTop": { "type": "number" },
+            "ridgeTop": { "type": "number" },
+            "eaveHeight": { "type": "number" }
+          }
+        },
+        "variants": {
+          "description": "Roof modules: each bundle variant with its roofing material.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["variant", "material", "triangles"],
+            "properties": {
+              "variant": { "enum": ["default", "slate"] },
+              "material": { "enum": ["shingle", "slate"] },
+              "triangles": { "type": "integer", "minimum": 1 }
+            }
+          }
+        },
+        "span": { "type": "number" },
+        "smoke": {
+          "description": "The chimney's empty node at the flue, where a consumer may emit smoke.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["node", "position"],
+          "properties": { "node": { "type": "string" }, "position": { "$ref": "#/$defs/vec3" } }
+        }
+      }
+    }
+  }
+}

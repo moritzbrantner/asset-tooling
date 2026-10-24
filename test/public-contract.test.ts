@@ -20,6 +20,7 @@ const PUBLISHED_SCHEMA_BLOBS = {
   "humanoid-sockets-v1.schema.json": "4524e391215aabc02bc535e8fc13a9b1f9d63ed5",
   "humanoid-sockets-v2.schema.json": "dd179362a11a5faefea353f557441cb03a768662",
   "model-acquisition-receipt-v1.schema.json": "acf30491a7e44c665b02e773492ee56407751759",
+  "outpost-kit-descriptor-v1.schema.json": "5a4c8c263c0f534636cc8e2c22c93514dfcacb99",
   "processing-handoff-v1.schema.json": "a3786363ec227307207e9331c3257701f01abbc2",
   "processing-receipt-v1.schema.json": "30bbc442c12fbf65f62073fbbec58247f79f6293",
   "processing-receipt-v2.schema.json": "417820551f5033140addac3684a4ed105ede6195",
