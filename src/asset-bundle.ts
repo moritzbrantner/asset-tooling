@@ -13,6 +13,7 @@ import { checkWeightSums, GLTF_PRODUCTION_ALLOWED_VALIDATOR_WARNINGS, GLTF_WEIGH
 import { validateBytes } from "gltf-validator";
 import { captureToolIdentity } from "./tool.js";
 import { parseRgba8Image, RGBA8_IMAGE_MEDIA_TYPE } from "./image-rgba8.js";
+import { assertCanonicalAudioBytes, CANONICAL_AUDIO_MEDIA_TYPE } from "./audio.js";
 import { parseSpriteAtlasManifest, SPRITE_ATLAS_MEDIA_TYPE, type SpriteAtlasManifest } from "./sprite-atlas-operations.js";
 import { createAssetOperationBuildIdentity, createAssetOperationDescriptor, createAssetRef, normalizeAssetOperationResult,
   createAssetOperationRegistry, parseAssetRef, type AssetRef, type AssetOperationBuildIdentity } from "./operations.js";
@@ -24,6 +25,8 @@ export const SPRITE_ATLAS_BUNDLE_PROFILE = "sprite-atlas-png-v1";
 export const APPROVED_IMAGE_BUNDLE_PROFILE = "approved-png-v1";
 /** Skinned/animated GLBs exported as glTF JSON whose buffers and images are hash-addressed external files (#118 Q4, #110). */
 export const GLTF_RESOURCES_BUNDLE_PROFILE = "gltf-resources-v1";
+/** Canonical PCM-16 WAV clips plus JSON descriptors, each stored once by hash (#297). */
+export const AUDIO_BUNDLE_PROFILE = "audio-wav-v1";
 /** The scene.import.gltf@2 warning allowance, applied profile-wide and recorded in build identity and manifest. */
 export const GLTF_RESOURCES_BUNDLE_ALLOWED_VALIDATOR_WARNINGS: readonly string[] = Object.freeze([...GLTF_PRODUCTION_ALLOWED_VALIDATOR_WARNINGS]);
 const MAX_ASSETS = 256, MAX_ASSET_BYTES = 64*1024*1024, MAX_BUNDLE_BYTES = 256*1024*1024, MAX_MANIFEST_BYTES = 8*1024*1024;
@@ -49,8 +52,10 @@ export type GltfResourcesBundleEntry = BundleAssetSelection & { source:AssetRef;
   resources:GltfBundleResource[]; attachments:GltfBundleAttachment[]; observations:GltfBundleObservations };
 export type GltfResourcesBundleManifest = { schemaVersion:4; profile:typeof GLTF_RESOURCES_BUNDLE_PROFILE;
   policy:{ allowedValidatorWarnings:string[] }; assets:GltfResourcesBundleEntry[] };
-export type AnyAssetBundleManifest = AssetBundleManifest|SpriteAtlasBundleManifest|ApprovedImageBundleManifest|GltfResourcesBundleManifest;
-type BundleProfile = AssetBundleParameters["profile"]|typeof APPROVED_IMAGE_BUNDLE_PROFILE|typeof GLTF_RESOURCES_BUNDLE_PROFILE;
+export type AudioBundleParameters = { profile:typeof AUDIO_BUNDLE_PROFILE; assets:BundleAssetSelection[] };
+export type AudioBundleManifest = { schemaVersion:5; profile:typeof AUDIO_BUNDLE_PROFILE; assets:AssetBundleEntry[] };
+export type AnyAssetBundleManifest = AssetBundleManifest|SpriteAtlasBundleManifest|ApprovedImageBundleManifest|GltfResourcesBundleManifest|AudioBundleManifest;
+type BundleProfile = AssetBundleParameters["profile"]|typeof APPROVED_IMAGE_BUNDLE_PROFILE|typeof GLTF_RESOURCES_BUNDLE_PROFILE|typeof AUDIO_BUNDLE_PROFILE;
 type Invocation = { parameters?:unknown; inputs?:unknown };
 export type BundleExportProgress = { path:string; status:"changed"|"unchanged"; byteLength:number };
 export type BundleExportOptions = { signal?:AbortSignal; onArtifact?:(artifact:BundleExportProgress)=>void|Promise<void> };
@@ -85,6 +90,13 @@ export const APPROVED_IMAGE_BUNDLE_OPERATION = createAssetOperationDescriptor({
       required:["key","variant","approved"],properties:{key:SELECTION_TOKEN_SCHEMA,variant:SELECTION_TOKEN_SCHEMA,
         approved:{type:"object",additionalProperties:false,required:["sha256"],properties:{sha256:{type:"string",pattern:"^[0-9a-f]{64}$"}}}}}},
   }},
+});
+/** asset.bundle@5: canonical PCM-16 WAV clips and JSON descriptors stored by hash (#297). */
+export const AUDIO_BUNDLE_OPERATION = createAssetOperationDescriptor({
+  schemaVersion:1,id:"asset.bundle",version:"5",label:"Package canonical WAV clips and JSON descriptors",category:"asset.packaging",
+  inputs:[{id:"assets",assetKinds:[],mediaTypes:[CANONICAL_AUDIO_MEDIA_TYPE,"application/json"],cardinality:{min:1,max:MAX_ASSETS}}],
+  outputs:[{id:"manifest",assetKinds:["asset-bundle"],mediaTypes:[ASSET_BUNDLE_MEDIA_TYPE]}],
+  parameterSchema:parameterSchema(AUDIO_BUNDLE_PROFILE),
 });
 const MAX_ATTACHMENTS = 16, MAX_SCENE_RESOURCES = 1024;
 const GLTF_ATTACHMENT_MEDIA_TYPES: readonly string[] = ["application/json","model/gltf-binary"];
@@ -162,6 +174,13 @@ function assetPath(source:AssetRef,profile:BundleProfile=STATIC_ASSET_BUNDLE_PRO
    case APPROVED_IMAGE_BUNDLE_PROFILE:
     if(source.mediaType==="image/png" && source.kind==="image") return `assets/${source.sha256}.png`;
     throw new Error(`asset kind/media type '${source.kind}/${source.mediaType}' is incompatible with ${APPROVED_IMAGE_BUNDLE_PROFILE}`);
+   case AUDIO_BUNDLE_PROFILE:
+    if(source.mediaType===CANONICAL_AUDIO_MEDIA_TYPE && source.kind==="audio") return `assets/${source.sha256}.wav`;
+    if(source.mediaType==="application/json") {
+      if(source.byteLength>MAX_MANIFEST_BYTES) throw new Error("bundle JSON descriptor exceeds 8 MiB byte budget");
+      return `assets/${source.sha256}.json`;
+    }
+    throw new Error(`asset kind/media type '${source.kind}/${source.mediaType}' is incompatible with ${AUDIO_BUNDLE_PROFILE}`);
    case GLTF_RESOURCES_BUNDLE_PROFILE: throw new Error(`${GLTF_RESOURCES_BUNDLE_PROFILE} paths are scene, resource and attachment specific`);
    default: return unreachable(profile);
   }
@@ -205,6 +224,8 @@ async function validatePayload(source:AssetRef,bytes:Buffer):Promise<void> {
     if(!size || size.some(n=>!Number.isSafeInteger(n) || n<1 || n>4096)) throw new Error("bundle PNG must have valid header/dimensions in 1..4096");
   } else if(source.mediaType===SPRITE_ATLAS_MEDIA_TYPE) parseSpriteAtlasManifest(bytes);
   else if(source.mediaType===RGBA8_IMAGE_MEDIA_TYPE) boundedRgba(bytes);
+  else if(source.mediaType===CANONICAL_AUDIO_MEDIA_TYPE) assertCanonicalAudioBytes(bytes,source.metadata);
+  else if(source.mediaType==="application/json") JSON.parse(bytes.toString("utf8"));
   else throw new Error("unsupported bundle payload media type");
 }
 function boundedRgba(bytes:Buffer,expected?:{width:number;height:number}) {
@@ -233,7 +254,7 @@ export function parseSpriteAtlasBundleManifest(bytes:Uint8Array):SpriteAtlasBund
 export function parseApprovedImageBundleManifest(bytes:Uint8Array):ApprovedImageBundleManifest { return parseApprovedBundle(manifestJson(bytes)); }
 function parseAnyAssetBundleManifest(bytes:Uint8Array):AnyAssetBundleManifest {
   const raw=manifestJson(bytes),version=raw && typeof raw==="object" && "schemaVersion" in raw ? raw.schemaVersion : undefined;
-  return version===2 ? parseAtlasBundle(raw) : version===3 ? parseApprovedBundle(raw) : version===4 ? parseGltfResourcesBundle(raw) : parseStaticBundle(raw);
+  return version===2 ? parseAtlasBundle(raw) : version===3 ? parseApprovedBundle(raw) : version===4 ? parseGltfResourcesBundle(raw) : version===5 ? parseAudioBundle(raw) : parseStaticBundle(raw);
 }
 const APPROVED_ENTRY_FIELDS=["key","variant","approved","source","path"];
 function parseApprovedBundle(raw:unknown):ApprovedImageBundleManifest {
@@ -250,18 +271,23 @@ function parseApprovedBundle(raw:unknown):ApprovedImageBundleManifest {
   if(assets.some((entry,index)=>index>0 && compareEntries(assets[index-1]!,entry)>=0)) throw new Error("bundle entries must have stable key/variant ordering");
   return {schemaVersion:3,profile:APPROVED_IMAGE_BUNDLE_PROFILE,assets};
 }
-function parseStaticBundle(raw:unknown):AssetBundleManifest {
+function parseStaticBundle(raw:unknown):AssetBundleManifest { return {schemaVersion:1,profile:STATIC_ASSET_BUNDLE_PROFILE,assets:parseFlatEntries(raw,1,STATIC_ASSET_BUNDLE_PROFILE)}; }
+/** Parse an audio-wav-v1 (schemaVersion 5) manifest. */
+export function parseAudioBundleManifest(bytes:Uint8Array):AudioBundleManifest { return parseAudioBundle(manifestJson(bytes)); }
+function parseAudioBundle(raw:unknown):AudioBundleManifest { return {schemaVersion:5,profile:AUDIO_BUNDLE_PROFILE,assets:parseFlatEntries(raw,5,AUDIO_BUNDLE_PROFILE)}; }
+/** The {key, variant, source, path} entries shared by static-glb-png-v1 and audio-wav-v1. */
+function parseFlatEntries(raw:unknown,schemaVersion:1|5,profile:typeof STATIC_ASSET_BUNDLE_PROFILE|typeof AUDIO_BUNDLE_PROFILE):AssetBundleEntry[] {
   const p=object(raw,["schemaVersion","profile","assets"],"bundle manifest");
-  if(p.schemaVersion!==1 || p.profile!==STATIC_ASSET_BUNDLE_PROFILE || !Array.isArray(p.assets)) throw new Error("unsupported bundle manifest schema/profile");
+  if(p.schemaVersion!==schemaVersion || p.profile!==profile || !Array.isArray(p.assets)) throw new Error("unsupported bundle manifest schema/profile");
   const selected=selections(p.assets.map((entry,index)=>{const e=object(entry,["key","variant","source","path"],`bundle entry[${index}]`);return {key:e.key,variant:e.variant};}));
   const assets=p.assets.map((entry,index)=>{
-    const e=object(entry,["key","variant","source","path"],"bundle entry"),source=createAssetRef(e.source),portablePath=assetPath(source);
+    const e=object(entry,["key","variant","source","path"],"bundle entry"),source=createAssetRef(e.source),portablePath=assetPath(source,profile);
     if(e.path!==portablePath) throw new Error("bundle resource path must match its content identity");
     return {...selected[index]!,source,path:portablePath};
   });
   checkBudget(assets);
   if(assets.some((entry,index)=>index>0 && compareEntries(assets[index-1]!,entry)>=0)) throw new Error("bundle entries must have stable key/variant ordering");
-  return {schemaVersion:1,profile:STATIC_ASSET_BUNDLE_PROFILE,assets};
+  return assets;
 }
 function parseAtlasBundle(value:unknown):SpriteAtlasBundleManifest {
   const p=object(value,["schemaVersion","profile","assets","resources"],"atlas bundle manifest");
@@ -282,25 +308,37 @@ async function prepare(root:string,invocation:Invocation,signal?:AbortSignal) {
   signal?.throwIfAborted();assertAbsolute(root);
   if(isApprovedProfile(invocation.parameters)) return prepareApproved(root,approvedParameters(invocation.parameters),invocation.inputs,signal);
   if(isGltfResourcesProfile(invocation.parameters)) return prepareGltfResources(root,gltfResourcesParameters(invocation.parameters),invocation.inputs,signal);
+  if(isAudioProfile(invocation.parameters)) {
+    const p=object(invocation.parameters,["profile","assets"],"audio bundle parameters");
+    return prepareFlat(root,AUDIO_BUNDLE_PROFILE,selections(p.assets),invocation.inputs,signal);
+  }
   const p=parameters(invocation.parameters);
   switch(p.profile) {
     case SPRITE_ATLAS_BUNDLE_PROFILE: return prepareAtlas(root,p,invocation.inputs,signal);
-    case STATIC_ASSET_BUNDLE_PROFILE: break;
+    case STATIC_ASSET_BUNDLE_PROFILE: return prepareFlat(root,p.profile,p.assets,invocation.inputs,signal);
     default: return unreachable(p.profile);
   }
-  const inputs=object(invocation.inputs,["assets"],"bundle inputs");
-  if(!Array.isArray(inputs.assets) || inputs.assets.length!==p.assets.length) throw new Error("one source AssetRef is required for each bundle selection");
-  const refs=inputs.assets.map(createAssetRef),entries=p.assets.map((entry,index)=>({ ...entry,source:refs[index]!,path:assetPath(refs[index]!) })).sort(compareEntries);
+}
+function isAudioProfile(value:unknown):boolean {
+  return !!value && typeof value==="object" && !Array.isArray(value) && (value as Record<string,unknown>).profile===AUDIO_BUNDLE_PROFILE;
+}
+/** static-glb-png-v1 (asset.bundle@1) and audio-wav-v1 (asset.bundle@5): one hash-addressed file per selection. */
+async function prepareFlat(root:string,profile:typeof STATIC_ASSET_BUNDLE_PROFILE|typeof AUDIO_BUNDLE_PROFILE,chosen:BundleAssetSelection[],value:unknown,signal?:AbortSignal) {
+  const inputs=object(value,["assets"],"bundle inputs");
+  if(!Array.isArray(inputs.assets) || inputs.assets.length!==chosen.length) throw new Error("one source AssetRef is required for each bundle selection");
+  const refs=inputs.assets.map(createAssetRef),entries=chosen.map((entry,index)=>({ ...entry,source:refs[index]!,path:assetPath(refs[index]!,profile) })).sort(compareEntries);
   checkBudget(entries);const blobs=new Map<string,{source:AssetRef;bytes:Buffer}>();
   // Validate every declared dependency before inspecting/reusing any export file.
   for(const entry of entries) if(!blobs.has(entry.path)) {
     signal?.throwIfAborted();const bytes=await resolveAssetObject(root,entry.source);await validatePayload(entry.source,bytes);signal?.throwIfAborted();blobs.set(entry.path,{source:entry.source,bytes});
   }
-  const build=createAssetOperationBuildIdentity({operation:ASSET_BUNDLE_OPERATION,parameters:{profile:p.profile,assets:entries.map(({key,variant})=>({key,variant}))},
-    inputs:{assets:entries.map(entry=>entry.source)},implementation:{id:"builtin.asset.bundle",version:"1",profile:p.profile,
-      gltfTransform:VERSION,validator:validatorVersion(),dependencyLockSha256:await readDependencyLockSha256(),tool:await captureToolIdentity()}});
-  const manifest:AssetBundleManifest={schemaVersion:1,profile:p.profile,assets:entries};
-  const bytes=Buffer.from(`${canonicalJson(manifest)}\n`);parseAssetBundleManifest(bytes);
+  const audio=profile===AUDIO_BUNDLE_PROFILE;
+  const build=createAssetOperationBuildIdentity({operation:audio?AUDIO_BUNDLE_OPERATION:ASSET_BUNDLE_OPERATION,parameters:{profile,assets:entries.map(({key,variant})=>({key,variant}))},
+    inputs:{assets:entries.map(entry=>entry.source)},implementation:audio
+      ?{id:"builtin.asset.bundle",version:"5",profile,dependencyLockSha256:await readDependencyLockSha256(),tool:await captureToolIdentity()}
+      :{id:"builtin.asset.bundle",version:"1",profile,gltfTransform:VERSION,validator:validatorVersion(),dependencyLockSha256:await readDependencyLockSha256(),tool:await captureToolIdentity()}});
+  const manifest:AssetBundleManifest|AudioBundleManifest=audio?{schemaVersion:5,profile:AUDIO_BUNDLE_PROFILE,assets:entries}:{schemaVersion:1,profile:STATIC_ASSET_BUNDLE_PROFILE,assets:entries};
+  const bytes=Buffer.from(`${canonicalJson(manifest)}\n`);if(audio) parseAudioBundleManifest(bytes); else parseAssetBundleManifest(bytes);
   return {build,manifest,bytes,blobs};
 }
 type ReadResource=(source:AssetRef)=>Promise<Buffer>;
@@ -403,13 +441,14 @@ function bundleOperation(manifest:AnyAssetBundleManifest) {
     case 2: return SPRITE_ATLAS_BUNDLE_OPERATION;
     case 3: return APPROVED_IMAGE_BUNDLE_OPERATION;
     case 4: return GLTF_RESOURCES_BUNDLE_OPERATION;
+    case 5: return AUDIO_BUNDLE_OPERATION;
     default: return unreachable(manifest);
   }
 }
 function bundleResources(manifest:AnyAssetBundleManifest):BundleResource[] {
   switch(manifest.schemaVersion) {
     case 4: return [];
-    case 1: case 3: return manifest.assets;
+    case 1: case 3: case 5: return manifest.assets;
     case 2: return [...manifest.assets,...manifest.assets.map(e=>e.image),...manifest.resources];
     default: return unreachable(manifest);
   }
@@ -517,6 +556,7 @@ export function verifyAssetBundle(directory:string,manifestValue:unknown,options
 export function verifyAssetBundle(directory:string,manifestValue:unknown,options:{profile:typeof SPRITE_ATLAS_BUNDLE_PROFILE}):Promise<BundleVerification<SpriteAtlasBundleManifest>>;
 export function verifyAssetBundle(directory:string,manifestValue:unknown,options:{profile:typeof APPROVED_IMAGE_BUNDLE_PROFILE}):Promise<BundleVerification<ApprovedImageBundleManifest>>;
 export function verifyAssetBundle(directory:string,manifestValue:unknown,options:{profile:typeof GLTF_RESOURCES_BUNDLE_PROFILE}):Promise<BundleVerification<GltfResourcesBundleManifest>>;
+export function verifyAssetBundle(directory:string,manifestValue:unknown,options:{profile:typeof AUDIO_BUNDLE_PROFILE}):Promise<BundleVerification<AudioBundleManifest>>;
 export async function verifyAssetBundle(directory:string,manifestValue:unknown,options:{profile:BundleProfile}={profile:STATIC_ASSET_BUNDLE_PROFILE}):Promise<BundleVerification<AnyAssetBundleManifest>> {
   const selected=object(options,["profile"],"bundle verification profile");
   assertAbsolute(directory);const ref=createAssetRef(manifestValue);
@@ -526,7 +566,7 @@ export async function verifyAssetBundle(directory:string,manifestValue:unknown,o
   const resources=bundleResources(manifest);
   for(const entry of resources) if(!verified.has(entry.path)) {await validatePayload(entry.source,await readPinned(directory,entry.path,entry.source));verified.add(entry.path);}
   switch(manifest.schemaVersion) {
-   case 1: case 3: break;
+   case 1: case 3: case 5: break;
    case 4: return {manifest,assetsVerified:manifest.assets.length,uniquePayloads:await verifyGltfResources(directory,manifest)};
    case 2: {
     const expected:BundleResource[]=[];

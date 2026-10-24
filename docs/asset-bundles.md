@@ -226,3 +226,13 @@ No source store, Blender, GPU or network is needed after the download.
 - The deterministic tar and its CLI.
 
 Its real-source test runs in the hosted `canonical-storage` job. It skips on Git LFS pointers unless `ASSET_TOOLING_REQUIRE_HYDRATED_STORAGE=1`. The test imports the Superhero body and the Male_Ranger outfit through `scene.import.gltf@2`, subsets the body with the [documented recipe](gltf-subset.md) and composes the two with `scene.compose.skinned.gltf@1`. It then bundles and verifies the composed Ranger with its source store deleted, and packs and verifies the tar.
+
+## Audio WAV profile
+
+`AUDIO_BUNDLE_PROFILE` selects `audio-wav-v1`, `asset.bundle@5` (`AUDIO_BUNDLE_OPERATION`), added for the [combat sounds](combat-sounds.md) of #297. It uses the same `exportAssetBundle`, `verifyAssetBundle(dir, ref, { profile: AUDIO_BUNDLE_PROFILE })`, `readAssetBundleAsset` and tar helpers as the other profiles. Its manifest follows the [v5 schema](../schemas/asset-bundle-v5.schema.json) and has the static profile's shape: `schemaVersion: 5`, the profile, and `assets` of `{ key, variant, source, path }`, sorted by key and then variant.
+
+- **Selection.** Each selection is `{ key, variant }`, paired in order with one `inputs.assets` AssetRef. A source is either a canonical audio AssetRef (`audio`/`audio/wav`, see [audio.md](audio.md#canonical-audio-v1)) or any-kind `application/json` of at most 8 MiB, such as a descriptor or a runtime sound manifest.
+- **Layout.** Each payload is stored once at `assets/<sha256>.wav` or `assets/<sha256>.json`.
+- **Verification.** Every file is re-hashed. Every WAV is re-checked against its AssetRef's canonical audio metadata: PCM-16, rate, channels, frame count and the canonical 44-byte layout. JSON must parse. The other profiles reject a v5 manifest.
+
+The limits are the static profile's.

@@ -3699,6 +3699,1379 @@
         "starter-kit"
       ],
       "title": "Stylized Nature MegaKit — Rock_Medium_3 (bin)"
+    },
+    {
+      "id": "kenney.impact-sounds",
+      "kind": "audio-pack",
+      "license": {
+        "evidenceUrl": "https://kenney.nl/assets/impact-sounds",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "application/zip",
+      "metadata": {
+        "author": "Kenney (www.kenney.nl)",
+        "purpose": "CC0 sound effects pack; combat sound members for asset-tooling #297"
+      },
+      "provider": "kenney",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 800850,
+        "path": "kenney_impact-sounds.zip",
+        "revision": "1.0",
+        "sha256": "029d734af1582474edf3a694d1b0cebc97c1c152f2f39fa34d4c2bafc5de77f8",
+        "upstreamId": "impact-sounds",
+        "url": "https://kenney.nl/media/pages/assets/impact-sounds/87b4ddecda-1677589768/kenney_impact-sounds.zip"
+      },
+      "tags": [
+        "audio",
+        "game",
+        "impact",
+        "sfx"
+      ],
+      "title": "Impact Sounds"
+    },
+    {
+      "id": "kenney.interface-sounds",
+      "kind": "audio-pack",
+      "license": {
+        "evidenceUrl": "https://kenney.nl/assets/interface-sounds",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "application/zip",
+      "metadata": {
+        "author": "Kenney (www.kenney.nl)",
+        "purpose": "CC0 sound effects pack; combat sound members for asset-tooling #297"
+      },
+      "provider": "kenney",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 834536,
+        "path": "kenney_interface-sounds.zip",
+        "revision": "1.0",
+        "sha256": "f2193d072726d6758a5f7871b2dcc54dcce0d5c35c6f0a62f92549b327c81232",
+        "upstreamId": "interface-sounds",
+        "url": "https://kenney.nl/media/pages/assets/interface-sounds/fa43c1dd4d-1677589452/kenney_interface-sounds.zip"
+      },
+      "tags": [
+        "audio",
+        "game",
+        "sfx",
+        "ui"
+      ],
+      "title": "Interface Sounds"
+    },
+    {
+      "id": "kenney.rpg-audio",
+      "kind": "audio-pack",
+      "license": {
+        "evidenceUrl": "https://kenney.nl/assets/rpg-audio",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "application/zip",
+      "metadata": {
+        "author": "Kenney (www.kenney.nl)",
+        "purpose": "CC0 sound effects pack; combat sound members for asset-tooling #297"
+      },
+      "provider": "kenney",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 964837,
+        "path": "kenney_rpg-audio.zip",
+        "revision": "1.0",
+        "sha256": "6dbeaf8544da958d8f2adcb4a4a4b76c1ade34a05f8ab9edccd327da7375f38b",
+        "upstreamId": "rpg-audio",
+        "url": "https://kenney.nl/media/pages/assets/rpg-audio/8e99002d76-1677590336/kenney_rpg-audio.zip"
+      },
+      "tags": [
+        "audio",
+        "game",
+        "rpg",
+        "sfx"
+      ],
+      "title": "RPG Audio"
+    },
+    {
+      "id": "kenney.music-jingles",
+      "kind": "audio-pack",
+      "license": {
+        "evidenceUrl": "https://kenney.nl/assets/music-jingles",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "application/zip",
+      "metadata": {
+        "author": "Kenney (www.kenney.nl)",
+        "purpose": "CC0 sound effects pack; combat sound members for asset-tooling #297"
+      },
+      "provider": "kenney",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 1239525,
+        "path": "kenney_music-jingles.zip",
+        "revision": "1.0",
+        "sha256": "b729ba57959bd58793d2c5cafa348aaf2655d354f3da35ec4729e03ec77197b8",
+        "upstreamId": "music-jingles",
+        "url": "https://kenney.nl/media/pages/assets/music-jingles/f37e530b9e-1677590399/kenney_music-jingles.zip"
+      },
+      "tags": [
+        "audio",
+        "game",
+        "jingle",
+        "sfx"
+      ],
+      "title": "Music Jingles"
+    },
+    {
+      "id": "opengameart.rpg-sound-pack",
+      "kind": "audio-pack",
+      "license": {
+        "evidenceUrl": "https://opengameart.org/content/rpg-sound-pack",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "application/zip",
+      "metadata": {
+        "author": "artisticdude",
+        "purpose": "CC0 sound effects pack; combat sound members for asset-tooling #297"
+      },
+      "provider": "opengameart",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 12465564,
+        "path": "rpg_sound_pack.zip",
+        "revision": "2012-02-06",
+        "sha256": "f80754a9c04854e30c9da89d0186540ad097309d98b41387b6e83029e2601421",
+        "upstreamId": "rpg-sound-pack",
+        "url": "https://opengameart.org/sites/default/files/rpg_sound_pack.zip"
+      },
+      "tags": [
+        "audio",
+        "game",
+        "rpg",
+        "sfx"
+      ],
+      "title": "RPG Sound Pack"
+    },
+    {
+      "id": "opengameart.battle-sound-effects",
+      "kind": "audio-pack",
+      "license": {
+        "evidenceUrl": "https://opengameart.org/content/battle-sound-effects",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "application/zip",
+      "metadata": {
+        "author": "Ogrebane",
+        "licenseNote": "Offered under CC0, CC-BY 3.0, CC-BY-SA 3.0, GPL 2.0 and GPL 3.0; used under the CC0 option.",
+        "purpose": "CC0 sound effects pack; combat sound members for asset-tooling #297"
+      },
+      "provider": "opengameart",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 220956,
+        "path": "battle_sound_effects_0.zip",
+        "revision": "2012-04-08",
+        "sha256": "44e3d26b2378d2eb3a4f28b4c5cbc71908ad13c7389038348dbe9b8cde4f4c05",
+        "upstreamId": "battle-sound-effects",
+        "url": "https://opengameart.org/sites/default/files/battle_sound_effects_0.zip"
+      },
+      "tags": [
+        "audio",
+        "battle",
+        "game",
+        "sfx"
+      ],
+      "title": "Battle Sound Effects"
+    },
+    {
+      "id": "opengameart.their-coming-horn-ogg",
+      "kind": "audio",
+      "license": {
+        "evidenceUrl": "https://opengameart.org/content/their-coming-generic-horn-sound",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "audio/ogg",
+      "metadata": {
+        "author": "StumpyStrust",
+        "purpose": "Combat sound fixture for arpg #67 (asset-tooling #297, docs/combat-sounds.md)"
+      },
+      "provider": "opengameart",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 117400,
+        "path": "theircoming.ogg",
+        "revision": "2014-10-10",
+        "sha256": "949975ecdd9bece552aebf3e7823f785f686e56886a6b8dfc7a0f9b9692aa6ec",
+        "upstreamId": "their-coming-generic-horn-sound",
+        "url": "https://opengameart.org/sites/default/files/theircoming.ogg"
+      },
+      "tags": [
+        "audio",
+        "game",
+        "horn",
+        "sfx",
+        "sfx.encounter.start",
+        "stinger"
+      ],
+      "title": "Their Coming (generic horn sound)"
+    },
+    {
+      "archiveMember": {
+        "archive": "opengameart.rpg-sound-pack",
+        "path": "RPG Sound Pack/battle/swing.wav"
+      },
+      "id": "opengameart.rpg-sound-pack.swing-wav",
+      "kind": "audio",
+      "license": {
+        "evidenceUrl": "https://opengameart.org/content/rpg-sound-pack",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "audio/wav",
+      "metadata": {
+        "author": "artisticdude",
+        "purpose": "Combat sound fixture for arpg #67 (asset-tooling #297, docs/combat-sounds.md)"
+      },
+      "provider": "opengameart",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 61462,
+        "sha256": "c7d50b9cb20ccda5aee6c023f4450915594061e36f3f9e78af241ca9fde0f817"
+      },
+      "tags": [
+        "audio",
+        "combat-sounds",
+        "sfx.combat.swing"
+      ],
+      "title": "RPG Sound Pack — swing"
+    },
+    {
+      "archiveMember": {
+        "archive": "opengameart.rpg-sound-pack",
+        "path": "RPG Sound Pack/battle/swing2.wav"
+      },
+      "id": "opengameart.rpg-sound-pack.swing2-wav",
+      "kind": "audio",
+      "license": {
+        "evidenceUrl": "https://opengameart.org/content/rpg-sound-pack",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "audio/wav",
+      "metadata": {
+        "author": "artisticdude",
+        "purpose": "Combat sound fixture for arpg #67 (asset-tooling #297, docs/combat-sounds.md)"
+      },
+      "provider": "opengameart",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 39384,
+        "sha256": "2e4064e294d136e06c40cc562df969493907e6873f39895ca86b4a6b2e034c6e"
+      },
+      "tags": [
+        "audio",
+        "combat-sounds",
+        "sfx.combat.swing"
+      ],
+      "title": "RPG Sound Pack — swing2"
+    },
+    {
+      "archiveMember": {
+        "archive": "opengameart.rpg-sound-pack",
+        "path": "RPG Sound Pack/battle/swing3.wav"
+      },
+      "id": "opengameart.rpg-sound-pack.swing3-wav",
+      "kind": "audio",
+      "license": {
+        "evidenceUrl": "https://opengameart.org/content/rpg-sound-pack",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "audio/wav",
+      "metadata": {
+        "author": "artisticdude",
+        "purpose": "Combat sound fixture for arpg #67 (asset-tooling #297, docs/combat-sounds.md)"
+      },
+      "provider": "opengameart",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 37316,
+        "sha256": "d725421956c9958de6d7a17c4fca299abe583a1800c59eaec358ec2e82d79bae"
+      },
+      "tags": [
+        "audio",
+        "combat-sounds",
+        "sfx.combat.swing"
+      ],
+      "title": "RPG Sound Pack — swing3"
+    },
+    {
+      "archiveMember": {
+        "archive": "opengameart.battle-sound-effects",
+        "path": "battle_sound_effects/swish_2.wav"
+      },
+      "id": "opengameart.battle-sound-effects.swish-2-wav",
+      "kind": "audio",
+      "license": {
+        "evidenceUrl": "https://opengameart.org/content/battle-sound-effects",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "audio/wav",
+      "metadata": {
+        "author": "Ogrebane",
+        "purpose": "Combat sound fixture for arpg #67 (asset-tooling #297, docs/combat-sounds.md)"
+      },
+      "provider": "opengameart",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 66114,
+        "sha256": "690725fd44a99a4abd32d59c0efe8e28486afb564d3f5710cca75a2c786cf0f1"
+      },
+      "tags": [
+        "audio",
+        "combat-sounds",
+        "sfx.combat.whiff"
+      ],
+      "title": "Battle Sound Effects — swish_2"
+    },
+    {
+      "archiveMember": {
+        "archive": "opengameart.battle-sound-effects",
+        "path": "battle_sound_effects/Bow.wav"
+      },
+      "id": "opengameart.battle-sound-effects.bow-wav",
+      "kind": "audio",
+      "license": {
+        "evidenceUrl": "https://opengameart.org/content/battle-sound-effects",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "audio/wav",
+      "metadata": {
+        "author": "Ogrebane",
+        "purpose": "Combat sound fixture for arpg #67 (asset-tooling #297, docs/combat-sounds.md)"
+      },
+      "provider": "opengameart",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 96814,
+        "sha256": "0dc8cf132cf583563936ac3a4d776e196210d5f6703b4ebdd7c68e8f35b9f3e3"
+      },
+      "tags": [
+        "audio",
+        "combat-sounds",
+        "sfx.combat.arrow-release"
+      ],
+      "title": "Battle Sound Effects — Bow"
+    },
+    {
+      "archiveMember": {
+        "archive": "kenney.impact-sounds",
+        "path": "Audio/impactPunch_medium_000.ogg"
+      },
+      "id": "kenney.impact-sounds.impact-punch-medium-000-ogg",
+      "kind": "audio",
+      "license": {
+        "evidenceUrl": "https://kenney.nl/assets/impact-sounds",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "audio/ogg",
+      "metadata": {
+        "author": "Kenney (www.kenney.nl)",
+        "purpose": "Combat sound fixture for arpg #67 (asset-tooling #297, docs/combat-sounds.md)"
+      },
+      "provider": "kenney",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 8800,
+        "sha256": "486988aa2d6440ffc4c62a0e8ccf3c23673ba84424bd4723378d451b7255eb5c"
+      },
+      "tags": [
+        "audio",
+        "combat-sounds",
+        "sfx.combat.hit"
+      ],
+      "title": "Impact Sounds — impactPunch_medium_000"
+    },
+    {
+      "archiveMember": {
+        "archive": "kenney.impact-sounds",
+        "path": "Audio/impactPunch_medium_001.ogg"
+      },
+      "id": "kenney.impact-sounds.impact-punch-medium-001-ogg",
+      "kind": "audio",
+      "license": {
+        "evidenceUrl": "https://kenney.nl/assets/impact-sounds",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "audio/ogg",
+      "metadata": {
+        "author": "Kenney (www.kenney.nl)",
+        "purpose": "Combat sound fixture for arpg #67 (asset-tooling #297, docs/combat-sounds.md)"
+      },
+      "provider": "kenney",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 8701,
+        "sha256": "e71d23abcc3f10d9d6bc9615b2a431fff70b12333a5fcdd9964457564ace4349"
+      },
+      "tags": [
+        "audio",
+        "combat-sounds",
+        "sfx.combat.hit"
+      ],
+      "title": "Impact Sounds — impactPunch_medium_001"
+    },
+    {
+      "archiveMember": {
+        "archive": "kenney.impact-sounds",
+        "path": "Audio/impactPunch_medium_002.ogg"
+      },
+      "id": "kenney.impact-sounds.impact-punch-medium-002-ogg",
+      "kind": "audio",
+      "license": {
+        "evidenceUrl": "https://kenney.nl/assets/impact-sounds",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "audio/ogg",
+      "metadata": {
+        "author": "Kenney (www.kenney.nl)",
+        "purpose": "Combat sound fixture for arpg #67 (asset-tooling #297, docs/combat-sounds.md)"
+      },
+      "provider": "kenney",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 10399,
+        "sha256": "6492f9ccbc8d24dcef607bb1b48790b7870961474561f7fe5601e1c73a3018ef"
+      },
+      "tags": [
+        "audio",
+        "combat-sounds",
+        "sfx.combat.hit"
+      ],
+      "title": "Impact Sounds — impactPunch_medium_002"
+    },
+    {
+      "archiveMember": {
+        "archive": "kenney.impact-sounds",
+        "path": "Audio/impactPunch_heavy_000.ogg"
+      },
+      "id": "kenney.impact-sounds.impact-punch-heavy-000-ogg",
+      "kind": "audio",
+      "license": {
+        "evidenceUrl": "https://kenney.nl/assets/impact-sounds",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "audio/ogg",
+      "metadata": {
+        "author": "Kenney (www.kenney.nl)",
+        "purpose": "Combat sound fixture for arpg #67 (asset-tooling #297, docs/combat-sounds.md)"
+      },
+      "provider": "kenney",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 11617,
+        "sha256": "b33a8f14068aec24ec69ba85e5e87fdc41228975f6a1a3e44a6e7d6fc3d9f8d8"
+      },
+      "tags": [
+        "audio",
+        "combat-sounds",
+        "sfx.combat.hit.defeated"
+      ],
+      "title": "Impact Sounds — impactPunch_heavy_000"
+    },
+    {
+      "archiveMember": {
+        "archive": "kenney.impact-sounds",
+        "path": "Audio/impactPunch_heavy_001.ogg"
+      },
+      "id": "kenney.impact-sounds.impact-punch-heavy-001-ogg",
+      "kind": "audio",
+      "license": {
+        "evidenceUrl": "https://kenney.nl/assets/impact-sounds",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "audio/ogg",
+      "metadata": {
+        "author": "Kenney (www.kenney.nl)",
+        "purpose": "Combat sound fixture for arpg #67 (asset-tooling #297, docs/combat-sounds.md)"
+      },
+      "provider": "kenney",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 10861,
+        "sha256": "f92f5cb6ba4ff2766497292ffd90865654317eeca976f5652e0708dbdcdc0dd9"
+      },
+      "tags": [
+        "audio",
+        "combat-sounds",
+        "sfx.combat.hit.defeated"
+      ],
+      "title": "Impact Sounds — impactPunch_heavy_001"
+    },
+    {
+      "archiveMember": {
+        "archive": "kenney.impact-sounds",
+        "path": "Audio/impactPunch_heavy_002.ogg"
+      },
+      "id": "kenney.impact-sounds.impact-punch-heavy-002-ogg",
+      "kind": "audio",
+      "license": {
+        "evidenceUrl": "https://kenney.nl/assets/impact-sounds",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "audio/ogg",
+      "metadata": {
+        "author": "Kenney (www.kenney.nl)",
+        "purpose": "Combat sound fixture for arpg #67 (asset-tooling #297, docs/combat-sounds.md)"
+      },
+      "provider": "kenney",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 9025,
+        "sha256": "7993dd4c156b9979ad69f17be5ebe31850b16039a3857f8477141be54dfee1b3"
+      },
+      "tags": [
+        "audio",
+        "combat-sounds",
+        "sfx.combat.counter-used"
+      ],
+      "title": "Impact Sounds — impactPunch_heavy_002"
+    },
+    {
+      "archiveMember": {
+        "archive": "kenney.impact-sounds",
+        "path": "Audio/impactSoft_heavy_000.ogg"
+      },
+      "id": "kenney.impact-sounds.impact-soft-heavy-000-ogg",
+      "kind": "audio",
+      "license": {
+        "evidenceUrl": "https://kenney.nl/assets/impact-sounds",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "audio/ogg",
+      "metadata": {
+        "author": "Kenney (www.kenney.nl)",
+        "purpose": "Combat sound fixture for arpg #67 (asset-tooling #297, docs/combat-sounds.md)"
+      },
+      "provider": "kenney",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 6570,
+        "sha256": "49e7ca88743fca974bb8676ea138b751cfd8f9033b5e7af8736c2a215d6edbc1"
+      },
+      "tags": [
+        "audio",
+        "combat-sounds",
+        "sfx.combat.hit.defeated"
+      ],
+      "title": "Impact Sounds — impactSoft_heavy_000"
+    },
+    {
+      "archiveMember": {
+        "archive": "kenney.impact-sounds",
+        "path": "Audio/impactSoft_heavy_001.ogg"
+      },
+      "id": "kenney.impact-sounds.impact-soft-heavy-001-ogg",
+      "kind": "audio",
+      "license": {
+        "evidenceUrl": "https://kenney.nl/assets/impact-sounds",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "audio/ogg",
+      "metadata": {
+        "author": "Kenney (www.kenney.nl)",
+        "purpose": "Combat sound fixture for arpg #67 (asset-tooling #297, docs/combat-sounds.md)"
+      },
+      "provider": "kenney",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 6689,
+        "sha256": "4d0096364ba9e46119d2ff6df493fdc101bd2e1efae061da5e5f77a53b3fdcb6"
+      },
+      "tags": [
+        "audio",
+        "combat-sounds",
+        "sfx.combat.defeat"
+      ],
+      "title": "Impact Sounds — impactSoft_heavy_001"
+    },
+    {
+      "archiveMember": {
+        "archive": "kenney.impact-sounds",
+        "path": "Audio/impactSoft_heavy_002.ogg"
+      },
+      "id": "kenney.impact-sounds.impact-soft-heavy-002-ogg",
+      "kind": "audio",
+      "license": {
+        "evidenceUrl": "https://kenney.nl/assets/impact-sounds",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "audio/ogg",
+      "metadata": {
+        "author": "Kenney (www.kenney.nl)",
+        "purpose": "Combat sound fixture for arpg #67 (asset-tooling #297, docs/combat-sounds.md)"
+      },
+      "provider": "kenney",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 6749,
+        "sha256": "d130ae541951243d3f6ed963d0057450a445ffe117fbf9a084d34eb1635cb563"
+      },
+      "tags": [
+        "audio",
+        "combat-sounds",
+        "sfx.combat.hit.defeated"
+      ],
+      "title": "Impact Sounds — impactSoft_heavy_002"
+    },
+    {
+      "archiveMember": {
+        "archive": "kenney.impact-sounds",
+        "path": "Audio/impactSoft_medium_000.ogg"
+      },
+      "id": "kenney.impact-sounds.impact-soft-medium-000-ogg",
+      "kind": "audio",
+      "license": {
+        "evidenceUrl": "https://kenney.nl/assets/impact-sounds",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "audio/ogg",
+      "metadata": {
+        "author": "Kenney (www.kenney.nl)",
+        "purpose": "Combat sound fixture for arpg #67 (asset-tooling #297, docs/combat-sounds.md)"
+      },
+      "provider": "kenney",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 5351,
+        "sha256": "7d3ba0bb5e60a11b5d3e558c141303dcf494256675fbf753c0d252d2cf0481e3"
+      },
+      "tags": [
+        "audio",
+        "combat-sounds",
+        "sfx.combat.hurt"
+      ],
+      "title": "Impact Sounds — impactSoft_medium_000"
+    },
+    {
+      "archiveMember": {
+        "archive": "kenney.impact-sounds",
+        "path": "Audio/impactSoft_medium_001.ogg"
+      },
+      "id": "kenney.impact-sounds.impact-soft-medium-001-ogg",
+      "kind": "audio",
+      "license": {
+        "evidenceUrl": "https://kenney.nl/assets/impact-sounds",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "audio/ogg",
+      "metadata": {
+        "author": "Kenney (www.kenney.nl)",
+        "purpose": "Combat sound fixture for arpg #67 (asset-tooling #297, docs/combat-sounds.md)"
+      },
+      "provider": "kenney",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 5506,
+        "sha256": "7642a4fd43e547afe4f7adfadb3dabb681c0ff512f52c1674bae30a726841faf"
+      },
+      "tags": [
+        "audio",
+        "combat-sounds",
+        "sfx.combat.hurt"
+      ],
+      "title": "Impact Sounds — impactSoft_medium_001"
+    },
+    {
+      "archiveMember": {
+        "archive": "kenney.impact-sounds",
+        "path": "Audio/impactSoft_medium_002.ogg"
+      },
+      "id": "kenney.impact-sounds.impact-soft-medium-002-ogg",
+      "kind": "audio",
+      "license": {
+        "evidenceUrl": "https://kenney.nl/assets/impact-sounds",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "audio/ogg",
+      "metadata": {
+        "author": "Kenney (www.kenney.nl)",
+        "purpose": "Combat sound fixture for arpg #67 (asset-tooling #297, docs/combat-sounds.md)"
+      },
+      "provider": "kenney",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 5358,
+        "sha256": "5069e3571a77d7f7aae9ef71d0364aa245fb7d64a7c8cc9956f221d03088c089"
+      },
+      "tags": [
+        "audio",
+        "combat-sounds",
+        "sfx.combat.hurt"
+      ],
+      "title": "Impact Sounds — impactSoft_medium_002"
+    },
+    {
+      "archiveMember": {
+        "archive": "kenney.impact-sounds",
+        "path": "Audio/impactMetal_medium_000.ogg"
+      },
+      "id": "kenney.impact-sounds.impact-metal-medium-000-ogg",
+      "kind": "audio",
+      "license": {
+        "evidenceUrl": "https://kenney.nl/assets/impact-sounds",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "audio/ogg",
+      "metadata": {
+        "author": "Kenney (www.kenney.nl)",
+        "purpose": "Combat sound fixture for arpg #67 (asset-tooling #297, docs/combat-sounds.md)"
+      },
+      "provider": "kenney",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 7117,
+        "sha256": "a96f879fec0864a8938e0c745b6996a6c5679c16a234ce31a01cc995e8401003"
+      },
+      "tags": [
+        "audio",
+        "combat-sounds",
+        "sfx.combat.blocked"
+      ],
+      "title": "Impact Sounds — impactMetal_medium_000"
+    },
+    {
+      "archiveMember": {
+        "archive": "kenney.impact-sounds",
+        "path": "Audio/impactMetal_medium_001.ogg"
+      },
+      "id": "kenney.impact-sounds.impact-metal-medium-001-ogg",
+      "kind": "audio",
+      "license": {
+        "evidenceUrl": "https://kenney.nl/assets/impact-sounds",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "audio/ogg",
+      "metadata": {
+        "author": "Kenney (www.kenney.nl)",
+        "purpose": "Combat sound fixture for arpg #67 (asset-tooling #297, docs/combat-sounds.md)"
+      },
+      "provider": "kenney",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 6151,
+        "sha256": "e8a9eaba7c4d27422e4eeb3e6c7100d5d7dc0f83e005efc98c960adcc5265337"
+      },
+      "tags": [
+        "audio",
+        "combat-sounds",
+        "sfx.combat.blocked"
+      ],
+      "title": "Impact Sounds — impactMetal_medium_001"
+    },
+    {
+      "archiveMember": {
+        "archive": "kenney.impact-sounds",
+        "path": "Audio/impactMetal_medium_003.ogg"
+      },
+      "id": "kenney.impact-sounds.impact-metal-medium-003-ogg",
+      "kind": "audio",
+      "license": {
+        "evidenceUrl": "https://kenney.nl/assets/impact-sounds",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "audio/ogg",
+      "metadata": {
+        "author": "Kenney (www.kenney.nl)",
+        "purpose": "Combat sound fixture for arpg #67 (asset-tooling #297, docs/combat-sounds.md)"
+      },
+      "provider": "kenney",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 6964,
+        "sha256": "2a185e2e57211d02c1bdd33b872d6b6a2fe83e6c14f4e56f426a95e717acf08e"
+      },
+      "tags": [
+        "audio",
+        "combat-sounds",
+        "sfx.combat.blocked"
+      ],
+      "title": "Impact Sounds — impactMetal_medium_003"
+    },
+    {
+      "archiveMember": {
+        "archive": "kenney.impact-sounds",
+        "path": "Audio/impactMetal_heavy_000.ogg"
+      },
+      "id": "kenney.impact-sounds.impact-metal-heavy-000-ogg",
+      "kind": "audio",
+      "license": {
+        "evidenceUrl": "https://kenney.nl/assets/impact-sounds",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "audio/ogg",
+      "metadata": {
+        "author": "Kenney (www.kenney.nl)",
+        "purpose": "Combat sound fixture for arpg #67 (asset-tooling #297, docs/combat-sounds.md)"
+      },
+      "provider": "kenney",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 6110,
+        "sha256": "e07045693e4a2b3d165c424e3dab4c781d9ff8880a386880ac89a51315d7f831"
+      },
+      "tags": [
+        "audio",
+        "combat-sounds",
+        "sfx.combat.counter-used"
+      ],
+      "title": "Impact Sounds — impactMetal_heavy_000"
+    },
+    {
+      "archiveMember": {
+        "archive": "kenney.impact-sounds",
+        "path": "Audio/impactMetal_heavy_001.ogg"
+      },
+      "id": "kenney.impact-sounds.impact-metal-heavy-001-ogg",
+      "kind": "audio",
+      "license": {
+        "evidenceUrl": "https://kenney.nl/assets/impact-sounds",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "audio/ogg",
+      "metadata": {
+        "author": "Kenney (www.kenney.nl)",
+        "purpose": "Combat sound fixture for arpg #67 (asset-tooling #297, docs/combat-sounds.md)"
+      },
+      "provider": "kenney",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 7279,
+        "sha256": "83554049f81f4db9209379e103c30bfa63f65c42189a03f300b045c2c82e23ae"
+      },
+      "tags": [
+        "audio",
+        "combat-sounds",
+        "sfx.combat.guard-broken"
+      ],
+      "title": "Impact Sounds — impactMetal_heavy_001"
+    },
+    {
+      "archiveMember": {
+        "archive": "kenney.impact-sounds",
+        "path": "Audio/impactMetal_heavy_003.ogg"
+      },
+      "id": "kenney.impact-sounds.impact-metal-heavy-003-ogg",
+      "kind": "audio",
+      "license": {
+        "evidenceUrl": "https://kenney.nl/assets/impact-sounds",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "audio/ogg",
+      "metadata": {
+        "author": "Kenney (www.kenney.nl)",
+        "purpose": "Combat sound fixture for arpg #67 (asset-tooling #297, docs/combat-sounds.md)"
+      },
+      "provider": "kenney",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 6209,
+        "sha256": "b0f2ba4dabde9a87eb9c188a19d31e0c2300fd321adeba08d3b9b8aa011d7037"
+      },
+      "tags": [
+        "audio",
+        "combat-sounds",
+        "sfx.combat.guard-broken"
+      ],
+      "title": "Impact Sounds — impactMetal_heavy_003"
+    },
+    {
+      "archiveMember": {
+        "archive": "kenney.impact-sounds",
+        "path": "Audio/impactMetal_light_001.ogg"
+      },
+      "id": "kenney.impact-sounds.impact-metal-light-001-ogg",
+      "kind": "audio",
+      "license": {
+        "evidenceUrl": "https://kenney.nl/assets/impact-sounds",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "audio/ogg",
+      "metadata": {
+        "author": "Kenney (www.kenney.nl)",
+        "purpose": "Combat sound fixture for arpg #67 (asset-tooling #297, docs/combat-sounds.md)"
+      },
+      "provider": "kenney",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 6967,
+        "sha256": "fba69c467ddd85da7b1d82e259f936b876d9ba6a3d6f1b24bdd10468e46bfe08"
+      },
+      "tags": [
+        "audio",
+        "combat-sounds",
+        "sfx.combat.arrow-blocked"
+      ],
+      "title": "Impact Sounds — impactMetal_light_001"
+    },
+    {
+      "archiveMember": {
+        "archive": "kenney.impact-sounds",
+        "path": "Audio/impactWood_heavy_000.ogg"
+      },
+      "id": "kenney.impact-sounds.impact-wood-heavy-000-ogg",
+      "kind": "audio",
+      "license": {
+        "evidenceUrl": "https://kenney.nl/assets/impact-sounds",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "audio/ogg",
+      "metadata": {
+        "author": "Kenney (www.kenney.nl)",
+        "purpose": "Combat sound fixture for arpg #67 (asset-tooling #297, docs/combat-sounds.md)"
+      },
+      "provider": "kenney",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 6233,
+        "sha256": "15ff82332f342c30e469215539e1cc57e11b221aa2cf7e11e811d313a9927f3d"
+      },
+      "tags": [
+        "audio",
+        "combat-sounds",
+        "sfx.combat.guard-broken"
+      ],
+      "title": "Impact Sounds — impactWood_heavy_000"
+    },
+    {
+      "archiveMember": {
+        "archive": "kenney.impact-sounds",
+        "path": "Audio/impactWood_heavy_001.ogg"
+      },
+      "id": "kenney.impact-sounds.impact-wood-heavy-001-ogg",
+      "kind": "audio",
+      "license": {
+        "evidenceUrl": "https://kenney.nl/assets/impact-sounds",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "audio/ogg",
+      "metadata": {
+        "author": "Kenney (www.kenney.nl)",
+        "purpose": "Combat sound fixture for arpg #67 (asset-tooling #297, docs/combat-sounds.md)"
+      },
+      "provider": "kenney",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 6239,
+        "sha256": "f1b07a53ac10c615fff9ba470511fdeb722b5902e1a8520759fc20ad6f546015"
+      },
+      "tags": [
+        "audio",
+        "combat-sounds",
+        "sfx.combat.guard-broken"
+      ],
+      "title": "Impact Sounds — impactWood_heavy_001"
+    },
+    {
+      "archiveMember": {
+        "archive": "kenney.impact-sounds",
+        "path": "Audio/impactWood_medium_000.ogg"
+      },
+      "id": "kenney.impact-sounds.impact-wood-medium-000-ogg",
+      "kind": "audio",
+      "license": {
+        "evidenceUrl": "https://kenney.nl/assets/impact-sounds",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "audio/ogg",
+      "metadata": {
+        "author": "Kenney (www.kenney.nl)",
+        "purpose": "Combat sound fixture for arpg #67 (asset-tooling #297, docs/combat-sounds.md)"
+      },
+      "provider": "kenney",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 6575,
+        "sha256": "1723a9fd25103ed41af06054814e84e65f4a772bac86ab2dc927da93d9592ff5"
+      },
+      "tags": [
+        "audio",
+        "combat-sounds",
+        "sfx.combat.arrow-landed"
+      ],
+      "title": "Impact Sounds — impactWood_medium_000"
+    },
+    {
+      "archiveMember": {
+        "archive": "kenney.impact-sounds",
+        "path": "Audio/impactWood_light_000.ogg"
+      },
+      "id": "kenney.impact-sounds.impact-wood-light-000-ogg",
+      "kind": "audio",
+      "license": {
+        "evidenceUrl": "https://kenney.nl/assets/impact-sounds",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "audio/ogg",
+      "metadata": {
+        "author": "Kenney (www.kenney.nl)",
+        "purpose": "Combat sound fixture for arpg #67 (asset-tooling #297, docs/combat-sounds.md)"
+      },
+      "provider": "kenney",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 6343,
+        "sha256": "eb45e35b4bed784d3f120de4afec4b0d6ac09d9e143cce8cfcb7d739e1b1f3c3"
+      },
+      "tags": [
+        "audio",
+        "combat-sounds",
+        "sfx.combat.arrow-landed"
+      ],
+      "title": "Impact Sounds — impactWood_light_000"
+    },
+    {
+      "archiveMember": {
+        "archive": "kenney.impact-sounds",
+        "path": "Audio/impactMining_000.ogg"
+      },
+      "id": "kenney.impact-sounds.impact-mining-000-ogg",
+      "kind": "audio",
+      "license": {
+        "evidenceUrl": "https://kenney.nl/assets/impact-sounds",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "audio/ogg",
+      "metadata": {
+        "author": "Kenney (www.kenney.nl)",
+        "purpose": "Combat sound fixture for arpg #67 (asset-tooling #297, docs/combat-sounds.md)"
+      },
+      "provider": "kenney",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 12035,
+        "sha256": "36b4ea107222d073c67ca64dde26944975609202d5090b2f2021213c1a7e35cd"
+      },
+      "tags": [
+        "audio",
+        "combat-sounds",
+        "sfx.combat.obstructed"
+      ],
+      "title": "Impact Sounds — impactMining_000"
+    },
+    {
+      "archiveMember": {
+        "archive": "kenney.impact-sounds",
+        "path": "Audio/impactMining_001.ogg"
+      },
+      "id": "kenney.impact-sounds.impact-mining-001-ogg",
+      "kind": "audio",
+      "license": {
+        "evidenceUrl": "https://kenney.nl/assets/impact-sounds",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "audio/ogg",
+      "metadata": {
+        "author": "Kenney (www.kenney.nl)",
+        "purpose": "Combat sound fixture for arpg #67 (asset-tooling #297, docs/combat-sounds.md)"
+      },
+      "provider": "kenney",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 11481,
+        "sha256": "61235a18de3f3d92118235398222dbf51d448f1be70b1c8bc962b10b86f2d9c6"
+      },
+      "tags": [
+        "audio",
+        "combat-sounds",
+        "sfx.combat.obstructed"
+      ],
+      "title": "Impact Sounds — impactMining_001"
+    },
+    {
+      "archiveMember": {
+        "archive": "opengameart.rpg-sound-pack",
+        "path": "RPG Sound Pack/inventory/coin.wav"
+      },
+      "id": "opengameart.rpg-sound-pack.coin-wav",
+      "kind": "audio",
+      "license": {
+        "evidenceUrl": "https://opengameart.org/content/rpg-sound-pack",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "audio/wav",
+      "metadata": {
+        "author": "artisticdude",
+        "purpose": "Combat sound fixture for arpg #67 (asset-tooling #297, docs/combat-sounds.md)"
+      },
+      "provider": "opengameart",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 174974,
+        "sha256": "ee72adacc8630cb590f22130a9c7c855f6eeb698d9fce6461667255ec45ed184"
+      },
+      "tags": [
+        "audio",
+        "combat-sounds",
+        "sfx.world.picked-up.gold"
+      ],
+      "title": "RPG Sound Pack — coin"
+    },
+    {
+      "archiveMember": {
+        "archive": "opengameart.rpg-sound-pack",
+        "path": "RPG Sound Pack/inventory/coin3.wav"
+      },
+      "id": "opengameart.rpg-sound-pack.coin3-wav",
+      "kind": "audio",
+      "license": {
+        "evidenceUrl": "https://opengameart.org/content/rpg-sound-pack",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "audio/wav",
+      "metadata": {
+        "author": "artisticdude",
+        "purpose": "Combat sound fixture for arpg #67 (asset-tooling #297, docs/combat-sounds.md)"
+      },
+      "provider": "opengameart",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 89812,
+        "sha256": "b7ee8ca02c9ba9293e6ea91bc518213b44aea39636c05801af7b7d8c542e738e"
+      },
+      "tags": [
+        "audio",
+        "combat-sounds",
+        "sfx.world.picked-up.gold"
+      ],
+      "title": "RPG Sound Pack — coin3"
+    },
+    {
+      "archiveMember": {
+        "archive": "kenney.rpg-audio",
+        "path": "Audio/creak1.ogg"
+      },
+      "id": "kenney.rpg-audio.creak1-ogg",
+      "kind": "audio",
+      "license": {
+        "evidenceUrl": "https://kenney.nl/assets/rpg-audio",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "audio/ogg",
+      "metadata": {
+        "author": "Kenney (www.kenney.nl)",
+        "purpose": "Combat sound fixture for arpg #67 (asset-tooling #297, docs/combat-sounds.md)"
+      },
+      "provider": "kenney",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 15761,
+        "sha256": "8a346186fd297254248cab8e8117060a52a5cf2a84f603153a762108550ea95e"
+      },
+      "tags": [
+        "audio",
+        "combat-sounds",
+        "sfx.world.opened"
+      ],
+      "title": "RPG Audio — creak1"
+    },
+    {
+      "archiveMember": {
+        "archive": "kenney.interface-sounds",
+        "path": "Audio/error_008.ogg"
+      },
+      "id": "kenney.interface-sounds.error-008-ogg",
+      "kind": "audio",
+      "license": {
+        "evidenceUrl": "https://kenney.nl/assets/interface-sounds",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "audio/ogg",
+      "metadata": {
+        "author": "Kenney (www.kenney.nl)",
+        "purpose": "Combat sound fixture for arpg #67 (asset-tooling #297, docs/combat-sounds.md)"
+      },
+      "provider": "kenney",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 9215,
+        "sha256": "eba17ecb2a426bfd4a8a6acff5f8a86202b6424a77af0fd842e37809a1ab6d81"
+      },
+      "tags": [
+        "audio",
+        "combat-sounds",
+        "sfx.world.refused"
+      ],
+      "title": "Interface Sounds — error_008"
+    },
+    {
+      "archiveMember": {
+        "archive": "kenney.interface-sounds",
+        "path": "Audio/glass_001.ogg"
+      },
+      "id": "kenney.interface-sounds.glass-001-ogg",
+      "kind": "audio",
+      "license": {
+        "evidenceUrl": "https://kenney.nl/assets/interface-sounds",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "audio/ogg",
+      "metadata": {
+        "author": "Kenney (www.kenney.nl)",
+        "purpose": "Combat sound fixture for arpg #67 (asset-tooling #297, docs/combat-sounds.md)"
+      },
+      "provider": "kenney",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 6103,
+        "sha256": "183eebee20eb0a532b0b85104d139cbf2673eb66d95c3cc733ac9ea98362e7e8"
+      },
+      "tags": [
+        "audio",
+        "combat-sounds",
+        "sfx.combat.counter-open"
+      ],
+      "title": "Interface Sounds — glass_001"
+    },
+    {
+      "archiveMember": {
+        "archive": "kenney.interface-sounds",
+        "path": "Audio/click_001.ogg"
+      },
+      "id": "kenney.interface-sounds.click-001-ogg",
+      "kind": "audio",
+      "license": {
+        "evidenceUrl": "https://kenney.nl/assets/interface-sounds",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "audio/ogg",
+      "metadata": {
+        "author": "Kenney (www.kenney.nl)",
+        "purpose": "Combat sound fixture for arpg #67 (asset-tooling #297, docs/combat-sounds.md)"
+      },
+      "provider": "kenney",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 4876,
+        "sha256": "ccfb7fa0cccdd9faec0eb16033c732b1e308d139d80f799161495d58f7adcdb9"
+      },
+      "tags": [
+        "audio",
+        "combat-sounds",
+        "sfx.ui.click"
+      ],
+      "title": "Interface Sounds — click_001"
+    },
+    {
+      "archiveMember": {
+        "archive": "kenney.interface-sounds",
+        "path": "Audio/confirmation_001.ogg"
+      },
+      "id": "kenney.interface-sounds.confirmation-001-ogg",
+      "kind": "audio",
+      "license": {
+        "evidenceUrl": "https://kenney.nl/assets/interface-sounds",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "audio/ogg",
+      "metadata": {
+        "author": "Kenney (www.kenney.nl)",
+        "purpose": "Combat sound fixture for arpg #67 (asset-tooling #297, docs/combat-sounds.md)"
+      },
+      "provider": "kenney",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 8968,
+        "sha256": "063564703b6094d70718a3e787a55cc9141611e4ecd6b6637f8828f79b4a8c3a"
+      },
+      "tags": [
+        "audio",
+        "combat-sounds",
+        "sfx.ui.confirm"
+      ],
+      "title": "Interface Sounds — confirmation_001"
+    },
+    {
+      "archiveMember": {
+        "archive": "kenney.interface-sounds",
+        "path": "Audio/back_001.ogg"
+      },
+      "id": "kenney.interface-sounds.back-001-ogg",
+      "kind": "audio",
+      "license": {
+        "evidenceUrl": "https://kenney.nl/assets/interface-sounds",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "audio/ogg",
+      "metadata": {
+        "author": "Kenney (www.kenney.nl)",
+        "purpose": "Combat sound fixture for arpg #67 (asset-tooling #297, docs/combat-sounds.md)"
+      },
+      "provider": "kenney",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 6997,
+        "sha256": "07db973f79f6ae0f2edc34561e7592e24d0577455919fb602cb8ecc0da991dcf"
+      },
+      "tags": [
+        "audio",
+        "combat-sounds",
+        "sfx.ui.back"
+      ],
+      "title": "Interface Sounds — back_001"
+    },
+    {
+      "archiveMember": {
+        "archive": "kenney.music-jingles",
+        "path": "Audio/Sax jingles/jingles_SAX01.ogg"
+      },
+      "id": "kenney.music-jingles.jingles-sax01-ogg",
+      "kind": "audio",
+      "license": {
+        "evidenceUrl": "https://kenney.nl/assets/music-jingles",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "audio/ogg",
+      "metadata": {
+        "author": "Kenney (www.kenney.nl)",
+        "purpose": "Combat sound fixture for arpg #67 (asset-tooling #297, docs/combat-sounds.md)"
+      },
+      "provider": "kenney",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 17409,
+        "sha256": "272b8160616d0f924f447df3f8543ab83440c5e41168107bd5abe1140894122b"
+      },
+      "tags": [
+        "audio",
+        "combat-sounds",
+        "sfx.combat.defeat"
+      ],
+      "title": "Music Jingles — jingles_SAX01"
+    },
+    {
+      "archiveMember": {
+        "archive": "kenney.music-jingles",
+        "path": "Audio/Steel jingles/jingles_STEEL02.ogg"
+      },
+      "id": "kenney.music-jingles.jingles-steel02-ogg",
+      "kind": "audio",
+      "license": {
+        "evidenceUrl": "https://kenney.nl/assets/music-jingles",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "audio/ogg",
+      "metadata": {
+        "author": "Kenney (www.kenney.nl)",
+        "purpose": "Combat sound fixture for arpg #67 (asset-tooling #297, docs/combat-sounds.md)"
+      },
+      "provider": "kenney",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 21919,
+        "sha256": "891c2b48d3586744b38be18b8c5a35f46ac30fe06efb48f70f3f5528a0cec0c3"
+      },
+      "tags": [
+        "audio",
+        "combat-sounds",
+        "sfx.encounter.clear"
+      ],
+      "title": "Music Jingles — jingles_STEEL02"
     }
   ]
 }

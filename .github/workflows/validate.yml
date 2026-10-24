@@ -122,7 +122,7 @@ jobs:
       - name: Verify Greyhaven starter source members
         env:
           ASSET_TOOLING_REQUIRE_HYDRATED_STORAGE: "1"
-        run: bun test test/greyhaven-starter-sources.test.ts test/greyhaven-starter-import.test.ts test/humanoid-sources.test.ts test/gltf-compose-operations.test.ts test/gltf-subset-operations.test.ts test/gltf-place-operations.test.ts test/gltf-resources-bundle.test.ts test/greyhaven-starter-bundle.test.ts test/greyhaven-nature.test.ts
+        run: bun test test/greyhaven-starter-sources.test.ts test/greyhaven-starter-import.test.ts test/humanoid-sources.test.ts test/gltf-compose-operations.test.ts test/gltf-subset-operations.test.ts test/gltf-place-operations.test.ts test/gltf-resources-bundle.test.ts test/greyhaven-starter-bundle.test.ts test/greyhaven-nature.test.ts test/combat-sounds.test.ts
 
   processing-contract:
     needs: impact

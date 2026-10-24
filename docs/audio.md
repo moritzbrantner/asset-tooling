@@ -91,7 +91,7 @@ This keeps responsibilities separate:
 
 The shared catalog already registers `kenney.ui-audio-v1` as a CC0 candidate. Network acquisition, byte pinning, and Git LFS promotion remain separate reviewed catalog mutations. Deterministic audio unit/operation tests do not silently download that pack or treat an unpinned candidate as trusted fixture evidence.
 
-Issue #25 remains incomplete until a small concrete audio fixture subset or pack is content-pinned and promoted with accepted license evidence.
+The [combat sounds](combat-sounds.md) (#297) are the first content-pinned, LFS-promoted audio fixture set: 41 CC0 Kenney and OpenGameArt members, each tagged with the `sfx.*` purpose of the cues it feeds, processed into 35 canonical mono clips.
 
 ## Model-backed audio
 
