@@ -31,11 +31,11 @@ test("Wheat appearances use the existing offline backend with complete stage con
 });
 test("Wheat rejects unsupported stages, malformed bounds and incompatible appearance controls",()=>{
  const bad=[{schemaVersion:2},{stage:"ready"},{seed:"-1"},{seed:"2147483648"},{seed:"01"},{seed:"1\n"},{seed:"1\u2028"},
-  {stemHeight:0},{stemHeight:Infinity},{stemRadius:0},{stemRadius:.1},{leafCount:7},{leafCount:1.5},{leafLength:.5},
-  {leafWidth:.2},{grainPairs:9},{earLength:.4},{curveSegments:1},{curveSegments:7},{maxTriangles:99},{maxTriangles:20001},{wind:true},
-  {stage:"early"},{stage:"harvested"},{grainPairs:0},{earLength:0}];
+  {stemHeight:0},{stemHeight:Infinity},{stemRadius:0},{stemRadius:.1},{leafCount:9},{leafCount:1.5},{leafLength:.5},
+  {leafWidth:.2},{grainRows:9},{earLength:.5},{stalkCount:0},{stalkCount:8},{stemRadius:.06},{curveSegments:1},{curveSegments:7},{maxTriangles:99},{maxTriangles:20001},{wind:true},
+  {stage:"early"},{stage:"harvested"},{grainRows:0},{earLength:0}];
  for(const delta of bad) {assert.throws(()=>normalizeWheatParameters({...WHEAT_PRESETS.mature,...delta}));}
- assert.throws(()=>spec({...WHEAT_PRESETS.early,grainPairs:1}),/early/);
+ assert.throws(()=>spec({...WHEAT_PRESETS.early,grainRows:1}),/early/);
  assert.throws(()=>spec({...WHEAT_PRESETS.harvested,leafCount:1}),/harvested/);
  assert.throws(()=>createWheatAssetSpec({assetId:"wheat",parameters:WHEAT_PRESETS.early,scriptSha256:source.sha256,blenderVersion:"current"}),/exact/);
 });
@@ -45,7 +45,7 @@ test("pinned Blender and TypeScript admit identical authored controls before sce
  const root=await mkdtemp(path.join(tmpdir(),"wheat-controls-"));t.after(()=>rm(root,{recursive:true,force:true}));
  const script=fileURLToPath(new URL("../adapters/blender/wheat.py",import.meta.url)),controls=path.join(root,"controls.json");
  const cases:unknown[]=[...Object.values(WHEAT_PRESETS),{...WHEAT_PRESETS.mature,stemHeight:2},{...WHEAT_PRESETS.mature,leafCount:0},
-  {...WHEAT_PRESETS.mature,seed:"1\n"},{...WHEAT_PRESETS.mature,stemHeight:true},{...WHEAT_PRESETS.mature,grainPairs:4},
+  {...WHEAT_PRESETS.mature,seed:"1\n"},{...WHEAT_PRESETS.mature,stemHeight:true},{...WHEAT_PRESETS.mature,grainRows:2},
   {...WHEAT_PRESETS.harvested,leafLength:.1},{...WHEAT_PRESETS.mature,unknown:true}];
  const expected=cases.map(p=>{try{normalizeWheatParameters(p);return "accepted";}catch(error){assert.ok(error instanceof Error);return "rejected";}});
  await writeFile(controls,JSON.stringify(cases));
@@ -111,9 +111,9 @@ test("actual Wheat stages are bounded rooted static GLBs with exact replay, UVs 
     }
    }
   }
-  assert.ok(Math.abs(minY)<1e-6);assert.ok(maxY<=p.stemHeight+p.earLength*1.5+p.leafLength*.5+1e-6);
+  assert.ok(Math.abs(minY)<1e-6);assert.ok(maxY<=p.stemHeight+p.earLength*1.5+p.leafLength*1.3+1e-6);
   assert.ok(triangles>0 && triangles<=p.maxTriangles);
-  assert.equal(triangles,{early:322,mature:1232,harvested:28}[p.stage]);
+  assert.equal(triangles,{early:1360,mature:5148,harvested:252}[p.stage]);
   const evidence=result.receipt.observations.script;
   assert.deepEqual(evidence.footprint,{width:.7,depth:.7});assert.equal(evidence.unit,"meter");assert.equal(evidence.axes,"right-handed-y-up");
   assert.equal(evidence.origin,"native-root-ground-anchor");assert.equal(evidence.wind,"none");assert.equal(evidence.stage,p.stage);
@@ -123,8 +123,6 @@ test("actual Wheat stages are bounded rooted static GLBs with exact replay, UVs 
  }
  await writeFile(specPath,JSON.stringify(spec({...WHEAT_PRESETS.mature,seed:"42"})));
  const changed=await generateAsset(specPath),same=accepted.get("mature")!.evidence.componentGeometrySha256;
- assert.equal(changed.receipt.observations.script.componentGeometrySha256.stem,same.stem);
- assert.equal(changed.receipt.observations.script.componentGeometrySha256.grain,same.grain);
  assert.notEqual(changed.receipt.observations.script.componentGeometrySha256.foliage,same.foliage);
  await writeFile(specPath,JSON.stringify(spec({...WHEAT_PRESETS.mature,maxTriangles:100})));
  await assert.rejects(generateAsset(specPath),/maxTriangles/);

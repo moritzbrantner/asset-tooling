@@ -21,6 +21,11 @@ const {executeProceduralImageGradientOperation,createProceduralImageGradientOper
  executeProceduralImageGradientOperation:(root:string,p:GradientInvocation)=>Promise<AssetOperationResult>;
  createProceduralImageGradientOperationBuildIdentity:(p:GradientInvocation)=>Promise<AssetOperationBuildIdentity>;
 }=await import(gradientModule);
+type Rgba=[number,number,number,number];
+const LEAF_PALETTES:Record<"wheat"|"corn",{green:[Rgba,Rgba];straw:[Rgba,Rgba]}>={
+ wheat:{green:[[62,150,36,255],[124,206,64,255]],straw:[[222,152,36,255],[252,208,84,255]]},
+ corn:{green:[[44,128,32,255],[100,190,56,255]],straw:[[96,160,40,255],[178,214,86,255]]},
+};
 export async function buildCropAppearanceExample({root,directory,crop,stages,files,sourceMetadata,footprint}:{
  root:string;directory:string;crop:"wheat"|"corn";stages:{id:string;spec:AssetSpec}[];files:{path:string;bytes:Uint8Array}[];
  sourceMetadata:CanonicalJsonObject;footprint:{width:number;depth:number};
@@ -65,10 +70,12 @@ try {
   const build=await createGltfBaseColorOperationBuildIdentity(store,invocation),result=await executeGltfBaseColorOperation(store,invocation);
   return {output:createAssetRef(result.outputs.output),png,gradientBuild,artwork,build,result};
  }
- const green=await leafVariant(root,[21,61,8,255],[86,128,24,255]);
- const straw=await leafVariant(root,[103,66,14,255],[215,177,66,255]);
- assert.deepEqual(await leafVariant(cold,[21,61,8,255],[86,128,24,255]),green);
- assert.deepEqual(await leafVariant(cold,[103,66,14,255],[215,177,66,255]),straw);
+ // Saturated toy leaf palettes (asset-tooling#355): golden Wheat straw; Corn stays a sunlit green so it never reads as Wheat.
+ const palette=LEAF_PALETTES[crop];
+ const green=await leafVariant(root,...palette.green);
+ const straw=await leafVariant(root,...palette.straw);
+ assert.deepEqual(await leafVariant(cold,...palette.green),green);
+ assert.deepEqual(await leafVariant(cold,...palette.straw),straw);
  for(const [id,result] of Object.entries({"mature-green":green,"mature-straw":straw})) {
   const edited=await io.readBinary(await resolveAssetObject(root,result.output));
   assert.deepEqual(geometry(edited),geometry(original));assert.deepEqual(retainedMaterials(edited),retainedMaterials(original));
