@@ -24,6 +24,7 @@ const PUBLISHED_SCHEMA_BLOBS = {
   "processing-receipt-v1.schema.json": "30bbc442c12fbf65f62073fbbec58247f79f6293",
   "processing-receipt-v2.schema.json": "417820551f5033140addac3684a4ed105ede6195",
   "shrine-kit-descriptor-v1.schema.json": "45b2c3f319d8e6b7b8b85b9c74ccdb1415dbf727",
+  "zoo-scenery-descriptor-v1.schema.json": "21c116819e811f8a80bf7da16582b82d26f8dffc",
 };
 
 function repositoryTextBytes(bytes) {
