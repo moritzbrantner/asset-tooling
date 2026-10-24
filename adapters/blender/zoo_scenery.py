@@ -1,4 +1,4 @@
-"""Toy-style, flat-colour Zoo scenery (tree, bush, rock), an original scripted recipe for the pinned Blender script backend.
+"""Toy-style, flat-colour Zoo scenery (tree, bush, grass, rock), an original scripted recipe for the pinned Blender script backend.
 
 One run builds one scenery piece (asset-tooling#357, consumer zoo#59 slice S2 / zoo#86). Owner answer of
 2026-10-24 on zoo#59: a small flat-colour, toy-style scenery set in the ``farm-structures`` format, loaded
@@ -13,7 +13,10 @@ plain-colour materials (no textures, no vertex colours). The palette follows Zoo
 - ``tree`` / ``round``: a tapered brown trunk under a chunky three-ball leaf crown;
 - ``tree`` / ``pine``: a short trunk under three stacked rounded cones and a ball tip;
 - ``bush`` / ``round``: three overlapping leaf domes with a few red berries;
-- ``rock`` / ``round``: a lumpy grey boulder with a small pebble beside it.
+- ``rock`` / ``round``: a lumpy grey boulder with a small pebble beside it;
+- ``tree`` / ``acacia``: a thin trunk forking once under a flat, olive umbrella crown (#359, habitats);
+- ``grass`` / ``tuft``: five three-sided blades, the lightest piece because it repeats the most (#359);
+- ``rock`` / ``boulder``: a taller, angular six-sided boulder with a small chip beside it (#359).
 
 Every shape is a lathe of a rounded profile (the rocks with a fixed analytic lumpiness), built directly
 into one BMesh, so the face order is fixed and there is no randomness. ``build(kind, variant, collection,
@@ -25,7 +28,8 @@ import bmesh
 import bpy
 from mathutils import Matrix, Vector
 
-PIECES = (("tree", "round"), ("tree", "pine"), ("bush", "round"), ("rock", "round"))
+PIECES = (("tree", "round"), ("tree", "pine"), ("tree", "acacia"), ("bush", "round"), ("grass", "tuft"),
+          ("rock", "round"), ("rock", "boulder"))
 SHARP_ANGLE = math.radians(48)
 
 # name: (sRGB base colour, roughness)
@@ -40,6 +44,8 @@ MATERIALS = {
     "berry": ((0.86, 0.2, 0.18), 0.45),
     "rock": ((0.6, 0.6, 0.55), 0.85),
     "rock-light": ((0.69, 0.68, 0.62), 0.85),
+    "acacia": ((0.43, 0.6, 0.25), 0.7),
+    "acacia-light": ((0.5, 0.66, 0.3), 0.7),
 }
 
 
@@ -75,9 +81,10 @@ class Builder:
             self.materials.append(mat)
         return self.materials.index(mat)
 
-    def lathe(self, mat, profile, center=(0, 0, 0), segments=12, scale=(1, 1, 1), lump=None):
+    def lathe(self, mat, profile, center=(0, 0, 0), segments=12, scale=(1, 1, 1), lump=None, tilt=None):
         """Revolve ``profile`` [(radius, height), ...], bottom to top, about local Z. ``lump(angle, height)``
-        scales the radius of each ring vertex for an irregular, still deterministic outline."""
+        scales the radius of each ring vertex for an irregular, still deterministic outline. ``tilt`` =
+        (degrees, heading in degrees) leans the local Z axis that far towards the heading, about ``center``."""
         piece = bmesh.new()
         rings = []
         for r, z in profile:
@@ -102,6 +109,10 @@ class Builder:
                 else:
                     piece.faces.new((a[i], a[j], b[j], b[i]))
         matrix = Matrix.Translation(Vector(center)) @ Matrix.Diagonal(Vector(scale)).to_4x4()
+        if tilt:
+            lean, heading = (math.radians(t) for t in tilt)
+            axis = Vector((-math.sin(heading), math.cos(heading), 0))
+            matrix = Matrix.Translation(Vector(center)) @ Matrix.Rotation(lean, 4, axis) @ Matrix.Diagonal(Vector(scale)).to_4x4()
         bmesh.ops.transform(piece, matrix=matrix, verts=piece.verts)
         index = self.slot(mat)
         for face in piece.faces:
@@ -115,6 +126,9 @@ class Builder:
 
     def finish(self, collection, parent):
         mesh = bpy.data.meshes.new(self.name)
+        for vert in self.bm.verts:  # a leaning base ring rests on the ground plane instead of dipping below it
+            if vert.co.z < 0:
+                vert.co.z = 0
         bmesh.ops.remove_doubles(self.bm, verts=self.bm.verts, dist=1e-6)
         self.bm.to_mesh(mesh)
         self.bm.free()
@@ -193,8 +207,36 @@ def build_rock_round(b):
     return {"stones": 2}
 
 
-BUILDERS = {("tree", "round"): build_tree_round, ("tree", "pine"): build_tree_pine,
-            ("bush", "round"): build_bush_round, ("rock", "round"): build_rock_round}
+def build_tree_acacia(b):
+    b.lathe("trunk", trunk(0.06, 0.045, 0.78), segments=7)
+    for lean, heading in ((24, 20), (26, 200)):
+        b.lathe("trunk", [(0, 0), (0.042, 0), (0.03, 0.3), (0, 0.3)], (0, 0, 0.74), segments=6, tilt=(lean, heading))
+    b.lathe("acacia", dome(0.5, 0.2, 3), (0, 0, 1.02), segments=12, scale=(1.08, 0.94, 1), lump=lumpy(1.3))
+    b.lathe("acacia", [(0, 0), (0.42, 0.03), (0.5, 0.06)], (0, 0, 0.97), segments=12, scale=(1.08, 0.94, 1), lump=lumpy(1.3))
+    b.lathe("acacia-light", dome(0.3, 0.12, 3), (0.12, -0.08, 1.16), segments=10, lump=lumpy(2.4))
+    return {"trunkHeight": 0.78, "forks": 2}
+
+
+def build_grass_tuft(b):
+    # (lean, heading, height, colour): open three-sided spikes, the lowest-triangle piece of the set
+    blades = ((0, 0, 0.23, "leaf-light"), (20, 40, 0.2, "leaf"), (26, 125, 0.17, "leaf-light"), (22, 210, 0.19, "leaf"), (28, 295, 0.16, "leaf"))
+    for lean, heading, height, colour in blades:
+        offset = 0.085 if lean else 0
+        center = (offset * math.cos(math.radians(heading)), offset * math.sin(math.radians(heading)), 0)
+        b.lathe(colour, [(0.06, 0), (0, height)], center, segments=3, tilt=(lean, heading) if lean else None)
+    return {"blades": len(blades)}
+
+
+def build_rock_boulder(b):
+    profile = [(0, 0), (0.33, 0), (0.35, 0.2), (0.22, 0.44), (0.08, 0.5), (0, 0.5)]
+    b.lathe("rock", profile, (0, 0, 0), segments=6, scale=(1, 0.82, 1), lump=lumpy(3.1))
+    b.lathe("rock-light", [(0, 0), (0.1, 0), (0.08, 0.09), (0, 0.11)], (0.3, -0.2, 0), segments=5, lump=lumpy(0.4))
+    return {"stones": 2}
+
+
+BUILDERS = {("tree", "round"): build_tree_round, ("tree", "pine"): build_tree_pine, ("tree", "acacia"): build_tree_acacia,
+            ("bush", "round"): build_bush_round, ("grass", "tuft"): build_grass_tuft,
+            ("rock", "round"): build_rock_round, ("rock", "boulder"): build_rock_boulder}
 
 
 def build(kind, variant, collection, location=(0, 0, 0)):

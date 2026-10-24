@@ -23,18 +23,19 @@ import { documentBounds } from "./build-shrine-kit.ts";
 type Json = Record<string, any>;
 const REPOSITORY_ROOT = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
 
-export type ZooSceneryKind = "tree" | "bush" | "rock";
+export type ZooSceneryKind = "tree" | "bush" | "grass" | "rock";
 export type ZooSceneryPiece = { kind: ZooSceneryKind; variant: string };
 /** Logical keys `<kind>.mesh`; the first variant of each kind is its default. */
 export const ZOO_SCENERY_PIECES: readonly ZooSceneryPiece[] = [
-  { kind: "tree", variant: "round" }, { kind: "tree", variant: "pine" }, { kind: "bush", variant: "round" }, { kind: "rock", variant: "round" },
+  { kind: "tree", variant: "round" }, { kind: "tree", variant: "pine" }, { kind: "tree", variant: "acacia" }, { kind: "bush", variant: "round" },
+  { kind: "grass", variant: "tuft" }, { kind: "rock", variant: "round" }, { kind: "rock", variant: "boulder" },
 ];
 export const ZOO_DESCRIPTOR_SCHEMA = "zoo-scenery-descriptor-v1";
 export const ZOO_DESCRIPTOR_FILE = "zoo-scenery.descriptor.json";
 /** One rolling release (Atlas Decision 7.1.5), never numbered. */
 export const ZOO_RELEASE = "zoo-scenery";
 export const ZOO_TAR_NAME = "zoo-scenery.tar";
-/** Each piece fits one 1 m Zoo tile. */
+/** Each piece stands on one 1 m Zoo tile; only the acacia's flat crown overhangs it a little. */
 export const ZOO_FOOTPRINT = { width: 1, depth: 1 };
 
 export const zooMeshKey = (kind: ZooSceneryKind) => `${kind}.mesh`;
