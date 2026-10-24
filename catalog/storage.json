@@ -9,6 +9,18 @@
     },
     {
       "schemaVersion": 1,
+      "sourceId": "quaternius.animal-pack-vol2.cat-blend",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.animal-pack-vol2.cat-blend/Cat.blend"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.easy-enemy-rat-glb",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.easy-enemy-rat-glb/Rat.glb"
+    },
+    {
+      "schemaVersion": 1,
       "sourceId": "quaternius.fantasy-props-megakit-standard.barrel-bin",
       "storage": "git-lfs",
       "path": "assets/canonical/quaternius.fantasy-props-megakit-standard.barrel-bin/Barrel.bin"
@@ -558,6 +570,12 @@
       "sourceId": "quaternius.stylized-nature-megakit-standard.rocks-diffuse-png",
       "storage": "git-lfs",
       "path": "assets/canonical/quaternius.stylized-nature-megakit-standard.rocks-diffuse-png/Rocks_Diffuse.png"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.ultimate-animated-animals-shibainu-glb",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.ultimate-animated-animals-shibainu-glb/ShibaInu.glb"
     },
     {
       "schemaVersion": 1,
