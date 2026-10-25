@@ -4,47 +4,38 @@
     {
       "repo": "moenarch-games/mmorpg",
       "release": "humanoid-ranger-male",
-      "pins": [{ "type": "export-ref", "path": "web/assets/ranger/export.ref.json" }]
+      "pinned": false,
+      "note": "scripts/fetch-ranger.py acquires the selected entries of the live release into a local copy keyed on its export.ref.json"
     },
     {
       "repo": "moenarch-games/mmorpg",
       "release": "shrine-kit",
-      "pins": [
-        { "type": "tar-sha256", "path": "scripts/fetch-bundles.sh", "after": "fetch_pinned shrine-kit " },
-        { "type": "export-ref", "path": "web/assets/shrine-kit/export.ref.json" }
-      ]
+      "pinned": false,
+      "note": "scripts/fetch-bundles.sh unpacks the live release into a local copy keyed on its export.ref.json"
     },
     {
       "repo": "moenarch-games/mmorpg",
       "release": "greyhaven-ambient-animals",
-      "pins": [
-        { "type": "tar-sha256", "path": "scripts/fetch-bundles.sh", "after": "fetch_pinned greyhaven-ambient-animals " },
-        { "type": "export-ref", "path": "web/assets/greyhaven-ambient-animals/export.ref.json" }
-      ]
+      "pinned": false,
+      "note": "scripts/fetch-bundles.sh unpacks the live release into a local copy keyed on its export.ref.json"
     },
     {
       "repo": "moenarch-games/mmorpg",
       "release": "outpost-kit",
-      "pins": [
-        { "type": "tar-sha256", "path": "scripts/fetch-bundles.sh", "after": "fetch_pinned outpost-kit " },
-        { "type": "export-ref", "path": "web/assets/outpost-kit/export.ref.json" }
-      ]
+      "pinned": false,
+      "note": "scripts/fetch-bundles.sh unpacks the live release into a local copy keyed on its export.ref.json"
     },
     {
       "repo": "moenarch-games/mmorpg",
       "release": "settlement-props",
-      "pins": [
-        { "type": "tar-sha256", "path": "scripts/fetch-bundles.sh", "after": "fetch_pinned settlement-props " },
-        { "type": "export-ref", "path": "web/assets/settlement-props/export.ref.json" }
-      ]
+      "pinned": false,
+      "note": "scripts/fetch-bundles.sh unpacks the live release into a local copy keyed on its export.ref.json"
     },
     {
       "repo": "moenarch-games/mmorpg",
       "release": "combat-sounds",
-      "pins": [
-        { "type": "tar-sha256", "path": "scripts/fetch-bundles.sh", "after": "fetch_pinned combat-sounds " },
-        { "type": "export-ref", "path": "web/assets/combat-sounds/export.ref.json" }
-      ]
+      "pinned": false,
+      "note": "scripts/fetch-bundles.sh unpacks the live release into a local copy keyed on its export.ref.json"
     },
     {
       "repo": "moenarch-games/mmorpg",
