@@ -174,7 +174,8 @@ export async function composeHumanoid({ appearance, sockets, selection, clips, l
   if (selection.hair && !hair) throw new Error(`unknown hairstyle ${selection.hair}`);
   const tint = appearance.tints.find((candidate) => candidate.id === selection.hairColor);
   const textureId = tint ? tint.texture : selection.hairColor;
-  const hairTexture = hair?.textures.find((texture) => texture.id === textureId);
+  // #380: the hand-modelled styles have one texture (hair-1); an untinted choice of another pack texture falls back to it.
+  const hairTexture = hair?.textures.find((texture) => texture.id === textureId) ?? (tint ? undefined : hair?.textures[0]);
   if (hair && !hairTexture) throw new Error(`${hair.id} has no ${textureId} texture`);
   const hairGltf = hair && hairTexture ? await load(hair.entry, hairTexture.variant) : undefined;
   const armorGltf = outfit.armor ? await load(outfit.armor.entry, "default") : undefined;

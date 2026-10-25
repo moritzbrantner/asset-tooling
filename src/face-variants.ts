@@ -66,7 +66,7 @@ export async function applyFaceVariants(root: string, part: AssetRef, authored: 
 
 type Sample = { position: number[]; normal: number[]; deltas: { position: number[]; normal: number[] }[] };
 const MATCH_TOLERANCE = 1e-4;
-const cell = (p: ArrayLike<number>) => [0, 1, 2].map((i) => Math.round(p[i]! / MATCH_TOLERANCE));
+const cellOf = (size: number) => (p: ArrayLike<number>) => [0, 1, 2].map((i) => Math.round(p[i]! / size));
 
 /**
  * Copies the morph targets of every mesh node in `authored` onto the node of the same name in `source`. Each source
@@ -75,6 +75,22 @@ const cell = (p: ArrayLike<number>) => [0, 1, 2].map((i) => Math.round(p[i]! / M
  * written as sparse accessors, since most vertices do not move for most keys.
  */
 export async function transferFaceMorphs(sourceBytes: Uint8Array, authoredBytes: Uint8Array) {
+  return transferMorphTargets(sourceBytes, authoredBytes, FACE_MORPH_TARGETS, { exact: true, label: "the head part" });
+}
+
+/**
+ * Copies the morph targets named in `wanted` from every mesh node of `authored` onto the node of the same name in
+ * `source`, after any targets the source node already has (#380 adds the age and build keys after the face keys).
+ * Vertices are matched as in `transferFaceMorphs`, within `tolerance` (default 0.1 mm; the nearest wins, then the normal).
+ * A composed character binds its head and outfit skins a little differently at the neck, so Blender re-poses a few
+ * vertices there by up to 2 mm; the variety keys are smooth fields and take a 3 mm tolerance. With `exact`, every
+ * authored node's targets must be exactly `wanted`,
+ * every authored node must exist in the source and the source must have no targets yet; otherwise authored nodes the
+ * source lacks are skipped (one authoring run may carry several assets) and the report says which nodes took targets.
+ */
+export async function transferMorphTargets(sourceBytes: Uint8Array, authoredBytes: Uint8Array, wanted: readonly string[],
+  { exact = false, label = "the source", tolerance = MATCH_TOLERANCE }: { exact?: boolean; label?: string; tolerance?: number } = {}) {
+  const cell = cellOf(tolerance);
   const io = new NodeIO().setAllowNetwork(false);
   const source = await io.readBinary(sourceBytes);
   const authored = await io.readBinary(authoredBytes);
@@ -83,21 +99,30 @@ export async function transferFaceMorphs(sourceBytes: Uint8Array, authoredBytes:
   for (const node of authored.getRoot().listNodes()) {
     const mesh = node.getMesh();
     if (!mesh || !mesh.listPrimitives().some((primitive) => primitive.listTargets().length)) continue;
-    const names = (mesh.getExtras() as { targetNames?: string[] }).targetNames ?? [];
-    if (JSON.stringify(names) !== JSON.stringify(FACE_MORPH_TARGETS)) throw new Error(`${node.getName()}: morph targets ${JSON.stringify(names)} are not the face keys`);
+    const authoredNames = (mesh.getExtras() as { targetNames?: string[] }).targetNames ?? [];
+    if (exact && JSON.stringify(authoredNames) !== JSON.stringify(wanted)) throw new Error(`${node.getName()}: morph targets ${JSON.stringify(authoredNames)} are not the face keys`);
+    const names = authoredNames.filter((name) => wanted.includes(name));
+    if (!names.length) continue;
     const target = source.getRoot().listNodes().find((candidate) => candidate.getName() === node.getName() && candidate.getMesh());
-    if (!target) throw new Error(`the head part has no mesh node '${node.getName()}'`);
+    if (!target) {
+      if (exact) throw new Error(`${label} has no mesh node '${node.getName()}'`);
+      continue;
+    }
     const grid = new Map<string, Sample[]>();
     for (const primitive of mesh.listPrimitives()) {
-      for (const sample of samples(primitive)) {
+      for (const sample of samples(primitive, names.map((name) => authoredNames.indexOf(name)))) {
         const key = cell(sample.position).join(",");
         grid.set(key, [...(grid.get(key) ?? []), sample]);
       }
     }
     const targetMesh = target.getMesh()!;
+    const existing = (targetMesh.getExtras() as { targetNames?: string[] }).targetNames ?? [];
+    const clash = names.find((name) => existing.includes(name));
+    if (clash) throw new Error(`${node.getName()} already has the morph target ${clash}`);
     const entry = report[node.getName()] = { vertices: 0, maxMatchDistance: 0, movedVertices: Object.fromEntries(names.map((name) => [name, 0])) };
     for (const primitive of targetMesh.listPrimitives()) {
-      if (primitive.listTargets().length) throw new Error(`${node.getName()} already has morph targets`);
+      if (exact && primitive.listTargets().length) throw new Error(`${node.getName()} already has morph targets`);
+      if (primitive.listTargets().length !== existing.length) throw new Error(`${node.getName()}: its primitives' morph targets do not match its targetNames`);
       const positions = primitive.getAttribute("POSITION")!, normals = primitive.getAttribute("NORMAL");
       const count = positions.getCount();
       const deltas = names.map(() => ({ position: new Float32Array(count * 3), normal: new Float32Array(count * 3) }));
@@ -110,9 +135,13 @@ export async function transferFaceMorphs(sourceBytes: Uint8Array, authoredBytes:
         for (let dx = -1; dx <= 1; dx += 1) for (let dy = -1; dy <= 1; dy += 1) for (let dz = -1; dz <= 1; dz += 1) {
           for (const candidate of grid.get(`${x! + dx},${y! + dy},${z! + dz}`) ?? []) {
             const distance = Math.hypot(...[0, 1, 2].map((i) => candidate.position[i]! - p[i]!));
-            if (distance > MATCH_TOLERANCE) continue;
+            if (distance > tolerance) continue;
             const facing = normals ? candidate.normal.reduce((sum, value, i) => sum + value * n[i]!, 0) : 0;
-            if (facing > bestNormal + 1e-6 || (Math.abs(facing - bestNormal) <= 1e-6 && distance < bestDistance)) { best = candidate; bestDistance = distance; bestNormal = facing; }
+            // Nearest first (to 0.1 mm), then the closest normal (seams have several vertices at one position).
+            const bucket = Math.round(distance / MATCH_TOLERANCE), bestBucket = Math.round(bestDistance / MATCH_TOLERANCE);
+            if (bucket < bestBucket || (bucket === bestBucket && (facing > bestNormal + 1e-6 || (Math.abs(facing - bestNormal) <= 1e-6 && distance < bestDistance)))) {
+              best = candidate; bestDistance = distance; bestNormal = facing;
+            }
           }
         }
         if (!best) throw new Error(`${node.getName()}: vertex ${vertex} at ${p.map((value) => value.toFixed(5))} has no authored counterpart`);
@@ -131,10 +160,10 @@ export async function transferFaceMorphs(sourceBytes: Uint8Array, authoredBytes:
         primitive.addTarget(morph);
       });
     }
-    targetMesh.setWeights(names.map(() => 0)).setExtras({ ...(targetMesh.getExtras() as object), targetNames: [...names] });
+    targetMesh.setWeights([...existing, ...names].map(() => 0)).setExtras({ ...(targetMesh.getExtras() as object), targetNames: [...existing, ...names] });
   }
   const missing = Object.keys(report).length === 0;
-  if (missing) throw new Error("the authored head part has no morph targets");
+  if (missing) throw new Error(`the authored ${exact ? "head part" : "asset"} has no morph targets for ${label}`);
   return { glb: await io.writeBinary(source), transfer: report };
 }
 
@@ -144,9 +173,10 @@ function accessor(document: Document, buffer: ReturnType<Document["createBuffer"
   return document.createAccessor(name).setType("VEC3").setArray(array).setBuffer(buffer).setSparse(moved * 6 < array.length);
 }
 
-function samples(primitive: Primitive): Sample[] {
+function samples(primitive: Primitive, indices?: readonly number[]): Sample[] {
   const positions = primitive.getAttribute("POSITION")!, normals = primitive.getAttribute("NORMAL");
-  const targets = primitive.listTargets();
+  const all = primitive.listTargets();
+  const targets = indices ? indices.map((index) => all[index]!) : all;
   const out: Sample[] = [];
   for (let vertex = 0; vertex < positions.getCount(); vertex += 1) {
     out.push({

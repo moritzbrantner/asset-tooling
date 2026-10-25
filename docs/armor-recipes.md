@@ -1,4 +1,4 @@
-# Soldier and knight armour, resident clothes, class outfits and beards
+# Soldier and knight armour, resident clothes and class outfits
 
 [`adapters/blender/armor.py`](../adapters/blender/armor.py) (with `src/armor-recipes.ts`) authors the [#117](https://github.com/moritzbrantner/asset-tooling/issues/117) soldier and knight outfits. It runs through the pinned Blender script backend ([blender-script.md](blender-script.md)) and follows the owner answers of 2026-10-17. The male figure comes first (Q8).
 
@@ -41,7 +41,7 @@ The same recipe dresses the named Greyhaven residents ([humanoid-ranger.md](huma
 | `monk` | `monk.habit`: the shirt pushed 12 mm out, with a skirt to the ankle that widens toward the hem | `monk.belt` (rope) | the shirt |
 
 - **Skirts in motion:** the skirts blend their weights toward `pelvis` from the waist down to the hem (`SETTLE`: smock and apron 30 %, habit 60 %), then each side follows the thigh on its side (`STRIDE`: smock 100 %, apron 80 %, habit 60 % at the hem), so a striding knee does not push through; only a strip 3–5 cm either side of the middle blends between the thighs. The apron, like the tabard, ignores arm and shoulder joints.
-- **Beard kit:** `kit: "beard"` takes `output: "plates"` only. It fits `beard.full`, `beard.short` and `beard.moustache` to the head: each is a shell around the lower face whose radius follows the head's outermost vertices at each height and angle plus a clearance, hangs below the chin (it loses at most `slope` of radius per metre of height), and runs between a hem and a top edge that rise from the front to the sideburns. The moustache is a band over the upper lip whose ends droop past the mouth's corners. Every piece rides `Head` through the `head.armor` socket and has the `beard` material, which a consumer tints like the hair.
+- **Facial hair:** the #376 beard kit is gone; the hand-modelled beards and moustaches of `adapters/blender/hair_beards.py` replace it under the same names ([Male variety](humanoid-ranger.md#male-variety-380)).
 - **Straw hat:** the farmer's hat is a [headwear](humanoid-ranger.md#contents) piece (`hat.straw` in `adapters/blender/headwear.py`), so any outfit can wear it.
 
 ## Class starter outfits (#379)
@@ -109,10 +109,10 @@ The plates sit over the Peasant clothing with 1–2.5 cm of clearance instead of
 The Ranger bundle ([humanoid-ranger.md](humanoid-ranger.md#contents)) builds the soldier and knight like this:
 
 1. It composes the fitting target from `Male_Peasant` and the head subset.
-2. It runs both outputs for every outfit kit (soldier, knight and the [resident kits](#resident-outfits-376)), and the plates of the beard kit.
+2. It runs both outputs for every outfit kit (soldier, knight, the [resident kits](#resident-outfits-376) and the class kits).
 3. It composes each outfit variant: the Peasant base without its hidden nodes, then the head and the kit's cloth. The variant gets the same retargeted clips; the build checks that its joints match the Ranger rig before embedding them.
 4. It ships the variants as `humanoid.ranger.male/outfit.<kit>`.
-5. It ships the plates as the entries `armor.<kit>`, and the beards as `facial-hair.beards`.
+5. It ships the plates as the entries `armor.<kit>`. The outfit variants and their plates carry the age and build morph targets ([Male variety](humanoid-ranger.md#male-variety-380)).
 
 The `humanoid-appearance` attachment gains `outfits`. Each outfit lists its character variant, its armour entry with every node and its socket, its garments, the hidden base nodes and (soldier and knight) the faction slot.
 
