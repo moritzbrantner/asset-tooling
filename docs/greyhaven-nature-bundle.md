@@ -39,6 +39,6 @@ blender --background --factory-startup --python examples/greyhaven-kit/render-co
 
 The composition uses the unscaled metre-sized meshes. Consumer review at gameplay scale accompanies mmorpg#49; a producer import check alone does not establish gameplay visual quality.
 
-Publish `greyhaven.nature.tar`, its `.sha256`, `export.ref.json` and `lineage.json` on the single rolling `greyhaven-nature` release after the recipe merges. Consumers intentionally adopt a replacement by pinning the release asset URL, tar SHA-256 and content-only export ref, as described in [asset bundles](asset-bundles.md#release-distribution-and-consumer-pinning). Existing published starter releases are unaffected.
+CI publishes `greyhaven.nature.tar`, its `.sha256`, `export.ref.json` and `lineage.json` on the single rolling `greyhaven-nature` release when the recipe merges ([Publishing a rolling release](../README.md#publishing-a-rolling-release)). Consumers intentionally adopt a replacement by pinning the release asset URL, tar SHA-256 and content-only export ref, as described in [asset bundles](asset-bundles.md#release-distribution-and-consumer-pinning). Existing published starter releases are unaffected.
 
 `test/greyhaven-nature.test.ts` verifies the real packed bundle, resource closure, texture dimensions, grounded/centred meshes, three distinct rock vertex sets and provenance from hydrated sources. It skips visibly on LFS pointers, and fails closed under `ASSET_TOOLING_REQUIRE_HYDRATED_STORAGE=1`.

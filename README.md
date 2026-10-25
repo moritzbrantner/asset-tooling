@@ -34,9 +34,17 @@ During experimentation, generated outputs are replaceable **current** work, not 
 
 ## Publishing a rolling release
 
+Rolling releases publish themselves from CI (#397). Merging a change starts the [`Publish rolling releases`](.github/workflows/publish-releases.yml) workflow on `main`. It rebuilds every release whose sources the push changed and replaces that release's assets in place with `gh release upload --clobber`, under the release's one name. It never creates a numbered release. Workers do not hand the owner upload commands for these releases.
+
+- **Which releases.** `ROLLING_RELEASES` in [`scripts/publish-release.ts`](scripts/publish-release.ts) lists each release with its build script. A release's sources are its build script and that script's local imports, the repository files they name (for example `adapters/blender/outpost.py` or `catalog/storage.json`), Blender's pin and the LFS payloads when the build needs them, and `package.json`, `bun.lock` and `scripts/pack-asset-bundle.ts`. The workflow installs Blender from the official tarball pinned in `adapters/blender/release.json`, caches the archive, and hydrates `assets/canonical/` for the builds that read catalog payloads.
+- **What it uploads.** Every top-level file of the build output: the tar, its `.sha256`, `export.ref.json`, `lineage.json`, descriptors and the flipbook PNGs. `export.ref.json` goes last, so a consumer keyed on it never sees a new ref beside the old tar. Then it dispatches `pages.yml`.
+- **Checks first.** It verifies the tar against its `export.ref.json`. When the live release already holds the same tar, it uploads nothing. A consumer that pins the release (below) must already pin the new build, on its default branch or on its open `agent/repin-<release>` branch. Otherwise the job fails and publishes nothing, so a known consumer is never handed content it cannot load.
+- **Manual rebuild.** Run `gh workflow run publish-releases.yml -f release=<release>`, or use **Run workflow** in the Actions tab. Use it to retry a release or to publish a build that merged but was never uploaded. Dispatches publish only from `main`.
+- **Not yet in CI.** `MANUAL_RELEASES` names the releases CI cannot build, and why: both Ranger figures, whose build reads the author's local Mixamo FBX files, plus `greyhaven-starter` and `farm-crops`. Their publishing still ends with the owner's upload commands, which `prepare-release.ts` prints.
+
 Some consumers pin a rolling release, either by their own copy of its `export.ref.json` or by its tar sha256. A pinned consumer fails as soon as the release assets are replaced. [`consumers.json`](consumers.json) lists the consumers of each release: the repo, the pinned files, and how each file pins the release. A `tar-sha256` pin replaces the first sha256 after its `after` anchor. An `export-ref` or `file` pin is a copy of that release file. An optional `format` command runs in the consumer checkout after the rewrite. An entry with `"pinned": false` reads the live release and needs no re-pin. Update the list when a consumer adds or drops a pin.
 
-Before replacing a release, prepare the re-pins:
+When the publish job refuses a release because of a pinned consumer, it keeps the exact build as a workflow artifact named after the release. Download it with `gh run download <run id> -n <release> -D <dir>` and prepare the re-pins:
 
 ```sh
 bun scripts/prepare-release.ts <release> <artifactsDir> [--downloads <dir>] [--dry-run]
@@ -47,9 +55,9 @@ bun scripts/prepare-release.ts <release> <artifactsDir> [--downloads <dir>] [--d
 1. verifies the tar against its `export.ref.json` with `pack-asset-bundle.ts --verify`;
 2. finds the release's pinned consumers in `consumers.json`;
 3. clones each one to `~/.cache/agent-work/<repo>-repin-<release>`, rewrites its pins on `agent/repin-<release>`, pushes, and opens (or updates) a **draft** PR titled `Re-pin <release>`;
-4. prints the owner's `gh release upload … --clobber` commands for the bundle files and the downloads, and `gh workflow run pages.yml`, then one line that marks the re-pin PRs ready and lands them.
+4. prints how to publish, then one line that marks the re-pin PRs ready and lands them. For a release CI builds, that is a re-run of the refused job or `gh workflow run publish-releases.yml -f release=<release>`. The re-run rebuilds the same commit and now finds the re-pin branch pinning it. For a release in `MANUAL_RELEASES`, it prints the owner's `gh release upload … --clobber` commands for the bundle files and the downloads, and `gh workflow run pages.yml`.
 
-It never uploads. The owner runs the upload commands, then the coordinator runs the land line, so a consumer is red only between the upload and its re-pin landing. `--dry-run` verifies the build and prints the commands without cloning or opening PRs.
+It never uploads. Once the release is replaced, the coordinator runs the land line, so a consumer is red only between the publish and its re-pin landing. `--dry-run` verifies the build and prints the commands without cloning or opening PRs.
 
 ## Stability
 

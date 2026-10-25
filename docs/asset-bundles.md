@@ -204,7 +204,7 @@ Owner decision Q5 on #118 distributes the bundle as a versioned GitHub Release. 
 - It requires exactly the closure plus `export.ref.json`.
 - It runs `verifyAssetBundle` on an extracted copy.
 
-The packing helpers are `packAssetBundle`, `verifyAssetBundleTar` and `readAssetBundleTar` in `src/asset-bundle-pack.ts`. Nothing touches the network. Publishing (`gh release create <tag> bundle.tar bundle.tar.sha256`) is a separate, explicit orchestrator step.
+The packing helpers are `packAssetBundle`, `verifyAssetBundleTar` and `readAssetBundleTar` in `src/asset-bundle-pack.ts`. Nothing touches the network. Publishing is separate: the `Publish rolling releases` workflow replaces a rolling release when its recipe merges ([Publishing a rolling release](../README.md#publishing-a-rolling-release)).
 
 A consumer pins three things: the release **tag**, the **tar sha256** and its own copy of **`export.ref.json`** (the manifest sha256 and byte length). It then:
 

@@ -71,7 +71,7 @@ The descriptor is canonical JSON next to the tar, and [`schemas/zoo-scenery-desc
 
 ## Consumer use
 
-Zoo downloads the rolling `zoo-scenery` release, pins it by the tar's SHA-256 and verifies it at build time with `bun scripts/pack-asset-bundle.ts --verify zoo-scenery.tar --ref export.ref.json` ([asset-bundles.md](asset-bundles.md#release-distribution-and-consumer-pinning)). It then replaces its procedural trees, bushes and rocks outside the fence (`apps/web/src/park-scene.ts::sceneryNodes`) with the package entries. Publishing the release is a separate, explicit step.
+Zoo downloads the rolling `zoo-scenery` release, pins it by the tar's SHA-256 and verifies it at build time with `bun scripts/pack-asset-bundle.ts --verify zoo-scenery.tar --ref export.ref.json` ([asset-bundles.md](asset-bundles.md#release-distribution-and-consumer-pinning)). It then replaces its procedural trees, bushes and rocks outside the fence (`apps/web/src/park-scene.ts::sceneryNodes`) with the package entries. CI publishes it when a change to its recipe merges ([Publishing a rolling release](../README.md#publishing-a-rolling-release)).
 
 ## Tests
 

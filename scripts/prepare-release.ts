@@ -2,9 +2,11 @@
 //   bun scripts/prepare-release.ts <release> <artifactsDir> [--downloads <dir>] [--dry-run]
 // <artifactsDir> holds the built bundle: exactly one <name>.tar with its .sha256 sidecar, export.ref.json, and any
 // other top-level release files (lineage.json, <name>.descriptor.json). <downloads> defaults to <artifactsDir>/downloads.
+// For a release CI builds, <artifactsDir> is the build that a refused `Publish rolling releases` job kept as an artifact.
 // It verifies the tar, opens a draft "Re-pin <release>" PR in every consumer that consumers.json lists as pinning
-// the release, and prints the owner's upload commands followed by the one line that lands the re-pins afterwards.
-// It never uploads to the release itself; --dry-run only verifies and prints.
+// the release, and prints how to publish followed by the one line that lands the re-pins afterwards: the CI publish
+// for a release CI builds, or the owner's upload commands for one it cannot build yet (MANUAL_RELEASES in
+// scripts/publish-release.ts). It never uploads to the release itself; --dry-run only verifies and prints.
 import path from "node:path";
 import os from "node:os";
 import { spawnSync } from "node:child_process";
@@ -81,14 +83,19 @@ export async function applyPins(checkout: string, pins: Pin[], artifacts: Artifa
   return [...changed];
 }
 
-/** The owner's upload commands, and the coordinator's single line that lands the re-pin PRs after the upload. */
-export function uploadCommands(release: string, artifacts: Artifacts, prs: { repo: string; number: number; url: string; clone: string }[]): { upload: string[]; land: string } {
+/**
+ * How the release gets replaced, and the coordinator's single line that lands the re-pin PRs afterwards. A release CI
+ * builds is published by the `Publish rolling releases` workflow; only one CI cannot build yet needs the owner's upload.
+ */
+export function publishCommands(release: string, artifacts: Artifacts, prs: { repo: string; number: number; url: string; clone: string }[], ci: boolean): { publish: string[]; land: string } {
   const quote = (value: string) => (/^[\w./@:+=-]+$/.test(value) ? value : `'${value.replaceAll("'", "'\\''")}'`);
-  const lines = [`gh release upload ${release} --repo ${TOOLING_REPO} ${artifacts.releaseFiles.map((f) => quote(`${artifacts.dir}/${f}`)).join(" ")} --clobber`];
-  if (artifacts.downloads) lines.push(`gh release upload ${release} --repo ${TOOLING_REPO} ${quote(artifacts.downloads)}/* --clobber`);
-  lines.push(`gh workflow run pages.yml --repo ${TOOLING_REPO}`);
+  const lines = ci ? [`gh workflow run publish-releases.yml --repo ${TOOLING_REPO} -f release=${release}`] : [
+    `gh release upload ${release} --repo ${TOOLING_REPO} ${artifacts.releaseFiles.map((f) => quote(`${artifacts.dir}/${f}`)).join(" ")} --clobber`,
+    ...(artifacts.downloads ? [`gh release upload ${release} --repo ${TOOLING_REPO} ${quote(artifacts.downloads)}/* --clobber`] : []),
+    `gh workflow run pages.yml --repo ${TOOLING_REPO}`,
+  ];
   const land = prs.map((pr) => `gh pr ready ${pr.url} && node ~/.local/share/coding-agent/workctl.mjs land ${pr.repo}#${pr.number} --clone ${quote(pr.clone)}`);
-  return { upload: lines, land: land.join(" && ") };
+  return { publish: lines, land: land.join(" && ") };
 }
 
 function run(command: string, args: string[], cwd?: string): string {
@@ -139,7 +146,7 @@ async function main(args: string[]): Promise<number> {
     const body = [
       `Re-pins the rolling \`${release}\` release to tar sha256 \`${artifacts.sha256}\` (${changed.map((f) => `\`${f}\``).join(", ")}).`,
       "",
-      `Prepared by asset-tooling \`scripts/prepare-release.ts\` **before** the release is replaced. It stays a draft until the owner has run \`gh release upload ${release} … --clobber\`; until then this PR's checks fetch the old release and fail.`,
+      `Prepared by asset-tooling \`scripts/prepare-release.ts\` **before** the release is replaced. It stays a draft until the \`${release}\` release is replaced; until then this PR's checks fetch the old release and fail.`,
     ].join("\n");
     let pr: { number: number; url: string };
     if (existing.length) {
@@ -152,9 +159,13 @@ async function main(args: string[]): Promise<number> {
     console.log(`${consumer.repo}: ${pr.url}`);
     prs.push({ repo: consumer.repo, clone, ...pr });
   }
-  const { upload, land } = uploadCommands(release, artifacts, prs);
-  console.log(`\n# Owner: replace the ${release} release assets (this script never uploads)\n${upload.join("\n")}`);
-  console.log(`\n# Coordinator, once the upload is done: mark the re-pin PRs ready and land them\n${land || "# no re-pin PR: nothing to land"}`);
+  const { ROLLING_RELEASES } = await import("./publish-release.ts");
+  const ci = ROLLING_RELEASES.some((entry) => entry.name === release);
+  const { publish, land } = publishCommands(release, artifacts, prs, ci);
+  console.log(ci
+    ? `\n# Publish: re-run the refused "Publish rolling releases" job, or dispatch it (it rebuilds, re-checks the pins and uploads)\n${publish.join("\n")}`
+    : `\n# Owner: replace the ${release} release assets (CI cannot build ${release} yet; this script never uploads)\n${publish.join("\n")}`);
+  console.log(`\n# Coordinator, once the release is replaced: mark the re-pin PRs ready and land them\n${land || "# no re-pin PR: nothing to land"}`);
   return 0;
 }
 

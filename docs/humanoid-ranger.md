@@ -197,7 +197,7 @@ ASSET_TOOLING_KTX=<ktx CLI> bun scripts/pack-downloads.ts --bundle <out>/bundle 
 bun scripts/prepare-release.ts humanoid-ranger-male <out> --downloads <downloads>
 ```
 
-The owner then runs the printed `gh release upload … --clobber` and `gh workflow run pages.yml` commands, and the re-pin PRs land after the upload.
+The owner then runs the printed `gh release upload … --clobber` and `gh workflow run pages.yml` commands, and the re-pin PRs land after the upload. The Ranger is one of the few releases the `Publish rolling releases` workflow cannot rebuild, because its build reads the author's local Mixamo files (`MANUAL_RELEASES` in `scripts/publish-release.ts`).
 
 (Create the release once with `gh release create humanoid-ranger-male --title humanoid-ranger-male --notes …` if it does not exist.)
 

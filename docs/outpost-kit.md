@@ -121,7 +121,7 @@ The doorway's jamb and lintel boxes keep the opening free. The mmorpg keeps its 
 
 ## Release
 
-The bundle is distributed as the rolling `outpost-kit` GitHub release, whose assets are replaced in place. A consumer pins the release, the tar sha256 and its own copy of `export.ref.json` ([asset-bundles.md](asset-bundles.md#release-distribution-and-consumer-pinning)). It reads each module with `readAssetBundleGltf(dir, manifest, "outpost.kit.<part>", "default" | "slate")` and the descriptor with `readAssetBundleAttachment(dir, manifest, "outpost.kit.wall", "default", "outpost-descriptor")`. Publishing the release is a separate, explicit step after the owner's visual review.
+The bundle is distributed as the rolling `outpost-kit` GitHub release, whose assets are replaced in place. A consumer pins the release, the tar sha256 and its own copy of `export.ref.json` ([asset-bundles.md](asset-bundles.md#release-distribution-and-consumer-pinning)). It reads each module with `readAssetBundleGltf(dir, manifest, "outpost.kit.<part>", "default" | "slate")` and the descriptor with `readAssetBundleAttachment(dir, manifest, "outpost.kit.wall", "default", "outpost-descriptor")`. CI publishes it when a change to its recipe merges ([Publishing a rolling release](../README.md#publishing-a-rolling-release)).
 
 ## Tests
 

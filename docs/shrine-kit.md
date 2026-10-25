@@ -91,7 +91,7 @@ The descriptor is canonical JSON, the `shrine-descriptor` attachment of `shrine.
 
 ## Release
 
-The bundle is distributed as the rolling `shrine-kit` GitHub release, whose assets are replaced in place. A consumer pins the release, the tar sha256 and its own copy of `export.ref.json` ([asset-bundles.md](asset-bundles.md#release-distribution-and-consumer-pinning)). It reads each module with `readAssetBundleGltf(dir, manifest, "shrine.kit.<part>", "default")` and the descriptor with `readAssetBundleAttachment(dir, manifest, "shrine.kit.wall", "default", "shrine-descriptor")`. Publishing the release is a separate, explicit step, as for the crypt kit.
+The bundle is distributed as the rolling `shrine-kit` GitHub release, whose assets are replaced in place. A consumer pins the release, the tar sha256 and its own copy of `export.ref.json` ([asset-bundles.md](asset-bundles.md#release-distribution-and-consumer-pinning)). It reads each module with `readAssetBundleGltf(dir, manifest, "shrine.kit.<part>", "default")` and the descriptor with `readAssetBundleAttachment(dir, manifest, "shrine.kit.wall", "default", "shrine-descriptor")`. CI publishes it when a change to its recipe merges ([Publishing a rolling release](../README.md#publishing-a-rolling-release)).
 
 ## Tests
 

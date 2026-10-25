@@ -1,0 +1,142 @@
+name: Publish rolling releases
+
+# Rebuilds every rolling release whose sources a push to main changed and replaces its assets in place
+# (Atlas Decision 7.1.5, README "Publishing a rolling release", #397). A manual dispatch rebuilds one release.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      release:
+        description: Rolling release to rebuild and publish
+        required: true
+        type: choice
+        # Must list exactly ROLLING_RELEASES in scripts/publish-release.ts (test/publish-release.test.ts).
+        options:
+          - combat-effects
+          - combat-sounds
+          - farm-structures
+          - greyhaven-ambient-animals
+          - greyhaven-nature
+          - outpost-kit
+          - settlement-props
+          - shrine-kit
+          - zoo-effects
+          - zoo-scenery
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    name: Plan changed releases
+    # Only main is published; a dispatch from another branch does nothing.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: latest
+      - id: plan
+        env:
+          RELEASE: ${{ inputs.release }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_EVENT_NAME" == workflow_dispatch ]]; then
+            matrix=$(bun scripts/publish-release.ts plan --release "$RELEASE")
+          else
+            # A new branch or a force push without a known parent rebuilds everything.
+            if [[ "$BEFORE" =~ ^0+$ ]] || ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+              echo '*' > "$RUNNER_TEMP/changed"
+            else
+              git diff --name-only "$BEFORE" "$GITHUB_SHA" > "$RUNNER_TEMP/changed"
+            fi
+            matrix=$(bun scripts/publish-release.ts plan --changed "$RUNNER_TEMP/changed")
+          fi
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+          echo "Releases to rebuild: $matrix"
+
+  publish:
+    name: ${{ matrix.release }}
+    needs: plan
+    if: needs.plan.outputs.matrix != '[]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write
+      actions: write
+    # One publish per release at a time; a newer push supersedes a queued one.
+    concurrency:
+      group: publish-release-${{ matrix.release }}
+      cancel-in-progress: false
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    env:
+      OUT: release-out
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          lfs: false
+          persist-credentials: false
+      - name: Hydrate the canonical payloads
+        if: matrix.lfs
+        run: git lfs pull --include="assets/canonical/**"
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: latest
+      - name: Install dependencies and the image/audio codec
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+          bun install --frozen-lockfile
+      # scripts/install-blender.ts reuses a verified archive at /tmp/asset-tooling-blender-<sha256>.archive.
+      - name: Cache the Blender archive
+        if: matrix.blender
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: /tmp/asset-tooling-blender-*.archive
+          key: blender-${{ hashFiles('adapters/blender/release.json') }}
+      - name: Install pinned Blender
+        if: matrix.blender
+        run: echo "ASSET_TOOLING_BLENDER=$(bun scripts/install-blender.ts "$RUNNER_TEMP/blender")" >> "$GITHUB_ENV"
+      - name: Build
+        env:
+          RELEASE: ${{ matrix.release }}
+        run: bun scripts/publish-release.ts build "$RELEASE" "$OUT"
+      - name: Check consumers and publish
+        env:
+          RELEASE: ${{ matrix.release }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -o pipefail
+          bun scripts/publish-release.ts publish "$RELEASE" "$OUT" | tee "$RUNNER_TEMP/publish.log"
+      - name: Rebuild Pages from the replaced release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if grep -q ': published tar ' "$RUNNER_TEMP/publish.log"; then
+            gh workflow run pages.yml --repo "$GITHUB_REPOSITORY" --ref main
+          fi
+      # When a pinned consumer blocks the publish, the exact build is kept for scripts/prepare-release.ts.
+      - name: Keep the refused build
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ${{ matrix.release }}
+          path: |
+            release-out/*.tar
+            release-out/*.sha256
+            release-out/*.json
+            release-out/*.png
+          if-no-files-found: ignore
+          retention-days: 7

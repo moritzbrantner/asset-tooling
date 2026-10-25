@@ -60,7 +60,7 @@ The descriptor is canonical JSON next to the tar, and [`schemas/farm-structures-
 
 ## Consumer use
 
-My Farm stages its crops by building asset-tooling at a pinned commit (`scripts/build-farm-art.sh`) and copying package GLBs into `apps/web/public/farm-art`. The structures fit the same path: add `bun scripts/build-farm-structures.ts --out .artifacts/farm-structures` to that build, read `.artifacts/farm-structures/bundle/manifest.json` and stage the `farmhouse.mesh` and `silo.mesh` entries of variant `toy`. Alternatively, download the rolling `farm-structures` release and verify it with `bun scripts/pack-asset-bundle.ts --verify farm-structures.tar --ref export.ref.json` ([asset-bundles.md](asset-bundles.md#release-distribution-and-consumer-pinning)). Publishing the release is a separate, explicit step.
+My Farm stages its crops by building asset-tooling at a pinned commit (`scripts/build-farm-art.sh`) and copying package GLBs into `apps/web/public/farm-art`. The structures fit the same path: add `bun scripts/build-farm-structures.ts --out .artifacts/farm-structures` to that build, read `.artifacts/farm-structures/bundle/manifest.json` and stage the `farmhouse.mesh` and `silo.mesh` entries of variant `toy`. Alternatively, download the rolling `farm-structures` release and verify it with `bun scripts/pack-asset-bundle.ts --verify farm-structures.tar --ref export.ref.json` ([asset-bundles.md](asset-bundles.md#release-distribution-and-consumer-pinning)). CI publishes it when a change to its recipe merges ([Publishing a rolling release](../README.md#publishing-a-rolling-release)).
 
 ## Tests
 
