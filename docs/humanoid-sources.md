@@ -189,3 +189,7 @@ The soldier and knight wear the Peasant outfit under their armour (owner answers
 | `T_Peasant_BaseColor.png` | texture | 5,055,760 | `a43635628d95571cd62fd4db0cc3a6ea32778b2bc02f242dda224c89d07f1ade` |
 | `T_Peasant_Normal.png` | texture | 14,110,336 | `7598fa7b63e46fd4dac29708bf5a81e05eb9a67280f7b13c61e28a9110eeb679` |
 | `T_Peasant_ORM.png` | texture | 9,903,835 | `e1932f5f91104afca89c501416a5fec09069b8552734237fc09045fabc4ca9b4` |
+| `Female_Peasant.gltf` (#378) | mesh | 29,529 | `43ba98058b933cae9acbde0f3ef8c3dda4ba9f69f338606f9d87666d9efffb31` |
+| `Female_Peasant.bin` (#378) | buffer | 658,600 | `40eccaa2bd545c893142ef7dca0866ea8f20df3a86c67c5615024bc4fe546e83` |
+
+The female Peasant outfit (#378, the tanner's base) uses only the `T_Peasant_*` textures: it shows no skin.

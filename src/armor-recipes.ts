@@ -13,22 +13,29 @@ import { parseAssetSpec } from "./schema.js";
  * The class kits (#379) are the seven mmorpg class starter outfits in the Greyhaven Marshal's style: long robes,
  * jerkins over straight work trousers, hoods, mantles, cloaks and long sleeves cut from or fitted to the Peasant base,
  * each with a recolourable `class` colour slot.
+ *
+ * The tanner kit (#378) is the female figure's: an ankle-length work skirt and a long leather apron with a leather
+ * belt over the Female_Peasant outfit.
  */
 export type ArmorClassKit = "class.warden" | "class.ranger" | "class.arcanist" | "class.necromancer" | "class.rogue" | "class.cleric" | "class.druid";
-export type ArmorOutfitKit = "soldier" | "knight" | "farmer" | "innkeeper" | "monk" | ArmorClassKit;
+export type ArmorMaleKit = "soldier" | "knight" | "farmer" | "innkeeper" | "monk" | ArmorClassKit;
+export type ArmorFemaleKit = "tanner";
+export type ArmorOutfitKit = ArmorMaleKit | ArmorFemaleKit;
 export type ArmorKit = ArmorOutfitKit;
 export type ArmorOutput = "plates" | "cloth";
 export type ArmorParameters = { schemaVersion: 1; kit: ArmorKit; output: ArmorOutput };
 /** The class starter outfits (#379), in mmorpg's class order. */
 export const ARMOR_CLASS_KITS: readonly ArmorClassKit[] = ["class.warden", "class.ranger", "class.arcanist", "class.necromancer", "class.rogue", "class.cleric", "class.druid"];
-/** The kits that dress the Peasant base as an outfit variant, in bundle order. */
-export const ARMOR_OUTFIT_KITS: readonly ArmorOutfitKit[] = ["soldier", "knight", "farmer", "innkeeper", "monk", ...ARMOR_CLASS_KITS];
-export const ARMOR_KITS: readonly ArmorKit[] = ARMOR_OUTFIT_KITS;
+/** The kits that dress the male Peasant base as an outfit variant, in bundle order. */
+export const ARMOR_OUTFIT_KITS: readonly ArmorMaleKit[] = ["soldier", "knight", "farmer", "innkeeper", "monk", ...ARMOR_CLASS_KITS];
+/** The kits that dress the female Peasant base (#378), in bundle order. */
+export const ARMOR_FEMALE_OUTFIT_KITS: readonly ArmorFemaleKit[] = ["tanner"];
+export const ARMOR_KITS: readonly ArmorKit[] = [...ARMOR_OUTFIT_KITS, ...ARMOR_FEMALE_OUTFIT_KITS];
 /** Outfit labels for the appearance descriptor. */
 export const ARMOR_KIT_LABELS = {
   soldier: "Soldier", knight: "Knight", farmer: "Farmer", innkeeper: "Innkeeper", monk: "Monk",
   "class.warden": "Warden", "class.ranger": "Ranger", "class.arcanist": "Arcanist", "class.necromancer": "Necromancer",
-  "class.rogue": "Rogue", "class.cleric": "Cleric", "class.druid": "Druid",
+  "class.rogue": "Rogue", "class.cleric": "Cleric", "class.druid": "Druid", tanner: "Tanner",
 } as const satisfies Record<ArmorOutfitKit, string>;
 /** The class kits' hood garments: shown as the `outfit.hood` part, so hair that needs the hood off hides under them. */
 export const ARMOR_CLASS_HOODS: readonly string[] = ["class.ranger.hood", "class.rogue.hood", "class.necromancer.hood"];

@@ -36,9 +36,12 @@ from mathutils import Matrix, Quaternion, Vector, kdtree
 
 # Class starter outfits (#379): the seven mmorpg classes over the same Peasant base, in the Greyhaven Marshal's style.
 CLASS_KITS = ("class.warden", "class.ranger", "class.arcanist", "class.necromancer", "class.rogue", "class.cleric", "class.druid")
-KITS = ("soldier", "knight", "farmer", "innkeeper", "monk", *CLASS_KITS)
-# Resident outfits (#376): plain clothes over the Peasant base; their only rigid piece is a belt.
-RESIDENT_KITS = ("farmer", "innkeeper", "monk")
+KITS = ("soldier", "knight", "farmer", "innkeeper", "monk", *CLASS_KITS, "tanner")
+# Resident outfits (#376): plain clothes over the Peasant base; their only rigid piece is a belt. The tanner (#378) is
+# the female figure's: a long work skirt and a leather apron over the Female_Peasant outfit.
+RESIDENT_KITS = ("farmer", "innkeeper", "monk", "tanner")
+# Kits fitted on the female figure (#378); every other kit is fitted on the male figure.
+FEMALE_KITS = ("tanner",)
 OUTPUTS = ("plates", "cloth")
 MATERIALS = {
     # name: (linear base colour, metallic, roughness)
@@ -52,9 +55,22 @@ MATERIALS = {
     "linen": ((.62, .6, .52), 0.0, .85),
     "habit": ((.09, .055, .03), 0.0, .92),
     "rope": ((.36, .28, .15), 0.0, .9),
+    # The tanner (#378): a dark green-grey wool work skirt under a tan-brown, oiled cowhide apron.
+    "skirt.wool": ((.045, .055, .04), 0.0, .92),
+    "leather.tan": ((.16, .075, .03), 0.0, .62),
 }
 SHARP_ANGLE = math.radians(35)
-SHIRT = "Male_Peasant_Body"
+# The Peasant base's mesh nodes and the head part per figure; ``use_figure`` switches them to the target's (#378).
+FIGURES = {
+    "male": ("Male_Peasant_Body", "Male_Peasant_Legs", "Male_Peasant_Arms", "Male_Peasant_Feet", "SuperHero_Male"),
+    "female": ("Female_Peasant_Body", "Female_Peasant_Legs", "Female_Peasant_Arms", "Female_Peasant_Feet", "Superhero_Female"),
+}
+SHIRT, LEGS, ARMS, FEET, HEAD = FIGURES["male"]
+
+
+def use_figure(figure):
+    global SHIRT, LEGS, ARMS, FEET, HEAD
+    SHIRT, LEGS, ARMS, FEET, HEAD = FIGURES[figure]
 # Pieces whose wearer hides a base mesh node completely (the hidden-body-region list, Q12).
 HIDES = {"soldier.gambeson": [SHIRT], "farmer.smock": [SHIRT], "monk.habit": [SHIRT]}
 # Tunics: the Peasant shirt's surface and skin weights pushed out (material, offset), plus a fitted skirt.
@@ -442,7 +458,7 @@ def plate_surfaces(body, rig, kit):
         if kit != "knight":
             continue
         # Cuisse with the knee cop at its foot: front and outer thigh, ending over the knee.
-        thigh = body.select([f"thigh_{side}", f"calf_{side}"], meshes=["Male_Peasant_Legs"], minimum=.5)
+        thigh = body.select([f"thigh_{side}", f"calf_{side}"], meshes=[LEGS], minimum=.5)
         def cuisse_profile(t, theta, r):
             return r + .012 * max(0, (t - .82) / .18) * math.cos(theta)
         cuisse = ring_grid(body, thigh, hip, knee + (knee - hip).normalized() * .07, FRONT, out, (.18, 1.0), 11,
@@ -500,7 +516,7 @@ def plate_surfaces(body, rig, kit):
             return not (abs(p.x) > .115 and p.y > 1.33)
         pieces.append(("knight.breastplate", "spine_03", "steel", plate, armholes, None, .004))
     if kit == "soldier":
-        waist = body.select(["pelvis", "spine_01", "thigh_l", "thigh_r"], meshes=[SHIRT, "Male_Peasant_Legs"], minimum=.5)
+        waist = body.select(["pelvis", "spine_01", "thigh_l", "thigh_r"], meshes=[SHIRT, LEGS], minimum=.5)
         centre = Vector((0, 0, float(body.array[waist][:, 2].mean())))
         belt = ring_grid(body, waist, centre + Vector((0, .985, 0)), centre + Vector((0, 1.035, 0)), FRONT, Vector((1, 0, 0)),
                          (0, 1), 3, None, 28, .026, slab=.03)
@@ -578,7 +594,7 @@ def cloth_surfaces(body, rig, kit):
                 builder.bm.to_mesh(collider_mesh)
                 builder.bm.free()
                 colliders.append((name, collider_mesh))
-        bodies = [o for o in bpy.context.scene.objects if o.type == "MESH" and o.name in (SHIRT, "Male_Peasant_Legs")]
+        bodies = [o for o in bpy.context.scene.objects if o.type == "MESH" and o.name in (SHIRT, LEGS)]
         settle_tabard(surface, mask, bodies, colliders)
         garments.append(("knight.tabard", "faction", surface, mask))
     return garments
@@ -586,7 +602,7 @@ def cloth_surfaces(body, rig, kit):
 
 def tunic_skirt(body, bottom, flare, rows, ripple=None):
     """A skirt fitted around the hips from the waist (1.0 m) down to ``bottom``, widening by ``flare`` at the hem."""
-    hips = body.select(["pelvis", "spine_01", "thigh_l", "thigh_r"], meshes=[SHIRT, "Male_Peasant_Legs"], minimum=.5)
+    hips = body.select(["pelvis", "spine_01", "thigh_l", "thigh_r"], meshes=[SHIRT, LEGS], minimum=.5)
     centre = Vector((0, 0, float(body.array[hips][:, 2].mean())))
     def profile(t, theta, r):
         return r + flare * t + (ripple(theta) if ripple else 0)
@@ -604,12 +620,24 @@ STRIDE = {"farmer.smock": (1.0, 1.0, .6, .03), "monk.habit": (.6, 1.0, .16, .05)
 # The innkeeper's apron: bib from the chest to the waist, a wider skirt from the waist to mid-thigh; below the waist
 # the thighs move it (STRIDE).
 APRON = {"top": 1.37, "waist": 1.03, "hem": .66, "bib": .1, "skirt": .17, "clearance": .012, "rows": 20, "columns": 15}
+# The tanner (#378, female figure): an ankle-length work skirt (Marshal style: no short skirts), and over it a long
+# leather apron from the chest to mid-shin, wide enough to wrap the skirt's front.
+TANNER_SKIRT = (.14, .18, 20)
+TANNER_APRON = {"top": 1.33, "waist": 1.0, "hem": .3, "bib": .095, "skirt": .2, "clearance": .012, "rows": 26, "columns": 17,
+                 "smooth": 3}
+SETTLE["tanner.skirt"], STRIDE["tanner.skirt"] = SETTLE["monk.habit"], STRIDE["monk.habit"]
+SETTLE["tanner.apron"], STRIDE["tanner.apron"] = (.4, 1.0, .3), (.6, 1.0, .3, .05)
 
 
 def resident_plates(body, kit):
-    """The resident kits' one rigid piece: a rope (farmer, monk) or leather (innkeeper) belt at the waist."""
-    waist = body.select(["pelvis", "spine_01", "thigh_l", "thigh_r"], meshes=[SHIRT, "Male_Peasant_Legs"], minimum=.5)
+    """The resident kits' one rigid piece: a rope (farmer, monk) or leather (innkeeper, tanner) belt at the waist."""
+    waist = body.select(["pelvis", "spine_01", "thigh_l", "thigh_r"], meshes=[SHIRT, LEGS], minimum=.5)
     centre = Vector((0, 0, float(body.array[waist][:, 2].mean())))
+    if kit == "tanner":
+        # Over the apron and the skirt's waistband.
+        belt = ring_grid(body, waist, centre + Vector((0, .975, 0)), centre + Vector((0, 1.02, 0)), FRONT, Vector((1, 0, 0)),
+                         (0, 1), 3, None, 28, .036, slab=.03)
+        return [("tanner.belt", "pelvis", "leather", belt, None, None, .006)]
     leather = kit == "innkeeper"
     low, high = (.985, 1.03) if leather else (.99, 1.015)
     belt = ring_grid(body, waist, centre + Vector((0, low, 0)), centre + Vector((0, high, 0)), FRONT, Vector((1, 0, 0)),
@@ -617,11 +645,15 @@ def resident_plates(body, kit):
     return [(f"{kit}.belt", "pelvis", "leather" if leather else "rope", belt, None, None, .006 if leather else .008)]
 
 
-def apron_surface(body):
-    """A front panel that follows the chest and belly, then hangs straight from the waist with soft folds."""
-    allowed = [i for i in body.select(None, meshes=[SHIRT, "Male_Peasant_Legs"], minimum=0)
+def apron_surface(body, spec=APRON, under=()):
+    """A front panel that follows the chest and belly, then hangs straight from the waist with soft folds. It also
+    clears the ``under`` points (the tanner's skirt, #378)."""
+    allowed = [i for i in body.select(None, meshes=[SHIRT, LEGS], minimum=0)
                if max(body.weights[i], key=body.weights[i].get) not in ARM_JOINTS]
     points = body.array[allowed]
+    if len(under):
+        points = numpy.vstack([points, numpy.array([tuple(p) for p in under])])
+    APRON = spec
     top, waist, hem, rows, columns = APRON["top"], APRON["waist"], APRON["hem"], APRON["rows"], APRON["columns"]
     ys = [hem + (top - hem) * i / (rows - 1) for i in range(rows)]
     step = ys[1] - ys[0]
@@ -645,6 +677,12 @@ def apron_surface(body):
         grid.append(row)
         previous = row
     grid.reverse()
+    for _ in range(APRON.get("smooth", 0)):
+        # Stiff leather (#378): even out the depth across each row, so the panel shows broad folds, not the body's bumps.
+        for row in grid:
+            depths = [p.z for p in row]
+            for j in range(1, len(row) - 1):
+                row[j].z = max(depths[j], (depths[j - 1] + 2 * depths[j] + depths[j + 1]) / 4)
     zc = float(points[:, 2].mean())
     return {"grid": grid, "closed": False, "axis": (Vector((0, 1.0, zc)), Vector((1, 0, 0))),
             "thetas": [p.x for p in grid[0]], "ts": ys}
@@ -653,6 +691,10 @@ def apron_surface(body):
 def resident_cloth(body, kit):
     if kit == "innkeeper":
         return [("innkeeper.apron", "linen", apron_surface(body), None)]
+    if kit == "tanner":
+        skirt = tunic_skirt(body, *TANNER_SKIRT)
+        apron = apron_surface(body, TANNER_APRON, [p for row in skirt["grid"] for p in row])
+        return [("tanner.skirt", "skirt.wool", skirt, None), ("tanner.apron", "leather.tan", apron, None)]
     name = f"{kit}.{'smock' if kit == 'farmer' else 'habit'}"
     bottom, flare, rows = RESIDENT_SKIRTS[name]
     return [(name, TUNICS[name][0], tunic_skirt(body, bottom, flare, rows), None)]
@@ -665,7 +707,7 @@ ARM_JOINTS = {f"{joint}_{side}" for joint in ("clavicle", "upperarm", "lowerarm"
 def tabard_surface(body, rig, obstacles=(), clearance=(.066, .07, .042)):
     """Front and back panels hanging from the shoulders, over the breastplate, joined across the shoulders.
     ``clearance``: front and back above the waist (over the plate), and below it."""
-    torso = body.select(None, meshes=[SHIRT, "Male_Peasant_Legs"], minimum=0)
+    torso = body.select(None, meshes=[SHIRT, LEGS], minimum=0)
     torso = [i for i in torso if max(body.weights[i], key=body.weights[i].get) not in
              {"upperarm_l", "upperarm_r", "lowerarm_l", "lowerarm_r"}]
     points = body.array[torso]
@@ -876,7 +918,6 @@ MATERIALS.update({name: (linear(code), metallic, roughness) for name, (code, met
     "robe.moss": ("#4b4f3a", 0.0, .92), "sleeve.moss": ("#4f4a37", 0.0, .92), "bark": ("#4a3a26", 0.0, .95),
     "antler": ("#b9a888", 0.0, .7), "bone": ("#ddd5bd", 0.0, .6), "gold": ("#d9b44a", 1.0, .35), "sash.gold": ("#b08a3e", .3, .5),
 }.items()})
-LEGS, ARMS, FEET, HEAD = "Male_Peasant_Legs", "Male_Peasant_Arms", "Male_Peasant_Feet", "SuperHero_Male"
 TABARDS = {"knight.tabard", "class.warden.tabard", "class.cleric.tabard"}
 HANGING_ARM = {f"{joint}_{side}" for joint in ("upperarm", "lowerarm", "hand") for side in "lr"}
 # Long robes (owner, 2026-10-25: no short skirts on anyone): (skirt colour, top and sleeve colour).
@@ -1520,6 +1561,8 @@ def generate(output_path, arguments, inputs):
         raise ValueError("the target GLB must have one armature")
     rig_object = rigs[0]
     rig = Rig(rest_worlds(glb_json(inputs["target"])))
+    # #378: the female kits fit the Female_Peasant base; the target names the figure by its base nodes.
+    use_figure("female" if kit in FEMALE_KITS else "male")
     body = Body(rig)
     if not body.select(None, meshes=[SHIRT], minimum=0):
         raise ValueError(f"the target must contain the base outfit node {SHIRT}")
@@ -1572,10 +1615,10 @@ def generate(output_path, arguments, inputs):
             if spec.get("decorate"):
                 spec["decorate"](builder)
             points = list(builder.points)
-            allowed = body.select(None, meshes=[SHIRT, "Male_Peasant_Legs"], minimum=0)
+            allowed = body.select(None, meshes=[SHIRT, LEGS], minimum=0)
             if name in spec.get("allowed", ()):
                 allowed = body.select(None, meshes=spec["allowed"][name], minimum=0)
-            if name in TABARDS or name in ("soldier.sash", "innkeeper.apron") or spec.get("torso"):
+            if name in TABARDS or name in ("soldier.sash", "innkeeper.apron", "tanner.apron") or spec.get("torso"):
                 # These ride the torso: arm and shoulder joints must not pull them off the shoulder or into a plate (#309).
                 allowed = [i for i in allowed if max(body.weights[i], key=body.weights[i].get) not in ARM_JOINTS]
             if spec.get("exclude"):

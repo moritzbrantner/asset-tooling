@@ -44,6 +44,18 @@ The same recipe dresses the named Greyhaven residents ([humanoid-ranger.md](huma
 - **Facial hair:** the #376 beard kit is gone; the hand-modelled beards and moustaches of `adapters/blender/hair_beards.py` replace it under the same names ([Male variety](humanoid-ranger.md#male-variety-380)).
 - **Straw hat:** the farmer's hat is a [headwear](humanoid-ranger.md#contents) piece (`hat.straw` in `adapters/blender/headwear.py`), so any outfit can wear it.
 
+## Tanner (#378)
+
+Tanner Hilda Brook is the female figure's resident (decision C on #376): the pack's `Female_Peasant` outfit (bodice, cream sleeves, work gloves, slim trousers and boots), promoted to the catalog like `Male_Peasant`, with the kit `tanner` over it. The recipe fits the female base when the kit is a female kit (`FEMALE_KITS`; `use_figure` switches the base mesh names to `Female_Peasant_*` and the head to `Superhero_Female`).
+
+| Kit | Cloth | Plates | Hides |
+| --- | --- | --- | --- |
+| `tanner` | `tanner.skirt`: an ankle-length work skirt (green-grey wool) fitted round the hips like the monk's habit, with a wider hem; `tanner.apron`: a long tan leather apron from the chest to mid-shin, over the skirt | `tanner.belt` (leather, over the apron) | nothing |
+
+- **Skirt:** the slim trousers stay under it (owner style rules: no short skirts or leggings; only the boots show). It uses the habit's `SETTLE` and `STRIDE` weights.
+- **Apron:** the innkeeper's apron cut (`apron_surface`) with a lower hem, a 20 cm half-width below the waist, and the skirt's surface as an extra clearance target. Three smoothing passes even out the depth across each row, so the leather shows broad folds instead of the legs under it. Below the waist it settles 40 % toward the pelvis and each side follows its thigh by up to 60 %.
+- **Materials:** `skirt.wool` (linear 0.045, 0.055, 0.04) and `leather.tan` (0.16, 0.075, 0.03); the belt is the shared `leather`.
+
 ## Class starter outfits (#379)
 
 Each mmorpg class starts in its own outfit, in the Greyhaven Marshal's style (owner decisions on #379, 2026-10-25). The kits are `class.warden`, `class.ranger`, `class.arcanist`, `class.necromancer`, `class.rogue`, `class.cleric` and `class.druid`, all over the Peasant base, with factor-only materials. Every kit has a recolourable `class` material whose default is the class colour (the cloth receipt's `classTrim`). It sits on a piece that armour drops would not replace, so the class still reads: the Warden's tabard, the Ranger's and Rogue's sashes, the Arcanist's and Necromancer's mantles, the Cleric's tabard edging and the Druid's leaves.

@@ -25,11 +25,13 @@ The `humanoid.ranger.male` bundle holds the following.
     - `outfit.soldier` and `outfit.knight`, plus their `.skin.light` variants: the Peasant outfit under the [armour](armor-recipes.md) (#117, #301, male only).
     - `outfit.farmer`, `outfit.innkeeper` and `outfit.monk`, plus their `.skin.light` variants: the Peasant outfit with the [resident clothes](armor-recipes.md#resident-outfits-376) (#376, male only).
     - `outfit.class.warden`, `outfit.class.ranger`, `outfit.class.arcanist`, `outfit.class.necromancer`, `outfit.class.rogue`, `outfit.class.cleric` and `outfit.class.druid`, plus their `.skin.light` variants and `outfit.class.necromancer.skin.grey`: the [class starter outfits](armor-recipes.md#class-starter-outfits-379) (#379, male only).
+    - `outfit.tanner` and `outfit.tanner.skin.light` (female only): the Female_Peasant outfit with the [tanner's work skirt and leather apron](armor-recipes.md#tanner-378) (#378).
   - **Attachments:**
     - `humanoid-sockets`: the [sockets descriptor](humanoid-sockets.md), with hand, stowed, archery, hair and armour sockets.
     - `humanoid-clips`: per-clip motion metadata ([Clip motion](#clip-motion)).
     - `humanoid-appearance` (`humanoid-appearance-v1`): skins, the toggleable hood (`outfit.hood`), hairstyles with their textures and tints, eyebrows that follow the hair tint, and the outfits, and (male) the `headwear` list: each piece's `entry`, `label`, `socket` and the appearance parts it `hides` while worn (`outfit.hood` and `hair`). The `face` section lists the [facial variants](#facial-variants).
-      - Male only: `facialHair` and `presets` ([Resident presets](#resident-presets), [Class presets](#class-presets)), and `ages`, `builds`, `heights`, `skinTones` and `headSkins` ([Male variety](#male-variety-380)).
+      - `presets`: the male figure's [Resident presets](#resident-presets) and [Class presets](#class-presets); the female figure's `resident.tanner` ([Resident presets](#resident-presets)).
+      - Male only: `facialHair`, and `ages`, `builds`, `heights`, `skinTones` and `headSkins` ([Male variety](#male-variety-380)).
       - The class outfits add `hood` (their hood garment, also listed as an `outfit.hood` part node, so hair that needs the hood off hides under it) and `classTrim` (the recolourable `class` material and its default linear colour).
 - **Facial variants (#348):** see [Facial variants](#facial-variants).
 - **Levels of detail (#123):** every character variant has `lod1` and `lod2` variants (`lod1`/`lod2` for `default`, `<variant>.lod1`/`.lod2` otherwise). They are listed in `humanoid-appearance.levelsOfDetail` ([levels-of-detail.md](levels-of-detail.md)).
@@ -39,7 +41,7 @@ The `humanoid.ranger.male` bundle holds the following.
   - the original authored jog clips `Jog_Bwd_Loop`, `Jog_Strafe_Left_Loop` and `Jog_Strafe_Right_Loop` ([Authored jog clips](#authored-jog-clips)).
 - **Equipment entries:** `equipment.sword.arming`, `equipment.shield.heater`, the class set `equipment.dagger.blackened` (on `hand_r.weapon`) and `equipment.staff.bone`, `equipment.staff.gilded`, `equipment.staff.gnarled` (on `hand_r.staff`, #372), the class starter props `equipment.staff.crystal` (on `hand_r.staff`), `equipment.book.tome` (on `hand_l.shield`) and `equipment.mace.flanged` (on `hand_r.weapon`, #379) ([weapon recipes](weapon-recipes.md)) and `equipment.bow.long` (skinned to `grip` and `nock`), `equipment.arrow` and `equipment.quiver.back` ([archery](weapon-recipes.md#archery)), all parented at runtime through the sockets.
 - **Hair entries:** `hair.buzzed`, `hair.simple-parted` and `hair.long` (male) or `hair.long` and `hair.buns` (female), each with the variants `hair-1` and `hair-2`, on the `head.hair` socket. The pack textures `T_Hair_1` and `T_Hair_2` are per-mesh bakes with different UV layouts, so every style carries its own pack in both variants (#336; swapping packs garbled the strands). The male `hair.long` also merges the `Hair_Buzzed` cap as its crown, because Quaternius `Hair_Long` is only a fringe and a back curtain; its `tintMaterials` are `MI_Hair_2` (strands) and `MI_Hair_1` (crown). The hair materials are opaque, like the source: the packs have no alpha. The male figure also has the hand-modelled `hair.balding`, `hair.receding`, `hair.swept` and `hair.tied` ([Male variety](#male-variety-380)), each with the one variant `hair-1`.
-- **Armour entries:** `armor.soldier`, `armor.knight`, `armor.farmer`, `armor.innkeeper`, `armor.monk` and the class plates `armor.class.<id>` (male).
+- **Armour entries:** `armor.soldier`, `armor.knight`, `armor.farmer`, `armor.innkeeper`, `armor.monk` and the class plates `armor.class.<id>` (male); `armor.tanner` (female, #378).
 - **Facial hair entry (#376, male):** `facial-hair.beards`, with the hand-modelled nodes `beard.full`, `beard.short`, `beard.long`, `beard.goatee`, `beard.moustache` and `beard.walrus` (#380, [Male variety](#male-variety-380)).
 - **Head skins entry (#380, male):** `skin.head`, one small quad per painted head skin, named after its material ([Male variety](#male-variety-380)).
 - **Headwear entries (#336, #376, male):** `equipment.cap.ranger` (Ranger's Cap: felt crown, leather band and plume), `equipment.hat.straw` (Straw Hat: low flat crown, leather band, wide brim drooping at the edge; #376) and `equipment.helm.ironcrest` (Ironcrest Helm: iron dome, brass rim and crest fin, nasal bar) from the [headwear recipe](../adapters/blender/headwear.py). Each GLB holds one mesh node named after its piece and an identity `grip` node; the geometry is in the male rest model space around the head, so the `head.armor` socket places it. The owner approved the cap and helm on the live Ranger (2026-10-21). All three hide the hair (owner answer, 2026-10-21).
@@ -63,7 +65,7 @@ Face shape, eyes, nose and mouth can each be chosen independently (#348). Each f
 
 ### Resident presets
 
-The named Greyhaven residents of [mmorpg#418](https://github.com/moritzbrantner/mmorpg/issues/418) get one complete look each (#376), all on the male figure and its clips. A preset only combines options the descriptor already offers, and the build fails if one names an option that is missing (`validateAppearancePresets`).
+The named Greyhaven residents of [mmorpg#418](https://github.com/moritzbrantner/mmorpg/issues/418) get one complete look each (#376), on the male figure and its clips, except Tanner Hilda Brook, who is on the female figure (#378, in `humanoid.ranger.female`'s descriptor). A preset only combines options the descriptor already offers, and the build fails if one names an option that is missing (`validateAppearancePresets`).
 
 | Preset | Resident | Outfit | Skin | Hair and tint | Headwear | Facial hair | Face, eyes, nose, mouth |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -72,8 +74,7 @@ The named Greyhaven residents of [mmorpg#418](https://github.com/moritzbrantner/
 | `resident.innkeeper` | Innkeeper Bram Tolliver | `outfit.innkeeper` (white apron, leather belt) | Light | `hair.buzzed`, brown | none | moustache | broad, large, broad, full |
 | `resident.farmer` | Farmer Osric Mill | `outfit.farmer` (green smock, rope belt) | Dark | hidden, blond | straw hat | short beard | narrow, base, long, base |
 | `resident.healer` | Brother Aldous | `outfit.monk` (brown ankle-length habit, rope belt) | Light | `hair.buzzed`, grey | none | full beard | narrow, narrow, long, thin |
-
-Tanner Hilda Brook is not covered yet: the resident outfits exist for the male figure only.
+| `resident.tanner` (female) | Tanner Hilda Brook | `outfit.tanner` (green-grey ankle-length work skirt, long tan leather apron, leather belt) | Light | `hair.buns`, brown | none | none | broad, base, broad, base |
 
 - **Descriptor:** `humanoid-appearance.presets` lists each preset's `id`, `label`, `outfit`, `skin`, `hair` (absent when the headwear hides it), `tint`, `headwear`, `facialHair` (ids), `face` (one option per feature), `hiddenArmor` (plate nodes of the outfit's armour entry to leave off) and `faction` (a linear RGBA base-colour factor for the outfit's faction material, for the soldier and knight). A consumer resolves the outfit's variant for the preset's skin through `outfits[].skins`.
 - **Facial hair:** `humanoid-appearance.facialHair` names the entry `facial-hair.beards` and its `options`. Each option is one node with its `socket` (`head.armor`) and `tintMaterials`; several can be worn together. Since #380 the pieces are hand-modelled ([Male variety](#male-variety-380)) and wear the hair material `MI_Hair_1`, so `facialHair.tints` are the hair tints. They ride `Head`.
@@ -159,7 +160,7 @@ Each clip's `humanoid-clips` entry has a `bow` object:
 
 ## Female Ranger
 
-`--figure female` (#115, owner answer Q1 = A) builds `humanoid.ranger.female` with the same recipe (without the soldier and knight outfits). It uses the Universal Base Characters `Superhero_Female_FullBody` head (`keepMeshes: ["Eyebrows", "Eyes"]`) on the full `Female_Ranger` outfit ([humanoid-sources.md](humanoid-sources.md#female-body-and-outfit-115)).
+`--figure female` (#115, owner answer Q1 = A) builds `humanoid.ranger.female` with the same recipe. Of the Peasant-based outfits it has only the tanner (#378, over the pack's `Female_Peasant` outfit), and it has no headwear, facial hair or male variety. It uses the Universal Base Characters `Superhero_Female_FullBody` head (`keepMeshes: ["Eyebrows", "Eyes"]`) on the full `Female_Ranger` outfit ([humanoid-sources.md](humanoid-sources.md#female-body-and-outfit-115)).
 
 Both figures share the 65-joint rig, so the female Ranger gets the same bone maps, clips, equipment entries and `humanoid-clips` metadata. Its hips reference height is measured on its own rig. This is the second real humanoid performing the same clip set through the shared operation path.
 
