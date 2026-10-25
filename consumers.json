@@ -1,0 +1,96 @@
+{
+  "schema": "release-consumers-v1",
+  "consumers": [
+    {
+      "repo": "moenarch-games/mmorpg",
+      "release": "humanoid-ranger-male",
+      "pins": [{ "type": "export-ref", "path": "web/assets/ranger/export.ref.json" }]
+    },
+    {
+      "repo": "moenarch-games/mmorpg",
+      "release": "shrine-kit",
+      "pins": [
+        { "type": "tar-sha256", "path": "scripts/fetch-bundles.sh", "after": "fetch_pinned shrine-kit " },
+        { "type": "export-ref", "path": "web/assets/shrine-kit/export.ref.json" }
+      ]
+    },
+    {
+      "repo": "moenarch-games/mmorpg",
+      "release": "greyhaven-ambient-animals",
+      "pins": [
+        { "type": "tar-sha256", "path": "scripts/fetch-bundles.sh", "after": "fetch_pinned greyhaven-ambient-animals " },
+        { "type": "export-ref", "path": "web/assets/greyhaven-ambient-animals/export.ref.json" }
+      ]
+    },
+    {
+      "repo": "moenarch-games/mmorpg",
+      "release": "outpost-kit",
+      "pins": [
+        { "type": "tar-sha256", "path": "scripts/fetch-bundles.sh", "after": "fetch_pinned outpost-kit " },
+        { "type": "export-ref", "path": "web/assets/outpost-kit/export.ref.json" }
+      ]
+    },
+    {
+      "repo": "moenarch-games/mmorpg",
+      "release": "settlement-props",
+      "pins": [
+        { "type": "tar-sha256", "path": "scripts/fetch-bundles.sh", "after": "fetch_pinned settlement-props " },
+        { "type": "export-ref", "path": "web/assets/settlement-props/export.ref.json" }
+      ]
+    },
+    {
+      "repo": "moenarch-games/mmorpg",
+      "release": "combat-sounds",
+      "pins": [
+        { "type": "tar-sha256", "path": "scripts/fetch-bundles.sh", "after": "fetch_pinned combat-sounds " },
+        { "type": "export-ref", "path": "web/assets/combat-sounds/export.ref.json" }
+      ]
+    },
+    {
+      "repo": "moenarch-games/mmorpg",
+      "release": "greyhaven-nature",
+      "pins": [{ "type": "tar-sha256", "path": "scripts/fetch-nature-review.sh", "after": "EXPECTED=" }]
+    },
+    {
+      "repo": "moenarch-games/zoo",
+      "release": "zoo-scenery",
+      "pins": [
+        { "type": "tar-sha256", "path": "assets/scenery/zoo-scenery.pin.json", "after": "\"tarSha256\": \"" },
+        { "type": "export-ref", "path": "assets/scenery/export.ref.json" },
+        { "type": "file", "from": "lineage.json", "path": "assets/scenery/lineage.json" }
+      ]
+    },
+    {
+      "repo": "moenarch-games/zoo",
+      "release": "zoo-effects",
+      "pins": [
+        { "type": "tar-sha256", "path": "assets/effects/zoo-effects.pin.json", "after": "\"tarSha256\": \"" },
+        { "type": "export-ref", "path": "assets/effects/export.ref.json" },
+        { "type": "file", "from": "lineage.json", "path": "assets/effects/lineage.json" },
+        { "type": "file", "from": "zoo-effects.descriptor.json", "path": "assets/effects/zoo-effects.descriptor.json" }
+      ]
+    },
+    {
+      "repo": "moenarch-games/arpg",
+      "release": "combat-effects",
+      "pins": [
+        { "type": "tar-sha256", "path": "web/scripts/fetch-combat-effects.ts", "after": "sha256: \"" },
+        { "type": "export-ref", "path": "web/src/combat-effects/export.ref.json" },
+        { "type": "file", "from": "combat-effects.descriptor.json", "path": "web/src/combat-effects/descriptor.json" }
+      ],
+      "format": "cd web && bun install --frozen-lockfile >/dev/null && bun run format >/dev/null"
+    },
+    {
+      "repo": "moenarch-games/arpg",
+      "release": "humanoid-ranger-male",
+      "pinned": false,
+      "note": "web/scripts/fetch-character-assets.ts acquires the selected entries into a local copy and does not pin the live release"
+    },
+    {
+      "repo": "moritzbrantner/3d-lab",
+      "release": "humanoid-ranger-male",
+      "pinned": false,
+      "note": "scripts/fetch-ranger-acceptance.ts reads whatever the live release holds"
+    }
+  ]
+}

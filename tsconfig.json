@@ -92,6 +92,8 @@
     "src/asset-bundle.ts",
     "src/asset-bundle-pack.ts",
     "scripts/pack-asset-bundle.ts",
+    "scripts/prepare-release.ts",
+    "test/prepare-release.test.ts",
     "test/asset-bundle.test.ts",
     "src/effect-artwork-recipes.ts",
     "test/effect-artwork-recipes.test.ts",
