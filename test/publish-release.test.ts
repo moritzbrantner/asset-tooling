@@ -22,7 +22,7 @@ async function build() {
 
 describe("publish-release", () => {
   test("the dispatch choices list exactly the releases CI builds", async () => {
-    const workflow = await readFile(path.join(import.meta.dir, "../.github/workflows/publish-releases.yml"), "utf8");
+    const workflow = (await readFile(path.join(import.meta.dir, "../.github/workflows/publish-releases.yml"), "utf8")).replaceAll("\r\n", "\n");
     const options = /options:\n((?:\s+- .+\n)+)/.exec(workflow)![1]!.trim().split("\n").map((line) => line.trim().replace(/^- /, ""));
     expect(options).toEqual(ROLLING_RELEASES.map((release) => release.name));
     for (const release of ROLLING_RELEASES) expect(MANUAL_RELEASES[release.name]).toBeUndefined();
