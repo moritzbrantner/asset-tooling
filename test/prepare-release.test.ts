@@ -36,10 +36,10 @@ describe("prepare-release", () => {
     expect(() => findConsumers([{ repo: "o/d", release: "kit" }], "kit")).toThrow("lists no pins");
   });
 
-  test("the committed consumer list pins the Ranger only in mmorpg", async () => {
+  test("the committed consumer list reads the Ranger unpinned everywhere", async () => {
     const found = findConsumers(await loadConsumers(), "humanoid-ranger-male");
-    expect(found.pinned.map((c) => c.repo)).toEqual(["moenarch-games/mmorpg"]);
-    expect(found.unpinned.map((c) => c.repo)).toContain("moenarch-games/arpg");
+    expect(found.pinned).toEqual([]);
+    expect(found.unpinned.map((c) => c.repo)).toEqual(expect.arrayContaining(["moenarch-games/mmorpg", "moenarch-games/arpg"]));
   });
 
   test("rewrites the tar sha256 after its anchor and copies pinned release files", async () => {
