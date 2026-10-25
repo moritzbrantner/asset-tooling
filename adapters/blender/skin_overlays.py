@@ -1,19 +1,22 @@
-"""Painted skin variants for the male head (#380): aged and weathered textures per skin tone, and a stubble mask.
+"""Painted head skins for the male figure (#380), for the pinned Blender backend: middle-aged, aged and weathered, each
+with wrinkle relief in its normal map, and stubble in two shades, for the Dark and the Light skin.
 
 The head's base-colour texture is painted in its own UV layout: every texel the head covers gets its rest-pose
 position (the head triangles are rasterised in UV space), and the marks are painted as functions of that position,
 placed on the face landmarks of ``face_variants.landmarks``. So the strokes land on the face wherever the UV islands are,
 and the same painting fits any head that shares the landmarks.
 
+- ``middle``: a light version of the aged painting (fainter lines and folds, no spots).
 - ``aged``: forehead lines, a frown line between the brows, crow's feet, lines under the eyes, deep nose-to-mouth folds,
   lines from the mouth corners, neck lines, a few age spots and a slightly paler, less saturated skin.
 - ``weathered``: a sun-darkened, ruddier face (cheeks, nose, forehead), deep squint lines at the eyes, two deep forehead
   lines, blotchy uneven tone and a pale scar across the left cheek.
-- ``stubble``: a speckled mask over the beard area (jaw, chin, upper lip, cheeks below the beard line); a consumer
-  darkens the skin under it with the hair tint. It replaces the stubble shell.
+- stubble: a speckled shade over the beard area (jaw, chin, upper lip, cheeks below the beard line), ``dark`` for black
+  and brown hair and ``light`` for blond and grey. It replaces the stubble shell.
 
-Each tone of ``SKIN_TONES`` gets ``skin.<tone>.aged.png`` and ``skin.<tone>.weathered.png``: the light base texture times
-the tone, with the painting on top. No randomness beyond a fixed seed.
+The painted lines are also cut into the head's normal map as grooves, so the wrinkles catch the light. Skin tones stay
+base-colour factors over the Light skin, so the painting is per base skin, not per tone. No randomness beyond a fixed
+seed.
 """
 import math
 import os
@@ -144,6 +147,9 @@ def paint(pos, mask, lm):
     spots *= mask * (y < 0)
     out["aged"] = {"lines": numpy.clip(.8 * forehead + .8 * frown + .9 * crows + .7 * under + 1.0 * folds + .7 * marionette + .6 * neck, 0, 1) * mask,
                    "spots": spots}
+    # Middle-aged: a light version of the aged painting (fainter forehead lines, crow's feet and folds, no spots).
+    out["middle"] = {"lines": numpy.clip(.4 * forehead + .35 * frown + .45 * crows + .3 * under + .5 * folds, 0, 1) * mask,
+                     "spots": numpy.zeros_like(x)}
 
     squint = numpy.zeros_like(x)
     for s in (1, -1):
@@ -183,15 +189,25 @@ def luminance(c):
     return c[..., 0] * .2126 + c[..., 1] * .7152 + c[..., 2] * .0722
 
 
-def compose(base, layers, tone, kind):
-    """base (H, W, 3, linear) times tone, with the painting of ``kind``."""
-    c = base * numpy.array(tone) ** (1 / 2.2)  # the texture is sRGB; the tones are linear multipliers
-    if kind == "aged":
+AGES = ("base", "middle", "aged", "weathered")
+# Stubble shades (sRGB): dark for black and brown hair, light for blond and grey.
+STUBBLE_SHADES = {"dark": (.07, .055, .045), "light": (.36, .33, .29)}
+STUBBLE_STRENGTH = .6
+# How deep the painted lines cut into the normal map (tangent-space slope per unit of line darkness and texel).
+RELIEF = 2.2
+
+
+def compose(base, painted, kind, stubble=None):
+    """The base colour (H, W, 3, sRGB) with the painting of ``kind`` and optionally the stubble shade."""
+    c = base.copy()
+    if kind in ("middle", "aged"):
+        layers = painted[kind]
         lum = luminance(c)[..., None]
-        c = c * .85 + lum * .15
+        c = c * (.95 if kind == "middle" else .85) + lum * (.05 if kind == "middle" else .15)
         c = c * (1 - layers["lines"][..., None] * numpy.array((.3, .37, .42)))
         c = c * (1 - layers["spots"][..., None] * numpy.array((.25, .38, .5)))
-    else:
+    elif kind == "weathered":
+        layers = painted[kind]
         sun = layers["sun"][..., None]
         c = c * (1 - sun * (1 - numpy.array((.86, .76, .68))))
         c = c * (1 - layers["ruddy"][..., None] * numpy.array((.0, .2, .24)))
@@ -199,38 +215,148 @@ def compose(base, layers, tone, kind):
         c = c * (1 - layers["lines"][..., None] * numpy.array((.33, .41, .46)))
         scar = layers["scar"][..., None]
         c = c * (1 - scar) + scar * (c * .6 + numpy.array((.3, .2, .19)) * luminance(base).mean() * 2.2)
+    if stubble:
+        m = painted["stubble"][..., None] * STUBBLE_STRENGTH
+        c = c * (1 - m) + numpy.array(STUBBLE_SHADES[stubble]) * m
     return numpy.clip(c, 0, 1)
 
 
-def save(array, path, size):
-    image = bpy.data.images.new(os.path.basename(path), size, size, alpha=True)
+def relief(normal, lines):
+    """The tangent-space normal map (H, W, 3, 0..1) with the lines cut in as grooves (OpenGL convention: +u, +v)."""
+    n = normal * 2 - 1
+    dv, du = numpy.gradient(-lines)
+    n[..., 0] -= du * RELIEF
+    n[..., 1] -= dv * RELIEF
+    n /= numpy.linalg.norm(n, axis=-1, keepdims=True)
+    return numpy.clip(n * .5 + .5, 0, 1)
+
+
+def pixels(image, size):
+    """An image's RGB (H, W, 3) at ``size`` (box-averaged down when larger)."""
+    w, h = image.size
+    data = numpy.empty(w * h * 4, numpy.float32)
+    image.pixels.foreach_get(data)
+    rgb = data.reshape(h, w, 4)[..., :3].astype(numpy.float64)
+    k = w // size
+    if k > 1:
+        rgb = rgb.reshape(size, k, size, k, 3).mean(axis=(1, 3))
+    return rgb
+
+
+def write_png(array, path, colorspace):
+    """Writes array as a PNG and loads it back as a byte image (a float image of every texture would not fit)."""
+    size = array.shape[0]
+    image = bpy.data.images.new(os.path.basename(path), size, size, alpha=False)
     rgba = numpy.ones((size, size, 4), numpy.float32)
-    if array.ndim == 2:
-        rgba[..., :3] = array[..., None]
-    else:
-        rgba[..., :3] = array
+    rgba[..., :3] = array if array.ndim == 3 else array[..., None]
     image.pixels.foreach_set(rgba.ravel())
     image.filepath_raw, image.file_format = path, "PNG"
     image.save()
     bpy.data.images.remove(image)
+    loaded = bpy.data.images.load(path)
+    loaded.colorspace_settings.name = colorspace
+    loaded.pack()
+    return loaded
 
 
-def generate(head, image, lm, tones, out_dir):
-    """Writes skin.<tone>.aged.png, skin.<tone>.weathered.png and stubble.png for head's base-colour image."""
-    os.makedirs(out_dir, exist_ok=True)
-    size = image.size[0]
-    pixels = numpy.empty(size * size * 4, numpy.float32)
-    image.pixels.foreach_get(pixels)
-    base = pixels.reshape(size, size, 4)[..., :3].astype(numpy.float64)
+def textures(head, base_image, normal_image, lm, size, skin, out_dir):
+    """Every painted base colour and normal map of one skin as packed images, by material name."""
     pos, mask = positions(head, size)
     painted = paint(pos, mask, lm)
-    written = {}
-    for tone, factor in tones.items():
-        for kind in ("aged", "weathered"):
-            path = os.path.join(out_dir, f"{tone}.{kind}.png")
-            save(compose(base, painted[kind], factor, kind), path, size)
-            written[f"{tone}.{kind}"] = path
-    path = os.path.join(out_dir, "stubble.png")
-    save(painted["stubble"], path, size)
-    written["stubble"] = path
-    return written
+    base = pixels(base_image, size)
+    normal = pixels(normal_image, size)
+    made = {}
+    normals = {"base": write_png(normal, os.path.join(out_dir, f"{skin}.base.normal.png"), "Non-Color")}
+    for age in AGES[1:]:
+        normals[age] = write_png(relief(normal, painted[age]["lines"]), os.path.join(out_dir, f"{skin}.{age}.normal.png"), "Non-Color")
+    for age in AGES:
+        for stubble in (None, *STUBBLE_SHADES):
+            if age == "base" and stubble is None:
+                continue
+            name = f"{skin}.{age}" + (f".stubble.{stubble}" if stubble else "")
+            color = write_png(compose(base, painted, age, stubble), os.path.join(out_dir, f"{name}.png"), "sRGB")
+            made[name] = (color, normals[age])
+    return made
+
+
+def validate(p, inputs):
+    if type(p) is not dict or set(p) != {"schemaVersion", "size"} or p["schemaVersion"] != 1 or p["size"] not in (512, 1024, 2048):
+        raise ValueError("skin overlays take schemaVersion 1 and a size of 512, 1024 or 2048")
+    if set(inputs) != {"dark", "light", "face"}:
+        raise ValueError("skin overlays take exactly the inputs dark, light and face")
+
+
+def head_textures(material):
+    """The base-colour and normal-map images of the head material."""
+    shader = next(n for n in material.node_tree.nodes if n.type == "BSDF_PRINCIPLED")
+
+    def upstream(socket, kind):
+        queue = [socket.links[0].from_node]
+        while queue:
+            node = queue.pop(0)
+            if node.type == kind:
+                return node
+            queue += [i.links[0].from_node for i in node.inputs if i.is_linked]
+        raise ValueError(f"{material.name}: no {kind} upstream of {socket.name}")
+    normal_map = upstream(shader.inputs["Normal"], "NORMAL_MAP")
+    return upstream(shader.inputs["Base Color"], "TEX_IMAGE").image, upstream(normal_map.inputs["Color"], "TEX_IMAGE").image
+
+
+def generate(output_path, arguments, inputs):
+    """The ``skin.head`` entry: one small quad per painted head skin, named after its material ``<skin>.<age>`` or
+    ``<skin>.<age>.stubble.<shade>``, whose base-colour and normal textures a consumer puts on the head material."""
+    import tempfile
+    validate(arguments, inputs)
+    face = inputs.load_source("face")
+    size = arguments["size"]
+    bpy.ops.object.select_all(action="SELECT")
+    bpy.ops.object.delete(use_global=False)
+    out_dir = tempfile.mkdtemp(prefix="skin-overlays-")
+    made = {}
+    for skin, key in (("skin.dark", "dark"), ("skin.light", "light")):
+        before = set(bpy.data.objects)
+        bpy.ops.import_scene.gltf(filepath=inputs[key], bone_heuristic="BLENDER", guess_original_bind_pose=False)
+        objects = [o for o in bpy.data.objects if o not in before]
+        rig = next(o for o in objects if o.type == "ARMATURE")
+        rig.data.pose_position = "REST"
+        bpy.context.view_layer.update()
+        named = {o.name: o for o in objects if o.type == "MESH"}
+        head = named["SuperHero_Male"]
+        lm = face["landmarks"](head, named["Eyes"])
+        base_image, normal_image = head_textures(head.data.materials[0])
+        made.update(textures(head, base_image, normal_image, lm, size, skin, out_dir))
+        for o in objects:
+            bpy.data.objects.remove(o)
+    quads = []
+    for index, (name, (color, normal)) in enumerate(sorted(made.items())):
+        material = bpy.data.materials.new(name)
+        material.use_nodes = True
+        tree = material.node_tree
+        shader = next(n for n in tree.nodes if n.type == "BSDF_PRINCIPLED")
+        base = tree.nodes.new("ShaderNodeTexImage")
+        base.image = color
+        tree.links.new(base.outputs["Color"], shader.inputs["Base Color"])
+        bump = tree.nodes.new("ShaderNodeTexImage")
+        bump.image = normal
+        normal_map = tree.nodes.new("ShaderNodeNormalMap")
+        tree.links.new(bump.outputs["Color"], normal_map.inputs["Color"])
+        tree.links.new(normal_map.outputs["Normal"], shader.inputs["Normal"])
+        shader.inputs["Roughness"].default_value = .6
+        mesh = bpy.data.meshes.new(name)
+        x = index * .02
+        mesh.from_pydata([(x, 0, 0), (x + .01, 0, 0), (x + .01, 0, .01), (x, 0, .01)], [], [(0, 1, 2, 3)])
+        uv = mesh.uv_layers.new(name="UVMap")
+        for loop, coord in zip(uv.data, ((0, 0), (1, 0), (1, 1), (0, 1))):
+            loop.uv = coord
+        mesh.materials.append(material)
+        obj = bpy.data.objects.new(name, mesh)
+        bpy.context.scene.collection.objects.link(obj)
+        quads.append(obj)
+    bpy.ops.object.select_all(action="DESELECT")
+    for o in quads:
+        o.select_set(True)
+    bpy.ops.export_scene.gltf(
+        filepath=output_path, export_format="GLB", use_selection=True, export_yup=True, export_texcoords=True,
+        export_normals=True, export_tangents=False, export_animations=False, export_skins=False, export_morph=False,
+        export_cameras=False, export_lights=False, export_extras=False, export_image_format="AUTO")
+    return {"recipe": "skin-overlays-v1", "size": size, "materials": sorted(made)}

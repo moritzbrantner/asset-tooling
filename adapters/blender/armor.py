@@ -17,8 +17,7 @@ a clearance, so the plate follows the real body and clothing instead of a primit
   skirt; the other garments are fitted surfaces whose weights blend the nearest body vertices.
 
 The resident kits (#376) reuse the fitting for plain clothes: ``farmer`` (smock), ``innkeeper`` (apron) and ``monk``
-(ankle-length habit), each with a belt as its plate. The ``beard`` kit has plates only: the facial hair shells fitted to
-the head (``beard.full``, ``beard.short``, ``beard.moustache``), riding ``Head``.
+(ankle-length habit), each with a belt as its plate. The facial hair moved to ``hair_beards.py`` (#380).
 
 Materials are factor-only PBR (docs/style-humanlike.md): ``steel``, ``iron``, ``leather``, ``gambeson`` and the
 ``faction`` slot (owner answer Q11: the knight's tabard and the soldier's sash, default muted dark red). The
@@ -37,11 +36,9 @@ from mathutils import Matrix, Quaternion, Vector, kdtree
 
 # Class starter outfits (#379): the seven mmorpg classes over the same Peasant base, in the Greyhaven Marshal's style.
 CLASS_KITS = ("class.warden", "class.ranger", "class.arcanist", "class.necromancer", "class.rogue", "class.cleric", "class.druid")
-KITS = ("soldier", "knight", "farmer", "innkeeper", "monk", "beard", *CLASS_KITS)
+KITS = ("soldier", "knight", "farmer", "innkeeper", "monk", *CLASS_KITS)
 # Resident outfits (#376): plain clothes over the Peasant base; their only rigid piece is a belt.
 RESIDENT_KITS = ("farmer", "innkeeper", "monk")
-# Facial hair (#376): rigid shells fitted to the head that ride ``Head``; plates only, worn with any outfit.
-BEARD_KIT = "beard"
 OUTPUTS = ("plates", "cloth")
 MATERIALS = {
     # name: (linear base colour, metallic, roughness)
@@ -55,8 +52,6 @@ MATERIALS = {
     "linen": ((.62, .6, .52), 0.0, .85),
     "habit": ((.09, .055, .03), 0.0, .92),
     "rope": ((.36, .28, .15), 0.0, .9),
-    # Facial hair: a consumer tints it with the hair tint through the base-colour factor.
-    "beard": ((.05, .025, .011), 0.0, .95),
 }
 SHARP_ANGLE = math.radians(35)
 SHIRT = "Male_Peasant_Body"
@@ -73,8 +68,6 @@ def validate(p, inputs):
         raise ValueError("armor schemaVersion must be 1")
     if p["kit"] not in KITS or p["output"] not in OUTPUTS:
         raise ValueError(f"armor kit must be one of {', '.join(KITS)} and output plates or cloth")
-    if p["kit"] == BEARD_KIT and p["output"] != "plates":
-        raise ValueError("the beard kit has plates only")
     if set(inputs) != {"target"}:
         raise ValueError("armor takes exactly the declared input target")
 
@@ -423,69 +416,12 @@ def helmet(body, kit):
     dome["ts"] = [0] * 3 + dome["ts"]
     return dome, None, crown + Vector((0, .012, 0))
 
-
-# Facial hair (#376) in the head's frame: heights in metres, angles in degrees from the front around the head's
-# vertical axis. ``top``/``hem`` give the upper and lower edge at the front and at the sides (linear in between, by
-# |angle| / ``reach``); below the chin the shell hangs, losing at most ``slope`` metres of radius per metre of height.
-BEARDS = {
-    "beard.full": {"reach": 115, "top": (1.598, 1.705), "hem": (1.49, 1.6), "clearance": .013, "slope": .25, "thickness": .012},
-    "beard.short": {"reach": 110, "top": (1.598, 1.69), "hem": (1.545, 1.6), "clearance": .007, "slope": .9, "thickness": .006},
-}
-BEARD_ROWS = 12
-MOUSTACHE = {"reach": 40, "rows": (1.617, 1.645), "droop": .03, "clearance": .007, "thickness": .007}
-
-
-def beard_plates(body):
-    centre, indices = head_centre(body)
-    head = body.select(["Head", "neck_01"], minimum=.5)
-    a = Vector((centre.x, 1.44, centre.z))
-    u, e1, e2 = Vector((0, 1, 0)), FRONT, Vector((1, 0, 0))
-    pieces = []
-    for name, spec in sorted(BEARDS.items()):
-        reach = math.radians(spec["reach"])
-        columns = 2 * int(spec["reach"] // 8) + 1
-        # The head's radius on a fine height table, then hung below the chin.
-        fine = numpy.arange(spec["hem"][0] - .01, 1.725, .004) - a.y
-        thetas = [-reach + 2 * reach * j / (columns - 1) for j in range(columns)]
-        radii = fit_radii(body, head, a, u, e1, e2, list(fine), thetas, .006, math.radians(5), False) + spec["clearance"]
-        for i in range(len(fine) - 2, -1, -1):
-            radii[i] = numpy.maximum(radii[i], radii[i + 1] - spec["slope"] * (fine[i + 1] - fine[i]))
-        # Each column runs from the hem to the top edge at its angle, so the outline is smooth.
-        grid = []
-        for i in range(BEARD_ROWS):
-            v = i / (BEARD_ROWS - 1)
-            row = []
-            for j, theta in enumerate(thetas):
-                k = min(1.0, abs(theta) / reach)
-                hem = spec["hem"][0] + (spec["hem"][1] - spec["hem"][0]) * k ** .7
-                top = spec["top"][0] + (spec["top"][1] - spec["top"][0]) * k ** 1.6
-                t = hem + (top - hem) * v - a.y
-                r = float(numpy.interp(t, fine, radii[:, j]))
-                row.append(a + u * t + (e1 * math.cos(theta) + e2 * math.sin(theta)) * r)
-            grid.append(row)
-        surface = {"grid": grid, "closed": False, "axis": (a, u), "thetas": thetas, "ts": list(range(BEARD_ROWS))}
-        pieces.append((name, "Head", "beard", surface, None, None, spec["thickness"]))
-    # The moustache: a band over the upper lip whose ends droop past the corners of the mouth.
-    reach = math.radians(MOUSTACHE["reach"])
-    low, high = MOUSTACHE["rows"]
-    ts = [low - a.y + (high - low) * i / 3 for i in range(4)]
-    thetas = [-reach + 2 * reach * j / 10 for j in range(11)]
-    radii = fit_radii(body, head, a, u, e1, e2, ts, thetas, .006, math.radians(6), False) + MOUSTACHE["clearance"]
-    grid = [[a + u * (t - MOUSTACHE["droop"] * (theta / reach) ** 2) + (e1 * math.cos(theta) + e2 * math.sin(theta)) * float(radii[i, j])
-             for j, theta in enumerate(thetas)] for i, t in enumerate(ts)]
-    pieces.append(("beard.moustache", "Head", "beard", {"grid": grid, "closed": False, "axis": (a, u), "thetas": thetas, "ts": ts},
-                   None, None, MOUSTACHE["thickness"]))
-    return pieces
-
-
 def plate_surfaces(body, rig, kit):
     """Every rigid piece of the kit: (node name, joint, material, surface, mask, apex, thickness)."""
     if kit in CLASS_KITS:
         return class_plates(body, rig, kit)
     if kit in RESIDENT_KITS:
         return resident_plates(body, kit)
-    if kit == BEARD_KIT:
-        return beard_plates(body)
     pieces = []
     surface, mask, apex = helmet(body, kit)
     pieces.append((f"{kit}.{'bascinet' if kit == 'knight' else 'kettle-hat'}", "Head", "iron" if kit == "soldier" else "steel",

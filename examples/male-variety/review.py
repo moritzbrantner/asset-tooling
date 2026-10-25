@@ -1,13 +1,13 @@
-"""Male variety review sheets (#380, phase 1b), rendered headless:
+"""Male variety review sheets (#380), rendered headless from a built humanoid-ranger-male bundle:
 
-    blender -b --factory-startup --python examples/male-variety/review.py -- <bundle dir> <textures dir> <out dir> [suffix]
+    blender -b --factory-startup --python examples/male-variety/review.py -- <bundle dir> <out dir> [suffix]
 
-``<bundle dir>`` is a built humanoid-ranger-male bundle. ``<textures dir>`` receives the painted skin variants of
-``adapters/blender/skin_overlays.py`` (aged and weathered per skin tone, and the stubble mask). Eight men wear the
-Greyhaven Marshal's outfit (the knight kit without its bascinet, in the Greyhaven blue), each with his own height, age,
-build, face, skin, hair and beard: the age and build keys of ``male_variety.py``, the hand-modelled hair and beards of
-``hair_beards.py`` (and the pack's parted, buzzed and long hair). Lit like the #377/#379 sheets (procedural sky at 0.06
-and a 3.5 sun):
+Eight men wear the Greyhaven Marshal's outfit (``outfit.knight`` without its bascinet, in the Greyhaven blue), each
+composed the way a consumer would from the bundle's ``humanoid-appearance`` descriptor: the character variant of his
+skin, the armour plates on their sockets, his hairstyle and facial hair entries, the morph weights of his age, build
+and face options on every mesh, his skin tone (a base-colour factor over the Light skin), the painted head skin of his
+age and stubble from the ``skin.head`` entry, and his height as the rig's scale. Lit like the #377/#379 sheets
+(procedural sky at 0.06 and a 3.5 sun):
 
 - ``male-variety-12m<suffix>.png``: the line-up in Idle_Loop at the mmorpg game camera (12 m from a pivot 0.6 m up,
   pitched 0.42 rad, 50 degree vertical field of view);
@@ -15,7 +15,6 @@ and a 3.5 sun):
 """
 import math
 import os
-import runpy
 import sys
 
 import bpy
@@ -25,197 +24,126 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
 review = {"__name__": "class_outfits_review"}
 exec(open(os.path.join(ROOT, "examples", "class-outfits", "review.py")).read().rsplit("\nmain()", 1)[0], review)
-BLENDER = os.path.join(ROOT, "adapters", "blender")
-MV = runpy.run_path(os.path.join(BLENDER, "male_variety.py"))
-FV = runpy.run_path(os.path.join(BLENDER, "face_variants.py"))
-HB = runpy.run_path(os.path.join(BLENDER, "hair_beards.py"))
-SO = runpy.run_path(os.path.join(BLENDER, "skin_overlays.py"))
 
 FACTION = (0.05, 0.08, 0.15, 1)  # Greyhaven blue (resident.marshal)
-HAIR_TINTS = {"black": (.02, .02, .02, 1), "brown": (.18, .09, .04, 1), "blond": (.62, .48, .25, 1), "grey": (.9, .9, .88, 1)}
-HAIR_OBJECTS = {"hair.simple-parted": ["Hair_SimpleParted"], "hair.buzzed": ["Hair_Buzzed"], "hair.long": ["Hair_Long", "Hair_Long_base"],
-                "hair.balding": ["hair.balding"], "hair.receding": ["hair.receding"], "hair.swept": ["hair.swept"],
-                "hair.tied": ["hair.tied"], None: []}
-# Which painted skin goes with which age key (the young and middle-aged keep the plain toned skin).
-AGE_SKIN = {"age.old": "aged", "age.weathered": "weathered"}
-# The eight men: height (rig scale), age key, build key (None is the average build), face keys, skin tone, hair, hair
-# colour, facial hair and stubble.
+# The eight men: height, age, build, face options, base skin and tone, hair, tint, facial hair and stubble.
 MEN = [
-    {"label": "young / lean", "height": 1.04, "age": "age.young", "build": "build.lean", "face": ["face.narrow", "eyes.large"],
-     "skin": "skin.light", "hair": "hair.swept", "colour": "brown", "beard": [], "stubble": True},
-    {"label": "middle / average", "height": 1.0, "age": "age.middle", "build": None, "face": ["face.broad", "nose.broad"],
-     "skin": "skin.olive", "hair": "hair.simple-parted", "colour": "black", "beard": ["beard.short"]},
-    {"label": "old / heavy", "height": .95, "age": "age.old", "build": "build.heavy", "face": ["nose.long"],
-     "skin": "skin.fair", "hair": "hair.balding", "colour": "grey", "beard": ["beard.long", "beard.moustache"]},
-    {"label": "weathered / lean", "height": 1.06, "age": "age.weathered", "build": "build.lean", "face": ["eyes.narrow", "mouth.thin"],
-     "skin": "skin.tan", "hair": "hair.buzzed", "colour": "brown", "beard": ["beard.goatee", "beard.moustache"], "stubble": True},
-    {"label": "young / heavy", "height": .97, "age": "age.young", "build": "build.heavy", "face": ["nose.broad", "mouth.full"],
-     "skin": "skin.brown", "hair": "hair.tied", "colour": "black", "beard": []},
-    {"label": "middle / lean", "height": 1.02, "age": "age.middle", "build": "build.lean", "face": ["face.narrow", "nose.long"],
-     "skin": "skin.deep", "hair": None, "colour": "black", "beard": ["beard.full", "beard.moustache"]},
-    {"label": "old / average", "height": .94, "age": "age.old", "build": None, "face": ["face.broad", "eyes.narrow"],
-     "skin": "skin.light", "hair": "hair.receding", "colour": "grey", "beard": ["beard.walrus"], "stubble": True},
+    {"label": "young / lean", "height": 1.06, "age": "age.young", "build": "build.lean", "face": ["face.narrow", "eyes.large"],
+     "skin": "skin.light", "tone": "tone.light", "hair": "hair.swept", "tint": "tint.brown", "beard": [], "stubble": True},
+    {"label": "middle / average", "height": 1.0, "age": "age.middle", "build": "build.average", "face": ["face.broad", "nose.broad"],
+     "skin": "skin.light", "tone": "tone.olive", "hair": "hair.simple-parted", "tint": "tint.black", "beard": ["beard.short"]},
+    {"label": "old / heavy", "height": .93, "age": "age.old", "build": "build.heavy", "face": ["nose.long"],
+     "skin": "skin.light", "tone": "tone.fair", "hair": "hair.balding", "tint": "tint.grey", "beard": ["beard.long", "beard.moustache"]},
+    {"label": "weathered / lean", "height": 1.09, "age": "age.weathered", "build": "build.lean", "face": ["eyes.narrow", "mouth.thin"],
+     "skin": "skin.light", "tone": "tone.tan", "hair": "hair.buzzed", "tint": "tint.brown", "beard": ["beard.goatee", "beard.moustache"], "stubble": True},
+    {"label": "young / heavy", "height": .96, "age": "age.young", "build": "build.heavy", "face": ["nose.broad", "mouth.full"],
+     "skin": "skin.light", "tone": "tone.brown", "hair": "hair.tied", "tint": "tint.black", "beard": []},
+    {"label": "middle / lean", "height": 1.03, "age": "age.middle", "build": "build.lean", "face": ["face.narrow", "nose.long"],
+     "skin": "skin.light", "tone": "tone.deep", "hair": None, "tint": "tint.black", "beard": ["beard.full", "beard.moustache"]},
+    {"label": "old / average", "height": .91, "age": "age.old", "build": "build.average", "face": ["face.broad", "eyes.narrow"],
+     "skin": "skin.light", "tone": "tone.light", "hair": "hair.receding", "tint": "tint.grey", "beard": ["beard.walrus"], "stubble": True},
     {"label": "weathered / heavy", "height": 1.01, "age": "age.weathered", "build": "build.heavy", "face": ["face.broad", "mouth.thin"],
-     "skin": "skin.olive", "hair": "hair.long", "colour": "blond", "beard": ["beard.short"]},
+     "skin": "skin.dark", "tone": None, "hair": "hair.long", "tint": "tint.blond", "beard": ["beard.short"]},
 ]
 SPACING = 1.8
-STUBBLE = .75  # how far the stubble mask pulls the skin toward the hair tint
 
 
 def x_of(i):
     return (i - (len(MEN) - 1) / 2) * SPACING
 
 
-def template(bundle):
-    """The Marshal, dressed, with every hair and beard option on his head, and the #380 keys on every mesh."""
-    info = review["attachments"](bundle)
-    appearance = info["appearance"]
-    marshal = dict(next(p for p in appearance["presets"] if p["id"] == "resident.marshal"), id="class.marshal", hair=None,
-                   facialHair=None)
-    appearance["presets"].append(marshal)
-    review["PROPS"]["marshal"] = []
-    default = os.path.join(bundle, "scenes", appearance["character"], "default.gltf")
-    rest = review["gltf_rest_worlds"](default)
-    for o in review["imported"](default):
-        bpy.data.objects.remove(o)
-    rig = review["dress"](bundle, info, rest, "marshal", 0)
-    rig.data.pose_position = "REST"
-    bpy.context.view_layer.update()
-    scenes = os.path.join(bundle, "scenes")
-    for entry in ("hair.simple-parted", "hair.buzzed", "hair.long"):
-        for o in review["imported"](os.path.join(scenes, entry, "hair-1.gltf")):
-            if o.name.startswith("Hair_Buzzed") and entry == "hair.long":
-                o.name = "Hair_Long_base"
-            review["attach"](o, rig, "Head", o.matrix_world.copy())
-    bpy.context.view_layer.update()
-    objects = {o.name: o for o in bpy.data.objects if o.parent == rig}
-    HB["make"](objects["SuperHero_Male"], rig, objects["Hair_Buzzed"].data.materials[0], bpy.context.scene.collection)
-    objects = {o.name: o for o in bpy.data.objects if o.parent == rig}
-    beards = [o for n, o in objects.items() if n.startswith("beard.")]
-    lm, age = MV["add_age_keys"](objects["SuperHero_Male"], objects["Eyes"], objects["Eyebrows"], FV["landmarks"], followers=beards)
-    build = MV["add_build_keys"](rig, list(objects.values()), lm)
-    print("[review] age keys", age)
-    print("[review] build keys", build)
-    for o in objects.values():
-        for m in o.data.materials:
-            if m and m.name.startswith("faction"):
-                next(n for n in m.node_tree.nodes if n.type == "BSDF_PRINCIPLED").inputs["Base Color"].default_value = FACTION
-    return rig, objects, lm
+def option(section, option_id):
+    return next(o for o in section["options"] if o["id"] == option_id)
 
 
-def skin_textures(objects, lm, out):
-    """Paints (or reuses) the aged and weathered skins per tone and the stubble mask; returns them as loaded images."""
-    head = objects["SuperHero_Male"]
-    material = head.data.materials[0]
-    base = base_texture(material).image
-    paths = {f"{tone}.{kind}": os.path.join(out, f"{tone}.{kind}.png") for tone in MV["SKIN_TONES"] for kind in ("aged", "weathered")}
-    paths["stubble"] = os.path.join(out, "stubble.png")
-    if not all(os.path.exists(p) for p in paths.values()):
-        paths = SO["generate"](head, base, lm, MV["SKIN_TONES"], out)
-    images = {}
-    for key, path in paths.items():
-        image = bpy.data.images.load(path, check_existing=True)
-        if key == "stubble":
-            image.colorspace_settings.name = "Non-Color"
-        images[key] = image
-    return images
-
-
-def base_texture(material):
-    """The image node feeding the base colour (through the importer's vertex-colour mix, if any)."""
-    shader = next(n for n in material.node_tree.nodes if n.type == "BSDF_PRINCIPLED")
-    queue = [shader.inputs["Base Color"].links[0].from_node]
-    while queue:
-        node = queue.pop(0)
-        if node.type == "TEX_IMAGE":
-            return node
-        queue += [i.links[0].from_node for i in node.inputs if i.is_linked]
-    raise ValueError(f"{material.name} has no base-colour texture")
-
-
-def stubble(material, mask, tint):
-    """Darkens the skin under the stubble mask toward the hair tint."""
+def image_nodes(material):
+    """The image nodes feeding the base colour and the normal map of a material."""
     tree = material.node_tree
     shader = next(n for n in tree.nodes if n.type == "BSDF_PRINCIPLED")
-    base = shader.inputs["Base Color"]
-    source = base.links[0].from_socket
-    texture = tree.nodes.new("ShaderNodeTexImage")
-    texture.image = mask
-    texture.location = base_texture(material).location
-    uv = base_texture(material).inputs["Vector"]
-    if uv.is_linked:
-        tree.links.new(uv.links[0].from_socket, texture.inputs["Vector"])
-    amount = tree.nodes.new("ShaderNodeMath")
-    amount.operation, amount.inputs[1].default_value = "MULTIPLY", STUBBLE
-    tree.links.new(texture.outputs["Color"], amount.inputs[0])
-    mix = tree.nodes.new("ShaderNodeMix")
-    mix.data_type, mix.blend_type = "RGBA", "MIX"
-    tree.links.new(amount.outputs[0], mix.inputs[0])
-    tree.links.new(source, mix.inputs[6])
-    mix.inputs[7].default_value = tuple(c * .3 for c in tint[:3]) + (1,)
-    tree.links.new(mix.outputs[2], base)
+
+    def upstream(socket, kind):
+        queue = [socket.links[0].from_node] if socket.is_linked else []
+        while queue:
+            node = queue.pop(0)
+            if node.type == kind:
+                return node
+            queue += [i.links[0].from_node for i in node.inputs if i.is_linked]
+        return None
+    normal_map = upstream(shader.inputs["Normal"], "NORMAL_MAP")
+    return upstream(shader.inputs["Base Color"], "TEX_IMAGE"), normal_map and upstream(normal_map.inputs["Color"], "TEX_IMAGE")
 
 
-def pristine(material):
-    """A copy of material without any earlier tint (the class review tints the preset hair in place)."""
-    copy = material.copy()
-    for node in [n for n in copy.node_tree.nodes if n.bl_idname == "ShaderNodeMix" and n.blend_type == "MULTIPLY"
-                 and n.inputs[0].default_value == 1.0 and not n.inputs[7].is_linked]:
-        source = node.inputs[6].links[0].from_socket
-        for link in list(node.outputs[2].links):
-            copy.node_tree.links.new(source, link.to_socket)
-        copy.node_tree.nodes.remove(node)
-    return copy
+def head_skins(bundle, appearance):
+    """The painted head skins of the skin.head entry: material name -> (base colour image, normal image)."""
+    names = {texture["material"] for texture in appearance["headSkins"]["textures"]}
+    objects = review["imported"](os.path.join(bundle, "scenes", appearance["headSkins"]["entry"], "default.gltf"))
+    skins = {}
+    for o in objects:
+        if o.type == "MESH":
+            material = o.data.materials[0]
+            name = next(n for n in names if material.name == n or material.name.startswith(n + ".0"))
+            color, normal = image_nodes(material)
+            skins[name] = (color.image, normal.image)
+        bpy.data.objects.remove(o)
+    return skins
 
 
-def man(i, spec, rig, objects, skins):
-    keep = ["Male_Peasant_Arms", "Male_Peasant_Body", "Male_Peasant_Feet", "Male_Peasant_Legs", "SuperHero_Male", "Eyes",
-            "Eyebrows", *[n for n in objects if n.startswith("knight.")], *HAIR_OBJECTS[spec["hair"]], *spec["beard"]]
-    new_rig = rig.copy()
-    new_rig.name = f"man{i}.rig"
-    bpy.context.scene.collection.objects.link(new_rig)
-    keys = {spec["age"], spec["build"], *spec["face"]} - {None}
-    tone = MV["SKIN_TONES"][spec["skin"]]
-    painted = AGE_SKIN.get(spec["age"])
-    hair = HAIR_TINTS[spec["colour"]]
-    for name in keep:
-        src = objects[name]
-        o = src.copy()
-        o.data = src.data.copy()
-        o.name = f"man{i}.{name}"
-        bpy.context.scene.collection.objects.link(o)
-        o.parent = new_rig
-        o.matrix_parent_inverse = src.matrix_parent_inverse.copy()
-        for mod in o.modifiers:
-            if mod.type == "ARMATURE":
-                mod.object = new_rig
-        if o.data.shape_keys:
+def compose(i, spec, bundle, info, rest, skins):
+    appearance = info["appearance"]
+    name = f"man{i}"
+    appearance["presets"].append({"id": f"class.{name}", "outfit": "outfit.knight", "skin": spec["skin"], "hair": spec["hair"],
+                                  "tint": spec["tint"], "facialHair": spec["beard"], "hiddenArmor": ["knight.bascinet"]})
+    review["PROPS"][name] = []
+    before = set(bpy.data.objects)
+    rig = review["dress"](bundle, info, rest, name, x_of(i))
+    objects = [o for o in bpy.data.objects if o not in before]
+    weights = {}
+    for section, choice in (("ages", spec["age"]), ("builds", spec["build"])):
+        weights.update(option(appearance[section], choice)["morphs"])
+    for feature in appearance["face"]["features"]:
+        for choice in spec["face"]:
+            if any(o["id"] == choice for o in feature["options"]):
+                weights.update(option(feature, choice)["morphs"])
+    for o in objects:
+        if o.type == "MESH" and o.data.shape_keys:
             for block in o.data.shape_keys.key_blocks[1:]:
-                block.value = 1.0 if block.name in keys else 0.0
-        for slot, m in enumerate(o.data.materials):
-            if m is None:
+                block.value = weights.get(block.name, 0.0)
+    tint = next(t for t in appearance["tints"] if t["id"] == spec["tint"])["baseColorFactor"]
+    brows = appearance["eyebrows"]
+    tone = spec["tone"] and next(t for t in appearance["skinTones"]["tones"] if t["id"] == spec["tone"])["baseColorFactor"]
+    age_skin = option(appearance["ages"], spec["age"])["skin"]
+    shade = appearance["headSkins"]["stubbleShades"][spec["tint"]] if spec.get("stubble") else None
+    painted = next((t["material"] for t in appearance["headSkins"]["textures"]
+                    if t["skin"] == spec["skin"] and t["age"] == age_skin and t.get("stubble") == shade), None)
+    for o in objects:
+        if o.type != "MESH":
+            continue
+        for slot, material in enumerate(o.data.materials):
+            if material is None:
                 continue
-            base = m.name.split(".")[0]
-            if base == "MI_Superhero_Male":
-                copy = m.copy()
-                if painted:
-                    base_texture(copy).image = skins[f"{spec['skin']}.{painted}"]
-                else:
-                    MV["tone"](copy, tone)
-                if spec.get("stubble"):
-                    stubble(copy, skins["stubble"], hair)
+            base = material.name.split(".")[0]
+            if base.startswith("faction"):
+                next(n for n in material.node_tree.nodes if n.type == "BSDF_PRINCIPLED").inputs["Base Color"].default_value = FACTION
+            beard = next((b for b in appearance["facialHair"]["options"] if o.name.startswith(b["node"])), None)
+            if beard and base in beard["tintMaterials"]:
+                copy = material.copy()
+                review["tinted"](copy, tint)
                 o.data.materials[slot] = copy
-            elif base == "MI_Regular_Male":
-                copy = m.copy()
-                MV["tone"](copy, tone)
+            if o.name.split(".")[0] in brows["nodes"] and base in brows["tintMaterials"]:
+                copy = material.copy()
+                review["tinted"](copy, tint)
                 o.data.materials[slot] = copy
-            elif base.startswith("MI_Hair"):
-                copy = pristine(m)
-                review["tinted"](copy, hair)
+            if base == appearance["headSkins"]["material"] and painted:
+                copy = material.copy()
+                color, normal = image_nodes(copy)
+                color.image, normal.image = skins[painted]
+                o.data.materials[slot] = material = copy
+            if tone and base in appearance["skinTones"]["materials"]:
+                copy = material.copy()
+                review["tinted"](copy, tone)
                 o.data.materials[slot] = copy
-    new_rig.location.x = x_of(i)
-    new_rig.scale = (spec["height"],) * 3
-    return new_rig
+    rig.scale = (spec["height"],) * 3
+    return rig
 
 
 def labels(scene):
@@ -234,17 +162,20 @@ def labels(scene):
 
 def main():
     args = sys.argv[sys.argv.index("--") + 1:]
-    bundle, textures, out = args[:3]
-    suffix = args[3] if len(args) > 3 else ""
+    bundle, out = args[:2]
+    suffix = args[2] if len(args) > 2 else ""
     os.makedirs(out, exist_ok=True)
     bpy.ops.object.select_all(action="SELECT")
     bpy.ops.object.delete()
     scene = bpy.context.scene
-    rig, objects, lm = template(bundle)
-    skins = skin_textures(objects, lm, textures)
-    rigs = [man(i, spec, rig, objects, skins) for i, spec in enumerate(MEN)]
-    for o in [rig, *objects.values()]:
+    info = review["attachments"](bundle)
+    appearance = info["appearance"]
+    default = os.path.join(bundle, "scenes", appearance["character"], "default.gltf")
+    rest = review["gltf_rest_worlds"](default)
+    for o in review["imported"](default):
         bpy.data.objects.remove(o)
+    skins = head_skins(bundle, appearance)
+    rigs = [compose(i, spec, bundle, info, rest, skins) for i, spec in enumerate(MEN)]
     camera = review["stage"](scene)
     for o in [o for o in scene.objects if o.name.startswith("label.")]:
         bpy.data.objects.remove(o)

@@ -25,6 +25,7 @@ import {
 } from "../scripts/build-ranger-character.ts";
 import { WEAPON_ROLES } from "../src/weapon-recipes.js";
 import { FACE_MORPH_NODES, FACE_MORPH_TARGETS } from "../src/face-variants.js";
+import { VARIETY_BEARDS, VARIETY_BUILD_TARGETS, VARIETY_MORPH_TARGETS } from "../src/male-variety.js";
 import { ARMOR_OUTFIT_KITS } from "../src/armor-recipes.js";
 
 const ROOT = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
@@ -211,17 +212,36 @@ test("the Ranger recipe builds a verified bundle: in-place clips, equipment entr
     const appearance = JSON.parse((await readAssetBundleAttachment(built.bundleDir, manifest, RANGER_BUNDLE_KEY, RANGER_BUNDLE_VARIANT, "humanoid-appearance")).toString("utf8"));
     assert.deepEqual(appearance.face.nodes, FACE_MORPH_NODES.male);
     assert.deepEqual(appearance.face.features.map((feature: any) => feature.options.length), [3, 3, 3, 3]);
-    const morphNodes = async (variant: string) => {
-      const read = await readAssetBundleGltf(built.bundleDir, manifest, RANGER_BUNDLE_KEY, variant);
+    // #380: after the face targets, the head and eyebrows carry the age targets and every mesh but the eyes the build
+    // targets.
+    const [head, eyes, eyebrows] = FACE_MORPH_NODES.male;
+    const expectedTargets = (name: string) => name === head || name === eyebrows ? [...FACE_MORPH_TARGETS, ...VARIETY_MORPH_TARGETS]
+      : name === eyes ? FACE_MORPH_TARGETS : VARIETY_BUILD_TARGETS;
+    const morphNodes = async (key: string, variant: string, expected: (name: string) => readonly string[]) => {
+      const read = await readAssetBundleGltf(built.bundleDir, manifest, key, variant);
       const variantDocument = await new NodeIO().readJSON({ json: JSON.parse(read.gltf.toString("utf8")), resources: Object.fromEntries(read.resources) });
-      return variantDocument.getRoot().listNodes().filter((node) => node.getMesh()?.listPrimitives().some((primitive) => primitive.listTargets().length))
-        .map((node) => { assert.deepEqual((node.getMesh()!.getExtras() as any).targetNames, FACE_MORPH_TARGETS, node.getName()); return node.getName(); }).sort();
+      const meshNodes = variantDocument.getRoot().listNodes().filter((node) => node.getMesh());
+      return meshNodes.filter((node) => node.getMesh()!.listPrimitives().some((primitive) => primitive.listTargets().length))
+        .map((node) => { assert.deepEqual((node.getMesh()!.getExtras() as any).targetNames, expected(node.getName()), `${key}/${variant} ${node.getName()}`); return node.getName(); }).sort();
     };
-    for (const variant of appearance.face.variants) assert.deepEqual(await morphNodes(variant), [...FACE_MORPH_NODES.male].sort(), variant);
-    for (const variant of appearance.face.unsupported.variants) assert.deepEqual(await morphNodes(variant), [], variant);
-    // #376: the resident presets and the facial hair they name ship in the descriptor.
+    for (const variant of appearance.face.variants) {
+      const keyed = await morphNodes(RANGER_BUNDLE_KEY, variant, expectedTargets);
+      for (const name of FACE_MORPH_NODES.male) assert.ok(keyed.includes(name), `${variant} ${name}`);
+    }
+    for (const variant of appearance.face.unsupported.variants) assert.deepEqual(await morphNodes(RANGER_BUNDLE_KEY, variant, () => []), [], variant);
+    assert.deepEqual(appearance.builds.variants, appearance.face.variants);
+    for (const entry of appearance.builds.entries) {
+      const variant = entry.startsWith("hair.") ? "hair-1" : RANGER_BUNDLE_VARIANT;
+      const facial = entry === "facial-hair.beards";
+      assert.ok((await morphNodes(entry, variant, () => facial ? VARIETY_MORPH_TARGETS : VARIETY_BUILD_TARGETS)).length > 0, entry);
+    }
+    // #380: the painted head skins, one material per skin, age and stubble shade.
+    const skins = await readAssetBundleGltf(built.bundleDir, manifest, "skin.head", RANGER_BUNDLE_VARIANT);
+    const skinMaterials = (JSON.parse(skins.gltf.toString("utf8")).materials as any[]).map((material) => material.name).sort();
+    assert.deepEqual(skinMaterials, appearance.headSkins.textures.map((texture: any) => texture.material).sort());
+    // #376: the resident presets and the facial hair they name ship in the descriptor (#380: hand-modelled, six).
     assert.deepEqual(appearance.presets.map((preset: any) => preset.id), [...RANGER_RESIDENT_PRESETS, ...RANGER_CLASS_PRESETS].map((preset) => preset.id));
-    assert.deepEqual(appearance.facialHair.options.map((option: any) => option.id).sort(), ["beard.full", "beard.moustache", "beard.short"]);
+    assert.deepEqual(appearance.facialHair.options.map((option: any) => option.id).sort(), Object.keys(VARIETY_BEARDS).sort());
     validateAppearancePresets(appearance, [...RANGER_RESIDENT_PRESETS, ...RANGER_CLASS_PRESETS]);
     // #379: each class outfit has its plain and Light skins (the Necromancer also grey), levels of detail and a class colour.
     for (const kit of ["warden", "ranger", "arcanist", "necromancer", "rogue", "cleric", "druid"]) {

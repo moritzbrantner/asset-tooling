@@ -1,7 +1,10 @@
-"""Male character variety (#380), block-out: age and build shape keys, extra hairstyles and skin tones.
+"""Male character variety (#380): age and build shape keys, heights and skin tones, for the pinned Blender backend.
 
-WIP for the phase 1 review sheet. Everything here runs on a dressed character in its rest pose, in Blender's rest model
-space (Z up, front is -Y), and works on any mesh, so the class and resident outfits follow the same keys:
+Everything here runs on a dressed character in its rest pose, in Blender's rest model space (Z up, front is -Y), and
+works on any mesh, so the resident and class outfits, their armour plates, the hair and the facial hair follow the same
+keys. As a recipe (``generate``) it authors the keys on a copy of a character variant (``mode: character``, with its
+outfit's plates as the optional ``items`` input) or on an item worn on the body (``mode: item``: the item is keyed
+against the ``body`` input). The build copies only the morph targets back onto the shipped assets.
 
 - Age keys on the head, eyebrows and facial hair: ``age.young``, ``age.middle``, ``age.old`` and ``age.weathered``.
   They are smooth displacement fields placed on the face landmarks of ``face_variants.landmarks``, and like the face
@@ -14,7 +17,7 @@ space (Z up, front is -Y), and works on any mesh, so the class and resident outf
   and keep their clearance. The heavy build also fills the cheeks and the jaw line; the lean build hollows them.
   Hanging garments (tabards, robes, aprons) take no leg weights and grow only sideways round the body's vertical axis,
   so their hems hang straight instead of flaring with the thighs.
-- Height: a per-character uniform scale of the rig (``HEIGHTS``, about +-6%), set by the consumer.
+- Height: a per-character uniform scale of the rig (``HEIGHTS``, about +-9%), set by the consumer.
 - Skin tones as base-colour multipliers over the light skin texture (``SKIN_TONES``); the painted aged and weathered
   variants per tone are in ``skin_overlays.py``, the hand-modelled hair and beards in ``hair_beards.py``.
 """
@@ -30,12 +33,12 @@ BODY_MESHES = ("Male_Peasant_Arms", "Male_Peasant_Body", "Male_Peasant_Feet", "M
 
 # Skin tones: a multiplier over the light skin base colour (linear), from fair to deep brown.
 SKIN_TONES = {
-    "skin.fair": (1.05, 1.0, .97),
-    "skin.light": (1.0, 1.0, 1.0),
-    "skin.olive": (.8, .72, .55),
-    "skin.tan": (.68, .52, .38),
-    "skin.brown": (.42, .29, .2),
-    "skin.deep": (.24, .16, .11),
+    "tone.fair": (1.05, 1, .97),
+    "tone.light": (1, 1, 1),
+    "tone.olive": (.8, .72, .55),
+    "tone.tan": (.68, .52, .38),
+    "tone.brown": (.42, .29, .2),
+    "tone.deep": (.24, .16, .11),
 }
 
 # Build: the radial scale around each bone's axis (lean, heavy), with an extra forward push on the belly.
@@ -47,8 +50,8 @@ BUILD = {
 # Extra forward growth of the belly per metre in front of the axis (lean, heavy), and of the seat behind it.
 BELLY = {"pelvis": (-.06, .3), "spine_01": (-.12, .6), "spine_02": (-.08, .4)}
 SEAT = {"pelvis": (-.04, .14)}
-# Height range of the review's men; the rig's uniform scale.
-HEIGHTS = (.94, 1.06)
+# The height range: a uniform scale of the character root (and everything attached to it).
+HEIGHTS = (.91, 1.09)
 # Garments that hang from the body (no leg weights, horizontal growth only).
 HANGING = ("tabard", "robe", "habit", "smock", "apron", "skirt", "coat")
 LEG_BONES = ("thigh_l", "thigh_r", "calf_l", "calf_r", "foot_l", "foot_r", "ball_l", "ball_r")
@@ -216,14 +219,15 @@ def age_fields(lm):
     return {"age.young": young, "age.middle": middle, "age.old": old, "age.weathered": weathered}
 
 
-def add_age_keys(head, eyes, brows, landmarks, followers=()):
-    """Age keys on the head and eyebrows; ``followers`` (facial hair) take the same field. The eyeballs never move."""
+def add_age_keys(head, eyes, brows, landmarks, followers=(), keyed=None):
+    """Age keys on the head and eyebrows; ``followers`` (facial hair) take the same field. The eyeballs never move.
+    ``keyed`` limits which of the head, eyebrows and followers get the keys (default: all of them)."""
     lm = landmarks(head, eyes)
     fields = age_fields(lm)
     s = lm["scale"]
     brow_top = max(p.z for p in points(brows))
     stats = {}
-    for obj in (head, brows, *followers):
+    for obj in keyed if keyed is not None else (head, brows, *followers):
         base = points(obj)
         for key in AGE_KEYS:
             moved = []
@@ -231,8 +235,6 @@ def add_age_keys(head, eyes, brows, landmarks, followers=()):
                 fixed = obj is head and (p.z > brow_top + .01 * s or p.z < lm["chin"].z - .035 * s or p.y - lm["tip"].y > .13 * s)
                 moved.append(p if fixed else fields[key](p))
             stats.setdefault(key, {})[obj.name] = round(set_key(obj, key, moved), 5)
-    for key in AGE_KEYS:
-        set_key(eyes, key, points(eyes))
     return lm, stats
 
 
@@ -298,10 +300,11 @@ def face_fill(lm, amount):
     return f
 
 
-def add_build_keys(rig, meshes, lm):
+def add_build_keys(rig, meshes, lm, body=None):
+    """Build keys on ``meshes``; ``body`` (default: the body meshes among them) gives the skin weights to follow."""
     axes = bone_axes(rig)
     bones = set(axes)
-    body = [o for o in meshes if o.name.split(".")[0] in BODY_MESHES]
+    body = body if body is not None else [o for o in meshes if o.name.split(".")[0] in BODY_MESHES]
     tree_points, tree_weights = [], []
     for o in body:
         tree_points += points(o)
@@ -362,3 +365,73 @@ def tone(material, factor):
     material.node_tree.links.new(base.links[0].from_socket, mix.inputs[6])
     mix.inputs[7].default_value = (*factor, 1)
     material.node_tree.links.new(mix.outputs[2], base)
+
+
+# --- Recipe --------------------------------------------------------------------------------------------------------
+
+HEAD, EYES, BROWS = "SuperHero_Male", "Eyes", "Eyebrows"
+MODES = ("character", "item")
+
+
+def validate(p, inputs):
+    if type(p) is not dict or set(p) - {"schemaVersion", "mode", "age"} or p.get("schemaVersion") != 1:
+        raise ValueError("male variety takes schemaVersion 1, mode and optionally age")
+    if p.get("mode") not in MODES or type(p.get("age", False)) is not bool:
+        raise ValueError(f"mode must be one of {MODES} and age a boolean")
+    needed = {"source", "face"} | ({"body"} if p["mode"] == "item" else set())
+    allowed = needed | ({"items"} if p["mode"] == "character" else set())
+    if not needed <= set(inputs) or set(inputs) - allowed:
+        raise ValueError(f"mode {p['mode']} takes the inputs {sorted(allowed)}")
+
+
+def import_glb(path):
+    """Imports a GLB at its node rest pose. The composed characters bind the head skin a little differently from the
+    outfit skin at the neck, so Blender re-poses a few neck vertices by up to 2 mm; the transfer allows for that."""
+    before = set(bpy.data.objects)
+    bpy.ops.import_scene.gltf(filepath=path, bone_heuristic="BLENDER", guess_original_bind_pose=False)
+    return [o for o in bpy.data.objects if o not in before]
+
+
+def generate(output_path, arguments, inputs):
+    """Authors the age and build keys on a copy of ``source`` and exports it with its morph targets.
+
+    - ``mode: character``: ``source`` is a character variant (body, head and outfit); its plates (``items``) come
+      along. The head and eyebrows get the age keys, every mesh but the eyes the build keys.
+    - ``mode: item``: ``source`` holds meshes in the character's rest model space (hair, facial hair, plates), keyed
+      against the ``body`` character; ``age: true`` also gives them the age keys (facial hair).
+    """
+    validate(arguments, inputs)
+    face = inputs.load_source("face")
+    bpy.ops.object.select_all(action="SELECT")
+    bpy.ops.object.delete(use_global=False)
+    character = arguments["mode"] == "character"
+    body = import_glb(inputs["source"] if character else inputs["body"])
+    items = import_glb(inputs["items"]) if "items" in inputs else []
+    if not character:
+        items = import_glb(inputs["source"])
+    for action in list(bpy.data.actions):
+        bpy.data.actions.remove(action)
+    rig = next(o for o in body if o.type == "ARMATURE")
+    rig.data.pose_position = "REST"
+    bpy.context.view_layer.update()
+    named = {o.name: o for o in body if o.type == "MESH"}
+    head, eyes, brows = named[HEAD], named[EYES], named[BROWS]
+    body_meshes = [o for o in body if o.type == "MESH" and o.name.split(".")[0] in BODY_MESHES]
+    meshes = [o for o in (body if character else []) + items if o.type == "MESH" and not o.name.startswith("Icosphere") and o.name != EYES]
+    if character:
+        keyed = [head, brows]
+    else:
+        keyed = [o for o in items if o.type == "MESH"] if arguments.get("age") else []
+    lm, age = add_age_keys(head, eyes, brows, face["landmarks"], keyed=keyed)
+    build = add_build_keys(rig, meshes, lm, body=body_meshes)
+    exported = (body + items) if character else items
+    bpy.ops.object.select_all(action="DESELECT")
+    for o in exported:
+        if not o.name.startswith("Icosphere"):
+            o.select_set(True)
+    bpy.ops.export_scene.gltf(
+        filepath=output_path, export_format="GLB", use_selection=True, export_yup=True, export_texcoords=True,
+        export_normals=True, export_tangents=False, export_animations=False, export_skins=True, export_morph=True,
+        export_morph_normal=True, export_cameras=False, export_lights=False, export_extras=False)
+    return {"recipe": "male-variety-v1", "mode": arguments["mode"], "age": age, "build": build,
+            "keyedMeshes": sorted(o.name for o in meshes)}

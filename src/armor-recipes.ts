@@ -8,8 +8,7 @@ import { parseAssetSpec } from "./schema.js";
  * own joints, composed into the character with `scene.compose.skinned.gltf@1`.
  *
  * The resident kits (#376) use the same fitting for plain clothes: the farmer's smock, the innkeeper's apron and the
- * monk's habit, each with a belt as its one rigid piece. The `beard` kit has plates only: the facial hair pieces,
- * fitted to the head and riding `Head`, worn with any outfit.
+ * monk's habit, each with a belt as its one rigid piece. The facial hair moved to `male-variety.ts` (#380).
  *
  * The class kits (#379) are the seven mmorpg class starter outfits in the Greyhaven Marshal's style: long robes,
  * jerkins over straight work trousers, hoods, mantles, cloaks and long sleeves cut from or fitted to the Peasant base,
@@ -17,14 +16,14 @@ import { parseAssetSpec } from "./schema.js";
  */
 export type ArmorClassKit = "class.warden" | "class.ranger" | "class.arcanist" | "class.necromancer" | "class.rogue" | "class.cleric" | "class.druid";
 export type ArmorOutfitKit = "soldier" | "knight" | "farmer" | "innkeeper" | "monk" | ArmorClassKit;
-export type ArmorKit = ArmorOutfitKit | "beard";
+export type ArmorKit = ArmorOutfitKit;
 export type ArmorOutput = "plates" | "cloth";
 export type ArmorParameters = { schemaVersion: 1; kit: ArmorKit; output: ArmorOutput };
 /** The class starter outfits (#379), in mmorpg's class order. */
 export const ARMOR_CLASS_KITS: readonly ArmorClassKit[] = ["class.warden", "class.ranger", "class.arcanist", "class.necromancer", "class.rogue", "class.cleric", "class.druid"];
 /** The kits that dress the Peasant base as an outfit variant, in bundle order. */
 export const ARMOR_OUTFIT_KITS: readonly ArmorOutfitKit[] = ["soldier", "knight", "farmer", "innkeeper", "monk", ...ARMOR_CLASS_KITS];
-export const ARMOR_KITS: readonly ArmorKit[] = [...ARMOR_OUTFIT_KITS, "beard"];
+export const ARMOR_KITS: readonly ArmorKit[] = ARMOR_OUTFIT_KITS;
 /** Outfit labels for the appearance descriptor. */
 export const ARMOR_KIT_LABELS = {
   soldier: "Soldier", knight: "Knight", farmer: "Farmer", innkeeper: "Innkeeper", monk: "Monk",
@@ -39,8 +38,6 @@ export const ARMOR_CLASS_MATERIAL = "class";
 export const ARMOR_GREY_SKIN_KITS: readonly ArmorOutfitKit[] = ["class.necromancer"];
 /** The kits whose cloth carries the recolourable faction slot. */
 export const ARMOR_FACTION_KITS: readonly ArmorOutfitKit[] = ["soldier", "knight"];
-/** Facial hair pieces of the `beard` kit (node names in its plates GLB) with their labels. */
-export const ARMOR_BEARDS = { "beard.full": "Full beard", "beard.short": "Short beard", "beard.moustache": "Moustache" } as const;
 export const ARMOR_OUTPUTS: readonly ArmorOutput[] = ["plates", "cloth"];
 /** The base mesh nodes the armour is fitted over (the Male_Peasant outfit, owner answers #117 Q1/Q10). */
 export const ARMOR_BASE_NODES = ["Male_Peasant_Arms", "Male_Peasant_Body", "Male_Peasant_Feet", "Male_Peasant_Legs"] as const;
@@ -58,7 +55,6 @@ export function normalizeArmorParameters(value: unknown): ArmorParameters {
   if (Object.keys(p).length !== 3 || p.schemaVersion !== 1) throw new Error("armor requires exactly schemaVersion 1, kit and output");
   if (!ARMOR_KITS.includes(p.kit as ArmorKit)) throw new Error(`armor kit must be one of ${ARMOR_KITS.join(", ")}`);
   if (!ARMOR_OUTPUTS.includes(p.output as ArmorOutput)) throw new Error("armor output must be plates or cloth");
-  if (p.kit === "beard" && p.output !== "plates") throw new Error("the beard kit has plates only");
   return { schemaVersion: 1, kit: p.kit as ArmorKit, output: p.output as ArmorOutput };
 }
 

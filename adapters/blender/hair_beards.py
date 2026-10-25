@@ -414,3 +414,61 @@ def make(head_obj, rig, hair_material, collection, names=None):
             obj.matrix_world = world
         made[name] = obj
     return made
+
+
+# --- Recipe --------------------------------------------------------------------------------------------------------
+
+BEARD_ENTRY = "facial-hair.beards"
+PIECES = (*HAIRSTYLES, BEARD_ENTRY)
+
+
+def validate(p, inputs):
+    if type(p) is not dict or set(p) != {"schemaVersion", "piece"} or p["schemaVersion"] != 1 or p["piece"] not in PIECES:
+        raise ValueError(f"hair and beards take schemaVersion 1 and a piece of {PIECES}")
+    if set(inputs) != {"body", "material", "variety", "face"}:
+        raise ValueError("hair and beards take exactly the inputs body, material, variety and face")
+
+
+def generate(output_path, arguments, inputs):
+    """One hairstyle, or every beard and moustache as one entry, fitted to ``body``'s head, with the build keys (and
+    for facial hair the age keys) of ``male_variety.py``. ``material`` is the pack's Hair_Buzzed, whose ``MI_Hair_1``
+    (T_Hair_1 base colour and normal map) the pieces wear. The pieces are static meshes in the rest model space."""
+    validate(arguments, inputs)
+    variety = inputs.load_source("variety")
+    face = inputs.load_source("face")
+    bpy.ops.object.select_all(action="SELECT")
+    bpy.ops.object.delete(use_global=False)
+    body = variety["import_glb"](inputs["body"])
+    for action in list(bpy.data.actions):
+        bpy.data.actions.remove(action)
+    rig = next(o for o in body if o.type == "ARMATURE")
+    rig.data.pose_position = "REST"
+    bpy.context.view_layer.update()
+    source = variety["import_glb"](inputs["material"])
+    hair_material = next(m for o in source if o.type == "MESH" for m in o.data.materials if m and m.name.startswith("MI_Hair_1"))
+    for other in bpy.data.materials:
+        if other is not hair_material and other.name == "MI_Hair_1":
+            other.name = "body.MI_Hair_1"
+    hair_material.name = "MI_Hair_1"
+    for o in source:
+        bpy.data.objects.remove(o)
+    named = {o.name: o for o in body if o.type == "MESH"}
+    piece = arguments["piece"]
+    names = set(BEARDS) | set(MOUSTACHES) if piece == BEARD_ENTRY else {piece}
+    made = make(named["SuperHero_Male"], None, hair_material, bpy.context.scene.collection, names)
+    pieces = list(made.values())
+    body_meshes = [o for o in body if o.type == "MESH" and o.name.split(".")[0] in variety["BODY_MESHES"]]
+    lm, age = variety["add_age_keys"](named["SuperHero_Male"], named["Eyes"], named["Eyebrows"], face["landmarks"],
+                                      keyed=pieces if piece == BEARD_ENTRY else [])
+    build = variety["add_build_keys"](rig, pieces, lm, body=body_meshes)
+    bpy.ops.object.select_all(action="DESELECT")
+    for o in pieces:
+        o.select_set(True)
+    bpy.ops.export_scene.gltf(
+        filepath=output_path, export_format="GLB", use_selection=True, export_yup=True, export_texcoords=True,
+        export_normals=True, export_tangents=False, export_animations=False, export_skins=False, export_morph=True,
+        export_morph_normal=True, export_cameras=False, export_lights=False, export_extras=False, export_image_format="AUTO")
+    return {"recipe": "hair-beards-v1", "piece": piece,
+            "pieces": [{"node": o.name, "triangles": sum(len(p.vertices) - 2 for p in o.data.polygons),
+                        "materials": [m.name for m in o.data.materials]} for o in sorted(pieces, key=lambda o: o.name)],
+            "age": age, "build": build}
