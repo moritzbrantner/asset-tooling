@@ -69,9 +69,10 @@ describe("prepare-release", () => {
     await expect(applyPins(checkout, [{ type: "file", from: "kit.descriptor.json", path: "assets/lineage.json" }], artifacts)).rejects.toThrow("no kit.descriptor.json");
   });
 
-  test("prints the owner's upload commands and one land line", async () => {
-    const { artifacts: dir } = await fixture();
-    const { upload, land } = uploadCommands("kit", await readArtifacts(dir), [
+  test("prints the owner's upload commands and one land line", () => {
+    const dir = "/build/kit";
+    const artifacts = { dir, tar: "kit.tar", sha256: NEW, releaseFiles: ["kit.tar", "kit.tar.sha256", "export.ref.json", "lineage.json"], downloads: path.join(dir, "downloads") };
+    const { upload, land } = uploadCommands("kit", artifacts, [
       { repo: "o/a", number: 7, url: "https://github.com/o/a/pull/7", clone: "/c/a" },
       { repo: "o/b", number: 9, url: "https://github.com/o/b/pull/9", clone: "/c/b" },
     ]);
