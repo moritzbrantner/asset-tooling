@@ -20,15 +20,19 @@ WEAPON_ROLES["sword.arming"]; // "one-hand-weapon"
 | `staff.bone` | `staff` | The Necromancer staff (#372): a bone-white shaft with knuckled joints, a flared bone collar and four short bone spurs cradling a glowing green orb. | 948 | 2,500 |
 | `staff.gilded` | `staff` | The Cleric staff (#372): a smooth ivory shaft with a gold ferrule, a gold band above the hand and a flared gold cap whose four tines hold a glowing gold orb. | 1,120 | 2,500 |
 | `staff.gnarled` | `staff` | The Druid staff (#372): a crooked dark-wood branch with swelling bark and two knots, splitting at the top into three prongs that curl over a glowing moss-green orb. | 1,098 | 2,500 |
+| `staff.crystal` | `staff` | The Arcanist staff (#379): a slim silver shaft with a ferrule and a band at the hand, and three prongs holding a long six-sided pale-blue crystal, point up. | 930 | 2,500 |
+| `mace.flanged` | `one-hand-weapon` | The Cleric's mace (#379): a dark-wood haft with a leather grip and a gold pommel, and a round gold head ringed by six bevelled flanges. 0.67 m overall. | 442 | 1,500 |
+| `book.tome` | `book` | The Arcanist's tome (#379): two oxblood covers over a parchment block, a spine and gold corner plates. 0.17 × 0.23 m, 5.5 cm thick. | 96 | 400 |
 | `shield.heater` | `shield` | The board is a heater outline curved around its vertical axis, with a painted face and a wooden back and edge. It has a bevelled iron rim, a central boss, a leather hand handle and a forearm strap. The shield is 0.57 × 0.75 m including the rim. | 1,706 | 3,000 |
 
 Each GLB has one mesh node named after the piece and an empty node **`grip`** at the origin. Both have identity transforms, and the asset origin is the grip frame:
 
-- **sword and dagger:** the grip frame is the centre of the hand's contact on the grip. The blade points along +Y, the edges along ±X and the flats face ±Z.
+- **sword and dagger:** the grip frame is the centre of the hand's contact on the grip. The blade points along +Y, the edges along ±X and the flats face ±Z. The mace is held the same way, its haft along +Y.
+- **tome:** held like the shield, in `hand_l.shield` (which accepts `book`): the grip frame is the middle of the back cover, the spine runs along +Y (the forearm), the covers face ±Z and the book stands off the hand toward +Z.
 - **staff:** the grip frame is the centre of the hand's contact on the shaft, which runs along +Y from the foot (`footLength` below) to the head and orb. The shaft axis passes through the grip.
 - **shield:** the grip frame is the centre of the hand handle, which runs along X. The face points to +Z, the point to −Y and the forearm runs along +Y.
 
-`WEAPON_GRIP_CONTRACT` states the same conventions. Materials are factor-only PBR (`steel`, `iron`, `leather`, `wood`, `paint`, and for the class set `charcoal`, `leather.dark`, `bone`, `ivory`, `gold`, `wood.dark`) with no UVs or textures. The orbs (`orb.green`, `orb.gold`, `orb.moss`, `WEAPON_EMISSIVE_MATERIALS`) glow: their glTF emissive factor equals their base colour.
+`WEAPON_GRIP_CONTRACT` states the same conventions. Materials are factor-only PBR (`steel`, `iron`, `leather`, `wood`, `paint`, and for the class set `charcoal`, `leather.dark`, `bone`, `ivory`, `gold`, `wood.dark`, `silver`, `cover`, `parchment`) with no UVs or textures. The orbs and the crystal (`orb.green`, `orb.gold`, `orb.moss`, `crystal.blue`, `WEAPON_EMISSIVE_MATERIALS`) glow: their glTF emissive factor equals their base colour.
 
 The class colours follow mmorpg's procedural looks (`mmorpg-presentation` `player.rs`): bone-white shaft and green orb for the Necromancer, white shaft with gold for the Cleric, dark wood with a moss-green orb for the Druid, and steel over charcoal and dark leather for the Rogue. The staff presets share that look's proportions: a 1.85 m staff held 0.8 m above its foot, with a 7.5 cm orb. Items cannot be scaled at runtime, so these sizes are final on the Ranger.
 
@@ -38,7 +42,9 @@ All pieces take `schemaVersion: 1`, `piece` and `maxTriangles`. `maxTriangles` r
 
 - **`sword.arming`:** `bladeLength` (0.5–1), `bladeWidth` (0.03–0.07), `bladeThickness` (0.004–0.012), `fullerLength` (0–0.8 of the blade, where 0 means no fuller), `guardWidth` (0.12–0.3), `gripLength` (0.08–0.22), `pommelRadius` (0.015–0.04) and integer `radialSegments` (6–24). The blade must be at least three times as wide as it is thick, and the guard at least twice as wide as the blade.
 - **`dagger.blackened`:** the sword's controls with dagger ranges: `bladeLength` (0.2–0.45), `bladeWidth` (0.02–0.045), `bladeThickness` (0.003–0.01), `fullerLength` (0–0.8), `guardWidth` (0.05–0.14), `gripLength` (0.07–0.13), `pommelRadius` (0.01–0.025) and integer `radialSegments` (6–24), with the sword's proportion rules.
-- **`staff.bone`, `staff.gilded`, `staff.gnarled`:** `length` (1.5–2.2, foot to shaft top), `footLength` (0.5–1, grip to foot, at most half the length), `shaftRadius` (0.014–0.03), `orbRadius` (0.04–0.1, at least twice the shaft radius) and integer `radialSegments` (6–16).
+- **`mace.flanged`:** `haftLength` (0.35–0.7, grip to head), `gripLength` (0.08–0.2, at most half the haft), `headRadius` (0.03–0.07) and integers `flanges` (4–8) and `radialSegments` (6–16).
+- **`book.tome`:** `width` (0.12–0.26), `height` (0.16–0.34, at least the width) and `thickness` (0.03–0.09, at most half the width).
+- **`staff.bone`, `staff.gilded`, `staff.gnarled`, `staff.crystal`:** `length` (1.5–2.2, foot to shaft top), `footLength` (0.5–1, grip to foot, at most half the length), `shaftRadius` (0.014–0.03), `orbRadius` (0.04–0.1, at least twice the shaft radius) and integer `radialSegments` (6–16).
 - **`shield.heater`:** `width` (0.36–0.8), `height` (0.45–1), `curvature` (0–0.12), `thickness` (0.008–0.04), `rimWidth` (0.008–0.05), `bossRadius` (0.03–0.12) and integer `outlineSegments` (6–32). A heater is at least as tall as it is wide, with `bossRadius ≤ width/4`, `rimWidth ≤ width/8` and `curvature ≤ width/4`.
 
 Python and TypeScript reject the same controls before the scene changes. Generation declares `randomness: none` and exact reproducibility, and the script fails if the triangulated mesh exceeds `maxTriangles`. The receipt observations record the piece, role, grip node, units, axes, triangle count, bounds, materials and a geometry hash.

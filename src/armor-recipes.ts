@@ -10,16 +10,33 @@ import { parseAssetSpec } from "./schema.js";
  * The resident kits (#376) use the same fitting for plain clothes: the farmer's smock, the innkeeper's apron and the
  * monk's habit, each with a belt as its one rigid piece. The `beard` kit has plates only: the facial hair pieces,
  * fitted to the head and riding `Head`, worn with any outfit.
+ *
+ * The class kits (#379) are the seven mmorpg class starter outfits in the Greyhaven Marshal's style: long robes,
+ * jerkins over straight work trousers, hoods, mantles, cloaks and long sleeves cut from or fitted to the Peasant base,
+ * each with a recolourable `class` colour slot.
  */
-export type ArmorOutfitKit = "soldier" | "knight" | "farmer" | "innkeeper" | "monk";
+export type ArmorClassKit = "class.warden" | "class.ranger" | "class.arcanist" | "class.necromancer" | "class.rogue" | "class.cleric" | "class.druid";
+export type ArmorOutfitKit = "soldier" | "knight" | "farmer" | "innkeeper" | "monk" | ArmorClassKit;
 export type ArmorKit = ArmorOutfitKit | "beard";
 export type ArmorOutput = "plates" | "cloth";
 export type ArmorParameters = { schemaVersion: 1; kit: ArmorKit; output: ArmorOutput };
+/** The class starter outfits (#379), in mmorpg's class order. */
+export const ARMOR_CLASS_KITS: readonly ArmorClassKit[] = ["class.warden", "class.ranger", "class.arcanist", "class.necromancer", "class.rogue", "class.cleric", "class.druid"];
 /** The kits that dress the Peasant base as an outfit variant, in bundle order. */
-export const ARMOR_OUTFIT_KITS: readonly ArmorOutfitKit[] = ["soldier", "knight", "farmer", "innkeeper", "monk"];
+export const ARMOR_OUTFIT_KITS: readonly ArmorOutfitKit[] = ["soldier", "knight", "farmer", "innkeeper", "monk", ...ARMOR_CLASS_KITS];
 export const ARMOR_KITS: readonly ArmorKit[] = [...ARMOR_OUTFIT_KITS, "beard"];
 /** Outfit labels for the appearance descriptor. */
-export const ARMOR_KIT_LABELS = { soldier: "Soldier", knight: "Knight", farmer: "Farmer", innkeeper: "Innkeeper", monk: "Monk" } as const satisfies Record<ArmorOutfitKit, string>;
+export const ARMOR_KIT_LABELS = {
+  soldier: "Soldier", knight: "Knight", farmer: "Farmer", innkeeper: "Innkeeper", monk: "Monk",
+  "class.warden": "Warden", "class.ranger": "Ranger", "class.arcanist": "Arcanist", "class.necromancer": "Necromancer",
+  "class.rogue": "Rogue", "class.cleric": "Cleric", "class.druid": "Druid",
+} as const satisfies Record<ArmorOutfitKit, string>;
+/** The class kits' hood garments: shown as the `outfit.hood` part, so hair that needs the hood off hides under them. */
+export const ARMOR_CLASS_HOODS: readonly string[] = ["class.ranger.hood", "class.rogue.hood", "class.necromancer.hood"];
+/** The class kits' recolourable class colour material (its default colour is in the cloth receipt, `classTrim`). */
+export const ARMOR_CLASS_MATERIAL = "class";
+/** The Necromancer's pale grey skin (#379), offered with its outfit only. */
+export const ARMOR_GREY_SKIN_KITS: readonly ArmorOutfitKit[] = ["class.necromancer"];
 /** The kits whose cloth carries the recolourable faction slot. */
 export const ARMOR_FACTION_KITS: readonly ArmorOutfitKit[] = ["soldier", "knight"];
 /** Facial hair pieces of the `beard` kit (node names in its plates GLB) with their labels. */

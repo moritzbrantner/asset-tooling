@@ -1,4 +1,4 @@
-# Soldier and knight armour, resident clothes and beards
+# Soldier and knight armour, resident clothes, class outfits and beards
 
 [`adapters/blender/armor.py`](../adapters/blender/armor.py) (with `src/armor-recipes.ts`) authors the [#117](https://github.com/moritzbrantner/asset-tooling/issues/117) soldier and knight outfits. It runs through the pinned Blender script backend ([blender-script.md](blender-script.md)) and follows the owner answers of 2026-10-17. The male figure comes first (Q8).
 
@@ -43,6 +43,32 @@ The same recipe dresses the named Greyhaven residents ([humanoid-ranger.md](huma
 - **Skirts in motion:** the skirts blend their weights toward `pelvis` from the waist down to the hem (`SETTLE`: smock and apron 30 %, habit 60 %), then each side follows the thigh on its side (`STRIDE`: smock 100 %, apron 80 %, habit 60 % at the hem), so a striding knee does not push through; only a strip 3–5 cm either side of the middle blends between the thighs. The apron, like the tabard, ignores arm and shoulder joints.
 - **Beard kit:** `kit: "beard"` takes `output: "plates"` only. It fits `beard.full`, `beard.short` and `beard.moustache` to the head: each is a shell around the lower face whose radius follows the head's outermost vertices at each height and angle plus a clearance, hangs below the chin (it loses at most `slope` of radius per metre of height), and runs between a hem and a top edge that rise from the front to the sideburns. The moustache is a band over the upper lip whose ends droop past the mouth's corners. Every piece rides `Head` through the `head.armor` socket and has the `beard` material, which a consumer tints like the hair.
 - **Straw hat:** the farmer's hat is a [headwear](humanoid-ranger.md#contents) piece (`hat.straw` in `adapters/blender/headwear.py`), so any outfit can wear it.
+
+## Class starter outfits (#379)
+
+Each mmorpg class starts in its own outfit, in the Greyhaven Marshal's style (owner decisions on #379, 2026-10-25). The kits are `class.warden`, `class.ranger`, `class.arcanist`, `class.necromancer`, `class.rogue`, `class.cleric` and `class.druid`, all over the Peasant base, with factor-only materials. Every kit has a recolourable `class` material whose default is the class colour (the cloth receipt's `classTrim`). It sits on a piece that armour drops would not replace, so the class still reads: the Warden's tabard, the Ranger's and Rogue's sashes, the Arcanist's and Necromancer's mantles, the Cleric's tabard edging and the Druid's leaves.
+
+| Kit | Cloth | Plates | Hides |
+| --- | --- | --- | --- |
+| `class.warden` | the knight's tabard in the class colour | the knight's plate, bascinet included | nothing |
+| `class.ranger` | hip-length jerkin, straight work trousers, long sleeves, class sash, hood, hooded cloak open at the chest | leather belt and bracers | shirt, legs |
+| `class.arcanist` | long robe, bell sleeves, mantle | gold sash belt, high collar | shirt |
+| `class.necromancer` | long robe with a tattered hem, tattered sleeves, tattered mantle, peaked hood | belt, bone-bead collar, shoulder spikes, skull clasp | shirt |
+| `class.rogue` | charcoal jerkin, work trousers, long sleeves, class sash, cowl hood, one-shoulder cape | belt, half-mask, two-tone forearm wraps | shirt, legs |
+| `class.cleric` | ivory robe, fitted sleeves, white tabard edged in the class colour | gold belt, spaulders, cuffs and sun | shirt |
+| `class.druid` | moss robe, frayed sleeves, bark mantle with leaf cards | rope belt, antler circlet | shirt |
+
+The owner's rules for the set: no short skirts or leggings on anyone, only plain functional boots (the Peasant boots, or the knight's sabatons), and long robes that differ by sleeves, overcoats, hoods, collars, belts, colour and props.
+
+- **Robes** are the monk habit's cut (the shirt pushed 12 mm out, a skirt to the ankle) with the same `SETTLE` and `STRIDE` weights.
+- **Jerkins and trousers:** the jerkin is the shirt pushed out with a skirt to the hip. The trousers are the Peasant legs pushed 8 mm out. Below the knee they widen into a straight tube around the boot shaft, and they lengthen to 13 cm above the ground, so they fall over the boots instead of tucking in.
+- **Sleeves** are cut from the Peasant arms between the shoulder and the wrist and pushed out, so they keep the arms' own weights. The cuff is extruded past the wrist and opens by a flare. A tattered cuff ends in uneven points.
+- **Mantles, the cloak and the cape** (`drape_surface`) are rings around the torso from the neckline to a hem that runs from a front height to a back height. Each ring clears the torso and shoulder caps. Going down, a ring never narrows faster than a slope, so the cloth falls from the shoulders and shoulder blades instead of following the small of the back. The rings are widened over the spine's groove before the clearance is added. An arc leaves the chest open (the Ranger's cloak) or keeps one shoulder (the Rogue's cape), and the cloth over the sides stays outside the hanging arms. They ride the torso, `spine_03` above the chest, and ignore the arm joints below the clavicle. The cloak's back settles toward the pelvis below the waist.
+- **Hoods** (`hood_surface`) are soft domes fitted to the head's extents, with a peak that falls back over the crown, an open face from the chin to the brow and a drape that rests on the shoulders. They ride `Head` above the chin and blend into the neck and chest below it. Each hood is listed as an `outfit.hood` part node, so hair that needs the hood off hides under it.
+- **The Cleric's tabard** is the knight's tabard cut and settled over the robe instead of a breastplate (the robe is a collider). Its side columns and hems take the `class` material.
+- **The Necromancer** also has a pale grey skin, `outfit.class.necromancer.skin.grey`: the Light body and outfit skin textures turned to a cool grey by luminance, so their painted shading stays.
+
+The renders of the set are made with [`examples/class-outfits/review.py`](../examples/class-outfits/review.py) from a built bundle. It renders the line-up at the mmorpg game camera (12 m, 0.42 rad pitch, 50° vertical field of view, pivot 0.6 m), a front close-up per class and a walk frame per class from the front and from behind.
 
 ## Fitting
 

@@ -23,6 +23,9 @@ export type HumanoidAppearance = {
     base?: { outfit: string; hidden: string[] };
     garments?: { id: string; nodes: string[]; hides: string[] }[];
     faction?: { materials: string[]; defaultBaseColorFactor: Rgba };
+    /** #379: a class outfit's hood garment (shown as the `outfit.hood` part) and its recolourable class colour. */
+    hood?: string;
+    classTrim?: { materials: string[]; defaultBaseColorFactor: Rgba };
   }[];
   levelsOfDetail: { level: string; of: string; variant: string; triangles: number }[];
   /** #348: face, eyes, nose and mouth options as morph weights on `nodes`, for the character variants in `variants`. */

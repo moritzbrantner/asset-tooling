@@ -35,7 +35,9 @@ import bpy
 import numpy
 from mathutils import Matrix, Quaternion, Vector, kdtree
 
-KITS = ("soldier", "knight", "farmer", "innkeeper", "monk", "beard")
+# Class starter outfits (#379): the seven mmorpg classes over the same Peasant base, in the Greyhaven Marshal's style.
+CLASS_KITS = ("class.warden", "class.ranger", "class.arcanist", "class.necromancer", "class.rogue", "class.cleric", "class.druid")
+KITS = ("soldier", "knight", "farmer", "innkeeper", "monk", "beard", *CLASS_KITS)
 # Resident outfits (#376): plain clothes over the Peasant base; their only rigid piece is a belt.
 RESIDENT_KITS = ("farmer", "innkeeper", "monk")
 # Facial hair (#376): rigid shells fitted to the head that ride ``Head``; plates only, worn with any outfit.
@@ -243,8 +245,30 @@ class Builder:
         face.material_index = material
         return face
 
+    def blob(self, centre, radius, material, scale=(1, 1, 1), subdivisions=1):
+        """An icosphere at ``centre`` (glTF), scaled per glTF axis: beads, a skull clasp."""
+        matrix = Matrix.Translation(to_blender(centre)) @ Matrix.Diagonal((scale[0], scale[2], scale[1], 1))
+        verts = bmesh.ops.create_icosphere(self.bm, subdivisions=subdivisions, radius=radius, matrix=matrix)["verts"]
+        self._claim(verts, material)
+
+    def spike(self, base, tip, radius, tip_radius, material, segments=8):
+        """A tapered cone from ``base`` to ``tip`` (glTF): spikes, antler tines."""
+        b, t = Vector(to_blender(base)), Vector(to_blender(tip))
+        matrix = Matrix.Translation((b + t) / 2) @ (t - b).to_track_quat("Z", "Y").to_matrix().to_4x4()
+        verts = bmesh.ops.create_cone(self.bm, cap_ends=True, segments=segments, radius1=radius, radius2=tip_radius,
+                                      depth=(t - b).length, matrix=matrix)["verts"]
+        self._claim(verts, material)
+
+    def _claim(self, verts, material):
+        for vert in verts:
+            self.points.append(tuple(to_gltf(vert.co)))
+        for face in {face for vert in verts for face in vert.link_faces}:
+            face.material_index = material
+
     def shell(self, surface, thickness, material, mask=None, apex=None):
-        """A closed plate: the fitted outer surface, an inner surface ``thickness`` inside it and bands on open edges."""
+        """A closed plate: the fitted outer surface, an inner surface ``thickness`` inside it and bands on open edges.
+        ``material`` is a slot index, or a function of the grid cell (row, column) for striped or edged pieces (#379)."""
+        slot = material if callable(material) else (lambda _i, _j, index=material: index)
         grid, closed = surface["grid"], surface["closed"]
         origin, u = surface["axis"]
         rows, columns = len(grid), len(grid[0])
@@ -273,6 +297,7 @@ class Builder:
                 continue
             k = (j + 1) % columns
             corners = [(i, j), (i, k), (i + 1, k), (i + 1, j)]
+            material = slot(i, j)
             self.face([outer[c] for c in corners], material)
             self.face([inner[c] for c in reversed(corners)], material)
             for a, b, other in [((i, j), (i, k), (i - 1, j)), ((i, k), (i + 1, k), (i, j + 1)),
@@ -292,8 +317,8 @@ class Builder:
             for j in span:
                 k = (j + 1) % columns
                 if keep.get((top - 1, j), False):
-                    self.face([outer[(top, j)], outer[(top, k)], tip_out], material)
-                    self.face([inner[(top, k)], inner[(top, j)], tip_in], material)
+                    self.face([outer[(top, j)], outer[(top, k)], tip_out], slot(top - 1, j))
+                    self.face([inner[(top, k)], inner[(top, j)], tip_in], slot(top - 1, j))
 
     def box(self, centre, half, material):
         x, y, z = half
@@ -455,6 +480,8 @@ def beard_plates(body):
 
 def plate_surfaces(body, rig, kit):
     """Every rigid piece of the kit: (node name, joint, material, surface, mask, apex, thickness)."""
+    if kit in CLASS_KITS:
+        return class_plates(body, rig, kit)
     if kit in RESIDENT_KITS:
         return resident_plates(body, kit)
     if kit == BEARD_KIT:
@@ -583,6 +610,8 @@ def cloth_tree(body, indices):
 def cloth_surfaces(body, rig, kit):
     """Skinned garments: list of (node name, material, builder vertices -> weights, kind)."""
     garments = []
+    if kit in CLASS_KITS:
+        return class_cloth(body, rig, kit)
     if kit in RESIDENT_KITS:
         return resident_cloth(body, kit)
     if kit == "soldier":
@@ -697,8 +726,9 @@ TABARD_HALF_WIDTH = .155
 ARM_JOINTS = {f"{joint}_{side}" for joint in ("clavicle", "upperarm", "lowerarm", "hand") for side in "lr"}
 
 
-def tabard_surface(body, rig, obstacles=()):
-    """Front and back panels hanging from the shoulders, over the breastplate, joined across the shoulders."""
+def tabard_surface(body, rig, obstacles=(), clearance=(.066, .07, .042)):
+    """Front and back panels hanging from the shoulders, over the breastplate, joined across the shoulders.
+    ``clearance``: front and back above the waist (over the plate), and below it."""
     torso = body.select(None, meshes=[SHIRT, "Male_Peasant_Legs"], minimum=0)
     torso = [i for i in torso if max(body.weights[i], key=body.weights[i].get) not in
              {"upperarm_l", "upperarm_r", "lowerarm_l", "lowerarm_r"}]
@@ -721,11 +751,11 @@ def tabard_surface(body, rig, obstacles=()):
         previous = None
         for y in reversed(ys):
             # Over the breastplate, then over the cuisses below it.
-            clearance = (.066 if front else .07) if y >= 1.0 else .042
+            gap = (clearance[0] if front else clearance[1]) if y >= 1.0 else clearance[2]
             row = []
             for j, x in enumerate(xs):
                 z = extreme(x, y, front)
-                z = (zc + (.12 if front else -.12)) if z is None else z + (clearance if front else -clearance)
+                z = (zc + (.12 if front else -.12)) if z is None else z + (gap if front else -gap)
                 near = [p.z for p in obstacles if abs(p.x - x) < .03 and abs(p.y - y) < .03]
                 if near:
                     z = max(z, max(near) + .018) if front else min(z, min(near) - .018)
@@ -886,6 +916,543 @@ def offset_shirt(source, distance, name):
     return mesh
 
 
+# ---------------------------------------------------------------------------------------------- class outfits (#379)
+
+def linear(code):
+    """An sRGB hex colour as linear factors, rounded to 4 decimals."""
+    value = [int(code[i:i + 2], 16) / 255 for i in (1, 3, 5)]
+    return tuple(round(c / 12.92 if c <= .04045 else ((c + .055) / 1.055) ** 2.4, 4) for c in value)
+
+
+# The class colour slot ``class`` and its default per kit (mmorpg's class looks): the tabard, sash, mantle or leaves that
+# keep the class readable when armour drops replace other pieces.
+CLASS_TRIM = {"class.warden": "#3f5f57", "class.ranger": "#2f5a2c", "class.arcanist": "#6f6a96", "class.necromancer": "#4b3e5e",
+              "class.rogue": "#6b2a26", "class.cleric": "#c9a23e", "class.druid": "#53613a"}
+MATERIALS.update({name: (linear(code), metallic, roughness) for name, (code, metallic, roughness) in {
+    "class": ("#808080", 0.0, .8),
+    "jerkin.green": ("#4b5634", 0.0, .75), "jerkin.charcoal": ("#2e2b29", 0.0, .78),
+    "trousers.brown": ("#3d3324", 0.0, .9), "trousers.charcoal": ("#2a2826", 0.0, .9),
+    "wool.olive": ("#4d4a3b", 0.0, .95), "wool.charcoal": ("#2b2826", 0.0, .95), "wool.umber": ("#4a3d32", 0.0, .95),
+    "wrap.light": ("#57504a", 0.0, .95), "wrap.dark": ("#3a3430", 0.0, .95), "mask": ("#1b1a19", 0.0, .9),
+    "robe.indigo": ("#3b3d63", 0.0, .9), "sleeve.indigo": ("#4a4d75", 0.0, .88),
+    "robe.black": ("#1f1a28", 0.0, .95), "sleeve.black": ("#2a2333", 0.0, .95),
+    "robe.ivory": ("#d6cdb8", 0.0, .85), "sleeve.ivory": ("#e0d8c4", 0.0, .85), "tabard.white": ("#f4f1e8", 0.0, .8),
+    "robe.moss": ("#4b4f3a", 0.0, .92), "sleeve.moss": ("#4f4a37", 0.0, .92), "bark": ("#4a3a26", 0.0, .95),
+    "antler": ("#b9a888", 0.0, .7), "bone": ("#ddd5bd", 0.0, .6), "gold": ("#d9b44a", 1.0, .35), "sash.gold": ("#b08a3e", .3, .5),
+}.items()})
+LEGS, ARMS, FEET, HEAD = "Male_Peasant_Legs", "Male_Peasant_Arms", "Male_Peasant_Feet", "SuperHero_Male"
+TABARDS = {"knight.tabard", "class.warden.tabard", "class.cleric.tabard"}
+HANGING_ARM = {f"{joint}_{side}" for joint in ("upperarm", "lowerarm", "hand") for side in "lr"}
+# Long robes (owner, 2026-10-25: no short skirts on anyone): (skirt colour, top and sleeve colour).
+CLASS_ROBES = {"class.arcanist": ("robe.indigo", "sleeve.indigo"), "class.necromancer": ("robe.black", "sleeve.black"),
+               "class.cleric": ("robe.ivory", "sleeve.ivory"), "class.druid": ("robe.moss", "robe.moss")}
+# Hip-length jerkins over straight work trousers (owner, 2026-10-25: no slim tucked trousers).
+CLASS_JERKINS = {"class.ranger": ("jerkin.green", "trousers.brown"), "class.rogue": ("jerkin.charcoal", "trousers.charcoal")}
+for _kit, (_skirt, _top) in CLASS_ROBES.items():
+    _name = f"{_kit}.robe"
+    TUNICS[_name], HIDES[_name] = (_top, .012), [SHIRT]
+    SETTLE[_name], STRIDE[_name] = SETTLE["monk.habit"], STRIDE["monk.habit"]
+for _kit, (_jerkin, _trousers) in CLASS_JERKINS.items():
+    TUNICS[f"{_kit}.jerkin"], HIDES[f"{_kit}.jerkin"] = (_jerkin, .012), [SHIRT]
+    SETTLE[f"{_kit}.jerkin"], STRIDE[f"{_kit}.jerkin"] = (.3, 1.0, .86), (1.0, 1.0, .86, .03)
+    HIDES[f"{_kit}.trousers"] = [LEGS]
+# Below the waist the Ranger's cloak settles toward the pelvis, so a striding thigh does not lift its back.
+SETTLE["class.ranger.cloak"] = (.6, 1.05, .82)
+# Hoods: clearance around the head, crown height, backward peak, and how far the drape flares onto the shoulders.
+HOODS = {"class.ranger": {"clearance": .03, "crown": .05, "peak": .035, "drape": .3, "slot": "wool.olive"},
+         "class.rogue": {"clearance": .022, "crown": .04, "peak": .02, "drape": .22, "slot": "wool.charcoal"},
+         "class.necromancer": {"clearance": .045, "crown": .085, "peak": .075, "drape": .4, "slot": "robe.black"}}
+
+
+def scene_mesh(name):
+    return next(o for o in bpy.context.scene.objects if o.type == "MESH" and o.name == name)
+
+
+def triangle_wave(x):
+    """0 at whole numbers, 1 halfway between: the jagged edge of a tattered hem."""
+    return abs((x % 2) - 1)
+
+
+class Derived:
+    """A garment cut from a base mesh (#379): the faces whose vertices all pass ``keep`` (a glTF point test), pushed
+    ``offset`` out along the normals. It keeps the base's skin weights, so it moves exactly like the body under it."""
+
+    def __init__(self, source, keep, offset, slots):
+        self.source, self.slots = source, list(slots)
+        self.inverse = source.matrix_world.inverted()
+        self.matrix = source.matrix_world.copy()
+        self.bm = bmesh.new()
+        self.bm.from_mesh(source.data)
+        bmesh.ops.remove_doubles(self.bm, verts=self.bm.verts, dist=1e-5)
+        bmesh.ops.delete(self.bm, geom=[f for f in self.bm.faces if not all(keep(self.at(v)) for v in f.verts)], context="FACES")
+        bmesh.ops.delete(self.bm, geom=[v for v in self.bm.verts if not v.link_faces], context="VERTS")
+        if not self.bm.verts:
+            raise ValueError(f"no part of {source.name} passes the garment cut")
+        for face in self.bm.faces:
+            face.material_index = 0
+        self.bm.normal_update()
+        normals = [v.normal.copy() for v in self.bm.verts]
+        for vert, normal in zip(self.bm.verts, normals):
+            vert.co += normal * offset
+        self.deform = self.bm.verts.layers.deform.active
+
+    def at(self, vert):
+        return to_gltf(self.matrix @ vert.co)
+
+    def put(self, vert, point):
+        vert.co = self.inverse @ Vector(to_blender(point))
+
+    def move(self, change):
+        for vert in self.bm.verts:
+            self.put(vert, change(self.at(vert)))
+
+    def hang(self, pick, rows):
+        """Extrude the open edges whose vertices pass ``pick``, once per row; each row maps the original edge vertex
+        (glTF) to the new row's position. New vertices copy the weights of the edge vertex they grow from."""
+        edges = [e for e in self.bm.edges if e.is_boundary and all(pick(self.at(v)) for v in e.verts)]
+        origin = {v: self.at(v) for e in edges for v in e.verts}
+        root = {v: v for v in origin}
+        last = set(origin)
+        for row in rows:
+            result = bmesh.ops.extrude_edge_only(self.bm, edges=edges)
+            fresh = [g for g in result["geom"] if isinstance(g, bmesh.types.BMVert)]
+            for vert in fresh:
+                source = next(o for e in vert.link_edges for o in e.verts if o in last)
+                root[vert] = root[source]
+                self.put(vert, row(origin[root[vert]]))
+                weights = root[vert][self.deform]
+                for group in list(vert[self.deform].keys()):
+                    del vert[self.deform][group]
+                for group, value in weights.items():
+                    vert[self.deform][group] = value
+            fresh_set = set(fresh)
+            edges = [g for g in result["geom"] if isinstance(g, bmesh.types.BMEdge) and all(v in fresh_set for v in g.verts)]
+            last = fresh_set
+        self.bm.normal_update()
+
+    def finish(self, name, materials, rig_object):
+        bmesh.ops.triangulate(self.bm, faces=self.bm.faces, quad_method="FIXED", ngon_method="EAR_CLIP")
+        self.triangles = len(self.bm.faces)
+        self.points = [tuple(self.at(v)) for v in self.bm.verts]
+        mesh = bpy.data.meshes.new(f"{name}-geometry")
+        self.bm.to_mesh(mesh)
+        self.bm.free()
+        while mesh.uv_layers:
+            mesh.uv_layers.remove(mesh.uv_layers[0])
+        mesh.materials.clear()
+        for slot in materials:
+            mesh.materials.append(slot)
+        for polygon in mesh.polygons:
+            polygon.use_smooth = True
+        obj = bpy.data.objects.new(name, mesh)
+        bpy.context.scene.collection.objects.link(obj)
+        obj.parent = rig_object
+        obj.matrix_parent_inverse = self.source.matrix_parent_inverse.copy()
+        obj.matrix_basis = self.source.matrix_basis.copy()
+        for group in self.source.vertex_groups:
+            obj.vertex_groups.new(name=group.name)
+        obj.modifiers.new("Armature", "ARMATURE").object = rig_object
+        return obj
+
+
+def trousers(body, rig, slot):
+    """Straight-cut work trousers: the Peasant legs pushed out, the lower legs widened into straight tubes that fall
+    over the boot shafts, and lengthened to just above the ankle."""
+    garment = Derived(scene_mesh(LEGS), lambda p: True, .008, [slot])
+    knee_y = rig.at("calf_l").y
+    legs, feet = set(body.select(None, meshes=[LEGS], minimum=0)), set(body.select(None, meshes=[FEET], minimum=0))
+    tubes = {}
+    for side, s in SIDES:
+        knee = numpy.array([tuple(body.positions[i]) for i in legs if body.positions[i].x * s > 0 and abs(body.positions[i].y - knee_y) < .04])
+        boot = numpy.array([tuple(body.positions[i]) for i in feet if body.positions[i].x * s > 0 and .3 < body.positions[i].y < .45])
+        # The tube is centred on the boot shaft and wide enough for the knee above it and the shaft below.
+        centre = Vector((float(boot[:, 0].mean()), 0, float(boot[:, 2].mean())))
+        def spread(points, centre):
+            return numpy.hypot(points[:, 0] - centre.x, points[:, 2] - centre.z)
+        knee_centre = Vector((float(knee[:, 0].mean()), 0, float(knee[:, 2].mean())))
+        tubes[s] = (centre, max(float(spread(knee, knee_centre).max()) + .004, float(numpy.percentile(spread(boot, centre), 90)) + .016))
+
+    def straighten(p):
+        centre, radius = tubes[1 if p.x > 0 else -1]
+        k = min(1.0, max(0.0, (knee_y + .08 - p.y) / .16))
+        offset = Vector((p.x - centre.x, 0, p.z - centre.z))
+        r = offset.length
+        if r < 1e-6 or k == 0:
+            return p
+        return Vector((centre.x, p.y, centre.z)) + offset * ((r + (max(r, radius) - r) * k) / r)
+    garment.move(straighten)
+
+    def row(y, extra):
+        def place(p):
+            centre, radius = tubes[1 if p.x > 0 else -1]
+            direction = Vector((p.x - centre.x, 0, p.z - centre.z)).normalized()
+            return Vector((centre.x, y, centre.z)) + direction * (radius + extra)
+        return place
+    garment.hang(lambda p: p.y < .45, [row(.32, .002), row(.21, .004), row(.13, .007)])
+    return garment
+
+
+def sleeves(rig, slot, offset=.014, flare=0.0, tatter=0.0):
+    """Long sleeves: the Peasant arms from the shoulder to the wrist pushed out, with a cuff that opens by ``flare``
+    and, for a tattered sleeve, ends in uneven points."""
+    shoulder, wrist = rig.at("upperarm_l").x, rig.at("hand_l").x
+    garment = Derived(scene_mesh(ARMS), lambda p: shoulder + .01 < abs(p.x) < wrist - .025, offset, [slot])
+    axis = rig.at("lowerarm_l")
+
+    def row(k):
+        def place(p):
+            s = 1 if p.x > 0 else -1
+            radial = Vector((0, p.y - axis.y, p.z - axis.z))
+            angle = math.atan2(radial.z, radial.y)
+            radial.normalize()
+            length = (.012 + .055 * k) * (1 - tatter * triangle_wave(angle * 6 / math.pi))
+            return p + Vector((s * length, 0, 0)) + radial * flare * k * k
+        return place
+    garment.hang(lambda p: abs(p.x) > wrist - .07, [row(.5), row(1.0)])
+    return garment
+
+
+MANTLE_TOP = 1.535
+MANTLE_ZC = -.03
+
+
+def drape_surface(body, front, back, clearance=.035, arc=None, rows=14, flare=.03, slope=.25, tatter=0.0, arms=0.0):
+    """A mantle, cloak or cape (#379): rings around the torso from the neckline down to a hem that runs from ``front``
+    (its height at the chest) to ``back``. Each ring clears the torso and the shoulder caps by ``clearance``, and going
+    down it never narrows faster than ``slope`` (metres of radius per metre), so the cloth falls from the shoulders and
+    shoulder blades instead of following the small of the back. ``arc`` (degrees from the front toward the left
+    shoulder) leaves the rest open; ``arms`` keeps the cloth at least that far out at the sides, over the hanging arms;
+    the hem flares by ``flare`` and, tattered, ends in uneven points."""
+    allowed = [i for i in body.select(None, meshes=[SHIRT, LEGS], minimum=0) if abs(body.positions[i].x) < .24]
+    points = body.array[allowed]
+    radial = numpy.hypot(points[:, 0], points[:, 2] - MANTLE_ZC)
+    angles = numpy.arctan2(points[:, 0], points[:, 2] - MANTLE_ZC)
+    columns = 36 if arc else 48
+    thetas = ([math.radians(arc[0] + (arc[1] - arc[0]) * j / (columns - 1)) for j in range(columns)] if arc
+              else [2 * math.pi * j / columns for j in range(columns)])
+    sector = math.pi / columns * 1.5 if not arc else math.radians(abs(arc[1] - arc[0])) / (columns - 1) * .75
+    heights = numpy.zeros((rows, columns))
+    radii = numpy.full((rows, columns), numpy.nan)
+    for j, theta in enumerate(thetas):
+        hem = front + (back - front) * (1 - math.cos(theta)) / 2
+        difference = numpy.abs((angles - theta + math.pi) % (2 * math.pi) - math.pi)
+        in_sector = difference <= sector
+        for i in range(rows):
+            heights[i, j] = MANTLE_TOP + (hem - MANTLE_TOP) * i / (rows - 1)
+            near = in_sector & (numpy.abs(points[:, 1] - heights[i, j]) < .025)
+            if near.any():
+                radii[i, j] = float(radial[near].max())
+    for i in range(rows):
+        known = ~numpy.isnan(radii[i])
+        radii[i] = numpy.interp(numpy.arange(columns), numpy.flatnonzero(known), radii[i][known]) if known.any() else .1
+    # The cloth spans the spine's groove and the folds instead of dipping into them: the outermost of each column's
+    # neighbours, then averaged, then the clearance.
+    pad = "wrap" if arc is None else "edge"
+    wide = numpy.pad(radii, ((0, 0), (2, 2)), mode=pad)
+    radii = numpy.max([wide[:, k:k + columns] for k in range(5)], axis=0)
+    wide = numpy.pad(radii, ((0, 0), (1, 1)), mode=pad)
+    radii = numpy.mean([wide[:, k:k + columns] for k in range(3)], axis=0) + clearance
+    grid = [[None] * columns for _ in range(rows)]
+    for j, theta in enumerate(thetas):
+        previous = None
+        for i in range(rows):
+            r, y = float(radii[i, j]), float(heights[i, j])
+            if previous is not None:
+                r = max(r, previous - slope * (heights[0, j] - heights[-1, j]) / (rows - 1))
+            if arms and y < 1.42:
+                r = max(r, arms * abs(math.sin(theta)) ** 2)
+            previous = r
+            drop = 0.0
+            if i == rows - 1:
+                r += flare
+                drop = tatter * .06 * (.35 + .65 * triangle_wave(j * .5))
+            elif i == rows - 2:
+                r += flare * .4
+            grid[i][j] = Vector((math.sin(theta) * r, y - drop, MANTLE_ZC + math.cos(theta) * r))
+    return {"grid": grid, "closed": arc is None, "axis": (Vector((0, MANTLE_TOP, MANTLE_ZC)), Vector((0, -1, 0))), "thetas": thetas,
+            "ts": list(range(rows))}
+
+
+def leaves(surface, every=3, length=.07):
+    """Leaf cards hanging over the lower half of a mantle (the Druid), drawn into the mantle's own builder (slot 1)."""
+    grid = surface["grid"]
+    rows = len(grid)
+
+    def draw(builder):
+        for i in range(rows // 2, rows - 1):
+            for j in range(0, len(grid[0]), every):
+                index = i * 31 + j * 7
+                p = grid[i][(j + i) % len(grid[0])]
+                out = Vector((p.x, 0, p.z - MANTLE_ZC)).normalized()
+                side = out.cross(Vector((0, 1, 0))).normalized()
+                tip = (Vector((0, -1, 0)) + side * (((index * 37) % 11) - 5) / 12).normalized()
+                size = length * (.8 + .4 * ((index * 13) % 7) / 6)
+                base = p + out * .008
+                quad = [base, base + tip * size * .5 + side * size * .22 + out * .01, base + tip * size + out * .016,
+                        base + tip * size * .5 - side * size * .22 + out * .01]
+                verts = [builder.vert(q) for q in quad]
+                builder.face(verts, 1)
+                builder.face(list(reversed([builder.vert(q - out * .002) for q in quad])), 1)
+    return draw
+
+
+def hood_surface(body, spec):
+    """A hood (#379): a soft dome fitted to the head's extents with a peak that falls back over the crown, an open face
+    from the chin to the brow, and a drape that flares out and settles onto the shoulders."""
+    centre, indices = head_centre(body)
+    points = body.array[indices]
+    top = centre.y
+    half_x = float(points[:, 0].max() - points[:, 0].min()) / 2 + spec["clearance"]
+    half_z = float(points[:, 2].max() - points[:, 2].min()) / 2 + spec["clearance"] + .008
+    mid_z = float(points[:, 2].max() + points[:, 2].min()) / 2
+    brow, chin = top - .07, top - .255
+    bottom, crown = top - .33, top + spec["crown"]
+    shirt = body.array[body.select(None, meshes=[SHIRT], minimum=0)]
+    rows, columns = 26, 40
+    thetas = [2 * math.pi * j / columns for j in range(columns)]
+    grid = []
+    for i in range(rows):
+        y = bottom + (crown - bottom) * i / (rows - 1)
+        if y <= brow:
+            r, back = 1 + spec["drape"] * max(0.0, (chin + .02 - y) / (chin + .02 - bottom)) ** 1.5, 0.0
+        else:
+            u = (y - brow) / (crown - brow)
+            r, back = (1 - u ** 2.4) ** (1 / 2.4), -spec["peak"] * u * u
+        row = []
+        for theta in thetas:
+            p = Vector((centre.x + half_x * r * math.sin(theta), y, mid_z + back + half_z * r * math.cos(theta)))
+            # The drape rests on the shoulders instead of passing through them.
+            near = shirt[(numpy.abs(shirt[:, 0] - p.x) < .03) & (numpy.abs(shirt[:, 2] - p.z) < .03)]
+            if len(near):
+                p.y = max(p.y, float(near[:, 1].max()) + .04)
+            row.append(p)
+        grid.append(row)
+    surface = {"grid": grid, "closed": True, "axis": (Vector((centre.x, bottom, mid_z)), Vector((0, 1, 0))), "thetas": thetas,
+               "ts": list(range(rows))}
+
+    def mask(i, j):
+        theta = abs((thetas[j] + math.pi / columns + math.pi) % (2 * math.pi) - math.pi)
+        y = (grid[i][j].y + grid[i + 1][j].y) / 2
+        return not (theta < math.radians(52) and chin - .01 < y < brow + .02)
+    return surface, mask, (chin - .03, chin + .03)
+
+
+def sash(body, mirror=1):
+    """A sash from one shoulder to the other hip, like the soldier's (#309), over a jerkin."""
+    torso = body.select(["spine_01", "spine_02", "spine_03", "clavicle_l", "clavicle_r", "pelvis"], meshes=[SHIRT], minimum=.5)
+    middle = Vector((0, 1.25, float(body.array[torso][:, 2].mean())))
+    shoulder, hip = Vector((.13 * mirror, 1.5, 0)), Vector((-.15 * mirror, .99, 0))
+    along = (shoulder - hip).normalized()
+    normal = Vector((along.y, -along.x, 0))
+    return ring_grid(body, torso, middle - normal * .035, middle + normal * .035, FRONT, along, (0, 1), 3, None, 40, .03, slab=.03)
+
+
+def class_robe(body, kit, tatter=0.0):
+    skirt = tunic_skirt(body, .16, .15, 20)
+    if tatter:
+        hem = skirt["grid"][-1]
+        for j, p in enumerate(hem):
+            hem[j] = p - Vector((0, tatter * (.35 + .65 * triangle_wave(j * .5)), 0))
+    return (f"{kit}.robe", CLASS_ROBES[kit][0], skirt, None)
+
+
+def class_cloth(body, rig, kit):
+    garments = []
+    if kit == "class.warden":
+        for name, slot, surface, mask in cloth_surfaces(body, rig, "knight"):
+            garments.append((name.replace("knight.", "class.warden."), "class", surface, mask))
+        return garments
+    if kit in CLASS_JERKINS:
+        jerkin, legwear = CLASS_JERKINS[kit]
+        garments.append((f"{kit}.jerkin", jerkin, tunic_skirt(body, .86, .03, 5), None))
+        garments.append((f"{kit}.trousers", None, trousers(body, rig, legwear), None))
+        garments.append((f"{kit}.sleeves", None, sleeves(rig, jerkin), None))
+        garments.append((f"{kit}.sash", "class", sash(body, 1 if kit == "class.ranger" else -1), None,
+                         {"torso": True, "follow": ("spine_03", 1.25, 1.40)}))
+    if kit in CLASS_ROBES:
+        garments.append(class_robe(body, kit, .07 if kit == "class.necromancer" else 0.0))
+    if kit in HOODS:
+        surface, mask, (low, high) = hood_surface(body, HOODS[kit])
+        garments.append((f"{kit}.hood", HOODS[kit]["slot"], surface, mask,
+                         {"allowed": {f"{kit}.hood": [SHIRT, HEAD]}, "torso": True, "follow": ("Head", low, high)}))
+    # Mantles, the cloak and the cape ride the chest and shoulders; the hanging arms do not drag them.
+    drape = {"exclude": HANGING_ARM, "follow": ("spine_03", 1.12, 1.3)}
+    if kit == "class.ranger":
+        # Open at the chest but wrapped over both shoulders, so it reads from the front too (owner, 2026-10-25).
+        garments.append((f"{kit}.cloak", "wool.olive", drape_surface(body, 1.06, .82, clearance=.042, arc=(42, 318), rows=16, flare=.04,
+                                                                     slope=.12, arms=.3), None, drape))
+    if kit == "class.rogue":
+        # One shoulder: over the left shoulder, across the back and down the left side of the chest.
+        garments.append((f"{kit}.cape", "wool.umber", drape_surface(body, 1.12, 1.02, clearance=.04, arc=(12, 200), rows=12, flare=.03,
+                                                                       slope=.18, tatter=.7, arms=.28), None, drape))
+    if kit == "class.arcanist":
+        garments.append((f"{kit}.sleeves", None, sleeves(rig, "sleeve.indigo", flare=.10), None))
+        garments.append((f"{kit}.mantle", "class", drape_surface(body, 1.3, 1.2), None, drape))
+    if kit == "class.necromancer":
+        garments.append((f"{kit}.sleeves", None, sleeves(rig, "sleeve.black", flare=.07, tatter=.8), None))
+        garments.append((f"{kit}.mantle", "class", drape_surface(body, 1.27, 1.15, flare=.035, tatter=.9), None, drape))
+    if kit == "class.cleric":
+        garments.append((f"{kit}.sleeves", None, sleeves(rig, "sleeve.ivory", flare=.03), None))
+        # The sun tabard over the robe, with the class colour along its sides and hems (the cloth itself, no decal).
+        surface = tabard_surface(body, rig, clearance=(.032, .036, .1))
+        mask = tabard_mask(surface)
+        robe = Builder()
+        robe.shell(class_robe(body, kit)[2], .006, 0)
+        robe_mesh = bpy.data.meshes.new("cleric-robe-collider")
+        robe.bm.to_mesh(robe_mesh)
+        robe.bm.free()
+        bodies = [o for o in bpy.context.scene.objects if o.type == "MESH" and o.name in (SHIRT, LEGS)]
+        settle_tabard(surface, mask, bodies, [("robe", robe_mesh)])
+        last = len(surface["grid"]) - 2
+        columns = len(surface["grid"][0]) - 1
+
+        def edging(i, j):
+            return 1 if j in (0, columns - 1) or i in (0, last) else 0
+        garments.append((f"{kit}.tabard", "tabard.white", surface, mask, {"slots": ["class"], "material": edging}))
+    if kit == "class.druid":
+        garments.append((f"{kit}.sleeves", None, sleeves(rig, "sleeve.moss", flare=.04, tatter=.4), None))
+        cape = drape_surface(body, 1.28, 1.17, flare=.035, tatter=.5)
+        garments.append((f"{kit}.mantle", "bark", cape, None, {**drape, "slots": ["class"], "decorate": leaves(cape)}))
+    return garments
+
+
+def class_belt(body, name, slot, clearance):
+    waist = body.select(["pelvis", "spine_01", "thigh_l", "thigh_r"], meshes=[SHIRT, LEGS], minimum=.5)
+    centre = Vector((0, 0, float(body.array[waist][:, 2].mean())))
+    belt = ring_grid(body, waist, centre + Vector((0, .985, 0)), centre + Vector((0, 1.03, 0)), FRONT, Vector((1, 0, 0)),
+                     (0, 1), 3, None, 28, clearance, slab=.03)
+    return (name, "pelvis", slot, belt, None, None, .006)
+
+
+def forearm_band(body, rig, side, start, end, clearance, rows, profile=None):
+    elbow, wrist = rig.at(f"lowerarm_{side}"), rig.at(f"hand_{side}")
+    forearm = body.select([f"lowerarm_{side}"], meshes=[ARMS], minimum=.5)
+    return ring_grid(body, forearm, elbow + (wrist - elbow) * start, elbow + (wrist - elbow) * end, UP, FRONT, (0, 1), rows, None, 16,
+                     clearance, profile)
+
+
+def half_mask(body):
+    """The Rogue's cloth half-mask: a band around the lower face from under the chin to just below the eyes."""
+    centre, _indices = head_centre(body)
+    head = body.select(["Head", "neck_01"], minimum=.5)
+    a = Vector((centre.x, 1.44, centre.z))
+    reach, columns = math.radians(100), 25
+    thetas = [-reach + 2 * reach * j / (columns - 1) for j in range(columns)]
+    ts = [1.552 - a.y + (1.668 - 1.552) * i / 9 for i in range(10)]
+    radii = fit_radii(body, head, a, UP, FRONT, Vector((1, 0, 0)), ts, thetas, .006, math.radians(5), False) + .008
+    grid = [[a + UP * t + (FRONT * math.cos(theta) + Vector((1, 0, 0)) * math.sin(theta)) * float(radii[i, j])
+             for j, theta in enumerate(thetas)] for i, t in enumerate(ts)]
+    return {"grid": grid, "closed": False, "axis": (a, UP), "thetas": thetas, "ts": ts}
+
+
+def neck_ring(body, height, extra, count):
+    """Points around the shirt's neckline at ``height``, ``extra`` outside it (the Necromancer's bone beads)."""
+    shirt = [i for i in body.select(None, meshes=[SHIRT], minimum=0) if abs(body.positions[i].x) < .16]
+    a = Vector((0, height - .02, -.03))
+    thetas = [2 * math.pi * j / count for j in range(count)]
+    radii = fit_radii(body, shirt, a, UP, FRONT, Vector((1, 0, 0)), [.02], thetas, .012, math.pi / count, True)
+    return [a + UP * .02 + (FRONT * math.cos(t) + Vector((1, 0, 0)) * math.sin(t)) * (float(radii[0, j]) + extra) for j, t in enumerate(thetas)]
+
+
+def shirt_top(body, x, z, reach=.025):
+    shirt = body.array[body.select(None, meshes=[SHIRT], minimum=0)]
+    near = shirt[(numpy.abs(shirt[:, 0] - x) < reach) & (numpy.abs(shirt[:, 2] - z) < .06)]
+    return float(near[:, 1].max())
+
+
+def front_of(body, meshes, y, x=0.0):
+    points = body.array[body.select(None, meshes=meshes, minimum=0)]
+    near = points[(numpy.abs(points[:, 0] - x) < .03) & (numpy.abs(points[:, 1] - y) < .02)]
+    return float(near[:, 2].max())
+
+
+def class_plates(body, rig, kit):
+    if kit == "class.warden":
+        return [(name.replace("knight.", "class.warden."), *rest) for name, *rest in plate_surfaces(body, rig, "knight")]
+    pieces = []
+    robed = kit in CLASS_ROBES
+    belt = {"class.ranger": "leather", "class.rogue": "leather", "class.arcanist": "sash.gold", "class.necromancer": "leather",
+            "class.cleric": "gold", "class.druid": "rope"}[kit]
+    pieces.append(class_belt(body, f"{kit}.belt", belt, .032 if robed else .03))
+    if kit in ("class.ranger", "class.rogue"):
+        for side, _s in SIDES:
+            if kit == "class.ranger":
+                def bracer(t, theta, r):
+                    return r + .006 * math.sin(math.pi * t)
+                pieces.append((f"{kit}.bracer_{side}", f"lowerarm_{side}", "leather", forearm_band(body, rig, side, .3, .92, .024, 6, bracer),
+                               None, None, .004))
+            else:
+                def wrap(t, theta, r):
+                    return r + .002 * math.sin(math.pi * t * 8)
+                pieces.append((f"{kit}.wraps_{side}", f"lowerarm_{side}", ("wrap.light", "wrap.dark"),
+                               forearm_band(body, rig, side, .12, .96, .022, 9, wrap), None, None, (.004, lambda i, j: i % 2)))
+    if kit == "class.rogue":
+        pieces.append((f"{kit}.mask", "Head", "mask", half_mask(body), None, None, .004))
+    if kit == "class.arcanist":
+        # The high collar: the back of a flared ring standing up behind the head, lower toward its front ends.
+        shirt = [i for i in body.select(None, meshes=[SHIRT], minimum=0) if abs(body.positions[i].x) < .16]
+        a = Vector((0, 1.51, -.03))
+        thetas = [math.radians(-25 + 230 * j / 22) for j in range(23)]
+        # Angles from +x toward the back (-z): theta 0 is the left side, 90 degrees the back.
+        directions = [Vector((math.cos(t), 0, -math.sin(t))) for t in thetas]
+        base = fit_radii(body, shirt, a, UP, Vector((1, 0, 0)), Vector((0, 0, -1)), [.02], thetas, .012, math.radians(6), False)[0]
+        grid = []
+        for i in range(5):
+            k = i / 4
+            grid.append([a + Vector((0, .02 + .17 * k - (.05 * k if math.sin(t) < 0 else 0), 0)) + d * (float(base[j]) + .046 + .045 * k)
+                         for j, (t, d) in enumerate(zip(thetas, directions))])
+        collar = {"grid": grid, "closed": False, "axis": (a, UP), "thetas": thetas, "ts": list(range(5))}
+        pieces.append((f"{kit}.collar", "spine_03", "class", collar, None, None, .006))
+    if kit == "class.necromancer":
+        # Smooth beads (two subdivisions shade round without the plate bevel multiplying their edges).
+        beads = neck_ring(body, 1.5, .047, 12)
+        pieces.append((f"{kit}.bone-collar", "spine_03", "bone", lambda builder: [builder.blob(p, .019, 0, subdivisions=2) for p in beads],
+                       None, None, 0))
+        for side, s in SIDES:
+            top = shirt_top(body, .15 * s, -.03)
+            def spikes(builder, s=s, top=top):
+                for k, dz in enumerate((.04, 0, -.04)):
+                    base = Vector((.15 * s, top + .02, -.03 + dz))
+                    builder.spike(base, base + Vector((.06 * s, .13 - .02 * abs(k - 1), dz * .6)), .018, .0, 0)
+            pieces.append((f"{kit}.bone-spikes_{side}", f"clavicle_{side}", "bone", spikes, None, None, 0))
+        clasp = Vector((0, 1.007, front_of(body, [SHIRT, LEGS], 1.0) + .05))
+        pieces.append((f"{kit}.skull-clasp", "pelvis", "bone", lambda builder: builder.blob(clasp, .034, 0, (1, 1.15, .7), 2), None, None, 0))
+    if kit == "class.cleric":
+        for name, joint, _slot, surface, mask, apex, thickness in plate_surfaces(body, rig, "knight"):
+            if "spaulder" in name:
+                pieces.append((name.replace("knight.", "class.cleric."), joint, "gold", surface, mask, apex, thickness))
+        for side, _s in SIDES:
+            pieces.append((f"{kit}.cuff_{side}", f"lowerarm_{side}", "gold", forearm_band(body, rig, side, .86, .97, .03, 3), None, None, .003))
+        centre = Vector((0, 1.34, front_of(body, [SHIRT], 1.34) + .05))
+        thetas = [2 * math.pi * j / 24 for j in range(24)]
+        grid = [[centre + Vector((math.cos(t) * r, math.sin(t) * r, .008 * (1 - r / .1))) for t in thetas] for r in (.004, .025, .05)]
+        grid.append([centre + Vector((math.cos(t), math.sin(t), 0)) * (.1 if j % 2 == 0 else .066) for j, t in enumerate(thetas)])
+        sun = {"grid": grid, "closed": True, "axis": (centre - FRONT * .05, FRONT), "thetas": thetas, "ts": list(range(4))}
+        pieces.append((f"{kit}.sun", "spine_03", "gold", sun, None, None, .005))
+    if kit == "class.druid":
+        centre, indices = head_centre(body)
+        brow = centre.y - .075
+        circlet = ring_grid(body, indices, Vector((centre.x, brow - .004, centre.z)), Vector((centre.x, brow + .016, centre.z)), FRONT,
+                            Vector((1, 0, 0)), (0, 1), 2, None, 32, .011)
+        mid_z = float(body.array[indices][:, 2].mean())
+
+        def antlers(builder):
+            for s in (1, -1):
+                b0 = Vector((.072 * s, brow + .014, mid_z + .005))
+                p1 = b0 + Vector((.05 * s, .11, -.02))
+                p2 = p1 + Vector((.06 * s, .1, -.04))
+                builder.spike(b0, p1, .012, .009, 0)
+                builder.spike(p1, p2, .009, .003, 0)
+                builder.spike(p1, p1 + Vector((0, .07, .04)), .007, .002, 0)
+                m1 = b0 + (p1 - b0) * .5
+                builder.spike(m1, m1 + Vector((.06 * s, .03, .02)), .006, .002, 0)
+                q = p2 - (p2 - p1) * .3
+                builder.spike(q, p2 + Vector((-.03 * s, .05, -.03)), .005, .002, 0)
+        pieces.append((f"{kit}.antler-circlet", "Head", "antler", circlet, None, None, .005))
+        pieces.append((f"{kit}.antler-circlet", "Head", "antler", antlers, None, None, 0))
+    return pieces
+
+
 # ---------------------------------------------------------------------------------------------- output
 
 def finish_mesh(builder, name, materials):
@@ -923,8 +1490,9 @@ def gltf_output_group():
     return group
 
 
-def bake_ambient_occlusion(obj, base):
-    """Unwrap ``obj``, bake its AO into a PNG and give it its own copy of ``base`` with that occlusion map."""
+def bake_ambient_occlusion(obj, bases):
+    """Unwrap ``obj``, bake its AO into a PNG and give it its own copy of each of ``bases`` (its material slots, in
+    order) with that occlusion map."""
     bpy.ops.object.select_all(action="DESELECT")
     obj.select_set(True)
     bpy.context.view_layer.objects.active = obj
@@ -933,16 +1501,20 @@ def bake_ambient_occlusion(obj, base):
     bpy.ops.uv.smart_project(island_margin=PLATE_AO["island_margin"])
     bpy.ops.uv.pack_islands(margin=PLATE_AO["island_margin"])
     bpy.ops.object.mode_set(mode="OBJECT")
-    material = base.copy()
-    material.name = f"{base.name}.{obj.name}"
-    obj.data.materials.clear()
-    obj.data.materials.append(material)
     image = bpy.data.images.new(f"{obj.name}-ao", PLATE_AO["size"], PLATE_AO["size"], alpha=False)
     image.colorspace_settings.name = "Non-Color"
-    nodes = material.node_tree.nodes
-    texture = nodes.new("ShaderNodeTexImage")
-    texture.image = image
-    nodes.active = texture
+    materials = []
+    for base in bases:
+        material = base.copy()
+        material.name = f"{base.name}.{obj.name}"
+        nodes = material.node_tree.nodes
+        texture = nodes.new("ShaderNodeTexImage")
+        texture.image = image
+        nodes.active = texture
+        materials.append((material, texture))
+    obj.data.materials.clear()
+    for material, _texture in materials:
+        obj.data.materials.append(material)
     scene = bpy.context.scene
     scene.render.engine = "CYCLES"
     scene.cycles.device = "CPU"
@@ -956,15 +1528,17 @@ def bake_ambient_occlusion(obj, base):
     image.file_format = "PNG"
     image.pack()
     # Bind it: the red channel of the baked image feeds the glTF output group's Occlusion socket.
-    separate = nodes.new("ShaderNodeSeparateColor")
-    material.node_tree.links.new(texture.outputs["Color"], separate.inputs["Color"])
-    output = nodes.new("ShaderNodeGroup")
-    output.node_tree = gltf_output_group()
-    material.node_tree.links.new(separate.outputs["Red"], output.inputs["Occlusion"])
-    return material
+    for material, texture in materials:
+        nodes = material.node_tree.nodes
+        separate = nodes.new("ShaderNodeSeparateColor")
+        material.node_tree.links.new(texture.outputs["Color"], separate.inputs["Color"])
+        output = nodes.new("ShaderNodeGroup")
+        output.node_tree = gltf_output_group()
+        material.node_tree.links.new(separate.outputs["Red"], output.inputs["Occlusion"])
+    return [material for material, _texture in materials]
 
 
-def finish_plate(obj, base):
+def finish_plate(obj, bases):
     """Apply the plate finishing modifiers and the AO bake to ``obj`` in place and return its triangle count."""
     bevel = obj.modifiers.new("bevel", "BEVEL")
     bevel.width, bevel.segments = PLATE_BEVEL["width"], PLATE_BEVEL["segments"]
@@ -975,7 +1549,7 @@ def finish_plate(obj, base):
     bpy.context.view_layer.objects.active = obj
     for modifier in list(obj.modifiers):
         bpy.ops.object.modifier_apply(modifier=modifier.name)
-    bake_ambient_occlusion(obj, base)
+    bake_ambient_occlusion(obj, bases)
     mesh = obj.data
     bm = bmesh.new()
     bm.from_mesh(mesh)
@@ -1014,6 +1588,9 @@ def generate(output_path, arguments, inputs):
     if not body.select(None, meshes=[SHIRT], minimum=0):
         raise ValueError(f"the target must contain the base outfit node {SHIRT}")
     palette = {name: material(name) for name in sorted(MATERIALS)}
+    if kit in CLASS_TRIM:
+        shader = palette["class"].node_tree.nodes.get("Principled BSDF")
+        shader.inputs["Base Color"].default_value = (*linear(CLASS_TRIM[kit]), 1)
     exported, pieces = [], []
     if output == "plates":
         grouped = {}
@@ -1021,33 +1598,58 @@ def generate(output_path, arguments, inputs):
             grouped.setdefault(name, (joint, slot, []))[2].append((surface, mask, apex, thickness))
         for name in sorted(grouped):
             joint, slot, parts = grouped[name]
+            # A piece has one slot, or several (#379) that its surfaces pick per grid cell or per primitive.
+            slots = [slot] if isinstance(slot, str) else list(slot)
             builder = Builder()
             for surface, mask, apex, thickness in parts:
-                builder.shell(surface, thickness, 0, mask, apex)
+                if callable(surface):
+                    surface(builder)
+                elif isinstance(thickness, tuple):
+                    builder.shell(surface, thickness[0], thickness[1], mask, apex)
+                else:
+                    builder.shell(surface, thickness, 0, mask, apex)
             if name == "soldier.belt":
                 front = max(parts[0][0]["grid"][1], key=lambda p: p.z)
                 builder.box(front + Vector((0, 0, .006)), (.026, .022, .006), 0)
             points = list(builder.points)
-            mesh, triangles = finish_mesh(builder, name, [palette[slot]])
+            mesh, triangles = finish_mesh(builder, name, [palette[s] for s in slots])
             obj = bpy.data.objects.new(name, mesh)
             bpy.context.scene.collection.objects.link(obj)
-            triangles = finish_plate(obj, palette[slot])
+            triangles = finish_plate(obj, [palette[s] for s in slots])
             exported.append(obj)
-            pieces.append({"node": name, "kind": "rigid", "joint": joint, "materials": [obj.data.materials[0].name], "triangleCount": triangles,
+            pieces.append({"node": name, "kind": "rigid", "joint": joint, "materials": [m.name for m in obj.data.materials], "triangleCount": triangles,
                            "bounds": bounds(points), "hides": HIDES.get(name, [])})
     else:
         shirt = next(o for o in bpy.context.scene.objects if o.type == "MESH" and o.name == SHIRT)
-        for name, slot, surface, mask in cloth_surfaces(body, rig, kit):
+        for name, slot, surface, mask, *extra in cloth_surfaces(body, rig, kit):
+            if isinstance(surface, Derived):
+                # #379: a garment cut from a base mesh, keeping the base's own skin weights.
+                obj = surface.finish(name, [palette[s] for s in surface.slots], rig_object)
+                exported.append(obj)
+                pieces.append({"node": name, "kind": "skinned", "nodes": [obj.name], "materials": list(surface.slots),
+                               "triangleCount": surface.triangles, "bounds": bounds(surface.points), "hides": HIDES.get(name, [])})
+                continue
+            spec = extra[0] if extra else {}
+            slots = [slot] + spec.get("slots", [])
             builder = Builder()
-            builder.shell(surface, .005 if slot == "faction" else .006, 0, mask)
+            builder.shell(surface, .005 if slot in ("faction", "class") or name in TABARDS else .006, spec.get("material", 0), mask)
+            if spec.get("decorate"):
+                spec["decorate"](builder)
             points = list(builder.points)
             allowed = body.select(None, meshes=[SHIRT, "Male_Peasant_Legs"], minimum=0)
-            if name in ("knight.tabard", "soldier.sash", "innkeeper.apron"):
+            if name in spec.get("allowed", ()):
+                allowed = body.select(None, meshes=spec["allowed"][name], minimum=0)
+            if name in TABARDS or name in ("soldier.sash", "innkeeper.apron") or spec.get("torso"):
                 # These ride the torso: arm and shoulder joints must not pull them off the shoulder or into a plate (#309).
                 allowed = [i for i in allowed if max(body.weights[i], key=body.weights[i].get) not in ARM_JOINTS]
+            if spec.get("exclude"):
+                allowed = [i for i in allowed if max(body.weights[i], key=body.weights[i].get) not in spec["exclude"]]
             tree = cloth_tree(body, allowed)
             weights = [blend_weights(body, tree, Vector(p)) for p in builder.points]
-            if name == "knight.tabard":
+            if spec.get("follow"):
+                joint, low, high = spec["follow"]
+                weights = [follow(w, joint, (p[1] - low) / (high - low)) for w, p in zip(weights, builder.points)]
+            if name in TABARDS:
                 # Over the breastplate the tabard rides spine_03 like the plate, so the plate cannot push through it;
                 # it blends back to the body's own weights between the plate's lower edge and the hips.
                 weights = [follow(w, "spine_03", (p[1] - TABARD_RIGID_FROM[0]) / (TABARD_RIGID_FROM[1] - TABARD_RIGID_FROM[0]))
@@ -1066,7 +1668,7 @@ def generate(output_path, arguments, inputs):
             if name == "soldier.sash":
                 # Over the shoulder the sash rides the upper chest, so the arm swing cannot lift it off (#309).
                 weights = [follow(w, "spine_03", (p[1] - 1.25) / .15) for w, p in zip(weights, builder.points)]
-            mesh, triangles = finish_mesh(builder, name, [palette[slot]])
+            mesh, triangles = finish_mesh(builder, name, [palette[s] for s in slots])
             # bmesh keeps vertex order through triangulation, so the weights stay aligned with the vertices.
             parts = [skinned_object(name if name not in TUNICS else f"{name}-skirt", mesh, rig_object, weights)]
             if name in TUNICS:
@@ -1086,7 +1688,7 @@ def generate(output_path, arguments, inputs):
                 triangles += sum(len(p.vertices) - 2 for p in shirt_mesh.polygons)
                 points += [tuple(to_gltf(copy.matrix_world @ v.co)) for v in shirt_mesh.vertices]
             exported += parts
-            pieces.append({"node": name, "kind": "skinned", "nodes": sorted(p.name for p in parts), "materials": [slot],
+            pieces.append({"node": name, "kind": "skinned", "nodes": sorted(p.name for p in parts), "materials": slots,
                            "triangleCount": triangles, "bounds": bounds(points), "hides": HIDES.get(name, [])})
         exported.append(rig_object)
     for obj in list(bpy.context.scene.objects):
@@ -1102,6 +1704,11 @@ def generate(output_path, arguments, inputs):
         export_animations=False, export_skins=output == "cloth", export_morph=False,
         export_cameras=False, export_lights=False, export_extras=False)
     meshes = [obj.data for obj in exported if obj.type == "MESH"]
-    return {"recipe": "armor-v1", "kit": kit, "output": output, "unit": "meter", "axes": "right-handed-y-up",
-            "space": "character-rest", "pieces": pieces, "factionMaterial": "faction",
-            "geometrySha256": geometry_hash(meshes)}
+    observations = {"recipe": "armor-v1", "kit": kit, "output": output, "unit": "meter", "axes": "right-handed-y-up",
+                    "space": "character-rest", "pieces": pieces, "factionMaterial": "faction",
+                    "geometrySha256": geometry_hash(meshes)}
+    if kit in CLASS_TRIM:
+        # #379: the class colour slot and its default (linear) colour, for the appearance descriptor.
+        observations["classMaterial"] = "class"
+        observations["classTrim"] = [*linear(CLASS_TRIM[kit]), 1]
+    return observations

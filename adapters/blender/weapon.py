@@ -49,14 +49,20 @@ PIECES = {
         "rimWidth": (.008, .05, False), "bossRadius": (.03, .12, False), "outlineSegments": (6, 32, True),
     },
 }
-STAFFS = ("staff.bone", "staff.gilded", "staff.gnarled")
+STAFFS = ("staff.bone", "staff.gilded", "staff.gnarled", "staff.crystal")
 PIECES.update({piece: {
     "length": (1.5, 2.2, False), "footLength": (.5, 1.0, False), "shaftRadius": (.014, .03, False),
     "orbRadius": (.04, .1, False), "radialSegments": (6, 16, True),
 } for piece in STAFFS})
+# #379: the Cleric's flanged mace and the Arcanist's book.
+PIECES["mace.flanged"] = {"haftLength": (.35, .7, False), "gripLength": (.08, .2, False), "headRadius": (.03, .07, False),
+                          "flanges": (4, 8, True), "radialSegments": (6, 16, True)}
+PIECES["book.tome"] = {"width": (.12, .26, False), "height": (.16, .34, False), "thickness": (.03, .09, False)}
 # Style-spec triangle ceilings (docs/style-humanlike.md); maxTriangles may only lower them.
-BUDGETS = {"sword.arming": 2500, "dagger.blackened": 1500, "shield.heater": 3000, **{piece: 2500 for piece in STAFFS}}
-ROLES = {"sword.arming": "one-hand-weapon", "dagger.blackened": "one-hand-weapon", "shield.heater": "shield", **{piece: "staff" for piece in STAFFS}}
+BUDGETS = {"sword.arming": 2500, "dagger.blackened": 1500, "shield.heater": 3000, **{piece: 2500 for piece in STAFFS},
+           "mace.flanged": 1500, "book.tome": 400}
+ROLES = {"sword.arming": "one-hand-weapon", "dagger.blackened": "one-hand-weapon", "shield.heater": "shield", **{piece: "staff" for piece in STAFFS},
+         "mace.flanged": "one-hand-weapon", "book.tome": "book"}
 MATERIALS = {
     # name: (linear base colour, metallic, roughness)
     "steel": ((.62, .64, .66), 1.0, .32),
@@ -70,13 +76,18 @@ MATERIALS = {
     "ivory": ((.9, .88, .81), 0.0, .45),
     "gold": ((.83, .58, .17), 1.0, .3),
     "wood.dark": ((.07, .036, .018), 0.0, .85),
+    "silver": ((.5, .52, .58), 1.0, .35),
+    "cover": ((.1, .018, .022), 0.0, .62),
+    "parchment": ((.7, .62, .45), 0.0, .9),
 }
 # The orbs glow: their linear colour is also the glTF emissive factor.
-EMISSIVE = {"orb.green": (.2, 1.0, .25), "orb.gold": (1.0, .67, .1), "orb.moss": (.27, .75, .1)}
+EMISSIVE = {"orb.green": (.2, 1.0, .25), "orb.gold": (1.0, .67, .1), "orb.moss": (.27, .75, .1), "crystal.blue": (.3, .7, 1.0)}
 MATERIALS.update({name: (colour, 0.0, .2) for name, colour in EMISSIVE.items()})
 PIECE_MATERIALS = {"sword.arming": ["steel", "iron", "leather"], "dagger.blackened": ["steel", "charcoal", "leather.dark"],
                    "shield.heater": ["paint", "wood", "iron", "leather"], "staff.bone": ["bone", "orb.green"],
-                   "staff.gilded": ["ivory", "gold", "orb.gold"], "staff.gnarled": ["wood.dark", "orb.moss"]}
+                   "staff.gilded": ["ivory", "gold", "orb.gold"], "staff.gnarled": ["wood.dark", "orb.moss"],
+                   "staff.crystal": ["silver", "crystal.blue"], "mace.flanged": ["gold", "wood.dark", "leather"],
+                   "book.tome": ["cover", "parchment", "gold"]}
 SHARP_ANGLE = math.radians(35)
 
 
@@ -105,6 +116,12 @@ def validate(p, inputs):
     elif piece in ("sword.arming", "dagger.blackened"):
         if p["bladeThickness"] * 3 > p["bladeWidth"] or p["guardWidth"] < p["bladeWidth"] * 2:
             raise ValueError("sword blade must be three times as wide as thick and the guard twice as wide as the blade")
+    elif piece == "mace.flanged":
+        if p["gripLength"] > p["haftLength"] / 2:
+            raise ValueError("mace grip must be at most half the haft")
+    elif piece == "book.tome":
+        if p["height"] < p["width"] or p["thickness"] * 2 > p["width"]:
+            raise ValueError("tome must be taller than wide and at most half as thick as wide")
     else:
         if p["height"] < p["width"] or max(p["bossRadius"] * 4, p["rimWidth"] * 8, p["curvature"] * 4) > p["width"]:
             raise ValueError("heater shield must be taller than wide with boss, rim and curvature in proportion")
@@ -385,6 +402,28 @@ def staff(builder, p):
             tube(builder, path, [r * .45, r * .32, r * .2], 6, shaft, apex=(out[0] * orb_r * 1.12, top + .14, out[1] * orb_r * 1.12))
         orb(builder, (0, top + .06 + orb_r * .85, 0), orb_r, orb_material, n)
         return
+    if piece == "staff.crystal":
+        # #379, the Arcanist: a slim silver shaft, a band at the hand, a ferrule, and three prongs holding a long
+        # six-sided crystal (its "orb") point up.
+        radii = [r * (.8 + .2 * (y + foot) / (top + foot)) for y in ys]
+        rings = [[(radii[k] * math.cos(2 * math.pi * j / n), y, radii[k] * math.sin(2 * math.pi * j / n)) for j in range(n)] for k, y in enumerate(ys)]
+        builder.loft(rings, shaft)
+        for profile in ([(.9, -foot - .006), (1.15, -foot + .01), (1.15, -foot + .05), (.9, -foot + .06)],
+                        [(1.05, -.07), (1.3, -.06), (1.3, -.045), (1.05, -.035)],
+                        [(1.0, top - .06), (1.6, top - .03), (1.6, top), (1.2, top + .01)]):
+            rings = [[(r * a * math.cos(2 * math.pi * j / n), y, r * a * math.sin(2 * math.pi * j / n)) for j in range(n)] for a, y in profile]
+            builder.loft(rings, shaft)
+        for i in range(3):
+            a = 2 * math.pi * i / 3
+            out = (math.sin(a), math.cos(a))
+            path = [(out[0] * r * 1.3, top, out[1] * r * 1.3), (out[0] * orb_r * .9, top + orb_r * .9, out[1] * orb_r * .9),
+                    (out[0] * orb_r * .75, top + orb_r * 1.9, out[1] * orb_r * .75)]
+            tube(builder, path, [r * .45, r * .35, r * .25], 6, shaft, apex=(out[0] * orb_r * .6, top + orb_r * 2.15, out[1] * orb_r * .6))
+        crystal = [(top + orb_r * .5, .0), (top + orb_r * 1.2, .55), (top + orb_r * 3.2, .55), (top + orb_r * 4.3, .0)]
+        rings = [[(orb_r * w * math.cos(2 * math.pi * j / 6 + math.pi / 6), y, orb_r * w * math.sin(2 * math.pi * j / 6 + math.pi / 6)) for j in range(6)]
+                 if w else [(0, y, 0)] for y, w in crystal]
+        builder.loft(rings, orb_material)
+        return
     # Gilded: a smooth white shaft with a gold ferrule, a gold grip band and a flared gold cap cradling the orb.
     gold = 1
     radii = [r * (.85 + .15 * (y + foot) / (top + foot)) for y in ys]
@@ -402,6 +441,55 @@ def staff(builder, p):
                 (out[0] * orb_r * 1.0, top + .05 + orb_r * 1.4, out[1] * orb_r * 1.0)]
         tube(builder, path, [r * .36, r * .3, r * .24], 6, gold, apex=(out[0] * orb_r * .75, top + .05 + orb_r * 1.7, out[1] * orb_r * .75))
     orb(builder, (0, top + .05 + orb_r * .9, 0), orb_r, orb_material, n)
+
+
+def mace(builder, p):
+    """#379, the Cleric's mace: a haft along +Y from the pommel through the wrapped grip at the origin to a round head
+    ringed by bevelled flanges."""
+    n, haft, grip, head_r = p["radialSegments"], p["haftLength"], p["gripLength"], p["headRadius"]
+    gold, wood, leather = 0, 1, 2
+    r = head_r * .32
+    bottom = -grip / 2 - .03
+    rings = [[(r * a * math.cos(2 * math.pi * j / n), y, r * a * math.sin(2 * math.pi * j / n)) for j in range(n)]
+             for a, y in ((1.0, grip / 2), (.95, haft - head_r * .6))]
+    builder.loft(rings, wood)
+    rings = [[(r * 1.15 * math.cos(2 * math.pi * j / n), y, r * 1.15 * math.sin(2 * math.pi * j / n)) for j in range(n)] for y in (-grip / 2, 0, grip / 2)]
+    builder.loft(rings, leather)
+    pommel = [(.0, bottom - .012), (1.2, bottom - .006), (1.6, bottom + .01), (1.1, -grip / 2)]
+    builder.loft([[(r * a * math.cos(2 * math.pi * j / n), y, r * a * math.sin(2 * math.pi * j / n)) for j in range(n)] if a else [(0, y, 0)]
+                  for a, y in pommel], gold)
+    centre = haft + head_r * .2
+    orb(builder, (0, centre, 0), head_r * .75, gold, n, 7)
+    for i in range(p["flanges"]):
+        a = 2 * math.pi * i / p["flanges"]
+        out, side = (math.sin(a), 0, math.cos(a)), (math.cos(a), 0, -math.sin(a))
+        def at(radial, y, s):
+            return tuple(out[k] * radial + side[k] * s + (y if k == 1 else 0) for k in range(3))
+        t = head_r * .09
+        outline = [(head_r * .4, -head_r * 1.15), (head_r * 1.05, -head_r * .55), (head_r * 1.1, head_r * .5), (head_r * .4, head_r * 1.05)]
+        builder.loft([[at(rad, centre + y, -t) for rad, y in outline], [at(rad, centre + y, t) for rad, y in outline]], gold)
+    cap = [(1.0, haft - head_r * .6), (1.4, haft - head_r * .45), (1.2, haft - head_r * .3)]
+    builder.loft([[(r * a * math.cos(2 * math.pi * j / n), y, r * a * math.sin(2 * math.pi * j / n)) for j in range(n)] for a, y in cap], gold)
+
+
+def book(builder, p):
+    """#379, the Arcanist's tome, held like a shield: the spine runs along +Y (the forearm), the covers face +-Z, the
+    grip frame is the middle of the back cover, and the book stands off the hand toward +Z."""
+    cover, pages, gold = 0, 1, 2
+    w, h, d = p["width"] / 2, p["height"] / 2, p["thickness"]
+    board = .006
+
+    def box(x0, x1, y0, y1, z0, z1, material):
+        bottom = [(x0, y0, z0), (x1, y0, z0), (x1, y1, z0), (x0, y1, z0)]
+        builder.loft([bottom, [(x, y, z1) for x, y, _z in bottom]], material)
+    box(-w, w, -h, h, .01, .01 + board, cover)
+    box(-w, w, -h, h, .01 + d - board, .01 + d, cover)
+    box(-w - .004, -w + .006, -h, h, .01, .01 + d, cover)
+    box(-w + .006, w - .006, -h + .006, h - .006, .01 + board, .01 + d - board, pages)
+    for sy in (-1, 1):
+        for sx in (-1, 1):
+            box(sx * w - (.03 if sx > 0 else 0), sx * w + (.0 if sx > 0 else .03), sy * h - (.03 if sy > 0 else 0), sy * h + (0 if sy > 0 else .03),
+                .01 + d, .01 + d + .003, gold)
 
 
 def material(name):
@@ -422,7 +510,7 @@ def build(p):
     """The validated piece's triangulated mesh (with its materials) and the authored glTF points."""
     piece = p["piece"]
     builder = Builder()
-    (shield if piece == "shield.heater" else staff if piece in STAFFS else sword)(builder, p)
+    {"shield.heater": shield, "mace.flanged": mace, "book.tome": book}.get(piece, staff if piece in STAFFS else sword)(builder, p)
     bm = builder.bm
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
     bmesh.ops.triangulate(bm, faces=bm.faces, quad_method="FIXED", ngon_method="EAR_CLIP")
