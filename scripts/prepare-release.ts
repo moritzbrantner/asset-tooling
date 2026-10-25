@@ -84,7 +84,7 @@ export async function applyPins(checkout: string, pins: Pin[], artifacts: Artifa
 /** The owner's upload commands, and the coordinator's single line that lands the re-pin PRs after the upload. */
 export function uploadCommands(release: string, artifacts: Artifacts, prs: { repo: string; number: number; url: string; clone: string }[]): { upload: string[]; land: string } {
   const quote = (value: string) => (/^[\w./@:+=-]+$/.test(value) ? value : `'${value.replaceAll("'", "'\\''")}'`);
-  const lines = [`gh release upload ${release} --repo ${TOOLING_REPO} ${artifacts.releaseFiles.map((f) => quote(path.join(artifacts.dir, f))).join(" ")} --clobber`];
+  const lines = [`gh release upload ${release} --repo ${TOOLING_REPO} ${artifacts.releaseFiles.map((f) => quote(`${artifacts.dir}/${f}`)).join(" ")} --clobber`];
   if (artifacts.downloads) lines.push(`gh release upload ${release} --repo ${TOOLING_REPO} ${quote(artifacts.downloads)}/* --clobber`);
   lines.push(`gh workflow run pages.yml --repo ${TOOLING_REPO}`);
   const land = prs.map((pr) => `gh pr ready ${pr.url} && node ~/.local/share/coding-agent/workctl.mjs land ${pr.repo}#${pr.number} --clone ${quote(pr.clone)}`);

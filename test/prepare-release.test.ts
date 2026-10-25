@@ -71,14 +71,14 @@ describe("prepare-release", () => {
 
   test("prints the owner's upload commands and one land line", () => {
     const dir = "/build/kit";
-    const artifacts = { dir, tar: "kit.tar", sha256: NEW, releaseFiles: ["kit.tar", "kit.tar.sha256", "export.ref.json", "lineage.json"], downloads: path.join(dir, "downloads") };
+    const artifacts = { dir, tar: "kit.tar", sha256: NEW, releaseFiles: ["kit.tar", "kit.tar.sha256", "export.ref.json", "lineage.json"], downloads: `${dir}/downloads` };
     const { upload, land } = uploadCommands("kit", artifacts, [
       { repo: "o/a", number: 7, url: "https://github.com/o/a/pull/7", clone: "/c/a" },
       { repo: "o/b", number: 9, url: "https://github.com/o/b/pull/9", clone: "/c/b" },
     ]);
     expect(upload).toEqual([
-      `gh release upload kit --repo moritzbrantner/asset-tooling ${["kit.tar", "kit.tar.sha256", "export.ref.json", "lineage.json"].map((f) => path.join(dir, f)).join(" ")} --clobber`,
-      `gh release upload kit --repo moritzbrantner/asset-tooling ${path.join(dir, "downloads")}/* --clobber`,
+      "gh release upload kit --repo moritzbrantner/asset-tooling /build/kit/kit.tar /build/kit/kit.tar.sha256 /build/kit/export.ref.json /build/kit/lineage.json --clobber",
+      "gh release upload kit --repo moritzbrantner/asset-tooling /build/kit/downloads/* --clobber",
       "gh workflow run pages.yml --repo moritzbrantner/asset-tooling",
     ]);
     expect(land).toBe(
