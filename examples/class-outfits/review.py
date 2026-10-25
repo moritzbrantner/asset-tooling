@@ -121,6 +121,7 @@ def dress(bundle, info, rest, name, x):
             if obj is None:
                 continue
             if piece["node"] in hidden:
+                new.remove(obj)
                 bpy.data.objects.remove(obj)
                 continue
             world, joint = socket_world(piece["socket"])
