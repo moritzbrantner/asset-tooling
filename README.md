@@ -32,6 +32,25 @@ Start with the [asset gallery](https://moritzbrantner.github.io/asset-tooling/).
 
 During experimentation, generated outputs are replaceable **current** work, not a series of required release versions. Each experimental bundle has one rolling release named after it (for example `humanoid-ranger-male`) whose assets are replaced in place (Decision 7.1.5). The public Ranger comparison shows that release at Pages build time and identifies it in the caption by its tar hash; a local build can supply any working Ranger tar. It does not automatically inspect uncommitted local candidates. Once a consumer accepts an artifact, that consumer deliberately updates its input. Source licenses and the checks needed to load compatible assets remain separate from disposable-output history. See [Decision 7.1.4](docs/decisions/atlas.md).
 
+## Publishing a rolling release
+
+Some consumers pin a rolling release, either by their own copy of its `export.ref.json` or by its tar sha256. A pinned consumer fails as soon as the release assets are replaced. [`consumers.json`](consumers.json) lists the consumers of each release: the repo, the pinned files, and how each file pins the release. A `tar-sha256` pin replaces the first sha256 after its `after` anchor. An `export-ref` or `file` pin is a copy of that release file. An optional `format` command runs in the consumer checkout after the rewrite. An entry with `"pinned": false` reads the live release and needs no re-pin. Update the list when a consumer adds or drops a pin.
+
+Before replacing a release, prepare the re-pins:
+
+```sh
+bun scripts/prepare-release.ts <release> <artifactsDir> [--downloads <dir>] [--dry-run]
+```
+
+`<artifactsDir>` holds the build: one `<name>.tar` with its `.sha256`, `export.ref.json`, and any other top-level release JSON such as `lineage.json` or `<name>.descriptor.json`. `--downloads` defaults to `<artifactsDir>/downloads`. The script:
+
+1. verifies the tar against its `export.ref.json` with `pack-asset-bundle.ts --verify`;
+2. finds the release's pinned consumers in `consumers.json`;
+3. clones each one to `~/.cache/agent-work/<repo>-repin-<release>`, rewrites its pins on `agent/repin-<release>`, pushes, and opens (or updates) a **draft** PR titled `Re-pin <release>`;
+4. prints the owner's `gh release upload … --clobber` commands for the bundle files and the downloads, and `gh workflow run pages.yml`, then one line that marks the re-pin PRs ready and lands them.
+
+It never uploads. The owner runs the upload commands, then the coordinator runs the land line, so a consumer is red only between the upload and its re-pin landing. `--dry-run` verifies the build and prints the commands without cloning or opening PRs.
+
 ## Stability
 
 The reusable core has completed its first stabilization milestone. Published schema versions are immutable compatibility contracts, CLI exit semantics and the deliberately small root programmatic API are protected by deterministic tests, generation cache reuse is fail-closed and content-addressed, and the package shape is validated without publishing it.

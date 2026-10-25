@@ -169,14 +169,14 @@ Its tar goes to the rolling `humanoid-ranger-female` release.
 
 ## Build
 
-To update the rolling release after a build, replace its assets and rebuild Pages:
+To update the rolling release after a build, pack the downloads, then prepare the consumer re-pins and print the upload commands ([Publishing a rolling release](../README.md#publishing-a-rolling-release)):
 
 ```sh
-gh release upload humanoid-ranger-male <out>/humanoid.ranger.male.tar <out>/humanoid.ranger.male.tar.sha256 <out>/export.ref.json --clobber
 ASSET_TOOLING_KTX=<ktx CLI> bun scripts/pack-downloads.ts --bundle <out>/bundle --out <downloads> --name humanoid-ranger-male --clips humanoid.ranger.male/default
-gh release upload humanoid-ranger-male <downloads>/* --clobber   # per-entry downloads (docs/release-downloads.md)
-gh workflow run pages.yml
+bun scripts/prepare-release.ts humanoid-ranger-male <out> --downloads <downloads>
 ```
+
+The owner then runs the printed `gh release upload … --clobber` and `gh workflow run pages.yml` commands, and the re-pin PRs land after the upload.
 
 (Create the release once with `gh release create humanoid-ranger-male --title humanoid-ranger-male --notes …` if it does not exist.)
 
