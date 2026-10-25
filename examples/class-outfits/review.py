@@ -70,6 +70,8 @@ def attachments(bundle):
     manifest = json.load(open(os.path.join(bundle, "manifest.json")))
     text = json.dumps(manifest)
     for name in os.listdir(os.path.join(bundle, "attachments")):
+        if name.split(".")[0] not in text:
+            continue  # a stale attachment left in a rebuilt bundle directory
         data = json.load(open(os.path.join(bundle, "attachments", name)))
         if data.get("schema") == "humanoid-appearance-v1":
             found["appearance"] = data
