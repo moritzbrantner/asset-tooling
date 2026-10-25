@@ -57,7 +57,7 @@ arpg downloads the rolling `combat-effects` release, pins it by the tar's SHA-25
 3. use the `subtle` presets for the lighter setting;
 4. delete `placeholderAtlas` and the in-code `BURST_PRESETS`.
 
-Effects off or reduced motion still submit `enabled: false`. Publishing the release is a separate, explicit step.
+Effects off or reduced motion still submit `enabled: false`. CI publishes it when a change to its recipe merges ([Publishing a rolling release](../README.md#publishing-a-rolling-release)).
 
 ## Tests
 

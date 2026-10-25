@@ -88,7 +88,7 @@ The descriptor is canonical JSON and the `settlement-descriptor` attachment of `
 
 ## Release
 
-The bundle is distributed as the rolling `settlement-props` GitHub release, whose assets are replaced in place. A consumer pins the release, the tar sha256 and its own copy of `export.ref.json` ([asset-bundles.md](asset-bundles.md#release-distribution-and-consumer-pinning)). It reads each prop with `readAssetBundleGltf(dir, manifest, "settlement.props.<prop>", "default")` and the descriptor with `readAssetBundleAttachment(dir, manifest, "settlement.props.stall", "default", "settlement-descriptor")`. Publishing the release is a separate, explicit step after the owner's visual review.
+The bundle is distributed as the rolling `settlement-props` GitHub release, whose assets are replaced in place. A consumer pins the release, the tar sha256 and its own copy of `export.ref.json` ([asset-bundles.md](asset-bundles.md#release-distribution-and-consumer-pinning)). It reads each prop with `readAssetBundleGltf(dir, manifest, "settlement.props.<prop>", "default")` and the descriptor with `readAssetBundleAttachment(dir, manifest, "settlement.props.stall", "default", "settlement-descriptor")`. CI publishes it when a change to its recipe merges ([Publishing a rolling release](../README.md#publishing-a-rolling-release)).
 
 ## Tests
 

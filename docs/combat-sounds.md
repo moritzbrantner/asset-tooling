@@ -5,7 +5,7 @@ This is the CC0 audio fixture set of [#297](https://github.com/moritzbrantner/as
 - **Consumers:** the `game-audio` crate's `SoundManifest` and arpg 67c. Playback, mapping 67a cue events onto cue kinds, voice limits and spatialisation all belong to them.
 - **Sources:** CC0 only, with no account and nothing paid. Kenney packs come first: Impact Sounds, Interface Sounds, RPG Audio and Music Jingles. Gaps are filled from CC0 OpenGameArt entries: artisticdude's *RPG Sound Pack*, Ogrebane's *Battle Sound Effects* (multi-licensed; used under its CC0 option) and StumpyStrust's *Their Coming* horn. Freesound isn't used, because originals need an account.
 - **Storage:** every source file is a catalog member (`catalog/sources.json`, schema version 2 for archive members) promoted to Git LFS under `assets/canonical/<member id>/`. The archives are pinned, but only their members are stored. Each member is tagged `combat-sounds` plus the purpose tags of the cues that use it, such as `sfx.combat.hit` and `sfx.ui.confirm`.
-- **Release:** one rolling release, `combat-sounds` (Atlas Decision 7.1.5), never a numbered one. Publishing it is a separate coordinator step.
+- **Release:** one rolling release, `combat-sounds` (Atlas Decision 7.1.5), never a numbered one. CI publishes it when a change to its recipe merges ([Publishing a rolling release](../README.md#publishing-a-rolling-release)).
 
 ## Build
 

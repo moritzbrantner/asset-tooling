@@ -37,6 +37,6 @@ Attached as `ambient-animals-descriptor` to `greyhaven.ambient.cat/default` and 
 
 ## Release
 
-Publish the tar, its `.sha256`, `export.ref.json`, the descriptor and `lineage.json` on the single rolling `greyhaven-ambient-animals` release after the recipe merges. mmorpg reads the live release unpinned and refreshes its local copy when `export.ref.json` changes.
+CI publishes the tar, its `.sha256`, `export.ref.json`, the descriptor and `lineage.json` on the single rolling `greyhaven-ambient-animals` release when the recipe merges ([Publishing a rolling release](../README.md#publishing-a-rolling-release)). mmorpg reads the live release unpinned and refreshes its local copy when `export.ref.json` changes.
 
 `test/greyhaven-ambient-animals.test.ts` builds the real bundle and checks the keys, one skin and exactly `Idle`/`Walk` per animal, grounded and centred bounds, the +Z facing, the sizes, in-place walks, the cat's dark fur, the rodent's brown fur, provenance and a byte-identical replay. It skips without Blender or with unhydrated sources; the hosted `blender-script` job hydrates the three sources and runs it.

@@ -53,7 +53,7 @@ Zoo downloads the rolling `zoo-effects` release. It pins the release by the tar'
 2. declares a `RendererEffectAtlas` with the descriptor's `width`, `height`, `columns`, `rows`, `frameCount` and `filter`, and a `resourceKey` that names the file, for example `zoo-effects:<png.sha256>`;
 3. for each cue, submits a burst made of the chosen preset plus `id`, `atlas`, `origin`, `startTime`, a cosmetic `seed`, `scale` and an optional `color`/`opacity`.
 
-The seed never comes from or advances game RNG. **Off / reduced motion:** submit no bursts, or set `effects.enabled: false`, which also releases the atlas textures. The `subtle` presets are the lighter setting. Publishing the release is a separate, explicit step.
+The seed never comes from or advances game RNG. **Off / reduced motion:** submit no bursts, or set `effects.enabled: false`, which also releases the atlas textures. The `subtle` presets are the lighter setting. CI publishes it when a change to its recipe merges ([Publishing a rolling release](../README.md#publishing-a-rolling-release)).
 
 ## Tests
 

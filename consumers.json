@@ -9,6 +9,12 @@
     },
     {
       "repo": "moenarch-games/mmorpg",
+      "release": "humanoid-ranger-female",
+      "pinned": false,
+      "note": "scripts/fetch-ranger.py acquires the selected entries of the live release into a local copy keyed on its export.ref.json"
+    },
+    {
+      "repo": "moenarch-games/mmorpg",
       "release": "shrine-kit",
       "pinned": false,
       "note": "scripts/fetch-bundles.sh unpacks the live release into a local copy keyed on its export.ref.json"
