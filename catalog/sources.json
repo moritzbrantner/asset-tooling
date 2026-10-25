@@ -1915,6 +1915,60 @@
     {
       "archiveMember": {
         "archive": "quaternius.modular-character-outfits-fantasy-standard",
+        "path": "Modular Character Outfits - Fantasy[Standard]/Exports/glTF (Godot-Unreal)/Outfits/Female_Peasant.gltf"
+      },
+      "id": "quaternius.modular-character-outfits-fantasy-standard.female-peasant-gltf",
+      "kind": "mesh",
+      "license": {
+        "evidenceUrl": "https://quaternius.itch.io/modular-character-outfits-fantasy",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "model/gltf+json",
+      "metadata": {
+        "purpose": "Female Peasant base outfit under the tanner's skirt and apron (#378)"
+      },
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 29529,
+        "sha256": "43ba98058b933cae9acbde0f3ef8c3dda4ba9f69f338606f9d87666d9efffb31"
+      },
+      "tags": [
+        "humanoid-baseline",
+        "outfit"
+      ],
+      "title": "Modular Character Outfits – Fantasy — Female_Peasant (glTF)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.modular-character-outfits-fantasy-standard",
+        "path": "Modular Character Outfits - Fantasy[Standard]/Exports/glTF (Godot-Unreal)/Outfits/Female_Peasant.bin"
+      },
+      "id": "quaternius.modular-character-outfits-fantasy-standard.female-peasant-bin",
+      "kind": "buffer",
+      "license": {
+        "evidenceUrl": "https://quaternius.itch.io/modular-character-outfits-fantasy",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "application/octet-stream",
+      "metadata": {
+        "purpose": "Female Peasant base outfit under the tanner's skirt and apron (#378)"
+      },
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 658600,
+        "sha256": "40eccaa2bd545c893142ef7dca0866ea8f20df3a86c67c5615024bc4fe546e83"
+      },
+      "tags": [
+        "humanoid-baseline",
+        "outfit"
+      ],
+      "title": "Modular Character Outfits – Fantasy — Female_Peasant (glTF buffer)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.modular-character-outfits-fantasy-standard",
         "path": "Modular Character Outfits - Fantasy[Standard]/Exports/glTF (Godot-Unreal)/Outfits/T_Peasant_BaseColor.png"
       },
       "id": "quaternius.modular-character-outfits-fantasy-standard.t-peasant-basecolor-png",

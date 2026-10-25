@@ -32,7 +32,7 @@ import { encodeRgba8Image, parseRgba8Image, RGBA8_IMAGE_MEDIA_TYPE, type Rgba8Im
 import { sha256Bytes } from "../src/hash.js";
 import { parseAssetSpec } from "../src/schema.js";
 import { LOD_LEVELS, LOD_RATIOS, LOD_SWITCH_DISTANCE_HINTS, generateLodLevel, type LodLevel } from "../src/lod-recipe.js";
-import { ARMOR_CLASS_HOODS, ARMOR_CLASS_MATERIAL, ARMOR_FACTION, ARMOR_FACTION_KITS, ARMOR_GREY_SKIN_KITS, ARMOR_KIT_LABELS, ARMOR_OUTFIT_KITS, createArmorAssetSpec, readArmorRecipeSource, type ArmorKit, type ArmorOutfitKit, type ArmorOutput } from "../src/armor-recipes.js";
+import { ARMOR_CLASS_HOODS, ARMOR_CLASS_MATERIAL, ARMOR_FACTION, ARMOR_FACTION_KITS, ARMOR_GREY_SKIN_KITS, ARMOR_KIT_LABELS, ARMOR_FEMALE_OUTFIT_KITS, ARMOR_OUTFIT_KITS, createArmorAssetSpec, readArmorRecipeSource, type ArmorKit, type ArmorOutfitKit, type ArmorOutput } from "../src/armor-recipes.js";
 import { ARCHERY_PRESETS, ARCHERY_ROLES, createArcheryAssetSpec, readArcheryRecipeSource, type ArcheryPiece } from "../src/archery-recipes.js";
 import { HEADWEAR_CONTRACT, HEADWEAR_HIDES, HEADWEAR_PRESETS, createHeadwearAssetSpec, readHeadwearRecipeSource, type HeadwearPiece } from "../src/headwear-recipes.js";
 import { FACE_MORPH_NODES, addFaceVariants, applyFaceVariants, faceAppearance } from "../src/face-variants.js";
@@ -182,6 +182,14 @@ export const RANGER_RESIDENT_PRESETS: readonly RangerAppearancePreset[] = [
     facialHair: ["beard.full"], face: { face: "face.narrow", eyes: "eyes.narrow", nose: "nose.long", mouth: "mouth.thin" } },
 ];
 /**
+ * Female resident presets (#378): Tanner Hilda Brook in the tanner outfit (Female_Peasant with a long work skirt and a
+ * leather apron), her hair in buns.
+ */
+export const RANGER_FEMALE_RESIDENT_PRESETS: readonly RangerAppearancePreset[] = [
+  { id: "resident.tanner", label: "Tanner", outfit: "outfit.tanner", skin: "skin.light", hair: "hair.buns", tint: "tint.brown",
+    facialHair: [], face: { face: "face.broad", eyes: "eyes.base", nose: "nose.broad", mouth: "mouth.base" } },
+];
+/**
  * Class starter looks (#379): one complete look per mmorpg class in its class outfit. Hooded classes show no hair; the
  * Necromancer has its pale grey skin.
  */
@@ -201,6 +209,11 @@ export const RANGER_CLASS_PRESETS: readonly RangerAppearancePreset[] = [
   { id: "class.druid", label: "Druid", outfit: "outfit.class.druid", skin: "skin.dark", hair: "hair.long", tint: "tint.brown",
     facialHair: ["beard.full", "beard.moustache"], face: { face: "face.broad", eyes: "eyes.base", nose: "nose.broad", mouth: "mouth.base" } },
 ];
+
+/** The appearance presets each figure ships. */
+export function rangerPresets(figure: RangerFigure): readonly RangerAppearancePreset[] {
+  return figure === "male" ? [...RANGER_RESIDENT_PRESETS, ...RANGER_CLASS_PRESETS] : RANGER_FEMALE_RESIDENT_PRESETS;
+}
 
 /** Fail the build if a preset names an option the descriptor does not offer. */
 export function validateAppearancePresets(descriptor: Json, presets: readonly RangerAppearancePreset[]) {
@@ -234,7 +247,13 @@ export const RANGER_APPEARANCE_ATTACHMENT = "humanoid-appearance";
  * character variant with the same skeleton and clips; its rigid plates are one `armor.<kit>` entry whose nodes ride the
  * `<joint>.armor` sockets, and its skinned garments are composed into the variant.
  */
-export const RANGER_PEASANT_OUTFIT = { archive: "quaternius.modular-character-outfits-fantasy-standard", path: "Modular Character Outfits - Fantasy[Standard]/Exports/glTF (Godot-Unreal)/Outfits/Male_Peasant.gltf" } as const;
+export const RANGER_PEASANT_OUTFITS = {
+  male: { archive: "quaternius.modular-character-outfits-fantasy-standard", path: "Modular Character Outfits - Fantasy[Standard]/Exports/glTF (Godot-Unreal)/Outfits/Male_Peasant.gltf" },
+  // #378: the female Peasant outfit, under the tanner's skirt and apron.
+  female: { archive: "quaternius.modular-character-outfits-fantasy-standard", path: "Modular Character Outfits - Fantasy[Standard]/Exports/glTF (Godot-Unreal)/Outfits/Female_Peasant.gltf" },
+} as const satisfies Record<RangerFigure, { archive: string; path: string }>;
+/** The Peasant-based outfit kits per figure (#378: the tanner is the female figure's). */
+export const RANGER_OUTFIT_KITS: Record<RangerFigure, readonly ArmorOutfitKit[]> = { male: ARMOR_OUTFIT_KITS, female: ARMOR_FEMALE_OUTFIT_KITS };
 const hairKey = (style: string) => `hair.${style.replace(/^Hair_/, "").replace(/([a-z])([A-Z])/g, "$1-$2").toLowerCase()}`;
 
 /** The head/face subset of the UBC body (docs/gltf-subset.md, owner option A on #110). */
@@ -1066,17 +1085,23 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
     const kits: { kit: ArmorOutfitKit; variants: { variant: string; character: AssetRef }[]; plates: AssetRef; cloth: AssetRef; fitTarget: AssetRef; observations: Json[] }[] = [];
     let beards: { glb: AssetRef; observations: Json } | undefined;
     let headSkins: AssetRef | undefined;
-    // The Peasant-based outfits are male-only for now (#117 Q8).
-    if (figure === "male") {
+    // The Peasant-based outfits: the male kits (#117 Q8 onward) and the female tanner (#378). Age and build keys, the
+    // grey skin, the hand-modelled hair and beards and the head skins stay male-only.
+    const male = figure === "male";
+    {
       log("outfits: Peasant base and fitted armour (#117)");
-      const peasant = await importGltf(RANGER_PEASANT_OUTFIT);
+      const peasantOutfit = RANGER_PEASANT_OUTFITS[figure];
+      const peasant = await importGltf(peasantOutfit);
       // #301: the Light skin too; the Peasant outfit's skin texture is the same derived Light texture as the Ranger's.
-      const peasantLight = await importGltf(RANGER_PEASANT_OUTFIT, { [look.skinLight.outfitUri]: regularLight });
+      // (The female Peasant outfit shows no skin, so only its head changes.)
+      const peasantLight = await importGltf(peasantOutfit, { [look.skinLight.outfitUri]: regularLight });
       const fitTarget = single(await executeGltfComposeSkinnedOperation(root, { inputs: { skeleton: peasant, parts: [head] }, parameters: { policy: POLICY } }));
       const peasantMeshes = (await new NodeIO().readBinary(new Uint8Array(await resolveAssetObject(root, peasant)))).getRoot().listMeshes().map((mesh) => mesh.getName());
       const { jointNames } = JSON.parse((await resolveAssetObject(root, targetRig)).toString("utf8"));
       // #379: the Necromancer's pale grey skin: the Light body and outfit skin textures desaturated and lifted toward a
       // cool grey (luminance only, so the painted shading stays).
+      let peasantGrey: AssetRef | undefined, headGrey: AssetRef | undefined;
+      if (male) {
       log("grey skin textures for the Necromancer (#379)");
       const greyed = async (image: Rgba8Image) => {
         const grey = new Uint8Array(image.pixels.length);
@@ -1091,11 +1116,12 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
         const raw = (await storeAssetObject(root, { bytes: encodeRgba8Image({ width: image.width, height: image.height, pixels: grey }), kind: "image", mediaType: RGBA8_IMAGE_MEDIA_TYPE })).asset;
         return single(await executeImageEncodePngOperation(root, { inputs: { source: raw }, parameters: { compressionLevel: 9 } }));
       };
-      const peasantGrey = await importGltf(RANGER_PEASANT_OUTFIT, { [look.skinLight.outfitUri]: await greyed({ width: regular.width, height: regular.height, pixels }) });
+      peasantGrey = await importGltf(peasantOutfit, { [look.skinLight.outfitUri]: await greyed({ width: regular.width, height: regular.height, pixels }) });
       const bodyGreyGlb = await importGltf(shape.body, { [look.skinLight.body.uri]: await greyed(light) });
       const headGreyBase = single(await executeGltfSubsetSkinnedOperation(root, { inputs: { source: bodyGreyGlb }, parameters: { ...RANGER_HEAD_RECIPE, keepMeshes: [...shape.headMeshes] } }));
-      const headGrey = (await applyFaceVariants(root, headGreyBase, face.authored)).glb;
-      for (const kit of ARMOR_OUTFIT_KITS) {
+      headGrey = (await applyFaceVariants(root, headGreyBase, face.authored)).glb;
+      }
+      for (const kit of RANGER_OUTFIT_KITS[figure]) {
         log(`fit ${kit} armour (external.blender.script@1 armor recipe)`);
         const plates = await buildArmor(root, kit, "plates", fitTarget);
         const cloth = await buildArmor(root, kit, "cloth", fitTarget);
@@ -1106,7 +1132,7 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
         let darkKit: { lods: Record<LodLevel, AssetRef>; character: AssetRef } | undefined;
         let kitKeys: Uint8Array | undefined;
         const skins: (readonly [string, AssetRef, AssetRef])[] = [["skin.dark", peasant, face.glb], ["skin.light", peasantLight, headLight],
-          ...(ARMOR_GREY_SKIN_KITS.includes(kit) ? [["skin.grey", peasantGrey, headGrey] as const] : [])];
+          ...(ARMOR_GREY_SKIN_KITS.includes(kit) ? [["skin.grey", peasantGrey!, headGrey!] as const] : [])];
         for (const [skin, outfitSource, headPart] of skins) {
           const base = hidden.length === 0 ? outfitSource : single(await executeGltfSubsetSkinnedOperation(root, {
             inputs: { source: outfitSource }, parameters: { keepJoints: ["root"], minWeight: 1, keepMeshes: peasantMeshes.filter((name) => !hidden.includes(name)), policy: POLICY },
@@ -1122,29 +1148,35 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
           let outfitCharacter = await resizeTextures(`${bundleKey}/${variant}`, composedKit);
           // #380: the outfit and its plates follow the age and build keys, authored once per kit (the skins share
           // the geometry).
-          if (!kitKeys) {
-            log(`age and build keys on the ${kit} outfit and plates (adapters/blender/male_variety.py, #380)`);
-            const authored = await authorVarietyKeys(root, `kit.${kit}`, { mode: "character", source: composedKit, items: plates.glb });
-            kitKeys = authored.bytes;
-            variety[`kit.${kit}`] = authored.observations;
+          if (male) {
+            if (!kitKeys) {
+              log(`age and build keys on the ${kit} outfit and plates (adapters/blender/male_variety.py, #380)`);
+              const authored = await authorVarietyKeys(root, `kit.${kit}`, { mode: "character", source: composedKit, items: plates.glb });
+              kitKeys = authored.bytes;
+              variety[`kit.${kit}`] = authored.observations;
+            }
+            const keyed = await applyVarietyKeys(root, outfitCharacter, kitKeys, variant);
+            outfitCharacter = keyed.glb;
+            variety.transfers[variant] = keyed.transfer;
           }
-          const keyed = await applyVarietyKeys(root, outfitCharacter, kitKeys, variant);
-          outfitCharacter = keyed.glb;
-          variety.transfers[variant] = keyed.transfer;
           variants.push({ variant, character: outfitCharacter, skin });
           if (skin === "skin.dark") darkKit = { lods: await characterLods(composedKit, variant), character: outfitCharacter };
           else await lightLods(darkKit!.lods, darkKit!.character, outfitCharacter, variant, skin);
         }
         const variant = variants[0]!.variant;
-        const keyedPlates = await applyVarietyKeys(root, plates.glb, kitKeys!, `armor.${kit}`);
-        variety.transfers[`armor.${kit}`] = keyedPlates.transfer;
-        kits.push({ kit, variants, plates: keyedPlates.glb, cloth: cloth.glb, fitTarget, observations: pieces });
+        let keyedPlates = plates.glb;
+        if (male) {
+          const keyed = await applyVarietyKeys(root, plates.glb, kitKeys!, `armor.${kit}`);
+          variety.transfers[`armor.${kit}`] = keyed.transfer;
+          keyedPlates = keyed.glb;
+        }
+        kits.push({ kit, variants, plates: keyedPlates, cloth: cloth.glb, fitTarget, observations: pieces });
         const garments = (cloth.observations.pieces as Json[]).map((piece) => ({ id: piece.node, nodes: piece.nodes, hides: piece.hides }));
         const hood = garments.find((garment) => ARMOR_CLASS_HOODS.includes(garment.id));
         outfits.push({
           id: variant, variant, label: ARMOR_KIT_LABELS[kit],
           skins: variants.map(({ variant: skinVariant, skin }) => ({ id: skin, variant: skinVariant })),
-          base: { outfit: "Male_Peasant", hidden },
+          base: { outfit: male ? "Male_Peasant" : "Female_Peasant", hidden },
           armor: { entry: `armor.${kit}`, pieces: (plates.observations.pieces as Json[]).map((piece) => ({ node: piece.node, socket: `${String(piece.joint).toLowerCase()}.armor`, hides: piece.hides })) },
           garments,
           // #379: a class hood is part of the outfit; it shows as the `outfit.hood` part and hides the hair.
@@ -1154,6 +1186,7 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
         });
       }
       // #380: the pack hairstyles follow the build keys (their textures share the geometry, so one authoring each).
+      if (male) {
       for (const item of hair) {
         log(`build keys on ${item.key} (adapters/blender/male_variety.py, #380)`);
         const authored = await authorVarietyKeys(root, item.key, { mode: "item", source: item.variants["hair-1"]!, body: fitTarget });
@@ -1184,6 +1217,7 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
       variety.headSkins = skins.observations;
       const importedSkins = single(await executeGltfProductionImportOperation(root, { inputs: { source: skins.glb }, parameters: { policy: POLICY } }));
       headSkins = await resizeTextures(VARIETY_HEAD_SKIN_ENTRY, importedSkins);
+      }
     }
     const characterDocument = await new NodeIO().readBinary(new Uint8Array(await resolveAssetObject(root, character)));
     const eyebrowMaterials = characterDocument.getRoot().listNodes().filter((node) => node.getName() === look.eyebrows && node.getMesh())
@@ -1205,7 +1239,8 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
       }))),
       tints: Object.entries(RANGER_HAIR_TINTS).map(([id, color]) => ({ id: `tint.${id}`, baseColorFactor: [...color, 1], texture: "hair-1" })),
       eyebrows: { nodes: [look.eyebrows], tintMaterials: [...new Set(eyebrowMaterials)].sort(), followsHairTint: true },
-      ...(figure === "male" ? { outfits, headwear: rangerHeadwearAppearance() } : {}),
+      outfits,
+      ...(figure === "male" ? { headwear: rangerHeadwearAppearance() } : {}),
       // #376: facial hair pieces of one entry, coloured like the hair under each tint (#380: hand-modelled, wearing the
       // hair material, so the tints are the hair tints).
       ...(beards ? { facialHair: {
@@ -1218,7 +1253,8 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
       } } : {}),
       // #376: one complete look per named Greyhaven resident (mmorpg#418).
       // #379: and one starter look per mmorpg class.
-      ...(figure === "male" ? { presets: [...RANGER_RESIDENT_PRESETS, ...RANGER_CLASS_PRESETS].map((preset) => ({ ...preset, ...(preset.faction ? { faction: [...preset.faction, 1] } : {}) })) } : {}),
+      // #378: the female figure's resident (Tanner Hilda Brook).
+      presets: rangerPresets(figure).map((preset) => ({ ...preset, ...(preset.faction ? { faction: [...preset.faction, 1] } : {}) })),
       // #348: face, eyes, nose and mouth options as morph weights on every full-detail character variant.
       face: faceAppearance({
         nodes: FACE_MORPH_NODES[figure],
@@ -1239,7 +1275,7 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
         return { of, level, variant, ratio, triangles, switchDistanceHint: LOD_SWITCH_DISTANCE_HINTS[level] };
       }),
     };
-    if (figure === "male") validateAppearancePresets(descriptor, [...RANGER_RESIDENT_PRESETS, ...RANGER_CLASS_PRESETS]);
+    validateAppearancePresets(descriptor, rangerPresets(figure));
     const descriptorAsset = (await storeAssetObject(root, { bytes: Buffer.from(`${canonicalJson(descriptor)}\n`), kind: "humanoid-appearance", mediaType: "application/json" })).asset;
     return { light: lightCharacter, hair, descriptor: descriptorAsset, transfer, composedLight, kits, beards: beards?.glb, headSkins };
   };

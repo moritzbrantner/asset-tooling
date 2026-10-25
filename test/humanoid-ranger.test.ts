@@ -20,8 +20,8 @@ import {
   RANGER_APPEARANCE, RANGER_ARCHERY, RANGER_AUTHORED_CLIPS, RANGER_BOW_CLIPS, RANGER_BONE_MAP, RANGER_BUNDLE_KEY, RANGER_BUNDLE_VARIANT, RANGER_CLIPS,
   RANGER_CLIPS_ATTACHMENT, RANGER_CLIP_ROLES, RANGER_FIGURES, RANGER_GAITS, RANGER_HAIR_TINTS, RANGER_MEMBERS, RANGER_MIXAMO_BONE_MAP,
   RANGER_CLASS_PRESETS, RANGER_FACIAL_HAIR_ENTRY, RANGER_ITEM_ATTACHMENT, RANGER_RESIDENT_PRESETS, RANGER_SOCKETS_ATTACHMENT, RANGER_SOCKETS_DESCRIPTOR, RANGER_TEXTURE_POLICY,
-  RANGER_UBC_BONE_MAP, RANGER_WEAPONS, validateAppearancePresets,
-  buildRangerCharacter, rangerItemDescriptor,
+  RANGER_UBC_BONE_MAP, RANGER_WEAPONS, RANGER_OUTFIT_KITS, RANGER_PEASANT_OUTFITS, validateAppearancePresets,
+  buildRangerCharacter, rangerItemDescriptor, rangerPresets,
 } from "../scripts/build-ranger-character.ts";
 import { WEAPON_ROLES } from "../src/weapon-recipes.js";
 import { FACE_MORPH_NODES, FACE_MORPH_TARGETS } from "../src/face-variants.js";
@@ -113,6 +113,21 @@ test("resident presets must name options the appearance descriptor offers", () =
   assert.throws(() => validateAppearancePresets(descriptor, [{ ...marshal!, skin: "skin.grey" }]), /skin/);
   const necromancer = RANGER_CLASS_PRESETS.find((preset) => preset.id === "class.necromancer")!;
   assert.throws(() => validateAppearancePresets(descriptor, [{ ...necromancer, hair: "hair.buzzed" }]), /hood/);
+});
+
+test("the female figure's tanner preset names options its descriptor offers (#378)", () => {
+  const options = (...ids: string[]) => ids.map((id) => ({ id }));
+  const descriptor: any = {
+    skins: options("skin.dark", "skin.light"), hair: options("hair.long", "hair.buns"), tints: options("tint.black", "tint.brown", "tint.blond", "tint.grey"),
+    face: { features: ["face", "eyes", "nose", "mouth"].map((feature) => ({ id: feature, options: options(...["base", "broad", "narrow", "large", "long", "full", "thin"].map((o) => `${feature}.${o}`)) })) },
+    outfits: [{ id: "outfit.tanner", skins: options("skin.dark", "skin.light"), armor: { pieces: [{ node: "tanner.belt" }] } }],
+  };
+  assert.deepEqual(rangerPresets("female").map((preset) => preset.id), ["resident.tanner"]);
+  validateAppearancePresets(descriptor, rangerPresets("female"));
+  assert.throws(() => validateAppearancePresets({ ...descriptor, outfits: [] }, rangerPresets("female")), /unknown outfit/);
+  assert.deepEqual([...RANGER_OUTFIT_KITS.female], ["tanner"]);
+  assert.ok(!(RANGER_OUTFIT_KITS.male as readonly string[]).includes("tanner"));
+  assert.match(RANGER_PEASANT_OUTFITS.female.path, /Female_Peasant\.gltf$/);
 });
 
 test("the Ranger declares its equipment, figures, appearance and texture limits", () => {
