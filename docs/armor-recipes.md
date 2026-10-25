@@ -44,6 +44,18 @@ The same recipe dresses the named Greyhaven residents ([humanoid-ranger.md](huma
 - **Facial hair:** the #376 beard kit is gone; the hand-modelled beards and moustaches of `adapters/blender/hair_beards.py` replace it under the same names ([Male variety](humanoid-ranger.md#male-variety-380)).
 - **Straw hat:** the farmer's hat is a [headwear](humanoid-ranger.md#contents) piece (`hat.straw` in `adapters/blender/headwear.py`), so any outfit can wear it.
 
+## Redbrand bandit (#389)
+
+mmorpg's Redbrand bandits get their own outfit (`outfit.redbrand`, male figure) instead of the soldier's gambeson with a red sash. It follows the Greyhaven Marshal's style: a long coat, straight trousers and functional boots.
+
+| Kit | Cloth | Plates | Hides |
+| --- | --- | --- | --- |
+| `redbrand` | `redbrand.coat`: the shirt pushed 14 mm out in rough dark oxblood wool (`coat.redbrand`), with a skirt to mid-calf (0.32 m) that widens toward a ragged hem and is open at the front below the belt, the split widening toward the hem; `redbrand.sleeves`: long sleeves in the coat's wool; `redbrand.trousers`: the straight brown work trousers over the boot shafts; `redbrand.scarf` and `redbrand.scarf-end`: a thick wrap rolled round the neck with its loose end down the left of the chest, in the `faction` slot | `redbrand.belt`, `redbrand.bracer_l`, `redbrand.bracer_r` (leather) | the shirt, the legs |
+
+- **Band colour:** the scarf is the outfit's `faction` slot (default `ARMOR_FACTION`), so mmorpg's `REDBRAND_RED` recolours it like the soldier's sash; the coat stays oxblood.
+- **Coat in motion:** the skirt settles 60 % toward the pelvis down to its hem and each side follows its thigh by up to 70 % (`SETTLE`, `STRIDE`).
+- **Headwear:** any [headwear](humanoid-ranger.md#contents) piece; the crossbowmen can keep the kettle-hat look with `equipment.helm.ironcrest` or go bareheaded.
+
 ## Tanner (#378)
 
 Tanner Hilda Brook is the female figure's resident (decision C on #376): the pack's `Female_Peasant` outfit (bodice, cream sleeves, work gloves, slim trousers and boots), promoted to the catalog like `Male_Peasant`, with the kit `tanner` over it. The recipe fits the female base when the kit is a female kit (`FEMALE_KITS`; `use_figure` switches the base mesh names to `Female_Peasant_*` and the head to `Superhero_Female`).

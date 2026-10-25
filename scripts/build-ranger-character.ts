@@ -388,6 +388,9 @@ export const RANGER_GRIPS: readonly { clip: string; socket: string; role: string
   { clip: "Grip_Staff_R", socket: "hand_r.staff", role: "staff", surface: GRIP_HANDLE(.019) },
   { clip: "Grip_Staff_L", socket: "hand_l.staff", role: "staff", surface: GRIP_HANDLE(.019) },
   { clip: "Grip_Bow_L", socket: "hand_l.bow", role: "bow", surface: GRIP_HANDLE(.022) },
+  // #389: the crossbow's stock runs along its grip frame's Z; the hand closes round the stock's wrist.
+  { clip: "Grip_Crossbow_R", socket: "hand_r.crossbow", role: "crossbow", surface: { kind: "cylinder", axis: [0, 0, 1], radius: .02 } },
+  { clip: "Grip_Crossbow_L", socket: "hand_l.crossbow", role: "crossbow", surface: { kind: "cylinder", axis: [0, 0, 1], radius: .02 } },
 ];
 /** The finger and thumb joints a grip clip keys (rotation only), for the hand `side`. */
 export const rangerGripJoints = (side: "l" | "r") =>
@@ -418,6 +421,8 @@ export const RANGER_ARCHERY: readonly { key: string; piece: ArcheryPiece }[] = [
   { key: "equipment.bow.long", piece: "bow.long" },
   { key: "equipment.arrow", piece: "arrow" },
   { key: "equipment.quiver.back", piece: "quiver.back" },
+  // #389: the crossbow, held in `hand_r.crossbow`.
+  { key: "equipment.crossbow", piece: "crossbow" },
 ];
 /**
  * Headwear entries (#336, male only): headwear-recipe presets fitted in the male rest model space, parented at runtime

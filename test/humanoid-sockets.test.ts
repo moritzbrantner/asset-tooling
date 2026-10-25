@@ -19,7 +19,7 @@ test("the committed Ranger descriptor declares the hand, stowed, archery, hair a
  assert.deepEqual(d,descriptor,"the committed file is already canonical");
  assert.deepEqual(d.sockets.map(s=>[s.id,s.joint]),[["hand_r.weapon","hand_r"],["hand_l.shield","hand_l"],["hand_l.weapon","hand_l"],["hand_r.shield","hand_r"],["back.stowed","spine_03"],["hip_l.stowed","pelvis"],
   ["hand_l.bow","hand_l"],["hand_r.arrow","hand_r"],["back.quiver","spine_03"],["back.bow.stowed","spine_03"],["head.hair","Head"],
-  ...ARMOR_JOINTS.map(joint=>[`${joint.toLowerCase()}.armor`,joint]),["hand_r.staff","hand_r"],["hand_l.staff","hand_l"]]);
+  ...ARMOR_JOINTS.map(joint=>[`${joint.toLowerCase()}.armor`,joint]),["hand_r.staff","hand_r"],["hand_l.staff","hand_l"],["hand_r.crossbow","hand_r"],["hand_l.crossbow","hand_l"]]);
  assert.deepEqual(humanoidSocketsAccepting(d,"hair"),["head.hair"]);
  assert.deepEqual(humanoidSocketsAccepting(d,WEAPON_ROLES["staff.gnarled"]),["hand_r.staff","hand_l.staff"]);
  assert.deepEqual(humanoidSocketsAccepting(d,WEAPON_ROLES["dagger.blackened"]),humanoidSocketsAccepting(d,WEAPON_ROLES["sword.arming"]));
@@ -32,6 +32,11 @@ test("the committed Ranger descriptor declares the hand, stowed, archery, hair a
  assert.deepEqual(humanoidSocketsAccepting(d,"bow"),["hand_l.bow","back.bow.stowed"]);
  assert.deepEqual(humanoidSocketsAccepting(d,"arrow"),["hand_r.arrow"]);
  assert.deepEqual(humanoidSocketsAccepting(d,"quiver"),["back.quiver"]);
+ // The crossbow (#389) shares the weapon grip point; its stock (+Z) runs along the weapon grip axis (+Y of hand_r.weapon).
+ const crossbow=humanoidSocketMatrix(d.sockets.find(s=>s.id==="hand_r.crossbow")!),weapon=humanoidSocketMatrix(d.sockets[0]!);
+ assert.deepEqual(humanoidSocketsAccepting(d,"crossbow"),["hand_r.crossbow","hand_l.crossbow"]);
+ assert.ok([0,1,2].reduce((s,i)=>s+crossbow[8+i]!*weapon[4+i]!,0)>.999,"crossbow stock along the grip");
+ assert.deepEqual(crossbow.slice(12,15),weapon.slice(12,15));
  assert.deepEqual(humanoidSocketsAccepting(d,WEAPON_ROLES["sword.arming"]),["hand_r.weapon","hand_l.weapon","hip_l.stowed"]);
  assert.deepEqual(humanoidSocketsAccepting(d,WEAPON_ROLES["shield.heater"]),["hand_l.shield","hand_r.shield","back.stowed"]);
  // In the hand_r frame the fingers run along +Y, the thumb side is +Z and the palm faces -X. The blade (+Y) runs

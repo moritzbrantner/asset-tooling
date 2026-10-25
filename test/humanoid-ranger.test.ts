@@ -147,7 +147,7 @@ test("the female figure's tanner preset names options its descriptor offers (#37
 test("the Ranger declares its equipment, figures, appearance and texture limits", () => {
   assert.deepEqual(RANGER_WEAPONS.map((item) => item.key), ["equipment.sword.arming", "equipment.shield.heater", "equipment.dagger.blackened",
     "equipment.staff.bone", "equipment.staff.gilded", "equipment.staff.gnarled", "equipment.staff.crystal", "equipment.book.tome", "equipment.mace.flanged"]);
-  assert.deepEqual(RANGER_ARCHERY.map((item) => item.key), ["equipment.bow.long", "equipment.arrow", "equipment.quiver.back"]);
+  assert.deepEqual(RANGER_ARCHERY.map((item) => item.key), ["equipment.bow.long", "equipment.arrow", "equipment.quiver.back", "equipment.crossbow"]);
   assert.equal(RANGER_FIGURES.female.key, "humanoid.ranger.female");
   assert.match(RANGER_FIGURES.female.body.path, /Superhero_Female_FullBody\.gltf$/);
   assert.match(RANGER_FIGURES.female.outfit.path, /Female_Ranger\.gltf$/);

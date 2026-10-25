@@ -8,7 +8,8 @@ test("armour parameters name a kit and an output and nothing else", () => {
   assert.throws(() => normalizeArmorParameters({ schemaVersion: 1, kit: "soldier", output: "boots" }), /output/);
   assert.throws(() => normalizeArmorParameters({ schemaVersion: 1, kit: "soldier", output: "cloth", extra: 1 }), /exactly/);
   // #376: the resident kits have both outputs; #380: the beard kit is gone (hair_beards.py).
-  for (const kit of ["farmer", "innkeeper", "monk"]) for (const output of ["plates", "cloth"]) normalizeArmorParameters({ schemaVersion: 1, kit, output });
+  // #389: the Redbrand bandit kit.
+  for (const kit of ["farmer", "innkeeper", "monk", "redbrand"]) for (const output of ["plates", "cloth"]) normalizeArmorParameters({ schemaVersion: 1, kit, output });
   assert.throws(() => normalizeArmorParameters({ schemaVersion: 1, kit: "beard", output: "plates" }), /kit/);
 });
 

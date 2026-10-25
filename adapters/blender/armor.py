@@ -36,7 +36,7 @@ from mathutils import Matrix, Quaternion, Vector, kdtree
 
 # Class starter outfits (#379): the seven mmorpg classes over the same Peasant base, in the Greyhaven Marshal's style.
 CLASS_KITS = ("class.warden", "class.ranger", "class.arcanist", "class.necromancer", "class.rogue", "class.cleric", "class.druid")
-KITS = ("soldier", "knight", "farmer", "innkeeper", "monk", *CLASS_KITS, "tanner")
+KITS = ("soldier", "knight", "farmer", "innkeeper", "monk", *CLASS_KITS, "redbrand", "tanner")
 # Resident outfits (#376): plain clothes over the Peasant base; their only rigid piece is a belt. The tanner (#378) is
 # the female figure's: a long work skirt and a leather apron over the Female_Peasant outfit.
 RESIDENT_KITS = ("farmer", "innkeeper", "monk", "tanner")
@@ -436,6 +436,8 @@ def plate_surfaces(body, rig, kit):
     """Every rigid piece of the kit: (node name, joint, material, surface, mask, apex, thickness)."""
     if kit in CLASS_KITS:
         return class_plates(body, rig, kit)
+    if kit == "redbrand":
+        return redbrand_plates(body, rig)
     if kit in RESIDENT_KITS:
         return resident_plates(body, kit)
     pieces = []
@@ -564,6 +566,8 @@ def cloth_surfaces(body, rig, kit):
     garments = []
     if kit in CLASS_KITS:
         return class_cloth(body, rig, kit)
+    if kit == "redbrand":
+        return redbrand_cloth(body, rig)
     if kit in RESIDENT_KITS:
         return resident_cloth(body, kit)
     if kit == "soldier":
@@ -1427,6 +1431,90 @@ def class_plates(body, rig, kit):
                 builder.spike(q, p2 + Vector((-.03 * s, .05, -.03)), .005, .002, 0)
         pieces.append((f"{kit}.antler-circlet", "Head", "antler", circlet, None, None, .005))
         pieces.append((f"{kit}.antler-circlet", "Head", "antler", antlers, None, None, 0))
+    return pieces
+
+
+# ---------------------------------------------------------------------------------------------- Redbrand bandit (#389)
+
+# A rough long coat in dark oxblood wool to mid-calf, its hem worn ragged, with long sleeves over brown work trousers
+# and the Peasant boots; a cowl in the recolourable ``faction`` slot (the band's red) round the neck and shoulders, a
+# leather belt and leather bracers.
+MATERIALS.update({"coat.redbrand": (linear("#4a1f17"), 0.0, .93)})
+REDBRAND_COAT = {"hem": .32, "flare": .1, "rows": 18, "tatter": .035}
+TUNICS["redbrand.coat"], HIDES["redbrand.coat"] = ("coat.redbrand", .014), [SHIRT]
+SETTLE["redbrand.coat"] = (.6, 1.0, REDBRAND_COAT["hem"])
+STRIDE["redbrand.coat"] = (.7, 1.0, REDBRAND_COAT["hem"], .05)
+HIDES["redbrand.trousers"] = [LEGS]
+
+
+REDBRAND_SCARF = {"bottom": 1.5, "top": 1.59, "rows": 7, "columns": 28, "clearance": .012, "roll": .016}
+
+
+def redbrand_scarf(body):
+    """The band's red scarf: a thick wrap rolled round the neck, an ellipse round the neck and the shirt collar with a
+    rounded roll and a few twists, resting on the collar."""
+    spec = REDBRAND_SCARF
+    points = body.array[[i for i in body.select(None, meshes=[SHIRT, HEAD], minimum=0)
+                         if spec["bottom"] - .01 < body.positions[i].y < spec["top"] and abs(body.positions[i].x) < .1]]
+    xc, zc = float(points[:, 0].mean()), float(numpy.median(points[:, 2]))
+    half_x = float(numpy.percentile(numpy.abs(points[:, 0] - xc), 98)) + spec["clearance"]
+    half_z = float(numpy.percentile(numpy.abs(points[:, 2] - zc), 90)) + spec["clearance"]
+    rows, columns = spec["rows"], spec["columns"]
+    thetas = [2 * math.pi * j / columns for j in range(columns)]
+    ts = [spec["bottom"] + (spec["top"] - spec["bottom"]) * i / (rows - 1) for i in range(rows)]
+    grid = []
+    for i, y in enumerate(ts):
+        t = i / (rows - 1)
+        row = []
+        for theta in thetas:
+            grow = spec["roll"] * math.sin(math.pi * t) + .004 * math.sin(theta * 3 + t * 5) + .01 * (1 - t) ** 3
+            row.append(Vector((xc + (half_x + grow) * math.sin(theta), y, zc + (half_z + grow) * math.cos(theta))))
+        grid.append(row)
+    return {"grid": grid, "closed": True, "axis": (Vector((xc, spec["bottom"], zc)), UP), "thetas": thetas, "ts": ts}
+
+
+def redbrand_scarf_tail(body):
+    """The scarf's loose end, hanging from the wrap down the left of the chest over the coat."""
+    rows, columns = 8, 4
+    ys = [1.53 - .18 * i / (rows - 1) for i in range(rows)]
+    grid = []
+    for i, y in enumerate(ys):
+        drift = .02 * i / (rows - 1)
+        row = []
+        for j in range(columns):
+            x = .035 + drift + .06 * j / (columns - 1)
+            row.append(Vector((x, y, front_of(body, [SHIRT], y, x) + .03 - .006 * i / (rows - 1))))
+        grid.append(row)
+    return {"grid": grid, "closed": False, "axis": (Vector((0, 1.45, 0)), UP), "thetas": [p.x for p in grid[0]], "ts": ys}
+
+
+def redbrand_cloth(body, rig):
+    coat = tunic_skirt(body, REDBRAND_COAT["hem"], REDBRAND_COAT["flare"], REDBRAND_COAT["rows"], lambda theta: .004 * math.cos(theta * 9))
+    hem = coat["grid"][-1]
+    for j, p in enumerate(hem):
+        hem[j] = p - Vector((0, REDBRAND_COAT["tatter"] * triangle_wave(j * .37), 0))
+    columns = len(coat["grid"][0])
+
+    def split(i, j):
+        """The coat is open at the front below the belt, the split widening toward the hem over the trousers."""
+        half = 0 if i < 2 else 1 if i < 10 else 2
+        return not (j < half or j >= columns - half)
+    scarf = redbrand_scarf(body)
+    return [("redbrand.coat", "coat.redbrand", coat, split),
+            ("redbrand.trousers", None, trousers(body, rig, "trousers.brown"), None),
+            ("redbrand.sleeves", None, sleeves(rig, "coat.redbrand", offset=.016, flare=.025), None),
+            ("redbrand.scarf", "faction", scarf, None, {"exclude": HANGING_ARM, "torso": True, "follow": ("neck_01", 1.52, 1.59)}),
+            ("redbrand.scarf-end", "faction", redbrand_scarf_tail(body), None, {"exclude": HANGING_ARM, "torso": True,
+                                                                                  "follow": ("spine_03", 1.2, 1.35)})]
+
+
+def redbrand_plates(body, rig):
+    pieces = [class_belt(body, "redbrand.belt", "leather", .026)]
+    for side, _s in SIDES:
+        def bracer(t, theta, r):
+            return r + .005 * math.sin(math.pi * t)
+        pieces.append((f"redbrand.bracer_{side}", f"lowerarm_{side}", "leather", forearm_band(body, rig, side, .35, .9, .03, 6, bracer),
+                       None, None, .004))
     return pieces
 
 

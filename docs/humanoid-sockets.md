@@ -69,6 +69,7 @@ The Ranger bundle attaches each equipment entry's descriptor as `humanoid-item` 
 | `back.stowed` | `spine_03` | `shield` | The shield is centred between the shoulder blades, face out and point down. |
 | `hip_l.stowed` | `pelvis` | `one-hand-weapon` | The hilt is at the front left hip, with the flats facing outward and the blade running down and back. |
 | `hand_r.staff`, `hand_l.staff` | `hand_r`, `hand_l` | `staff` | A mirrored pair (#372) at the weapon grip point. The shaft rises from the palm past the wrist, turned 34° from the forearm line toward the thumb side and leaning out of the back of the hand (`STAFF_GRIP`), so in the hanging-arm `Idle_Loop` the staff stands nearly upright beside the leg with its foot just above the ground. In the sword clips it swings orb first. +Z faces the back of the hand. |
+| `hand_r.crossbow`, `hand_l.crossbow` | `hand_r`, `hand_l` | `crossbow` | A mirrored pair (#389) at the weapon grip point. The stock (+Z, the bolt's flight) runs along the knuckle line out of the thumb side of the fist, like a sword's grip, and the top of the stock (+Y) faces the wrist, so the trigger lever lies under the fingers. In the hanging-arm `Idle_Loop` the crossbow is carried level at the hip, pointing forward with its prod across. |
 
 | Socket | Translation (before → after) | Rotation x, y, z, w (before → after) |
 | --- | --- | --- |
