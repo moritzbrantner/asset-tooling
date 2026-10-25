@@ -24,20 +24,22 @@ The `humanoid.ranger.male` bundle holds the following.
     - `skin.light`: the Light skin, with the outfit's skin texture derived by a colour transfer (#116 Q13).
     - `outfit.soldier` and `outfit.knight`, plus their `.skin.light` variants: the Peasant outfit under the [armour](armor-recipes.md) (#117, #301, male only).
     - `outfit.farmer`, `outfit.innkeeper` and `outfit.monk`, plus their `.skin.light` variants: the Peasant outfit with the [resident clothes](armor-recipes.md#resident-outfits-376) (#376, male only).
+    - `outfit.class.warden`, `outfit.class.ranger`, `outfit.class.arcanist`, `outfit.class.necromancer`, `outfit.class.rogue`, `outfit.class.cleric` and `outfit.class.druid`, plus their `.skin.light` variants and `outfit.class.necromancer.skin.grey`: the [class starter outfits](armor-recipes.md#class-starter-outfits-379) (#379, male only).
   - **Attachments:**
     - `humanoid-sockets`: the [sockets descriptor](humanoid-sockets.md), with hand, stowed, archery, hair and armour sockets.
     - `humanoid-clips`: per-clip motion metadata ([Clip motion](#clip-motion)).
     - `humanoid-appearance` (`humanoid-appearance-v1`): skins, the toggleable hood (`outfit.hood`), hairstyles with their textures and tints, eyebrows that follow the hair tint, and the outfits, and (male) the `headwear` list: each piece's `entry`, `label`, `socket` and the appearance parts it `hides` while worn (`outfit.hood` and `hair`). The `face` section lists the [facial variants](#facial-variants).
-      - Male only: `facialHair` and `presets` ([Resident presets](#resident-presets)).
+      - Male only: `facialHair` and `presets` ([Resident presets](#resident-presets), [Class presets](#class-presets)).
+      - The class outfits add `hood` (their hood garment, also listed as an `outfit.hood` part node, so hair that needs the hood off hides under it) and `classTrim` (the recolourable `class` material and its default linear colour).
 - **Facial variants (#348):** see [Facial variants](#facial-variants).
 - **Levels of detail (#123):** every character variant has `lod1` and `lod2` variants (`lod1`/`lod2` for `default`, `<variant>.lod1`/`.lod2` otherwise). They are listed in `humanoid-appearance.levelsOfDetail` ([levels-of-detail.md](levels-of-detail.md)).
 - **Clips:** they ship once, embedded in `default`. Every other character variant and level shares the same joints and rest pose, and plays them by joint name. Every clip is in place. In bundle order:
   - the UAL1/UAL2 library clips retargeted with 3d-lab (idle, walk, the run gaits, sword, shield, death, the #112 traversal clips and the #114 combat clips with their roles);
   - the Mixamo walk-speed clips retargeted in Blender (`Walk_Bwd_Loop`, `Walk_Strafe_*`, `Walk_Start`, `Walk_Stop`, `Turn_*` and `Hit_Shove_Spin`; [Mixamo retarget](#mixamo-retarget));
   - the original authored jog clips `Jog_Bwd_Loop`, `Jog_Strafe_Left_Loop` and `Jog_Strafe_Right_Loop` ([Authored jog clips](#authored-jog-clips)).
-- **Equipment entries:** `equipment.sword.arming`, `equipment.shield.heater`, the class set `equipment.dagger.blackened` (on `hand_r.weapon`) and `equipment.staff.bone`, `equipment.staff.gilded`, `equipment.staff.gnarled` (on `hand_r.staff`, #372) ([weapon recipes](weapon-recipes.md)) and `equipment.bow.long` (skinned to `grip` and `nock`), `equipment.arrow` and `equipment.quiver.back` ([archery](weapon-recipes.md#archery)), all parented at runtime through the sockets.
+- **Equipment entries:** `equipment.sword.arming`, `equipment.shield.heater`, the class set `equipment.dagger.blackened` (on `hand_r.weapon`) and `equipment.staff.bone`, `equipment.staff.gilded`, `equipment.staff.gnarled` (on `hand_r.staff`, #372), the class starter props `equipment.staff.crystal` (on `hand_r.staff`), `equipment.book.tome` (on `hand_l.shield`) and `equipment.mace.flanged` (on `hand_r.weapon`, #379) ([weapon recipes](weapon-recipes.md)) and `equipment.bow.long` (skinned to `grip` and `nock`), `equipment.arrow` and `equipment.quiver.back` ([archery](weapon-recipes.md#archery)), all parented at runtime through the sockets.
 - **Hair entries:** `hair.buzzed`, `hair.simple-parted` and `hair.long` (male) or `hair.long` and `hair.buns` (female), each with the variants `hair-1` and `hair-2`, on the `head.hair` socket. The pack textures `T_Hair_1` and `T_Hair_2` are per-mesh bakes with different UV layouts, so every style carries its own pack in both variants (#336; swapping packs garbled the strands). The male `hair.long` also merges the `Hair_Buzzed` cap as its crown, because Quaternius `Hair_Long` is only a fringe and a back curtain; its `tintMaterials` are `MI_Hair_2` (strands) and `MI_Hair_1` (crown). The hair materials are opaque, like the source: the packs have no alpha.
-- **Armour entries:** `armor.soldier`, `armor.knight`, `armor.farmer`, `armor.innkeeper` and `armor.monk` (male).
+- **Armour entries:** `armor.soldier`, `armor.knight`, `armor.farmer`, `armor.innkeeper`, `armor.monk` and the class plates `armor.class.<id>` (male).
 - **Facial hair entry (#376, male):** `facial-hair.beards`, with the nodes `beard.full`, `beard.short` and `beard.moustache` ([Resident presets](#resident-presets)).
 - **Headwear entries (#336, #376, male):** `equipment.cap.ranger` (Ranger's Cap: felt crown, leather band and plume), `equipment.hat.straw` (Straw Hat: low flat crown, leather band, wide brim drooping at the edge; #376) and `equipment.helm.ironcrest` (Ironcrest Helm: iron dome, brass rim and crest fin, nasal bar) from the [headwear recipe](../adapters/blender/headwear.py). Each GLB holds one mesh node named after its piece and an identity `grip` node; the geometry is in the male rest model space around the head, so the `head.armor` socket places it. The owner approved the cap and helm on the live Ranger (2026-10-21). All three hide the hair (owner answer, 2026-10-21).
 
@@ -76,6 +78,20 @@ Tanner Hilda Brook is not covered yet: the resident outfits exist for the male f
 - **Facial hair:** `humanoid-appearance.facialHair` names the entry `facial-hair.beards` and its `options`. Each option is one node with its `socket` (`head.armor`) and `tintMaterials`; several can be worn together. The pieces are rigid shells fitted to the head by the armour recipe ([armor-recipes.md](armor-recipes.md#resident-outfits-376)) and ride `Head`. Their materials have no texture, so `facialHair.tints` gives each hair tint's matching base-colour factor: the tint times the mean colour of `T_Hair_1` (`RANGER_HAIR_TEXTURE_MEAN`, 0.275).
 - **Grey hair:** the `tint.grey` hair tint (#376) is close to white, so the hair shows the grey of its texture.
 - **Greyhaven faction colour:** `RANGER_GREYHAVEN_FACTION`, a dark slate blue (linear 0.05, 0.08, 0.15).
+
+### Class presets
+
+One starter look per mmorpg class (#379), in its [class outfit](armor-recipes.md#class-starter-outfits-379) and with its starter props, for mmorpg's class adoption. Hooded classes have no `hair`: their hood hides it. The props are not part of the preset; mmorpg's class weapons pick them.
+
+| Preset | Outfit | Skin | Hair and tint | Facial hair | Face, eyes, nose, mouth | Starter props |
+| --- | --- | --- | --- | --- | --- | --- |
+| `class.warden` | `outfit.class.warden` (knight plate with the bascinet, class-coloured tabard) | Light | `hair.simple-parted`, brown | short beard | broad, base, broad, base | sword, heater shield |
+| `class.ranger` | `outfit.class.ranger` (hooded cloak, jerkin, work trousers, class sash) | Dark | hood, brown | short beard | narrow, base, long, base | longbow (stowed), quiver |
+| `class.arcanist` | `outfit.class.arcanist` (long robe, bell sleeves, mantle, high collar) | Light | `hair.long`, brown | short beard, moustache | narrow, narrow, long, thin | crystal staff, tome |
+| `class.necromancer` | `outfit.class.necromancer` (tattered robe and sleeves, hood, bone trim) | Grey | hood, black | none | narrow, large, long, thin | bone staff |
+| `class.rogue` | `outfit.class.rogue` (cowl, half-mask, one-shoulder cape, wrapped forearms) | Dark | hood, black | none | base, narrow, base, base | two daggers |
+| `class.cleric` | `outfit.class.cleric` (ivory robe, sun tabard edged in the class colour, gold spaulders) | Light | `hair.simple-parted`, brown | none | broad, base, base, full | flanged mace |
+| `class.druid` | `outfit.class.druid` (moss robe, bark-and-leaf mantle, antler circlet) | Dark | `hair.long`, brown | full beard, moustache | broad, base, broad, base | gnarled staff |
 
 ### Mixamo retarget
 

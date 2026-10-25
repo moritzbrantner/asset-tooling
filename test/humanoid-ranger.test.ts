@@ -19,7 +19,7 @@ import { validateHumanoidSocketDescriptor } from "../src/humanoid-sockets.js";
 import {
   RANGER_APPEARANCE, RANGER_ARCHERY, RANGER_AUTHORED_CLIPS, RANGER_BOW_CLIPS, RANGER_BONE_MAP, RANGER_BUNDLE_KEY, RANGER_BUNDLE_VARIANT, RANGER_CLIPS,
   RANGER_CLIPS_ATTACHMENT, RANGER_CLIP_ROLES, RANGER_FIGURES, RANGER_GAITS, RANGER_HAIR_TINTS, RANGER_MEMBERS, RANGER_MIXAMO_BONE_MAP,
-  RANGER_FACIAL_HAIR_ENTRY, RANGER_ITEM_ATTACHMENT, RANGER_RESIDENT_PRESETS, RANGER_SOCKETS_ATTACHMENT, RANGER_SOCKETS_DESCRIPTOR, RANGER_TEXTURE_POLICY,
+  RANGER_CLASS_PRESETS, RANGER_FACIAL_HAIR_ENTRY, RANGER_ITEM_ATTACHMENT, RANGER_RESIDENT_PRESETS, RANGER_SOCKETS_ATTACHMENT, RANGER_SOCKETS_DESCRIPTOR, RANGER_TEXTURE_POLICY,
   RANGER_UBC_BONE_MAP, RANGER_WEAPONS, validateAppearancePresets,
   buildRangerCharacter, rangerItemDescriptor,
 } from "../scripts/build-ranger-character.ts";
@@ -88,26 +88,35 @@ test("every spine joint is retargeted exactly once; UAL2 and Mixamo bind the sam
 test("resident presets must name options the appearance descriptor offers", () => {
   const options = (...ids: string[]) => ids.map((id) => ({ id }));
   const descriptor: any = {
-    skins: options("skin.dark", "skin.light"), hair: options("hair.buzzed", "hair.simple-parted"), tints: options("tint.black", "tint.brown", "tint.blond", "tint.grey"),
+    skins: options("skin.dark", "skin.light"), hair: options("hair.buzzed", "hair.simple-parted", "hair.long"), tints: options("tint.black", "tint.brown", "tint.blond", "tint.grey"),
     headwear: options("equipment.hat.straw"), facialHair: { options: options("beard.full", "beard.short", "beard.moustache") },
     face: { features: ["face", "eyes", "nose", "mouth"].map((feature) => ({ id: feature, options: options(...["base", "broad", "narrow", "large", "long", "full", "thin"].map((o) => `${feature}.${o}`)) })) },
     outfits: [
       { id: "outfit.knight", skins: options("skin.dark", "skin.light"), armor: { pieces: [{ node: "knight.bascinet" }] }, faction: {} },
       { id: "outfit.soldier", skins: options("skin.dark", "skin.light"), armor: { pieces: [] }, faction: {} },
       ...["farmer", "innkeeper", "monk"].map((kit) => ({ id: `outfit.${kit}`, skins: options("skin.dark", "skin.light"), armor: { pieces: [] } })),
+      // #379: the class outfits; the hooded ones name their hood, the Necromancer adds its grey skin.
+      ...["warden", "ranger", "arcanist", "necromancer", "rogue", "cleric", "druid"].map((kit) => ({
+        id: `outfit.class.${kit}`, skins: options("skin.dark", "skin.light", ...(kit === "necromancer" ? ["skin.grey"] : [])), armor: { pieces: [] },
+        ...(["ranger", "rogue", "necromancer"].includes(kit) ? { hood: `class.${kit}.hood` } : {}),
+      })),
     ],
   };
-  validateAppearancePresets(descriptor, RANGER_RESIDENT_PRESETS);
+  validateAppearancePresets(descriptor, [...RANGER_RESIDENT_PRESETS, ...RANGER_CLASS_PRESETS]);
+  assert.deepEqual(RANGER_CLASS_PRESETS.map((preset) => preset.id), ["warden", "ranger", "arcanist", "necromancer", "rogue", "cleric", "druid"].map((id) => `class.${id}`));
   const [marshal] = RANGER_RESIDENT_PRESETS;
   assert.throws(() => validateAppearancePresets(descriptor, [{ ...marshal!, facialHair: ["beard.braided"] }]), /facial hair/);
   assert.throws(() => validateAppearancePresets(descriptor, [{ ...marshal!, hiddenArmor: ["knight.visor"] }]), /plate/);
   assert.throws(() => validateAppearancePresets(descriptor, [{ ...marshal!, outfit: "outfit.farmer" }]), /plate|faction/);
-  assert.throws(() => validateAppearancePresets(descriptor, [{ ...marshal!, hair: undefined }]), /hair or headwear/);
+  assert.throws(() => validateAppearancePresets(descriptor, [{ ...marshal!, hair: undefined }]), /hair, headwear or a hooded outfit/);
+  assert.throws(() => validateAppearancePresets(descriptor, [{ ...marshal!, skin: "skin.grey" }]), /skin/);
+  const necromancer = RANGER_CLASS_PRESETS.find((preset) => preset.id === "class.necromancer")!;
+  assert.throws(() => validateAppearancePresets(descriptor, [{ ...necromancer, hair: "hair.buzzed" }]), /hood/);
 });
 
 test("the Ranger declares its equipment, figures, appearance and texture limits", () => {
   assert.deepEqual(RANGER_WEAPONS.map((item) => item.key), ["equipment.sword.arming", "equipment.shield.heater", "equipment.dagger.blackened",
-    "equipment.staff.bone", "equipment.staff.gilded", "equipment.staff.gnarled"]);
+    "equipment.staff.bone", "equipment.staff.gilded", "equipment.staff.gnarled", "equipment.staff.crystal", "equipment.book.tome", "equipment.mace.flanged"]);
   assert.deepEqual(RANGER_ARCHERY.map((item) => item.key), ["equipment.bow.long", "equipment.arrow", "equipment.quiver.back"]);
   assert.equal(RANGER_FIGURES.female.key, "humanoid.ranger.female");
   assert.match(RANGER_FIGURES.female.body.path, /Superhero_Female_FullBody\.gltf$/);
@@ -211,9 +220,16 @@ test("the Ranger recipe builds a verified bundle: in-place clips, equipment entr
     for (const variant of appearance.face.variants) assert.deepEqual(await morphNodes(variant), [...FACE_MORPH_NODES.male].sort(), variant);
     for (const variant of appearance.face.unsupported.variants) assert.deepEqual(await morphNodes(variant), [], variant);
     // #376: the resident presets and the facial hair they name ship in the descriptor.
-    assert.deepEqual(appearance.presets.map((preset: any) => preset.id), RANGER_RESIDENT_PRESETS.map((preset) => preset.id));
+    assert.deepEqual(appearance.presets.map((preset: any) => preset.id), [...RANGER_RESIDENT_PRESETS, ...RANGER_CLASS_PRESETS].map((preset) => preset.id));
     assert.deepEqual(appearance.facialHair.options.map((option: any) => option.id).sort(), ["beard.full", "beard.moustache", "beard.short"]);
-    validateAppearancePresets(appearance, RANGER_RESIDENT_PRESETS);
+    validateAppearancePresets(appearance, [...RANGER_RESIDENT_PRESETS, ...RANGER_CLASS_PRESETS]);
+    // #379: each class outfit has its plain and Light skins (the Necromancer also grey), levels of detail and a class colour.
+    for (const kit of ["warden", "ranger", "arcanist", "necromancer", "rogue", "cleric", "druid"]) {
+      const outfit = appearance.outfits.find((candidate: any) => candidate.id === `outfit.class.${kit}`);
+      assert.deepEqual(outfit.skins.map((skin: any) => skin.id), ["skin.dark", "skin.light", ...(kit === "necromancer" ? ["skin.grey"] : [])]);
+      assert.deepEqual(outfit.classTrim.materials, ["class"]);
+      for (const skin of outfit.skins) for (const level of ["lod1", "lod2"]) assert.ok(entries.includes(`${RANGER_BUNDLE_KEY}/${skin.variant}.${level}`), `${skin.variant}.${level}`);
+    }
     for (const { key } of [...RANGER_WEAPONS, ...RANGER_ARCHERY]) assert.deepEqual(built.lineage.textures![key], { images: 0 }, key);
 
     const joints = document.getRoot().listSkins()[0]!.listJoints();

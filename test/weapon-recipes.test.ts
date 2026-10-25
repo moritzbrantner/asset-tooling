@@ -19,6 +19,7 @@ const {generateAsset,verifyAsset}:{generateAsset:(p:string)=>Promise<{cache:{sta
 const source=await readWeaponRecipeSource();
 const spec=(parameters:unknown)=>createWeaponAssetSpec({assetId:"weapon.fixture",parameters,scriptSha256:source.sha256,blenderVersion:source.blenderVersion});
 const sword=WEAPON_PRESETS["sword.arming"],shield=WEAPON_PRESETS["shield.heater"],dagger=WEAPON_PRESETS["dagger.blackened"],staff=WEAPON_PRESETS["staff.gnarled"];
+const mace=WEAPON_PRESETS["mace.flanged"],book=WEAPON_PRESETS["book.tome"];
 const rangerSockets=validateHumanoidSocketDescriptor(JSON.parse(await readFile(new URL("../assets/descriptors/humanoid.ranger.male.sockets.json",import.meta.url),"utf8")));
 const apply=(m:number[],[x,y,z]:number[])=>[0,1,2].map(r=>m[r]!*x!+m[4+r]!*y!+m[8+r]!*z!+m[12+r]!);
 
@@ -31,7 +32,10 @@ const INVALID=[
  Object.fromEntries(Object.entries(shield).filter(([k])=>k!=="rimWidth")),
  {...dagger,bladeLength:.5},{...dagger,guardWidth:.06},{...dagger,maxTriangles:1501},{...dagger,piece:"sword.arming"},
  {...staff,length:2.5},{...staff,footLength:.95,length:1.6},{...staff,orbRadius:.04,shaftRadius:.025},{...staff,radialSegments:17},
- {...staff,maxTriangles:2501},{...staff,piece:"staff.crystal"},{...staff,bladeLength:.5},
+ {...staff,maxTriangles:2501},{...staff,piece:"staff.obsidian"},{...staff,bladeLength:.5},
+ // #379: the mace and the tome.
+ {...mace,gripLength:.3},{...mace,flanges:3},{...mace,flanges:6.5},{...mace,maxTriangles:1501},{...mace,bladeLength:.5},
+ {...book,width:.3,height:.25},{...book,thickness:.09,width:.15},{...book,maxTriangles:401},{...book,radialSegments:8},
 ];
 
 test("weapon controls and asset specs are bounded and pinned",()=>{
@@ -123,13 +127,21 @@ test("native weapons are budgeted, grip-anchored, socket-aligned metric GLBs tha
    assert.ok(Math.abs(min[1]!+staff.footLength)<.01 && max[1]!>staff.length-staff.footLength+.1 && max[1]!<staff.length-staff.footLength+.3,
     `${piece} y ${min[1]}..${max[1]}`);
    assert.ok(max[0]!-min[0]!<.3 && max[2]!-min[2]!<.3);
+  } else if(piece==="mace.flanged") {
+   // #379: the haft along +Y to a flanged head about half a metre above the grip, the pommel just below the hand.
+   assert.ok(max[1]!>mace.haftLength && max[1]!<mace.haftLength+mace.headRadius*1.5 && min[1]!<-.09 && min[1]!>-.13,`mace y ${min[1]}..${max[1]}`);
+   assert.ok(max[0]!-min[0]!<=mace.headRadius*2.3 && max[2]!-min[2]!<=mace.headRadius*2.3);
+  } else if(piece==="book.tome") {
+   // #379: held like the shield: width along X, height along Y, standing off the hand toward +Z.
+   assert.ok(Math.abs(max[1]!-min[1]!-book.height)<1e-3 && Math.abs(max[0]!-min[0]!-book.width)<.01,`tome ${min} ${max}`);
+   assert.ok(min[2]!>0 && max[2]!<book.thickness+.02);
   } else {
    // Face toward +Z in front of the handle, point toward -Y, width along X.
    assert.ok(Math.abs(max[0]!-min[0]!-shield.width)<.02 && max[0]!-min[0]!>=shield.width);
    assert.ok(Math.abs(max[1]!-min[1]!-shield.height)<.04);
    assert.ok(max[2]!>.08 && min[2]!<0 && max[2]!<.15 && min[2]!>-.05);
   }
-  if(piece!=="shield.heater") {
+  if(WEAPON_ROLES[piece]!=="shield" && WEAPON_ROLES[piece]!=="book") {
    // Grip alignment: the hand's contact band (|y| < 2 cm) is a ring centred on the grip axis, as thick as the grip.
    const band=points.filter(([,y])=>Math.abs(y!)<.02),centre=[0,2].map(a=>band.reduce((s,p)=>s+p[a]!,0)/band.length);
    const radius=Math.max(...band.map(([x,,z])=>Math.hypot(x!,z!)));

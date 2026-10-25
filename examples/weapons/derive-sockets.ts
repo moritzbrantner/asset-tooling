@@ -183,7 +183,8 @@ export function deriveHandSockets(gltf: { nodes: Record<string, any>[] }, { weap
   const back = (frame: HandFrame) => scale(frame.palm, -1);
   return [
     socket(`hand_${weaponHand}.weapon`, weapon, weapon.knuckles, back(weapon), ["one-hand-weapon"]),
-    socket(`hand_${shieldHand}.shield`, shield, shield.knuckles, back(shield), ["shield"]),
+    // #379: the Arcanist's tome is held like the shield.
+    socket(`hand_${shieldHand}.shield`, shield, shield.knuckles, back(shield), ["shield", "book"]),
   ];
 }
 

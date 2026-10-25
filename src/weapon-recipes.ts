@@ -1,9 +1,9 @@
 import {readBlenderRecipeSource} from "./blender-recipe-source.js";
 import {parseAssetSpec} from "./schema.js";
 
-export type StaffPiece="staff.bone"|"staff.gilded"|"staff.gnarled";
-export type WeaponPiece="sword.arming"|"dagger.blackened"|"shield.heater"|StaffPiece;
-export type WeaponRole="one-hand-weapon"|"shield"|"staff";
+export type StaffPiece="staff.bone"|"staff.gilded"|"staff.gnarled"|"staff.crystal";
+export type WeaponPiece="sword.arming"|"dagger.blackened"|"shield.heater"|StaffPiece|"mace.flanged"|"book.tome";
+export type WeaponRole="one-hand-weapon"|"shield"|"staff"|"book";
 type BladeControls={schemaVersion:1;bladeLength:number;bladeWidth:number;bladeThickness:number;
  fullerLength:number;guardWidth:number;gripLength:number;pommelRadius:number;radialSegments:number;maxTriangles:number};
 export type SwordParameters=BladeControls&{piece:"sword.arming"};
@@ -12,31 +12,40 @@ export type ShieldParameters={schemaVersion:1;piece:"shield.heater";width:number
  rimWidth:number;bossRadius:number;outlineSegments:number;maxTriangles:number};
 export type StaffParameters={schemaVersion:1;piece:StaffPiece;length:number;footLength:number;shaftRadius:number;orbRadius:number;
  radialSegments:number;maxTriangles:number};
-export type WeaponParameters=SwordParameters|DaggerParameters|ShieldParameters|StaffParameters;
+/** #379: the Cleric's flanged mace and the Arcanist's tome. */
+export type MaceParameters={schemaVersion:1;piece:"mace.flanged";haftLength:number;gripLength:number;headRadius:number;flanges:number;
+ radialSegments:number;maxTriangles:number};
+export type BookParameters={schemaVersion:1;piece:"book.tome";width:number;height:number;thickness:number;maxTriangles:number};
+export type WeaponParameters=SwordParameters|DaggerParameters|ShieldParameters|StaffParameters|MaceParameters|BookParameters;
 
-export const WEAPON_STAFFS=Object.freeze(["staff.bone","staff.gilded","staff.gnarled"] as const) satisfies readonly StaffPiece[];
+export const WEAPON_STAFFS=Object.freeze(["staff.bone","staff.gilded","staff.gnarled","staff.crystal"] as const) satisfies readonly StaffPiece[];
 const isStaff=(piece:WeaponPiece):piece is StaffPiece=>(WEAPON_STAFFS as readonly string[]).includes(piece);
 
 /** Style-spec triangle ceilings (docs/style-humanlike.md). `maxTriangles` may lower, never raise, them. */
 export const WEAPON_TRIANGLE_BUDGETS=Object.freeze({"sword.arming":2500,"dagger.blackened":1500,"shield.heater":3000,
- "staff.bone":2500,"staff.gilded":2500,"staff.gnarled":2500}) satisfies Record<WeaponPiece,number>;
+ "staff.bone":2500,"staff.gilded":2500,"staff.gnarled":2500,"staff.crystal":2500,"mace.flanged":1500,"book.tome":400}) satisfies Record<WeaponPiece,number>;
 /** The attachment role each piece declares; humanoid-sockets-v2 sockets list the roles they accept. */
 export const WEAPON_ROLES=Object.freeze({"sword.arming":"one-hand-weapon","dagger.blackened":"one-hand-weapon","shield.heater":"shield",
- "staff.bone":"staff","staff.gilded":"staff","staff.gnarled":"staff"}) satisfies Record<WeaponPiece,WeaponRole>;
+ "staff.bone":"staff","staff.gilded":"staff","staff.gnarled":"staff","staff.crystal":"staff","mace.flanged":"one-hand-weapon","book.tome":"book"}) satisfies Record<WeaponPiece,WeaponRole>;
 export const WEAPON_MATERIALS=Object.freeze({"sword.arming":Object.freeze(["steel","iron","leather"] as const),
  "dagger.blackened":Object.freeze(["steel","charcoal","leather.dark"] as const),
  "shield.heater":Object.freeze(["paint","wood","iron","leather"] as const),
  "staff.bone":Object.freeze(["bone","orb.green"] as const),
  "staff.gilded":Object.freeze(["ivory","gold","orb.gold"] as const),
- "staff.gnarled":Object.freeze(["wood.dark","orb.moss"] as const)}) satisfies Record<WeaponPiece,readonly string[]>;
+ "staff.gnarled":Object.freeze(["wood.dark","orb.moss"] as const),
+ "staff.crystal":Object.freeze(["silver","crystal.blue"] as const),
+ "mace.flanged":Object.freeze(["gold","wood.dark","leather"] as const),
+ "book.tome":Object.freeze(["cover","parchment","gold"] as const)}) satisfies Record<WeaponPiece,readonly string[]>;
 /** The glowing orb materials; their base colour is also their glTF emissive factor. */
-export const WEAPON_EMISSIVE_MATERIALS=Object.freeze(["orb.green","orb.gold","orb.moss"] as const);
+export const WEAPON_EMISSIVE_MATERIALS=Object.freeze(["orb.green","orb.gold","orb.moss","crystal.blue"] as const);
 /** Every GLB's origin is its grip frame; the empty node `grip` sits there with an identity transform. */
 export const WEAPON_GRIP_CONTRACT=Object.freeze({schemaVersion:1,unit:"meter",axes:"right-handed-y-up",origin:"grip",gripNode:"grip",
  "sword.arming":"origin at the centre of the hand's contact on the grip; blade along +Y, cutting edges along +X/-X, flats facing +Z/-Z",
  "dagger.blackened":"as the sword",
  "shield.heater":"origin at the centre of the hand handle, which runs along X; face toward +Z, point toward -Y, forearm from the handle along +Y; the back of the hand and the forearm rest against the board",
- staff:"origin at the centre of the hand's contact on the shaft; shaft along +Y from the foot (footLength below) to the head and orb at the top"});
+ staff:"origin at the centre of the hand's contact on the shaft; shaft along +Y from the foot (footLength below) to the head and orb at the top",
+ "mace.flanged":"as the sword: haft along +Y to the flanged head",
+ "book.tome":"held like the shield: origin at the middle of the back cover, spine along +Y (the forearm), covers facing +Z/-Z, the book standing off the hand toward +Z"});
 
 const STAFF={length:[1.5,2.2],footLength:[.5,1],shaftRadius:[.014,.03],orbRadius:[.04,.1],radialSegments:[6,16,true]} as const;
 const RANGES={
@@ -45,7 +54,9 @@ const RANGES={
  "dagger.blackened":{bladeLength:[.2,.45],bladeWidth:[.02,.045],bladeThickness:[.003,.01],fullerLength:[0,.8],guardWidth:[.05,.14],
   gripLength:[.07,.13],pommelRadius:[.01,.025],radialSegments:[6,24,true]},
  "shield.heater":{width:[.36,.8],height:[.45,1],curvature:[0,.12],thickness:[.008,.04],rimWidth:[.008,.05],bossRadius:[.03,.12],outlineSegments:[6,32,true]},
- "staff.bone":STAFF,"staff.gilded":STAFF,"staff.gnarled":STAFF,
+ "staff.bone":STAFF,"staff.gilded":STAFF,"staff.gnarled":STAFF,"staff.crystal":STAFF,
+ "mace.flanged":{haftLength:[.35,.7],gripLength:[.08,.2],headRadius:[.03,.07],flanges:[4,8,true],radialSegments:[6,16,true]},
+ "book.tome":{width:[.12,.26],height:[.16,.34],thickness:[.03,.09]},
 } as const satisfies Record<WeaponPiece,Record<string,readonly [number,number]|readonly [number,number,true]>>;
 
 function number(value:unknown,label:string,min:number,max:number,integer=false):number {
@@ -68,6 +79,16 @@ export function normalizeWeaponParameters(value:unknown):WeaponParameters {
   const s=result as StaffParameters;
   if(s.footLength>s.length/2 || s.orbRadius<s.shaftRadius*2) throw new Error("staff foot must be at most half its length and the orb twice as wide as the shaft");
   return s;
+ }
+ if(piece==="mace.flanged") {
+  const m=result as MaceParameters;
+  if(m.gripLength>m.haftLength/2) throw new Error("mace grip must be at most half the haft");
+  return m;
+ }
+ if(piece==="book.tome") {
+  const b=result as BookParameters;
+  if(b.height<b.width || b.thickness*2>b.width) throw new Error("tome must be taller than wide and at most half as thick as wide");
+  return b;
  }
  if(piece==="sword.arming" || piece==="dagger.blackened") {
   const s=result as SwordParameters|DaggerParameters;
@@ -102,4 +123,10 @@ export const WEAPON_PRESETS=Object.freeze({
  "shield.heater":Object.freeze({schemaVersion:1,piece:"shield.heater",width:.56,height:.72,curvature:.06,thickness:.016,rimWidth:.022,
   bossRadius:.07,outlineSegments:16,maxTriangles:3000}),
  "staff.bone":staff("staff.bone"),"staff.gilded":staff("staff.gilded"),"staff.gnarled":staff("staff.gnarled"),
+ // #379: the Arcanist's slim crystal staff: the class staff length and grip, a thinner shaft and a 4 cm crystal.
+ "staff.crystal":Object.freeze({schemaVersion:1,piece:"staff.crystal",length:1.85,footLength:.8,shaftRadius:.016,orbRadius:.04,
+  radialSegments:10,maxTriangles:2500}),
+ "mace.flanged":Object.freeze({schemaVersion:1,piece:"mace.flanged",haftLength:.5,gripLength:.13,headRadius:.05,flanges:6,radialSegments:12,
+  maxTriangles:1500}),
+ "book.tome":Object.freeze({schemaVersion:1,piece:"book.tome",width:.17,height:.23,thickness:.055,maxTriangles:400}),
 }) satisfies {[P in WeaponPiece]:WeaponParameters&{piece:P}};

@@ -19,7 +19,7 @@ A `humanoid-sockets-v2` descriptor declares the attachment frames of one humanoi
 - **`joint`** names a joint of the character's skin. Joint names in this rig are UE-style: `hand_r`, `hand_l`, `spine_03`, `pelvis` and so on.
 - **`translation`, `rotation` (x, y, z, w) and optional `scale`** form the socket's local transform in that joint's glTF frame, in metres. The item frame the socket holds is placed at `jointWorld × T × R × S`.
 - **`attachFrame`** names the item frame that lands on the socket, for example `grip`, `grip.offhand` or `strap`. Each socket names its own frame, so one two-handed sword can be held by `grip` in `hand_r.weapon` while a consumer uses its `grip.offhand` frame as the IK target for the other hand.
-- **`accepts`** lists the item roles the socket takes. The recipes declare `one-hand-weapon` (`sword.arming`, `dagger.blackened`), `staff` (`staff.bone`, `staff.gilded`, `staff.gnarled`), `shield` (`shield.heater`), `bow`, `arrow`, `quiver` and `armor` (headwear).
+- **`accepts`** lists the item roles the socket takes. The recipes declare `one-hand-weapon` (`sword.arming`, `dagger.blackened`, `mace.flanged`), `staff` (`staff.bone`, `staff.gilded`, `staff.gnarled`, `staff.crystal`), `shield` (`shield.heater`), `book` (`book.tome`, #379), `bow`, `arrow`, `quiver` and `armor` (headwear).
 - **`mirror`** (optional) names the counterpart socket on the other side, for example `hand_r.weapon` ↔ `hand_l.weapon`. A left-handed character then uses the same loadout data through the mirrored sockets. Both sockets of a pair must name each other, hold the same frame and accept the same roles.
 - **`id`** is `<joint-ish>.<purpose>`, for example `hand_l.shield` or `back.stowed`, and is unique within the descriptor.
 
@@ -63,9 +63,9 @@ The Ranger bundle attaches each equipment entry's descriptor as `humanoid-item` 
 | Socket | Joint | Accepts | Placement |
 | --- | --- | --- | --- |
 | `hand_r.weapon` | `hand_r` | `one-hand-weapon` | The grip centre is in the palm, 3 cm below the knuckle plane and 80 % of the way from the hand joint to the knuckles. The grip runs along the knuckle line and the blade leaves the fist on the thumb side. The edges point along the fingers, and the flats face the palm and the back of the hand. |
-| `hand_l.shield` | `hand_l` | `shield` | The handle centre is at the same grip point of the left hand. The face points out of the back of the hand and the top toward the thumb, so the point hangs below the little finger and the forearm crosses the board. |
+| `hand_l.shield` | `hand_l` | `shield`, `book` | The handle centre is at the same grip point of the left hand. The face points out of the back of the hand and the top toward the thumb, so the point hangs below the little finger and the forearm crosses the board. The Arcanist's tome is carried the same way (#379). |
 | `hand_l.weapon` | `hand_l` | `one-hand-weapon` | The left-handed mirror of `hand_r.weapon` (`mirror` pair, #264). |
-| `hand_r.shield` | `hand_r` | `shield` | The left-handed mirror of `hand_l.shield` (`mirror` pair, #264). |
+| `hand_r.shield` | `hand_r` | `shield`, `book` | The left-handed mirror of `hand_l.shield` (`mirror` pair, #264). |
 | `back.stowed` | `spine_03` | `shield` | The shield is centred between the shoulder blades, face out and point down. |
 | `hip_l.stowed` | `pelvis` | `one-hand-weapon` | The hilt is at the front left hip, with the flats facing outward and the blade running down and back. |
 | `hand_r.staff`, `hand_l.staff` | `hand_r`, `hand_l` | `staff` | A mirrored pair (#372) at the weapon grip point. The shaft rises from the palm past the wrist, turned 34° from the forearm line toward the thumb side and leaning out of the back of the hand (`STAFF_GRIP`), so in the hanging-arm `Idle_Loop` the staff stands nearly upright beside the leg with its foot just above the ground. In the sword clips it swings orb first. +Z faces the back of the hand. |
