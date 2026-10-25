@@ -30,7 +30,7 @@ Each GLB has one mesh node named after the piece and an empty node **`grip`** at
 - **sword and dagger:** the grip frame is the centre of the hand's contact on the grip. The blade points along +Y, the edges along ±X and the flats face ±Z. The mace is held the same way, its haft along +Y.
 - **tome:** held like the shield, in `hand_l.shield` (which accepts `book`): the grip frame is the middle of the back cover, the spine runs along +Y (the forearm), the covers face ±Z and the book stands off the hand toward +Z.
 - **staff:** the grip frame is the centre of the hand's contact on the shaft, which runs along +Y from the foot (`footLength` below) to the head and orb. The shaft axis passes through the grip.
-- **shield:** the grip frame is the centre of the hand handle, which runs along X. The face points to +Z, the point to −Y and the forearm runs along +Y.
+- **shield:** the grip frame is the centre of the hand handle, which runs along Y, across the palm in the hand sockets. The face points to +Z, the point to −Y and the left forearm runs across the board along +X to the forearm strap (#285).
 
 `WEAPON_GRIP_CONTRACT` states the same conventions. Materials are factor-only PBR (`steel`, `iron`, `leather`, `wood`, `paint`, and for the class set `charcoal`, `leather.dark`, `bone`, `ivory`, `gold`, `wood.dark`, `silver`, `cover`, `parchment`) with no UVs or textures. The orbs and the crystal (`orb.green`, `orb.gold`, `orb.moss`, `crystal.blue`, `WEAPON_EMISSIVE_MATERIALS`) glow: their glTF emissive factor equals their base colour.
 

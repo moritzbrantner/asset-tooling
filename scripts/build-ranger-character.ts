@@ -371,6 +371,27 @@ export const RANGER_AUTHORED_CLIPS = ["Jog_Bwd_Loop", "Jog_Strafe_Left_Loop", "J
  * They follow the jog clips in bundle order. Each records the string draw for the bow's `nock` joint.
  */
 export const RANGER_BOW_CLIPS = ["Bow_Aim_Loop", "Bow_Draw", "Bow_Hold_Loop", "Bow_Release", "Bow_Recovery", "Bow_Cancel"] as const;
+/**
+ * #285: static grip poses authored on the rig by adapters/blender/grip_poses.py. Each clip keys only the finger and
+ * thumb rotations of one hand; a consumer plays it over the body clip's finger channels while that hand's socket holds
+ * an item of `role`. The fingers wrap a handle of `radius` (metres) along the item's grip-frame `axis`; the tome leaves
+ * the hand relaxed. They follow the bow clips in bundle order.
+ */
+const GRIP_HANDLE = (radius: number) => ({ kind: "cylinder", axis: [0, 1, 0], radius });
+export const RANGER_GRIPS: readonly { clip: string; socket: string; role: string; surface: Json }[] = [
+  { clip: "Grip_Weapon_R", socket: "hand_r.weapon", role: "one-hand-weapon", surface: GRIP_HANDLE(.0145) },
+  { clip: "Grip_Weapon_L", socket: "hand_l.weapon", role: "one-hand-weapon", surface: GRIP_HANDLE(.0145) },
+  { clip: "Grip_Shield_L", socket: "hand_l.shield", role: "shield", surface: GRIP_HANDLE(.012) },
+  { clip: "Grip_Shield_R", socket: "hand_r.shield", role: "shield", surface: GRIP_HANDLE(.012) },
+  { clip: "Grip_Book_L", socket: "hand_l.shield", role: "book", surface: { kind: "relaxed" } },
+  { clip: "Grip_Book_R", socket: "hand_r.shield", role: "book", surface: { kind: "relaxed" } },
+  { clip: "Grip_Staff_R", socket: "hand_r.staff", role: "staff", surface: GRIP_HANDLE(.019) },
+  { clip: "Grip_Staff_L", socket: "hand_l.staff", role: "staff", surface: GRIP_HANDLE(.019) },
+  { clip: "Grip_Bow_L", socket: "hand_l.bow", role: "bow", surface: GRIP_HANDLE(.022) },
+];
+/** The finger and thumb joints a grip clip keys (rotation only), for the hand `side`. */
+export const rangerGripJoints = (side: "l" | "r") =>
+  ["index", "middle", "ring", "pinky", "thumb"].flatMap((finger) => ["01", "02", "03"].map((k) => `${finger}_${k}_${side}`));
 /** The gait loops whose ground speed the `humanoid-clips` attachment records. */
 export const RANGER_GAITS: ReadonlySet<string> = new Set(["Walk_Loop", "Jog_Fwd_Loop", "Sprint_Loop", "Crouch_Fwd_Loop", "Jog_Bwd_Loop"]);
 /** The library clips the Ranger retargets, in bundle order; RANGER_AUTHORED_CLIPS follow them. */
@@ -528,6 +549,8 @@ type RangerBuiltClip = {
   removedTravel?: [number, number];
   /** Authored bow clips (#277): the string draw per frame for the bow's `nock` joint, and the archery marks. */
   bow?: Json;
+  /** Grip poses (#285): the hand socket and the item role the pose holds. */
+  grip?: { socket: string; role: string };
 };
 
 const pick = (source: Json, keys: string[]) => Object.fromEntries(keys.filter((key) => source[key] !== undefined).map((key) => [key, source[key]]));
@@ -582,6 +605,7 @@ async function rangerClipMotion(root: string, { character, targetRig, clips, rol
       entry.groundSpeedMetersPerSecond = round4(speeds[Math.floor(speeds.length / 2)]!);
     }
     if (clip.bow) entry.bow = clip.bow;
+    if (clip.grip) Object.assign(entry, { loop: true, role: "grip", grip: clip.grip });
     const combat = roles ? RANGER_CLIP_ROLES[clip.name] : undefined;
     if (combat) {
       entry.role = combat.role;
@@ -682,11 +706,45 @@ async function authorBowClip(root: string, clip: string, target: AssetRef, socke
   return { glb, observations: (generated.receipt.observations as Json).script as Json };
 }
 
-/** Re-index an extracted clip's channels from its carrier GLB's joint order to the target rig's joint order. */
-async function reindexClip(root: string, extracted: AssetOperationResult, targetRig: AssetRef, clip: string) {
+/** Author every grip pose on the Ranger rig in one Blender run (adapters/blender/grip_poses.py, #285). */
+async function authorGripPoses(root: string, target: AssetRef, socketsDescriptor: Json) {
+  const source = await readBlenderRecipeSource("grip_poses.py");
+  const workspace = path.join(root, "authored", "grips");
+  await mkdir(workspace, { recursive: true });
+  await writeFile(path.join(workspace, "grip_poses.py"), source.bytes);
+  const targetBytes = await resolveAssetObject(root, target);
+  await writeFile(path.join(workspace, "target.glb"), targetBytes);
+  const grips = RANGER_GRIPS.map((grip) => {
+    const found = (socketsDescriptor.sockets as Json[]).find((candidate) => candidate.id === grip.socket);
+    if (!found) throw new Error(`${grip.clip}: the sockets descriptor has no ${grip.socket}`);
+    return { clip: grip.clip, socket: { joint: found.joint, translation: found.translation, rotation: found.rotation }, surface: grip.surface };
+  });
+  const spec = parseAssetSpec({
+    schemaVersion: 1, assetId: "authored.grips", generator: { id: "external.blender.script", version: "1" }, randomness: { mode: "none" },
+    inputs: { script: { path: "grip_poses.py", sha256: source.sha256 }, target: { path: "target.glb", sha256: sha256Bytes(targetBytes) } }, models: {},
+    parameters: { blenderVersion: source.blenderVersion, arguments: { schemaVersion: 1, grips } }, output: { path: "grips.glb" }, reproducibility: { expected: "exact" },
+  });
+  const specPath = path.join(workspace, "asset.json");
+  await writeFile(specPath, `${canonicalJson(spec)}\n`);
+  const generated = await generateAsset(specPath);
+  // Blender exports the constant poses as STEP; with two identical keys LINEAR is the same pose, and the extractor
+  // takes LINEAR clips only.
+  const io = new NodeIO();
+  const document = await io.readBinary(new Uint8Array(await readFile(path.join(workspace, "grips.glb"))));
+  for (const animation of document.getRoot().listAnimations()) for (const sampler of animation.listSamplers()) sampler.setInterpolation("LINEAR");
+  const glb = (await storeAssetObject(root, { bytes: await io.writeBinary(document), kind: "animation", mediaType: "model/gltf-binary" })).asset;
+  return { glb, observations: (generated.receipt.observations as Json).script as Json };
+}
+
+/**
+ * Re-index an extracted clip's channels from its carrier GLB's joint order to the target rig's joint order. `keep`
+ * limits the clip to those joints' rotation channels (the grip poses).
+ */
+async function reindexClip(root: string, extracted: AssetOperationResult, targetRig: AssetRef, clip: string, keep?: readonly string[]) {
   const fromRig = JSON.parse((await resolveAssetObject(root, single(extracted, "rig"))).toString("utf8")).jointNames as string[];
   const toRig = JSON.parse((await resolveAssetObject(root, targetRig)).toString("utf8")).jointNames as string[];
   const document = JSON.parse((await resolveAssetObject(root, single(extracted, "animation"))).toString("utf8"));
+  if (keep) document.channels = document.channels.filter((channel: Json) => channel.kind === "rotation" && keep.includes(fromRig[channel.node]!));
   for (const channel of document.channels) {
     const index = toRig.indexOf(fromRig[channel.node]!);
     if (index < 0) throw new Error(`${clip}: joint '${fromRig[channel.node]}' is not in the Ranger rig`);
@@ -905,6 +963,22 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
         sourceRig: single(extracted, "rig"), hips: RANGER_HIPS.target,
         sourceInfo: { authored: "adapters/blender/bow_clips.py", basedOn: { catalogId: catalogIds.clips, clip: "Idle_Loop" } },
         bow: { sampleRate: fps, drawMeters, ...pick(marks, ["releaseSeconds", "arrowDrawnSeconds", "nockedSeconds"]) } });
+    }
+    log("author the grip poses in Blender (adapters/blender/grip_poses.py)");
+    const grips = await authorGripPoses(root, animated, socketsDescriptor);
+    for (const grip of RANGER_GRIPS) {
+      const extracted = await executeGltfExtractAnimationOperation(root, {
+        inputs: { source: grips.glb }, parameters: { hipsJoint: RANGER_HIPS.target, clip: grip.clip, policy: POLICY },
+      });
+      const side = (socketsDescriptor.sockets as Json[]).find((candidate) => candidate.id === grip.socket)!.joint === "hand_l" ? "l" : "r";
+      const retargeted = await reindexClip(root, extracted, targetRig, grip.clip, rangerGripJoints(side));
+      const times = JSON.parse((await resolveAssetObject(root, retargeted)).toString("utf8")).channels
+        .flatMap((channel: Json) => channel.keyframes.map((key: Json) => key.time as number));
+      clips.push({ name: grip.clip, library: "authored", source: grips.glb, retargeted, libraryAsset: grips.glb,
+        observations: { rootMotion: "in-place", startSeconds: Math.min(...times), endSeconds: Math.max(...times),
+          authored: { recipe: grips.observations.recipe, fps: grips.observations.fps, curlDegrees: grips.observations.grips[grip.clip] } },
+        sourceRig: single(extracted, "rig"), hips: RANGER_HIPS.target,
+        sourceInfo: { authored: "adapters/blender/grip_poses.py" }, grip: { socket: grip.socket, role: grip.role } });
     }
     animated = single(await executeGltfEmbedAnimationOperation(root, {
       inputs: { source: composedFace, animations: clips.map((clip) => clip.retargeted) },

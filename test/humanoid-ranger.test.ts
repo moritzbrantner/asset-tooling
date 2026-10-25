@@ -20,8 +20,8 @@ import {
   RANGER_APPEARANCE, RANGER_ARCHERY, RANGER_AUTHORED_CLIPS, RANGER_BOW_CLIPS, RANGER_BONE_MAP, RANGER_BUNDLE_KEY, RANGER_BUNDLE_VARIANT, RANGER_CLIPS,
   RANGER_CLIPS_ATTACHMENT, RANGER_CLIP_ROLES, RANGER_FIGURES, RANGER_GAITS, RANGER_HAIR_TINTS, RANGER_MEMBERS, RANGER_MIXAMO_BONE_MAP,
   RANGER_CLASS_PRESETS, RANGER_FACIAL_HAIR_ENTRY, RANGER_ITEM_ATTACHMENT, RANGER_RESIDENT_PRESETS, RANGER_SOCKETS_ATTACHMENT, RANGER_SOCKETS_DESCRIPTOR, RANGER_TEXTURE_POLICY,
-  RANGER_UBC_BONE_MAP, RANGER_WEAPONS, RANGER_OUTFIT_KITS, RANGER_PEASANT_OUTFITS, validateAppearancePresets,
-  buildRangerCharacter, rangerItemDescriptor, rangerPresets,
+  RANGER_UBC_BONE_MAP, RANGER_WEAPONS, RANGER_OUTFIT_KITS, RANGER_PEASANT_OUTFITS, RANGER_GRIPS, validateAppearancePresets,
+  buildRangerCharacter, rangerGripJoints, rangerItemDescriptor, rangerPresets,
 } from "../scripts/build-ranger-character.ts";
 import { WEAPON_ROLES } from "../src/weapon-recipes.js";
 import { FACE_MORPH_NODES, FACE_MORPH_TARGETS } from "../src/face-variants.js";
@@ -45,6 +45,20 @@ async function skipReason(): Promise<string | false> {
   }
   return false;
 }
+
+test("#285: one grip pose per hand socket and held role, keying one hand's fingers", async () => {
+  const sockets = JSON.parse(await readFile(path.join(ROOT, RANGER_SOCKETS_DESCRIPTOR), "utf8")).sockets;
+  const names = RANGER_CLIPS.map((clip) => clip.name);
+  assert.equal(new Set(RANGER_GRIPS.map((grip) => grip.clip)).size, RANGER_GRIPS.length);
+  assert.equal(new Set(RANGER_GRIPS.map((grip) => `${grip.socket}/${grip.role}`)).size, RANGER_GRIPS.length);
+  for (const grip of RANGER_GRIPS) {
+    const socket = sockets.find((candidate: any) => candidate.id === grip.socket);
+    assert.ok(socket?.accepts.includes(grip.role) && /^hand_[lr]$/.test(socket.joint), grip.clip);
+    assert.ok(grip.clip.startsWith("Grip_") && grip.clip.endsWith(`_${socket.joint.slice(-1).toUpperCase()}`) && !names.includes(grip.clip), grip.clip);
+  }
+  assert.equal(rangerGripJoints("l").length, 15);
+  assert.ok(rangerGripJoints("r").every((joint) => joint.endsWith("_r")));
+});
 
 test("the Ranger retargets the library clips in bundle order, then authors the jog clips", () => {
   const names = RANGER_CLIPS.map((clip) => clip.name);
@@ -162,7 +176,7 @@ test("the Ranger recipe builds a verified bundle: in-place clips, equipment entr
       assert.ok(entries.includes(expected), expected);
     }
     const entry = manifest.assets.find((candidate) => candidate.key === RANGER_BUNDLE_KEY)!;
-    const clipNames = [...RANGER_CLIPS.map((clip) => clip.name), ...RANGER_AUTHORED_CLIPS, ...RANGER_BOW_CLIPS];
+    const clipNames = [...RANGER_CLIPS.map((clip) => clip.name), ...RANGER_AUTHORED_CLIPS, ...RANGER_BOW_CLIPS, ...RANGER_GRIPS.map((grip) => grip.clip)];
     const libraryClips = new Set(RANGER_CLIPS.filter((clip) => clip.library !== "mixamo").map((clip) => clip.name));
     assert.deepEqual(entry.observations.animations, clipNames);
 
@@ -180,12 +194,13 @@ test("the Ranger recipe builds a verified bundle: in-place clips, equipment entr
       const lineage = built.lineage.clips[index]!;
       assert.equal(clip.source.animationSha256, lineage.source.sha256, clip.name);
       assert.equal(clip.source.clip, clip.name);
-      assert.equal(clip.loop, clip.name.endsWith("_Loop"), clip.name);
+      assert.equal(clip.loop, clip.name.endsWith("_Loop") || clip.name.startsWith("Grip_"), clip.name);
       assert.equal(clip.rootMotion, "in-place", clip.name);
       assert.ok(clip.durationSeconds > 0, clip.name);
       assert.equal("groundSpeedMetersPerSecond" in clip, RANGER_GAITS.has(clip.name), clip.name);
     }
     const byName = Object.fromEntries(motion.clips.map((clip: any) => [clip.name, clip]));
+    for (const grip of RANGER_GRIPS) assert.deepEqual([byName[grip.clip].role, byName[grip.clip].grip], ["grip", { socket: grip.socket, role: grip.role }], grip.clip);
     // #277: every bow clip records the string draw per frame; full draw is longer than the set string.
     for (const name of RANGER_BOW_CLIPS) {
       const bow = byName[name].bow;
@@ -209,6 +224,12 @@ test("the Ranger recipe builds a verified bundle: in-place clips, equipment entr
 
     const { gltf, resources } = await readAssetBundleGltf(built.bundleDir, manifest, RANGER_BUNDLE_KEY, RANGER_BUNDLE_VARIANT);
     const document = await new NodeIO().readJSON({ json: JSON.parse(gltf.toString("utf8")), resources: Object.fromEntries(resources) });
+    // #285: each grip pose keys only its hand's 15 finger and thumb rotations.
+    for (const grip of RANGER_GRIPS) {
+      const animation = document.getRoot().listAnimations().find((candidate) => candidate.getName() === grip.clip)!;
+      const channels = animation.listChannels().map((channel) => `${channel.getTargetNode()!.getName()}.${channel.getTargetPath()}`).sort();
+      assert.deepEqual(channels, rangerGripJoints(grip.socket.startsWith("hand_l") ? "l" : "r").map((joint) => `${joint}.rotation`).sort(), grip.clip);
+    }
     // v3 and later: 13 PNG textures, each within its slot's limit, the 4096 px sources reduced and none upscaled.
     const textures = built.lineage.textures![RANGER_BUNDLE_KEY]!;
     assert.equal(document.getRoot().listTextures().length, 13);
