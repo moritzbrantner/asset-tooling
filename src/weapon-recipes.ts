@@ -42,7 +42,7 @@ export const WEAPON_EMISSIVE_MATERIALS=Object.freeze(["orb.green","orb.gold","or
 export const WEAPON_GRIP_CONTRACT=Object.freeze({schemaVersion:1,unit:"meter",axes:"right-handed-y-up",origin:"grip",gripNode:"grip",
  "sword.arming":"origin at the centre of the hand's contact on the grip; blade along +Y, cutting edges along +X/-X, flats facing +Z/-Z",
  "dagger.blackened":"as the sword",
- "shield.heater":"origin at the centre of the hand handle, which runs along X; face toward +Z, point toward -Y, forearm from the handle along +Y; the back of the hand and the forearm rest against the board",
+ "shield.heater":"origin at the centre of the hand handle, which runs along Y (across the palm); face toward +Z, point toward -Y, left forearm across the board from the handle along +X to the strap; the back of the hand and the forearm rest against the board",
  staff:"origin at the centre of the hand's contact on the shaft; shaft along +Y from the foot (footLength below) to the head and orb at the top",
  "mace.flanged":"as the sword: haft along +Y to the flanged head",
  "book.tome":"held like the shield: origin at the middle of the back cover, spine along +Y (the forearm), covers facing +Z/-Z, the book standing off the hand toward +Z"});

@@ -38,7 +38,9 @@ The `humanoid.ranger.male` bundle holds the following.
 - **Clips:** they ship once, embedded in `default`. Every other character variant and level shares the same joints and rest pose, and plays them by joint name. Every clip is in place. In bundle order:
   - the UAL1/UAL2 library clips retargeted with 3d-lab (idle, walk, the run gaits, sword, shield, death, the #112 traversal clips and the #114 combat clips with their roles);
   - the Mixamo walk-speed clips retargeted in Blender (`Walk_Bwd_Loop`, `Walk_Strafe_*`, `Walk_Start`, `Walk_Stop`, `Turn_*` and `Hit_Shove_Spin`; [Mixamo retarget](#mixamo-retarget));
-  - the original authored jog clips `Jog_Bwd_Loop`, `Jog_Strafe_Left_Loop` and `Jog_Strafe_Right_Loop` ([Authored jog clips](#authored-jog-clips)).
+  - the original authored jog clips `Jog_Bwd_Loop`, `Jog_Strafe_Left_Loop` and `Jog_Strafe_Right_Loop` ([Authored jog clips](#authored-jog-clips));
+  - the authored bow clips ([Authored bow clips](#authored-bow-clips));
+  - the static finger grip poses `Grip_*` for held items ([Grip poses](#grip-poses-285)).
 - **Equipment entries:** `equipment.sword.arming`, `equipment.shield.heater`, the class set `equipment.dagger.blackened` (on `hand_r.weapon`) and `equipment.staff.bone`, `equipment.staff.gilded`, `equipment.staff.gnarled` (on `hand_r.staff`, #372), the class starter props `equipment.staff.crystal` (on `hand_r.staff`), `equipment.book.tome` (on `hand_l.shield`) and `equipment.mace.flanged` (on `hand_r.weapon`, #379) ([weapon recipes](weapon-recipes.md)) and `equipment.bow.long` (skinned to `grip` and `nock`), `equipment.arrow` and `equipment.quiver.back` ([archery](weapon-recipes.md#archery)), all parented at runtime through the sockets.
 - **Hair entries:** `hair.buzzed`, `hair.simple-parted` and `hair.long` (male) or `hair.long` and `hair.buns` (female), each with the variants `hair-1` and `hair-2`, on the `head.hair` socket. The pack textures `T_Hair_1` and `T_Hair_2` are per-mesh bakes with different UV layouts, so every style carries its own pack in both variants (#336; swapping packs garbled the strands). The male `hair.long` also merges the `Hair_Buzzed` cap as its crown, because Quaternius `Hair_Long` is only a fringe and a back curtain; its `tintMaterials` are `MI_Hair_2` (strands) and `MI_Hair_1` (crown). The hair materials are opaque, like the source: the packs have no alpha. The male figure also has the hand-modelled `hair.balding`, `hair.receding`, `hair.swept` and `hair.tied` ([Male variety](#male-variety-380)), each with the one variant `hair-1`.
 - **Armour entries:** `armor.soldier`, `armor.knight`, `armor.farmer`, `armor.innkeeper`, `armor.monk` and the class plates `armor.class.<id>` (male); `armor.tanner` (female, #378).
@@ -158,6 +160,23 @@ Each clip's `humanoid-clips` entry has a `bow` object:
 
 `Bow_Release` also has the usual `contact` on `hand_r`.
 
+### Grip poses (#285)
+
+The retargeted clips leave the fingers at their open rest pose, so a held item would lie across an open hand. [`adapters/blender/grip_poses.py`](../adapters/blender/grip_poses.py) authors one static grip pose per hand socket and held role in Blender (`RANGER_GRIPS`). Each clip keys only the 15 finger and thumb rotations (`*_01`, `*_02`, `*_03`) of one hand, and the poses follow the bow clips in bundle order:
+
+| Clip | Socket | Role | Hand |
+| --- | --- | --- | --- |
+| `Grip_Weapon_R`, `Grip_Weapon_L` | `hand_r.weapon`, `hand_l.weapon` | `one-hand-weapon` | A fist round a 14.5 mm grip (sword, dagger, mace). |
+| `Grip_Shield_L`, `Grip_Shield_R` | `hand_l.shield`, `hand_r.shield` | `shield` | A fist round the shield's 12 mm hand handle. |
+| `Grip_Book_L`, `Grip_Book_R` | `hand_l.shield`, `hand_r.shield` | `book` | A relaxed hand; the tome rests on the back of the hand. |
+| `Grip_Staff_R`, `Grip_Staff_L` | `hand_r.staff`, `hand_l.staff` | `staff` | A fist round a 19 mm shaft. |
+| `Grip_Bow_L` | `hand_l.bow` | `bow` | A fist round the 22 mm riser. |
+
+- **Wrap:** each finger curls toward the palm, joint by joint from the knuckle, until its segment touches the handle (the radius plus the finger's half thickness from the handle's axis) or reaches the joint's limit (90°, 105°, 80°). The thumb then swings over the wrapped index finger and bends its tip round the handle. The handle is the item's grip-frame Y axis through the socket.
+- **Metadata:** each `humanoid-clips` entry has `role: "grip"`, `loop: true` and `grip: { socket, role }`.
+- **Consumer:** while a hand socket holds an item, play the grip whose `grip.socket` and `grip.role` match on top of the body clip. The grip replaces that hand's finger rotations: drop them from the body clip, or give the grip the full weight on those joints. The bow clips already carry their own finger curl (a fist on the grip and a hook on the string), so they need no grip.
+- **Shield handle:** in the hand sockets the heater is held with the forearm across the board (`examples/weapons/derive-sockets.ts`), so the shield's hand handle runs along its Y axis, across the palm, and the forearm strap sits toward +X round the left forearm (#285). Before #285 the handle ran along the fingers, so a fist could not close round it.
+
 ## Female Ranger
 
 `--figure female` (#115, owner answer Q1 = A) builds `humanoid.ranger.female` with the same recipe. Of the Peasant-based outfits it has only the tanner (#378, over the pack's `Female_Peasant` outfit), and it has no headwear, facial hair or male variety. It uses the Universal Base Characters `Superhero_Female_FullBody` head (`keepMeshes: ["Eyebrows", "Eyes"]`) on the full `Female_Ranger` outfit ([humanoid-sources.md](humanoid-sources.md#female-body-and-outfit-115)).
@@ -233,7 +252,7 @@ Every step uses the `NODE_SKINNED_MESH_NON_ROOT` and `MESH_PRIMITIVE_GENERATED_T
 | `left-foot` / `right-foot` | `DEF-foot.L` / `.R` | `foot_l` / `_r` |
 | `left-toes` / `right-toes` | `DEF-toe.L` / `.R` | `ball_l` / `_r` |
 
-Several joints are not mapped: the fingers and thumbs and the `*_leaf` joints. They keep their rest pose, so the hands stay in their rest grip. Finger retargeting belongs to the broader library work in #115.
+Several joints are not mapped: the fingers and thumbs and the `*_leaf` joints. They keep their rest pose, so the hands stay open; a consumer closes a hand round a held item with the [grip poses](#grip-poses-285).
 
 UAL2 uses the same 65-joint Unreal-style rig as UBC/Outfits. `RANGER_UBC_BONE_MAP` (23 ids) therefore binds each `HumanoidBone` id to the same joint name on both sides, for example `hips` → `pelvis` / `pelvis`. Its rest pose is close to the Ranger's but not identical. The retarget transfers rotation deltas from each rig's own rest, so the difference does not leak into the result.
 
@@ -399,7 +418,7 @@ A consumer that needs a fixed input keeps its own copy of the tar. Adopting a ne
 
 The socket sheets were rendered with the sword in `hand_r.weapon` and the shield in `hand_l.shield` at `Jog_Fwd_Loop` and `Sprint_Loop` (a quarter and the middle), `Sword_Idle` (the middle), `Sword_Attack` (30, 50 and 70 %), `Death01` (the middle and the end) and `Idle_Shield_Loop` (the middle). They show no inverted or twisted limbs and no root drift: the pelvis keeps its horizontal position in every clip. The gaits run in place, so the feet slide backwards by design; gameplay moves the character. Known limits:
 
-- **Hands:** the fingers keep their open rest pose (#115), so the sword lies across an open hand in every clip.
+- **Hands:** the fingers keep their open rest pose (#115), so the sword lies across an open hand in every clip. Since #285 the [grip poses](#grip-poses-285) close the hand.
 - **Sword angle (bundle-v2 sockets, fixed in v4):** the `hand_r.weapon` socket was authored for a hanging arm. In `Sword_Idle` the blade points sideways at hip height rather than forward, and in `Sword_Attack` it follows the extended arm.
 - **Shield guard (bundle-v2 sockets, fixed in v4):** `hand_l.shield` aligns the shield's vertical axis with the forearm. In `Idle_Shield_Loop` the forearm is held across the body, so the shield sits on its side with the point toward the character's left instead of down.
 - **Death:** at the end of `Death01` the character lies on its back with the pelvis joint 6.5 cm above the ground, and the right hand's fingertip joints sink up to 9 cm below it. See [Death01 ground penetration](#death01-ground-penetration) for the cause, fixed in v5.
@@ -431,7 +450,7 @@ Directions below are the character's own.
 
 The sheets show no gross clipping. Known limits:
 
-- The fingers are open (#115).
+- The fingers are open (#115; the [grip poses](#grip-poses-285) close them since #285).
 - The shield's forearm strap floats behind the board beside the wrist ([humanoid-sockets.md](humanoid-sockets.md#ranger-sockets)).
 - The hanging-arm poses tilt the shield forward.
 - The `Sword_Idle` stance itself is turned, and with it the guard.

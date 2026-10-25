@@ -16,10 +16,10 @@ right-handed +Y up:
 - dagger: as the sword;
 - staff: origin at the centre of the hand's contact on the shaft, shaft along
   +Y from the foot below the hand to the head and orb above it;
-- shield: origin at the centre of the hand handle, which runs along X; the
-  face points to +Z, the point of the shield to -Y and the forearm runs from
-  the handle along +Y to the strap. The back of the hand and the forearm rest
-  against the board, so the palm faces -Z.
+- shield: origin at the centre of the hand handle, which runs along Y (across
+  the palm); the face points to +Z, the point of the shield to -Y and the left
+  forearm runs across the board from the handle along +X to the strap. The
+  back of the hand and the forearm rest against the board, so the palm faces -Z.
 
 Geometry is authored from explicit coordinates in glTF axes and converted to
 Blender's Z-up once (``to_blender``), so the exporter's +Y-up conversion gives
@@ -312,16 +312,18 @@ def shield(builder, p):
         rings.append(ring)
     rings.append([(0, 0, base + .45 * r)])
     builder.loft(rings, iron)
-    # Hand handle along X through the origin, its ends set into the board.
+    # Hand handle along Y through the origin (across the palm in the hand sockets, #285), its ends set into the board.
     ends = .065
-    handle = [(-ends, 0, back(-ends) + .003), (-.06, 0, .012), (-.045, 0, 0), (.045, 0, 0), (.06, 0, .012), (ends, 0, back(ends) + .003)]
-    builder.sweep(handle, chamfer_rect(.011, .011, .004), leather)
-    # Forearm strap toward +Y around a ~5 cm forearm (with bracer) whose back rests against the board.
-    strap_y, radius, centre = .16, .048, .028
-    strap = [(-radius, strap_y, back(-radius) + .003)]
-    strap += [(radius * math.cos(math.pi + math.pi * i / 6), strap_y, centre + radius * math.sin(math.pi + math.pi * i / 6)) for i in range(7)]
-    strap.append((radius, strap_y, back(radius) + .003))
-    builder.sweep(strap, chamfer_rect(.018, .003, .0015), leather)
+    handle = [(0, -ends, back(0) + .003), (0, -.06, .012), (0, -.045, 0), (0, .045, 0), (0, .06, .012), (0, ends, back(0) + .003)]
+    builder.sweep(handle, chamfer_rect(.011, .011, .004), leather, up=(1, 0, 0))
+    # Forearm strap toward +X (the left forearm runs across the board) around a ~5 cm forearm (with bracer) whose back
+    # rests against the board.
+    strap_x, radius = .16, .048
+    centre = .028 + back(strap_x) - back(0)
+    strap = [(strap_x, -radius, back(strap_x) + .003)]
+    strap += [(strap_x, radius * math.cos(math.pi + math.pi * i / 6), centre + radius * math.sin(math.pi + math.pi * i / 6)) for i in range(7)]
+    strap.append((strap_x, radius, back(strap_x) + .003))
+    builder.sweep(strap, chamfer_rect(.018, .003, .0015), leather, up=(1, 0, 0))
 
 
 def tube(builder, path, radii, n, material, apex=None):
