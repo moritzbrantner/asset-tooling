@@ -93,6 +93,12 @@
      "attachFrame": "grip", "accepts": ["staff"], "mirror": "hand_l.staff"},
     {"id": "hand_l.staff", "joint": "hand_l",
      "translation": [0.0324, 0.0643, -0.0002], "rotation": [0.690827, -0.268393, -0.658719, 0.129662],
-     "attachFrame": "grip", "accepts": ["staff"], "mirror": "hand_r.staff"}
+     "attachFrame": "grip", "accepts": ["staff"], "mirror": "hand_r.staff"},
+    {"id": "hand_r.crossbow", "joint": "hand_r",
+     "translation": [-0.0324, 0.0643, -0.0002], "rotation": [0.001381, -0.127104, -0.991828, 0.010916],
+     "attachFrame": "grip", "accepts": ["crossbow"], "mirror": "hand_l.crossbow"},
+    {"id": "hand_l.crossbow", "joint": "hand_l",
+     "translation": [0.0324, 0.0643, -0.0002], "rotation": [0.001381, 0.127104, 0.991828, 0.010916],
+     "attachFrame": "grip", "accepts": ["crossbow"], "mirror": "hand_r.crossbow"}
   ]
 }

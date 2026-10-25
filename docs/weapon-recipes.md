@@ -72,12 +72,14 @@ Blender installed as a snap can only read and write under `$HOME`, so set `TMPDI
 | `bow.long` | `bow` | A 1.5 m braced longbow. It has a riser with a leather grip, tapered chamfered limbs that bend toward the string, horn nocks and a string with a serving at the nock point. The brace height is 0.18 m. | 840 | 2,500 |
 | `arrow` | `arrow` | A 0.76 m shaft with a nock block, a flat broadhead and three vanes. | 142 | 800 |
 | `quiver.back` | `quiver` | A 0.5 m leather tube with a wooden base, iron bands, two strap loops and five arrow tails. | 532 | 6,000 |
+| `crossbow` | `crossbow` | The Redbrand crossbowmen's spanned crossbow (#389), 0.78 m long: a wooden stock with a deep butt, a leather-wrapped wrist and a straight tiller, a 0.62 m steel prod seated in an iron band 0.36 m ahead of the hand and swept back by the string, an iron nut holding the string, a stirrup and a long trigger lever under the stock. | 708 | 2,500 |
 
 Frames (`ARCHERY_GRIP_CONTRACT`):
 
 - **bow:** the origin is the centre of the hand's contact on the riser. The limbs run along ±Y, the arrow leaves toward +Z and the string is on the −Z side.
 - **arrow:** the origin is the nock, and the shaft runs toward +Z.
 - **quiver:** the origin is the tube's centre. The mouth points to +Y and the back faces −Z.
+- **crossbow:** the origin is the centre of the hand's contact on the stock's wrist. The stock runs along Z and the bolt leaves toward +Z, the top of the stock faces +Y and the prod spans X. It is held in `hand_r.crossbow` (or its mirror `hand_l.crossbow`), and `Grip_Crossbow_R`/`_L` close the fist round the stock.
 
 **Draw (`BOW_DRAW_CONTRACT`):** the bow is the one skinned item. Its skin has two joints: `grip` is the root at the origin, and `nock` sits at the string's middle, at rest at `[0, 0, -braceHeight]`. Each string vertex is weighted linearly from `grip` at the tip to `nock` at the middle, so translating `nock` toward −Z in the bow frame draws the string, and both halves stay straight. The limbs follow `grip` only and do not bend. The arrow and quiver are static and have an empty `grip` node at the origin. Controls:
 

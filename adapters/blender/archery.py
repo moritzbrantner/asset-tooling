@@ -21,15 +21,17 @@ import math
 
 import bmesh
 import bpy
+from mathutils import Vector
 
 COMMON = {"schemaVersion", "piece", "maxTriangles"}
 PIECES = {
     "bow.long": {"length": (1.2, 1.9, False), "braceHeight": (.12, .24, False), "limbWidth": (.02, .05, False), "limbSegments": (6, 24, True)},
     "arrow": {"length": (.55, .95, False), "shaftRadius": (.003, .007, False), "radialSegments": (5, 12, True)},
     "quiver.back": {"length": (.35, .7, False), "radius": (.035, .08, False), "arrows": (0, 8, True), "radialSegments": (8, 24, True)},
+    "crossbow": {"length": (.6, .95, False), "prodSpan": (.45, .8, False), "prodOffset": (.25, .5, False), "radialSegments": (6, 12, True)},
 }
-BUDGETS = {"bow.long": 2500, "arrow": 800, "quiver.back": 6000}
-ROLES = {"bow.long": "bow", "arrow": "arrow", "quiver.back": "quiver"}
+BUDGETS = {"bow.long": 2500, "arrow": 800, "quiver.back": 6000, "crossbow": 2500}
+ROLES = {"bow.long": "bow", "arrow": "arrow", "quiver.back": "quiver", "crossbow": "crossbow"}
 MATERIALS = {
     "wood": ((.34, .22, .12), 0.0, .76),
     "horn": ((.55, .48, .36), 0.0, .5),
@@ -39,7 +41,7 @@ MATERIALS = {
     "feather": ((.66, .62, .55), 0.0, .9),
 }
 PIECE_MATERIALS = {"bow.long": ["wood", "horn", "leather", "string"], "arrow": ["wood", "iron", "feather"],
-                   "quiver.back": ["leather", "wood", "iron", "feather"]}
+                   "quiver.back": ["leather", "wood", "iron", "feather"], "crossbow": ["wood", "iron", "leather", "string"]}
 
 
 def _number(value):
@@ -48,7 +50,7 @@ def _number(value):
 
 def validate(p, inputs):
     if type(p) is not dict or p.get("piece") not in PIECES:
-        raise ValueError("archery piece must be bow.long, arrow or quiver.back")
+        raise ValueError("archery piece must be bow.long, arrow, quiver.back or crossbow")
     piece = p["piece"]
     if set(p) != COMMON | set(PIECES[piece]):
         raise ValueError("archery piece requires exactly the declared controls")
@@ -220,6 +222,62 @@ def quiver(builder, p):
             builder.face([builder.vert(q) for q in reversed(points)], feather)
 
 
+def tube(builder, a, b, section, material, up=(0, 1, 0), caps=True):
+    """A straight bar of ``section`` (u across, v toward ``up``) from point ``a`` to point ``b``."""
+    a, b = Vector(a), Vector(b)
+    d = (b - a).normalized()
+    side = d.cross(Vector(up)).normalized()
+    top = side.cross(d).normalized()
+    builder.loft([[tuple(c + side * u + top * v) for u, v in section] for c in (a, b)], material, caps=caps)
+
+
+def crossbow(builder, p):
+    """A spanned crossbow (#389). The stock runs along Z through the grip at the origin, the bolt leaves toward +Z and
+    the top of the stock (the bolt groove) faces +Y. The steel prod spans X at ``prodOffset`` ahead of the grip, its
+    tips swept back by the spanned string, which the nut on the stock holds. A stirrup loops ahead of the prod and a
+    long trigger lever runs back under the stock to the hand."""
+    wood, iron, leather, string = range(4)
+    length, span, zp, n = p["length"], p["prodSpan"], p["prodOffset"], p["radialSegments"]
+    butt = zp + .045 - length
+    # Stock: a deep butt that drops below the grip, a slim wrist at the grip and a straight tiller to the prod.
+    rings = []
+    for z, hw, hh, y in [(butt, .022, .05, -.03), (butt + .03, .026, .052, -.028), (-.12, .02, .036, -.012), (-.05, .017, .026, -.004),
+                         (.05, .017, .024, 0.0), (zp - .02, .019, .022, 0.0), (zp + .045, .016, .018, 0.0)]:
+        rings.append(ring_z(chamfer_rect(hw, hh, min(hw, hh) * .45), z, 0.0, y))
+    builder.loft(rings, wood)
+    # Leather wrap at the grip.
+    builder.loft([ring_z(chamfer_rect(.0195, .028, .008), z, 0.0, -.003) for z in (-.045, .045)], leather)
+    # Iron band where the prod is seated.
+    builder.loft([ring_z(chamfer_rect(.024, .026, .007), z) for z in (zp - .02, zp + .02)], iron)
+    # Prod: two tapered limbs from the stock to the tips, swept back by the spanned string.
+    half, sweep = span / 2, .075
+
+    def prod_z(t):
+        return zp - sweep * t ** 1.7
+    for sign in (-1, 1):
+        rings = []
+        for k in range(n + 1):
+            t = k / n
+            hy, hz = .016 * (1 - .4 * t), .009 * (1 - .35 * t)
+            x = sign * (.02 + (half - .02) * t)
+            rings.append([(x, y, prod_z(t) + z) for y, z in chamfer_rect(hy, hz, min(hy, hz) * .4)])
+        builder.loft(rings, iron)
+    # Nut: the drum on top of the stock that holds the spanned string.
+    nut_z = zp - length * .42
+    builder.loft([[(x, .024 + v, nut_z + u) for u, v in circle(.011, n)] for x in (-.014, .014)], iron)
+    # String: two straight halves from the prod tips to the nut.
+    for sign in (-1, 1):
+        tube(builder, (sign * (half - .01), 0.0, prod_z(1.0)), (sign * .012, .03, nut_z + .002), chamfer_rect(.0018, .0018, .0006),
+             string, caps=False)
+    # Stirrup: an iron loop ahead of the prod for the foot when spanning.
+    loop = [(.045 * math.cos(math.pi * k / 8), 0.0, zp + .03 + .1 * math.sin(math.pi * k / 8)) for k in range(9)]
+    for a, b in zip(loop, loop[1:]):
+        tube(builder, a, b, circle(.005, 6), iron)
+    # Trigger lever: a long bar under the stock from its pivot behind the nut back past the hand.
+    builder.loft([ring_z(chamfer_rect(.004, .005, .0015), z, 0.0, y) for z, y in ((nut_z - .02, -.03), (nut_z - .08, -.04), (-.16, -.05))],
+                 iron)
+
+
 def names_index(piece, name):
     names = PIECE_MATERIALS[piece]
     return names.index(name) if name in names else -1
@@ -242,7 +300,7 @@ def generate(output_path, arguments, inputs):
     bpy.ops.object.select_all(action="SELECT")
     bpy.ops.object.delete(use_global=False)
     builder = Builder()
-    nock_z = {"bow.long": bow, "arrow": arrow, "quiver.back": quiver}[piece](builder, p)
+    nock_z = {"bow.long": bow, "arrow": arrow, "quiver.back": quiver, "crossbow": crossbow}[piece](builder, p)
     bm = builder.bm
     # Vanes are authored two-sided (one face per side); recalculating would merge their orientation.
     bmesh.ops.recalc_face_normals(bm, faces=[f for f in bm.faces if f.material_index != names_index(piece, "feather")])

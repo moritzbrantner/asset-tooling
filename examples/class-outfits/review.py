@@ -1,6 +1,9 @@
 """Class starter outfit review sheets (#379), rendered headless:
 
-    blender -b --factory-startup --python examples/class-outfits/review.py -- <bundle dir> <out dir> [kits mode]
+    blender -b --factory-startup --python examples/class-outfits/review.py -- <bundle dir> <out dir> [redbrand]
+
+``redbrand`` (#389) renders the Redbrand bandit and crossbowman in the Redbrand outfit instead of the classes, under the
+same file names.
 
 ``<bundle dir>`` is a built humanoid-ranger-male bundle (its ``scenes/`` and ``attachments/``). Each class wears its
 ``outfit.class.<id>`` variant (the skin of its ``class.<id>`` appearance preset), its ``armor.class.<id>`` plates on their
@@ -32,7 +35,17 @@ PROPS = {"warden": [("equipment.sword.arming", "hand_r.weapon"), ("equipment.shi
          "necromancer": [("equipment.staff.bone", "hand_r.staff")],
          "rogue": [("equipment.dagger.blackened", "hand_r.weapon"), ("equipment.dagger.blackened", "hand_l.weapon")],
          "cleric": [("equipment.mace.flanged", "hand_r.weapon")],
-         "druid": [("equipment.staff.gnarled", "hand_r.staff")]}
+         "druid": [("equipment.staff.gnarled", "hand_r.staff")],
+         "bandit": [("equipment.sword.arming", "hand_r.weapon")], "crossbowman": [("equipment.crossbow", "hand_r.crossbow")]}
+# ``redbrand`` (#389): mmorpg's Redbrand rank and file in the Redbrand outfit, its scarf in the band's red (mmorpg's
+# REDBRAND_RED), looks of the kind the game authors over the bundle's options.
+REDBRAND_ORDER = ["bandit", "crossbowman"]
+LABELS.update({"bandit": "Redbrand Bandit", "crossbowman": "Redbrand Crossbowman"})
+REDBRAND_RED = (.3, .025, .02, 1)
+REDBRAND_PRESETS = {
+    "bandit": {"outfit": "outfit.redbrand", "skin": "skin.light", "hair": "hair.buzzed", "tint": "tint.brown", "facialHair": ["beard.short"]},
+    "crossbowman": {"outfit": "outfit.redbrand", "skin": "skin.dark", "hair": "hair.buzzed", "tint": "tint.black", "facialHair": ["beard.moustache"]},
+}
 
 
 def gltf_rest_worlds(path):
@@ -83,7 +96,7 @@ def attach(obj, rig, bone, world):
 
 def dress(bundle, info, rest, name, x):
     appearance = info["appearance"]
-    preset = next(p for p in appearance["presets"] if p["id"] == f"class.{name}")
+    preset = REDBRAND_PRESETS.get(name) or next(p for p in appearance["presets"] if p["id"] == f"class.{name}")
     outfit = next(o for o in appearance["outfits"] if o["id"] == preset["outfit"])
     variant = next(s["variant"] for s in outfit["skins"] if s["id"] == preset["skin"])
     scenes = os.path.join(bundle, "scenes")
@@ -141,6 +154,12 @@ def dress(bundle, info, rest, name, x):
         entry(facial["entry"], "default", option[preset["facialHair"][0]]["socket"], keep=preset["facialHair"])
     for key, socket_id in PROPS[name]:
         entry(key, "default", socket_id)
+    if name in REDBRAND_PRESETS:
+        for o in bpy.data.objects:
+            if o.type == "MESH" and (o.parent == rig or o.find_armature() == rig):
+                for m in o.data.materials:
+                    if m.name.split(".")[0] in outfit.get("faction", {}).get("materials", []):
+                        tinted(m, REDBRAND_RED)
     rig.location.x = x
     return rig
 
@@ -200,7 +219,7 @@ def stage(scene):
         curve.body, curve.align_x, curve.size, curve.extrude = LABELS[name], "CENTER", .26, .004
         curve.materials.append(label_material)
         label = bpy.data.objects.new(f"label.{name}", curve)
-        label.location = (-6 + 2 * i, -.75, .003)
+        label.location = (2 * i - (len(ORDER) - 1), -.75, .003)
         scene.collection.objects.link(label)
     scene.render.engine = "CYCLES"
     scene.cycles.device = "CPU"
@@ -245,8 +264,11 @@ def save(rows, path):
 
 
 def main():
+    global ORDER
     args = sys.argv[sys.argv.index("--") + 1:]
     bundle, out = args[0], args[1]
+    if args[2:] == ["redbrand"]:
+        ORDER = REDBRAND_ORDER
     os.makedirs(out, exist_ok=True)
     bpy.ops.object.select_all(action="SELECT")
     bpy.ops.object.delete()
@@ -257,7 +279,7 @@ def main():
     for o in imported(default):
         bpy.data.objects.remove(o)
     scene = bpy.context.scene
-    rigs = {name: dress(bundle, info, rest, name, -6 + 2 * i) for i, name in enumerate(ORDER)}
+    rigs = {name: dress(bundle, info, rest, name, 2 * i - (len(ORDER) - 1)) for i, name in enumerate(ORDER)}
     camera = stage(scene)
     for rig in rigs.values():
         frame = play(rig, "Idle_Loop", 0)
@@ -268,7 +290,7 @@ def main():
     shoot(scene, camera, os.path.join(out, "class-lineup-12m.png"), 1920, 1080, 48)
     camera.data.angle_y = math.radians(30)
     direction = Vector((0, -1, .16)).normalized()
-    targets = [Vector((-6 + 2 * i, -.2, .98)) for i in range(len(ORDER))]
+    targets = [Vector((2 * i - (len(ORDER) - 1), -.2, .98)) for i in range(len(ORDER))]
     save([tiles(scene, camera, os.path.join(out, "closeup"), [(tuple(t + direction * 5.3), tuple(t)) for t in targets], 640, 1000, 32)],
          os.path.join(out, "class-front-closeup.png"))
     for rig in rigs.values():
@@ -276,7 +298,7 @@ def main():
     scene.frame_set(int(frame), subframe=frame - int(frame))
     front = Vector((.55, -.83, .12)).normalized()
     back = Vector((-.35, .93, .12)).normalized()
-    targets = [Vector((-6 + 2 * i, 0, .95)) for i in range(len(ORDER))]
+    targets = [Vector((2 * i - (len(ORDER) - 1), 0, .95)) for i in range(len(ORDER))]
     rows = [tiles(scene, camera, os.path.join(out, "walk"), [(tuple(t + d * 5.0), tuple(t)) for t in targets], 520, 820, 24) for d in (front, back)]
     save(rows, os.path.join(out, "class-walk.png"))
     print("[review] wrote", out)
