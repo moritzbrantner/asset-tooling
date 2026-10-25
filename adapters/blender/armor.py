@@ -430,18 +430,9 @@ def helmet(body, kit):
 BEARDS = {
     "beard.full": {"reach": 115, "top": (1.598, 1.705), "hem": (1.49, 1.6), "clearance": .013, "slope": .25, "thickness": .012},
     "beard.short": {"reach": 110, "top": (1.598, 1.69), "hem": (1.545, 1.6), "clearance": .007, "slope": .9, "thickness": .006},
-    # #380: a long beard hanging onto the chest, a chin-only goatee and close stubble.
-    "beard.long": {"reach": 115, "top": (1.598, 1.705), "hem": (1.4, 1.59), "clearance": .016, "slope": .3, "thickness": .014},
-    "beard.goatee": {"reach": 38, "top": (1.598, 1.6), "hem": (1.515, 1.57), "clearance": .01, "slope": .45, "thickness": .008},
-    "beard.stubble": {"reach": 112, "top": (1.6, 1.69), "hem": (1.555, 1.6), "clearance": .003, "slope": 1.2, "thickness": .002},
 }
 BEARD_ROWS = 12
-# Moustaches: a band over the upper lip whose ends droop past the corners of the mouth.
-MOUSTACHES = {
-    "beard.moustache": {"reach": 40, "rows": (1.617, 1.645), "droop": .03, "clearance": .007, "thickness": .007},
-    # #380: a heavy walrus moustache hanging over the mouth.
-    "beard.walrus": {"reach": 50, "rows": (1.603, 1.648), "droop": .04, "clearance": .011, "thickness": .011},
-}
+MOUSTACHE = {"reach": 40, "rows": (1.617, 1.645), "droop": .03, "clearance": .007, "thickness": .007}
 
 
 def beard_plates(body):
@@ -474,16 +465,16 @@ def beard_plates(body):
             grid.append(row)
         surface = {"grid": grid, "closed": False, "axis": (a, u), "thetas": thetas, "ts": list(range(BEARD_ROWS))}
         pieces.append((name, "Head", "beard", surface, None, None, spec["thickness"]))
-    for name, spec in sorted(MOUSTACHES.items()):
-        reach = math.radians(spec["reach"])
-        low, high = spec["rows"]
-        ts = [low - a.y + (high - low) * i / 3 for i in range(4)]
-        thetas = [-reach + 2 * reach * j / 10 for j in range(11)]
-        radii = fit_radii(body, head, a, u, e1, e2, ts, thetas, .006, math.radians(6), False) + spec["clearance"]
-        grid = [[a + u * (t - spec["droop"] * (theta / reach) ** 2) + (e1 * math.cos(theta) + e2 * math.sin(theta)) * float(radii[i, j])
-                 for j, theta in enumerate(thetas)] for i, t in enumerate(ts)]
-        pieces.append((name, "Head", "beard", {"grid": grid, "closed": False, "axis": (a, u), "thetas": thetas, "ts": ts},
-                       None, None, spec["thickness"]))
+    # The moustache: a band over the upper lip whose ends droop past the corners of the mouth.
+    reach = math.radians(MOUSTACHE["reach"])
+    low, high = MOUSTACHE["rows"]
+    ts = [low - a.y + (high - low) * i / 3 for i in range(4)]
+    thetas = [-reach + 2 * reach * j / 10 for j in range(11)]
+    radii = fit_radii(body, head, a, u, e1, e2, ts, thetas, .006, math.radians(6), False) + MOUSTACHE["clearance"]
+    grid = [[a + u * (t - MOUSTACHE["droop"] * (theta / reach) ** 2) + (e1 * math.cos(theta) + e2 * math.sin(theta)) * float(radii[i, j])
+             for j, theta in enumerate(thetas)] for i, t in enumerate(ts)]
+    pieces.append(("beard.moustache", "Head", "beard", {"grid": grid, "closed": False, "axis": (a, u), "thetas": thetas, "ts": ts},
+                   None, None, MOUSTACHE["thickness"]))
     return pieces
 
 

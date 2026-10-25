@@ -40,10 +40,7 @@ export const ARMOR_GREY_SKIN_KITS: readonly ArmorOutfitKit[] = ["class.necromanc
 /** The kits whose cloth carries the recolourable faction slot. */
 export const ARMOR_FACTION_KITS: readonly ArmorOutfitKit[] = ["soldier", "knight"];
 /** Facial hair pieces of the `beard` kit (node names in its plates GLB) with their labels. */
-export const ARMOR_BEARDS = {
-  "beard.full": "Full beard", "beard.short": "Short beard", "beard.moustache": "Moustache",
-  "beard.long": "Long beard", "beard.goatee": "Goatee", "beard.stubble": "Stubble", "beard.walrus": "Walrus moustache",
-} as const;
+export const ARMOR_BEARDS = { "beard.full": "Full beard", "beard.short": "Short beard", "beard.moustache": "Moustache" } as const;
 export const ARMOR_OUTPUTS: readonly ArmorOutput[] = ["plates", "cloth"];
 /** The base mesh nodes the armour is fitted over (the Male_Peasant outfit, owner answers #117 Q1/Q10). */
 export const ARMOR_BASE_NODES = ["Male_Peasant_Arms", "Male_Peasant_Body", "Male_Peasant_Feet", "Male_Peasant_Legs"] as const;

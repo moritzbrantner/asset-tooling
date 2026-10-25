@@ -12,14 +12,14 @@ space (Z up, front is -Y), and works on any mesh, so the class and resident outf
   not skinned to the body (rigid plates, facial hair, hair) take the weights of the nearest body vertices. Because the
   displacement grows with the distance from the bone axis, outer layers move a little more than the body under them
   and keep their clearance. The heavy build also fills the cheeks and the jaw line; the lean build hollows them.
-- Hairstyles derived from the Universal Base Characters ``Hair_Buzzed`` cap, the only close-fitting cap in the pack:
-  ``hair.balding`` (horseshoe), ``hair.receding`` (high temples), ``hair.swept`` (short, swept back with volume) and
-  ``hair.tied`` (a close cap with a tied tail at the nape).
-- Skin tones as base-colour multipliers over the light skin texture (``SKIN_TONES``).
+  Hanging garments (tabards, robes, aprons) take no leg weights and grow only sideways round the body's vertical axis,
+  so their hems hang straight instead of flaring with the thighs.
+- Height: a per-character uniform scale of the rig (``HEIGHTS``, about +-6%), set by the consumer.
+- Skin tones as base-colour multipliers over the light skin texture (``SKIN_TONES``); the painted aged and weathered
+  variants per tone are in ``skin_overlays.py``, the hand-modelled hair and beards in ``hair_beards.py``.
 """
 import math
 
-import bmesh
 import bpy
 from mathutils import Vector
 from mathutils.kdtree import KDTree
@@ -40,13 +40,18 @@ SKIN_TONES = {
 
 # Build: the radial scale around each bone's axis (lean, heavy), with an extra forward push on the belly.
 BUILD = {
-    "pelvis": (.92, 1.22), "spine_01": (.88, 1.3), "spine_02": (.9, 1.24), "spine_03": (.93, 1.14),
-    "neck_01": (.9, 1.18), "clavicle": (.96, 1.07), "upperarm": (.86, 1.2), "lowerarm": (.9, 1.12),
-    "hand": (.97, 1.05), "thigh": (.89, 1.18), "calf": (.92, 1.08),
+    "pelvis": (.87, 1.32), "spine_01": (.8, 1.45), "spine_02": (.82, 1.36), "spine_03": (.87, 1.22),
+    "neck_01": (.85, 1.28), "clavicle": (.93, 1.12), "upperarm": (.78, 1.32), "lowerarm": (.84, 1.18),
+    "hand": (.95, 1.07), "thigh": (.8, 1.28), "calf": (.85, 1.13),
 }
-# Extra forward growth of the belly per metre in front of the axis (heavy only), and of the seat behind it.
-BELLY = {"pelvis": .2, "spine_01": .45, "spine_02": .3}
-SEAT = {"pelvis": .1}
+# Extra forward growth of the belly per metre in front of the axis (lean, heavy), and of the seat behind it.
+BELLY = {"pelvis": (-.06, .3), "spine_01": (-.12, .6), "spine_02": (-.08, .4)}
+SEAT = {"pelvis": (-.04, .14)}
+# Height range of the review's men; the rig's uniform scale.
+HEIGHTS = (.94, 1.06)
+# Garments that hang from the body (no leg weights, horizontal growth only).
+HANGING = ("tabard", "robe", "habit", "smock", "apron", "skirt", "coat")
+LEG_BONES = ("thigh_l", "thigh_r", "calf_l", "calf_r", "foot_l", "foot_r", "ball_l", "ball_r")
 
 
 def smooth(t):
@@ -245,20 +250,24 @@ def bone_axes(rig):
     return {b.name: (m @ b.head_local, m @ b.tail_local) for b in rig.data.bones}
 
 
-def build_offset(p, bone, axes, which):
+def build_offset(p, bone, axes, which, hanging=False):
     kind = bone_kind(bone)
     if kind not in BUILD or bone not in axes:
         return Vector()
     a, b = axes[bone]
-    u = b - a
-    t = max(0.0, min(1.0, (p - a).dot(u) / u.length_squared))
-    d = p - (a + u * t)
+    if hanging:
+        # Round the body's vertical axis through the bone, sideways and forward only.
+        d = p - a
+        d.z = 0
+    else:
+        u = b - a
+        t = max(0.0, min(1.0, (p - a).dot(u) / u.length_squared))
+        d = p - (a + u * t)
     k = BUILD[kind][which] - 1
     offset = d * k
-    if which == 1:
-        front = max(0.0, -d.y)
-        offset.y -= front * BELLY.get(kind, 0)
-        offset.y += max(0.0, d.y) * SEAT.get(kind, 0)
+    front = max(0.0, -d.y)
+    offset.y -= front * BELLY.get(kind, (0, 0))[which]
+    offset.y += max(0.0, d.y) * SEAT.get(kind, (0, 0))[which]
     return offset
 
 
@@ -306,6 +315,7 @@ def add_build_keys(rig, meshes, lm):
         base = points(obj)
         own = obj in body  # everything else takes the nearest body weights, so layers follow one field
         weights = skin_weights(obj, bones) if own else None
+        hanging = not own and any(h in obj.name for h in HANGING)
         for which, key in enumerate(BUILD_KEYS):
             fill = face_fill(lm, -1 if which == 0 else 1)
             moved = []
@@ -320,9 +330,16 @@ def add_build_keys(rig, meshes, lm):
                         for n, w in tree_weights[index]:
                             mix[n] = mix.get(n, 0) + w / (d + 1e-4) / total
                     ws = list(mix.items())
+                if hanging:
+                    # Leg and hip weights go to the belly, so the hem hangs straight down from it, not round the thighs.
+                    merged = {}
+                    for n, w in ws:
+                        n = "spine_01" if n in LEG_BONES or n == "pelvis" else n
+                        merged[n] = merged.get(n, 0) + w
+                    ws = list(merged.items())
                 offset = Vector()
                 for n, w in ws:
-                    offset += build_offset(p, n, axes, which) * w
+                    offset += build_offset(p, n, axes, which, hanging) * w
                 head_w = sum(w for n, w in ws if n in ("Head", "neck_01"))
                 q = p + offset
                 if head_w and obj.name.split(".")[0] != "Eyes":
@@ -330,104 +347,6 @@ def add_build_keys(rig, meshes, lm):
                 moved.append(q)
             stats.setdefault(key, {})[obj.name] = round(set_key(obj, key, moved), 4)
     return stats
-
-
-# --- Hair --------------------------------------------------------------------------------------------------------
-
-def copy_object(src, name):
-    obj = src.copy()
-    obj.data = src.data.copy()
-    obj.name = obj.data.name = name
-    for c in src.users_collection:
-        c.objects.link(obj)
-    if obj.data.shape_keys:
-        obj.shape_key_clear()
-    return obj
-
-
-def cut(obj, keep):
-    """Deletes the faces of obj whose world centre fails keep(p)."""
-    m = obj.matrix_world
-    bm = bmesh.new()
-    bm.from_mesh(obj.data)
-    gone = [f for f in bm.faces if not keep(m @ f.calc_center_median())]
-    bmesh.ops.delete(bm, geom=gone, context="FACES")
-    bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context="VERTS")
-    bm.to_mesh(obj.data)
-    bm.free()
-
-
-def puff(obj, thickness):
-    """Pushes each vertex out along its normal by thickness(p) (world metres)."""
-    m, inverse = obj.matrix_world, obj.matrix_world.inverted()
-    obj.data.update()
-    for v in obj.data.vertices:
-        p = m @ v.co
-        n = (m.to_3x3() @ v.normal).normalized()
-        v.co = inverse @ (p + n * thickness(p))
-
-
-def shell(obj, depth):
-    mod = obj.modifiers.new("shell", "SOLIDIFY")
-    mod.thickness, mod.offset, mod.use_even_offset = depth, -1, False
-    with bpy.context.temp_override(object=obj, active_object=obj):
-        bpy.ops.object.modifier_apply(modifier=mod.name)
-
-
-def hairstyles(buzzed):
-    """New hairstyles as copies of the Hair_Buzzed cap, riding the same bone."""
-    top = max(p.z for p in points(buzzed))
-    styles = {}
-
-    balding = copy_object(buzzed, "hair.balding")
-    cut(balding, lambda p: p.z < top - .07 + .045 * smooth((p.y - .0) / .09) and p.y > -.045)
-    puff(balding, lambda p: .003)
-    shell(balding, .003)
-    styles["hair.balding"] = balding
-
-    receding = copy_object(buzzed, "hair.receding")
-    cut(receding, lambda p: p.z < top - .07 or p.y > -.03 - .05 * (1 - smooth(abs(p.x) / .022)))
-    puff(receding, lambda p: .003)
-    shell(receding, .003)
-    styles["hair.receding"] = receding
-
-    swept = copy_object(buzzed, "hair.swept")
-    puff(swept, lambda p: .003 + .014 * smooth((p.z - (top - .085)) / .07) * (1 - .4 * smooth((p.y + .02) / .1)))
-    shell(swept, .004)
-    styles["hair.swept"] = swept
-
-    tied = copy_object(buzzed, "hair.tied")
-    puff(tied, lambda p: .004 + .004 * smooth((p.z - (top - .08)) / .06))
-    shell(tied, .003)
-    styles["hair.tied"] = tied
-    tail(tied, top)
-    return styles
-
-
-def tail(obj, top):
-    """A tied tail at the nape, joined into obj: a tapering tube from the back of the head down the neck."""
-    m_inv = obj.matrix_world.inverted()
-    bm = bmesh.new()
-    bm.from_mesh(obj.data)
-    uv = bm.loops.layers.uv.active
-    # The tail's centre line (world): starts at the back of the head, bends down over the nape.
-    path = [Vector((0, .1, top - .1)), Vector((0, .118, top - .135)), Vector((0, .124, top - .18)), Vector((0, .12, top - .23)),
-            Vector((0, .112, top - .27))]
-    radii = [.02, .019, .016, .012, .004]
-    sides = 10
-    rings = []
-    for c, r in zip(path, radii):
-        rings.append([bm.verts.new(m_inv @ (c + Vector((math.cos(a) * r, math.sin(a) * r * .8, 0))))
-                      for a in (2 * math.pi * j / sides for j in range(sides))])
-    for i in range(len(rings) - 1):
-        for j in range(sides):
-            f = bm.faces.new((rings[i][j], rings[i][(j + 1) % sides], rings[i + 1][(j + 1) % sides], rings[i + 1][j]))
-            f.smooth = True
-            for loop in f.loops:
-                loop[uv].uv = (.3, .5)
-    bm.normal_update()
-    bm.to_mesh(obj.data)
-    bm.free()
 
 
 def tone(material, factor):
