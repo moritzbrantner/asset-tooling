@@ -1,0 +1,266 @@
+{
+  "mapsRevision": "f034eedf9a8ef39a84cf4ab5e4b048bb9a274ea9",
+  "mapsDirty": false,
+  "wasmSha256": "9d0b6658c3cb3cfbe4accdee6928d0001611318509c55d8ad832dab3e8e99c0c",
+  "wasmBytes": 678690,
+  "handoffSha256": "b9bac8c33606ba3924074abe695328ec62b1a7310a21a4d6046728dfcbed927b",
+  "decoder": "actual Maps Rust/WASM decodeShortbreadBasemap + decodeShortbreadTilePixels",
+  "status": "passed",
+  "results": [
+    {
+      "path": "liechtenstein-waterHole-10-539-358.mvt",
+      "candidate": "liechtenstein",
+      "purpose": "waterHole",
+      "tile": [
+        10,
+        539,
+        358
+      ],
+      "bytes": 922,
+      "sha256": "7ad021e3ba386161ce0f1d12c6f175e4d0eef4e806d73f1aee2f5710749e32de",
+      "normalized": {
+        "lines": {
+          "boundary": 2,
+          "street": 1,
+          "water": 6
+        },
+        "polygons": {
+          "land": 4,
+          "water": 1
+        },
+        "holes": {
+          "land": 0,
+          "water": 2
+        },
+        "sourceKinds": [
+          "meadow",
+          "scrub",
+          "water"
+        ]
+      },
+      "pixelCounts": {
+        "lines": 9,
+        "polygons": 5,
+        "waterHoles": 2
+      }
+    },
+    {
+      "path": "liechtenstein-water_lines-10-538-360.mvt",
+      "candidate": "liechtenstein",
+      "purpose": "water_lines",
+      "tile": [
+        10,
+        538,
+        360
+      ],
+      "bytes": 236,
+      "sha256": "70dcbd735e081cd34d4bbbff0a60efa460569d38958fc86be28fe4605ebb4369",
+      "normalized": {
+        "lines": {
+          "water": 1
+        },
+        "polygons": {
+          "land": 2
+        },
+        "holes": {
+          "land": 0
+        },
+        "sourceKinds": [
+          "forest"
+        ]
+      },
+      "pixelCounts": {
+        "lines": 1,
+        "polygons": 2,
+        "waterHoles": 0
+      }
+    },
+    {
+      "path": "liechtenstein-buildings-10-539-359.mvt",
+      "candidate": "liechtenstein",
+      "purpose": "buildings",
+      "tile": [
+        10,
+        539,
+        359
+      ],
+      "bytes": 220079,
+      "sha256": "dec3e6940364b47acc7cee57192a607f7ccc055a9717671e3a149ef918608329",
+      "normalized": {
+        "lines": {
+          "boundary": 108,
+          "street": 3596,
+          "water": 431
+        },
+        "polygons": {
+          "building": 11,
+          "land": 1279,
+          "water": 11
+        },
+        "holes": {
+          "building": 0,
+          "land": 106,
+          "water": 0
+        },
+        "sourceKinds": [
+          "bare_rock",
+          "commercial",
+          "farmland",
+          "forest",
+          "grass",
+          "grassland",
+          "industrial",
+          "meadow",
+          "park",
+          "residential",
+          "scrub",
+          "water",
+          "wood",
+          "yes"
+        ]
+      },
+      "pixelCounts": {
+        "lines": 4135,
+        "polygons": 1301,
+        "waterHoles": 0
+      }
+    },
+    {
+      "path": "liechtenstein-north-waterHole-10-539-358.mvt",
+      "candidate": "liechtenstein-north",
+      "purpose": "waterHole",
+      "tile": [
+        10,
+        539,
+        358
+      ],
+      "bytes": 922,
+      "sha256": "7ad021e3ba386161ce0f1d12c6f175e4d0eef4e806d73f1aee2f5710749e32de",
+      "normalized": {
+        "lines": {
+          "boundary": 2,
+          "street": 1,
+          "water": 6
+        },
+        "polygons": {
+          "land": 4,
+          "water": 1
+        },
+        "holes": {
+          "land": 0,
+          "water": 2
+        },
+        "sourceKinds": [
+          "meadow",
+          "scrub",
+          "water"
+        ]
+      },
+      "pixelCounts": {
+        "lines": 9,
+        "polygons": 5,
+        "waterHoles": 2
+      }
+    },
+    {
+      "path": "liechtenstein-north-water_lines-10-539-359.mvt",
+      "candidate": "liechtenstein-north",
+      "purpose": "water_lines",
+      "tile": [
+        10,
+        539,
+        359
+      ],
+      "bytes": 220079,
+      "sha256": "dec3e6940364b47acc7cee57192a607f7ccc055a9717671e3a149ef918608329",
+      "normalized": {
+        "lines": {
+          "boundary": 108,
+          "street": 3596,
+          "water": 431
+        },
+        "polygons": {
+          "building": 11,
+          "land": 1279,
+          "water": 11
+        },
+        "holes": {
+          "building": 0,
+          "land": 106,
+          "water": 0
+        },
+        "sourceKinds": [
+          "bare_rock",
+          "commercial",
+          "farmland",
+          "forest",
+          "grass",
+          "grassland",
+          "industrial",
+          "meadow",
+          "park",
+          "residential",
+          "scrub",
+          "water",
+          "wood",
+          "yes"
+        ]
+      },
+      "pixelCounts": {
+        "lines": 4135,
+        "polygons": 1301,
+        "waterHoles": 0
+      }
+    },
+    {
+      "path": "liechtenstein-north-buildings-10-539-359.mvt",
+      "candidate": "liechtenstein-north",
+      "purpose": "buildings",
+      "tile": [
+        10,
+        539,
+        359
+      ],
+      "bytes": 220079,
+      "sha256": "dec3e6940364b47acc7cee57192a607f7ccc055a9717671e3a149ef918608329",
+      "normalized": {
+        "lines": {
+          "boundary": 108,
+          "street": 3596,
+          "water": 431
+        },
+        "polygons": {
+          "building": 11,
+          "land": 1279,
+          "water": 11
+        },
+        "holes": {
+          "building": 0,
+          "land": 106,
+          "water": 0
+        },
+        "sourceKinds": [
+          "bare_rock",
+          "commercial",
+          "farmland",
+          "forest",
+          "grass",
+          "grassland",
+          "industrial",
+          "meadow",
+          "park",
+          "residential",
+          "scrub",
+          "water",
+          "wood",
+          "yes"
+        ]
+      },
+      "pixelCounts": {
+        "lines": 4135,
+        "polygons": 1301,
+        "waterHoles": 0
+      }
+    }
+  ]
+}

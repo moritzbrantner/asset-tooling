@@ -147,6 +147,12 @@
     "test/tree-appearance-recipes.test.ts",
     "examples/tree-appearances/build.ts",
     "src/warden-icon-review.ts",
-    "src/warden-icon-export.ts"
+    "src/warden-icon-export.ts",
+    "src/maps-shortbread-backend.ts",
+    "test/maps-shortbread.test.ts",
+    "src/maps-shortbread.ts",
+    "examples/maps-shortbread/build.ts",
+    "examples/maps-shortbread/verify-maps-contract.ts",
+    "examples/maps-shortbread/verify-maps-decoder.ts"
   ]
 }

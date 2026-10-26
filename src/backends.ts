@@ -1,3 +1,4 @@
+import { PLANETILER_BACKEND } from "./maps-shortbread-backend.js";
 import { readFile } from "node:fs/promises";
 import { resolveSpecPath } from "./schema.js";
 import { BLENDER_SCRIPT_BACKEND } from "./blender-script-backend.js";
@@ -155,6 +156,7 @@ const PROCEDURAL_SVG_SCATTER_BACKEND = {
 };
 
 const BACKENDS = [
+  PLANETILER_BACKEND,
   COPY_BACKEND,
   PROCEDURAL_SVG_SCATTER_BACKEND,
   BLENDER_SCRIPT_BACKEND,

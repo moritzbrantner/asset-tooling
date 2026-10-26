@@ -1,0 +1,299 @@
+{
+  "version": 1,
+  "status": "candidate, not approved or canonical",
+  "conventionsSourceRevision": "c104800c7aaeaea12d56f9093e71bdef6a2ce6fa",
+  "environment": {
+    "platform": "Linux-7.0.0-38-generic-x86_64-with-glibc2.43",
+    "java": "21.0.10",
+    "bun": "1.4.3",
+    "planetiler": "0.10.2",
+    "threads": 2,
+    "heapMiB": 1024
+  },
+  "measuredRuns": [
+    {
+      "wallTimeMs": 4166,
+      "peakRssKiB": 1048832,
+      "sampledPeakTemporaryBytes": 454691277,
+      "temporaryDiskMeasurement": "logical file bytes sampled every 100ms including input snapshots; lower bound on instantaneous peak",
+      "archiveBytes": 2780045,
+      "generator": "Planetiler v0.10.2",
+      "reproducibility": "provenance/content only; exact bytes not promised"
+    },
+    {
+      "wallTimeMs": 4585,
+      "peakRssKiB": 1065352,
+      "sampledPeakTemporaryBytes": 454691277,
+      "temporaryDiskMeasurement": "logical file bytes sampled every 100ms including input snapshots; lower bound on instantaneous peak",
+      "archiveBytes": 2780045,
+      "generator": "Planetiler v0.10.2",
+      "reproducibility": "provenance/content only; exact bytes not promised"
+    },
+    {
+      "wallTimeMs": 3747,
+      "peakRssKiB": 1052180,
+      "sampledPeakTemporaryBytes": 454691277,
+      "temporaryDiskMeasurement": "logical file bytes sampled every 100ms including input snapshots; lower bound on instantaneous peak",
+      "archiveBytes": 1366814,
+      "generator": "Planetiler v0.10.2",
+      "reproducibility": "provenance/content only; exact bytes not promised"
+    },
+    {
+      "wallTimeMs": 3890,
+      "peakRssKiB": 1105568,
+      "sampledPeakTemporaryBytes": 454691277,
+      "temporaryDiskMeasurement": "logical file bytes sampled every 100ms including input snapshots; lower bound on instantaneous peak",
+      "archiveBytes": 1366814,
+      "generator": "Planetiler v0.10.2",
+      "reproducibility": "provenance/content only; exact bytes not promised"
+    }
+  ],
+  "candidates": [
+    {
+      "id": "liechtenstein",
+      "content": {
+        "tiles": 203,
+        "counts": {
+          "land": 17510,
+          "water_lines": 3530,
+          "boundaries": 915,
+          "buildings": 27065,
+          "streets": 48535,
+          "water_polygons": 431
+        },
+        "waterHoleFeatures": 30,
+        "representatives": {
+          "land": {
+            "z": 10,
+            "x": 538,
+            "y": 360,
+            "feature": 0
+          },
+          "water_lines": {
+            "z": 10,
+            "x": 538,
+            "y": 360,
+            "feature": 0
+          },
+          "boundaries": {
+            "z": 10,
+            "x": 539,
+            "y": 360,
+            "feature": 0
+          },
+          "buildings": {
+            "z": 10,
+            "x": 539,
+            "y": 359,
+            "feature": 0
+          },
+          "streets": {
+            "z": 10,
+            "x": 539,
+            "y": 359,
+            "feature": 0
+          },
+          "water_polygons": {
+            "z": 10,
+            "x": 539,
+            "y": 359,
+            "feature": 0
+          },
+          "waterHole": {
+            "z": 10,
+            "x": 539,
+            "y": 358,
+            "feature": 0
+          }
+        },
+        "archiveSha256": "749bc3ac9a430b41fb7613686b7898b43ed11d8e8321624559ea591f49cc8fdf"
+      },
+      "upstreamInspector": "go-pmtiles 1.31.2 verify passed",
+      "replayStatus": "exact",
+      "replayChecks": {
+        "assetIdMatches": true,
+        "specMatchesReceipt": true,
+        "outputPathMatches": true,
+        "acceptedOutputMatchesReceipt": true,
+        "regeneratedOutputMatchesReceipt": true,
+        "toolMatchesReceipt": true,
+        "generatorMatchesReceipt": true,
+        "randomnessMatchesReceipt": true,
+        "inputsMatchReceipt": true,
+        "modelsMatchReceipt": true,
+        "parametersMatchReceipt": true,
+        "observationsMatchReceipt": true,
+        "reproducibilityMatchesReceipt": true,
+        "receiptEnvironmentFingerprintValid": true,
+        "environmentMatchesReceipt": true
+      }
+    },
+    {
+      "id": "liechtenstein-north",
+      "content": {
+        "tiles": 89,
+        "counts": {
+          "boundaries": 534,
+          "buildings": 14808,
+          "land": 8683,
+          "streets": 26645,
+          "water_lines": 1648,
+          "water_polygons": 267
+        },
+        "waterHoleFeatures": 18,
+        "representatives": {
+          "boundaries": {
+            "z": 10,
+            "x": 539,
+            "y": 359,
+            "feature": 0
+          },
+          "buildings": {
+            "z": 10,
+            "x": 539,
+            "y": 359,
+            "feature": 0
+          },
+          "land": {
+            "z": 10,
+            "x": 539,
+            "y": 359,
+            "feature": 0
+          },
+          "streets": {
+            "z": 10,
+            "x": 539,
+            "y": 359,
+            "feature": 0
+          },
+          "water_lines": {
+            "z": 10,
+            "x": 539,
+            "y": 359,
+            "feature": 0
+          },
+          "water_polygons": {
+            "z": 10,
+            "x": 539,
+            "y": 359,
+            "feature": 0
+          },
+          "waterHole": {
+            "z": 10,
+            "x": 539,
+            "y": 358,
+            "feature": 0
+          }
+        },
+        "archiveSha256": "7761a554051b9d8a77cf9c1f790b03a4e66a15fbe91dde46c488a10e0f95bf3e"
+      },
+      "upstreamInspector": "go-pmtiles 1.31.2 verify passed",
+      "replayStatus": "exact",
+      "replayChecks": {
+        "assetIdMatches": true,
+        "specMatchesReceipt": true,
+        "outputPathMatches": true,
+        "acceptedOutputMatchesReceipt": true,
+        "regeneratedOutputMatchesReceipt": true,
+        "toolMatchesReceipt": true,
+        "generatorMatchesReceipt": true,
+        "randomnessMatchesReceipt": true,
+        "inputsMatchReceipt": true,
+        "modelsMatchReceipt": true,
+        "parametersMatchReceipt": true,
+        "observationsMatchReceipt": true,
+        "reproducibilityMatchesReceipt": true,
+        "receiptEnvironmentFingerprintValid": true,
+        "environmentMatchesReceipt": true
+      }
+    }
+  ],
+  "reproducibility": "Independent generation and cache-free replay matched each archive digest in this environment; no unconditional exact-byte guarantee",
+  "mapsCompatibility": "Data metadata and raw MVT consumer validation recorded separately; archive transport binding belongs to Maps #269",
+  "distribution": "Local ignored candidates only; HTTP Range/CORS/browser hosting unverified",
+  "mapsMetadataCompatibility": [
+    {
+      "status": "passed",
+      "mapsRevision": "f034eedf9a8ef39a84cf4ab5e4b048bb9a274ea9",
+      "candidateSha256": "749bc3ac9a430b41fb7613686b7898b43ed11d8e8321624559ea591f49cc8fdf",
+      "metadata": {
+        "version": 1,
+        "sourceId": "maps-liechtenstein",
+        "dataRevision": "sha256:749bc3ac9a430b41fb7613686b7898b43ed11d8e8321624559ea591f49cc8fdf",
+        "format": "mvt",
+        "schema": {
+          "id": "shortbread",
+          "version": "1.0",
+          "sourceLayers": [
+            "land",
+            "water_polygons",
+            "water_lines",
+            "streets",
+            "buildings",
+            "boundaries"
+          ]
+        },
+        "projection": "web-mercator",
+        "scheme": "xyz",
+        "bounds": [
+          9.47,
+          47.04,
+          9.64,
+          47.28
+        ],
+        "minZoom": 10,
+        "maxZoom": 14,
+        "tileSize": 512,
+        "attribution": "\u00a9 OpenStreetMap contributors (ODbL-1.0)",
+        "license": "ODbL-1.0",
+        "provenance": "Geofabrik Liechtenstein PBF bd5cca3fdcb4e9900ad74b4c33e554750088705bd4b4deaa35c1517d7be2378b; Planetiler 0.10.2 JAR f310bd0413e2e4512b27f4046d418664e8e1d3bf31603c2a70e23de06c167e4d; profile dfabde2760810c4a1d3431543742addae23e1882a55beeffe939af66eee16d70. Candidate only; no owner approval or runtime transport claim.",
+        "observation": {
+          "snapshot": "2026-10-25T21:21:21Z"
+        }
+      },
+      "limitation": "Common data metadata compatibility only. Archive transport activation belongs to Maps #269."
+    },
+    {
+      "status": "passed",
+      "mapsRevision": "f034eedf9a8ef39a84cf4ab5e4b048bb9a274ea9",
+      "candidateSha256": "7761a554051b9d8a77cf9c1f790b03a4e66a15fbe91dde46c488a10e0f95bf3e",
+      "metadata": {
+        "version": 1,
+        "sourceId": "maps-liechtenstein-north",
+        "dataRevision": "sha256:7761a554051b9d8a77cf9c1f790b03a4e66a15fbe91dde46c488a10e0f95bf3e",
+        "format": "mvt",
+        "schema": {
+          "id": "shortbread",
+          "version": "1.0",
+          "sourceLayers": [
+            "land",
+            "water_polygons",
+            "water_lines",
+            "streets",
+            "buildings",
+            "boundaries"
+          ]
+        },
+        "projection": "web-mercator",
+        "scheme": "xyz",
+        "bounds": [
+          9.47,
+          47.16,
+          9.64,
+          47.28
+        ],
+        "minZoom": 10,
+        "maxZoom": 14,
+        "tileSize": 512,
+        "attribution": "\u00a9 OpenStreetMap contributors (ODbL-1.0)",
+        "license": "ODbL-1.0",
+        "provenance": "Geofabrik Liechtenstein PBF bd5cca3fdcb4e9900ad74b4c33e554750088705bd4b4deaa35c1517d7be2378b; Planetiler 0.10.2 JAR f310bd0413e2e4512b27f4046d418664e8e1d3bf31603c2a70e23de06c167e4d; profile dfabde2760810c4a1d3431543742addae23e1882a55beeffe939af66eee16d70. Candidate only; no owner approval or runtime transport claim.",
+        "observation": {
+          "snapshot": "2026-10-25T21:21:21Z"
+        }
+      },
+      "limitation": "Common data metadata compatibility only. Archive transport activation belongs to Maps #269."
+    }
+  ],
+  "baseline": "Rebased onto asset-tooling main 33ec8bef941a0b9a369c78706de6c1d3f3e2d47c"
+}
