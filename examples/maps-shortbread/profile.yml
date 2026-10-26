@@ -1,0 +1,71 @@
+schema_name: Maps Shortbread subset
+schema_description: Maps-supported Shortbread 1.0 geometry subset; inland region, no ocean source.
+attribution: © OpenStreetMap contributors (ODbL-1.0)
+args:
+  input_path: input.osm.pbf
+sources:
+  osm:
+    type: osm
+    local_path: '${ args.input_path }'
+layers:
+- id: land
+  features:
+  - source: osm
+    geometry: polygon
+    include_when:
+      landuse: [forest, grass, meadow, residential, farmland, industrial, commercial]
+      natural: [wood, grassland, scrub, bare_rock]
+      leisure: [park, garden]
+    attributes:
+    - key: kind
+      type: match_value
+- id: water_polygons
+  features:
+  - source: osm
+    geometry: polygon
+    include_when:
+      natural: [water, glacier]
+      waterway: [riverbank, dock, canal]
+      landuse: [reservoir, basin]
+    attributes:
+    - key: kind
+      type: match_value
+- id: water_lines
+  features:
+  - source: osm
+    geometry: line
+    include_when:
+      waterway: [river, canal, stream, ditch, drain]
+    attributes:
+    - key: kind
+      type: match_value
+- id: streets
+  features:
+  - source: osm
+    geometry: line
+    include_when:
+      highway: __any__
+    attributes:
+    - key: kind
+      tag_value: highway
+- id: buildings
+  features:
+  - source: osm
+    geometry: polygon
+    include_when:
+      building: __any__
+    exclude_when:
+      building: no
+    attributes:
+    - key: kind
+      tag_value: building
+- id: boundaries
+  features:
+  - source: osm
+    geometry: line
+    include_when:
+      boundary: administrative
+    attributes:
+    - key: admin_level
+      tag_value: admin_level
+      type: integer

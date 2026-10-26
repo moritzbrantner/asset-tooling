@@ -5,3 +5,9 @@ review/**/*.json text eol=lf
 src/image-generate-templates/*.json text eol=lf
 # Descriptors are pinned by sha256 and shipped byte for byte in bundles.
 assets/descriptors/*.json text eol=lf
+
+# Shortbread fixture provenance pins source bytes across all checkout platforms.
+test/fixtures/maps-shortbread/*.geojson text eol=lf
+test/fixtures/maps-shortbread/*.yml text eol=lf
+test/fixtures/maps-shortbread/*.json text eol=lf
+test/fixtures/maps-shortbread/*.pmtiles -text

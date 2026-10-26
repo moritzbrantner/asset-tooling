@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "license": "CC0-1.0",
+  "attribution": "Asset-tooling contributors (CC0-1.0)",
+  "intent": "Owned illustrative geometry; no real-world geographic claims",
+  "generator": {
+    "name": "Planetiler",
+    "version": "0.10.2",
+    "jarSha256": "f310bd0413e2e4512b27f4046d418664e8e1d3bf31603c2a70e23de06c167e4d"
+  },
+  "files": {
+    "fixture.pmtiles": {
+      "sha256": "6c0374dbea3ffa0509d1d6f8e8810d4d3e7fab78f767ad44a129604547ba71e8",
+      "bytes": 17171
+    },
+    "input.geojson": {
+      "sha256": "ef03eee7c076934fbc62c061f0f431b4f96793d76c47c457fbaf7c93ea5a5d0d",
+      "bytes": 1245
+    },
+    "profile.yml": {
+      "sha256": "d761c43349e3d7a6761f7ea429f8125c1dd034ec5680639acbf4524d27d66dc3",
+      "bytes": 1221
+    }
+  }
+}

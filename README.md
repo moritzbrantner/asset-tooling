@@ -215,3 +215,7 @@ The [selected-bundle adoption example](examples/selected-bundle/README.md) consu
 [Modular fence pieces](docs/fence-kit.md) supply native end/straight/corner/tee GLBs, declared edge ports with quarter-turn rotation, and a reference layout evaluator for connection checks.
 
 [Weapon recipes](docs/weapon-recipes.md) author an original arming sword and heater shield in the [humanlike style](docs/style-humanlike.md), each with a `grip` node at its origin. The [humanoid-sockets-v1](docs/humanoid-sockets.md) descriptor attaches them to the Ranger's hands, back and hip.
+
+For Maps' bounded, licensed real-world MVT/PMTiles candidates, see
+[the Shortbread recipe](docs/maps-shortbread.md). Generation uses pinned local
+inputs and the existing asset receipts; ordinary tests use a tiny owned fixture.

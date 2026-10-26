@@ -1,0 +1,64 @@
+schema_name: Maps hermetic fixture
+attribution: Asset-tooling contributors (CC0-1.0)
+args:
+  input_path: input.geojson
+sources:
+  fixture:
+    type: geojson
+    local_path: '${ args.input_path }'
+layers:
+- id: land
+  features:
+  - source: fixture
+    geometry: polygon
+    include_when:
+      layer: land
+    attributes:
+    - key: kind
+      tag_value: kind
+- id: water_polygons
+  features:
+  - source: fixture
+    geometry: polygon
+    include_when:
+      layer: water_polygons
+    attributes:
+    - key: kind
+      tag_value: kind
+- id: water_lines
+  features:
+  - source: fixture
+    geometry: line
+    include_when:
+      layer: water_lines
+    attributes:
+    - key: kind
+      tag_value: kind
+- id: streets
+  features:
+  - source: fixture
+    geometry: line
+    include_when:
+      layer: streets
+    attributes:
+    - key: kind
+      tag_value: kind
+- id: buildings
+  features:
+  - source: fixture
+    geometry: polygon
+    include_when:
+      layer: buildings
+    attributes:
+    - key: kind
+      tag_value: kind
+- id: boundaries
+  features:
+  - source: fixture
+    geometry: line
+    include_when:
+      layer: boundaries
+    attributes:
+    - key: admin_level
+      tag_value: admin_level
+      type: integer
