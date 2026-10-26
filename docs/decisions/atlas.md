@@ -362,3 +362,31 @@ Experimental asset bundles are not published as numbered releases. Each bundle h
 The initial review flow uses a small set of real current/candidate previews in the existing gallery, deeper 3D inspection when useful, and a **matched-camera, matched-time before/after from the actual consuming game** before adoption. First consumer: [MMORPG #346](https://github.com/moritzbrantner/mmorpg/issues/346). The game owns its actual scene and captures; asset-tooling owns generation, candidate identity, review/export and existing gallery. Provide directly viewable images from the GitHub issue/PR, usable on mobile, and identify exactly which output was rendered rather than claiming a stale Pages view is current.
 
 Keep one replaceable working output with only meaningful active alternatives; a plain issue/PR reply selecting, adjusting or rejecting it is enough. No second viewer, approval database, new release per iteration or universal screenshot CI gate. A valid import and preview are not approval; only deliberate consumer adoption changes a game's accepted visual or runtime assets. Keep the existing ownership, rights and compatibility boundaries.
+
+## 8. Non-humanoid asset families
+
+### 8.1. Zoo-first animated rigid quadrupeds
+
+#### Question 8.1.1 — Source and deformation model for the first non-humanoid family
+
+In [#128](https://github.com/moritzbrantner/asset-tooling/issues/128), should the first non-humanoid pipeline proof reuse **A:** Zoo's existing animated zebra with named rigid pivot joints, or create **B:** a newly authored skinned quadruped, or switch to **C:** an MMORPG wolf first? This choice separates source/model authorship from shared import, validation and packaging.
+
+**Answered by Decision 8.1.2.**
+
+#### Decision 8.1.2 — Reuse Zoo's existing animated zebra and introduce quadruped-rigid
+
+**Approved by owner:** 2026-10-26, [#128 Q1](https://github.com/moritzbrantner/asset-tooling/issues/128). **Answers Question 8.1.1 (A).**
+
+Package the **existing recognizable low-poly Zoo zebra as authored**, through the shared import/inspection/bundle boundaries. Introduce the minimal **`quadruped-rigid`** profile for named pivoted joint nodes and rigid parts, required `idle` and in-place `walk` clips, valid references and bounds, source/license lineage and stable bundle identity. A newly modeled, skinned animal or a new source generator is not required. This proves the actual Zoo art/deformation contract, not generic skinned quadruped support; do not claim broad skinned compatibility without a separate proof.
+
+#### Question 8.1.3 — Boundary between asset-tooling and Zoo runtime proof
+
+For [#128](https://github.com/moritzbrantner/asset-tooling/issues/128), should the work **A:** deliver the reusable profile, validation, inspectable animal bundle and a second compatible variant, leaving in-Zoo runtime adoption to Zoo's own issue; or **B:** also require the actual Zoo exhibit/runtime integration in this issue?
+
+**Answered by Decision 8.1.4.**
+
+#### Decision 8.1.4 — Deliver asset-tooling proof first; Zoo owns the playable adoption
+
+**Approved by owner:** 2026-10-26, [#128 Q2](https://github.com/moritzbrantner/asset-tooling/issues/128). **Answers Question 8.1.3 (A).**
+
+This issue delivers only the asset-tooling side: profile selection and domain-specific validation, rejection of invalid pivot/clip references and bounds, source lineage, packaging of the existing **zebra** for inspection in the **existing animation viewer**, and an additional compatible Zoo variant (for example, **giraffe**) through the same path. It documents follow-on work. [Zoo #112](https://github.com/moenarch-games/zoo/issues/112) keeps its independent acceptance of animated animals in a real guest-viewable themed exhibit. Later MMORPG creatures and much-later mounts are separate consumers; neither delays this proof. This refines delivery boundaries without bypassing source rights, bundle contracts or required visual review.
