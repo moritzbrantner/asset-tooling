@@ -161,3 +161,11 @@ bun examples/maps-shortbread/verify-maps-decoder.ts /path/to/maps .asset-tooling
 This small adapter calls Maps' own public Rust/WASM exports. It does not reproduce
 the decoder. MVT feature counts and decoded multipart primitive counts are kept
 separate; geographic/pixel primitive totals and water-hole counts must agree.
+
+The common metadata and decoder compatibility source is publicly reviewable in
+[Maps PR #284](https://github.com/moritzbrantner/maps/pull/284), including
+[the measured source commit](https://github.com/moritzbrantner/maps/commit/f034eedf9a8ef39a84cf4ab5e4b048bb9a274ea9).
+The draft's Maps package-size budget decision does not grant PMTiles activation or
+change the producer's candidate status. Byte-pinned fixture sources explicitly
+retain LF on Windows Git checkouts; the backend checks each input's file-size
+budget before snapshot allocation and rechecks actual size and hash after reading.

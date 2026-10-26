@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { parseAssetSpec } from "../src/schema.js";
-import { PLANETILER_BACKEND } from "../src/maps-shortbread-backend.js";
+import { PLANETILER_BACKEND, readPlanetilerInput } from "../src/maps-shortbread-backend.js";
 
 function document(parameters: Record<string, unknown> = {}) {
   const parsed = parseAssetSpec({schemaVersion:1,assetId:"maps.test",generator:{id:"external.planetiler.shortbread",version:"1"},
@@ -70,4 +70,32 @@ test("the shared hermetic fixture retains its reviewed input/profile/output pins
     const bytes=await readFile(new URL(`fixtures/maps-shortbread/${file}`,import.meta.url));
     expect(pin).toEqual({sha256:sha256Bytes(bytes),bytes:bytes.length});
   }
+});
+
+
+import { execFileSync } from "node:child_process";
+import { mkdtemp, open, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+test("Git checkouts preserve byte-pinned fixture inputs with autocrlf enabled",async()=>{
+  const temporary = await mkdtemp(path.join(tmpdir(),"maps-checkout-"));
+  try {
+    const repository = fileURLToPath(new URL("../",import.meta.url));
+    for (const file of ["input.geojson","profile.yml"]) {
+      const relative = `test/fixtures/maps-shortbread/${file}`;
+      execFileSync("git",["-c","core.autocrlf=true","checkout-index",`--prefix=${temporary.replaceAll("\\","/")}/`,"--",relative],{cwd:repository,timeout:10000});
+      expect(sha256Bytes(await readFile(path.join(temporary,relative)))).toBe(sha256Bytes(await readFile(path.join(repository,relative))));
+    }
+  } finally { await rm(temporary,{recursive:true,force:true}); }
+});
+
+test.each([["osm",16*1024*1024],["profile",65536]])("oversized %s inputs are refused before materialization/hash checks",async(name,budget)=>{
+  const temporary = await mkdtemp(path.join(tmpdir(),"maps-input-budget-"));
+  try {
+    const file = await open(path.join(temporary,"input"),"w");
+    try { await file.truncate(Number(budget)+1); } finally { await file.close(); }
+    await expect(readPlanetilerInput(temporary,String(name),{path:"input",sha256:"0".repeat(64)})).rejects.toThrow("exceeds regional recipe size budget");
+  } finally { await rm(temporary,{recursive:true,force:true}); }
 });

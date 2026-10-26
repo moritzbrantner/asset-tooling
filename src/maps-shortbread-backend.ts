@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { sha256Bytes, sha256File } from "./hash.js";
-import { type AssetSpecDocument, resolveSpecPath } from "./schema.js";
+import { type AssetSpecDocument, type AssetArtifactReference, resolveSpecPath } from "./schema.js";
 
 const execute = promisify(execFile);
 const ID = "external.planetiler.shortbread";
@@ -39,6 +39,17 @@ async function directoryBytes(root: string): Promise<number> {
   return result;
 }
 
+export async function readPlanetilerInput(root: string, name: string, artifact: AssetArtifactReference) {
+  const inputPath = resolveSpecPath(root, artifact.path);
+  const budget = name === "osm" ? 16 * 1024 * 1024 : name === "profile" ? 65536 : 128 * 1024 * 1024;
+  if ((await stat(inputPath)).size > budget) { throw new Error(`input ${name} exceeds regional recipe size budget`); }
+  const bytes = await readFile(inputPath);
+  // Retain size and identity checks across the stat/read mutation window.
+  if (bytes.length > budget) { throw new Error(`input ${name} exceeds regional recipe size budget`); }
+  if (sha256Bytes(bytes) !== artifact.sha256) { throw new Error(`input '${name}' bytes changed before execution`); }
+  return bytes;
+}
+
 export const PLANETILER_BACKEND = {
   id: ID, version: "1", kind: "utility", exactCapable: false,
   validate,
@@ -59,9 +70,7 @@ export const PLANETILER_BACKEND = {
     try {
       // Snapshot and recheck ALL bytes before crossing the subprocess boundary.
       for (const [name, artifact] of Object.entries(document.spec.inputs)) {
-        const bytes = await readFile(resolveSpecPath(document.root, artifact.path));
-        if (sha256Bytes(bytes) !== artifact.sha256) { throw new Error(`input '${name}' bytes changed before execution`); }
-        if (bytes.length > (name === "osm" ? 16 * 1024 * 1024 : name === "profile" ? 65536 : 128 * 1024 * 1024)) { throw new Error(`input ${name} exceeds regional recipe size budget`); }
+        const bytes = await readPlanetilerInput(document.root, name, artifact);
         await writeFile(path.join(root, name), bytes);
       }
       const profile = await readFile(path.join(root, "profile"), "utf8");
