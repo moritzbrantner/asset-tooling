@@ -396,8 +396,14 @@ export const RANGER_GRIPS: readonly { clip: string; socket: string; role: string
 /** The finger and thumb joints a grip clip keys (rotation only), for the hand `side`. */
 export const rangerGripJoints = (side: "l" | "r") =>
   ["index", "middle", "ring", "pinky", "thumb"].flatMap((finger) => ["01", "02", "03"].map((k) => `${finger}_${k}_${side}`));
+/**
+ * #393 (mmorpg#499, Atlas 6.6.41): water locomotion authored in place on the Ranger rig by adapters/blender/swim_clips.py
+ * from explicit limb trajectories (Mixamo only as reference). The strokes are authored upright (body along +Y, facing
+ * +Z); the consumer pitches the body. They follow the grip poses in bundle order.
+ */
+export const RANGER_SWIM_CLIPS = ["Wade_Fwd_Loop", "Swim_Idle_Loop", "Swim_Fwd_Loop", "Swim_Down_Loop", "Swim_Up_Loop", "Swim_Enter", "Swim_Exit"] as const;
 /** The gait loops whose ground speed the `humanoid-clips` attachment records. */
-export const RANGER_GAITS: ReadonlySet<string> = new Set(["Walk_Loop", "Jog_Fwd_Loop", "Sprint_Loop", "Crouch_Fwd_Loop", "Jog_Bwd_Loop"]);
+export const RANGER_GAITS: ReadonlySet<string> = new Set(["Walk_Loop", "Jog_Fwd_Loop", "Sprint_Loop", "Crouch_Fwd_Loop", "Jog_Bwd_Loop", "Wade_Fwd_Loop"]);
 /** The library clips the Ranger retargets, in bundle order; RANGER_AUTHORED_CLIPS follow them. */
 export const RANGER_CLIPS: readonly RangerClip[] = [...BASE_CLIPS, ...GAIT_COMBAT_CLIPS, ...TRAVERSAL_CLIPS, ...COMBAT_CLIPS, ...MIXAMO_CLIPS];
 export const RANGER_CLIPS_ATTACHMENT = "humanoid-clips";
@@ -557,6 +563,8 @@ type RangerBuiltClip = {
   bow?: Json;
   /** Grip poses (#285): the hand socket and the item role the pose holds. */
   grip?: { socket: string; role: string };
+  /** Swim clips (#393): `Swim_Fwd_Loop`'s reference stroke speed. */
+  swim?: { strokeSpeedMetersPerSecond: number };
 };
 
 const pick = (source: Json, keys: string[]) => Object.fromEntries(keys.filter((key) => source[key] !== undefined).map((key) => [key, source[key]]));
@@ -611,6 +619,7 @@ async function rangerClipMotion(root: string, { character, targetRig, clips, rol
       entry.groundSpeedMetersPerSecond = round4(speeds[Math.floor(speeds.length / 2)]!);
     }
     if (clip.bow) entry.bow = clip.bow;
+    if (clip.swim) Object.assign(entry, clip.swim);
     if (clip.grip) Object.assign(entry, { loop: true, role: "grip", grip: clip.grip });
     const combat = roles ? RANGER_CLIP_ROLES[clip.name] : undefined;
     if (combat) {
@@ -663,17 +672,17 @@ async function convertMixamoClip(root: string, fbx: string, clip: string, target
   return { glb, fbxSha256: sha256Bytes(bytes), observations: (generated.receipt.observations as Json).script as Json };
 }
 
-/** Author one original jog clip on the animated Ranger (adapters/blender/jog_clips.py). */
-async function authorJogClip(root: string, clip: string, target: AssetRef) {
-  const source = await readBlenderRecipeSource("jog_clips.py");
+/** Author one original clip on the animated Ranger with a recipe that takes only the clip name (jog_clips.py, swim_clips.py). */
+async function authorScriptClip(root: string, script: "jog_clips.py" | "swim_clips.py", clip: string, target: AssetRef) {
+  const source = await readBlenderRecipeSource(script);
   const workspace = path.join(root, "authored", clip);
   await mkdir(workspace, { recursive: true });
-  await writeFile(path.join(workspace, "jog_clips.py"), source.bytes);
+  await writeFile(path.join(workspace, script), source.bytes);
   const targetBytes = await resolveAssetObject(root, target);
   await writeFile(path.join(workspace, "target.glb"), targetBytes);
   const spec = parseAssetSpec({
     schemaVersion: 1, assetId: `authored.${clip}`, generator: { id: "external.blender.script", version: "1" }, randomness: { mode: "none" },
-    inputs: { script: { path: "jog_clips.py", sha256: source.sha256 }, target: { path: "target.glb", sha256: sha256Bytes(targetBytes) } }, models: {},
+    inputs: { script: { path: script, sha256: source.sha256 }, target: { path: "target.glb", sha256: sha256Bytes(targetBytes) } }, models: {},
     parameters: { blenderVersion: source.blenderVersion, arguments: { schemaVersion: 1, clip } }, output: { path: "clip.glb" }, reproducibility: { expected: "exact" },
   });
   const specPath = path.join(workspace, "asset.json");
@@ -939,7 +948,7 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
     const socketsDescriptor = JSON.parse(await readFile(path.join(REPOSITORY_ROOT, figure === "female" ? RANGER_FEMALE_SOCKETS_DESCRIPTOR : RANGER_SOCKETS_DESCRIPTOR), "utf8"));
     for (const name of RANGER_AUTHORED_CLIPS) {
       log(`author ${name} in Blender (adapters/blender/jog_clips.py)`);
-      const authored = await authorJogClip(root, name, animated);
+      const authored = await authorScriptClip(root, "jog_clips.py", name, animated);
       const extracted = await executeGltfExtractAnimationOperation(root, {
         inputs: { source: authored.glb }, parameters: { hipsJoint: RANGER_HIPS.target, clip: name, policy: POLICY },
       });
@@ -985,6 +994,22 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
           authored: { recipe: grips.observations.recipe, fps: grips.observations.fps, curlDegrees: grips.observations.grips[grip.clip] } },
         sourceRig: single(extracted, "rig"), hips: RANGER_HIPS.target,
         sourceInfo: { authored: "adapters/blender/grip_poses.py" }, grip: { socket: grip.socket, role: grip.role } });
+    }
+    for (const name of RANGER_SWIM_CLIPS) {
+      log(`author ${name} in Blender (adapters/blender/swim_clips.py)`);
+      const authored = await authorScriptClip(root, "swim_clips.py", name, animated);
+      const extracted = await executeGltfExtractAnimationOperation(root, {
+        inputs: { source: authored.glb }, parameters: { hipsJoint: RANGER_HIPS.target, clip: name, policy: POLICY },
+      });
+      const retargeted = await reindexClip(root, extracted, targetRig, name);
+      const times = JSON.parse((await resolveAssetObject(root, retargeted)).toString("utf8")).channels
+        .flatMap((channel: Json) => channel.keyframes.map((key: Json) => key.time as number));
+      const stroke = authored.observations.strokeSpeedMetersPerSecond as number | undefined;
+      clips.push({ name, library: "authored", source: authored.glb, retargeted, libraryAsset: authored.glb,
+        observations: { rootMotion: "in-place", startSeconds: Math.min(...times), endSeconds: Math.max(...times), authored: authored.observations },
+        sourceRig: single(extracted, "rig"), hips: RANGER_HIPS.target,
+        sourceInfo: { authored: "adapters/blender/swim_clips.py", basedOn: { catalogId: catalogIds.clips, clip: "Idle_Loop" } },
+        ...(stroke ? { swim: { strokeSpeedMetersPerSecond: stroke } } : {}) });
     }
     animated = single(await executeGltfEmbedAnimationOperation(root, {
       inputs: { source: composedFace, animations: clips.map((clip) => clip.retargeted) },

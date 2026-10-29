@@ -20,7 +20,7 @@ import {
   RANGER_APPEARANCE, RANGER_ARCHERY, RANGER_AUTHORED_CLIPS, RANGER_BOW_CLIPS, RANGER_BONE_MAP, RANGER_BUNDLE_KEY, RANGER_BUNDLE_VARIANT, RANGER_CLIPS,
   RANGER_CLIPS_ATTACHMENT, RANGER_CLIP_ROLES, RANGER_FIGURES, RANGER_GAITS, RANGER_HAIR_TINTS, RANGER_MEMBERS, RANGER_MIXAMO_BONE_MAP,
   RANGER_CLASS_PRESETS, RANGER_FACIAL_HAIR_ENTRY, RANGER_ITEM_ATTACHMENT, RANGER_RESIDENT_PRESETS, RANGER_SOCKETS_ATTACHMENT, RANGER_SOCKETS_DESCRIPTOR, RANGER_TEXTURE_POLICY,
-  RANGER_UBC_BONE_MAP, RANGER_WEAPONS, RANGER_OUTFIT_KITS, RANGER_PEASANT_OUTFITS, RANGER_GRIPS, validateAppearancePresets,
+  RANGER_UBC_BONE_MAP, RANGER_WEAPONS, RANGER_OUTFIT_KITS, RANGER_PEASANT_OUTFITS, RANGER_GRIPS, RANGER_SWIM_CLIPS, validateAppearancePresets,
   buildRangerCharacter, rangerGripJoints, rangerItemDescriptor, rangerPresets,
 } from "../scripts/build-ranger-character.ts";
 import { WEAPON_ROLES } from "../src/weapon-recipes.js";
@@ -75,7 +75,10 @@ test("the Ranger retargets the library clips in bundle order, then authors the j
   assert.deepEqual([...RANGER_BOW_CLIPS], ["Bow_Aim_Loop", "Bow_Draw", "Bow_Hold_Loop", "Bow_Release", "Bow_Recovery", "Bow_Cancel"]);
   assert.ok(RANGER_BOW_CLIPS.every((name) => RANGER_CLIP_ROLES[name]!.role.startsWith("bow.") && !names.includes(name)));
   assert.deepEqual(RANGER_BOW_CLIPS.filter((name) => RANGER_CLIP_ROLES[name]!.contact), ["Bow_Release"]);
-  assert.deepEqual([...RANGER_GAITS], ["Walk_Loop", "Jog_Fwd_Loop", "Sprint_Loop", "Crouch_Fwd_Loop", "Jog_Bwd_Loop"]);
+  // #393: the water clips mmorpg#499 plays by name.
+  assert.deepEqual([...RANGER_SWIM_CLIPS], ["Wade_Fwd_Loop", "Swim_Idle_Loop", "Swim_Fwd_Loop", "Swim_Down_Loop", "Swim_Up_Loop", "Swim_Enter", "Swim_Exit"]);
+  assert.ok(RANGER_SWIM_CLIPS.every((name) => !names.includes(name)));
+  assert.deepEqual([...RANGER_GAITS], ["Walk_Loop", "Jog_Fwd_Loop", "Sprint_Loop", "Crouch_Fwd_Loop", "Jog_Bwd_Loop", "Wade_Fwd_Loop"]);
   // Owner picks on #114: heavy = Sword_Regular_C, counter = Sword_Regular_B, light = Sword_Regular_A; Melee_Hook is not used.
   assert.equal(RANGER_CLIP_ROLES.Sword_Regular_C!.role, "sword.heavy-strike");
   assert.equal(RANGER_CLIP_ROLES.Sword_Regular_B!.role, "sword.counter");
@@ -176,7 +179,7 @@ test("the Ranger recipe builds a verified bundle: in-place clips, equipment entr
       assert.ok(entries.includes(expected), expected);
     }
     const entry = manifest.assets.find((candidate) => candidate.key === RANGER_BUNDLE_KEY)!;
-    const clipNames = [...RANGER_CLIPS.map((clip) => clip.name), ...RANGER_AUTHORED_CLIPS, ...RANGER_BOW_CLIPS, ...RANGER_GRIPS.map((grip) => grip.clip)];
+    const clipNames = [...RANGER_CLIPS.map((clip) => clip.name), ...RANGER_AUTHORED_CLIPS, ...RANGER_BOW_CLIPS, ...RANGER_GRIPS.map((grip) => grip.clip), ...RANGER_SWIM_CLIPS];
     const libraryClips = new Set(RANGER_CLIPS.filter((clip) => clip.library !== "mixamo").map((clip) => clip.name));
     assert.deepEqual(entry.observations.animations, clipNames);
 
@@ -201,6 +204,9 @@ test("the Ranger recipe builds a verified bundle: in-place clips, equipment entr
     }
     const byName = Object.fromEntries(motion.clips.map((clip: any) => [clip.name, clip]));
     for (const grip of RANGER_GRIPS) assert.deepEqual([byName[grip.clip].role, byName[grip.clip].grip], ["grip", { socket: grip.socket, role: grip.role }], grip.clip);
+    // #393: the crawl records its reference stroke speed; wading is slower than walking.
+    assert.equal(byName.Swim_Fwd_Loop.strokeSpeedMetersPerSecond, 1.8);
+    assert.ok(byName.Wade_Fwd_Loop.groundSpeedMetersPerSecond > 0.3 && byName.Wade_Fwd_Loop.groundSpeedMetersPerSecond < byName.Walk_Loop.groundSpeedMetersPerSecond);
     // #277: every bow clip records the string draw per frame; full draw is longer than the set string.
     for (const name of RANGER_BOW_CLIPS) {
       const bow = byName[name].bow;

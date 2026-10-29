@@ -203,6 +203,22 @@ The retargeted clips leave the fingers at their open rest pose, so a held item w
 - **Consumer:** while a hand socket holds an item, play the grip whose `grip.socket` and `grip.role` match on top of the body clip. The grip replaces that hand's finger rotations: drop them from the body clip, or give the grip the full weight on those joints. The bow clips already carry their own finger curl (a fist on the grip and a hook on the string), so they need no grip.
 - **Shield handle:** in the hand sockets the heater is held with the forearm across the board (`examples/weapons/derive-sockets.ts`), so the shield's hand handle runs along its Y axis, across the palm, and the forearm strap sits toward +X round the left forearm (#285). Before #285 the handle ran along the fingers, so a fist could not close round it.
 
+### Water clips (#393)
+
+[`adapters/blender/swim_clips.py`](../adapters/blender/swim_clips.py) authors the water locomotion for mmorpg#499 (Atlas 6.6.41) in Blender on the animated Ranger, from explicit limb trajectories. Mixamo was only watched as reference. The clips are in place and follow the grip poses in bundle order. A consumer plays them by name.
+
+| Clip | Length | Motion |
+| --- | --- | --- |
+| `Wade_Fwd_Loop` | 1.5 s loop | Waist-deep walk at 0.75 m/s: the swing foot lifts 20 cm with the knee forward, the pelvis sits 5 cm lower, the torso leans 9° forward, and the forearms are held up and forward. `humanoid-clips` records its `groundSpeedMetersPerSecond` like the land gaits. |
+| `Swim_Idle_Loop` | 1.6 s loop | Treading water upright: eggbeater legs (thighs about 48° forward, knees circling out of phase), the forearms sculling in front of the chest, and the head up. |
+| `Swim_Fwd_Loop` | 1.3 s loop | Front crawl. Each arm pulls under the body and recovers over the back with a high elbow, the torso rolls 28° with the pull, and there are three flutter kicks per cycle. Its entry has `strokeSpeedMetersPerSecond: 1.8`. |
+| `Swim_Down_Loop` | 1.6 s loop | Breaststroke with a long glide. |
+| `Swim_Up_Loop` | 1.15 s loop | A quicker breaststroke whose pull sweeps the hands down to the hips. |
+| `Swim_Enter` | 0.8 s | From the first `Idle_Loop` pose, the arms rise to the surface and the legs draw up, ending in the first `Swim_Idle_Loop` pose. |
+| `Swim_Exit` | 1.0 s | From the first `Swim_Idle_Loop` pose, one leg reaches down and the arms press the water, ending in the first `Idle_Loop` pose. |
+
+The strokes are authored **upright**, with the body along +Y and facing +Z. Overhead is "ahead" in the swim, and in front of the chest is the pool floor. The consumer pitches the whole body (`crates/mmorpg-presentation/src/units/swim.rs`), so an authored lean would be applied twice.
+
 ## Female Ranger
 
 `--figure female` (#115, owner answer Q1 = A) builds `humanoid.ranger.female` with the same recipe. Of the Peasant-based outfits it has only the tanner (#378, over the pack's `Female_Peasant` outfit), and it has no headwear, facial hair or male variety. It uses the Universal Base Characters `Superhero_Female_FullBody` head (`keepMeshes: ["Eyebrows", "Eyes"]`) on the full `Female_Ranger` outfit ([humanoid-sources.md](humanoid-sources.md#female-body-and-outfit-115)).
