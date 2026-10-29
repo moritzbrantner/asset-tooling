@@ -45,6 +45,12 @@
     },
     {
       "repo": "moenarch-games/mmorpg",
+      "release": "greyhaven-marshal-house",
+      "pinned": false,
+      "note": "scripts/fetch-bundles.sh unpacks the live release into a local copy keyed on its export.ref.json (#158)"
+    },
+    {
+      "repo": "moenarch-games/mmorpg",
       "release": "greyhaven-nature",
       "pins": [{ "type": "tar-sha256", "path": "scripts/fetch-nature-review.sh", "after": "EXPECTED=" }]
     },
