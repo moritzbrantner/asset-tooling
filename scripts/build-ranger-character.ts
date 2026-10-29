@@ -36,6 +36,7 @@ import { ARMOR_CLASS_HOODS, ARMOR_CLASS_MATERIAL, ARMOR_FACTION, ARMOR_FACTION_K
 import { ARCHERY_PRESETS, ARCHERY_ROLES, createArcheryAssetSpec, readArcheryRecipeSource, type ArcheryPiece } from "../src/archery-recipes.js";
 import { HEADWEAR_CONTRACT, HEADWEAR_HIDES, HEADWEAR_PRESETS, createHeadwearAssetSpec, readHeadwearRecipeSource, type HeadwearPiece } from "../src/headwear-recipes.js";
 import { FACE_MORPH_NODES, addFaceVariants, applyFaceVariants, faceAppearance } from "../src/face-variants.js";
+import { RANGER_BEARD_CHAINS, RANGER_HAIR_CHAINS, RANGER_OUTFIT_CHAINS, applySecondaryChains, type SecondaryChain } from "../src/humanoid-secondary.js";
 import { VARIETY_BEARDS, VARIETY_FACIAL_HAIR_ENTRY, VARIETY_HAIRSTYLES, VARIETY_HEAD_SKIN_ENTRY, applyVarietyKeys, authorVarietyKeys, buildHairPiece, buildHeadSkins, varietyAppearance } from "../src/male-variety.js";
 import type { AssetOperationResult, AssetRef } from "../src/operations.js";
 
@@ -1151,7 +1152,7 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
       return single(await executeGltfProductionImportOperation(root, { inputs: { source, resources: [buffer, ...sources.flatMap(({ images }) => images)] },
         parameters: { resourceUris: [bufferUri, ...sources.flatMap(({ imageUris }) => imageUris)], policy: POLICY } }));
     };
-    const hair = [];
+    const hair: { key: string; style: string; variants: Record<string, AssetRef>; chains?: SecondaryChain[] }[] = [];
     for (const style of look.hair) {
       const imported = await importHair(style);
       const variants: Record<string, AssetRef> = {};
@@ -1162,7 +1163,7 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
     // #117: the soldier and knight outfit variants and their rigid armour entries; #376: the resident outfits.
     const outfits: Json[] = [{ id: "outfit.archer", variant: RANGER_BUNDLE_VARIANT, label: "Archer" }];
     const kits: { kit: ArmorOutfitKit; variants: { variant: string; character: AssetRef }[]; plates: AssetRef; cloth: AssetRef; fitTarget: AssetRef; observations: Json[] }[] = [];
-    let beards: { glb: AssetRef; observations: Json } | undefined;
+    let beards: { glb: AssetRef; observations: Json; chains: SecondaryChain[] } | undefined;
     let headSkins: AssetRef | undefined;
     // The Peasant-based outfits: the male kits (#117 Q8 onward) and the female tanner (#378). Age and build keys, the
     // grey skin, the hand-modelled hair and beards and the head skins stay male-only.
@@ -1210,6 +1211,7 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
         const variants: { variant: string; character: AssetRef; skin: string }[] = [];
         let darkKit: { lods: Record<LodLevel, AssetRef>; character: AssetRef } | undefined;
         let kitKeys: Uint8Array | undefined;
+        let kitChains: SecondaryChain[] = [];
         const skins: (readonly [string, AssetRef, AssetRef])[] = [["skin.dark", peasant, face.glb], ["skin.light", peasantLight, headLight],
           ...(ARMOR_GREY_SKIN_KITS.includes(kit) ? [["skin.grey", peasantGrey!, headGrey!] as const] : [])];
         for (const [skin, outfitSource, headPart] of skins) {
@@ -1237,6 +1239,12 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
             const keyed = await applyVarietyKeys(root, outfitCharacter, kitKeys, variant);
             outfitCharacter = keyed.glb;
             variety.transfers[variant] = keyed.transfer;
+            // #391: accessory chains on the loose garments; at rest they deform exactly as before.
+            if (RANGER_OUTFIT_CHAINS[kit]) {
+              const chained = await applySecondaryChains(root, outfitCharacter, RANGER_OUTFIT_CHAINS[kit]!);
+              outfitCharacter = chained.glb;
+              kitChains = chained.chains;
+            }
           }
           variants.push({ variant, character: outfitCharacter, skin });
           if (skin === "skin.dark") darkKit = { lods: await characterLods(composedKit, variant), character: outfitCharacter };
@@ -1260,6 +1268,7 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
           garments,
           // #379: a class hood is part of the outfit; it shows as the `outfit.hood` part and hides the hair.
           ...(hood ? { hood: hood.id } : {}),
+          ...(kitChains.length ? { secondary: kitChains } : {}),
           ...(ARMOR_FACTION_KITS.includes(kit) ? { faction: { materials: [ARMOR_FACTION.material], defaultBaseColorFactor: [...ARMOR_FACTION.default, 1] } } : {}),
           ...(cloth.observations.classTrim ? { classTrim: { materials: [ARMOR_CLASS_MATERIAL], defaultBaseColorFactor: cloth.observations.classTrim } } : {}),
         });
@@ -1289,7 +1298,20 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
       log("model facial hair (external.blender.script@1 hair and beards recipe, #380)");
       const builtBeards = await buildHairPiece(root, VARIETY_FACIAL_HAIR_ENTRY, fitTarget, hairMaterial);
       const importedBeards = single(await executeGltfProductionImportOperation(root, { inputs: { source: builtBeards.glb }, parameters: { policy: POLICY } }));
-      beards = { glb: await resizeTextures(VARIETY_FACIAL_HAIR_ENTRY, importedBeards), observations: builtBeards.observations };
+      beards = { glb: await resizeTextures(VARIETY_FACIAL_HAIR_ENTRY, importedBeards), observations: builtBeards.observations, chains: [] };
+      // #391: the hair and beard chains. The items get their own skin, rooted at their scene origin.
+      log("accessory chains on the long and tied hair and the long and full beards (#391)");
+      for (const item of hair) {
+        const specs = RANGER_HAIR_CHAINS[item.key];
+        if (!specs) continue;
+        for (const [name, asset] of Object.entries(item.variants)) {
+          const chained = await applySecondaryChains(root, asset, specs);
+          item.variants[name] = chained.glb;
+          item.chains = chained.chains;
+        }
+      }
+      const chainedBeards = await applySecondaryChains(root, beards.glb, RANGER_BEARD_CHAINS);
+      beards = { ...beards, glb: chainedBeards.glb, chains: chainedBeards.chains };
       // #380: the painted head skins (middle-aged, aged, weathered, stubble) of the Dark and Light heads.
       log("paint the head skins (external.blender.script@1 skin overlays recipe, #380)");
       const skins = await buildHeadSkins(root, composedFace, composedLight);
@@ -1309,8 +1331,9 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
       ],
       // #379: the class hoods are the same part, so a hairstyle that needs the hood off hides under them too.
       parts: [{ id: "outfit.hood", nodes: [look.hood, ...(figure === "male" ? ARMOR_CLASS_HOODS : [])], defaultVisible: true }],
-      hair: await Promise.all(hair.map(async ({ key, style, variants }) => ({
+      hair: await Promise.all(hair.map(async ({ key, style, variants, chains }) => ({
         id: key, entry: key, socket: "head.hair", source: style,
+        ...(chains?.length ? { secondary: chains } : {}),
         textures: Object.keys(variants).map((id) => ({ id, variant: id })),
         // #380: the tied style's leather tie keeps its colour.
         tintMaterials: (await hairMaterials(variants["hair-1"]!)).filter((name) => name.startsWith("MI_Hair")),
@@ -1328,6 +1351,10 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
         options: (beards.observations.pieces as Json[]).map((piece) => ({
           id: piece.node, label: VARIETY_BEARDS[piece.node as keyof typeof VARIETY_BEARDS], node: piece.node,
           socket: "head.armor", tintMaterials: (piece.materials as string[]).filter((name) => name.startsWith("MI_Hair")),
+          ...(() => {
+            const chains = beards.chains.filter((chain) => chain.nodes.includes(String(piece.node)));
+            return chains.length ? { secondary: chains } : {};
+          })(),
         })),
       } } : {}),
       // #376: one complete look per named Greyhaven resident (mmorpg#418).
@@ -1347,6 +1374,9 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
         entries: [...kits.map((kit) => `armor.${kit.kit}`), ...hair.map((item) => item.key), RANGER_FACIAL_HAIR_ENTRY],
         head: FACE_MORPH_NODES.male[0], eyebrows: look.eyebrows,
       }) : {}),
+      // #391: accessory chains are listed under `outfits[].secondary`, `hair[].secondary` and
+      // `facialHair.options[].secondary`; the levels of detail carry none.
+      ...(figure === "male" ? { secondary: { unsupported: lodVariants.map(({ variant }) => variant) } } : {}),
       // #123: the levels of detail of each character variant; switch distances are hints, consumers choose.
       levelsOfDetail: lodVariants.map(({ variant, triangles, ratio }) => {
         const level = variant.endsWith("lod1") ? "lod1" : "lod2";
