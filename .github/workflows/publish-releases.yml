@@ -17,6 +17,7 @@ on:
           - combat-sounds
           - farm-structures
           - greyhaven-ambient-animals
+          - greyhaven-marshal-house
           - greyhaven-nature
           - outpost-kit
           - settlement-props

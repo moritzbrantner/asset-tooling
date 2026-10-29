@@ -47,7 +47,7 @@ describe("publish-release", () => {
   });
 
   test("plans only the releases a change touches", () => {
-    expect(plan(["adapters/blender/outpost.py"]).map((entry) => entry.release)).toEqual(["outpost-kit", "settlement-props"]);
+    expect(plan(["adapters/blender/outpost.py"]).map((entry) => entry.release)).toEqual(["greyhaven-marshal-house", "outpost-kit", "settlement-props"]);
     expect(plan(["adapters/blender/zoo_scenery.py"])).toEqual([{ release: "zoo-scenery", blender: true, lfs: false }]);
     expect(plan(["docs/outpost-kit.md", "README.md", "consumers.json", ".github/workflows/publish-releases.yml"])).toEqual([]);
     expect(plan("all")).toHaveLength(ROLLING_RELEASES.length);
