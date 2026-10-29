@@ -33,6 +33,7 @@ export const ROLLING_RELEASES: RollingRelease[] = [
   { name: "combat-sounds", script: "scripts/build-combat-sounds.ts", lfs: true },
   { name: "farm-structures", script: "scripts/build-farm-structures.ts", blender: true },
   { name: "greyhaven-ambient-animals", script: "scripts/build-greyhaven-ambient-animals.ts", blender: true, lfs: true },
+  { name: "greyhaven-marshal-house", script: "scripts/build-greyhaven-marshal-house.ts", blender: true },
   { name: "greyhaven-nature", script: "scripts/build-greyhaven-nature.ts", lfs: true },
   { name: "outpost-kit", script: "scripts/build-outpost-kit.ts", blender: true },
   { name: "settlement-props", script: "scripts/build-settlement-props.ts", blender: true },
