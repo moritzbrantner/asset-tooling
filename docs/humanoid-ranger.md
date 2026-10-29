@@ -34,6 +34,7 @@ The `humanoid.ranger.male` bundle holds the following.
       - Male only: `facialHair`, and `ages`, `builds`, `heights`, `skinTones` and `headSkins` ([Male variety](#male-variety-380)).
       - The class outfits add `hood` (their hood garment, also listed as an `outfit.hood` part node, so hair that needs the hood off hides under it) and `classTrim` (the recolourable `class` material and its default linear colour).
 - **Facial variants (#348):** see [Facial variants](#facial-variants).
+- **Secondary motion chains (#391, male):** accessory joints on the long robes, skirts, aprons, capes, the long and tied hair and the long and full beards; see [Secondary motion chains](#secondary-motion-chains-391).
 - **Levels of detail (#123):** every character variant has `lod1` and `lod2` variants (`lod1`/`lod2` for `default`, `<variant>.lod1`/`.lod2` otherwise). They are listed in `humanoid-appearance.levelsOfDetail` ([levels-of-detail.md](levels-of-detail.md)).
 - **Clips:** they ship once, embedded in `default`. Every other character variant and level shares the same joints and rest pose, and plays them by joint name. Every clip is in place. In bundle order:
   - the UAL1/UAL2 library clips retargeted with 3d-lab (idle, walk, the run gaits, sword, shield, death, the #112 traversal clips and the #114 combat clips with their roles);
@@ -109,6 +110,30 @@ So that not every man is "the same man with a different costume" (owner, 2026-10
 - **Hair and facial hair:** hand-modelled in the Marshal's chunky-lock style ([`hair_beards.py`](../adapters/blender/hair_beards.py)): ridged locks on `T_Hair_1`, edges that thin into the skin and pointed clumps where hair hangs free. The hairstyles `hair.balding` (horseshoe with a clean edge), `hair.receding`, `hair.swept` and `hair.tied` (gathered at the nape by a leather tie that keeps its colour) ride `head.hair`; the beards and moustaches ride `head.armor` and replace the #376 kit shells under their names, so the presets keep naming `beard.full`, `beard.short` and `beard.moustache`.
 - **Authoring:** [`male_variety.py`](../adapters/blender/male_variety.py) authors the keys in Blender on a copy of each outfit's character variant (with its plates) and of each hair entry; only the morph targets come back onto the shipped assets, after the face targets (`transferMorphTargets`, matched by position within 3 mm, because the composed characters re-pose a few neck vertices by up to 2 mm). [`skin_overlays.py`](../adapters/blender/skin_overlays.py) paints the head skins in the head's UV layout from the rest positions of its texels. The shape was reviewed in the live Blender; the review sheets come from `examples/male-variety/review.py`, which composes eight men from the built bundle.
 - **Unsupported:** the levels of detail carry no age or build targets (`ages.unsupported`, `builds.unsupported`); the head skins and tones apply to them.
+
+### Secondary motion chains (#391)
+
+Short accessory-bone chains on the male figure's long hair, beards and loose garments, for bounded, presentation-only secondary motion ([mmorpg#498](https://github.com/moenarch-games/mmorpg/issues/498)). A consumer springs the joints on top of the clips; there is no cloth engine and no new clip tracks. [`src/humanoid-secondary.ts`](../src/humanoid-secondary.ts) adds them after the age and build keys (`applySecondaryChains`).
+
+- **Rest is unchanged:** each chain hangs from a `parent` joint and takes over part of that joint's skin weight only. At rest a chain joint moves rigidly with its parent, so a chain left in its bind pose deforms the mesh exactly as before, in every clip. Other joints keep their weights, so a robe's hem still follows the striding thighs and only the pelvis share swings.
+- **Ramp:** the share a vertex hands over grows from 0 at the chain's first joint to all of it a few centimetres lower, so the waist, the shoulders, the scalp and the jaw never move. Side by side, chains blend by angle round the body (cos²), so a skirt does not tear between its front and side panels.
+- **Joints:** named `<prefix>_01` … from the top. At rest each joint has the character's orientation (identity world rotation) and sits on the garment surface at its height; the chain runs straight down. Short garments get fewer joints (at least 12 cm apart).
+
+| Where | Chains (parent → joints) |
+| --- | --- |
+| Long robes and coats: `outfit.monk`, `outfit.class.arcanist`, `outfit.class.necromancer`, `outfit.class.cleric` (with its tabard), `outfit.class.druid`, `outfit.redbrand` | `pelvis` → `skirt_f_01..03`, `skirt_b_01..03`, `skirt_l_01..02`, `skirt_r_01..02` |
+| Shorter skirts: `outfit.farmer` (smock), `outfit.soldier` (gambeson) | the same, with fewer joints |
+| Tabards: `outfit.knight`, `outfit.class.warden` | `pelvis` → `skirt_f_*`, `skirt_b_*` |
+| Apron: `outfit.innkeeper` | `pelvis` → `apron_01..02` (front only) |
+| Capes and mantles: `outfit.class.ranger` (cloak), `outfit.class.rogue` (cape), `outfit.class.arcanist`, `outfit.class.necromancer`, `outfit.class.druid` (mantles) | `spine_03` → `cape_01..03` (back only) |
+| Hanging strap: `outfit.redbrand` (scarf end) | `spine_03` → `scarf_01` |
+| `hair.long` (both textures) | `hair_root` → `hair_back_01..03` (the back curtain; the crown and fringe stay) |
+| `hair.tied` | `hair_root` → `hair_tail_01..02` (below the tie) |
+| `facial-hair.beards`: `beard.long`, `beard.full` | `beard_root` → `beard_01..02` (below the chin) |
+
+- **Items:** the hair and facial-hair entries were static. The chained ones now have a skin whose root joint (`hair_root`, `beard_root`) is the item's scene origin with an identity transform, so it rides its socket exactly as before. Every other vertex of the item (the scalp, the jaw, the other beards in the entry) is weighted fully to the root.
+- **Descriptor:** `humanoid-appearance` lists the chains by data, not by name: `outfits[].secondary`, `hair[].secondary` and `facialHair.options[].secondary`. Each chain has `id` (`skirt.front`, `skirt.back`, `skirt.left`, `skirt.right`, `apron`, `cape`, `scarf`, `hair.back`, `hair.tail`, `beard`), `kind` (`skirt`, `apron`, `cape`, `strap`, `hair`, `beard`), `parent`, the ordered `joints`, the mesh `nodes` it moves and a suggested `swingLimitDegrees` per joint (skirts 20, apron 15, capes 25, strap 30, hair back 15, tail 25, beard 12). Every skin variant of an outfit carries its chains.
+- **Unsupported:** the levels of detail carry no chains (`secondary.unsupported`); at their switch distances a consumer fades the motion out anyway. The female figure has none yet.
 
 ### Mixamo retarget
 
