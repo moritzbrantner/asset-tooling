@@ -32,7 +32,8 @@ const EXTRACT_PROFILE = "gltf-skin-animation-extract-v1";
 const EMBED_PROFILE = "gltf-skin-animation-embed-v1";
 const EXTRACT_IMPLEMENTATION = { id: "gltf-transform-skin-animation-extract", version: "1" };
 const EMBED_IMPLEMENTATION = { id: "gltf-transform-skin-animation-embed", version: "1" };
-const MAX_CLIPS = 64;
+// The Ranger embeds 70 clips with the swim set (#393).
+const MAX_CLIPS = 128;
 const KINDS = ["translation", "rotation", "scale"] as const;
 type Kind = (typeof KINDS)[number];
 type Json = Record<string, unknown>;
