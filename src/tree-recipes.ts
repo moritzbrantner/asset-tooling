@@ -1,5 +1,5 @@
+import { blenderScriptSpec } from "./blender-script-spec.js";
 import { readBlenderRecipeSource } from "./blender-recipe-source.js";
-import { parseAssetSpec } from "./schema.js";
 
 /** Acquisition is explicit; recipes consume this exact local archive without installing it. */
 export const SAPLING_TREE_SOURCE = Object.freeze({
@@ -49,9 +49,9 @@ export function createTreeAssetSpec({ assetId, parameters, scriptSha256, blender
 }) {
   if (!/^\d+\.\d+\.\d+$/.test(blenderVersion)) throw new Error("tree Blender version must be exact");
   if (!scriptPath.endsWith(".py") || !saplingPath.endsWith(".zip") || !outputPath.endsWith(".glb")) throw new Error("tree spec requires Python, ZIP and GLB paths");
-  return parseAssetSpec({ schemaVersion: 1, assetId, generator: { id: "external.blender.script", version: "1" }, randomness: { mode: "none" },
-    inputs: { script: { path: scriptPath, sha256: scriptSha256 }, sapling: { path: saplingPath, sha256: SAPLING_TREE_SOURCE.sha256 } }, models: {},
-    parameters: { blenderVersion, arguments: normalizeTreeParameters(parameters) }, output: { path: outputPath }, reproducibility: { expected: "approximate" } });
+  return blenderScriptSpec({ assetId,
+    inputs: { script: { path: scriptPath, sha256: scriptSha256 }, sapling: { path: saplingPath, sha256: SAPLING_TREE_SOURCE.sha256 } },
+    blenderVersion, arguments: normalizeTreeParameters(parameters), output: outputPath, reproducibility: "approximate" });
 }
 const defaults: TreeParameters = { schemaVersion: 1, seed: "133", family: "broadleaf", height: 6, levels: 3,
   primaryBranches: 28, secondaryBranches: 8, branchAngle: 48, trunkRatio: 0.02, trunkTaper: 1,

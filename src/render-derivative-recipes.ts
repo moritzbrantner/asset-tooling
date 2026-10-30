@@ -2,7 +2,7 @@ import {compareCodeUnitStrings} from "./canonical.js";
 import { NodeIO } from "@gltf-transform/core";
 import { resolveAssetObject } from "./asset-store.js";
 import { createAssetRef, type AssetRef } from "./operations.js";
-import { parseAssetSpec } from "./schema.js";
+import { blenderScriptSpec } from "./blender-script-spec.js";
 import { GLTF_IMPORT_OPERATION } from "./gltf-import-operations.js";
 import { gltfSummary, loadCheckedGltf, checkStaticGltfAccessorBudget } from "./gltf-processing.js";
 import { readBlenderRecipeSource } from "./blender-recipe-source.js";
@@ -101,9 +101,8 @@ type RenderRecipeOptions = {
 };
 function renderSpec({assetId, scriptSha256, blenderVersion, scriptPath = "render_static_glb.py", sourcePath = "source.glb", outputPath = "render.png"}: RenderRecipeOptions,
   p: RenderDerivativeParameters, source: AssetRef) {
-  return parseAssetSpec({ schemaVersion: 1, assetId, generator: { id: "external.blender.script", version: "1" }, randomness: { mode: "none" },
-    inputs: { script: { path: scriptPath, sha256: scriptSha256 }, source: { path: sourcePath, sha256: source.sha256 } }, models: {},
-    parameters: { blenderVersion, arguments: p }, output: { path: outputPath }, reproducibility: { expected: "approximate" } });
+  return blenderScriptSpec({ assetId, inputs: { script: { path: scriptPath, sha256: scriptSha256 }, source: { path: sourcePath, sha256: source.sha256 } },
+    blenderVersion, arguments: p, output: outputPath, reproducibility: "approximate" });
 }
 /** Validate an existing source through the supported static importer, then declare a pinned render. */
 export async function prepareRenderDerivativeRecipe(root: string, options: RenderRecipeOptions) {

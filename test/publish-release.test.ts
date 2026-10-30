@@ -46,7 +46,7 @@ describe("publish-release", () => {
   test("a release's sources follow its imports and the recipe files it names", () => {
     const settlement = releaseSources(rollingRelease("settlement-props"));
     expect(settlement).toEqual(expect.arrayContaining([
-      "scripts/build-settlement-props.ts", "scripts/build-outpost-kit.ts", "adapters/blender/settlement_props.py",
+      "scripts/build-settlement-props.ts", "src/kit-bundle.ts", "adapters/blender/settlement_props.py",
       "adapters/blender/outpost.py", "adapters/blender/kit_common.py", "adapters/blender/release.json", "src/asset-bundle.ts",
     ]));
     expect(settlement).not.toContain("adapters/blender");

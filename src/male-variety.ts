@@ -7,7 +7,7 @@ import { generateAsset } from "./core.js";
 import { transferMorphTargets } from "./face-variants.js";
 import { sha256Bytes } from "./hash.js";
 import type { AssetRef } from "./operations.js";
-import { parseAssetSpec } from "./schema.js";
+import { blenderScriptSpec, type BlenderSpecInput } from "./blender-script-spec.js";
 
 /**
  * Male character variety (#380): one rig with age and build morph targets that the outfits, armour plates, hair and
@@ -68,7 +68,7 @@ async function runRecipe(root: string, { script, label, inputs, parameters, outp
   const workspace = path.join(root, "variety", label);
   await mkdir(workspace, { recursive: true });
   await writeFile(path.join(workspace, script), source.bytes);
-  const declared: Record<string, { path: string; sha256: string }> = { script: { path: script, sha256: source.sha256 } };
+  const declared: { script: BlenderSpecInput } & Record<string, BlenderSpecInput> = { script: { path: script, sha256: source.sha256 } };
   for (const [name, value] of Object.entries(inputs)) {
     // A string names another packaged recipe source (a Python input loaded with inputs.load_source).
     const bytes = typeof value === "string" ? (await readBlenderRecipeSource(value)).bytes : value;
@@ -76,11 +76,7 @@ async function runRecipe(root: string, { script, label, inputs, parameters, outp
     await writeFile(path.join(workspace, file), bytes);
     declared[name] = { path: file, sha256: sha256Bytes(bytes) };
   }
-  const spec = parseAssetSpec({
-    schemaVersion: 1, assetId: `variety.${label}`, generator: { id: "external.blender.script", version: "1" }, randomness: { mode: "none" },
-    inputs: declared, models: {}, parameters: { blenderVersion: source.blenderVersion, arguments: parameters },
-    output: { path: output }, reproducibility: { expected: "exact" },
-  });
+  const spec = blenderScriptSpec({ assetId: `variety.${label}`, inputs: declared, blenderVersion: source.blenderVersion, arguments: parameters, output });
   const specPath = path.join(workspace, "asset.json");
   await writeFile(specPath, `${canonicalJson(spec)}\n`);
   const generated = await generateAsset(specPath);
