@@ -1,11 +1,11 @@
 /// <reference path="../src/gltf-validator.d.ts" />
 // End-to-end Ranger recipe (docs/humanoid-ranger.md): canonical body/outfit/UAL1/UAL2 members -> import, head
-// subset, compose, extract, retarget the library clips through the pinned 3d-lab processor, retarget the Mixamo
-// clips in Blender, author the jog clips, embed, generate the equipment, attach the descriptors, then the
+// subset, compose, extract, retarget the library clips through the pinned 3d-lab processor, author the gait, bow,
+// grip, swim and hit clips in Blender, embed, generate the equipment, attach the descriptors, then the
 // gltf-resources-v1 bundle and release tar. Structural checks only (owner answer 4 on #110: no byte-exact replay,
 // no Blender oracle). The full build skips unless the Git LFS payloads are hydrated,
 // ASSET_TOOLING_PROCESSOR_CHECKOUT_3DLAB names a clean 3d-lab checkout at the pinned commit with its cargo
-// dependencies fetched, ASSET_TOOLING_BLENDER names Blender and ASSET_TOOLING_MIXAMO_DIR names the local Mixamo FBX files.
+// dependencies fetched and ASSET_TOOLING_BLENDER names Blender.
 import test from "node:test";
 import assert from "node:assert/strict";
 import os from "node:os";
@@ -17,8 +17,8 @@ import { verifyAssetBundleTar } from "../src/asset-bundle-pack.js";
 import { GLTF_RESOURCES_BUNDLE_PROFILE, readAssetBundleAttachment, readAssetBundleGltf, verifyAssetBundle } from "../src/asset-bundle.js";
 import { validateHumanoidSocketDescriptor } from "../src/humanoid-sockets.js";
 import {
-  RANGER_APPEARANCE, RANGER_ARCHERY, RANGER_AUTHORED_CLIPS, RANGER_BOW_CLIPS, RANGER_BONE_MAP, RANGER_BUNDLE_KEY, RANGER_BUNDLE_VARIANT, RANGER_CLIPS,
-  RANGER_CLIPS_ATTACHMENT, RANGER_CLIP_ROLES, RANGER_FIGURES, RANGER_GAITS, RANGER_HAIR_TINTS, RANGER_MEMBERS, RANGER_MIXAMO_BONE_MAP,
+  RANGER_APPEARANCE, RANGER_ARCHERY, RANGER_GAIT_CLIPS, RANGER_BOW_CLIPS, RANGER_BONE_MAP, RANGER_BUNDLE_KEY, RANGER_BUNDLE_VARIANT, RANGER_CLIPS,
+  RANGER_CLIPS_ATTACHMENT, RANGER_CLIP_ROLES, RANGER_FIGURES, RANGER_GAITS, RANGER_HAIR_TINTS, RANGER_HIT_CLIPS, RANGER_MEMBERS,
   RANGER_CLASS_PRESETS, RANGER_FACIAL_HAIR_ENTRY, RANGER_ITEM_ATTACHMENT, RANGER_RESIDENT_PRESETS, RANGER_SOCKETS_ATTACHMENT, RANGER_SOCKETS_DESCRIPTOR, RANGER_TEXTURE_POLICY,
   RANGER_UBC_BONE_MAP, RANGER_WEAPONS, RANGER_OUTFIT_KITS, RANGER_PEASANT_OUTFITS, RANGER_GRIPS, RANGER_SWIM_CLIPS, validateAppearancePresets,
   buildRangerCharacter, rangerGripJoints, rangerItemDescriptor, rangerPresets,
@@ -34,7 +34,6 @@ const CHECKOUT = process.env.ASSET_TOOLING_PROCESSOR_CHECKOUT_3DLAB;
 async function skipReason(): Promise<string | false> {
   if (!CHECKOUT) return "set ASSET_TOOLING_PROCESSOR_CHECKOUT_3DLAB to a clean 3d-lab checkout at the pinned three-d-animation-retarget commit";
   if (!process.env.ASSET_TOOLING_BLENDER) return "set ASSET_TOOLING_BLENDER to Blender 5.2.2 for the weapon entries (snap Blender: TMPDIR under $HOME)";
-  if (!process.env.ASSET_TOOLING_MIXAMO_DIR) return "set ASSET_TOOLING_MIXAMO_DIR to the local Mixamo FBX files (Atlas 6.1.6)";
   const sources = JSON.parse(await readFile(path.join(ROOT, "catalog/sources.json"), "utf8")).sources;
   const storage = JSON.parse(await readFile(path.join(ROOT, "catalog/storage.json"), "utf8"));
   for (const member of Object.values(RANGER_MEMBERS)) {
@@ -60,17 +59,21 @@ test("#285: one grip pose per hand socket and held role, keying one hand's finge
   assert.ok(rangerGripJoints("r").every((joint) => joint.endsWith("_r")));
 });
 
-test("the Ranger retargets the library clips in bundle order, then authors the jog clips", () => {
+test("the Ranger retargets the library clips in bundle order, then authors its own clips", () => {
   const names = RANGER_CLIPS.map((clip) => clip.name);
   assert.equal(new Set(names).size, names.length, "clip names are unique");
   assert.deepEqual(names.slice(0, 8), ["Idle_Loop", "Walk_Loop", "Jog_Fwd_Loop", "Sprint_Loop", "Sword_Idle", "Sword_Attack", "Death01", "Idle_Shield_Loop"]);
   assert.ok(RANGER_CLIPS.every((clip) => clip.rootMotion === "in-place"));
-  assert.deepEqual(RANGER_CLIPS.filter((clip) => clip.library === "mixamo").map((clip) => [clip.name, clip.mixamo]), [
-    ["Walk_Bwd_Loop", "Walking Backwards"], ["Walk_Strafe_Left_Loop", "Left Strafe Walking"], ["Walk_Strafe_Right_Loop", "Right Strafe Walking"],
-    ["Walk_Start", "Start Walking"], ["Walk_Stop", "Walk To Stop"], ["Turn_Left", "Left Turn"], ["Turn_Right", "Right Turn"], ["Hit_Shove_Spin", "Shoved Reaction With Spin"],
+  assert.ok(RANGER_CLIPS.every((clip) => clip.library === "clips" || clip.library === "clips2"), "only CC0 library clips are retargeted (#399)");
+  // #112, #399: the walk and jog directional family, start/stop and turns, all authored (no Mixamo input).
+  assert.deepEqual([...RANGER_GAIT_CLIPS], [
+    "Jog_Bwd_Loop", "Jog_Strafe_Left_Loop", "Jog_Strafe_Right_Loop", "Walk_Bwd_Loop", "Walk_Strafe_Left_Loop", "Walk_Strafe_Right_Loop",
+    "Walk_Start", "Walk_Stop", "Turn_Left", "Turn_Right",
   ]);
-  assert.deepEqual([...RANGER_AUTHORED_CLIPS], ["Jog_Bwd_Loop", "Jog_Strafe_Left_Loop", "Jog_Strafe_Right_Loop"]);
-  assert.ok(RANGER_AUTHORED_CLIPS.every((name) => !names.includes(name)));
+  assert.ok(RANGER_GAIT_CLIPS.every((name) => !names.includes(name)));
+  // #399: the upper-body hits and the shove, with their roles.
+  assert.deepEqual([...RANGER_HIT_CLIPS], ["Hit_Upper_Front", "Hit_Upper_Back", "Hit_Upper_Left", "Hit_Upper_Right", "Hit_Shove_Spin"]);
+  for (const side of ["Front", "Back", "Left", "Right"]) assert.equal(RANGER_CLIP_ROLES[`Hit_Upper_${side}`]!.role, `hit.upper.${side.toLowerCase()}`);
   // #277: original bow clips, each with a bow role; only the release has a contact.
   assert.deepEqual([...RANGER_BOW_CLIPS], ["Bow_Aim_Loop", "Bow_Draw", "Bow_Hold_Loop", "Bow_Release", "Bow_Recovery", "Bow_Cancel"]);
   assert.ok(RANGER_BOW_CLIPS.every((name) => RANGER_CLIP_ROLES[name]!.role.startsWith("bow.") && !names.includes(name)));
@@ -78,7 +81,7 @@ test("the Ranger retargets the library clips in bundle order, then authors the j
   // #393: the water clips mmorpg#499 plays by name.
   assert.deepEqual([...RANGER_SWIM_CLIPS], ["Wade_Fwd_Loop", "Swim_Idle_Loop", "Swim_Fwd_Loop", "Swim_Down_Loop", "Swim_Up_Loop", "Swim_Enter", "Swim_Exit"]);
   assert.ok(RANGER_SWIM_CLIPS.every((name) => !names.includes(name)));
-  assert.deepEqual([...RANGER_GAITS], ["Walk_Loop", "Jog_Fwd_Loop", "Sprint_Loop", "Crouch_Fwd_Loop", "Jog_Bwd_Loop", "Wade_Fwd_Loop"]);
+  assert.deepEqual([...RANGER_GAITS], ["Walk_Loop", "Jog_Fwd_Loop", "Sprint_Loop", "Crouch_Fwd_Loop", "Jog_Bwd_Loop", "Walk_Bwd_Loop", "Wade_Fwd_Loop"]);
   // Owner picks on #114: heavy = Sword_Regular_C, counter = Sword_Regular_B, light = Sword_Regular_A; Melee_Hook is not used.
   assert.equal(RANGER_CLIP_ROLES.Sword_Regular_C!.role, "sword.heavy-strike");
   assert.equal(RANGER_CLIP_ROLES.Sword_Regular_B!.role, "sword.counter");
@@ -87,7 +90,7 @@ test("the Ranger retargets the library clips in bundle order, then authors the j
   assert.ok(!names.some((name) => name.startsWith("Melee_Hook")));
 });
 
-test("every spine joint is retargeted exactly once; UAL2 and Mixamo bind the same target joints", () => {
+test("every spine joint is retargeted exactly once; UAL2 binds the same target joints", () => {
   const spine = Object.entries(RANGER_BONE_MAP).filter(([, { target }]) => target.startsWith("spine_")).map(([bone, { source, target }]) => [bone, source, target]);
   assert.deepEqual(spine, [["spine", "DEF-spine.001", "spine_01"], ["chest", "DEF-spine.002", "spine_02"], ["upper-chest", "DEF-spine.003", "spine_03"]]);
   for (const side of ["source", "target"] as const) {
@@ -99,8 +102,6 @@ test("every spine joint is retargeted exactly once; UAL2 and Mixamo bind the sam
     assert.equal(source, target, bone);
     assert.equal(target, RANGER_BONE_MAP[bone]!.target, bone);
   }
-  assert.deepEqual(Object.keys(RANGER_MIXAMO_BONE_MAP).sort(), Object.keys(RANGER_BONE_MAP).filter((bone) => bone !== "root").sort());
-  assert.ok(Object.values(RANGER_MIXAMO_BONE_MAP).every(({ source }) => source.startsWith("mixamorig:")));
 });
 
 test("resident presets must name options the appearance descriptor offers", () => {
@@ -168,7 +169,7 @@ test("the Ranger declares its equipment, figures, appearance and texture limits"
 test("the Ranger recipe builds a verified bundle: in-place clips, equipment entries, the sockets and clips attachments and game-resolution textures", { skip: await skipReason(), timeout: 900_000 }, async () => {
   const outDir = await mkdtemp(path.join(os.tmpdir(), "humanoid-ranger-"));
   try {
-    const built = await buildRangerCharacter({ processorCheckout: CHECKOUT!, outDir, mixamoDir: process.env.ASSET_TOOLING_MIXAMO_DIR });
+    const built = await buildRangerCharacter({ processorCheckout: CHECKOUT!, outDir });
     const tar = await readFile(built.tar);
     await verifyAssetBundleTar(tar, { sha256: built.tarSha256, ref: built.exportRef });
     const { manifest } = await verifyAssetBundle(built.bundleDir, built.exportRef, { profile: GLTF_RESOURCES_BUNDLE_PROFILE });
@@ -179,8 +180,8 @@ test("the Ranger recipe builds a verified bundle: in-place clips, equipment entr
       assert.ok(entries.includes(expected), expected);
     }
     const entry = manifest.assets.find((candidate) => candidate.key === RANGER_BUNDLE_KEY)!;
-    const clipNames = [...RANGER_CLIPS.map((clip) => clip.name), ...RANGER_AUTHORED_CLIPS, ...RANGER_BOW_CLIPS, ...RANGER_GRIPS.map((grip) => grip.clip), ...RANGER_SWIM_CLIPS];
-    const libraryClips = new Set(RANGER_CLIPS.filter((clip) => clip.library !== "mixamo").map((clip) => clip.name));
+    const clipNames = [...RANGER_CLIPS.map((clip) => clip.name), ...RANGER_GAIT_CLIPS, ...RANGER_BOW_CLIPS, ...RANGER_GRIPS.map((grip) => grip.clip), ...RANGER_SWIM_CLIPS, ...RANGER_HIT_CLIPS];
+    const libraryClips = new Set(RANGER_CLIPS.map((clip) => clip.name));
     assert.deepEqual(entry.observations.animations, clipNames);
 
     // The sockets descriptor ships with the character entry, byte-identical to the versioned file.
@@ -301,14 +302,21 @@ test("the Ranger recipe builds a verified bundle: in-place clips, equipment entr
     const root = joints.find((joint) => joint.getName() === "root")!;
     const pelvis = joints.find((joint) => joint.getName() === "pelvis")!;
     const rest = { root: [root.getTranslation(), root.getRotation()], pelvis: [pelvis.getTranslation(), pelvis.getRotation()] } as const;
+    const spine = joints.find((joint) => joint.getName() === "spine_01")!;
+    const upperBody = new Set<string>();
+    for (const pending = [spine]; pending.length;) { const joint = pending.pop()!; upperBody.add(joint.getName()); pending.push(...joint.listChildren()); }
     assert.deepEqual(document.getRoot().listAnimations().map((animation) => animation.getName()), clipNames);
     for (const animation of document.getRoot().listAnimations()) {
       const name = animation.getName();
       for (const channel of animation.listChannels()) {
-        // Retargeted library clips animate only mapped joints; Blender-made clips (Mixamo, authored) key every joint.
+        // Retargeted library clips animate only mapped joints; authored clips key every joint, except the layered ones.
         if (libraryClips.has(name)) assert.ok(mappedTargets.has(channel.getTargetNode()!.getName()), `${name} animates only mapped joints`);
+        // #399: an upper-body hit rotates only the spine_01 subtree, so pelvis and legs stay with the clip underneath.
+        if (name.startsWith("Hit_Upper_")) assert.ok(channel.getTargetPath() === "rotation" && upperBody.has(channel.getTargetNode()!.getName()), `${name} keys ${channel.getTargetNode()!.getName()}`);
         assert.equal(channel.getSampler()!.getInterpolation(), "LINEAR");
       }
+      // Layered clips (grips, upper-body hits) leave the pelvis to the clip underneath.
+      if (name.startsWith("Grip_") || name.startsWith("Hit_Upper_")) continue;
       // #268: the middle spine joint carries the source bend instead of staying at rest.
       assert.ok(animation.listChannels().some((channel) => channel.getTargetNode()!.getName() === "spine_02" && channel.getTargetPath() === "rotation"), `${name} rotates spine_02`);
       const duration = Math.max(...animation.listSamplers().map((sampler) => sampler.getInput()!.getMax([])[0]!));
