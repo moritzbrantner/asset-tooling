@@ -1,13 +1,10 @@
 import path from "node:path";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { resolveAssetObject, storeAssetObject } from "./asset-store.js";
+import { resolveAssetObject } from "./asset-store.js";
+import { blenderScriptSpec, runBlenderRecipe } from "./blender-recipe-run.js";
 import { readBlenderRecipeSource } from "./blender-recipe-source.js";
-import { canonicalJson } from "./canonical.js";
 import { sha256Bytes } from "./hash.js";
-import { generateAsset } from "./core.js";
 import type { DebrisPlane } from "./debris-recipe.js";
 import type { AssetRef } from "./operations.js";
-import { parseAssetSpec } from "./schema.js";
 
 /**
  * Staged destruction of the modular building pieces (#318 for mmorpg destructible buildings, owner decisions
@@ -87,22 +84,14 @@ export function clipBox(box: Box, limit: Box, minimum = 0.02): Box | undefined {
 /** Author one damage state of a placed piece through the pinned Blender backend; returns the GLB and the observations. */
 export async function generateDamageState(root: string, source: AssetRef, name: string, state: DamageState, recipe: DamageRecipe) {
   const script = await readBlenderRecipeSource("damage.py");
-  const workspace = path.join(root, "damage", `${name}.${state}`);
-  await mkdir(workspace, { recursive: true });
-  await writeFile(path.join(workspace, "damage.py"), script.bytes);
   const bytes = await resolveAssetObject(root, source);
-  await writeFile(path.join(workspace, "source.glb"), bytes);
   const cut = state === "damaged" ? { breaches: recipe.damaged } : { planes: recipe.destroyed };
-  const spec = parseAssetSpec({
-    schemaVersion: 1, assetId: `damage.${name}.${state}`, generator: { id: "external.blender.script", version: "1" }, randomness: { mode: "none" },
-    inputs: { script: { path: "damage.py", sha256: script.sha256 }, source: { path: "source.glb", sha256: sha256Bytes(bytes) } }, models: {},
-    parameters: { blenderVersion: script.blenderVersion, arguments: { schemaVersion: 1, name, state, ...cut } },
-    output: { path: "damage.glb" }, reproducibility: { expected: "exact" },
+  const spec = blenderScriptSpec({
+    assetId: `damage.${name}.${state}`, inputs: { script: { path: "damage.py", sha256: script.sha256 }, source: { path: "source.glb", sha256: sha256Bytes(bytes) } },
+    blenderVersion: script.blenderVersion, arguments: { schemaVersion: 1, name, state, ...cut }, output: "damage.glb",
   });
-  const specPath = path.join(workspace, "asset.json");
-  await writeFile(specPath, `${canonicalJson(spec)}\n`);
-  const generated = await generateAsset(specPath);
-  const glb = (await storeAssetObject(root, { bytes: await readFile(path.join(workspace, "damage.glb")), kind: "mesh", mediaType: "model/gltf-binary",
-    metadata: { damage: name, state, source: source.sha256 } })).asset;
-  return { glb, observations: (generated.receipt.observations as Record<string, any>).script as Record<string, any> };
+  return runBlenderRecipe(root, {
+    workspace: path.join(root, "damage", `${name}.${state}`), spec, files: { "damage.py": script.bytes, "source.glb": bytes },
+    metadata: { damage: name, state, source: source.sha256 },
+  });
 }

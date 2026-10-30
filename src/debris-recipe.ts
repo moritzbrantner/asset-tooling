@@ -1,12 +1,9 @@
 import path from "node:path";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { resolveAssetObject, storeAssetObject } from "./asset-store.js";
+import { resolveAssetObject } from "./asset-store.js";
+import { blenderScriptSpec, runBlenderRecipe } from "./blender-recipe-run.js";
 import { readBlenderRecipeSource } from "./blender-recipe-source.js";
-import { canonicalJson } from "./canonical.js";
 import { sha256Bytes } from "./hash.js";
-import { generateAsset } from "./core.js";
 import type { AssetRef } from "./operations.js";
-import { parseAssetSpec } from "./schema.js";
 
 /**
  * Pre-fractured debris for breakable props (#319 for mmorpg#288): adapters/blender/debris.py cuts the placed prop with
@@ -68,21 +65,13 @@ export const DEBRIS_PLANES = Object.freeze({
 /** Split one placed GLB into debris chunks through the pinned Blender backend; returns the GLB and the chunk observations. */
 export async function generateDebris(root: string, source: AssetRef, name: string, planes: readonly DebrisPlane[]) {
   const script = await readBlenderRecipeSource("debris.py");
-  const workspace = path.join(root, "debris", name);
-  await mkdir(workspace, { recursive: true });
-  await writeFile(path.join(workspace, "debris.py"), script.bytes);
   const bytes = await resolveAssetObject(root, source);
-  await writeFile(path.join(workspace, "source.glb"), bytes);
-  const spec = parseAssetSpec({
-    schemaVersion: 1, assetId: `debris.${name}`, generator: { id: "external.blender.script", version: "1" }, randomness: { mode: "none" },
-    inputs: { script: { path: "debris.py", sha256: script.sha256 }, source: { path: "source.glb", sha256: sha256Bytes(bytes) } }, models: {},
-    parameters: { blenderVersion: script.blenderVersion, arguments: { schemaVersion: 1, name, planes, minimumShare: DEBRIS_MINIMUM_SHARE } },
-    output: { path: "debris.glb" }, reproducibility: { expected: "exact" },
+  const spec = blenderScriptSpec({
+    assetId: `debris.${name}`, inputs: { script: { path: "debris.py", sha256: script.sha256 }, source: { path: "source.glb", sha256: sha256Bytes(bytes) } },
+    blenderVersion: script.blenderVersion, arguments: { schemaVersion: 1, name, planes, minimumShare: DEBRIS_MINIMUM_SHARE }, output: "debris.glb",
   });
-  const specPath = path.join(workspace, "asset.json");
-  await writeFile(specPath, `${canonicalJson(spec)}\n`);
-  const generated = await generateAsset(specPath);
-  const glb = (await storeAssetObject(root, { bytes: await readFile(path.join(workspace, "debris.glb")), kind: "mesh", mediaType: "model/gltf-binary",
-    metadata: { debris: name, source: source.sha256 } })).asset;
-  return { glb, observations: (generated.receipt.observations as Record<string, any>).script as Record<string, any> };
+  return runBlenderRecipe(root, {
+    workspace: path.join(root, "debris", name), spec, files: { "debris.py": script.bytes, "source.glb": bytes },
+    metadata: { debris: name, source: source.sha256 },
+  });
 }

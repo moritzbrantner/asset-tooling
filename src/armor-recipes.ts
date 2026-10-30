@@ -1,5 +1,5 @@
+import { blenderScriptSpec } from "./blender-recipe-run.js";
 import { readBlenderRecipeSource } from "./blender-recipe-source.js";
-import { parseAssetSpec } from "./schema.js";
 
 /**
  * Soldier and knight armour fitted to a base character's rest pose (#117, adapters/blender/armor.py).
@@ -77,10 +77,8 @@ export function createArmorAssetSpec({ assetId, parameters, scriptSha256, target
   assetId: string; parameters: unknown; scriptSha256: string; targetSha256: string; blenderVersion: string;
 }) {
   if (!/^\d+\.\d+\.\d+$/.test(blenderVersion)) throw new Error("armor Blender version must be exact");
-  return parseAssetSpec({
-    schemaVersion: 1, assetId, generator: { id: "external.blender.script", version: "1" }, randomness: { mode: "none" },
-    inputs: { script: { path: "armor.py", sha256: scriptSha256 }, target: { path: "target.glb", sha256: targetSha256 } }, models: {},
-    parameters: { blenderVersion, arguments: normalizeArmorParameters(parameters) },
-    output: { path: "armor.glb" }, reproducibility: { expected: "exact" },
+  return blenderScriptSpec({
+    assetId, inputs: { script: { path: "armor.py", sha256: scriptSha256 }, target: { path: "target.glb", sha256: targetSha256 } },
+    blenderVersion, arguments: normalizeArmorParameters(parameters), output: "armor.glb",
   });
 }

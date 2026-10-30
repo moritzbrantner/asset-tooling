@@ -7,7 +7,7 @@ import { canonicalJson } from "./canonical.js";
 import { generateAsset } from "./core.js";
 import { sha256Bytes } from "./hash.js";
 import type { AssetRef } from "./operations.js";
-import { parseAssetSpec } from "./schema.js";
+import { blenderScriptSpec } from "./blender-recipe-run.js";
 
 /**
  * Ranger facial variants (#348): four independently selectable features, each with a base (no morph) and two
@@ -29,10 +29,9 @@ export const FACE_MORPH_NODES = Object.freeze({ male: ["SuperHero_Male", "Eyes",
 export function createFaceVariantsAssetSpec({ assetId, scriptSha256, sourceSha256, blenderVersion }: {
   assetId: string; scriptSha256: string; sourceSha256: string; blenderVersion: string;
 }) {
-  return parseAssetSpec({
-    schemaVersion: 1, assetId, generator: { id: "external.blender.script", version: "1" }, randomness: { mode: "none" },
-    inputs: { script: { path: "face_variants.py", sha256: scriptSha256 }, source: { path: "source.glb", sha256: sourceSha256 } }, models: {},
-    parameters: { blenderVersion, arguments: { schemaVersion: 1 } }, output: { path: "face.glb" }, reproducibility: { expected: "exact" },
+  return blenderScriptSpec({
+    assetId, inputs: { script: { path: "face_variants.py", sha256: scriptSha256 }, source: { path: "source.glb", sha256: sourceSha256 } },
+    blenderVersion, arguments: { schemaVersion: 1 }, output: "face.glb",
   });
 }
 
