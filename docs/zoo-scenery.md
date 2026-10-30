@@ -75,7 +75,7 @@ Zoo downloads the rolling `zoo-scenery` release, pins it by the tar's SHA-256 an
 
 ## Tests
 
-`test/zoo-scenery.test.ts` runs in the hosted `blender-script` job. It checks:
+`test/blender/kits/zoo-scenery.test.ts` runs in the hosted `blender-script` job. It checks:
 
 - the tar and the package verify, and each entry is a self-contained GLB;
 - each GLB has no textures, skins, animations or morph targets, and every material is opaque;

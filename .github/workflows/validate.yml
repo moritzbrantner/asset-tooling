@@ -71,14 +71,29 @@ jobs:
   blender-script:
     needs: impact
     if: github.event_name != 'pull_request' || needs.impact.outputs.extended == 'true'
+    name: blender-script (${{ matrix.suite }})
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # Every test under test/blender/<suite> runs here: a new Blender test is picked up by where it lives.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - suite: kits
+            lfs: "assets/canonical/quaternius.animal-pack-vol2.cat-blend/**,assets/canonical/quaternius.ultimate-animated-animals-shibainu-glb/**,assets/canonical/quaternius.easy-enemy-rat-glb/**"
+          - suite: recipes
+            lfs: "assets/canonical/quaternius.universal-base-characters-standard.*/**,assets/canonical/quaternius.modular-character-outfits-fantasy-standard.*/**"
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
       - name: Set up Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: latest
+      - name: Cache the Blender archive
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: /tmp/asset-tooling-blender-*.archive
+          key: blender-${{ hashFiles('adapters/blender/release.json') }}
       - name: Install pinned Blender
         run: echo "ASSET_TOOLING_BLENDER=$(bun scripts/install-blender.ts "$RUNNER_TEMP/blender")" >> "$GITHUB_ENV"
       - name: Install image inspection codec
@@ -90,14 +105,14 @@ jobs:
           curl --fail --location --max-time 30 --max-filesize 36296 "$SAPLING_SOURCE_URL" --output "$RUNNER_TEMP/sapling.zip"
           bun -e 'import { readFile } from "node:fs/promises"; import { sha256Bytes } from "./src/hash.ts"; import { SAPLING_TREE_SOURCE } from "./src/tree-recipes.ts"; const bytes = await readFile(process.argv[1]); if (bytes.length !== SAPLING_TREE_SOURCE.byteLength || sha256Bytes(bytes) !== SAPLING_TREE_SOURCE.sha256) throw new Error("Sapling input pin mismatch")' "$RUNNER_TEMP/sapling.zip"
           echo "ASSET_TOOLING_SAPLING_ARCHIVE=$RUNNER_TEMP/sapling.zip" >> "$GITHUB_ENV"
-      - name: Hydrate the ambient-animal sources
-        run: git lfs pull --include="assets/canonical/quaternius.animal-pack-vol2.cat-blend/**,assets/canonical/quaternius.ultimate-animated-animals-shibainu-glb/**,assets/canonical/quaternius.easy-enemy-rat-glb/**"
+      - name: Hydrate the suite's canonical sources
+        run: git lfs pull --include="${{ matrix.lfs }}"
       - name: Blender script backend round trips
         env:
           BLENDER_TESTS: "1"
         run: |
           bun install --frozen-lockfile
-          bun test test/blender-script.test.ts test/greyhaven-inn.test.ts test/crypt-kit.test.ts test/shrine-kit.test.ts test/outpost-kit.test.ts test/settlement-props.test.ts test/greyhaven-marshal-house.test.ts test/farm-structures.test.ts test/zoo-scenery.test.ts test/greyhaven-ambient-animals.test.ts test/archery-recipes.test.ts test/blender-input-snapshot.test.ts test/gltf-production-operations.test.ts test/rock-recipes.test.ts test/render-derivative-recipes.test.ts test/shared-render-framing.test.ts test/tree-recipes.test.ts test/wheat-recipes.test.ts test/corn-recipes.test.ts test/grass-recipes.test.ts test/fence-kit-recipes.test.ts
+          bun test test/blender/${{ matrix.suite }}
 
   canonical-storage:
     needs: impact
@@ -124,7 +139,8 @@ jobs:
       - name: Verify Greyhaven starter source members
         env:
           ASSET_TOOLING_REQUIRE_HYDRATED_STORAGE: "1"
-        run: bun test test/greyhaven-starter-sources.test.ts test/greyhaven-starter-import.test.ts test/humanoid-sources.test.ts test/gltf-compose-operations.test.ts test/gltf-subset-operations.test.ts test/gltf-place-operations.test.ts test/gltf-resources-bundle.test.ts test/greyhaven-starter-bundle.test.ts test/greyhaven-nature.test.ts test/combat-sounds.test.ts
+        # Every test under test/hydrated runs here.
+        run: bun test test/hydrated
 
   processing-contract:
     needs: impact

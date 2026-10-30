@@ -54,7 +54,7 @@ Measured on the hydrated Greyhaven sources (imported with the tangent exception)
 
 ## Tests
 
-`bun test test/gltf-place-operations.test.ts` uses small hand-authored fixtures to cover:
+`bun test test/hydrated/gltf-place-operations.test.ts` uses small hand-authored fixtures to cover:
 
 - a static mesh offset from the origin, with the exact anchor translation and bounds;
 - a nested, rotated hierarchy with two roots and a `sourcePivot`;

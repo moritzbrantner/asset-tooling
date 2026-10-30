@@ -58,7 +58,7 @@ Analysis returns no outputs and writes no objects. Its observations include node
 
 A policy rejection returns `accepted: false` with diagnostics from analysis. Production import applies the same policy and refuses to store a derived output when rejected. Malformed/unsupported inputs fail validation before either operation claims acceptance. Build identity hashes the source and declared resources even for analysis.
 
-Run `bun test test/gltf-production-operations.test.ts` for independent joint-order, root/hips, weights/bind matrices, clip endpoint/value, malformed-input, policy and non-mutation fixtures. For representative source evidence, explicitly acquire the pinned reference with `bun run catalog:acquire khronos.riggedfigure-glb <disposable-directory>`, then run:
+Run `bun test test/blender/recipes/gltf-production-operations.test.ts` for independent joint-order, root/hips, weights/bind matrices, clip endpoint/value, malformed-input, policy and non-mutation fixtures. For representative source evidence, explicitly acquire the pinned reference with `bun run catalog:acquire khronos.riggedfigure-glb <disposable-directory>`, then run:
 
 ```sh
 bun scripts/check-gltf-production-contract.ts khronos.riggedfigure-glb <disposable-directory>/khronos.riggedfigure-glb/RiggedFigure.glb

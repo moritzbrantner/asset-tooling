@@ -94,7 +94,7 @@ It reads each module with `readAssetBundleGltf(dir, manifest, "crypt.kit.<part>"
 
 ## Tests
 
-`test/crypt-kit.test.ts` runs in the hosted `blender-script` job. It checks:
+`test/blender/kits/crypt-kit.test.ts` runs in the hosted `blender-script` job. It checks:
 
 - the tar and the bundle verify, and there are nine entries;
 - the descriptor conforms to the schema;

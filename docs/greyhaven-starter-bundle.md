@@ -230,7 +230,7 @@ Two cold builds on 2026-10-17 from separate object stores produced the same tar:
 
 ## Tests
 
-`test/greyhaven-starter-bundle.test.ts` runs the whole recipe into a temporary directory. It checks:
+`test/hydrated/greyhaven-starter-bundle.test.ts` runs the whole recipe into a temporary directory. It checks:
 
 - the bundle with `verifyAssetBundle` and the tar with `verifyAssetBundleTar`;
 - that each WoodTrim texture is one resource shared by the wall, the door and the frame, and is in the tar once;

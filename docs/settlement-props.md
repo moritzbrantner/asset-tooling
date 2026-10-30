@@ -92,7 +92,7 @@ The bundle is distributed as the rolling `settlement-props` GitHub release, whos
 
 ## Tests
 
-`test/settlement-props.test.ts` runs in the hosted `blender-script` job. It checks:
+`test/blender/kits/settlement-props.test.ts` runs in the hosted `blender-script` job. It checks:
 
 - the tar and the bundle verify, with ten `default` entries;
 - the descriptor conforms to the schema;
