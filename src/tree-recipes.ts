@@ -1,4 +1,4 @@
-import { blenderScriptSpec } from "./blender-recipe-run.js";
+import { blenderScriptSpec } from "./blender-script-spec.js";
 import { readBlenderRecipeSource } from "./blender-recipe-source.js";
 
 /** Acquisition is explicit; recipes consume this exact local archive without installing it. */

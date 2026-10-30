@@ -9,7 +9,7 @@ import path from "node:path";
 import { mkdir, writeFile } from "node:fs/promises";
 import type { Document } from "@gltf-transform/core";
 import { STATIC_ASSET_BUNDLE_PROFILE } from "../src/asset-bundle.js";
-import { blenderScriptSpec } from "../src/blender-recipe-run.js";
+import { blenderScriptSpec } from "../src/blender-script-spec.js";
 import { readBlenderRecipeSource } from "../src/blender-recipe-source.js";
 import { canonicalJson } from "../src/canonical.js";
 import { buildKitPart, documentBounds, exportKitBundle, runKitCli, triangles, type KitPart } from "../src/kit-bundle.js";

@@ -11,7 +11,7 @@ import path from "node:path";
 import { mkdir } from "node:fs/promises";
 import { GLTF_RESOURCES_BUNDLE_PROFILE } from "../src/asset-bundle.js";
 import { storeAssetObject } from "../src/asset-store.js";
-import { blenderScriptSpec } from "../src/blender-recipe-run.js";
+import { blenderScriptSpec } from "../src/blender-script-spec.js";
 import { readBlenderRecipeSource } from "../src/blender-recipe-source.js";
 import { canonicalJson } from "../src/canonical.js";
 import { buildKitPart, documentBounds as bounds, emptyTranslation, exportKitBundle, round, round3, runKitCli, triangles, type KitPart, type Vec3 } from "../src/kit-bundle.js";

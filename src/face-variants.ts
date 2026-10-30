@@ -7,7 +7,7 @@ import { canonicalJson } from "./canonical.js";
 import { generateAsset } from "./core.js";
 import { sha256Bytes } from "./hash.js";
 import type { AssetRef } from "./operations.js";
-import { blenderScriptSpec } from "./blender-recipe-run.js";
+import { blenderScriptSpec } from "./blender-script-spec.js";
 
 /**
  * Ranger facial variants (#348): four independently selectable features, each with a base (no morph) and two

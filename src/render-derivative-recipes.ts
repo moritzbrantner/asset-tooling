@@ -2,7 +2,7 @@ import {compareCodeUnitStrings} from "./canonical.js";
 import { NodeIO } from "@gltf-transform/core";
 import { resolveAssetObject } from "./asset-store.js";
 import { createAssetRef, type AssetRef } from "./operations.js";
-import { blenderScriptSpec } from "./blender-recipe-run.js";
+import { blenderScriptSpec } from "./blender-script-spec.js";
 import { GLTF_IMPORT_OPERATION } from "./gltf-import-operations.js";
 import { gltfSummary, loadCheckedGltf, checkStaticGltfAccessorBudget } from "./gltf-processing.js";
 import { readBlenderRecipeSource } from "./blender-recipe-source.js";

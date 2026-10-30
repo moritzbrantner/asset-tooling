@@ -7,7 +7,7 @@ import { generateAsset } from "./core.js";
 import { transferMorphTargets } from "./face-variants.js";
 import { sha256Bytes } from "./hash.js";
 import type { AssetRef } from "./operations.js";
-import { blenderScriptSpec, type BlenderSpecInput } from "./blender-recipe-run.js";
+import { blenderScriptSpec, type BlenderSpecInput } from "./blender-script-spec.js";
 
 /**
  * Male character variety (#380): one rig with age and build morph targets that the outfits, armour plates, hair and

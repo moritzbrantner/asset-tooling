@@ -11,7 +11,7 @@ import { mkdir } from "node:fs/promises";
 import type { Document } from "@gltf-transform/core";
 import { GLTF_RESOURCES_BUNDLE_PROFILE } from "../src/asset-bundle.js";
 import { storeAssetObject } from "../src/asset-store.js";
-import { blenderScriptSpec } from "../src/blender-recipe-run.js";
+import { blenderScriptSpec } from "../src/blender-script-spec.js";
 import { readBlenderRecipeSource } from "../src/blender-recipe-source.js";
 import { canonicalJson } from "../src/canonical.js";
 import { buildKitPart, byKey, exportKitBundle, kitEntry, runKitCli, type KitPart } from "../src/kit-bundle.js";
