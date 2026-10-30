@@ -64,7 +64,7 @@ My Farm stages its crops by building asset-tooling at a pinned commit (`scripts/
 
 ## Tests
 
-`test/farm-structures.test.ts` runs in the hosted `blender-script` job. It checks:
+`test/blender/kits/farm-structures.test.ts` runs in the hosted `blender-script` job. It checks:
 
 - the tar and the package verify, and each entry is a self-contained GLB;
 - the descriptor conforms to the schema;

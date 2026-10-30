@@ -53,7 +53,7 @@ Python and TypeScript reject the same controls before the scene changes. Generat
 
 `bun examples/weapons/build.ts` generates and exactly verifies every preset into the ignored `.artifacts/weapons/`. With `--sheets <humanoid.ranger.male default.gltf>`, it also renders the [Ranger socket sheets](humanoid-sockets.md#ranger-sockets) through `examples/weapons/socket-sheets.py`: held, stowed, and each staff in `hand_r.staff` with the dagger in `hand_l.weapon`.
 
-`bun test test/weapon-recipes.test.ts` checks control bounds and the spec pins. With `ASSET_TOOLING_BLENDER` set, it also runs:
+`bun test test/blender/recipes/weapon-recipes.test.ts` checks control bounds and the spec pins. With `ASSET_TOOLING_BLENDER` set, it also runs:
 
 - the Python and TypeScript control parity check;
 - exact replay and a cache hit for both presets;
@@ -87,7 +87,7 @@ Frames (`ARCHERY_GRIP_CONTRACT`):
 - **arrow:** `length` (0.55–0.95), `shaftRadius` (0.003–0.007) and integer `radialSegments` (5–12);
 - **quiver:** `length` (0.35–0.7), `radius` (0.035–0.08), integer `arrows` (0–8) and integer `radialSegments` (8–24).
 
-`bun test test/archery-recipes.test.ts` checks the control bounds. With `ASSET_TOOLING_BLENDER` set, it also generates the presets and checks:
+`bun test test/blender/recipes/archery-recipes.test.ts` checks the control bounds. With `ASSET_TOOLING_BLENDER` set, it also generates the presets and checks:
 
 - the budgets;
 - the bow's `grip`/`nock` skin and its nock rest;

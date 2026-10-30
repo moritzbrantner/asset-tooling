@@ -125,7 +125,7 @@ The bundle is distributed as the rolling `outpost-kit` GitHub release, whose ass
 
 ## Tests
 
-`test/outpost-kit.test.ts` runs in the hosted `blender-script` job. It checks:
+`test/blender/kits/outpost-kit.test.ts` runs in the hosted `blender-script` job. It checks:
 
 - the tar and the bundle verify, with eleven `default` entries and three `slate` entries;
 - the descriptor conforms to the schema;

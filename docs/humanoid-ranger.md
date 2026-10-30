@@ -456,7 +456,7 @@ A consumer that needs a fixed input keeps its own copy of the tar. Adopting a ne
   - the 13 character textures fit their slot limits, none is upscaled, the image bytes shrink at least fourfold, and the equipment has no images;
   - every variant in `humanoid-appearance.face.variants` carries the eight face morph targets on the head, eyes and eyebrows, and the levels of detail carry none.
 - `test/male-variety.test.ts` checks the age, build, height, tone, hairstyle and beard tables against the Blender recipes, the descriptor sections and the transfer that appends the variety targets after the face targets.
-- `test/face-variants.test.ts` checks the option table against the Blender recipe and the morph-target transfer. With `BLENDER_TESTS=1`, `ASSET_TOOLING_BLENDER` and hydrated LFS, it authors the keys on the real male and female head parts, checks that every key visibly moves the head and leaves the cranium, ears and neck still, and composes the result onto the outfit with the targets intact.
+- `test/blender/recipes/face-variants.test.ts` checks the option table against the Blender recipe and the morph-target transfer. With `BLENDER_TESTS=1`, `ASSET_TOOLING_BLENDER` and hydrated LFS, it authors the keys on the real male and female head parts, checks that every key visibly moves the head and leaves the cranium, ears and neck still, and composes the result onto the outfit with the targets intact.
 
   The full run skips unless the Git LFS payloads are hydrated, `ASSET_TOOLING_PROCESSOR_CHECKOUT_3DLAB` names the pinned checkout and `ASSET_TOOLING_BLENDER` names Blender 5.2.2.
 

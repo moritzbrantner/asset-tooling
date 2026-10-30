@@ -85,7 +85,7 @@ These boxes are inputs for mmorpg's authoritative colliders. The game owns trave
 
 ## Tests
 
-`test/greyhaven-marshal-house.test.ts` runs the whole recipe in the hosted `blender-script` job. It checks that:
+`test/blender/kits/greyhaven-marshal-house.test.ts` runs the whole recipe in the hosted `blender-script` job. It checks that:
 
 - the bundle and the tar verify, with six entries;
 - the house stands on its footprint;

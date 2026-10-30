@@ -95,7 +95,7 @@ The bundle is distributed as the rolling `shrine-kit` GitHub release, whose asse
 
 ## Tests
 
-`test/shrine-kit.test.ts` runs in the hosted `blender-script` job. It checks:
+`test/blender/kits/shrine-kit.test.ts` runs in the hosted `blender-script` job. It checks:
 
 - the tar and the bundle verify, and there are fourteen entries;
 - the descriptor conforms to the schema;

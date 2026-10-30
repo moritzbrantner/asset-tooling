@@ -47,7 +47,7 @@ Use `python3 scripts/setup-tools.py doctor --profile all --json` for read-only l
 
 Run `bun run check` for the ordinary deterministic gate. It validates catalog and storage-manifest structure without hydrating the whole LFS corpus.
 
-While iterating, run the affected files with `bun test <file>` rather than the whole suite. Tests that spawn Blender run only with `BLENDER_TESTS=1` and `ASSET_TOOLING_BLENDER` set (Blender 5.2.2; snap Blender needs `TMPDIR` under `$HOME`); otherwise they skip. The hosted `blender-script` job sets both.
+While iterating, run the affected files with `bun test <file>` rather than the whole suite. Tests that spawn Blender run only with `BLENDER_TESTS=1` and `ASSET_TOOLING_BLENDER` set (Blender 5.2.2; snap Blender needs `TMPDIR` under `$HOME`); otherwise they skip. The hosted `blender-script` job sets both. Put a test that spawns Blender under `test/blender/kits` (bundle builders) or `test/blender/recipes` (everything else), and a test that needs `ASSET_TOOLING_REQUIRE_HYDRATED_STORAGE=1` under `test/hydrated`. CI runs each directory whole, so no workflow edit is needed.
 
 Run `bun run catalog:storage:verify` from a Git LFS-hydrated checkout when changing canonical payload storage. Hosted `Validate / canonical-storage` additionally runs `git lfs fsck` and verifies every hydrated payload against its catalog SHA-256 and byte length.
 

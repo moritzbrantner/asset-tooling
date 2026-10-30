@@ -161,7 +161,7 @@ The archives are plain catalog sources, so another member of the same packs need
 
 ## Acceptance
 
-[`test/humanoid-sources.test.ts`](../test/humanoid-sources.test.ts) covers this slice:
+[`test/hydrated/humanoid-sources.test.ts`](../test/hydrated/humanoid-sources.test.ts) covers this slice:
 
 - the archive and member records and their pins;
 - the storage entries, with no unlisted member stored;

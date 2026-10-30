@@ -65,7 +65,7 @@ Two cold builds on 2026-10-17 from separate object stores (Blender 5.2.2 snap) p
 
 ## Tests
 
-`test/greyhaven-inn.test.ts` runs the whole recipe in the hosted `blender-script` job. It checks:
+`test/blender/kits/greyhaven-inn.test.ts` runs the whole recipe in the hosted `blender-script` job. It checks:
 
 - the bundle and the tar verify, and there are six entries;
 - the footprint is exactly 14 × 10 × 6 m;

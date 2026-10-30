@@ -81,7 +81,7 @@ Composing Male_Ranger (skeleton) with this subset through [`scene.compose.skinne
 
 ## Tests
 
-`bun test test/gltf-subset-operations.test.ts` uses small hand-authored skinned fixtures to cover:
+`bun test test/hydrated/gltf-subset-operations.test.ts` uses small hand-authored skinned fixtures to cover:
 
 - weight sums across two weight sets;
 - the `minWeight` threshold;

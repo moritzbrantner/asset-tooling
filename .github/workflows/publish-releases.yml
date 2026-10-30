@@ -8,24 +8,9 @@ on:
   workflow_dispatch:
     inputs:
       release:
-        description: Rolling release to rebuild and publish
+        description: Rolling release to rebuild and publish (a name in ROLLING_RELEASES, scripts/publish-release.ts)
         required: true
-        type: choice
-        # Must list exactly ROLLING_RELEASES in scripts/publish-release.ts (test/publish-release.test.ts).
-        options:
-          - combat-effects
-          - combat-sounds
-          - farm-structures
-          - greyhaven-ambient-animals
-          - greyhaven-marshal-house
-          - greyhaven-nature
-          - humanoid-ranger-female
-          - humanoid-ranger-male
-          - outpost-kit
-          - settlement-props
-          - shrine-kit
-          - zoo-effects
-          - zoo-scenery
+        type: string
 
 permissions:
   contents: read

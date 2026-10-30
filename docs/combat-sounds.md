@@ -103,7 +103,7 @@ Unprefixed impact files are from Kenney's Impact Sounds.
 
 ## Tests
 
-`bun test test/combat-sounds.test.ts` covers three things:
+`bun test test/hydrated/combat-sounds.test.ts` covers three things:
 
 - The recipe matches the #297 cue list and its variant counts, and every source is CC0, pinned, tagged and stored in LFS.
 - The pure trim, fade and gain arithmetic.

@@ -214,7 +214,7 @@ A consumer pins three things: the release **tag**, the **tar sha256** and its ow
 
 No source store, Blender, GPU or network is needed after the download.
 
-`bun test test/gltf-resources-bundle.test.ts` covers the following with hand-authored skinned and animated fixtures:
+`bun test test/hydrated/gltf-resources-bundle.test.ts` covers the following with hand-authored skinned and animated fixtures:
 
 - Two entries that share one PNG stored once.
 - Byte-identical accessors.
