@@ -15,7 +15,7 @@ Frame: metres, glTF right-handed +Y up, origin on the ground at the centre of th
 front towards +Z. ``fence`` follows the kit's wall convention: a 2 m module (x -1..1) with half a post
 at each end, so neighbouring segments share one post.
 
-The kit recipe (``outpost.py``) is a declared Python input named ``outpost``. No randomness: variation
+The kit recipe (``outpost.py``) is a declared Python input named ``outpost``, and its shared helpers (``kit_common.py``) one named ``common``. No randomness: variation
 comes from a SHA-256 of fixed keys (the kit's ``rnd``).
 
 ``build(prop, collection, location, yaw)`` and ``build_composition(name, collection, location)`` also
@@ -516,13 +516,15 @@ def validate(arguments, inputs):
         raise ValueError("settlement-props arguments must be {schemaVersion: 1, prop}")
     if arguments["prop"] not in PROPS:
         raise ValueError(f"settlement prop must be one of {', '.join(PROPS)}")
-    if set(inputs) != {"outpost"}:
-        raise ValueError("settlement-props recipe takes exactly the outpost kit recipe as its input 'outpost'")
+    if set(inputs) != {"outpost", "common"}:
+        raise ValueError("settlement-props recipe takes exactly the inputs 'outpost' (outpost.py) and 'common' (kit_common.py)")
 
 
 def generate(output_path, arguments, inputs):
     validate(arguments, inputs)
-    use_kit(inputs.load_source("outpost"))
+    outpost = inputs.load_source("outpost")
+    outpost["use_common"](inputs.load_source("common"))
+    use_kit(outpost)
     prop = arguments["prop"]
     bpy.ops.object.select_all(action="SELECT")
     bpy.ops.object.delete(use_global=False)

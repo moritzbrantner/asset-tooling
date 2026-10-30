@@ -54,10 +54,10 @@ function placedBox(box: Box, t: number[], yaw: number): Box {
 }
 
 test("the settlement spec runs the packaged recipe with the outpost kit recipe as its input", () => {
-  const spec = createSettlementAssetSpec({ prop: "cart", scriptSha256: "a".repeat(64), outpostSha256: "b".repeat(64), blenderVersion: "5.2.2" });
+  const spec = createSettlementAssetSpec({ prop: "cart", scriptSha256: "a".repeat(64), outpostSha256: "b".repeat(64), commonSha256: "d".repeat(64), blenderVersion: "5.2.2" });
   assert.deepEqual(spec.parameters, { blenderVersion: "5.2.2", arguments: { schemaVersion: 1, prop: "cart" } });
   assert.equal(spec.assetId, "settlement.props.cart");
-  assert.deepEqual(Object.keys(spec.inputs).sort(), ["outpost", "script"]);
+  assert.deepEqual(Object.keys(spec.inputs).sort(), ["common", "outpost", "script"]);
   assert.deepEqual(new Set(Object.values(SETTLEMENT_FAMILY)), new Set(["market", "street", "dressing"]));
   assert.equal(SETTLEMENT_RELEASE, "settlement-props", "one rolling release, never numbered");
 });

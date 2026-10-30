@@ -55,10 +55,10 @@ function single(result: AssetOperationResult, port = "output"): AssetRef {
 
 export const shrineKey = (part: ShrinePart) => `${SHRINE_KEY_PREFIX}.${part}`;
 
-export function createShrineAssetSpec({ part, scriptSha256, blenderVersion }: { part: ShrinePart; scriptSha256: string; blenderVersion: string }) {
+export function createShrineAssetSpec({ part, scriptSha256, commonSha256, blenderVersion }: { part: ShrinePart; scriptSha256: string; commonSha256: string; blenderVersion: string }) {
   return parseAssetSpec({
     schemaVersion: 1, assetId: shrineKey(part), generator: { id: "external.blender.script", version: "1" }, randomness: { mode: "none" },
-    inputs: { script: { path: "shrine.py", sha256: scriptSha256 } }, models: {},
+    inputs: { script: { path: "shrine.py", sha256: scriptSha256 }, common: { path: "kit_common.py", sha256: commonSha256 } }, models: {},
     parameters: { blenderVersion, arguments: { schemaVersion: 1, part } }, output: { path: "shrine.glb" }, reproducibility: { expected: "exact" },
   });
 }
@@ -98,6 +98,7 @@ export async function buildShrineKit({ outDir, log = () => {} }: { outDir: strin
   const root = path.resolve(outDir);
   await mkdir(root, { recursive: true });
   const source = await readBlenderRecipeSource("shrine.py");
+  const common = await readBlenderRecipeSource("kit_common.py");
   const io = new NodeIO();
   const parts = {} as Record<ShrinePart, { asset: AssetRef; document: Document; observations: Json }>;
   for (const part of SHRINE_PARTS) {
@@ -105,8 +106,9 @@ export async function buildShrineKit({ outDir, log = () => {} }: { outDir: strin
     const workspace = path.join(root, "shrine", part);
     await mkdir(workspace, { recursive: true });
     await writeFile(path.join(workspace, "shrine.py"), source.bytes);
+    await writeFile(path.join(workspace, "kit_common.py"), common.bytes);
     const specPath = path.join(workspace, "asset.json");
-    await writeFile(specPath, `${canonicalJson(createShrineAssetSpec({ part, scriptSha256: source.sha256, blenderVersion: source.blenderVersion }))}\n`);
+    await writeFile(specPath, `${canonicalJson(createShrineAssetSpec({ part, scriptSha256: source.sha256, commonSha256: common.sha256, blenderVersion: source.blenderVersion }))}\n`);
     const generated = await generateAsset(specPath);
     const observations = (generated.receipt.observations as Json).script as Json;
     const glb = (await storeAssetObject(root, { bytes: await readFile(path.join(workspace, "shrine.glb")), kind: "mesh", mediaType: "model/gltf-binary" })).asset;
@@ -152,7 +154,7 @@ export async function buildShrineKit({ outDir, log = () => {} }: { outDir: strin
     bundleDir, tar: tarPath, tarSha256: packed.sha256 as string, tarByteLength: packed.byteLength as number, descriptor,
     documents: Object.fromEntries(SHRINE_PARTS.map((part) => [part, parts[part].document])) as Record<ShrinePart, Document>,
     exportRef: JSON.parse(Buffer.from(refEntry.bytes).toString("utf8")) as Json, exportRefPath,
-    lineage: { recipe: { script: "adapters/blender/shrine.py", sha256: source.sha256, blenderVersion: source.blenderVersion }, release: SHRINE_RELEASE, parts: Object.fromEntries(SHRINE_PARTS.map((part) => [part, parts[part].asset])), descriptor: descriptorAsset },
+    lineage: { recipe: { script: "adapters/blender/shrine.py", sha256: source.sha256, common: { script: "adapters/blender/kit_common.py", sha256: common.sha256 }, blenderVersion: source.blenderVersion }, release: SHRINE_RELEASE, parts: Object.fromEntries(SHRINE_PARTS.map((part) => [part, parts[part].asset])), descriptor: descriptorAsset },
   };
 }
 

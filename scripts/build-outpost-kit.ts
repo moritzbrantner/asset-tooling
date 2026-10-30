@@ -64,10 +64,10 @@ function single(result: AssetOperationResult, port = "output"): AssetRef {
 
 export const outpostKey = (part: OutpostPart) => `${OUTPOST_KEY_PREFIX}.${part}`;
 
-export function createOutpostAssetSpec({ part, roof, scriptSha256, blenderVersion }: { part: OutpostPart; roof?: "shingle" | "slate"; scriptSha256: string; blenderVersion: string }) {
+export function createOutpostAssetSpec({ part, roof, scriptSha256, commonSha256, blenderVersion }: { part: OutpostPart; roof?: "shingle" | "slate"; scriptSha256: string; commonSha256: string; blenderVersion: string }) {
   return parseAssetSpec({
     schemaVersion: 1, assetId: outpostKey(part), generator: { id: "external.blender.script", version: "1" }, randomness: { mode: "none" },
-    inputs: { script: { path: "outpost.py", sha256: scriptSha256 } }, models: {},
+    inputs: { script: { path: "outpost.py", sha256: scriptSha256 }, common: { path: "kit_common.py", sha256: commonSha256 } }, models: {},
     parameters: { blenderVersion, arguments: { schemaVersion: 1, part, ...(roof ? { roof } : {}) } }, output: { path: "outpost.glb" }, reproducibility: { expected: "exact" },
   });
 }
@@ -109,6 +109,7 @@ export async function buildOutpostKit({ outDir, log = () => {} }: { outDir: stri
   const root = path.resolve(outDir);
   await mkdir(root, { recursive: true });
   const source = await readBlenderRecipeSource("outpost.py");
+  const common = await readBlenderRecipeSource("kit_common.py");
   const io = new NodeIO();
   const runs: { part: OutpostPart; variant: string; roof?: "slate" }[] = OUTPOST_PARTS.flatMap((part) => [
     { part, variant: OUTPOST_VARIANT },
@@ -120,8 +121,9 @@ export async function buildOutpostKit({ outDir, log = () => {} }: { outDir: stri
     const workspace = path.join(root, "outpost", `${run.part}.${run.variant}`);
     await mkdir(workspace, { recursive: true });
     await writeFile(path.join(workspace, "outpost.py"), source.bytes);
+    await writeFile(path.join(workspace, "kit_common.py"), common.bytes);
     const specPath = path.join(workspace, "asset.json");
-    const spec = createOutpostAssetSpec({ part: run.part, roof: run.roof, scriptSha256: source.sha256, blenderVersion: source.blenderVersion });
+    const spec = createOutpostAssetSpec({ part: run.part, roof: run.roof, scriptSha256: source.sha256, commonSha256: common.sha256, blenderVersion: source.blenderVersion });
     await writeFile(specPath, `${canonicalJson(spec)}\n`);
     const generated = await generateAsset(specPath);
     const observations = (generated.receipt.observations as Json).script as Json;
@@ -176,7 +178,7 @@ export async function buildOutpostKit({ outDir, log = () => {} }: { outDir: stri
     documents: Object.fromEntries(OUTPOST_PARTS.map((part) => [part, main(part).document])) as Record<OutpostPart, Document>,
     exportRef: JSON.parse(Buffer.from(refEntry.bytes).toString("utf8")) as Json, exportRefPath,
     lineage: {
-      recipe: { script: "adapters/blender/outpost.py", sha256: source.sha256, blenderVersion: source.blenderVersion }, release: OUTPOST_RELEASE,
+      recipe: { script: "adapters/blender/outpost.py", sha256: source.sha256, common: { script: "adapters/blender/kit_common.py", sha256: common.sha256 }, blenderVersion: source.blenderVersion }, release: OUTPOST_RELEASE,
       parts: Object.fromEntries(built.map((b) => [`${b.part}.${b.variant}`, b.asset])), descriptor: descriptorAsset,
     },
   };

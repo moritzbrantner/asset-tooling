@@ -47,7 +47,7 @@ describe("publish-release", () => {
     const settlement = releaseSources(rollingRelease("settlement-props"));
     expect(settlement).toEqual(expect.arrayContaining([
       "scripts/build-settlement-props.ts", "scripts/build-outpost-kit.ts", "adapters/blender/settlement_props.py",
-      "adapters/blender/outpost.py", "adapters/blender/release.json", "src/asset-bundle.ts",
+      "adapters/blender/outpost.py", "adapters/blender/kit_common.py", "adapters/blender/release.json", "src/asset-bundle.ts",
     ]));
     expect(settlement).not.toContain("adapters/blender");
     expect(releaseSources(rollingRelease("greyhaven-nature"))).toEqual(expect.arrayContaining(["assets/canonical", "catalog/storage.json"]));

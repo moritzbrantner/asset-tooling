@@ -21,7 +21,7 @@ ASSET_TOOLING_BLENDER=<blender 5.2.2> bun scripts/build-outpost-kit.ts --out <di
 
 The build takes about 1.5 minutes. It needs no network, no LFS payloads and no GPU. Snap Blender can only read and write under `$HOME`, so set `TMPDIR` to a directory there.
 
-`outpost.build(part, collection, location, roof, yaw)` and `outpost.build_composition(name, collection, location)` also run in a live Blender session, for example through the Blender MCP.
+`outpost.build(part, collection, location, roof, yaw)` and `outpost.build_composition(name, collection, location)` also run in a live Blender session once `outpost.use_common(runpy.run_path("adapters/blender/kit_common.py"))` has bound the shared helpers ([`kit_common.py`](../adapters/blender/kit_common.py), #426), for example through the Blender MCP.
 
 ## Modules
 

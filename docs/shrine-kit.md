@@ -17,7 +17,7 @@ ASSET_TOOLING_BLENDER=<blender 5.2.2> bun scripts/build-shrine-kit.ts --out <dir
 
 [`scripts/build-shrine-kit.ts`](../scripts/build-shrine-kit.ts) works like the [crypt build](crypt-kit.md#build): one `external.blender.script@1` run per module, each GLB imported through `scene.import.gltf@2` with no validator exceptions, the descriptor written from the recipe's observations and the measured bounds, then a `gltf-resources-v1` bundle (`asset.bundle@4`) packed to `<directory>/shrine.kit.tar`, plus `lineage.json` and `export.ref.json`. The build takes about a minute and needs no network, no LFS payloads and no GPU. Snap Blender can only read and write under `$HOME`, so set `TMPDIR` to a directory there.
 
-`shrine.build(part, collection, location)` also runs in a live Blender session, for example through the Blender MCP, to watch the modules or lay out a review scene.
+`shrine.build(part, collection, location)` also runs in a live Blender session once `shrine.use_common(runpy.run_path("adapters/blender/kit_common.py"))` has bound the shared helpers ([`kit_common.py`](../adapters/blender/kit_common.py), #426), for example through the Blender MCP, to watch the modules or lay out a review scene.
 
 ## Modules
 

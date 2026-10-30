@@ -65,7 +65,7 @@ function endSection(document: Document, x: number) {
 }
 
 test("the shrine spec runs the packaged recipe with exactly one module", () => {
-  const spec = createShrineAssetSpec({ part: "arch", scriptSha256: "a".repeat(64), blenderVersion: "5.2.2" });
+  const spec = createShrineAssetSpec({ part: "arch", scriptSha256: "a".repeat(64), commonSha256: "d".repeat(64), blenderVersion: "5.2.2" });
   assert.deepEqual(spec.parameters, { blenderVersion: "5.2.2", arguments: { schemaVersion: 1, part: "arch" } });
   assert.equal(spec.assetId, "shrine.kit.arch");
   assert.equal(SHRINE_PARTS.length, 14);
