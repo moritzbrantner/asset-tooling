@@ -140,7 +140,7 @@ const abort = new AbortController();
 
 const currentClip = () => state.loaded?.clips[state.clip] ?? null;
 const duration = () => currentClip()?.durationSeconds ?? 0;
-/** The clip's source library mannequin, or undefined for a Mixamo clip, whose raw source is never published (Atlas 6.1.6). */
+/** The clip's source library mannequin, or undefined for an authored clip, which has no library source. */
 const motionLibrary = (loaded: Loaded) => loaded.libraries.get(currentClip()!.source.catalogId ?? "");
 
 // ---------------------------------------------------------------------------
@@ -376,7 +376,7 @@ function renderCaptions(loaded: Loaded): void {
   const clip = currentClip()!;
   const library = motionLibrary(loaded);
   caption("source", "Original source · rest pose", `${data.ranger.outfitId} + ${data.ranger.bodyId} · ${short(data.ranger.outfit.document.sha256)} / ${short(data.ranger.body.document.sha256)} · source ships no clips`);
-  // Owner answer: a clip without a published source (Mixamo) hides the source-motion view; the others widen.
+  // Owner answer: a clip without a library source (an authored clip) hides the source-motion view; the others widen.
   const motionView = dom.canvases.motion.parentElement!;
   motionView.hidden = !library;
   motionView.parentElement!.classList.toggle("three", !library);

@@ -38,10 +38,13 @@ The `humanoid.ranger.male` bundle holds the following.
 - **Levels of detail (#123):** every character variant has `lod1` and `lod2` variants (`lod1`/`lod2` for `default`, `<variant>.lod1`/`.lod2` otherwise). They are listed in `humanoid-appearance.levelsOfDetail` ([levels-of-detail.md](levels-of-detail.md)).
 - **Clips:** they ship once, embedded in `default`. Every other character variant and level shares the same joints and rest pose, and plays them by joint name. Every clip is in place. In bundle order:
   - the UAL1/UAL2 library clips retargeted with 3d-lab (idle, walk, the run gaits, sword, shield, death, the #112 traversal clips and the #114 combat clips with their roles);
-  - the Mixamo walk-speed clips retargeted in Blender (`Walk_Bwd_Loop`, `Walk_Strafe_*`, `Walk_Start`, `Walk_Stop`, `Turn_*` and `Hit_Shove_Spin`; [Mixamo retarget](#mixamo-retarget));
-  - the original authored jog clips `Jog_Bwd_Loop`, `Jog_Strafe_Left_Loop` and `Jog_Strafe_Right_Loop` ([Authored jog clips](#authored-jog-clips));
+  - the authored gait clips: the jog and walk directional family `Jog_Bwd_Loop`, `Jog_Strafe_*`, `Walk_Bwd_Loop`, `Walk_Strafe_*`, then `Walk_Start`, `Walk_Stop` and `Turn_*` ([Authored gait clips](#authored-gait-clips));
   - the authored bow clips ([Authored bow clips](#authored-bow-clips));
-  - the static finger grip poses `Grip_*` for held items ([Grip poses](#grip-poses-285)).
+  - the static finger grip poses `Grip_*` for held items ([Grip poses](#grip-poses-285));
+  - the authored water clips ([Water clips](#water-clips-393));
+  - the authored hit reactions `Hit_Upper_*` and `Hit_Shove_Spin` ([Authored hit clips](#authored-hit-clips-399)).
+
+  No clip uses Mixamo data (#399). Mixamo is only a motion reference, so the build needs no local input and both figures publish from CI.
 - **Equipment entries:** `equipment.sword.arming`, `equipment.shield.heater`, the class set `equipment.dagger.blackened` (on `hand_r.weapon`) and `equipment.staff.bone`, `equipment.staff.gilded`, `equipment.staff.gnarled` (on `hand_r.staff`, #372), the class starter props `equipment.staff.crystal` (on `hand_r.staff`), `equipment.book.tome` (on `hand_l.shield`) and `equipment.mace.flanged` (on `hand_r.weapon`, #379) ([weapon recipes](weapon-recipes.md)) and `equipment.bow.long` (skinned to `grip` and `nock`), `equipment.arrow`, `equipment.quiver.back` and `equipment.crossbow` (on `hand_r.crossbow`, #389) ([archery](weapon-recipes.md#archery)), all parented at runtime through the sockets.
 - **Hair entries:** `hair.buzzed`, `hair.simple-parted` and `hair.long` (male) or `hair.long` and `hair.buns` (female), each with the variants `hair-1` and `hair-2`, on the `head.hair` socket. The pack textures `T_Hair_1` and `T_Hair_2` are per-mesh bakes with different UV layouts, so every style carries its own pack in both variants (#336; swapping packs garbled the strands). The male `hair.long` also merges the `Hair_Buzzed` cap as its crown, because Quaternius `Hair_Long` is only a fringe and a back curtain; its `tintMaterials` are `MI_Hair_2` (strands) and `MI_Hair_1` (crown). The hair materials are opaque, like the source: the packs have no alpha. The male figure also has the hand-modelled `hair.balding`, `hair.receding`, `hair.swept` and `hair.tied` ([Male variety](#male-variety-380)), each with the one variant `hair-1`.
 - **Armour entries:** `armor.soldier`, `armor.knight`, `armor.farmer`, `armor.innkeeper`, `armor.monk`, the class plates `armor.class.<id>` and `armor.redbrand` (#389) (male); `armor.tanner` (female, #378).
@@ -135,29 +138,34 @@ Short accessory-bone chains on the male figure's long hair, beards and loose gar
 - **Descriptor:** `humanoid-appearance` lists the chains by data, not by name: `outfits[].secondary`, `hair[].secondary` and `facialHair.options[].secondary`. Each chain has `id` (`skirt.front`, `skirt.back`, `skirt.left`, `skirt.right`, `apron`, `cape`, `scarf`, `hair.back`, `hair.tail`, `beard`), `kind` (`skirt`, `apron`, `cape`, `strap`, `hair`, `beard`), `parent`, the ordered `joints`, the mesh `nodes` it moves and a suggested `swingLimitDegrees` per joint (skirts 20, apron 15, capes 25, strap 30, hair back 15, tail 25, beard 12). Every skin variant of an outfit carries its chains.
 - **Unsupported:** the levels of detail carry no chains (`secondary.unsupported`); at their switch distances a consumer fades the motion out anyway. The female figure has none yet.
 
-### Mixamo retarget
+### Authored gait clips
 
-`animation.retarget@1` transfers rotations in each joint's local frame, and Mixamo bones don't share the Ranger's joint axes (owner answer #112.Q6). So [`adapters/blender/mixamo_clip.py`](../adapters/blender/mixamo_clip.py) retargets in Blender instead:
+[`adapters/blender/gait_clips.py`](../adapters/blender/gait_clips.py) authors these clips in Blender on the animated Ranger (#112, #399, owner answers 2026-10-18 and 2026-10-29, Atlas 6.1.7). No Mixamo data is used. The walk and jog clips form one matched family, so a consumer (mmorpg#517, mmorpg#538) can blend walk and jog by angle and by speed. They share the stance, the left foot plants at phase 0 in the backward loops, and the strafes share their swing phases and foot spans.
 
-- It imports the composed Ranger with the round-trip bone heuristic.
-- Each mapped joint copies its Mixamo bone's world-space rotation, offset by the rest-pose difference (constraints, then a visual-keying bake).
-- The pelvis keeps only the source hips' vertical motion, scaled by the hips heights.
+| Clip | Length | Motion | `humanoid-clips` |
+| --- | --- | --- | --- |
+| `Jog_Bwd_Loop` | 0.93 s (the jog's) | UAL1 `Jog_Fwd_Loop` played backwards, with the lowest spine joint pitched 18° back | `groundSpeedMetersPerSecond` |
+| `Walk_Bwd_Loop` | 1.33 s (the walk's) | UAL1 `Walk_Loop` played backwards, pitched 2° back. The walk leans 5.5° forward and the jog 22°, so both backward loops end near the idle's lean | `groundSpeedMetersPerSecond` |
+| `Jog_Strafe_Left_Loop` / `_Right_` | 0.5 s | side-step at 1.4 m/s | `sourceRootSpeedMetersPerSecond` 1.4 |
+| `Walk_Strafe_Left_Loop` / `_Right_` | 0.8 s | the same side-step at 0.875 m/s: the same foot spans at a slower cadence, with lower lifts (6 cm and 4.5 cm), half the bob and a 3° roll | `sourceRootSpeedMetersPerSecond` 0.875 |
+| `Walk_Start` | 0.8 s | the first `Idle_Loop` pose blended into `Walk_Loop`, ending exactly at its phase 0 | the travel at the rising walk speed |
+| `Walk_Stop` | 0.8 s | `Walk_Loop` from phase 0 blended into the first `Idle_Loop` pose | the travel at the falling walk speed |
+| `Turn_Left` / `Turn_Right` | 0.93 s | a 90° turn on the spot in two steps, inside foot first; the head and chest lead by up to 14° | the body ends rotated 90° (owner answer #112 Q2) |
 
-The build extracts each clip, re-indexes it to the character's joint order and embeds it. `--mixamo-dir <dir>` names the author's local Mixamo downloads ("Without Skin" FBX, 30 fps, Y Bot), one `<title>.fbx` per clip. Raw Mixamo files never enter git, the catalog or a release. `humanoid-clips` records only the provider, title, FBX SHA-256 and the license note `RANGER_MIXAMO_LICENSE` (Atlas 6.1.6, 6.1.7). Turns keep their rotation (owner answer Q2), so the body ends a turn rotated 90°. The removed horizontal travel is `sourceRootDisplacement`, and its speed is `sourceRootSpeedMetersPerSecond`.
+In the strafes, each foot follows an explicit in-place trajectory. A planted foot slides against the travel direction at the reference speed. The lead foot swings out (phases 0.6 to 1.0, so it plants at phase 0). The trail foot swings in (0.3 to 0.55) and lands 12 cm short of the lead foot, so the legs never cross. A two-bone solve keeps the knees forward and the feet level, and the pelvis drops as far as the spread legs need. The upper body keeps the source loop's mean posture, with the swing damped to 45 %.
 
-### Authored jog clips
+The travelling clips report the travel that the in-place clip stands for as `sourceRootDisplacement`, and its speed as `sourceRootSpeedMetersPerSecond`.
 
-[`adapters/blender/jog_clips.py`](../adapters/blender/jog_clips.py) authors these clips in Blender on the animated Ranger (#112, owner answer 2026-10-18, Atlas 6.1.7). No Mixamo data is used.
+### Authored hit clips (#399)
 
-- **`Jog_Bwd_Loop`:** the CC0 UAL1 `Jog_Fwd_Loop` played backwards, with the lowest spine joint pitched 18° back. `humanoid-clips` records its ground speed like the forward gaits.
-- **`Jog_Strafe_Left_Loop` / `Jog_Strafe_Right_Loop`:** a side-gallop with a 0.5 s cycle at a reference speed of 1.4 m/s (`sourceRootSpeedMetersPerSecond`).
-  - Each foot follows an explicit in-place trajectory. A planted foot slides against the travel direction at the reference speed. The lead foot swings out, and the trail foot swings in and lands 12 cm short of it, so the legs never cross.
-  - A two-bone solve keeps the knees forward and the feet level, and the pelvis drops as far as the spread legs need.
-  - The upper body keeps the jog's mean posture, with the swing damped to 45 % and rolled 6° into the travel direction.
+[`adapters/blender/hit_clips.py`](../adapters/blender/hit_clips.py) authors the hit reactions from the first `Idle_Loop` pose with explicit joint turns. No Mixamo data is used. They follow the water clips in bundle order.
+
+- **`Hit_Upper_Front` / `_Back` / `_Left` / `_Right`** (roles `hit.upper.front`, `hit.upper.back`, `hit.upper.left` and `hit.upper.right`): 0.33 s one-shots. They key only the rotations of the `spine_01` subtree, so the pelvis and legs keep the walk or run underneath. The side names where the hit lands. Within 0.07 s the torso snaps away from it: back for a front hit, forward for a back hit, and sideways and twisted for a side hit. The head lags and the arms are thrown the other way, then everything eases back to the idle pose.
+- **`Hit_Shove_Spin`** (role `hit.shove`): 1.8 s, full body. The shove jolts the torso back and spins the figure once round to its right on the spot, in four pivot steps, with the arms flung out and the chest lagging. It then crouches 6 cm to catch its balance and recovers into the idle pose, facing the way it started.
 
 ### Authored bow clips
 
-[`adapters/blender/bow_clips.py`](../adapters/blender/bow_clips.py) authors the bow clips in Blender on the animated Ranger (#277, owner answer 2026-10-18: original keyframes, Mixamo only as reference). They follow the jog clips in bundle order. No Mixamo data is used.
+[`adapters/blender/bow_clips.py`](../adapters/blender/bow_clips.py) authors the bow clips in Blender on the animated Ranger (#277, owner answer 2026-10-18: original keyframes, Mixamo only as reference). They follow the gait clips in bundle order. No Mixamo data is used.
 
 | Clip | Role | Length | Motion |
 | --- | --- | --- | --- |
@@ -231,26 +239,21 @@ Its tar goes to the rolling `humanoid-ranger-female` release.
 
 ## Build
 
-To update the rolling release after a build, pack the downloads, then prepare the consumer re-pins and print the upload commands ([Publishing a rolling release](../README.md#publishing-a-rolling-release)):
+Both figures are rolling releases that CI builds (#399): merging a change to their sources starts the `Publish rolling releases` workflow, which runs one job per figure ([Publishing a rolling release](../README.md#publishing-a-rolling-release)). Republish one by hand with `gh workflow run publish-releases.yml -f release=humanoid-ranger-male` (or `-female`). Each job checks out the pinned 3d-lab processor, installs Rust, Blender and KTX-Software, and runs [`scripts/build-ranger-release.ts`](../scripts/build-ranger-release.ts), which builds the bundle and writes the per-entry downloads ([`pack-downloads.ts`](../scripts/pack-downloads.ts)) next to the tar. The Ranger jobs have a 240-minute timeout instead of the default 60: a local build of one figure takes about 1.5 hours, and both figures build in parallel.
 
-```sh
-ASSET_TOOLING_KTX=<ktx CLI> bun scripts/pack-downloads.ts --bundle <out>/bundle --out <downloads> --name humanoid-ranger-male --clips humanoid.ranger.male/default
-bun scripts/prepare-release.ts humanoid-ranger-male <out> --downloads <downloads>
-```
-
-The owner then runs the printed `gh release upload … --clobber` and `gh workflow run pages.yml` commands, and the re-pin PRs land after the upload. The Ranger is one of the few releases the `Publish rolling releases` workflow cannot rebuild, because its build reads the author's local Mixamo files (`MANUAL_RELEASES` in `scripts/publish-release.ts`).
-
-(Create the release once with `gh release create humanoid-ranger-male --title humanoid-ranger-male --notes …` if it does not exist.)
+To build locally:
 
 ```sh
 git clone https://github.com/moritzbrantner/3d-lab <checkout>
 git -C <checkout> checkout 4e69c0f64177d3babdf0ea991a631c62f577e684   # the stability/processors.json pin
 cargo fetch --manifest-path <checkout>/examples/asset-tooling-animation-adapter/Cargo.toml
 git lfs pull   # the humanoid members under assets/canonical/
-ASSET_TOOLING_BLENDER=<blender 5.2.2> bun scripts/build-ranger-character.ts --processor-checkout <absolute checkout> --out <directory> --mixamo-dir <dir> [--figure male|female]
+ASSET_TOOLING_BLENDER=<blender 5.2.2> bun scripts/build-ranger-character.ts --processor-checkout <absolute checkout> --out <directory> [--figure male|female]
+# or the whole release, downloads included:
+ASSET_TOOLING_PROCESSOR_CHECKOUT_3DLAB=<absolute checkout> ASSET_TOOLING_KTX=<ktx CLI> bun scripts/build-ranger-release.ts --out <directory> --figure male
 ```
 
-The equipment, armour, Mixamo and authored clips run through `external.blender.script@1`, so the build needs Blender 5.2.2. `ASSET_TOOLING_BLENDER` names it, otherwise `blender` on `PATH` is used. Blender installed as a snap can only read and write under `$HOME`, so set `TMPDIR` to a directory there. The image codec also needs `ffmpeg` and `ffprobe`.
+The equipment, armour and authored clips run through `external.blender.script@1`, so the build needs Blender 5.2.2. `ASSET_TOOLING_BLENDER` names it, otherwise `blender` on `PATH` is used. Blender installed as a snap can only read and write under `$HOME`, so set `TMPDIR` to a directory there. The image codec also needs `ffmpeg` and `ffprobe`.
 
 [`scripts/build-ranger-character.ts`](../scripts/build-ranger-character.ts) is the maintained recipe. It needs no network after `cargo fetch`: the processor runs `cargo run --offline`. The processor checkout must be source-clean at the pinned commit. `Cargo.lock` and `target/` may be present, but nothing else may differ. Its identity (`git-clean-exact-head`, cargo/rustc versions and the probe) is part of the `animation.retarget@1` build identity. `<directory>` becomes the object-store root, which holds every intermediate AssetRef. The script prints the bundle directory, the tar path, the tar sha256 and the export ref, and writes `lineage.json` next to them with every intermediate AssetRef and the retarget observations.
 
@@ -262,7 +265,7 @@ The equipment, armour, Mixamo and authored clips run through `external.blender.s
 | 3b | `external.blender.script@1`, then `scene.compose.skinned.gltf@1` | [`face_variants.py`](../adapters/blender/face_variants.py) on the head subset; its morph targets are copied onto the head subset, which is composed with the outfit again for the shipped characters ([Facial variants](#facial-variants)). |
 | 4 | `scene.extract.animation.gltf@1` | The composed GLB with `hipsJoint: "pelvis"`: the target rig only. |
 | 5 | `scene.extract.animation.gltf@1` | Once per clip: the UAL1 GLB with `hipsJoint: "DEF-hips"`, or for `Idle_Shield_Loop` the UAL2 GLB with `hipsJoint: "pelvis"`. Each run yields the source rig and the clip. |
-| 6 | `animation.retarget@1` | Each library clip with its source rig and the target rig, its library's bone map (below), `sampleRate: 30` and `rootMotion: "in-place"`. Mixamo and authored clips come from Blender instead (see [Contents](#contents)). |
+| 6 | `animation.retarget@1` | Each library clip with its source rig and the target rig, its library's bone map (below), `sampleRate: 30` and `rootMotion: "in-place"`. The authored clips come from Blender instead (see [Contents](#contents)). |
 | 7 | `scene.embed.animation.gltf@1` | The composed GLB with every retargeted clip, under its source name, in the order of the clip table. |
 | 8 | `external.blender.script@1`, then `scene.import.gltf@2` | The weapon, archery and armour recipes, the hairstyles, the Light skin and the outfit variants (see [Contents](#contents)). |
 | 8b | `scene.textures.resize.gltf@1` | Every character and item GLB with `RANGER_TEXTURE_POLICY` ([Textures](#textures)). GLBs without images are bundled unchanged. |
@@ -415,7 +418,8 @@ From v6 the character entry carries a `humanoid-clips` attachment, schema `human
 - `durationSeconds`, `loop` (the source name ends in `_Loop`), `interpolation: "LINEAR"` and `rootMotion: "in-place"`;
 - `sourceRootDisplacement` `{x, y, z}`: the source hips' model-space travel from the first to the last key, scaled by the hips reference-height ratio (0.9491 / 0.9167). `x` and `z` were removed from the clip; `y` is still in it;
 - from v7, `role` for the combat clips, and for strikes `contact` `{joint, seconds, speedMetersPerSecond}`: the midpoint of the sample interval in which that joint moves fastest in model space. This is a presentation landmark. It never times gameplay, and the consumer owns windup, active and recovery phases;
-- `groundSpeedMetersPerSecond`, only for the forward gaits `Walk_Loop`, `Jog_Fwd_Loop`, `Sprint_Loop` and `Crouch_Fwd_Loop`. It is the median speed at which the lower foot moves backwards (−Z) between consecutive samples of the retargeted clip, which is the body speed at which that foot would not slide. The source gaits are themselves in place, so this is the only speed they define.
+- `sourceRootSpeedMetersPerSecond` for the authored travelling clips (strafes, walk start and stop): the travel the in-place clip stands for (its `sourceRootDisplacement` `x` and `z`) over its duration;
+- `groundSpeedMetersPerSecond`, only for the gaits in `RANGER_GAITS`: `Walk_Loop`, `Jog_Fwd_Loop`, `Sprint_Loop`, `Crouch_Fwd_Loop`, `Wade_Fwd_Loop`, and the backward `Jog_Bwd_Loop` and `Walk_Bwd_Loop`, whose planted foot moves forwards and whose speed is reported positive. It is the median speed at which the lower foot moves backwards (−Z) between consecutive samples of the retargeted clip, which is the body speed at which that foot would not slide. The source gaits are themselves in place, so this is the only speed they define.
 
 From the recorded v6 build: ground speeds 1.0434 m/s (walk), 1.7637 m/s (jog), 2.1345 m/s (sprint) and 0.657 m/s (crouch walk). Root displacement: `Roll_RM` z 5.2693 m, `ClimbUp_1m_RM` y 1.0353 m and z 1.7356 m, `Jump_Start` y 0.358 m, `Slide_Start` y −0.8079 m and `Slide_Exit` y +0.8079 m. These are measurements, not a gameplay contract: the consumer owns movement speed and collision.
 
@@ -441,7 +445,7 @@ A consumer that needs a fixed input keeps its own copy of the tar. Adopting a ne
 - `bun test test/animation-retarget-operations.test.ts` runs a fixture adapter. It covers the name → index binding conversion, the `sampleRate` grid, output and observation checks, and parameter failures.
 - `bun scripts/check-processor-contract.ts <checkout> <commit> moritzbrantner/3d-lab examples/asset-tooling-animation-adapter/Cargo.toml animation.retarget` runs the pinned processor on two tiny rigs, twice, including an `upper-chest` bend that must land on the target's `upper-chest` joint. This is also the hosted stability matrix entry.
 - `bun test test/gltf-texture-resize-operations.test.ts` covers the texture operation ([gltf-texture-resize.md](gltf-texture-resize.md#tests)).
-- `test/humanoid-ranger.test.ts` always checks the clip list, the Mixamo and authored clips, the combat roles, the bone maps (each spine joint mapped once, UAL2 and Mixamo binding the same targets), the equipment, figures, appearance and `RANGER_TEXTURE_POLICY`. It also runs the whole recipe and checks the bundle structurally:
+- `test/humanoid-ranger.test.ts` always checks the clip list, the authored clips, the combat and hit roles, the bone maps (each spine joint mapped once, UAL2 binding the same targets), the equipment, figures, appearance and `RANGER_TEXTURE_POLICY`. It also runs the whole recipe and checks the bundle structurally:
   - every clip name in order, each with a positive duration;
   - in place: the pelvis's horizontal model-space drift, with root and pelvis keys composed, is at most 1 cm;
   - retargeted library clips animate only mapped joints; every clip has LINEAR samplers and rotates `spine_02`;
@@ -454,7 +458,7 @@ A consumer that needs a fixed input keeps its own copy of the tar. Adopting a ne
 - `test/male-variety.test.ts` checks the age, build, height, tone, hairstyle and beard tables against the Blender recipes, the descriptor sections and the transfer that appends the variety targets after the face targets.
 - `test/face-variants.test.ts` checks the option table against the Blender recipe and the morph-target transfer. With `BLENDER_TESTS=1`, `ASSET_TOOLING_BLENDER` and hydrated LFS, it authors the keys on the real male and female head parts, checks that every key visibly moves the head and leaves the cranium, ears and neck still, and composes the result onto the outfit with the targets intact.
 
-  The full run skips unless the Git LFS payloads are hydrated, `ASSET_TOOLING_PROCESSOR_CHECKOUT_3DLAB` names the pinned checkout, `ASSET_TOOLING_BLENDER` names Blender 5.2.2 and `ASSET_TOOLING_MIXAMO_DIR` names the local Mixamo files.
+  The full run skips unless the Git LFS payloads are hydrated, `ASSET_TOOLING_PROCESSOR_CHECKOUT_3DLAB` names the pinned checkout and `ASSET_TOOLING_BLENDER` names Blender 5.2.2.
 
 ## Visual check of the v2 clips
 

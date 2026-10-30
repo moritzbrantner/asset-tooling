@@ -19,13 +19,27 @@ const TOOLING_REPO = process.env.GITHUB_REPOSITORY ?? "moritzbrantner/asset-tool
 
 export type RollingRelease = {
   name: string;
-  /** The build script under scripts/, run as `bun <script> --out <out>`. */
+  /** The build script under scripts/, run as `bun <script> --out <out> ...args`. */
   script: string;
+  args?: string[];
   /** Needs Blender (adapters/blender/release.json) for external.blender.script@1. */
   blender?: boolean;
   /** Needs the hydrated Git LFS payloads under assets/canonical/. */
   lfs?: boolean;
+  /**
+   * Needs this stability/processors.json processor: the workflow checks out its pinned repository and commit with
+   * its cargo dependencies and names the checkout in ASSET_TOOLING_PROCESSOR_CHECKOUT_3DLAB.
+   */
+  processor?: string;
+  /** Needs KTX-Software's `ktx` CLI for KTX2 downloads. */
+  ktx?: boolean;
+  /** The publish job's timeout, when the build needs more than DEFAULT_TIMEOUT_MINUTES. */
+  timeoutMinutes?: number;
 };
+
+export const DEFAULT_TIMEOUT_MINUTES = 60;
+/** The Ranger builds the whole bundle (clips, armour, levels of detail, appearance) in one run, about 1.5 h locally. */
+const RANGER = { script: "scripts/build-ranger-release.ts", blender: true, lfs: true, processor: "three-d-animation-retarget", ktx: true, timeoutMinutes: 240 };
 
 /** Every rolling release CI rebuilds. The workflow's dispatch choices must list exactly these names. */
 export const ROLLING_RELEASES: RollingRelease[] = [
@@ -35,6 +49,9 @@ export const ROLLING_RELEASES: RollingRelease[] = [
   { name: "greyhaven-ambient-animals", script: "scripts/build-greyhaven-ambient-animals.ts", blender: true, lfs: true },
   { name: "greyhaven-marshal-house", script: "scripts/build-greyhaven-marshal-house.ts", blender: true },
   { name: "greyhaven-nature", script: "scripts/build-greyhaven-nature.ts", lfs: true },
+  // #399: each figure is its own release, so the two build in parallel jobs.
+  { name: "humanoid-ranger-female", ...RANGER, args: ["--figure", "female"] },
+  { name: "humanoid-ranger-male", ...RANGER, args: ["--figure", "male"] },
   { name: "outpost-kit", script: "scripts/build-outpost-kit.ts", blender: true },
   { name: "settlement-props", script: "scripts/build-settlement-props.ts", blender: true },
   { name: "shrine-kit", script: "scripts/build-shrine-kit.ts", blender: true },
@@ -44,8 +61,6 @@ export const ROLLING_RELEASES: RollingRelease[] = [
 
 /** Rolling releases CI cannot rebuild yet, and why. They are still published by hand. */
 export const MANUAL_RELEASES: Record<string, string> = {
-  "humanoid-ranger-male": "the build reads the author's local Mixamo FBX files (--mixamo-dir), which never enter git, LFS or CI (Atlas 6.1.6)",
-  "humanoid-ranger-female": "the build reads the author's local Mixamo FBX files (--mixamo-dir), which never enter git, LFS or CI (Atlas 6.1.6)",
   "greyhaven-starter": "its release adds KTX2 per-entry downloads and hand-framed composition renders that no single build script produces",
   "farm-crops": "no maintained build script packs its wheat.tar and corn.tar release layout (examples/wheat and examples/corn stop at the package)",
 };
@@ -74,6 +89,7 @@ export function releaseSources(release: RollingRelease, root = ROOT): string[] {
   const sources = new Set<string>(SHARED_SOURCES);
   if (release.blender) sources.add("adapters/blender/release.json");
   if (release.lfs) sources.add("assets/canonical");
+  if (release.processor) sources.add("stability/processors.json");
   const pending = [release.script];
   const seen = new Set<string>();
   while (pending.length) {
@@ -103,13 +119,21 @@ export function touches(sources: string[], changed: string): boolean {
   return sources.some((source) => changed === source || changed.startsWith(`${source}/`));
 }
 
-export type PlanEntry = { release: string; blender: boolean; lfs: boolean };
+/** One publish job: the release and what its runner needs (an empty `processor` means none). */
+export type PlanEntry = { release: string; blender: boolean; lfs: boolean; processor: string; ktx: boolean; timeout: number };
+
+export function planEntry(release: RollingRelease): PlanEntry {
+  return {
+    release: release.name, blender: !!release.blender, lfs: !!release.lfs, processor: release.processor ?? "", ktx: !!release.ktx,
+    timeout: release.timeoutMinutes ?? DEFAULT_TIMEOUT_MINUTES,
+  };
+}
 
 /** The releases whose sources `changed` touches, or all of them when the change set is unknown. */
 export function plan(changed: string[] | "all", root = ROOT): PlanEntry[] {
   return ROLLING_RELEASES
     .filter((release) => changed === "all" || changed.some((file) => touches(releaseSources(release, root), file)))
-    .map((release) => ({ release: release.name, blender: !!release.blender, lfs: !!release.lfs }));
+    .map(planEntry);
 }
 
 /** Every top-level regular file of the build output, with export.ref.json last so a reader keyed on it sees the new tar. */
@@ -217,7 +241,7 @@ async function main(args: string[]): Promise<number> {
   const [command, ...rest] = args;
   if (command === "plan" && rest[0] === "--release" && rest[1] && rest.length === 2) {
     const release = rollingRelease(rest[1]);
-    console.log(JSON.stringify([{ release: release.name, blender: !!release.blender, lfs: !!release.lfs }]));
+    console.log(JSON.stringify([planEntry(release)]));
     return 0;
   }
   if (command === "plan" && rest[0] === "--changed" && rest[1] && rest.length === 2) {
@@ -228,7 +252,7 @@ async function main(args: string[]): Promise<number> {
   }
   if (command === "build" && rest.length === 2) {
     const release = rollingRelease(rest[0]!);
-    const result = spawnSync("bun", [path.join(ROOT, release.script), "--out", path.resolve(rest[1]!)], { stdio: "inherit" });
+    const result = spawnSync("bun", [path.join(ROOT, release.script), "--out", path.resolve(rest[1]!), ...(release.args ?? [])], { stdio: "inherit" });
     return result.status ?? 1;
   }
   if (command === "publish" && (rest.length === 2 || (rest.length === 3 && rest[2] === "--dry-run"))) {

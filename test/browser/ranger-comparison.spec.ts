@@ -58,7 +58,7 @@ test.describe("Ranger comparison", () => {
     expect((await pixels(page, "processed")).equals(before.processed!)).toBe(false);
     expect((await pixels(page, "source")).equals(before.source!)).toBe(true);
     expect((await pixels(page, "archer")).equals(before.archer!)).toBe(true);
-    // A Mixamo clip has no published source, so the source-motion view is hidden and the other three remain.
+    // An authored clip has no library source, so the source-motion view is hidden and the other three remain.
     await page.locator("#clip").selectOption("Walk_Strafe_Left_Loop");
     await expect(page.locator("#canvas-motion")).toBeHidden();
     for (const panel of ["source", "processed", "archer"]) await expect(page.locator(`#canvas-${panel}`)).toBeVisible();

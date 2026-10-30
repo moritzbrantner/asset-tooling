@@ -4,7 +4,7 @@ import path from "node:path";
 import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { readArtifacts, type Consumer } from "../scripts/prepare-release.ts";
 import {
-  MANUAL_RELEASES, ROLLING_RELEASES, blockingConsumers, plan, releaseFiles, releaseSources, rollingRelease, touches, type FetchFile,
+  MANUAL_RELEASES, ROLLING_RELEASES, blockingConsumers, plan, planEntry, releaseFiles, releaseSources, rollingRelease, touches, type FetchFile,
 } from "../scripts/publish-release.ts";
 
 const OLD = "a".repeat(64), NEW = "b".repeat(64);
@@ -28,10 +28,21 @@ describe("publish-release", () => {
     for (const release of ROLLING_RELEASES) expect(MANUAL_RELEASES[release.name]).toBeUndefined();
   });
 
-  test("every release CI builds has its build script, and Ranger stays manual", () => {
+  test("every release CI builds has its build script; the Ranger figures build in CI (#399)", () => {
     for (const release of ROLLING_RELEASES) expect(releaseSources(release)).toContain(release.script);
-    expect(() => rollingRelease("humanoid-ranger-male")).toThrow("Mixamo");
+    expect(() => rollingRelease("greyhaven-starter")).toThrow("not built in CI");
     expect(() => rollingRelease("humanoid-ranger-male-v9")).toThrow("unknown rolling release");
+    for (const figure of ["male", "female"]) {
+      const release = rollingRelease(`humanoid-ranger-${figure}`);
+      expect(release.args).toEqual(["--figure", figure]);
+      expect(planEntry(release)).toEqual({
+        release: `humanoid-ranger-${figure}`, blender: true, lfs: true, processor: "three-d-animation-retarget", ktx: true, timeout: 240,
+      });
+      expect(releaseSources(release)).toEqual(expect.arrayContaining([
+        "scripts/build-ranger-character.ts", "scripts/pack-downloads.ts", "adapters/blender/gait_clips.py", "adapters/blender/hit_clips.py",
+        "adapters/blender/swim_clips.py", "stability/processors.json", "assets/canonical",
+      ]));
+    }
   });
 
   test("a release's sources follow its imports and the recipe files it names", () => {
@@ -48,7 +59,8 @@ describe("publish-release", () => {
 
   test("plans only the releases a change touches", () => {
     expect(plan(["adapters/blender/outpost.py"]).map((entry) => entry.release)).toEqual(["greyhaven-marshal-house", "outpost-kit", "settlement-props"]);
-    expect(plan(["adapters/blender/zoo_scenery.py"])).toEqual([{ release: "zoo-scenery", blender: true, lfs: false }]);
+    expect(plan(["adapters/blender/zoo_scenery.py"])).toEqual([{ release: "zoo-scenery", blender: true, lfs: false, processor: "", ktx: false, timeout: 60 }]);
+    expect(plan(["adapters/blender/hit_clips.py"]).map((entry) => entry.release)).toEqual(["humanoid-ranger-female", "humanoid-ranger-male"]);
     expect(plan(["docs/outpost-kit.md", "README.md", "consumers.json", ".github/workflows/publish-releases.yml"])).toEqual([]);
     expect(plan("all")).toHaveLength(ROLLING_RELEASES.length);
   });
