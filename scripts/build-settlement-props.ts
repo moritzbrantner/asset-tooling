@@ -60,10 +60,10 @@ function single(result: AssetOperationResult, port = "output"): AssetRef {
 
 export const settlementKey = (prop: SettlementProp) => `${SETTLEMENT_KEY_PREFIX}.${prop}`;
 
-export function createSettlementAssetSpec({ prop, scriptSha256, outpostSha256, blenderVersion }: { prop: SettlementProp; scriptSha256: string; outpostSha256: string; blenderVersion: string }) {
+export function createSettlementAssetSpec({ prop, scriptSha256, outpostSha256, commonSha256, blenderVersion }: { prop: SettlementProp; scriptSha256: string; outpostSha256: string; commonSha256: string; blenderVersion: string }) {
   return parseAssetSpec({
     schemaVersion: 1, assetId: settlementKey(prop), generator: { id: "external.blender.script", version: "1" }, randomness: { mode: "none" },
-    inputs: { script: { path: "settlement_props.py", sha256: scriptSha256 }, outpost: { path: "outpost.py", sha256: outpostSha256 } }, models: {},
+    inputs: { script: { path: "settlement_props.py", sha256: scriptSha256 }, outpost: { path: "outpost.py", sha256: outpostSha256 }, common: { path: "kit_common.py", sha256: commonSha256 } }, models: {},
     parameters: { blenderVersion, arguments: { schemaVersion: 1, prop } }, output: { path: "settlement.glb" }, reproducibility: { expected: "exact" },
   });
 }
@@ -83,6 +83,7 @@ export async function buildSettlementProps({ outDir, log = () => {} }: { outDir:
   await mkdir(root, { recursive: true });
   const source = await readBlenderRecipeSource("settlement_props.py");
   const outpost = await readBlenderRecipeSource("outpost.py");
+  const common = await readBlenderRecipeSource("kit_common.py");
   const io = new NodeIO();
   const built: Built[] = [];
   for (const prop of SETTLEMENT_PROPS) {
@@ -91,8 +92,9 @@ export async function buildSettlementProps({ outDir, log = () => {} }: { outDir:
     await mkdir(workspace, { recursive: true });
     await writeFile(path.join(workspace, "settlement_props.py"), source.bytes);
     await writeFile(path.join(workspace, "outpost.py"), outpost.bytes);
+    await writeFile(path.join(workspace, "kit_common.py"), common.bytes);
     const specPath = path.join(workspace, "asset.json");
-    const spec = createSettlementAssetSpec({ prop, scriptSha256: source.sha256, outpostSha256: outpost.sha256, blenderVersion: source.blenderVersion });
+    const spec = createSettlementAssetSpec({ prop, scriptSha256: source.sha256, outpostSha256: outpost.sha256, commonSha256: common.sha256, blenderVersion: source.blenderVersion });
     await writeFile(specPath, `${canonicalJson(spec)}\n`);
     const generated = await generateAsset(specPath);
     const observations = (generated.receipt.observations as Json).script as Json;
@@ -144,7 +146,7 @@ export async function buildSettlementProps({ outDir, log = () => {} }: { outDir:
     documents: Object.fromEntries(built.map((b) => [b.prop, b.document])) as Record<SettlementProp, Document>,
     exportRef: JSON.parse(Buffer.from(refEntry.bytes).toString("utf8")) as Json, exportRefPath,
     lineage: {
-      recipe: { script: "adapters/blender/settlement_props.py", sha256: source.sha256, outpost: { script: "adapters/blender/outpost.py", sha256: outpost.sha256 }, blenderVersion: source.blenderVersion },
+      recipe: { script: "adapters/blender/settlement_props.py", sha256: source.sha256, outpost: { script: "adapters/blender/outpost.py", sha256: outpost.sha256 }, common: { script: "adapters/blender/kit_common.py", sha256: common.sha256 }, blenderVersion: source.blenderVersion },
       release: SETTLEMENT_RELEASE, props: Object.fromEntries(built.map((b) => [b.prop, b.asset])), descriptor: descriptorAsset,
     },
   };

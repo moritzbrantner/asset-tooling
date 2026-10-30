@@ -42,7 +42,7 @@ function conforms(schema: any, value: any, root: any, at = "$"): string[] {
 }
 
 test("the crypt spec runs the packaged recipe with exactly one module", () => {
-  const spec = createCryptAssetSpec({ part: "door", scriptSha256: "a".repeat(64), blenderVersion: "5.2.2" });
+  const spec = createCryptAssetSpec({ part: "door", scriptSha256: "a".repeat(64), commonSha256: "d".repeat(64), blenderVersion: "5.2.2" });
   assert.deepEqual(spec.parameters, { blenderVersion: "5.2.2", arguments: { schemaVersion: 1, part: "door" } });
   assert.equal(spec.assetId, "crypt.kit.door");
   assert.deepEqual([...CRYPT_PARTS], ["wall", "doorway-narrow", "doorway-wide", "door", "floor", "pillar", "sarcophagus", "candles", "bones"]);

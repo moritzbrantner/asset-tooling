@@ -29,10 +29,9 @@ No randomness: variation comes from a SHA-256 of fixed keys, the textures from n
 ``RandomState``, which is stable across numpy versions. Every module that uses a texture embeds the same
 PNG bytes, so a ``gltf-resources-v1`` bundle stores them once.
 
-``build(part, collection, location, roof)`` also works in a live Blender session; ``generate`` is the
+``build(part, collection, location, roof)`` also works in a live Blender session after ``use_common(runpy.run_path('kit_common.py'))``; ``generate`` is the
 script-backend entry point.
 """
-import hashlib
 import math
 
 import bmesh
@@ -75,53 +74,12 @@ MATERIALS = {
 }
 
 
-def rnd(*keys):
-    digest = hashlib.sha256("/".join(str(k) for k in keys).encode("ascii")).digest()
-    return int.from_bytes(digest[:8], "big") / 2**64
-
-
-def to_blender(point):
-    x, y, z = point
-    return Vector((x, -z, y))
-
-
-def srgb_to_linear(c):
-    return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
+def use_common(common):
+    """Bind kit_common.py's shared helpers (the declared Python input ``common``) into this module."""
+    globals().update({name: common[name] for name in common["NAMES"]})
 
 
 # ---------------------------------------------------------------- textures (numpy, tileable)
-
-def periodic_noise(size, cells, seed):
-    grid = np.random.RandomState(seed).rand(cells[1], cells[0])
-    def axis(n, c):
-        t = np.arange(n) * c / n
-        i0 = np.floor(t).astype(int)
-        f = t - i0
-        return i0 % c, (i0 + 1) % c, f * f * (3 - 2 * f)
-    x0, x1, fx = axis(size, cells[0])
-    y0, y1, fy = axis(size, cells[1])
-    a = grid[np.ix_(y0, x0)] * (1 - fx) + grid[np.ix_(y0, x1)] * fx
-    b = grid[np.ix_(y1, x0)] * (1 - fx) + grid[np.ix_(y1, x1)] * fx
-    return a * (1 - fy)[:, None] + b * fy[:, None]
-
-
-def fbm(size, base, octaves, seed, stretch=(1, 1)):
-    total, weight, amp = np.zeros((size, size)), 0.0, 1.0
-    for o in range(octaves):
-        c = base * 2**o
-        total += amp * periodic_noise(size, (int(c * stretch[0]), int(c * stretch[1])), seed + o)
-        weight += amp
-        amp *= 0.5
-    return total / weight
-
-
-def normal_map(height, strength):
-    dx = (np.roll(height, -1, 1) - np.roll(height, 1, 1)) * strength
-    dy = (np.roll(height, -1, 0) - np.roll(height, 1, 0)) * strength
-    n = np.stack([-dx, dy, np.ones_like(height)], -1)  # rows run top-down in the image, +v up
-    n /= np.linalg.norm(n, axis=-1, keepdims=True)
-    return n * 0.5 + 0.5
-
 
 def finish_maps(colour, height, strength, ao, rough):
     return np.clip(colour, 0, 1), normal_map(height, strength), np.stack([np.clip(ao, 0, 1), np.clip(rough, 0, 1), np.zeros_like(ao)], -1)
@@ -211,21 +169,6 @@ def texture_maps(name):
     if name == "shingle":
         return roof_maps(TEXTURE, 811, (0.5, 0.42, 0.35), (0.11, 0.22), 4, 0.012, 4.0)
     return roof_maps(TEXTURE, 911, (0.4, 0.42, 0.46), (0.2, 0.3), 4, 0.01, 3.0)
-
-
-def make_image(name, pixels, colour):
-    size = pixels.shape[0]
-    image = bpy.data.images.get(name)
-    if image is None or tuple(image.size) != (size, size):
-        if image is not None:
-            bpy.data.images.remove(image)
-        image = bpy.data.images.new(name, size, size, alpha=False)
-    image.colorspace_settings.name = "sRGB" if colour else "Non-Color"
-    rgba = np.concatenate([pixels, np.ones(pixels.shape[:2] + (1,))], -1).astype(np.float32)
-    image.pixels.foreach_set(rgba[::-1].ravel())  # Blender rows run bottom-up
-    image.file_format = "PNG"
-    image.pack()
-    return image
 
 
 def material(name):
@@ -406,21 +349,6 @@ class Builder:
         collection.objects.link(obj)
         obj.parent = parent
         return obj
-
-
-def empty(name, collection, parent, point=(0, 0, 0)):
-    obj = bpy.data.objects.new(name, None)
-    obj.empty_display_type = "ARROWS"
-    obj.empty_display_size = 0.15
-    obj.location = to_blender(point)
-    collection.objects.link(obj)
-    obj.parent = parent
-    return obj
-
-
-def proxy(name, tag, lo, hi):
-    return {"name": name, "tag": tag, "center": [round((lo[i] + hi[i]) / 2, 6) for i in range(3)],
-            "size": [round(hi[i] - lo[i], 6) for i in range(3)]}
 
 
 def r6(v):
@@ -884,12 +812,13 @@ def validate(arguments, inputs):
         raise ValueError(f"outpost part must be one of {', '.join(PARTS)}")
     if "roof" in arguments and (arguments["part"] not in ROOFED or arguments["roof"] not in ROOFS):
         raise ValueError("outpost roof applies to roof modules only and must be shingle or slate")
-    if inputs:
-        raise ValueError("outpost recipe does not accept extra resources")
+    if set(inputs) != {"common"}:
+        raise ValueError("outpost recipe takes exactly kit_common.py as its input 'common'")
 
 
 def generate(output_path, arguments, inputs):
     validate(arguments, inputs)
+    use_common(inputs.load_source("common"))
     part = arguments["part"]
     roof = arguments.get("roof", "shingle")
     bpy.ops.object.select_all(action="SELECT")

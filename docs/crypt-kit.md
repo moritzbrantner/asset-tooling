@@ -22,7 +22,7 @@ ASSET_TOOLING_BLENDER=<blender 5.2.2> bun scripts/build-crypt-kit.ts --out <dire
 
 It needs no network, no LFS payloads and no GPU. Snap Blender can only read and write under `$HOME`, so set `TMPDIR` to a directory there.
 
-`crypt.build(part, collection, location)` also runs in a live Blender session, for example through the Blender MCP, to watch the modules or lay out a review room.
+`crypt.build(part, collection, location)` also runs in a live Blender session once `crypt.use_common(runpy.run_path("adapters/blender/kit_common.py"))` has bound the shared helpers ([`kit_common.py`](../adapters/blender/kit_common.py), #426), for example through the Blender MCP, to watch the modules or lay out a review room.
 
 ## Look and materials
 

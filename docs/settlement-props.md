@@ -21,7 +21,7 @@ ASSET_TOOLING_BLENDER=<blender 5.2.2> bun scripts/build-settlement-props.ts --ou
 
 The build takes about a minute. It needs no network, no LFS payloads and no GPU. Snap Blender can only read and write under `$HOME`, so set `TMPDIR` to a directory there.
 
-In a live Blender session, run `outpost.py` and `settlement_props.py` into two namespaces, then call `use_kit(outpost_namespace)`. After that, `build(prop, collection, location, yaw)` and `build_composition("square", collection, location)` work, for example through the Blender MCP.
+In a live Blender session, run `outpost.py` and `settlement_props.py` into two namespaces, bind the shared helpers with `outpost_namespace["use_common"](runpy.run_path("adapters/blender/kit_common.py"))`, then call `use_kit(outpost_namespace)`. After that, `build(prop, collection, location, yaw)` and `build_composition("square", collection, location)` work, for example through the Blender MCP.
 
 ## Props
 

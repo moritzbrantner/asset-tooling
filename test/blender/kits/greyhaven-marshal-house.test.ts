@@ -19,9 +19,9 @@ const inside = (a: Box, b: Box, epsilon = 1e-6) => [0, 1, 2].every((k) => a.min[
 const around = (p: number[], r: number, h = 1.8): Box => ({ min: [p[0]! - r, p[1]!, p[2]! - r], max: [p[0]! + r, p[1]! + h, p[2]! + r] });
 
 test("the house spec runs the packaged recipe with the kit and the settlement props as inputs", () => {
-  const spec = createHouseAssetSpec({ part: "door", scriptSha256: "a".repeat(64), outpostSha256: "b".repeat(64), settlementSha256: "c".repeat(64), blenderVersion: "5.2.2" });
+  const spec = createHouseAssetSpec({ part: "door", scriptSha256: "a".repeat(64), outpostSha256: "b".repeat(64), settlementSha256: "c".repeat(64), commonSha256: "d".repeat(64), blenderVersion: "5.2.2" });
   assert.deepEqual(spec.parameters, { blenderVersion: "5.2.2", arguments: { schemaVersion: 1, part: "door" } });
-  assert.deepEqual(Object.keys(spec.inputs).sort(), ["outpost", "script", "settlement"]);
+  assert.deepEqual(Object.keys(spec.inputs).sort(), ["common", "outpost", "script", "settlement"]);
   assert.deepEqual([...HOUSE_PARTS], ["shell", "ceiling", "roof", "door", "furniture", "collision"]);
 });
 

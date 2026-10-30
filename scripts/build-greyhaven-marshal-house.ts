@@ -50,8 +50,8 @@ function single(result: AssetOperationResult, port = "output"): AssetRef {
   return output;
 }
 
-export function createHouseAssetSpec({ part, scriptSha256, outpostSha256, settlementSha256, blenderVersion }: {
-  part: HousePart; scriptSha256: string; outpostSha256: string; settlementSha256: string; blenderVersion: string;
+export function createHouseAssetSpec({ part, scriptSha256, outpostSha256, settlementSha256, commonSha256, blenderVersion }: {
+  part: HousePart; scriptSha256: string; outpostSha256: string; settlementSha256: string; commonSha256: string; blenderVersion: string;
 }) {
   return parseAssetSpec({
     schemaVersion: 1, assetId: houseKey(part), generator: { id: "external.blender.script", version: "1" }, randomness: { mode: "none" },
@@ -59,6 +59,7 @@ export function createHouseAssetSpec({ part, scriptSha256, outpostSha256, settle
       script: { path: "marshal_house.py", sha256: scriptSha256 },
       outpost: { path: "outpost.py", sha256: outpostSha256 },
       settlement: { path: "settlement_props.py", sha256: settlementSha256 },
+      common: { path: "kit_common.py", sha256: commonSha256 },
     },
     models: {}, parameters: { blenderVersion, arguments: { schemaVersion: 1, part } }, output: { path: "house.glb" }, reproducibility: { expected: "exact" },
   });
@@ -115,6 +116,7 @@ export async function buildGreyhavenMarshalHouse({ outDir, log = () => {} }: { o
   const source = await readBlenderRecipeSource("marshal_house.py");
   const outpost = await readBlenderRecipeSource("outpost.py");
   const settlement = await readBlenderRecipeSource("settlement_props.py");
+  const common = await readBlenderRecipeSource("kit_common.py");
   const io = new NodeIO();
   const parts = {} as Record<HousePart, Built>;
   for (const part of HOUSE_PARTS) {
@@ -124,8 +126,9 @@ export async function buildGreyhavenMarshalHouse({ outDir, log = () => {} }: { o
     await writeFile(path.join(workspace, "marshal_house.py"), source.bytes);
     await writeFile(path.join(workspace, "outpost.py"), outpost.bytes);
     await writeFile(path.join(workspace, "settlement_props.py"), settlement.bytes);
+    await writeFile(path.join(workspace, "kit_common.py"), common.bytes);
     const specPath = path.join(workspace, "asset.json");
-    const spec = createHouseAssetSpec({ part, scriptSha256: source.sha256, outpostSha256: outpost.sha256, settlementSha256: settlement.sha256, blenderVersion: source.blenderVersion });
+    const spec = createHouseAssetSpec({ part, scriptSha256: source.sha256, outpostSha256: outpost.sha256, settlementSha256: settlement.sha256, commonSha256: common.sha256, blenderVersion: source.blenderVersion });
     await writeFile(specPath, `${canonicalJson(spec)}\n`);
     const generated = await generateAsset(specPath);
     const observations = (generated.receipt.observations as Json).script as Json;
@@ -188,6 +191,7 @@ export async function buildGreyhavenMarshalHouse({ outDir, log = () => {} }: { o
       recipe: {
         script: "adapters/blender/marshal_house.py", sha256: source.sha256, blenderVersion: source.blenderVersion,
         outpost: { script: "adapters/blender/outpost.py", sha256: outpost.sha256 },
+        common: { script: "adapters/blender/kit_common.py", sha256: common.sha256 },
         settlement: { script: "adapters/blender/settlement_props.py", sha256: settlement.sha256 },
       },
       release: HOUSE_RELEASE, parts: Object.fromEntries(HOUSE_PARTS.map((part) => [part, parts[part].asset])), descriptor: descriptorAsset,
