@@ -4,7 +4,7 @@ Reproducible, traceable tooling for generating and processing game and applicati
 
 The repository treats generated and processed assets as build artifacts. Generation intent, generator/model identity, declared dependency bytes, execution environment, outputs, processing observations, and replay evidence are recorded so reproducibility can be tested instead of assumed.
 
-The [Greyhaven nature bundle](docs/greyhaven-nature-bundle.md) delivers game-resolution broadleaf, conifer and rock families for the MMORPG.
+The [Greyhaven nature bundle](docs/greyhaven-nature-bundle.md) delivers game-resolution broadleaf, conifer, rock and bush families for the MMORPG.
 
 The [Greyhaven ambient animals](docs/greyhaven-ambient-animals.md) are a cat, a dog and a small rodent from CC0 Quaternius sources, each with in-place `Idle` and `Walk` clips, sized for the MMORPG's game camera.
 
