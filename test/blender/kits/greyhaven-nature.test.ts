@@ -35,7 +35,8 @@ test("nature bundle supplies independently shaped, grounded families with game-r
     const verified = await verifyAssetBundle(built.bundleDir, built.exportRef, { profile: "gltf-resources-v1" });
     const manifest = verified.manifest as GltfResourcesBundleManifest;
     await verifyAssetBundleTar(await readFile(built.tar), { ref: built.exportRef });
-    assert.deepEqual(manifest.assets.map((item) => item.key).sort(), NATURE_MEMBERS.map((item) => item.key).sort());
+    assert.deepEqual(manifest.assets.map((item) => `${item.key}/${item.variant}`).sort(),
+      NATURE_MEMBERS.flatMap((item) => ["default", ...NATURE_LOD_VARIANTS].map((variant) => `${item.key}/${variant}`)).sort());
     const descriptor = JSON.parse((await readAssetBundleAttachment(built.bundleDir, manifest, "greyhaven.nature.tree.broadleaf", "default", NATURE_DESCRIPTOR_ATTACHMENT)).toString());
     assert.equal(descriptor.schema, NATURE_DESCRIPTOR_SCHEMA);
     assert.equal(descriptor.units, "metre");
