@@ -67,6 +67,17 @@ export const RANGER_TRAVERSAL_CLIPS = [
   "Mantle_Low", "Mantle_Mid", "Mantle_High",
   "Ladder_Idle_Loop", "Ladder_Up_Loop", "Ladder_Down_Loop", "Rope_Idle_Loop", "Rope_Up_Loop", "Rope_Down_Loop",
 ] as const;
+/**
+ * #417 (the mmorpg Warden and the Redbrand specials): sword-and-shield clips authored in place on the Ranger rig by
+ * adapters/blender/sword_clips.py from explicit sword and shield grip frames on the `hand_r.weapon` and `hand_l.shield`
+ * sockets (two-bone arm IK; Mixamo only as reference). The directed slashes, `Sword_Heroic` and the guard lanes keep
+ * only the `spine_01` subtree. They follow the traversal clips in bundle order; each slash carries its `aim` cell.
+ */
+export const RANGER_SWORD_CLIPS = [
+  ...(["High", "Mid", "Low"] as const).flatMap((height) => (["L", "C", "R"] as const).map((side) => `Sword_Slash_${height}_${side}` as const)),
+  "Sword_Heroic", "Sword_Cleave", "Charge_Run_Loop", "Charge_Impact", "Shield_Guard_High_Loop", "Shield_Guard_Mid_Loop", "Shield_Guard_Low_Loop",
+  "Stun_Loop", "Respawn_Rise", "Sword_Whirl", "Sword_Overhead_Smash",
+] as const;
 
 /** A socket of the figure's sockets descriptor, as a recipe argument. */
 export type RangerSocket = { joint: string; translation: number[]; rotation: number[] };
@@ -83,8 +94,10 @@ export type AuthoredClip = {
   /** Extra built-clip fields: the removed travel, the bow draw, the grip or the swim stroke. */
   extra?: {
     removedTravel?: [number, number]; bow?: Json; grip?: { socket: string; role: string }; swim?: { strokeSpeedMetersPerSecond: number };
-    /** Traversal clips (#416): the whole travel (glTF x, y, z) the in-place clip stands for, and their own fields. */
-    rootTravel?: [number, number, number]; traversal?: Json;
+    /** Traversal clips (#416): the whole travel (glTF x, y, z) the in-place clip stands for. */
+    rootTravel?: [number, number, number];
+    /** The clip's own `humanoid-clips` fields (#416 traversal, #417 sword aim). */
+    fields?: Json;
   };
 };
 /**
@@ -171,8 +184,24 @@ export const RANGER_CLIP_FAMILIES: readonly ClipFamily[] = [
         authored: { recipe: family.recipe, clip: name, fps: family.fps, ...observed }, basedOn: "Idle_Loop",
         extra: {
           ...(travel ? { rootTravel: travel as [number, number, number] } : {}),
-          traversal: { ...fields, contacts, secondaryPose, ...(travelSamples ? { travelSamples: { sampleRate: family.fps, translations: travelSamples } } : {}) },
+          fields: { ...fields, contacts, secondaryPose, ...(travelSamples ? { travelSamples: { sampleRate: family.fps, translations: travelSamples } } : {}) },
         },
+      };
+    },
+  },
+  {
+    id: "sword", script: "sword_clips.py", clips: RANGER_SWORD_CLIPS,
+    arguments: ({ socket }) => {
+      const at = (id: string) => { const { joint, translation, rotation } = socket(id); return { joint, translation, rotation }; };
+      return { schemaVersion: 1, clips: [...RANGER_SWORD_CLIPS], sockets: { weapon: at("hand_r.weapon"), shield: at("hand_l.shield") } };
+    },
+    clip: (name, family) => {
+      // The upper-body clips list their joints; a slash's aim cell goes to the clip's entry.
+      const { joints, aim, source, ...observed } = family.clips[name] as Json;
+      return {
+        ...(joints ? { keep: joints as string[] } : {}),
+        authored: { recipe: family.recipe, clip: name, fps: family.fps, ...observed }, basedOn: source as string,
+        ...(aim ? { extra: { fields: { aim } } } : {}),
       };
     },
   },
