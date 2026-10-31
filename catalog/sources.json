@@ -407,6 +407,123 @@
       "title": "Fir Tree 01 — 2K Twig Alpha"
     },
     {
+      "id": "poly-haven.rock-boulder-dry-diff-2k-jpg",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://polyhaven.com/a/rock_boulder_dry",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/jpeg",
+      "metadata": {
+        "purpose": "Rock colour baked into the Greyhaven nature rocks (asset-tooling#451)",
+        "resolution": "2K"
+      },
+      "provider": "poly-haven",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 3437626,
+        "path": "rock_boulder_dry_diff_2k.jpg",
+        "revision": "2k-jpg-diff",
+        "sha256": "c66de7f7b48ef1ba542c17af780787ca6d43da2160a46ff3544dd9fcdf65ca30",
+        "upstreamId": "rock_boulder_dry",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/rock_boulder_dry/rock_boulder_dry_diff_2k.jpg"
+      },
+      "tags": [
+        "greyhaven-nature",
+        "rock",
+        "texture"
+      ],
+      "title": "Rock Boulder Dry — 2K Color"
+    },
+    {
+      "id": "poly-haven.rock-boulder-dry-disp-2k-jpg",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://polyhaven.com/a/rock_boulder_dry",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/jpeg",
+      "metadata": {
+        "purpose": "Rock height (bump) baked into the Greyhaven nature rocks' normal maps (asset-tooling#451)",
+        "resolution": "2K"
+      },
+      "provider": "poly-haven",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 785931,
+        "path": "rock_boulder_dry_disp_2k.jpg",
+        "revision": "2k-jpg-disp",
+        "sha256": "e8ef6d94411f6b8396425426c08d9848feb0c81ac29c4a6acae28342786f17a1",
+        "upstreamId": "rock_boulder_dry",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/rock_boulder_dry/rock_boulder_dry_disp_2k.jpg"
+      },
+      "tags": [
+        "greyhaven-nature",
+        "rock",
+        "texture"
+      ],
+      "title": "Rock Boulder Dry — 2K Displacement"
+    },
+    {
+      "id": "poly-haven.rock-boulder-dry-rough-2k-jpg",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://polyhaven.com/a/rock_boulder_dry",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/jpeg",
+      "metadata": {
+        "purpose": "Rock roughness baked into the Greyhaven nature rocks (asset-tooling#451)",
+        "resolution": "2K"
+      },
+      "provider": "poly-haven",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 2706723,
+        "path": "rock_boulder_dry_rough_2k.jpg",
+        "revision": "2k-jpg-rough",
+        "sha256": "63bb4105e6f60b5968da785afc292b94026a5afa6f18388e98b00232e9e2c433",
+        "upstreamId": "rock_boulder_dry",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/rock_boulder_dry/rock_boulder_dry_rough_2k.jpg"
+      },
+      "tags": [
+        "greyhaven-nature",
+        "rock",
+        "texture"
+      ],
+      "title": "Rock Boulder Dry — 2K Roughness"
+    },
+    {
+      "id": "poly-haven.mossy-rock-diff-2k-jpg",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://polyhaven.com/a/mossy_rock",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/jpeg",
+      "metadata": {
+        "purpose": "Moss and lichen colour on the Greyhaven nature rocks' tops (asset-tooling#451)",
+        "resolution": "2K"
+      },
+      "provider": "poly-haven",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 4535360,
+        "path": "mossy_rock_diff_2k.jpg",
+        "revision": "2k-jpg-diff",
+        "sha256": "98ecbd1d19953433f5909b79958992b1da2b45addbee772d1d4c27287f368499",
+        "upstreamId": "mossy_rock",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/mossy_rock/mossy_rock_diff_2k.jpg"
+      },
+      "tags": [
+        "greyhaven-nature",
+        "moss",
+        "rock",
+        "texture"
+      ],
+      "title": "Mossy Rock — 2K Color"
+    },
+    {
       "schemaVersion": 1,
       "id": "poly-haven.studio-small-01-4k-exr",
       "provider": "poly-haven",

@@ -1014,6 +1014,30 @@
       "sourceId": "poly-haven.fir-tree-01-twig-alpha-2k-jpg",
       "storage": "git-lfs",
       "path": "assets/canonical/poly-haven.fir-tree-01-twig-alpha-2k-jpg/fir_tree_01_twig_alpha_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.rock-boulder-dry-diff-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.rock-boulder-dry-diff-2k-jpg/rock_boulder_dry_diff_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.rock-boulder-dry-disp-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.rock-boulder-dry-disp-2k-jpg/rock_boulder_dry_disp_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.rock-boulder-dry-rough-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.rock-boulder-dry-rough-2k-jpg/rock_boulder_dry_rough_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.mossy-rock-diff-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.mossy-rock-diff-2k-jpg/mossy_rock_diff_2k.jpg"
     }
   ]
 }

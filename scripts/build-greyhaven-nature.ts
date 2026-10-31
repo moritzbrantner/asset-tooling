@@ -37,13 +37,28 @@ export const BROADLEAF_CROWN = { schemaVersion: 1, seed: 446, cards: 1100 } as c
 export const CONIFER_CROWN = { schemaVersion: 1, seed: 454, cards: 2900 } as const;
 /** Extra catalog sources a crown recipe reads, by recipe input name. */
 const CONIFER_NEEDLES = { needles: "poly-haven.fir-tree-01-twig-diff-2k-jpg", needleAlpha: "poly-haven.fir-tree-01-twig-alpha-2k-jpg" } as const;
+/**
+ * The rocks are authored by adapters/blender/nature_rock.py (#451): a fractured, bedded and weathered sculpt whose CC0
+ * Poly Haven rock and moss material is baked onto a game mesh of about ROCK_TRIANGLES triangles.
+ */
+export const ROCK_TRIANGLES = 2000;
+const ROCK_TEXTURES = {
+  rockColour: "poly-haven.rock-boulder-dry-diff-2k-jpg", rockHeight: "poly-haven.rock-boulder-dry-disp-2k-jpg",
+  rockRoughness: "poly-haven.rock-boulder-dry-rough-2k-jpg", mossColour: "poly-haven.mossy-rock-diff-2k-jpg",
+} as const;
+/** Each rock's descriptor entry carries its convex-hull collision proxy under this field (consumed by mmorpg#577). */
+export const NATURE_COLLISION_PROXY = "collisionProxy";
+function rock(shape: "stratified" | "boulder" | "slab", seed: number, size: [number, number, number]) {
+  return { schemaVersion: 1, shape, seed, size, triangles: ROCK_TRIANGLES };
+}
 export const NATURE_MEMBERS = [
   { key: "greyhaven.nature.tree.broadleaf", family: "tree", shape: "broadleaf", source: "CommonTree_1", crown: BROADLEAF_CROWN },
   { key: "greyhaven.nature.tree.conifer", family: "tree", shape: "conifer", source: "Pine_1", crown: CONIFER_CROWN, crownInputs: CONIFER_NEEDLES },
-  { key: "greyhaven.nature.rock.1", family: "rock", shape: "medium-1", source: "Rock_Medium_1" },
-  { key: "greyhaven.nature.rock.2", family: "rock", shape: "medium-2", source: "Rock_Medium_2" },
-  { key: "greyhaven.nature.rock.3", family: "rock", shape: "medium-3", source: "Rock_Medium_3" },
+  { key: "greyhaven.nature.rock.1", family: "rock", shape: "stratified", rock: rock("stratified", 4511, [3.2, 3.0, 2.2]) },
+  { key: "greyhaven.nature.rock.2", family: "rock", shape: "boulder", rock: rock("boulder", 4512, [3.0, 2.5, 1.9]) },
+  { key: "greyhaven.nature.rock.3", family: "rock", shape: "slab", rock: rock("slab", 4513, [3.4, 3.4, 2.3]) },
 ] as const;
+export type ConvexHullProxy = { shape: "convex-hull"; vertices: [number, number, number][]; triangles: [number, number, number][] };
 export const NATURE_TEXTURE_POLICY = {
   maxEdgeBySlot: { baseColor: 1024, normal: 1024, metallicRoughness: 512, occlusion: 512, emissive: 1024 },
   default: 1024,
@@ -72,47 +87,63 @@ export async function buildGreyhavenNature(outDir: string, log: (message: string
     return (await importAssetCatalogStorageSource({ catalog, storage, sourceId: matches[0]!.id, storageRoot: ROOT, objectStoreRoot: root })).asset as AssetRef;
   };
   const io = new NodeIO();
+  const boundsOf = async (asset: AssetRef) => {
+    const scene = (await io.readBinary(new Uint8Array(await resolveAssetObject(root, asset)))).getRoot().getDefaultScene();
+    if (!scene) throw new Error(`${asset.sha256} has no default scene`);
+    return getBounds(scene);
+  };
+  /** One external.blender.script@1 recipe run with the given catalog sources as named inputs (plus an optional source GLB). */
+  const runRecipe = async (key: string, script: string, workspace: string, output: string, args: unknown, catalogInputs: Record<string, string>, source?: AssetRef) => {
+    log(`${key}: external.blender.script@1 ${script}`);
+    const recipe = await readBlenderRecipeSource(script);
+    const files: Record<string, Uint8Array> = { [script]: recipe.bytes };
+    const inputs: { script: BlenderSpecInput } & Record<string, BlenderSpecInput> = { script: { path: script, sha256: recipe.sha256 } };
+    if (source) {
+      files["source.glb"] = new Uint8Array(await resolveAssetObject(root, source));
+      inputs.source = { path: "source.glb", sha256: sha256Bytes(files["source.glb"]) };
+    }
+    const extra: Record<string, AssetRef> = {};
+    for (const [name, sourceId] of Object.entries(catalogInputs)) {
+      const asset = (await importAssetCatalogStorageSource({ catalog, storage, sourceId, storageRoot: ROOT, objectStoreRoot: root })).asset as AssetRef;
+      const bytes = new Uint8Array(await resolveAssetObject(root, asset));
+      const file = `${name}${path.posix.extname(rawSources.find((item) => item.id === sourceId)?.source?.path ?? "")}`;
+      files[file] = bytes;
+      inputs[name] = { path: file, sha256: sha256Bytes(bytes) };
+      extra[name] = asset;
+    }
+    const { glb, observations } = await runBlenderRecipe(root, {
+      workspace: path.join(root, workspace), files,
+      spec: blenderScriptSpec({ assetId: key, inputs, blenderVersion: recipe.blenderVersion, arguments: args, output }),
+    });
+    // Normal maps ship without tangents, so the same validator allowance applies.
+    const asset = single(await executeGltfProductionImportOperation(root, { inputs: { source: glb }, parameters: { policy: POLICY } }));
+    return { asset, observations: observations as Record<string, unknown>, ...(Object.keys(extra).length ? { inputs: extra } : {}) };
+  };
   const built = [];
   for (const entry of NATURE_MEMBERS) {
-    log(`import, place and resize ${entry.key}`);
-    const source = await member(`${entry.source}.gltf`);
-    const gltf: GltfResources = JSON.parse((await resolveAssetObject(root, source)).toString("utf8"));
-    const uris = [...(gltf.buffers ?? []), ...(gltf.images ?? [])].map((resource) => resource.uri);
-    const resources = await Promise.all(uris.map((uri) => member(path.posix.basename(decodeURIComponent(uri)))));
-    const imported = single(await executeGltfProductionImportOperation(root, {
-      inputs: { source, resources }, parameters: { resourceUris: uris, policy: { ...POLICY, repairs: ["gltf-color-clamp-v1"] } },
-    }));
-    let shaped = imported;
-    let crown: { asset: AssetRef; observations: Record<string, unknown>; inputs?: Record<string, AssetRef> } | undefined;
-    if ("crown" in entry) {
+    log(`build, place and resize ${entry.key}`);
+    let shaped: AssetRef;
+    let provenance: Record<string, unknown>;
+    let collisionProxy: ConvexHullProxy | undefined;
+    if ("rock" in entry) {
+      const authored = await runRecipe(entry.key, "nature_rock.py", `rock-${entry.shape}`, `${entry.shape}.glb`, entry.rock, ROCK_TEXTURES);
+      shaped = authored.asset;
+      const { collisionProxy: hull, ...observations } = authored.observations as { collisionProxy: ConvexHullProxy };
+      collisionProxy = hull;
+      provenance = { recipe: "adapters/blender/nature_rock.py", license: "CC0-1.0", authored: { ...authored, observations } };
+    } else {
+      const source = await member(`${entry.source}.gltf`);
+      const gltf: GltfResources = JSON.parse((await resolveAssetObject(root, source)).toString("utf8"));
+      const uris = [...(gltf.buffers ?? []), ...(gltf.images ?? [])].map((resource) => resource.uri);
+      const resources = await Promise.all(uris.map((uri) => member(path.posix.basename(decodeURIComponent(uri)))));
+      const imported = single(await executeGltfProductionImportOperation(root, {
+        inputs: { source, resources }, parameters: { resourceUris: uris, policy: { ...POLICY, repairs: ["gltf-color-clamp-v1"] } },
+      }));
       // broadleaf_crown.py (#446) or conifer_crown.py (#450), in a workspace named after the shape.
-      const script = `${entry.shape}_crown.py`;
-      log(`rebuild the ${entry.key} crown (external.blender.script@1 ${script})`);
-      const recipe = await readBlenderRecipeSource(script);
-      const source = new Uint8Array(await resolveAssetObject(root, imported));
-      const files: Record<string, Uint8Array> = { [script]: recipe.bytes, "source.glb": source };
-      const inputs: { script: BlenderSpecInput } & Record<string, BlenderSpecInput> = {
-        script: { path: script, sha256: recipe.sha256 }, source: { path: "source.glb", sha256: sha256Bytes(source) },
-      };
-      const extra: Record<string, AssetRef> = {};
-      for (const [name, sourceId] of Object.entries("crownInputs" in entry ? entry.crownInputs : {})) {
-        const asset = (await importAssetCatalogStorageSource({ catalog, storage, sourceId, storageRoot: ROOT, objectStoreRoot: root })).asset as AssetRef;
-        const bytes = new Uint8Array(await resolveAssetObject(root, asset));
-        const file = `${name}${path.posix.extname(rawSources.find((item) => item.id === sourceId)?.source?.path ?? "")}`;
-        files[file] = bytes;
-        inputs[name] = { path: file, sha256: sha256Bytes(bytes) };
-        extra[name] = asset;
-      }
-      const { glb, observations } = await runBlenderRecipe(root, {
-        workspace: path.join(root, `${entry.shape}-crown`),
-        files,
-        spec: blenderScriptSpec({
-          assetId: entry.key, inputs, blenderVersion: recipe.blenderVersion, arguments: entry.crown, output: `${entry.shape}.glb`,
-        }),
-      });
-      // The bark keeps the source's normal map without tangents, so the same validator allowance applies.
-      shaped = single(await executeGltfProductionImportOperation(root, { inputs: { source: glb }, parameters: { policy: POLICY } }));
-      crown = { asset: shaped, observations: observations as Record<string, unknown>, ...(Object.keys(extra).length ? { inputs: extra } : {}) };
+      const crown = await runRecipe(entry.key, `${entry.shape}_crown.py`, `${entry.shape}-crown`, `${entry.shape}.glb`, entry.crown,
+        "crownInputs" in entry ? entry.crownInputs : {}, imported);
+      shaped = crown.asset;
+      provenance = { archive: ARCHIVE, member: `glTF/${entry.source}.gltf`, license: "CC0-1.0", source, resources, imported, crown };
     }
     const placed = single(await executeGltfPlaceOperation(root, {
       inputs: { source: shaped }, parameters: { parentName: entry.key, anchor: "footprint-base-center", policy: POLICY },
@@ -120,20 +151,25 @@ export async function buildGreyhavenNature(outDir: string, log: (message: string
     const asset = single(await executeGltfTextureResizeOperation(root, {
       inputs: { source: placed }, parameters: { ...NATURE_TEXTURE_POLICY, policy: POLICY },
     }));
-    const document = await io.readBinary(new Uint8Array(await resolveAssetObject(root, asset)));
-    const scene = document.getRoot().getDefaultScene();
-    if (!scene) throw new Error(`${entry.key} has no default scene`);
-    const bounds = getBounds(scene);
-    built.push({ entry, asset, bounds, provenance: { source, resources, imported, ...(crown ? { crown } : {}), placed } });
+    const bounds = await boundsOf(asset);
+    if (collisionProxy) {
+      // The recipe grounds and centres the rock already; follow any residual placement shift exactly.
+      const before = await boundsOf(shaped);
+      const shift = [0, 1, 2].map((axis) => bounds.min[axis]! - before.min[axis]!);
+      collisionProxy.vertices = collisionProxy.vertices.map((v) => v.map((value, axis) => Number((value + shift[axis]!).toFixed(4))) as [number, number, number]);
+    }
+    built.push({ entry, asset, bounds, collisionProxy, provenance: { ...provenance, placed } });
   }
   const descriptor = {
     schema: NATURE_DESCRIPTOR_SCHEMA, units: "metre", up: "+Y", handedness: "right", origin: "footprint-base-center",
-    placement: "The consumer owns world placement and colliders. These meshes are presentation only.",
+    placement: "The consumer owns world placement and colliders. These meshes are presentation only; each rock also "
+      + `carries a convex-hull ${NATURE_COLLISION_PROXY} (vertices in its own glTF frame, triangles wound outward).`,
     texturePolicy: NATURE_TEXTURE_POLICY,
-    assets: built.map(({ entry, bounds, provenance }) => ({
+    assets: built.map(({ entry, bounds, collisionProxy, provenance }) => ({
       key: entry.key, variant: "default", family: entry.family, shape: entry.shape,
       bounds, footprint: { width: bounds.max[0] - bounds.min[0], height: bounds.max[1] - bounds.min[1], depth: bounds.max[2] - bounds.min[2] },
-      provenance: { archive: ARCHIVE, member: `glTF/${entry.source}.gltf`, license: "CC0-1.0", ...provenance },
+      ...(collisionProxy ? { [NATURE_COLLISION_PROXY]: collisionProxy } : {}),
+      provenance,
     })),
   };
   const attachment = (await storeAssetObject(root, {
