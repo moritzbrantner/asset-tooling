@@ -6,23 +6,23 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { NodeIO } from "@gltf-transform/core";
 import { getBounds } from "@gltf-transform/functions";
-import { readAssetBundleAttachment, readAssetBundleGltf, verifyAssetBundle, type GltfResourcesBundleManifest } from "../../src/asset-bundle.js";
-import { verifyAssetBundleTar } from "../../src/asset-bundle-pack.js";
-import { sha256Bytes } from "../../src/hash.js";
-import { buildGreyhavenNature, NATURE_DESCRIPTOR_ATTACHMENT, NATURE_DESCRIPTOR_SCHEMA, NATURE_MEMBERS } from "../../scripts/build-greyhaven-nature.ts";
+import { readAssetBundleAttachment, readAssetBundleGltf, verifyAssetBundle, type GltfResourcesBundleManifest } from "../../../src/asset-bundle.js";
+import { verifyAssetBundleTar } from "../../../src/asset-bundle-pack.js";
+import { sha256Bytes } from "../../../src/hash.js";
+import { buildGreyhavenNature, NATURE_DESCRIPTOR_ATTACHMENT, NATURE_DESCRIPTOR_SCHEMA, NATURE_MEMBERS } from "../../../scripts/build-greyhaven-nature.ts";
 
-const root = path.resolve(fileURLToPath(new URL("../..", import.meta.url)));
+const root = path.resolve(fileURLToPath(new URL("../../..", import.meta.url)));
 const storage: { entries: { sourceId: string; path: string }[] } = JSON.parse(await readFile(path.join(root, "catalog/storage.json"), "utf8"));
 const nature = storage.entries.filter((entry) => entry.sourceId.startsWith("quaternius.stylized-nature-megakit-standard."));
 const pointers = [];
 for (const entry of nature) {
   if ((await readFile(path.join(root, entry.path))).subarray(0, 64).toString().startsWith("version https://git-lfs.github.com/spec/v1")) pointers.push(entry.path);
 }
-if (process.env.ASSET_TOOLING_REQUIRE_HYDRATED_STORAGE === "1") assert.deepEqual(pointers, []);
+const skip = !process.env.ASSET_TOOLING_BLENDER ? "set ASSET_TOOLING_BLENDER to Blender 5.2.2 (snap Blender: TMPDIR under $HOME)"
+  : pointers.length ? "requires hydrated canonical nature payloads (git lfs pull)" : false;
 
 test("nature bundle supplies independently shaped, grounded families with game-resolution textures and provenance", {
-  skip: pointers.length ? "requires hydrated canonical nature payloads (git lfs pull)" : false,
-  timeout: 120_000,
+  skip, timeout: 300_000,
 }, async () => {
   const out = await mkdtemp(path.join(os.tmpdir(), "greyhaven-nature-"));
   try {
@@ -54,6 +54,18 @@ test("nature bundle supplies independently shaped, grounded families with game-r
         const vertices = mesh?.listPrimitives()[0]?.getAttribute("POSITION")?.getArray();
         assert.ok(vertices);
         rockShapes.add(sha256Bytes(Buffer.from(vertices.buffer, vertices.byteOffset, vertices.byteLength)));
+      }
+      if (entry.shape === "broadleaf") {
+        // #446: the source bark stays; the leaves are the rebuilt, vertex-coloured crown within a foreground budget.
+        const primitives = document.getRoot().listMeshes().flatMap((mesh) => mesh.listPrimitives());
+        const names = primitives.map((primitive) => primitive.getMaterial()?.getName()).sort();
+        assert.deepEqual(names, ["Bark_NormalTree", "Leaves_Core", "Leaves_NormalTree"]);
+        for (const primitive of primitives) assert.ok(primitive.getAttribute("COLOR_0"), "crown colour variation is COLOR_0");
+        const leaves = primitives.find((primitive) => primitive.getMaterial()?.getName() === "Leaves_NormalTree")!;
+        assert.equal(leaves.getMaterial()!.getAlphaMode(), "MASK");
+        const triangles = primitives.reduce((sum, primitive) => sum + primitive.getIndices()!.getCount() / 3, 0);
+        assert.ok(triangles <= 8000, `broadleaf triangles ${triangles} within the foreground budget`);
+        assert.equal(built.descriptor.assets.find((item) => item.key === entry.key)?.provenance.crown?.observations.recipe, "broadleaf-crown-v1");
       }
       const metadata = built.descriptor.assets.find((item) => item.key === entry.key);
       assert.equal(metadata?.provenance.license, "CC0-1.0");

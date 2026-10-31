@@ -48,7 +48,7 @@ export const ROLLING_RELEASES: RollingRelease[] = [
   { name: "farm-structures", script: "scripts/build-farm-structures.ts", blender: true },
   { name: "greyhaven-ambient-animals", script: "scripts/build-greyhaven-ambient-animals.ts", blender: true, lfs: true },
   { name: "greyhaven-marshal-house", script: "scripts/build-greyhaven-marshal-house.ts", blender: true },
-  { name: "greyhaven-nature", script: "scripts/build-greyhaven-nature.ts", lfs: true },
+  { name: "greyhaven-nature", script: "scripts/build-greyhaven-nature.ts", blender: true, lfs: true },
   // #399: each figure is its own release, so the two build in parallel jobs.
   { name: "humanoid-ranger-female", ...RANGER, args: ["--figure", "female"] },
   { name: "humanoid-ranger-male", ...RANGER, args: ["--figure", "male"] },
