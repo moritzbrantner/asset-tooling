@@ -52,7 +52,7 @@
     {
       "repo": "moenarch-games/mmorpg",
       "release": "greyhaven-nature",
-      "pins": [{ "type": "tar-sha256", "path": "scripts/fetch-nature-review.sh", "after": "EXPECTED=" }]
+      "pins": [{ "type": "tar-sha256", "path": "scripts/fetch-bundles.sh", "after": "NATURE_TAR_SHA256=" }]
     },
     {
       "repo": "moenarch-games/zoo",
