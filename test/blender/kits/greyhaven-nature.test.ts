@@ -67,6 +67,20 @@ test("nature bundle supplies independently shaped, grounded families with game-r
         assert.ok(triangles <= 8000, `broadleaf triangles ${triangles} within the foreground budget`);
         assert.equal(built.descriptor.assets.find((item) => item.key === entry.key)?.provenance.crown?.observations.recipe, "broadleaf-crown-v1");
       }
+      if (entry.shape === "conifer") {
+        // #450: Pine_1's bark stays; tiered fir sprig cards over opaque skirts replace its leaves, within the same budget.
+        const primitives = document.getRoot().listMeshes().flatMap((mesh) => mesh.listPrimitives());
+        const names = primitives.map((primitive) => primitive.getMaterial()?.getName()).sort();
+        assert.deepEqual(names, ["Bark_NormalTree", "Leaves_Core", "Leaves_Pine"]);
+        for (const primitive of primitives) assert.ok(primitive.getAttribute("COLOR_0"), "crown colour variation is COLOR_0");
+        const needles = primitives.find((primitive) => primitive.getMaterial()?.getName() === "Leaves_Pine")!;
+        assert.equal(needles.getMaterial()!.getAlphaMode(), "MASK");
+        const triangles = primitives.reduce((sum, primitive) => sum + primitive.getIndices()!.getCount() / 3, 0);
+        assert.ok(triangles <= 8000, `conifer triangles ${triangles} within the foreground budget`);
+        const crown = built.descriptor.assets.find((item) => item.key === entry.key)?.provenance.crown;
+        assert.equal(crown?.observations.recipe, "conifer-crown-v1");
+        assert.deepEqual(Object.keys(crown && "inputs" in crown ? crown.inputs ?? {} : {}).sort(), ["needleAlpha", "needles"]);
+      }
       const metadata = built.descriptor.assets.find((item) => item.key === entry.key);
       assert.equal(metadata?.provenance.license, "CC0-1.0");
       assert.match(metadata?.provenance.source.sha256 ?? "", /^[0-9a-f]{64}$/);
