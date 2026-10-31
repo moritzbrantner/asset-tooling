@@ -142,6 +142,7 @@
     "@gltf-transform/core": "4.5.1",
     "@mapbox/vector-tile": "2.0.5",
     "gltf-validator": "2.0.0-dev.3.10",
+    "p-limit": "7.3.3",
     "pbf": "4.0.2",
     "pmtiles": "4.5.0"
   },

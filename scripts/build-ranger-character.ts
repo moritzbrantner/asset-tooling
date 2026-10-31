@@ -8,8 +8,10 @@
 // current recipe and no numbered bundle versions (Atlas Decision 7.1.5); the result replaces the assets of
 // the rolling `humanoid-ranger-male` release.
 import path from "node:path";
+import { availableParallelism } from "node:os";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
+import pLimit from "p-limit";
 import { NodeIO, type Animation, type Document, type Node } from "@gltf-transform/core";
 import { executeAnimationRetargetOperation } from "../src/animation-processing-operations.js";
 import { GLTF_RESOURCES_BUNDLE_PROFILE, exportAssetBundle } from "../src/asset-bundle.js";
@@ -33,7 +35,6 @@ import { RANGER_CLIP_FAMILIES, type ClipFamily, type ClipFamilyContext, type Ran
 import { executeImageDecodeOperation, executeImageEncodePngOperation } from "../src/image-codec-operations.js";
 import { encodeRgba8Image, parseRgba8Image, RGBA8_IMAGE_MEDIA_TYPE, type Rgba8Image } from "../src/image-rgba8.js";
 import { sha256Bytes } from "../src/hash.js";
-import { parseAssetSpec } from "../src/schema.js";
 import { LOD_LEVELS, LOD_RATIOS, LOD_SWITCH_DISTANCE_HINTS, generateLodLevel, type LodLevel } from "../src/lod-recipe.js";
 import { ARMOR_CLASS_HOODS, ARMOR_CLASS_MATERIAL, ARMOR_FACTION, ARMOR_FACTION_KITS, ARMOR_GREY_SKIN_KITS, ARMOR_KIT_LABELS, ARMOR_FEMALE_OUTFIT_KITS, ARMOR_OUTFIT_KITS, createArmorAssetSpec, readArmorRecipeSource, type ArmorKit, type ArmorOutfitKit, type ArmorOutput } from "../src/armor-recipes.js";
 import { ARCHERY_PRESETS, ARCHERY_ROLES, createArcheryAssetSpec, readArcheryRecipeSource, type ArcheryPiece } from "../src/archery-recipes.js";
@@ -70,6 +71,16 @@ export const RANGER_TEXTURE_POLICY = {
  * body and the Female_Ranger outfit with the same clips, equipment and recipe.
  */
 export type RangerFigure = "male" | "female";
+/**
+ * How many independent build steps run at once (#427): `ASSET_TOOLING_JOBS`, otherwise one less than the available
+ * parallelism. A Blender `--background` run is mostly single-threaded.
+ */
+export function rangerJobs(env: NodeJS.ProcessEnv = process.env) {
+  if (env.ASSET_TOOLING_JOBS === undefined) return Math.max(1, availableParallelism() - 1);
+  const jobs = Number(env.ASSET_TOOLING_JOBS);
+  if (!Number.isInteger(jobs) || jobs < 1) throw new Error("ASSET_TOOLING_JOBS must be a positive integer");
+  return jobs;
+}
 export const RANGER_FIGURES = {
   male: { key: "humanoid.ranger.male", body: RANGER_MEMBERS.body, outfit: RANGER_MEMBERS.outfit, headMeshes: ["Face", "Face.001"] },
   female: {
@@ -508,8 +519,6 @@ type RangerBuiltClip = {
   swim?: { strokeSpeedMetersPerSecond: number };
 };
 
-const pick = (source: Json, keys: string[]) => Object.fromEntries(keys.filter((key) => source[key] !== undefined).map((key) => [key, source[key]]));
-
 async function rangerClipMotion(root: string, { character, targetRig, clips, roles = false }: {
   character: AssetRef; targetRig: AssetRef; clips: RangerBuiltClip[]; roles?: boolean;
 }) {
@@ -680,9 +689,18 @@ async function buildArchery(root: string, piece: ArcheryPiece) {
   return single(await executeGltfProductionImportOperation(root, { inputs: { source: glb }, parameters: { policy: POLICY } }));
 }
 
-export async function buildRangerCharacter({ processorCheckout, outDir, figure = "male", log = () => {} }: {
+export async function buildRangerCharacter({ processorCheckout, outDir, figure = "male", log: emit = () => {} }: {
   processorCheckout: string; outDir: string; figure?: RangerFigure; log?: (line: string) => void;
 }) {
+  // #427: every line carries the elapsed build time, so a log is a step profile.
+  const started = performance.now();
+  const log = (line: string) => {
+    const seconds = Math.round((performance.now() - started) / 1000);
+    emit(`[${String(Math.floor(seconds / 60)).padStart(3, "0")}:${String(seconds % 60).padStart(2, "0")}] ${line}`);
+  };
+  // #427: independent Blender-bound groups (the outfit kits, the held items, the hand-modelled hairstyles) run through
+  // a bounded pool. Results are collected first and added in their declared order, so the bundle stays the same.
+  const pool = pLimit(rangerJobs());
   const shape = RANGER_FIGURES[figure];
   const bundleKey = shape.key;
   const root = path.resolve(outDir);
@@ -844,7 +862,7 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
     }
   };
   const lodVariants: { variant: string; asset: AssetRef; triangles: number; ratio: number }[] = [];
-  const characterLods = async (composition: AssetRef, variant: string) => {
+  const characterLods = async (composition: AssetRef, variant: string, into = lodVariants) => {
     const levels: Partial<Record<LodLevel, AssetRef>> = {};
     for (const level of LOD_LEVELS) {
       const ratio = LOD_RATIOS.character[level];
@@ -855,12 +873,12 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
       const name = variant === RANGER_BUNDLE_VARIANT ? level : `${variant}.${level}`;
       await assertSameSkeleton(rig, name);
       levels[level] = await resizeTextures(`${bundleKey}/${name}`, imported);
-      lodVariants.push({ variant: name, asset: levels[level]!, triangles: lod.observations.trianglesAfter, ratio });
+      into.push({ variant: name, asset: levels[level]!, triangles: lod.observations.trianglesAfter, ratio });
     }
     return levels as Record<LodLevel, AssetRef>;
   };
   /** The Light-skin level: the Dark level with every texture the Dark and Light characters name differently swapped. */
-  const lightLods = async (darkLevels: Record<LodLevel, AssetRef>, dark: AssetRef, light: AssetRef, variant: string, skin = "skin.light") => {
+  const lightLods = async (darkLevels: Record<LodLevel, AssetRef>, dark: AssetRef, light: AssetRef, variant: string, skin = "skin.light", into = lodVariants) => {
     const io = new NodeIO();
     const images = async (asset: AssetRef) => new Map((await io.readBinary(new Uint8Array(await resolveAssetObject(root, asset)))).getRoot()
       .listTextures().map((texture) => [texture.getName(), texture.getImage()!] as const));
@@ -874,8 +892,8 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
       const asset = (await storeAssetObject(root, { bytes: Buffer.from(await io.writeBinary(document)), kind: darkLevels[level].kind, mediaType: darkLevels[level].mediaType,
         metadata: { lod: level, skin, from: darkLevels[level].sha256 } })).asset;
       const name = `${variant}.${level}`;
-      const darkEntry = lodVariants.find((entry) => entry.asset === darkLevels[level])!;
-      lodVariants.push({ variant: name, asset, triangles: darkEntry.triangles, ratio: darkEntry.ratio });
+      const darkEntry = into.find((entry) => entry.asset === darkLevels[level])!;
+      into.push({ variant: name, asset, triangles: darkEntry.triangles, ratio: darkEntry.ratio });
     }
   };
   log("character levels of detail (#123)");
@@ -1009,7 +1027,15 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
       const headGreyBase = single(await executeGltfSubsetSkinnedOperation(root, { inputs: { source: bodyGreyGlb }, parameters: { ...RANGER_HEAD_RECIPE, keepMeshes: [...shape.headMeshes] } }));
       headGrey = (await applyFaceVariants(root, headGreyBase, face.authored)).glb;
       }
-      for (const kit of RANGER_OUTFIT_KITS[figure]) {
+      // A parallel step (#427) records its variety observations and transfers in its own part; the parts merge in
+      // declared order, so lineage.json keeps its key order.
+      const mergeVariety = ({ transfers, ...observations }: Json) => {
+        Object.assign(variety, observations);
+        Object.assign(variety.transfers, transfers);
+      };
+      const fitKit = async (kit: ArmorOutfitKit) => {
+        const lods: typeof lodVariants = [];
+        const kitVariety: Json = { transfers: {} };
         log(`fit ${kit} armour (external.blender.script@1 armor recipe)`);
         const plates = await buildArmor(root, kit, "plates", fitTarget);
         const cloth = await buildArmor(root, kit, "cloth", fitTarget);
@@ -1042,11 +1068,11 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
               log(`age and build keys on the ${kit} outfit and plates (adapters/blender/male_variety.py, #380)`);
               const authored = await authorVarietyKeys(root, `kit.${kit}`, { mode: "character", source: composedKit, items: plates.glb });
               kitKeys = authored.bytes;
-              variety[`kit.${kit}`] = authored.observations;
+              kitVariety[`kit.${kit}`] = authored.observations;
             }
             const keyed = await applyVarietyKeys(root, outfitCharacter, kitKeys, variant);
             outfitCharacter = keyed.glb;
-            variety.transfers[variant] = keyed.transfer;
+            kitVariety.transfers[variant] = keyed.transfer;
             // #391: accessory chains on the loose garments; at rest they deform exactly as before.
             if (RANGER_OUTFIT_CHAINS[kit]) {
               const chained = await applySecondaryChains(root, outfitCharacter, RANGER_OUTFIT_CHAINS[kit]!);
@@ -1055,20 +1081,19 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
             }
           }
           variants.push({ variant, character: outfitCharacter, skin });
-          if (skin === "skin.dark") darkKit = { lods: await characterLods(composedKit, variant), character: outfitCharacter };
-          else await lightLods(darkKit!.lods, darkKit!.character, outfitCharacter, variant, skin);
+          if (skin === "skin.dark") darkKit = { lods: await characterLods(composedKit, variant, lods), character: outfitCharacter };
+          else await lightLods(darkKit!.lods, darkKit!.character, outfitCharacter, variant, skin, lods);
         }
         const variant = variants[0]!.variant;
         let keyedPlates = plates.glb;
         if (male) {
           const keyed = await applyVarietyKeys(root, plates.glb, kitKeys!, `armor.${kit}`);
-          variety.transfers[`armor.${kit}`] = keyed.transfer;
+          kitVariety.transfers[`armor.${kit}`] = keyed.transfer;
           keyedPlates = keyed.glb;
         }
-        kits.push({ kit, variants, plates: keyedPlates, cloth: cloth.glb, fitTarget, observations: pieces });
         const garments = (cloth.observations.pieces as Json[]).map((piece) => ({ id: piece.node, nodes: piece.nodes, hides: piece.hides }));
         const hood = garments.find((garment) => ARMOR_CLASS_HOODS.includes(garment.id));
-        outfits.push({
+        const outfit: Json = {
           id: variant, variant, label: ARMOR_KIT_LABELS[kit],
           skins: variants.map(({ variant: skinVariant, skin }) => ({ id: skin, variant: skinVariant })),
           base: { outfit: male ? "Male_Peasant" : "Female_Peasant", hidden },
@@ -1079,29 +1104,44 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
           ...(kitChains.length ? { secondary: kitChains } : {}),
           ...(ARMOR_FACTION_KITS.includes(kit) ? { faction: { materials: [ARMOR_FACTION.material], defaultBaseColorFactor: [...ARMOR_FACTION.default, 1] } } : {}),
           ...(cloth.observations.classTrim ? { classTrim: { materials: [ARMOR_CLASS_MATERIAL], defaultBaseColorFactor: cloth.observations.classTrim } } : {}),
-        });
+        };
+        return { record: { kit, variants, plates: keyedPlates, cloth: cloth.glb, fitTarget, observations: pieces }, outfit, lods, variety: kitVariety };
+      };
+      // The kits fit in parallel (#427); their entries, outfits and levels of detail keep the declared kit order.
+      for (const fitted of await Promise.all(RANGER_OUTFIT_KITS[figure].map((kit) => pool(() => fitKit(kit))))) {
+        kits.push(fitted.record);
+        outfits.push(fitted.outfit);
+        lodVariants.push(...fitted.lods);
+        mergeVariety(fitted.variety);
       }
       // #380: the pack hairstyles follow the build keys (their textures share the geometry, so one authoring each).
       if (male) {
-      for (const item of hair) {
+      // Each pack hairstyle is keyed on its own (in parallel, #427); its variants keep their order.
+      const hairKeys = await Promise.all(hair.map((item) => pool(async () => {
         log(`build keys on ${item.key} (adapters/blender/male_variety.py, #380)`);
         const authored = await authorVarietyKeys(root, item.key, { mode: "item", source: item.variants["hair-1"]!, body: fitTarget });
-        variety[item.key] = authored.observations;
+        const part: Json = { [item.key]: authored.observations, transfers: {} };
         for (const [name, asset] of Object.entries(item.variants)) {
           const keyed = await applyVarietyKeys(root, asset, authored.bytes, `${item.key}/${name}`);
           item.variants[name] = keyed.glb;
-          variety.transfers[`${item.key}/${name}`] = keyed.transfer;
+          part.transfers[`${item.key}/${name}`] = keyed.transfer;
         }
-      }
+        return part;
+      })));
+      hairKeys.forEach(mergeVariety);
       // #380: the hand-modelled hairstyles and facial hair (#376 names kept), fitted to the same head, wearing the
       // pack's MI_Hair_1, with their build (and for facial hair, age) keys. Facial hair rides the `head.armor` socket.
+      // The hairstyles are modelled in parallel (#427) and added in their declared order.
       const hairMaterial = hair.find((item) => item.key === "hair.buzzed")!.variants["hair-1"]!;
-      for (const piece of VARIETY_HAIRSTYLES) {
+      const modelled = await Promise.all(VARIETY_HAIRSTYLES.map((piece) => pool(async () => {
         log(`model ${piece} (external.blender.script@1 hair and beards recipe, #380)`);
         const built = await buildHairPiece(root, piece, fitTarget, hairMaterial);
-        variety[piece] = built.observations;
         const imported = single(await executeGltfProductionImportOperation(root, { inputs: { source: built.glb }, parameters: { policy: POLICY } }));
-        hair.push({ key: piece, style: "hair_beards.py", variants: { "hair-1": await resizeTextures(`${piece}/hair-1`, imported) } });
+        return { observations: built.observations, item: { key: piece, style: "hair_beards.py", variants: { "hair-1": await resizeTextures(`${piece}/hair-1`, imported) } } };
+      })));
+      for (const [index, piece] of VARIETY_HAIRSTYLES.entries()) {
+        variety[piece] = modelled[index]!.observations;
+        hair.push(modelled[index]!.item);
       }
       log("model facial hair (external.blender.script@1 hair and beards recipe, #380)");
       const builtBeards = await buildHairPiece(root, VARIETY_FACIAL_HAIR_ENTRY, fitTarget, hairMaterial);
@@ -1249,24 +1289,25 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
       const bytes = Buffer.from(`${canonicalJson(rangerItemDescriptor(key, role))}\n`);
       attachments.push((await storeAssetObject(root, { bytes, kind: RANGER_ITEM_ATTACHMENT, mediaType: "application/json" })).asset);
     };
-    for (const { key, piece } of RANGER_WEAPONS) {
-      log(`generate ${piece} (external.blender.script@1 weapon recipe, scene.import.gltf@2)`);
-      weapons[key] = await buildWeapon(root, piece);
-      await selectItem(key, WEAPON_ROLES[piece], await resizeTextures(key, weapons[key]!));
-    }
-    {
-      for (const { key, piece } of RANGER_ARCHERY) {
+    // The held items build in parallel (#427) and are selected in their declared order.
+    const items: { key: string; role: string; build: () => Promise<AssetRef>; resize: boolean }[] = [
+      ...RANGER_WEAPONS.map(({ key, piece }) => ({ key, role: WEAPON_ROLES[piece], resize: true, build: () => {
+        log(`generate ${piece} (external.blender.script@1 weapon recipe, scene.import.gltf@2)`);
+        return buildWeapon(root, piece);
+      } })),
+      ...RANGER_ARCHERY.map(({ key, piece }) => ({ key, role: ARCHERY_ROLES[piece], resize: true, build: () => {
         log(`generate ${piece} (external.blender.script@1 archery recipe, scene.import.gltf@2)`);
-        weapons[key] = await buildArchery(root, piece);
-        await selectItem(key, ARCHERY_ROLES[piece], await resizeTextures(key, weapons[key]!));
-      }
-    }
-    if (figure === "male") {
-      for (const { key, piece } of RANGER_HEADWEAR) {
+        return buildArchery(root, piece);
+      } })),
+      ...(figure === "male" ? RANGER_HEADWEAR : []).map(({ key, piece }) => ({ key, role: HEADWEAR_CONTRACT.role, resize: false, build: () => {
         log(`generate ${piece} (external.blender.script@1 headwear recipe, scene.import.gltf@2)`);
-        weapons[key] = await buildHeadwear(root, piece);
-        await selectItem(key, HEADWEAR_CONTRACT.role, weapons[key]!);
-      }
+        return buildHeadwear(root, piece);
+      } })),
+    ];
+    const built = await Promise.all(items.map((item) => pool(item.build)));
+    for (const [index, { key, role, resize }] of items.entries()) {
+      weapons[key] = built[index]!;
+      await selectItem(key, role, resize ? await resizeTextures(key, weapons[key]!) : weapons[key]!);
     }
   }
 
