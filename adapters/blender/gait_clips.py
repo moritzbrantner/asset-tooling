@@ -1,8 +1,8 @@
 """Original directional gait, start/stop and turn clips authored on the Ranger rig in Blender (#112, #399, Atlas 6.1.7).
 
 The declared input ``target`` is the composed Ranger GLB with its embedded clips. The recipe reads the CC0 UAL1
-``Jog_Fwd_Loop``, ``Walk_Loop`` and ``Idle_Loop`` (already retargeted onto the rig) and authors one new in-place clip,
-named ``arguments["clip"]``. The jog and walk clips are one matched family (#399): each speed has a backward loop and a
+``Jog_Fwd_Loop``, ``Walk_Loop`` and ``Idle_Loop`` (already retargeted onto the rig) and authors new in-place clips,
+every name in ``arguments["clips"]``, in one run (#425). The jog and walk clips are one matched family (#399): each speed has a backward loop and a
 strafe pair built the same way, so a consumer blends walk and jog by angle and by speed.
 
 - ``Jog_Bwd_Loop`` / ``Walk_Bwd_Loop``: the forward loop played backwards with the torso leaning back by the forward
@@ -20,7 +20,7 @@ strafe pair built the same way, so a consumer blends walk and jog by angle and b
 
 Travelling clips report the horizontal travel they would cover (glTF x, z: +x is the figure's left, +z ahead) as
 ``removedTravel``. No Mixamo data is used; Mixamo clips were only watched as motion reference. The output GLB is the
-target skeleton with its meshes and the single clip, which the build extracts and embeds like the other clips. No
+target skeleton with its meshes and one action per clip, which the build extracts by name and embeds. No
 randomness.
 """
 import math
@@ -53,10 +53,11 @@ CLIPS = ("Jog_Bwd_Loop", "Jog_Strafe_Left_Loop", "Jog_Strafe_Right_Loop", "Walk_
 
 
 def validate(p, inputs):
-    if type(p) is not dict or set(p) != {"schemaVersion", "clip"}:
-        raise ValueError("gait clip requires exactly schemaVersion and clip")
-    if p["schemaVersion"] != 1 or p["clip"] not in CLIPS:
-        raise ValueError(f"gait clip must be one of {CLIPS}")
+    if type(p) is not dict or set(p) != {"schemaVersion", "clips"}:
+        raise ValueError("gait clips require exactly schemaVersion and clips")
+    clips = p["clips"]
+    if p["schemaVersion"] != 1 or type(clips) is not list or not clips or len(set(clips)) != len(clips) or any(c not in CLIPS for c in clips):
+        raise ValueError(f"gait clips must be distinct names from {CLIPS}")
     if set(inputs) != {"target"}:
         raise ValueError("gait clip takes exactly the declared input target")
 
@@ -365,29 +366,54 @@ def author(rig, clip):
     return turn(rig, clip)
 
 
-def write_action(rig_object, clip, poses):
+def imported_state(rig_object):
+    """The rig's state right after import: its action, slot, pose and the scene frame and rate."""
+    data = rig_object.animation_data
+    scene = bpy.context.scene
+    return {"action": data.action if data else None, "slot": getattr(data, "action_slot", None) if data else None,
+            "pose": {pb.name: pb.matrix_basis.copy() for pb in rig_object.pose.bones},
+            "frame": scene.frame_current, "fps": (scene.render.fps, scene.render.fps_base)}
+
+
+def restore_state(rig_object, state):
+    data = rig_object.animation_data
+    if data is not None:
+        data.action = state["action"]
+        if state["action"] is not None and state["slot"] is not None and hasattr(data, "action_slot"):
+            data.action_slot = state["slot"]
+    scene = bpy.context.scene
+    scene.render.fps, scene.render.fps_base = state["fps"]
+    scene.frame_set(state["frame"])
+    for name, basis in state["pose"].items():
+        rig_object.pose.bones[name].matrix_basis = basis
+
+
+def write_actions(rig_object, clips):
+    """Replace every action with one LINEAR action per clip, keyed at FPS from frame 0."""
     data = rig_object.animation_data or rig_object.animation_data_create()
     data.action = None
     for other in list(bpy.data.actions):
         bpy.data.actions.remove(other)
-    new = bpy.data.actions.new(clip)
-    data.action = new
     bpy.context.scene.render.fps, bpy.context.scene.render.fps_base = FPS, 1
-    for frame, pose in enumerate(poses):
-        for name, basis in pose.items():
-            pb = rig_object.pose.bones[name]
-            pb.matrix_basis = basis
-            pb.keyframe_insert("location", frame=frame)
-            pb.keyframe_insert("rotation_quaternion", frame=frame)
-    for curve in action_curves(new):
-        for key in curve.keyframe_points:
-            key.interpolation = "LINEAR"
-    bpy.context.scene.frame_start, bpy.context.scene.frame_end = 0, len(poses) - 1
+    for clip, poses in clips.items():
+        new = bpy.data.actions.new(clip)
+        data.action = new
+        for frame, pose in enumerate(poses):
+            for name, basis in pose.items():
+                pb = rig_object.pose.bones[name]
+                pb.matrix_basis = basis
+                pb.keyframe_insert("location", frame=frame)
+                pb.keyframe_insert("rotation_quaternion", frame=frame)
+        for curve in action_curves(new):
+            for key in curve.keyframe_points:
+                key.interpolation = "LINEAR"
+        new.use_fake_user = True
+        data.action = None
+    bpy.context.scene.frame_start, bpy.context.scene.frame_end = 0, max(len(poses) for poses in clips.values()) - 1
 
 
 def generate(output_path, arguments, inputs):
     validate(arguments, inputs)
-    clip = arguments["clip"]
     bpy.ops.object.select_all(action="SELECT")
     bpy.ops.object.delete(use_global=False)
     before = set(bpy.context.scene.objects)
@@ -396,8 +422,13 @@ def generate(output_path, arguments, inputs):
     rigs = [o for o in target_objects if o.type == "ARMATURE"]
     if len(rigs) != 1:
         raise ValueError("the target GLB must have one armature")
-    poses, observations = author(Rig(rigs[0]), clip)
-    write_action(rigs[0], clip, poses)
+    # Every clip starts from the imported state, as it would in a run of its own.
+    fresh = imported_state(rigs[0])
+    authored = {}
+    for clip in arguments["clips"]:
+        restore_state(rigs[0], fresh)
+        authored[clip] = author(Rig(rigs[0]), clip)
+    write_actions(rigs[0], {clip: poses for clip, (poses, _) in authored.items()})
     bpy.ops.object.select_all(action="DESELECT")
     for item in target_objects:
         if item.name in bpy.data.objects:
@@ -409,4 +440,5 @@ def generate(output_path, arguments, inputs):
         export_animations=True, export_animation_mode="ACTIONS", export_force_sampling=True, export_frame_step=1,
         export_optimize_animation_size=False, export_optimize_animation_keep_anim_armature=True,
         export_skins=True, export_morph=False, export_cameras=False, export_lights=False, export_extras=False)
-    return {"recipe": "gait-clip-v1", "clip": clip, "fps": FPS, "frames": len(poses), **observations}
+    return {"recipe": "gait-clip-v1", "fps": FPS,
+            "clips": {clip: {"frames": len(poses), **observations} for clip, (poses, observations) in authored.items()}}

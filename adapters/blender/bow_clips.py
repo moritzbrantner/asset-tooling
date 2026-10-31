@@ -1,7 +1,7 @@
 """Original bow clips authored on the Ranger rig in Blender (#277, owner answer 2026-10-18: original keyframes).
 
-The declared input ``target`` is the composed Ranger GLB with its embedded clips. The recipe authors one in-place clip,
-named ``arguments["clip"]``, from explicit archery targets:
+The declared input ``target`` is the composed Ranger GLB with its embedded clips. The recipe authors in-place clips,
+every name in ``arguments["clips"]`` in one run (#425), from explicit archery targets:
 
 - ``Bow_Aim_Loop``: the bow raised toward the target, an arrow nocked and the string set (partly drawn).
 - ``Bow_Draw``: from the aim pose to full draw, the string hand coming to an anchor under the right cheek.
@@ -49,11 +49,12 @@ C4 = Matrix(((1, 0, 0, 0), (0, 0, -1, 0), (0, 1, 0, 0), (0, 0, 0, 1)))
 
 
 def validate(p, inputs):
-    keys = {"schemaVersion", "clip", "sockets", "braceHeight", "arrowLength", "quiverLength"}
+    keys = {"schemaVersion", "clips", "sockets", "braceHeight", "arrowLength", "quiverLength"}
     if type(p) is not dict or set(p) != keys:
-        raise ValueError(f"bow clip requires exactly {sorted(keys)}")
-    if p["schemaVersion"] != 1 or p["clip"] not in CLIPS:
-        raise ValueError(f"bow clip must be one of {CLIPS}")
+        raise ValueError(f"bow clips require exactly {sorted(keys)}")
+    clips = p["clips"]
+    if p["schemaVersion"] != 1 or type(clips) is not list or not clips or len(set(clips)) != len(clips) or any(c not in CLIPS for c in clips):
+        raise ValueError(f"bow clips must be distinct names from {CLIPS}")
     if set(p["sockets"]) != {"bow", "arrow", "quiver"}:
         raise ValueError("bow clip sockets must be bow, arrow and quiver")
     if set(inputs) != {"target"}:
@@ -436,9 +437,54 @@ def author(archer, clip):
     return keys, marks
 
 
+def imported_state(rig_object):
+    """The rig's state right after import: its action, slot, pose and the scene frame and rate."""
+    data = rig_object.animation_data
+    scene = bpy.context.scene
+    return {"action": data.action if data else None, "slot": getattr(data, "action_slot", None) if data else None,
+            "pose": {pb.name: pb.matrix_basis.copy() for pb in rig_object.pose.bones},
+            "frame": scene.frame_current, "fps": (scene.render.fps, scene.render.fps_base)}
+
+
+def restore_state(rig_object, state):
+    data = rig_object.animation_data
+    if data is not None:
+        data.action = state["action"]
+        if state["action"] is not None and state["slot"] is not None and hasattr(data, "action_slot"):
+            data.action_slot = state["slot"]
+    scene = bpy.context.scene
+    scene.render.fps, scene.render.fps_base = state["fps"]
+    scene.frame_set(state["frame"])
+    for name, basis in state["pose"].items():
+        rig_object.pose.bones[name].matrix_basis = basis
+
+
+def write_actions(rig_object, clips):
+    """Replace every action with one LINEAR action per clip, keyed at FPS from frame 0."""
+    data = rig_object.animation_data or rig_object.animation_data_create()
+    data.action = None
+    for other in list(bpy.data.actions):
+        bpy.data.actions.remove(other)
+    bpy.context.scene.render.fps, bpy.context.scene.render.fps_base = FPS, 1
+    for clip, poses in clips.items():
+        new = bpy.data.actions.new(clip)
+        data.action = new
+        for frame, pose in enumerate(poses):
+            for name, basis in pose.items():
+                pb = rig_object.pose.bones[name]
+                pb.matrix_basis = basis
+                pb.keyframe_insert("location", frame=frame)
+                pb.keyframe_insert("rotation_quaternion", frame=frame)
+        for curve in action_curves(new):
+            for key in curve.keyframe_points:
+                key.interpolation = "LINEAR"
+        new.use_fake_user = True
+        data.action = None
+    bpy.context.scene.frame_start, bpy.context.scene.frame_end = 0, max(len(poses) for poses in clips.values()) - 1
+
+
 def generate(output_path, arguments, inputs):
     validate(arguments, inputs)
-    clip = arguments["clip"]
     bpy.ops.object.select_all(action="SELECT")
     bpy.ops.object.delete(use_global=False)
     before = set(bpy.context.scene.objects)
@@ -447,40 +493,27 @@ def generate(output_path, arguments, inputs):
     rigs = [o for o in target_objects if o.type == "ARMATURE"]
     if len(rigs) != 1:
         raise ValueError("the target GLB must have one armature")
-    rig = Rig(rigs[0], gltf_rest_worlds(inputs["target"]))
-    archer = Archer(rig, arguments)
-    keys, marks = author(archer, clip)
-    poses = [pose for pose, _ in keys]
-    draws = [round(draw, 4) for _, draw in keys]
-
-    data = rig.rig.animation_data
-    data.action = None
-    for other in list(bpy.data.actions):
-        bpy.data.actions.remove(other)
-    action = bpy.data.actions.new(clip)
-    data.action = action
-    bpy.context.scene.render.fps, bpy.context.scene.render.fps_base = FPS, 1
-    for frame, pose in enumerate(poses):
-        for name, basis in pose.items():
-            pb = rig.bones[name]
-            pb.matrix_basis = basis
-            pb.keyframe_insert("location", frame=frame)
-            pb.keyframe_insert("rotation_quaternion", frame=frame)
-    for curve in action_curves(action):
-        for key in curve.keyframe_points:
-            key.interpolation = "LINEAR"
-    bpy.context.scene.frame_start, bpy.context.scene.frame_end = 0, len(poses) - 1
+    rest_worlds = gltf_rest_worlds(inputs["target"])
+    # Every clip starts from the imported state, as it would in a run of its own.
+    fresh = imported_state(rigs[0])
+    poses, observed = {}, {}
+    for clip in arguments["clips"]:
+        restore_state(rigs[0], fresh)
+        archer = Archer(Rig(rigs[0], rest_worlds), arguments)
+        keys, marks = author(archer, clip)
+        poses[clip] = [pose for pose, _ in keys]
+        observed[clip] = {"frames": len(keys), "arrowRoll": archer.arrow_roll, "drawMeters": [round(draw, 4) for _, draw in keys], **marks}
+    write_actions(rigs[0], poses)
 
     bpy.ops.object.select_all(action="DESELECT")
     for item in target_objects:
         if item.name in bpy.data.objects:
             item.select_set(True)
-    bpy.context.view_layer.objects.active = rig.rig
+    bpy.context.view_layer.objects.active = rigs[0]
     bpy.ops.export_scene.gltf(
         filepath=output_path, export_format="GLB", use_selection=True,
         export_yup=True, export_texcoords=False, export_normals=False, export_tangents=False, export_materials="NONE",
         export_animations=True, export_animation_mode="ACTIONS", export_force_sampling=True, export_frame_step=1,
         export_optimize_animation_size=False, export_optimize_animation_keep_anim_armature=True,
         export_skins=True, export_morph=False, export_cameras=False, export_lights=False, export_extras=False)
-    return {"recipe": "bow-clip-v1", "clip": clip, "fps": FPS, "frames": len(poses), "arrowRoll": archer.arrow_roll,
-            "drawMeters": draws, **marks}
+    return {"recipe": "bow-clip-v1", "fps": FPS, "clips": observed}
