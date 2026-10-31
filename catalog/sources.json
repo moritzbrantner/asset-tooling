@@ -5419,88 +5419,144 @@
       "title": "Music Jingles — jingles_STEEL02"
     },
     {
-      "id": "poly-haven.castle-wall-slates-diff-2k-jpg",
+      "id": "poly-haven.broken-wall-diff-2k-jpg",
       "kind": "texture",
       "license": {
-        "evidenceUrl": "https://polyhaven.com/a/castle_wall_slates",
+        "evidenceUrl": "https://polyhaven.com/a/broken_wall",
         "spdx": "CC0-1.0"
       },
       "mediaType": "image/jpeg",
       "metadata": {
-        "purpose": "Color map of the coursed rubble on the fortress wall faces (asset-tooling#445)",
+        "purpose": "Color map of the grey rubble on the fortress wall faces (asset-tooling#459)",
         "resolution": "2K"
       },
       "provider": "poly-haven",
       "schemaVersion": 1,
       "source": {
-        "byteLength": 2381426,
-        "path": "castle_wall_slates_diff_2k.jpg",
+        "byteLength": 2382913,
+        "path": "broken_wall_diff_2k.jpg",
         "revision": "2k-jpg-diff",
-        "sha256": "89e1dce61cf53decf586bd123b9280365e447019ebedaf3b8e48663ab37eab30",
-        "upstreamId": "castle_wall_slates",
-        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/castle_wall_slates/castle_wall_slates_diff_2k.jpg"
+        "sha256": "35615ed619b14ab8991205e887a24cadcf8edffdf15b36b153421604b9ba29ce",
+        "upstreamId": "broken_wall",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/broken_wall/broken_wall_diff_2k.jpg"
       },
       "tags": [
         "fortress-kit",
         "texture"
       ],
-      "title": "Castle Wall Slates — 2K Color"
+      "title": "Broken Wall — 2K Color"
     },
     {
-      "id": "poly-haven.castle-wall-slates-nor-gl-2k-jpg",
+      "id": "poly-haven.broken-wall-nor-gl-2k-jpg",
       "kind": "texture",
       "license": {
-        "evidenceUrl": "https://polyhaven.com/a/castle_wall_slates",
+        "evidenceUrl": "https://polyhaven.com/a/broken_wall",
         "spdx": "CC0-1.0"
       },
       "mediaType": "image/jpeg",
       "metadata": {
-        "purpose": "Normal (GL) map of the coursed rubble on the fortress wall faces (asset-tooling#445)",
+        "purpose": "Normal (GL) map of the grey rubble on the fortress wall faces (asset-tooling#459)",
         "resolution": "2K"
       },
       "provider": "poly-haven",
       "schemaVersion": 1,
       "source": {
-        "byteLength": 4054865,
-        "path": "castle_wall_slates_nor_gl_2k.jpg",
+        "byteLength": 3578159,
+        "path": "broken_wall_nor_gl_2k.jpg",
         "revision": "2k-jpg-nor-gl",
-        "sha256": "ea6042cdb95576d9c2d67c7fa26e3648cca09d8d2fcaf4dfe7d6052a970d7b28",
-        "upstreamId": "castle_wall_slates",
-        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/castle_wall_slates/castle_wall_slates_nor_gl_2k.jpg"
+        "sha256": "ce7935ef7b418a7e20ade08311443deb0b30a0f77559879780bba2e2e07f5a44",
+        "upstreamId": "broken_wall",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/broken_wall/broken_wall_nor_gl_2k.jpg"
       },
       "tags": [
         "fortress-kit",
         "texture"
       ],
-      "title": "Castle Wall Slates — 2K Normal (GL)"
+      "title": "Broken Wall — 2K Normal (GL)"
     },
     {
-      "id": "poly-haven.castle-wall-slates-rough-2k-jpg",
+      "id": "poly-haven.broken-wall-rough-2k-jpg",
       "kind": "texture",
       "license": {
-        "evidenceUrl": "https://polyhaven.com/a/castle_wall_slates",
+        "evidenceUrl": "https://polyhaven.com/a/broken_wall",
         "spdx": "CC0-1.0"
       },
       "mediaType": "image/jpeg",
       "metadata": {
-        "purpose": "Roughness map of the coursed rubble on the fortress wall faces (asset-tooling#445)",
+        "purpose": "Roughness map of the grey rubble on the fortress wall faces (asset-tooling#459)",
         "resolution": "2K"
       },
       "provider": "poly-haven",
       "schemaVersion": 1,
       "source": {
-        "byteLength": 2005253,
-        "path": "castle_wall_slates_rough_2k.jpg",
+        "byteLength": 1215009,
+        "path": "broken_wall_rough_2k.jpg",
         "revision": "2k-jpg-rough",
-        "sha256": "84fe81f77d25e4dc37be41174b0a1fa85e8aece244eabe54ed48c542cb5bed08",
-        "upstreamId": "castle_wall_slates",
-        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/castle_wall_slates/castle_wall_slates_rough_2k.jpg"
+        "sha256": "3a729439f9ad59bbf702ddcef2dafd47d8ce51dbf05dd960f0a916755a8ebb35",
+        "upstreamId": "broken_wall",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/broken_wall/broken_wall_rough_2k.jpg"
       },
       "tags": [
         "fortress-kit",
         "texture"
       ],
-      "title": "Castle Wall Slates — 2K Roughness"
+      "title": "Broken Wall — 2K Roughness"
+    },
+    {
+      "id": "poly-haven.broken-wall-disp-2k-jpg",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://polyhaven.com/a/broken_wall",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/jpeg",
+      "metadata": {
+        "purpose": "Displacement map of the grey rubble on the fortress wall faces (asset-tooling#459)",
+        "resolution": "2K"
+      },
+      "provider": "poly-haven",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 452744,
+        "path": "broken_wall_disp_2k.jpg",
+        "revision": "2k-jpg-disp",
+        "sha256": "59399c720318892c96c8ad80e71b9823567f19b4f20383b29b7bbd4ff6727c04",
+        "upstreamId": "broken_wall",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/broken_wall/broken_wall_disp_2k.jpg"
+      },
+      "tags": [
+        "fortress-kit",
+        "texture"
+      ],
+      "title": "Broken Wall — 2K Displacement"
+    },
+    {
+      "id": "poly-haven.japanese-stone-wall-disp-2k-jpg",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://polyhaven.com/a/japanese_stone_wall",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/jpeg",
+      "metadata": {
+        "purpose": "Displacement map of the fortress ashlar, darkening its joints (asset-tooling#459)",
+        "resolution": "2K"
+      },
+      "provider": "poly-haven",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 859281,
+        "path": "japanese_stone_wall_disp_2k.jpg",
+        "revision": "2k-jpg-disp",
+        "sha256": "b8ec635446fb9d1a589aad8fb8c84eecb86b41e894099e6259c359aae55f2f33",
+        "upstreamId": "japanese_stone_wall",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/japanese_stone_wall/japanese_stone_wall_disp_2k.jpg"
+      },
+      "tags": [
+        "fortress-kit",
+        "texture"
+      ],
+      "title": "Japanese Stone Wall — 2K Displacement"
     },
     {
       "id": "poly-haven.japanese-stone-wall-diff-2k-jpg",

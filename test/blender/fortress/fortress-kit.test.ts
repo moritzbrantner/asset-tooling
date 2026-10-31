@@ -1,18 +1,18 @@
-// Battle Royale fortress kit (#445, docs/fortress-kit.md): every piece is fitted to a shared collider box of
-// battle_royale_core::arena and never reaches outside it, the composition dresses every body but the ground exactly
-// once, and the bundle ships three levels of detail per piece over shared CC0 textures. The build skips unless
-// ASSET_TOOLING_BLENDER names Blender 5.2.2 (the hosted blender-script job).
+// Battle Royale fortress kit (#445, pass 2 #459, docs/fortress-kit.md): every piece dresses a shared collider box of
+// battle_royale_core::arena; what a character stands on or is blocked by matches the box within 5 cm while decoration
+// may reach outside it, the composition dresses every body but the ground exactly once, and the bundle ships three
+// levels of detail per piece over shared CC0 textures. The build skips unless ASSET_TOOLING_BLENDER names Blender 5.2.2
+// (the hosted blender-script job).
 import test from "node:test";
 import assert from "node:assert/strict";
 import os from "node:os";
 import path from "node:path";
 import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
-import type { Document } from "@gltf-transform/core";
 import { verifyAssetBundleTar } from "../../../src/asset-bundle-pack.js";
 import { GLTF_RESOURCES_BUNDLE_PROFILE, readAssetBundleAttachment, verifyAssetBundle } from "../../../src/asset-bundle.js";
 import {
   FORTRESS_DESCRIPTOR_ATTACHMENT, FORTRESS_PARTS, FORTRESS_RELEASE, UNITS_PER_METRE, buildFortressKit, createFortressAssetSpec,
-  fortressBodies, fortressComposition, fortressKey, fortressPieces,
+  fortressBodies, fortressComposition, fortressFit, fortressFitViolations, fortressKey, fortressPieces,
 } from "../../../scripts/build-fortress-kit.ts";
 
 const schemaUrl = new URL("../../../schemas/fortress-kit-descriptor-v1.schema.json", import.meta.url);
@@ -46,23 +46,6 @@ const turn = (p: number[], yaw: number) => {
   const a = (yaw * Math.PI) / 180, c = Math.round(Math.cos(a)), s = Math.round(Math.sin(a));
   return [p[0]! * c + p[2]! * s, p[1]!, -p[0]! * s + p[2]! * c];
 };
-
-function vertices(document: Document): number[][] {
-  const out: number[][] = [];
-  for (const node of document.getRoot().listNodes()) {
-    const mesh = node.getMesh();
-    if (!mesh) continue;
-    const m = node.getWorldMatrix();
-    for (const primitive of mesh.listPrimitives()) {
-      const position = primitive.getAttribute("POSITION")!, p: number[] = [0, 0, 0];
-      for (let i = 0; i < position.getCount(); i += 1) {
-        position.getElement(i, p);
-        out.push([0, 1, 2].map((k) => m[k]! * p[0]! + m[4 + k]! * p[1]! + m[8 + k]! * p[2]! + m[12 + k]!));
-      }
-    }
-  }
-  return out;
-}
 
 test("the fortress spec runs the packaged recipe for one piece at one level of detail", () => {
   const piece = fortressPieces().find((p) => p.part === "corner-tower")!;
@@ -102,7 +85,15 @@ test("the composition dresses every arena body but the ground exactly once, each
   assert.equal(roof.bodies.length, bodies.filter((b) => b.part === "Floor").length);
 });
 
-test("the fortress recipe builds a verified kit whose pieces stay inside their fitted boxes at every level", {
+test("every piece has a fit rule whose decoration reach contains its fitted box", () => {
+  for (const piece of fortressPieces()) {
+    const { reach } = fortressFit(piece);
+    const [w, h, d] = piece.size;
+    assert.ok(reach.min[0] <= -w / 2 && reach.min[1] <= 0 && reach.min[2] <= -d / 2 && reach.max[0] >= w / 2 && reach.max[1] >= h && reach.max[2] >= d / 2, piece.part);
+  }
+});
+
+test("the fortress recipe builds a verified kit whose walks and blocking faces fit their colliders at every level", {
   skip: process.env.ASSET_TOOLING_BLENDER ? false : "set ASSET_TOOLING_BLENDER to Blender 5.2.2 (snap Blender: TMPDIR under $HOME)", timeout: 3_500_000,
 }, async () => {
   const outDir = await mkdtemp(path.join(os.tmpdir(), "fortress-kit-"));
@@ -116,16 +107,12 @@ test("the fortress recipe builds a verified kit whose pieces stay inside their f
     const schema = JSON.parse(await readFile(schemaUrl, "utf8"));
     assert.deepEqual(conforms(schema, d, schema), []);
 
-    // Four CC0 sets, each colour, normal and metallic-roughness, stored once and shared by every piece and level.
+    // Four CC0 sets (colour, normal, metallic-roughness) and the grime decal atlas, each stored once and shared.
     const images = (await readdir(path.join(built.bundleDir, "resources"))).filter((name) => /\.(jpe?g|png)$/.test(name));
-    assert.ok(images.length <= 12, `${images.length} images`);
+    assert.ok(images.length <= 13, `${images.length} images`);
 
     for (const b of built.built) {
-      const [w, h, dd] = b.piece.size;
-      for (const v of vertices(b.document)) {
-        assert.ok(Math.abs(v[0]!) <= w / 2 + 1e-4 && v[1]! >= -1e-4 && v[1]! <= h + 1e-4 && Math.abs(v[2]!) <= dd / 2 + 1e-4,
-          `${b.piece.part} ${b.variant} vertex ${v} leaves its ${b.piece.size} box`);
-      }
+      assert.deepEqual(fortressFitViolations(b.piece, b.document).slice(0, 8), [], `${b.piece.part} ${b.variant}`);
     }
     for (const asset of d.assets) {
       const [lod0, lod1, lod2] = asset.lods.levels;
