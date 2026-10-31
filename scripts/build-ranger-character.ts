@@ -31,7 +31,7 @@ import { WEAPON_PRESETS, WEAPON_ROLES, createWeaponAssetSpec, readWeaponRecipeSo
 import { readBlenderRecipeSource } from "../src/blender-recipe-source.js";
 import { blenderScriptSpec } from "../src/blender-script-spec.js";
 import { runBlenderRecipe } from "../src/blender-recipe-run.js";
-import { RANGER_CLIP_FAMILIES, type ClipFamily, type ClipFamilyContext, type RangerSocket } from "../src/ranger-clips.js";
+import { RANGER_CLIP_FAMILIES, RANGER_SWORD_CLIPS, type ClipFamily, type ClipFamilyContext, type RangerSocket } from "../src/ranger-clips.js";
 import { executeImageDecodeOperation, executeImageEncodePngOperation } from "../src/image-codec-operations.js";
 import { encodeRgba8Image, parseRgba8Image, RGBA8_IMAGE_MEDIA_TYPE, type Rgba8Image } from "../src/image-rgba8.js";
 import { sha256Bytes } from "../src/hash.js";
@@ -361,6 +361,19 @@ export const RANGER_CLIP_ROLES: Readonly<Record<string, { role: string; contact?
   Bow_Release: { role: "bow.release", contact: "hand_r" },
   Bow_Recovery: { role: "bow.recovery" },
   Bow_Cancel: { role: "bow.cancel" },
+  // #417: the Warden's sword and shield clips and the Redbrand specials (src/ranger-clips.ts RANGER_SWORD_CLIPS).
+  ...Object.fromEntries(RANGER_SWORD_CLIPS.filter((name) => name.startsWith("Sword_Slash_")).map((name) => [name, { role: "sword.directed", contact: "hand_r" }])),
+  Sword_Heroic: { role: "sword.heroic", contact: "hand_r" },
+  Sword_Cleave: { role: "sword.cleave", contact: "hand_r" },
+  Charge_Run_Loop: { role: "charge.run" },
+  Charge_Impact: { role: "charge.impact", contact: "hand_l" },
+  Shield_Guard_High_Loop: { role: "shield.guard-high" },
+  Shield_Guard_Mid_Loop: { role: "shield.guard-mid" },
+  Shield_Guard_Low_Loop: { role: "shield.guard-low" },
+  Stun_Loop: { role: "stun" },
+  Respawn_Rise: { role: "respawn" },
+  Sword_Whirl: { role: "sword.whirl", contact: "hand_r" },
+  Sword_Overhead_Smash: { role: "sword.overhead-smash", contact: "hand_r" },
 };
 /** The gait loops whose ground speed the `humanoid-clips` attachment records. */
 export const RANGER_GAITS: ReadonlySet<string> = new Set(["Walk_Loop", "Jog_Fwd_Loop", "Sprint_Loop", "Crouch_Fwd_Loop", "Jog_Bwd_Loop", "Walk_Bwd_Loop", "Wade_Fwd_Loop"]);
@@ -517,9 +530,10 @@ type RangerBuiltClip = {
   grip?: { socket: string; role: string };
   /** Swim clips (#393): `Swim_Fwd_Loop`'s reference stroke speed. */
   swim?: { strokeSpeedMetersPerSecond: number };
-  /** Traversal clips (#416): the whole travel (glTF x, y, z) the in-place clip stands for, and the clip's own fields. */
+  /** Traversal clips (#416): the whole travel (glTF x, y, z) the in-place clip stands for. */
   rootTravel?: [number, number, number];
-  traversal?: Json;
+  /** The clip's own `humanoid-clips` fields (#416 traversal, #417 sword aim). */
+  fields?: Json;
 };
 
 async function rangerClipMotion(root: string, { character, targetRig, clips, roles = false }: {
@@ -574,7 +588,7 @@ async function rangerClipMotion(root: string, { character, targetRig, clips, rol
     if (clip.bow) entry.bow = clip.bow;
     if (clip.swim) Object.assign(entry, clip.swim);
     if (clip.rootTravel) entry.sourceRootDisplacement = { x: round4(clip.rootTravel[0]), y: round4(clip.rootTravel[1]), z: round4(clip.rootTravel[2]) };
-    if (clip.traversal) Object.assign(entry, clip.traversal);
+    if (clip.fields) Object.assign(entry, clip.fields);
     if (clip.grip) Object.assign(entry, { loop: true, role: "grip", grip: clip.grip });
     const combat = roles ? RANGER_CLIP_ROLES[clip.name] : undefined;
     if (combat) {
@@ -813,7 +827,11 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
         clips.push({ name, library: "authored", source: single(extracted, "animation"), retargeted, libraryAsset: run.glb,
           observations: { rootMotion: "in-place", startSeconds: Math.min(...times), endSeconds: Math.max(...times), authored },
           sourceRig: single(extracted, "rig"), hips: RANGER_HIPS.target,
-          sourceInfo: { authored: `adapters/blender/${family.script}`, ...(basedOn ? { basedOn: { catalogId: catalogIds.clips, clip: basedOn } } : {}) },
+          sourceInfo: {
+            authored: `adapters/blender/${family.script}`,
+            // The seed's library: Idle_Shield_Loop is UAL2's (#417), the other seeds UAL1's.
+            ...(basedOn ? { basedOn: { catalogId: catalogIds[RANGER_CLIPS.find((clip) => clip.name === basedOn)?.library ?? "clips"], clip: basedOn } } : {}),
+          },
           ...extra });
       }
     }

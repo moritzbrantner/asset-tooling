@@ -43,7 +43,8 @@ The `humanoid.ranger.male` bundle holds the following.
   - the static finger grip poses `Grip_*` for held items ([Grip poses](#grip-poses-285));
   - the authored water clips ([Water clips](#water-clips-393));
   - the authored hit reactions `Hit_Upper_*` and `Hit_Shove_Spin` ([Authored hit clips](#authored-hit-clips-399));
-  - the authored climb, mantle, ladder and rope clips ([Traversal clips](#traversal-clips-416)).
+  - the authored climb, mantle, ladder and rope clips ([Traversal clips](#traversal-clips-416));
+  - the authored sword-and-shield clips of the Warden and the Redbrand ([Sword and shield clips](#sword-and-shield-clips-417)).
 
   No clip uses Mixamo data (#399). Mixamo is only a motion reference, so the build needs no local input and both figures publish from CI.
 
@@ -251,6 +252,27 @@ The strokes are authored **upright**, with the body along +Y and facing +Z. Over
 - **Contacts:** `contacts` lists each hand and foot plant: `limb` (`hand_l`, `hand_r`, `foot_l`, `foot_r`), `startSeconds`, `endSeconds` (past the clip's end when a loop's plant wraps) and `position`, the joint's model-space position (glTF axes, metres) when the plant starts. For bounded hand and foot placement (mmorpg#500), offset the limb by the difference between the real hold or edge and that position.
 - **Chain pose:** `secondaryPose` is `{ sampleRate: 30, joints }`: for `skirt_f_01`, `skirt_b_01`, `skirt_l_01`, `skirt_r_01` and `cape_01`, one local rotation per frame (glTF `[x, y, z, w]`, under `pelvis`, or `spine_03` for the cape), which the consumer blends under its spring (mmorpg#498) when the worn outfit has that chain. The front and side panels turn forward by 45% of the thighs' forward lift (front at most 40°, sides 40°), the back panel back by a thigh's backward reach (at most 20°), and the cape hangs but stays off the back. The joints below the first keep their rest. No clip keys the chain joints themselves: the shared clips have no chain nodes.
 - **Review:** reviewed in the live Blender on the male `outfit.monk` and `outfit.class.arcanist` with their #391 chains driven by `secondaryPose`. On the highest climbing step the shin shows through the side of the robe, and the robe meets the face, ladder and rope where the knees come up to it. The female tanner's skirt has no chains and was not reviewed.
+
+### Sword and shield clips (#417)
+
+[`adapters/blender/sword_clips.py`](../adapters/blender/sword_clips.py) authors the mmorpg Warden's sword-and-shield clips and the Redbrand specials in Blender on the animated Ranger. Each key names the sword grip (its position, the blade direction and the leading edge) on the `hand_r.weapon` socket and the shield grip (its position, face and top) on `hand_l.shield`; two-bone arm IK puts the hands there, and the chest turn is spread over `spine_01`–`03`. Between keys the grips follow a Catmull-Rom curve that starts and ends at rest. Mixamo was only watched as reference. The clips are in place, follow the traversal clips in bundle order and key no fingers: the consumer keeps `Grip_Weapon_R` and `Grip_Shield_L` over them. The strikes start and end in the guard's ready pose: the first `Idle_Shield_Loop` pose with the sword at the right hip, blade forward and up.
+
+| Clip | Length | Layer | Motion | `humanoid-clips` |
+| --- | --- | --- | --- | --- |
+| `Sword_Slash_{High,Mid,Low}_{L,C,R}` | 0.6 s | `spine_01` | Wind-up by 0.18 s, contact at 0.3 s, follow-through by 0.41 s. `L` is a forehand diagonal ending on the figure's left, `R` a backhand ending on its right; `C` is an overhead blow (high), a thrust (mid) or a low sweep (low). The row sets the height the blade crosses: head, chest or thigh. The shield opens out to the left while the sword passes. | `role: sword.directed`, `aim: { height, side }` (`high`/`mid`/`low`, `left`/`centre`/`right`), `contact` (`hand_r`) |
+| `Sword_Heroic` | 0.8 s | `spine_01` | A slow wind-up high over the right shoulder, leaning back, then a hard diagonal chop at 0.53 s. | `role: sword.heroic`, `contact` |
+| `Sword_Cleave` | 0.9 s | full | A flat sweep from the right-back to the left; the torso turns 120° (a third in the pelvis, feet planted) and dips 7 cm. | `role: sword.cleave`, `contact` |
+| `Charge_Run_Loop` | 0.6 s loop | full | The `Sprint_Loop` legs (its cycle in 0.6 s), the chest leaning 16° forward, the shield ahead of the chest, the sword held back and up. | `role: charge.run` |
+| `Charge_Impact` | 0.5 s | full | From the charge's first pose: the shield and left shoulder drive forward at 0.1 s while the legs brake into the guard stance, then back to the ready pose. | `role: charge.impact`, `contact` (`hand_l`) |
+| `Shield_Guard_{High,Mid,Low}_Loop` | 2.0 s loops | `spine_01` | `Idle_Shield_Loop` resampled to 2 s with the shield held in the lane: over the face and brow, before the chest, or low before the thighs with the chest bent 16°. | `role: shield.guard-high` / `-mid` / `-low` |
+| `Stun_Loop` | 1.5 s loop | full | From `Idle_Loop`: knees soft, the pelvis sways in a figure of eight, the chest hangs and rolls, the head lolls behind it, the arms hang. | `role: stun` |
+| `Respawn_Rise` | 1.5 s | full | From kneeling on the right knee with the head bowed to the first `Idle_Loop` pose; the rise runs from 0.33 s to 1.32 s. | `role: respawn` |
+| `Sword_Whirl` | 1.2 s | full | Telegraphed: a crouch winding 42° to the left (to 0.41 s), one turn round to the right with the blade held out (0.46–0.94 s, the feet pivoting in two steps each), then the guard. Ends facing the way it started. | `role: sword.whirl`, `contact` |
+| `Sword_Overhead_Smash` | 1.4 s | full | The arming sword in the right hand, the left hand joining on the hilt; a slow two-handed raise high overhead (to 0.7 s) with a held, trembling top, the slam to the ground in front by 0.98 s with the knees bent 18 cm, a slow recovery. | `role: sword.overhead-smash`, `contact` |
+
+- **Layer:** the `spine_01` clips keep only the rotations of `spine_01` and its descendants, so a consumer plays them over walking or running legs (mmorpg `UPPER_BODY_ROOT`).
+- **Contact:** `contact` is the presentation landmark the build records for every strike (the moment the joint moves fastest). It never times gameplay: the zone keeps owning windup, active and recovery.
+- **Review:** reviewed in the live Blender on the male `outfit.class.warden` and `outfit.knight` with the arming sword and heater shield on their sockets. The tabard chains are not posed by these clips (no `secondaryPose`): in `Respawn_Rise`'s kneel the knight's front panel meets the raised thigh.
 
 ## Female Ranger
 
