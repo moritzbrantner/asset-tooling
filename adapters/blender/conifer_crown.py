@@ -1,17 +1,20 @@
-"""Greyhaven conifer crown (asset-tooling#450): keep the source trunk, replace its leaves with tiered needle sprigs.
+"""Greyhaven conifer crown (asset-tooling#450, #454): keep the source trunk, replace its leaves with solid fir tiers.
 
 The declared inputs are:
 
-* ``source``: the imported CC0 Quaternius ``Pine_1`` GLB. Its bark primitive is kept as is, so the trunk follows the
-  source. Its leaf primitive is only measured (crown base, top and radius profile), then deleted and rebuilt;
+* ``source``: the imported CC0 Quaternius ``Pine_1`` GLB. Its bark primitive keeps the trunk; the bare branch stubs
+  around the crown base are cut, so the trunk reads cleanly below the first whorl. Its leaf primitive is only measured
+  (crown base, top and radius profile), then deleted and rebuilt;
 * ``needles`` and ``needleAlpha``: the CC0 Poly Haven ``fir_tree_01`` twig colour and alpha maps. Four fir sprigs on
-  that atlas become the card texture, as a greyscale mask, so COLOR_0 alone sets the hue.
+  that atlas become the card texture, as a greyscale mask, so COLOR_0 alone sets the hue. The alpha is closed (the
+  gaps between needles filled) so a sprig stays solid in the MASK cut-out at a distance.
 
-The crown is a stack of whorls (tiers) up the source trunk. Each whorl has drooping branches whose length follows the
-source crown's radius at that height. Alpha-``MASK`` sprig cards lie along each branch, stem towards the trunk; a dark
-opaque *core* (a decimated metaball stack of flattened tier discs, shrunk inward) stops the sky showing through.
-Each card carries a bent normal (towards up and out of the crown) and a per-card vertex colour: deep and cool inside,
-under each tier and low down, lighter and warmer at the sunlit branch tips and the top.
+The crown is a stack of drooping tiers up the trunk, widest at the bottom and closer together towards the leader.
+Each tier is an opaque *skirt* (a drooping cone with a thick, dark rim band and a hollow underside that reaches down
+to the tier below), covered by needle sprig cards: lying on the skirt's top, hanging over its rim as a fringe, and
+spraying out at the branch tips. Every card carries the skirt's smooth normal (lit top, shaded rim) like the #446
+broadleaf, and a per-card vertex colour: dark and cool under and inside each tier, saturated green on the tier tops,
+lighter at the outer, upward-facing edges.
 
 Everything is seeded from ``arguments["seed"]``. Blender coordinates are Z up; the GLB is exported +Y up.
 """
@@ -24,14 +27,19 @@ import bpy
 import numpy as np
 from mathutils import Color, Vector
 
-RECIPE = "conifer-crown-v1"
+RECIPE = "conifer-crown-v2"
 SOURCE_LEAF_MATERIAL = "Leaves_Pine"
 NEEDLE_MATERIAL = "Leaves_Pine"
 CORE_MATERIAL = "Leaves_Core"
 ATLAS_EDGE = 1024
-SKIRT_SEGMENTS = 14
-SKIRT_REACH = 0.58  # skirt rim, as a share of the branch length: the needle mass overhangs it
-RIM_CARDS = 12
+TIERS = 7
+CROWN_FLOOR = 0.8 # the lowest whorl, in metres above the source crown base: the trunk shows below it
+STUB_REACH = 0.36  # bark further than this from the trunk axis (above 0.45 m) is a bare branch stub, and is cut
+SKIRT_SEGMENTS = 12
+SKIRT_REACH = 0.86  # skirt rim, as a share of the branch length: the needle fringe overhangs it
+RIM_BAND = 0.2  # height of a tier's dark rim band, metres
+# Card shares: on the skirt tops, hanging over the rims, at the branch tips; the rest go to the leader.
+SURFACE_SHARE, FRINGE_SHARE, TIP_SHARE = 0.47, 0.28, 0.22
 
 # Sprig regions on the 2048 px fir_tree_01 twig atlas: (left, top, right, bottom) in pixels, image y down.
 # Each sprig grows upward on the atlas: its stem is at the bottom edge of the box.
@@ -44,10 +52,10 @@ SPRIGS = (
 SPRIG_WEIGHTS = (0.34, 0.34, 0.2, 0.12)
 
 # Palette (Blender colour-attribute values), tuned in Blender against the #446 broadleaf.
-NEEDLE_SHADE = (0.04, 0.1, 0.025)
-NEEDLE_MID = (0.13, 0.27, 0.05)
-NEEDLE_SUN = (0.44, 0.54, 0.11)
-CORE = (0.025, 0.06, 0.018)
+NEEDLE_SHADE = (0.018, 0.055, 0.016)
+NEEDLE_MID = (0.05, 0.16, 0.03)
+NEEDLE_SUN = (0.17, 0.36, 0.04)
+CORE = (0.016, 0.045, 0.014)
 
 
 def validate(p, inputs):
@@ -65,6 +73,12 @@ def mix(a, b, t):
 
 def clamp(x, lo=0.0, hi=1.0):
     return max(lo, min(hi, x))
+
+
+def palette(tone):
+    """Tone 0 (deep shade) .. 1 (sunlit tip) through the needle palette."""
+    tone = clamp(tone)
+    return mix(NEEDLE_SHADE, NEEDLE_MID, tone / 0.5) if tone < 0.5 else mix(NEEDLE_MID, NEEDLE_SUN, (tone - 0.5) / 0.5)
 
 
 class Crown:
@@ -106,123 +120,147 @@ class Crown:
         return self.radii[k] + (self.radii[k + 1] - self.radii[k]) * (f - k)
 
 
-def tiers(crown, rng):
-    """Whorl heights from the top down: closer together near the leader."""
-    span = crown.zt - crown.zb
-    heights = []
-    z = crown.zt - 0.22
-    while z > crown.zb + 0.25:
-        heights.append(z)
-        h = (crown.zt - z) / span
-        z -= 0.3 + 0.28 * h + rng.uniform(-0.04, 0.04)
-    heights.append(crown.zb + 0.3)
-    return sorted(heights)
-
-
 def limb(start, angle, length, sag, t):
-    """A point on a branch: out and down from the trunk, with a slight upturn of the tip."""
+    """A point on a branch: out and down from the trunk, drooping more towards the tip."""
     d = Vector((math.cos(angle), math.sin(angle), 0))
-    return start + d * (length * t) + Vector((0, 0, length * (-sag * t ** 1.5 + 0.12 * t ** 4)))
+    return start + d * (length * t) + Vector((0, 0, -length * sag * t ** 1.8))
 
 
-def whorls(crown, rng):
-    """Whorls up the trunk; each is (start, sag, [(angle, length, branch points)])."""
-    out = []
+def slope(angle, length, sag, t):
+    """The unit tangent of ``limb`` at ``t``, pointing out along the branch."""
+    d = Vector((math.cos(angle), math.sin(angle), 0))
+    return (d + Vector((0, 0, -sag * 1.8 * max(t, 0.05) ** 0.8))).normalized()
+
+
+def surface_normal(angle, length, sag, t):
+    """The smooth skirt normal at ``t`` along a branch direction: up and out, tilting outward towards the rim."""
+    d = Vector((math.cos(angle), math.sin(angle), 0))
+    tangent = slope(angle, length, sag, t)
+    side = Vector((-d.y, d.x, 0))
+    n = side.cross(tangent).normalized()
+    if n.z < 0:
+        n = -n
+    return n
+
+
+class Tier:
+    """One whorl: its branches, and a slight tilt and droop wobble so no two tiers are the same disc."""
+
+    def __init__(self, start, sag, h, arms, rng):
+        self.start, self.sag, self.h, self.arms = start, sag, h, arms
+        self.reach = max(length for _a, length in arms)
+        self.tilt, self.tilt_to = rng.uniform(0.04, 0.1), rng.uniform(0, 2 * math.pi)
+        self.wobble, self.wobble_phase = rng.uniform(0.12, 0.25), rng.uniform(0, 2 * math.pi)
+
+    def at(self, angle, length, t):
+        """A point ``t`` of the way along a branch of ``length`` towards ``angle``."""
+        lift = self.tilt * t * math.cos(angle - self.tilt_to) - self.sag * self.wobble * t ** 1.8 * math.sin(3 * angle + self.wobble_phase)
+        return limb(self.start, angle, length, self.sag, t) + Vector((0, 0, length * lift))
+
+    def length(self, angle):
+        """The tier's branch length towards ``angle``: blended between branches, dipping between them (lobes)."""
+        total = weight = 0.0
+        nearest = math.pi
+        for a, length in self.arms:
+            gap = abs((angle - a + math.pi) % (2 * math.pi) - math.pi)
+            nearest = min(nearest, gap)
+            w = 1.0 / (0.05 + gap) ** 2
+            total += w * length
+            weight += w
+        half = math.pi / len(self.arms)
+        return total / weight * (1.0 - 0.3 * clamp(nearest / half) ** 1.5)
+
+    def point(self, angle, t, reach=SKIRT_REACH):
+        return self.at(angle, self.length(angle) * reach, t)
+
+
+def tiers(crown, rng):
+    """The whorls, bottom up: widest at the bottom, closer together towards the leader."""
+    base, top = crown.zb + CROWN_FLOOR, crown.zt - 0.4
     span = crown.zt - crown.zb
+    out = []
     phase = rng.uniform(0, 2 * math.pi)
-    for z in tiers(crown, rng):
+    for i in range(TIERS):
+        x = i / (TIERS - 1)
+        z = base + (top - base) * (1.0 - (1.0 - x) ** 1.3) + (rng.uniform(-0.04, 0.04) if 0 < i < TIERS - 1 else 0.0)
         h = (z - crown.zb) / span
-        sag = 0.5 - 0.12 * h
-        reach = crown.radius(z - sag * crown.radius(z) * 0.6)
-        count = max(4, min(9, round(2 * math.pi * reach / 0.85)))
+        sag = 0.42 - 0.1 * h
+        reach = crown.radius(z - sag * crown.radius(z) * 0.5) * (1.02 - 0.06 * h) * rng.uniform(0.93, 1.05)
+        count = max(5, min(9, round(2 * math.pi * reach / 0.8)))
         phase += 2.39996  # golden angle between whorls
-        start = crown.axis(z)
-        arms = []
-        for i in range(count):
-            angle = phase + 2 * math.pi * i / count + rng.uniform(-0.25, 0.25)
-            length = reach * rng.uniform(0.86, 1.04)
-            arms.append((angle, length, [limb(start, angle, length, sag, s / 8) for s in range(9)]))
-        out.append((start, sag, arms))
+        arms = [(phase + 2 * math.pi * k / count + rng.uniform(-0.2, 0.2), reach * rng.uniform(0.85, 1.08)) for k in range(count)]
+        out.append(Tier(crown.axis(z), sag, h, arms, rng))
     return out
 
 
-def on_curve(pts, t):
-    f = t * (len(pts) - 1)
-    k = min(int(f), len(pts) - 2)
-    a, b = pts[k], pts[k + 1]
-    return a + (b - a) * (f - k), (b - a).normalized()
-
-
-def reach_at(arms, angle):
-    """The whorl's branch length towards ``angle``, blended between neighbouring branches."""
-    total = weight = 0.0
-    for a, length, _pts in arms:
-        gap = abs((angle - a + math.pi) % (2 * math.pi) - math.pi)
-        w = 1.0 / (0.05 + gap) ** 2
-        total += w * length
-        weight += w
-    return total / weight
-
-
-def skirt(crown, start):
-    """The skirt rim as a share of the branch length; upper skirts sit deeper inside their thinner needle mass."""
-    return SKIRT_REACH * (1.0 - 0.35 * (start.z - crown.zb) / (crown.zt - crown.zb))
-
-
 def core_mesh(crown, levels, collection, rng, segments=SKIRT_SEGMENTS):
-    """One opaque, closed skirt per whorl, inside its needle mass: a shallow cone on top, a hollow under it."""
-    verts, faces, colours = [], [], []
-    span = crown.zt - crown.zb
-    below = crown.zb
-    for start, sag, arms in levels:
-        h = (start.z - crown.zb) / span
-        top = len(verts)
-        verts.append(start + Vector((0, 0, 0.06)))
+    """One opaque, closed skirt per tier: a drooping cone, a dark rim band, and a hollow reaching to the tier below."""
+    verts, colours, faces = [], [], []
+    for i, tier in enumerate(levels):
+        h = tier.h
+        collar = len(verts)
+        verts.append(tier.start + Vector((0, 0, 0.12)))
         colours.append(CORE)
-        ring = len(verts)
-        reach = max(length for _a, length, _p in arms)
-        for k in range(segments):
-            angle = 2 * math.pi * k / segments
-            length = reach_at(arms, angle) * skirt(crown, start) * rng.uniform(0.82, 1.08)
-            verts.append(limb(start, angle, length, sag, 1.0) + Vector((0, 0, rng.uniform(-0.08, 0.08))))
-            colours.append(mix(NEEDLE_SHADE, NEEDLE_MID, 0.15 + 0.35 * h))
-        # The underside steps in to a waist that sits on the whorl below, so no sky shows between whorls.
-        depth = min(below + 0.04, start.z - sag * reach * 0.42)
+        rim = len(verts)
+        angles = [2 * math.pi * k / segments + rng.uniform(-0.08, 0.08) for k in range(segments)]
+        for a in angles:
+            verts.append(tier.point(a, 1.0))
+            colours.append(palette(0.15 + 0.3 * h))
+        band = len(verts)
+        for a in angles:
+            verts.append(tier.point(a, 0.94) - Vector((0, 0, RIM_BAND)))
+            colours.append(mix(CORE, NEEDLE_SHADE, 0.6))
+        # The hollow under the tier: it narrows to a waist that meets the tier below (or the trunk at the bottom),
+        # so no sky shows between tiers.
+        lower = levels[i - 1] if i else None
         waist = len(verts)
-        for k in range(segments):
-            angle = 2 * math.pi * (k + 0.5) / segments
-            verts.append(crown.axis(depth) + Vector((math.cos(angle), math.sin(angle), 0)) * reach * 0.72 * skirt(crown, start))
-            colours.append(mix(CORE, NEEDLE_SHADE, h))
+        for a in angles:
+            if lower:
+                r = 0.4 * lower.length(a) * SKIRT_REACH
+                p = lower.at(a, r, 1.0) + Vector((0, 0, 0.1))
+            else:
+                r = 0.3 * tier.length(a) * SKIRT_REACH
+                p = tier.start + Vector((math.cos(a) * r, math.sin(a) * r, -tier.sag * tier.reach * 0.45))
+            verts.append(p)
+            colours.append(CORE)
         under = len(verts)
-        verts.append(crown.axis(depth - 0.05))
+        verts.append(crown.axis(verts[waist].z - 0.05))
         colours.append(CORE)
-        below = start.z
-        # The rim is lit on top but in shadow underneath: underside faces see it in the underside colour.
-        shadow = {ring + k: mix(CORE, NEEDLE_SHADE, 0.5 * h) for k in range(segments)}
         for k in range(segments):
-            a, b = ring + k, ring + (k + 1) % segments
-            w, w2 = waist + k, waist + (k + 1) % segments
-            faces.append(((top, a, b), {}))
-            faces.append(((a, w, b), shadow))
-            faces.append(((b, w, w2), shadow))
-            faces.append(((under, w2, w), {}))
+            n = (k + 1) % segments
+            faces.append((collar, rim + k, rim + n))
+            faces.append((rim + k, band + k, band + n))
+            faces.append((rim + k, band + n, rim + n))
+            faces.append((band + k, waist + k, waist + n))
+            faces.append((band + k, waist + n, band + n))
+            faces.append((under, waist + n, waist + k))
     mesh = bpy.data.meshes.new("crown_core")
-    mesh.from_pydata([tuple(v) for v in verts], [], [f for f, _c in faces])
-    # Each whorl is a closed shell; point every face outward for back-face culling.
+    mesh.from_pydata([tuple(v) for v in verts], [], faces)
+    # Each tier is a closed shell; point every face outward for back-face culling.
     bm = bmesh.new()
     bm.from_mesh(mesh)
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
     bm.to_mesh(mesh)
     bm.free()
     layer = mesh.color_attributes.new("Col", "BYTE_COLOR", "CORNER")
-    for polygon, (_face, override) in zip(mesh.polygons, faces):
+    for polygon in mesh.polygons:
         polygon.use_smooth = True
         for li in polygon.loop_indices:
-            v = mesh.loops[li].vertex_index
-            layer.data[li].color = (*override.get(v, colours[v]), 1.0)
+            layer.data[li].color = (*colours[mesh.loops[li].vertex_index], 1.0)
     core = bpy.data.objects.new("crown_core", mesh)
     collection.objects.link(core)
     return core
+
+
+def blur(a, r):
+    """A separable box blur of a 2D array, radius ``r`` pixels."""
+    for axis in (0, 1):
+        pad = np.pad(a, [(r + 1, r) if k == axis else (0, 0) for k in (0, 1)], mode="edge")
+        c = np.cumsum(pad, axis=axis, dtype=np.float64)
+        hi = np.take(c, range(2 * r + 1, c.shape[axis]), axis=axis)
+        lo = np.take(c, range(0, c.shape[axis] - 2 * r - 1), axis=axis)
+        a = ((hi - lo) / (2 * r + 1)).astype(np.float32)
+    return a
 
 
 def needle_image(colour_path, alpha_path):
@@ -242,11 +280,15 @@ def needle_image(colour_path, alpha_path):
     lum = 0.2126 * rgb[:, 0] + 0.7152 * rgb[:, 1] + 0.0722 * rgb[:, 2]
     inside = lum[a > 0.5]
     hi = float(np.percentile(inside, 97)) if inside.size else 1.0
-    g = 0.5 + 0.5 * np.clip(lum / max(hi, 1e-6), 0.0, 1.0)
+    # Close the alpha: fill the gaps between needles, so a sprig reads as a solid fan in the MASK cut-out and does not
+    # thin out as the texture mips down. The filled gaps take the darkest mask value: they read as needle shadow.
+    needles = np.clip(a * 1.35, 0.0, 1.0)
+    filled = (blur(blur(a.reshape(h, w), w // 340), w // 340).ravel() > 0.3).astype(np.float32)
+    coverage = np.maximum(needles, filled)
+    g = np.where(a > 0.5, 0.62 + 0.38 * np.clip(lum / max(hi, 1e-6), 0.0, 1.0), 0.5)
     out = np.empty((w * h, 4), dtype=np.float32)
     out[:, 0] = out[:, 1] = out[:, 2] = g
-    # A little extra coverage keeps thin needles from vanishing in the MASK cut-out at a distance.
-    out[:, 3] = np.clip(a * 1.35, 0.0, 1.0)
+    out[:, 3] = coverage
     image = bpy.data.images.new("Needles_Conifer", w, h, alpha=True)
     image.pixels.foreach_set(out.ravel())
     image.scale(ATLAS_EDGE, ATLAS_EDGE)
@@ -304,57 +346,13 @@ def sprig_uv(region):
 
 def build_crown(crown, image, seed, cards, collection):
     rng = random.Random(seed)
-    levels = whorls(crown, rng)
+    levels = tiers(crown, rng)
     core = core_mesh(crown, levels, collection, rng)
     core.data.materials.append(core_material())
 
-    limbs = [pts for _start, _sag, arms in levels for _a, _length, pts in arms]
-    # Upper whorls have fewer, shorter branches; they still need a full needle mass over their skirt.
-    weights = [length ** 0.4 / len(arms) ** 0.85 for _start, _sag, arms in levels for _a, length, _pts in arms]
-    total = sum(weights)
-    apex = 14
-    cover = round(cards * 0.3) - RIM_CARDS * len(levels)
-    budget = cards - apex - cover - RIM_CARDS * len(levels)
     sprigs = [sprig_uv(region) for region in SPRIGS]
-    span = crown.zt - crown.zb
     up = Vector((0, 0, 1))
-    sun = Vector((0.35, -0.45, 0.82)).normalized()
-
     verts, faces, normals, colours, uvs = [], [], [], [], []
-
-    def card(base, along, size, roll, tint, depth):
-        """One sprig card: stem at ``base``, growing along ``along``; ``depth`` 0 inside .. 1 at the tip."""
-        side = along.cross(up)
-        if side.length < 1e-3:
-            side = Vector((1, 0, 0))
-        side.normalize()
-        flat = side.cross(along).normalized()  # card normal before roll, roughly up
-        side = side * math.cos(roll) + flat * math.sin(roll)
-        normal = along.cross(side).normalized()
-        if normal.z < 0:
-            normal = -normal
-        (u0, v0, u1, v1), aspect = sprigs[pick_sprig()]
-        width = size * aspect
-        start = len(verts)
-        for su, sv, uv in ((-0.5, 0.0, (u0, v0)), (0.5, 0.0, (u1, v0)), (0.5, 1.0, (u1, v1)), (-0.5, 1.0, (u0, v1))):
-            corner = base + side * (su * width) + along * (sv * size)
-            verts.append(corner)
-            out = corner - crown.axis(corner.z)
-            out.z = 0
-            out = out.normalized() if out.length > 1e-3 else Vector((0, 0, 0))
-            normals.append((normal * 0.35 + out * 0.55 + up * 0.45).normalized())
-            uvs.append(uv)
-        faces.append((start, start + 1, start + 2, start + 3))
-        centre = base + along * (size * 0.5)
-        h = clamp((centre.z - crown.zb) / span)
-        lit = max(0.0, normal.dot(sun))
-        tone = -0.25 + 0.45 * h + 0.65 * depth ** 1.5 + 0.18 * lit + 0.1 * tint + rng.uniform(-0.08, 0.08)
-        tone = clamp(tone)
-        rgb = mix(NEEDLE_SHADE, NEEDLE_MID, tone / 0.55) if tone < 0.55 else mix(NEEDLE_MID, NEEDLE_SUN, (tone - 0.55) / 0.45)
-        hsv = Color(rgb)
-        hsv.h = (hsv.h + 0.015 * tint + rng.uniform(-0.012, 0.012)) % 1.0
-        hsv.v *= rng.uniform(0.9, 1.08)
-        colours.append((hsv.r, hsv.g, hsv.b))
 
     def pick_sprig():
         x = rng.random()
@@ -364,57 +362,83 @@ def build_crown(crown, image, seed, cards, collection):
                 return i
         return len(SPRIG_WEIGHTS) - 1
 
-    for pts, weight in zip(limbs, weights):
-        n = max(2, round(budget * weight / total))
-        length = (pts[-1] - pts[0]).length
-        tint = rng.uniform(-1, 1)
-        for k in range(n):
-            # Cards march from the inner branch to the tip; the last one carries the tip itself.
-            t = 0.12 + 0.88 * ((k + rng.uniform(0.0, 0.8)) / n) ** 0.8
-            base, along = on_curve(pts, min(t, 0.97))
-            size = clamp(length * 0.42, 0.55, 1.25) * rng.uniform(0.75, 1.1) * (1.0 - 0.3 * t)
-            # Fan sideways from the branch and lift slightly, so cards spread into a needle mass.
-            fan = rng.uniform(-0.75, 0.75)
-            side = along.cross(up)
-            side = side.normalized() if side.length > 1e-3 else Vector((1, 0, 0))
-            direction = (along + side * fan + up * rng.uniform(-0.15, 0.3)).normalized()
-            base = base + side * rng.uniform(-0.12, 0.12) * length * 0.3 + up * rng.uniform(-0.05, 0.08)
-            card(base, direction, size, rng.uniform(-1.1, 1.1), tint, t)
-    # Sprigs lying on each skirt between the branches, so no bare skirt shows from above or up close.
-    shares = [max(length for _a, length, _p in arms) ** 0.7 for _start, _sag, arms in levels]
-    for (start, sag, arms), share in zip(levels, shares):
-        n = max(4, round(cover * share / sum(shares)))
-        for _ in range(n):
+    def card(base, along, size, roll, normal, tone):
+        """One sprig card: stem at ``base``, growing along ``along``, shaded with the smooth ``normal``."""
+        side = along.cross(up)
+        if side.length < 1e-3:
+            side = Vector((1, 0, 0))
+        side.normalize()
+        flat = side.cross(along).normalized()  # card plane normal before roll, roughly up
+        side = side * math.cos(roll) + flat * math.sin(roll)
+        (u0, v0, u1, v1), aspect = sprigs[pick_sprig()]
+        width = size * aspect
+        start = len(verts)
+        for su, sv, uv in ((-0.5, 0.0, (u0, v0)), (0.5, 0.0, (u1, v0)), (0.5, 1.0, (u1, v1)), (-0.5, 1.0, (u0, v1))):
+            verts.append(base + side * (su * width) + along * (sv * size))
+            normals.append(normal)
+            uvs.append(uv)
+        faces.append((start, start + 1, start + 2, start + 3))
+        hsv = Color(palette(tone + rng.uniform(-0.06, 0.06)))
+        hsv.h = (hsv.h + rng.uniform(-0.012, 0.012)) % 1.0
+        hsv.v *= rng.uniform(0.92, 1.06)
+        colours.append((hsv.r, hsv.g, hsv.b))
+
+    def fan(direction, amount, lift):
+        side = direction.cross(up)
+        side = side.normalized() if side.length > 1e-3 else Vector((1, 0, 0))
+        return (direction + side * rng.uniform(-amount, amount) + up * lift).normalized()
+
+    areas = [tier.reach ** 1.6 for tier in levels]
+    rims = [tier.reach for tier in levels]
+    surface = round(cards * SURFACE_SHARE)
+    fringe = round(cards * FRINGE_SHARE)
+    tips = round(cards * TIP_SHARE)
+    apex = cards - surface - fringe - tips
+    for tier, area, rim in zip(levels, areas, rims):
+        size_scale = clamp(tier.reach * 0.38, 0.5, 0.95)
+        # Sprigs lying on the skirt's top, pointing downslope: the lit, needled tier surface.
+        for _ in range(max(6, round(surface * area / sum(areas)))):
             angle = rng.uniform(0, 2 * math.pi)
-            length = reach_at(arms, angle) * skirt(crown, start)
-            t = 0.2 + 0.75 * math.sqrt(rng.random())
-            # The skirt's top is a straight cone from just above the whorl to its rim.
-            inner = start + Vector((0, 0, 0.06))
-            rim = limb(start, angle, length, sag, 1.0)
-            base = inner.lerp(rim, t) + Vector((0, 0, 0.1))
-            along = (rim - inner).normalized()
-            side = along.cross(up)
-            side = side.normalized() if side.length > 1e-3 else Vector((1, 0, 0))
-            direction = (along + side * rng.uniform(-0.6, 0.6) + up * rng.uniform(0.0, 0.25)).normalized()
-            size = clamp(length * 0.5, 0.5, 1.1) * rng.uniform(0.8, 1.1)
-            card(base - direction * size * 0.3, direction, size, rng.uniform(-0.4, 0.4), rng.uniform(-1, 1), 0.35 + 0.6 * t)
-        # A fringe over the skirt's rim, hanging out and down, so its edge never shows.
-        for k in range(RIM_CARDS):
-            angle = 2 * math.pi * (k + rng.uniform(-0.3, 0.3)) / RIM_CARDS
-            length = reach_at(arms, angle) * skirt(crown, start)
-            rim = limb(start, angle, length, sag, 1.0)
+            t = 0.12 + 0.86 * math.sqrt(rng.random())
+            length = tier.length(angle) * SKIRT_REACH
+            base = tier.at(angle, length, t) + up * 0.05
+            normal = surface_normal(angle, length, tier.sag, t)
+            direction = fan(slope(angle, length, tier.sag, t), 0.55, rng.uniform(-0.05, 0.12))
+            size = size_scale * rng.uniform(0.8, 1.1)
+            tone = 0.3 + 0.48 * t ** 2 + 0.2 * tier.h + 0.1 * normal.z
+            card(base - direction * size * 0.2, direction, size, rng.uniform(-0.3, 0.3), normal, tone)
+        # A fringe hanging over the rim, out and down: the tier's soft edge and its shadowed band.
+        for _ in range(max(6, round(fringe * rim / sum(rims)))):
+            angle = rng.uniform(0, 2 * math.pi)
+            length = tier.length(angle) * SKIRT_REACH
+            t = rng.uniform(0.72, 0.96)
+            base = tier.at(angle, length, t)
             out = Vector((math.cos(angle), math.sin(angle), 0))
-            direction = (out + Vector((0, 0, -0.35 - 0.3 * rng.random()))).normalized()
-            size = clamp(length * 0.55, 0.5, 1.0) * rng.uniform(0.85, 1.1)
-            card(rim - direction * size * 0.35 + Vector((0, 0, 0.04)), direction, size, rng.uniform(-0.5, 0.5), rng.uniform(-1, 1), 0.85)
+            direction = fan(out + Vector((0, 0, -rng.uniform(0.45, 1.0))), 0.45, 0.0)
+            normal = (out * 0.85 + up * 0.35).normalized()
+            size = size_scale * rng.uniform(0.75, 1.25)
+            tone = 0.15 * tier.h + rng.uniform(-0.05, 0.06)
+            card(base, direction, size, rng.uniform(-0.5, 0.5), normal, tone)
+        # Sprays at the branch tips, past the rim, so the silhouette is a fir's, not a cone's.
+        share = max(2, round(tips * rim / sum(rims) / len(tier.arms)))
+        for angle, arm in tier.arms:
+            for _ in range(share):
+                t = rng.uniform(0.8, 1.0)
+                base = tier.at(angle, arm, t) + up * 0.04
+                direction = fan(slope(angle, arm, tier.sag, t), 0.6, rng.uniform(-0.25, 0.1))
+                normal = surface_normal(angle, arm, tier.sag, 1.0)
+                size = size_scale * rng.uniform(0.7, 0.95)
+                tone = 0.55 + 0.3 * tier.h + rng.uniform(-0.05, 0.1)
+                card(base - direction * size * 0.3, direction, size, rng.uniform(-0.6, 0.6), normal, tone)
     # The leader: upright sprigs around the top of the trunk.
-    top = crown.axis(crown.zt - 0.55)
+    top = crown.axis(crown.zt - 0.6)
     for i in range(apex):
         a = 2 * math.pi * i / apex + rng.uniform(-0.2, 0.2)
         out = Vector((math.cos(a), math.sin(a), 0))
-        lift = 0.35 + 0.45 * (i % 3) / 2
+        lift = 0.5 + 0.5 * (i % 3) / 2
         direction = (out * (1 - lift) + up * (0.6 + lift)).normalized()
-        card(top + up * rng.uniform(-0.25, 0.2), direction, rng.uniform(0.5, 0.75), rng.uniform(-0.5, 0.5), 0.3, 0.9)
+        normal = (out * 0.6 + up * 0.8).normalized()
+        card(top + up * rng.uniform(-0.3, 0.2), direction, rng.uniform(0.4, 0.6), rng.uniform(-0.5, 0.5), normal, 0.75)
 
     mesh = bpy.data.meshes.new("crown_needles")
     mesh.from_pydata([tuple(v) for v in verts], [], faces)
@@ -445,9 +469,13 @@ def generate(output_path, arguments, inputs):
     tree = next(o for o in bpy.context.scene.objects if o.type == "MESH")
     slot = next(i for i, m in enumerate(tree.data.materials) if m and m.name.startswith(SOURCE_LEAF_MATERIAL))
     crown = Crown(tree, slot)
+    # Drop the leaves, and the bare branch stubs around the crown base: the trunk shows cleanly below the first tier.
     bm = bmesh.new()
     bm.from_mesh(tree.data)
-    bmesh.ops.delete(bm, geom=[f for f in bm.faces if f.material_index == slot], context="FACES")
+    cut = [f for f in bm.faces if f.material_index == slot or (
+        f.calc_center_median().z > 0.45 and any((v.co - crown.axis(v.co.z)).xy.length > STUB_REACH for v in f.verts))]
+    bmesh.ops.delete(bm, geom=cut, context="FACES")
+    bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context="VERTS")
     bm.to_mesh(tree.data)
     bm.free()
     leaf_material = tree.data.materials.pop(index=slot)

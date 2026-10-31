@@ -68,7 +68,7 @@ test("nature bundle supplies independently shaped, grounded families with game-r
         assert.equal(built.descriptor.assets.find((item) => item.key === entry.key)?.provenance.crown?.observations.recipe, "broadleaf-crown-v1");
       }
       if (entry.shape === "conifer") {
-        // #450: Pine_1's bark stays; tiered fir sprig cards over opaque skirts replace its leaves, within the same budget.
+        // #450/#454: Pine_1's trunk stays; solid fir tiers (sprig cards over opaque skirts) replace its leaves, within the same budget.
         const primitives = document.getRoot().listMeshes().flatMap((mesh) => mesh.listPrimitives());
         const names = primitives.map((primitive) => primitive.getMaterial()?.getName()).sort();
         assert.deepEqual(names, ["Bark_NormalTree", "Leaves_Core", "Leaves_Pine"]);
@@ -78,7 +78,7 @@ test("nature bundle supplies independently shaped, grounded families with game-r
         const triangles = primitives.reduce((sum, primitive) => sum + primitive.getIndices()!.getCount() / 3, 0);
         assert.ok(triangles <= 8000, `conifer triangles ${triangles} within the foreground budget`);
         const crown = built.descriptor.assets.find((item) => item.key === entry.key)?.provenance.crown;
-        assert.equal(crown?.observations.recipe, "conifer-crown-v1");
+        assert.equal(crown?.observations.recipe, "conifer-crown-v2");
         assert.deepEqual(Object.keys(crown && "inputs" in crown ? crown.inputs ?? {} : {}).sort(), ["needleAlpha", "needles"]);
       }
       const metadata = built.descriptor.assets.find((item) => item.key === entry.key);

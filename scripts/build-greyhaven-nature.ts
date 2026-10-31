@@ -31,10 +31,10 @@ export const NATURE_TAR_NAME = "greyhaven.nature.tar";
  */
 export const BROADLEAF_CROWN = { schemaVersion: 1, seed: 446, cards: 1100 } as const;
 /**
- * The conifer keeps Pine_1's trunk; adapters/blender/conifer_crown.py replaces its leaves with drooping whorls of
- * CC0 Poly Haven fir sprig cards over opaque tier skirts (#450). The seed and card count are the reviewed defaults.
+ * The conifer keeps Pine_1's trunk; adapters/blender/conifer_crown.py replaces its leaves with solid drooping tiers of
+ * CC0 Poly Haven fir sprig cards over opaque skirts (#450, #454). The seed and card count are the reviewed defaults.
  */
-export const CONIFER_CROWN = { schemaVersion: 1, seed: 450, cards: 1700 } as const;
+export const CONIFER_CROWN = { schemaVersion: 1, seed: 454, cards: 2900 } as const;
 /** Extra catalog sources a crown recipe reads, by recipe input name. */
 const CONIFER_NEEDLES = { needles: "poly-haven.fir-tree-01-twig-diff-2k-jpg", needleAlpha: "poly-haven.fir-tree-01-twig-alpha-2k-jpg" } as const;
 export const NATURE_MEMBERS = [
