@@ -24,6 +24,10 @@ Node names, materials, the armature and the scene structure are kept, and the im
 
 Every Greyhaven starter entry, including the #121 variations, gets `lod1` and `lod2` variants. A level shares its LOD0's texture files in the bundle. The descriptor's `lods` list gives each level's variant, ratio, triangle count and switch-distance hint. `buildGreyhavenStarter({lods: false})` skips the levels where Blender is unavailable. The hosted storage job uses this; local runs and releases build the levels.
 
+## Nature bundle
+
+The `greyhaven-nature` trees and rocks use their own recipe, [`adapters/blender/nature_lod.py`](../adapters/blender/nature_lod.py) ([#449](https://github.com/moritzbrantner/asset-tooling/issues/449)). A plain collapse would shred leaf cards. Instead, the tree `lod1` thins and grows the cards, and the tree `lod2` replaces the crown with an opaque, vertex-coloured shell; the rocks are decimated with smaller baked maps. The same `lod1`/`lod2` variant names apply. Its descriptor gives screen-size switch points (`minScreenSize` of the projected bounding sphere) instead of fixed distance hints. See [Levels of detail](greyhaven-nature-bundle.md#levels-of-detail) in the nature bundle docs.
+
 ## Characters
 
 Every Ranger character variant gets levels: `default`, `skin.light`, `outfit.soldier`, `outfit.knight` and their Light variants. Characters use the 25 % LOD2.
