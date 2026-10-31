@@ -14,6 +14,8 @@ The [sunken shrine and cave kit](docs/shrine-kit.md) is a scripted Blender recip
 
 The [Greyhaven Outpost building kit](docs/outpost-kit.md) is a scripted Blender recipe for the MMORPG's Outpost house and smithy exteriors: 2 m timber-frame wall modules with windows and a doorway, a hinged plank door, corner posts, a gable, shingle or slate roof sections and a chimney, with compositions for the house and smithy footprints.
 
+The [Battle Royale fortress kit](docs/fortress-kit.md) is a scripted Blender recipe that dresses every collider box, ramp and lift of the shared Battle Royale fortress (`battle_royale_core::arena`) with textured CC0 stone and timber pieces fitted exactly to the collision: curtain walls with a wall walk, the crenellated parapet, gate and door lintels, corner and central towers, keep walls, the keep roof, bridges, 34° ramps and lift pillars, each with an LOD chain and a composition keyed by body.
+
 The [Greyhaven settlement props](docs/settlement-props.md) are a scripted Blender prop set in the same style for an Outpost public space: a market stall, handcart, crate and barrel, a signpost, lantern post and bench, and a fence segment, planter and woodpile, with a market-square composition.
 
 [Marshal Elden Greywatch's house](docs/greyhaven-marshal-house.md) is an enterable, furnished private home on the MMORPG's west Outpost house footprint: the kit's house exterior with a hinged door, a floor, a hideable ceiling and roof, a bed, chest, table, bench, chair, hearth, the Marshal's weapon rack and shield, box colliders, and spots for the knock, the doorway and the bed.

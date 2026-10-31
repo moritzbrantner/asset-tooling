@@ -1038,6 +1038,78 @@
       "sourceId": "poly-haven.mossy-rock-diff-2k-jpg",
       "storage": "git-lfs",
       "path": "assets/canonical/poly-haven.mossy-rock-diff-2k-jpg/mossy_rock_diff_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.castle-wall-slates-diff-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.castle-wall-slates-diff-2k-jpg/castle_wall_slates_diff_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.castle-wall-slates-nor-gl-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.castle-wall-slates-nor-gl-2k-jpg/castle_wall_slates_nor_gl_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.castle-wall-slates-rough-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.castle-wall-slates-rough-2k-jpg/castle_wall_slates_rough_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.japanese-stone-wall-diff-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.japanese-stone-wall-diff-2k-jpg/japanese_stone_wall_diff_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.japanese-stone-wall-nor-gl-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.japanese-stone-wall-nor-gl-2k-jpg/japanese_stone_wall_nor_gl_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.japanese-stone-wall-rough-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.japanese-stone-wall-rough-2k-jpg/japanese_stone_wall_rough_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.stone-tiles-02-diff-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.stone-tiles-02-diff-2k-jpg/stone_tiles_02_diff_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.stone-tiles-02-nor-gl-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.stone-tiles-02-nor-gl-2k-jpg/stone_tiles_02_nor_gl_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.stone-tiles-02-rough-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.stone-tiles-02-rough-2k-jpg/stone_tiles_02_rough_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.old-planks-02-diff-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.old-planks-02-diff-2k-jpg/old_planks_02_diff_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.old-planks-02-nor-gl-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.old-planks-02-nor-gl-2k-jpg/old_planks_02_nor_gl_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.old-planks-02-rough-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.old-planks-02-rough-2k-jpg/old_planks_02_rough_2k.jpg"
     }
   ]
 }

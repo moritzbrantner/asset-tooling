@@ -5417,6 +5417,342 @@
         "sfx.encounter.clear"
       ],
       "title": "Music Jingles — jingles_STEEL02"
+    },
+    {
+      "id": "poly-haven.castle-wall-slates-diff-2k-jpg",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://polyhaven.com/a/castle_wall_slates",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/jpeg",
+      "metadata": {
+        "purpose": "Color map of the coursed rubble on the fortress wall faces (asset-tooling#445)",
+        "resolution": "2K"
+      },
+      "provider": "poly-haven",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 2381426,
+        "path": "castle_wall_slates_diff_2k.jpg",
+        "revision": "2k-jpg-diff",
+        "sha256": "89e1dce61cf53decf586bd123b9280365e447019ebedaf3b8e48663ab37eab30",
+        "upstreamId": "castle_wall_slates",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/castle_wall_slates/castle_wall_slates_diff_2k.jpg"
+      },
+      "tags": [
+        "fortress-kit",
+        "texture"
+      ],
+      "title": "Castle Wall Slates — 2K Color"
+    },
+    {
+      "id": "poly-haven.castle-wall-slates-nor-gl-2k-jpg",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://polyhaven.com/a/castle_wall_slates",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/jpeg",
+      "metadata": {
+        "purpose": "Normal (GL) map of the coursed rubble on the fortress wall faces (asset-tooling#445)",
+        "resolution": "2K"
+      },
+      "provider": "poly-haven",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 4054865,
+        "path": "castle_wall_slates_nor_gl_2k.jpg",
+        "revision": "2k-jpg-nor-gl",
+        "sha256": "ea6042cdb95576d9c2d67c7fa26e3648cca09d8d2fcaf4dfe7d6052a970d7b28",
+        "upstreamId": "castle_wall_slates",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/castle_wall_slates/castle_wall_slates_nor_gl_2k.jpg"
+      },
+      "tags": [
+        "fortress-kit",
+        "texture"
+      ],
+      "title": "Castle Wall Slates — 2K Normal (GL)"
+    },
+    {
+      "id": "poly-haven.castle-wall-slates-rough-2k-jpg",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://polyhaven.com/a/castle_wall_slates",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/jpeg",
+      "metadata": {
+        "purpose": "Roughness map of the coursed rubble on the fortress wall faces (asset-tooling#445)",
+        "resolution": "2K"
+      },
+      "provider": "poly-haven",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 2005253,
+        "path": "castle_wall_slates_rough_2k.jpg",
+        "revision": "2k-jpg-rough",
+        "sha256": "84fe81f77d25e4dc37be41174b0a1fa85e8aece244eabe54ed48c542cb5bed08",
+        "upstreamId": "castle_wall_slates",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/castle_wall_slates/castle_wall_slates_rough_2k.jpg"
+      },
+      "tags": [
+        "fortress-kit",
+        "texture"
+      ],
+      "title": "Castle Wall Slates — 2K Roughness"
+    },
+    {
+      "id": "poly-haven.japanese-stone-wall-diff-2k-jpg",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://polyhaven.com/a/japanese_stone_wall",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/jpeg",
+      "metadata": {
+        "purpose": "Color map of the ashlar dressings (plinths, string courses, quoins, voussoirs) of the fortress (asset-tooling#445)",
+        "resolution": "2K"
+      },
+      "provider": "poly-haven",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 4623186,
+        "path": "japanese_stone_wall_diff_2k.jpg",
+        "revision": "2k-jpg-diff",
+        "sha256": "a411d298f552c62f9cce4aab216f1cff06391955c5e0e187c6cfae446523a583",
+        "upstreamId": "japanese_stone_wall",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/japanese_stone_wall/japanese_stone_wall_diff_2k.jpg"
+      },
+      "tags": [
+        "fortress-kit",
+        "texture"
+      ],
+      "title": "Japanese Stone Wall — 2K Color"
+    },
+    {
+      "id": "poly-haven.japanese-stone-wall-nor-gl-2k-jpg",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://polyhaven.com/a/japanese_stone_wall",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/jpeg",
+      "metadata": {
+        "purpose": "Normal (GL) map of the ashlar dressings (plinths, string courses, quoins, voussoirs) of the fortress (asset-tooling#445)",
+        "resolution": "2K"
+      },
+      "provider": "poly-haven",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 4093483,
+        "path": "japanese_stone_wall_nor_gl_2k.jpg",
+        "revision": "2k-jpg-nor-gl",
+        "sha256": "9d3486706b09e1860864de236d082f5949dfb16979b5c789202a21b5a3b5e363",
+        "upstreamId": "japanese_stone_wall",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/japanese_stone_wall/japanese_stone_wall_nor_gl_2k.jpg"
+      },
+      "tags": [
+        "fortress-kit",
+        "texture"
+      ],
+      "title": "Japanese Stone Wall — 2K Normal (GL)"
+    },
+    {
+      "id": "poly-haven.japanese-stone-wall-rough-2k-jpg",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://polyhaven.com/a/japanese_stone_wall",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/jpeg",
+      "metadata": {
+        "purpose": "Roughness map of the ashlar dressings (plinths, string courses, quoins, voussoirs) of the fortress (asset-tooling#445)",
+        "resolution": "2K"
+      },
+      "provider": "poly-haven",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 2607278,
+        "path": "japanese_stone_wall_rough_2k.jpg",
+        "revision": "2k-jpg-rough",
+        "sha256": "49f68275dc40174e115039d2fab9a317ccdcdca9033e77adfb7d6b113a133754",
+        "upstreamId": "japanese_stone_wall",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/japanese_stone_wall/japanese_stone_wall_rough_2k.jpg"
+      },
+      "tags": [
+        "fortress-kit",
+        "texture"
+      ],
+      "title": "Japanese Stone Wall — 2K Roughness"
+    },
+    {
+      "id": "poly-haven.stone-tiles-02-diff-2k-jpg",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://polyhaven.com/a/stone_tiles_02",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/jpeg",
+      "metadata": {
+        "purpose": "Color map of the flagstones on every walkable top of the fortress (asset-tooling#445)",
+        "resolution": "2K"
+      },
+      "provider": "poly-haven",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 3487320,
+        "path": "stone_tiles_02_diff_2k.jpg",
+        "revision": "2k-jpg-diff",
+        "sha256": "02e056f5f5fbcbd90212bd4c7b8c1e979a10685a3291b6b25b19eeeb84f7d410",
+        "upstreamId": "stone_tiles_02",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/stone_tiles_02/stone_tiles_02_diff_2k.jpg"
+      },
+      "tags": [
+        "fortress-kit",
+        "texture"
+      ],
+      "title": "Stone Tiles 02 — 2K Color"
+    },
+    {
+      "id": "poly-haven.stone-tiles-02-nor-gl-2k-jpg",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://polyhaven.com/a/stone_tiles_02",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/jpeg",
+      "metadata": {
+        "purpose": "Normal (GL) map of the flagstones on every walkable top of the fortress (asset-tooling#445)",
+        "resolution": "2K"
+      },
+      "provider": "poly-haven",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 3482959,
+        "path": "stone_tiles_02_nor_gl_2k.jpg",
+        "revision": "2k-jpg-nor-gl",
+        "sha256": "badd9a55dbf1b53217408f49303286d8a93f5e7074c6869b6f53a9a547a6a6ce",
+        "upstreamId": "stone_tiles_02",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/stone_tiles_02/stone_tiles_02_nor_gl_2k.jpg"
+      },
+      "tags": [
+        "fortress-kit",
+        "texture"
+      ],
+      "title": "Stone Tiles 02 — 2K Normal (GL)"
+    },
+    {
+      "id": "poly-haven.stone-tiles-02-rough-2k-jpg",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://polyhaven.com/a/stone_tiles_02",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/jpeg",
+      "metadata": {
+        "purpose": "Roughness map of the flagstones on every walkable top of the fortress (asset-tooling#445)",
+        "resolution": "2K"
+      },
+      "provider": "poly-haven",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 2251026,
+        "path": "stone_tiles_02_rough_2k.jpg",
+        "revision": "2k-jpg-rough",
+        "sha256": "3b9e6650f97baa5e52fac3f5106666ee4c89c335440bc9255c2e1ab20b88de4c",
+        "upstreamId": "stone_tiles_02",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/stone_tiles_02/stone_tiles_02_rough_2k.jpg"
+      },
+      "tags": [
+        "fortress-kit",
+        "texture"
+      ],
+      "title": "Stone Tiles 02 — 2K Roughness"
+    },
+    {
+      "id": "poly-haven.old-planks-02-diff-2k-jpg",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://polyhaven.com/a/old_planks_02",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/jpeg",
+      "metadata": {
+        "purpose": "Color map of the planks of the fortress bridge, lifts, hatches and shutters (asset-tooling#445)",
+        "resolution": "2K"
+      },
+      "provider": "poly-haven",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 1430659,
+        "path": "old_planks_02_diff_2k.jpg",
+        "revision": "2k-jpg-diff",
+        "sha256": "04191d71093db79b378b6b16d0f7c51560294cfd8b7c15d20456d154eb5811d7",
+        "upstreamId": "old_planks_02",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/old_planks_02/old_planks_02_diff_2k.jpg"
+      },
+      "tags": [
+        "fortress-kit",
+        "texture"
+      ],
+      "title": "Old Planks 02 — 2K Color"
+    },
+    {
+      "id": "poly-haven.old-planks-02-nor-gl-2k-jpg",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://polyhaven.com/a/old_planks_02",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/jpeg",
+      "metadata": {
+        "purpose": "Normal (GL) map of the planks of the fortress bridge, lifts, hatches and shutters (asset-tooling#445)",
+        "resolution": "2K"
+      },
+      "provider": "poly-haven",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 2347468,
+        "path": "old_planks_02_nor_gl_2k.jpg",
+        "revision": "2k-jpg-nor-gl",
+        "sha256": "4a18fab38628fa7a800f3d3f6aa29bdaea4c01711738718ec6286fb392a1aa1f",
+        "upstreamId": "old_planks_02",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/old_planks_02/old_planks_02_nor_gl_2k.jpg"
+      },
+      "tags": [
+        "fortress-kit",
+        "texture"
+      ],
+      "title": "Old Planks 02 — 2K Normal (GL)"
+    },
+    {
+      "id": "poly-haven.old-planks-02-rough-2k-jpg",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://polyhaven.com/a/old_planks_02",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/jpeg",
+      "metadata": {
+        "purpose": "Roughness map of the planks of the fortress bridge, lifts, hatches and shutters (asset-tooling#445)",
+        "resolution": "2K"
+      },
+      "provider": "poly-haven",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 909849,
+        "path": "old_planks_02_rough_2k.jpg",
+        "revision": "2k-jpg-rough",
+        "sha256": "dee95674281f907175030c1ba90afbf2f6d2a7a429453bcf295f7fd1bbd93374",
+        "upstreamId": "old_planks_02",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/old_planks_02/old_planks_02_rough_2k.jpg"
+      },
+      "tags": [
+        "fortress-kit",
+        "texture"
+      ],
+      "title": "Old Planks 02 — 2K Roughness"
     }
   ]
 }

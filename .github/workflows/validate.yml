@@ -73,7 +73,7 @@ jobs:
     if: github.event_name != 'pull_request' || needs.impact.outputs.extended == 'true'
     name: blender-script (${{ matrix.suite }})
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: ${{ matrix.timeout || 15 }}
     # Every test under test/blender/<suite> runs here: a new Blender test is picked up by where it lives.
     strategy:
       fail-fast: false
@@ -83,6 +83,10 @@ jobs:
             lfs: "assets/canonical/quaternius.stylized-nature-megakit-standard.*/**,assets/canonical/poly-haven.fir-tree-01-*/**,assets/canonical/poly-haven.rock-boulder-dry-*/**,assets/canonical/poly-haven.mossy-rock-*/**,assets/canonical/quaternius.animal-pack-vol2.cat-blend/**,assets/canonical/quaternius.ultimate-animated-animals-shibainu-glb/**,assets/canonical/quaternius.easy-enemy-rat-glb/**"
           - suite: recipes
             lfs: "assets/canonical/quaternius.universal-base-characters-standard.*/**,assets/canonical/quaternius.modular-character-outfits-fantasy-standard.*/**"
+          # The fortress kit's 51 recipe runs (17 pieces x 3 levels) take longer than the other kits together.
+          - suite: fortress
+            timeout: 60
+            lfs: "assets/canonical/poly-haven.castle-wall-slates-*/**,assets/canonical/poly-haven.japanese-stone-wall-*/**,assets/canonical/poly-haven.stone-tiles-02-*/**,assets/canonical/poly-haven.old-planks-02-*/**"
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
       - name: Set up Bun

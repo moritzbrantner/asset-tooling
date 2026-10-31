@@ -73,11 +73,12 @@ export type KitPart = { asset: AssetRef; document: Document; observations: Json 
  * Run one part's recipe and import its GLB through scene.import.gltf@2. `use: "imported"` (the default) bundles
  * the imported asset; `use: "source"` bundles the recipe's GLB as written, with the import only as validation.
  */
-export async function buildKitPart(root: string, { workspace, spec, files, use = "imported" }: {
+export async function buildKitPart(root: string, { workspace, spec, files, use = "imported", allowedValidatorWarnings = [] }: {
   workspace: string; spec: ReturnType<typeof blenderScriptSpec>; files: Record<string, Uint8Array>; use?: "imported" | "source";
+  allowedValidatorWarnings?: string[];
 }): Promise<KitPart> {
   const { glb, observations } = await runBlenderRecipe(root, { workspace, spec, files });
-  const imported = single(await executeGltfProductionImportOperation(root, { inputs: { source: glb }, parameters: { policy: { allowedValidatorWarnings: [] } } }));
+  const imported = single(await executeGltfProductionImportOperation(root, { inputs: { source: glb }, parameters: { policy: { allowedValidatorWarnings } } }));
   const asset = use === "imported" ? imported : glb;
   return { asset, document: await new NodeIO().readBinary(new Uint8Array(await resolveAssetObject(root, asset))), observations };
 }
