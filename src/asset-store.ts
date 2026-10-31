@@ -1,7 +1,7 @@
 import { constants, createReadStream } from "node:fs";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import path from "node:path";
-import { copyFile, lstat, mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import { copyFile, link, lstat, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { readOperationResultCache, removeOperationResultCache, writeOperationResultCache } from "./cache.js";
 import { sha256Bytes } from "./hash.js";
 import {
@@ -207,12 +207,7 @@ export async function storeAssetObject(
     if (!hasErrorCode(error, "ENOENT")) throw error;
   }
 
-  try {
-    await writeFile(absolutePath, bytes, { flag: "wx" });
-    return { status: "changed", asset };
-  } catch (error: unknown) {
-    if (!hasErrorCode(error, "EEXIST")) throw error;
-  }
+  if (await publishObject(absolutePath, (temporary) => writeFile(temporary, bytes, { flag: "wx" }))) return { status: "changed", asset };
 
   const existing = await readStoredObject(root, asset, portablePath);
   assertAssetBytes(asset, existing);
@@ -246,16 +241,28 @@ export async function storeAssetObjectFile(
     if (!hasErrorCode(error, "ENOENT")) throw error;
   }
 
-  try {
-    await copyFile(sourcePath, absolutePath, constants.COPYFILE_EXCL);
-    await verifyStoredObject(root, asset, portablePath);
-    return { status: "changed", asset };
-  } catch (error: unknown) {
-    if (!hasErrorCode(error, "EEXIST")) throw error;
-  }
-
+  const changed = await publishObject(absolutePath, (temporary) => copyFile(sourcePath, temporary, constants.COPYFILE_EXCL));
   await verifyStoredObject(root, asset, portablePath);
-  return { status: "unchanged", asset };
+  return { status: changed ? "changed" : "unchanged", asset };
+}
+
+/**
+ * Write an object to a temporary file beside `target`, then hard-link it into place (#427). A reader never sees a
+ * partly written object, and concurrent stores of the same object race only on the link: the loser (EEXIST, `false`)
+ * finds the winner's complete bytes.
+ */
+async function publishObject(target: string, write: (temporary: string) => Promise<void>): Promise<boolean> {
+  const temporary = path.join(path.dirname(target), `.${path.basename(target)}.${process.pid}.${randomUUID()}.partial`);
+  try {
+    await write(temporary);
+    await link(temporary, target);
+    return true;
+  } catch (error: unknown) {
+    if (hasErrorCode(error, "EEXIST")) return false;
+    throw error;
+  } finally {
+    await rm(temporary, { force: true });
+  }
 }
 
 export async function verifyAssetObject(root: string, value: unknown): Promise<AssetRef> {

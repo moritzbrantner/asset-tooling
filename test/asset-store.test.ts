@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import os from "node:os";
 import path from "node:path";
-import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import {
   assetObjectPortablePath,
   createAssetRefFromBytes,
@@ -145,6 +145,24 @@ test("large local files can be imported and verified without changing object ide
       () => verifyAssetObject(root, first.asset),
       /asset object .* hash mismatch/,
     );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("#427: concurrent stores of one object all succeed, and a reader never sees it partly written", async () => {
+  const root = await workspace();
+  try {
+    const bytes = Buffer.alloc(8 * 1024 * 1024, 7);
+    const options = { bytes, kind: "mesh", mediaType: "model/gltf-binary" };
+    const results = await Promise.all(Array.from({ length: 8 }, async () => {
+      const stored = await storeAssetObject(root, options);
+      assert.equal((await resolveAssetObject(root, stored.asset)).byteLength, bytes.byteLength);
+      return stored.status;
+    }));
+    assert.equal(results.filter((status) => status === "changed").length, 1);
+    const directory = path.dirname(path.join(root, assetObjectPortablePath(createAssetRefFromBytes(bytes, options))));
+    assert.deepEqual((await readdir(directory)).filter((name) => name.endsWith(".partial")), []);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

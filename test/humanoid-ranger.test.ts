@@ -21,7 +21,7 @@ import {
   RANGER_CLIPS_ATTACHMENT, RANGER_CLIP_ROLES, RANGER_FIGURES, RANGER_GAITS, RANGER_HAIR_TINTS, RANGER_MEMBERS,
   RANGER_CLASS_PRESETS, RANGER_FACIAL_HAIR_ENTRY, RANGER_ITEM_ATTACHMENT, RANGER_RESIDENT_PRESETS, RANGER_SOCKETS_ATTACHMENT, RANGER_SOCKETS_DESCRIPTOR, RANGER_TEXTURE_POLICY,
   RANGER_UBC_BONE_MAP, RANGER_WEAPONS, RANGER_OUTFIT_KITS, RANGER_PEASANT_OUTFITS, validateAppearancePresets,
-  buildRangerCharacter, rangerItemDescriptor, rangerPresets,
+  buildRangerCharacter, rangerItemDescriptor, rangerJobs, rangerPresets,
 } from "../scripts/build-ranger-character.ts";
 import { RANGER_BOW_CLIPS, RANGER_CLIP_FAMILIES, RANGER_GAIT_CLIPS, RANGER_GRIPS, RANGER_HIT_CLIPS, RANGER_SWIM_CLIPS, rangerGripJoints } from "../src/ranger-clips.js";
 import { WEAPON_ROLES } from "../src/weapon-recipes.js";
@@ -93,6 +93,12 @@ test("the Ranger retargets the library clips in bundle order, then authors its o
   assert.equal(RANGER_CLIP_ROLES.Sword_Regular_A!.role, "sword.light-strike");
   assert.equal(RANGER_CLIP_ROLES.Hit_Shove_Spin!.role, "hit.shove");
   assert.ok(!names.some((name) => name.startsWith("Melee_Hook")));
+});
+
+test("#427: the build pool runs ASSET_TOOLING_JOBS steps at once, else one less than the available parallelism", () => {
+  assert.equal(rangerJobs({ ASSET_TOOLING_JOBS: "3" }), 3);
+  assert.ok(rangerJobs({}) >= 1);
+  for (const bad of ["0", "-2", "1.5", "many"]) assert.throws(() => rangerJobs({ ASSET_TOOLING_JOBS: bad }), /positive integer/);
 });
 
 test("every spine joint is retargeted exactly once; UAL2 binds the same target joints", () => {

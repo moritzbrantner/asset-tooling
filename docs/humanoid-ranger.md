@@ -257,6 +257,10 @@ ASSET_TOOLING_PROCESSOR_CHECKOUT_3DLAB=<absolute checkout> ASSET_TOOLING_KTX=<kt
 
 The equipment, armour and authored clips run through `external.blender.script@1`, so the build needs Blender 5.2.2. `ASSET_TOOLING_BLENDER` names it, otherwise `blender` on `PATH` is used. Blender installed as a snap can only read and write under `$HOME`, so set `TMPDIR` to a directory there. The image codec also needs `ffmpeg` and `ffprobe`.
 
+The independent Blender-bound groups (the outfit kits with their levels of detail, the pack and hand-modelled hairstyles, and the weapon, archery and headwear items) run through a bounded pool (#427). `ASSET_TOOLING_JOBS` sets how many steps run at once; the default is one less than `os.availableParallelism()`. Each step has its own workspace, and the results are added in their declared order, so the tar is the same at any job count. Every log line starts with the elapsed build time (`[mmm:ss]`), so a log is a step profile.
+
+A rebuild into the same `--out` is incremental: Blender steps reuse the generation cache keyed in their spec workspace, and operations reuse the operation-result cache in the object store. Only steps whose inputs changed run again.
+
 [`scripts/build-ranger-character.ts`](../scripts/build-ranger-character.ts) is the maintained recipe. It needs no network after `cargo fetch`: the processor runs `cargo run --offline`. The processor checkout must be source-clean at the pinned commit. `Cargo.lock` and `target/` may be present, but nothing else may differ. Its identity (`git-clean-exact-head`, cargo/rustc versions and the probe) is part of the `animation.retarget@1` build identity. `<directory>` becomes the object-store root, which holds every intermediate AssetRef. The script prints the bundle directory, the tar path, the tar sha256 and the export ref, and writes `lineage.json` next to them with every intermediate AssetRef and the retarget observations.
 
 | Step | Operation | Inputs and parameters |
