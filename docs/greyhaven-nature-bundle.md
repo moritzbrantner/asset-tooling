@@ -4,7 +4,7 @@ The dedicated `greyhaven-nature` rolling release supplies the tree and rock fami
 
 | Stable key | Canonical archive member | Triangles |
 | --- | --- | --- |
-| `greyhaven.nature.tree.broadleaf` | `glTF/CommonTree_1.gltf` | 6,265 |
+| `greyhaven.nature.tree.broadleaf` | `glTF/CommonTree_1.gltf` (trunk; crown rebuilt) | 7,217 |
 | `greyhaven.nature.tree.conifer` | `glTF/Pine_1.gltf` | 3,947 |
 | `greyhaven.nature.rock.1` | `glTF/Rock_Medium_1.gltf` | 342 |
 | `greyhaven.nature.rock.2` | `glTF/Rock_Medium_2.gltf` | 244 |
@@ -12,16 +12,28 @@ The dedicated `greyhaven-nature` rolling release supplies the tree and rock fami
 
 Each entry uses variant `default`, metres, right-handed +Y up and a footprint-base-centre origin. The rocks have three independently authored source meshes. No placement rules, procedural generation or authoritative colliders are included.
 
+## Broadleaf crown
+
+The owner kept the broadleaf's trunk but rejected its leaves ([#446](https://github.com/moritzbrantner/asset-tooling/issues/446), mmorpg#49.Q2). [`adapters/blender/broadleaf_crown.py`](../adapters/blender/broadleaf_crown.py) keeps the source bark primitive (4,345 triangles) and replaces the leaf cards:
+
+- leaf clumps sit on the source trunk's branch tips, plus a crowning clump and a heart clump on the leader;
+- a decimated metaball union of the clumps, shrunk inward, is an opaque dark core (`Leaves_Core`, 672 triangles), so no sky or bare branches show through;
+- 1,100 leaf cards (2,200 triangles, `Leaves_NormalTree`, alpha `MASK`) cover the core, mostly facing outward. Their image is the source leaf cluster turned into a bright greyscale mask, so the colour comes from `COLOR_0`;
+- each card's normals bend towards the crown volume, so it shades as soft foliage, not as flat planes;
+- each card's `COLOR_0` runs from deep cool green inside and underneath to warm yellow-green on the sunny top, with a per-clump tint and per-card hue and value jitter.
+
+The seed (446) and card count are `BROADLEAF_CROWN` in the build script. Translucency is not authored: core glTF has none, and the game's three.js `GLTFLoader` path renders `MeshStandardMaterial`.
+
 ## Build and provenance
 
-From a hydrated checkout with Bun and FFmpeg (the existing PNG codec):
+From a hydrated checkout with Bun, FFmpeg (the existing PNG codec) and Blender 5.2.2 (`adapters/blender/release.json`) for the broadleaf crown:
 
 ```sh
-bun scripts/build-greyhaven-nature.ts --out .artifacts/greyhaven-nature
+ASSET_TOOLING_BLENDER=<blender 5.2.2> bun scripts/build-greyhaven-nature.ts --out .artifacts/greyhaven-nature
 bun scripts/pack-asset-bundle.ts --verify .artifacts/greyhaven-nature/greyhaven.nature.tar --ref .artifacts/greyhaven-nature/export.ref.json
 ```
 
-This builds offline through catalog storage import → production glTF import (the existing `gltf-color-clamp-v1` repair) → footprint placement → texture resize → `gltf-resources-v1` bundle export → tar packing. Source acquisition remains a separate explicit operation. Every source is reverified against its catalog hash before import.
+This builds offline through catalog storage import → production glTF import (the existing `gltf-color-clamp-v1` repair) → for the broadleaf, the `external.blender.script@1` crown recipe and a second production import → footprint placement → texture resize → `gltf-resources-v1` bundle export → tar packing. Source acquisition remains a separate explicit operation. Every source is reverified against its catalog hash before import.
 
 Colour, emissive and normal images have maximum edge 1024; ORM/occlusion images 512. Existing smaller images are not upscaled. PNG keeps compatibility with both consumers and shared images are deduplicated by the bundle exporter. The initial five-entry tar is about 4.3 MB (decimal); this is a measurement, not a size gate.
 
@@ -41,4 +53,4 @@ The composition uses the unscaled metre-sized meshes. Consumer review at gamepla
 
 CI publishes `greyhaven.nature.tar`, its `.sha256`, `export.ref.json` and `lineage.json` on the single rolling `greyhaven-nature` release when the recipe merges ([Publishing a rolling release](../README.md#publishing-a-rolling-release)). Consumers intentionally adopt a replacement by pinning the release asset URL, tar SHA-256 and content-only export ref, as described in [asset bundles](asset-bundles.md#release-distribution-and-consumer-pinning). Existing published starter releases are unaffected.
 
-`test/hydrated/greyhaven-nature.test.ts` verifies the real packed bundle, resource closure, texture dimensions, grounded/centred meshes, three distinct rock vertex sets and provenance from hydrated sources. It skips visibly on LFS pointers, and fails closed under `ASSET_TOOLING_REQUIRE_HYDRATED_STORAGE=1`.
+`test/blender/kits/greyhaven-nature.test.ts` (the hosted Blender kits job, which hydrates the nature payloads) verifies the real packed bundle, resource closure, texture dimensions, grounded/centred meshes, three distinct rock vertex sets, the rebuilt broadleaf crown and provenance from hydrated sources. It skips visibly without Blender or on LFS pointers.

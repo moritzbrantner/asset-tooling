@@ -15,14 +15,23 @@ import { executeGltfPlaceOperation } from "../src/gltf-place-operations.js";
 import { executeGltfProductionImportOperation } from "../src/gltf-production-operations.js";
 import { executeGltfTextureResizeOperation } from "../src/gltf-texture-resize-operations.js";
 import type { AssetOperationResult, AssetRef } from "../src/operations.js";
+import { blenderScriptSpec } from "../src/blender-script-spec.js";
+import { readBlenderRecipeSource } from "../src/blender-recipe-source.js";
+import { sha256Bytes } from "../src/hash.js";
+import { runBlenderRecipe } from "../src/blender-recipe-run.js";
 
 const ROOT = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
 const ARCHIVE = "quaternius.stylized-nature-megakit-standard";
 export const NATURE_DESCRIPTOR_SCHEMA = "greyhaven-nature-descriptor-v1";
 export const NATURE_DESCRIPTOR_ATTACHMENT = "nature-descriptor";
 export const NATURE_TAR_NAME = "greyhaven.nature.tar";
+/**
+ * The broadleaf keeps CommonTree_1's trunk; adapters/blender/broadleaf_crown.py replaces its leaves with a clumped,
+ * vertex-coloured leaf-card canopy over an opaque core (#446). The seed and card count are the reviewed defaults.
+ */
+export const BROADLEAF_CROWN = { schemaVersion: 1, seed: 446, cards: 1100 } as const;
 export const NATURE_MEMBERS = [
-  { key: "greyhaven.nature.tree.broadleaf", family: "tree", shape: "broadleaf", source: "CommonTree_1" },
+  { key: "greyhaven.nature.tree.broadleaf", family: "tree", shape: "broadleaf", source: "CommonTree_1", crown: BROADLEAF_CROWN },
   { key: "greyhaven.nature.tree.conifer", family: "tree", shape: "conifer", source: "Pine_1" },
   { key: "greyhaven.nature.rock.1", family: "rock", shape: "medium-1", source: "Rock_Medium_1" },
   { key: "greyhaven.nature.rock.2", family: "rock", shape: "medium-2", source: "Rock_Medium_2" },
@@ -66,8 +75,27 @@ export async function buildGreyhavenNature(outDir: string, log: (message: string
     const imported = single(await executeGltfProductionImportOperation(root, {
       inputs: { source, resources }, parameters: { resourceUris: uris, policy: { ...POLICY, repairs: ["gltf-color-clamp-v1"] } },
     }));
+    let shaped = imported;
+    let crown: { asset: AssetRef; observations: Record<string, unknown> } | undefined;
+    if ("crown" in entry) {
+      log(`rebuild the ${entry.key} crown (external.blender.script@1 broadleaf_crown.py)`);
+      const recipe = await readBlenderRecipeSource("broadleaf_crown.py");
+      const source = new Uint8Array(await resolveAssetObject(root, imported));
+      const { glb, observations } = await runBlenderRecipe(root, {
+        workspace: path.join(root, "broadleaf-crown"),
+        files: { "broadleaf_crown.py": recipe.bytes, "source.glb": source },
+        spec: blenderScriptSpec({
+          assetId: entry.key,
+          inputs: { script: { path: "broadleaf_crown.py", sha256: recipe.sha256 }, source: { path: "source.glb", sha256: sha256Bytes(source) } },
+          blenderVersion: recipe.blenderVersion, arguments: entry.crown, output: "broadleaf.glb",
+        }),
+      });
+      // The bark keeps the source's normal map without tangents, so the same validator allowance applies.
+      shaped = single(await executeGltfProductionImportOperation(root, { inputs: { source: glb }, parameters: { policy: POLICY } }));
+      crown = { asset: shaped, observations };
+    }
     const placed = single(await executeGltfPlaceOperation(root, {
-      inputs: { source: imported }, parameters: { parentName: entry.key, anchor: "footprint-base-center", policy: POLICY },
+      inputs: { source: shaped }, parameters: { parentName: entry.key, anchor: "footprint-base-center", policy: POLICY },
     }));
     const asset = single(await executeGltfTextureResizeOperation(root, {
       inputs: { source: placed }, parameters: { ...NATURE_TEXTURE_POLICY, policy: POLICY },
@@ -76,7 +104,7 @@ export async function buildGreyhavenNature(outDir: string, log: (message: string
     const scene = document.getRoot().getDefaultScene();
     if (!scene) throw new Error(`${entry.key} has no default scene`);
     const bounds = getBounds(scene);
-    built.push({ entry, asset, bounds, provenance: { source, resources, imported, placed } });
+    built.push({ entry, asset, bounds, provenance: { source, resources, imported, ...(crown ? { crown } : {}), placed } });
   }
   const descriptor = {
     schema: NATURE_DESCRIPTOR_SCHEMA, units: "metre", up: "+Y", handedness: "right", origin: "footprint-base-center",
