@@ -5,7 +5,7 @@ The dedicated `greyhaven-nature` rolling release supplies the tree and rock fami
 | Stable key | Canonical archive member | Triangles |
 | --- | --- | --- |
 | `greyhaven.nature.tree.broadleaf` | `glTF/CommonTree_1.gltf` (trunk; crown rebuilt) | 7,217 |
-| `greyhaven.nature.tree.conifer` | `glTF/Pine_1.gltf` (trunk; crown rebuilt) | 7,247 |
+| `greyhaven.nature.tree.conifer` | `glTF/Pine_1.gltf` (trunk; crown rebuilt) | 7,115 |
 | `greyhaven.nature.rock.1` | `glTF/Rock_Medium_1.gltf` | 342 |
 | `greyhaven.nature.rock.2` | `glTF/Rock_Medium_2.gltf` | 244 |
 | `greyhaven.nature.rock.3` | `glTF/Rock_Medium_3.gltf` | 522 |
@@ -26,15 +26,16 @@ The seed (446) and card count are `BROADLEAF_CROWN` in the build script. Translu
 
 ## Conifer crown
 
-The owner chose detail everywhere at the reworked broadleaf's standard (mmorpg#49.Q3, [#450](https://github.com/moritzbrantner/asset-tooling/issues/450)). [`adapters/blender/conifer_crown.py`](../adapters/blender/conifer_crown.py) keeps Pine_1's bark primitive (3,177 triangles), measures its leaf primitive (crown base and top, radius profile around the trunk axis), and replaces the leaves:
+The owner chose detail everywhere at the reworked broadleaf's standard (mmorpg#49.Q3, [#450](https://github.com/moritzbrantner/asset-tooling/issues/450)); pass 2 ([#454](https://github.com/moritzbrantner/asset-tooling/issues/454)) made it a solid, dark fir with readable tiers. [`adapters/blender/conifer_crown.py`](../adapters/blender/conifer_crown.py) (`conifer-crown-v2`) measures Pine_1's leaf primitive (crown base and top, radius profile around the trunk axis) and replaces the leaves:
 
-- whorls of drooping branches climb the source trunk, closer together towards the leader; branch length follows the source crown's radius at that height, so the silhouette stays Pine_1's;
-- each whorl has an opaque, closed skirt (`Leaves_Core`, 672 triangles in all): a shallow cone on top and a dark hollow underneath that steps in to the whorl below, so no sky shows between whorls and each tier casts its own shadow band;
-- about 1,700 fir sprig cards (3,398 triangles, `Leaves_Pine`, alpha `MASK`): along each branch, stem towards the trunk, fanned and rolled; lying on each skirt; as a fringe over each skirt's rim; and upright around the leader;
-- the sprig image is four fir sprigs cut from the CC0 Poly Haven [`fir_tree_01`](https://polyhaven.com/a/fir_tree_01) twig atlas (colour and alpha, catalogued as `poly-haven.fir-tree-01-twig-{diff,alpha}-2k-jpg`), turned into a bright greyscale mask at 1024 px, so the colour comes from `COLOR_0`;
-- each card's `COLOR_0` runs from deep cool green inside the crown, low down and under each tier, to warm yellow-green at the sunlit branch tips and the top, with a per-branch tint and per-card hue and value jitter. Card normals bend up and out of the crown.
+- the trunk is Pine_1's bark primitive with the bare branch stubs around the crown base cut (809 triangles), so a clean trunk shows below the first tier;
+- seven drooping tiers climb the trunk, widest at the bottom and closer together towards the leader; each tier's reach follows the source crown's radius at that height, is lobed between its branches, and has a slight tilt and droop wobble so no two tiers are the same disc;
+- each tier has an opaque, closed skirt (`Leaves_Core`, 504 triangles in all): a drooping cone, a dark rim band, and a hollow underneath that reaches down to the tier below, so no sky shows through the crown and each tier has a shadow band under it;
+- 2,900 fir sprig cards (5,802 triangles, `Leaves_Pine`, alpha `MASK`): lying on each skirt's top pointing downslope, hanging over each rim as a darker fringe, spraying out past the rim at the branch tips, and upright around the leader;
+- the sprig image is four fir sprigs cut from the CC0 Poly Haven [`fir_tree_01`](https://polyhaven.com/a/fir_tree_01) twig atlas (colour and alpha, catalogued as `poly-haven.fir-tree-01-twig-{diff,alpha}-2k-jpg`), turned into a greyscale mask at 1024 px, so the colour comes from `COLOR_0`. The alpha is closed (gaps between needles filled), so a sprig stays a solid fan in the `MASK` cut-out and keeps its coverage as the texture mips down;
+- every card carries the skirt's smooth normal (lit tier tops, shaded rims), like the broadleaf's cards, and a `COLOR_0` that runs from deep green under and inside each tier to saturated green on the tier tops, lighter towards the outer edges and the top, with per-card hue and value jitter.
 
-The seed (450) and card count (1,700) are `CONIFER_CROWN` in the build script. The palette, skirt share (`SKIRT_REACH`) and rim fringe (`RIM_CARDS`) are constants at the top of the recipe. LOD chains for both trees follow in [#449](https://github.com/moritzbrantner/asset-tooling/issues/449).
+The seed (454) and card count (2,900) are `CONIFER_CROWN` in the build script. The palette, tier count (`TIERS`), trunk clearance (`CROWN_FLOOR`), stub cut (`STUB_REACH`), skirt share (`SKIRT_REACH`) and card shares are constants at the top of the recipe. LOD chains for both trees follow in [#449](https://github.com/moritzbrantner/asset-tooling/issues/449).
 
 ## Build and provenance
 
