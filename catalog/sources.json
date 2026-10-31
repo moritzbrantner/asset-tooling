@@ -347,6 +347,66 @@
       }
     },
     {
+      "id": "poly-haven.fir-tree-01-twig-diff-2k-jpg",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://polyhaven.com/a/fir_tree_01",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/jpeg",
+      "metadata": {
+        "purpose": "Fir sprig atlas colour for the Greyhaven conifer needle cards (asset-tooling#450)",
+        "resolution": "2K"
+      },
+      "provider": "poly-haven",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 1141996,
+        "path": "fir_tree_01_twig_diff_2k.jpg",
+        "revision": "2k-jpg-twig-diff",
+        "sha256": "5504646d484a08649a9cd14402860063e69fd10072238f5afe72214e6bf478be",
+        "upstreamId": "fir_tree_01",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/2k/fir_tree_01/fir_tree_01_twig_diff_2k.jpg"
+      },
+      "tags": [
+        "foliage",
+        "greyhaven-nature",
+        "needles",
+        "texture"
+      ],
+      "title": "Fir Tree 01 — 2K Twig Color"
+    },
+    {
+      "id": "poly-haven.fir-tree-01-twig-alpha-2k-jpg",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://polyhaven.com/a/fir_tree_01",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/jpeg",
+      "metadata": {
+        "purpose": "Fir sprig atlas cut-out alpha for the Greyhaven conifer needle cards (asset-tooling#450)",
+        "resolution": "2K"
+      },
+      "provider": "poly-haven",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 798315,
+        "path": "fir_tree_01_twig_alpha_2k.jpg",
+        "revision": "2k-jpg-twig-alpha",
+        "sha256": "69c1a0ab17e57ef3b74913ba883b853e1c7a9409a9a43743cce1dd756a7adfee",
+        "upstreamId": "fir_tree_01",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/2k/fir_tree_01/fir_tree_01_twig_alpha_2k.jpg"
+      },
+      "tags": [
+        "foliage",
+        "greyhaven-nature",
+        "needles",
+        "texture"
+      ],
+      "title": "Fir Tree 01 — 2K Twig Alpha"
+    },
+    {
       "schemaVersion": 1,
       "id": "poly-haven.studio-small-01-4k-exr",
       "provider": "poly-haven",

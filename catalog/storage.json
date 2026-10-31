@@ -1002,6 +1002,18 @@
       "sourceId": "opengameart.their-coming-horn-ogg",
       "storage": "git-lfs",
       "path": "assets/canonical/opengameart.their-coming-horn-ogg/theircoming.ogg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.fir-tree-01-twig-diff-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.fir-tree-01-twig-diff-2k-jpg/fir_tree_01_twig_diff_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.fir-tree-01-twig-alpha-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.fir-tree-01-twig-alpha-2k-jpg/fir_tree_01_twig_alpha_2k.jpg"
     }
   ]
 }

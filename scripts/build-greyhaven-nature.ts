@@ -15,7 +15,7 @@ import { executeGltfPlaceOperation } from "../src/gltf-place-operations.js";
 import { executeGltfProductionImportOperation } from "../src/gltf-production-operations.js";
 import { executeGltfTextureResizeOperation } from "../src/gltf-texture-resize-operations.js";
 import type { AssetOperationResult, AssetRef } from "../src/operations.js";
-import { blenderScriptSpec } from "../src/blender-script-spec.js";
+import { blenderScriptSpec, type BlenderSpecInput } from "../src/blender-script-spec.js";
 import { readBlenderRecipeSource } from "../src/blender-recipe-source.js";
 import { sha256Bytes } from "../src/hash.js";
 import { runBlenderRecipe } from "../src/blender-recipe-run.js";
@@ -30,9 +30,16 @@ export const NATURE_TAR_NAME = "greyhaven.nature.tar";
  * vertex-coloured leaf-card canopy over an opaque core (#446). The seed and card count are the reviewed defaults.
  */
 export const BROADLEAF_CROWN = { schemaVersion: 1, seed: 446, cards: 1100 } as const;
+/**
+ * The conifer keeps Pine_1's trunk; adapters/blender/conifer_crown.py replaces its leaves with drooping whorls of
+ * CC0 Poly Haven fir sprig cards over opaque tier skirts (#450). The seed and card count are the reviewed defaults.
+ */
+export const CONIFER_CROWN = { schemaVersion: 1, seed: 450, cards: 1700 } as const;
+/** Extra catalog sources a crown recipe reads, by recipe input name. */
+const CONIFER_NEEDLES = { needles: "poly-haven.fir-tree-01-twig-diff-2k-jpg", needleAlpha: "poly-haven.fir-tree-01-twig-alpha-2k-jpg" } as const;
 export const NATURE_MEMBERS = [
   { key: "greyhaven.nature.tree.broadleaf", family: "tree", shape: "broadleaf", source: "CommonTree_1", crown: BROADLEAF_CROWN },
-  { key: "greyhaven.nature.tree.conifer", family: "tree", shape: "conifer", source: "Pine_1" },
+  { key: "greyhaven.nature.tree.conifer", family: "tree", shape: "conifer", source: "Pine_1", crown: CONIFER_CROWN, crownInputs: CONIFER_NEEDLES },
   { key: "greyhaven.nature.rock.1", family: "rock", shape: "medium-1", source: "Rock_Medium_1" },
   { key: "greyhaven.nature.rock.2", family: "rock", shape: "medium-2", source: "Rock_Medium_2" },
   { key: "greyhaven.nature.rock.3", family: "rock", shape: "medium-3", source: "Rock_Medium_3" },
@@ -43,7 +50,7 @@ export const NATURE_TEXTURE_POLICY = {
 } as const;
 const POLICY = { allowedValidatorWarnings: ["MESH_PRIMITIVE_GENERATED_TANGENT_SPACE"] };
 
-type Source = { id: string; archiveMember?: { archive: string; path: string } };
+type Source = { id: string; source?: { path?: string }; archiveMember?: { archive: string; path: string } };
 type GltfResources = { buffers?: { uri: string }[]; images?: { uri: string }[] };
 function single(result: AssetOperationResult): AssetRef {
   const ref = result.outputs.output;
@@ -76,23 +83,36 @@ export async function buildGreyhavenNature(outDir: string, log: (message: string
       inputs: { source, resources }, parameters: { resourceUris: uris, policy: { ...POLICY, repairs: ["gltf-color-clamp-v1"] } },
     }));
     let shaped = imported;
-    let crown: { asset: AssetRef; observations: Record<string, unknown> } | undefined;
+    let crown: { asset: AssetRef; observations: Record<string, unknown>; inputs?: Record<string, AssetRef> } | undefined;
     if ("crown" in entry) {
-      log(`rebuild the ${entry.key} crown (external.blender.script@1 broadleaf_crown.py)`);
-      const recipe = await readBlenderRecipeSource("broadleaf_crown.py");
+      // broadleaf_crown.py (#446) or conifer_crown.py (#450), in a workspace named after the shape.
+      const script = `${entry.shape}_crown.py`;
+      log(`rebuild the ${entry.key} crown (external.blender.script@1 ${script})`);
+      const recipe = await readBlenderRecipeSource(script);
       const source = new Uint8Array(await resolveAssetObject(root, imported));
+      const files: Record<string, Uint8Array> = { [script]: recipe.bytes, "source.glb": source };
+      const inputs: { script: BlenderSpecInput } & Record<string, BlenderSpecInput> = {
+        script: { path: script, sha256: recipe.sha256 }, source: { path: "source.glb", sha256: sha256Bytes(source) },
+      };
+      const extra: Record<string, AssetRef> = {};
+      for (const [name, sourceId] of Object.entries("crownInputs" in entry ? entry.crownInputs : {})) {
+        const asset = (await importAssetCatalogStorageSource({ catalog, storage, sourceId, storageRoot: ROOT, objectStoreRoot: root })).asset as AssetRef;
+        const bytes = new Uint8Array(await resolveAssetObject(root, asset));
+        const file = `${name}${path.posix.extname(rawSources.find((item) => item.id === sourceId)?.source?.path ?? "")}`;
+        files[file] = bytes;
+        inputs[name] = { path: file, sha256: sha256Bytes(bytes) };
+        extra[name] = asset;
+      }
       const { glb, observations } = await runBlenderRecipe(root, {
-        workspace: path.join(root, "broadleaf-crown"),
-        files: { "broadleaf_crown.py": recipe.bytes, "source.glb": source },
+        workspace: path.join(root, `${entry.shape}-crown`),
+        files,
         spec: blenderScriptSpec({
-          assetId: entry.key,
-          inputs: { script: { path: "broadleaf_crown.py", sha256: recipe.sha256 }, source: { path: "source.glb", sha256: sha256Bytes(source) } },
-          blenderVersion: recipe.blenderVersion, arguments: entry.crown, output: "broadleaf.glb",
+          assetId: entry.key, inputs, blenderVersion: recipe.blenderVersion, arguments: entry.crown, output: `${entry.shape}.glb`,
         }),
       });
       // The bark keeps the source's normal map without tangents, so the same validator allowance applies.
       shaped = single(await executeGltfProductionImportOperation(root, { inputs: { source: glb }, parameters: { policy: POLICY } }));
-      crown = { asset: shaped, observations };
+      crown = { asset: shaped, observations: observations as Record<string, unknown>, ...(Object.keys(extra).length ? { inputs: extra } : {}) };
     }
     const placed = single(await executeGltfPlaceOperation(root, {
       inputs: { source: shaped }, parameters: { parentName: entry.key, anchor: "footprint-base-center", policy: POLICY },
