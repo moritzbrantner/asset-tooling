@@ -59,6 +59,13 @@
           "scripts/verify-bundle-consumer.ts",
           ".coding-tooling/generators/selected-bundle/**",
           "src/asset-bundle.ts",
+          "src/asset-bundle-contract.ts",
+          "src/asset-bundle-export.ts",
+          "src/asset-bundle-files.ts",
+          "src/asset-bundle-gltf.ts",
+          "src/asset-bundle-manifest.ts",
+          "src/asset-bundle-payload.ts",
+          "src/asset-bundle-prepare.ts",
           "src/effect-artwork-recipes.ts"
         ],
         "taskKinds": [
