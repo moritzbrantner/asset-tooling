@@ -1,0 +1,131 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://moritzbrantner.github.io/asset-tooling/schemas/fortress-kit-descriptor-v1.schema.json",
+  "title": "asset-tooling Battle Royale fortress kit descriptor v1",
+  "description": "Pieces, level-of-detail chains and the composition of the Battle Royale fortress art kit (docs/fortress-kit.md). Piece geometry is in metres in the piece's own frame (+Y up, outward -Z, origin at the fitted box's base centre); the composition is in mmorpg-core units (100 per metre) in the arena frame. The pieces are presentation only: battle_royale_core::arena's colliders stay authoritative.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "units", "up", "outward", "handedness", "origin", "source", "placement", "lodSelection", "assets", "composition"],
+  "properties": {
+    "schema": { "const": "fortress-kit-descriptor-v1" },
+    "units": { "const": "metre" },
+    "up": { "const": "+Y" },
+    "outward": { "const": "-Z" },
+    "handedness": { "const": "right" },
+    "origin": { "const": "fitted-box-base-centre" },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "revision", "module"],
+      "properties": { "repository": { "type": "string" }, "revision": { "type": "string" }, "module": { "type": "string" } }
+    },
+    "placement": { "type": "string" },
+    "lodSelection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["metric", "rule", "referenceFovYDegrees"],
+      "properties": {
+        "metric": { "const": "projected-bounding-sphere-height-fraction" },
+        "rule": { "type": "string" },
+        "referenceFovYDegrees": { "type": "number" }
+      }
+    },
+    "assets": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/asset" } },
+    "composition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["units", "items", "liftRise", "undressed"],
+      "properties": {
+        "units": { "type": "string" },
+        "liftRise": { "type": "integer" },
+        "items": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/item" } },
+        "undressed": { "type": "array", "items": { "$ref": "#/$defs/body" } }
+      }
+    }
+  },
+  "$defs": {
+    "vec3": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 },
+    "ivec3": { "type": "array", "items": { "type": "integer" }, "minItems": 3, "maxItems": 3 },
+    "rect": { "type": "array", "items": { "type": "number" }, "minItems": 4, "maxItems": 4 },
+    "asset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "role", "fits", "triangles", "bounds", "materials", "lods"],
+      "properties": {
+        "key": { "type": "string", "pattern": "^fortress\\.kit\\.[a-z-]+$" },
+        "role": { "enum": ["wall", "parapet", "tower", "floor", "bridge", "column", "ramp", "lift"] },
+        "fits": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["size"],
+          "properties": { "size": { "$ref": "#/$defs/vec3" }, "rises": { "const": "+Z" } }
+        },
+        "holes": { "type": "array", "items": { "$ref": "#/$defs/rect" } },
+        "hatches": { "type": "array", "items": { "$ref": "#/$defs/rect" } },
+        "leavesToNeighbour": { "type": "string" },
+        "triangles": { "type": "integer" },
+        "bounds": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["min", "max"],
+          "properties": { "min": { "$ref": "#/$defs/vec3" }, "max": { "$ref": "#/$defs/vec3" } }
+        },
+        "materials": { "type": "array", "items": { "type": "string" } },
+        "lods": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["boundingSphere", "levels"],
+          "properties": {
+            "boundingSphere": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["center", "radius"],
+              "properties": { "center": { "$ref": "#/$defs/vec3" }, "radius": { "type": "number" } }
+            },
+            "levels": {
+              "type": "array",
+              "minItems": 3,
+              "maxItems": 3,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["variant", "triangles", "minScreenSize", "referenceMaxDistance"],
+                "properties": {
+                  "variant": { "enum": ["default", "lod1", "lod2"] },
+                  "triangles": { "type": "integer" },
+                  "minScreenSize": { "type": "number" },
+                  "referenceMaxDistance": { "type": ["number", "null"] }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "body": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "body", "part", "position", "halfExtents"],
+      "properties": {
+        "kind": { "enum": ["collider", "ramp", "lift"] },
+        "body": { "type": "integer" },
+        "part": { "enum": ["Ground", "Wall", "Parapet", "Tower", "Floor", "Bridge", "Column", "Ramp", "Lift"] },
+        "position": { "$ref": "#/$defs/ivec3" },
+        "halfExtents": { "$ref": "#/$defs/ivec3" },
+        "rises": { "enum": ["PosX", "PosZ", "NegX", "NegZ"] }
+      }
+    },
+    "item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "part", "origin", "yawDegrees", "bodies"],
+      "properties": {
+        "key": { "type": "string", "pattern": "^fortress\\.kit\\.[a-z-]+$" },
+        "part": { "type": "string" },
+        "origin": { "$ref": "#/$defs/ivec3" },
+        "yawDegrees": { "enum": [0, 90, 180, 270] },
+        "bodies": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/body" } }
+      }
+    }
+  }
+}
