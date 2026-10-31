@@ -64,6 +64,41 @@ export const NATURE_TEXTURE_POLICY = {
   default: 1024,
 } as const;
 const POLICY = { allowedValidatorWarnings: ["MESH_PRIMITIVE_GENERATED_TANGENT_SPACE"] };
+/**
+ * Levels of detail (#449). LOD0 is the member itself (variant `default`); `lod1` and `lod2` are built from the placed
+ * LOD0 by adapters/blender/nature_lod.py and keep its frame, so a consumer swaps them in place.
+ */
+export const NATURE_LOD_VARIANTS = ["lod1", "lod2"] as const;
+/**
+ * Screen-size switch points per family: show level n while the projected bounding-sphere height fraction (sphere
+ * diameter over viewport height) is at least SIZES[n]; below the last one, the last level. Reviewed in Blender at
+ * these distances; the far tree switch is late, where LOD1's leaf speckle has blurred away.
+ */
+export const NATURE_LOD_SCREEN_SIZES = { tree: [0.5, 0.12], rock: [0.3, 0.1] } as const;
+/** Each descriptor entry carries its level-of-detail chain under this field. */
+export const NATURE_LODS = "lods";
+export const NATURE_LOD_METRIC = "projected-bounding-sphere-height-fraction";
+/** The vertical field of view (degrees) the descriptor's convenience switch distances are computed for. */
+export const NATURE_LOD_REFERENCE_FOV_Y = 60;
+const TREE_LOD1 = { method: "thin", seed: 449, keep: 0.32 } as const;
+const TREE_LOD2 = { neighbours: 8, coreShare: 0.4 } as const;
+/** nature_lod.py arguments for lod1 and lod2, by tree shape or by family for the rocks. */
+export const NATURE_LOD_RECIPES = {
+  broadleaf: [{ ...TREE_LOD1, grow: 0.9, barkRatio: 0.3 },
+    { ...TREE_LOD2, method: "hull", inflate: 1, fit: 0.9, hullTriangles: 800, gain: 0.85, underside: 0.6, barkRatio: 0.08 }],
+  conifer: [{ ...TREE_LOD1, grow: 0.85, barkRatio: 0.4 },
+    { ...TREE_LOD2, method: "envelope", bands: 28, sectors: 12, fit: 0.5, gain: 0.62, underside: 0.5, barkRatio: 0.15 }],
+  rock: [{ method: "decimate", ratio: 0.35 }, { method: "decimate", ratio: 0.1 }],
+} as const;
+/** Rock levels halve LOD0's baked maps per level (512 px, then 256 px); tree levels share LOD0's images. */
+function lodTexturePolicy(family: "tree" | "rock", level: number) {
+  if (family === "tree") return NATURE_TEXTURE_POLICY;
+  const scale = 2 ** (level + 1);
+  return {
+    maxEdgeBySlot: Object.fromEntries(Object.entries(NATURE_TEXTURE_POLICY.maxEdgeBySlot).map(([slot, edge]) => [slot, edge / scale])),
+    default: NATURE_TEXTURE_POLICY.default / scale,
+  };
+}
 
 type Source = { id: string; source?: { path?: string }; archiveMember?: { archive: string; path: string } };
 type GltfResources = { buffers?: { uri: string }[]; images?: { uri: string }[] };
@@ -91,6 +126,12 @@ export async function buildGreyhavenNature(outDir: string, log: (message: string
     const scene = (await io.readBinary(new Uint8Array(await resolveAssetObject(root, asset)))).getRoot().getDefaultScene();
     if (!scene) throw new Error(`${asset.sha256} has no default scene`);
     return getBounds(scene);
+  };
+  /** Triangles drawn by the shipped asset (every indexed or non-indexed triangle-list primitive). */
+  const trianglesOf = async (asset: AssetRef) => {
+    const document = await io.readBinary(new Uint8Array(await resolveAssetObject(root, asset)));
+    return document.getRoot().listMeshes().flatMap((mesh) => mesh.listPrimitives())
+      .reduce((sum, primitive) => sum + (primitive.getIndices() ?? primitive.getAttribute("POSITION")!).getCount() / 3, 0);
   };
   /** One external.blender.script@1 recipe run with the given catalog sources as named inputs (plus an optional source GLB). */
   const runRecipe = async (key: string, script: string, workspace: string, output: string, args: unknown, catalogInputs: Record<string, string>, source?: AssetRef) => {
@@ -158,18 +199,50 @@ export async function buildGreyhavenNature(outDir: string, log: (message: string
       const shift = [0, 1, 2].map((axis) => bounds.min[axis]! - before.min[axis]!);
       collisionProxy.vertices = collisionProxy.vertices.map((v) => v.map((value, axis) => Number((value + shift[axis]!).toFixed(4))) as [number, number, number]);
     }
-    built.push({ entry, asset, bounds, collisionProxy, provenance: { ...provenance, placed } });
+    // #449: lod1 and lod2 from the placed, resized LOD0, in its frame.
+    const recipes = NATURE_LOD_RECIPES[entry.family === "rock" ? "rock" : entry.shape as "broadleaf" | "conifer"];
+    const lods = [];
+    for (const [index, variant] of NATURE_LOD_VARIANTS.entries()) {
+      const level = await runRecipe(entry.key, "nature_lod.py", `${entry.shape}-${variant}`, `${variant}.glb`, { schemaVersion: 1, ...recipes[index] }, {}, asset);
+      const resized = single(await executeGltfTextureResizeOperation(root, {
+        inputs: { source: level.asset }, parameters: { ...lodTexturePolicy(entry.family, index), policy: POLICY },
+      }));
+      lods.push({ variant, asset: resized, triangles: await trianglesOf(resized), provenance: { recipe: "adapters/blender/nature_lod.py", lod: level } });
+    }
+    built.push({ entry, asset, bounds, triangles: await trianglesOf(asset), lods, collisionProxy, provenance: { ...provenance, placed } });
   }
+  const tan = Math.tan((NATURE_LOD_REFERENCE_FOV_Y / 2) * Math.PI / 180);
+  const levelsOfDetail = ({ entry, bounds, triangles, lods }: (typeof built)[number]) => {
+    const radius = Math.hypot(...[0, 1, 2].map((axis) => bounds.max[axis]! - bounds.min[axis]!)) / 2;
+    const sizes = NATURE_LOD_SCREEN_SIZES[entry.family];
+    const levels = [{ variant: "default", triangles }, ...lods.map(({ variant, triangles: count }) => ({ variant, triangles: count }))];
+    return {
+      boundingSphere: { center: [0, 1, 2].map((axis) => (bounds.min[axis]! + bounds.max[axis]!) / 2), radius },
+      levels: levels.map((level, index) => {
+        const minScreenSize = sizes[index] ?? 0;
+        return { ...level, minScreenSize, referenceMaxDistance: minScreenSize ? Number((radius / (minScreenSize * tan)).toFixed(2)) : null };
+      }),
+    };
+  };
   const descriptor = {
     schema: NATURE_DESCRIPTOR_SCHEMA, units: "metre", up: "+Y", handedness: "right", origin: "footprint-base-center",
     placement: "The consumer owns world placement and colliders. These meshes are presentation only; each rock also "
       + `carries a convex-hull ${NATURE_COLLISION_PROXY} (vertices in its own glTF frame, triangles wound outward).`,
     texturePolicy: NATURE_TEXTURE_POLICY,
-    assets: built.map(({ entry, bounds, collisionProxy, provenance }) => ({
-      key: entry.key, variant: "default", family: entry.family, shape: entry.shape,
-      bounds, footprint: { width: bounds.max[0] - bounds.min[0], height: bounds.max[1] - bounds.min[1], depth: bounds.max[2] - bounds.min[2] },
-      ...(collisionProxy ? { [NATURE_COLLISION_PROXY]: collisionProxy } : {}),
-      provenance,
+    lodSelection: {
+      metric: NATURE_LOD_METRIC,
+      rule: "Use the first level whose minScreenSize is at most the asset's projected bounding-sphere diameter divided by the "
+        + "viewport height (radius / (distance * tan(fovY / 2)), scaled by the instance scale). referenceMaxDistance is "
+        + "the distance in metres at which that level ends for an unscaled instance at referenceFovYDegrees.",
+      referenceFovYDegrees: NATURE_LOD_REFERENCE_FOV_Y,
+    },
+    assets: built.map((item) => ({
+      key: item.entry.key, variant: "default", family: item.entry.family, shape: item.entry.shape,
+      bounds: item.bounds,
+      footprint: { width: item.bounds.max[0] - item.bounds.min[0], height: item.bounds.max[1] - item.bounds.min[1], depth: item.bounds.max[2] - item.bounds.min[2] },
+      [NATURE_LODS]: levelsOfDetail(item),
+      ...(item.collisionProxy ? { [NATURE_COLLISION_PROXY]: item.collisionProxy } : {}),
+      provenance: { ...item.provenance, lods: Object.fromEntries(item.lods.map(({ variant, provenance }) => [variant, provenance])) },
     })),
   };
   const attachment = (await storeAssetObject(root, {
@@ -179,9 +252,12 @@ export async function buildGreyhavenNature(outDir: string, log: (message: string
   const exported = await exportAssetBundle(root, bundleDir, {
     parameters: {
       profile: GLTF_RESOURCES_BUNDLE_PROFILE,
-      assets: built.map(({ entry }, index) => ({ key: entry.key, variant: "default", ...(index === 0 ? { attachments: [{ name: NATURE_DESCRIPTOR_ATTACHMENT }] } : {}) })),
+      assets: built.flatMap(({ entry, lods }, index) => [
+        { key: entry.key, variant: "default", ...(index === 0 ? { attachments: [{ name: NATURE_DESCRIPTOR_ATTACHMENT }] } : {}) },
+        ...lods.map(({ variant }) => ({ key: entry.key, variant })),
+      ]),
     },
-    inputs: { assets: built.map(({ asset }) => asset), attachments: [attachment] },
+    inputs: { assets: built.flatMap(({ asset, lods }) => [asset, ...lods.map((lod) => lod.asset)]), attachments: [attachment] },
   });
   const tar = path.join(root, NATURE_TAR_NAME);
   const pack = Bun.spawnSync(["bun", path.join(ROOT, "scripts/pack-asset-bundle.ts"), bundleDir, tar], { stdout: "pipe", stderr: "pipe" });

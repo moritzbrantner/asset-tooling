@@ -10,7 +10,8 @@ import { readAssetBundleAttachment, readAssetBundleGltf, verifyAssetBundle, type
 import { verifyAssetBundleTar } from "../../../src/asset-bundle-pack.js";
 import { sha256Bytes } from "../../../src/hash.js";
 import {
-  buildGreyhavenNature, NATURE_COLLISION_PROXY, NATURE_DESCRIPTOR_ATTACHMENT, NATURE_DESCRIPTOR_SCHEMA, NATURE_MEMBERS, ROCK_TRIANGLES,
+  buildGreyhavenNature, NATURE_COLLISION_PROXY, NATURE_DESCRIPTOR_ATTACHMENT, NATURE_DESCRIPTOR_SCHEMA, NATURE_LOD_SCREEN_SIZES, NATURE_LOD_VARIANTS,
+  NATURE_LODS, NATURE_MEMBERS, ROCK_TRIANGLES,
 } from "../../../scripts/build-greyhaven-nature.ts";
 
 type Provenance = { license: string; source?: { sha256: string }; crown?: { observations: { recipe: string }; inputs?: Record<string, unknown> }; authored?: { observations: { recipe: string } } };
@@ -26,7 +27,7 @@ const skip = !process.env.ASSET_TOOLING_BLENDER ? "set ASSET_TOOLING_BLENDER to 
   : pointers.length ? "requires hydrated canonical nature payloads (git lfs pull)" : false;
 
 test("nature bundle supplies independently shaped, grounded families with game-resolution textures and provenance", {
-  skip, timeout: 300_000,
+  skip, timeout: 900_000,
 }, async () => {
   const out = await mkdtemp(path.join(os.tmpdir(), "greyhaven-nature-"));
   try {
@@ -34,7 +35,8 @@ test("nature bundle supplies independently shaped, grounded families with game-r
     const verified = await verifyAssetBundle(built.bundleDir, built.exportRef, { profile: "gltf-resources-v1" });
     const manifest = verified.manifest as GltfResourcesBundleManifest;
     await verifyAssetBundleTar(await readFile(built.tar), { ref: built.exportRef });
-    assert.deepEqual(manifest.assets.map((item) => item.key).sort(), NATURE_MEMBERS.map((item) => item.key).sort());
+    assert.deepEqual(manifest.assets.map((item) => `${item.key}/${item.variant}`).sort(),
+      NATURE_MEMBERS.flatMap((item) => ["default", ...NATURE_LOD_VARIANTS].map((variant) => `${item.key}/${variant}`)).sort());
     const descriptor = JSON.parse((await readAssetBundleAttachment(built.bundleDir, manifest, "greyhaven.nature.tree.broadleaf", "default", NATURE_DESCRIPTOR_ATTACHMENT)).toString());
     assert.equal(descriptor.schema, NATURE_DESCRIPTOR_SCHEMA);
     assert.equal(descriptor.units, "metre");
@@ -56,6 +58,35 @@ test("nature bundle supplies independently shaped, grounded families with game-r
       const metadata = descriptor.assets.find((item: { key: string }) => item.key === entry.key);
       const provenance: Provenance = metadata.provenance;
       assert.equal(provenance.license, "CC0-1.0");
+      // #449: an LOD chain in the same frame, triangles falling by level, screen-size switch points in the descriptor.
+      const lods = metadata[NATURE_LODS];
+      assert.deepEqual(lods.levels.map((level: { variant: string }) => level.variant), ["default", ...NATURE_LOD_VARIANTS]);
+      assert.deepEqual(lods.levels.map((level: { minScreenSize: number }) => level.minScreenSize), [...NATURE_LOD_SCREEN_SIZES[entry.family], 0]);
+      assert.ok(lods.boundingSphere.radius > 0);
+      const trianglesIn = (doc: typeof document) => doc.getRoot().listMeshes().flatMap((mesh) => mesh.listPrimitives())
+        .reduce((sum, primitive) => sum + primitive.getIndices()!.getCount() / 3, 0);
+      const lod0Triangles = trianglesIn(document);
+      assert.equal(lods.levels[0].triangles, lod0Triangles);
+      for (const [index, variant] of NATURE_LOD_VARIANTS.entries()) {
+        const level = await readAssetBundleGltf(built.bundleDir, manifest, entry.key, variant);
+        const lod = await io.readJSON({ json: JSON.parse(level.gltf.toString()), resources: Object.fromEntries(level.resources) });
+        const lodBounds = getBounds(lod.getRoot().getDefaultScene()!);
+        for (const axis of [0, 1, 2] as const) {
+          assert.ok(Math.abs(lodBounds.max[axis] - bounds.max[axis]) < 0.6 && Math.abs(lodBounds.min[axis] - bounds.min[axis]) < 0.6,
+            `${entry.key}/${variant}: in LOD0's frame, at LOD0's size`);
+        }
+        const triangles = trianglesIn(lod);
+        assert.equal(lods.levels[index + 1].triangles, triangles);
+        const share = triangles / lod0Triangles;
+        assert.ok(index === 0 ? share >= 0.25 && share <= 0.45 : share <= 0.12, `${entry.key}/${variant}: ${triangles} triangles (${share.toFixed(2)} of LOD0)`);
+        if (entry.family === "rock") {
+          for (const texture of lod.getRoot().listTextures()) assert.ok(Math.max(...texture.getSize()!) <= 512 / 2 ** index, `${entry.key}/${variant}: smaller baked maps`);
+        }
+        if (entry.family === "tree" && index === 1) {
+          const names = lod.getRoot().listMaterials().map((material) => material.getName()).sort();
+          assert.deepEqual(names, ["Bark_NormalTree", "Leaves_Core"], `${entry.key}/lod2: an opaque vertex-coloured crown shell, no cards`);
+        }
+      }
       if (entry.family === "rock") {
         // #451: an authored rock with one baked PBR material within the rock budget, and a convex-hull collision proxy.
         const primitives = document.getRoot().listMeshes().flatMap((mesh) => mesh.listPrimitives());
