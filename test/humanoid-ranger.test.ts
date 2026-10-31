@@ -23,7 +23,7 @@ import {
   RANGER_UBC_BONE_MAP, RANGER_WEAPONS, RANGER_OUTFIT_KITS, RANGER_PEASANT_OUTFITS, validateAppearancePresets,
   buildRangerCharacter, rangerItemDescriptor, rangerJobs, rangerPresets,
 } from "../scripts/build-ranger-character.ts";
-import { RANGER_BOW_CLIPS, RANGER_CLIP_FAMILIES, RANGER_GAIT_CLIPS, RANGER_GRIPS, RANGER_HIT_CLIPS, RANGER_SWIM_CLIPS, rangerGripJoints } from "../src/ranger-clips.js";
+import { RANGER_BOW_CLIPS, RANGER_CLIP_FAMILIES, RANGER_GAIT_CLIPS, RANGER_GRIPS, RANGER_HIT_CLIPS, RANGER_SWIM_CLIPS, RANGER_TRAVERSAL_CLIPS, rangerGripJoints } from "../src/ranger-clips.js";
 import { WEAPON_ROLES } from "../src/weapon-recipes.js";
 import { FACE_MORPH_NODES, FACE_MORPH_TARGETS } from "../src/face-variants.js";
 import { VARIETY_BEARDS, VARIETY_BUILD_TARGETS, VARIETY_MORPH_TARGETS } from "../src/male-variety.js";
@@ -83,9 +83,11 @@ test("the Ranger retargets the library clips in bundle order, then authors its o
   assert.deepEqual([...RANGER_SWIM_CLIPS], ["Wade_Fwd_Loop", "Swim_Idle_Loop", "Swim_Fwd_Loop", "Swim_Down_Loop", "Swim_Up_Loop", "Swim_Enter", "Swim_Exit"]);
   assert.ok(RANGER_SWIM_CLIPS.every((name) => !names.includes(name)));
   // #425: one Blender run per family, in bundle order after the library clips.
-  assert.deepEqual(RANGER_CLIP_FAMILIES.map((family) => family.id), ["gait", "bow", "grips", "swim", "hit"]);
+  assert.deepEqual(RANGER_CLIP_FAMILIES.map((family) => family.id), ["gait", "bow", "grips", "swim", "hit", "traversal"]);
+  // #416: the climb, mantle, ladder and rope clips mmorpg#490 and #500 play by name.
+  assert.ok(RANGER_TRAVERSAL_CLIPS.every((name) => !names.includes(name)) && RANGER_TRAVERSAL_CLIPS.length === 16);
   assert.deepEqual(RANGER_CLIP_FAMILIES.flatMap((family) => family.clips),
-    [...RANGER_GAIT_CLIPS, ...RANGER_BOW_CLIPS, ...RANGER_GRIPS.map((grip) => grip.clip), ...RANGER_SWIM_CLIPS, ...RANGER_HIT_CLIPS]);
+    [...RANGER_GAIT_CLIPS, ...RANGER_BOW_CLIPS, ...RANGER_GRIPS.map((grip) => grip.clip), ...RANGER_SWIM_CLIPS, ...RANGER_HIT_CLIPS, ...RANGER_TRAVERSAL_CLIPS]);
   assert.deepEqual([...RANGER_GAITS], ["Walk_Loop", "Jog_Fwd_Loop", "Sprint_Loop", "Crouch_Fwd_Loop", "Jog_Bwd_Loop", "Walk_Bwd_Loop", "Wade_Fwd_Loop"]);
   // Owner picks on #114: heavy = Sword_Regular_C, counter = Sword_Regular_B, light = Sword_Regular_A; Melee_Hook is not used.
   assert.equal(RANGER_CLIP_ROLES.Sword_Regular_C!.role, "sword.heavy-strike");
@@ -191,7 +193,7 @@ test("the Ranger recipe builds a verified bundle: in-place clips, equipment entr
       assert.ok(entries.includes(expected), expected);
     }
     const entry = manifest.assets.find((candidate) => candidate.key === RANGER_BUNDLE_KEY)!;
-    const clipNames = [...RANGER_CLIPS.map((clip) => clip.name), ...RANGER_GAIT_CLIPS, ...RANGER_BOW_CLIPS, ...RANGER_GRIPS.map((grip) => grip.clip), ...RANGER_SWIM_CLIPS, ...RANGER_HIT_CLIPS];
+    const clipNames = [...RANGER_CLIPS.map((clip) => clip.name), ...RANGER_GAIT_CLIPS, ...RANGER_BOW_CLIPS, ...RANGER_GRIPS.map((grip) => grip.clip), ...RANGER_SWIM_CLIPS, ...RANGER_HIT_CLIPS, ...RANGER_TRAVERSAL_CLIPS];
     const libraryClips = new Set(RANGER_CLIPS.map((clip) => clip.name));
     assert.deepEqual(entry.observations.animations, clipNames);
 
@@ -219,6 +221,18 @@ test("the Ranger recipe builds a verified bundle: in-place clips, equipment entr
     // #393: the crawl records its reference stroke speed; wading is slower than walking.
     assert.equal(byName.Swim_Fwd_Loop.strokeSpeedMetersPerSecond, 1.8);
     assert.ok(byName.Wade_Fwd_Loop.groundSpeedMetersPerSecond > 0.3 && byName.Wade_Fwd_Loop.groundSpeedMetersPerSecond < byName.Walk_Loop.groundSpeedMetersPerSecond);
+    // #416: climb speeds, mantle ledge heights and travel, contacts and a chain pose sample per frame.
+    assert.equal(byName.Climb_Up_Loop.climbSpeedMetersPerSecond, 0.9);
+    assert.equal(byName.Ladder_Up_Loop.rungSpacingMeters, 0.3);
+    for (const [name, height] of [["Mantle_Low", 0.7], ["Mantle_Mid", 1.3], ["Mantle_High", 1.9]] as const) {
+      assert.equal(byName[name].ledgeHeightMeters, height, name);
+      assert.equal(byName[name].sourceRootDisplacement.y, height, name);
+    }
+    for (const name of RANGER_TRAVERSAL_CLIPS) {
+      const frames = Math.round(byName[name].durationSeconds * 30) + 1;
+      assert.ok(byName[name].contacts.length > 0, name);
+      assert.equal(byName[name].secondaryPose.joints.skirt_f_01.length, frames, name);
+    }
     // #277: every bow clip records the string draw per frame; full draw is longer than the set string.
     for (const name of RANGER_BOW_CLIPS) {
       const bow = byName[name].bow;

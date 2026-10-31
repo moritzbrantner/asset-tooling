@@ -517,6 +517,9 @@ type RangerBuiltClip = {
   grip?: { socket: string; role: string };
   /** Swim clips (#393): `Swim_Fwd_Loop`'s reference stroke speed. */
   swim?: { strokeSpeedMetersPerSecond: number };
+  /** Traversal clips (#416): the whole travel (glTF x, y, z) the in-place clip stands for, and the clip's own fields. */
+  rootTravel?: [number, number, number];
+  traversal?: Json;
 };
 
 async function rangerClipMotion(root: string, { character, targetRig, clips, roles = false }: {
@@ -570,6 +573,8 @@ async function rangerClipMotion(root: string, { character, targetRig, clips, rol
     }
     if (clip.bow) entry.bow = clip.bow;
     if (clip.swim) Object.assign(entry, clip.swim);
+    if (clip.rootTravel) entry.sourceRootDisplacement = { x: round4(clip.rootTravel[0]), y: round4(clip.rootTravel[1]), z: round4(clip.rootTravel[2]) };
+    if (clip.traversal) Object.assign(entry, clip.traversal);
     if (clip.grip) Object.assign(entry, { loop: true, role: "grip", grip: clip.grip });
     const combat = roles ? RANGER_CLIP_ROLES[clip.name] : undefined;
     if (combat) {
