@@ -5,10 +5,10 @@ frame, node names and materials, so a consumer swaps the level in place. ``argum
 
 * ``decimate`` (rocks): weld, then edge-collapse Decimate to ``ratio``. The collapse keeps the baked UVs, so the
   level reuses LOD0's baked maps (the build resizes them per level).
-* ``thin`` (trees, LOD1): the bark is decimated to ``barkRatio``; the opaque core stays; a seeded ``keep`` share of the
-  leaf cards stays, each grown about its centre by ``1 / sqrt(keep)`` (times ``grow``) so the crown keeps its
-  coverage, silhouette and colour. Each kept card keeps its bent normals, UVs and COLOR_0.
-* ``hull`` (broadleaf, LOD2): the cards and core are replaced by one opaque clump hull: the core pushed out along its
+* ``thin`` (trees and bushes, LOD1): the bark is decimated to ``barkRatio``; the opaque core stays; a seeded ``keep``
+  share of the leaf cards stays, each grown about its centre by ``1 / sqrt(keep)`` (times ``grow``) so the crown keeps
+  its coverage, silhouette and colour. Each kept card keeps its bent normals, UVs and COLOR_0.
+* ``hull`` (broadleaf and bushes, LOD2): the cards and core are replaced by one opaque clump hull: the core pushed out along its
   normals to where the cards sit (``inflate`` times their median offset, so the clump lobes stay), fitted band by
   band to the cards' ``fit``-quantile reach around the crown axis and decimated to at most ``hullTriangles``.
 * ``envelope`` (conifer, LOD2): the cards and core are replaced by one closed surface of revolution (``bands`` rings
@@ -18,7 +18,8 @@ frame, node names and materials, so a consumer swaps the level in place. ``argum
 For both far shells every vertex takes the mean colour of its ``neighbours`` nearest cards (COLOR_0 times the card
 image's mean grey), mixed with the nearest core colour by ``coreShare`` (LOD0's core shows between the cards),
 darkened on downward faces towards ``underside`` and scaled by ``gain``: the crown's colour and darkness carry over
-with no texture. The bark wholly inside the shell is removed and the rest decimated to ``barkRatio``.
+with no texture. The bark wholly inside the shell is removed and the rest decimated to ``barkRatio``. A bush
+(``Leaves_Bush`` cards, asset-tooling#462) has no bark, so its arguments leave ``barkRatio`` out.
 
 Everything is deterministic from the arguments (``seed``). Blender coordinates are Z up; the GLB is exported +Y up.
 """
@@ -39,15 +40,17 @@ METHODS = {
     "hull": {"inflate", "fit", "hullTriangles", "neighbours", "coreShare", "gain", "underside", "barkRatio"},
     "envelope": {"bands", "sectors", "fit", "neighbours", "coreShare", "gain", "underside", "barkRatio"},
 }
-CARD_MATERIALS = ("Leaves_NormalTree", "Leaves_Pine")
+CARD_MATERIALS = ("Leaves_NormalTree", "Leaves_Pine", "Leaves_Bush")
 CORE_MATERIAL = "Leaves_Core"
 
 
 def validate(p, inputs):
     if type(p) is not dict or p.get("schemaVersion") != 1 or p.get("method") not in METHODS:
         raise ValueError(f"nature lod requires schemaVersion 1 and a method in {sorted(METHODS)}")
-    if set(p) != {"schemaVersion", "method"} | METHODS[p["method"]]:
-        raise ValueError(f"nature lod '{p['method']}' takes exactly {sorted(METHODS[p['method']])}")
+    # A bush has no bark, so barkRatio is left out for it (generate checks it against the member).
+    given, allowed = set(p) - {"schemaVersion", "method"}, METHODS[p["method"]]
+    if not allowed - {"barkRatio"} <= given <= allowed:
+        raise ValueError(f"nature lod '{p['method']}' takes exactly {sorted(allowed)} (barkRatio only with bark)")
     for name in ("ratio", "keep", "barkRatio"):
         if name in p and not (type(p[name]) in (int, float) and 0.01 <= p[name] <= 1):
             raise ValueError(f"nature lod {name} must be in 0.01..1")
@@ -104,11 +107,11 @@ def split_by_material(obj):
 def card_of(parts):
     cards = [parts[name] for name in CARD_MATERIALS if name in parts]
     if len(cards) != 1 or CORE_MATERIAL not in parts:
-        raise ValueError(f"a tree needs one leaf-card part and a {CORE_MATERIAL} part, found {sorted(parts)}")
+        raise ValueError(f"a tree or bush needs one leaf-card part and a {CORE_MATERIAL} part, found {sorted(parts)}")
     bark = [part for name, part in parts.items() if name not in (*CARD_MATERIALS, CORE_MATERIAL)]
-    if len(bark) != 1:
+    if len(bark) > 1:
         raise ValueError(f"a tree needs one bark part, found {len(bark)}")
-    return cards[0], parts[CORE_MATERIAL], bark[0]
+    return cards[0], parts[CORE_MATERIAL], bark[0] if bark else None
 
 
 def read_cards(obj):
@@ -352,6 +355,8 @@ def generate(output_path, arguments, inputs):
     else:
         node, matrix, parent = obj.name, obj.matrix_world.copy(), obj.parent
         cards_obj, core, bark = card_of(split_by_material(obj))
+        if (bark is None) != ("barkRatio" not in p):
+            raise ValueError("nature lod barkRatio is given exactly when the member has bark (bushes have none)")
         cards = read_cards(cards_obj)
         observations["cardsBefore"] = len(cards)
         if p["method"] == "thin":
@@ -359,7 +364,7 @@ def generate(output_path, arguments, inputs):
             kept = [card for card in cards if rng.random() < p["keep"]]
             write_cards(cards_obj, kept, p["grow"] / math.sqrt(p["keep"]))
             observations["cardsAfter"] = len(kept)
-            keep = [bark, core, cards_obj]
+            keep = [core, cards_obj]
         else:
             grey = card_grey(cards_obj)
             build = inflated_core if p["method"] == "hull" else envelope
@@ -368,30 +373,34 @@ def generate(output_path, arguments, inputs):
             shell.matrix_world = cards_obj.matrix_world
             observations["cardGrey"] = round(grey, 4)
             observations["hullTriangles"] = triangles(shell)
-            # Bark wholly inside the hull is never seen: drop it before the collapse.
-            bm = bmesh.new()
-            bm.from_mesh(shell.data)
-            bvh = BVHTree.FromBMesh(bm)
-            bm.free()
-            bm = bmesh.new()
-            bm.from_mesh(bark.data)
-            hidden = [f for f in bm.faces if all(inside(bvh, v.co) for v in f.verts)]
-            bmesh.ops.delete(bm, geom=hidden, context="FACES")
-            bm.to_mesh(bark.data)
-            bm.free()
+            if bark:
+                # Bark wholly inside the hull is never seen: drop it before the collapse.
+                bm = bmesh.new()
+                bm.from_mesh(shell.data)
+                bvh = BVHTree.FromBMesh(bm)
+                bm.free()
+                bm = bmesh.new()
+                bm.from_mesh(bark.data)
+                hidden = [f for f in bm.faces if all(inside(bvh, v.co) for v in f.verts)]
+                bmesh.ops.delete(bm, geom=hidden, context="FACES")
+                bm.to_mesh(bark.data)
+                bm.free()
             for gone in (cards_obj, core):
                 bpy.data.objects.remove(gone)
-            keep = [bark, shell]
-        weld(bark)
-        decimate(bark, p["barkRatio"])
-        observations["barkTriangles"] = triangles(bark)
-        bpy.ops.object.select_all(action="DESELECT")
-        for part in keep:
-            part.select_set(True)
-        bpy.context.view_layer.objects.active = bark
-        with bpy.context.temp_override(active_object=bark, selected_editable_objects=keep):
-            bpy.ops.object.join()
-        result = bark
+            keep = [shell]
+        if bark:
+            weld(bark)
+            decimate(bark, p["barkRatio"])
+            observations["barkTriangles"] = triangles(bark)
+            keep.insert(0, bark)
+        result = keep[0]
+        if len(keep) > 1:
+            bpy.ops.object.select_all(action="DESELECT")
+            for part in keep:
+                part.select_set(True)
+            bpy.context.view_layer.objects.active = result
+            with bpy.context.temp_override(active_object=result, selected_editable_objects=keep):
+                bpy.ops.object.join()
         result.name = node
         result.parent = parent
         result.matrix_world = matrix

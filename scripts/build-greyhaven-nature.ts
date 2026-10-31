@@ -51,12 +51,25 @@ export const NATURE_COLLISION_PROXY = "collisionProxy";
 function rock(shape: "stratified" | "boulder" | "slab", seed: number, size: [number, number, number]) {
   return { schemaVersion: 1, shape, seed, size, triangles: ROCK_TRIANGLES };
 }
+/**
+ * The bushes are authored by adapters/blender/nature_bush.py (#462): leaf-card clumps over a dark core, with the
+ * broadleaf's leaf mask (the same Quaternius leaf cluster) and palette. Bushes are numerous, so each stays near
+ * 600 triangles; the size is width x depth x height in metres, and the game scales each placement.
+ */
+export const BUSH_TRIANGLES = 700;
+const BUSH_LEAVES = { leaves: "quaternius.stylized-nature-megakit-standard.leaves-normaltree-c-png" } as const;
+function bush(shape: "round" | "spreading" | "upright", seed: number, size: [number, number, number], cards: number) {
+  return { schemaVersion: 1, shape, seed, size, cards };
+}
 export const NATURE_MEMBERS = [
   { key: "greyhaven.nature.tree.broadleaf", family: "tree", shape: "broadleaf", source: "CommonTree_1", crown: BROADLEAF_CROWN },
   { key: "greyhaven.nature.tree.conifer", family: "tree", shape: "conifer", source: "Pine_1", crown: CONIFER_CROWN, crownInputs: CONIFER_NEEDLES },
   { key: "greyhaven.nature.rock.1", family: "rock", shape: "stratified", rock: rock("stratified", 4511, [3.2, 3.0, 2.2]) },
   { key: "greyhaven.nature.rock.2", family: "rock", shape: "boulder", rock: rock("boulder", 4512, [3.0, 2.5, 1.9]) },
   { key: "greyhaven.nature.rock.3", family: "rock", shape: "slab", rock: rock("slab", 4513, [3.4, 3.4, 2.3]) },
+  { key: "greyhaven.nature.bush.1", family: "bush", shape: "round", bush: bush("round", 4621, [1.4, 1.3, 1.0], 230) },
+  { key: "greyhaven.nature.bush.2", family: "bush", shape: "spreading", bush: bush("spreading", 4622, [1.7, 1.4, 0.85], 260) },
+  { key: "greyhaven.nature.bush.3", family: "bush", shape: "upright", bush: bush("upright", 4623, [1.1, 1.0, 1.3], 210) },
 ] as const;
 export type ConvexHullProxy = { shape: "convex-hull"; vertices: [number, number, number][]; triangles: [number, number, number][] };
 export const NATURE_TEXTURE_POLICY = {
@@ -74,7 +87,7 @@ export const NATURE_LOD_VARIANTS = ["lod1", "lod2"] as const;
  * diameter over viewport height) is at least SIZES[n]; below the last one, the last level. Reviewed in Blender at
  * these distances; the far tree switch is late, where LOD1's leaf speckle has blurred away.
  */
-export const NATURE_LOD_SCREEN_SIZES = { tree: [0.5, 0.12], rock: [0.3, 0.1] } as const;
+export const NATURE_LOD_SCREEN_SIZES = { tree: [0.5, 0.12], rock: [0.3, 0.1], bush: [0.25, 0.08] } as const;
 /** Each descriptor entry carries its level-of-detail chain under this field. */
 export const NATURE_LODS = "lods";
 export const NATURE_LOD_METRIC = "projected-bounding-sphere-height-fraction";
@@ -89,10 +102,13 @@ export const NATURE_LOD_RECIPES = {
   conifer: [{ ...TREE_LOD1, grow: 0.85, barkRatio: 0.4 },
     { ...TREE_LOD2, method: "envelope", bands: 28, sectors: 12, fit: 0.5, gain: 0.62, underside: 0.5, barkRatio: 0.15 }],
   rock: [{ method: "decimate", ratio: 0.35 }, { method: "decimate", ratio: 0.1 }],
+  // Bushes have no bark, so no barkRatio.
+  bush: [{ method: "thin", seed: 449, keep: 0.4, grow: 0.8 },
+    { method: "hull", inflate: 2.2, fit: 0.95, hullTriangles: 120, neighbours: 8, coreShare: 0.3, gain: 1.1, underside: 0.75 }],
 } as const;
-/** Rock levels halve LOD0's baked maps per level (512 px, then 256 px); tree levels share LOD0's images. */
-function lodTexturePolicy(family: "tree" | "rock", level: number) {
-  if (family === "tree") return NATURE_TEXTURE_POLICY;
+/** Rock levels halve LOD0's baked maps per level (512 px, then 256 px); tree and bush levels share LOD0's images. */
+function lodTexturePolicy(family: "tree" | "rock" | "bush", level: number) {
+  if (family !== "rock") return NATURE_TEXTURE_POLICY;
   const scale = 2 ** (level + 1);
   return {
     maxEdgeBySlot: Object.fromEntries(Object.entries(NATURE_TEXTURE_POLICY.maxEdgeBySlot).map(([slot, edge]) => [slot, edge / scale])),
@@ -147,7 +163,8 @@ export async function buildGreyhavenNature(outDir: string, log: (message: string
     for (const [name, sourceId] of Object.entries(catalogInputs)) {
       const asset = (await importAssetCatalogStorageSource({ catalog, storage, sourceId, storageRoot: ROOT, objectStoreRoot: root })).asset as AssetRef;
       const bytes = new Uint8Array(await resolveAssetObject(root, asset));
-      const file = `${name}${path.posix.extname(rawSources.find((item) => item.id === sourceId)?.source?.path ?? "")}`;
+      const declared = rawSources.find((item) => item.id === sourceId);
+      const file = `${name}${path.posix.extname(declared?.source?.path ?? declared?.archiveMember?.path ?? "")}`;
       files[file] = bytes;
       inputs[name] = { path: file, sha256: sha256Bytes(bytes) };
       extra[name] = asset;
@@ -172,6 +189,10 @@ export async function buildGreyhavenNature(outDir: string, log: (message: string
       const { collisionProxy: hull, ...observations } = authored.observations as { collisionProxy: ConvexHullProxy };
       collisionProxy = hull;
       provenance = { recipe: "adapters/blender/nature_rock.py", license: "CC0-1.0", authored: { ...authored, observations } };
+    } else if ("bush" in entry) {
+      const authored = await runRecipe(entry.key, "nature_bush.py", `bush-${entry.shape}`, `${entry.shape}.glb`, entry.bush, BUSH_LEAVES);
+      shaped = authored.asset;
+      provenance = { recipe: "adapters/blender/nature_bush.py", license: "CC0-1.0", authored };
     } else {
       const source = await member(`${entry.source}.gltf`);
       const gltf: GltfResources = JSON.parse((await resolveAssetObject(root, source)).toString("utf8"));
@@ -200,7 +221,7 @@ export async function buildGreyhavenNature(outDir: string, log: (message: string
       collisionProxy.vertices = collisionProxy.vertices.map((v) => v.map((value, axis) => Number((value + shift[axis]!).toFixed(4))) as [number, number, number]);
     }
     // #449: lod1 and lod2 from the placed, resized LOD0, in its frame.
-    const recipes = NATURE_LOD_RECIPES[entry.family === "rock" ? "rock" : entry.shape as "broadleaf" | "conifer"];
+    const recipes = NATURE_LOD_RECIPES[entry.family === "tree" ? entry.shape as "broadleaf" | "conifer" : entry.family];
     const lods = [];
     for (const [index, variant] of NATURE_LOD_VARIANTS.entries()) {
       const level = await runRecipe(entry.key, "nature_lod.py", `${entry.shape}-${variant}`, `${variant}.glb`, { schemaVersion: 1, ...recipes[index] }, {}, asset);

@@ -11,7 +11,7 @@ import { verifyAssetBundleTar } from "../../../src/asset-bundle-pack.js";
 import { sha256Bytes } from "../../../src/hash.js";
 import {
   buildGreyhavenNature, NATURE_COLLISION_PROXY, NATURE_DESCRIPTOR_ATTACHMENT, NATURE_DESCRIPTOR_SCHEMA, NATURE_LOD_SCREEN_SIZES, NATURE_LOD_VARIANTS,
-  NATURE_LODS, NATURE_MEMBERS, ROCK_TRIANGLES,
+  BUSH_TRIANGLES, NATURE_LODS, NATURE_MEMBERS, ROCK_TRIANGLES,
 } from "../../../scripts/build-greyhaven-nature.ts";
 
 type Provenance = { license: string; source?: { sha256: string }; crown?: { observations: { recipe: string }; inputs?: Record<string, unknown> }; authored?: { observations: { recipe: string } } };
@@ -78,9 +78,15 @@ test("nature bundle supplies independently shaped, grounded families with game-r
         const triangles = trianglesIn(lod);
         assert.equal(lods.levels[index + 1].triangles, triangles);
         const share = triangles / lod0Triangles;
-        assert.ok(index === 0 ? share >= 0.25 && share <= 0.45 : share <= 0.12, `${entry.key}/${variant}: ${triangles} triangles (${share.toFixed(2)} of LOD0)`);
+        // A bush keeps its whole small core at lod1, so its shares are higher; its absolute budget is far lower.
+        const [lod1Share, lod2Share] = entry.family === "bush" ? [0.6, 0.25] : [0.45, 0.12];
+        assert.ok(index === 0 ? share >= 0.25 && share <= lod1Share : share <= lod2Share, `${entry.key}/${variant}: ${triangles} triangles (${share.toFixed(2)} of LOD0)`);
         if (entry.family === "rock") {
           for (const texture of lod.getRoot().listTextures()) assert.ok(Math.max(...texture.getSize()!) <= 512 / 2 ** index, `${entry.key}/${variant}: smaller baked maps`);
+        }
+        if (entry.family === "bush" && index === 1) {
+          const names = lod.getRoot().listMaterials().map((material) => material.getName());
+          assert.deepEqual(names, ["Leaves_Core"], `${entry.key}/lod2: an opaque vertex-coloured hull, no cards`);
         }
         if (entry.family === "tree" && index === 1) {
           const names = lod.getRoot().listMaterials().map((material) => material.getName()).sort();
@@ -107,6 +113,15 @@ test("nature bundle supplies independently shaped, grounded families with game-r
             assert.ok(vertex[axis]! >= bounds.min[axis] - 1e-3 && vertex[axis]! <= bounds.max[axis] + 1e-3, `${entry.key}: hull inside the mesh bounds`);
           }
         }
+      } else if (entry.family === "bush") {
+        // #462: an authored bush of leaf cards (alpha MASK) over a dark core, both vertex-coloured, within the bush budget.
+        const primitives = document.getRoot().listMeshes().flatMap((mesh) => mesh.listPrimitives());
+        assert.deepEqual(primitives.map((primitive) => primitive.getMaterial()?.getName()).sort(), ["Leaves_Bush", "Leaves_Core"]);
+        for (const primitive of primitives) assert.ok(primitive.getAttribute("COLOR_0"), "bush colour variation is COLOR_0");
+        const cards = primitives.find((primitive) => primitive.getMaterial()?.getName() === "Leaves_Bush")!;
+        assert.equal(cards.getMaterial()!.getAlphaMode(), "MASK");
+        assert.ok(lod0Triangles <= BUSH_TRIANGLES, `${entry.key}: ${lod0Triangles} triangles within the bush budget`);
+        assert.equal(provenance.authored?.observations.recipe, "nature-bush-v1");
       } else {
         assert.match(provenance.source?.sha256 ?? "", /^[0-9a-f]{64}$/);
       }
