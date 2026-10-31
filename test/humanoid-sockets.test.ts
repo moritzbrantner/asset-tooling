@@ -17,7 +17,7 @@ const make=(sockets:unknown[])=>({schema:HUMANOID_SOCKETS_SCHEMA,character:"huma
 test("the committed Ranger descriptor declares the hand, stowed, archery, hair and armour sockets",()=>{
  const d=validateHumanoidSocketDescriptor(descriptor,{joints:["hand_r","hand_l","spine_03","pelvis",...ARMOR_JOINTS]});
  assert.deepEqual(d,descriptor,"the committed file is already canonical");
- assert.deepEqual(d.sockets.map(s=>[s.id,s.joint]),[["hand_r.weapon","hand_r"],["hand_l.shield","hand_l"],["hand_l.weapon","hand_l"],["hand_r.shield","hand_r"],["back.stowed","spine_03"],["hip_l.stowed","pelvis"],
+ assert.deepEqual(d.sockets.map(s=>[s.id,s.joint]),[["hand_r.weapon","hand_r"],["hand_l.shield","hand_l"],["hand_l.weapon","hand_l"],["hand_r.shield","hand_r"],["back.stowed","spine_03"],["hip_l.stowed","pelvis"],["hip_r.stowed","pelvis"],["belt.throwable","pelvis"],
   ["hand_l.bow","hand_l"],["hand_r.arrow","hand_r"],["back.quiver","spine_03"],["back.bow.stowed","spine_03"],["head.hair","Head"],
   ...ARMOR_JOINTS.map(joint=>[`${joint.toLowerCase()}.armor`,joint]),["hand_r.staff","hand_r"],["hand_l.staff","hand_l"],["hand_r.crossbow","hand_r"],["hand_l.crossbow","hand_l"]]);
  assert.deepEqual(humanoidSocketsAccepting(d,"hair"),["head.hair"]);
@@ -32,12 +32,15 @@ test("the committed Ranger descriptor declares the hand, stowed, archery, hair a
  assert.deepEqual(humanoidSocketsAccepting(d,"bow"),["hand_l.bow","back.bow.stowed"]);
  assert.deepEqual(humanoidSocketsAccepting(d,"arrow"),["hand_r.arrow"]);
  assert.deepEqual(humanoidSocketsAccepting(d,"quiver"),["back.quiver"]);
+ // #418: knives, flasks and bombs are drawn from the belt into the weapon hand.
+ assert.deepEqual(humanoidSocketsAccepting(d,"throwing-knife"),["hand_r.weapon","hand_l.weapon","belt.throwable"]);
+ assert.deepEqual(humanoidSocketsAccepting(d,"flask"),humanoidSocketsAccepting(d,"throwing-knife"));
  // The crossbow (#389) shares the weapon grip point; its stock (+Z) runs along the weapon grip axis (+Y of hand_r.weapon).
  const crossbow=humanoidSocketMatrix(d.sockets.find(s=>s.id==="hand_r.crossbow")!),weapon=humanoidSocketMatrix(d.sockets[0]!);
  assert.deepEqual(humanoidSocketsAccepting(d,"crossbow"),["hand_r.crossbow","hand_l.crossbow"]);
  assert.ok([0,1,2].reduce((s,i)=>s+crossbow[8+i]!*weapon[4+i]!,0)>.999,"crossbow stock along the grip");
  assert.deepEqual(crossbow.slice(12,15),weapon.slice(12,15));
- assert.deepEqual(humanoidSocketsAccepting(d,WEAPON_ROLES["sword.arming"]),["hand_r.weapon","hand_l.weapon","hip_l.stowed"]);
+ assert.deepEqual(humanoidSocketsAccepting(d,WEAPON_ROLES["sword.arming"]),["hand_r.weapon","hand_l.weapon","hip_l.stowed","hip_r.stowed"]);
  assert.deepEqual(humanoidSocketsAccepting(d,WEAPON_ROLES["shield.heater"]),["hand_l.shield","hand_r.shield","back.stowed"]);
  // In the hand_r frame the fingers run along +Y, the thumb side is +Z and the palm faces -X. The blade (+Y) runs
  // along the knuckle line out of the thumb side, about 15° toward the fingers; the flats (±Z) face palm and back of hand.

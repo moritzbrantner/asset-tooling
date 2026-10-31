@@ -44,7 +44,8 @@ The `humanoid.ranger.male` bundle holds the following.
   - the authored water clips ([Water clips](#water-clips-393));
   - the authored hit reactions `Hit_Upper_*` and `Hit_Shove_Spin` ([Authored hit clips](#authored-hit-clips-399));
   - the authored climb, mantle, ladder and rope clips ([Traversal clips](#traversal-clips-416));
-  - the authored sword-and-shield clips of the Warden and the Redbrand ([Sword and shield clips](#sword-and-shield-clips-417)).
+  - the authored sword-and-shield clips of the Warden and the Redbrand ([Sword and shield clips](#sword-and-shield-clips-417));
+  - the authored dagger, throw, flourish and bandage clips of the Rogue ([Dagger, throw and bandage clips](#dagger-throw-and-bandage-clips-418)).
 
   No clip uses Mixamo data (#399). Mixamo is only a motion reference, so the build needs no local input and both figures publish from CI.
 
@@ -209,6 +210,8 @@ The retargeted clips leave the fingers at their open rest pose, so a held item w
 | `Grip_Staff_R`, `Grip_Staff_L` | `hand_r.staff`, `hand_l.staff` | `staff` | A fist round a 19 mm shaft. |
 | `Grip_Bow_L` | `hand_l.bow` | `bow` | A fist round the 22 mm riser. |
 | `Grip_Crossbow_R`, `Grip_Crossbow_L` | `hand_r.crossbow`, `hand_l.crossbow` | `crossbow` | A fist round the stock's 20 mm wrist; the handle is the crossbow's grip-frame Z axis (#389). |
+| `Grip_Knife_Pinch_R` | `hand_r.weapon` | `throwing-knife` | A pinch (#418): the index bends round the blade, the thumb closes onto it and the other fingers fold into the palm (fixed curls, `PINCH`). |
+| `Grip_Flask_R` | `hand_r.weapon` | `flask` | The fingers and thumb close round a 40 mm-radius ball centred on the grip point (a flask or bomb, #418). |
 
 - **Wrap:** each finger curls toward the palm, joint by joint from the knuckle, until its segment touches the handle (the radius plus the finger's half thickness from the handle's axis) or reaches the joint's limit (90°, 105°, 80°). The thumb then swings over the wrapped index finger and bends its tip round the handle. The handle is the item's grip-frame Y axis through the socket (Z for the crossbow).
 - **Metadata:** each `humanoid-clips` entry has `role: "grip"`, `loop: true` and `grip: { socket, role }`.
@@ -273,6 +276,27 @@ The strokes are authored **upright**, with the body along +Y and facing +Z. Over
 - **Layer:** the `spine_01` clips keep only the rotations of `spine_01` and its descendants, so a consumer plays them over walking or running legs (mmorpg `UPPER_BODY_ROOT`).
 - **Contact:** `contact` is the presentation landmark the build records for every strike (the moment the joint moves fastest). It never times gameplay: the zone keeps owning windup, active and recovery.
 - **Review:** reviewed in the live Blender on the male `outfit.class.warden` and `outfit.knight` with the arming sword and heater shield on their sockets. The tabard chains are not posed by these clips (no `secondaryPose`): in `Respawn_Rise`'s kneel the knight's front panel meets the raised thigh.
+
+### Dagger, throw and bandage clips (#418)
+
+[`adapters/blender/dagger_clips.py`](../adapters/blender/dagger_clips.py) authors the mmorpg Rogue's kit in Blender on the animated Ranger. The Rogue fights with two daggers, the main one on `hand_r.weapon` and the off-hand one on `hand_l.weapon`. Each key names a hand's grip position, blade direction (the item's +Y) and edge (+X); two-bone arm IK puts the hands there and the chest turn is spread over `spine_01`–`03`. Between keys the grips follow a Catmull-Rom curve that starts and ends in the ready stance; a cut turns its edge along the hand's motion. Mixamo was only watched as reference. Every clip starts from the first `Idle_Loop` pose, keeps only the `spine_01` subtree (played over standing, walking or running legs, mmorpg `UPPER_BODY_ROOT`), keys no fingers and follows the sword clips in bundle order. The strikes start and end in the stance's first pose.
+
+| Clip | Length | Motion | `humanoid-clips` |
+| --- | --- | --- | --- |
+| `Dagger_Idle_Loop` | 2.0 s loop | The low twin-dagger stance: the chest bent 10°, the main dagger low before the right hip, the off-hand dagger before the left of the chest, both pointing forward and up. The hands ride the `Idle_Loop` breathing; the chest sways ±3°. | `role: dagger.idle` |
+| `Dagger_Stab_R` | 0.4 s | The main dagger cocks back by 0.12 s and thrusts straight ahead at chest height (0.21 s), the chest turning into it. | `role: dagger.stab`, `contact` (`hand_r`) |
+| `Dagger_Slash_L` | 0.4 s | The off-hand dagger winds up high on the left and cuts down across to the right, past the chest at 0.21 s. With `Dagger_Stab_R` it is the alternating auto-attack. | `role: dagger.slash`, `contact` (`hand_l`) |
+| `Dagger_Sinister` | 0.6 s | A double stab: right at 0.19 s, left at 0.38 s. | `role: dagger.sinister`, `contact` (`hand_r`) |
+| `Dagger_Poison` | 0.8 s | The off hand holds up the vial (its dagger turned up out of the way); the main blade lies across it and is drawn back to the right (0.12–0.26 s), winds up and slashes across (0.54 s). | `role: dagger.poison`, `contact` (`hand_r`) |
+| `Dagger_Gouge` | 0.5 s | The main dagger turned so the pommel leads, a jab at face height (0.25 s). | `role: dagger.gouge`, `contact` (`hand_r`) |
+| `Flourish_Haste` | 0.7 s | Both blades come up before the chest; their tips circle twice in opposite senses (0.1–0.49 s), then they cross and return. Also the Ranger's Rapid Fire buff. | `role: flourish.haste` |
+| `Throw_Knife` | 0.5 s | The right hand reaches the belt (`drawSeconds` 0.09), cocks out to the right and back, and flicks flat forward sidearm, letting go at `releaseSeconds` 0.28; the off hand points the way. | `role: throw.knife`, `contact` (`hand_r`), `drawSeconds`, `releaseSeconds` |
+| `Throw_Lob` | 0.8 s | The right hand reaches the belt (0.16 s), swings underarm back past the hip and up, and lets go before the face at 0.5 s; the off hand points the way. | `role: throw.lob`, `contact` (`hand_r`), `drawSeconds`, `releaseSeconds` |
+| `Bandage_Self` | 1.5 s | The left forearm comes up across the body; the right hand wraps round it three times, creeping from the wrist up the forearm (0.3–1.17 s), and tugs the end out to the right. The chest bends 16° to look at it. | `role: bandage.self` |
+
+- **Items:** the clips key only the hands; what each hand holds is the consumer's choice. For a throw, at `drawSeconds` the hand's grip frame is the `belt.throwable` socket's frame: sheathe the main dagger at `hip_r.stowed` and move the knife (`Grip_Knife_Pinch_R`) or the flask or bomb (`Grip_Flask_R`) from `belt.throwable` into `hand_r.weapon`. At `releaseSeconds` the projectile leaves the hand; the dagger comes back to the hand when the clip ends. For `Bandage_Self`, sheathe both daggers (`hip_l.stowed`, `hip_r.stowed`) or keep them: the right hand's grip frame circles the forearm with its blade along it.
+- **Contact:** as for the sword clips, `contact` is the moment the joint moves fastest, a presentation landmark only.
+- **Review:** reviewed in the live Blender on the male `outfit.class.rogue` with the blackened dagger on `hand_r.weapon` and `hand_l.weapon` (no grip poses applied). The cape chain is not posed by these clips. The pinch and flask grips were not reviewed on an item.
 
 ## Female Ranger
 

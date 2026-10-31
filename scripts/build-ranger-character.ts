@@ -374,6 +374,17 @@ export const RANGER_CLIP_ROLES: Readonly<Record<string, { role: string; contact?
   Respawn_Rise: { role: "respawn" },
   Sword_Whirl: { role: "sword.whirl", contact: "hand_r" },
   Sword_Overhead_Smash: { role: "sword.overhead-smash", contact: "hand_r" },
+  // #418: the Rogue's twin daggers, throws, flourish and bandage (src/ranger-clips.ts RANGER_DAGGER_CLIPS).
+  Dagger_Idle_Loop: { role: "dagger.idle" },
+  Dagger_Stab_R: { role: "dagger.stab", contact: "hand_r" },
+  Dagger_Slash_L: { role: "dagger.slash", contact: "hand_l" },
+  Dagger_Sinister: { role: "dagger.sinister", contact: "hand_r" },
+  Dagger_Poison: { role: "dagger.poison", contact: "hand_r" },
+  Dagger_Gouge: { role: "dagger.gouge", contact: "hand_r" },
+  Flourish_Haste: { role: "flourish.haste" },
+  Throw_Knife: { role: "throw.knife", contact: "hand_r" },
+  Throw_Lob: { role: "throw.lob", contact: "hand_r" },
+  Bandage_Self: { role: "bandage.self" },
 };
 /** The gait loops whose ground speed the `humanoid-clips` attachment records. */
 export const RANGER_GAITS: ReadonlySet<string> = new Set(["Walk_Loop", "Jog_Fwd_Loop", "Sprint_Loop", "Crouch_Fwd_Loop", "Jog_Bwd_Loop", "Walk_Bwd_Loop", "Wade_Fwd_Loop"]);

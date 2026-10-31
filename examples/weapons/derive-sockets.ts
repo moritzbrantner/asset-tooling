@@ -32,7 +32,12 @@ export const GRIP = { alongPalm: 0.8, depth: 0.03 } as const;
 /** The stowed Ranger sockets (rest-pose world intents converted into the joint frames, unchanged since bundle v2). */
 export const RANGER_STOWED_SOCKETS: readonly HumanoidSocket[] = [
   { id: "back.stowed", joint: "spine_03", translation: [0, -0.061607, -0.226519], rotation: [0, 0.993595, 0.113001, 0], attachFrame: "grip", accepts: ["shield"] },
-  { id: "hip_l.stowed", joint: "pelvis", translation: [0.175, 0.142748, 0.127956], rotation: [-0.667907, 0.090365, -0.701309, 0.232164], attachFrame: "grip", accepts: ["one-hand-weapon"] },
+  { id: "hip_l.stowed", joint: "pelvis", translation: [0.175, 0.142748, 0.127956], rotation: [-0.667907, 0.090365, -0.701309, 0.232164], attachFrame: "grip", accepts: ["one-hand-weapon"], mirror: "hip_r.stowed" },
+  // #418: the Rogue's second dagger at the front right hip, hip_l.stowed mirrored across the pelvis's YZ plane.
+  { id: "hip_r.stowed", joint: "pelvis", translation: [-0.175, 0.142748, 0.127956], rotation: [-0.667907, -0.090365, 0.701309, 0.232164], attachFrame: "grip", accepts: ["one-hand-weapon"], mirror: "hip_l.stowed" },
+  // #418: where knives, flasks and bombs are drawn from: the front right of the belt, the item's +Y down and its +Z
+  // out of the belt (rest-world intent at glTF (-0.12, 1.0, 0.135), +Y (0, -1, 0), +Z (-0.55, 0, 0.84)).
+  { id: "belt.throwable", joint: "pelvis", translation: [-0.12, 0.099, 0.1564], rotation: [0.282905, -0.136425, -0.948524, 0.04069], attachFrame: "grip", accepts: ["throwing-knife", "flask"] },
 ];
 
 const sub = (a: Vec3, b: Vec3): Vec3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
@@ -182,7 +187,8 @@ export function deriveHandSockets(gltf: { nodes: Record<string, any>[] }, { weap
   const weapon = handFrame(worlds, weaponHand), shield = handFrame(worlds, shieldHand);
   const back = (frame: HandFrame) => scale(frame.palm, -1);
   return [
-    socket(`hand_${weaponHand}.weapon`, weapon, weapon.knuckles, back(weapon), ["one-hand-weapon"]),
+    // #418: a throwing knife, flask or bomb is held at the weapon grip too (Grip_Knife_Pinch_R, Grip_Flask_R).
+    socket(`hand_${weaponHand}.weapon`, weapon, weapon.knuckles, back(weapon), ["one-hand-weapon", "throwing-knife", "flask"]),
     // #379: the Arcanist's tome is held like the shield.
     socket(`hand_${shieldHand}.shield`, shield, shield.knuckles, back(shield), ["shield", "book"]),
   ];
