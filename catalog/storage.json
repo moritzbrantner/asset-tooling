@@ -1041,21 +1041,33 @@
     },
     {
       "schemaVersion": 1,
-      "sourceId": "poly-haven.castle-wall-slates-diff-2k-jpg",
+      "sourceId": "poly-haven.broken-wall-diff-2k-jpg",
       "storage": "git-lfs",
-      "path": "assets/canonical/poly-haven.castle-wall-slates-diff-2k-jpg/castle_wall_slates_diff_2k.jpg"
+      "path": "assets/canonical/poly-haven.broken-wall-diff-2k-jpg/broken_wall_diff_2k.jpg"
     },
     {
       "schemaVersion": 1,
-      "sourceId": "poly-haven.castle-wall-slates-nor-gl-2k-jpg",
+      "sourceId": "poly-haven.broken-wall-nor-gl-2k-jpg",
       "storage": "git-lfs",
-      "path": "assets/canonical/poly-haven.castle-wall-slates-nor-gl-2k-jpg/castle_wall_slates_nor_gl_2k.jpg"
+      "path": "assets/canonical/poly-haven.broken-wall-nor-gl-2k-jpg/broken_wall_nor_gl_2k.jpg"
     },
     {
       "schemaVersion": 1,
-      "sourceId": "poly-haven.castle-wall-slates-rough-2k-jpg",
+      "sourceId": "poly-haven.broken-wall-rough-2k-jpg",
       "storage": "git-lfs",
-      "path": "assets/canonical/poly-haven.castle-wall-slates-rough-2k-jpg/castle_wall_slates_rough_2k.jpg"
+      "path": "assets/canonical/poly-haven.broken-wall-rough-2k-jpg/broken_wall_rough_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.broken-wall-disp-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.broken-wall-disp-2k-jpg/broken_wall_disp_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.japanese-stone-wall-disp-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.japanese-stone-wall-disp-2k-jpg/japanese_stone_wall_disp_2k.jpg"
     },
     {
       "schemaVersion": 1,

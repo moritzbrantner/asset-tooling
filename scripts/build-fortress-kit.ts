@@ -1,8 +1,8 @@
 // Build the Battle Royale fortress art kit (#445, docs/fortress-kit.md) from the scripted Blender recipe
 // adapters/blender/fortress.py:
 //   ASSET_TOOLING_BLENDER=<blender 5.2.2> bun scripts/build-fortress-kit.ts --out <directory>
-// Each piece is fitted to one shared collider box (or ramp wedge, or lift pillar) of battle_royale_core::arena at the
-// revision in FORTRESS_SOURCE, so the art never changes traversal. Each piece and level of detail is one
+// Each piece dresses one shared collider box (or ramp wedge, or lift pillar) of battle_royale_core::arena at the
+// revision in FORTRESS_SOURCE; its walks and blocking faces match the box within 5 cm (fortressFit). Each piece and level of detail is one
 // external.blender.script@1 run over the hydrated CC0 Poly Haven textures, imported through scene.import.gltf@2.
 // The fortress-kit-descriptor-v1 attachment carries the pieces, their LOD chains (the greyhaven-nature #449 format)
 // and the composition: every fortress body with the piece that dresses it. <directory> becomes the object-store
@@ -19,6 +19,7 @@ import { createAssetCatalog } from "../src/catalog.js";
 import { importAssetCatalogStorageSource } from "../src/catalog-storage.js";
 import { sha256Bytes } from "../src/hash.js";
 import { buildKitPart, documentBounds, exportKitBundle, round, runKitCli, triangles, type KitPart } from "../src/kit-bundle.js";
+import type { Document } from "@gltf-transform/core";
 import type { AssetRef } from "../src/operations.js";
 
 const ROOT = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
@@ -35,14 +36,16 @@ export const UNITS_PER_METRE = 100;
 
 /** CC0 Poly Haven texture sets, by recipe input name. */
 export const FORTRESS_TEXTURES = {
-  wallColour: "poly-haven.castle-wall-slates-diff-2k-jpg", wallNormal: "poly-haven.castle-wall-slates-nor-gl-2k-jpg",
-  wallRoughness: "poly-haven.castle-wall-slates-rough-2k-jpg",
+  wallColour: "poly-haven.broken-wall-diff-2k-jpg", wallNormal: "poly-haven.broken-wall-nor-gl-2k-jpg",
+  wallRoughness: "poly-haven.broken-wall-rough-2k-jpg",
   trimColour: "poly-haven.japanese-stone-wall-diff-2k-jpg", trimNormal: "poly-haven.japanese-stone-wall-nor-gl-2k-jpg",
   trimRoughness: "poly-haven.japanese-stone-wall-rough-2k-jpg",
   floorColour: "poly-haven.stone-tiles-02-diff-2k-jpg", floorNormal: "poly-haven.stone-tiles-02-nor-gl-2k-jpg",
   floorRoughness: "poly-haven.stone-tiles-02-rough-2k-jpg",
   woodColour: "poly-haven.old-planks-02-diff-2k-jpg", woodNormal: "poly-haven.old-planks-02-nor-gl-2k-jpg",
   woodRoughness: "poly-haven.old-planks-02-rough-2k-jpg",
+  // Displacement maps, used at build time only to darken the mortar and lift the proud stone edges.
+  wallHeight: "poly-haven.broken-wall-disp-2k-jpg", trimHeight: "poly-haven.japanese-stone-wall-disp-2k-jpg",
 } as const;
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -165,6 +168,179 @@ const BURIED: Partial<Record<FortressPart, string>> = {
   "hall-wall": "the -X end's 1.2 m corner square is drawn by the perpendicular hall-wall",
   "lift-column": "stands 0.1 m inside its box, clear of the lift-tower pillar that shares its footprint",
 };
+
+/**
+ * The fit rule (#459), per piece in its own frame (metres). What a character stands on or is blocked by matches the
+ * collider within FORTRESS_FIT_TOLERANCE: every `walk` area is flush with its top (or the ramp slope) with
+ * FORTRESS_HEAD_ROOM clear above it, and every blocking `faces` entry lies within the tolerance of the box face except
+ * where an opening (slit, window, putlog hole) is cut deeper or decoration stands in front of it. Decoration may leave
+ * the box, but no vertex leaves `reach`.
+ */
+export type FortressFit = {
+  walk: { x: [number, number]; z: [number, number]; y: number | "slope"; except?: number[][] }[];
+  faces: { axis: 0 | 2; sign: 1 | -1; along: [number, number]; y: [number, number] }[];
+  reach: { min: [number, number, number]; max: [number, number, number] };
+};
+export const FORTRESS_FIT_TOLERANCE = 0.05;
+export const FORTRESS_HEAD_ROOM = 2.2;
+
+export function fortressFit(piece: FortressPiece): FortressFit {
+  const [w, h, d] = piece.size;
+  const box = (dx0: number, dy0: number, dz0: number, dx1: number, dy1: number, dz1: number) =>
+    ({ min: [-w / 2 - dx0, -dy0, -d / 2 - dz0] as [number, number, number], max: [w / 2 + dx1, h + dy1, d / 2 + dz1] as [number, number, number] });
+  const top = (inset = 0.05, outerParapet = 0) => ({ x: [-w / 2 + inset, w / 2 - inset] as [number, number], z: [-d / 2 + inset + outerParapet, d / 2 - inset] as [number, number], y: h });
+  const zFaces = (along: [number, number], y: [number, number] = [0.1, h - 0.1]) =>
+    [{ axis: 2 as const, sign: -1 as const, along, y }, { axis: 2 as const, sign: 1 as const, along, y }];
+  const xFaces = (along: [number, number], y: [number, number] = [0.1, h - 0.1]) =>
+    [{ axis: 0 as const, sign: -1 as const, along, y }, { axis: 0 as const, sign: 1 as const, along, y }];
+  switch (piece.part) {
+    case "curtain-wall":
+      // The parapet stands on the outer 0.6 m; the last 5.6 m of either end may lie inside a corner tower.
+      return { walk: [top(0.1, 0.55)], faces: [...zFaces([-w / 2 + 5.7, w / 2 - 0.2]), ...xFaces([-d / 2 + 0.1, d / 2 - 0.1])], reach: box(0, 0.6, 3.7, 0, 3.3, 1.3) };
+    case "gate-lintel":
+      return { walk: [top(0.05, 0.6)], faces: [], reach: box(6.4, 6.6, 5.0, 6.4, 6.0, 0.1) };
+    case "parapet":
+      // Its top is the crenels' sill under full-height merlons, not a walk; its faces block.
+      return { walk: [], faces: zFaces([-w / 2 + 6, w / 2 - 6], [0.1, h - 0.1]), reach: box(0, 0, 0.05, 0, 1.8, 0.05) };
+    case "corner-tower":
+    case "central-tower": {
+      const out = piece.part === "corner-tower" ? 2.6 : 1.0;
+      return { walk: [top()], faces: [...zFaces([-w / 2 + 0.2, w / 2 - 0.2]), ...xFaces([-d / 2 + 0.2, d / 2 - 0.2])], reach: box(out, 0.6, out, out, 12.5, out) };
+    }
+    case "keep-wall-long":
+    case "keep-wall-short":
+    case "hall-wall": {
+      const x0 = -w / 2 + (BURIED[piece.part] ? d : 0) + 0.2;
+      return { walk: [], faces: zFaces([x0, w / 2 - 0.2]), reach: box(0, 0.6, 1.5, 0, 0, 0.05) };
+    }
+    case "door-lintel":
+      return { walk: [], faces: [], reach: box(0, 1.4, 0.1, 0, 0, 0.1) };
+    case "keep-roof":
+      return { walk: [{ ...top(), except: piece.holes }], faces: [], reach: box(2.0, 3.5, 2.0, 2.0, 4.8, 2.0) };
+    case "bridge":
+      return { walk: [top()], faces: [], reach: box(0, 0.8, 0, 0, 0, 0) };
+    case "lift-column":
+      // Stands 0.1 m inside its box, clear of the lift pillar that shares its footprint (leavesToNeighbour).
+      return { walk: [], faces: [], reach: box(0, 0, 0, 0, 0, 0) };
+    case "ramp-courtyard":
+    case "ramp-tower":
+    case "ramp-keep":
+      return { walk: [{ ...top(), y: "slope" }], faces: xFaces([-d / 2 + 0.3, d / 2 - 0.1]), reach: box(0, 0, 0, 0, 0, 0) };
+    case "lift-courtyard":
+    case "lift-tower":
+      return { walk: [top()], faces: [], reach: box(0, 0, 0, 0, 0, 0) };
+  }
+}
+
+/** Every triangle of the document in the world frame (9 numbers each), and its vertices. */
+function geometry(document: Document) {
+  const vertices: number[][] = [], triangles: number[] = [];
+  for (const node of document.getRoot().listNodes()) {
+    const mesh = node.getMesh();
+    if (!mesh) continue;
+    const m = node.getWorldMatrix();
+    for (const primitive of mesh.listPrimitives()) {
+      const position = primitive.getAttribute("POSITION")!, p: number[] = [0, 0, 0];
+      const base = vertices.length;
+      for (let i = 0; i < position.getCount(); i += 1) {
+        position.getElement(i, p);
+        vertices.push([0, 1, 2].map((k) => m[k]! * p[0]! + m[4 + k]! * p[1]! + m[8 + k]! * p[2]! + m[12 + k]!));
+      }
+      const indices = primitive.getIndices();
+      const count = indices ? indices.getCount() : position.getCount();
+      for (let i = 0; i < count; i += 1) triangles.push(...vertices[base + (indices ? indices.getScalar(i) : i)]!);
+    }
+  }
+  return { vertices, triangles: Float64Array.from(triangles) };
+}
+
+/**
+ * Cast an axis-aligned ray from `origin` along `axis` (`sign` +-1) and return the distance to the first hit, or null.
+ * `entering` keeps only faces whose normal points against the ray: the outside of a solid, not its back faces.
+ */
+function cast(t: Float64Array, origin: number[], axis: number, sign: number, maxDistance: number, entering = false): number | null {
+  const [a, b] = [0, 1, 2].filter((k) => k !== axis) as [number, number];
+  const oa = origin[a]!, ob = origin[b]!;
+  let best: number | null = null;
+  for (let i = 0; i < t.length; i += 9) {
+    const x0 = t[i + a]!, x1 = t[i + 3 + a]!, x2 = t[i + 6 + a]!, y0 = t[i + b]!, y1 = t[i + 3 + b]!, y2 = t[i + 6 + b]!;
+    if (oa < Math.min(x0, x1, x2) || oa > Math.max(x0, x1, x2) || ob < Math.min(y0, y1, y2) || ob > Math.max(y0, y1, y2)) continue;
+    // Barycentric coordinates in the (a, b) plane give the hit's coordinate on `axis`.
+    const det = (y1 - y2) * (x0 - x2) + (x2 - x1) * (y0 - y2);
+    if (Math.abs(det) < 1e-12) continue;
+    const l0 = ((y1 - y2) * (oa - x2) + (x2 - x1) * (ob - y2)) / det;
+    const l1 = ((y2 - y0) * (oa - x2) + (x0 - x2) * (ob - y2)) / det;
+    const l2 = 1 - l0 - l1;
+    if (l0 < -1e-9 || l1 < -1e-9 || l2 < -1e-9) continue;
+    const distance = (l0 * t[i + axis]! + l1 * t[i + 3 + axis]! + l2 * t[i + 6 + axis]! - origin[axis]!) * sign;
+    if (distance < 0 || distance > maxDistance || (best !== null && distance >= best)) continue;
+    if (entering) {
+      const e1 = [0, 1, 2].map((k) => t[i + 3 + k]! - t[i + k]!), e2 = [0, 1, 2].map((k) => t[i + 6 + k]! - t[i + k]!);
+      const n = [e1[1]! * e2[2]! - e1[2]! * e2[1]!, e1[2]! * e2[0]! - e1[0]! * e2[2]!, e1[0]! * e2[1]! - e1[1]! * e2[0]!];
+      if (n[axis]! * sign >= 0) continue;
+    }
+    best = distance;
+  }
+  return best;
+}
+
+const steps = (from: number, to: number, step: number) => {
+  const out: number[] = [];
+  for (let v = from + step / 2; v < to; v += step) out.push(v);
+  return out;
+};
+
+/** The largest share of a blocking face that openings (slits, windows, putlog holes) may sink below the tolerance. */
+const MAX_OPENINGS = 0.08;
+
+/** The #459 fit rule checked on one built level of one piece (its document as imported): the violations. */
+export function fortressFitViolations(piece: FortressPiece, document: Document): string[] {
+  const fit = fortressFit(piece);
+  const [w, h, d] = piece.size;
+  const { vertices, triangles } = geometry(document);
+  const errors: string[] = [];
+  const outside = vertices.find((v) => [0, 1, 2].some((k) => v[k]! < fit.reach.min[k]! - 1e-4 || v[k]! > fit.reach.max[k]! + 1e-4));
+  if (outside) errors.push(`vertex ${outside.map((x) => x.toFixed(3))} leaves the decoration reach`);
+  // Walks: coming down through the head room, the first surface is the top (or the slope) within the tolerance.
+  const slope = (z: number) => (h * (z + d / 2)) / d;
+  for (const area of fit.walk) {
+    for (const x of steps(area.x[0], area.x[1], 0.37)) {
+      for (const z of steps(area.z[0], area.z[1], 0.37)) {
+        if (area.except?.some(([x0, z0, x1, z1]) => x > x0! - 0.03 && x < x1! + 0.03 && z > z0! - 0.03 && z < z1! + 0.03)) continue;
+        const y = area.y === "slope" ? slope(z) : area.y;
+        const from = y + FORTRESS_FIT_TOLERANCE + FORTRESS_HEAD_ROOM;
+        const hit = cast(triangles, [x, from, z], 1, -1, FORTRESS_HEAD_ROOM + 1);
+        const top = hit === null ? null : from - hit;
+        if (top === null || Math.abs(top - y) > FORTRESS_FIT_TOLERANCE + 1e-3) {
+          errors.push(`walk at (${x.toFixed(2)}, ${z.toFixed(2)}): top ${top?.toFixed(3)} for ${y.toFixed(3)}`);
+        }
+      }
+    }
+  }
+  // Blocking faces: coming in from outside, the first surface lies within the tolerance of the box face, or further out
+  // (decoration in front of it); openings may sink deeper on a small share of the face.
+  const far = 12;
+  for (const face of fit.faces) {
+    const along = face.axis === 2 ? 0 : 2;
+    const half = (face.axis === 2 ? d : w) / 2;
+    const name = `${face.sign > 0 ? "+" : "-"}${"xyz"[face.axis]}`;
+    let samples = 0, sunk = 0;
+    for (const s of steps(face.along[0], face.along[1], 0.5)) {
+      for (const y of steps(face.y[0], face.y[1], 0.5)) {
+        if (fit.walk[0]?.y === "slope" && y > slope(s) - 0.1) continue;
+        const origin = [0, y, 0];
+        origin[along] = s;
+        origin[face.axis] = face.sign * (half + far);
+        const hit = cast(triangles, origin, face.axis, -face.sign, far + half, true);
+        samples += 1;
+        // Sunk: the first surface lies deeper than the tolerance (or the ray finds none, through an opening).
+        if (hit === null || hit - far > FORTRESS_FIT_TOLERANCE + 1e-3) sunk += 1;
+      }
+    }
+    if (samples && sunk / samples > MAX_OPENINGS) errors.push(`face ${name}: ${sunk} of ${samples} samples sunk deeper than the tolerance`);
+  }
+  return errors;
+}
 
 /** Levels of detail: LOD0 is variant `default`; `lod1` and `lod2` come from the same recipe in the same frame. */
 export const FORTRESS_LOD_VARIANTS = ["lod1", "lod2"] as const;
@@ -290,8 +466,10 @@ export async function buildFortressKit({ outDir, log = () => {} }: { outDir: str
   const descriptor = {
     schema: FORTRESS_DESCRIPTOR_SCHEMA, units: "metre", up: "+Y", outward: "-Z", handedness: "right", origin: "fitted-box-base-centre",
     source: FORTRESS_SOURCE,
-    placement: "Each piece is built at exactly its fitted box (fits.size, metres) and never reaches outside it: dressing over "
-      + "authoritative collision. Place a piece at its item's origin (units) turned by yawDegrees about +Y (90 turns +Z to +X). "
+    placement: "Each piece dresses its fitted box (fits.size, metres) over authoritative collision: its walkable tops, ramp slopes "
+      + "and blocking faces match the box within 5 cm, and decoration (merlons, buttresses, roofs, hoardings, rubble) may reach "
+      + "outside it as far as bounds says, never into the head room above a walk. "
+      + "Place a piece at its item's origin (units) turned by yawDegrees about +Y (90 turns +Z to +X). "
       + "A lift piece follows its platform: origin = centre_at(tick) minus halfExtents[1] in y.",
     lodSelection: {
       metric: FORTRESS_LOD_METRIC,

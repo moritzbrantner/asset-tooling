@@ -86,7 +86,7 @@ jobs:
           # The fortress kit's 51 recipe runs (17 pieces x 3 levels) take longer than the other kits together.
           - suite: fortress
             timeout: 60
-            lfs: "assets/canonical/poly-haven.castle-wall-slates-*/**,assets/canonical/poly-haven.japanese-stone-wall-*/**,assets/canonical/poly-haven.stone-tiles-02-*/**,assets/canonical/poly-haven.old-planks-02-*/**"
+            lfs: "assets/canonical/poly-haven.broken-wall-*/**,assets/canonical/poly-haven.japanese-stone-wall-*/**,assets/canonical/poly-haven.stone-tiles-02-*/**,assets/canonical/poly-haven.old-planks-02-*/**"
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
       - name: Set up Bun
