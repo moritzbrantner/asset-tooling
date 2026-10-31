@@ -56,6 +56,17 @@ export const rangerGripJoints = (side: "l" | "r") =>
  * +Z); the consumer pitches the body. They follow the grip poses in bundle order.
  */
 export const RANGER_SWIM_CLIPS = ["Wade_Fwd_Loop", "Swim_Idle_Loop", "Swim_Fwd_Loop", "Swim_Down_Loop", "Swim_Up_Loop", "Swim_Enter", "Swim_Exit"] as const;
+/**
+ * #416 (mmorpg#490, mmorpg#500): climbing, mantling, ladder and rope clips authored in place on the Ranger rig by
+ * adapters/blender/traversal_clips.py from explicit hand and foot targets (two-bone IK; Mixamo and the CC0 UAL2
+ * `ClimbUp_1m_RM` only as reference). They follow the hit reactions in bundle order. Each entry carries its contacts
+ * and a skirt and cape pose for the #391 chain joints (docs/humanoid-ranger.md#traversal-clips-416).
+ */
+export const RANGER_TRAVERSAL_CLIPS = [
+  "Climb_Idle_Loop", "Climb_Up_Loop", "Climb_Down_Loop", "Climb_Left_Loop", "Climb_Right_Loop", "Climb_TopOut", "Climb_LetGo",
+  "Mantle_Low", "Mantle_Mid", "Mantle_High",
+  "Ladder_Idle_Loop", "Ladder_Up_Loop", "Ladder_Down_Loop", "Rope_Idle_Loop", "Rope_Up_Loop", "Rope_Down_Loop",
+] as const;
 
 /** A socket of the figure's sockets descriptor, as a recipe argument. */
 export type RangerSocket = { joint: string; translation: number[]; rotation: number[] };
@@ -70,7 +81,11 @@ export type AuthoredClip = {
   /** The library clip the recipe starts from, for `humanoid-clips` `source.basedOn`; none when absent. */
   basedOn?: string;
   /** Extra built-clip fields: the removed travel, the bow draw, the grip or the swim stroke. */
-  extra?: { removedTravel?: [number, number]; bow?: Json; grip?: { socket: string; role: string }; swim?: { strokeSpeedMetersPerSecond: number } };
+  extra?: {
+    removedTravel?: [number, number]; bow?: Json; grip?: { socket: string; role: string }; swim?: { strokeSpeedMetersPerSecond: number };
+    /** Traversal clips (#416): the whole travel (glTF x, y, z) the in-place clip stands for, and their own fields. */
+    rootTravel?: [number, number, number]; traversal?: Json;
+  };
 };
 /**
  * A family of clips authored by one Blender recipe in one run (#425). `arguments` are the recipe's arguments for all
@@ -145,4 +160,20 @@ export const RANGER_CLIP_FAMILIES: readonly ClipFamily[] = [
   nameOnly("swim", "swim_clips.py", RANGER_SWIM_CLIPS, (observed) =>
     observed.strokeSpeedMetersPerSecond ? { swim: { strokeSpeedMetersPerSecond: observed.strokeSpeedMetersPerSecond as number } } : undefined),
   nameOnly("hit", "hit_clips.py", RANGER_HIT_CLIPS),
+  {
+    id: "traversal", script: "traversal_clips.py", clips: RANGER_TRAVERSAL_CLIPS,
+    arguments: () => ({ schemaVersion: 1, clips: [...RANGER_TRAVERSAL_CLIPS] }),
+    clip: (name, family) => {
+      // The per-frame data (contacts, chain pose, travel samples) goes to the clip's entry; the lineage keeps the rest.
+      const { contacts, secondaryPose, travelSamples, travel, ...observed } = family.clips[name] as Json;
+      const fields = pickKeys(observed, ["climbSpeedMetersPerSecond", "rungSpacingMeters", "ledgeHeightMeters", "edgeHeightMeters"]);
+      return {
+        authored: { recipe: family.recipe, clip: name, fps: family.fps, ...observed }, basedOn: "Idle_Loop",
+        extra: {
+          ...(travel ? { rootTravel: travel as [number, number, number] } : {}),
+          traversal: { ...fields, contacts, secondaryPose, ...(travelSamples ? { travelSamples: { sampleRate: family.fps, translations: travelSamples } } : {}) },
+        },
+      };
+    },
+  },
 ];

@@ -42,7 +42,8 @@ The `humanoid.ranger.male` bundle holds the following.
   - the authored bow clips ([Authored bow clips](#authored-bow-clips));
   - the static finger grip poses `Grip_*` for held items ([Grip poses](#grip-poses-285));
   - the authored water clips ([Water clips](#water-clips-393));
-  - the authored hit reactions `Hit_Upper_*` and `Hit_Shove_Spin` ([Authored hit clips](#authored-hit-clips-399)).
+  - the authored hit reactions `Hit_Upper_*` and `Hit_Shove_Spin` ([Authored hit clips](#authored-hit-clips-399));
+  - the authored climb, mantle, ladder and rope clips ([Traversal clips](#traversal-clips-416)).
 
   No clip uses Mixamo data (#399). Mixamo is only a motion reference, so the build needs no local input and both figures publish from CI.
 
@@ -228,6 +229,28 @@ The retargeted clips leave the fingers at their open rest pose, so a held item w
 | `Swim_Exit` | 1.0 s | From the first `Swim_Idle_Loop` pose, one leg reaches down and the arms press the water, ending in the first `Idle_Loop` pose. |
 
 The strokes are authored **upright**, with the body along +Y and facing +Z. Overhead is "ahead" in the swim, and in front of the chest is the pool floor. The consumer pitches the whole body (`crates/mmorpg-presentation/src/units/swim.rs`), so an authored lean would be applied twice.
+
+### Traversal clips (#416)
+
+[`adapters/blender/traversal_clips.py`](../adapters/blender/traversal_clips.py) authors the climbing, mantling, ladder and rope clips for mmorpg#490 (`ActionId::Climb` / `Mantle`) and mmorpg#500 (Atlas 6.6.43) in Blender on the animated Ranger. Hand and foot targets on the face, ledge, rung or rope are solved with two-bone IK each frame. Mixamo and the CC0 UAL2 `ClimbUp_1m_RM` were only watched as reference. The clips are in place, follow the hit reactions in bundle order, and key their own fingers (a crimp on holds and edges, a fist round rungs and the rope), so no `Grip_*` applies while climbing. The surface is in front of the body (+Z).
+
+| Clip | Length | Motion | `humanoid-clips` |
+| --- | --- | --- | --- |
+| `Climb_Idle_Loop` | 1.0 s loop | Four holds, 30 cm from the pelvis to the face; breathing, and the right hand re-grips once. | |
+| `Climb_Up_Loop`, `Climb_Down_Loop` | 1.0 s loops | Hand over hand, diagonal limbs together (the feet 0.15 cycle after the hands), 54 cm per move. Down is Up played backwards. | `climbSpeedMetersPerSecond: 0.9` |
+| `Climb_Left_Loop`, `Climb_Right_Loop` | 1.0 s loops | Shuffling sideways, the hand on the travelling side first, then the feet. | `climbSpeedMetersPerSecond: 0.75` |
+| `Climb_TopOut` | 1.0 s | From the first `Climb_Idle_Loop` pose: pull on the edge just above the high hold, press, right knee over, stand on top; ends in the first `Idle_Loop` pose. | `edgeHeightMeters`, `travelSamples` |
+| `Climb_LetGo` | 0.4 s | The hands open, arms and legs push away from the face, the body leans back. | |
+| `Mantle_Low` | 0.6 s | A 0.7 m ledge: hands on the edge, step up, stand. | `ledgeHeightMeters: 0.7`, `travelSamples` |
+| `Mantle_Mid` | 0.9 s | A 1.3 m ledge: chest-high pull-up, press, knee over, stand. | `ledgeHeightMeters: 1.3`, `travelSamples` |
+| `Mantle_High` | 1.3 s | A 1.9 m ledge: reach and hop to the edge, hang with the feet on the face, pull, press, stand. | `ledgeHeightMeters: 1.9`, `travelSamples` |
+| `Ladder_Idle_Loop`, `Ladder_Up_Loop`, `Ladder_Down_Loop` | 1.0 s loops | Rungs every 0.30 m, 36 cm in front of the pelvis; each hand and foot moves two rungs a step. | `rungSpacingMeters: 0.3`, `climbSpeedMetersPerSecond: 0.6` (Up, Down) |
+| `Rope_Idle_Loop`, `Rope_Up_Loop`, `Rope_Down_Loop` | 1.0 s loops | A vertical rope 20 cm in front of the pelvis: hand over hand, the feet clamp the rope and re-clamp higher once a cycle. | `climbSpeedMetersPerSecond: 0.6` (Up, Down) |
+
+- **Travel:** every clip is in place. The loops' travel is their `climbSpeedMetersPerSecond`: scale the playback rate by the zone's speed over it. The mantles and the top-out stand for the rise and forward step in `sourceRootDisplacement` (`y` the ledge or edge height, `z` the step onto the top), and `travelSamples` (`sampleRate` 30, one glTF translation per frame) is the root path the body was authored against: rising with the pull, then stepping forward. A consumer moving its capsule on another path still gets the hands on the edge as long as the capsule is near that path; the contacts tell it where.
+- **Contacts:** `contacts` lists each hand and foot plant: `limb` (`hand_l`, `hand_r`, `foot_l`, `foot_r`), `startSeconds`, `endSeconds` (past the clip's end when a loop's plant wraps) and `position`, the joint's model-space position (glTF axes, metres) when the plant starts. For bounded hand and foot placement (mmorpg#500), offset the limb by the difference between the real hold or edge and that position.
+- **Chain pose:** `secondaryPose` is `{ sampleRate: 30, joints }`: for `skirt_f_01`, `skirt_b_01`, `skirt_l_01`, `skirt_r_01` and `cape_01`, one local rotation per frame (glTF `[x, y, z, w]`, under `pelvis`, or `spine_03` for the cape), which the consumer blends under its spring (mmorpg#498) when the worn outfit has that chain. The front and side panels turn forward by 45% of the thighs' forward lift (front at most 40°, sides 40°), the back panel back by a thigh's backward reach (at most 20°), and the cape hangs but stays off the back. The joints below the first keep their rest. No clip keys the chain joints themselves: the shared clips have no chain nodes.
+- **Review:** reviewed in the live Blender on the male `outfit.monk` with its #391 chains driven by `secondaryPose`. The robe still meets the face, ladder and rope where the knees come up to it; the female tanner's skirt has no chains and was not reviewed.
 
 ## Female Ranger
 
