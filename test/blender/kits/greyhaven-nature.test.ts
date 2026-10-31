@@ -9,7 +9,11 @@ import { getBounds } from "@gltf-transform/functions";
 import { readAssetBundleAttachment, readAssetBundleGltf, verifyAssetBundle, type GltfResourcesBundleManifest } from "../../../src/asset-bundle.js";
 import { verifyAssetBundleTar } from "../../../src/asset-bundle-pack.js";
 import { sha256Bytes } from "../../../src/hash.js";
-import { buildGreyhavenNature, NATURE_DESCRIPTOR_ATTACHMENT, NATURE_DESCRIPTOR_SCHEMA, NATURE_MEMBERS } from "../../../scripts/build-greyhaven-nature.ts";
+import {
+  buildGreyhavenNature, NATURE_COLLISION_PROXY, NATURE_DESCRIPTOR_ATTACHMENT, NATURE_DESCRIPTOR_SCHEMA, NATURE_MEMBERS, ROCK_TRIANGLES,
+} from "../../../scripts/build-greyhaven-nature.ts";
+
+type Provenance = { license: string; source?: { sha256: string }; crown?: { observations: { recipe: string }; inputs?: Record<string, unknown> }; authored?: { observations: { recipe: string } } };
 
 const root = path.resolve(fileURLToPath(new URL("../../..", import.meta.url)));
 const storage: { entries: { sourceId: string; path: string }[] } = JSON.parse(await readFile(path.join(root, "catalog/storage.json"), "utf8"));
@@ -49,11 +53,31 @@ test("nature bundle supplies independently shaped, grounded families with game-r
         const size = image.getSize();
         assert.ok(size && Math.max(...size) <= 1024, `${entry.key}: game texture resolution`);
       }
+      const metadata = descriptor.assets.find((item: { key: string }) => item.key === entry.key);
+      const provenance: Provenance = metadata.provenance;
+      assert.equal(provenance.license, "CC0-1.0");
       if (entry.family === "rock") {
-        const mesh = document.getRoot().listMeshes()[0];
-        const vertices = mesh?.listPrimitives()[0]?.getAttribute("POSITION")?.getArray();
-        assert.ok(vertices);
+        // #451: an authored rock with one baked PBR material within the rock budget, and a convex-hull collision proxy.
+        const primitives = document.getRoot().listMeshes().flatMap((mesh) => mesh.listPrimitives());
+        assert.equal(primitives.length, 1);
+        const material = primitives[0]!.getMaterial()!;
+        assert.ok(material.getBaseColorTexture() && material.getNormalTexture() && material.getMetallicRoughnessTexture(), `${entry.key}: baked PBR maps`);
+        const triangles = primitives[0]!.getIndices()!.getCount() / 3;
+        assert.ok(triangles <= ROCK_TRIANGLES * 1.05, `${entry.key}: ${triangles} triangles within the rock budget`);
+        const vertices = primitives[0]!.getAttribute("POSITION")!.getArray()!;
         rockShapes.add(sha256Bytes(Buffer.from(vertices.buffer, vertices.byteOffset, vertices.byteLength)));
+        assert.equal(provenance.authored?.observations.recipe, "nature-rock-v1");
+        const proxy: { shape: string; vertices: number[][]; triangles: number[][] } = metadata[NATURE_COLLISION_PROXY];
+        assert.equal(proxy.shape, "convex-hull");
+        assert.ok(proxy.vertices.length >= 8 && proxy.triangles.length <= 92, `${entry.key}: a low-face hull`);
+        assert.equal(proxy.vertices.length - proxy.triangles.length / 2, 2, `${entry.key}: a closed triangulated hull (V - E + F = 2)`);
+        for (const vertex of proxy.vertices) {
+          for (const axis of [0, 1, 2] as const) {
+            assert.ok(vertex[axis]! >= bounds.min[axis] - 1e-3 && vertex[axis]! <= bounds.max[axis] + 1e-3, `${entry.key}: hull inside the mesh bounds`);
+          }
+        }
+      } else {
+        assert.match(provenance.source?.sha256 ?? "", /^[0-9a-f]{64}$/);
       }
       if (entry.shape === "broadleaf") {
         // #446: the source bark stays; the leaves are the rebuilt, vertex-coloured crown within a foreground budget.
@@ -65,7 +89,7 @@ test("nature bundle supplies independently shaped, grounded families with game-r
         assert.equal(leaves.getMaterial()!.getAlphaMode(), "MASK");
         const triangles = primitives.reduce((sum, primitive) => sum + primitive.getIndices()!.getCount() / 3, 0);
         assert.ok(triangles <= 8000, `broadleaf triangles ${triangles} within the foreground budget`);
-        assert.equal(built.descriptor.assets.find((item) => item.key === entry.key)?.provenance.crown?.observations.recipe, "broadleaf-crown-v1");
+        assert.equal(provenance.crown?.observations.recipe, "broadleaf-crown-v1");
       }
       if (entry.shape === "conifer") {
         // #450/#454: Pine_1's trunk stays; solid fir tiers (sprig cards over opaque skirts) replace its leaves, within the same budget.
@@ -77,13 +101,9 @@ test("nature bundle supplies independently shaped, grounded families with game-r
         assert.equal(needles.getMaterial()!.getAlphaMode(), "MASK");
         const triangles = primitives.reduce((sum, primitive) => sum + primitive.getIndices()!.getCount() / 3, 0);
         assert.ok(triangles <= 8000, `conifer triangles ${triangles} within the foreground budget`);
-        const crown = built.descriptor.assets.find((item) => item.key === entry.key)?.provenance.crown;
-        assert.equal(crown?.observations.recipe, "conifer-crown-v2");
-        assert.deepEqual(Object.keys(crown && "inputs" in crown ? crown.inputs ?? {} : {}).sort(), ["needleAlpha", "needles"]);
+        assert.equal(provenance.crown?.observations.recipe, "conifer-crown-v2");
+        assert.deepEqual(Object.keys(provenance.crown?.inputs ?? {}).sort(), ["needleAlpha", "needles"]);
       }
-      const metadata = built.descriptor.assets.find((item) => item.key === entry.key);
-      assert.equal(metadata?.provenance.license, "CC0-1.0");
-      assert.match(metadata?.provenance.source.sha256 ?? "", /^[0-9a-f]{64}$/);
     }
     assert.equal(rockShapes.size, 3, "rock variants have distinct vertex geometry");
   } finally { await rm(out, { recursive: true, force: true }); }
