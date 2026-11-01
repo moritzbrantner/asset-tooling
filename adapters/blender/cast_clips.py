@@ -129,8 +129,8 @@ WARCRY = {"duration": 1.0, "release": .4, "keys": [
     (.4, {"r": {"g": (-.24, -.1, 1.95), "y": (0, -.1, 1), "z": (-1, 0, 0)}, "l": {"g": (.3, -.12, 1.06)}, "pitch": -10, "neck": -14}),
     (.8, {"r": {"g": (-.24, -.1, 1.93)}, "pitch": -9, "neck": -12}),
 ]}
-SUMMON = {"duration": 1.5, "kneel": .42, "down": (.0, .3), "touch": .34, "rise": (.42, .72), "release": .62, "stand": (.7, 1.0),
-          "ground": (.34, -.34, .12), "risen": (.18, -.42, 1.3)}
+SUMMON = {"duration": 1.5, "kneel": .4, "down": (.0, .3), "touch": .34, "rise": (.42, .72), "release": .62, "stand": (.7, 1.0),
+          "ground": (.34, -.34, .12), "risen": (.18, -.42, 1.3), "step": .5}
 CALL = {"duration": 1.2, "release": .42, "keys": [
     (.3, {"l": {"g": (.04, -.16, 1.52), "y": (-.3, -.2, .9), "z": (-.6, -.7, 0)}, "shape": "point", "pitch": -4}),
     (.42, {"l": {"g": (.04, -.16, 1.53)}, "pitch": -6}),
@@ -195,11 +195,12 @@ CLIPS = ("Cast_Charge_Loop", "Cast_Release_Push", "Cast_Release_Overhand", "Cast
          "Cast_Channel_Sky_Loop", "Cast_Nova", "Cast_Cone", "Cast_Curse_Point", "Cast_Ground_Sweep", "Cast_Self_Ward", "Cast_Ally",
          "Warcry", "Cast_Summon_Raise", "Cast_Summon_Call", "Staff_Strike_A", "Staff_Strike_B", "Mace_Swing_A", "Mace_Swing_B",
          "Cast_Raise_Wall", "Cast_Interrupted")
-# The #391 chain joints the kneel's secondaryPose keys, and how far the panels follow the thighs. The kneel lifts the
-# front thigh level, so the panels follow further than in the traversal clips (share .45, at most 40, 40 and 20 degrees)
-# to stay over the knee.
+# The #391 chain joints the kneel's secondaryPose keys, and how far the panels follow the thighs (as the traversal
+# clips, #443). The kneel lifts the front thigh level, so the front panel follows further than in the traversal clips
+# (share .45, at most 40 degrees) to stay over the knee; past the knee the front and side panels hang plumb
+# over the shin.
 CAPE = "cape_01"
-SWING = {"share": .7, "front": 70.0, "side": 55.0, "back": 20.0}
+SWING = {"share": .7, "front": 70.0, "sideShare": .8, "side": 75.0, "back": 20.0}
 BACK = Vector((0, 1, 0))
 
 
@@ -667,7 +668,9 @@ def nova(caster):
 
 def summon_raise(caster):
     """Kneel on the right knee with the staff planted, the left palm down on the ground; the palm turns up and rises
-    (the summon at ``release``) while the caster stands back up."""
+    (the summon at ``release``) while the caster stands back up. The left foot steps ``step`` forward (#443): far
+    enough that the front thigh slopes down to the knee and the shin slants forward under the robe's front, where a
+    level thigh would lift the robe off the shin."""
     rig, spec = caster.rig, SUMMON
     rig.apply(caster.seed)
     feet = feet_of(rig)
@@ -692,7 +695,7 @@ def summon_raise(caster):
 
         def body(down=down):
             move_pelvis(rig, Vector((0, .1 * down, -spec["kneel"] * down)))
-            la = left_ankle + Vector((0, -.26, 0)) * window(down, .0, .6)
+            la = left_ankle + Vector((0, -spec["step"], 0)) * window(down, .0, .6)
             ra = right_ankle + Vector((0, .3, .06)) * window(down, .2, 1.0)
             plant_feet(rig, {"l": (la, left_matrix, Vector((0, -1, .2))), "r": (ra, right_matrix, Vector((0, -.6, -1)))})
             if down > 1e-3:
@@ -709,19 +712,27 @@ def summon_raise(caster):
 
 
 def secondary(rig):
-    """The #391 chain pose of this frame (as adapters/blender/traversal_clips.py): per chain's first joint, its local
-    rotation (glTF xyzw) under the pelvis (``cape_01`` under ``spine_03``). The skirt panels ride the thighs, the back
-    panel and the cape hang but never pass into the legs or the back."""
+    """The #391 chain pose of this frame (as adapters/blender/traversal_clips.py, without a face): per chain joint it
+    keys, its local rotation (glTF xyzw) under its parent (``pelvis``, ``spine_03`` for ``cape_01``, the joint above
+    for the plumb joints). The front panel rides the higher thigh, each side panel follows its own thigh out and
+    forward, and past the knee both hang plumb over the shin; the back panel and the cape hang but never pass
+    into the legs or the back."""
     down = Vector((0, 0, -1))
     thigh = {s: (rig.bones[LEGS[s][1]].head - rig.bones[LEGS[s][0]].head).normalized() for s in "lr"}
     lift = {s: math.degrees(math.atan2(max(0.0, -thigh[s].y), max(1e-6, -thigh[s].z))) if thigh[s].z < 0 else 90.0 for s in "lr"}
     reach = max(0.0, *(math.degrees(math.asin(max(0.0, min(1.0, thigh[s].y)))) for s in "lr"))
     turn = lambda degrees: Matrix.Rotation(math.radians(degrees), 3, Vector((1, 0, 0))) @ down
+
+    def toward(direction, share, limit):
+        angle = min(limit, share * math.degrees(down.angle(direction)))
+        axis = down.cross(direction)
+        return Matrix.Rotation(math.radians(angle), 3, axis.normalized()) @ down if axis.length > 1e-6 else down
+
     directions = {
         "skirt_f_01": turn(-min(SWING["front"], SWING["share"] * max(lift.values()))),
         "skirt_b_01": turn(min(SWING["back"], SWING["share"] * reach)),
-        "skirt_l_01": turn(-min(SWING["side"], SWING["share"] * lift["l"])),
-        "skirt_r_01": turn(-min(SWING["side"], SWING["share"] * lift["r"])),
+        "skirt_l_01": toward(thigh["l"], SWING["sideShare"], SWING["side"]),
+        "skirt_r_01": toward(thigh["r"], SWING["sideShare"], SWING["side"]),
     }
     spine = rig.bones["spine_03"].matrix.to_3x3()
     back = (spine @ rig.rest["spine_03"].to_3x3().inverted() @ BACK).normalized()
@@ -729,15 +740,19 @@ def secondary(rig):
     if cape.dot(back) < .1:
         cape = (cape + back * (.1 - cape.dot(back))).normalized()
     directions[CAPE] = cape
-    out = {}
+    gltf = lambda m: C4.to_3x3().inverted() @ m @ C4.to_3x3()
+    out, swings = {}, {}
     for joint, direction in directions.items():
         parent = "spine_03" if joint == CAPE else "pelvis"
         delta = (rig.bones[parent].matrix.to_3x3() @ rig.rest[parent].to_3x3().inverted())
-        parent_world = (C4.to_3x3().inverted() @ delta @ C4.to_3x3()) @ rig.rest_gltf[parent].to_3x3()
-        swing = C4.to_3x3().inverted() @ down.rotation_difference(direction).to_matrix() @ C4.to_3x3()
-        local = (parent_world.inverted() @ swing).to_quaternion()
-        out[joint] = [round(local.x, 5), round(local.y, 5), round(local.z, 5), round(local.w, 5)]
-    return out
+        parent_world = gltf(delta) @ rig.rest_gltf[parent].to_3x3()
+        swings[joint] = gltf(down.rotation_difference(direction).to_matrix())
+        out[joint] = (parent_world.inverted() @ swings[joint]).to_quaternion()
+    # The chain joints rest with no rotation in the world, so a joint hanging plumb under a turned first joint (the
+    # joints between keep its turn) takes its inverse turn: the front panel from its third joint, past the knee.
+    for joint in ("skirt_f_03", "skirt_l_02", "skirt_r_02"):
+        out[joint] = swings[joint[:-2] + "01"].inverted().to_quaternion()
+    return {joint: [round(q.x, 5), round(q.y, 5), round(q.z, 5), round(q.w, 5)] for joint, q in out.items()}
 
 
 def upper_joints(rig):

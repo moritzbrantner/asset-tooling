@@ -17,6 +17,11 @@ Every clip is in place. The travel the consumer applies (the climb speed, or a m
 the observations, together with the hand and foot contacts (times and model-space positions, glTF axes) and a skirt and
 cape pose for the #391 chain joints, which the consumer blends under its spring (mmorpg#498): the clips flex the hips
 far enough that a hanging robe would pass through the thighs. Fingers are keyed by the clips themselves. No randomness.
+
+Long robes (#443): the face, rung plane or rope stays in front of the knees and the robe. A knee that would enter it
+opens sideways round the hip-ankle line, the robe's front panel stops short of it, and the side panels follow the
+spread thighs and hang plumb past the knee. The climbing and ladder steps are short enough that a thigh rises to
+about 70 degrees, so the half of the robe that rides it never lifts clear of the other shin.
 """
 import json
 import math
@@ -35,10 +40,10 @@ UP, FWD, BACK = Vector((0, 0, 1)), Vector((0, -1, 0)), Vector((0, 1, 0))
 C4 = Matrix(((1, 0, 0, 0), (0, 0, -1, 0), (0, 1, 0, 0), (0, 0, 0, 1)))
 
 # Rock face: metres in front of the pelvis, the pelvis drop against standing, metres per second, stance fraction.
-CLIMB = {"wall": .30, "drop": .06, "speed": .9, "stance": .6, "period": 1.0, "hand": (.26, .3), "foot": (.16, -.6), "toe": .17}
+CLIMB = {"wall": .36, "drop": .06, "speed": .9, "stance": .6, "period": .6, "idlePeriod": 1.0, "hand": (.26, .3), "foot": (.16, -.72), "toe": .17}
 SIDE_CLIMB = {"speed": .75, "stance": .6, "period": 1.0}
-LADDER = {"rung": .30, "wall": .36, "speed": .6, "stance": .6, "period": 1.0}
-ROPE = {"wall": .20, "speed": .6, "stance": .6, "period": 1.0}
+LADDER = {"rung": .30, "wall": .36, "speed": .6, "stance": .6, "period": .5, "idlePeriod": 1.0}
+ROPE = {"wall": .30, "speed": .6, "stance": .6, "period": 1.0}
 # Mantles: authored ledge height (metres), duration (seconds) and the forward step onto the top (metres).
 MANTLE = {
     "Mantle_Low": {"height": .7, "duration": .6, "forward": .55, "face": .38},
@@ -53,10 +58,17 @@ CLIPS = ("Climb_Idle_Loop", "Climb_Up_Loop", "Climb_Down_Loop", "Climb_Left_Loop
 # Finger curl in degrees per joint (01, 02, 03): a crimp on a hold or an edge, a fist round a rung or a rope.
 CURL = {"hold": (55, 70, 35), "wrap": (75, 95, 70), "open": (10, 15, 10)}
 THUMB = {"hold": (10, 20, 20), "wrap": (35, 40, 45), "open": (5, 5, 5)}
-SKIRT = ("skirt_f_01", "skirt_b_01", "skirt_l_01", "skirt_r_01")  # with CAPE, the chain joints secondaryPose keys
-# The chain swing: the share of the thighs' forward lift a panel takes and its limit in degrees per panel.
-SWING = {"share": .45, "front": 40.0, "side": 40.0, "back": 20.0}
+# The chain swing (#391 joints, #443): the front panel turns forward by ``share`` of the higher thigh's forward lift
+# (at most ``front`` degrees), each side panel towards its own thigh, out and forward, by ``sideShare`` of the thigh's
+# angle from hanging (at most ``side``), the back panel back by ``share`` of a thigh's backward reach (at most
+# ``back``). Past the knee the front and side panels hang plumb, so the robe drapes off the knee over the shin.
+SWING = {"share": .45, "front": 40.0, "sideShare": .8, "side": 75.0, "back": 20.0}
 CAPE = "cape_01"
+# The Ranger kits' front robe panel (src/humanoid-secondary.ts, measured on the male rest pose, Blender axes): its
+# first joint and its segment lengths down to the hem. A face (rock, ladder, rope) keeps the knees at least ``knee``
+# and the front panel at least ``robe`` metres behind it (the robe's flare and cloth).
+FRONT_PANEL = {"top": (0.0, -.13, .92), "segments": (.25, .26, .25)}
+CLEAR = {"knee": .06, "robe": .1}
 
 
 def validate(p, inputs):
@@ -201,8 +213,10 @@ def place_pelvis(rig, position, lean=0.0, yaw=0.0):
         rotate_world(rig, "pelvis", UP, yaw)
 
 
-def two_bone(rig, a, b, c, target, pole):
-    """Aim ``a`` and ``b`` so the head of ``c`` lands on ``target`` (clamped to reach), the middle joint towards ``pole``."""
+def two_bone(rig, a, b, c, target, pole, face=None):
+    """Aim ``a`` and ``b`` so the head of ``c`` lands on ``target`` (clamped to reach), the middle joint towards ``pole``.
+    With a ``face`` (its y and the height of its top, or None), a middle joint below the top turns outwards round the
+    root-target line until it is ``CLEAR["knee"]`` behind the face: the knee opens sideways instead of entering it."""
     root = rig.head(a)
     l1, l2 = rig.length(a, b), rig.length(b, c)
     reach = target - root
@@ -213,15 +227,24 @@ def two_bone(rig, a, b, c, target, pole):
     side = pole - u * pole.dot(u)
     side = side.normalized() if side.length > 1e-6 else Vector((0, 0, -1))
     middle = root + u * x + side * h
+    if face is not None:
+        wall, top = face
+        out = 1.0 if root.x >= 0 else -1.0
+        turn = 1.0 if (Matrix.Rotation(.01, 3, u) @ side).x * out > side.x * out else -1.0
+        for step in range(46):
+            turned = Matrix.Rotation(turn * math.radians(2 * step), 3, u) @ side
+            middle = root + u * x + turned * h
+            if middle.y >= wall + CLEAR["knee"] or (top is not None and middle.z >= top):
+                break
     aim(rig, a, middle - root)
     aim(rig, b, (root + u * d) - middle)
 
 
-def solve_leg(rig, side, ankle, knee, toe=None):
-    """Thigh and calf put the ankle on ``ankle`` with the knee towards ``knee``; the foot points along ``toe`` (level
-    and forward when None)."""
+def solve_leg(rig, side, ankle, knee, toe=None, face=None):
+    """Thigh and calf put the ankle on ``ankle`` with the knee towards ``knee`` (and behind ``face``, see two_bone);
+    the foot points along ``toe`` (level and forward when None)."""
     thigh, calf, foot, ball = LEGS[side]
-    two_bone(rig, thigh, calf, foot, ankle, knee)
+    two_bone(rig, thigh, calf, foot, ankle, knee, face)
     pb = rig.bones[foot]
     m = rig.rest[foot].to_3x3().to_4x4()
     m.translation = pb.head.copy()
@@ -278,10 +301,11 @@ def curl(rig, side, grip, amount=1.0):
 
 
 class Pose:
-    """One frame's targets: the pelvis, the lean, each limb's position and grip, and contacts."""
+    """One frame's targets: the pelvis, the lean, each limb's position and grip, contacts, and the face in front of
+    the body (its y and the height of its top, None for no top) that the knees and the robe stay behind."""
 
-    def __init__(self, pelvis, lean=0.0):
-        self.pelvis, self.lean = pelvis, lean
+    def __init__(self, pelvis, lean=0.0, face=None):
+        self.pelvis, self.lean, self.face = pelvis, lean, face
         self.hands, self.feet, self.planted, self.arms = {}, {}, set(), 1.0
 
 
@@ -313,7 +337,7 @@ def pose_from(rig, stand, targets):
     rig.apply(stand)
     place_pelvis(rig, targets.pelvis, targets.lean)
     for side, (ankle, knee, toe) in targets.feet.items():
-        solve_leg(rig, side, ankle, knee, toe)
+        solve_leg(rig, side, ankle, knee, toe, targets.face)
     for side, (wrist, fingers, palm, grip, *rest) in targets.hands.items():
         amount = rest[0] if rest else 1.0
         s = SIDE[side]
@@ -365,7 +389,7 @@ def climb_loop(rig, stand, base, clip):
         speed, period, stance = SIDE_CLIMB["speed"], SIDE_CLIMB["period"], SIDE_CLIMB["stance"]
         direction = Vector((1 if clip == "Climb_Left_Loop" else -1, 0, 0))
     else:
-        speed, period, stance = CLIMB["speed"], CLIMB["period"], CLIMB["stance"]
+        speed, period, stance = CLIMB["speed"], CLIMB["period" if clip != "Climb_Idle_Loop" else "idlePeriod"], CLIMB["stance"]
         direction = UP
     tracks = climb_tracks(rig, base, direction * speed * period, stance)
     frames = int(round(period * FPS))
@@ -373,7 +397,7 @@ def climb_loop(rig, stand, base, clip):
     for k in range(frames + 1):
         p = (k % frames) / frames
         if clip == "Climb_Idle_Loop":
-            t = Pose(base["hips"] + Vector((0, -CLIMB["wall"] * .1, -CLIMB["drop"] + .008 * math.sin(2 * math.pi * p))), 4.0)
+            t = Pose(base["hips"] + Vector((0, -CLIMB["wall"] * .1, -CLIMB["drop"] + .008 * math.sin(2 * math.pi * p))), 4.0, (wall, None))
             for name, track in tracks.items():
                 side = name[-1]
                 # Holds staggered a little; the right hand re-grips once a cycle.
@@ -394,7 +418,7 @@ def climb_loop(rig, stand, base, clip):
                 sway = .03 * math.sin(2 * math.pi * p)
             else:
                 bob, sway = .01 * math.cos(4 * math.pi * p), .05 * direction.x * (.5 - abs(.5 - p))
-            t = Pose(base["hips"] + Vector((sway, -CLIMB["wall"] * .1, -CLIMB["drop"] + bob)), 4.0)
+            t = Pose(base["hips"] + Vector((sway, -CLIMB["wall"] * .1, -CLIMB["drop"] + bob)), 4.0, (wall, None))
             for name, track in tracks.items():
                 side = name[-1]
                 at, planted, u = track.at(p)
@@ -410,25 +434,26 @@ def climb_loop(rig, stand, base, clip):
 
 
 def ladder_loop(rig, base, clip):
-    """Ladder_*: rungs every LADDER["rung"] m; hands and feet move two rungs a step (Up and Down are one cycle)."""
-    rung, period, stance = LADDER["rung"], LADDER["period"], LADDER["stance"]
-    y = base["hips"].y - LADDER["wall"]
+    """Ladder_*: rungs every LADDER["rung"] m; hands and feet move one rung a step (Up and Down are one cycle)."""
     climb = clip != "Ladder_Idle_Loop"
+    rung, period, stance = LADDER["rung"], LADDER["period"] if climb else LADDER["idlePeriod"], LADDER["stance"]
+    y = base["hips"].y - LADDER["wall"]
     step = UP * (LADDER["speed"] * period if climb else 0)
     hips_z = base["hips"].z - CLIMB["drop"]
-    # Rungs lie on a grid relative to the hips at phase 0; the hands hold rungs near the shoulders, the feet near the knees.
+    # Rungs lie on a grid relative to the hips at phase 0; the hands hold rungs near the shoulders, both feet the rung
+    # two below the hips (higher, a thigh would rise past level and lift its half of a long robe off the other shin).
     first = base["shoulder"].z + .3
     tracks = {}
     for side, hand_offset, foot_offset in (("r", 0.0, .1), ("l", .5, .6)):
         hand_z = round((first - hips_z) / rung) * rung + hips_z + (0 if side == "r" else -rung)
-        foot_z = hand_z - 4 * rung
+        foot_z = hips_z - 2 * rung
         tracks[f"hand_{side}"] = Track(Vector((SIDE[side] * .19, y, hand_z)), step, hand_offset, stance, .05)
         tracks[f"foot_{side}"] = Track(Vector((SIDE[side] * .13, y + .06, foot_z)), step, foot_offset, stance, .07)
     frames = int(round(period * FPS))
     out = []
     for k in range(frames + 1):
         p = (k % frames) / frames
-        t = Pose(Vector((0, y + LADDER["wall"] * .9, hips_z + (.015 * math.cos(4 * math.pi * p) if climb else .006 * math.sin(2 * math.pi * p)))), 3.0)
+        t = Pose(Vector((0, y + LADDER["wall"] * .9, hips_z + (.015 * math.cos(4 * math.pi * p) if climb else .006 * math.sin(2 * math.pi * p)))), 3.0, (y, None))
         for name, track in tracks.items():
             side = name[-1]
             at, planted, u = track.at(p) if climb else (track.centre, True, 0.0)
@@ -462,7 +487,7 @@ def rope_loop(rig, base, clip):
     for k in range(frames + 1):
         p = (k % frames) / frames
         sway = .015 * math.sin(2 * math.pi * p)
-        t = Pose(Vector((sway, y + ROPE["wall"], hips_z + (.03 * math.cos(2 * math.pi * (p - .3)) if climb else .006 * math.sin(2 * math.pi * p)))), -4.0)
+        t = Pose(Vector((sway, y + ROPE["wall"], hips_z + (.03 * math.cos(2 * math.pi * (p - .3)) if climb else .006 * math.sin(2 * math.pi * p)))), -4.0, (y, None))
         for name, track in tracks.items():
             side = name[-1]
             at, planted, u = track.at(p) if climb else (track.centre, True, 0.0)
@@ -547,7 +572,7 @@ def ledge_clip(rig, stand, base, clip):
         root = Vector((0, keyed([(0, 0.0), (rise * .8, 0.0), (1, -travel)], t), keyed([(0, 0.0), (rise, h * .85), (1, h)], t)))
         samples.append(to_gltf(root))
         world_pelvis = Vector((0, keyed(pelvis_y, t), z))
-        pose = Pose(world_pelvis - root, keyed(lean, t))
+        pose = Pose(world_pelvis - root, keyed(lean, t), (face_y - root.y, h - root.z))
         on = smooth((t - hands_on) / .1) if hands_on > 0 else 1.0
         pose.arms = min(on, 1 - smooth((t - hands_off) / .14))
         for side, foot_keys in (("r", right), ("l", left)):
@@ -627,23 +652,41 @@ def let_go(rig, stand, base, climbing):
     return poses, {"durationSeconds": duration, "from": "Climb_Idle_Loop", "to": "fall"}
 
 
-def secondary(rig, rest_gltf):
-    """The #391 chain pose of this frame: per chain's first joint, its local rotation (glTF xyzw) under the pelvis
-    (``cape_01`` under ``spine_03``). The skirt panels ride the thighs (front both, sides their own), the back panel
-    and the cape hang but never pass into the legs or the back."""
+def secondary(rig, rest_gltf, face=None):
+    """The #391 chain pose of this frame: per chain joint it keys, its local rotation (glTF xyzw) under its parent
+    (``pelvis`` for the panels' first joints, ``spine_03`` for ``cape_01``, the joint above for ``skirt_f_03``,
+    ``skirt_l_02`` and ``skirt_r_02``). The front panel rides the higher thigh but stays ``CLEAR["robe"]`` behind
+    ``face`` (its y and top, or None); each side panel follows its own thigh out and forward, so a knee raised to the
+    side stays under it; past the knee the front and side panels hang plumb over the shin. The back panel and the cape
+    hang but never pass into the legs or the back."""
     down = Vector((0, 0, -1))
     thigh = {s: (rig.bones[LEGS[s][1]].head - rig.bones[LEGS[s][0]].head).normalized() for s in "lr"}
-    # Only a panel's pelvis share swings; its hem already follows the thighs. The front and side panels turn forward
-    # by part of the higher thigh's (their own thigh's) forward lift, the back panel back by part of a thigh's
-    # backward reach, each within SWING degrees. A positive turn about +X moves -Z towards +Y (back).
+    # Only a panel's pelvis share swings; its hem already follows the thighs. A positive turn about +X moves -Z
+    # towards +Y (back).
     lift = {s: math.degrees(math.atan2(max(0.0, -thigh[s].y), max(1e-6, -thigh[s].z))) if thigh[s].z < 0 else 90.0 for s in "lr"}
     reach = max(0.0, *(math.degrees(math.asin(max(0.0, min(1.0, thigh[s].y)))) for s in "lr"))
     turn = lambda degrees: Matrix.Rotation(math.radians(degrees), 3, Vector((1, 0, 0))) @ down
+    front = min(SWING["front"], SWING["share"] * max(lift.values()))
+    if face is not None:
+        # The panel's first segment ends at least CLEAR["robe"] behind the face (below its top); plumb below that.
+        wall, top_z = face
+        pelvis = rig.bones["pelvis"].matrix @ rig.rest["pelvis"].inverted()
+        top = pelvis @ Vector(FRONT_PANEL["top"])
+        length = FRONT_PANEL["segments"][0]
+        if top_z is None or top.z - length < top_z:
+            room = (top.y - wall - CLEAR["robe"]) / length
+            front = min(front, math.degrees(math.asin(max(-.5, min(1.0, room)))))
+
+    def toward(direction, share, limit):
+        angle = min(limit, share * math.degrees(down.angle(direction)))
+        axis = down.cross(direction)
+        return Matrix.Rotation(math.radians(angle), 3, axis.normalized()) @ down if axis.length > 1e-6 else down
+
     directions = {
-        "skirt_f_01": turn(-min(SWING["front"], SWING["share"] * max(lift.values()))),
+        "skirt_f_01": turn(-front),
         "skirt_b_01": turn(min(SWING["back"], SWING["share"] * reach)),
-        "skirt_l_01": turn(-min(SWING["side"], SWING["share"] * lift["l"])),
-        "skirt_r_01": turn(-min(SWING["side"], SWING["share"] * lift["r"])),
+        "skirt_l_01": toward(thigh["l"], SWING["sideShare"], SWING["side"]),
+        "skirt_r_01": toward(thigh["r"], SWING["sideShare"], SWING["side"]),
     }
     spine = rig.bones["spine_03"].matrix.to_3x3()
     back = (spine @ rig.rest["spine_03"].to_3x3().inverted() @ BACK).normalized()
@@ -651,16 +694,20 @@ def secondary(rig, rest_gltf):
     if cape.dot(back) < .1:
         cape = (cape + back * (.1 - cape.dot(back))).normalized()
     directions[CAPE] = cape
-    out = {}
+    gltf = lambda m: C4.to_3x3().inverted() @ m @ C4.to_3x3()
+    out, swings = {}, {}
     for joint, direction in directions.items():
         parent = "spine_03" if joint == CAPE else "pelvis"
         # The parent joint's world rotation in glTF: its rest frame turned by its pose's rotation from rest.
         delta = (rig.bones[parent].matrix.to_3x3() @ rig.rest[parent].to_3x3().inverted())
-        parent_world = (C4.to_3x3().inverted() @ delta @ C4.to_3x3()) @ rest_gltf[parent].to_3x3()
-        swing = C4.to_3x3().inverted() @ down.rotation_difference(direction).to_matrix() @ C4.to_3x3()
-        local = (parent_world.inverted() @ swing).to_quaternion()
-        out[joint] = [round(local.x, 5), round(local.y, 5), round(local.z, 5), round(local.w, 5)]
-    return out
+        parent_world = gltf(delta) @ rest_gltf[parent].to_3x3()
+        swings[joint] = gltf(down.rotation_difference(direction).to_matrix())
+        out[joint] = (parent_world.inverted() @ swings[joint]).to_quaternion()
+    # The chain joints rest with no rotation in the world, so a joint hanging plumb under a turned first joint (the
+    # joints between keep its turn) takes its inverse turn: the front panel from its third joint, past the knee.
+    for joint in ("skirt_f_03", "skirt_l_02", "skirt_r_02"):
+        out[joint] = swings[joint[:-2] + "01"].inverted().to_quaternion()
+    return {joint: [round(q.x, 5), round(q.y, 5), round(q.z, 5), round(q.w, 5)] for joint, q in out.items()}
 
 
 def contacts_of(planted_frames, positions, loop):
@@ -718,16 +765,19 @@ def author(rig, clip, stand_action, rest_gltf):
             pose_from(rig, stand, target)
             poses.append(rig.capture())
             planted.append(target.planted)
+        faces = [target.face for target in targets]
         if clip.endswith("_Down_Loop"):
             # Climbing down is climbing up played backwards.
             poses.reverse()
             planted.reverse()
+            faces.reverse()
             observations["reverseOf"] = clip.replace("_Down_", "_Up_")
     elif clip == "Climb_LetGo":
         climbing, _ = climb_loop(rig, stand, base, "Climb_Idle_Loop")
         pose_from(rig, stand, climbing[0])
         poses, observations = let_go(rig, stand, base, rig.capture())
         planted = [set(LIMBS) if k == 0 else set() for k in range(len(poses))]
+        faces = [climbing[0].face] * len(poses)
     else:
         frames, observations = ledge_clip(rig, stand, base, clip)
         start = stand
@@ -737,12 +787,13 @@ def author(rig, clip, stand_action, rest_gltf):
             start = rig.capture()
         poses = solve_ledge(rig, stand, frames, start)
         planted = [pose.planted for pose, _ in frames]
+        faces = [pose.face for pose, _ in frames]
     # Contacts and the chain pose from the final poses.
     positions, chains = [], {}
-    for pose in poses:
+    for pose, face in zip(poses, faces):
         rig.apply(pose)
         positions.append({limb: to_gltf(rig.head(limb)) for limb in LIMBS})
-        for joint, rotation in secondary(rig, rest_gltf).items():
+        for joint, rotation in secondary(rig, rest_gltf, face).items():
             chains.setdefault(joint, []).append(rotation)
     observations["contacts"] = contacts_of(planted, positions, loop)
     observations["secondaryPose"] = {"sampleRate": FPS, "joints": chains}
