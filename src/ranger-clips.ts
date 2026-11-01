@@ -27,6 +27,23 @@ export const RANGER_HIT_CLIPS = ["Hit_Upper_Front", "Hit_Upper_Back", "Hit_Upper
  */
 export const RANGER_BOW_CLIPS = ["Bow_Aim_Loop", "Bow_Draw", "Bow_Hold_Loop", "Bow_Release", "Bow_Recovery", "Bow_Cancel"] as const;
 /**
+ * #419 (mmorpg#517 shots on the move, Rapid Fire, Aimed or Piercing Shot): the bow cycle again for the upper body only
+ * (the pelvis and legs left in the idle, the turn in `spine_01`-`03`), the rapid nock-and-loose and the power draw,
+ * authored by the same recipe (adapters/blender/bow_clips.py). Each keeps only the `spine_01` subtree and records the
+ * string draw like the cycle. They follow the dagger clips in bundle order, so the earlier clips keep their places.
+ */
+export const RANGER_BOW_UPPER_CLIPS = [
+  "Bow_Aim_Upper_Loop", "Bow_Draw_Upper", "Bow_Hold_Upper_Loop", "Bow_Release_Upper", "Bow_Recovery_Upper", "Bow_Cancel_Upper",
+  "Bow_Rapid_Release", "Bow_Power_Draw",
+] as const;
+/**
+ * #419 (the Redbrand Crossbowman's Crossbow Bolt): crossbow clips authored in place on the Ranger rig by
+ * adapters/blender/crossbow_clips.py from explicit crossbow frames on `hand_r.crossbow`, the fore-stock grip on
+ * `hand_l.crossbow`, the crank on `hand_l.weapon` and the bolt on `hand_r.arrow` (two-bone arm IK; Mixamo only as
+ * reference). Every one keeps only the `spine_01` subtree. They follow the upper-body bow clips in bundle order.
+ */
+export const RANGER_CROSSBOW_CLIPS = ["Crossbow_Idle_Loop", "Crossbow_Aim_Loop", "Crossbow_Fire", "Crossbow_Reload"] as const;
+/**
  * #285: static grip poses authored on the rig by adapters/blender/grip_poses.py. Each clip keys only the finger and
  * thumb rotations of one hand; a consumer plays it over the body clip's finger channels while that hand's socket holds
  * an item of `role`. The fingers wrap a handle of `radius` (metres) along the item's grip-frame `axis`; the tome leaves
@@ -49,6 +66,8 @@ export const RANGER_GRIPS: readonly { clip: string; socket: string; role: string
   // #418: a throwing knife pinched between the thumb and the bent index; a round flask or bomb (4 cm radius) in the fist.
   { clip: "Grip_Knife_Pinch_R", socket: "hand_r.weapon", role: "throwing-knife", surface: { kind: "pinch" } },
   { clip: "Grip_Flask_R", socket: "hand_r.weapon", role: "flask", surface: { kind: "sphere", radius: .04 } },
+  // #419: the crossbow's crank handle (Crossbow_Reload), a 12 mm handle along the grip frame's Y.
+  { clip: "Grip_Crank_L", socket: "hand_l.weapon", role: "crank", surface: GRIP_HANDLE(.012) },
 ];
 /** The finger and thumb joints a grip clip keys (rotation only), for the hand `side`. */
 export const rangerGripJoints = (side: "l" | "r") =>
@@ -146,28 +165,42 @@ function nameOnly(id: string, script: string, clips: readonly string[], extra: (
 }
 
 const pickKeys = (source: Json, keys: string[]) => Object.fromEntries(keys.filter((key) => source[key] !== undefined).map((key) => [key, source[key]]));
+const socketAt = (socket: ClipFamilyContext["socket"]) => (id: string) => { const { joint, translation, rotation } = socket(id); return { joint, translation, rotation }; };
 
-/** The authored clip families, in bundle order after the retargeted library clips. */
-export const RANGER_CLIP_FAMILIES: readonly ClipFamily[] = [
-  nameOnly("gait", "gait_clips.py", RANGER_GAIT_CLIPS),
-  {
-    id: "bow", script: "bow_clips.py", clips: RANGER_BOW_CLIPS,
+/**
+ * A bow family (#277 cycle, #419 upper-body set): every clip records the string draw per frame and its archery marks;
+ * an upper-body clip keeps its listed joints. With `releaseContact` the contact is the authored release (#419: as for
+ * the dagger throws); the #277 cycle keeps its fastest-sample contact, which consumers already time against.
+ */
+function bowFamily(id: string, clips: readonly string[], { releaseContact = false } = {}): ClipFamily {
+  return {
+    id, script: "bow_clips.py", clips,
     arguments: ({ socket }) => {
-      const at = (id: string) => { const { joint, translation, rotation } = socket(id); return { joint, translation, rotation }; };
+      const at = socketAt(socket);
       return {
-        schemaVersion: 1, clips: [...RANGER_BOW_CLIPS],
+        schemaVersion: 1, clips: [...clips],
         sockets: { bow: at("hand_l.bow"), arrow: at("hand_r.arrow"), quiver: at("back.quiver") },
         braceHeight: ARCHERY_PRESETS["bow.long"].braceHeight, arrowLength: ARCHERY_PRESETS.arrow.length, quiverLength: ARCHERY_PRESETS["quiver.back"].length,
       };
     },
     clip: (name, family) => {
-      const { drawMeters, frames, ...marks } = family.clips[name] as Json;
+      const { drawMeters, frames, joints, ...marks } = family.clips[name] as Json;
       return {
+        ...(joints ? { keep: joints as string[] } : {}),
         authored: { recipe: family.recipe, fps: family.fps, frames, ...marks }, basedOn: "Idle_Loop",
-        extra: { bow: { sampleRate: family.fps, drawMeters, ...pickKeys(marks, ["releaseSeconds", "arrowDrawnSeconds", "nockedSeconds"]) } },
+        extra: {
+          bow: { sampleRate: family.fps, drawMeters, ...pickKeys(marks, ["releaseSeconds", "arrowDrawnSeconds", "nockedSeconds"]) },
+          ...(releaseContact && marks.releaseSeconds !== undefined ? { contactSeconds: marks.releaseSeconds as number } : {}),
+        },
       };
     },
-  },
+  };
+}
+
+/** The authored clip families, in bundle order after the retargeted library clips. */
+export const RANGER_CLIP_FAMILIES: readonly ClipFamily[] = [
+  nameOnly("gait", "gait_clips.py", RANGER_GAIT_CLIPS),
+  bowFamily("bow", RANGER_BOW_CLIPS),
   {
     id: "grips", script: "grip_poses.py", clips: RANGER_GRIPS.map((grip) => grip.clip), linear: true,
     arguments: ({ socket }) => ({
@@ -208,7 +241,7 @@ export const RANGER_CLIP_FAMILIES: readonly ClipFamily[] = [
   {
     id: "sword", script: "sword_clips.py", clips: RANGER_SWORD_CLIPS,
     arguments: ({ socket }) => {
-      const at = (id: string) => { const { joint, translation, rotation } = socket(id); return { joint, translation, rotation }; };
+      const at = socketAt(socket);
       return { schemaVersion: 1, clips: [...RANGER_SWORD_CLIPS], sockets: { weapon: at("hand_r.weapon"), shield: at("hand_l.shield") } };
     },
     clip: (name, family) => {
@@ -224,7 +257,7 @@ export const RANGER_CLIP_FAMILIES: readonly ClipFamily[] = [
   {
     id: "dagger", script: "dagger_clips.py", clips: RANGER_DAGGER_CLIPS,
     arguments: ({ socket }) => {
-      const at = (id: string) => { const { joint, translation, rotation } = socket(id); return { joint, translation, rotation }; };
+      const at = socketAt(socket);
       return {
         schemaVersion: 1, clips: [...RANGER_DAGGER_CLIPS],
         sockets: { weapon: at("hand_r.weapon"), offhand: at("hand_l.weapon"), belt: at("belt.throwable") },
@@ -240,6 +273,31 @@ export const RANGER_CLIP_FAMILIES: readonly ClipFamily[] = [
         keep: joints as string[],
         authored: { recipe: family.recipe, clip: name, fps: family.fps, ...observed }, basedOn: source as string,
         extra: { ...(Object.keys(fields).length ? { fields } : {}), ...(contactSeconds === undefined ? {} : { contactSeconds }) },
+      };
+    },
+  },
+  bowFamily("bow-upper", RANGER_BOW_UPPER_CLIPS, { releaseContact: true }),
+  {
+    id: "crossbow", script: "crossbow_clips.py", clips: RANGER_CROSSBOW_CLIPS,
+    arguments: ({ socket }) => {
+      const at = socketAt(socket);
+      return {
+        schemaVersion: 1, clips: [...RANGER_CROSSBOW_CLIPS], quiverLength: ARCHERY_PRESETS["quiver.back"].length,
+        sockets: { crossbow: at("hand_r.crossbow"), fore: at("hand_l.crossbow"), crank: at("hand_l.weapon"), bolt: at("hand_r.arrow"), quiver: at("back.quiver") },
+      };
+    },
+    clip: (name, family) => {
+      // Every clip is upper body; the shot's release and the reload's marks go to the clip's `crossbow` object. The
+      // contact is the release, as for the bow.
+      const { joints, source, ...observed } = family.clips[name] as Json;
+      const crossbow = pickKeys(observed, ["releaseSeconds", "crankSeconds", "spannedSeconds", "leftHandSeconds", "boltDrawnSeconds", "reloadedSeconds"]);
+      return {
+        keep: joints as string[],
+        authored: { recipe: family.recipe, clip: name, fps: family.fps, ...observed }, basedOn: source as string,
+        extra: {
+          ...(Object.keys(crossbow).length ? { fields: { crossbow } } : {}),
+          ...(observed.releaseSeconds === undefined ? {} : { contactSeconds: observed.releaseSeconds as number }),
+        },
       };
     },
   },

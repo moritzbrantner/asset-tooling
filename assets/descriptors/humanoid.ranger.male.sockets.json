@@ -6,13 +6,13 @@
   "sockets": [
     {"id": "hand_r.weapon", "joint": "hand_r",
      "translation": [-0.0365, 0.0839, -0.0043], "rotation": [0.415728, 0.576917, 0.446029, 0.543503],
-     "attachFrame": "grip", "accepts": ["one-hand-weapon", "throwing-knife", "flask"], "mirror": "hand_l.weapon"},
+     "attachFrame": "grip", "accepts": ["one-hand-weapon", "throwing-knife", "flask", "crank"], "mirror": "hand_l.weapon"},
     {"id": "hand_l.shield", "joint": "hand_l",
      "translation": [0.0365, 0.0839, -0.0043], "rotation": [0.415728, -0.576917, -0.446029, 0.543503],
      "attachFrame": "grip", "accepts": ["shield", "book"], "mirror": "hand_r.shield"},
     {"id": "hand_l.weapon", "joint": "hand_l",
      "translation": [0.0365, 0.0839, -0.0043], "rotation": [0.415728, -0.576917, -0.446029, 0.543503],
-     "attachFrame": "grip", "accepts": ["one-hand-weapon", "throwing-knife", "flask"], "mirror": "hand_r.weapon"},
+     "attachFrame": "grip", "accepts": ["one-hand-weapon", "throwing-knife", "flask", "crank"], "mirror": "hand_r.weapon"},
     {"id": "hand_r.shield", "joint": "hand_r",
      "translation": [-0.0365, 0.0839, -0.0043], "rotation": [0.415728, 0.576917, 0.446029, 0.543503],
      "attachFrame": "grip", "accepts": ["shield", "book"], "mirror": "hand_l.shield"},
@@ -101,10 +101,10 @@
      "translation": [0.0365, 0.0839, -0.0043], "rotation": [0.68443, -0.296967, -0.652274, 0.133809],
      "attachFrame": "grip", "accepts": ["staff"], "mirror": "hand_r.staff"},
     {"id": "hand_r.crossbow", "joint": "hand_r",
-     "translation": [-0.0365, 0.0839, -0.0043], "rotation": [-0.001557, -0.129331, -0.991088, 0.031857],
+     "translation": [-0.0365, 0.0839, -0.0043], "rotation": [-0.129331, 0.001557, 0.031857, 0.991088],
      "attachFrame": "grip", "accepts": ["crossbow"], "mirror": "hand_l.crossbow"},
     {"id": "hand_l.crossbow", "joint": "hand_l",
-     "translation": [0.0365, 0.0839, -0.0043], "rotation": [-0.001557, 0.129331, 0.991088, 0.031857],
+     "translation": [0.0365, 0.0839, -0.0043], "rotation": [-0.129331, -0.001557, -0.031857, 0.991088],
      "attachFrame": "grip", "accepts": ["crossbow"], "mirror": "hand_r.crossbow"}
   ]
 }

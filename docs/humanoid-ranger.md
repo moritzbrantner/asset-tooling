@@ -196,7 +196,9 @@ Each clip's `humanoid-clips` entry has a `bow` object:
 - `releaseSeconds` (`Bow_Release`): the string leaves the hand, the moment to launch the arrow.
 - `arrowDrawnSeconds` and `nockedSeconds` (`Bow_Recovery`): the hand at the quiver, and the next arrow on the string.
 
-`Bow_Release` also has the usual `contact` on `hand_r`.
+`Bow_Release` also has the usual `contact` on `hand_r` (the fastest sample, kept as it is: consumers time against it).
+
+The cycle is full body: the pelvis turns and the feet spread. For shots on the move, play the upper-body set (#419, [below](#upper-body-bow-rapid-and-power-clips-419)) over the gait instead.
 
 ### Grip poses (#285)
 
@@ -210,6 +212,7 @@ The retargeted clips leave the fingers at their open rest pose, so a held item w
 | `Grip_Staff_R`, `Grip_Staff_L` | `hand_r.staff`, `hand_l.staff` | `staff` | A fist round a 19 mm shaft. |
 | `Grip_Bow_L` | `hand_l.bow` | `bow` | A fist round the 22 mm riser. |
 | `Grip_Crossbow_R`, `Grip_Crossbow_L` | `hand_r.crossbow`, `hand_l.crossbow` | `crossbow` | A fist round the stock's 20 mm wrist; the handle is the crossbow's grip-frame Z axis (#389). |
+| `Grip_Crank_L` | `hand_l.weapon` | `crank` | A fist round the crossbow crank's 12 mm handle, along the grip frame's Y (#419, `Crossbow_Reload`). |
 | `Grip_Knife_Pinch_R` | `hand_r.weapon` | `throwing-knife` | A pinch (#418): the index bends round the blade, the thumb closes onto it and the other fingers fold into the palm (fixed curls, `PINCH`). |
 | `Grip_Flask_R` | `hand_r.weapon` | `flask` | The fingers and thumb close round a 40 mm-radius ball centred on the grip point (a flask or bomb, #418). |
 
@@ -297,6 +300,37 @@ The strokes are authored **upright**, with the body along +Y and facing +Z. Over
 - **Items:** the clips key only the hands; what each hand holds is the consumer's choice. For a throw, at `drawSeconds` the hand's grip frame is the `belt.throwable` socket's frame: sheathe the main dagger at `hip_r.stowed` and move the knife (`Grip_Knife_Pinch_R`) or the flask or bomb (`Grip_Flask_R`) from `belt.throwable` into `hand_r.weapon`. At `releaseSeconds` the projectile leaves the hand; the dagger comes back to the hand when the clip ends. For `Bandage_Self`, sheathe both daggers (`hip_l.stowed`, `hip_r.stowed`) or keep them: the right hand's grip frame circles the forearm with its blade along it.
 - **Contact:** a presentation landmark only, as for the sword clips, but at the authored strike (the times above) or, for a throw, at `releaseSeconds`, not at the fastest sample: a dagger hand turns fastest in its wind-up.
 - **Review:** reviewed in the live Blender on the male `outfit.class.rogue` with the blackened dagger on `hand_r.weapon` and `hand_l.weapon` (no grip poses applied). The cape chain is not posed by these clips. The pinch and flask grips were not reviewed on an item.
+
+### Upper-body bow, rapid and power clips (#419)
+
+[`adapters/blender/bow_clips.py`](../adapters/blender/bow_clips.py) also authors the ranged kit for shots on the move (mmorpg#517), Rapid Fire and the Aimed or Piercing Shot (`RANGER_BOW_UPPER_CLIPS`, the `bow-upper` family). They follow the dagger clips in bundle order, so the clips before them keep their places. Every one keeps only the `spine_01` subtree (mmorpg `UPPER_BODY_ROOT`): the pelvis and legs are left in the idle and come from the gait the consumer plays under them.
+
+| Clip | Length | Motion | `humanoid-clips` |
+| --- | --- | --- | --- |
+| `Bow_Aim_Upper_Loop`, `Bow_Draw_Upper`, `Bow_Hold_Upper_Loop`, `Bow_Release_Upper`, `Bow_Recovery_Upper`, `Bow_Cancel_Upper` | as the cycle | The cycle re-authored with the hips square: the chest turns about 70° over still hips (60% of the cycle's 40° pelvis turn moves into `spine_01`-`03`, on top of the spine's own 5-15° per joint). The set string is shorter than the cycle's (about 0.21 m), full draw about the same (0.46 m). | `role: bow.<cycle role>.upper`, `bow`; `Bow_Release_Upper` has `contact` |
+| `Bow_Rapid_Release` | 0.33 s | From the set string: full draw by frame 3, loosed on frame 4 (`releaseSeconds` 0.13); the hand flies back toward the quiver, takes the next arrow (`arrowDrawnSeconds` 0.23) and is set on the string again at the end (`nockedSeconds`), so it plays back to back. | `role: bow.rapid-release`, `bow`, `contact` |
+| `Bow_Power_Draw` | 1.0 s | A slow draw from the set string past full draw: the nock 5 cm further back in the second half, the chest turning 30% further. It ends held; loose with `Bow_Release_Upper` (the draw jumps 5 cm back to full draw on its first frame). | `role: bow.power-draw`, `bow` |
+
+- **Draw:** each entry has the cycle's `bow` object (`sampleRate`, `drawMeters` per frame, and `releaseSeconds`, `arrowDrawnSeconds`, `nockedSeconds` where the clip has them); drive the nock from it exactly as for the cycle (mmorpg#563).
+- **Contact:** at `releaseSeconds` (the cycle's `Bow_Release` keeps its fastest-sample contact).
+- **Review:** reviewed in the live Blender on the male `outfit.class.ranger` with the long bow on `hand_l.bow`, the arrow on `hand_r.arrow` and the quiver on `back.quiver` (the bow's `nock` was not driven in review). The cloak and hood chains are not posed by these clips.
+
+### Crossbow clips (#419)
+
+[`adapters/blender/crossbow_clips.py`](../adapters/blender/crossbow_clips.py) authors the Redbrand Crossbowman's kit in Blender on the animated Ranger (`RANGER_CROSSBOW_CLIPS`, the `crossbow` family, after the upper-body bow clips in bundle order). Each key names the crossbow's frame: two-bone arm IK puts the right hand's `hand_r.crossbow` grip on the stock's wrist and the left hand's `hand_l.crossbow` grip on the fore-stock, 20 cm ahead of the wrist and just under it. Every clip starts from the first `Idle_Loop` pose, keeps only the `spine_01` subtree and keys no fingers. Mixamo was only watched as reference.
+
+| Clip | Length | Motion | `humanoid-clips` |
+| --- | --- | --- | --- |
+| `Crossbow_Idle_Loop` | 2.0 s loop | Carried low in both hands across the body, the wrist before the right hip and the prod forward and to the left; the hands ride the `Idle_Loop` breathing and the chest sways ±2°. | `role: crossbow.idle` |
+| `Crossbow_Aim_Loop` | 2.0 s loop | The butt in the right shoulder, just in front of the collarbone, the groove 11 cm under the right eye and level; the chest turns 15° to bring the right shoulder back and the head leans onto the stock. Breathing as the idle. | `role: crossbow.aim` |
+| `Crossbow_Fire` | 0.4 s | From the aim: the bolt looses on frame 2 (`releaseSeconds` 0.067); the muzzle kicks up 7° about the butt and the stock pushes back 3.5 cm by 0.1 s, then settles back to the aim. | `role: crossbow.fire`, `crossbow`, `contact` (`hand_r`) |
+| `Crossbow_Reload` | 1.6 s | From and back to the aim: the crossbow comes down muzzle-first, butt to the belly (0.26 s); the left hand takes the crank on the left of the stock and winds it twice (0.32-0.85 s, `spannedSeconds`); the crossbow comes level at the waist, where the left hand holds it alone (`leftHandSeconds` 0.96-1.44 s) while the right hand draws a bolt over the right shoulder from `back.quiver` (`boltDrawnSeconds` 1.15) and lays it in the groove (`reloadedSeconds` 1.34), then retakes the wrist; up to the shoulder by 1.6 s. | `role: crossbow.reload`, `crossbow` |
+
+- **Items:** the crossbow (`equipment.crossbow`) rides `hand_r.crossbow` with `Grip_Crossbow_R`, and the left hand plays `Grip_Crossbow_L`. On the reload the left hand plays `Grip_Crank_L` over `crankSeconds` (the crank is the crossbow's own; no item goes on `hand_l.weapon`). Over `leftHandSeconds` the crossbow rides the left hand: at the start, reparent it to `hand_l` keeping its world transform, and at the end put it back on `hand_r.crossbow` (the right hand's grip is on the wrist again there). The bolt rides `hand_r.arrow` (nock at the origin, shaft along +Z) from `boltDrawnSeconds` to `reloadedSeconds`, then stays in the groove until the next `releaseSeconds`. The crossbow stays spanned in its mesh throughout.
+- **`crossbow` object:** `releaseSeconds` (fire), and `crankSeconds` (the winding, start and end), `spannedSeconds`, `leftHandSeconds`, `boltDrawnSeconds`, `reloadedSeconds` (reload).
+- **Contact:** at `releaseSeconds`.
+- **Socket change:** the crossbow sockets turned 180° about the stock (`docs/humanoid-sockets.md`): the top of the stock now faces the fingertips, so the forearm hangs under it and the elbow drops at the shoulder.
+- **Review:** reviewed in the live Blender on the male `outfit.redbrand` with the crossbow on `hand_r.crossbow` and an arrow standing in for the bolt on `hand_r.arrow` (no grip poses applied; the Redbrand wears no quiver, so the bolt comes from where `back.quiver` would be).
 
 ## Female Ranger
 

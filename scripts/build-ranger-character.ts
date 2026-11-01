@@ -385,6 +385,20 @@ export const RANGER_CLIP_ROLES: Readonly<Record<string, { role: string; contact?
   Throw_Knife: { role: "throw.knife", contact: "hand_r" },
   Throw_Lob: { role: "throw.lob", contact: "hand_r" },
   Bandage_Self: { role: "bandage.self" },
+  // #419: the upper-body bow cycle, the rapid and power shots and the crossbow (src/ranger-clips.ts RANGER_BOW_UPPER_CLIPS,
+  // RANGER_CROSSBOW_CLIPS). The upper cycle keeps the cycle's roles with `.upper`; the contacts are the releases.
+  Bow_Aim_Upper_Loop: { role: "bow.aim.upper" },
+  Bow_Draw_Upper: { role: "bow.draw.upper" },
+  Bow_Hold_Upper_Loop: { role: "bow.hold.upper" },
+  Bow_Release_Upper: { role: "bow.release.upper", contact: "hand_r" },
+  Bow_Recovery_Upper: { role: "bow.recovery.upper" },
+  Bow_Cancel_Upper: { role: "bow.cancel.upper" },
+  Bow_Rapid_Release: { role: "bow.rapid-release", contact: "hand_r" },
+  Bow_Power_Draw: { role: "bow.power-draw" },
+  Crossbow_Idle_Loop: { role: "crossbow.idle" },
+  Crossbow_Aim_Loop: { role: "crossbow.aim" },
+  Crossbow_Fire: { role: "crossbow.fire", contact: "hand_r" },
+  Crossbow_Reload: { role: "crossbow.reload" },
 };
 /** The gait loops whose ground speed the `humanoid-clips` attachment records. */
 export const RANGER_GAITS: ReadonlySet<string> = new Set(["Walk_Loop", "Jog_Fwd_Loop", "Sprint_Loop", "Crouch_Fwd_Loop", "Jog_Bwd_Loop", "Walk_Bwd_Loop", "Wade_Fwd_Loop"]);
