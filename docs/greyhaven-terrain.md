@@ -19,12 +19,12 @@ The `greyhaven-terrain` rolling release (`greyhaven.terrain.tar`) supplies the g
 Each key has variant `default`, a glTF with one mesh: a 1 m × 1 m quad on the XZ plane facing +Y with `POSITION`, `NORMAL`, `TEXCOORD_0` (0..1, u along +X, v along +Z) and `TANGENT` (+X, w = 1). Its one material is named after the layer (`grass`, `forest`, …):
 
 - `pbrMetallicRoughness.baseColorTexture`: RGBA PNG, 1024². RGB is the Poly Haven colour (sRGB). A encodes height: `round(255 × (0.5 + 0.5 × h))`, where h is the `disp` map normalised so its 1st percentile maps to 0 and its 99th to 1 (clamped), so alpha lies in 128..255;
-- `metallicRoughnessTexture`: PNG, 512², from `arm` (R = ambient occlusion, G = roughness, B = metal), also the `occlusionTexture` (the same image);
-- `normalTexture`: PNG, 1024², from `nor_gl` (OpenGL, +Y);
+- `metallicRoughnessTexture`: JPEG, 512², from `arm` (R = ambient occlusion, G = roughness, B = metal), also the `occlusionTexture` (the same image);
+- `normalTexture`: JPEG, 1024², from `nor_gl` (OpenGL, +Y);
 - `metallicFactor` 0, roughness factor 1 and a white base colour factor (glTF defaults, so omitted from the JSON), `alphaMode` `MASK` with `alphaCutoff` 0.5, so every texel is opaque;
 - one sampler: `REPEAT`/`REPEAT`, `LINEAR_MIPMAP_LINEAR` minification, `LINEAR` magnification.
 
-The 2K maps are downscaled by `scene.textures.resize.gltf@1` (area average; colour in linear light, normals as unit vectors).
+The 2K maps are downscaled by `scene.textures.resize.gltf@1` (area average; colour in linear light, normals as unit vectors). To keep the bundle near 30 MB, the normal and AO/roughness/metal maps are then re-encoded as 4:4:4 JPEG (FFmpeg MJPEG, qscale 2, about libjpeg quality 92); the base colour stays PNG because its alpha carries height. The base-colour PNGs are most of the size (about 3 MB each).
 
 ## Descriptor
 
