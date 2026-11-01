@@ -35,11 +35,15 @@ test("the committed Ranger descriptor declares the hand, stowed, archery, hair a
  // #418: knives, flasks and bombs are drawn from the belt into the weapon hand.
  assert.deepEqual(humanoidSocketsAccepting(d,"throwing-knife"),["hand_r.weapon","hand_l.weapon","belt.throwable"]);
  assert.deepEqual(humanoidSocketsAccepting(d,"flask"),humanoidSocketsAccepting(d,"throwing-knife"));
+ // #419: the crossbow reload's crank handle is held at the weapon grip (Grip_Crank_L).
+ assert.deepEqual(humanoidSocketsAccepting(d,"crank"),["hand_r.weapon","hand_l.weapon"]);
  // The crossbow (#389) shares the weapon grip point; its stock (+Z) runs along the weapon grip axis (+Y of hand_r.weapon).
  const crossbow=humanoidSocketMatrix(d.sockets.find(s=>s.id==="hand_r.crossbow")!),weapon=humanoidSocketMatrix(d.sockets[0]!);
  assert.deepEqual(humanoidSocketsAccepting(d,"crossbow"),["hand_r.crossbow","hand_l.crossbow"]);
  assert.ok([0,1,2].reduce((s,i)=>s+crossbow[8+i]!*weapon[4+i]!,0)>.999,"crossbow stock along the grip");
  assert.deepEqual(crossbow.slice(12,15),weapon.slice(12,15));
+ // #419: the top of the stock (+Y) faces the fingertips (hand_r +Y), so the forearm hangs under the stock.
+ assert.ok(crossbow[5]! > .9,`crossbow top ${crossbow.slice(4,7)}`);
  assert.deepEqual(humanoidSocketsAccepting(d,WEAPON_ROLES["sword.arming"]),["hand_r.weapon","hand_l.weapon","hip_l.stowed","hip_r.stowed"]);
  assert.deepEqual(humanoidSocketsAccepting(d,WEAPON_ROLES["shield.heater"]),["hand_l.shield","hand_r.shield","back.stowed"]);
  // In the hand_r frame the fingers run along +Y, the thumb side is +Z and the palm faces -X. The blade (+Y) runs

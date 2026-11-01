@@ -188,7 +188,8 @@ export function deriveHandSockets(gltf: { nodes: Record<string, any>[] }, { weap
   const back = (frame: HandFrame) => scale(frame.palm, -1);
   return [
     // #418: a throwing knife, flask or bomb is held at the weapon grip too (Grip_Knife_Pinch_R, Grip_Flask_R).
-    socket(`hand_${weaponHand}.weapon`, weapon, weapon.knuckles, back(weapon), ["one-hand-weapon", "throwing-knife", "flask"]),
+    // #419: so is a crossbow's crank handle (Grip_Crank_L).
+    socket(`hand_${weaponHand}.weapon`, weapon, weapon.knuckles, back(weapon), ["one-hand-weapon", "throwing-knife", "flask", "crank"]),
     // #379: the Arcanist's tome is held like the shield.
     socket(`hand_${shieldHand}.shield`, shield, shield.knuckles, back(shield), ["shield", "book"]),
   ];
@@ -227,16 +228,17 @@ export function deriveStaffSockets(gltf: { nodes: Record<string, any>[] }): Huma
 
 /**
  * The held crossbow sockets (#389): the hand closes round the stock's wrist, so the stock (+Z, the bolt's flight)
- * runs along the knuckle line out of the thumb side of the fist, and the top of the stock (+Y) faces the wrist, so the
- * trigger lever lies under the fingers. In the Ranger's hanging-arm idle the crossbow is carried level at the hip,
- * pointing forward with its prod across; a mirrored pair.
+ * runs along the knuckle line out of the thumb side of the fist. #419: the top of the stock (+Y) faces the fingertips,
+ * away from the wrist, so the hand holds the stock from below and the forearm hangs under it: at the shoulder the
+ * elbow drops (the crossbow clips) and the fingers curl over the stock. A mirrored pair; the left one also holds the
+ * fore-stock in the crossbow clips.
  */
 export function deriveCrossbowSockets(gltf: { nodes: Record<string, any>[] }): HumanoidSocket[] {
   const worlds = restWorlds(gltf);
   const [right, left] = (["r", "l"] as const).map((side) => {
     const frame = handFrame(worlds, side);
-    const wrist = scale(sub(frame.fingers, scale(frame.knuckles, dot(frame.fingers, frame.knuckles))), -1);
-    return socket(`hand_${side}.crossbow`, frame, unit(wrist), frame.knuckles, ["crossbow"]);
+    const fingertips = sub(frame.fingers, scale(frame.knuckles, dot(frame.fingers, frame.knuckles)));
+    return socket(`hand_${side}.crossbow`, frame, unit(fingertips), frame.knuckles, ["crossbow"]);
   });
   return [{ ...right!, mirror: left!.id }, { ...left!, mirror: right!.id }];
 }

@@ -11,7 +11,15 @@ every name in ``arguments["clips"]`` in one run (#425), from explicit archery ta
 - ``Bow_Cancel``: from full draw, the string is let down to the aim pose.
 
 The archer stands side-on: the pelvis turns 40 degrees and the chest about 85 degrees, so the left shoulder points
-at the target, and the head turns back to face it. The bow sits in the left hand through the ``hand_l.bow`` socket
+at the target, and the head turns back to face it.
+
+#419 adds the upper-body set, which keeps only the ``spine_01`` subtree so a consumer plays it over walking or running
+legs: ``Bow_Aim_Upper_Loop``, ``Bow_Draw_Upper``, ``Bow_Hold_Upper_Loop``, ``Bow_Release_Upper``,
+``Bow_Recovery_Upper`` and ``Bow_Cancel_Upper`` re-author the cycle with the pelvis and legs left in the idle and the
+pelvis's share of the turn moved into ``spine_01``-``03``; ``Bow_Rapid_Release`` draws and looses from the set string
+and is set again at its end (Rapid Fire); ``Bow_Power_Draw`` draws slowly past full draw (Aimed or Piercing Shot).
+
+The bow sits in the left hand through the ``hand_l.bow`` socket
 and the arrow's nock in the right through ``hand_r.arrow``; both arms are placed with a two-bone solve whose elbow
 hinges about the joint's local X axis. The idle clip ``Idle_Loop`` (CC0 UAL1, already on the rig) supplies the
 breathing of the loops; the one-shots use its first frame. Fingers take the grip of ``Idle_Shield_Loop`` (bow hand)
@@ -26,17 +34,31 @@ import math
 import bpy
 from mathutils import Matrix, Quaternion, Vector
 
-CLIPS = ("Bow_Aim_Loop", "Bow_Draw", "Bow_Hold_Loop", "Bow_Release", "Bow_Recovery", "Bow_Cancel")
+CYCLE = ("Bow_Aim_Loop", "Bow_Draw", "Bow_Hold_Loop", "Bow_Release", "Bow_Recovery", "Bow_Cancel")
+# #419: the cycle again for the upper body only (pelvis and legs from the idle, the whole turn in spine_01-03), and
+# the rapid and power shots, which are upper body only too. Each upper clip names the cycle clip it re-authors.
+UPPER = {"Bow_Aim_Upper_Loop": "Bow_Aim_Loop", "Bow_Draw_Upper": "Bow_Draw", "Bow_Hold_Upper_Loop": "Bow_Hold_Loop",
+         "Bow_Release_Upper": "Bow_Release", "Bow_Recovery_Upper": "Bow_Recovery", "Bow_Cancel_Upper": "Bow_Cancel",
+         "Bow_Rapid_Release": "Bow_Rapid_Release", "Bow_Power_Draw": "Bow_Power_Draw"}
+CLIPS = (*CYCLE, *UPPER)
+UPPER_ROOT = "spine_01"
 BASE = "Idle_Loop"
 FPS = 30
 # Stance, in degrees and metres (Blender world: +Z up, the character faces -Y, its left is +X).
 # The spine turns from ``spineSet`` (aim pose) to ``spineFull`` (full draw) per spine joint; neck and head turn back by
-# the total so the face stays on the target.
+# the total so the face stays on the target. The upper-body clips (#419) leave the pelvis in the idle and add
+# ``upperPelvisShare`` of its yaw to the spine, so the chest turns about 70 degrees over still hips.
 STANCE = {"pelvisYaw": -40.0, "spineSet": -5.0, "spineFull": -15.0, "headShare": .6, "headPitch": 4.0,
-          "footSpread": 1.45, "pelvisDrop": .02, "bowCant": 10.0}
+          "footSpread": 1.45, "pelvisDrop": .02, "bowCant": 10.0, "upperPelvisShare": .6}
 # The arrow's nock at full draw, from the Head joint: right (-X), forward (-Y) and up (+Z).
 ANCHOR = Vector((-.045, -.075, -.015))
-DURATIONS = {"Bow_Draw": .7, "Bow_Release": .45, "Bow_Recovery": 1.1, "Bow_Cancel": .6}
+DURATIONS = {"Bow_Draw": .7, "Bow_Release": .45, "Bow_Recovery": 1.1, "Bow_Cancel": .6, "Bow_Rapid_Release": .3333, "Bow_Power_Draw": 1.0}
+# #419 Rapid Fire: from the set string, full draw by frame 3, loosed on frame 4; the hand flies back toward the quiver
+# (``quiver`` of the way) and is on the string again, set, at the end, so the clip repeats back to back.
+RAPID = {"drawFrames": 3, "quiver": .45}
+# #419 Aimed or Piercing Shot: a slow draw past full, the nock ``deep`` metres further back and the chest turned on
+# ``twist`` of the set-to-full turn.
+POWER = {"deep": .05, "twist": 1.3}
 # Finger curl toward the palm, in degrees per joint (01, 02, 03): a fist on the bow's grip, a three-finger hook on
 # the string, and the relaxed hand after the release.
 GRIPS = {
@@ -241,8 +263,10 @@ def place_feet(rig, base_ankles, base_pelvis, yaw):
 
 
 class Archer:
-    def __init__(self, rig, arguments):
+    def __init__(self, rig, arguments, upper=False):
         self.rig = rig
+        # Upper body only (#419): the pelvis and legs keep the idle and spine_01-03 take the pelvis's share of the turn.
+        self.upper = upper
         self.args = arguments
         self.sockets = {name: socket_matrix(value) for name, value in arguments["sockets"].items()}
         self.joints = {name: value["joint"] for name, value in arguments["sockets"].items()}
@@ -262,18 +286,22 @@ class Archer:
         ankles = {side: rig.head(LEGS[side][2]) for side in LEGS}
         pelvis = rig.head("pelvis")
         up = Vector((0, 0, 1))
-        rig.turn("pelvis", up, STANCE["pelvisYaw"])
-        m = rig.joint("pelvis")
-        m.translation.z -= STANCE["pelvisDrop"]
-        rig.set_joint("pelvis", m)
         spine = STANCE["spineSet"] + (STANCE["spineFull"] - STANCE["spineSet"]) * twist
+        if self.upper:
+            spine += STANCE["pelvisYaw"] * STANCE["upperPelvisShare"] / 3
+        else:
+            rig.turn("pelvis", up, STANCE["pelvisYaw"])
+            m = rig.joint("pelvis")
+            m.translation.z -= STANCE["pelvisDrop"]
+            rig.set_joint("pelvis", m)
         for name in ("spine_01", "spine_02", "spine_03"):
             rig.turn(name, up, spine)
-        total = STANCE["pelvisYaw"] + 3 * spine
+        total = (0.0 if self.upper else STANCE["pelvisYaw"]) + 3 * spine
         rig.turn("neck_01", up, -total * (1 - STANCE["headShare"]))
         rig.turn("Head", up, -total * STANCE["headShare"])
         rig.turn("Head", Vector((1, 0, 0)), -STANCE["headPitch"])
-        place_feet(rig, ankles, pelvis, STANCE["pelvisYaw"])
+        if not self.upper:
+            place_feet(rig, ankles, pelvis, STANCE["pelvisYaw"])
 
     def aim_frames(self, bow_drop=0.0):
         """The bow frame (origin at the grip) and the full-draw nock point, for the current stance."""
@@ -316,10 +344,10 @@ class Archer:
         solve_arm(self.rig, "l", bow @ self.sockets["bow"].inverted(), Vector((.2, .3, -1)))
         self.set_fraction = self.set_draw(bow, full)
 
-    def pose(self, seconds, loop, draw, *, twist=None, release=0.0, quiver=0.0, bow_drop=0.0, hook=1.0):
+    def pose(self, seconds, loop, draw, *, twist=None, release=0.0, quiver=0.0, bow_drop=0.0, hook=1.0, deep=0.0):
         """``draw`` is 0 at the set (aim) pose and 1 at full draw, and the chest turns with it unless ``twist`` is
         given; ``release`` moves the open hand back past the anchor; ``quiver`` (0..1) takes the string hand to the
-        back quiver."""
+        back quiver; ``deep`` (metres) draws the nock past full draw."""
         rig = self.rig
         if self.arrow_roll is None:
             self.calibrate()
@@ -329,7 +357,7 @@ class Archer:
         aim = bow.col[2].xyz.normalized()
         solve_arm(rig, "l", bow @ self.sockets["bow"].inverted(), Vector((.2, .3, -1)))
         span = (full - brace)
-        pulled = brace + span * (self.set_fraction + (1 - self.set_fraction) * draw)
+        pulled = brace + span * (self.set_fraction + (1 - self.set_fraction) * draw) + deep
         nock = bow.translation - aim * pulled
         nock += -aim * .12 * release + Vector((-.05, 0, .01)) * release
         hand = self.string_hand(bow, nock, self.arrow_roll)
@@ -344,7 +372,7 @@ class Archer:
         # The arrow socket's distance behind the braced string, along the bow's draw axis (clamped at the string).
         arrow_socket = rig.joint(self.joints["arrow"]) @ self.sockets["arrow"]
         behind = (bow.inverted() @ arrow_socket.translation).z
-        return rig.capture(), max(0.0, -behind - brace) if quiver == 0 and release == 0 else 0.0
+        return rig.capture(), max(0.0, -behind - brace) if quiver < 1e-6 and release < 1e-6 else 0.0
 
     def curl(self, side, grip, weight=1.0, other=None):
         """Curl each finger toward the palm, joint by joint from the knuckle; ``weight`` blends from ``other``."""
@@ -403,6 +431,7 @@ def FPS_IMPORT():
 def author(archer, clip):
     """The poses and string draw (metres) of ``clip``, one per frame at FPS, the last frame closing a loop."""
     base = archer.base_duration
+    clip = UPPER.get(clip, clip)
     if clip in ("Bow_Aim_Loop", "Bow_Hold_Loop"):
         frames = int(round(base * FPS))
         draw = 0.0 if clip == "Bow_Aim_Loop" else 1.0
@@ -434,6 +463,25 @@ def author(archer, clip):
                                     bow_drop=4.0 * (1 - smooth(u / .5)) + 6.0 * math.sin(math.pi * u), hook=.25 + .75 * smooth((u - .5) / .4)))
             marks["arrowDrawnSeconds"] = round(.45 * duration, 4)
             marks["nockedSeconds"] = round(duration, 4)
+        elif clip == "Bow_Rapid_Release":
+            # Full draw by frame drawFrames, loosed on the next; the hand flies back toward the quiver, takes the next
+            # arrow at its furthest and comes forward onto the string, set again at the end.
+            drawn = RAPID["drawFrames"]
+            loose = (drawn + 1) / FPS
+            if k <= drawn:
+                keys.append(archer.pose(t, False, smooth(k / drawn)))
+            else:
+                s = (t - drawn / FPS) / (duration - drawn / FPS)
+                back = math.sin(math.pi * min(1.0, s))
+                keys.append(archer.pose(t, False, 1 - smooth(s), release=math.sin(min(1.0, s / .3) * math.pi / 2) * (1 - smooth(s / .9)),
+                                        quiver=RAPID["quiver"] * back, bow_drop=3.0 * back, hook=.25 + .75 * smooth((s - .5) / .5)))
+            marks["releaseSeconds"] = round(loose, 4)
+            marks["arrowDrawnSeconds"] = round(loose + .5 * (duration - loose), 4)
+            marks["nockedSeconds"] = round(duration, 4)
+        elif clip == "Bow_Power_Draw":
+            # From the set string to past full draw, slowly, the chest turning further into it.
+            w = smooth(u)
+            keys.append(archer.pose(t, False, w, twist=POWER["twist"] * w, deep=POWER["deep"] * smooth((u - .5) / .5)))
     return keys, marks
 
 
@@ -499,10 +547,13 @@ def generate(output_path, arguments, inputs):
     poses, observed = {}, {}
     for clip in arguments["clips"]:
         restore_state(rigs[0], fresh)
-        archer = Archer(Rig(rigs[0], rest_worlds), arguments)
+        archer = Archer(Rig(rigs[0], rest_worlds), arguments, upper=clip in UPPER)
         keys, marks = author(archer, clip)
         poses[clip] = [pose for pose, _ in keys]
         observed[clip] = {"frames": len(keys), "arrowRoll": archer.arrow_roll, "drawMeters": [round(draw, 4) for _, draw in keys], **marks}
+        if clip in UPPER:
+            # Upper body only: the clip keeps the spine_01 subtree (#419).
+            observed[clip].update(layer=UPPER_ROOT, joints=[UPPER_ROOT, *(b.name for b in rigs[0].data.bones[UPPER_ROOT].children_recursive)])
     write_actions(rigs[0], poses)
 
     bpy.ops.object.select_all(action="DESELECT")
