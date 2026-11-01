@@ -263,6 +263,8 @@ test("the Ranger recipe builds a verified bundle: in-place clips, equipment entr
       const frames = Math.round(byName[name].durationSeconds * 30) + 1;
       assert.ok(byName[name].contacts.length > 0, name);
       assert.equal(byName[name].secondaryPose.joints.skirt_f_01.length, frames, name);
+      // #443: past the knee the front and side panels hang plumb.
+      for (const joint of ["skirt_f_03", "skirt_l_02", "skirt_r_02"]) assert.equal(byName[name].secondaryPose.joints[joint].length, frames, `${name} ${joint}`);
     }
     // #417: each slash names its aim cell; the strikes record their contact; the guard lanes loop.
     assert.deepEqual(byName.Sword_Slash_High_L.aim, { height: "high", side: "left" });
@@ -304,7 +306,10 @@ test("the Ranger recipe builds a verified bundle: in-place clips, equipment entr
     }
     assert.ok(byName.Cast_Channel_Beam_Loop.loop && byName.Cast_Channel_Beam_Loop.cast.channelJoint === "hand_r" && byName.Cast_Channel_Beam_Loop.cast.channelPoint.length === 3);
     assert.equal(byName.Cast_Release_Push.cast.startsFrom, "Cast_Charge_Loop");
-    assert.equal(byName.Cast_Summon_Raise.secondaryPose.joints.skirt_f_01.length, Math.round(byName.Cast_Summon_Raise.durationSeconds * 30) + 1);
+    // #443: the respawn kneel records the chain pose too.
+    for (const name of ["Cast_Summon_Raise", "Respawn_Rise"]) {
+      assert.equal(byName[name].secondaryPose.joints.skirt_f_01.length, Math.round(byName[name].durationSeconds * 30) + 1, name);
+    }
     // Gaits get faster from crouch to sprint; the root-motion variants record the travel in-place removed.
     const speeds = ["Crouch_Fwd_Loop", "Walk_Loop", "Jog_Fwd_Loop", "Sprint_Loop"].map((name) => byName[name].groundSpeedMetersPerSecond);
     assert.ok(speeds[0] > 0.3 && speeds.every((speed: number, index: number) => index === 0 || speed > speeds[index - 1]), `gait speeds ${speeds}`);

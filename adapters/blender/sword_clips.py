@@ -102,7 +102,12 @@ CHARGE = {"duration": .6, "pitch": 16, "shield": {"g": (.05, -.42, 1.24), "f": (
           "sword": {"g": (-.3, .16, 1.0), "b": (-.05, .55, .85), "e": (0, -1, .3)}}
 IMPACT = {"duration": .5, "hit": .2, "settle": .55}
 STUN = {"duration": 1.5, "drop": .05, "sway": (.03, .02), "roll": 7.0, "pitch": 12.0, "head": 16.0}
-RISE = {"duration": 1.5, "kneel": .44, "bow": 26.0, "start": .22, "end": .88}
+RISE = {"duration": 1.5, "kneel": .4, "step": .5, "bow": 26.0, "start": .22, "end": .88}
+# The #391 chain pose Respawn_Rise records (#443), as the cast kneel (adapters/blender/cast_clips.py): the panels
+# follow the thighs, and below the knee the front and side panels hang plumb.
+CAPE = "cape_01"
+SWING = {"share": .7, "front": 70.0, "sideShare": .8, "side": 75.0, "back": 20.0}
+BACK = Vector((0, 1, 0))
 WHIRL = {"duration": 1.2, "wind": (0, .34), "spin": (.38, .78), "back": (.8, 1.0), "windup": 42.0, "crouch": .08, "lift": .06,
          "steps": {"r": ((.4, .55), (.6, .74)), "l": ((.48, .64), (.68, .8))}}
 SMASH = {"duration": 1.4, "join": .14, "raise": (.04, .5), "hold": .6, "hit": (.6, .7), "recover": (.82, 1.0), "drop": .18}
@@ -182,6 +187,7 @@ class Rig:
         self.rig = rig
         self.bones = rig.pose.bones
         self.rest = {b.name: b.matrix_local.copy() for b in rig.data.bones}
+        self.rest_gltf = rest_gltf
         # The socket frame in each hand bone's frame: the grip frame in armature space is the bone matrix times this.
         self.socket = {}
         for name, s in sockets.items():
@@ -587,13 +593,15 @@ def stun_loop(rig, stand):
 
 
 def respawn_rise(rig, stand):
-    """From kneeling on the right knee, head bowed, to the standing pose."""
+    """From kneeling on the right knee, head bowed, to the standing pose, with the #391 chain pose (``secondaryPose``).
+    The left foot steps ``step`` forward, so the front thigh slopes down to the knee and the robe or tabard stays over
+    the shin (#443)."""
     rig.apply(stand)
     feet = feet_of(rig)
     frames = int(round(RISE["duration"] * FPS))
     left_ankle, left_matrix, _ = feet["l"]
     right_ankle, right_matrix, _ = feet["r"]
-    poses = []
+    poses, chains = [], {}
     for k in range(frames + 1):
         u = k / frames
         up = window(u, RISE["start"], RISE["end"])
@@ -602,7 +610,7 @@ def respawn_rise(rig, stand):
         rig.apply(stand)
         move_pelvis(rig, Vector((0, .1 * down, -RISE["kneel"] * down + breath)))
         # The left foot steps forward to kneel on; the right knee rests on the ground, its toes tucked.
-        la = left_ankle + Vector((0, -.26, 0)) * window(down, .0, .6)
+        la = left_ankle + Vector((0, -RISE["step"], 0)) * window(down, .0, .6)
         ra = right_ankle + Vector((0, .3, .06)) * window(down, .2, 1.0)
         plant_feet(rig, {"l": (la, left_matrix, Vector((0, -1, .2))), "r": (ra, right_matrix, Vector((0, -.6, -1)))})
         if down > 1e-3:
@@ -612,7 +620,52 @@ def respawn_rise(rig, stand):
         for side in "lr":
             rotate_world(rig, f"upperarm_{side}", X, -14 * window(down, .2, 1.0))
         poses.append(rig.capture())
-    return poses, {"kneelSeconds": round(RISE["start"] * RISE["duration"], 4)}
+        for joint, rotation in secondary(rig).items():
+            chains.setdefault(joint, []).append(rotation)
+    return poses, {"kneelSeconds": round(RISE["start"] * RISE["duration"], 4), "secondaryPose": {"sampleRate": FPS, "joints": chains}}
+
+
+def secondary(rig):
+    """The #391 chain pose of this frame (as adapters/blender/cast_clips.py): per chain joint it keys, its local
+    rotation (glTF xyzw) under its parent (``pelvis``, ``spine_03`` for ``cape_01``, the joint above for the plumb
+    joints). The front panel rides the higher thigh, each side panel follows its own thigh out and forward, and past
+    the knee both hang plumb over the shin; the back panel and the cape hang but never pass into the legs or the back."""
+    down = Vector((0, 0, -1))
+    thigh = {s: (rig.bones[LEGS[s][1]].head - rig.bones[LEGS[s][0]].head).normalized() for s in "lr"}
+    lift = {s: math.degrees(math.atan2(max(0.0, -thigh[s].y), max(1e-6, -thigh[s].z))) if thigh[s].z < 0 else 90.0 for s in "lr"}
+    reach = max(0.0, *(math.degrees(math.asin(max(0.0, min(1.0, thigh[s].y)))) for s in "lr"))
+    turn = lambda degrees: Matrix.Rotation(math.radians(degrees), 3, X) @ down
+
+    def toward(direction, share, limit):
+        angle = min(limit, share * math.degrees(down.angle(direction)))
+        axis = down.cross(direction)
+        return Matrix.Rotation(math.radians(angle), 3, axis.normalized()) @ down if axis.length > 1e-6 else down
+
+    directions = {
+        "skirt_f_01": turn(-min(SWING["front"], SWING["share"] * max(lift.values()))),
+        "skirt_b_01": turn(min(SWING["back"], SWING["share"] * reach)),
+        "skirt_l_01": toward(thigh["l"], SWING["sideShare"], SWING["side"]),
+        "skirt_r_01": toward(thigh["r"], SWING["sideShare"], SWING["side"]),
+    }
+    spine = rig.bones["spine_03"].matrix.to_3x3()
+    back = (spine @ rig.rest["spine_03"].to_3x3().inverted() @ BACK).normalized()
+    cape = down.copy()
+    if cape.dot(back) < .1:
+        cape = (cape + back * (.1 - cape.dot(back))).normalized()
+    directions[CAPE] = cape
+    gltf = lambda m: C4.to_3x3().inverted() @ m @ C4.to_3x3()
+    out, swings = {}, {}
+    for joint, direction in directions.items():
+        parent = "spine_03" if joint == CAPE else "pelvis"
+        delta = (rig.bones[parent].matrix.to_3x3() @ rig.rest[parent].to_3x3().inverted())
+        parent_world = gltf(delta) @ rig.rest_gltf[parent].to_3x3()
+        swings[joint] = gltf(down.rotation_difference(direction).to_matrix())
+        out[joint] = (parent_world.inverted() @ swings[joint]).to_quaternion()
+    # The chain joints rest with no rotation in the world, so a joint hanging plumb under a turned first joint (the
+    # joints between keep its turn) takes its inverse turn: the front panel from its third joint, past the knee.
+    for joint in ("skirt_f_03", "skirt_l_02", "skirt_r_02"):
+        out[joint] = swings[joint[:-2] + "01"].inverted().to_quaternion()
+    return {joint: [round(q.x, 5), round(q.y, 5), round(q.z, 5), round(q.w, 5)] for joint, q in out.items()}
 
 
 def whirl(rig, seed):

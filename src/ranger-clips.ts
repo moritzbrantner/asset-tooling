@@ -259,12 +259,14 @@ export const RANGER_CLIP_FAMILIES: readonly ClipFamily[] = [
       return { schemaVersion: 1, clips: [...RANGER_SWORD_CLIPS], sockets: { weapon: at("hand_r.weapon"), shield: at("hand_l.shield") } };
     },
     clip: (name, family) => {
-      // The upper-body clips list their joints; a slash's aim cell goes to the clip's entry.
-      const { joints, aim, source, ...observed } = family.clips[name] as Json;
+      // The upper-body clips list their joints; a slash's aim cell and the respawn kneel's chain pose go to the clip's
+      // entry.
+      const { joints, aim, source, secondaryPose, ...observed } = family.clips[name] as Json;
+      const fields = { ...(aim ? { aim } : {}), ...(secondaryPose ? { secondaryPose } : {}) };
       return {
         ...(joints ? { keep: joints as string[] } : {}),
         authored: { recipe: family.recipe, clip: name, fps: family.fps, ...observed }, basedOn: source as string,
-        ...(aim ? { extra: { fields: { aim } } } : {}),
+        ...(Object.keys(fields).length ? { extra: { fields } } : {}),
       };
     },
   },
