@@ -140,6 +140,7 @@
   "packageManager": "bun@1.4.4",
   "dependencies": {
     "@gltf-transform/core": "4.5.1",
+    "@gltf-transform/extensions": "4.5.1",
     "@mapbox/vector-tile": "2.0.5",
     "gltf-validator": "2.0.0-dev.3.10",
     "p-limit": "7.3.3",
@@ -147,7 +148,6 @@
     "pmtiles": "4.5.0"
   },
   "devDependencies": {
-    "@gltf-transform/extensions": "4.5.1",
     "@gltf-transform/functions": "4.5.1",
     "@playwright/test": "1.64.1",
     "@types/node": "24.19.2",
