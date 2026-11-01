@@ -1122,6 +1122,174 @@
       "sourceId": "poly-haven.old-planks-02-rough-2k-jpg",
       "storage": "git-lfs",
       "path": "assets/canonical/poly-haven.old-planks-02-rough-2k-jpg/old_planks_02_rough_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.forrest-ground-01-diff-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.forrest-ground-01-diff-2k-jpg/forrest_ground_01_diff_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.forrest-ground-01-nor-gl-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.forrest-ground-01-nor-gl-2k-jpg/forrest_ground_01_nor_gl_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.forrest-ground-01-arm-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.forrest-ground-01-arm-2k-jpg/forrest_ground_01_arm_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.forrest-ground-01-disp-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.forrest-ground-01-disp-2k-jpg/forrest_ground_01_disp_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.forest-leaves-02-diff-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.forest-leaves-02-diff-2k-jpg/forest_leaves_02_diffuse_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.forest-leaves-02-nor-gl-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.forest-leaves-02-nor-gl-2k-jpg/forest_leaves_02_nor_gl_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.forest-leaves-02-arm-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.forest-leaves-02-arm-2k-jpg/forest_leaves_02_arm_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.forest-leaves-02-disp-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.forest-leaves-02-disp-2k-jpg/forest_leaves_02_disp_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.rocky-trail-diff-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.rocky-trail-diff-2k-jpg/rocky_trail_diff_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.rocky-trail-nor-gl-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.rocky-trail-nor-gl-2k-jpg/rocky_trail_nor_gl_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.rocky-trail-arm-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.rocky-trail-arm-2k-jpg/rocky_trail_arm_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.rocky-trail-disp-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.rocky-trail-disp-2k-jpg/rocky_trail_disp_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.rocks-ground-02-diff-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.rocks-ground-02-diff-2k-jpg/rocks_ground_02_col_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.rocks-ground-02-nor-gl-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.rocks-ground-02-nor-gl-2k-jpg/rocks_ground_02_nor_gl_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.rocks-ground-02-arm-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.rocks-ground-02-arm-2k-jpg/rocks_ground_02_arm_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.rocks-ground-02-disp-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.rocks-ground-02-disp-2k-jpg/rocks_ground_02_height_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.rock-face-03-diff-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.rock-face-03-diff-2k-jpg/rock_face_03_diff_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.rock-face-03-nor-gl-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.rock-face-03-nor-gl-2k-jpg/rock_face_03_nor_gl_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.rock-face-03-arm-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.rock-face-03-arm-2k-jpg/rock_face_03_arm_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.rock-face-03-disp-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.rock-face-03-disp-2k-jpg/rock_face_03_disp_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.brown-mud-02-diff-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.brown-mud-02-diff-2k-jpg/brown_mud_02_diff_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.brown-mud-02-nor-gl-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.brown-mud-02-nor-gl-2k-jpg/brown_mud_02_nor_gl_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.brown-mud-02-arm-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.brown-mud-02-arm-2k-jpg/brown_mud_02_arm_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.brown-mud-02-disp-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.brown-mud-02-disp-2k-jpg/brown_mud_02_disp_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.sand-01-diff-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.sand-01-diff-2k-jpg/sand_01_diff_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.sand-01-nor-gl-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.sand-01-nor-gl-2k-jpg/sand_01_nor_gl_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.sand-01-arm-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.sand-01-arm-2k-jpg/sand_01_arm_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.sand-01-disp-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.sand-01-disp-2k-jpg/sand_01_disp_2k.jpg"
     }
   ]
 }

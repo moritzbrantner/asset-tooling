@@ -5809,6 +5809,846 @@
         "texture"
       ],
       "title": "Old Planks 02 — 2K Roughness"
+    },
+    {
+      "id": "poly-haven.forrest-ground-01-diff-2k-jpg",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://polyhaven.com/a/forrest_ground_01",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/jpeg",
+      "metadata": {
+        "author": "Rob Tuytel",
+        "purpose": "Greyhaven terrain 'grass' ground layer colour (RGB of the base-colour texture) (mmorpg#525)",
+        "resolution": "2K"
+      },
+      "provider": "poly-haven",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 3077552,
+        "path": "forrest_ground_01_diff_2k.jpg",
+        "revision": "2k-jpg-diff",
+        "sha256": "e4d557ff61a0b42712a58e8a2e91c6010738977d4e172b7af47abd7d406ae735",
+        "upstreamId": "forrest_ground_01",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/forrest_ground_01/forrest_ground_01_diff_2k.jpg"
+      },
+      "tags": [
+        "greyhaven-terrain",
+        "ground",
+        "texture"
+      ],
+      "title": "Forest Ground 01 — 2K Color"
+    },
+    {
+      "id": "poly-haven.forrest-ground-01-nor-gl-2k-jpg",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://polyhaven.com/a/forrest_ground_01",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/jpeg",
+      "metadata": {
+        "author": "Rob Tuytel",
+        "purpose": "Greyhaven terrain 'grass' ground layer OpenGL normal map (mmorpg#525)",
+        "resolution": "2K"
+      },
+      "provider": "poly-haven",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 5551101,
+        "path": "forrest_ground_01_nor_gl_2k.jpg",
+        "revision": "2k-jpg-nor-gl",
+        "sha256": "aa23fa930c6303490f842f7c016c19d838263e8e4538d42508a9332e3fd76b69",
+        "upstreamId": "forrest_ground_01",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/forrest_ground_01/forrest_ground_01_nor_gl_2k.jpg"
+      },
+      "tags": [
+        "greyhaven-terrain",
+        "ground",
+        "texture"
+      ],
+      "title": "Forest Ground 01 — 2K Normal (GL)"
+    },
+    {
+      "id": "poly-haven.forrest-ground-01-arm-2k-jpg",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://polyhaven.com/a/forrest_ground_01",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/jpeg",
+      "metadata": {
+        "author": "Rob Tuytel",
+        "purpose": "Greyhaven terrain 'grass' ground layer AO/roughness/metal map (metallicRoughness and occlusion texture) (mmorpg#525)",
+        "resolution": "2K"
+      },
+      "provider": "poly-haven",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 1160819,
+        "path": "forrest_ground_01_arm_2k.jpg",
+        "revision": "2k-jpg-arm",
+        "sha256": "abc91717bc60c831f2cd86ad06a5c575ac0e5bd11870b1e7b6dcefc122fc64db",
+        "upstreamId": "forrest_ground_01",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/forrest_ground_01/forrest_ground_01_arm_2k.jpg"
+      },
+      "tags": [
+        "greyhaven-terrain",
+        "ground",
+        "texture"
+      ],
+      "title": "Forest Ground 01 — 2K AO/Roughness/Metal"
+    },
+    {
+      "id": "poly-haven.forrest-ground-01-disp-2k-jpg",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://polyhaven.com/a/forrest_ground_01",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/jpeg",
+      "metadata": {
+        "author": "Rob Tuytel",
+        "purpose": "Greyhaven terrain 'grass' ground layer height (alpha of the base-colour texture) (mmorpg#525)",
+        "resolution": "2K"
+      },
+      "provider": "poly-haven",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 1036491,
+        "path": "forrest_ground_01_disp_2k.jpg",
+        "revision": "2k-jpg-disp",
+        "sha256": "1d5c63d39e67af44e96cc9d5752273982bc5c82c9855695dada4abc2fc20575d",
+        "upstreamId": "forrest_ground_01",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/forrest_ground_01/forrest_ground_01_disp_2k.jpg"
+      },
+      "tags": [
+        "greyhaven-terrain",
+        "ground",
+        "texture"
+      ],
+      "title": "Forest Ground 01 — 2K Displacement"
+    },
+    {
+      "id": "poly-haven.forest-leaves-02-diff-2k-jpg",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://polyhaven.com/a/forest_leaves_02",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/jpeg",
+      "metadata": {
+        "author": "Rob Tuytel",
+        "purpose": "Greyhaven terrain 'forest' ground layer colour (RGB of the base-colour texture) (mmorpg#525)",
+        "resolution": "2K"
+      },
+      "provider": "poly-haven",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 1668009,
+        "path": "forest_leaves_02_diffuse_2k.jpg",
+        "revision": "2k-jpg-diff",
+        "sha256": "9c38b2b151a0415457a6914966422cfca5a546c94674442e5395e0b1e908a196",
+        "upstreamId": "forest_leaves_02",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/forest_leaves_02/forest_leaves_02_diffuse_2k.jpg"
+      },
+      "tags": [
+        "greyhaven-terrain",
+        "ground",
+        "texture"
+      ],
+      "title": "Forest Leaves 02 — 2K Color"
+    },
+    {
+      "id": "poly-haven.forest-leaves-02-nor-gl-2k-jpg",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://polyhaven.com/a/forest_leaves_02",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/jpeg",
+      "metadata": {
+        "author": "Rob Tuytel",
+        "purpose": "Greyhaven terrain 'forest' ground layer OpenGL normal map (mmorpg#525)",
+        "resolution": "2K"
+      },
+      "provider": "poly-haven",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 2323898,
+        "path": "forest_leaves_02_nor_gl_2k.jpg",
+        "revision": "2k-jpg-nor-gl",
+        "sha256": "af0346114834c347a8d6a138f6ea16a97b0bec8d6e4db32c24f1c7e482163235",
+        "upstreamId": "forest_leaves_02",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/forest_leaves_02/forest_leaves_02_nor_gl_2k.jpg"
+      },
+      "tags": [
+        "greyhaven-terrain",
+        "ground",
+        "texture"
+      ],
+      "title": "Forest Leaves 02 — 2K Normal (GL)"
+    },
+    {
+      "id": "poly-haven.forest-leaves-02-arm-2k-jpg",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://polyhaven.com/a/forest_leaves_02",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/jpeg",
+      "metadata": {
+        "author": "Rob Tuytel",
+        "purpose": "Greyhaven terrain 'forest' ground layer AO/roughness/metal map (metallicRoughness and occlusion texture) (mmorpg#525)",
+        "resolution": "2K"
+      },
+      "provider": "poly-haven",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 1066850,
+        "path": "forest_leaves_02_arm_2k.jpg",
+        "revision": "2k-jpg-arm",
+        "sha256": "d8423b522d86285e26036d27fc51f4db7b8c6716b1558deb4575b288e14c28b7",
+        "upstreamId": "forest_leaves_02",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/forest_leaves_02/forest_leaves_02_arm_2k.jpg"
+      },
+      "tags": [
+        "greyhaven-terrain",
+        "ground",
+        "texture"
+      ],
+      "title": "Forest Leaves 02 — 2K AO/Roughness/Metal"
+    },
+    {
+      "id": "poly-haven.forest-leaves-02-disp-2k-jpg",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://polyhaven.com/a/forest_leaves_02",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/jpeg",
+      "metadata": {
+        "author": "Rob Tuytel",
+        "purpose": "Greyhaven terrain 'forest' ground layer height (alpha of the base-colour texture) (mmorpg#525)",
+        "resolution": "2K"
+      },
+      "provider": "poly-haven",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 332158,
+        "path": "forest_leaves_02_disp_2k.jpg",
+        "revision": "2k-jpg-disp",
+        "sha256": "0e3e244b3e3cfd4910762515e7d723b50abe1c7b72b456b3e39e9029eeb5defe",
+        "upstreamId": "forest_leaves_02",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/forest_leaves_02/forest_leaves_02_disp_2k.jpg"
+      },
+      "tags": [
+        "greyhaven-terrain",
+        "ground",
+        "texture"
+      ],
+      "title": "Forest Leaves 02 — 2K Displacement"
+    },
+    {
+      "id": "poly-haven.rocky-trail-diff-2k-jpg",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://polyhaven.com/a/rocky_trail",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/jpeg",
+      "metadata": {
+        "author": "Amal Kumar",
+        "purpose": "Greyhaven terrain 'path' ground layer colour (RGB of the base-colour texture) (mmorpg#525)",
+        "resolution": "2K"
+      },
+      "provider": "poly-haven",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 4208713,
+        "path": "rocky_trail_diff_2k.jpg",
+        "revision": "2k-jpg-diff",
+        "sha256": "5434c6377a0b74be356c6f1f0a13842a38111a3dcec9934bf74f7c6f6396c54b",
+        "upstreamId": "rocky_trail",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/rocky_trail/rocky_trail_diff_2k.jpg"
+      },
+      "tags": [
+        "greyhaven-terrain",
+        "ground",
+        "texture"
+      ],
+      "title": "Rocky Trail — 2K Color"
+    },
+    {
+      "id": "poly-haven.rocky-trail-nor-gl-2k-jpg",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://polyhaven.com/a/rocky_trail",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/jpeg",
+      "metadata": {
+        "author": "Amal Kumar",
+        "purpose": "Greyhaven terrain 'path' ground layer OpenGL normal map (mmorpg#525)",
+        "resolution": "2K"
+      },
+      "provider": "poly-haven",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 5525906,
+        "path": "rocky_trail_nor_gl_2k.jpg",
+        "revision": "2k-jpg-nor-gl",
+        "sha256": "c8783873d83d7a14cb339332ddf59ee7ee31c68c4cd72770e2f673402755c93c",
+        "upstreamId": "rocky_trail",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/rocky_trail/rocky_trail_nor_gl_2k.jpg"
+      },
+      "tags": [
+        "greyhaven-terrain",
+        "ground",
+        "texture"
+      ],
+      "title": "Rocky Trail — 2K Normal (GL)"
+    },
+    {
+      "id": "poly-haven.rocky-trail-arm-2k-jpg",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://polyhaven.com/a/rocky_trail",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/jpeg",
+      "metadata": {
+        "author": "Amal Kumar",
+        "purpose": "Greyhaven terrain 'path' ground layer AO/roughness/metal map (metallicRoughness and occlusion texture) (mmorpg#525)",
+        "resolution": "2K"
+      },
+      "provider": "poly-haven",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 3986946,
+        "path": "rocky_trail_arm_2k.jpg",
+        "revision": "2k-jpg-arm",
+        "sha256": "cb3ec682ee4fc1d95b6d0a05dadcb03a0438f73ed0d7bb55b205c2c84d29dbef",
+        "upstreamId": "rocky_trail",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/rocky_trail/rocky_trail_arm_2k.jpg"
+      },
+      "tags": [
+        "greyhaven-terrain",
+        "ground",
+        "texture"
+      ],
+      "title": "Rocky Trail — 2K AO/Roughness/Metal"
+    },
+    {
+      "id": "poly-haven.rocky-trail-disp-2k-jpg",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://polyhaven.com/a/rocky_trail",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/jpeg",
+      "metadata": {
+        "author": "Amal Kumar",
+        "purpose": "Greyhaven terrain 'path' ground layer height (alpha of the base-colour texture) (mmorpg#525)",
+        "resolution": "2K"
+      },
+      "provider": "poly-haven",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 1244065,
+        "path": "rocky_trail_disp_2k.jpg",
+        "revision": "2k-jpg-disp",
+        "sha256": "965df3124aa534c25ea13d3e652e64c25897d13361e91914bddd845b0a768bcb",
+        "upstreamId": "rocky_trail",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/rocky_trail/rocky_trail_disp_2k.jpg"
+      },
+      "tags": [
+        "greyhaven-terrain",
+        "ground",
+        "texture"
+      ],
+      "title": "Rocky Trail — 2K Displacement"
+    },
+    {
+      "id": "poly-haven.rocks-ground-02-diff-2k-jpg",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://polyhaven.com/a/rocks_ground_02",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/jpeg",
+      "metadata": {
+        "author": "Rob Tuytel",
+        "purpose": "Greyhaven terrain 'gravel' ground layer colour (RGB of the base-colour texture) (mmorpg#525)",
+        "resolution": "2K"
+      },
+      "provider": "poly-haven",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 3224700,
+        "path": "rocks_ground_02_col_2k.jpg",
+        "revision": "2k-jpg-diff",
+        "sha256": "a2a4fc4e10a307ca6e345e0df50d6115ba1058174de915bfcfdd5ff3f49dc2fa",
+        "upstreamId": "rocks_ground_02",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/rocks_ground_02/rocks_ground_02_col_2k.jpg"
+      },
+      "tags": [
+        "greyhaven-terrain",
+        "ground",
+        "texture"
+      ],
+      "title": "Rocks Ground 02 — 2K Color"
+    },
+    {
+      "id": "poly-haven.rocks-ground-02-nor-gl-2k-jpg",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://polyhaven.com/a/rocks_ground_02",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/jpeg",
+      "metadata": {
+        "author": "Rob Tuytel",
+        "purpose": "Greyhaven terrain 'gravel' ground layer OpenGL normal map (mmorpg#525)",
+        "resolution": "2K"
+      },
+      "provider": "poly-haven",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 5387529,
+        "path": "rocks_ground_02_nor_gl_2k.jpg",
+        "revision": "2k-jpg-nor-gl",
+        "sha256": "bde35636a0c548e57006917287e067d11abf3bfac2d70373162deb171ca9a4ef",
+        "upstreamId": "rocks_ground_02",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/rocks_ground_02/rocks_ground_02_nor_gl_2k.jpg"
+      },
+      "tags": [
+        "greyhaven-terrain",
+        "ground",
+        "texture"
+      ],
+      "title": "Rocks Ground 02 — 2K Normal (GL)"
+    },
+    {
+      "id": "poly-haven.rocks-ground-02-arm-2k-jpg",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://polyhaven.com/a/rocks_ground_02",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/jpeg",
+      "metadata": {
+        "author": "Rob Tuytel",
+        "purpose": "Greyhaven terrain 'gravel' ground layer AO/roughness/metal map (metallicRoughness and occlusion texture) (mmorpg#525)",
+        "resolution": "2K"
+      },
+      "provider": "poly-haven",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 1098966,
+        "path": "rocks_ground_02_arm_2k.jpg",
+        "revision": "2k-jpg-arm",
+        "sha256": "dc327dd84c9526d8accb821bedc5d38cf573ae208737639037359d0f29246ea1",
+        "upstreamId": "rocks_ground_02",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/rocks_ground_02/rocks_ground_02_arm_2k.jpg"
+      },
+      "tags": [
+        "greyhaven-terrain",
+        "ground",
+        "texture"
+      ],
+      "title": "Rocks Ground 02 — 2K AO/Roughness/Metal"
+    },
+    {
+      "id": "poly-haven.rocks-ground-02-disp-2k-jpg",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://polyhaven.com/a/rocks_ground_02",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/jpeg",
+      "metadata": {
+        "author": "Rob Tuytel",
+        "purpose": "Greyhaven terrain 'gravel' ground layer height (alpha of the base-colour texture) (mmorpg#525)",
+        "resolution": "2K"
+      },
+      "provider": "poly-haven",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 452171,
+        "path": "rocks_ground_02_height_2k.jpg",
+        "revision": "2k-jpg-disp",
+        "sha256": "c0051e07e1a0684d9d0d88a02e8e42d77e1fb85e46e3b78636ee212a9a4d0759",
+        "upstreamId": "rocks_ground_02",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/rocks_ground_02/rocks_ground_02_height_2k.jpg"
+      },
+      "tags": [
+        "greyhaven-terrain",
+        "ground",
+        "texture"
+      ],
+      "title": "Rocks Ground 02 — 2K Displacement"
+    },
+    {
+      "id": "poly-haven.rock-face-03-diff-2k-jpg",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://polyhaven.com/a/rock_face_03",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/jpeg",
+      "metadata": {
+        "author": "Dario Barresi, Rico Cilliers",
+        "purpose": "Greyhaven terrain 'rock' ground layer colour (RGB of the base-colour texture) (mmorpg#525)",
+        "resolution": "2K"
+      },
+      "provider": "poly-haven",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 3814362,
+        "path": "rock_face_03_diff_2k.jpg",
+        "revision": "2k-jpg-diff",
+        "sha256": "644ee79df7ffbf5f6afc330b64dd3f33794bab8820915fe61ffe0c88ecfd7ece",
+        "upstreamId": "rock_face_03",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/rock_face_03/rock_face_03_diff_2k.jpg"
+      },
+      "tags": [
+        "greyhaven-terrain",
+        "ground",
+        "texture"
+      ],
+      "title": "Rock Face 03 — 2K Color"
+    },
+    {
+      "id": "poly-haven.rock-face-03-nor-gl-2k-jpg",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://polyhaven.com/a/rock_face_03",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/jpeg",
+      "metadata": {
+        "author": "Dario Barresi, Rico Cilliers",
+        "purpose": "Greyhaven terrain 'rock' ground layer OpenGL normal map (mmorpg#525)",
+        "resolution": "2K"
+      },
+      "provider": "poly-haven",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 4473242,
+        "path": "rock_face_03_nor_gl_2k.jpg",
+        "revision": "2k-jpg-nor-gl",
+        "sha256": "a498cef4ba6191f6959b6d03fb835263c77271948264a289af24497ab7111dec",
+        "upstreamId": "rock_face_03",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/rock_face_03/rock_face_03_nor_gl_2k.jpg"
+      },
+      "tags": [
+        "greyhaven-terrain",
+        "ground",
+        "texture"
+      ],
+      "title": "Rock Face 03 — 2K Normal (GL)"
+    },
+    {
+      "id": "poly-haven.rock-face-03-arm-2k-jpg",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://polyhaven.com/a/rock_face_03",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/jpeg",
+      "metadata": {
+        "author": "Dario Barresi, Rico Cilliers",
+        "purpose": "Greyhaven terrain 'rock' ground layer AO/roughness/metal map (metallicRoughness and occlusion texture) (mmorpg#525)",
+        "resolution": "2K"
+      },
+      "provider": "poly-haven",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 3215097,
+        "path": "rock_face_03_arm_2k.jpg",
+        "revision": "2k-jpg-arm",
+        "sha256": "1921303981d12bccf72dd29d8a8daf823f1d9bb60400b447c64757203c1e2dad",
+        "upstreamId": "rock_face_03",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/rock_face_03/rock_face_03_arm_2k.jpg"
+      },
+      "tags": [
+        "greyhaven-terrain",
+        "ground",
+        "texture"
+      ],
+      "title": "Rock Face 03 — 2K AO/Roughness/Metal"
+    },
+    {
+      "id": "poly-haven.rock-face-03-disp-2k-jpg",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://polyhaven.com/a/rock_face_03",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/jpeg",
+      "metadata": {
+        "author": "Dario Barresi, Rico Cilliers",
+        "purpose": "Greyhaven terrain 'rock' ground layer height (alpha of the base-colour texture) (mmorpg#525)",
+        "resolution": "2K"
+      },
+      "provider": "poly-haven",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 798149,
+        "path": "rock_face_03_disp_2k.jpg",
+        "revision": "2k-jpg-disp",
+        "sha256": "5d24ec5a7f4f7333bcf9c158f63d0059d9a3ba234eeff7570a5f6cf2f4522cd5",
+        "upstreamId": "rock_face_03",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/rock_face_03/rock_face_03_disp_2k.jpg"
+      },
+      "tags": [
+        "greyhaven-terrain",
+        "ground",
+        "texture"
+      ],
+      "title": "Rock Face 03 — 2K Displacement"
+    },
+    {
+      "id": "poly-haven.brown-mud-02-diff-2k-jpg",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://polyhaven.com/a/brown_mud_02",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/jpeg",
+      "metadata": {
+        "author": "Rob Tuytel",
+        "purpose": "Greyhaven terrain 'mud' ground layer colour (RGB of the base-colour texture) (mmorpg#525)",
+        "resolution": "2K"
+      },
+      "provider": "poly-haven",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 2163682,
+        "path": "brown_mud_02_diff_2k.jpg",
+        "revision": "2k-jpg-diff",
+        "sha256": "5c735b1df784ab1990f4e209c55d27fa4e7a19508e40484ed5aa783266783726",
+        "upstreamId": "brown_mud_02",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/brown_mud_02/brown_mud_02_diff_2k.jpg"
+      },
+      "tags": [
+        "greyhaven-terrain",
+        "ground",
+        "texture"
+      ],
+      "title": "Brown Mud 02 — 2K Color"
+    },
+    {
+      "id": "poly-haven.brown-mud-02-nor-gl-2k-jpg",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://polyhaven.com/a/brown_mud_02",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/jpeg",
+      "metadata": {
+        "author": "Rob Tuytel",
+        "purpose": "Greyhaven terrain 'mud' ground layer OpenGL normal map (mmorpg#525)",
+        "resolution": "2K"
+      },
+      "provider": "poly-haven",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 4234657,
+        "path": "brown_mud_02_nor_gl_2k.jpg",
+        "revision": "2k-jpg-nor-gl",
+        "sha256": "3d6eec0adba8fd514d5634c56f806ad40206975c3ef17de1e2468b9e3ebcf719",
+        "upstreamId": "brown_mud_02",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/brown_mud_02/brown_mud_02_nor_gl_2k.jpg"
+      },
+      "tags": [
+        "greyhaven-terrain",
+        "ground",
+        "texture"
+      ],
+      "title": "Brown Mud 02 — 2K Normal (GL)"
+    },
+    {
+      "id": "poly-haven.brown-mud-02-arm-2k-jpg",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://polyhaven.com/a/brown_mud_02",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/jpeg",
+      "metadata": {
+        "author": "Rob Tuytel",
+        "purpose": "Greyhaven terrain 'mud' ground layer AO/roughness/metal map (metallicRoughness and occlusion texture) (mmorpg#525)",
+        "resolution": "2K"
+      },
+      "provider": "poly-haven",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 1008909,
+        "path": "brown_mud_02_arm_2k.jpg",
+        "revision": "2k-jpg-arm",
+        "sha256": "3a36675669ede2c2a85062b0201372acbafdfe14ae5e48efae3a2af85b039212",
+        "upstreamId": "brown_mud_02",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/brown_mud_02/brown_mud_02_arm_2k.jpg"
+      },
+      "tags": [
+        "greyhaven-terrain",
+        "ground",
+        "texture"
+      ],
+      "title": "Brown Mud 02 — 2K AO/Roughness/Metal"
+    },
+    {
+      "id": "poly-haven.brown-mud-02-disp-2k-jpg",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://polyhaven.com/a/brown_mud_02",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/jpeg",
+      "metadata": {
+        "author": "Rob Tuytel",
+        "purpose": "Greyhaven terrain 'mud' ground layer height (alpha of the base-colour texture) (mmorpg#525)",
+        "resolution": "2K"
+      },
+      "provider": "poly-haven",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 585864,
+        "path": "brown_mud_02_disp_2k.jpg",
+        "revision": "2k-jpg-disp",
+        "sha256": "e788adc410cf05a4d0e381c1b8a1c93c7c0ec0c471faeefcc3f4a018f8a4c5ec",
+        "upstreamId": "brown_mud_02",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/brown_mud_02/brown_mud_02_disp_2k.jpg"
+      },
+      "tags": [
+        "greyhaven-terrain",
+        "ground",
+        "texture"
+      ],
+      "title": "Brown Mud 02 — 2K Displacement"
+    },
+    {
+      "id": "poly-haven.sand-01-diff-2k-jpg",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://polyhaven.com/a/sand_01",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/jpeg",
+      "metadata": {
+        "author": "Rob Tuytel",
+        "purpose": "Greyhaven terrain 'sand' ground layer colour (RGB of the base-colour texture) (mmorpg#525)",
+        "resolution": "2K"
+      },
+      "provider": "poly-haven",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 1984816,
+        "path": "sand_01_diff_2k.jpg",
+        "revision": "2k-jpg-diff",
+        "sha256": "f311767ab68e132cb9de4160493a71ff17ec765c699d411facd5154d9a9a9c18",
+        "upstreamId": "sand_01",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/sand_01/sand_01_diff_2k.jpg"
+      },
+      "tags": [
+        "greyhaven-terrain",
+        "ground",
+        "texture"
+      ],
+      "title": "Sand 01 — 2K Color"
+    },
+    {
+      "id": "poly-haven.sand-01-nor-gl-2k-jpg",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://polyhaven.com/a/sand_01",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/jpeg",
+      "metadata": {
+        "author": "Rob Tuytel",
+        "purpose": "Greyhaven terrain 'sand' ground layer OpenGL normal map (mmorpg#525)",
+        "resolution": "2K"
+      },
+      "provider": "poly-haven",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 2503853,
+        "path": "sand_01_nor_gl_2k.jpg",
+        "revision": "2k-jpg-nor-gl",
+        "sha256": "b784b6a0526b79c81635bf423be9bc517ad36278ae5d68a4ff30f46eac56f0e3",
+        "upstreamId": "sand_01",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/sand_01/sand_01_nor_gl_2k.jpg"
+      },
+      "tags": [
+        "greyhaven-terrain",
+        "ground",
+        "texture"
+      ],
+      "title": "Sand 01 — 2K Normal (GL)"
+    },
+    {
+      "id": "poly-haven.sand-01-arm-2k-jpg",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://polyhaven.com/a/sand_01",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/jpeg",
+      "metadata": {
+        "author": "Rob Tuytel",
+        "purpose": "Greyhaven terrain 'sand' ground layer AO/roughness/metal map (metallicRoughness and occlusion texture) (mmorpg#525)",
+        "resolution": "2K"
+      },
+      "provider": "poly-haven",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 477093,
+        "path": "sand_01_arm_2k.jpg",
+        "revision": "2k-jpg-arm",
+        "sha256": "9e5bd07e9835ecec7ff0e9241625cb18b24e193b0e0b83c4886cfd772b8e58c8",
+        "upstreamId": "sand_01",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/sand_01/sand_01_arm_2k.jpg"
+      },
+      "tags": [
+        "greyhaven-terrain",
+        "ground",
+        "texture"
+      ],
+      "title": "Sand 01 — 2K AO/Roughness/Metal"
+    },
+    {
+      "id": "poly-haven.sand-01-disp-2k-jpg",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://polyhaven.com/a/sand_01",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/jpeg",
+      "metadata": {
+        "author": "Rob Tuytel",
+        "purpose": "Greyhaven terrain 'sand' ground layer height (alpha of the base-colour texture) (mmorpg#525)",
+        "resolution": "2K"
+      },
+      "provider": "poly-haven",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 462489,
+        "path": "sand_01_disp_2k.jpg",
+        "revision": "2k-jpg-disp",
+        "sha256": "3edaf84b5075600a0c26665d69e4c45dc8bf9df045f126fd18686d0688448a5f",
+        "upstreamId": "sand_01",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/sand_01/sand_01_disp_2k.jpg"
+      },
+      "tags": [
+        "greyhaven-terrain",
+        "ground",
+        "texture"
+      ],
+      "title": "Sand 01 — 2K Displacement"
     }
   ]
 }
