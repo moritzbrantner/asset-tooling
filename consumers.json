@@ -39,6 +39,12 @@
     },
     {
       "repo": "moenarch-games/mmorpg",
+      "release": "climbing-kit",
+      "pinned": false,
+      "note": "scripts/fetch-bundles.sh unpacks the live release into a local copy keyed on its export.ref.json"
+    },
+    {
+      "repo": "moenarch-games/mmorpg",
       "release": "settlement-props",
       "pinned": false,
       "note": "scripts/fetch-bundles.sh unpacks the live release into a local copy keyed on its export.ref.json"
