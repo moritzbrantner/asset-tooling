@@ -87,6 +87,10 @@ jobs:
           - suite: fortress
             timeout: 60
             lfs: "assets/canonical/poly-haven.broken-wall-*/**,assets/canonical/poly-haven.japanese-stone-wall-*/**,assets/canonical/poly-haven.stone-tiles-02-*/**,assets/canonical/poly-haven.old-planks-02-*/**"
+          # The climbing kit's 45 recipe runs (15 parts x 3 levels).
+          - suite: climbing
+            timeout: 30
+            lfs: "assets/canonical/quaternius.medieval-village-megakit-standard.t-vineleaf-png-png/**"
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
       - name: Set up Bun

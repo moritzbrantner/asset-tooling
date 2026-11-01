@@ -303,6 +303,12 @@
     },
     {
       "schemaVersion": 1,
+      "sourceId": "quaternius.medieval-village-megakit-standard.t-vineleaf-png-png",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.medieval-village-megakit-standard.t-vineleaf-png-png/T_VineLeaf_png.png"
+    },
+    {
+      "schemaVersion": 1,
       "sourceId": "quaternius.medieval-village-megakit-standard.t-woodtrim-normal-png",
       "storage": "git-lfs",
       "path": "assets/canonical/quaternius.medieval-village-megakit-standard.t-woodtrim-normal-png/T_WoodTrim_Normal.png"
