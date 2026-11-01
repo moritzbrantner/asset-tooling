@@ -251,6 +251,7 @@ test("the Ranger recipe builds a verified bundle: in-place clips, equipment entr
     for (const name of ["Throw_Knife", "Throw_Lob"]) assert.ok(byName[name].drawSeconds > 0 && byName[name].releaseSeconds > byName[name].drawSeconds, name);
     assert.ok(byName.Dagger_Idle_Loop.loop && byName.Dagger_Idle_Loop.role === "dagger.idle");
     assert.equal(byName.Dagger_Slash_L.contact.joint, "hand_l");
+    assert.ok(Math.abs(byName.Dagger_Slash_L.contact.seconds - .208) < .02 && Math.abs(byName.Throw_Knife.contact.seconds - byName.Throw_Knife.releaseSeconds) < .02);
     // #277: every bow clip records the string draw per frame; full draw is longer than the set string.
     for (const name of RANGER_BOW_CLIPS) {
       const bow = byName[name].bow;

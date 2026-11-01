@@ -295,7 +295,7 @@ The strokes are authored **upright**, with the body along +Y and facing +Z. Over
 | `Bandage_Self` | 1.5 s | The left forearm comes up across the body; the right hand wraps round it three times, creeping from the wrist up the forearm (0.3–1.17 s), and tugs the end out to the right. The chest bends 16° to look at it. | `role: bandage.self` |
 
 - **Items:** the clips key only the hands; what each hand holds is the consumer's choice. For a throw, at `drawSeconds` the hand's grip frame is the `belt.throwable` socket's frame: sheathe the main dagger at `hip_r.stowed` and move the knife (`Grip_Knife_Pinch_R`) or the flask or bomb (`Grip_Flask_R`) from `belt.throwable` into `hand_r.weapon`. At `releaseSeconds` the projectile leaves the hand; the dagger comes back to the hand when the clip ends. For `Bandage_Self`, sheathe both daggers (`hip_l.stowed`, `hip_r.stowed`) or keep them: the right hand's grip frame circles the forearm with its blade along it.
-- **Contact:** as for the sword clips, `contact` is the moment the joint moves fastest, a presentation landmark only.
+- **Contact:** a presentation landmark only, as for the sword clips, but at the authored strike (the times above) or, for a throw, at `releaseSeconds`, not at the fastest sample: a dagger hand turns fastest in its wind-up.
 - **Review:** reviewed in the live Blender on the male `outfit.class.rogue` with the blackened dagger on `hand_r.weapon` and `hand_l.weapon` (no grip poses applied). The cape chain is not posed by these clips. The pinch and flask grips were not reviewed on an item.
 
 ## Female Ranger

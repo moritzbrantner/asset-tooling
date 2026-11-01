@@ -112,6 +112,8 @@ export type AuthoredClip = {
     rootTravel?: [number, number, number];
     /** The clip's own `humanoid-clips` fields (#416 traversal, #417 sword aim). */
     fields?: Json;
+    /** The strike or release time the recipe authored (#418); the build measures `contact` there. */
+    contactSeconds?: number;
   };
 };
 /**
@@ -229,13 +231,15 @@ export const RANGER_CLIP_FAMILIES: readonly ClipFamily[] = [
       };
     },
     clip: (name, family) => {
-      // Every clip is upper body; a throw's draw and release go to the clip's entry.
+      // Every clip is upper body; a throw's draw and release go to the clip's entry. The contact is the authored strike
+      // (or, for a throw, the release), since a dagger hand turns fastest in the wind-up.
       const { joints, source, ...observed } = family.clips[name] as Json;
       const fields = pickKeys(observed, ["drawSeconds", "releaseSeconds"]);
+      const contactSeconds = observed.releaseSeconds ?? (observed.contactFraction === undefined ? undefined : observed.contactFraction * observed.durationSeconds);
       return {
         keep: joints as string[],
         authored: { recipe: family.recipe, clip: name, fps: family.fps, ...observed }, basedOn: source as string,
-        ...(Object.keys(fields).length ? { extra: { fields } } : {}),
+        extra: { ...(Object.keys(fields).length ? { fields } : {}), ...(contactSeconds === undefined ? {} : { contactSeconds }) },
       };
     },
   },
