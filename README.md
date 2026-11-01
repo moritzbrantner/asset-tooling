@@ -6,6 +6,8 @@ The repository treats generated and processed assets as build artifacts. Generat
 
 The [Greyhaven nature bundle](docs/greyhaven-nature-bundle.md) delivers game-resolution broadleaf, conifer, rock and bush families for the MMORPG.
 
+The [Greyhaven terrain materials](docs/greyhaven-terrain.md) are seven tiling CC0 Poly Haven ground layers (grass, forest floor, path, gravel, rock, mud, sand) for the MMORPG's terrain.
+
 The [Greyhaven ambient animals](docs/greyhaven-ambient-animals.md) are a cat, a dog and a small rodent from CC0 Quaternius sources, each with in-place `Idle` and `Walk` clips, sized for the MMORPG's game camera.
 
 The [undead crypt kit](docs/crypt-kit.md) is a scripted Blender recipe for ARPG's first adventure: 2 m wall and doorway modules, a hinged door, floor tiles, pillars and props.
