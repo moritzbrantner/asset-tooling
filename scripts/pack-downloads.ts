@@ -22,7 +22,8 @@ import { sha256Bytes } from "../src/hash.js";
 import { canonicalJson } from "../src/canonical.js";
 
 type Json = Record<string, any>;
-export type TextureEncoding = "uastc" | "etc1s-srgb" | "etc1s-linear";
+/** `uastc` is linear (normal maps); `uastc-srgb` is colour whose detail ETC1S blurs (the terrain base colours). */
+export type TextureEncoding = "uastc" | "uastc-srgb" | "etc1s-srgb" | "etc1s-linear";
 export const DOWNLOAD_INDEX_SCHEMA = "asset-downloads-v1";
 
 /** The KTX2 encoding of a texture by the slots that use it: normals UASTC, colour sRGB ETC1S, data linear ETC1S. */
@@ -58,8 +59,10 @@ export function powerOfTwo(value: number): number {
 
 export function ktxArguments(encoding: TextureEncoding, input: string, output: string, size?: { width: number; height: number }): string[] {
   const common = ["create", "--generate-mipmap", ...(size ? ["--width", String(size.width), "--height", String(size.height)] : [])];
-  if (encoding === "uastc") {
-    return [...common, "--format", "R8G8B8A8_UNORM", "--assign-tf", "linear", "--encode", "uastc", "--uastc-quality", "2", "--zstd", "18", input, output];
+  if (encoding === "uastc" || encoding === "uastc-srgb") {
+    const srgb = encoding === "uastc-srgb";
+    return [...common, "--format", srgb ? "R8G8B8A8_SRGB" : "R8G8B8A8_UNORM", "--assign-tf", srgb ? "srgb" : "linear",
+      "--encode", "uastc", "--uastc-quality", "2", "--zstd", "18", input, output];
   }
   const srgb = encoding === "etc1s-srgb";
   return [...common, "--format", srgb ? "R8G8B8A8_SRGB" : "R8G8B8A8_UNORM", "--assign-tf", srgb ? "srgb" : "linear",

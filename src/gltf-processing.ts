@@ -1,5 +1,6 @@
 /// <reference path="./gltf-validator.d.ts" />
 import { NodeIO, type Document, type GLTF, type JSONDocument } from "@gltf-transform/core";
+import { KHRTextureBasisu } from "@gltf-transform/extensions";
 import { validateBytes } from "gltf-validator";
 import { resolveAssetObject } from "./asset-store.js";
 import { sha256Bytes } from "./hash.js";
@@ -157,7 +158,40 @@ export async function validateGltf(
   }));
 }
 
-function supportedPolicy(json: GLTF.IGLTF, allowRigged: boolean) {
+/** KTX2 (Basis Universal) textures, which the gltf-resources-v1 bundle profile admits (asset-tooling#475). */
+export const BASISU_EXTENSION = "KHR_texture_basisu";
+const KTX2_IDENTIFIER = [0xab, 0x4b, 0x54, 0x58, 0x20, 0x32, 0x30, 0xbb, 0x0d, 0x0a, 0x1a, 0x0a];
+
+/**
+ * The Khronos validator (2.0.0-dev.3.10) predates KHR_texture_basisu and rejects a KTX2 image's mime type and format.
+ * Those two codes are superseded at exactly the images the extension references; `checkBasisuImages` checks them instead.
+ */
+export function basisuSupersessions(json: GLTF.IGLTF): LocatedValidatorSupersession[] {
+  const images = new Set<number>();
+  for (const texture of json.textures ?? []) {
+    const source = (texture.extensions?.[BASISU_EXTENSION] as { source?: unknown } | undefined)?.source;
+    if (typeof source === "number" && json.images?.[source]?.mimeType === "image/ktx2") images.add(source);
+  }
+  if (!images.size) return [];
+  const list = [...images].sort((a, b) => a - b).join("|");
+  return [
+    { code: "VALUE_NOT_IN_LIST", pointer: new RegExp(`^/images/(?:${list})/mimeType$`) },
+    { code: "IMAGE_UNRECOGNIZED_FORMAT", pointer: new RegExp(`^/images/(?:${list})$`) },
+  ];
+}
+
+/** Every KTX2 texture of a document read with KHR_texture_basisu starts with the KTX2 file identifier. */
+export function checkBasisuImages(document: Document, location: string) {
+  for (const texture of document.getRoot().listTextures()) {
+    if (texture.getMimeType() !== "image/ktx2") continue;
+    const image = texture.getImage();
+    if (!image || KTX2_IDENTIFIER.some((byte, index) => image[index] !== byte)) {
+      throw new Error(`${location} texture '${texture.getName()}' is declared image/ktx2 but is not a KTX2 file`);
+    }
+  }
+}
+
+function supportedPolicy(json: GLTF.IGLTF, allowRigged: boolean, basisu: boolean) {
   const profile = allowRigged ? "gltf-core-production-v1" : PROFILE;
   // A capability policy over the authoritative parser's document, not a format decoder.
   if (!allowRigged && (json.skins?.length || json.animations?.length || json.nodes?.some((node) => node.skin !== undefined))) {
@@ -172,6 +206,11 @@ function supportedPolicy(json: GLTF.IGLTF, allowRigged: boolean) {
       value.forEach((entry, index) => inspectExtensions(entry, `${location}/${index}`));
     } else if (typeof value === "object" && value !== null) {
       for (const [key, child] of Object.entries(value)) {
+        // With `basisu`, the only admitted extension is KHR_texture_basisu: in the root lists and on a texture.
+        if (basisu && ((location === "" && (key === "extensionsUsed" || key === "extensionsRequired") && Array.isArray(child)
+          && child.every((name) => name === BASISU_EXTENSION))
+          || (/^\/textures\/\d+$/.test(location) && key === "extensions" && typeof child === "object" && child !== null
+            && Object.keys(child).every((name) => name === BASISU_EXTENSION)))) continue;
         if ((key === "extensions" && typeof child === "object" && child !== null && Object.keys(child).length)
           || ((key === "extensionsUsed" || key === "extensionsRequired") && Array.isArray(child) && child.length)) {
           throw new Error(`${profile} contains unsupported extensions at ${location}/${key}`);
@@ -267,10 +306,13 @@ export async function loadCheckedGltf(
 export async function parseCheckedGltfBytes(
   source: AssetRef, sourceBytes: Buffer, resourceBytes: JSONDocument["resources"],
   allowRigged: boolean, allowedWarnings: readonly string[] = [], locatedSupersessions: readonly LocatedValidatorSupersession[] = [],
+  /** Admit KHR_texture_basisu (KTX2) textures: the gltf-resources-v1 bundle profile does, the import operations do not. */
+  basisu = false,
 ) {
   if (sourceBytes.byteLength !== source.byteLength || sha256Bytes(sourceBytes) !== source.sha256) throw new Error("glTF bytes do not match the declared source pin");
   if (source.mediaType !== "model/gltf-binary" && source.mediaType !== "model/gltf+json") throw new Error("unsupported glTF source media type");
   const io = new NodeIO().setAllowNetwork(false).setStrictResources(true);
+  if (basisu) io.registerExtensions([KHRTextureBasisu]);
   const format = source.mediaType === GLB_MEDIA_TYPE ? "glb" : "gltf";
   // GLB external resources are deliberately unsupported by the public in-memory decoder.
   if (format === "glb") rejectGlbExternalResources(sourceBytes, "scene.import.gltf source");
@@ -301,9 +343,10 @@ export async function parseCheckedGltfBytes(
   }
   structuralPreflight(jsonDocument.json, format, "scene.import.gltf source");
   const validatorWarnings = await validateGltf(sourceBytes, format, resourceBytes, "scene.import.gltf source", allowedWarnings,
-    allowRigged ? PRODUCTION_SUPERSEDED_VALIDATOR_CODES : [], locatedSupersessions);
-  supportedPolicy(jsonDocument.json, allowRigged);
+    allowRigged ? PRODUCTION_SUPERSEDED_VALIDATOR_CODES : [], [...locatedSupersessions, ...(basisu ? basisuSupersessions(jsonDocument.json) : [])]);
+  supportedPolicy(jsonDocument.json, allowRigged, basisu);
   const inventory = resourceInventory(jsonDocument.json, resourceBytes, format === "glb" ? jsonDocument.resources : Object.create(null));
   const document = await io.readJSON(jsonDocument);
+  if (basisu) checkBasisuImages(document, "scene.import.gltf source");
   return { document, io, inventory, validatorWarnings };
 }

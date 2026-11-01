@@ -2,13 +2,14 @@
 /// <reference path="./gltf-validator.d.ts" />
 import { readDependencyLockSha256 } from "./dependency-lock.js";
 import { NodeIO, VERSION, type GLTF } from "@gltf-transform/core";
+import { KHRTextureBasisu } from "@gltf-transform/extensions";
 import { validateBytes, version as validatorVersion } from "gltf-validator";
 import path from "node:path";
 import { lstat, mkdir, readFile, rm } from "node:fs/promises";
 import { canonicalJson, compareCodeUnitStrings } from "./canonical.js";
 import { resolveAssetObject } from "./asset-store.js";
 import { sha256Bytes } from "./hash.js";
-import { checkStaticGltfAccessorBudget, gltfSummary, parseCheckedGltfBytes, PRODUCTION_SUPERSEDED_VALIDATOR_CODES, validateGltf } from "./gltf-processing.js";
+import { basisuSupersessions, checkBasisuImages, checkStaticGltfAccessorBudget, gltfSummary, parseCheckedGltfBytes, PRODUCTION_SUPERSEDED_VALIDATOR_CODES, validateGltf } from "./gltf-processing.js";
 import { checkWeightSums, GLTF_WEIGHT_SUM_POLICY } from "./gltf-production-operations.js";
 import { captureToolIdentity } from "./tool.js";
 import { createAssetOperationBuildIdentity, createAssetRef, type AssetRef } from "./operations.js";
@@ -101,7 +102,7 @@ async function checkSourceGlb(source:AssetRef,bytes:Buffer,location:string) {
   if(bytes.byteLength!==source.byteLength || sha256Bytes(bytes)!==source.sha256) throw new Error(`${location} payload does not match its content pin`);
   const { json } = await new NodeIO().setAllowNetwork(false).setStrictResources(true).binaryToJSON(bytes);
   checkStaticGltfAccessorBudget(json,location);
-  const parsed=await parseCheckedGltfBytes(source,bytes,Object.create(null),true,GLTF_RESOURCES_BUNDLE_ALLOWED_VALIDATOR_WARNINGS);
+  const parsed=await parseCheckedGltfBytes(source,bytes,Object.create(null),true,GLTF_RESOURCES_BUNDLE_ALLOWED_VALIDATOR_WARNINGS,[],true);
   if(parsed.inventory.some(resource=>resource.storage!=="embedded")) throw new Error(`${location} must embed its buffers and images in the GLB`);
   checkWeightSums(parsed.document);
   return parsed.document;
@@ -116,10 +117,11 @@ async function checkExportedGltf(gltf:Buffer,resources:ReadonlyMap<string,Uint8A
   const uris=[...(json.buffers ?? []),...(json.images ?? [])].map((entry:GltfJson)=>entry.uri);
   if(uris.some(uri=>typeof uri!=="string" || !resources.has(uri))) throw new Error(`${location} references a resource that its manifest entry does not list`);
   if(new Set(uris).size!==resources.size) throw new Error(`${location} manifest entry lists resources the glTF does not reference`);
-  await validateGltf(gltf,"gltf",Object.create(null),location,GLTF_RESOURCES_BUNDLE_ALLOWED_VALIDATOR_WARNINGS,PRODUCTION_SUPERSEDED_VALIDATOR_CODES,[],uri=>resources.get(uri));
+  await validateGltf(gltf,"gltf",Object.create(null),location,GLTF_RESOURCES_BUNDLE_ALLOWED_VALIDATOR_WARNINGS,PRODUCTION_SUPERSEDED_VALIDATOR_CODES,basisuSupersessions(json as GLTF.IGLTF),uri=>resources.get(uri));
   checkStaticGltfAccessorBudget(json as GLTF.IGLTF,location);
-  const document=await new NodeIO().setAllowNetwork(false).setStrictResources(true)
+  const document=await new NodeIO().setAllowNetwork(false).setStrictResources(true).registerExtensions([KHRTextureBasisu])
     .readJSON({json:json as GLTF.IGLTF,resources:Object.fromEntries([...resources].map(([uri,bytes])=>[uri,new Uint8Array(bytes)]))});
+  checkBasisuImages(document,location);
   checkWeightSums(document);
   return document;
 }
