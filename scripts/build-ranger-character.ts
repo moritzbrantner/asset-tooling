@@ -422,6 +422,31 @@ export const RANGER_CLIP_ROLES: Readonly<Record<string, { role: string; contact?
   Mace_Swing_B: { role: "mace.strike.backhand", contact: "hand_r" },
   Cast_Raise_Wall: { role: "cast.wall", contact: "hand_l" },
   Cast_Interrupted: { role: "cast.interrupted" },
+  // #421: emotes, doors, loot, talk, trade, sitting and sleeping (src/ranger-clips.ts RANGER_SOCIAL_CLIPS). The contacts
+  // are the authored moments the hand meets the door (the first knock) or the other hand.
+  Emote_Wave: { role: "emote.wave" },
+  Emote_Point: { role: "emote.point" },
+  Emote_Bow: { role: "emote.bow" },
+  Emote_Cheer: { role: "emote.cheer" },
+  Emote_Laugh: { role: "emote.laugh" },
+  Door_Push: { role: "interact.door.push", contact: "hand_r" },
+  Door_Pull: { role: "interact.door.pull", contact: "hand_r" },
+  Door_Knock: { role: "interact.door.knock", contact: "hand_r" },
+  Loot_Kneel_Enter: { role: "interact.loot.enter" },
+  Loot_Kneel_Loop: { role: "interact.loot.loop" },
+  Loot_Kneel_Exit: { role: "interact.loot.exit" },
+  Talk_Idle_Loop: { role: "talk.idle" },
+  Talk_Gesture_A: { role: "talk.gesture.explain" },
+  Talk_Gesture_B: { role: "talk.gesture.direct" },
+  Talk_Gesture_C: { role: "talk.gesture.shrug" },
+  Trade_Handover: { role: "interact.trade", contact: "hand_r" },
+  Sit_Chair_Enter: { role: "sit.chair.enter" },
+  Sit_Chair_Loop: { role: "sit.chair.loop" },
+  Sit_Chair_Exit: { role: "sit.chair.exit" },
+  Sit_Ground_Loop: { role: "sit.ground.loop" },
+  Sleep_Bed_Enter: { role: "sleep.bed.enter" },
+  Sleep_Bed_Loop: { role: "sleep.bed.loop" },
+  Sleep_Bed_Wake: { role: "sleep.bed.wake" },
 };
 /** The gait loops whose ground speed the `humanoid-clips` attachment records. */
 export const RANGER_GAITS: ReadonlySet<string> = new Set(["Walk_Loop", "Jog_Fwd_Loop", "Sprint_Loop", "Crouch_Fwd_Loop", "Jog_Bwd_Loop", "Walk_Bwd_Loop", "Wade_Fwd_Loop"]);

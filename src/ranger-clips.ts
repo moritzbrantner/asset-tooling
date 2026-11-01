@@ -58,6 +58,20 @@ export const RANGER_CAST_CLIPS = [
   "Cast_Raise_Wall", "Cast_Interrupted",
 ] as const;
 /**
+ * #421 (the mmorpg emotes, `UseDoor`, the night knock, corpse loot, NPC talk, vendors, inns and NPC night rest): social
+ * and interaction clips authored in place on the Ranger rig by adapters/blender/social_clips.py from explicit palm
+ * frames (two-bone arm IK onto the door leaf, the handle and the corpse) and pelvis and ankle targets (two-bone leg IK;
+ * Mixamo and the CC0 UAL1 seeds only as reference). The emotes but `Emote_Bow`, the door, talk and handover clips keep
+ * only the `spine_01` subtree; the bow, the loot kneel, sitting and sleeping are full body with a `secondaryPose`. Each
+ * `*_Enter` ends in its loop's first pose and each exit is its enter backwards. They follow the cast clips in bundle order.
+ */
+export const RANGER_SOCIAL_CLIPS = [
+  "Emote_Wave", "Emote_Point", "Emote_Bow", "Emote_Cheer", "Emote_Laugh", "Door_Push", "Door_Pull", "Door_Knock",
+  "Loot_Kneel_Enter", "Loot_Kneel_Loop", "Loot_Kneel_Exit", "Talk_Idle_Loop", "Talk_Gesture_A", "Talk_Gesture_B", "Talk_Gesture_C",
+  "Trade_Handover", "Sit_Chair_Enter", "Sit_Chair_Loop", "Sit_Chair_Exit", "Sit_Ground_Loop", "Sleep_Bed_Enter", "Sleep_Bed_Loop",
+  "Sleep_Bed_Wake",
+] as const;
+/**
  * #285: static grip poses authored on the rig by adapters/blender/grip_poses.py. Each clip keys only the finger and
  * thumb rotations of one hand; a consumer plays it over the body clip's finger channels while that hand's socket holds
  * an item of `role`. The fingers wrap a handle of `radius` (metres) along the item's grip-frame `axis`; the tome leaves
@@ -340,6 +354,29 @@ export const RANGER_CLIP_FAMILIES: readonly ClipFamily[] = [
         extra: {
           fields: { ...(Object.keys(cast).length ? { cast } : {}), ...(secondaryPose ? { secondaryPose } : {}) },
           ...(observed.releaseSeconds === undefined ? {} : { contactSeconds: observed.releaseSeconds as number }),
+        },
+      };
+    },
+  },
+  {
+    id: "social", script: "social_clips.py", clips: RANGER_SOCIAL_CLIPS,
+    arguments: () => ({ schemaVersion: 1, clips: [...RANGER_SOCIAL_CLIPS] }),
+    clip: (name, family) => {
+      // The upper-body clips list their joints; the timing, chain and door fields go to the clip's `social` object and
+      // the chain pose beside it. The contact is the authored moment the hand meets the door or the other hand.
+      const { joints, source, secondaryPose, ...observed } = family.clips[name] as Json;
+      const social = pickKeys(observed, [
+        "next", "startsFrom", "gestureSeconds", "pointSeconds", "bowSeconds", "pumpSeconds", "handoverSeconds", "contactSeconds",
+        "doorPushSeconds", "doorPullSeconds", "knockSeconds", "handleHeightMeters", "knockHeightMeters", "doorDistanceMeters",
+        "contactJoint", "contactPoint", "contactAt", "kneelSeconds", "pickupSeconds", "standSeconds", "seatedSeconds", "sitUpSeconds",
+        "lieSeconds", "seatHeightMeters", "seatPelvis", "bedHeightMeters", "lyingPelvis",
+      ]);
+      return {
+        ...(joints ? { keep: joints as string[] } : {}),
+        authored: { recipe: family.recipe, clip: name, fps: family.fps, ...observed }, basedOn: source as string,
+        extra: {
+          fields: { ...(Object.keys(social).length ? { social } : {}), ...(secondaryPose ? { secondaryPose } : {}) },
+          ...(observed.contactSeconds === undefined ? {} : { contactSeconds: observed.contactSeconds as number }),
         },
       };
     },

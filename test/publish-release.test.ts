@@ -38,7 +38,7 @@ describe("publish-release", () => {
       });
       expect(releaseSources(release)).toEqual(expect.arrayContaining([
         "scripts/build-ranger-character.ts", "scripts/pack-downloads.ts", "adapters/blender/gait_clips.py", "adapters/blender/hit_clips.py",
-        "adapters/blender/swim_clips.py", "adapters/blender/traversal_clips.py", "adapters/blender/sword_clips.py", "adapters/blender/dagger_clips.py", "adapters/blender/crossbow_clips.py", "adapters/blender/cast_clips.py", "stability/processors.json", "assets/canonical",
+        "adapters/blender/swim_clips.py", "adapters/blender/traversal_clips.py", "adapters/blender/sword_clips.py", "adapters/blender/dagger_clips.py", "adapters/blender/crossbow_clips.py", "adapters/blender/cast_clips.py", "adapters/blender/social_clips.py", "stability/processors.json", "assets/canonical",
       ]));
     }
   });
