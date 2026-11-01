@@ -125,7 +125,7 @@ test("socket matrices compose translation, rotation and scale column-major",()=>
  assert.deepEqual(m.slice(4,7).map(v=>Math.round(v*1e9)/1e9+0),[-1,0,0]);
 });
 
-test("the humanoid-sockets-v2 and humanoid-item-v1 schemas mirror the validators' fields",async()=>{
+test("the humanoid-sockets-v2 and humanoid-item-v2 schemas mirror the validators' fields",async()=>{
  const schema=JSON.parse(await readFile(new URL("../schemas/humanoid-sockets-v2.schema.json",import.meta.url),"utf8"));
  assert.deepEqual(schema.required,["schema","character","unit","axes","sockets"]);
  assert.equal(schema.properties.schema.const,HUMANOID_SOCKETS_SCHEMA);
@@ -134,7 +134,7 @@ test("the humanoid-sockets-v2 and humanoid-item-v1 schemas mirror the validators
  const id=new RegExp(schema.$defs.socketId.pattern);
  for(const s of descriptor.sockets) assert.ok(id.test(s.id),s.id);
  assert.equal(id.test("weapon"),false);
- const item=JSON.parse(await readFile(new URL("../schemas/humanoid-item-v1.schema.json",import.meta.url),"utf8"));
+ const item=JSON.parse(await readFile(new URL("../schemas/humanoid-item-v2.schema.json",import.meta.url),"utf8"));
  assert.deepEqual(item.required,["schema","item","unit","axes","roles","frames"]);
  assert.equal(item.properties.schema.const,HUMANOID_ITEM_SCHEMA);
  assert.deepEqual(item.$defs.frame.required,["name","translation","rotation"]);
@@ -163,7 +163,17 @@ test("item descriptors declare roles and named frames; attachment puts the held 
   {name:"grip",translation:[0,0,0],rotation:[0,0,0,1]},{name:"grip.offhand",translation:[0,.2,0],rotation:[0,0,0,1]}]});
  assert.deepEqual(validateHumanoidItemDescriptor(JSON.parse(JSON.stringify(sword))),sword);
  const base={schema:HUMANOID_ITEM_SCHEMA,item:"equipment.sword.long",unit:"meter",axes:"right-handed-y-up",roles:["two-hand-weapon"],frames:sword.frames};
- for(const change of [{schema:"humanoid-item-v2"},{item:"Sword"},{roles:[]},{roles:["a","a"]},{frames:[]},{frames:[sword.frames[0],sword.frames[0]]},
+ // #467: optional levels of detail in the #457 screen-size format, both fields together.
+ const lodSelection={metric:"projected-bounding-sphere-height-fraction",rule:"first level whose minScreenSize fits",referenceFovYDegrees:60};
+ const level=(variant:string,minScreenSize:number,referenceMaxDistance:number|null,triangles=100)=>({variant,triangles,minScreenSize,referenceMaxDistance});
+ const lods={boundingSphere:{center:[0,.1,0],radius:.13},levels:[level("default",.03,7.5,600),level("lod1",.012,18.8,400),level("lod2",0,null,200)]};
+ assert.deepEqual(validateHumanoidItemDescriptor({...base,lodSelection,lods}).lods,lods);
+ for(const change of [{lods},{lodSelection},{lodSelection:{...lodSelection,metric:"distance"},lods},{lodSelection,lods:{...lods,levels:[lods.levels[2]]}},
+  {lodSelection,lods:{...lods,levels:[level("default",.03,7.5),level("default",0,null)]}},{lodSelection,lods:{...lods,levels:[level("default",.01,7.5),level("lod1",.02,9),level("lod2",0,null)]}},
+  {lodSelection,lods:{...lods,levels:[level("default",.03,7.5),level("lod1",.012,null)]}},{lodSelection,lods:{...lods,boundingSphere:{center:[0,0,0],radius:0}}}]) {
+  assert.throws(()=>validateHumanoidItemDescriptor({...base,...change}),Error,JSON.stringify(change));
+ }
+ for(const change of [{schema:"humanoid-item-v1"},{item:"Sword"},{roles:[]},{roles:["a","a"]},{frames:[]},{frames:[sword.frames[0],sword.frames[0]]},
   {frames:[{name:"Grip",translation:[0,0,0],rotation:[0,0,0,1]}]},{frames:[{name:"grip",translation:[0,0,0],rotation:[0,0,0,2]}]},
   {frames:[{name:"grip",translation:[0,0,0],rotation:[0,0,0,1],scale:[0,1,1]}]},{frames:[{name:"grip",translation:[0,0,0],rotation:[0,0,0,1],extra:1}]},{extra:1}]) {
   assert.throws(()=>validateHumanoidItemDescriptor({...base,...change}),Error,JSON.stringify(change));

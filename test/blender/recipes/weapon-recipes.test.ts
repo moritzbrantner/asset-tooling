@@ -6,8 +6,8 @@ import {mkdtemp,readFile,rm,stat,writeFile} from "node:fs/promises";
 import {tmpdir} from "node:os";
 import {spawnSync} from "node:child_process";
 import {NodeIO} from "@gltf-transform/core";
-import {createWeaponAssetSpec,normalizeWeaponParameters,readWeaponRecipeSource,WEAPON_MATERIALS,WEAPON_PRESETS,WEAPON_ROLES,
- WEAPON_EMISSIVE_MATERIALS,WEAPON_STAFFS,WEAPON_TRIANGLE_BUDGETS,type WeaponPiece} from "../../../src/weapon-recipes.js";
+import {createWeaponAssetSpec,normalizeWeaponParameters,readWeaponRecipeSource,WEAPON_ALPHA_MATERIALS,WEAPON_LOD_PRESETS,WEAPON_MATERIALS,
+ WEAPON_PRESETS,WEAPON_ROLES,WEAPON_EMISSIVE_MATERIALS,WEAPON_STAFFS,WEAPON_THROWABLES,WEAPON_TRIANGLE_BUDGETS,type WeaponPiece} from "../../../src/weapon-recipes.js";
 import {storeAssetObject} from "../../../src/asset-store.js";
 import {executeGltfImportOperation} from "../../../src/gltf-import-operations.js";
 import {createHumanoidItemDescriptor,humanoidAttachmentMatrix,validateHumanoidSocketDescriptor} from "../../../src/humanoid-sockets.js";
@@ -20,6 +20,9 @@ const source=await readWeaponRecipeSource();
 const spec=(parameters:unknown)=>createWeaponAssetSpec({assetId:"weapon.fixture",parameters,scriptSha256:source.sha256,blenderVersion:source.blenderVersion});
 const sword=WEAPON_PRESETS["sword.arming"],shield=WEAPON_PRESETS["shield.heater"],dagger=WEAPON_PRESETS["dagger.blackened"],staff=WEAPON_PRESETS["staff.gnarled"];
 const mace=WEAPON_PRESETS["mace.flanged"],book=WEAPON_PRESETS["book.tome"];
+const knife=WEAPON_PRESETS["throwing-knife"],flask=WEAPON_PRESETS["venom-flask"],bomb=WEAPON_PRESETS["blasting-bomb"];
+// Every preset and every throwable level (#467).
+const BUILDS=[...Object.values(WEAPON_PRESETS),...WEAPON_THROWABLES.flatMap(piece=>Object.values(WEAPON_LOD_PRESETS[piece]))];
 const rangerSockets=validateHumanoidSocketDescriptor(JSON.parse(await readFile(new URL("../../../assets/descriptors/humanoid.ranger.male.sockets.json",import.meta.url),"utf8")));
 const apply=(m:number[],[x,y,z]:number[])=>[0,1,2].map(r=>m[r]!*x!+m[4+r]!*y!+m[8+r]!*z!+m[12+r]!);
 
@@ -36,13 +39,17 @@ const INVALID=[
  // #379: the mace and the tome.
  {...mace,gripLength:.3},{...mace,flanges:3},{...mace,flanges:6.5},{...mace,maxTriangles:1501},{...mace,bladeLength:.5},
  {...book,width:.3,height:.25},{...book,thickness:.09,width:.15},{...book,maxTriangles:401},{...book,radialSegments:8},
+ // #467: the throwables.
+ {...knife,bladeThickness:.006,bladeWidth:.018},{...knife,pinchOffset:.06,bladeLength:.1},{...knife,radialSegments:3},{...knife,maxTriangles:801},
+ {...knife,guardWidth:.05},{...flask,neckRadius:.016,bodyRadius:.03},{...flask,fill:.95},{...flask,maxTriangles:1201},{...bomb,radius:.06},
+ {...bomb,fuseLength:.01},{...bomb,radialSegments:25},{...bomb,piece:"venom-flask"},
 ];
 
 test("weapon controls and asset specs are bounded and pinned",()=>{
- for(const p of Object.values(WEAPON_PRESETS)) {
+ for(const p of BUILDS) {
   const s=spec(p);assert.deepEqual(s.parameters.arguments,p);assert.equal(s.reproducibility.expected,"exact");assert.equal(s.randomness.mode,"none");
   assert.deepEqual(s.inputs,{script:{path:"weapon.py",sha256:source.sha256}});
-  assert.ok(p.maxTriangles<=WEAPON_TRIANGLE_BUDGETS[p.piece]);
+  assert.ok(p.maxTriangles<=WEAPON_TRIANGLE_BUDGETS[p.piece as WeaponPiece]);
  }
  assert.equal(Reflect.set(WEAPON_PRESETS["sword.arming"],"bladeLength",1),false);
  for(const bad of INVALID) assert.throws(()=>normalizeWeaponParameters(bad),Error,JSON.stringify(bad));
@@ -78,7 +85,8 @@ test("native weapons are budgeted, grip-anchored, socket-aligned metric GLBs tha
  const root=await mkdtemp(path.join(tmpdir(),"weapon-native-"));t.after(()=>rm(root,{recursive:true,force:true}));
  await writeFile(path.join(root,"weapon.py"),source.bytes);
  const file=path.join(root,"asset.json"),output=path.join(root,"weapon.glb");
- for(const p of Object.values(WEAPON_PRESETS)) {
+ const triangleCounts:Record<string,number[]>={};
+ for(const p of BUILDS) {
   const piece:WeaponPiece=p.piece;
   await writeFile(file,JSON.stringify(spec(p)));
   const generated=await generateAsset(file),bytes=await readFile(output),mtime=(await stat(output)).mtimeMs;
@@ -93,6 +101,10 @@ test("native weapons are budgeted, grip-anchored, socket-aligned metric GLBs tha
    // Only the orbs glow; their emissive factor is their base colour.
    const glows=(WEAPON_EMISSIVE_MATERIALS as readonly string[]).includes(m.getName());
    assert.deepEqual(m.getEmissiveFactor().map(c=>Math.round(c*1e4)),glows?m.getBaseColorFactor().slice(0,3).map(c=>Math.round(c*1e4)):[0,0,0],m.getName());
+   // #467: only the flask's glass is see-through (blended, its declared alpha); everything else is opaque.
+   const alpha=(WEAPON_ALPHA_MATERIALS as Record<string,number>)[m.getName()];
+   assert.equal(m.getAlphaMode(),alpha===undefined?"OPAQUE":"BLEND",m.getName());
+   assert.equal(Math.round(m.getBaseColorFactor()[3]!*1e4),Math.round((alpha ?? 1)*1e4),m.getName());
   }
   const nodes=scene.listScenes()[0]!.listChildren();
   assert.deepEqual(nodes.map(n=>n.getName()).sort(),["grip",piece].sort());
@@ -110,6 +122,7 @@ test("native weapons are budgeted, grip-anchored, socket-aligned metric GLBs tha
    }
   }
   assert.equal(triangles,evidence.triangleCount);assert.ok(triangles<=p.maxTriangles && triangles<=WEAPON_TRIANGLE_BUDGETS[piece]);
+  (triangleCounts[piece]??=[]).push(triangles);
   for(let axis=0;axis<3;axis++) {
    assert.ok(Math.abs(min[axis]!-evidence.bounds.min[axis]!)<1e-4 && Math.abs(max[axis]!-evidence.bounds.max[axis]!)<1e-4,`bounds axis ${axis}`);
   }
@@ -135,13 +148,24 @@ test("native weapons are budgeted, grip-anchored, socket-aligned metric GLBs tha
    // #379: held like the shield: width along X, height along Y, standing off the hand toward +Z.
    assert.ok(Math.abs(max[1]!-min[1]!-book.height)<1e-3 && Math.abs(max[0]!-min[0]!-book.width)<.01,`tome ${min} ${max}`);
    assert.ok(min[2]!>0 && max[2]!<book.thickness+.02);
+  } else if(piece==="throwing-knife") {
+   // #467: the point pinchOffset below the pinch frame, the knife ~0.26 m along +Y, its axis off the origin toward the
+   // thumb (-X) and the palm (-Z); thin across X (the flats), the blade's width across Z.
+   assert.ok(Math.abs(min[1]!+knife.pinchOffset)<1e-4 && max[1]!>.22 && max[1]!<.3,`knife y ${min[1]}..${max[1]}`);
+   assert.ok(Math.abs((min[0]!+max[0]!)/2+.015)<.003 && max[0]!-min[0]!<.025 && Math.abs((min[2]!+max[2]!)/2+.02)<.003,`knife ${min} ${max}`);
+  } else if(piece==="venom-flask" || piece==="blasting-bomb") {
+   // #467: a 4 cm ball centred on the grip (the Grip_Flask_R ball), neck or fuse toward +Y.
+   const radius=piece==="venom-flask"?flask.bodyRadius:bomb.radius;
+   const across=Math.max(...points.filter(([,y])=>Math.abs(y!)<radius*.5).map(([x,,z])=>Math.hypot(x!,z!)));
+   assert.ok(across>radius*.97 && across<radius*1.06,`${piece} ball ${across}`);
+   assert.ok(Math.abs(min[1]!+radius)<radius*.1 && max[1]!>radius*1.6 && max[1]!<radius*3.5,`${piece} y ${min[1]}..${max[1]}`);
   } else {
    // Face toward +Z in front of the handle, point toward -Y, width along X.
    assert.ok(Math.abs(max[0]!-min[0]!-shield.width)<.02 && max[0]!-min[0]!>=shield.width);
    assert.ok(Math.abs(max[1]!-min[1]!-shield.height)<.04);
    assert.ok(max[2]!>.08 && min[2]!<0 && max[2]!<.15 && min[2]!>-.05);
   }
-  if(WEAPON_ROLES[piece]!=="shield" && WEAPON_ROLES[piece]!=="book") {
+  if(WEAPON_ROLES[piece]==="one-hand-weapon" || WEAPON_ROLES[piece]==="staff") {
    // Grip alignment: the hand's contact band (|y| < 2 cm) is a ring centred on the grip axis, as thick as the grip.
    const band=points.filter(([,y])=>Math.abs(y!)<.02),centre=[0,2].map(a=>band.reduce((s,p)=>s+p[a]!,0)/band.length);
    const radius=Math.max(...band.map(([x,,z])=>Math.hypot(x!,z!)));
@@ -157,6 +181,11 @@ test("native weapons are budgeted, grip-anchored, socket-aligned metric GLBs tha
    else assert.ok(top[2]!>grip[2]!+.3 && Math.abs(top[0]!-grip[0]!)<.02,`${piece} held ${top}`);
   }
   await executeGltfImportOperation(root,{parameters:{},inputs:{source:(await storeAssetObject(root,{bytes,kind:"mesh",mediaType:"model/gltf-binary"})).asset}});
+ }
+ // #467: each throwable level has fewer triangles than the one before.
+ for(const piece of WEAPON_THROWABLES) {
+  const [lod0,lod1,lod2]=triangleCounts[piece]!;
+  assert.ok(lod0!>lod1! && lod1!>lod2!,`${piece} levels ${triangleCounts[piece]}`);
  }
  const previous=await readFile(output);
  await writeFile(file,JSON.stringify(spec({...sword,maxTriangles:12})));await assert.rejects(generateAsset(file),/maxTriangles/);

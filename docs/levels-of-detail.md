@@ -35,7 +35,7 @@ Every Ranger character variant gets levels: `default`, `skin.light`, `outfit.sol
 - **Skin and clips:** Blender decimates the clip-less composition and keeps the skin weights. The clips ship **once**, in `humanoid.ranger.male/default`. Every other variant and level has the same joints, by name, at the same rest pose. The build checks this for each one. A consumer therefore plays the default's clips on any variant or level by joint name; three.js `AnimationMixer` tracks bind by node name. Blender may reorder a level's skin joints, but name binding makes the order irrelevant, so nothing is re-indexed or embedded again.
 - **Light skin:** a Light level is its Dark level with the Light textures swapped in. The geometry is shared and not decimated twice.
 - **Descriptor:** the `humanoid-appearance` descriptor lists them under `levelsOfDetail` (`of`, `level`, `variant`, `ratio`, `triangles`, `switchDistanceHint`).
-- **Items:** the armour, weapon and hair items keep only LOD0.
+- **Items:** the armour, weapon and hair items keep only LOD0, except the #467 throwables (`equipment.throwing-knife`, `equipment.venom-flask`, `equipment.blasting-bomb`), which ship recipe-built `lod1` and `lod2` variants listed in their `humanoid-item` descriptors ([weapon recipes](weapon-recipes.md#throwable-levels-of-detail)).
 
 ## Review
 
