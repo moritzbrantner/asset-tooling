@@ -1,6 +1,7 @@
 // The Ranger's authored clips (#425): the clip names of each family and the family table the build runs, one Blender
 // run per family. Adding a family is one table row plus its Blender recipe; adding a clip is one name.
 import { ARCHERY_PRESETS } from "./archery-recipes.js";
+import { WEAPON_PRESETS } from "./weapon-recipes.js";
 
 type Json = Record<string, any>;
 
@@ -43,6 +44,19 @@ export const RANGER_BOW_UPPER_CLIPS = [
  * reference). Every one keeps only the `spine_01` subtree. They follow the upper-body bow clips in bundle order.
  */
 export const RANGER_CROSSBOW_CLIPS = ["Crossbow_Idle_Loop", "Crossbow_Aim_Loop", "Crossbow_Fire", "Crossbow_Reload"] as const;
+/**
+ * #420 (the mmorpg Arcanist, Necromancer, Cleric and Druid): shared casting styles, the staff and mace strikes and the
+ * Warden's war cry, authored in place on the Ranger rig by adapters/blender/cast_clips.py from explicit hand frames on
+ * `hand_r.staff`, `hand_l.staff` (the left hand on the shaft), `hand_r.weapon` (mace or sword) and the left palm (two-bone
+ * arm IK; Mixamo only as reference). The left hand's casting shapes are keyed. All but `Cast_Nova` and
+ * `Cast_Summon_Raise` keep only the `spine_01` subtree. They follow the crossbow clips in bundle order.
+ */
+export const RANGER_CAST_CLIPS = [
+  "Cast_Charge_Loop", "Cast_Release_Push", "Cast_Release_Overhand", "Cast_Channel_Beam_Loop", "Cast_Channel_Drain_Loop",
+  "Cast_Channel_Sky_Loop", "Cast_Nova", "Cast_Cone", "Cast_Curse_Point", "Cast_Ground_Sweep", "Cast_Self_Ward", "Cast_Ally",
+  "Warcry", "Cast_Summon_Raise", "Cast_Summon_Call", "Staff_Strike_A", "Staff_Strike_B", "Mace_Swing_A", "Mace_Swing_B",
+  "Cast_Raise_Wall", "Cast_Interrupted",
+] as const;
 /**
  * #285: static grip poses authored on the rig by adapters/blender/grip_poses.py. Each clip keys only the finger and
  * thumb rotations of one hand; a consumer plays it over the body clip's finger channels while that hand's socket holds
@@ -296,6 +310,31 @@ export const RANGER_CLIP_FAMILIES: readonly ClipFamily[] = [
         authored: { recipe: family.recipe, clip: name, fps: family.fps, ...observed }, basedOn: source as string,
         extra: {
           ...(Object.keys(crossbow).length ? { fields: { crossbow } } : {}),
+          ...(observed.releaseSeconds === undefined ? {} : { contactSeconds: observed.releaseSeconds as number }),
+        },
+      };
+    },
+  },
+  {
+    id: "cast", script: "cast_clips.py", clips: RANGER_CAST_CLIPS,
+    arguments: ({ socket }) => {
+      const at = socketAt(socket);
+      const { length, footLength } = WEAPON_PRESETS["staff.crystal"];
+      return {
+        schemaVersion: 1, clips: [...RANGER_CAST_CLIPS], staff: { length, footLength },
+        sockets: { staff: at("hand_r.staff"), staffLeft: at("hand_l.staff"), tome: at("hand_l.shield"), weapon: at("hand_r.weapon") },
+      };
+    },
+    clip: (name, family) => {
+      // The upper-body clips list their joints (the nova and the summon are full body); the release, the channel point
+      // and the summon's chain pose go to the clip's entry. The contact is the authored release: a wind-up moves faster.
+      const { joints, source, secondaryPose, ...observed } = family.clips[name] as Json;
+      const cast = pickKeys(observed, ["releaseSeconds", "startsFrom", "channelJoint", "channelPoint", "sweepSeconds", "pulseSeconds", "kneelSeconds"]);
+      return {
+        ...(joints ? { keep: joints as string[] } : {}),
+        authored: { recipe: family.recipe, clip: name, fps: family.fps, ...observed }, basedOn: source as string,
+        extra: {
+          fields: { ...(Object.keys(cast).length ? { cast } : {}), ...(secondaryPose ? { secondaryPose } : {}) },
           ...(observed.releaseSeconds === undefined ? {} : { contactSeconds: observed.releaseSeconds as number }),
         },
       };
