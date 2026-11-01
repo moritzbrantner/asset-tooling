@@ -1,6 +1,6 @@
 # Greyhaven terrain materials
 
-The `greyhaven-terrain` rolling release (`greyhaven.terrain.tar`) supplies the ground materials for [mmorpg#525](https://github.com/moenarch-games/mmorpg/issues/525): seven CC0 [Poly Haven](https://polyhaven.com) PBR scans, one per terrain layer. [`scripts/build-greyhaven-terrain.ts`](../scripts/build-greyhaven-terrain.ts) builds it from the hydrated catalog (the 2K JPG maps `diff`, `nor_gl`, `arm` and `disp`, catalogued as `poly-haven.<id>-<map>-2k-jpg` and tagged `greyhaven-terrain`); it needs FFmpeg but no Blender or network. The game owns blending, tiling and placement.
+The `greyhaven-terrain` rolling release (`greyhaven.terrain.tar`) supplies the ground materials for [mmorpg#525](https://github.com/moenarch-games/mmorpg/issues/525): seven CC0 [Poly Haven](https://polyhaven.com) PBR scans, one per terrain layer. [`scripts/build-greyhaven-terrain.ts`](../scripts/build-greyhaven-terrain.ts) builds it from the hydrated catalog (the 2K JPG maps `diff`, `nor_gl`, `arm` and `disp`, catalogued as `poly-haven.<id>-<map>-2k-jpg` and tagged `greyhaven-terrain`); it needs FFmpeg and KTX-Software's `ktx` CLI (`ASSET_TOOLING_KTX`, or `ktx` on PATH) but no Blender or network. The game owns blending, tiling and placement.
 
 | Stable key | Poly Haven scan | `tileMetres` |
 | --- | --- | --- |
@@ -18,14 +18,22 @@ The `greyhaven-terrain` rolling release (`greyhaven.terrain.tar`) supplies the g
 
 Each key has variant `default`, a glTF with one mesh: a 1 m × 1 m quad on the XZ plane facing +Y with `POSITION`, `NORMAL`, `TEXCOORD_0` (0..1, u along +X, v along +Z) and `TANGENT` (+X, w = 1). Its one material is named after the layer (`grass`, `forest`, …):
 
-- `pbrMetallicRoughness.baseColorTexture`: RGBA PNG, 1024². RGB is the Poly Haven colour (sRGB). A encodes height: `round(255 × (0.5 + 0.5 × h))`, where h is the `disp` map normalised so its 1st percentile maps to 0 and its 99th to 1 (clamped), so alpha lies in 128..255;
-- `metallicRoughnessTexture`: JPEG, 512², from `arm` (R = ambient occlusion, G = roughness, B = metal), also the `occlusionTexture` (the same image);
-- `normalTexture`: JPEG, 1024², from `nor_gl` (OpenGL, +Y);
+- `pbrMetallicRoughness.baseColorTexture`: RGBA, 1024². RGB is the Poly Haven colour (sRGB). A encodes height: `round(255 × (0.5 + 0.5 × h))`, where h is the `disp` map normalised so its 1st percentile maps to 0 and its 99th to 1 (clamped), so alpha lies in 128..255;
+- `metallicRoughnessTexture`: 512², from `arm` (R = ambient occlusion, G = roughness, B = metal), also the `occlusionTexture` (the same image);
+- `normalTexture`: 1024², from `nor_gl` (OpenGL, +Y);
 - `metallicFactor` 0, roughness factor 1 and a white base colour factor (glTF defaults, so omitted from the JSON), `alphaMode` `MASK` with `alphaCutoff` 0.5, so every texel is opaque;
 - one sampler: `REPEAT`/`REPEAT`, `LINEAR_MIPMAP_LINEAR` minification, `LINEAR` magnification.
 
-The 2K maps are downscaled by `scene.textures.resize.gltf@1` (area average; colour in linear light, normals as unit vectors). To keep the bundle near 30 MB, the normal and AO/roughness/metal maps are then re-encoded as 4:4:4 JPEG (FFmpeg MJPEG, qscale 2, about libjpeg quality 92); the base colour stays PNG because its alpha carries height. The base-colour PNGs are most of the size (about 3 MB each).
+The 2K maps are downscaled by `scene.textures.resize.gltf@1` (area average; colour in linear light, normals as unit vectors). Then every map ships as KTX2 through `KHR_texture_basisu` (required, no PNG/JPEG fallback), each with a full mip chain, encoded by `ktx create` (#475):
+
+| Map | Encoding | Size per layer |
+| --- | --- | --- |
+| Base colour (with height alpha) | UASTC quality 2, Zstandard 18, sRGB | about 1.3 MB |
+| Normal | UASTC quality 2, Zstandard 18, linear | about 1.3 MB |
+| AO/roughness/metal | ETC1S (BasisLZ) qlevel 160, clevel 2, linear | about 60 KB |
+
+The base colour is UASTC rather than ETC1S because ETC1S blurs the scans' fine detail and the height alpha: on the grass layer it measured about 27 dB PSNR, against 35 dB for UASTC. The bundle is about 18.5 MB, down from 30 MB of PNG and JPEG (the PNG base colours were about 3 MB each). On the GPU, Basis transcodes to a format that takes 1 byte per texel (BC7, ASTC or ETC2), a quarter of the RGBA8 the PNGs needed. Consumers need a Basis transcoder. In three.js, register `KTX2Loader` with the `GLTFLoader`.
 
 ## Descriptor
 
-The `terrain-descriptor` attachment (on the `grass` entry, schema `greyhaven-terrain-descriptor-v1`) lists per layer: `key`, `variant`, `layer`, `polyHavenId`, `tileMetres`, `meanColor` (the mean RGB of the shipped 1024² base-colour texture in linear light, 4 decimals, so a client can divide by it and keep only the detail around its own palette) and `provenance` (catalog source ids and sha256 per map, `CC0-1.0`, authors, the Poly Haven evidence URL and the height percentiles used).
+The `terrain-descriptor` attachment (on the `grass` entry, schema `greyhaven-terrain-descriptor-v1`) lists per layer: `key`, `variant`, `layer`, `polyHavenId`, `tileMetres`, `meanColor` (the mean RGB of the 1024² base-colour texture in linear light before Basis encoding, 4 decimals, so a client can divide by it and keep only the detail around its own palette) and `provenance` (catalog source ids and sha256 per map, `CC0-1.0`, authors, the Poly Haven evidence URL and the height percentiles used).

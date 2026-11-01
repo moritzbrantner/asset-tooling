@@ -1,11 +1,14 @@
 // Greyhaven terrain ground materials for mmorpg#525: seven CC0 Poly Haven PBR layers, each a 1 m tiling quad whose
 // material carries the colour (with height in alpha), normal and AO/roughness/metal maps. See docs/greyhaven-terrain.md.
-// All input bytes come from the hydrated, verified catalog; this build never downloads and needs no Blender.
+// All input bytes come from the hydrated, verified catalog; this build never downloads and needs no Blender. The textures
+// ship as KTX2 (Basis Universal), encoded by KTX-Software's `ktx` CLI (ASSET_TOOLING_KTX, or `ktx` on PATH).
+import os from "node:os";
 import path from "node:path";
-import { spawnSync } from "node:child_process";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-import { Document, NodeIO, TextureInfo } from "@gltf-transform/core";
+import { Document, NodeIO, TextureInfo, type Texture } from "@gltf-transform/core";
+import { KHRTextureBasisu } from "@gltf-transform/extensions";
+import { ktxArguments, type TextureEncoding } from "./pack-downloads.ts";
 import { GLTF_RESOURCES_BUNDLE_PROFILE, exportAssetBundle } from "../src/asset-bundle.js";
 import { ASSET_BUNDLE_REF_FILE, readAssetBundleTar } from "../src/asset-bundle-pack.js";
 import { resolveAssetObject, storeAssetObject } from "../src/asset-store.js";
@@ -91,15 +94,20 @@ export function linearMeanColor({ pixels }: Rgba8Image): [number, number, number
 }
 
 /**
- * The normal and AO/roughness/metal JPEG encoding: FFmpeg's MJPEG at qscale 2 with full 4:4:4 chroma, about libjpeg
- * quality 92 in size (the Poly Haven normal sources are 4:4:4 too).
+ * The KTX2 (Basis Universal, KHR_texture_basisu) encoding per slot, all with a full mip chain: UASTC (quality 2,
+ * Zstandard 18) for the base colour, whose height alpha and fine ground detail ETC1S blurs, and for the normal maps;
+ * ETC1S (BasisLZ, qlevel 160) for the AO/roughness/metal data map. `ktxArguments` (scripts/pack-downloads.ts) holds the
+ * exact `ktx create` flags.
  */
-export const TERRAIN_JPEG = { encoder: "ffmpeg-mjpeg", qscale: 2, pixelFormat: "yuvj444p" } as const;
-function encodeJpeg(png: Uint8Array, key: string): Uint8Array {
-  const result = spawnSync("ffmpeg", ["-v", "error", "-nostdin", "-f", "png_pipe", "-i", "pipe:0", "-frames:v", "1", "-pix_fmt", TERRAIN_JPEG.pixelFormat,
-    "-c:v", "mjpeg", "-q:v", String(TERRAIN_JPEG.qscale), "-f", "image2pipe", "pipe:1"], { input: png, maxBuffer: 64 * 1024 * 1024 });
-  if (result.status !== 0) throw new Error(`${key}: JPEG encode failed: ${result.error?.message ?? result.stderr.toString()}`);
-  return new Uint8Array(result.stdout);
+export const TERRAIN_KTX2: Readonly<Record<"baseColor" | "normal" | "metallicRoughness", TextureEncoding>> = {
+  baseColor: "uastc-srgb", normal: "uastc", metallicRoughness: "etc1s-linear",
+};
+async function encodeKtx2(scratch: string, texture: Texture, encoding: TextureEncoding) {
+  const input = path.join(scratch, `${texture.getName()}.png`), output = path.join(scratch, `${texture.getName()}.ktx2`);
+  await writeFile(input, texture.getImage()!);
+  const run = Bun.spawnSync([process.env.ASSET_TOOLING_KTX ?? "ktx", ...ktxArguments(encoding, input, output)], { stdout: "pipe", stderr: "pipe" });
+  if (run.exitCode !== 0) throw new Error(`ktx create failed for ${texture.getName()}: ${run.stderr.toString()}`);
+  texture.setImage(new Uint8Array(await readFile(output))).setMimeType("image/ktx2");
 }
 
 function single(result: AssetOperationResult): AssetRef {
@@ -128,7 +136,7 @@ export async function buildGreyhavenTerrain(outDir: string, log: (message: strin
   const sources = JSON.parse(await readFile(path.join(ROOT, "catalog/sources.json"), "utf8"));
   const storage = JSON.parse(await readFile(path.join(ROOT, "catalog/storage.json"), "utf8"));
   const catalog = createAssetCatalog({ providers: providers.providers, sources: sources.sources });
-  const io = new NodeIO();
+  const io = new NodeIO().registerExtensions([KHRTextureBasisu]);
   const decode = async (asset: AssetRef) => {
     const image = single(await executeImageDecodeOperation(root, { inputs: { source: asset } }));
     return parseRgba8Image(new Uint8Array(await resolveAssetObject(root, image)));
@@ -189,10 +197,16 @@ export async function buildGreyhavenTerrain(outDir: string, log: (message: strin
     }
     const basePacked = (await storeAssetObject(root, { bytes: shippedBase.getImage()!, kind: "image", mediaType: "image/png" })).asset;
     const meanColor = linearMeanColor(await decode(basePacked));
-    // Size: the normal and AO/roughness/metal maps ship as 4:4:4 JPEG; the base colour stays PNG for its height alpha.
-    for (const jpeg of [shipped.getNormalTexture()!, shipped.getMetallicRoughnessTexture()!]) {
-      jpeg.setImage(encodeJpeg(jpeg.getImage()!, key)).setMimeType("image/jpeg");
+    // Every map ships as KTX2; the AO/roughness/metal texture is also the occlusion texture, so it is encoded once.
+    const scratch = await mkdtemp(path.join(os.tmpdir(), "greyhaven-terrain-"));
+    try {
+      await encodeKtx2(scratch, shippedBase, TERRAIN_KTX2.baseColor);
+      await encodeKtx2(scratch, shipped.getNormalTexture()!, TERRAIN_KTX2.normal);
+      await encodeKtx2(scratch, shipped.getMetallicRoughnessTexture()!, TERRAIN_KTX2.metallicRoughness);
+    } finally {
+      await rm(scratch, { recursive: true, force: true });
     }
+    resized.createExtension(KHRTextureBasisu).setRequired(true);
     const delivered = (await storeAssetObject(root, { bytes: await io.writeBinary(resized), kind: "scene", mediaType: "model/gltf-binary" })).asset;
     built.push({
       entry, key, asset: delivered, meanColor,
@@ -207,11 +221,11 @@ export async function buildGreyhavenTerrain(outDir: string, log: (message: strin
   const descriptor = {
     schema: TERRAIN_DESCRIPTOR_SCHEMA, units: "metre", up: "+Y",
     encoding: {
-      baseColor: "PNG; RGB = Poly Haven colour (sRGB); A = round(255 * (0.5 + 0.5 * h)), h = height normalised from its 1st (0) to 99th (1) percentile, clamped",
-      metallicRoughness: "JPEG; R = ambient occlusion, G = roughness, B = metal (Poly Haven arm); also the occlusion texture",
-      normal: "JPEG; OpenGL (+Y) tangent-space normal",
-      jpeg: TERRAIN_JPEG,
-      meanColor: "mean RGB of the shipped base-colour texture in linear light",
+      baseColor: "KTX2; RGB = Poly Haven colour (sRGB); A = round(255 * (0.5 + 0.5 * h)), h = height normalised from its 1st (0) to 99th (1) percentile, clamped",
+      metallicRoughness: "KTX2; R = ambient occlusion, G = roughness, B = metal (Poly Haven arm); also the occlusion texture",
+      normal: "KTX2; OpenGL (+Y) tangent-space normal",
+      ktx2: TERRAIN_KTX2,
+      meanColor: "mean RGB of the 1024² base-colour texture in linear light, before Basis encoding",
     },
     texturePolicy: TERRAIN_TEXTURE_POLICY,
     layers: built.map(({ entry, key, meanColor, provenance }) => ({
