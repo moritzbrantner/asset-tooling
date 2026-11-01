@@ -12,8 +12,11 @@ the first ``Idle_Loop`` pose (no source motion is copied; Mixamo was only watche
 - Every clip keeps only the ``spine_01`` subtree (the observations list the joints), so a consumer plays it over
   standing, walking or running legs. The chest turn is spread over ``spine_01``-``03``.
 - ``Dagger_Idle_Loop`` is the low twin-dagger ready stance over the whole ``Idle_Loop`` (resampled to 2 s). The strikes
-  start and end in its first pose. ``Throw_Knife`` and ``Throw_Lob`` reach the belt socket at ``drawSeconds`` (the
-  hand's grip frame is the belt socket's frame there) and let go at ``releaseSeconds``.
+  start and end in its first pose. ``Throw_Knife`` and ``Throw_Lob`` reach the belt socket at ``drawSeconds`` and let
+  go at ``releaseSeconds``. At the draw the hand's grip origin is the belt socket's origin, so the item stays where it
+  hangs when it passes from the belt into the hand and only turns. The belt holds the item upright (#470), which the hand cannot reach at
+  belt height, so the hand takes it in its own draw frame: the item's +Y turned ``DRAW_TILT`` from the socket's +Y
+  out of the belt (toward its +Z), the fingers down. The cork, fuse or handle points up and out while it is held.
 
 No randomness.
 """
@@ -90,12 +93,16 @@ KNIFE = {"duration": .5, "draw": .18, "release": .56, "keys": [
     (.74, {"r": {"g": (.06, -.48, 1.1), "b": (.45, -.8, -.4), "e": (0, 0, -1)}, "yaw": 30, "pitch": 8}),
 ]}
 # The lob: down to the belt, an underarm swing back past the hip and up, let go before the face; the off hand aims.
+# #470: through the backswing the thumb leads, so a flask's cork points forward, never down.
 LOB = {"duration": .8, "draw": .2, "release": .62, "keys": [
-    (.42, {"r": {"g": (-.3, .24, .94), "b": (0, .45, -.9), "e": (0, -1, 0)}, "l": {"g": (.22, -.48, 1.32), "b": (0, -1, .2)},
+    (.42, {"r": {"g": (-.3, .24, .94), "b": (0, -.95, .3), "e": (0, -.3, -.95)}, "l": {"g": (.22, -.48, 1.32), "b": (0, -1, .2)},
            "yaw": -20, "pitch": 8}),
     (.62, {"r": {"g": (-.16, -.52, 1.42), "b": (0, -.6, .8), "e": (0, -.8, -.6)}, "l": {"g": (.24, -.4, 1.24)}, "yaw": 12, "pitch": -6}),
     (.8, {"r": {"g": (-.1, -.42, 1.6), "b": (0, -.2, 1), "e": (0, -1, 0)}, "yaw": 10, "pitch": -8}),
 ]}
+# #470: how far (degrees) the hand turns the item at the draw from the belt socket's upright +Y out of the belt. At 45
+# the arm reaches the belt with the grip within 2 cm of the socket; nearer upright it falls short (6 cm at 0).
+DRAW_TILT = 45.0
 # The flourish: both blades come up before the chest, their tips circle twice (in opposite senses), they cross, back.
 FLOURISH = {"duration": .7, "spin": (.14, .7), "turns": 2, "cone": 55.0, "circle": .035,
             "r": (-.15, -.42, 1.3), "l": (.15, -.42, 1.3), "cross": .82}
@@ -405,12 +412,14 @@ def strike(rig, seed, clip):
 
 
 def belt_key(rig, seed):
-    """The right hand's key at the belt: its grip frame is the belt socket's frame in the stance."""
+    """The right hand's key at the belt (#470): its grip origin is the belt socket's origin in the stance, the item's +Y
+    the socket's +Y turned ``DRAW_TILT`` out of the belt, the fingers (+X) down."""
     rig.apply(seed)
     turn_chest(rig, 0.0, READY["pitch"])
     m = rig.grip("belt")
-    to = lambda axis: tuple(m.to_3x3() @ axis)
-    return {"g": tuple(m.translation), "b": to(Y), "e": to(X)}
+    tilt = math.radians(DRAW_TILT)
+    up, out = m.to_3x3() @ Y, m.to_3x3() @ Vector((0, 0, 1))
+    return {"g": tuple(m.translation), "b": tuple(up * math.cos(tilt) + out * math.sin(tilt)), "e": tuple(-UP)}
 
 
 def throw(rig, seed, spec):
