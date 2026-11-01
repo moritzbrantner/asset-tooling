@@ -19,6 +19,7 @@ const PUBLISHED_SCHEMA_BLOBS = {
   "generation-receipt-v1.schema.json": "472719e19daa3373de50cfd54ab52519bcbe60d5",
   "generation-receipt-v2.schema.json": "6503467dfdd69f05e32b3d9ec630939f442d80d1",
   "humanoid-item-v1.schema.json": "64f762e846376ceb1d2dad51b73887abf618adb2",
+  "humanoid-item-v2.schema.json": "7bfd432969c0bbdd423149978ff54168326e0b7e",
   "humanoid-sockets-v1.schema.json": "4524e391215aabc02bc535e8fc13a9b1f9d63ed5",
   "humanoid-sockets-v2.schema.json": "dd179362a11a5faefea353f557441cb03a768662",
   "model-acquisition-receipt-v1.schema.json": "acf30491a7e44c665b02e773492ee56407751759",

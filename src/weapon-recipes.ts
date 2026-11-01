@@ -2,8 +2,10 @@ import {readBlenderRecipeSource} from "./blender-recipe-source.js";
 import {parseAssetSpec} from "./schema.js";
 
 export type StaffPiece="staff.bone"|"staff.gilded"|"staff.gnarled"|"staff.crystal";
-export type WeaponPiece="sword.arming"|"dagger.blackened"|"shield.heater"|StaffPiece|"mace.flanged"|"book.tome";
-export type WeaponRole="one-hand-weapon"|"shield"|"staff"|"book";
+/** #467: the Rogue's throwables. */
+export type ThrowablePiece="throwing-knife"|"venom-flask"|"blasting-bomb";
+export type WeaponPiece="sword.arming"|"dagger.blackened"|"shield.heater"|StaffPiece|"mace.flanged"|"book.tome"|ThrowablePiece;
+export type WeaponRole="one-hand-weapon"|"shield"|"staff"|"book"|"throwing-knife"|"flask";
 type BladeControls={schemaVersion:1;bladeLength:number;bladeWidth:number;bladeThickness:number;
  fullerLength:number;guardWidth:number;gripLength:number;pommelRadius:number;radialSegments:number;maxTriangles:number};
 export type SwordParameters=BladeControls&{piece:"sword.arming"};
@@ -16,17 +18,26 @@ export type StaffParameters={schemaVersion:1;piece:StaffPiece;length:number;foot
 export type MaceParameters={schemaVersion:1;piece:"mace.flanged";haftLength:number;gripLength:number;headRadius:number;flanges:number;
  radialSegments:number;maxTriangles:number};
 export type BookParameters={schemaVersion:1;piece:"book.tome";width:number;height:number;thickness:number;maxTriangles:number};
-export type WeaponParameters=SwordParameters|DaggerParameters|ShieldParameters|StaffParameters|MaceParameters|BookParameters;
+export type ThrowingKnifeParameters={schemaVersion:1;piece:"throwing-knife";bladeLength:number;bladeWidth:number;bladeThickness:number;
+ gripLength:number;pinchOffset:number;radialSegments:number;maxTriangles:number};
+export type VenomFlaskParameters={schemaVersion:1;piece:"venom-flask";bodyRadius:number;neckRadius:number;neckLength:number;fill:number;
+ radialSegments:number;maxTriangles:number};
+export type BlastingBombParameters={schemaVersion:1;piece:"blasting-bomb";radius:number;fuseLength:number;radialSegments:number;maxTriangles:number};
+export type WeaponParameters=SwordParameters|DaggerParameters|ShieldParameters|StaffParameters|MaceParameters|BookParameters|
+ ThrowingKnifeParameters|VenomFlaskParameters|BlastingBombParameters;
 
 export const WEAPON_STAFFS=Object.freeze(["staff.bone","staff.gilded","staff.gnarled","staff.crystal"] as const) satisfies readonly StaffPiece[];
 const isStaff=(piece:WeaponPiece):piece is StaffPiece=>(WEAPON_STAFFS as readonly string[]).includes(piece);
 
 /** Style-spec triangle ceilings (docs/style-humanlike.md). `maxTriangles` may lower, never raise, them. */
 export const WEAPON_TRIANGLE_BUDGETS=Object.freeze({"sword.arming":2500,"dagger.blackened":1500,"shield.heater":3000,
- "staff.bone":2500,"staff.gilded":2500,"staff.gnarled":2500,"staff.crystal":2500,"mace.flanged":1500,"book.tome":400}) satisfies Record<WeaponPiece,number>;
+ "staff.bone":2500,"staff.gilded":2500,"staff.gnarled":2500,"staff.crystal":2500,"mace.flanged":1500,"book.tome":400,
+ "throwing-knife":800,"venom-flask":1200,"blasting-bomb":1200}) satisfies Record<WeaponPiece,number>;
 /** The attachment role each piece declares; humanoid-sockets-v2 sockets list the roles they accept. */
 export const WEAPON_ROLES=Object.freeze({"sword.arming":"one-hand-weapon","dagger.blackened":"one-hand-weapon","shield.heater":"shield",
- "staff.bone":"staff","staff.gilded":"staff","staff.gnarled":"staff","staff.crystal":"staff","mace.flanged":"one-hand-weapon","book.tome":"book"}) satisfies Record<WeaponPiece,WeaponRole>;
+ "staff.bone":"staff","staff.gilded":"staff","staff.gnarled":"staff","staff.crystal":"staff","mace.flanged":"one-hand-weapon","book.tome":"book",
+ // #467: `hand_r.weapon` and `belt.throwable` accept both roles; the bomb is held like the flask (Grip_Flask_R).
+ "throwing-knife":"throwing-knife","venom-flask":"flask","blasting-bomb":"flask"}) satisfies Record<WeaponPiece,WeaponRole>;
 export const WEAPON_MATERIALS=Object.freeze({"sword.arming":Object.freeze(["steel","iron","leather"] as const),
  "dagger.blackened":Object.freeze(["steel","charcoal","leather.dark"] as const),
  "shield.heater":Object.freeze(["paint","wood","iron","leather"] as const),
@@ -35,9 +46,14 @@ export const WEAPON_MATERIALS=Object.freeze({"sword.arming":Object.freeze(["stee
  "staff.gnarled":Object.freeze(["wood.dark","orb.moss"] as const),
  "staff.crystal":Object.freeze(["silver","crystal.blue"] as const),
  "mace.flanged":Object.freeze(["gold","wood.dark","leather"] as const),
- "book.tome":Object.freeze(["cover","parchment","gold"] as const)}) satisfies Record<WeaponPiece,readonly string[]>;
-/** The glowing orb materials; their base colour is also their glTF emissive factor. */
-export const WEAPON_EMISSIVE_MATERIALS=Object.freeze(["orb.green","orb.gold","orb.moss","crystal.blue"] as const);
+ "book.tome":Object.freeze(["cover","parchment","gold"] as const),
+ "throwing-knife":Object.freeze(["steel","charcoal","leather"] as const),
+ "venom-flask":Object.freeze(["glass","venom","cork"] as const),
+ "blasting-bomb":Object.freeze(["iron.slate","paint.red","brass","fuse","ember"] as const)}) satisfies Record<WeaponPiece,readonly string[]>;
+/** The glowing materials (the orbs, the venom and the fuse's ember); their base colour is also their glTF emissive factor. */
+export const WEAPON_EMISSIVE_MATERIALS=Object.freeze(["orb.green","orb.gold","orb.moss","crystal.blue","venom","ember"] as const);
+/** The see-through materials (glTF alphaMode BLEND) and their base colour alpha: the flask's glass. */
+export const WEAPON_ALPHA_MATERIALS=Object.freeze({glass:.32});
 /** Every GLB's origin is its grip frame; the empty node `grip` sits there with an identity transform. */
 export const WEAPON_GRIP_CONTRACT=Object.freeze({schemaVersion:1,unit:"meter",axes:"right-handed-y-up",origin:"grip",gripNode:"grip",
  "sword.arming":"origin at the centre of the hand's contact on the grip; blade along +Y, cutting edges along +X/-X, flats facing +Z/-Z",
@@ -45,7 +61,10 @@ export const WEAPON_GRIP_CONTRACT=Object.freeze({schemaVersion:1,unit:"meter",ax
  "shield.heater":"origin at the centre of the hand handle, which runs along Y (across the palm); face toward +Z, point toward -Y, left forearm across the board from the handle along +X to the strap; the back of the hand and the forearm rest against the board",
  staff:"origin at the centre of the hand's contact on the shaft; shaft along +Y from the foot (footLength below) to the head and orb at the top",
  "mace.flanged":"as the sword: haft along +Y to the flanged head",
- "book.tome":"held like the shield: origin at the middle of the back cover, spine along +Y (the forearm), covers facing +Z/-Z, the book standing off the hand toward +Z"});
+ "book.tome":"held like the shield: origin at the middle of the back cover, spine along +Y (the forearm), covers facing +Z/-Z, the book standing off the hand toward +Z",
+ "throwing-knife":"origin at the hand_r.weapon pinch frame (Grip_Knife_Pinch_R): the knife's axis runs along +Y through (x -0.015, z -0.02), the point pinchOffset below the origin inside the fist, the handle out of the thumb side toward +Y; flats facing +X/-X (thumb and index), edges +Z/-Z",
+ "venom-flask":"origin at the centre of the round body (the Grip_Flask_R ball); neck and cork toward +Y, out of the thumb side",
+ "blasting-bomb":"origin at the centre of the ball (the Grip_Flask_R ball); fuse collar and fuse toward +Y, out of the thumb side"});
 
 const STAFF={length:[1.5,2.2],footLength:[.5,1],shaftRadius:[.014,.03],orbRadius:[.04,.1],radialSegments:[6,16,true]} as const;
 const RANGES={
@@ -57,6 +76,10 @@ const RANGES={
  "staff.bone":STAFF,"staff.gilded":STAFF,"staff.gnarled":STAFF,"staff.crystal":STAFF,
  "mace.flanged":{haftLength:[.35,.7],gripLength:[.08,.2],headRadius:[.03,.07],flanges:[4,8,true],radialSegments:[6,16,true]},
  "book.tome":{width:[.12,.26],height:[.16,.34],thickness:[.03,.09]},
+ "throwing-knife":{bladeLength:[.1,.2],bladeWidth:[.018,.035],bladeThickness:[.002,.006],gripLength:[.06,.12],pinchOffset:[.02,.06],
+  radialSegments:[4,16,true]},
+ "venom-flask":{bodyRadius:[.03,.05],neckRadius:[.007,.016],neckLength:[.015,.06],fill:[.3,.9],radialSegments:[6,24,true]},
+ "blasting-bomb":{radius:[.03,.05],fuseLength:[.02,.08],radialSegments:[6,24,true]},
 } as const satisfies Record<WeaponPiece,Record<string,readonly [number,number]|readonly [number,number,true]>>;
 
 function number(value:unknown,label:string,min:number,max:number,integer=false):number {
@@ -90,6 +113,17 @@ export function normalizeWeaponParameters(value:unknown):WeaponParameters {
   if(b.height<b.width || b.thickness*2>b.width) throw new Error("tome must be taller than wide and at most half as thick as wide");
   return b;
  }
+ if(piece==="throwing-knife") {
+  const k=result as ThrowingKnifeParameters;
+  if(k.bladeThickness*3>k.bladeWidth || k.pinchOffset*2>k.bladeLength) throw new Error("throwing knife blade must be three times as wide as thick and pinched in its point half");
+  return k;
+ }
+ if(piece==="venom-flask") {
+  const f=result as VenomFlaskParameters;
+  if(f.neckRadius*2>f.bodyRadius) throw new Error("flask neck must be at most half as wide as the body");
+  return f;
+ }
+ if(piece==="blasting-bomb") return result as BlastingBombParameters;
  if(piece==="sword.arming" || piece==="dagger.blackened") {
   const s=result as SwordParameters|DaggerParameters;
   if(s.bladeThickness*3>s.bladeWidth || s.guardWidth<s.bladeWidth*2) throw new Error("sword blade must be three times as wide as thick and the guard twice as wide as the blade");
@@ -129,4 +163,29 @@ export const WEAPON_PRESETS=Object.freeze({
  "mace.flanged":Object.freeze({schemaVersion:1,piece:"mace.flanged",haftLength:.5,gripLength:.13,headRadius:.05,flanges:6,radialSegments:12,
   maxTriangles:1500}),
  "book.tome":Object.freeze({schemaVersion:1,piece:"book.tome",width:.17,height:.23,thickness:.055,maxTriangles:400}),
+ // #467: a 0.26 m knife whose balance sits at the bolster, and a flask and bomb sized to the 4 cm Grip_Flask_R ball.
+ "throwing-knife":Object.freeze({schemaVersion:1,piece:"throwing-knife",bladeLength:.14,bladeWidth:.028,bladeThickness:.004,gripLength:.095,
+  pinchOffset:.035,radialSegments:8,maxTriangles:800}),
+ "venom-flask":Object.freeze({schemaVersion:1,piece:"venom-flask",bodyRadius:.04,neckRadius:.011,neckLength:.03,fill:.7,radialSegments:16,
+  maxTriangles:1200}),
+ "blasting-bomb":Object.freeze({schemaVersion:1,piece:"blasting-bomb",radius:.04,fuseLength:.05,radialSegments:16,maxTriangles:1200}),
 }) satisfies {[P in WeaponPiece]:WeaponParameters&{piece:P}};
+
+export const WEAPON_THROWABLES=Object.freeze(["throwing-knife","venom-flask","blasting-bomb"] as const) satisfies readonly ThrowablePiece[];
+/**
+ * #467: the throwables' levels of detail: the same recipe with fewer segments round each lathe (`lod1`, `lod2`), in the
+ * same grip frame. Their screen-size switch points are `WEAPON_LOD_SCREEN_SIZES`.
+ */
+export const WEAPON_LOD_PRESETS=Object.freeze({
+ "throwing-knife":Object.freeze({lod1:Object.freeze({...WEAPON_PRESETS["throwing-knife"],radialSegments:6}),
+  lod2:Object.freeze({...WEAPON_PRESETS["throwing-knife"],radialSegments:4})}),
+ "venom-flask":Object.freeze({lod1:Object.freeze({...WEAPON_PRESETS["venom-flask"],radialSegments:10}),
+  lod2:Object.freeze({...WEAPON_PRESETS["venom-flask"],radialSegments:6})}),
+ "blasting-bomb":Object.freeze({lod1:Object.freeze({...WEAPON_PRESETS["blasting-bomb"],radialSegments:10}),
+  lod2:Object.freeze({...WEAPON_PRESETS["blasting-bomb"],radialSegments:6})}),
+}) satisfies {[P in ThrowablePiece]:{lod1:WeaponParameters&{piece:P};lod2:WeaponParameters&{piece:P}}};
+/**
+ * The throwables' `minScreenSize` per level after the first (projected bounding-sphere diameter over the viewport height,
+ * the #457 `projected-bounding-sphere-height-fraction` metric): `lod1` below 3 % of the screen height, `lod2` below 1.2 %.
+ */
+export const WEAPON_LOD_SCREEN_SIZES=Object.freeze([.03,.012] as const);

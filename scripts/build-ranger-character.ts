@@ -25,9 +25,9 @@ import { executeGltfComposeSkinnedOperation } from "../src/gltf-compose-operatio
 import { executeGltfProductionImportOperation } from "../src/gltf-production-operations.js";
 import { executeGltfSubsetSkinnedOperation } from "../src/gltf-subset-operations.js";
 import { executeGltfTextureResizeOperation } from "../src/gltf-texture-resize-operations.js";
-import { createHumanoidItemDescriptor, validateHumanoidSocketDescriptor, type HumanoidItemDescriptor } from "../src/humanoid-sockets.js";
+import { HUMANOID_ITEM_LOD_METRIC, createHumanoidItemDescriptor, validateHumanoidSocketDescriptor, type HumanoidItemDescriptor, type HumanoidItemLods } from "../src/humanoid-sockets.js";
 import { generateAsset } from "../src/index.js";
-import { WEAPON_PRESETS, WEAPON_ROLES, createWeaponAssetSpec, readWeaponRecipeSource, type WeaponPiece } from "../src/weapon-recipes.js";
+import { WEAPON_LOD_PRESETS, WEAPON_LOD_SCREEN_SIZES, WEAPON_PRESETS, WEAPON_ROLES, createWeaponAssetSpec, readWeaponRecipeSource, type ThrowablePiece, type WeaponParameters, type WeaponPiece } from "../src/weapon-recipes.js";
 import { readBlenderRecipeSource } from "../src/blender-recipe-source.js";
 import { blenderScriptSpec } from "../src/blender-script-spec.js";
 import { runBlenderRecipe } from "../src/blender-recipe-run.js";
@@ -444,6 +444,25 @@ export const RANGER_WEAPONS: readonly { key: string; piece: WeaponPiece }[] = [
   { key: "equipment.book.tome", piece: "book.tome" },
   { key: "equipment.mace.flanged", piece: "mace.flanged" },
 ];
+/**
+ * #467: the Rogue's throwables, drawn from `belt.throwable` into `hand_r.weapon` during Throw_Knife and Throw_Lob (the
+ * knife with Grip_Knife_Pinch_R, the flask and bomb with Grip_Flask_R). Each entry ships `default`, `lod1` and `lod2`
+ * variants, listed with their screen-size switch points in its `humanoid-item` descriptor.
+ */
+export const RANGER_THROWABLES: readonly { key: string; piece: ThrowablePiece }[] = [
+  { key: "equipment.throwing-knife", piece: "throwing-knife" },
+  { key: "equipment.venom-flask", piece: "venom-flask" },
+  { key: "equipment.blasting-bomb", piece: "blasting-bomb" },
+];
+export const RANGER_ITEM_LOD_REFERENCE_FOV_Y = 60;
+/** The #457 selection block every item with levels carries (greyhaven-nature-bundle.md#lod-metadata). */
+export const RANGER_ITEM_LOD_SELECTION = {
+  metric: HUMANOID_ITEM_LOD_METRIC,
+  rule: "Use the first level whose minScreenSize is at most the item's projected bounding-sphere diameter divided by the viewport "
+    + "height (radius / (distance * tan(fovY / 2))). referenceMaxDistance is the distance in metres at which that level ends at "
+    + "referenceFovYDegrees.",
+  referenceFovYDegrees: RANGER_ITEM_LOD_REFERENCE_FOV_Y,
+} as const;
 /** Archery entries (#113 bow slice): archery-recipe presets, parented at runtime through the sockets descriptor. */
 export const RANGER_ARCHERY: readonly { key: string; piece: ArcheryPiece }[] = [
   { key: "equipment.bow.long", piece: "bow.long" },
@@ -462,11 +481,25 @@ export const RANGER_HEADWEAR: readonly { key: string; piece: HeadwearPiece; labe
   { key: "equipment.hat.straw", piece: "hat.straw", label: "Straw Hat" },
 ];
 export const RANGER_SOCKETS_ATTACHMENT = "humanoid-sockets";
-/** Each equipment entry's `humanoid-item-v1` attachment (#264): its role and its `grip` frame. */
+/** Each equipment entry's `humanoid-item-v2` attachment (#264): its role and its `grip` frame. */
 export const RANGER_ITEM_ATTACHMENT = "humanoid-item";
 /** Every recipe GLB's origin is its grip frame, so `grip` is the identity in the item's scene frame. */
-export function rangerItemDescriptor(item: string, role: string): HumanoidItemDescriptor {
-  return createHumanoidItemDescriptor({ item, roles: [role], frames: [{ name: "grip", translation: [0, 0, 0], rotation: [0, 0, 0, 1] }] });
+export function rangerItemDescriptor(item: string, role: string, lods?: HumanoidItemLods): HumanoidItemDescriptor {
+  return createHumanoidItemDescriptor({ item, roles: [role], frames: [{ name: "grip", translation: [0, 0, 0], rotation: [0, 0, 0, 1] }],
+    ...(lods ? { lodSelection: RANGER_ITEM_LOD_SELECTION, lods } : {}) });
+}
+/** An item's `lods` from its LOD0 bounds and its levels' triangle counts, at the `WEAPON_LOD_SCREEN_SIZES` switch points. */
+export function rangerItemLods(bounds: { min: number[]; max: number[] }, levels: readonly { variant: string; triangles: number }[]): HumanoidItemLods {
+  const round = (value: number) => Math.round(value * 1e4) / 1e4 + 0;
+  const radius = round(Math.hypot(...[0, 1, 2].map((axis) => bounds.max[axis]! - bounds.min[axis]!)) / 2);
+  const tan = Math.tan((RANGER_ITEM_LOD_REFERENCE_FOV_Y / 2) * Math.PI / 180);
+  return {
+    boundingSphere: { center: [0, 1, 2].map((axis) => round((bounds.min[axis]! + bounds.max[axis]!) / 2)) as [number, number, number], radius },
+    levels: levels.map(({ variant, triangles }, index) => {
+      const minScreenSize = index < levels.length - 1 ? WEAPON_LOD_SCREEN_SIZES[index]! : 0;
+      return { variant, triangles, minScreenSize, referenceMaxDistance: minScreenSize ? Number((radius / (minScreenSize * tan)).toFixed(2)) : null };
+    }),
+  };
 }
 /** The male sockets descriptor (hand, stowed, archery, hair, armour and staff sockets; examples/weapons/derive-sockets.ts). */
 export const RANGER_SOCKETS_DESCRIPTOR = "assets/descriptors/humanoid.ranger.male.sockets.json";
@@ -529,17 +562,33 @@ export async function rangerProcessor(checkout: string) {
 }
 
 /** Generate one weapon-recipe preset through the pinned Blender backend (ASSET_TOOLING_BLENDER) and store it. */
-async function buildWeapon(root: string, piece: WeaponPiece) {
+async function generateWeapon(root: string, piece: WeaponPiece, parameters: WeaponParameters = WEAPON_PRESETS[piece], label: string = piece) {
   const source = await readWeaponRecipeSource();
-  const workspace = path.join(root, "weapons", piece);
+  const workspace = path.join(root, "weapons", label);
   await mkdir(workspace, { recursive: true });
   await writeFile(path.join(workspace, "weapon.py"), source.bytes);
-  const spec = createWeaponAssetSpec({ assetId: `weapon.${piece}`, parameters: WEAPON_PRESETS[piece], scriptSha256: source.sha256, blenderVersion: source.blenderVersion });
+  const spec = createWeaponAssetSpec({ assetId: `weapon.${label}`, parameters, scriptSha256: source.sha256, blenderVersion: source.blenderVersion });
   const specPath = path.join(workspace, "asset.json");
   await writeFile(specPath, `${canonicalJson(spec)}\n`);
-  await generateAsset(specPath);
+  const generated = await generateAsset(specPath);
+  const observations = generated.receipt.observations.script as { triangleCount: number; bounds: { min: number[]; max: number[] } };
   const glb = (await storeAssetObject(root, { bytes: await readFile(path.join(workspace, "weapon.glb")), kind: "mesh", mediaType: "model/gltf-binary" })).asset;
-  return single(await executeGltfProductionImportOperation(root, { inputs: { source: glb }, parameters: { policy: POLICY } }));
+  return { asset: single(await executeGltfProductionImportOperation(root, { inputs: { source: glb }, parameters: { policy: POLICY } })), observations };
+}
+
+async function buildWeapon(root: string, piece: WeaponPiece) {
+  return (await generateWeapon(root, piece)).asset;
+}
+
+/** #467: a throwable's `default`, `lod1` and `lod2` (fewer lathe segments, the same frame) and its descriptor `lods`. */
+async function buildThrowable(root: string, piece: ThrowablePiece) {
+  const levels = [
+    { variant: RANGER_BUNDLE_VARIANT, ...await generateWeapon(root, piece) },
+    ...await Promise.all(LOD_LEVELS.map(async (level) =>
+      ({ variant: level, ...await generateWeapon(root, piece, WEAPON_LOD_PRESETS[piece][level], `${piece}.${level}`) }))),
+  ];
+  const lods = rangerItemLods(levels[0]!.observations.bounds, levels.map(({ variant, observations }) => ({ variant, triangles: observations.triangleCount })));
+  return { levels: levels.map(({ variant, asset }) => ({ variant, asset })), lods };
 }
 
 const round4 = (value: number) => Math.round(value * 1e4) / 1e4 + 0;
@@ -1363,10 +1412,10 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
       selections[0]!.attachments.push({ name: RANGER_CLIPS_ATTACHMENT });
       attachments.push(clipMotion);
     }
-    const selectItem = async (key: string, role: string, asset: AssetRef) => {
+    const selectItem = async (key: string, role: string, asset: AssetRef, lods?: HumanoidItemLods) => {
       selections.push({ key, variant: RANGER_BUNDLE_VARIANT, attachments: [{ name: RANGER_ITEM_ATTACHMENT }] });
       assets.push(asset);
-      const bytes = Buffer.from(`${canonicalJson(rangerItemDescriptor(key, role))}\n`);
+      const bytes = Buffer.from(`${canonicalJson(rangerItemDescriptor(key, role, lods))}\n`);
       attachments.push((await storeAssetObject(root, { bytes, kind: RANGER_ITEM_ATTACHMENT, mediaType: "application/json" })).asset);
     };
     // The held items build in parallel (#427) and are selected in their declared order.
@@ -1384,10 +1433,24 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
         return buildHeadwear(root, piece);
       } })),
     ];
+    const throwing = RANGER_THROWABLES.map(({ piece }) => pool(() => {
+      log(`generate ${piece} and its lod1/lod2 (external.blender.script@1 weapon recipe, scene.import.gltf@2)`);
+      return buildThrowable(root, piece);
+    }));
     const built = await Promise.all(items.map((item) => pool(item.build)));
     for (const [index, { key, role, resize }] of items.entries()) {
       weapons[key] = built[index]!;
       await selectItem(key, role, resize ? await resizeTextures(key, weapons[key]!) : weapons[key]!);
+    }
+    // #467: the throwables are factor-only (no textures to resize); each level is a variant of its entry.
+    for (const [index, { key, piece }] of RANGER_THROWABLES.entries()) {
+      const { levels, lods } = await throwing[index]!;
+      weapons[key] = levels[0]!.asset;
+      await selectItem(key, WEAPON_ROLES[piece], levels[0]!.asset, lods);
+      for (const { variant, asset } of levels.slice(1)) {
+        selections.push({ key, variant });
+        assets.push(asset);
+      }
     }
   }
 

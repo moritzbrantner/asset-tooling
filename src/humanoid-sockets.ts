@@ -1,6 +1,7 @@
 /**
  * humanoid-sockets-v2: attachment frames on a humanoid rig, shipped with the character bundle, and
- * humanoid-item-v1: the roles and named attach frames of one attachable item, shipped with the item entry.
+ * humanoid-item-v2: the roles, named attach frames and optional levels of detail of one attachable item, shipped with the
+ * item entry (v2 adds `lodSelection` and `lods`, #467).
  *
  * A socket names a rig joint, a local transform and the item frame it holds. Attaching an item puts that item frame
  * at `joint world × T(translation) × R(rotation) × S(scale)`, so the item's scene root goes to
@@ -8,13 +9,19 @@
  * metres, right-handed +Y up. See docs/humanoid-sockets.md.
  */
 export const HUMANOID_SOCKETS_SCHEMA="humanoid-sockets-v2";
-export const HUMANOID_ITEM_SCHEMA="humanoid-item-v1";
+export const HUMANOID_ITEM_SCHEMA="humanoid-item-v2";
 type Vec3=[number,number,number];
 type Quat=[number,number,number,number];
 export type HumanoidSocket={id:string;joint:string;translation:Vec3;rotation:Quat;scale?:Vec3;attachFrame:string;accepts:string[];mirror?:string};
 export type HumanoidSocketDescriptor={schema:typeof HUMANOID_SOCKETS_SCHEMA;character:string;unit:"meter";axes:"right-handed-y-up";sockets:HumanoidSocket[]};
 export type HumanoidItemFrame={name:string;translation:Vec3;rotation:Quat;scale?:Vec3};
-export type HumanoidItemDescriptor={schema:typeof HUMANOID_ITEM_SCHEMA;item:string;unit:"meter";axes:"right-handed-y-up";roles:string[];frames:HumanoidItemFrame[]};
+/** The item's levels of detail (#467), in the #457 screen-size format: bundle variants of the item entry, in one frame. */
+export const HUMANOID_ITEM_LOD_METRIC="projected-bounding-sphere-height-fraction";
+export type HumanoidItemLodSelection={metric:typeof HUMANOID_ITEM_LOD_METRIC;rule:string;referenceFovYDegrees:number};
+export type HumanoidItemLods={boundingSphere:{center:Vec3;radius:number};
+ levels:{variant:string;triangles:number;minScreenSize:number;referenceMaxDistance:number|null}[]};
+export type HumanoidItemDescriptor={schema:typeof HUMANOID_ITEM_SCHEMA;item:string;unit:"meter";axes:"right-handed-y-up";roles:string[];frames:HumanoidItemFrame[];
+ lodSelection?:HumanoidItemLodSelection;lods?:HumanoidItemLods};
 
 const SOCKET_ID=/^[a-z0-9]+(?:_[a-z0-9]+)*(?:\.[a-z0-9]+(?:[_-][a-z0-9]+)*)+$/;
 const ROLE=/^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -109,7 +116,7 @@ export function humanoidSocketMirror(descriptor:HumanoidSocketDescriptor,id:stri
 
 /** Validate an item descriptor: its roles and its named attach frames in the item's glTF scene frame. */
 export function validateHumanoidItemDescriptor(value:unknown):HumanoidItemDescriptor {
- const d=plain(value,"humanoid item descriptor",["schema","item","unit","axes","roles","frames"]);
+ const d=plain(value,"humanoid item descriptor",["schema","item","unit","axes","roles","frames"],["lodSelection","lods"]);
  if(d.schema!==HUMANOID_ITEM_SCHEMA) throw new Error(`humanoid item descriptor schema must be ${HUMANOID_ITEM_SCHEMA}`);
  if(typeof d.item!=="string" || !KEY.test(d.item)) throw new Error("humanoid item descriptor item must be a bundle key");
  if(d.unit!=="meter" || d.axes!=="right-handed-y-up") throw new Error("humanoid item frames are in metres, right-handed +Y up");
@@ -122,12 +129,41 @@ export function validateHumanoidItemDescriptor(value:unknown):HumanoidItemDescri
   names.add(name);
   return {name,...transform(f,`frame '${name}'`)};
  });
- return {schema:HUMANOID_ITEM_SCHEMA,item:d.item,unit:"meter",axes:"right-handed-y-up",roles:roles(d.roles,"humanoid item roles"),frames};
+ const result:HumanoidItemDescriptor={schema:HUMANOID_ITEM_SCHEMA,item:d.item,unit:"meter",axes:"right-handed-y-up",roles:roles(d.roles,"humanoid item roles"),frames};
+ if((d.lodSelection===undefined)!==(d.lods===undefined)) throw new Error("humanoid item lodSelection and lods go together");
+ if(d.lods!==undefined) {
+  const s=plain(d.lodSelection,"humanoid item lodSelection",["metric","rule","referenceFovYDegrees"]);
+  if(s.metric!==HUMANOID_ITEM_LOD_METRIC || typeof s.rule!=="string" || !s.rule
+   || typeof s.referenceFovYDegrees!=="number" || !(s.referenceFovYDegrees>0 && s.referenceFovYDegrees<180)) throw new Error(`humanoid item lodSelection must use ${HUMANOID_ITEM_LOD_METRIC} with a rule and a field of view`);
+  const l=plain(d.lods,"humanoid item lods",["boundingSphere","levels"]);
+  const sphere=plain(l.boundingSphere,"humanoid item lods boundingSphere",["center","radius"]);
+  const radius=sphere.radius;
+  if(typeof radius!=="number" || !(radius>0 && radius<100)) throw new Error("humanoid item lods boundingSphere radius must be positive");
+  if(!Array.isArray(l.levels) || l.levels.length<2) throw new Error("humanoid item lods need at least two levels");
+  const variants=new Set<string>();
+  let previous=Infinity;
+  const levels=l.levels.map((entry:unknown,index)=>{
+   const v=plain(entry,`humanoid item lod level ${index}`,["variant","triangles","minScreenSize","referenceMaxDistance"]);
+   const last=index===(l.levels as unknown[]).length-1;
+   if(typeof v.variant!=="string" || !KEY.test(v.variant) || variants.has(v.variant)) throw new Error(`humanoid item lod level ${index} needs a unique variant`);
+   variants.add(v.variant);
+   if(!Number.isSafeInteger(v.triangles) || (v.triangles as number)<1) throw new Error(`humanoid item lod level ${index} triangles must be a positive integer`);
+   if(typeof v.minScreenSize!=="number" || !(v.minScreenSize>=0 && v.minScreenSize<previous) || last!==(v.minScreenSize===0)) throw new Error("humanoid item lod minScreenSize must fall level by level to 0 at the last");
+   previous=v.minScreenSize;
+   if(last ? v.referenceMaxDistance!==null : !(typeof v.referenceMaxDistance==="number" && v.referenceMaxDistance>0)) throw new Error(`humanoid item lod level ${index} referenceMaxDistance must be positive (null at the last)`);
+   return {variant:v.variant,triangles:v.triangles as number,minScreenSize:v.minScreenSize,referenceMaxDistance:v.referenceMaxDistance as number|null};
+  });
+  result.lodSelection={metric:HUMANOID_ITEM_LOD_METRIC,rule:s.rule,referenceFovYDegrees:s.referenceFovYDegrees};
+  result.lods={boundingSphere:{center:vector(sphere.center,3,"humanoid item lods boundingSphere center") as Vec3,radius},levels};
+ }
+ return result;
 }
 
 /** Build a validated item descriptor in canonical field order. */
-export function createHumanoidItemDescriptor({item,roles:itemRoles,frames}:{item:string;roles:readonly string[];frames:readonly HumanoidItemFrame[]}):HumanoidItemDescriptor {
- return validateHumanoidItemDescriptor({schema:HUMANOID_ITEM_SCHEMA,item,unit:"meter",axes:"right-handed-y-up",roles:[...itemRoles],frames:[...frames]});
+export function createHumanoidItemDescriptor({item,roles:itemRoles,frames,lodSelection,lods}:{item:string;roles:readonly string[];
+ frames:readonly HumanoidItemFrame[];lodSelection?:HumanoidItemLodSelection;lods?:HumanoidItemLods}):HumanoidItemDescriptor {
+ return validateHumanoidItemDescriptor({schema:HUMANOID_ITEM_SCHEMA,item,unit:"meter",axes:"right-handed-y-up",roles:[...itemRoles],frames:[...frames],
+  ...(lods ? {lodSelection,lods} : {})});
 }
 
 function trs({translation:[tx,ty,tz],rotation:[x,y,z,w],scale:[sx,sy,sz]=[1,1,1]}:{translation:Vec3;rotation:Quat;scale?:Vec3}):number[] {

@@ -1,6 +1,6 @@
-# humanoid-sockets-v2 and humanoid-item-v1
+# humanoid-sockets-v2 and humanoid-item-v2
 
-A `humanoid-sockets-v2` descriptor declares the attachment frames of one humanoid character. It ships with the character bundle. Weapons, shields and other items are separate bundle entries that a consumer parents to the character at runtime (owner answer Q3 on [#113](https://github.com/moritzbrantner/asset-tooling/issues/113)). Each item entry ships a `humanoid-item-v1` descriptor with its roles and named attach frames ([#264](https://github.com/moritzbrantner/asset-tooling/issues/264)). Games keep loadouts, equip legality, combat reach and blocking regions. A socket only says where an item frame sits.
+A `humanoid-sockets-v2` descriptor declares the attachment frames of one humanoid character. It ships with the character bundle. Weapons, shields and other items are separate bundle entries that a consumer parents to the character at runtime (owner answer Q3 on [#113](https://github.com/moritzbrantner/asset-tooling/issues/113)). Each item entry ships a `humanoid-item-v2` descriptor with its roles and named attach frames ([#264](https://github.com/moritzbrantner/asset-tooling/issues/264)), and optionally its levels of detail (#467; v2 adds them to `humanoid-item-v1`). Games keep loadouts, equip legality, combat reach and blocking regions. A socket only says where an item frame sits.
 
 ```json
 {
@@ -19,13 +19,13 @@ A `humanoid-sockets-v2` descriptor declares the attachment frames of one humanoi
 - **`joint`** names a joint of the character's skin. Joint names in this rig are UE-style: `hand_r`, `hand_l`, `spine_03`, `pelvis` and so on.
 - **`translation`, `rotation` (x, y, z, w) and optional `scale`** form the socket's local transform in that joint's glTF frame, in metres. The item frame the socket holds is placed at `jointWorld × T × R × S`.
 - **`attachFrame`** names the item frame that lands on the socket, for example `grip`, `grip.offhand` or `strap`. Each socket names its own frame, so one two-handed sword can be held by `grip` in `hand_r.weapon` while a consumer uses its `grip.offhand` frame as the IK target for the other hand.
-- **`accepts`** lists the item roles the socket takes. The recipes declare `one-hand-weapon` (`sword.arming`, `dagger.blackened`, `mace.flanged`), `staff` (`staff.bone`, `staff.gilded`, `staff.gnarled`, `staff.crystal`), `shield` (`shield.heater`), `book` (`book.tome`, #379), `bow`, `arrow`, `quiver` and `armor` (headwear).
+- **`accepts`** lists the item roles the socket takes. The recipes declare `one-hand-weapon` (`sword.arming`, `dagger.blackened`, `mace.flanged`), `staff` (`staff.bone`, `staff.gilded`, `staff.gnarled`, `staff.crystal`), `shield` (`shield.heater`), `book` (`book.tome`, #379), `throwing-knife` (`throwing-knife`, #467), `flask` (`venom-flask` and `blasting-bomb`, #467), `bow`, `arrow`, `quiver` and `armor` (headwear).
 - **`mirror`** (optional) names the counterpart socket on the other side, for example `hand_r.weapon` ↔ `hand_l.weapon`. A left-handed character then uses the same loadout data through the mirrored sockets. Both sockets of a pair must name each other, hold the same frame and accept the same roles.
 - **`id`** is `<joint-ish>.<purpose>`, for example `hand_l.shield` or `back.stowed`, and is unique within the descriptor.
 
 ```json
 {
-  "schema": "humanoid-item-v1",
+  "schema": "humanoid-item-v2",
   "item": "equipment.sword.arming",
   "unit": "meter",
   "axes": "right-handed-y-up",
@@ -37,7 +37,7 @@ A `humanoid-sockets-v2` descriptor declares the attachment frames of one humanoi
 - **`roles`** are the roles the item can fill. A socket can hold the item when it accepts one of them.
 - **`frames`** are named transforms in the item's glTF scene frame. A socket holding frame `F` puts the item's scene root at `jointWorld × socket × inverse(F)`. Every recipe GLB's origin is its grip frame (the `grip` node, see [style-humanlike.md](style-humanlike.md#conventions)), so the recipe items declare one identity `grip` frame. A consumer can then parent the scene root under the joint with exactly the socket's TRS. Hair entries are described by the appearance descriptor instead and attach by their scene root.
 
-[`schemas/humanoid-sockets-v2.schema.json`](../schemas/humanoid-sockets-v2.schema.json) and [`schemas/humanoid-item-v1.schema.json`](../schemas/humanoid-item-v1.schema.json) are the JSON schemas. Published Ranger releases keep the `humanoid-sockets-v1` descriptors they shipped. In those, a top-level `"attachFrame": "grip"` applies to every socket. `asset-tooling/humanoid/sockets` provides the following helpers:
+[`schemas/humanoid-sockets-v2.schema.json`](../schemas/humanoid-sockets-v2.schema.json) and [`schemas/humanoid-item-v2.schema.json`](../schemas/humanoid-item-v2.schema.json) are the JSON schemas. Ranger builds before #467 shipped `humanoid-item-v1` descriptors ([`schemas/humanoid-item-v1.schema.json`](../schemas/humanoid-item-v1.schema.json)), which are v2 descriptors without levels apart from the schema name. Published Ranger releases keep the `humanoid-sockets-v1` descriptors they shipped. In those, a top-level `"attachFrame": "grip"` applies to every socket. `asset-tooling/humanoid/sockets` provides the following helpers:
 
 - `validateHumanoidSocketDescriptor(value, {joints})` rejects the following:
   - unknown fields;
@@ -55,6 +55,20 @@ A `humanoid-sockets-v2` descriptor declares the attachment frames of one humanoi
 - `humanoidAttachmentMatrix(socket, item)` returns `socket × inverse(frame)`: the item root's transform in the joint frame. It throws when the item has none of the socket's roles, or lacks the socket's frame.
 
 The Ranger bundle attaches each equipment entry's descriptor as `humanoid-item` (`rangerItemDescriptor` in `scripts/build-ranger-character.ts`). The sword, shield, bow, arrow, quiver and headwear entries each get one.
+
+### Item levels of detail
+
+An item entry with levels of detail (#467: the throwables) ships them as bundle variants of the entry (`default`, `lod1`, `lod2`) in the same frame. Its `default` descriptor then carries the optional `lodSelection` and `lods` fields together, in the [#457 screen-size format](greyhaven-nature-bundle.md#lod-metadata):
+
+```json
+"lodSelection": {"metric": "projected-bounding-sphere-height-fraction", "rule": "...", "referenceFovYDegrees": 60},
+"lods": {"boundingSphere": {"center": [0, 0.03, 0], "radius": 0.0825}, "levels": [
+  {"variant": "default", "triangles": 798, "minScreenSize": 0.03, "referenceMaxDistance": 4.76},
+  {"variant": "lod1", "triangles": 384, "minScreenSize": 0.012, "referenceMaxDistance": 11.91},
+  {"variant": "lod2", "triangles": 222, "minScreenSize": 0, "referenceMaxDistance": null}]}
+```
+
+Use the first level whose `minScreenSize` is at most the bounding sphere's projected diameter over the viewport height, `radius / (distance × tan(fovY / 2))`. The last level's `minScreenSize` is 0. `validateHumanoidItemDescriptor` checks that both fields are present or absent together, that the variants are unique, and that `minScreenSize` falls level by level to 0. Items without levels omit both fields.
 
 ## Ranger sockets
 

@@ -4,8 +4,9 @@ Pieces: ``sword.arming`` (bevelled blade with fuller, crossguard, wrapped grip,
 pommel), ``dagger.blackened`` (the sword build at dagger proportions in charcoal and dark
 leather), ``shield.heater`` (curved heater board, rim, boss, handle and forearm
 strap) and the class staffs ``staff.bone``, ``staff.gilded`` and
-``staff.gnarled`` (shaft, head and a glowing orb). The style rules are
-docs/style-humanlike.md.
+``staff.gnarled`` (shaft, head and a glowing orb), and the Rogue's throwables
+``throwing-knife``, ``venom-flask`` and ``blasting-bomb`` (#467). The style rules
+are docs/style-humanlike.md; the grip frames are docs/weapon-recipes.md.
 
 Every GLB holds one mesh node named after the piece and an empty node ``grip``
 at the origin. The asset origin is the grip frame, in metres and glTF
@@ -58,11 +59,18 @@ PIECES.update({piece: {
 PIECES["mace.flanged"] = {"haftLength": (.35, .7, False), "gripLength": (.08, .2, False), "headRadius": (.03, .07, False),
                           "flanges": (4, 8, True), "radialSegments": (6, 16, True)}
 PIECES["book.tome"] = {"width": (.12, .26, False), "height": (.16, .34, False), "thickness": (.03, .09, False)}
+# #467: the Rogue's throwables, drawn from ``belt.throwable`` into ``hand_r.weapon``.
+PIECES["throwing-knife"] = {"bladeLength": (.1, .2, False), "bladeWidth": (.018, .035, False), "bladeThickness": (.002, .006, False),
+                            "gripLength": (.06, .12, False), "pinchOffset": (.02, .06, False), "radialSegments": (4, 16, True)}
+PIECES["venom-flask"] = {"bodyRadius": (.03, .05, False), "neckRadius": (.007, .016, False), "neckLength": (.015, .06, False),
+                         "fill": (.3, .9, False), "radialSegments": (6, 24, True)}
+PIECES["blasting-bomb"] = {"radius": (.03, .05, False), "fuseLength": (.02, .08, False), "radialSegments": (6, 24, True)}
 # Style-spec triangle ceilings (docs/style-humanlike.md); maxTriangles may only lower them.
 BUDGETS = {"sword.arming": 2500, "dagger.blackened": 1500, "shield.heater": 3000, **{piece: 2500 for piece in STAFFS},
-           "mace.flanged": 1500, "book.tome": 400}
+           "mace.flanged": 1500, "book.tome": 400, "throwing-knife": 800, "venom-flask": 1200, "blasting-bomb": 1200}
 ROLES = {"sword.arming": "one-hand-weapon", "dagger.blackened": "one-hand-weapon", "shield.heater": "shield", **{piece: "staff" for piece in STAFFS},
-         "mace.flanged": "one-hand-weapon", "book.tome": "book"}
+         "mace.flanged": "one-hand-weapon", "book.tome": "book", "throwing-knife": "throwing-knife", "venom-flask": "flask",
+         "blasting-bomb": "flask"}
 MATERIALS = {
     # name: (linear base colour, metallic, roughness)
     "steel": ((.62, .64, .66), 1.0, .32),
@@ -79,15 +87,27 @@ MATERIALS = {
     "silver": ((.5, .52, .58), 1.0, .35),
     "cover": ((.1, .018, .022), 0.0, .62),
     "parchment": ((.7, .62, .45), 0.0, .9),
+    # #467: the throwables.
+    "glass": ((.62, .8, .66), 0.0, .06),
+    "cork": ((.42, .27, .14), 0.0, .9),
+    # The bomb's shell: a dull slate-blue iron, several times lighter than the Rogue's charcoal so it reads on him.
+    "iron.slate": ((.13, .15, .19), 0.0, .5),
+    "paint.red": ((.42, .045, .03), 0.0, .55),
+    "brass": ((.62, .44, .16), 1.0, .38),
+    "fuse": ((.5, .38, .2), 0.0, .95),
 }
-# The orbs glow: their linear colour is also the glTF emissive factor.
-EMISSIVE = {"orb.green": (.2, 1.0, .25), "orb.gold": (1.0, .67, .1), "orb.moss": (.27, .75, .1), "crystal.blue": (.3, .7, 1.0)}
+# The flask's glass is see-through: its base colour alpha (glTF alphaMode BLEND). Every other material is opaque.
+ALPHA = {"glass": .32}
+# The orbs, the venom and the fuse's ember glow: their linear colour is also the glTF emissive factor.
+EMISSIVE = {"orb.green": (.2, 1.0, .25), "orb.gold": (1.0, .67, .1), "orb.moss": (.27, .75, .1), "crystal.blue": (.3, .7, 1.0),
+            "venom": (.16, .62, .06), "ember": (1.0, .32, .04)}
 MATERIALS.update({name: (colour, 0.0, .2) for name, colour in EMISSIVE.items()})
 PIECE_MATERIALS = {"sword.arming": ["steel", "iron", "leather"], "dagger.blackened": ["steel", "charcoal", "leather.dark"],
                    "shield.heater": ["paint", "wood", "iron", "leather"], "staff.bone": ["bone", "orb.green"],
                    "staff.gilded": ["ivory", "gold", "orb.gold"], "staff.gnarled": ["wood.dark", "orb.moss"],
                    "staff.crystal": ["silver", "crystal.blue"], "mace.flanged": ["gold", "wood.dark", "leather"],
-                   "book.tome": ["cover", "parchment", "gold"]}
+                   "book.tome": ["cover", "parchment", "gold"], "throwing-knife": ["steel", "charcoal", "leather"],
+                   "venom-flask": ["glass", "venom", "cork"], "blasting-bomb": ["iron.slate", "paint.red", "brass", "fuse", "ember"]}
 SHARP_ANGLE = math.radians(35)
 
 
@@ -122,6 +142,14 @@ def validate(p, inputs):
     elif piece == "book.tome":
         if p["height"] < p["width"] or p["thickness"] * 2 > p["width"]:
             raise ValueError("tome must be taller than wide and at most half as thick as wide")
+    elif piece == "throwing-knife":
+        if p["bladeThickness"] * 3 > p["bladeWidth"] or p["pinchOffset"] * 2 > p["bladeLength"]:
+            raise ValueError("throwing knife blade must be three times as wide as thick and pinched in its point half")
+    elif piece == "venom-flask":
+        if p["neckRadius"] * 2 > p["bodyRadius"]:
+            raise ValueError("flask neck must be at most half as wide as the body")
+    elif piece == "blasting-bomb":
+        pass
     else:
         if p["height"] < p["width"] or max(p["bossRadius"] * 4, p["rimWidth"] * 8, p["curvature"] * 4) > p["width"]:
             raise ValueError("heater shield must be taller than wide with boss, rim and curvature in proportion")
@@ -494,6 +522,110 @@ def book(builder, p):
                 .01 + d, .01 + d + .003, gold)
 
 
+def lathe(builder, profile, n, material, centre=(0, 0)):
+    """Revolve ``(radius, y)`` points about the Y axis through ``centre`` (x, z); a zero radius is an apex."""
+    cx, cz = centre
+    builder.loft([[(cx + r * math.cos(2 * math.pi * j / n), y, cz + r * math.sin(2 * math.pi * j / n)) for j in range(n)] if r else [(cx, y, cz)]
+                  for r, y in profile], material)
+
+
+# #467: where the throwing knife's axis passes the pinch frame (glTF x, z): between the thumb on the -X side and the
+# bent index on the +X side, a little toward the palm (-Z). Measured on Grip_Knife_Pinch_R in the live Blender.
+PINCH_AXIS = (-.015, -.02)
+
+
+def throwing_knife(builder, p):
+    """#467: a balanced throwing knife, pinched by its blade (``Grip_Knife_Pinch_R``). The grip origin is the
+    ``hand_r.weapon`` pinch frame; the knife's axis runs along +Y through ``PINCH_AXIS``. The point is ``pinchOffset``
+    below the origin toward -Y (inside the fist); the double-edged leaf blade runs up between the thumb and the index
+    to a charcoal bolster, the leather-wrapped handle continues along +Y out of the thumb side and a charcoal lanyard
+    ring closes the end. The flats face +X/-X (the thumb and the index), the edges +Z/-Z."""
+    steel, charcoal, leather = range(3)
+    n = p["radialSegments"]
+    tip, base, grip = -p["pinchOffset"], p["bladeLength"] - p["pinchOffset"], p["gripLength"]
+    w0, t0 = p["bladeWidth"] / 2, p["bladeThickness"] / 2
+    px, pz = PINCH_AXIS
+
+    def loft(rings, material, cyclic=False):
+        # Authored with the edges along X and the flats along Z, then turned so the flats face the thumb and index.
+        builder.loft([[(px + z, y, pz + x) for x, y, z in ring] for ring in rings], material, cyclic)
+    # Blade: a flat-ground hexagonal section (a flat of 0.35 of the width) on a leaf outline that is widest just past
+    # the middle, so the balance point sits near the bolster.
+    rings = [[(0, tip, 0)]]
+    for s, wf in [(.05, .34), (.14, .6), (.3, .86), (.48, 1.0), (.66, .96), (.82, .82), (.94, .66), (1.0, .6)]:
+        w, t, y = w0 * wf, t0 * (.45 + .55 * s), tip + (base - tip) * s
+        rings.append([(w, y, 0), (.35 * w, y, t), (-.35 * w, y, t), (-w, y, 0), (-.35 * w, y, -t), (.35 * w, y, -t)])
+    loft(rings, steel)
+
+    def ellipse(rx, rz, y):
+        return [(rx * math.cos(2 * math.pi * j / n), y, rz * math.sin(2 * math.pi * j / n)) for j in range(n)]
+    # Bolster and end cap: short charcoal collars round the slim handle.
+    loft([ellipse(w0 * .55, .0055, base - .003), ellipse(w0 * .72, .0075, base), ellipse(w0 * .72, .0075, base + .007),
+          ellipse(.0085, .0068, base + .01)], charcoal)
+    end = base + grip
+    loft([ellipse(.0085, .0068, end - .004), ellipse(.0095, .0075, end - .001), ellipse(.0085, .0065, end + .004),
+          ellipse(.005, .004, end + .006)], charcoal)
+    # Handle: a cord wrap, elliptical rings whose radius follows the helix.
+    wraps, per = 7, (3 if n >= 8 else 2 if n >= 6 else 1)
+    rings = []
+    for k in range(wraps * per + 1):
+        u = k / (wraps * per)
+        ring = []
+        for j in range(n):
+            angle = 2 * math.pi * j / n
+            wrap = 1 - .07 * (.5 + .5 * math.cos(2 * math.pi * wraps * u - angle))
+            ring.append((.0082 * wrap * math.cos(angle), base + .009 + (grip - .013) * u, .0064 * wrap * math.sin(angle)))
+        rings.append(ring)
+    loft(rings, leather)
+    # Lanyard ring: a torus in the blade plane (its hole through the flats) past the end cap.
+    major, minor, cy = .0085, .002, end + .006 + .0085 - .001
+    a, b = max(n + 4, 8), max(n // 2, 4)
+    loft([[((major + minor * math.cos(2 * math.pi * j / b)) * math.sin(2 * math.pi * i / a),
+            cy - (major + minor * math.cos(2 * math.pi * j / b)) * math.cos(2 * math.pi * i / a), minor * math.sin(2 * math.pi * j / b))
+           for j in range(b)] for i in range(a)], charcoal, cyclic=True)
+
+
+def venom_flask(builder, p):
+    """#467: a round glass flask held in the fist (``Grip_Flask_R``): the body is a sphere of ``bodyRadius`` centred on
+    the grip origin with a small flat foot, the neck rises along +Y to a lipped mouth stopped by a cork, and the green
+    venom fills the body to ``fill`` of its height under a flat surface."""
+    glass, venom, cork = range(3)
+    n, R, nr, nl = p["radialSegments"], p["bodyRadius"], p["neckRadius"], p["neckLength"]
+    rows = max(4, n // 2)
+    foot, shoulder = math.acos(.93), math.pi - math.asin(nr / R)
+    profile = [(0, -.93 * R)]
+    for k in range(rows + 1):
+        a = foot + (shoulder - foot) * k / rows
+        profile.append((R * math.sin(a), -R * math.cos(a)))
+    top = profile[-1][1] + nl
+    profile += [(nr, top - .004), (nr * 1.3, top - .0025), (nr * 1.3, top + .0015), (nr * 1.05, top + .0025)]
+    lathe(builder, profile, n, glass)
+    # The venom: an inner sphere (0.9 of the body) cut flat at the fill line.
+    r = .9 * R
+    level = -.88 * R + p["fill"] * 1.76 * R
+    low, high = math.acos(.92), math.acos(-level / r)
+    lathe(builder, [(0, -.92 * r)] + [(r * math.sin(low + (high - low) * k / rows), -r * math.cos(low + (high - low) * k / rows))
+                                       for k in range(rows + 1)], n, venom)
+    # Cork: a tapered plug in the neck, standing proud of the lip with a rounded top.
+    lathe(builder, [(nr * .8, top - .012), (nr * .92, top), (nr * 1.12, top + .003), (nr * 1.16, top + .011), (nr * .95, top + .014),
+                    (0, top + .015)], max(n // 2 + 2, 6), cork)
+
+
+def blasting_bomb(builder, p):
+    """#467: a round iron bomb held in the fist (``Grip_Flask_R``): a sphere of ``radius`` centred on the grip origin
+    with a raised red-painted band round its equator, a brass fuse collar on top (+Y) and a curling rope fuse ending
+    in a glowing ember."""
+    iron, paint, brass, fuse, ember = range(5)
+    n, R, L = p["radialSegments"], p["radius"], p["fuseLength"]
+    orb(builder, (0, 0, 0), R, iron, n, max(4, n // 2))
+    lathe(builder, [(R * .97, -.22 * R), (R * 1.035, -.17 * R), (R * 1.035, .17 * R), (R * .97, .22 * R)], n, paint)
+    lathe(builder, [(R * .3, R * .93), (R * .36, R * .99), (R * .36, R * 1.1), (R * .3, R * 1.15), (R * .18, R * 1.15)], max(n // 2 + 2, 6), brass)
+    y0 = R * 1.12
+    path = [(0, y0, 0), (.003, y0 + .35 * L, 0), (.012, y0 + .7 * L, .002), (.026, y0 + .92 * L, .004), (.034, y0 + .95 * L, .005)]
+    tube(builder, path, [.0034, .0032, .003, .0028, .0026], max(n // 3, 5), fuse)
+    orb(builder, (.037, y0 + .955 * L, .0055), .0045, ember, max(n // 2, 6), 4)
+
+
 def material(name):
     colour, metallic, roughness = MATERIALS[name]
     result = bpy.data.materials.new(name)
@@ -502,6 +634,9 @@ def material(name):
     shader.inputs["Base Color"].default_value = (*colour, 1)
     shader.inputs["Metallic"].default_value = metallic
     shader.inputs["Roughness"].default_value = roughness
+    if name in ALPHA:
+        shader.inputs["Alpha"].default_value = ALPHA[name]
+        result.surface_render_method = "BLENDED"
     if name in EMISSIVE:
         shader.inputs["Emission Color"].default_value = (*colour, 1)
         shader.inputs["Emission Strength"].default_value = 1.0
@@ -512,7 +647,8 @@ def build(p):
     """The validated piece's triangulated mesh (with its materials) and the authored glTF points."""
     piece = p["piece"]
     builder = Builder()
-    {"shield.heater": shield, "mace.flanged": mace, "book.tome": book}.get(piece, staff if piece in STAFFS else sword)(builder, p)
+    {"shield.heater": shield, "mace.flanged": mace, "book.tome": book, "throwing-knife": throwing_knife, "venom-flask": venom_flask,
+     "blasting-bomb": blasting_bomb}.get(piece, staff if piece in STAFFS else sword)(builder, p)
     bm = builder.bm
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
     bmesh.ops.triangulate(bm, faces=bm.faces, quad_method="FIXED", ngon_method="EAR_CLIP")

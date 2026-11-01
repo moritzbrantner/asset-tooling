@@ -15,12 +15,12 @@ import { fileURLToPath } from "node:url";
 import { ImageUtils, NodeIO } from "@gltf-transform/core";
 import { verifyAssetBundleTar } from "../src/asset-bundle-pack.js";
 import { GLTF_RESOURCES_BUNDLE_PROFILE, readAssetBundleAttachment, readAssetBundleGltf, verifyAssetBundle } from "../src/asset-bundle.js";
-import { validateHumanoidSocketDescriptor } from "../src/humanoid-sockets.js";
+import { validateHumanoidItemDescriptor, validateHumanoidSocketDescriptor } from "../src/humanoid-sockets.js";
 import {
   RANGER_APPEARANCE, RANGER_ARCHERY, RANGER_BONE_MAP, RANGER_BUNDLE_KEY, RANGER_BUNDLE_VARIANT, RANGER_CLIPS,
   RANGER_CLIPS_ATTACHMENT, RANGER_CLIP_ROLES, RANGER_FIGURES, RANGER_GAITS, RANGER_HAIR_TINTS, RANGER_MEMBERS,
   RANGER_CLASS_PRESETS, RANGER_FACIAL_HAIR_ENTRY, RANGER_ITEM_ATTACHMENT, RANGER_RESIDENT_PRESETS, RANGER_SOCKETS_ATTACHMENT, RANGER_SOCKETS_DESCRIPTOR, RANGER_TEXTURE_POLICY,
-  RANGER_UBC_BONE_MAP, RANGER_WEAPONS, RANGER_OUTFIT_KITS, RANGER_PEASANT_OUTFITS, validateAppearancePresets,
+  RANGER_UBC_BONE_MAP, RANGER_WEAPONS, RANGER_THROWABLES, RANGER_ITEM_LOD_SELECTION, rangerItemLods, RANGER_OUTFIT_KITS, RANGER_PEASANT_OUTFITS, validateAppearancePresets,
   buildRangerCharacter, rangerItemDescriptor, rangerJobs, rangerPresets,
 } from "../scripts/build-ranger-character.ts";
 import { RANGER_BOW_CLIPS, RANGER_BOW_UPPER_CLIPS, RANGER_CROSSBOW_CLIPS, RANGER_CAST_CLIPS, RANGER_CLIP_FAMILIES, RANGER_GAIT_CLIPS, RANGER_GRIPS, RANGER_HIT_CLIPS, RANGER_SWIM_CLIPS, RANGER_DAGGER_CLIPS, RANGER_SWORD_CLIPS, RANGER_TRAVERSAL_CLIPS, rangerGripJoints } from "../src/ranger-clips.js";
@@ -184,6 +184,18 @@ test("the Ranger declares its equipment, figures, appearance and texture limits"
   assert.deepEqual(RANGER_WEAPONS.map((item) => item.key), ["equipment.sword.arming", "equipment.shield.heater", "equipment.dagger.blackened",
     "equipment.staff.bone", "equipment.staff.gilded", "equipment.staff.gnarled", "equipment.staff.crystal", "equipment.book.tome", "equipment.mace.flanged"]);
   assert.deepEqual(RANGER_ARCHERY.map((item) => item.key), ["equipment.bow.long", "equipment.arrow", "equipment.quiver.back", "equipment.crossbow"]);
+  // #467: the throwables mmorpg draws in `hand_r.weapon` and on `belt.throwable`, with #457-format levels.
+  assert.deepEqual(RANGER_THROWABLES.map((item) => [item.key, WEAPON_ROLES[item.piece]]),
+    [["equipment.throwing-knife", "throwing-knife"], ["equipment.venom-flask", "flask"], ["equipment.blasting-bomb", "flask"]]);
+  const lods = rangerItemLods({ min: [-.04, -.04, -.04], max: [.04, .06, .04] }, [{ variant: "default", triangles: 800 }, { variant: "lod1", triangles: 400 },
+    { variant: "lod2", triangles: 200 }]);
+  assert.deepEqual(lods.boundingSphere.center, [0, .01, 0]);
+  assert.deepEqual(lods.levels.map((level) => [level.variant, level.minScreenSize]), [["default", .03], ["lod1", .012], ["lod2", 0]]);
+  assert.equal(lods.levels[2]!.referenceMaxDistance, null);
+  assert.ok(Math.abs(lods.levels[0]!.referenceMaxDistance! - lods.boundingSphere.radius / (.03 * Math.tan(Math.PI / 6))) < .01);
+  const descriptor = rangerItemDescriptor("equipment.venom-flask", "flask", lods);
+  assert.deepEqual(descriptor.lodSelection, RANGER_ITEM_LOD_SELECTION);
+  assert.deepEqual(validateHumanoidItemDescriptor(JSON.parse(JSON.stringify(descriptor))), descriptor);
   assert.equal(RANGER_FIGURES.female.key, "humanoid.ranger.female");
   assert.match(RANGER_FIGURES.female.body.path, /Superhero_Female_FullBody\.gltf$/);
   assert.match(RANGER_FIGURES.female.outfit.path, /Female_Ranger\.gltf$/);
@@ -428,13 +440,23 @@ test("the Ranger recipe builds a verified bundle: in-place clips, equipment entr
       assert.equal(weapon.observations.skins, 0, key);
       assert.deepEqual(weapon.observations.animations, [], key);
       assert.ok(weapon.observations.triangles > 0, key);
-      // Each item ships its humanoid-item-v1 descriptor (#264): its role and its identity `grip` frame.
+      // Each item ships its humanoid-item-v2 descriptor (#264): its role and its identity `grip` frame.
       assert.deepEqual(weapon.attachments.map((attachment: any) => attachment.name), [RANGER_ITEM_ATTACHMENT], key);
       const item = JSON.parse((await readAssetBundleAttachment(built.bundleDir, manifest, key, "default", RANGER_ITEM_ATTACHMENT)).toString("utf8"));
       assert.deepEqual(item, rangerItemDescriptor(key, WEAPON_ROLES[piece]), key);
       const scene = await readAssetBundleGltf(built.bundleDir, manifest, key, "default");
       const json = JSON.parse(scene.gltf.toString("utf8"));
       assert.deepEqual(json.nodes.map((node: any) => node.name).sort(), ["grip", piece].sort(), key);
+    }
+    // #467: each throwable ships default, lod1 and lod2, and its descriptor lists them nearest first.
+    for (const { key, piece } of RANGER_THROWABLES) {
+      const variants = manifest.assets.filter((candidate) => candidate.key === key);
+      assert.deepEqual(variants.map((variant) => variant.variant), ["default", "lod1", "lod2"], key);
+      const item = JSON.parse((await readAssetBundleAttachment(built.bundleDir, manifest, key, "default", RANGER_ITEM_ATTACHMENT)).toString("utf8"));
+      assert.deepEqual(item.roles, [WEAPON_ROLES[piece]], key);
+      assert.deepEqual(item.lods.levels.map((level: any) => [level.variant, level.triangles]),
+        variants.map((variant) => [variant.variant, variant.observations.triangles]), key);
+      assert.ok(item.lods.levels[0].triangles > item.lods.levels[1].triangles && item.lods.levels[1].triangles > item.lods.levels[2].triangles, key);
     }
     // v7 archery: the arrow and quiver are static like the weapons; the bow is skinned to grip and nock.
     for (const { key, piece } of RANGER_ARCHERY) {
