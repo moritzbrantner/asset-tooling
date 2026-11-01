@@ -8,8 +8,10 @@ The declared input ``target`` is the composed Ranger GLB. ``arguments["grips"]``
 - ``surface``: what the hand closes on, in the held item's grip frame. ``{"kind": "cylinder", "axis", "radius"}`` is a
   handle, shaft or riser through the grip origin; ``{"kind": "relaxed"}`` is a flat item held against the back of
   the hand (the tome), which leaves the hand loosely curled. ``{"kind": "sphere", "radius"}`` (#418) is a round
-  flask or bomb centred on the grip origin; ``{"kind": "pinch"}`` (#418) holds a throwing knife's blade between the
-  thumb and the bent index finger with the other fingers folded away.
+  flask or bomb centred on the grip origin; ``{"kind": "pinch", "through": [x, z], "thickness"}`` (#418) holds a
+  throwing knife's blade between the thumb and the bent index finger with the other fingers folded away. The blade
+  runs along the grip frame's +Y through (x, z), its flats facing ±X. #470: after the fixed curls the thumb swings
+  about its base until its pad lies on the blade's -X flat, across the blade from the index's last segment.
 
 On a cylinder or a sphere each finger (index, middle, ring, pinky) curls toward the palm joint by joint from the knuckle, one
 degree at a time, until the segment reaches the handle (its distance from the axis is the radius plus the finger's
@@ -41,8 +43,11 @@ THUMB_REST = .012
 # The relaxed hand (a flat item such as the tome against the back of the hand): degrees per joint (01, 02, 03).
 RELAXED = {"index": (12, 20, 12), "middle": (15, 25, 15), "ring": (18, 28, 15), "pinky": (22, 32, 18), "thumb": (5, 10, 10)}
 # The pinch (#418, a throwing knife's blade between the thumb and the side of the bent index finger): the index bends
-# round the blade, the other fingers fold into the palm out of the way and the thumb closes onto the index.
-PINCH = {"index": (38, 55, 30), "middle": (70, 90, 55), "ring": (75, 95, 55), "pinky": (80, 95, 55), "thumb": (30, 35, 25)}
+# round the blade, the other fingers fold into the palm out of the way and the thumb closes onto the index. #470: the
+# thumb's outer joints bend further (60, 50), so its pad reaches the blade's depth once the base swings it across.
+PINCH = {"index": (38, 55, 30), "middle": (70, 90, 55), "ring": (75, 95, 55), "pinky": (80, 95, 55), "thumb": (30, 60, 50)}
+# Where along the thumb's last segment its pad is (0 its joint, 1 its tip).
+THUMB_PAD = .5
 FIXED = {"relaxed": RELAXED, "pinch": PINCH}
 C4 = Matrix(((1, 0, 0, 0), (0, 0, -1, 0), (0, 1, 0, 0), (0, 0, 0, 1)))
 
@@ -70,7 +75,12 @@ def validate(p, inputs):
         elif surface.get("kind") == "sphere":
             if set(surface) != {"kind", "radius"} or not 0 < surface["radius"] < .07:
                 raise ValueError(f"{grip['clip']}: a sphere needs a radius in (0, 0.07) m")
-        elif surface not in ({"kind": "relaxed"}, {"kind": "pinch"}):
+        elif surface.get("kind") == "pinch":
+            through, thickness = surface.get("through"), surface.get("thickness")
+            if set(surface) != {"kind", "through", "thickness"} or not isinstance(through, list) or len(through) != 2 \
+                    or not all(abs(c) < .1 for c in through) or not 0 < thickness < .01:
+                raise ValueError(f"{grip['clip']}: a pinch needs the blade's through [x, z] within 0.1 m and a thickness in (0, 0.01) m")
+        elif surface != {"kind": "relaxed"}:
             raise ValueError(f"{grip['clip']}: surface kind must be cylinder, sphere, relaxed or pinch")
 
 
@@ -175,6 +185,29 @@ class Ball(Handle):
         return (point - self.origin).length - self.radius
 
 
+def pinch_thumb(hand, side, socket, surface):
+    """#470: swing the (curled) thumb about its base so its pad lies on the blade's -X flat, at the height along the
+    blade (+Y) of the index's last segment; the degrees turned. Keeping the pad's distance from the base, the pad lands
+    on the palm side (-Z) of that line."""
+    t, r = socket["translation"], socket["rotation"]
+    frame = hand.joint(socket["joint"]) @ Matrix.LocRotScale(Vector(t), Quaternion((r[3], r[0], r[1], r[2])), Vector((1, 1, 1)))
+    inverse = frame.inverted()
+    thumb, index = chain("thumb", side), chain("index", side)
+    pad = lambda: hand.head(thumb[2]).lerp(hand.head(thumb[3]), THUMB_PAD)
+    base = inverse @ hand.head(thumb[0])
+    reach = (inverse @ pad() - base).length
+    x = surface["through"][0] - surface["thickness"] / 2 - THUMB_HALF
+    y = (inverse @ hand.head(index[2]).lerp(hand.head(index[3]), .5)).y
+    depth = reach * reach - (x - base.x) ** 2 - (y - base.y) ** 2
+    if depth < 0:
+        raise ValueError("the thumb cannot reach the pinched blade")
+    target = frame @ Vector((x, y, base.z - math.sqrt(depth)))
+    origin = hand.head(thumb[0])
+    axis, angle = (pad() - origin).rotation_difference(target - origin).to_axis_angle()
+    hand.turn(thumb[0], axis, math.degrees(angle))
+    return round(math.degrees(angle), 1)
+
+
 def close(hand, joint, child, axis, surface, half, limit):
     """Turn ``joint`` about ``axis`` until its segment touches ``surface`` or reaches ``limit``; the degrees turned."""
     turned = 0
@@ -245,6 +278,9 @@ def generate(output_path, arguments, inputs):
         kind = grip["surface"]["kind"]
         handle = {"cylinder": Handle, "sphere": Ball}.get(kind)
         pose, curl = grip_pose(hand, side, handle and handle(hand, grip["socket"], grip["surface"]), FIXED.get(kind, RELAXED))
+        if kind == "pinch":
+            curl["thumbSwing"] = pinch_thumb(hand, side, grip["socket"], grip["surface"])
+            pose = {pb.name: pb.matrix_basis.copy() for pb in hand.bones}
         poses[grip["clip"]] = pose
         observed[grip["clip"]] = curl
     hand.reset()

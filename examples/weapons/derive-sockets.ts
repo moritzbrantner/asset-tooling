@@ -35,9 +35,13 @@ export const RANGER_STOWED_SOCKETS: readonly HumanoidSocket[] = [
   { id: "hip_l.stowed", joint: "pelvis", translation: [0.175, 0.142748, 0.127956], rotation: [-0.667907, 0.090365, -0.701309, 0.232164], attachFrame: "grip", accepts: ["one-hand-weapon"], mirror: "hip_r.stowed" },
   // #418: the Rogue's second dagger at the front right hip, hip_l.stowed mirrored across the pelvis's YZ plane.
   { id: "hip_r.stowed", joint: "pelvis", translation: [-0.175, 0.142748, 0.127956], rotation: [-0.667907, -0.090365, 0.701309, 0.232164], attachFrame: "grip", accepts: ["one-hand-weapon"], mirror: "hip_l.stowed" },
-  // #418: where knives, flasks and bombs are drawn from: the front right of the belt, the item's +Y down and its +Z
-  // out of the belt (rest-world intent at glTF (-0.12, 1.0, 0.135), +Y (0, -1, 0), +Z (-0.55, 0, 0.84)).
-  { id: "belt.throwable", joint: "pelvis", translation: [-0.12, 0.099, 0.1564], rotation: [0.282905, -0.136425, -0.948524, 0.04069], attachFrame: "grip", accepts: ["throwing-knife", "flask"] },
+  // #418: where knives, flasks and bombs hang until a throw draws them: the front right of the belt. #470: the socket
+  // has its own upright frame, so the cork, the fuse and the knife's handle point up: the item's +Y leans 20 degrees
+  // from straight up toward the figure's right (a sheath angle) and its +Z points out of the belt. The origin sits
+  // below the belt line, so the knife's bolster and the flask's cork come to about the belt (rest-world intent at glTF
+  // (-0.125, 0.93, 0.15), +Y cos20 (0, 1, 0) + sin20 (-0.84, 0, -0.55), +Z (-0.55, 0.12, 0.84)). The throws' hand
+  // takes the item there in its own draw frame (adapters/blender/dagger_clips.py).
+  { id: "belt.throwable", joint: "pelvis", translation: [-0.125, 0.0361, 0.1906], rotation: [-0.187815, -0.235744, 0.201575, 0.931943], attachFrame: "grip", accepts: ["throwing-knife", "flask"] },
 ];
 
 const sub = (a: Vec3, b: Vec3): Vec3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];

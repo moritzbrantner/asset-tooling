@@ -78,7 +78,9 @@ export const RANGER_GRIPS: readonly { clip: string; socket: string; role: string
   { clip: "Grip_Crossbow_R", socket: "hand_r.crossbow", role: "crossbow", surface: { kind: "cylinder", axis: [0, 0, 1], radius: .02 } },
   { clip: "Grip_Crossbow_L", socket: "hand_l.crossbow", role: "crossbow", surface: { kind: "cylinder", axis: [0, 0, 1], radius: .02 } },
   // #418: a throwing knife pinched between the thumb and the bent index; a round flask or bomb (4 cm radius) in the fist.
-  { clip: "Grip_Knife_Pinch_R", socket: "hand_r.weapon", role: "throwing-knife", surface: { kind: "pinch" } },
+  // #470: the blade runs along +Y through (x, z), where adapters/blender/weapon.py's PINCH_AXIS puts the knife, and is
+  // the knife's default bladeThickness thick; the thumb closes onto it.
+  { clip: "Grip_Knife_Pinch_R", socket: "hand_r.weapon", role: "throwing-knife", surface: { kind: "pinch", through: [-.015, -.02], thickness: .004 } },
   { clip: "Grip_Flask_R", socket: "hand_r.weapon", role: "flask", surface: { kind: "sphere", radius: .04 } },
   // #419: the crossbow's crank handle (Crossbow_Reload), a 12 mm handle along the grip frame's Y.
   { clip: "Grip_Crank_L", socket: "hand_l.weapon", role: "crank", surface: GRIP_HANDLE(.012) },

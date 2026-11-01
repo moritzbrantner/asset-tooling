@@ -26,7 +26,7 @@
      "translation": [-0.175, 0.142748, 0.127956], "rotation": [-0.667907, -0.090365, 0.701309, 0.232164],
      "attachFrame": "grip", "accepts": ["one-hand-weapon"], "mirror": "hip_l.stowed"},
     {"id": "belt.throwable", "joint": "pelvis",
-     "translation": [-0.12, 0.099, 0.1564], "rotation": [0.282905, -0.136425, -0.948524, 0.04069],
+     "translation": [-0.125, 0.0361, 0.1906], "rotation": [-0.187815, -0.235744, 0.201575, 0.931943],
      "attachFrame": "grip", "accepts": ["throwing-knife", "flask"]},
     {"id": "hand_l.bow", "joint": "hand_l",
      "translation": [0.0324, 0.0643, -0.0002], "rotation": [0.008695, 0.791205, 0.611453, 0.006742],
