@@ -286,13 +286,17 @@ test("every member is pinned and has exactly one storage entry at assets/canonic
   }
 });
 
+/** Members of these archives that other bundles use, outside the starter set: the climbing kit's ivy leaf (#394). */
+const OTHER_MEMBERS = [memberId(MEDIEVAL, "glTF/T_VineLeaf_png.png")];
+
 test("no unlisted member of these archives is registered or stored", () => {
   const archiveSet = new Set<string>(ARCHIVES);
+  const listed = [...EXPECTED.keys(), ...OTHER_MEMBERS].sort();
   const registered = rawSources
     .filter((source) => source.archiveMember && archiveSet.has(source.archiveMember.archive))
     .map((source) => source.id)
     .sort();
-  assert.deepEqual(registered, [...EXPECTED.keys()].sort());
+  assert.deepEqual(registered, listed);
 
   const stored = rawEntries
     .map((entry) => entry.sourceId as string)
@@ -301,7 +305,7 @@ test("no unlisted member of these archives is registered or stored", () => {
       return archiveSet.has(sourceId) || (source?.archiveMember && archiveSet.has(source.archiveMember.archive));
     })
     .sort();
-  assert.deepEqual(stored, [...EXPECTED.keys()].sort());
+  assert.deepEqual(stored, listed);
 });
 
 test("a shared texture has exactly one member record and one stored payload", () => {

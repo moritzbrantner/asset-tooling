@@ -775,6 +775,33 @@
     {
       "archiveMember": {
         "archive": "quaternius.medieval-village-megakit-standard",
+        "path": "glTF/T_VineLeaf_png.png"
+      },
+      "id": "quaternius.medieval-village-megakit-standard.t-vineleaf-png-png",
+      "kind": "texture",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/medievalvillagemegakit.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "image/png",
+      "metadata": {},
+      "provider": "quaternius",
+      "schemaVersion": 2,
+      "source": {
+        "byteLength": 162432,
+        "sha256": "8c80a9835d29cf7b1360ca46c2a96cedc0bfffee59f09db892f64db6825e3188"
+      },
+      "tags": [
+        "climbing-kit",
+        "ivy",
+        "leaf",
+        "vine"
+      ],
+      "title": "Medieval Village MegaKit — T_VineLeaf_png (texture)"
+    },
+    {
+      "archiveMember": {
+        "archive": "quaternius.medieval-village-megakit-standard",
         "path": "glTF/T_WoodTrim_Roughness.png"
       },
       "id": "quaternius.medieval-village-megakit-standard.t-woodtrim-roughness-png",

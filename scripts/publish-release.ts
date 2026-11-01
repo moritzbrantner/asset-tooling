@@ -45,6 +45,7 @@ const RANGER = { script: "scripts/build-ranger-release.ts", blender: true, lfs: 
 export const ROLLING_RELEASES: RollingRelease[] = [
   { name: "combat-effects", script: "scripts/build-combat-effects.ts" },
   { name: "combat-sounds", script: "scripts/build-combat-sounds.ts", lfs: true },
+  { name: "climbing-kit", script: "scripts/build-climbing-kit.ts", blender: true, lfs: true },
   { name: "farm-structures", script: "scripts/build-farm-structures.ts", blender: true },
   { name: "fortress-kit", script: "scripts/build-fortress-kit.ts", blender: true, lfs: true },
   { name: "greyhaven-ambient-animals", script: "scripts/build-greyhaven-ambient-animals.ts", blender: true, lfs: true },
