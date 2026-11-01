@@ -399,6 +399,29 @@ export const RANGER_CLIP_ROLES: Readonly<Record<string, { role: string; contact?
   Crossbow_Aim_Loop: { role: "crossbow.aim" },
   Crossbow_Fire: { role: "crossbow.fire", contact: "hand_r" },
   Crossbow_Reload: { role: "crossbow.reload" },
+  // #420: the casters' shared casting styles, the staff and mace strikes and the war cry (src/ranger-clips.ts
+  // RANGER_CAST_CLIPS). The contacts are the authored releases (the spell leaves the palm, the staff stamps, the blow lands).
+  Cast_Charge_Loop: { role: "cast.charge" },
+  Cast_Release_Push: { role: "cast.release.push", contact: "hand_l" },
+  Cast_Release_Overhand: { role: "cast.release.overhand", contact: "hand_l" },
+  Cast_Channel_Beam_Loop: { role: "cast.channel.beam" },
+  Cast_Channel_Drain_Loop: { role: "cast.channel.drain" },
+  Cast_Channel_Sky_Loop: { role: "cast.channel.sky" },
+  Cast_Nova: { role: "cast.nova", contact: "hand_r" },
+  Cast_Cone: { role: "cast.cone", contact: "hand_l" },
+  Cast_Curse_Point: { role: "cast.curse", contact: "hand_l" },
+  Cast_Ground_Sweep: { role: "cast.ground", contact: "hand_l" },
+  Cast_Self_Ward: { role: "cast.self", contact: "hand_l" },
+  Cast_Ally: { role: "cast.ally", contact: "hand_l" },
+  Warcry: { role: "warcry" },
+  Cast_Summon_Raise: { role: "cast.summon.raise", contact: "hand_l" },
+  Cast_Summon_Call: { role: "cast.summon.call" },
+  Staff_Strike_A: { role: "staff.strike.jab", contact: "hand_r" },
+  Staff_Strike_B: { role: "staff.strike.sweep", contact: "hand_r" },
+  Mace_Swing_A: { role: "mace.strike.overhand", contact: "hand_r" },
+  Mace_Swing_B: { role: "mace.strike.backhand", contact: "hand_r" },
+  Cast_Raise_Wall: { role: "cast.wall", contact: "hand_l" },
+  Cast_Interrupted: { role: "cast.interrupted" },
 };
 /** The gait loops whose ground speed the `humanoid-clips` attachment records. */
 export const RANGER_GAITS: ReadonlySet<string> = new Set(["Walk_Loop", "Jog_Fwd_Loop", "Sprint_Loop", "Crouch_Fwd_Loop", "Jog_Bwd_Loop", "Walk_Bwd_Loop", "Wade_Fwd_Loop"]);

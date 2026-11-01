@@ -45,7 +45,9 @@ The `humanoid.ranger.male` bundle holds the following.
   - the authored hit reactions `Hit_Upper_*` and `Hit_Shove_Spin` ([Authored hit clips](#authored-hit-clips-399));
   - the authored climb, mantle, ladder and rope clips ([Traversal clips](#traversal-clips-416));
   - the authored sword-and-shield clips of the Warden and the Redbrand ([Sword and shield clips](#sword-and-shield-clips-417));
-  - the authored dagger, throw, flourish and bandage clips of the Rogue ([Dagger, throw and bandage clips](#dagger-throw-and-bandage-clips-418)).
+  - the authored dagger, throw, flourish and bandage clips of the Rogue ([Dagger, throw and bandage clips](#dagger-throw-and-bandage-clips-418));
+  - the upper-body bow, rapid and power clips and the crossbow clips ([Upper-body bow, rapid and power clips](#upper-body-bow-rapid-and-power-clips-419), [Crossbow clips](#crossbow-clips-419));
+  - the casters' casting styles, staff and mace strikes and the war cry ([Casting, staff and mace clips](#casting-staff-and-mace-clips-420)).
 
   No clip uses Mixamo data (#399). Mixamo is only a motion reference, so the build needs no local input and both figures publish from CI.
 
@@ -331,6 +333,39 @@ The strokes are authored **upright**, with the body along +Y and facing +Z. Over
 - **Contact:** at `releaseSeconds`.
 - **Socket change:** the crossbow sockets turned 180° about the stock (`docs/humanoid-sockets.md`): the top of the stock now faces the fingertips, so the forearm hangs under it and the elbow drops at the shoulder.
 - **Review:** reviewed in the live Blender on the male `outfit.redbrand` with the crossbow on `hand_r.crossbow` and an arrow standing in for the bolt on `hand_r.arrow` (no grip poses applied; the Redbrand wears no quiver, so the bolt comes from where `back.quiver` would be).
+
+### Casting, staff and mace clips (#420)
+
+[`adapters/blender/cast_clips.py`](../adapters/blender/cast_clips.py) authors the casters' kit in Blender on the animated Ranger (`RANGER_CAST_CLIPS`, the `cast` family, after the crossbow clips in bundle order). The clips are shared **cast styles**: the school (fire, frost, shadow, holy, nature) shows through VFX, not separate clips. Each key names the right hand's item frame (the staff on `hand_r.staff`, or the mace or sword on `hand_r.weapon`) and the left hand's palm (the wrist, the fingers and the palm's normal), or for the two-handed staff strikes the left hand's `hand_l.staff` grip 0.42 m up the shaft from the right hand. Two-bone arm IK puts the hands there, the chest turn is spread over `spine_01`-`03`, and the left hand's casting shape (open, cupped, clawed, pointing or a fist) is keyed on its finger joints. The right hand's fingers are left to the grip pose. Mixamo was only watched as reference. Every clip starts from the first `Idle_Loop` pose and is in place.
+
+| Clip | Length | Layer | Motion | `humanoid-clips` |
+| --- | --- | --- | --- | --- |
+| `Cast_Charge_Loop` | 1.0 s loop | `spine_01` | The staff upright before the right of the chest, the left hand cupped before the chest toward it, circling 2.5 cm; the chest sways ±2°. | `role: cast.charge` |
+| `Cast_Release_Push` | 0.5 s | `spine_01` | From the charge's first pose: the palm draws back, then thrusts forward, palm out, at 0.22 s; back to the idle. | `role: cast.release.push`, `contact` (`hand_l`) |
+| `Cast_Release_Overhand` | 0.6 s | `spine_01` | From the charge: the left hand winds up beside the head and hurls forward and down at 0.31 s. | `role: cast.release.overhand`, `contact` (`hand_l`) |
+| `Cast_Channel_Beam_Loop` | 1.5 s loop | `spine_01` | The staff aimed forward and up, braced by the left palm beside it; a slight push and tremble. The beam starts at the staff's head. | `role: cast.channel.beam` |
+| `Cast_Channel_Drain_Loop` | 1.5 s loop | `spine_01` | The clawed left hand reaching forward, pulling back 16 cm twice per loop (`pulseSeconds` 0.375, 1.125) while the chest leans back. | `role: cast.channel.drain` |
+| `Cast_Channel_Sky_Loop` | 2.0 s loop | `spine_01` | The staff raised high at the right, its head circling 4 cm; the left palm open upward; the head tipped back. | `role: cast.channel.sky` |
+| `Cast_Nova` | 0.8 s | full body | The staff lifts, then stamps its foot on the ground beside the right foot at 0.38 s while the knees bend 9 cm (the feet stay planted) and the left arm sweeps out low. | `role: cast.nova`, `contact` (`hand_r`) |
+| `Cast_Cone` | 0.9 s | `spine_01` | Palm forward, swept from the right to the left with a 56° chest turn between 0.29 and 0.67 s (`sweepSeconds`). | `role: cast.cone`, `contact` (`hand_l`) |
+| `Cast_Curse_Point` | 0.5 s | `spine_01` | A pointing hand flicked forward from the chest at 0.25 s. | `role: cast.curse`, `contact` (`hand_l`) |
+| `Cast_Ground_Sweep` | 0.7 s | `spine_01` | The palm raised, then swept down toward the ground ahead at 0.39 s, the chest bending 16°. | `role: cast.ground`, `contact` (`hand_l`) |
+| `Cast_Self_Ward` | 0.9 s | `spine_01` | Fist to the chest, then both arms thrown open (the staff tipped out) at 0.54 s. | `role: cast.self`, `contact` (`hand_l`) |
+| `Cast_Ally` | 0.7 s | `spine_01` | An open palm reaching forward and a little to the left at 0.34 s. | `role: cast.ally`, `contact` (`hand_l`) |
+| `Warcry` | 1.0 s | `spine_01` | The weapon on `hand_r.weapon` thrust straight up by 0.4 s and held, the left fist clenched, chest and head thrown back. | `role: warcry` |
+| `Cast_Summon_Raise` | 1.5 s | full body | Kneels on the right knee with the staff planted (0.45-1.05 s, `kneelSeconds`), the left palm reaching down beside the knee; the palm turns up and rises (the summon at 0.93 s) while the caster stands. | `role: cast.summon.raise`, `contact` (`hand_l`), `secondaryPose` |
+| `Cast_Summon_Call` | 1.2 s | `spine_01` | Two fingers to the mouth for a whistle (0.5 s), then a beckoning sweep of the open hand. | `role: cast.summon.call` |
+| `Staff_Strike_A`, `Staff_Strike_B` | 0.7 s | `spine_01` | Two-handed, from a guard with the right hand forward on the grip, the left hand behind it on the shaft and the staff's foot leading: a jab (contact 0.32 s) and a right-to-left sweep at waist height (0.35 s). | `role: staff.strike.jab`, `staff.strike.sweep`, `contact` (`hand_r`) |
+| `Mace_Swing_A`, `Mace_Swing_B` | 0.7 s | `spine_01` | The mace on `hand_r.weapon`: an overhand blow from over the right shoulder, and a backhand from the left shoulder out to the right; contact at 0.35 s. | `role: mace.strike.overhand`, `mace.strike.backhand`, `contact` (`hand_r`) |
+| `Cast_Raise_Wall` | 1.0 s | `spine_01` | Both hands low, palms up, lifted to head height at 0.66 s. | `role: cast.wall`, `contact` (`hand_l`) |
+| `Cast_Interrupted` | 0.4 s | `spine_01` | From the charge: a recoil, hands thrown back and apart, the head back, then the idle. | `role: cast.interrupted` |
+
+- **`cast` object:** `releaseSeconds` (every one-shot: the spell leaves the hand, the staff stamps, the blow lands, the ally is touched), `startsFrom: "Cast_Charge_Loop"` (the releases and the interrupt start in the charge's first pose, so crossfade from it), `channelJoint` and `channelPoint` (where the effect starts: `hand_l` and the middle of the palm, or `hand_r` and the staff's head 1.05 m up the shaft, or for the nova its foot; `channelPoint` is in the joint's glTF frame), `sweepSeconds` (cone), `pulseSeconds` (drain) and `kneelSeconds` (summon).
+- **Contact:** at `releaseSeconds`, not at the fastest sample: a wind-up moves faster than the release.
+- **Items:** the staff (`equipment.staff.*`) rides `hand_r.staff` with `Grip_Staff_R`; in the staff strikes the left hand plays `Grip_Staff_L`. The Arcanist's tome rides `hand_l.shield` with `Grip_Book_L` and simply follows the casting hand (playing `Grip_Book_L` replaces the keyed casting shape). The Cleric's mace and the Warden's sword ride `hand_r.weapon` with `Grip_Weapon_R`; the casting clips put the right hand where the staff would be, so a mace in that hand just follows it.
+- **Chain pose:** `Cast_Summon_Raise` has a `secondaryPose` as the traversal clips (`skirt_f_01`, `skirt_b_01`, `skirt_l_01`, `skirt_r_01`, `cape_01`, one local rotation per frame), with a larger swing for the level front thigh: the front and side panels follow 70% of the thigh's lift (front at most 70°, sides 55°), so the robe stays over the knee.
+- **Long robes:** the clips keep the feet under the body. `Cast_Nova` bends the knees with the feet planted rather than stepping out; the robe stretches over the knees but no leg passes through it.
+- **Review:** reviewed in the live Blender on the male `outfit.class.arcanist` with the crystal staff on `hand_r.staff` and the tome on `hand_l.shield`, and on `outfit.class.cleric` with the flanged mace on `hand_r.weapon` (no grip poses applied). In `Cast_Summon_Raise`, with the chain pose driven, the front panel lies over the raised knee and the shin shows below its hem; the reaching palm stays about 0.45 m above the ground.
 
 ## Female Ranger
 
