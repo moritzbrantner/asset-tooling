@@ -7,9 +7,11 @@ The declared input ``target`` is the composed Ranger GLB. ``arguments["grips"]``
   the joint's glTF frame, as in the sockets descriptor.
 - ``surface``: what the hand closes on, in the held item's grip frame. ``{"kind": "cylinder", "axis", "radius"}`` is a
   handle, shaft or riser through the grip origin; ``{"kind": "relaxed"}`` is a flat item held against the back of
-  the hand (the tome), which leaves the hand loosely curled.
+  the hand (the tome), which leaves the hand loosely curled. ``{"kind": "sphere", "radius"}`` (#418) is a round
+  flask or bomb centred on the grip origin; ``{"kind": "pinch"}`` (#418) holds a throwing knife's blade between the
+  thumb and the bent index finger with the other fingers folded away.
 
-On a cylinder each finger (index, middle, ring, pinky) curls toward the palm joint by joint from the knuckle, one
+On a cylinder or a sphere each finger (index, middle, ring, pinky) curls toward the palm joint by joint from the knuckle, one
 degree at a time, until the segment reaches the handle (its distance from the axis is the radius plus the finger's
 half thickness) or the joint's limit. The thumb then swings to rest over the wrapped index finger, and its two outer
 joints close onto the handle. Poses are authored at rest; finger joints are local to the hand, so a grip holds in
@@ -38,6 +40,10 @@ THUMB_BEND = (20, 30)
 THUMB_REST = .012
 # The relaxed hand (a flat item such as the tome against the back of the hand): degrees per joint (01, 02, 03).
 RELAXED = {"index": (12, 20, 12), "middle": (15, 25, 15), "ring": (18, 28, 15), "pinky": (22, 32, 18), "thumb": (5, 10, 10)}
+# The pinch (#418, a throwing knife's blade between the thumb and the side of the bent index finger): the index bends
+# round the blade, the other fingers fold into the palm out of the way and the thumb closes onto the index.
+PINCH = {"index": (38, 55, 30), "middle": (70, 90, 55), "ring": (75, 95, 55), "pinky": (80, 95, 55), "thumb": (30, 35, 25)}
+FIXED = {"relaxed": RELAXED, "pinch": PINCH}
 C4 = Matrix(((1, 0, 0, 0), (0, 0, -1, 0), (0, 1, 0, 0), (0, 0, 0, 1)))
 
 
@@ -61,8 +67,11 @@ def validate(p, inputs):
         if surface.get("kind") == "cylinder":
             if set(surface) != {"kind", "axis", "radius"} or not 0 < surface["radius"] < .06:
                 raise ValueError(f"{grip['clip']}: a cylinder needs an axis and a radius in (0, 0.06) m")
-        elif surface != {"kind": "relaxed"}:
-            raise ValueError(f"{grip['clip']}: surface kind must be cylinder or relaxed")
+        elif surface.get("kind") == "sphere":
+            if set(surface) != {"kind", "radius"} or not 0 < surface["radius"] < .07:
+                raise ValueError(f"{grip['clip']}: a sphere needs a radius in (0, 0.07) m")
+        elif surface not in ({"kind": "relaxed"}, {"kind": "pinch"}):
+            raise ValueError(f"{grip['clip']}: surface kind must be cylinder, sphere, relaxed or pinch")
 
 
 def gltf_rest_worlds(path):
@@ -150,6 +159,22 @@ class Handle:
         return min(self.gap(a.lerp(b, i / 8)) for i in range(9))
 
 
+class Ball(Handle):
+    """The held sphere (#418) in Blender world space, centred on the grip origin."""
+
+    def __init__(self, hand, socket, surface):
+        t, r = socket["translation"], socket["rotation"]
+        frame = hand.joint(socket["joint"]) @ Matrix.LocRotScale(Vector(t), Quaternion((r[3], r[0], r[1], r[2])), Vector((1, 1, 1)))
+        self.origin = frame.translation.copy()
+        self.radius = surface["radius"]
+
+    def outward(self, point):
+        return (point - self.origin).normalized()
+
+    def gap(self, point):
+        return (point - self.origin).length - self.radius
+
+
 def close(hand, joint, child, axis, surface, half, limit):
     """Turn ``joint`` about ``axis`` until its segment touches ``surface`` or reaches ``limit``; the degrees turned."""
     turned = 0
@@ -159,9 +184,9 @@ def close(hand, joint, child, axis, surface, half, limit):
     return turned
 
 
-def grip_pose(hand, side, surface):
-    """Wrap the fingers of hand ``side`` around ``surface`` (a Handle, or None for the relaxed hand) from the rest
-    pose; the degrees per joint."""
+def grip_pose(hand, side, surface, fixed=RELAXED):
+    """Wrap the fingers of hand ``side`` around ``surface`` (a Handle or Ball), or with no surface curl them by ``fixed``
+    (the relaxed hand or the pinch), from the rest pose; the degrees per joint."""
     hand.reset()
     palm = hand.joint(f"hand_{side}").to_3x3() @ hand.palm[side]
     curl = {}
@@ -171,8 +196,8 @@ def grip_pose(hand, side, surface):
         axis = (hand.head(joints[1]) - hand.head(joints[0])).normalized().cross(palm).normalized()
         for k in range(3):
             if surface is None:
-                hand.turn(joints[k], axis, RELAXED[finger][k])
-                curl[joints[k]] = RELAXED[finger][k]
+                hand.turn(joints[k], axis, fixed[finger][k])
+                curl[joints[k]] = fixed[finger][k]
             else:
                 curl[joints[k]] = close(hand, joints[k], joints[k + 1], axis, surface, FINGER_HALF[k], FINGER_LIMIT[k])
     thumb = chain("thumb", side)
@@ -217,8 +242,9 @@ def generate(output_path, arguments, inputs):
     for grip in arguments["grips"]:
         hand.reset()
         side = grip["socket"]["joint"][-1]
-        handle = Handle(hand, grip["socket"], grip["surface"]) if grip["surface"]["kind"] == "cylinder" else None
-        pose, curl = grip_pose(hand, side, handle)
+        kind = grip["surface"]["kind"]
+        handle = {"cylinder": Handle, "sphere": Ball}.get(kind)
+        pose, curl = grip_pose(hand, side, handle and handle(hand, grip["socket"], grip["surface"]), FIXED.get(kind, RELAXED))
         poses[grip["clip"]] = pose
         observed[grip["clip"]] = curl
     hand.reset()

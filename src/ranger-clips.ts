@@ -46,6 +46,9 @@ export const RANGER_GRIPS: readonly { clip: string; socket: string; role: string
   // #389: the crossbow's stock runs along its grip frame's Z; the hand closes round the stock's wrist.
   { clip: "Grip_Crossbow_R", socket: "hand_r.crossbow", role: "crossbow", surface: { kind: "cylinder", axis: [0, 0, 1], radius: .02 } },
   { clip: "Grip_Crossbow_L", socket: "hand_l.crossbow", role: "crossbow", surface: { kind: "cylinder", axis: [0, 0, 1], radius: .02 } },
+  // #418: a throwing knife pinched between the thumb and the bent index; a round flask or bomb (4 cm radius) in the fist.
+  { clip: "Grip_Knife_Pinch_R", socket: "hand_r.weapon", role: "throwing-knife", surface: { kind: "pinch" } },
+  { clip: "Grip_Flask_R", socket: "hand_r.weapon", role: "flask", surface: { kind: "sphere", radius: .04 } },
 ];
 /** The finger and thumb joints a grip clip keys (rotation only), for the hand `side`. */
 export const rangerGripJoints = (side: "l" | "r") =>
@@ -78,6 +81,17 @@ export const RANGER_SWORD_CLIPS = [
   "Sword_Heroic", "Sword_Cleave", "Charge_Run_Loop", "Charge_Impact", "Shield_Guard_High_Loop", "Shield_Guard_Mid_Loop", "Shield_Guard_Low_Loop",
   "Stun_Loop", "Respawn_Rise", "Sword_Whirl", "Sword_Overhead_Smash",
 ] as const;
+/**
+ * #418 (the mmorpg Rogue, the Field Marauder and the Redbrand bandage): twin-dagger, throw, flourish and bandage clips
+ * authored in place on the Ranger rig by adapters/blender/dagger_clips.py from explicit grip frames on the
+ * `hand_r.weapon` and `hand_l.weapon` sockets and the `belt.throwable` draw (two-bone arm IK; Mixamo only as
+ * reference). Every one keeps only the `spine_01` subtree. They follow the sword clips in bundle order; the throws carry
+ * `drawSeconds` and `releaseSeconds`.
+ */
+export const RANGER_DAGGER_CLIPS = [
+  "Dagger_Idle_Loop", "Dagger_Stab_R", "Dagger_Slash_L", "Dagger_Sinister", "Dagger_Poison", "Dagger_Gouge",
+  "Flourish_Haste", "Throw_Knife", "Throw_Lob", "Bandage_Self",
+] as const;
 
 /** A socket of the figure's sockets descriptor, as a recipe argument. */
 export type RangerSocket = { joint: string; translation: number[]; rotation: number[] };
@@ -98,6 +112,8 @@ export type AuthoredClip = {
     rootTravel?: [number, number, number];
     /** The clip's own `humanoid-clips` fields (#416 traversal, #417 sword aim). */
     fields?: Json;
+    /** The strike or release time the recipe authored (#418); the build measures `contact` there. */
+    contactSeconds?: number;
   };
 };
 /**
@@ -202,6 +218,28 @@ export const RANGER_CLIP_FAMILIES: readonly ClipFamily[] = [
         ...(joints ? { keep: joints as string[] } : {}),
         authored: { recipe: family.recipe, clip: name, fps: family.fps, ...observed }, basedOn: source as string,
         ...(aim ? { extra: { fields: { aim } } } : {}),
+      };
+    },
+  },
+  {
+    id: "dagger", script: "dagger_clips.py", clips: RANGER_DAGGER_CLIPS,
+    arguments: ({ socket }) => {
+      const at = (id: string) => { const { joint, translation, rotation } = socket(id); return { joint, translation, rotation }; };
+      return {
+        schemaVersion: 1, clips: [...RANGER_DAGGER_CLIPS],
+        sockets: { weapon: at("hand_r.weapon"), offhand: at("hand_l.weapon"), belt: at("belt.throwable") },
+      };
+    },
+    clip: (name, family) => {
+      // Every clip is upper body; a throw's draw and release go to the clip's entry. The contact is the authored strike
+      // (or, for a throw, the release), since a dagger hand turns fastest in the wind-up.
+      const { joints, source, ...observed } = family.clips[name] as Json;
+      const fields = pickKeys(observed, ["drawSeconds", "releaseSeconds"]);
+      const contactSeconds = observed.releaseSeconds ?? (observed.contactFraction === undefined ? undefined : observed.contactFraction * observed.durationSeconds);
+      return {
+        keep: joints as string[],
+        authored: { recipe: family.recipe, clip: name, fps: family.fps, ...observed }, basedOn: source as string,
+        extra: { ...(Object.keys(fields).length ? { fields } : {}), ...(contactSeconds === undefined ? {} : { contactSeconds }) },
       };
     },
   },

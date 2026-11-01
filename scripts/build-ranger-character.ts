@@ -374,6 +374,17 @@ export const RANGER_CLIP_ROLES: Readonly<Record<string, { role: string; contact?
   Respawn_Rise: { role: "respawn" },
   Sword_Whirl: { role: "sword.whirl", contact: "hand_r" },
   Sword_Overhead_Smash: { role: "sword.overhead-smash", contact: "hand_r" },
+  // #418: the Rogue's twin daggers, throws, flourish and bandage (src/ranger-clips.ts RANGER_DAGGER_CLIPS).
+  Dagger_Idle_Loop: { role: "dagger.idle" },
+  Dagger_Stab_R: { role: "dagger.stab", contact: "hand_r" },
+  Dagger_Slash_L: { role: "dagger.slash", contact: "hand_l" },
+  Dagger_Sinister: { role: "dagger.sinister", contact: "hand_r" },
+  Dagger_Poison: { role: "dagger.poison", contact: "hand_r" },
+  Dagger_Gouge: { role: "dagger.gouge", contact: "hand_r" },
+  Flourish_Haste: { role: "flourish.haste" },
+  Throw_Knife: { role: "throw.knife", contact: "hand_r" },
+  Throw_Lob: { role: "throw.lob", contact: "hand_r" },
+  Bandage_Self: { role: "bandage.self" },
 };
 /** The gait loops whose ground speed the `humanoid-clips` attachment records. */
 export const RANGER_GAITS: ReadonlySet<string> = new Set(["Walk_Loop", "Jog_Fwd_Loop", "Sprint_Loop", "Crouch_Fwd_Loop", "Jog_Bwd_Loop", "Walk_Bwd_Loop", "Wade_Fwd_Loop"]);
@@ -534,6 +545,8 @@ type RangerBuiltClip = {
   rootTravel?: [number, number, number];
   /** The clip's own `humanoid-clips` fields (#416 traversal, #417 sword aim). */
   fields?: Json;
+  /** The strike or release time the recipe authored (#418): `contact` is measured there instead of at the fastest sample. */
+  contactSeconds?: number;
 };
 
 async function rangerClipMotion(root: string, { character, targetRig, clips, roles = false }: {
@@ -594,15 +607,22 @@ async function rangerClipMotion(root: string, { character, targetRig, clips, rol
     if (combat) {
       entry.role = combat.role;
       if (combat.contact) {
-        // Presentation landmark: the sample where the contact joint moves fastest in model space.
+        // Presentation landmark: the sample where the contact joint moves fastest in model space, or the interval
+        // round the recipe's own contact time when it authored one (#418: a dagger's wrist turns fastest in the wind-up).
         const retargeted = target.getRoot().listAnimations().find((candidate) => candidate.getName() === clip.name)!;
         const joint = targetNode(combat.contact);
         const times = Array.from(retargeted.listSamplers()[0]!.getInput()!.getArray()!);
         const positions = times.map((_, index) => atKey(retargeted, () => index, () => joint.getWorldTranslation()));
+        const speedAt = (index: number) => Math.hypot(...positions[index + 1]!.map((v, k) => v - positions[index]![k]!)) / (times[index + 1]! - times[index]!);
         let best = 0, fastest = -1;
-        for (let index = 0; index + 1 < positions.length; index += 1) {
-          const speed = Math.hypot(...positions[index + 1]!.map((v, k) => v - positions[index]![k]!)) / (times[index + 1]! - times[index]!);
-          if (speed > fastest) { fastest = speed; best = index; }
+        if (clip.contactSeconds !== undefined) {
+          best = Math.min(Math.max(0, Math.round(clip.contactSeconds * RANGER_SAMPLE_RATE - .5)), positions.length - 2);
+          fastest = speedAt(best);
+        } else {
+          for (let index = 0; index + 1 < positions.length; index += 1) {
+            const speed = speedAt(index);
+            if (speed > fastest) { fastest = speed; best = index; }
+          }
         }
         entry.contact = { joint: combat.contact, seconds: round4((times[best]! + times[best + 1]!) / 2 - times[0]!), speedMetersPerSecond: round4(fastest) };
       }
