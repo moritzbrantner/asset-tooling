@@ -33,7 +33,7 @@ jobs:
       - uses: actions/setup-java@dded0888837ed1f317902acf8a20df0ad188d165 # v4.7.1
         with:
           distribution: temurin
-          java-version: 21.0.10+7
+          java-version: 21.0.10+7.0.LTS
       - run: bun install --frozen-lockfile
       - name: Validate the promotion rules and prior fixture contract
         run: bun test test/maps-shortbread-release.test.ts test/maps-shortbread.test.ts test/publish-release.test.ts
