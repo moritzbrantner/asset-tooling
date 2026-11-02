@@ -42,9 +42,10 @@ export const APPROVED_REGIONS: readonly PublishedRegionPin[] = [
 
 export const OSM_SOURCE = {
   provider: "Geofabrik",
-  url: "https://download.geofabrik.de/europe/liechtenstein-261025.osm.pbf",
-  sha256: "bd5cca3fdcb4e9900ad74b4c33e554750088705bd4b4deaa35c1517d7be2378b",
-  snapshot: "2026-10-25T21:21:21Z",
+  // The repository's maintained source pin supersedes the expired #409 daily extract.
+  url: "https://download.geofabrik.de/europe/liechtenstein-260101.osm.pbf",
+  sha256: "38c281920dcf599754a1e58f399b88c35d18b40dff932bd4dd926aa1a79cda76",
+  snapshot: "2026-01-01T21:21:30Z",
   license: "ODbL-1.0",
   licenseUrl: "https://www.openstreetmap.org/copyright",
 } as const;
@@ -69,8 +70,17 @@ function verifiedMetadata(
   validateMapsArchiveCandidate(original);
   const recorded = evidence.mapsMetadataCompatibility[index]?.metadata;
   if (!recorded) throw new Error(`Maps ${pin.name}: missing #409 evidence`);
-  const { archiveRef: _archive, dataRevision: _revision, ...observedEnvelope } = original;
-  const { dataRevision: _recordedRevision, ...recordedEnvelope } = recorded;
+  const {
+    archiveRef: _archive, dataRevision: _revision, provenance: _provenance,
+    observation: _observation, ...observedEnvelope
+  } = original;
+  const {
+    dataRevision: _recordedRevision, provenance: _recordedProvenance,
+    observation: _recordedObservation, ...recordedEnvelope
+  } = recorded;
+  const historicSourceSha = /PBF ([0-9a-f]{64});/.exec(recorded.provenance)?.[1];
+  if (!historicSourceSha) throw new Error(`Maps ${pin.name}: reviewed source provenance is invalid`);
+  const expectedProvenance = recorded.provenance.replace(historicSourceSha, source.sha256);
   const driftedFields = Object.keys(recordedEnvelope).filter(
     (field) => {
       const observed = (observedEnvelope as Record<string, unknown>)[field];
@@ -85,10 +95,10 @@ function verifiedMetadata(
     driftedFields.length > 0 ||
     original.license !== source.license ||
     original.observation.snapshot !== source.snapshot ||
-    !original.provenance.includes(source.sha256)
+    original.provenance !== expectedProvenance
   ) {
     throw new Error(
-      `Maps ${pin.name}: the candidate differs from the reviewed source, profile or metadata contract (${driftedFields.join(", ") || "identity/revision/source"}); observed source fields ${JSON.stringify({ provenance: original.provenance, observation: original.observation })}`,
+      `Maps ${pin.name}: the candidate differs from the maintained source pin, profile or reviewed metadata contract (${driftedFields.join(", ") || "identity/revision/source"})`,
     );
   }
   return {

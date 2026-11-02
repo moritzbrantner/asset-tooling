@@ -9,17 +9,25 @@ import {
 } from "../scripts/build-maps-shortbread-release.ts";
 
 function candidates() {
-  return evidence.mapsMetadataCompatibility.map((result, index) => ({
-    ...structuredClone(result.metadata),
-    archiveRef: {
-      format: "pmtiles" as const,
-      version: 3 as const,
-      path: `${APPROVED_REGIONS[index]!.name}.pmtiles`,
-      sha256: result.candidateSha256,
-      bytes: [2_780_045, 1_366_814][index]!,
-      mvtExtent: 4096 as const,
-    },
-  }));
+  return evidence.mapsMetadataCompatibility.map((result, index) => {
+    const metadata = structuredClone(result.metadata);
+    metadata.provenance = metadata.provenance.replace(
+      "bd5cca3fdcb4e9900ad74b4c33e554750088705bd4b4deaa35c1517d7be2378b",
+      OSM_SOURCE.sha256,
+    );
+    metadata.observation.snapshot = OSM_SOURCE.snapshot;
+    return {
+      ...metadata,
+      archiveRef: {
+        format: "pmtiles" as const,
+        version: 3 as const,
+        path: `${APPROVED_REGIONS[index]!.name}.pmtiles`,
+        sha256: result.candidateSha256,
+        bytes: [2_780_045, 1_366_814][index]!,
+        mvtExtent: 4096 as const,
+      },
+    };
+  });
 }
 
 describe("Maps regional release promotion", () => {
@@ -49,10 +57,13 @@ describe("Maps regional release promotion", () => {
     expect(() => createMapsShortbreadReleaseIndex(wrongHash)).toThrow();
     const wrongLicense = candidates();
     wrongLicense[0]!.license = "CC0-1.0";
-    expect(() => createMapsShortbreadReleaseIndex(wrongLicense)).toThrow(/reviewed source/);
+    expect(() => createMapsShortbreadReleaseIndex(wrongLicense)).toThrow(/metadata contract/);
     const wrongSnapshot = candidates();
     wrongSnapshot[0]!.observation.snapshot = "today";
-    expect(() => createMapsShortbreadReleaseIndex(wrongSnapshot)).toThrow(/reviewed source/);
+    expect(() => createMapsShortbreadReleaseIndex(wrongSnapshot)).toThrow(/maintained source pin/);
+    const historicalSource = candidates();
+    historicalSource[0]!.provenance = evidence.mapsMetadataCompatibility[0]!.metadata.provenance;
+    expect(() => createMapsShortbreadReleaseIndex(historicalSource)).toThrow(/maintained source pin/);
     const regenerated = candidates();
     regenerated[0]!.archiveRef.sha256 = "a".repeat(64);
     regenerated[0]!.dataRevision = `sha256:${"a".repeat(64)}`;

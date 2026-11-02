@@ -121,7 +121,11 @@ Real archives and raw downloaded inputs stay under ignored `.asset-tooling/`.
 They are not canonical payloads, are not inserted into `catalog/storage.json`, and
 are not checked into normal Git. Consumer smoke testing can use the generated
 local archive/manifest/receipt now. Maps #270 approves the two reviewed
-source/profile/coverage recipes. Planetiler's exact archive serialization is
+source/profile/coverage recipes. The original #409 local candidates used an
+October 25 daily Geofabrik extract, which is no longer retained at its source
+URL; the maintained producer now pins Geofabrik's January 1, 2026 annual
+snapshot. These are **different source data**, with different provenance and
+archive hashes, and must be labelled accordingly. Planetiler's serialization is
 only approximately reproducible across environments (as documented in #409),
 so the archived #409 digests remain *reference evidence*, not falsely assumed
 outputs of a different runner. The existing `Publish rolling releases` workflow
