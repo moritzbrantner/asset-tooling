@@ -20,7 +20,7 @@ permissions:
 
 jobs:
   reproduce-and-verify:
-    name: Rebuild approved Liechtenstein archives
+    name: Build and inspect pinned-source Liechtenstein archives
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -39,7 +39,7 @@ jobs:
         run: bun test test/maps-shortbread-release.test.ts test/maps-shortbread.test.ts test/publish-release.test.ts
       - name: Acquire reviewed source and tool inputs
         run: bun examples/maps-shortbread/build.ts acquire
-      - name: Reproduce the approved releases and independently inspect every tile
+      - name: Generate archives and independently inspect every tile
         run: bun scripts/publish-release.ts build maps-shortbread "$RUNNER_TEMP/maps-release"
       - name: Verify the publication handoff without uploading
         env:

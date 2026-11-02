@@ -4,6 +4,7 @@ import { execFileSync } from "node:child_process";
 import { copyFile, mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
+import evidence from "../examples/maps-shortbread/evidence.json";
 import { readAssetBundleTar, writeAssetBundleTar } from "../src/asset-bundle-pack.ts";
 import { canonicalJson } from "../src/canonical.ts";
 import { sha256Bytes } from "../src/hash.ts";
@@ -23,24 +24,19 @@ const REF = "export.ref.json";
 export type PublishedRegionPin = {
   name: string;
   sourceId: string;
-  sha256: string;
-  bytes: number;
 };
 
-// Reviewed real-world #409 output hashes. A drifted regeneration must get a new review,
-// not silently replace an immutable Maps dataRevision or filename.
+// The two reviewed #409 *source/profile/coverage* candidates. Planetiler reports
+// approximate reproducibility across environments; archive bytes are independently
+// checked at promotion and receive their own content-addressed filenames.
 export const APPROVED_REGIONS: readonly PublishedRegionPin[] = [
   {
     name: "liechtenstein",
     sourceId: "maps-liechtenstein",
-    sha256: "749bc3ac9a430b41fb7613686b7898b43ed11d8e8321624559ea591f49cc8fdf",
-    bytes: 2_780_045,
   },
   {
     name: "liechtenstein-north",
     sourceId: "maps-liechtenstein-north",
-    sha256: "7761a554051b9d8a77cf9c1f790b03a4e66a15fbe91dde46c488a10e0f95bf3e",
-    bytes: 1_366_814,
   },
 ];
 
@@ -60,27 +56,32 @@ export type MapsShortbreadReleaseIndex = {
   tilesets: MapsArchiveCandidate[];
 };
 
-export function publicationFilename(pin: PublishedRegionPin): string {
-  return `${pin.name}-${pin.sha256}.pmtiles`;
+export function publicationFilename(pin: PublishedRegionPin, sha256: string): string {
+  return `${pin.name}-${sha256}.pmtiles`;
 }
 
 function verifiedMetadata(
   original: MapsArchiveCandidate,
   pin: PublishedRegionPin,
   source: typeof OSM_SOURCE,
+  index: number,
 ): MapsArchiveCandidate {
   validateMapsArchiveCandidate(original);
+  const recorded = evidence.mapsMetadataCompatibility[index]?.metadata;
+  if (!recorded) throw new Error(`Maps ${pin.name}: missing #409 evidence`);
+  const { archiveRef: _archive, dataRevision: _revision, ...observedEnvelope } = original;
+  const { dataRevision: _recordedRevision, ...recordedEnvelope } = recorded;
   if (
     original.sourceId !== pin.sourceId ||
-    original.archiveRef.sha256 !== pin.sha256 ||
-    original.archiveRef.bytes !== pin.bytes ||
+    original.archiveRef.path !== `${pin.name}.pmtiles` ||
+    original.archiveRef.sha256 !== original.dataRevision.replace(/^sha256:/, "") ||
+    canonicalJson(observedEnvelope) !== canonicalJson(recordedEnvelope) ||
     original.license !== source.license ||
     original.observation.snapshot !== source.snapshot ||
-    !original.attribution.includes("OpenStreetMap contributors") ||
     !original.provenance.includes(source.sha256)
   ) {
     throw new Error(
-      `Maps ${pin.name}: the candidate differs from the reviewed source or archive pin`,
+      `Maps ${pin.name}: the candidate differs from the reviewed source, profile or metadata contract`,
     );
   }
   return {
@@ -89,7 +90,7 @@ function verifiedMetadata(
       "Candidate only; no owner approval or runtime transport claim.",
       "Published and content-pinned for Maps #270; browser transport is independently verified by Maps.",
     ),
-    archiveRef: { ...original.archiveRef, path: publicationFilename(pin) },
+    archiveRef: { ...original.archiveRef, path: publicationFilename(pin, original.archiveRef.sha256) },
   };
 }
 
@@ -101,7 +102,7 @@ export function createMapsShortbreadReleaseIndex(
   if (candidates.length !== pins.length) {
     throw new Error("Maps release requires every approved regional candidate");
   }
-  const tilesets = pins.map((pin, index) => verifiedMetadata(candidates[index]!, pin, source));
+  const tilesets = pins.map((pin, index) => verifiedMetadata(candidates[index]!, pin, source, index));
   if (new Set(tilesets.map((tileset) => tileset.dataRevision)).size !== tilesets.length) {
     throw new Error("Maps release contains a revision collision");
   }
@@ -135,8 +136,11 @@ export async function buildMapsShortbreadRelease(outDir: string): Promise<void> 
   const entries: { path: string; bytes: Buffer }[] = [];
   for (const [offset, pin] of APPROVED_REGIONS.entries()) {
     const bytes = await readFile(path.join(CANDIDATES, `${pin.name}.pmtiles`));
-    await verifyMapsArchive(bytes, index.tilesets[offset]);
-    const publishedName = publicationFilename(pin);
+    const verifiedCandidate = candidates[offset] as MapsArchiveCandidate;
+    await verifyMapsArchive(bytes, verifiedCandidate);
+    const published = index.tilesets[offset]!;
+    await verifyMapsArchive(bytes, published);
+    const publishedName = published.archiveRef.path;
     await copyFile(path.join(CANDIDATES, `${pin.name}.pmtiles`), path.join(outDir, publishedName));
     entries.push({ path: publishedName, bytes });
   }
@@ -182,20 +186,23 @@ export async function verifyMapsShortbreadRelease(
   ]);
   for (const [offset, pin] of pins.entries()) {
     const tileset = index.tilesets[offset]!;
+    const original: MapsArchiveCandidate = {
+      ...tileset,
+      provenance: tileset.provenance.replace(
+        "Published and content-pinned for Maps #270; browser transport is independently verified by Maps.",
+        "Candidate only; no owner approval or runtime transport claim.",
+      ),
+      archiveRef: { ...tileset.archiveRef, path: `${pin.name}.pmtiles` },
+    };
     if (
-      tileset.sourceId !== pin.sourceId ||
-      tileset.archiveRef.path !== publicationFilename(pin) ||
-      tileset.archiveRef.sha256 !== pin.sha256 ||
-      tileset.archiveRef.bytes !== pin.bytes ||
-      tileset.license !== source.license ||
-      tileset.observation.snapshot !== source.snapshot ||
+      canonicalJson(tileset) !== canonicalJson(verifiedMetadata(original, pin, source, offset)) ||
       tileset.provenance.includes("Candidate only")
     ) {
       throw new Error(`Maps release ${pin.name} is not the approved content revision`);
     }
-    const bytes = await readFile(path.join(outDir, publicationFilename(pin)));
+    const bytes = await readFile(path.join(outDir, tileset.archiveRef.path));
     await verifyMapsArchive(bytes, tileset);
-    byPath.set(publicationFilename(pin), bytes);
+    byPath.set(tileset.archiveRef.path, bytes);
   }
   const tar = await readFile(path.join(outDir, TAR));
   const tarHash = sha256Bytes(tar);

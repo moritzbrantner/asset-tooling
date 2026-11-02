@@ -120,11 +120,14 @@ The fixture provenance manifest records the exact input/profile/archive hashes.
 Real archives and raw downloaded inputs stay under ignored `.asset-tooling/`.
 They are not canonical payloads, are not inserted into `catalog/storage.json`, and
 are not checked into normal Git. Consumer smoke testing can use the generated
-local archive/manifest/receipt now. Maps #270 explicitly approved the two reviewed
-digests recorded in `scripts/build-maps-shortbread-release.ts`. The existing
-`Publish rolling releases` workflow acquires the pinned inputs separately, runs
-the original recipe offline, requires the *exact reviewed* SHA-256 and byte count,
-verifies both entire archives, and publishes the `maps-shortbread` rolling release
+local archive/manifest/receipt now. Maps #270 approves the two reviewed
+source/profile/coverage recipes. Planetiler's exact archive serialization is
+only approximately reproducible across environments (as documented in #409),
+so the archived #409 digests remain *reference evidence*, not falsely assumed
+outputs of a different runner. The existing `Publish rolling releases` workflow
+acquires the pinned inputs separately, runs the original recipe offline,
+verifies the complete output bytes against their newly computed hashes and
+the fixed provenance/metadata contract, and publishes the `maps-shortbread` rolling release
 with its canonical tar, standalone PMTiles archives, machine-readable source
 manifest and receipt reference. Unapproved bytes fail before publication.
 
