@@ -89,7 +89,9 @@ export const PLANETILER_BACKEND = {
       }, 100);
       let stderr: string;
       try {
-      const result = await execute("/usr/bin/time", ["-f", "asset_peak_rss_kib=%M", "timeout", "--kill-after=5", "180", java, "-Xmx1g", "-jar", path.join(root, "planetiler"), "generate-custom",
+      const gnuTime = Bun.which("time");
+      if (!gnuTime) { throw new Error("GNU time must be installed and available on PATH"); }
+      const result = await execute(gnuTime, ["-f", "asset_peak_rss_kib=%M", "timeout", "--kill-after=5", "180", java, "-Xmx1g", "-jar", path.join(root, "planetiler"), "generate-custom",
         `--schema=${path.join(root, "profile")}`, `--input_path=${path.join(root, "osm")}`, `--output=${output}`,
         `--bounds=${p.bounds.join(",")}`, `--minzoom=${p.minZoom}`, `--maxzoom=${p.maxZoom}`, "--threads=2", "--nodemap_storage=ram", `--tmpdir=${path.join(root, "work")}`,
         "--download=false", "--force", "--keep_unzipped=false"],

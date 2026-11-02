@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "status": "verified candidate, not canonical or published",
+  "observation": {
+    "source": "https://download.geofabrik.de/europe/liechtenstein-260101.osm.pbf",
+    "sourceSha256": "38c281920dcf599754a1e58f399b88c35d18b40dff932bd4dd926aa1a79cda76",
+    "snapshot": "2026-01-01T21:21:30Z",
+    "planetiler": "0.10.2",
+    "java": "21.0.10",
+    "bun": "1.4.4",
+    "threads": 2,
+    "heapMiB": 1024,
+    "reproduction": "Two builds per candidate matched in this environment; backend does not claim universal exact reproducibility."
+  },
+  "candidates": [
+    {
+      "sourceId": "maps-liechtenstein",
+      "archiveSha256": "a1741ca69459439c72efc66b8c3ceef3447a70ba1a25537c4b29f8c5e4eb00f4",
+      "bytes": 2730127,
+      "addressedTiles": 203,
+      "layerFeatures": { "land": 18345, "water_lines": 3301, "boundaries": 941, "buildings": 26781, "streets": 45136, "water_polygons": 389 },
+      "waterHoleFeatures": 25,
+      "generationWallMs": [17899, 18200],
+      "peakRssKiB": [928796, 871244]
+    },
+    {
+      "sourceId": "maps-liechtenstein-north",
+      "archiveSha256": "286216eaf8884d4ccf4a1b9e9fdc5e0f2fe14291ca9585e9416011baaf4dee92",
+      "bytes": 1340459,
+      "addressedTiles": 89,
+      "layerFeatures": { "boundaries": 547, "buildings": 14642, "land": 9394, "streets": 23969, "water_lines": 1501, "water_polygons": 244 },
+      "waterHoleFeatures": 12,
+      "generationWallMs": [14129, 17902],
+      "peakRssKiB": [890160, 921548]
+    }
+  ],
+  "sampledPeakTemporaryBytes": 454466541,
+  "upstreamInspector": "go-pmtiles 1.31.2 verify passed for both archives",
+  "verifier": "every addressed MVT tile decoded and checked; cache-independent replay exact"
+}

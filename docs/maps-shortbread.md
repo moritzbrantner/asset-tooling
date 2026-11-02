@@ -23,7 +23,10 @@ Acquisition is separate from generation and saves the source license, snapshot,
 URLs, hashes and byte lengths in `.asset-tooling/maps-shortbread/acquisition.json`.
 A changed/missing pin fails generation; it never invokes Planetiler downloads.
 The acquired `.osm.pbf` is a legitimate Geofabrik regional extract, not OSM served
-tiles. Source timestamp is `2026-10-25T21:21:21Z` from its PBF replication header.
+tiles. The current source is Geofabrik's retained annual snapshot; its PBF
+replication timestamp is `2026-01-01T21:21:30Z`. The original daily
+`liechtenstein-261025.osm.pbf` candidate was retired after that URL began
+returning HTTP 404. Annual source files are preferable for rebuildable pins.
 ODbL data requires **© OpenStreetMap contributors** attribution and the
 [OpenStreetMap copyright/license information](https://www.openstreetmap.org/copyright).
 See also [Geofabrik downloads](https://download.geofabrik.de/europe/liechtenstein.html).
@@ -35,9 +38,9 @@ Pinned external implementations:
   `f310bd0413e2e4512b27f4046d418664e8e1d3bf31603c2a70e23de06c167e4d`,
   93,278,824 bytes, upstream revision `0e5588c4a6e8c29a270a33afe8df62027d889604`,
   Apache-2.0. Uses its [configurable YAML facility](https://github.com/onthegomap/planetiler/tree/v0.10.2/planetiler-custommap).
-- Geofabrik `liechtenstein-261025.osm.pbf`, SHA-256
-  `bd5cca3fdcb4e9900ad74b4c33e554750088705bd4b4deaa35c1517d7be2378b`,
-  3,480,519 bytes, ODbL-1.0.
+- Geofabrik `liechtenstein-260101.osm.pbf`, SHA-256
+  `38c281920dcf599754a1e58f399b88c35d18b40dff932bd4dd926aa1a79cda76`,
+  3,255,783 bytes, ODbL-1.0. This is a fixed source snapshot, not `latest`.
 - [go-pmtiles 1.31.2](https://github.com/protomaps/go-pmtiles/releases/tag/v1.31.2)
   Linux x64 release archive SHA-256
   `3ed7dbf4ec2e6dfe5e25b6f70d1ffc932729f93c86db353bf514dd71010a312f`,
@@ -101,7 +104,11 @@ and logical temporary file bytes sampled every 100 ms. Disk samples include
 input snapshots and are a **lower bound** on instantaneous peak; filesystem
 allocated blocks may differ. See the reviewable observation in
 `examples/maps-shortbread/evidence.json`. Both candidates were rebuilt separately
-and matching bytes were observed in this environment. The backend remains
+and matching bytes were observed in this environment. The current annual
+snapshot observation is in `examples/maps-shortbread/evidence-260101.json`;
+`evidence.json` and `maps-decoder-evidence.json` preserve the historical
+October candidate results and must not be used to pin the current source.
+The backend remains
 `exactCapable:false` and specs request `approximate`; these runs prove this pair's
 repeat bytes, not a universal reproducibility guarantee across Java/OS versions.
 `verifyAsset` reports `exact` only when its actual replay checks all match.
