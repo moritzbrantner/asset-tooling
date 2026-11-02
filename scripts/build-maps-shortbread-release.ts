@@ -71,17 +71,24 @@ function verifiedMetadata(
   if (!recorded) throw new Error(`Maps ${pin.name}: missing #409 evidence`);
   const { archiveRef: _archive, dataRevision: _revision, ...observedEnvelope } = original;
   const { dataRevision: _recordedRevision, ...recordedEnvelope } = recorded;
+  const driftedFields = Object.keys(recordedEnvelope).filter(
+    (field) => {
+      const observed = (observedEnvelope as Record<string, unknown>)[field];
+      return observed === undefined || canonicalJson(observed) !==
+        canonicalJson((recordedEnvelope as Record<string, unknown>)[field]);
+    },
+  );
   if (
     original.sourceId !== pin.sourceId ||
     original.archiveRef.path !== `${pin.name}.pmtiles` ||
     original.archiveRef.sha256 !== original.dataRevision.replace(/^sha256:/, "") ||
-    canonicalJson(observedEnvelope) !== canonicalJson(recordedEnvelope) ||
+    driftedFields.length > 0 ||
     original.license !== source.license ||
     original.observation.snapshot !== source.snapshot ||
     !original.provenance.includes(source.sha256)
   ) {
     throw new Error(
-      `Maps ${pin.name}: the candidate differs from the reviewed source, profile or metadata contract`,
+      `Maps ${pin.name}: the candidate differs from the reviewed source, profile or metadata contract (${driftedFields.join(", ") || "identity/revision/source"})`,
     );
   }
   return {
