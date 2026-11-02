@@ -18,7 +18,8 @@ const repository = fileURLToPath(new URL("../../", import.meta.url));
 const root = path.join(repository, ".asset-tooling/maps-shortbread");
 const pins = {
   planetiler: { file:"planetiler.jar", url:"https://github.com/onthegomap/planetiler/releases/download/v0.10.2/planetiler.jar", sha256:"f310bd0413e2e4512b27f4046d418664e8e1d3bf31603c2a70e23de06c167e4d", bytes:93278824 },
-  osm: { file:"liechtenstein-261025.osm.pbf", url:"https://download.geofabrik.de/europe/liechtenstein-261025.osm.pbf", sha256:"bd5cca3fdcb4e9900ad74b4c33e554750088705bd4b4deaa35c1517d7be2378b", bytes:3480519 },
+  // Geofabrik retains yearly January snapshots; transient daily snapshots can disappear (#406/#270).
+  osm: { file:"liechtenstein-260101.osm.pbf", url:"https://download.geofabrik.de/europe/liechtenstein-260101.osm.pbf", sha256:"38c281920dcf599754a1e58f399b88c35d18b40dff932bd4dd926aa1a79cda76", bytes:3255783 },
   inspector: { file:"pmtiles.tar.gz", url:"https://github.com/protomaps/go-pmtiles/releases/download/v1.31.2/go-pmtiles_1.31.2_Linux_x86_64.tar.gz", sha256:"3ed7dbf4ec2e6dfe5e25b6f70d1ffc932729f93c86db353bf514dd71010a312f", bytes:17444324, executableSha256:"a7e9ae10184d109c83f456ccdf6df4f3e2a64ba6cf69d9ed0f9f1840305055c1" },
 };
 async function reconcile(file: string, bytes: string | Uint8Array) {
@@ -43,7 +44,7 @@ async function acquire() {
     await execute("tar",["-xzf",path.join(root,pins.inspector.file),"-C",root,"pmtiles"],{timeout:10000});
   }
   if (await sha256File(inspector)!==pins.inspector.executableSha256) { throw new Error("inspector executable pin mismatch"); }
-  await reconcile(path.join(root,"acquisition.json"),JSON.stringify({version:1,inputs:pins,source:{license:"ODbL-1.0",attribution:"© OpenStreetMap contributors (ODbL-1.0)",licenseUrl:"https://www.openstreetmap.org/copyright",snapshot:"2026-10-25T21:21:21Z",producer:"Geofabrik",terms:"https://download.geofabrik.de/",planetilerLicense:"Apache-2.0",inspectorLicense:"BSD-3-Clause"}},null,2)+"\n");
+  await reconcile(path.join(root,"acquisition.json"),JSON.stringify({version:1,inputs:pins,source:{license:"ODbL-1.0",attribution:"© OpenStreetMap contributors (ODbL-1.0)",licenseUrl:"https://www.openstreetmap.org/copyright",snapshot:"2026-01-01T21:21:30Z",producer:"Geofabrik",terms:"https://download.geofabrik.de/",planetilerLicense:"Apache-2.0",inspectorLicense:"BSD-3-Clause"}},null,2)+"\n");
 }
 const candidates = [
   {id:"liechtenstein",bounds:[9.47,47.04,9.64,47.28]},
@@ -104,7 +105,7 @@ async function build() {
     const bytes = await readFile(path.join(root,`${candidate.id}.pmtiles`));
     const sha256 = sha256Bytes(bytes);
     const manifest: MapsArchiveCandidate = {version:1,sourceId:`maps-${candidate.id}`,dataRevision:`sha256:${sha256}`,format:"mvt",schema:{id:"shortbread",version:"1.0",sourceLayers:["land","water_polygons","water_lines","streets","buildings","boundaries"]},projection:"web-mercator",scheme:"xyz",bounds:candidate.bounds,minZoom:10,maxZoom:14,tileSize:512,
-      attribution:"© OpenStreetMap contributors (ODbL-1.0)",license:"ODbL-1.0",provenance:`Geofabrik Liechtenstein PBF ${pins.osm.sha256}; Planetiler 0.10.2 JAR ${pins.planetiler.sha256}; profile ${profileHash}. Candidate only; no owner approval or runtime transport claim.`,observation:{snapshot:"2026-10-25T21:21:21Z"},
+      attribution:"© OpenStreetMap contributors (ODbL-1.0)",license:"ODbL-1.0",provenance:`Geofabrik Liechtenstein PBF ${pins.osm.sha256}; Planetiler 0.10.2 JAR ${pins.planetiler.sha256}; profile ${profileHash}. Candidate only; no owner approval or runtime transport claim.`,observation:{snapshot:"2026-01-01T21:21:30Z"},
       archiveRef:{format:"pmtiles",version:3,path:`${candidate.id}.pmtiles`,sha256,bytes:bytes.length,mvtExtent:4096}};
     await reconcile(path.join(root,`${candidate.id}.manifest.json`),JSON.stringify(manifest,null,2)+"\n");
     results.push({generation,verification:await verify(candidate.id)});
