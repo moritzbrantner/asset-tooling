@@ -41,6 +41,13 @@ describe("publish-release", () => {
         "adapters/blender/swim_clips.py", "adapters/blender/traversal_clips.py", "adapters/blender/sword_clips.py", "adapters/blender/dagger_clips.py", "adapters/blender/crossbow_clips.py", "adapters/blender/cast_clips.py", "adapters/blender/social_clips.py", "stability/processors.json", "assets/canonical",
       ]));
     }
+    expect(planEntry(rollingRelease("maps-shortbread"))).toEqual({
+      release: "maps-shortbread", blender: false, lfs: false, processor: "", ktx: false,
+      timeout: 60, java: "21.0.10+7",
+    });
+    expect(releaseSources(rollingRelease("maps-shortbread"))).toEqual(expect.arrayContaining([
+      "scripts/build-maps-shortbread-release.ts", "src/maps-shortbread.ts", "src/asset-bundle-pack.ts",
+    ]));
   });
 
   test("a release's sources follow its imports and the recipe files it names", () => {

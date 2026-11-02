@@ -13,6 +13,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { readdir, readFile } from "node:fs/promises";
 import { findConsumers, loadConsumers, readArtifacts, type Artifacts, type Consumer, type Pin } from "./prepare-release.ts";
+import { verifyMapsShortbreadRelease } from "./build-maps-shortbread-release.ts";
 
 const ROOT = path.resolve(import.meta.dir, "..");
 const TOOLING_REPO = process.env.GITHUB_REPOSITORY ?? "moritzbrantner/asset-tooling";
@@ -55,6 +56,7 @@ export const ROLLING_RELEASES: RollingRelease[] = [
   // #399: each figure is its own release, so the two build in parallel jobs.
   { name: "humanoid-ranger-female", ...RANGER, args: ["--figure", "female"] },
   { name: "humanoid-ranger-male", ...RANGER, args: ["--figure", "male"] },
+  { name: "maps-shortbread", script: "scripts/build-maps-shortbread-release.ts" },
   { name: "outpost-kit", script: "scripts/build-outpost-kit.ts", blender: true },
   { name: "settlement-props", script: "scripts/build-settlement-props.ts", blender: true },
   { name: "shrine-kit", script: "scripts/build-shrine-kit.ts", blender: true },
@@ -123,12 +125,13 @@ export function touches(sources: string[], changed: string): boolean {
 }
 
 /** One publish job: the release and what its runner needs (an empty `processor` means none). */
-export type PlanEntry = { release: string; blender: boolean; lfs: boolean; processor: string; ktx: boolean; timeout: number };
+export type PlanEntry = { release: string; blender: boolean; lfs: boolean; processor: string; ktx: boolean; timeout: number; java?: string };
 
 export function planEntry(release: RollingRelease): PlanEntry {
   return {
     release: release.name, blender: !!release.blender, lfs: !!release.lfs, processor: release.processor ?? "", ktx: !!release.ktx,
     timeout: release.timeoutMinutes ?? DEFAULT_TIMEOUT_MINUTES,
+    ...(release.name === "maps-shortbread" ? { java: "21.0.10+7" } : {}),
   };
 }
 
@@ -209,7 +212,11 @@ async function publish(name: string, out: string, dryRun: boolean): Promise<numb
   rollingRelease(name);
   const dir = path.resolve(out);
   const artifacts = await readArtifacts(dir);
-  console.log(run("bun", [path.join(ROOT, "scripts/pack-asset-bundle.ts"), "--verify", path.join(dir, artifacts.tar), "--ref", path.join(dir, "export.ref.json")]).stdout.trim());
+  if (name === "maps-shortbread") {
+    console.log(JSON.stringify(await verifyMapsShortbreadRelease(dir)));
+  } else {
+    console.log(run("bun", [path.join(ROOT, "scripts/pack-asset-bundle.ts"), "--verify", path.join(dir, artifacts.tar), "--ref", path.join(dir, "export.ref.json")]).stdout.trim());
+  }
   const files = await releaseFiles(dir);
   const live = liveTarSha256(name, artifacts.tar);
   if (live === artifacts.sha256) {

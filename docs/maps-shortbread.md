@@ -120,10 +120,20 @@ The fixture provenance manifest records the exact input/profile/archive hashes.
 Real archives and raw downloaded inputs stay under ignored `.asset-tooling/`.
 They are not canonical payloads, are not inserted into `catalog/storage.json`, and
 are not checked into normal Git. Consumer smoke testing can use the generated
-local archive/manifest/receipt now. After review, use the existing **single rolling
-release per experimental bundle** policy (Decision 7.1.5), with digest-pinned
-candidate manifests; publication and consumer adoption are deliberate separate
-steps. No release or accepted/canonical status is granted by this recipe.
+local archive/manifest/receipt now. Maps #270 explicitly approved the two reviewed
+digests recorded in `scripts/build-maps-shortbread-release.ts`. The existing
+`Publish rolling releases` workflow acquires the pinned inputs separately, runs
+the original recipe offline, requires the *exact reviewed* SHA-256 and byte count,
+verifies both entire archives, and publishes the `maps-shortbread` rolling release
+with its canonical tar, standalone PMTiles archives, machine-readable source
+manifest and receipt reference. Unapproved bytes fail before publication.
+
+Maps consumes those standalone objects by exact **digest-bearing filenames**,
+re-verifies bytes and common metadata at Pages build time, and serves the copies
+on its own Pages origin. Changing a rolling release cannot silently redefine a
+deployed Maps `dataRevision`; losing an old version makes a subsequent build fail
+until the consumer deliberately re-pins it. These released, derived OSM archives
+remain ODbL-1.0, separate from the project's CC0 synthetic format fixture.
 
 Do not advertise a release asset URL as browser-compatible until Maps has
 verified actual **Range 206**, correct Content-Range and suitable CORS on that
