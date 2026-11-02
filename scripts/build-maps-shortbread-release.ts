@@ -88,7 +88,7 @@ function verifiedMetadata(
     !original.provenance.includes(source.sha256)
   ) {
     throw new Error(
-      `Maps ${pin.name}: the candidate differs from the reviewed source, profile or metadata contract (${driftedFields.join(", ") || "identity/revision/source"})`,
+      `Maps ${pin.name}: the candidate differs from the reviewed source, profile or metadata contract (${driftedFields.join(", ") || "identity/revision/source"}); observed source fields ${JSON.stringify({ provenance: original.provenance, observation: original.observation })}`,
     );
   }
   return {
