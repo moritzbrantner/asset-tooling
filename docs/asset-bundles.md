@@ -7,7 +7,7 @@ The first profile is `static-glb-png-v1`: core static GLBs containing their reso
 ```ts
 import {
   STATIC_ASSET_BUNDLE_PROFILE, exportAssetBundle,
-  verifyAssetBundle, readAssetBundleAsset,
+  verifyAssetBundle, createAssetBundleReadSnapshot, readAssetBundleAsset,
 } from "asset-tooling/operations/bundle";
 
 const invocation = {
@@ -19,7 +19,8 @@ const invocation = {
 };
 const result = await exportAssetBundle(absoluteAssetRoot, absoluteOutputDirectory, invocation);
 const checked = await verifyAssetBundle(absoluteOutputDirectory, result.manifest);
-const glb = await readAssetBundleAsset(absoluteOutputDirectory, checked.manifest, "tree.broadleaf", "composed");
+const snapshot = createAssetBundleReadSnapshot(checked.manifest);
+const glb = await readAssetBundleAsset(absoluteOutputDirectory, snapshot, "tree.broadleaf", "composed");
 ```
 
 `createAssetBundleBuildIdentity` and `executeAssetBundleOperation` expose the same existing operation boundary as `asset.bundle@1`. The latter stores the canonical manifest as an `asset-bundle` AssetRef; file export is an explicit additional mutation. Manifest metadata/build observations record the operation, normalized paired inputs/selection, source hashes, authored-tool identity, dependency lock and format-validator versions. There is no new scheduler, package service or generation cache.
@@ -45,6 +46,8 @@ Former/unreferenced payloads can remain as disposable export state so an in-flig
 Counters distinguish selected refs checked (`assetsVerified`), distinct payload files written/reused (`blobsWritten`/`blobsReused`), actual bytes replaced including the manifest (`bytesWritten`), and `manifestStatus`. They make no claim about upstream generator execution or performance. Warm export rechecks dependencies and can write zero bytes; it does not replace cache-independent verification.
 
 `verifyAssetBundle` requires the expected manifest AssetRef supplied by the build/distribution contract, verifies the manifest pin, then every active payload and static GLB resource policy. It is non-mutating and uses no source store. `readAssetBundleAsset` reads one selected file and checks its pin. Consumers should admit a verified manifest once, then use its exact logical selections. They must not treat an arbitrary downloaded manifest as its own trust anchor or infer private LFS/store paths.
+
+For multiple reads of one admitted manifest, `createAssetBundleReadSnapshot(manifest)` returns an **opaque, immutable, validated snapshot** with an indexed selection lookup. Snapshot creation makes a detached canonical copy and validates the same manifest contract once. The caller owns the snapshot lifetime: mutations of its original object do not affect the snapshot, and a changed/replaced manifest requires a **new snapshot**. Passing a raw (possibly mutable) manifest to `readAssetBundleAsset`, `readAssetBundleSpriteAtlas`, `readAssetBundleGltf` or `readAssetBundleAttachment` continues to validate it afresh on every call. Every read using either form still reads and checks the current payload bytes; snapshots never cache file contents. `verifyAssetBundle` always starts from the caller's expected manifest **pin**, reads authoritative files afresh, and does not accept or consult snapshots. Atlas verification retains its two independent reads and hashes of canonical resource payloads.
 
 ## Actual example
 
@@ -87,6 +90,8 @@ Each selected entry retains `key`, `variant`, the **original** atlas `source` an
 `parseSpriteAtlasManifest` owns structural admission of the existing original atlas format: exact fields/semantics, sorted unique IDs, source/trim/pivot bounds, non-overlapping footprints including padding/extrusion, unsupported rotation rejection and original frame timing rules. Packaging verifies every referenced canonical image against its source size and content pin before looking up export files. Verification also rejects missing or extra resources in the published closure. Original atlas bytes pin nested refs in the build's declared input; the existing tool/dependency identities record the packing implementation.
 
 The shared publication/recovery/path rules above apply unchanged. Additional bounds are 8 MiB per original atlas manifest, 4096 declared canonical resource references (including repeated references), 4096 pixels per image axis, 4 megapixels per decoded canonical image and 16 megapixels of sprite sources per atlas. The existing distinct payload/manifest limits still apply. Full refs sort deterministically by content path and canonical metadata; dependency bytes deduplicate by path. Counters count actual distinct files, not upstream artwork evaluation. Retained older files support previous accepted manifests; only `result.files` is the active distribution allowlist.
+
+A single atlas still admits **at most 512 sprites**, while an asset bundle may contain approximately **3,600 sprites across several atlases** (#453). Atlas preparation accounts for unique payload bytes incrementally as each dependency is admitted; an identical path is counted once and conflicting lengths or a total above 256 MiB still fail with the existing errors. This changes only budget-accounting work, not output bytes, payload validation or independent verification reads.
 
 Consumers admit the expected pinned manifest with `verifyAssetBundle`, then `readAssetBundleSpriteAtlas` reads only the selected original atlas and PNG, checking their pins. Complete canonical resources remain available for offline provenance/reconstruction evidence; normal playback does not load every source frame. `readAssetBundleAsset` also returns the selected original atlas bytes. Runtime owners retain playback, lifecycle, reduced motion and gameplay timing.
 
@@ -236,3 +241,16 @@ Its real-source test runs in the hosted `canonical-storage` job. It skips on Git
 - **Verification.** Every file is re-hashed. Every WAV is re-checked against its AssetRef's canonical audio metadata: PCM-16, rate, channels, frame count and the canonical 44-byte layout. JSON must parse. The other profiles reject a v5 manifest.
 
 The limits are the static profile's.
+
+## Opt-in bundle performance benchmark (#453)
+
+`scripts/benchmark-asset-bundle.ts` generates deterministic, valid 512-sprite (one atlas) and 3,600-sprite (eight atlases, no atlas over 512) packages in a disposable local directory. It separates manifest parsing, snapshot construction, one selected-file read, reading all selected atlas files, full pinned-closure reads, repeated-full versus incremental budget accounting, and optional full package verification (including the intentionally independent resource reads and hashes). Fixture creation, file writes and cleanup are outside measured intervals. Each named measurement reports raw samples and the median in JSON, together with its source commit, Bun version, OS and CPU fingerprint. Wall-clock results from different machines or noisy shared runners are informational, not a CI regression gate.
+
+```bash
+bun install --frozen-lockfile
+bun scripts/benchmark-asset-bundle.ts --runs 7 --json > /tmp/asset-bundle-quick.json
+bun scripts/benchmark-asset-bundle.ts --runs 5 --full --json > /tmp/asset-bundle-full.json
+jq -r '.results[] | .workload as $w | .measurements[] | [$w,.scenario,.strategy,.medianMs] | @tsv' /tmp/asset-bundle-full.json
+```
+
+`--full` adds the semantic verifier; the quick run already measures reading every closure file with its content pin. The benchmark is deliberately **manual**, not part of unconditional `bun run check` or CI. Compare raw and snapshot reads within the same run; new snapshots have an up-front validation cost and become beneficial when the same manifest has multiple lookups. Full verification never uses this optimization.

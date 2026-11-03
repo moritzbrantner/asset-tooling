@@ -17,7 +17,8 @@ import { GLTF_RESOURCES_BUNDLE_ALLOWED_VALIDATOR_WARNINGS, GLTF_RESOURCES_BUNDLE
   type BundleExportOptions, type GltfBundleAttachment, type GltfBundleObservations, type GltfBundleResource, type GltfResourcesAttachmentSelection, type GltfResourcesBundleEntry,
   type GltfResourcesBundleManifest, type GltfResourcesBundleParameters } from "./asset-bundle-contract.js";
 import { assertAbsolute, assertDirectory, assertRegular, hasCode, readHashed, writeAtomicIfChanged } from "./asset-bundle-files.js";
-import { attachmentPath, compareEntries, gltfResourcePath, gltfResourcesPolicy, object, parseGltfResourcesBundleManifest, resolveAssetBundleEntry, RESOURCE_URI_PREFIX, scenePath, selections, storeManifest, token } from "./asset-bundle-manifest.js";
+import { attachmentPath, compareEntries, gltfResourcePath, gltfResourcesPolicy, object, parseGltfResourcesBundleManifest, resolveAssetBundleReadEntry, RESOURCE_URI_PREFIX, scenePath, selections, storeManifest, token,
+  type AssetBundleReadSnapshot } from "./asset-bundle-manifest.js";
 
 type GltfJson = Record<string,any>;
 type PreparedGltfFile = { bytes:Buffer };
@@ -223,14 +224,14 @@ export async function verifyGltfResources(directory:string,manifest:GltfResource
  * Read one verified gltf-resources-v1 scene without a source store: the .gltf bytes and every external resource
  * keyed by the exact URI the glTF uses. Every file's pin and the entry's resource closure are re-checked.
  */
-export async function readAssetBundleGltf(directory:string,manifestValue:GltfResourcesBundleManifest,key:string,variant:string):Promise<{gltf:Buffer;resources:Map<string,Buffer>}> {
-  assertAbsolute(directory);const manifest=parseGltfResourcesBundleManifest(Buffer.from(canonicalJson(manifestValue)));
-  return readGltfEntry(directory,resolveAssetBundleEntry(manifest,key,variant),new Map());
+export async function readAssetBundleGltf(directory:string,manifestValue:GltfResourcesBundleManifest|AssetBundleReadSnapshot,key:string,variant:string):Promise<{gltf:Buffer;resources:Map<string,Buffer>}> {
+  assertAbsolute(directory);const entry=resolveAssetBundleReadEntry(manifestValue,key,variant,GLTF_RESOURCES_BUNDLE_PROFILE);
+  return readGltfEntry(directory,entry,new Map());
 }
 /** Read one attachment of a verified gltf-resources-v1 entry by name, checking its pin. */
-export async function readAssetBundleAttachment(directory:string,manifestValue:GltfResourcesBundleManifest,key:string,variant:string,name:string):Promise<Buffer> {
-  assertAbsolute(directory);const manifest=parseGltfResourcesBundleManifest(Buffer.from(canonicalJson(manifestValue)));
-  const attachment=resolveAssetBundleEntry(manifest,key,variant).attachments.find(a=>a.name===token(name,"attachment name"));
+export async function readAssetBundleAttachment(directory:string,manifestValue:GltfResourcesBundleManifest|AssetBundleReadSnapshot,key:string,variant:string,name:string):Promise<Buffer> {
+  assertAbsolute(directory);const entry=resolveAssetBundleReadEntry(manifestValue,key,variant,GLTF_RESOURCES_BUNDLE_PROFILE);
+  const attachment=entry.attachments.find(a=>a.name===token(name,"attachment name"));
   if(!attachment) throw new Error(`bundle entry '${key}/${variant}' has no attachment '${name}'`);
   return readHashed(directory,attachment.path,attachment.sha256,attachment.byteLength,MAX_ASSET_BYTES);
 }

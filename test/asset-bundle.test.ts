@@ -9,7 +9,7 @@ import { sha256Bytes } from "../src/hash.js";
 import { storeAssetObject, assetObjectPortablePath, resolveAssetObject } from "../src/asset-store.js";
 import { createAssetRef } from "../src/operations.js";
 import { ASSET_BUNDLE_MEDIA_TYPE, STATIC_ASSET_BUNDLE_PROFILE, createAssetBundleBuildIdentity, executeAssetBundleOperation,
-  exportAssetBundle, parseAssetBundleManifest, readAssetBundleAsset, resolveAssetBundleEntry, verifyAssetBundle, type AssetBundleManifest } from "../src/asset-bundle.js";
+  createAssetBundleReadSnapshot, exportAssetBundle, parseAssetBundleManifest, readAssetBundleAsset, resolveAssetBundleEntry, verifyAssetBundle, type AssetBundleManifest } from "../src/asset-bundle.js";
 
 // Independently authored 1px white PNG and triangle GLB; packaging never authors geometry.
 const png=Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR4nGP4DwQACfsD/fteaysAAAAASUVORK5CYII=","base64");
@@ -78,6 +78,29 @@ test("selected bundle preserves logical variants and provenance while deduplicat
   assert.deepEqual(await readAssetBundleAsset(directory,manifest,"icon","small"),png);
   assert.deepEqual(await verifyAssetBundle(directory,first.manifest),verified);assert.deepEqual(await snapshot(directory),before);
   await assert.rejects(stat(path.join(root,".asset-tooling")),{code:"ENOENT"});
+});
+
+test("explicit read snapshots isolate later manifest mutation but still re-hash every payload",async t=>{
+  const {root,directory,invocation}=await workspace(t);
+  const exported=await exportAssetBundle(root,directory,invocation);
+  const original=(await verifyAssetBundle(directory,exported.manifest)).manifest;
+  const mutable=structuredClone(original),snapshot=createAssetBundleReadSnapshot(mutable);
+  assert.ok(Object.isFrozen(snapshot));
+  assert.deepEqual(await readAssetBundleAsset(directory,snapshot,"prop","default"),triangle());
+  const changed=mutable.assets.find(e=>e.key==="prop")!,icon=mutable.assets.find(e=>e.key==="icon")!;
+  Object.assign(changed.source,icon.source);changed.path=icon.path;
+  // The same mutable object now selects an entirely different, valid content pin.
+  assert.deepEqual(await readAssetBundleAsset(directory,mutable,"prop","default"),png);
+  assert.deepEqual(await readAssetBundleAsset(directory,snapshot,"prop","default"),triangle());
+  assert.deepEqual(await readAssetBundleAsset(directory,createAssetBundleReadSnapshot(mutable),"prop","default"),png);
+  assert.throws(()=>createAssetBundleReadSnapshot({...mutable,assets:[...mutable.assets].reverse()}),/ordering/);
+  await assert.rejects(readAssetBundleAsset(directory,snapshot,"prop","unknown"),/does not contain/);
+  await assert.rejects(readAssetBundleAsset(directory,snapshot,"../bad","default"),/portable lowercase token/);
+
+  const old=original.assets.find(e=>e.key==="prop")!,file=path.join(directory,old.path);
+  await writeFile(file,Buffer.alloc(old.source.byteLength));
+  await assert.rejects(readAssetBundleAsset(directory,snapshot,"prop","default"),/hash/);
+  await assert.rejects(verifyAssetBundle(directory,exported.manifest),/hash/);
 });
 
 test("mesh edits, corrupt export repair and cold builds preserve unrelated files",async t=>{
