@@ -14,7 +14,7 @@ import { APPROVED_IMAGE_BUNDLE_OPERATION, APPROVED_IMAGE_BUNDLE_PROFILE, ASSET_B
   type BundleAssetSelection, type BundleResource, type Invocation, type SpriteAtlasBundleEntry, type SpriteAtlasBundleManifest } from "./asset-bundle-contract.js";
 import { assertAbsolute } from "./asset-bundle-files.js";
 import { gltfResourcesParameters, isGltfResourcesProfile, prepareGltfResources } from "./asset-bundle-gltf.js";
-import { approvedSelections, assetPath, checkBudget, compareEntries, object, parseApprovedImageBundleManifest, parseAssetBundleManifest, parseAudioBundleManifest, parseSpriteAtlasBundleManifest, selections, unreachable } from "./asset-bundle-manifest.js";
+import { approvedSelections, assetPath, checkBudget, compareEntries, createBundleBudgetTracker, object, parseApprovedImageBundleManifest, parseAssetBundleManifest, parseAudioBundleManifest, parseSpriteAtlasBundleManifest, selections, unreachable } from "./asset-bundle-manifest.js";
 import { checkAtlas, uniqueResources, validatePayload, type ReadResource } from "./asset-bundle-payload.js";
 
 function approvedParameters(value:unknown):ApprovedImageBundleParameters {
@@ -75,14 +75,13 @@ async function prepareAtlas(root:string,p:AssetBundleParameters,value:unknown,si
     image:{source:images[i]!,path:assetPath(images[i]!,SPRITE_ATLAS_BUNDLE_PROFILE)} })).sort(compareEntries);
   // Kind checks and initial budgets precede dependency reads.
   for(const e of entries) if(e.source.kind!=="sprite-atlas" || e.image.source.mediaType!=="image/png") throw new Error("atlas profile requires original atlas manifests and encoded PNGs");
-  const declared:BundleResource[]=[...entries,...entries.map(e=>e.image)],resources:BundleResource[]=[];
-  checkBudget(declared);
+  const budget=createBundleBudgetTracker([...entries,...entries.map(e=>e.image)]),resources:BundleResource[]=[];
   const blobs=new Map<string,{source:AssetRef;bytes:Buffer}>();
   let canonicalReferences=0;
   const read:ReadResource=async source=>{
     signal?.throwIfAborted();const portable=assetPath(source,SPRITE_ATLAS_BUNDLE_PROFILE);
     if(source.mediaType===RGBA8_IMAGE_MEDIA_TYPE && ++canonicalReferences>4096) throw new Error("atlas bundle exceeds 4096 declared resource references");
-    declared.push({source,path:portable});checkBudget(declared);
+    budget.add({source,path:portable});
     const existing=blobs.get(portable);
     if(existing) {
       if(existing.source.byteLength!==source.byteLength) throw new Error("conflicting lengths for atlas dependency");

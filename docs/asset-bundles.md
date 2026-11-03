@@ -88,6 +88,14 @@ Each selected entry retains `key`, `variant`, the **original** atlas `source` an
 
 The shared publication/recovery/path rules above apply unchanged. Additional bounds are 8 MiB per original atlas manifest, 4096 declared canonical resource references (including repeated references), 4096 pixels per image axis, 4 megapixels per decoded canonical image and 16 megapixels of sprite sources per atlas. The existing distinct payload/manifest limits still apply. Full refs sort deterministically by content path and canonical metadata; dependency bytes deduplicate by path. Counters count actual distinct files, not upstream artwork evaluation. Retained older files support previous accepted manifests; only `result.files` is the active distribution allowlist.
 
+Atlas dependency discovery maintains the unique 256 MiB payload budget incrementally, including duplicate-path byte-length conflicts. Canonical manifest admission still checks the complete budget. The 512-sprite per-atlas limit does not cap the total number of sprites across selected atlases. For a repeatable local accounting-only comparison at 512 and 3,600 references, run:
+
+```sh
+bun scripts/benchmark-asset-bundle-budget.ts --runs 7
+```
+
+The command reports separate medians and samples for the former full-list-per-append check and the incremental path. It deliberately excludes dependency reads, hashing, PNG validation and publishing; its numbers are not end-to-end bundle-export savings.
+
 Consumers admit the expected pinned manifest with `verifyAssetBundle`, then `readAssetBundleSpriteAtlas` reads only the selected original atlas and PNG, checking their pins. Complete canonical resources remain available for offline provenance/reconstruction evidence; normal playback does not load every source frame. `readAssetBundleAsset` also returns the selected original atlas bytes. Runtime owners retain playback, lifecycle, reduced motion and gameplay timing.
 
 Run `bun examples/atlas-bundle/build.ts`, then `python examples/atlas-bundle/review.py`. The self-contained example builds the existing six authored puff/ring sequences and six PNG derivatives, cold-replays them, exports their selected closure and compares an independent package. It deletes the independent source store before verifying/loading all six pairs. Original recipe/build/PNG-encoder evidence remains in ignored `.artifacts/atlas-bundle/`. The independent Pillow inspection reads **only** the pinned package: PNG pixels match canonical atlas images, and all 36 frames reconstruct original alpha/visible RGB with source sizes/pivots and explicit timing intact. The source-versus-packed board is disposable visual evidence; invalid inspection removes it. Paths anchor to the script and unchanged files reconcile.

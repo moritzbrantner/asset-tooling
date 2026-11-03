@@ -70,7 +70,7 @@ export function assetPath(source:AssetRef,profile:BundleProfile=STATIC_ASSET_BUN
    default: return unreachable(profile);
   }
 }
-export function checkBudget(entries:BundleResource[]):void {
+export function checkBudget(entries:readonly BundleResource[]):void {
   const lengths=new Map<string,number>();
   for(const entry of entries) {
     const previous=lengths.get(entry.path);
@@ -78,6 +78,26 @@ export function checkBudget(entries:BundleResource[]):void {
     lengths.set(entry.path,entry.source.byteLength);
   }
   if([...lengths.values()].reduce((sum,n)=>sum+n,0)>MAX_BUNDLE_BYTES) throw new Error("bundle exceeds the 256 MiB unique payload budget");
+}
+/** Maintain the same unique-byte budget across incremental atlas dependency discovery. */
+export function createBundleBudgetTracker(initial:readonly BundleResource[]) {
+  // Keep the original whole-bundle validation/error ordering for the initial selection.
+  checkBudget(initial);
+  const lengths=new Map(initial.map(entry=>[entry.path,entry.source.byteLength] as const));
+  let total=[...lengths.values()].reduce((sum,n)=>sum+n,0);
+  return {
+    add(entry:BundleResource):void {
+      const previous=lengths.get(entry.path);
+      if(previous!==undefined) {
+        if(previous!==entry.source.byteLength) throw new Error("conflicting byte lengths for identical bundle content");
+        return;
+      }
+      const next=total+entry.source.byteLength;
+      if(next>MAX_BUNDLE_BYTES) throw new Error("bundle exceeds the 256 MiB unique payload budget");
+      lengths.set(entry.path,entry.source.byteLength);
+      total=next;
+    },
+  };
 }
 function resource(value:unknown,mediaType:string):BundleResource {
   const e=object(value,["source","path"],"bundle resource"),source=parseAssetRef(e.source),portable=assetPath(source,SPRITE_ATLAS_BUNDLE_PROFILE);
