@@ -363,6 +363,12 @@ The initial review flow uses a small set of real current/candidate previews in t
 
 Keep one replaceable working output with only meaningful active alternatives; a plain issue/PR reply selecting, adjusting or rejecting it is enough. No second viewer, approval database, new release per iteration or universal screenshot CI gate. A valid import and preview are not approval; only deliberate consumer adoption changes a game's accepted visual or runtime assets. Keep the existing ownership, rights and compatibility boundaries.
 
+#### Decision 7.1.7 — Large atlas bundles, incremental budgets and cache-independent verification
+
+**Approved by owner:** 2026-11-03 ([#453](https://github.com/moritzbrantner/asset-tooling/issues/453)). **Clarifies** Decision 7.1.2 for the existing internal package-verification contract, without requiring new consumer-side verification ceremonies.
+
+Support approximately **3,600 sprites across an atlas bundle** while keeping the **512-sprite maximum per individual atlas**. Track unique payload budgets incrementally when beneficial, preserving byte caps, admission and failure behavior. Keep both authoritative payload reads and hashes in the existing verifier; an optimization or cache must never silently substitute for cache-independent verification. Repeated selected-asset reads may index a manifest only behind an explicit immutable snapshot or correct invalidation contract. Validate optimization claims with repeatable real read-all/export workloads, not just microbenchmarks, and provide pasteable local commands. No new cache registry, runtime service or unconditional heavy CI work is authorized.
+
 ## 8. Non-humanoid asset families
 
 ### 8.1. Zoo-first animated rigid quadrupeds
