@@ -25,7 +25,7 @@ import { executeGltfSubsetSkinnedOperation } from "../../src/gltf-subset-operati
 import { createAssetRef, type AssetOperationResult, type AssetRef } from "../../src/operations.js";
 import {
   ASSET_BUNDLE_MEDIA_TYPE, GLTF_RESOURCES_BUNDLE_OPERATION, GLTF_RESOURCES_BUNDLE_PROFILE, STATIC_ASSET_BUNDLE_PROFILE,
-  createAssetBundleBuildIdentity, executeAssetBundleOperation, exportAssetBundle, listAssetBundleFiles,
+  createAssetBundleBuildIdentity, createAssetBundleReadSnapshot, executeAssetBundleOperation, exportAssetBundle, listAssetBundleFiles,
   parseAssetBundleManifest, parseGltfResourcesBundleManifest, readAssetBundleAsset, readAssetBundleAttachment,
   readAssetBundleGltf, verifyAssetBundle, type GltfResourcesBundleManifest,
 } from "../../src/asset-bundle.js";
@@ -196,6 +196,10 @@ test("gltf-resources-v1 exports glTF scenes whose shared texture is stored once,
   assert.equal(packaged.getRoot().listSkins()[0]!.listJoints().length, 2);
   assert.deepEqual(await readAssetBundleAttachment(directory, manifest, "character.ranger", "default", "doorways"), await resolveAssetObject(root, doorways));
   assert.deepEqual(await readAssetBundleAsset(directory, manifest, "character.archer", "default"), await readFile(path.join(directory, archerEntry!.path)));
+  const readSnapshot=createAssetBundleReadSnapshot(manifest);
+  assert.deepEqual(await readAssetBundleGltf(directory,readSnapshot,"character.ranger","default"),{gltf,resources});
+  assert.deepEqual(await readAssetBundleAttachment(directory,readSnapshot,"character.ranger","default","doorways"),await resolveAssetObject(root,doorways));
+  assert.deepEqual(await readAssetBundleAsset(directory,readSnapshot,"character.archer","default"),await readFile(path.join(directory,archerEntry!.path)));
 
   // Warm export reuses every file and leaves the manifest unchanged.
   const warm = await exportAssetBundle(root, directory, invocation);
