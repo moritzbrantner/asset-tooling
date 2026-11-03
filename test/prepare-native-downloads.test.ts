@@ -58,3 +58,42 @@ test("packing and native preparation retain static equipment grip transforms", a
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+test("multi-selection release packing reads current pinned files and rebuilds a snapshot per invocation", async () => {
+  const { packDownloads } = await import("../scripts/pack-downloads.ts");
+  const { storeAssetObject } = await import("../src/asset-store.ts");
+  const { exportAssetBundle, GLTF_RESOURCES_BUNDLE_PROFILE } = await import("../src/asset-bundle.ts");
+  const directory = await mkdtemp(path.join(os.tmpdir(), "bundle-pack-multi-test-"));
+  try {
+    const document = new Document();
+    const buffer = document.createBuffer();
+    const positions = document.createAccessor().setType("VEC3").setArray(new Float32Array([0, 0, 0, 1, 0, 0, 0, 1, 0])).setBuffer(buffer);
+    document.createScene().addChild(document.createNode("fixture").setMesh(document.createMesh().addPrimitive(document.createPrimitive().setAttribute("POSITION", positions))));
+    const bytes = Buffer.from(await new NodeIO().writeBinary(document));
+    const source = (await storeAssetObject(directory, { bytes, kind: "scene", mediaType: "model/gltf-binary", metadata: { sourceId: "fixture", license: "CC0-1.0" } })).asset;
+    const selections = ["one", "two", "three"].map(key => ({ key, variant: "default" }));
+    const bundle = path.join(directory, "bundle");
+    await exportAssetBundle(directory, bundle, {
+      parameters: { profile: GLTF_RESOURCES_BUNDLE_PROFILE, assets: selections },
+      inputs: { assets: selections.map(() => source) },
+    });
+    const packaged = await packDownloads({ bundleDir: bundle, outDir: path.join(directory, "out"), name: "fixture" });
+    assert.deepEqual(packaged.index.entries.map(entry => entry.key), ["one", "three", "two"]);
+    for (const entry of packaged.index.entries) {
+      assert.ok((await readFile(path.join(directory, "out", `${entry.key}.default.gltf`))).length > 0);
+    }
+    const manifestFile = path.join(bundle, "manifest.json");
+    const originalManifest = await readFile(manifestFile);
+    const changed = JSON.parse(originalManifest.toString("utf8"));
+    changed.assets[1].key = "one";
+    await writeFile(manifestFile, JSON.stringify(changed));
+    await assert.rejects(packDownloads({ bundleDir: bundle, outDir: path.join(directory, "invalid"), name: "fixture" }), /duplicate|sorted|selection/i);
+    await writeFile(manifestFile, originalManifest);
+    const original = JSON.parse(originalManifest.toString("utf8"));
+    const selectedPath = path.join(bundle, original.assets[0].path);
+    await writeFile(selectedPath, "corrupted scene");
+    await assert.rejects(packDownloads({ bundleDir: bundle, outDir: path.join(directory, "corrupt"), name: "fixture" }), /hash|length|mismatch|pin/i);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});

@@ -17,7 +17,7 @@ import { NodeIO, type Document, type Texture } from "@gltf-transform/core";
 import { ALL_EXTENSIONS, KHRTextureBasisu } from "@gltf-transform/extensions";
 import { meshopt, prune } from "@gltf-transform/functions";
 import { MeshoptDecoder, MeshoptEncoder } from "meshoptimizer";
-import { readAssetBundleGltf, type GltfResourcesBundleManifest } from "../src/asset-bundle.js";
+import { createAssetBundleReadSnapshot, readAssetBundleGltf, type GltfResourcesBundleManifest } from "../src/asset-bundle.js";
 import { sha256Bytes } from "../src/hash.js";
 import { canonicalJson } from "../src/canonical.js";
 
@@ -112,6 +112,8 @@ export async function packDownloads({ bundleDir, outDir, name, clips, log = () =
   await MeshoptDecoder.ready;
   const io = new NodeIO().registerExtensions(ALL_EXTENSIONS).registerDependencies({ "meshopt.encoder": MeshoptEncoder, "meshopt.decoder": MeshoptDecoder });
   const manifest = JSON.parse(await readFile(path.join(bundleDir, "manifest.json"), "utf8")) as GltfResourcesBundleManifest;
+  // This release invocation owns a fixed manifest. Validate and index it once; each scene read still checks file pins.
+  const readSnapshot = createAssetBundleReadSnapshot(manifest);
   await mkdir(outDir, { recursive: true });
   const scratch = await mkdtemp(path.join(os.tmpdir(), "pack-downloads-"));
   const encoded = new Map<string, string>(); // `${png sha256}:${encoding}` -> ktx2 file name
@@ -123,7 +125,7 @@ export async function packDownloads({ bundleDir, outDir, name, clips, log = () =
   try {
     for (const asset of manifest.assets) {
       const id = `${asset.key}/${asset.variant}`;
-      const { gltf, resources } = await readAssetBundleGltf(bundleDir, manifest, asset.key, asset.variant);
+      const { gltf, resources } = await readAssetBundleGltf(bundleDir, readSnapshot, asset.key, asset.variant);
       const document = await io.readJSON({ json: JSON.parse(gltf.toString("utf8")), resources: Object.fromEntries([...resources].map(([uri, bytes]) => [uri, new Uint8Array(bytes)])) });
       const root = document.getRoot();
       if (clips === id && root.listAnimations().length > 0) {

@@ -254,3 +254,29 @@ jq -r '.results[] | .workload as $w | .measurements[] | [$w,.scenario,.strategy,
 ```
 
 `--full` adds the semantic verifier; the quick run already measures reading every closure file with its content pin. The benchmark is deliberately **manual**, not part of unconditional `bun run check` or CI. Compare raw and snapshot reads within the same run; new snapshots have an up-front validation cost and become beneficial when the same manifest has multiple lookups. Full verification never uses this optimization.
+
+### Actual consumer adoption and end-to-end measurements
+
+The rolling-release `packDownloads` workflow reads all selected glTF scenes from one locally loaded manifest. It creates one validated snapshot for that **single invocation**, then reads every scene and its resources through the snapshot; no global or cross-invocation identity cache is kept. Likewise, `loadApprovedWardenExport` snapshots its already verified and selection-checked manifest once before reading its 20 image variants. Both paths still check each payload's current bytes and pin. Neither changes `verifyAssetBundle`, its independent reads, or the approved export contract.
+
+`scripts/benchmark-bundle-consumers.ts` runs the actual release packer with valid generated glTF bundles (8 and 64 selections, deliberately **without textures** so KTX CLI acquisition and expensive texture encoding cannot obscure manifest-read costs). With `--warden`, it also executes the full approved Warden loader against the local **hydrated, real** 20-PNG export. Fixtures are created outside timing; each run includes complete consumer processing and output writes. The harness hashes **every packaged output file** (or all loaded Warden images) after timing and requires identical output hashes across runs. JSON records raw timings, source commit, changed-source status, source/harness hashes, the output digest and machine fingerprint. These synthetic glTF fixtures do not establish gains for texture-heavy releases; small workloads may lose time to the one-off snapshot creation.
+
+```bash
+bun install --frozen-lockfile
+bun scripts/benchmark-bundle-consumers.ts --runs 9 --scenes 8,64 > /tmp/bundle-consumer-current.json
+# Optional: requires git lfs pull --include='review/**' and the committed Warden review.
+bun scripts/benchmark-bundle-consumers.ts --runs 9 --scenes 8,64 --warden review/warden-icons > /tmp/bundle-consumer-warden.json
+```
+
+To compare against the unmodified parent of this adoption change, use a separate worktree. Run both commands from the **new implementation's** checkout so they share exactly this harness; `--source` dynamically loads the baseline's actual consumer modules, with its own frozen dependencies. Compare only equivalent environments, fixtures and SHA-256 output digests; the wall-clock results remain informational.
+
+```bash
+git worktree add --detach ../asset-tooling-before a29b65eca259bd8b953e1f7611bf6c6b40d584f6
+(cd ../asset-tooling-before && bun install --frozen-lockfile)
+bun scripts/benchmark-bundle-consumers.ts --runs 9 --scenes 8,64 --source ../asset-tooling-before > /tmp/bundle-consumer-before.json
+bun scripts/benchmark-bundle-consumers.ts --runs 9 --scenes 8,64 > /tmp/bundle-consumer-after.json
+jq -n --slurpfile before /tmp/bundle-consumer-before.json --slurpfile after /tmp/bundle-consumer-after.json \
+  '[ $before[0].measurements[] | .scenario as $scenario | .medianMs as $baseline | .contentSha256 as $digest |
+     ($after[0].measurements[] | select(.scenario == $scenario)) |
+     {scenario: $scenario, beforeMs: $baseline, afterMs: .medianMs, speedup: ($baseline / .medianMs), sameOutput: ($digest == .contentSha256)} ]'
+```
