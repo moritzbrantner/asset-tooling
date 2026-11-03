@@ -109,14 +109,35 @@ jobs:
         if: matrix.processor != ''
         with:
           toolchain: stable
-      # The build runs the processor with `cargo run --offline`, so its dependencies are fetched first.
-      - name: Fetch the processor's dependencies
+      # The processor is an exact checkout; persist its compiled workspace between releases,
+      # but keep `cargo run --offline` as the authority for checking/rebuilding the binary.
+      - id: rustc-identity
+        name: Identify the Rust compiler for cache isolation
+        if: matrix.processor != ''
+        run: |
+          set -euo pipefail
+          echo "sha=$(rustc -vV | sha256sum | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+      - name: Resolve the processor dependency lock
         if: matrix.processor != ''
         env:
           MANIFEST: ${{ steps.processor.outputs.manifest }}
         run: |
           set -euo pipefail
           cargo generate-lockfile --manifest-path "processor/$MANIFEST"
+      - name: Reuse the pinned processor's Cargo dependencies and compiled target
+        if: matrix.processor != ''
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry
+            processor/target
+          key: processor-${{ runner.os }}-${{ runner.arch }}-${{ steps.processor.outputs.commit }}-${{ steps.rustc-identity.outputs.sha }}-${{ hashFiles('processor/Cargo.lock') }}
+      - name: Fetch the processor's dependencies
+        if: matrix.processor != ''
+        env:
+          MANIFEST: ${{ steps.processor.outputs.manifest }}
+        run: |
+          set -euo pipefail
           cargo fetch --locked --manifest-path "processor/$MANIFEST"
           echo "ASSET_TOOLING_PROCESSOR_CHECKOUT_3DLAB=$GITHUB_WORKSPACE/processor" >> "$GITHUB_ENV"
       - name: Install KTX-Software
@@ -131,15 +152,24 @@ jobs:
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: latest
+      # setup-bun caches the executable, not the content-addressed packages consumed by `bun install`.
+      - name: Reuse Bun's downloaded packages
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.bun/install/cache
+          key: bun-packages-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bun.lock') }}
       - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4.9.1
         if: matrix.java != ''
         with:
           distribution: temurin
           java-version: ${{ matrix.java }}
-      - name: Install dependencies and the image/audio codec
+      - name: Ensure FFmpeg and install pinned dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg
+          if ! command -v ffmpeg >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y ffmpeg
+          fi
+          ffmpeg -hide_banner -version | head -n 1
           bun install --frozen-lockfile
       - name: Acquire the pinned Maps regional source and upstream tools
         if: matrix.release == 'maps-shortbread'
