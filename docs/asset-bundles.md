@@ -46,6 +46,25 @@ Counters distinguish selected refs checked (`assetsVerified`), distinct payload 
 
 `verifyAssetBundle` requires the expected manifest AssetRef supplied by the build/distribution contract, verifies the manifest pin, then every active payload and static GLB resource policy. It is non-mutating and uses no source store. `readAssetBundleAsset` reads one selected file and checks its pin. Consumers should admit a verified manifest once, then use its exact logical selections. They must not treat an arbitrary downloaded manifest as its own trust anchor or infer private LFS/store paths.
 
+For repeated reads from **one admitted manifest**, use `createAssetBundleReader` to parse and index the selections once:
+
+```ts
+import { createAssetBundleReader } from "asset-tooling/operations/bundle";
+
+const reader = createAssetBundleReader(absoluteOutputDirectory, checked.manifest);
+const tree = await reader.readAsset("tree.broadleaf", "composed");
+```
+
+This reader is an **immutable snapshot of the supplied manifest at construction**, not a global cache keyed by a caller-owned object. If a new manifest is admitted, create a new reader; mutating the original object does not change an existing reader. The direct `readAssetBundleAsset` API continues to parse the current input on each call. Every reader call still opens the selected file, checks its length and SHA-256, and rejects file tampering. Neither reader is a substitute for the independent, cache-free `verifyAssetBundle` admission, including its two reads of atlas dependencies. The reader holds metadata in memory only, never payload bytes.
+
+Read-all performance experiment (256 logical selections, 3,584 canonical resource declarations, synthetic admitted-shaped transport, no generation or full verification):
+
+```bash
+bun scripts/benchmark-asset-bundle-reader.ts --runs 5
+```
+
+The script checks equal results and reports alternating-run medians. It exercises file reads and hashes as well as parsing; its synthetic resources do not establish full end-to-end export or runtime loading improvements. The existing 512-sprite **per-atlas** limit remains separate from the supported approximately 3,600-sprite **bundle** use case (#453).
+
 ## Actual example
 
 After running the existing tree and effect-artwork examples:

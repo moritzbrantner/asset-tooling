@@ -73,6 +73,27 @@ export async function verifyAssetBundle(directory:string,manifestValue:unknown,o
 }
 export async function readAssetBundleAsset(directory:string,manifest:AnyAssetBundleManifest,key:string,variant:string):Promise<Buffer> {
   assertAbsolute(directory);const entry=resolveAssetBundleEntry(parseAnyAssetBundleManifest(Buffer.from(canonicalJson(manifest))),key,variant);
+  return readBundleEntry(directory,entry);
+}
+/**
+ * Snapshot a manifest once for repeated selected-asset reads (e.g. 256 selections in a large atlas bundle).
+ * The caller may mutate its input later; this reader intentionally retains the validated snapshot. Construct
+ * a new reader for a changed manifest. It caches neither file bytes nor verification results.
+ */
+export function createAssetBundleReader(directory:string,manifestValue:AnyAssetBundleManifest) {
+  assertAbsolute(directory);
+  const manifest=parseAnyAssetBundleManifest(Buffer.from(canonicalJson(manifestValue)));
+  const entries=new Map(manifest.assets.map(entry=>[`${entry.key}/${entry.variant}`,entry] as const));
+  return {
+    async readAsset(key:string,variant:string):Promise<Buffer> {
+      token(key,"asset key");token(variant,"asset variant");
+      const entry=entries.get(`${key}/${variant}`);
+      if(!entry) throw new Error(`bundle does not contain '${key}/${variant}'`);
+      return readBundleEntry(directory,entry);
+    },
+  };
+}
+function readBundleEntry(directory:string,entry:AnyAssetBundleManifest["assets"][number]):Promise<Buffer> {
   // A gltf-resources-v1 entry's file is the exported .gltf, pinned by its own sha256 rather than the source GLB's.
   if("resources" in entry) return readHashed(directory,entry.path,entry.sha256,undefined,MAX_MANIFEST_BYTES);
   return readPinned(directory,entry.path,entry.source);
