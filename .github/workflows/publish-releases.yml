@@ -136,11 +136,15 @@ jobs:
         with:
           distribution: temurin
           java-version: ${{ matrix.java }}
-      - name: Install dependencies and the image/audio codec
+      - name: Install latest stable FFmpeg
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg
-          bun install --frozen-lockfile
+          set -euo pipefail
+          CODEC_BIN="$(bun scripts/install-ffmpeg.ts)"
+          echo "$CODEC_BIN" >> "$GITHUB_PATH"
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
       - name: Acquire the pinned Maps regional source and upstream tools
         if: matrix.release == 'maps-shortbread'
         run: bun examples/maps-shortbread/build.ts acquire
