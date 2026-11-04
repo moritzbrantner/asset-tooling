@@ -70,6 +70,32 @@ async function sha256(file: string): Promise<string> {
   return hash.digest("hex");
 }
 
+async function downloadArchive(fetcher: typeof fetch, url: string, destination: string): Promise<number> {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const response = await fetcher(url, { signal: AbortSignal.timeout(240_000) });
+      if (!response.ok) {
+        if (response.status !== 408 && response.status !== 429 && response.status < 500) {
+          throw new Error(`FFmpeg archive download failed: HTTP ${response.status}`);
+        }
+        lastError = new Error(`Temporary FFmpeg archive download failure: HTTP ${response.status}`);
+      } else {
+        // The CDN can reset a connection after returning HTTP 200, during streaming.
+        return await Bun.write(destination, response);
+      }
+    } catch (error) {
+      // Only transient transport failures reach here; non-retryable HTTP responses
+      // throw the explicit error above and must not be silently retried.
+      if (error instanceof Error && /^FFmpeg archive download failed: HTTP /.test(error.message)) throw error;
+      lastError = error;
+    }
+    await rm(destination, { force: true });
+    if (attempt < 3) await new Promise((resolve) => setTimeout(resolve, attempt * 500));
+  }
+  throw new Error("FFmpeg archive download failed after 3 attempts", { cause: lastError });
+}
+
 async function present(file: string): Promise<boolean> {
   try {
     await lstat(file);
@@ -140,9 +166,7 @@ export async function installLatestStableFFmpeg({
   const staging = await mkdtemp(path.join(storage, ".install-"));
   try {
     const archive = path.join(staging, "ffmpeg.tar.xz");
-    const download = await fetcher(asset.url, { signal: AbortSignal.timeout(240_000) });
-    if (!download.ok) throw new Error(`FFmpeg archive download failed: HTTP ${download.status}`);
-    if (await Bun.write(archive, download) !== asset.size || await sha256(archive) !== asset.sha256) {
+    if (await downloadArchive(fetcher, asset.url, archive) !== asset.size || await sha256(archive) !== asset.sha256) {
       throw new Error("FFmpeg archive length or SHA-256 does not match the publisher's release metadata");
     }
 

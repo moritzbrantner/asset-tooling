@@ -81,16 +81,49 @@ test("offline installer verifies publisher bytes, reuses intact tools, and rejec
       if (String(url).endsWith("/releases/latest")) return new Response(JSON.stringify({ tag_name: "latest", assets: [spec] }));
       assert.equal(String(url), spec.browser_download_url);
       downloads++;
+      if (downloads === 1) {
+        return new Response(new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(bytes.subarray(0, 4096));
+            controller.error(new TypeError("simulated CDN connection reset during streaming"));
+          },
+        }));
+      }
       return new Response(bytes);
     }) as typeof fetch;
 
     const first = await installLatestStableFFmpeg({ installRoot: store, fetcher });
     assert.equal(spawnSync(path.join(first, "ffmpeg"), ["-version"], { encoding: "utf8" }).status, 0);
     assert.equal(await installLatestStableFFmpeg({ installRoot: store, fetcher }), first);
-    assert.equal(downloads, 1, "intact cache does not redownload the same publisher asset");
+    assert.equal(downloads, 2, "one interrupted download is retried, intact cache does not redownload");
 
     await writeFile(path.join(first, "ffmpeg"), "tampered");
     await assert.rejects(installLatestStableFFmpeg({ installRoot: store, fetcher }), /Refusing to replace invalid FFmpeg installation/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("archive transport retries are bounded and permanent HTTP failures are not retried", {
+  skip: process.platform !== "linux" || process.arch !== "x64",
+}, async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "asset-tooling-ffmpeg-test-"));
+  const spec = { ...asset("9.0"), size: 1_100_000 };
+  try {
+    for (const fail of ["reset", "not-found"] as const) {
+      let downloads = 0;
+      const fetcher = (async (url: string | URL | Request) => {
+        if (String(url).endsWith("/releases/latest")) return new Response(JSON.stringify({ tag_name: "latest", assets: [spec] }));
+        downloads++;
+        if (fail === "reset") throw new TypeError("simulated ECONNRESET");
+        return new Response("Missing", { status: 404 });
+      }) as typeof fetch;
+      const store = path.join(root, fail);
+      await assert.rejects(installLatestStableFFmpeg({ installRoot: store, fetcher }),
+        fail === "reset" ? /after 3 attempts/ : /HTTP 404/);
+      assert.equal(downloads, fail === "reset" ? 3 : 1);
+      assert.deepEqual(await readdir(store), [], "failed download does not leave a partial installation");
+    }
   } finally {
     await rm(root, { recursive: true, force: true });
   }
