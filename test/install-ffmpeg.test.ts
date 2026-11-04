@@ -54,7 +54,7 @@ test("rejects untrusted release metadata and invalid publisher digests", () => {
   assert.throws(() => selectStableLinuxAsset({ tag_name: "latest", assets: [{ ...asset("9.0"), size: -1 }] }), /size/i);
 });
 
-test("offline installer verifies publisher bytes, reuses intact tools, and rejects cache mutation", {
+test("offline installer never executes fetched tools, reuses verified archives, and rejects coupled cache tampering", {
   skip: process.platform !== "linux" || process.arch !== "x64",
 }, async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), "asset-tooling-ffmpeg-test-"));
@@ -62,9 +62,10 @@ test("offline installer verifies publisher bytes, reuses intact tools, and rejec
     const name = asset("9.0").name.replace(/\.tar\.xz$/, "");
     const folder = path.join(root, "source", name, "bin");
     await mkdir(folder, { recursive: true });
+    const executionMarker = path.join(root, "executed.txt");
     for (const binary of ["ffmpeg", "ffprobe"]) {
       const file = path.join(folder, binary);
-      await writeFile(file, `#!/bin/sh\necho '${binary} version n9.0.2-test'\n`);
+      await writeFile(file, `#!/bin/sh\necho '${binary}' >> '${executionMarker}'\necho '${binary} version n9.0.2-test'\n`);
       await chmod(file, 0o755);
     }
     // A compressed fixture above the lower download size bound exercises the real tar path.
@@ -75,10 +76,15 @@ test("offline installer verifies publisher bytes, reuses intact tools, and rejec
     const bytes = await readFile(archive);
     const digest = createHash("sha256").update(bytes).digest("hex");
     const spec = { ...asset("9.0"), digest: `sha256:${digest}`, size: bytes.length };
+    const published = { tag_name: "latest", assets: [spec] };
     const store = path.join(root, "installed");
     let downloads = 0;
+    let metadataRequests = 0;
     const fetcher = (async (url: string | URL | Request) => {
-      if (String(url).endsWith("/releases/latest")) return new Response(JSON.stringify({ tag_name: "latest", assets: [spec] }));
+      if (String(url).endsWith("/releases/latest")) {
+        metadataRequests++;
+        return new Response(JSON.stringify(published));
+      }
       assert.equal(String(url), spec.browser_download_url);
       downloads++;
       if (downloads === 1) {
@@ -92,13 +98,29 @@ test("offline installer verifies publisher bytes, reuses intact tools, and rejec
       return new Response(bytes);
     }) as typeof fetch;
 
-    const first = await installLatestStableFFmpeg({ installRoot: store, fetcher });
+    const first = await installLatestStableFFmpeg({ installRoot: store, fetcher, releaseMetadata: published });
+    await assert.rejects(readFile(executionMarker), { code: "ENOENT" }, "installation must not launch publisher binaries");
+    const installedArchive = path.join(first, "..", "archive.tar.xz");
+    assert.equal(createHash("sha256").update(await readFile(installedArchive)).digest("hex"), digest);
     assert.equal(spawnSync(path.join(first, "ffmpeg"), ["-version"], { encoding: "utf8" }).status, 0);
+    const executed = await readFile(executionMarker, "utf8");
     assert.equal(await installLatestStableFFmpeg({ installRoot: store, fetcher }), first);
+    assert.equal(await readFile(executionMarker, "utf8"), executed, "cache validation must not launch publisher binaries");
     assert.equal(downloads, 2, "one interrupted download is retried, intact cache does not redownload");
+    assert.equal(metadataRequests, 1, "explicitly resolved metadata skips a second authenticated API request");
 
-    await writeFile(path.join(first, "ffmpeg"), "tampered");
-    await assert.rejects(installLatestStableFFmpeg({ installRoot: store, fetcher }), /Refusing to replace invalid FFmpeg installation/);
+    const compromised = path.join(first, "ffmpeg");
+    await writeFile(compromised, `#!/bin/sh\necho 'compromised' >> '${executionMarker}'\necho 'ffmpeg version n9.0.2-fake'\n`);
+    await chmod(compromised, 0o755);
+    const receiptFile = path.join(first, "..", "receipt.json");
+    const receipt = JSON.parse(await readFile(receiptFile, "utf8"));
+    receipt.ffmpegSha256 = createHash("sha256").update(await readFile(compromised)).digest("hex");
+    await writeFile(receiptFile, JSON.stringify(receipt));
+    await assert.rejects(installLatestStableFFmpeg({ installRoot: store, fetcher }), /cached ffmpeg binary failed its SHA-256 check/);
+    assert.equal(await readFile(executionMarker, "utf8"), executed, "tampered cached executable must never run");
+
+    await writeFile(installedArchive, "corrupt archive");
+    await assert.rejects(installLatestStableFFmpeg({ installRoot: store, fetcher }), /cached archive failed its publisher SHA-256 check/);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

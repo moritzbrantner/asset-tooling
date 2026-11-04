@@ -136,13 +136,22 @@ jobs:
         with:
           distribution: temurin
           java-version: ${{ matrix.java }}
-      - name: Install latest stable FFmpeg
+      # Only the trusted GitHub CLI sees this write-capable job token. The
+      # subsequent installer never executes publisher binaries with it present.
+      - name: Resolve latest FFmpeg release metadata
         env:
           GH_TOKEN: ${{ github.token }}
+        run: gh api repos/BtbN/FFmpeg-Builds/releases/latest > "$RUNNER_TEMP/ffmpeg-release.json"
+      - name: Install latest stable FFmpeg
         run: |
           set -euo pipefail
-          CODEC_BIN="$(bun scripts/install-ffmpeg.ts)"
+          CODEC_BIN="$(bun scripts/install-ffmpeg.ts --release-metadata "$RUNNER_TEMP/ffmpeg-release.json")"
           echo "$CODEC_BIN" >> "$GITHUB_PATH"
+      - name: Report installed FFmpeg versions
+        run: |
+          set -euo pipefail
+          ffmpeg -version | sed -n '1p'
+          ffprobe -version | sed -n '1p'
       - name: Install dependencies
         run: bun install --frozen-lockfile
       - name: Acquire the pinned Maps regional source and upstream tools

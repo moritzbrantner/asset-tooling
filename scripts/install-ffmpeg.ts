@@ -10,7 +10,7 @@
  * This is an opt-in setup operation. Image generation/verification never downloads
  * a codec implicitly; the build identity already records the actual FFmpeg version.
  */
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { chmod, copyFile, lstat, mkdir, mkdtemp, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
@@ -70,6 +70,35 @@ async function sha256(file: string): Promise<string> {
   return hash.digest("hex");
 }
 
+async function archivedBinarySha256(archive: string, member: string): Promise<string> {
+  // The archive is independently pinned by the publisher's SHA-256. Derive the
+  // expected executable hash from those bytes, never from an editable receipt.
+  const tar = spawn("tar", ["-xJOf", archive, "--", member], {
+    stdio: ["ignore", "pipe", "pipe"],
+    signal: AbortSignal.timeout(120_000),
+  });
+  let stderr = "";
+  tar.stderr.on("data", (chunk: Buffer) => { stderr = (stderr + chunk.toString()).slice(-4096); });
+  const hash = createHash("sha256");
+  const output = (async () => {
+    for await (const chunk of tar.stdout) hash.update(chunk);
+  })();
+  const completed = new Promise<void>((resolve, reject) => {
+    tar.once("error", reject);
+    tar.once("close", (code) => {
+      if (code === 0) resolve();
+      else reject(new Error(`Cannot verify FFmpeg archive member ${member}: ${stderr}`));
+    });
+  });
+  try {
+    await Promise.all([output, completed]);
+    return hash.digest("hex");
+  } catch (error) {
+    tar.kill();
+    throw error;
+  }
+}
+
 async function downloadArchive(fetcher: typeof fetch, url: string, destination: string): Promise<number> {
   let lastError: unknown;
   for (let attempt = 1; attempt <= 3; attempt++) {
@@ -106,16 +135,6 @@ async function present(file: string): Promise<boolean> {
   }
 }
 
-function version(binary: string, series: string): void {
-  const result = spawnSync(binary, ["-version"], { encoding: "utf8", timeout: 30_000 });
-  if (result.error) throw result.error;
-  const firstLine = result.stdout?.split(/\r?\n/, 1)[0] ?? "";
-  const expected = new RegExp(`^(?:ffmpeg|ffprobe) version n${series.replace(".", "\\.")}(?:\\.|-)`);
-  if (result.status !== 0 || !expected.test(firstLine)) {
-    throw new Error(`FFmpeg publisher build does not identify as stable branch ${series}: ${firstLine}`);
-  }
-}
-
 async function validInstall(destination: string, asset: StableLinuxAsset): Promise<boolean> {
   if (!await present(destination)) return false;
   const receiptPath = path.join(destination, "receipt.json");
@@ -125,12 +144,19 @@ async function validInstall(destination: string, asset: StableLinuxAsset): Promi
     if (receipt.archiveSha256 !== asset.sha256 || receipt.series !== asset.series || receipt.name !== asset.name) {
       throw new Error("cached publisher identity changed");
     }
+    const archive = path.join(destination, "archive.tar.xz");
+    const archiveInfo = await lstat(archive);
+    if (!archiveInfo.isFile() || archiveInfo.size !== asset.size || await sha256(archive) !== asset.sha256) {
+      throw new Error("cached archive failed its publisher SHA-256 check");
+    }
     for (const name of ["ffmpeg", "ffprobe"] as const) {
       const binary = path.join(destination, "bin", name);
-      if (!(await lstat(binary)).isFile() || await sha256(binary) !== receipt[`${name}Sha256`]) {
+      if (!(await lstat(binary)).isFile()) throw new Error(`cached ${name} is not a regular executable`);
+      const actual = await sha256(binary);
+      const expected = await archivedBinarySha256(archive, `${asset.name.slice(0, -".tar.xz".length)}/bin/${name}`);
+      if (actual !== receipt[`${name}Sha256`] || actual !== expected) {
         throw new Error(`cached ${name} binary failed its SHA-256 check`);
       }
-      version(binary, asset.series);
     }
     return true;
   } catch (error) {
@@ -141,10 +167,13 @@ async function validInstall(destination: string, asset: StableLinuxAsset): Promi
 export async function installLatestStableFFmpeg({
   installRoot = INSTALL_ROOT,
   fetcher = fetch,
+  releaseMetadata,
 }: {
   /** Override only for isolated offline installer tests. */
   installRoot?: string;
   fetcher?: typeof fetch;
+  /** Explicitly authenticated metadata may be resolved in a preceding CI step. */
+  releaseMetadata?: unknown;
 } = {}): Promise<string> {
   if (process.platform !== "linux" || !["x64", "arm64"].includes(process.arch)) {
     throw new Error("The managed latest-stable FFmpeg installer supports Linux x64/arm64 only");
@@ -154,11 +183,15 @@ export async function installLatestStableFFmpeg({
     if (!await present(directory)) continue;
     if (!(await lstat(directory)).isDirectory()) throw new Error(`FFmpeg tool storage must be a real directory: ${directory}`);
   }
-  const headers: Record<string, string> = { Accept: "application/vnd.github+json", "User-Agent": "asset-tooling-ffmpeg-installer" };
-  if (process.env.GH_TOKEN) headers.Authorization = `Bearer ${process.env.GH_TOKEN}`;
-  const response = await fetcher(RELEASE_API, { headers, signal: AbortSignal.timeout(30_000) });
-  if (!response.ok) throw new Error(`Cannot resolve latest published FFmpeg build: HTTP ${response.status}`);
-  const asset = selectStableLinuxAsset(await response.json(), process.arch as "x64" | "arm64");
+  let published = releaseMetadata;
+  if (published === undefined) {
+    const headers: Record<string, string> = { Accept: "application/vnd.github+json", "User-Agent": "asset-tooling-ffmpeg-installer" };
+    if (process.env.GH_TOKEN) headers.Authorization = `Bearer ${process.env.GH_TOKEN}`;
+    const response = await fetcher(RELEASE_API, { headers, signal: AbortSignal.timeout(30_000) });
+    if (!response.ok) throw new Error(`Cannot resolve latest published FFmpeg build: HTTP ${response.status}`);
+    published = await response.json();
+  }
+  const asset = selectStableLinuxAsset(published, process.arch as "x64" | "arm64");
   const destination = path.join(storage, asset.sha256);
   if (await validInstall(destination, asset)) return path.join(destination, "bin");
 
@@ -172,11 +205,14 @@ export async function installLatestStableFFmpeg({
 
     const extracted = path.join(staging, "extracted");
     await mkdir(extracted);
-    const tar = spawnSync("tar", ["-xJf", archive, "-C", extracted, "--no-same-owner"], { encoding: "utf8", timeout: 120_000 });
+    const folder = asset.name.slice(0, -".tar.xz".length);
+    // Extract only the two regular executables; no other archive members may
+    // create symlinks or write outside the disposable staging directory.
+    const tar = spawnSync("tar", ["-xJf", archive, "-C", extracted, "--no-same-owner", "--", `${folder}/bin/ffmpeg`, `${folder}/bin/ffprobe`], { encoding: "utf8", timeout: 120_000 });
     if (tar.error) throw tar.error;
     if (tar.status !== 0) throw new Error(`FFmpeg extraction failed: ${tar.stderr}`);
-    const [folder, ...extra] = await readdir(extracted);
-    if (folder !== asset.name.slice(0, -".tar.xz".length) || extra.length !== 0 ||
+    const [actualFolder, ...extra] = await readdir(extracted);
+    if (actualFolder !== folder || extra.length !== 0 ||
         !(await lstat(path.join(extracted, folder))).isDirectory() ||
         !(await lstat(path.join(extracted, folder, "bin"))).isDirectory()) {
       throw new Error("Unexpected FFmpeg publisher archive layout");
@@ -191,9 +227,11 @@ export async function installLatestStableFFmpeg({
       const binary = path.join(payload, "bin", name);
       await copyFile(source, binary);
       await chmod(binary, 0o755);
-      version(binary, asset.series);
       receipt[`${name}Sha256`] = await sha256(binary);
     }
+    // Keep the verified archive so future cache hits can independently prove
+    // that both executables are the exact publisher-provided bytes.
+    await rename(archive, path.join(payload, "archive.tar.xz"));
     await writeFile(path.join(payload, "receipt.json"), `${JSON.stringify(receipt, null, 2)}\n`, { flag: "wx" });
     // Another installer may have finished while this archive was being verified.
     if (await validInstall(destination, asset)) return path.join(destination, "bin");
@@ -205,6 +243,14 @@ export async function installLatestStableFFmpeg({
 }
 
 if (import.meta.main) {
-  if (process.argv.length !== 2) throw new Error("usage: bun scripts/install-ffmpeg.ts");
-  console.log(await installLatestStableFFmpeg());
+  const args = process.argv.slice(2);
+  if (args.length !== 0 && (args.length !== 2 || args[0] !== "--release-metadata")) {
+    throw new Error("usage: bun scripts/install-ffmpeg.ts [--release-metadata <json-file>]");
+  }
+  const releaseMetadata = args.length === 2 ? JSON.parse(await readFile(args[1]!, "utf8")) : undefined;
+  const bin = await installLatestStableFFmpeg({ releaseMetadata });
+  const receipt = record(JSON.parse(await readFile(path.join(bin, "..", "receipt.json"), "utf8")));
+  // Keep stdout machine-readable for PATH setup; identity is diagnostic stderr.
+  console.error(`FFmpeg stable branch n${receipt.series}, archive sha256:${receipt.archiveSha256}`);
+  console.log(bin);
 }
