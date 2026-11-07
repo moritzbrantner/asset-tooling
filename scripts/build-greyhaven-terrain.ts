@@ -102,7 +102,7 @@ export function linearMeanColor({ pixels }: Rgba8Image): [number, number, number
 export const TERRAIN_KTX2: Readonly<Record<"baseColor" | "normal" | "metallicRoughness", TextureEncoding>> = {
   baseColor: "uastc-srgb", normal: "uastc", metallicRoughness: "etc1s-linear",
 };
-async function encodeKtx2(scratch: string, texture: Texture, encoding: TextureEncoding) {
+export async function encodeKtx2(scratch: string, texture: Texture, encoding: TextureEncoding) {
   const input = path.join(scratch, `${texture.getName()}.png`), output = path.join(scratch, `${texture.getName()}.ktx2`);
   await writeFile(input, texture.getImage()!);
   const run = Bun.spawnSync([process.env.ASSET_TOOLING_KTX ?? "ktx", ...ktxArguments(encoding, input, output)], { stdout: "pipe", stderr: "pipe" });

@@ -50,11 +50,22 @@ jobs:
         with:
           bun-version: latest
 
-      - name: Install recipe runtime and dependencies
+      - name: Install latest stable FFmpeg
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg
-          bun install --frozen-lockfile
+          set -euo pipefail
+          CODEC_BIN="$(bun scripts/install-ffmpeg.ts)"
+          echo "$CODEC_BIN" >> "$GITHUB_PATH"
+
+      - name: Install recipe dependencies
+        run: bun install --frozen-lockfile
+
+      # This job already hydrates review/**; exercise the exact approval-byte
+      # contract against the current stable codec without another download/job.
+      - name: Replay approved Warden derivatives with stable FFmpeg
+        if: github.event_name == 'pull_request'
+        run: bun scripts/export-warden-icons.ts --check
 
       - name: Install pinned Blender
         run: echo "ASSET_TOOLING_BLENDER=$(bun scripts/install-blender.ts "$RUNNER_TEMP/blender")" >> "$GITHUB_ENV"

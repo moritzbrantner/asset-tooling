@@ -1,0 +1,35 @@
+# Every tool the builds, tests and helper scripts use, for contributors and coding agents:
+#   mise install && mise run setup
+# Tools track the latest stable release; the committed lockfiles keep dependency resolution frozen. Blender
+# stays at the exact release adapters/blender/release.json pins (recipes record it), installed by
+# scripts/install-blender.ts under the ignored .artifacts/; FFmpeg comes from scripts/install-ffmpeg.ts.
+[tools]
+bun = "latest"
+python = "latest"
+uv = "latest"
+git-lfs = "latest"
+gh = "latest"
+jq = "latest"
+ripgrep = "latest"
+
+[env]
+# The Python helpers and their validation dependencies run in the repository's own ignored virtualenv.
+_.python.venv = { path = ".venv", create = true }
+# The managed Blender (`mise run setup:blender`), for the Blender tests and builds.
+ASSET_TOOLING_BLENDER = "{{ exec(command='python3 ' ~ config_root ~ '/scripts/blender-executable.py') }}"
+
+[tasks."setup:core"]
+description = "Bun dependencies (frozen lockfile) and the Python validation requirements"
+run = ["bun install --frozen-lockfile", "uv pip install --requirement requirements-validation.txt"]
+
+[tasks."setup:blender"]
+description = "The pinned Blender release under .artifacts/toolchain/blender (ASSET_TOOLING_BLENDER)"
+run = "bun scripts/install-blender.ts .artifacts/toolchain/blender"
+
+[tasks."setup:ffmpeg"]
+description = "The latest stable FFmpeg build; prints the directory to put on PATH"
+run = "bun scripts/install-ffmpeg.ts"
+
+[tasks.setup]
+description = "Everything beyond `mise install` except ComfyUI (python3 scripts/setup-tools.py setup --profile comfyui)"
+depends = ["setup:core", "setup:blender"]

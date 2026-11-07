@@ -11,3 +11,6 @@ adapters/dependency.lock
 test-results/
 playwright-report/
 __pycache__/
+
+# mise's Python virtualenv (mise.toml)
+/.venv/

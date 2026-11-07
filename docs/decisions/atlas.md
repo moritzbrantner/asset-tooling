@@ -143,6 +143,12 @@ Use these kits as **inspiration for our own original environment assets in the f
 
 Environment and prop style follows the consuming game, as Decision 1.1.4 does for characters: **cartoony** environments and props for **My Farm**, and the **humanlike-world** direction for **arpg and mmorpg**. The Quaternius MegaKits stay the Greyhaven starting point (Decision 3.1.1) and the inspiration for original scripted replacements (Decision 1.1.7).
 
+#### Decision 3.1.3 — Building kits: geometry authored in Blender, textures and wear in Python
+
+**Approved by owner:** 2026-11-07 (live session). **Narrows Decision 1.1.7** for modular building kits, starting with the Outpost kit; other families keep their scripted recipes.
+
+A building kit's **geometry is a hand-editable `.blend`** (first-party, under `assets/authored/` in Git LFS, pinned by SHA-256 in the builds that read it), so its frame can be shaped directly in Blender (Decision 5.1.6). Its **textures and wear stay in the Python recipe**: generated, parametric and remixable, with wear changing **textures only** (grime, moss, greyed timber, plaster fallen to wattle and daub, missing shingles as dark patches) over the shared geometry, so every wear variant reuses the pristine meshes. The kit's export checks (grid, openings, budgets, compositions) keep guarding the hand-edited geometry. Third-party payloads stay in the catalog under `assets/canonical/`; first-party authored sources do not join it.
+
 ## 4. Production-quality 2D game icons
 
 ### 4.1. Generated, reviewed ability artwork
@@ -362,6 +368,12 @@ Experimental asset bundles are not published as numbered releases. Each bundle h
 The initial review flow uses a small set of real current/candidate previews in the existing gallery, deeper 3D inspection when useful, and a **matched-camera, matched-time before/after from the actual consuming game** before adoption. First consumer: [MMORPG #346](https://github.com/moritzbrantner/mmorpg/issues/346). The game owns its actual scene and captures; asset-tooling owns generation, candidate identity, review/export and existing gallery. Provide directly viewable images from the GitHub issue/PR, usable on mobile, and identify exactly which output was rendered rather than claiming a stale Pages view is current.
 
 Keep one replaceable working output with only meaningful active alternatives; a plain issue/PR reply selecting, adjusting or rejecting it is enough. No second viewer, approval database, new release per iteration or universal screenshot CI gate. A valid import and preview are not approval; only deliberate consumer adoption changes a game's accepted visual or runtime assets. Keep the existing ownership, rights and compatibility boundaries.
+
+#### Decision 7.1.7 — Large atlas bundles use incremental budgets and explicit read snapshots
+
+**Approved by owner:** 2026-11-03, [#453](https://github.com/moritzbrantner/asset-tooling/issues/453). **Refines** Decision 7.1.2 for the existing explicit verifier without adding release or consumer verification ceremony.
+
+An approximately **3,600-sprite bundle across multiple atlases is a supported workload**, separate from the existing 512-sprite maximum **per atlas**. Investigate and adopt incremental unique-payload budget checks when reproducible 512/3,600 comparisons justify them, without changing size limits, error semantics or published output. Retain both independent payload reads and hashes in explicit bundle verification: its authority is the current pinned files, never a generation or consumer cache. A manifest read cache is allowed only through a validated, immutable snapshot or demonstrably complete invalidation/versioning for mutable inputs. An explicit snapshot retains the version it admitted; callers recreate it when their manifest changes, and every selected payload read continues to check current bytes. Benchmark these paths separately and keep expensive runs opt-in rather than unconditional CI gates.
 
 ## 8. Non-humanoid asset families
 
