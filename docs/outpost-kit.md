@@ -2,7 +2,11 @@
 
 This is the build recipe for the modular building exteriors of mmorpg's Greyhaven Outpost ([#366](https://github.com/moritzbrantner/asset-tooling/issues/366), consumer [mmorpg#420](https://github.com/moritzbrantner/mmorpg/issues/420)). mmorpg#420 replaces two blockout Outpost houses or workshops with real modular buildings, without changing their footprints, colliders or openings.
 
-- **Approach:** an original scripted Blender recipe, [`adapters/blender/outpost.py`](../adapters/blender/outpost.py), as Atlas Decisions 1.1.7 and 3.1.2 direct for mmorpg's humanlike-world environments. The Quaternius kits of the [starter bundle](greyhaven-starter-bundle.md) were the inspiration only. Their 4 × 4 m roof does not cover the Outpost's 6 m spans, and their style is the cartoony one. The kit uses no imported meshes and no third-party assets, and its textures are generated with numpy.
+- **Approach:** two layers, each edited on its own (Atlas Decision 3.1.3):
+  - **Geometry:** hand-authored in Blender, [`assets/authored/outpost-kit.blend`](../assets/authored/outpost-kit.blend) (Git LFS). It was seeded on 2026-11-07 from the earlier scripted recipe (the `outpost.py` of the commit before it) and is edited directly from then on.
+  - **Textures and wear:** [`adapters/blender/outpost.py`](../adapters/blender/outpost.py) generates the tileable textures with numpy, ages them by `wear`, dresses the authored modules and exports them.
+
+  The Quaternius kits of the [starter bundle](greyhaven-starter-bundle.md) were the inspiration only. Their 4 × 4 m roof does not cover the Outpost's 6 m spans, and their style is the cartoony one. The kit uses no imported meshes and no third-party assets.
 - **Style:** it matches the scripted [Greyhaven inn](greyhaven-inn.md): a stone plinth, lime plaster in a dark timber frame with braces, plank doors with iron straps, small glazed windows with open shutters, and a 30° roof like the inn's (about 29°).
 - **Release:** one rolling release, `outpost-kit` (Atlas Decision 7.1.5), never a numbered one.
 
@@ -14,41 +18,60 @@ ASSET_TOOLING_BLENDER=<blender 5.2.2> bun scripts/build-outpost-kit.ts --out <di
 
 [`scripts/build-outpost-kit.ts`](../scripts/build-outpost-kit.ts) works like the [shrine build](shrine-kit.md#build):
 
-1. One `external.blender.script@1` run per module, plus a `slate` run for each roof module.
+1. One `external.blender.script@1` run per module variant: pristine, `weathered` and `worn`, and for each roof module also in slate. Each run appends the module from the `.blend` (the declared input `kit`), dresses it and exports it.
 2. Each GLB is imported through `scene.import.gltf@2`, with no validator exceptions.
-3. The descriptor is written from the recipe's observations and the measured bounds.
+3. The descriptor is written from the observations stored on the authored modules, the recipe's compositions and the measured bounds.
 4. The result is exported as a `gltf-resources-v1` bundle (`asset.bundle@4`) and packed to `<directory>/outpost.kit.tar`. The script also writes `lineage.json`, `descriptor.json` and `export.ref.json`.
 
-The build takes about 1.5 minutes. It needs no network, no LFS payloads and no GPU. Snap Blender can only read and write under `$HOME`, so set `TMPDIR` to a directory there.
+The build takes about 3 minutes. It needs no network and no GPU; it reads the hydrated `.blend` (`git lfs pull --include="assets/authored/**"`) and fails clearly on an LFS pointer. Snap Blender can only read and write under `$HOME`, so set `TMPDIR` to a directory there.
 
-`outpost.build(part, collection, location, roof, yaw)` and `outpost.build_composition(name, collection, location)` also run in a live Blender session once `outpost.use_common(runpy.run_path("adapters/blender/kit_common.py"))` has bound the shared helpers ([`kit_common.py`](../adapters/blender/kit_common.py), #426), for example through the Blender MCP.
+### Editing the geometry
+
+Open `assets/authored/outpost-kit.blend` in Blender 5.2.2. It holds one collection `outpost.<part>` per module, laid out in a row; the export places each module's root at the origin, so the layout does not matter.
+
+- Every module has one root empty `outpost.<part>` with the mesh and its empties (`door.hinge`, `hinge`, `smoke`) as children. Keep the frames and the grid below: the kit's test checks the module widths, wall depth, open doorway and triangle budgets on every build.
+- The root's custom property `outpost` is the JSON of the descriptor's observations (`collisionProxies`, `module`, `window`, `doorway`, `mount`, `hinge`, `leafBounds`, `roof`, `span`, `smoke`). Update it when an edit moves an opening, the hinge or a proxy.
+- Materials are untextured placeholders named `outpost-<material>` (`plaster`, `stone`, `timber`, `wood`, `shingle`, `glass`, `iron`, `soot`). Assign these by name; the recipe replaces them with its textured materials. Roof modules use `shingle`, which the slate variants swap for `slate`. UVs follow the textures' tiles: 2 m per tile for plaster, 1 m for the others, one shingle course per quarter tile.
+
+To see the result textured and aged while editing, run the recipe in the same session, for example through the Blender MCP:
+
+```python
+import bpy, runpy
+outpost = runpy.run_path("adapters/blender/outpost.py")
+outpost["use_common"](runpy.run_path("adapters/blender/kit_common.py"))
+outpost["use_geometry"]("assets/authored/outpost-kit.blend")
+outpost["build_composition"]("house", bpy.context.scene.collection, wear=0.5)
+```
+
+`build(part, collection, location, roof, yaw, wear)` places one module the same way. Save the `.blend` before building from it: the recipe reads the file, not the open session.
 
 ## Modules
 
 | Key | Category | Triangles | Footprint W × D × H (m) | Collision proxies |
 | --- | --- | --- | --- | --- |
-| `outpost.kit.chimney` | chimney | 232 | 1.20 × 0.90 × 6.00 | `chimney` |
-| `outpost.kit.corner` | corner | 88 | 0.42 × 0.42 × 3.22 | `corner` |
+| `outpost.kit.chimney` | chimney | 232 | 1.20 × 0.90 × 6.40 | `chimney` |
+| `outpost.kit.corner` | corner | 88 | 0.42 × 0.42 × 3.62 | `corner` |
 | `outpost.kit.door` | door | 156 | 1.17 × 0.15 × 2.18 | `leaf` (`dynamic-door`) |
-| `outpost.kit.gable` | wall | 248 | 5.96 × 0.32 × 1.76 | `gable` |
+| `outpost.kit.gable` | wall | 250 | 5.96 × 0.32 × 1.72 | `gable` |
 | `outpost.kit.roof` | roof | 350 | 2.00 × 6.73 × 2.22 | `roof` |
 | `outpost.kit.roof-half` | roof | 302 | 1.00 × 6.73 × 2.22 | `roof` |
 | `outpost.kit.roof-verge` | roof | 366 | 0.30 × 6.85 × 2.23 | `roof` |
-| `outpost.kit.wall` | wall | 344 | 2.00 × 0.34 × 3.20 | `wall` |
-| `outpost.kit.wall-door` | wall | 668 | 2.00 × 0.54 × 3.28 | `left-jamb`, `right-jamb`, `lintel` |
-| `outpost.kit.wall-half` | wall | 244 | 1.00 × 0.34 × 3.20 | `wall` |
-| `outpost.kit.wall-window` | wall | 650 | 2.00 × 0.38 × 3.20 | `wall` |
+| `outpost.kit.wall` | wall | 404 | 2.00 × 0.34 × 3.60 | `wall` |
+| `outpost.kit.wall-door` | wall | 770 | 2.00 × 0.54 × 3.68 | `left-jamb`, `right-jamb`, `lintel` |
+| `outpost.kit.wall-half` | wall | 296 | 1.00 × 0.34 × 3.60 | `wall` |
+| `outpost.kit.wall-window` | wall | 714 | 2.00 × 0.38 × 3.60 | `wall` |
 
-The numbers are from the build of 2026-10-24. The descriptor carries the measured values of each build.
+The numbers are from the build of 2026-11-07 (pristine variants; the roof modules are unchanged). The descriptor carries the measured values of each build.
 
 - **Walls:** each wall module has a 0.5 m stone plinth, plaster panels set 4 cm behind the timber face, a sill beam and a top plate. At each end stands half of a 0.18 m post, so two neighbouring modules make one post between them.
-  - `wall` has a centre post, a mid rail and two braces.
-  - `wall-half` (1 m) has one long brace.
-  - `wall-window` has a 0.9 × 1.0 m glazed window with its sill at 1.2 m. It has a mullion and a transom, a proud timber sill, a lintel and open plank shutters.
+  - Every wall module carries a head rail at 2.25–2.41 m, so it reads as one timber around the building, and the window and door heads meet it. Braces are cut to their bay, so their ends sit flush against the posts, rails and sills.
+  - `wall` has a centre post and a brace in each lower bay.
+  - `wall-half` (1 m) has one brace below the rail.
+  - `wall-window` has a 0.9 × 1.1 m glazed window with its sill at 1.15 m. Studs run from the sill beam to the top plate either side of it, a sill rail and the head rail carry it, and knee braces above the rail stay clear of the window and its open plank shutters. It has a mullion and a transom, a proud timber sill and a lintel.
   - `wall-door` has the inn's 1.2 × 2.2 m doorway. Its posts stand on stone pads, a head beam spans it, and a stone threshold sits flush with the ground. The empty node `door.hinge` marks where the door hangs.
 - **`door`:** a five-plank leaf with inside battens and a brace, iron strap hinges and a latch. Its origin is the hinge, and the closed leaf runs along +X. It has an empty node `hinge`.
 - **`corner`:** the corner post and a stone plinth block. It covers the overlap of the two walls that meet at a corner.
-- **`gable`:** the plaster gable triangle for the 6 m span, with a collar beam, a king post, struts and a louvred vent. It stands on a gable wall's top plate.
+- **`gable`:** the plaster gable triangle for the 6 m span. Rafters follow both roof edges, and every other gable timber ends on them: a collar cut to the rafters, two posts under it over the gable wall's module joints (clear of the window below) and a king post from the collar to the apex, with a louvred vent each side. It stands on a gable wall's top plate.
 - **`roof`, `roof-half`:** 2 m and 1 m sections of the 6 m span roof, built from overlapping courses that alternate slightly. Each has board sheathing, an eave fascia, rafter tails every 0.5 m and a board ridge cap.
 - **`roof-verge`:** the 0.3 m roof overhang beyond a gable, with barge boards.
 - **`chimney`:** an outside stone chimney against a gable wall: a foot, a breast, sloped shoulders and a stack that clears the ridge by about 0.75 m, with a cap. Its empty node `smoke` marks the flue.
@@ -56,9 +79,9 @@ The numbers are from the build of 2026-10-24. The descriptor carries the measure
 ## Grid and frames
 
 - **Units and axes:** metres, +Y up, right-handed. The outside of a module faces +Z.
-- **Wall modules** (`wall*`, `gable`, `chimney`): the origin is on the ground at the centre of the module's outer face. The wall body lies behind it (z −0.32..0). Timber is flush with the face, and the plinth stands 2 cm proud. Walls are 2 m modules (x −1..1) with 1 m `wall-half` fillers, and they are 3.2 m high like the inn's.
+- **Wall modules** (`wall*`, `gable`, `chimney`): the origin is on the ground at the centre of the module's outer face. The wall body lies behind it (z −0.32..0). Timber is flush with the face, and the plinth stands 2 cm proud. Walls are 2 m modules (x −1..1) with 1 m `wall-half` fillers, and they are 3.6 m high, a roomier storey than the inn's 3.2 m.
 - **Corners:** the origin is the building's outer corner. The unrotated corner fits the front-right corner (+X, +Z); turn it by −90°, 180° or 90° for the others.
-- **Roof modules:** the origin is on the ground under the ridge. The ridge runs along X. The slopes fall to ±Z over a 6 m span, measured between the outer wall faces. The eaves overhang 0.35 m, and the roof's underside meets the outer wall face at the 3.2 m wall top. The ridge cap's top is at 5.12 m. `roof-verge` covers x 0..0.3, so place it at the gable line and turn it by 180° for the other end.
+- **Roof modules:** the origin is on the ground under the ridge. The ridge runs along X. The slopes fall to ±Z over a 6 m span, measured between the outer wall faces. The eaves overhang 0.35 m, and the roof's underside meets the outer wall face at the 3.6 m wall top. The ridge cap's top is at 5.52 m. `roof-verge` covers x 0..0.3, so place it at the gable line and turn it by 180° for the other end.
 - **Snapping:** a building whose footprint is W × D, with the ridge along W and a 6 m span (D = 6), has wall modules on all four footprint edges. A side wall is turned by ±90° and a back wall by 180°. It has corners at the four footprint corners, a gable on each gable wall, roof sections at 2 m centres along the ridge, and a verge at each end.
 
 ## Compositions
@@ -73,7 +96,7 @@ The descriptor's `compositions` place every module on mmorpg's two Outpost footp
 Notes for the consumer:
 
 - **Footprints:** the walls stand exactly on the collider footprints. Only the plinth (2 cm), the eaves (0.35 m), the verges (0.3 m), the door's threshold and the chimney stand outside them.
-- **Heights:** the ridge is at 5.12 m. That is 0.12 m above the houses' 5 m colliders and 0.62 m above the smithy's 4.5 m collider.
+- **Heights:** the ridge is at 5.52 m. That is 0.52 m above the houses' 5 m colliders and 1.02 m above the smithy's 4.5 m collider; the footprints are unchanged.
 - **Door:** the door hangs closed in the doorway. The houses are not enterable, so a consumer should keep the door closed and the opening solid. There is then no traversable-looking entrance where none exists (mmorpg#420).
 
 ## Look and materials
@@ -86,9 +109,20 @@ The kit uses five tileable PBR texture sets of 512 px each: colour (sRGB), norma
 - **Shingle:** weathered grey-brown shingles.
 - **Slate:** blue-grey slates.
 
-Each roof course maps exactly one row of the roof texture. Neighbouring courses shift by half a tile, so the shingles break joint.
+Each roof course maps exactly one row of the roof texture. Each course starts at its own offset, so the shingles break joint.
 
-Glass, iron and soot are plain-colour materials. Every face has backface culling. In the bundle there are 15 PNGs in all, each stored once, and the tar is about 2.8 MB.
+Glass, iron and soot are plain-colour materials. Every face has backface culling.
+
+## Wear
+
+The recipe takes `wear` in [0, 1] (0, the default, is the pristine kit), so consumers can remix aged buildings. Wear changes textures only, never geometry, so every variant shares the pristine meshes. It is deterministic, and more wear only adds to what less wear shows:
+
+- **Plaster:** grime and rain streaks, and patches where it has fallen away to a recessed wattle and daub (woven rods under clay) with a broken edge.
+- **Timber and planks:** greyed and grimier.
+- **Stone and roofs:** moss in the joints and on the courses.
+- **Roofs:** some shingles or slates are missing, a dark recess where the boards show through. Every metre of a course and every roof module repeat the same texture, so they stay sparse.
+
+Every module ships `weathered` (wear 0.5) and `worn` (1.0) variants; roof modules also ship `slate-weathered` and `slate-worn`. They snap exactly like the pristine modules, so any mix of variants composes. The v1 descriptor lists only the pristine roof variants in `assets[].variants`, and the bundle manifest lists them all.
 
 **Determinism:** there is no randomness. Variation comes from SHA-256 of fixed keys, and the textures come from numpy's legacy `RandomState`.
 
@@ -99,7 +133,7 @@ The descriptor is canonical JSON and the `outpost-descriptor` attachment of `out
 | Field | Meaning |
 | --- | --- |
 | `schema`, `units`, `up`, `facing`, `handedness`, `origin` | `"outpost-kit-descriptor-v1"`, `"metre"`, `"+Y"`, `"+Z"`, `"right"`, `"module-anchor"` (see [Grid and frames](#grid-and-frames)) |
-| `grid` | `{ module: 2, halfModule: 1, wallHeight: 3.2, wallThickness: 0.32, plinthHeight: 0.5, span: 6, pitchDegrees: 30, eaveOverhang: 0.35, vergeOverhang: 0.3 }` |
+| `grid` | `{ module: 2, halfModule: 1, wallHeight: 3.6, wallThickness: 0.32, plinthHeight: 0.5, span: 6, pitchDegrees: 30, eaveOverhang: 0.35, vergeOverhang: 0.3 }` |
 | `assets[]` | Sorted by `key`. Each has `key`, `role`, `category` (`wall`, `door`, `corner`, `roof` or `chimney`), `parentName`, `triangles`, `footprint`, measured `bounds` and `collisionProxies`. |
 | `assets[].module` | Wall modules: `{ width, height, depth }`. |
 | `assets[].window` | `wall-window`: the glazed opening, its sill height and its box from the glass to the outer face. |
@@ -127,9 +161,9 @@ The bundle is distributed as the rolling `outpost-kit` GitHub release, whose ass
 
 `test/blender/kits/outpost-kit.test.ts` runs in the hosted `blender-script` job. It checks:
 
-- the tar and the bundle verify, with eleven `default` entries and three `slate` entries;
+- the tar and the bundle verify, with `default`, `weathered` and `worn` entries for all eleven modules and `slate`, `slate-weathered` and `slate-worn` entries for the three roof modules;
 - the descriptor conforms to the schema;
-- there are exactly 15 PNG resources;
+- there are exactly 39 PNG resources (15 pristine, 12 for each wear level);
 - every module stays within its triangle budget (`OUTPOST_TRIANGLE_BUDGET`);
 - the wall modules span their 2 m or 1 m module and stay within the wall thickness;
 - no vertex and no proxy reaches into the doorway, and the closed leaf fits it;

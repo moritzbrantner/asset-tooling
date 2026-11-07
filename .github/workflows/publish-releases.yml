@@ -86,6 +86,9 @@ jobs:
       - name: Hydrate the canonical payloads
         if: matrix.lfs
         run: git lfs pull --include="assets/canonical/**"
+      # The hand-authored Blender sources are small; every build that names one reads it hydrated.
+      - name: Hydrate the authored sources
+        run: git lfs pull --include="assets/authored/**"
       - id: processor
         name: Read the processor pin
         if: matrix.processor != ''
@@ -141,7 +144,7 @@ jobs:
       - name: Resolve latest FFmpeg release metadata
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh api repos/BtbN/FFmpeg-Builds/releases/latest > "$RUNNER_TEMP/ffmpeg-release.json"
+        run: gh api repos/FFmpeg-Builds/FFmpeg-Builds/releases/latest > "$RUNNER_TEMP/ffmpeg-release.json"
       - name: Install latest stable FFmpeg
         run: |
           set -euo pipefail
