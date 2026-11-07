@@ -5,7 +5,7 @@ import { PLANETILER_BACKEND, readPlanetilerInput } from "../src/maps-shortbread-
 function document(parameters: Record<string, unknown> = {}) {
   const parsed = parseAssetSpec({schemaVersion:1,assetId:"maps.test",generator:{id:"external.planetiler.shortbread",version:"1"},
     randomness:{mode:"none"},inputs:Object.fromEntries(["profile","osm","planetiler"].map(name=>[name,{path:name,sha256:name === "planetiler" ? "f310bd0413e2e4512b27f4046d418664e8e1d3bf31603c2a70e23de06c167e4d" : "0".repeat(64)}])),models:{},
-    parameters:{javaVersion:"21.0.10",bounds:[9.47,47.04,9.64,47.28],minZoom:10,maxZoom:14,...parameters},output:{path:".asset-tooling/test.pmtiles"},reproducibility:{expected:"approximate"}});
+    parameters:{javaVersion:"21.0.13",bounds:[9.47,47.04,9.64,47.28],minZoom:10,maxZoom:14,...parameters},output:{path:".asset-tooling/test.pmtiles"},reproducibility:{expected:"approximate"}});
   return {spec:parsed,canonical:"",sha256:"0".repeat(64),root:"/tmp",absolutePath:"/tmp/asset.json"};
 }
 
