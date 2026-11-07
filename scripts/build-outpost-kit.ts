@@ -7,20 +7,17 @@
 // on the authored modules (proxies, openings, hinge, roof, chimney), the recipe's compositions and bounds measured
 // on the imported GLBs. <directory> becomes the object-store root; the bundle is exported to <directory>/bundle and
 // packed to <directory>/outpost.kit.tar.
-import os from "node:os";
 import path from "node:path";
-import { createHash } from "node:crypto";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { NodeIO, type Document, type Texture } from "@gltf-transform/core";
-import { KHRTextureBasisu } from "@gltf-transform/extensions";
-import { ktxArguments, textureEncoding, type TextureEncoding } from "./pack-downloads.ts";
+import { mkdir } from "node:fs/promises";
+import type { Document } from "@gltf-transform/core";
+import type { TextureEncoding } from "./pack-downloads.ts";
 import { GLTF_RESOURCES_BUNDLE_PROFILE } from "../src/asset-bundle.js";
-import { resolveAssetObject, storeAssetObject } from "../src/asset-store.js";
+import { storeAssetObject } from "../src/asset-store.js";
 import type { AssetRef } from "../src/operations.js";
 import { blenderScriptSpec } from "../src/blender-script-spec.js";
 import { readAuthoredBlenderSource, readBlenderRecipeSource } from "../src/blender-recipe-source.js";
 import { canonicalJson } from "../src/canonical.js";
-import { buildKitPart, byKey, exportKitBundle, kitEntry, runKitCli, triangles, type KitPart } from "../src/kit-bundle.js";
+import { buildKitPart, byKey, exportKitBundle, kitEntry, ktx2Asset, runKitCli, triangles, withKtx2Cache, type KitPart } from "../src/kit-bundle.js";
 
 export const OUTPOST_PARTS = [
   "wall", "wall-half", "wall-window", "wall-door", "door", "corner", "gable", "roof", "roof-half", "roof-verge", "chimney",
@@ -88,48 +85,6 @@ export function outpostRuns(part: OutpostPart): Run[] {
   return [{ part, variant: OUTPOST_VARIANT }, ...(OUTPOST_ROOF_PARTS.includes(part) ? [{ part, variant: "slate", roof: "slate" as const }] : [])];
 }
 
-/** The KTX2 encoding of a texture by the slots that use it; the wear masks' base colour is data. */
-function outpostEncoding(slots: ReadonlySet<string>, wearMask: boolean): TextureEncoding {
-  return wearMask ? OUTPOST_KTX2.wearMask : textureEncoding(slots);
-}
-
-/**
- * `asset` with every texture as KTX2 (KHR_texture_basisu, required): each distinct image and encoding is encoded
- * once across the kit (`encoded`), so the bundle still stores every texture once.
- */
-async function ktx2Asset(root: string, asset: AssetRef, scratch: string, encoded: Map<string, Uint8Array>, wearMask = false): Promise<AssetRef> {
-  const io = new NodeIO().registerExtensions([KHRTextureBasisu]);
-  const document = await io.readBinary(new Uint8Array(await resolveAssetObject(root, asset)));
-  const slots = new Map<Texture, Set<string>>();
-  for (const material of document.getRoot().listMaterials()) {
-    for (const [slot, texture] of [
-      ["baseColorTexture", material.getBaseColorTexture()], ["normalTexture", material.getNormalTexture()],
-      ["metallicRoughnessTexture", material.getMetallicRoughnessTexture()], ["occlusionTexture", material.getOcclusionTexture()],
-      ["emissiveTexture", material.getEmissiveTexture()],
-    ] as const) {
-      if (texture) slots.set(texture, (slots.get(texture) ?? new Set()).add(slot));
-    }
-  }
-  for (const [texture, used] of slots) {
-    if (texture.getMimeType() !== "image/png") throw new Error(`outpost texture '${texture.getName()}' is ${texture.getMimeType()}, not PNG`);
-    const encoding = outpostEncoding(used, wearMask);
-    const png = texture.getImage()!;
-    const key = `${createHash("sha256").update(png).digest("hex")}:${encoding}`;
-    let ktx2 = encoded.get(key);
-    if (!ktx2) {
-      const input = path.join(scratch, `${encoded.size}.png`), output = path.join(scratch, `${encoded.size}.ktx2`);
-      await writeFile(input, png);
-      const run = Bun.spawnSync([process.env.ASSET_TOOLING_KTX ?? "ktx", ...ktxArguments(encoding, input, output)], { stdout: "pipe", stderr: "pipe" });
-      if (run.exitCode !== 0) throw new Error(`ktx create failed for ${texture.getName()}: ${run.stderr.toString()}`);
-      ktx2 = new Uint8Array(await readFile(output));
-      encoded.set(key, ktx2);
-    }
-    texture.setImage(ktx2).setMimeType("image/ktx2");
-  }
-  document.createExtension(KHRTextureBasisu).setRequired(true);
-  return (await storeAssetObject(root, { bytes: await io.writeBinary(document), kind: asset.kind, mediaType: "model/gltf-binary" })).asset;
-}
-
 export async function buildOutpostKit({ outDir, log = () => {} }: { outDir: string; log?: (line: string) => void }) {
   const root = path.resolve(outDir);
   await mkdir(root, { recursive: true });
@@ -154,16 +109,12 @@ export async function buildOutpostKit({ outDir, log = () => {} }: { outDir: stri
   });
 
   log("encode every texture as KTX2 (ktx create)");
-  const scratch = await mkdtemp(path.join(os.tmpdir(), "outpost-kit-"));
-  const encoded = new Map<string, Uint8Array>();
-  const delivered: AssetRef[] = [];
-  let maskAsset: AssetRef;
-  try {
-    for (const b of built) delivered.push(await ktx2Asset(root, b.asset, scratch, encoded));
-    maskAsset = await ktx2Asset(root, masks.asset, scratch, encoded, true);
-  } finally {
-    await rm(scratch, { recursive: true, force: true });
-  }
+  const { delivered, maskAsset } = await withKtx2Cache("outpost-kit", async (cache) => {
+    const delivered: AssetRef[] = [];
+    for (const b of built) delivered.push(await ktx2Asset(root, b.asset, cache));
+    // The wear masks' base colour is data.
+    return { delivered, maskAsset: await ktx2Asset(root, masks.asset, cache, { slotEncoding: () => OUTPOST_KTX2.wearMask }) };
+  });
   const main = (part: OutpostPart) => built.find((b) => b.part === part && b.variant === OUTPOST_VARIANT)!;
 
   log("measure the outpost-kit descriptor");

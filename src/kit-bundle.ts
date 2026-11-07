@@ -1,12 +1,16 @@
 // Shared pieces of the scripted kit builders (#424): run every part's Blender recipe and import it, measure the
 // imported documents, export the bundle and pack the release tar. Each scripts/build-<kit>.ts keeps only its
 // constants, its spec and its descriptor.
+import os from "node:os";
 import path from "node:path";
-import { writeFile } from "node:fs/promises";
-import { NodeIO, type Document } from "@gltf-transform/core";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { ImageUtils, NodeIO, type Document, type Texture } from "@gltf-transform/core";
+import { KHRTextureBasisu } from "@gltf-transform/extensions";
+import { ktxArguments, powerOfTwo, textureEncoding, type TextureEncoding } from "../scripts/pack-downloads.ts";
 import { exportAssetBundle } from "./asset-bundle.js";
 import { ASSET_BUNDLE_REF_FILE, packAssetBundle } from "./asset-bundle-pack.js";
-import { resolveAssetObject } from "./asset-store.js";
+import { resolveAssetObject, storeAssetObject } from "./asset-store.js";
+import { sha256Bytes } from "./hash.js";
 import { runBlenderRecipe } from "./blender-recipe-run.js";
 import type { blenderScriptSpec } from "./blender-script-spec.js";
 import { canonicalJson } from "./canonical.js";
@@ -151,4 +155,87 @@ export async function exportKitBundle(root: string, { invocation, tarName, log =
   await exportAssetBundle(root, bundleDir, invocation);
   log(`pack release tar ${tarName}`);
   return { bundleDir, ...(await packReleaseTar(root, bundleDir, tarName)) };
+}
+
+/**
+ * The KTX2 encoding of a kit texture by the slots that use it (`textureEncoding`, scripts/pack-downloads.ts): normals
+ * UASTC, colour ETC1S sRGB, data ETC1S linear. A base colour that an alpha-masked or blended material reads (foliage
+ * cut-outs) is UASTC sRGB instead, because ETC1S's shared endpoints fray the alpha edge.
+ */
+export function kitTextureEncoding(slots: ReadonlySet<string>, alphaMasked: boolean): TextureEncoding {
+  const encoding = textureEncoding(slots);
+  return alphaMasked && encoding === "etc1s-srgb" && slots.has("baseColorTexture") ? "uastc-srgb" : encoding;
+}
+
+/** Shared state of one kit's KTX2 pass: a scratch directory and each distinct image's encoding, by hash and encoding. */
+export type Ktx2Cache = { scratch: string; encoded: Map<string, Uint8Array> };
+
+/**
+ * `asset` with every texture as KTX2 (KHR_texture_basisu, required, full mip chains), stored as a new asset. Each
+ * distinct image and encoding is encoded once across the kit (`cache`), so the bundle still stores every texture
+ * once. `slotEncoding` overrides `kitTextureEncoding`. A non-power-of-two image is resampled to the nearest power of
+ * two, as scripts/pack-downloads.ts does.
+ */
+export async function ktx2Asset(root: string, asset: AssetRef, cache: Ktx2Cache,
+  { slotEncoding }: { slotEncoding?: (slots: ReadonlySet<string>, alphaMasked: boolean) => TextureEncoding } = {}): Promise<AssetRef> {
+  const io = new NodeIO().registerExtensions([KHRTextureBasisu]);
+  const document = await io.readBinary(new Uint8Array(await resolveAssetObject(root, asset)));
+  const slots = new Map<Texture, { slots: Set<string>; alphaMasked: boolean }>();
+  for (const material of document.getRoot().listMaterials()) {
+    const alphaMasked = material.getAlphaMode() !== "OPAQUE";
+    for (const [slot, texture] of [
+      ["baseColorTexture", material.getBaseColorTexture()], ["normalTexture", material.getNormalTexture()],
+      ["metallicRoughnessTexture", material.getMetallicRoughnessTexture()], ["occlusionTexture", material.getOcclusionTexture()],
+      ["emissiveTexture", material.getEmissiveTexture()],
+    ] as const) {
+      if (!texture) continue;
+      const used = slots.get(texture) ?? { slots: new Set(), alphaMasked: false };
+      used.slots.add(slot);
+      if (slot === "baseColorTexture") used.alphaMasked ||= alphaMasked;
+      slots.set(texture, used);
+    }
+  }
+  if (slots.size === 0) return asset;
+  for (const [texture, used] of slots) {
+    const mimeType = texture.getMimeType();
+    if (mimeType !== "image/png" && mimeType !== "image/jpeg") throw new Error(`kit texture '${texture.getName()}' is ${mimeType}, not PNG or JPEG`);
+    const encoding = (slotEncoding ?? kitTextureEncoding)(used.slots, used.alphaMasked);
+    const image = texture.getImage()!;
+    const key = `${sha256Bytes(image)}:${encoding}`;
+    let ktx2 = cache.encoded.get(key);
+    if (!ktx2) {
+      const input = path.join(cache.scratch, `${cache.encoded.size}.${mimeType === "image/png" ? "png" : "jpg"}`);
+      const output = path.join(cache.scratch, `${cache.encoded.size}.ktx2`);
+      await writeFile(input, image);
+      const [width, height] = ImageUtils.getSize(image, mimeType)!;
+      const target = { width: powerOfTwo(width), height: powerOfTwo(height) };
+      const resize = target.width !== width || target.height !== height ? target : undefined;
+      const run = Bun.spawnSync([process.env.ASSET_TOOLING_KTX ?? "ktx", ...ktxArguments(encoding, input, output, resize)], { stdout: "pipe", stderr: "pipe" });
+      if (run.exitCode !== 0) throw new Error(`ktx create failed for ${texture.getName()}: ${run.stderr.toString()}`);
+      ktx2 = new Uint8Array(await readFile(output));
+      cache.encoded.set(key, ktx2);
+    }
+    texture.setImage(ktx2).setMimeType("image/ktx2");
+  }
+  document.createExtension(KHRTextureBasisu).setRequired(true);
+  return (await storeAssetObject(root, { bytes: await io.writeBinary(document), kind: asset.kind, mediaType: "model/gltf-binary" })).asset;
+}
+
+/** Run `encode` with a fresh KTX2 cache whose scratch directory is removed afterwards. */
+export async function withKtx2Cache<T>(label: string, encode: (cache: Ktx2Cache) => Promise<T>): Promise<T> {
+  const scratch = await mkdtemp(path.join(os.tmpdir(), `${label}-ktx2-`));
+  try {
+    return await encode({ scratch, encoded: new Map() });
+  } finally {
+    await rm(scratch, { recursive: true, force: true });
+  }
+}
+
+/** Every asset of a kit with its textures as KTX2 (`ktx2Asset`), sharing one cache, in order. */
+export async function ktx2Assets(root: string, label: string, assets: readonly AssetRef[]): Promise<AssetRef[]> {
+  return withKtx2Cache(label, async (cache) => {
+    const delivered: AssetRef[] = [];
+    for (const asset of assets) delivered.push(await ktx2Asset(root, asset, cache));
+    return delivered;
+  });
 }
