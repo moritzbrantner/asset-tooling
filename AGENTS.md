@@ -4,6 +4,8 @@
 
 The owner-controlled product intent is in `docs/decisions/atlas.md`. Read the relevant Decisions and Questions before changing product capabilities; stable IDs and unanswered Questions are not implementation status or GitHub issue substitutes.
 
+Before authoring or refining visual content, consult [`docs/style-references/README.md`](docs/style-references/README.md) for the matching consumer family's actual game-camera captures and provenance. Missing reference categories are explicitly listed there; never treat the existence of a screenshot as owner approval.
+
 `asset-tooling` owns reproducible asset-generation and processing contracts. It does not own game-specific runtime semantics.
 
 ## Experimental asset iteration (Decision 7.1.4)
