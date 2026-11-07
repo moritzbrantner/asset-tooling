@@ -17,8 +17,8 @@ import { chmod, copyFile, lstat, mkdir, mkdtemp, readFile, readdir, rename, rm, 
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const RELEASE_API = "https://api.github.com/repos/BtbN/FFmpeg-Builds/releases/latest";
-const RELEASE_PREFIX = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/";
+const RELEASE_API = "https://api.github.com/repos/FFmpeg-Builds/FFmpeg-Builds/releases/latest";
+const RELEASE_PREFIX = "https://github.com/FFmpeg-Builds/FFmpeg-Builds/releases/download/latest/";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const INSTALL_ROOT = path.join(ROOT, ".artifacts", "toolchain", "ffmpeg");
 
