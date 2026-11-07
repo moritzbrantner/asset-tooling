@@ -1,17 +1,18 @@
-// Build the Greyhaven Outpost building kit bundle (#366, docs/outpost-kit.md) from the scripted Blender recipe
-// adapters/blender/outpost.py:
+// Build the Greyhaven Outpost building kit bundle (#366, docs/outpost-kit.md): the hand-authored geometry
+// assets/authored/outpost-kit.blend, dressed with the textures and wear of adapters/blender/outpost.py:
 //   ASSET_TOOLING_BLENDER=<blender 5.2.2> bun scripts/build-outpost-kit.ts --out <directory>
-// Each module (and each roof module's slate variant) is one external.blender.script@1 run, imported through
-// scene.import.gltf@2. The outpost-kit-descriptor-v1 attachment combines the recipe's observations (proxies,
-// openings, hinge, roof, chimney, compositions) with bounds measured on the imported GLBs. <directory> becomes
-// the object-store root; the bundle is exported to <directory>/bundle and packed to <directory>/outpost.kit.tar.
+// Each module variant (roofing and wear) is one external.blender.script@1 run, imported through
+// scene.import.gltf@2. The outpost-kit-descriptor-v1 attachment combines the observations stored on the authored
+// modules (proxies, openings, hinge, roof, chimney), the recipe's compositions and bounds measured on the
+// imported GLBs. <directory> becomes the object-store root; the bundle is exported to <directory>/bundle and
+// packed to <directory>/outpost.kit.tar.
 import path from "node:path";
 import { mkdir } from "node:fs/promises";
 import type { Document } from "@gltf-transform/core";
 import { GLTF_RESOURCES_BUNDLE_PROFILE } from "../src/asset-bundle.js";
 import { storeAssetObject } from "../src/asset-store.js";
 import { blenderScriptSpec } from "../src/blender-script-spec.js";
-import { readBlenderRecipeSource } from "../src/blender-recipe-source.js";
+import { readAuthoredBlenderSource, readBlenderRecipeSource } from "../src/blender-recipe-source.js";
 import { canonicalJson } from "../src/canonical.js";
 import { buildKitPart, byKey, exportKitBundle, kitEntry, runKitCli, triangles, type KitPart } from "../src/kit-bundle.js";
 
@@ -24,10 +25,13 @@ export const OUTPOST_ROOF_PARTS: readonly OutpostPart[] = ["roof", "roof-half", 
 export const OUTPOST_ROOF_VARIANTS = { default: "shingle", slate: "slate" } as const;
 /**
  * Every module also ships aged variants for remixing (the recipe takes any `wear` in [0, 1]): grime, greyed
- * timber, moss, spalled plaster, sagging shutters and missing shingles. Roof modules combine them with
- * slate as `slate-weathered` and `slate-worn`. The v1 descriptor lists only the pristine roof variants.
+ * timber, moss, plaster fallen to wattle and daub and missing shingles, all in the textures over the same
+ * geometry. Roof modules combine them with slate as `slate-weathered` and `slate-worn`. The v1 descriptor
+ * lists only the pristine roof variants.
  */
 export const OUTPOST_WEAR_VARIANTS = { weathered: 0.5, worn: 1 } as const;
+/** The kit's hand-authored geometry (Git LFS): one collection per module, edited in Blender. */
+export const OUTPOST_GEOMETRY = "assets/authored/outpost-kit.blend";
 export const OUTPOST_KEY_PREFIX = "outpost.kit";
 export const OUTPOST_VARIANT = "default";
 export const OUTPOST_DESCRIPTOR_SCHEMA = "outpost-kit-descriptor-v1";
@@ -53,9 +57,12 @@ const EXTRAS = ["module", "window", "doorway", "mount", "hinge", "leafBounds", "
 
 export const outpostKey = (part: OutpostPart) => `${OUTPOST_KEY_PREFIX}.${part}`;
 
-export function createOutpostAssetSpec({ part, roof, wear, scriptSha256, commonSha256, blenderVersion }: { part: OutpostPart; roof?: "shingle" | "slate" | undefined; wear?: number | undefined; scriptSha256: string; commonSha256: string; blenderVersion: string }) {
+export function createOutpostAssetSpec({ part, roof, wear, scriptSha256, commonSha256, kitSha256, blenderVersion }: {
+  part: OutpostPart; roof?: "shingle" | "slate" | undefined; wear?: number | undefined; scriptSha256: string; commonSha256: string; kitSha256: string; blenderVersion: string;
+}) {
   return blenderScriptSpec({
-    assetId: outpostKey(part), inputs: { script: { path: "outpost.py", sha256: scriptSha256 }, common: { path: "kit_common.py", sha256: commonSha256 } },
+    assetId: outpostKey(part),
+    inputs: { script: { path: "outpost.py", sha256: scriptSha256 }, common: { path: "kit_common.py", sha256: commonSha256 }, kit: { path: "outpost-kit.blend", sha256: kitSha256 } },
     blenderVersion, arguments: { schemaVersion: 1, part, ...(roof ? { roof } : {}), ...(wear ? { wear } : {}) }, output: "outpost.glb",
   });
 }
@@ -77,13 +84,15 @@ export async function buildOutpostKit({ outDir, log = () => {} }: { outDir: stri
   await mkdir(root, { recursive: true });
   const source = await readBlenderRecipeSource("outpost.py");
   const common = await readBlenderRecipeSource("kit_common.py");
+  const kit = await readAuthoredBlenderSource(OUTPOST_GEOMETRY);
   const runs = OUTPOST_PARTS.flatMap(outpostRuns);
   const built: Built[] = [];
   for (const run of runs) {
     log(`generate ${run.part} ${run.variant} (external.blender.script@1 outpost recipe, scene.import.gltf@2)`);
     built.push({ ...run, ...await buildKitPart(root, {
-      workspace: path.join(root, "outpost", `${run.part}.${run.variant}`), files: { "outpost.py": source.bytes, "kit_common.py": common.bytes },
-      spec: createOutpostAssetSpec({ part: run.part, roof: run.roof, wear: run.wear, scriptSha256: source.sha256, commonSha256: common.sha256, blenderVersion: source.blenderVersion }),
+      workspace: path.join(root, "outpost", `${run.part}.${run.variant}`),
+      files: { "outpost.py": source.bytes, "kit_common.py": common.bytes, "outpost-kit.blend": kit.bytes },
+      spec: createOutpostAssetSpec({ part: run.part, roof: run.roof, wear: run.wear, scriptSha256: source.sha256, commonSha256: common.sha256, kitSha256: kit.sha256, blenderVersion: source.blenderVersion }),
     }) });
   }
   const main = (part: OutpostPart) => built.find((b) => b.part === part && b.variant === OUTPOST_VARIANT)!;
@@ -117,7 +126,11 @@ export async function buildOutpostKit({ outDir, log = () => {} }: { outDir: stri
     ...packed, descriptor,
     documents: Object.fromEntries(OUTPOST_PARTS.map((part) => [part, main(part).document])) as Record<OutpostPart, Document>,
     lineage: {
-      recipe: { script: "adapters/blender/outpost.py", sha256: source.sha256, common: { script: "adapters/blender/kit_common.py", sha256: common.sha256 }, blenderVersion: source.blenderVersion }, release: OUTPOST_RELEASE,
+      recipe: {
+        script: "adapters/blender/outpost.py", sha256: source.sha256, common: { script: "adapters/blender/kit_common.py", sha256: common.sha256 },
+        geometry: { file: OUTPOST_GEOMETRY, sha256: kit.sha256 }, blenderVersion: source.blenderVersion,
+      },
+      release: OUTPOST_RELEASE,
       parts: Object.fromEntries(built.map((b) => [`${b.part}.${b.variant}`, b.asset])), descriptor: descriptorAsset,
     },
   };

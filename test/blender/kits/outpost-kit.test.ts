@@ -72,11 +72,11 @@ const place = (p: number[], t: number[], yaw: number) => {
 };
 
 test("the outpost spec runs the packaged recipe with exactly one module and an optional roof material", () => {
-  const spec = createOutpostAssetSpec({ part: "roof", roof: "slate", scriptSha256: "a".repeat(64), commonSha256: "d".repeat(64), blenderVersion: "5.2.2" });
+  const spec = createOutpostAssetSpec({ part: "roof", roof: "slate", scriptSha256: "a".repeat(64), commonSha256: "d".repeat(64), kitSha256: "e".repeat(64), blenderVersion: "5.2.2" });
   assert.deepEqual(spec.parameters, { blenderVersion: "5.2.2", arguments: { schemaVersion: 1, part: "roof", roof: "slate" } });
   assert.equal(spec.assetId, "outpost.kit.roof");
-  assert.deepEqual(createOutpostAssetSpec({ part: "wall", scriptSha256: "a".repeat(64), commonSha256: "d".repeat(64), blenderVersion: "5.2.2" }).parameters.arguments, { schemaVersion: 1, part: "wall" });
-  assert.deepEqual(createOutpostAssetSpec({ part: "wall", wear: 0.5, scriptSha256: "a".repeat(64), commonSha256: "d".repeat(64), blenderVersion: "5.2.2" }).parameters.arguments, { schemaVersion: 1, part: "wall", wear: 0.5 });
+  assert.deepEqual(createOutpostAssetSpec({ part: "wall", scriptSha256: "a".repeat(64), commonSha256: "d".repeat(64), kitSha256: "e".repeat(64), blenderVersion: "5.2.2" }).parameters.arguments, { schemaVersion: 1, part: "wall" });
+  assert.deepEqual(createOutpostAssetSpec({ part: "wall", wear: 0.5, scriptSha256: "a".repeat(64), commonSha256: "d".repeat(64), kitSha256: "e".repeat(64), blenderVersion: "5.2.2" }).parameters.arguments, { schemaVersion: 1, part: "wall", wear: 0.5 });
   assert.deepEqual(outpostRuns("wall").map((run) => run.variant), ["default", "weathered", "worn"]);
   assert.deepEqual(outpostRuns("roof").map((run) => run.variant), ["default", "weathered", "worn", "slate", "slate-weathered", "slate-worn"]);
   assert.equal(OUTPOST_PARTS.length, 11);

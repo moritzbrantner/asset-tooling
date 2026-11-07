@@ -86,6 +86,9 @@ jobs:
       - name: Hydrate the canonical payloads
         if: matrix.lfs
         run: git lfs pull --include="assets/canonical/**"
+      # The hand-authored Blender sources are small; every build that names one reads it hydrated.
+      - name: Hydrate the authored sources
+        run: git lfs pull --include="assets/authored/**"
       - id: processor
         name: Read the processor pin
         if: matrix.processor != ''

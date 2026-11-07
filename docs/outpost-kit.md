@@ -2,7 +2,11 @@
 
 This is the build recipe for the modular building exteriors of mmorpg's Greyhaven Outpost ([#366](https://github.com/moritzbrantner/asset-tooling/issues/366), consumer [mmorpg#420](https://github.com/moritzbrantner/mmorpg/issues/420)). mmorpg#420 replaces two blockout Outpost houses or workshops with real modular buildings, without changing their footprints, colliders or openings.
 
-- **Approach:** an original scripted Blender recipe, [`adapters/blender/outpost.py`](../adapters/blender/outpost.py), as Atlas Decisions 1.1.7 and 3.1.2 direct for mmorpg's humanlike-world environments. The Quaternius kits of the [starter bundle](greyhaven-starter-bundle.md) were the inspiration only. Their 4 × 4 m roof does not cover the Outpost's 6 m spans, and their style is the cartoony one. The kit uses no imported meshes and no third-party assets, and its textures are generated with numpy.
+- **Approach:** two layers, each edited on its own (Atlas Decision 3.1.3):
+  - **Geometry:** hand-authored in Blender, [`assets/authored/outpost-kit.blend`](../assets/authored/outpost-kit.blend) (Git LFS). It was seeded on 2026-11-07 from the earlier scripted recipe (the `outpost.py` of the commit before it) and is edited directly from then on.
+  - **Textures and wear:** [`adapters/blender/outpost.py`](../adapters/blender/outpost.py) generates the tileable textures with numpy, ages them by `wear`, dresses the authored modules and exports them.
+
+  The Quaternius kits of the [starter bundle](greyhaven-starter-bundle.md) were the inspiration only. Their 4 × 4 m roof does not cover the Outpost's 6 m spans, and their style is the cartoony one. The kit uses no imported meshes and no third-party assets.
 - **Style:** it matches the scripted [Greyhaven inn](greyhaven-inn.md): a stone plinth, lime plaster in a dark timber frame with braces, plank doors with iron straps, small glazed windows with open shutters, and a 30° roof like the inn's (about 29°).
 - **Release:** one rolling release, `outpost-kit` (Atlas Decision 7.1.5), never a numbered one.
 
@@ -14,14 +18,32 @@ ASSET_TOOLING_BLENDER=<blender 5.2.2> bun scripts/build-outpost-kit.ts --out <di
 
 [`scripts/build-outpost-kit.ts`](../scripts/build-outpost-kit.ts) works like the [shrine build](shrine-kit.md#build):
 
-1. One `external.blender.script@1` run per module, plus a `slate` run for each roof module.
+1. One `external.blender.script@1` run per module variant: pristine, `weathered` and `worn`, and for each roof module also in slate. Each run appends the module from the `.blend` (the declared input `kit`), dresses it and exports it.
 2. Each GLB is imported through `scene.import.gltf@2`, with no validator exceptions.
-3. The descriptor is written from the recipe's observations and the measured bounds.
+3. The descriptor is written from the observations stored on the authored modules, the recipe's compositions and the measured bounds.
 4. The result is exported as a `gltf-resources-v1` bundle (`asset.bundle@4`) and packed to `<directory>/outpost.kit.tar`. The script also writes `lineage.json`, `descriptor.json` and `export.ref.json`.
 
-The build takes about 3 minutes. It needs no network, no LFS payloads and no GPU. Snap Blender can only read and write under `$HOME`, so set `TMPDIR` to a directory there.
+The build takes about 3 minutes. It needs no network and no GPU; it reads the hydrated `.blend` (`git lfs pull --include="assets/authored/**"`) and fails clearly on an LFS pointer. Snap Blender can only read and write under `$HOME`, so set `TMPDIR` to a directory there.
 
-`outpost.build(part, collection, location, roof, yaw)` and `outpost.build_composition(name, collection, location)` also run in a live Blender session once `outpost.use_common(runpy.run_path("adapters/blender/kit_common.py"))` has bound the shared helpers ([`kit_common.py`](../adapters/blender/kit_common.py), #426), for example through the Blender MCP.
+### Editing the geometry
+
+Open `assets/authored/outpost-kit.blend` in Blender 5.2.2. It holds one collection `outpost.<part>` per module, laid out in a row; the export places each module's root at the origin, so the layout does not matter.
+
+- Every module has one root empty `outpost.<part>` with the mesh and its empties (`door.hinge`, `hinge`, `smoke`) as children. Keep the frames and the grid below: the kit's test checks the module widths, wall depth, open doorway and triangle budgets on every build.
+- The root's custom property `outpost` is the JSON of the descriptor's observations (`collisionProxies`, `module`, `window`, `doorway`, `mount`, `hinge`, `leafBounds`, `roof`, `span`, `smoke`). Update it when an edit moves an opening, the hinge or a proxy.
+- Materials are untextured placeholders named `outpost-<material>` (`plaster`, `stone`, `timber`, `wood`, `shingle`, `glass`, `iron`, `soot`). Assign these by name; the recipe replaces them with its textured materials. Roof modules use `shingle`, which the slate variants swap for `slate`. UVs follow the textures' tiles: 2 m per tile for plaster, 1 m for the others, one shingle course per quarter tile.
+
+To see the result textured and aged while editing, run the recipe in the same session, for example through the Blender MCP:
+
+```python
+import bpy, runpy
+outpost = runpy.run_path("adapters/blender/outpost.py")
+outpost["use_common"](runpy.run_path("adapters/blender/kit_common.py"))
+outpost["use_geometry"]("assets/authored/outpost-kit.blend")
+outpost["build_composition"]("house", bpy.context.scene.collection, wear=0.5)
+```
+
+`build(part, collection, location, roof, yaw, wear)` places one module the same way. Save the `.blend` before building from it: the recipe reads the file, not the open session.
 
 ## Modules
 
@@ -141,7 +163,7 @@ The bundle is distributed as the rolling `outpost-kit` GitHub release, whose ass
 
 - the tar and the bundle verify, with `default`, `weathered` and `worn` entries for all eleven modules and `slate`, `slate-weathered` and `slate-worn` entries for the three roof modules;
 - the descriptor conforms to the schema;
-- there are exactly 34 PNG resources;
+- there are exactly 39 PNG resources (15 pristine, 12 for each wear level);
 - every module stays within its triangle budget (`OUTPOST_TRIANGLE_BUDGET`);
 - the wall modules span their 2 m or 1 m module and stay within the wall thickness;
 - no vertex and no proxy reaches into the doorway, and the closed leaf fits it;

@@ -22,10 +22,11 @@ Parts:
 - ``collision``: one axis-aligned box per collider, ``collider.<wall|floor|door|furniture>.<name>``;
   the door's leaf box is in the door's frame.
 
-The kit recipe (``outpost.py``) and the settlement props (``settlement_props.py``) are declared Python
-inputs named ``outpost`` and ``settlement``. No randomness.
+The kit recipe (``outpost.py``), its authored geometry (``outpost-kit.blend``) and the settlement props
+(``settlement_props.py``) are declared inputs named ``outpost``, ``kit`` and ``settlement``. No randomness.
 
-``build(part, collection)`` also works in a live Blender session after ``outpost["use_common"](common)`` and ``use_sources(outpost, settlement)``;
+``build(part, collection)`` also works in a live Blender session after ``outpost["use_common"](common)``,
+``outpost["use_geometry"]('assets/authored/outpost-kit.blend')`` and ``use_sources(outpost, settlement)``;
 ``generate`` is the script-backend entry point.
 """
 import math
@@ -409,14 +410,15 @@ def validate(arguments, inputs):
         raise ValueError("marshal-house arguments must be {schemaVersion: 1, part}")
     if arguments["part"] not in PARTS:
         raise ValueError(f"marshal-house part must be one of {', '.join(PARTS)}")
-    if set(inputs) != {"outpost", "settlement", "common"}:
-        raise ValueError("marshal-house recipe takes exactly the inputs 'outpost' (outpost.py), 'settlement' (settlement_props.py) and 'common' (kit_common.py)")
+    if set(inputs) != {"outpost", "kit", "settlement", "common"}:
+        raise ValueError("marshal-house recipe takes exactly the inputs 'outpost' (outpost.py), 'kit' (outpost-kit.blend), 'settlement' (settlement_props.py) and 'common' (kit_common.py)")
 
 
 def generate(output_path, arguments, inputs):
     validate(arguments, inputs)
     outpost = inputs.load_source("outpost")
     outpost["use_common"](inputs.load_source("common"))
+    outpost["use_geometry"](inputs["kit"])
     use_sources(outpost, inputs.load_source("settlement"))
     part = arguments["part"]
     bpy.ops.object.select_all(action="SELECT")
