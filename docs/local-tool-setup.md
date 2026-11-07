@@ -14,7 +14,7 @@ python3 scripts/setup-tools.py setup --profile comfyui --gpu nvidia
 python3 scripts/setup-tools.py doctor --profile comfyui --json
 ```
 
-Use `--gpu cpu` instead of `--gpu nvidia` when GPU inference is deliberately unavailable. The default `core` profile uses `bun install --frozen-lockfile` and the exact Bun version from `package.json`. The `previews` profile reuses `scripts/install-blender.ts` and its SHA-256-pinned Blender release; FFmpeg/FFprobe must be on `PATH`. No privileged package-manager action is hidden in the script.
+Use `--gpu cpu` instead of `--gpu nvidia` when GPU inference is deliberately unavailable. The default `core` profile uses `bun install --frozen-lockfile` with the installed Bun (the latest stable release, from `mise install`); the lockfile keeps dependency resolution frozen. The `previews` profile reuses `scripts/install-blender.ts` and its SHA-256-pinned Blender release; FFmpeg/FFprobe must be on `PATH`. No privileged package-manager action is hidden in the script.
 
 ### Current stable FFmpeg on Ubuntu
 
@@ -31,7 +31,7 @@ git lfs pull --include="review/warden-icons/**"
 bun scripts/export-warden-icons.ts --check
 ```
 
-The explicit installer selects the highest numbered `nX.Y` FFmpeg release branch available from [BtbN's maintained Linux builds](https://github.com/BtbN/FFmpeg-Builds), never `master`, and verifies the downloaded archive against the publisher's current SHA-256 before installing it in ignored `.artifacts/toolchain/ffmpeg/`. The validated archive is retained so that cache reuse checks the actual `ffmpeg` and `ffprobe` bytes against independently verified archive members, not merely an editable receipt. Every invocation resolves the publisher's current release metadata; it does not silently pin or use stale cached releases. The selected branch and archive digest are logged to stderr without changing the machine-readable path on stdout. Builds may contain additional fixes cherry-picked into their stable branch after an official point release.
+The explicit installer selects the highest numbered `nX.Y` FFmpeg release branch available from [the FFmpeg-Builds maintained Linux builds](https://github.com/FFmpeg-Builds/FFmpeg-Builds), never `master`, and verifies the downloaded archive against the publisher's current SHA-256 before installing it in ignored `.artifacts/toolchain/ffmpeg/`. The validated archive is retained so that cache reuse checks the actual `ffmpeg` and `ffprobe` bytes against independently verified archive members, not merely an editable receipt. Every invocation resolves the publisher's current release metadata; it does not silently pin or use stale cached releases. The selected branch and archive digest are logged to stderr without changing the machine-readable path on stdout. Builds may contain additional fixes cherry-picked into their stable branch after an official point release.
 
 The installer does not execute downloaded binaries while acquiring or validating its cache. GitHub's Ubuntu jobs use the same helper in place of distro FFmpeg. The write-authorized rolling-release job first resolves metadata with the trusted GitHub CLI, then invokes `bun scripts/install-ffmpeg.ts --release-metadata <json-file>` in a separate step without `GH_TOKEN`; a subsequent step reports the actual binary versions without release credentials. Cached archives and executable hashes are still verified against the resolved publisher identity in this mode.
 

@@ -16,7 +16,7 @@ function asset(series: string, variant = "lgpl") {
     name,
     size: 136_000_000,
     digest: DIGEST,
-    browser_download_url: `https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/${name}`,
+    browser_download_url: `https://github.com/FFmpeg-Builds/FFmpeg-Builds/releases/download/latest/${name}`,
   };
 }
 
