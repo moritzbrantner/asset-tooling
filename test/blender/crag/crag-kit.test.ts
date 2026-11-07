@@ -25,7 +25,7 @@ async function hydrated(sourceId: string) {
   return entry && !(await readFile(path.join(root, entry.path))).subarray(0, 64).toString().startsWith("version https://git-lfs");
 }
 const allHydrated = (await Promise.all(Object.values(CRAG_SOURCES).map(hydrated))).every(Boolean);
-const ktx = Bun.spawnSync([process.env.ASSET_TOOLING_KTX ?? "ktx", "--version"], { stdout: "ignore", stderr: "ignore" }).exitCode === 0;
+const ktx = !!Bun.which(process.env.ASSET_TOOLING_KTX ?? "ktx");
 const skip = !process.env.ASSET_TOOLING_BLENDER ? "set ASSET_TOOLING_BLENDER to Blender 5.2.2 (snap Blender: TMPDIR under $HOME)"
   : !ktx ? "requires KTX-Software's ktx CLI (ASSET_TOOLING_KTX or ktx on PATH)"
   : !allHydrated ? "requires the hydrated rock scans (git lfs pull)" : false;
