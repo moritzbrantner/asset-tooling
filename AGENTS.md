@@ -41,7 +41,7 @@ The owner-controlled product intent is in `docs/decisions/atlas.md`. Read the re
 
 ## Local tool setup
 
-Use `python3 scripts/setup-tools.py doctor --profile all --json` for read-only local tooling diagnostics and `python3 scripts/setup-tools.py setup --profile <profile>` for opt-in, idempotent installation. The ComfyUI profile additionally requires `--gpu nvidia|cpu`. Runtime/model acquisition and visual approval are separate from setup; see `docs/local-tool-setup.md`.
+`mise install && mise run setup` installs the tools `mise.toml` lists at their latest stable releases (no exact Bun pin; the lockfiles stay frozen), the Python requirements into `.venv` and the pinned Blender (`ASSET_TOOLING_BLENDER`). Use `python3 scripts/setup-tools.py doctor --profile all --json` for read-only local tooling diagnostics and `python3 scripts/setup-tools.py setup --profile <profile>` for opt-in, idempotent installation. The ComfyUI profile additionally requires `--gpu nvidia|cpu`. Runtime/model acquisition and visual approval are separate from setup; see `docs/local-tool-setup.md`.
 
 ## Validation
 
