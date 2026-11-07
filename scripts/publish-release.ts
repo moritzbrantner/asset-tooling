@@ -131,7 +131,7 @@ export function planEntry(release: RollingRelease): PlanEntry {
   return {
     release: release.name, blender: !!release.blender, lfs: !!release.lfs, processor: release.processor ?? "", ktx: !!release.ktx,
     timeout: release.timeoutMinutes ?? DEFAULT_TIMEOUT_MINUTES,
-    ...(release.name === "maps-shortbread" ? { java: "21.0.10+7.0.LTS" } : {}),
+    ...(release.name === "maps-shortbread" ? { java: "21.0.13+9.0.LTS" } : {}),
   };
 }
 

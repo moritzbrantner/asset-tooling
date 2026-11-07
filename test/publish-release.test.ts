@@ -43,7 +43,7 @@ describe("publish-release", () => {
     }
     expect(planEntry(rollingRelease("maps-shortbread"))).toEqual({
       release: "maps-shortbread", blender: false, lfs: false, processor: "", ktx: false,
-      timeout: 60, java: "21.0.10+7.0.LTS",
+      timeout: 60, java: "21.0.13+9.0.LTS",
     });
     expect(releaseSources(rollingRelease("maps-shortbread"))).toEqual(expect.arrayContaining([
       "scripts/build-maps-shortbread-release.ts", "src/maps-shortbread.ts", "src/asset-bundle-pack.ts",
