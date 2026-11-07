@@ -4,6 +4,8 @@ The rolling releases of experimental bundles (Atlas Decision 7.1.5), `humanoid-r
 
 [`scripts/pack-downloads.ts`](../scripts/pack-downloads.ts) turns a built bundle into the downloads:
 
+For multi-entry bundles the packer now validates and indexes the loaded manifest once per invocation using `createAssetBundleReadSnapshot`. Scene and resource payloads are still re-read and pin-checked individually; changing the bundle between invocations creates a new snapshot. The [opt-in consumer benchmark](asset-bundles.md#actual-consumer-adoption-and-end-to-end-measurements) measures the complete packing operation on bounded multi-entry fixtures.
+
 ```sh
 ASSET_TOOLING_KTX=<ktx CLI> bun scripts/pack-downloads.ts --bundle <dir>/bundle --out <downloads> --name humanoid-ranger-male --clips humanoid.ranger.male/default
 gh release upload humanoid-ranger-male <downloads>/* --clobber

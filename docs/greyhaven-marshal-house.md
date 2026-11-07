@@ -2,7 +2,7 @@
 
 This is the build recipe for the first private home in mmorpg's Greyhaven Outpost ([#413](https://github.com/moritzbrantner/asset-tooling/issues/413), consumer [mmorpg#158](https://github.com/moenarch-games/mmorpg/issues/158)). The owner chose Marshal Elden Greywatch as its resident and the west Outpost house, **collider 103**, as its place (mmorpg#158 Q16 = A). Elden sleeps by the bed from dusk to dawn, and a knock opens the door (Q17–Q20). The game hides the roof and ceiling while the camera is inside.
 
-- **Approach:** an original scripted Blender recipe, [`adapters/blender/marshal_house.py`](../adapters/blender/marshal_house.py). The exterior *is* the [Outpost kit](outpost-kit.md)'s `house` composition, built by the kit's own recipe, so it matches house 105 and the other kit houses. The interior uses the kit's `Builder`, materials and numpy textures. The barrel comes from the [settlement props](settlement-props.md). Both recipes are declared Python inputs (`outpost`, `settlement`). No third-party assets.
+- **Approach:** an original scripted Blender recipe, [`adapters/blender/marshal_house.py`](../adapters/blender/marshal_house.py). The exterior *is* the [Outpost kit](outpost-kit.md)'s `house` composition, built from the kit's authored geometry and its recipe's textures, so it matches house 105 and the other kit houses. The interior uses the kit's `Builder`, materials and numpy textures. The barrel comes from the [settlement props](settlement-props.md). The kit recipe, its geometry and the settlement props are declared inputs (`outpost`, `kit`, `settlement`). No third-party assets.
 - **Style:** the kit's: stone plinth, plaster in a dark timber frame, plank door and shingle roof. The bed's blanket and the shield are Greywatch blue-grey with a red stripe.
 - **Release:** one rolling release, `greyhaven-marshal-house` (Atlas Decision 7.1.5), never a numbered one. CI publishes it when a change to its sources merges (README, "Publishing a rolling release"). A change to `outpost.py` or `settlement_props.py` rebuilds it too.
 
@@ -14,13 +14,13 @@ ASSET_TOOLING_BLENDER=<blender 5.2.2> bun scripts/build-greyhaven-marshal-house.
 
 [`scripts/build-greyhaven-marshal-house.ts`](../scripts/build-greyhaven-marshal-house.ts) works like the [inn build](greyhaven-inn.md#build). It runs one `external.blender.script@1` per part, imports each GLB through `scene.import.gltf@2`, measures the descriptor, exports a `gltf-resources-v1` bundle (`asset.bundle@4`) and packs `<directory>/greyhaven.marshal-house.tar`. It writes `export.ref.json`, `descriptor.json` and `lineage.json` beside the tar. It takes under a minute and needs no network, no LFS payloads and no GPU. Snap Blender can only read and write under `$HOME`, so set `TMPDIR` to a directory there.
 
-In a live Blender (for example through the Blender MCP), run the three recipes' sources into namespaces, call `use_sources(outpost, settlement)` and then `build(part, collection)` for each part.
+In a live Blender (for example through the Blender MCP), run the three recipes' sources into namespaces, bind the kit's geometry with `outpost["use_geometry"]("assets/authored/outpost-kit.blend")`, call `use_sources(outpost, settlement)` and then `build(part, collection)` for each part.
 
 ## Conventions
 
 - **Units and axes:** metres, +Y up, right-handed. The front, with the door, faces +Z.
 - **Origin:** the footprint's base centre. All parts share this frame. Place the origin at collider 103's centre, (-24, 0, 36) m, turned so that +Z faces the way the house's door should face.
-- **Footprint:** the walls stand on the 8 × 6 m footprint (outer faces at x = ±4 and z = ±3, 0.32 m thick, 3.2 m high). The eaves overhang 0.35 m, the verges 0.3 m, and the chimney stands outside the +X gable. The ridge is at 5.12 m and the chimney top at 6.0 m, so they rise above collider 103's 5 m.
+- **Footprint:** the walls stand on the 8 × 6 m footprint (outer faces at x = ±4 and z = ±3, 0.32 m thick, 3.6 m high). The eaves overhang 0.35 m, the verges 0.3 m, and the chimney stands outside the +X gable. The ridge is at 5.52 m and the chimney top at 6.4 m, so they rise above collider 103's 5 m.
 - **Room:** 7.36 × 5.36 m, x −3.68..3.68 and z −2.68..2.68. The floor's top is at 0.02 m and the ceiling's underside at 2.95 m.
 
 ## Bundle

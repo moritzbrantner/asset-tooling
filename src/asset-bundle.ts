@@ -7,7 +7,8 @@ import { APPROVED_IMAGE_BUNDLE_OPERATION, APPROVED_IMAGE_BUNDLE_PROFILE, ASSET_B
   type AudioBundleManifest, type BundleProfile, type BundleResource, type GltfResourcesBundleManifest, type Invocation, type SpriteAtlasBundleManifest } from "./asset-bundle-contract.js";
 import { assertAbsolute, readHashed, readPinned } from "./asset-bundle-files.js";
 import { verifyGltfResources } from "./asset-bundle-gltf.js";
-import { assetPath, bundleResources, object, parseAnyAssetBundleManifest, parseSpriteAtlasBundleManifest, resolveAssetBundleEntry, storeManifest, token, unreachable } from "./asset-bundle-manifest.js";
+import { assetPath, bundleResources, object, parseAnyAssetBundleManifest, resolveAssetBundleReadEntry, storeManifest, unreachable,
+  type AssetBundleReadSnapshot } from "./asset-bundle-manifest.js";
 import { checkAtlas, uniqueResources, validatePayload, type ReadResource } from "./asset-bundle-payload.js";
 import { prepare } from "./asset-bundle-prepare.js";
 
@@ -18,7 +19,9 @@ export type { AnyAssetBundleManifest, ApprovedBundleAssetSelection, ApprovedImag
   GltfResourcesAttachmentSelection, GltfResourcesBundleAssetSelection, GltfResourcesBundleEntry, GltfResourcesBundleManifest, GltfResourcesBundleParameters, SpriteAtlasBundleEntry, SpriteAtlasBundleManifest } from "./asset-bundle-contract.js";
 export { exportAssetBundle } from "./asset-bundle-export.js";
 export { readAssetBundleAttachment, readAssetBundleGltf } from "./asset-bundle-gltf.js";
-export { listAssetBundleFiles, parseApprovedImageBundleManifest, parseAssetBundleManifest, parseAudioBundleManifest, parseGltfResourcesBundleManifest, parseSpriteAtlasBundleManifest, resolveAssetBundleEntry } from "./asset-bundle-manifest.js";
+export { createAssetBundleReadSnapshot, listAssetBundleFiles, parseApprovedImageBundleManifest, parseAssetBundleManifest, parseAudioBundleManifest,
+  parseGltfResourcesBundleManifest, parseSpriteAtlasBundleManifest, resolveAssetBundleEntry } from "./asset-bundle-manifest.js";
+export type { AssetBundleReadSnapshot } from "./asset-bundle-manifest.js";
 
 export async function createAssetBundleBuildIdentity(root:string,invocation:Invocation={}):Promise<AssetOperationBuildIdentity> { return (await prepare(root,invocation)).build; }
 export async function executeAssetBundleOperation(root:string,invocation:Invocation={}) {
@@ -71,17 +74,15 @@ export async function verifyAssetBundle(directory:string,manifestValue:unknown,o
   }
   return {manifest,assetsVerified:manifest.assets.length,uniquePayloads:verified.size};
 }
-export async function readAssetBundleAsset(directory:string,manifest:AnyAssetBundleManifest,key:string,variant:string):Promise<Buffer> {
-  assertAbsolute(directory);const entry=resolveAssetBundleEntry(parseAnyAssetBundleManifest(Buffer.from(canonicalJson(manifest))),key,variant);
+export async function readAssetBundleAsset(directory:string,manifest:AnyAssetBundleManifest|AssetBundleReadSnapshot,key:string,variant:string):Promise<Buffer> {
+  assertAbsolute(directory);const entry=resolveAssetBundleReadEntry(manifest,key,variant);
   // A gltf-resources-v1 entry's file is the exported .gltf, pinned by its own sha256 rather than the source GLB's.
   if("resources" in entry) return readHashed(directory,entry.path,entry.sha256,undefined,MAX_MANIFEST_BYTES);
   return readPinned(directory,entry.path,entry.source);
 }
 /** Read the original atlas companion and selected runtime PNG from a verified package, without a source store. */
-export async function readAssetBundleSpriteAtlas(directory:string,manifestValue:SpriteAtlasBundleManifest,key:string,variant:string) {
-  assertAbsolute(directory);const manifest=parseSpriteAtlasBundleManifest(Buffer.from(canonicalJson(manifestValue)));
-  const entry=manifest.assets.find(e=>e.key===key && e.variant===variant);token(key,"asset key");token(variant,"asset variant");
-  if(!entry) throw new Error(`bundle does not contain '${key}/${variant}'`);
+export async function readAssetBundleSpriteAtlas(directory:string,manifestValue:SpriteAtlasBundleManifest|AssetBundleReadSnapshot,key:string,variant:string) {
+  assertAbsolute(directory);const entry=resolveAssetBundleReadEntry(manifestValue,key,variant,SPRITE_ATLAS_BUNDLE_PROFILE);
   const atlas=parseSpriteAtlasManifest(await readPinned(directory,entry.path,entry.source));
   return {atlas,image:entry.image.source,png:await readPinned(directory,entry.image.path,entry.image.source)};
 }

@@ -9,7 +9,7 @@ import {encodeRgba8Image,RGBA8_IMAGE_MEDIA_TYPE} from "../src/image-rgba8.js";
 import {SPRITE_ATLAS_MEDIA_TYPE} from "../src/sprite-atlas-operations.js";
 import {createAssetRef} from "../src/operations.js";
 import {sha256Bytes} from "../src/hash.js";
-import {exportAssetBundle,verifyAssetBundle,readAssetBundleAsset,readAssetBundleSpriteAtlas,parseSpriteAtlasBundleManifest,parseAssetBundleManifest,
+import {createAssetBundleReadSnapshot,exportAssetBundle,verifyAssetBundle,readAssetBundleAsset,readAssetBundleSpriteAtlas,parseSpriteAtlasBundleManifest,parseAssetBundleManifest,
  createAssetBundleBuildIdentity,executeAssetBundleOperation,SPRITE_ATLAS_BUNDLE_OPERATION,SPRITE_ATLAS_BUNDLE_PROFILE,ASSET_BUNDLE_MEDIA_TYPE} from "../src/asset-bundle.js";
 
 // Independent original atlas with a sparse producer frame and a pinned white pixel PNG.
@@ -44,6 +44,9 @@ test("atlas package carries original metadata and complete pinned resources with
  assert.equal(checked.manifest.schemaVersion,2);if(checked.manifest.schemaVersion!==2) throw new Error("fixture needs atlas profile");
  const loaded=await readAssetBundleSpriteAtlas(directory,checked.manifest,"effect","default");
  assert.deepEqual(loaded.atlas,original);assert.deepEqual(loaded.png,white);
+ const readSnapshot=createAssetBundleReadSnapshot(checked.manifest);
+ assert.deepEqual(await readAssetBundleSpriteAtlas(directory,readSnapshot,"effect","default"),loaded);
+ assert.deepEqual(await readAssetBundleAsset(directory,readSnapshot,"effect","default"),await readAssetBundleAsset(directory,checked.manifest,"effect","default"));
  assert.deepEqual(await verifyAssetBundle(directory,first.manifest,{profile:SPRITE_ATLAS_BUNDLE_PROFILE}),checked);
  await assert.rejects(stat(path.join(root,".asset-tooling")),{code:"ENOENT"});
 });

@@ -6,7 +6,7 @@ coverage and immutable archive digest. The north candidate deliberately omits th
 southern area; switching sources must visibly change that area. No historical
 claims, effective dates, rendered-tile scraping or global downloads are involved.
 
-On Linux x64 with Java **21.0.10**, GNU `time`, GNU `timeout`, `tar` and Bun installed:
+On Linux x64 with Java **21.0.13**, GNU `time`, GNU `timeout`, `tar` and Bun installed:
 
 ```sh
 bun install --frozen-lockfile

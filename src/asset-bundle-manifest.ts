@@ -70,15 +70,28 @@ export function assetPath(source:AssetRef,profile:BundleProfile=STATIC_ASSET_BUN
    default: return unreachable(profile);
   }
 }
-export function checkBudget(entries:BundleResource[]):void {
-  const lengths=new Map<string,number>();
-  for(const entry of entries) {
-    const previous=lengths.get(entry.path);
-    if(previous!==undefined && previous!==entry.source.byteLength) throw new Error("conflicting byte lengths for identical bundle content");
-    lengths.set(entry.path,entry.source.byteLength);
+/** Incremental accounting for a growing resource closure; duplicate paths consume bytes only once. */
+export class BundleBudget {
+  private readonly lengths=new Map<string,number>();
+  private total=0;
+  constructor(entries:readonly BundleResource[]=[]) {
+    for(const entry of entries) this.add(entry);
+    this.check();
   }
-  if([...lengths.values()].reduce((sum,n)=>sum+n,0)>MAX_BUNDLE_BYTES) throw new Error("bundle exceeds the 256 MiB unique payload budget");
+  add(entry:BundleResource):void {
+    const previous=this.lengths.get(entry.path);
+    if(previous!==undefined) {
+      if(previous!==entry.source.byteLength) throw new Error("conflicting byte lengths for identical bundle content");
+      return;
+    }
+    this.lengths.set(entry.path,entry.source.byteLength);
+    this.total+=entry.source.byteLength;
+  }
+  check():void {
+    if(this.total>MAX_BUNDLE_BYTES) throw new Error("bundle exceeds the 256 MiB unique payload budget");
+  }
 }
+export function checkBudget(entries:BundleResource[]):void { new BundleBudget(entries); }
 function resource(value:unknown,mediaType:string):BundleResource {
   const e=object(value,["source","path"],"bundle resource"),source=parseAssetRef(e.source),portable=assetPath(source,SPRITE_ATLAS_BUNDLE_PROFILE);
   if(source.mediaType!==mediaType || e.path!==portable) throw new Error("bundle resource kind/media type/path does not match its content identity");
@@ -169,6 +182,45 @@ export function resolveAssetBundleEntry(manifest:AnyAssetBundleManifest,key:stri
   token(key,"asset key");token(variant,"asset variant");
   const entry=manifest.assets.find(asset=>asset.key===key && asset.variant===variant);
   if(!entry) throw new Error(`bundle does not contain '${key}/${variant}'`);return entry;
+}
+/** An explicit, isolated, validated manifest snapshot. Only the opaque handle escapes; no mutable input is cached. */
+const SNAPSHOT_BRAND:unique symbol=Symbol("asset-bundle-read-snapshot");
+export type AssetBundleReadSnapshot={readonly [SNAPSHOT_BRAND]:true};
+type ReadEntry=AnyAssetBundleManifest["assets"][number];
+type SnapshotState={profile:BundleProfile;entries:ReadonlyMap<string,ReadEntry>};
+const readSnapshots=new WeakMap<AssetBundleReadSnapshot,SnapshotState>();
+function freezeDeep<T>(value:T):T {
+  if(value && typeof value==="object") {
+    for(const child of Object.values(value)) freezeDeep(child);
+    Object.freeze(value);
+  }
+  return value;
+}
+export function createAssetBundleReadSnapshot(manifest:AnyAssetBundleManifest):AssetBundleReadSnapshot {
+  // Re-serialize and validate once, detached from any later changes to the caller's objects.
+  const parsed=freezeDeep(parseAnyAssetBundleManifest(Buffer.from(canonicalJson(manifest))));
+  const entries=new Map(parsed.assets.map(entry=>[`${entry.key}/${entry.variant}`,entry]));
+  const handle=Object.freeze({[SNAPSHOT_BRAND]:true}) as AssetBundleReadSnapshot;
+  readSnapshots.set(handle,{profile:parsed.profile,entries});
+  return handle;
+}
+export function resolveAssetBundleReadEntry(value:SpriteAtlasBundleManifest|AssetBundleReadSnapshot,key:string,variant:string,profile:typeof SPRITE_ATLAS_BUNDLE_PROFILE):SpriteAtlasBundleEntry;
+export function resolveAssetBundleReadEntry(value:GltfResourcesBundleManifest|AssetBundleReadSnapshot,key:string,variant:string,profile:typeof GLTF_RESOURCES_BUNDLE_PROFILE):GltfResourcesBundleEntry;
+export function resolveAssetBundleReadEntry(value:AnyAssetBundleManifest|AssetBundleReadSnapshot,key:string,variant:string):ReadEntry;
+export function resolveAssetBundleReadEntry(value:AnyAssetBundleManifest|AssetBundleReadSnapshot,key:string,variant:string,profile?:BundleProfile):ReadEntry {
+  const cached=readSnapshots.get(value as AssetBundleReadSnapshot);
+  if(cached) {
+    if(profile && cached.profile!==profile) throw new Error("unsupported bundle manifest schema/profile");
+    token(key,"asset key");token(variant,"asset variant");
+    const entry=cached.entries.get(`${key}/${variant}`);
+    if(!entry) throw new Error(`bundle does not contain '${key}/${variant}'`);
+    return entry;
+  }
+  const bytes=Buffer.from(canonicalJson(value));
+  const parsed=profile===SPRITE_ATLAS_BUNDLE_PROFILE?parseSpriteAtlasBundleManifest(bytes)
+    :profile===GLTF_RESOURCES_BUNDLE_PROFILE?parseGltfResourcesBundleManifest(bytes)
+    :parseAnyAssetBundleManifest(bytes);
+  return resolveAssetBundleEntry(parsed,key,variant);
 }
 const HEX64=/^[0-9a-f]{64}$/;
 export function gltfResourcePath(sha256:string,mediaType:string):string {
