@@ -19,7 +19,7 @@ import { canonicalJson } from "../src/canonical.js";
 import { createAssetCatalog } from "../src/catalog.js";
 import { importAssetCatalogStorageSource } from "../src/catalog-storage.js";
 import { sha256Bytes } from "../src/hash.js";
-import { buildKitPart, documentBounds, exportKitBundle, round, runKitCli, triangles, type KitPart } from "../src/kit-bundle.js";
+import { buildKitPart, documentBounds, exportKitBundle, ktx2Assets, round, runKitCli, triangles, type KitPart } from "../src/kit-bundle.js";
 import type { AssetRef } from "../src/operations.js";
 
 const ROOT = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
@@ -138,7 +138,7 @@ export async function buildClimbingKit({ outDir, log = () => {} }: { outDir: str
   }));
   const packed = await exportKitBundle(root, {
     tarName: CLIMBING_TAR_NAME, log,
-    invocation: { parameters: { profile: GLTF_RESOURCES_BUNDLE_PROFILE, assets: selections }, inputs: { assets: built.map((b) => b.asset), attachments: [descriptorAsset] } },
+    invocation: { parameters: { profile: GLTF_RESOURCES_BUNDLE_PROFILE, assets: selections }, inputs: { assets: await ktx2Assets(root, "climbing-kit", built.map((b) => b.asset)), attachments: [descriptorAsset] } },
   });
   return {
     ...packed, descriptor,

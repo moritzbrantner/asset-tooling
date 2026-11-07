@@ -94,9 +94,10 @@ test("the shrine recipe builds a verified bundle with an open arch, open cave pa
     assert.deepEqual(conforms(schema, d, schema), []);
     const asset = Object.fromEntries(d.assets.map((a: any) => [a.role, a]));
 
-    // Three limestone and three cave-rock PNGs, each stored once for every module that uses it.
-    const pngs = (await readdir(path.join(built.bundleDir, "resources"))).filter((name) => name.endsWith(".png"));
-    assert.equal(pngs.length, 6);
+    // Three limestone and three cave-rock textures, as KTX2 and each stored once for every module that uses it.
+    const textures = (await readdir(path.join(built.bundleDir, "resources"))).filter((name) => /\.(ktx2|png|jpe?g)$/.test(name));
+    assert.deepEqual([...new Set(textures.map((name) => path.extname(name)))], [".ktx2"]);
+    assert.equal(textures.length, 6);
 
     // The wall and the arch fill their 4 m module; the floor tile's top is y = 0.
     for (const part of ["wall", "arch"]) assert.ok(Math.abs(asset[part].footprint.width - 4) < 0.15, `${part} fills its module`);

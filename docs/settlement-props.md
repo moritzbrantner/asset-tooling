@@ -65,9 +65,13 @@ The props use the kit's wood, stone and shingle texture sets (colour, normal and
 - `endgrain`: the billet ends;
 - `horn`: the lantern panes.
 
-Every face has backface culling. In the bundle there are 9 PNGs in all, each stored once. Repeated props in a scene share their GLB resources. The tar is about 2.1 MB.
+Every face has backface culling. In the bundle there are 9 KTX2 textures in all, each stored once. Repeated props in a scene share their GLB resources. The tar is about 1.4 MB.
 
 **Determinism:** there is no randomness. Variation comes from SHA-256 of fixed keys, through the kit's `rnd`.
+
+### Textures on the GPU
+
+Every texture ships as KTX2 (Basis Universal, `KHR_texture_basisu`, required, no PNG or JPEG fallback), with a full mip chain and encoded once per image by the shared kit pass (`ktx2Asset`, [`src/kit-bundle.ts`](../src/kit-bundle.ts), with KTX-Software's `ktx` CLI): base colour ETC1S sRGB, ORM and other data ETC1S linear, normals UASTC. A GPU transcodes Basis to a block format of at most 1 byte per texel, a quarter of RGBA8. Consumers need a Basis transcoder (in three.js, `KTX2Loader` registered with the `GLTFLoader`); a client without one cannot read the bundle. The 9 textures are about 0.8 MB; the tar went from 2.1 MB (9 PNGs) to 1.4 MB.
 
 ## Descriptor `settlement-props-descriptor-v1`
 
@@ -96,7 +100,7 @@ The bundle is distributed as the rolling `settlement-props` GitHub release, whos
 
 - the tar and the bundle verify, with ten `default` entries;
 - the descriptor conforms to the schema;
-- there are exactly 9 PNG resources, the kit's wood, stone and shingle;
+- there are exactly 9 resources, all KTX2: the kit's wood, stone and shingle;
 - every prop stays within its triangle budget (`SETTLEMENT_TRIANGLE_BUDGET`), has its family and stands on the ground;
 - the fence fills its 2 m module, the crate's `stackTop` is its top, and the lantern and the sign hang above head height;
 - in the square, every item is a bundle entry, all three families are placed, and every proxy stays inside the footprint and out of the walkway.

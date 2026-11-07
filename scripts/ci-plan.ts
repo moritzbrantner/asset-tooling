@@ -23,7 +23,7 @@ export type BlenderSuite = { suite: string; lfs: string; timeout?: number; ktx?:
 
 /** The Blender test suites, one CI job each, with the canonical payloads each one hydrates. */
 export const BLENDER_SUITES: BlenderSuite[] = [
-  // The Outpost kit ships KTX2 textures.
+  // The kit bundles ship KTX2 textures.
   {
     suite: "kits",
     ktx: true,
@@ -36,11 +36,12 @@ export const BLENDER_SUITES: BlenderSuite[] = [
   // The fortress kit's 51 recipe runs (17 pieces x 3 levels) take longer than the other kits together.
   {
     suite: "fortress",
+    ktx: true,
     timeout: 60,
     lfs: "assets/canonical/poly-haven.broken-wall-*/**,assets/canonical/poly-haven.japanese-stone-wall-*/**,assets/canonical/poly-haven.stone-tiles-02-*/**,assets/canonical/poly-haven.old-planks-02-*/**",
   },
   // The climbing kit's 45 recipe runs (15 parts x 3 levels).
-  { suite: "climbing", timeout: 30, lfs: "assets/canonical/quaternius.medieval-village-megakit-standard.t-vineleaf-png-png/**" },
+  { suite: "climbing", timeout: 30, ktx: true, lfs: "assets/canonical/quaternius.medieval-village-megakit-standard.t-vineleaf-png-png/**" },
   // The crag kit's 40 recipe runs (13 modules x 3 levels and the macro texture), KTX2-encoded like the terrain.
   {
     suite: "crag",

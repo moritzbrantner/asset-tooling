@@ -100,11 +100,15 @@ Reviewed in the live Blender (MCP) with every piece placed by the composition, b
 | ramps | 578 / 578 / 8 |
 | keep and hall walls, lintels, `lift-column` | 300–3,200 / 76–308 / 44–124 |
 
-The whole fortress (82 items) is about 352,000 triangles at LOD0 and 58,000 at LOD1. The tar is about 11.5 MB: 13 shared images (four sets × colour, normal and metallic-roughness as 1024 px JPEGs, and the 512 px grime PNG) and the geometry, which now carries COLOR_0.
+The whole fortress (82 items) is about 352,000 triangles at LOD0 and 58,000 at LOD1. The tar is about 14.6 MB: 13 shared KTX2 textures (four sets × colour, normal and metallic-roughness at 1024 px, and the 512 px grime decal) and the geometry, which now carries COLOR_0.
+
+### Textures on the GPU
+
+Every texture ships as KTX2 (Basis Universal, `KHR_texture_basisu`, required, no PNG or JPEG fallback), with a full mip chain and encoded once per image by the shared kit pass (`ktx2Asset`, [`src/kit-bundle.ts`](../src/kit-bundle.ts), with KTX-Software's `ktx` CLI): base colour ETC1S sRGB, ORM and other data ETC1S linear, normals UASTC, and the alpha-masked grime decal UASTC sRGB, because ETC1S frays its alpha edges. A GPU transcodes Basis to a block format of at most 1 byte per texel, a quarter of RGBA8. Consumers need a Basis transcoder (in three.js, `KTX2Loader` registered with the `GLTFLoader`); a client without one cannot read the bundle. The 13 textures are about 6.4 MB, and the tar went from 11.6 MB to 14.6 MB: the source JPEGs are smaller on disk than UASTC normal maps with mip chains, but on the GPU every texture now takes a quarter of its decoded RGBA8 size.
 
 ## Tests
 
 `test/blender/fortress/fortress-kit.test.ts` (its own `blender-script (fortress)` CI suite, with a 60-minute timeout):
 
 - without Blender: the spec arguments; the composition dresses every arena body but the ground exactly once, each single-body item's turned and moved piece box equals its body's box exactly, and every ramp rises the right way; every piece's fit rule reaches at least its box;
-- in the hosted `blender-script` job: the tar and bundle verify with 17 pieces × 3 levels; the descriptor conforms to its schema; at most 13 images are stored; every piece at every level passes the fit rule (`fortressFitViolations`: no vertex outside its reach, walks flush with 2.2 m of head room sampled every 0.37 m, blocking faces within 5 cm sampled every 0.5 m with at most 8% openings); the levels get cheaper.
+- in the hosted `blender-script` job: the tar and bundle verify with 17 pieces × 3 levels; the descriptor conforms to its schema; at most 13 images are stored, all KTX2; every piece at every level passes the fit rule (`fortressFitViolations`: no vertex outside its reach, walks flush with 2.2 m of head room sampled every 0.37 m, blocking faces within 5 cm sampled every 0.5 m with at most 8% openings); the levels get cheaper.

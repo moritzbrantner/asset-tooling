@@ -107,8 +107,9 @@ test("the fortress recipe builds a verified kit whose walks and blocking faces f
     const schema = JSON.parse(await readFile(schemaUrl, "utf8"));
     assert.deepEqual(conforms(schema, d, schema), []);
 
-    // Four CC0 sets (colour, normal, metallic-roughness) and the grime decal atlas, each stored once and shared.
-    const images = (await readdir(path.join(built.bundleDir, "resources"))).filter((name) => /\.(jpe?g|png)$/.test(name));
+    // Four CC0 sets (colour, normal, metallic-roughness) and the grime decal atlas, as KTX2, each stored once and shared.
+    const images = (await readdir(path.join(built.bundleDir, "resources"))).filter((name) => /\.(ktx2|jpe?g|png)$/.test(name));
+    assert.deepEqual([...new Set(images.map((name) => path.extname(name)))], [".ktx2"]);
     assert.ok(images.length <= 13, `${images.length} images`);
 
     for (const b of built.built) {
