@@ -6,6 +6,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { NodeIO } from "@gltf-transform/core";
 import { getBounds } from "@gltf-transform/functions";
+import { KHRTextureBasisu } from "@gltf-transform/extensions";
 import { readAssetBundleAttachment, readAssetBundleGltf, verifyAssetBundle, type GltfResourcesBundleManifest } from "../../../src/asset-bundle.js";
 import { verifyAssetBundleTar } from "../../../src/asset-bundle-pack.js";
 import { sha256Bytes } from "../../../src/hash.js";
@@ -41,7 +42,7 @@ test("nature bundle supplies independently shaped, grounded families with game-r
     assert.equal(descriptor.schema, NATURE_DESCRIPTOR_SCHEMA);
     assert.equal(descriptor.units, "metre");
     const rockShapes = new Set<string>();
-    const io = new NodeIO();
+    const io = new NodeIO().registerExtensions([KHRTextureBasisu]);
     for (const entry of NATURE_MEMBERS) {
       const item = await readAssetBundleGltf(built.bundleDir, manifest, entry.key, "default");
       const document = await io.readJSON({ json: JSON.parse(item.gltf.toString()), resources: Object.fromEntries(item.resources) });

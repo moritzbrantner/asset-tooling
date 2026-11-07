@@ -13,7 +13,7 @@ import { storeAssetObject } from "../src/asset-store.js";
 import { blenderScriptSpec } from "../src/blender-script-spec.js";
 import { readBlenderRecipeSource } from "../src/blender-recipe-source.js";
 import { canonicalJson } from "../src/canonical.js";
-import { buildKitPart, byKey, exportKitBundle, kitEntry, runKitCli, type KitPart } from "../src/kit-bundle.js";
+import { buildKitPart, byKey, exportKitBundle, ktx2Assets, kitEntry, runKitCli, type KitPart } from "../src/kit-bundle.js";
 
 export const SHRINE_PARTS = [
   "wall", "arch", "pillar", "pillar-broken", "floor", "altar", "cave-mouth", "cave-tunnel", "cave-end", "air-pocket",
@@ -74,7 +74,7 @@ export async function buildShrineKit({ outDir, log = () => {} }: { outDir: strin
     tarName: SHRINE_TAR_NAME, log,
     invocation: {
       parameters: { profile: GLTF_RESOURCES_BUNDLE_PROFILE, assets: selections },
-      inputs: { assets: SHRINE_PARTS.map((part) => parts[part].asset), attachments: [descriptorAsset] },
+      inputs: { assets: await ktx2Assets(root, "shrine-kit", SHRINE_PARTS.map((part) => parts[part].asset)), attachments: [descriptorAsset] },
     },
   });
   return {

@@ -14,7 +14,7 @@ import { storeAssetObject } from "../src/asset-store.js";
 import { blenderScriptSpec } from "../src/blender-script-spec.js";
 import { readBlenderRecipeSource } from "../src/blender-recipe-source.js";
 import { canonicalJson } from "../src/canonical.js";
-import { buildKitPart, byKey, exportKitBundle, kitEntry, runKitCli, type KitPart } from "../src/kit-bundle.js";
+import { buildKitPart, byKey, exportKitBundle, ktx2Assets, kitEntry, runKitCli, type KitPart } from "../src/kit-bundle.js";
 
 export const SETTLEMENT_PROPS = [
   "stall", "cart", "crate", "barrel", "signpost", "lantern-post", "bench", "fence", "planter", "firewood",
@@ -89,7 +89,7 @@ export async function buildSettlementProps({ outDir, log = () => {} }: { outDir:
     tarName: SETTLEMENT_TAR_NAME, log,
     invocation: {
       parameters: { profile: GLTF_RESOURCES_BUNDLE_PROFILE, assets: selections },
-      inputs: { assets: built.map((b) => b.asset), attachments: [descriptorAsset] },
+      inputs: { assets: await ktx2Assets(root, "settlement-props", built.map((b) => b.asset)), attachments: [descriptorAsset] },
     },
   });
   return {

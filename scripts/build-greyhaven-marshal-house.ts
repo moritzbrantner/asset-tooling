@@ -15,7 +15,7 @@ import { blenderScriptSpec } from "../src/blender-script-spec.js";
 import { readAuthoredBlenderSource, readBlenderRecipeSource } from "../src/blender-recipe-source.js";
 import { OUTPOST_GEOMETRY } from "./build-outpost-kit.ts";
 import { canonicalJson } from "../src/canonical.js";
-import { buildKitPart, documentBounds as bounds, emptyTranslation, exportKitBundle, round, round3, runKitCli, triangles, type KitPart, type Vec3 } from "../src/kit-bundle.js";
+import { buildKitPart, documentBounds as bounds, emptyTranslation, exportKitBundle, ktx2Assets, round, round3, runKitCli, triangles, type KitPart, type Vec3 } from "../src/kit-bundle.js";
 
 export const HOUSE_PARTS = ["shell", "ceiling", "roof", "door", "furniture", "collision"] as const;
 export type HousePart = (typeof HOUSE_PARTS)[number];
@@ -117,7 +117,7 @@ export async function buildGreyhavenMarshalHouse({ outDir, log = () => {} }: { o
     tarName: HOUSE_TAR_NAME, log,
     invocation: {
       parameters: { profile: GLTF_RESOURCES_BUNDLE_PROFILE, assets: selections },
-      inputs: { assets: HOUSE_PARTS.map((part) => parts[part].asset), attachments: [descriptorAsset] },
+      inputs: { assets: await ktx2Assets(root, "marshal-house", HOUSE_PARTS.map((part) => parts[part].asset)), attachments: [descriptorAsset] },
     },
   });
   return {

@@ -19,6 +19,7 @@ import { blenderScriptSpec, type BlenderSpecInput } from "../src/blender-script-
 import { readBlenderRecipeSource } from "../src/blender-recipe-source.js";
 import { sha256Bytes } from "../src/hash.js";
 import { runBlenderRecipe } from "../src/blender-recipe-run.js";
+import { ktx2Assets } from "../src/kit-bundle.js";
 
 const ROOT = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
 const ARCHIVE = "quaternius.stylized-nature-megakit-standard";
@@ -278,7 +279,7 @@ export async function buildGreyhavenNature(outDir: string, log: (message: string
         ...lods.map(({ variant }) => ({ key: entry.key, variant })),
       ]),
     },
-    inputs: { assets: built.flatMap(({ asset, lods }) => [asset, ...lods.map((lod) => lod.asset)]), attachments: [attachment] },
+    inputs: { assets: await ktx2Assets(root, "greyhaven-nature", built.flatMap(({ asset, lods }) => [asset, ...lods.map((lod) => lod.asset)])), attachments: [attachment] },
   });
   const tar = path.join(root, NATURE_TAR_NAME);
   const pack = Bun.spawnSync(["bun", path.join(ROOT, "scripts/pack-asset-bundle.ts"), bundleDir, tar], { stdout: "pipe", stderr: "pipe" });

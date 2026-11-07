@@ -85,9 +85,10 @@ test("the settlement recipe builds verified props within budget that share the k
     assert.deepEqual(conforms(schema, d, schema), []);
     const asset = Object.fromEntries(d.assets.map((a: any) => [a.role, a]));
 
-    // Wood, stone and shingle from the Outpost kit (colour, normal and ORM each), stored once.
-    const pngs = (await readdir(path.join(built.bundleDir, "resources"))).filter((name) => name.endsWith(".png"));
-    assert.equal(pngs.length, 9);
+    // Wood, stone and shingle from the Outpost kit (colour, normal and ORM each), as KTX2 and stored once.
+    const textures = (await readdir(path.join(built.bundleDir, "resources"))).filter((name) => /\.(ktx2|png|jpe?g)$/.test(name));
+    assert.deepEqual([...new Set(textures.map((name) => path.extname(name)))], [".ktx2"]);
+    assert.equal(textures.length, 9);
 
     for (const prop of SETTLEMENT_PROPS) {
       const a = asset[prop];
