@@ -44,7 +44,7 @@ PARTS = ("wall", "wall-half", "wall-window", "wall-door", "door", "corner", "gab
 ROOFED = ("roof", "roof-half", "roof-verge")
 ROOFS = ("shingle", "slate")
 MODULE = 2.0
-WALL_H = 3.2
+WALL_H = 3.6
 PLINTH = 0.5
 WALL_T = 0.32           # wall body z -0.32..0
 TIMBER = 0.18           # timber width; half of it at each module end
@@ -54,7 +54,8 @@ EAVE = 0.35             # horizontal eave overhang beyond the outer wall face
 VERGE = 0.3
 ROOF_T = 0.1
 COURSE = 0.25           # shingle course length along the slope
-WINDOW = {"x0": -0.45, "x1": 0.45, "y0": 1.2, "y1": 2.2}
+RAIL = (2.25, 2.41)     # the head rail every wall module carries; window and door heads meet it
+WINDOW = {"x0": -0.45, "x1": 0.45, "y0": 1.15, "y1": RAIL[0]}
 DOOR = {"x0": -0.6, "x1": 0.6, "height": 2.2}
 LEAF = {"width": 1.16, "height": 2.18, "thickness": 0.06, "z": -0.12}
 TEXTURE = 512
@@ -72,6 +73,10 @@ MATERIALS = {
     "glass": ((0.12, 0.15, 0.17), 0.0, 0.15, None),
     "soot": ((0.03, 0.03, 0.03), 0.0, 0.95, None),
 }
+# Wear presets the bundle ships as variants; the recipe takes any ``wear`` in [0, 1]. Wear is texture
+# only: every variant shares the pristine geometry.
+WEAR_PRESETS = {"weathered": 0.5, "worn": 1.0}
+WEAR = 0.0              # the wear of the module being built (``build`` sets it)
 
 
 def use_common(common):
@@ -83,17 +88,6 @@ def use_common(common):
 
 def finish_maps(colour, height, strength, ao, rough):
     return np.clip(colour, 0, 1), normal_map(height, strength), np.stack([np.clip(ao, 0, 1), np.clip(rough, 0, 1), np.zeros_like(ao)], -1)
-
-
-def plaster_maps(size):
-    """Lime plaster, 2 m per tile: broad blotches, trowel waves and a fine grain."""
-    broad = fbm(size, 3, 4, 511)
-    trowel = fbm(size, 6, 3, 521, stretch=(1, 2))
-    fine = fbm(size, 48, 2, 531)
-    height = broad * 0.3 + trowel * 0.4 + fine * 0.3
-    shade = 0.95 + (broad - 0.5) * 0.22 + (fine - 0.5) * 0.08
-    base = np.array([0.82, 0.77, 0.67])
-    return finish_maps(base * shade[..., None], height, 1.5, 1 - (1 - broad) * 0.1, 0.9 + (fine - 0.5) * 0.1)
 
 
 def wood_maps(size):
@@ -146,8 +140,9 @@ def stone_maps(size):
     return finish_maps(colour, height, 5.0, 0.55 + bulge * 0.45, 0.88 + (1 - joint) * 0.08)
 
 
-def roof_maps(size, seed, base, widths, rows, gap, strength):
-    """Overlapping roof units, 1 m per tile, ``rows`` courses: each unit is thickest at its lower edge."""
+def roof_maps(size, seed, base, widths, rows, gap, strength, wear=0.0):
+    """Overlapping roof units, 1 m per tile, ``rows`` courses: each unit is thickest at its lower edge.
+    With ``wear`` some units are missing: a dark, flat recess where the boards show through."""
     ys = np.arange(size) / size
     joint, value = stones(size, rows, seed, widths, gap, horizontal=False)
     fy = (ys * rows) % 1.0  # 0 at a course's top edge (image rows run down the slope)
@@ -156,27 +151,108 @@ def roof_maps(size, seed, base, widths, rows, gap, strength):
     height = joint * taper + grain * 0.15
     shade = (0.78 + value * 0.32)[..., None] * (0.92 + grain[..., None] * 0.16) * (0.75 + 0.25 * taper[..., None])
     colour = np.array(base) * shade * (0.35 + 0.65 * joint[..., None])
-    return finish_maps(colour, height, strength, 0.6 + 0.4 * joint * taper, 0.8 + (1 - joint) * 0.1)
+    ao, rough = 0.6 + 0.4 * joint * taper, 0.8 + (1 - joint) * 0.1
+    if wear > 0:
+        # ``value`` is uniform per unit, so a unit is missing whole; more wear only adds missing units. The
+        # tile repeats every metre and every roof module alike, so holes stay sparse or they read as a grid.
+        missing = (np.random.RandomState(seed + 13).rand(64)[(value * 63).astype(int)] < 0.03 * wear).astype(float)
+        colour = colour * (1 - missing[..., None]) + np.array([0.035, 0.03, 0.028]) * missing[..., None]
+        height = height * (1 - missing) - 0.3 * missing
+        ao, rough = ao * (1 - 0.7 * missing), rough + (0.95 - rough) * missing
+    return finish_maps(colour, height, strength, ao, rough)
 
 
-def texture_maps(name):
+def daub_maps(size, metres):
+    """Wattle and daub, ``metres`` per tile: woven rods under clay. Returns colour, height and roughness."""
+    ys = np.arange(size) / size
+    xs = np.arange(size) / size
+    stake = np.floor(xs * 4 * metres)                            # four stakes per metre
+    weave = np.sin((ys[:, None] * 12 * metres + 0.5 * (stake[None, :] % 2)) * 2 * math.pi)
+    rods = np.clip(np.abs(weave) * 1.2, 0, 1)
+    clay = fbm(size, 8, 4, 1011)
+    cover = np.clip((clay - 0.38) * 3, 0, 1)                     # clay still clinging over the rods
+    height = rods * (1 - cover) * 0.7 + clay * 0.5
+    colour = (np.array([0.27, 0.22, 0.17]) * (0.75 + rods[..., None] * 0.35) * (1 - cover[..., None])
+              + np.array([0.45, 0.41, 0.35]) * (0.85 + clay[..., None] * 0.2) * cover[..., None])
+    return colour, height, 0.95 + 0 * rods
+
+
+def plaster_maps(size, wear=0.0):
+    """Lime plaster, 2 m per tile: broad blotches, trowel waves and a fine grain. With ``wear`` patches
+    have fallen away to a recessed wattle and daub; more wear widens them."""
+    broad = fbm(size, 3, 4, 511)
+    trowel = fbm(size, 6, 3, 521, stretch=(1, 2))
+    fine = fbm(size, 48, 2, 531)
+    height = broad * 0.3 + trowel * 0.4 + fine * 0.3
+    shade = 0.95 + (broad - 0.5) * 0.22 + (fine - 0.5) * 0.08
+    colour = np.array([0.82, 0.77, 0.67]) * shade[..., None]
+    ao, rough = 1 - (1 - broad) * 0.1, 0.9 + (fine - 0.5) * 0.1
+    if wear > 0:
+        field = fbm(size, 3, 4, 1201) * 0.65 + fbm(size, 12, 3, 1211) * 0.35
+        fallen = np.clip((field - (0.8 - 0.2 * wear)) * 14, 0, 1)
+        rim = np.clip((field - (0.8 - 0.2 * wear) + 0.03) * 14, 0, 1) - fallen     # a broken plaster edge
+        d_colour, d_height, d_rough = daub_maps(size, TILE["plaster"])
+        colour = colour * (1 - fallen[..., None]) * (1 - 0.25 * rim[..., None]) + d_colour * 0.85 * fallen[..., None]
+        height = height * (1 - fallen) + (d_height * 0.4 - 0.9) * fallen
+        ao, rough = ao * (1 - 0.35 * fallen), rough * (1 - fallen) + d_rough * fallen
+    return finish_maps(colour, height, 1.5, ao, rough)
+
+
+def weathered(name, maps, wear):
+    """``maps`` aged by ``wear`` in [0, 1]: grime and rain streaks on plaster, greyed and checked
+    timber, moss in the stone joints and on the roof. The normal map stays as it is."""
+    colour, normal, orm = maps
+    if wear <= 0:
+        return maps
+    size = colour.shape[0]
+    grime = fbm(size, 3, 4, 1101)
+    streak = fbm(size, 10, 3, 1111, stretch=(12, 1))
+    lum = colour.mean(axis=-1, keepdims=True)
     if name == "plaster":
-        return plaster_maps(TEXTURE)
-    if name == "wood":
-        return wood_maps(TEXTURE)
-    if name == "stone":
-        return stone_maps(TEXTURE)
-    if name == "shingle":
-        return roof_maps(TEXTURE, 811, (0.5, 0.42, 0.35), (0.11, 0.22), 4, 0.012, 4.0)
-    return roof_maps(TEXTURE, 911, (0.4, 0.42, 0.46), (0.2, 0.3), 4, 0.01, 3.0)
+        stain = np.clip((grime - 0.45) * 2.5, 0, 1) * 0.25 + np.clip((streak - 0.5) * 3, 0, 1) * 0.2
+        tint = np.array([0.66, 0.6, 0.5]) * lum / 0.75
+        colour = (colour * (1 - wear * 0.35) + tint * wear * 0.35) * (1 - wear * stain[..., None])
+    elif name == "wood":
+        grey = lum * np.array([0.92, 0.93, 0.96]) * 1.1
+        colour = (colour * (1 - wear * 0.55) + grey * wear * 0.55) * (1 - wear * 0.18 * grime[..., None])
+    else:
+        # Moss and lichen settle where the surface is dark (joints, butts) and the noise allows.
+        moss_n = fbm(size, 5, 4, 1121)
+        dark = np.clip((0.55 - lum[..., 0] / max(lum.max(), 1e-6)) * 2.5, 0, 1)
+        moss = np.clip((moss_n - 0.62 + 0.3 * wear) * 4, 0, 1) * (0.35 + 0.65 * dark) * wear
+        green = np.array([0.24, 0.3, 0.13]) * (0.75 + 0.5 * moss_n[..., None])
+        colour = colour * (1 - wear * 0.12 * grime[..., None])
+        colour = colour * (1 - moss[..., None] * 0.85) + green * moss[..., None] * 0.85
+        orm = orm.copy()
+        orm[..., 1] = np.clip(orm[..., 1] + moss * 0.1, 0, 1)
+    return np.clip(colour, 0, 1), normal, orm
+
+
+def texture_maps(name, wear=0.0):
+    if name == "plaster":
+        maps = plaster_maps(TEXTURE, wear)
+    elif name == "wood":
+        maps = wood_maps(TEXTURE)
+    elif name == "stone":
+        maps = stone_maps(TEXTURE)
+    elif name == "shingle":
+        maps = roof_maps(TEXTURE, 811, (0.5, 0.42, 0.35), (0.11, 0.22), 4, 0.012, 4.0, wear)
+    else:
+        maps = roof_maps(TEXTURE, 911, (0.4, 0.42, 0.46), (0.2, 0.3), 4, 0.01, 3.0, wear)
+    return weathered(name, maps, wear)
+
+
+def wear_tag():
+    """The suffix of materials and images at the current wear (none when pristine)."""
+    return "" if WEAR <= 0 else f"@wear{round(WEAR * 100):03d}"
 
 
 def material(name):
-    existing = bpy.data.materials.get(f"outpost-{name}")
+    existing = bpy.data.materials.get(f"outpost-{name}{wear_tag()}")
     if existing is not None:
         return existing
     colour, metallic, roughness, texture = MATERIALS[name]
-    mat = bpy.data.materials.new(f"outpost-{name}")
+    mat = bpy.data.materials.new(f"outpost-{name}{wear_tag()}")
     mat.use_nodes = True
     nodes, links = mat.node_tree.nodes, mat.node_tree.links
     bsdf = next(n for n in nodes if n.type == "BSDF_PRINCIPLED")
@@ -188,8 +264,9 @@ def material(name):
     if texture is None:
         return mat
     images = []
-    for kind, data in zip(("color", "normal", "orm"), texture_maps(texture)):
-        image = bpy.data.images.get(f"outpost-{texture}-{kind}") or make_image(f"outpost-{texture}-{kind}", data, kind == "color")
+    for kind, data in zip(("color", "normal", "orm"), texture_maps(texture, WEAR)):
+        image_name = f"outpost-{texture}-{kind}{wear_tag()}"
+        image = bpy.data.images.get(image_name) or make_image(image_name, data, kind == "color")
         images.append(image)
     tex = []
     for image in images:
@@ -369,6 +446,42 @@ def plaster(b, x0, x1, y0, y1, key):
         b.box((x0, y0, PLASTER_Z[0]), (x1, y1, PLASTER_Z[1]), "plaster", key, grain=(1, 0, 0))
 
 
+def rail(b, x0, x1, key):
+    """The head rail between two timbers, at the window and door head height of every module."""
+    b.block((x0, RAIL[0], TIMBER_Z[0]), (x1, RAIL[1], TIMBER_Z[1]), "timber", key=key)
+
+
+def clip(outline, keep):
+    """Sutherland-Hodgman: ``outline`` cut by each half-plane ``keep`` (a function of a point, >= 0 inside)."""
+    for inside in keep:
+        out = []
+        for i, p in enumerate(outline):
+            q = outline[(i + 1) % len(outline)]
+            fp, fq = inside(p), inside(q)
+            if fp >= 0:
+                out.append(p)
+            if (fp >= 0) != (fq >= 0):
+                t = fp / (fp - fq)
+                out.append((p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t))
+        outline = out
+    return outline
+
+
+def brace(b, a, c, key, bay, width=0.14):
+    """A brace through ``a`` and ``c`` that fills its ``bay`` (x0, y0, x1, y1) from timber to timber:
+    the bar is cut by the bay's edges, so its ends sit flush against the posts, rails and sills."""
+    d = Vector((c[0] - a[0], c[1] - a[1])).normalized()
+    n = Vector((-d.y, d.x)) * (width / 2)
+    p0, p1 = Vector(a) - d * 2, Vector(c) + d * 2
+    bar = [tuple(p0 - n), tuple(p1 - n), tuple(p1 + n), tuple(p0 + n)]
+    x0, y0, x1, y1 = bay
+    outline = clip(bar, [lambda p: p[0] - x0, lambda p: x1 - p[0], lambda p: p[1] - y0, lambda p: y1 - p[1]])
+    outline = [p for i, p in enumerate(outline) if math.dist(p, outline[i - 1]) > 1e-4]  # corners the cut hit exactly
+    if (outline[1][0] - outline[0][0]) * (outline[2][1] - outline[0][1]) - (outline[1][1] - outline[0][1]) * (outline[2][0] - outline[0][0]) < 0:
+        outline.reverse()
+    b.prism(outline, TIMBER_Z[0] + 0.01, TIMBER_Z[1] - 0.005, "timber", key, grain=(d.x, d.y, 0))
+
+
 def plinth(b, x0, x1, key):
     b.block((x0, 0.0, -WALL_T), (x1, PLINTH, 0.02), "stone", 0.03, key, grain=(1, 0, 0))
 
@@ -400,16 +513,19 @@ def build_wall(part, col, root):
     b = Builder(f"outpost.{part}.mesh")
     plinth(b, -hw, hw, f"{part}/plinth")
     plaster(b, -hw, hw, PLINTH, WALL_H, f"{part}/plaster")
+    # The head rail runs between the posts at the same height in every module, so it reads as one
+    # continuous timber around the building; braces stay below it, from post to post.
     if part == "wall":
-        mid = (SILL_TOP + PLATE) / 2
         frame(b, width, part, posts=[(-T, T)])
-        b.block((-hw + T, mid - 0.08, TIMBER_Z[0]), (hw - T, mid + 0.08, TIMBER_Z[1]), "timber", key=f"{part}/rail")
-        # A brace in each bay, falling towards the module's centre post.
-        b.beam((-hw + T, mid - 0.08), (-T, SILL_TOP + 0.02), 0.16, TIMBER_Z[0] + 0.01, TIMBER_Z[1] - 0.005, key=f"{part}/brace.l")
-        b.beam((hw - T, mid - 0.08), (T, SILL_TOP + 0.02), 0.16, TIMBER_Z[0] + 0.01, TIMBER_Z[1] - 0.005, key=f"{part}/brace.r")
+        rail(b, -hw + T, -T, f"{part}/rail.l")
+        rail(b, T, hw - T, f"{part}/rail.r")
+        # A brace in each lower bay, falling towards the module's centre post.
+        brace(b, (-hw + T, RAIL[0]), (-T, SILL_TOP), f"{part}/brace.l", (-hw + T, SILL_TOP, -T, RAIL[0]), 0.16)
+        brace(b, (hw - T, RAIL[0]), (T, SILL_TOP), f"{part}/brace.r", (T, SILL_TOP, hw - T, RAIL[0]), 0.16)
     else:
         frame(b, width, part)
-        b.beam((-hw + T, SILL_TOP + 0.02), (hw - T, PLATE - 0.02), 0.16, TIMBER_Z[0] + 0.01, TIMBER_Z[1] - 0.005, key=f"{part}/brace")
+        rail(b, -hw + T, hw - T, f"{part}/rail")
+        brace(b, (-hw + T, SILL_TOP), (hw - T, RAIL[0]), f"{part}/brace", (-hw + T, SILL_TOP, hw - T, RAIL[0]), 0.16)
     b.finish(col, root)
     return {"module": {"width": width, "height": WALL_H, "depth": WALL_T}, "collisionProxies": solid_proxy(width)}
 
@@ -419,20 +535,25 @@ def build_wall_window(part, col, root):
     w = WINDOW
     b = Builder(f"outpost.{part}.mesh")
     plinth(b, -hw, hw, f"{part}/plinth")
-    fx0, fx1, fy0, fy1 = w["x0"] - 0.1, w["x1"] + 0.1, w["y0"] - 0.1, w["y1"] + 0.12
+    fx0, fx1, fy0, fy1 = w["x0"] - 0.1, w["x1"] + 0.1, w["y0"] - 0.1, RAIL[1]
     plaster(b, -hw, fx0, PLINTH, WALL_H, f"{part}/plaster.l")
     plaster(b, fx1, hw, PLINTH, WALL_H, f"{part}/plaster.r")
     plaster(b, fx0, fx1, PLINTH, fy0, f"{part}/plaster.b")
-    plaster(b, fx0, fx1, fy1, WALL_H, f"{part}/plaster.t")
+    plaster(b, fx0, fx1, w["y1"], WALL_H, f"{part}/plaster.t")
     frame(b, MODULE, part)
-    # Window frame: jambs, a proud sill and a lintel, all timber.
-    b.block((fx0, fy0, TIMBER_Z[0]), (w["x0"], fy1, TIMBER_Z[1]), "timber", key=f"{part}/jamb.l")
-    b.block((w["x1"], fy0, TIMBER_Z[0]), (fx1, fy1, TIMBER_Z[1]), "timber", key=f"{part}/jamb.r")
+    # Window studs run from the sill beam to the top plate; the head rail is the window's head and a
+    # sill rail carries it, both continuing out to the end posts. Nothing crosses the opening.
+    b.block((fx0, SILL_TOP, TIMBER_Z[0]), (w["x0"], PLATE, TIMBER_Z[1]), "timber", key=f"{part}/stud.l")
+    b.block((w["x1"], SILL_TOP, TIMBER_Z[0]), (fx1, PLATE, TIMBER_Z[1]), "timber", key=f"{part}/stud.r")
+    for x0, x1, k in [(-hw + T, fx0, "l"), (fx1, hw - T, "r")]:  # short, so plain boxes (the triangle budget)
+        b.box((x0, RAIL[0], TIMBER_Z[0]), (x1, RAIL[1], TIMBER_Z[1]), "timber", f"{part}/rail.{k}", grain=(1, 0, 0))
+        b.box((x0, fy0, TIMBER_Z[0]), (x1, w["y0"], TIMBER_Z[1]), "timber", f"{part}/sillrail.{k}", grain=(1, 0, 0))
+    # Between the studs the proud sill and lintel are the rails.
     b.block((fx0 - 0.06, fy0, TIMBER_Z[0]), (fx1 + 0.06, w["y0"], 0.06), "timber", key=f"{part}/sill")
-    b.block((fx0 - 0.04, w["y1"], TIMBER_Z[0]), (fx1 + 0.04, fy1, 0.02), "timber", key=f"{part}/lintel")
-    # Short braces from the end posts to the lintel and sill.
-    b.beam((-hw + T, PLATE - 0.02), (fx0 - 0.02, fy1 - 0.02), 0.14, TIMBER_Z[0] + 0.01, TIMBER_Z[1] - 0.005, key=f"{part}/brace.tl")
-    b.beam((hw - T, PLATE - 0.02), (fx1 + 0.02, fy1 - 0.02), 0.14, TIMBER_Z[0] + 0.01, TIMBER_Z[1] - 0.005, key=f"{part}/brace.tr")
+    b.block((fx0 - 0.04, RAIL[0], TIMBER_Z[0]), (fx1 + 0.04, RAIL[1], 0.02), "timber", key=f"{part}/lintel")
+    # Knee braces above the head rail, clear of the window and its shutters.
+    brace(b, (-hw + T, PLATE), (fx0, RAIL[1]), f"{part}/brace.tl", (-hw + T, RAIL[1], fx0, PLATE))
+    brace(b, (hw - T, PLATE), (fx1, RAIL[1]), f"{part}/brace.tr", (fx1, RAIL[1], hw - T, PLATE))
     # Reveal: the opening's sides are lined with timber down to the glass.
     gz = -0.16
     for x0, x1 in [(w["x0"] - 0.001, w["x0"] + 0.03), (w["x1"] - 0.03, w["x1"] + 0.001)]:
@@ -446,16 +567,17 @@ def build_wall_window(part, col, root):
     b.box((w["x0"], cy - 0.03, gz - 0.01), (w["x1"], cy + 0.03, gz + 0.05), "timber", f"{part}/transom")
     # Open shutters, flat against the wall either side of the frame: boards with two battens.
     sw = 0.34
+    sy0, sy1 = fy0 + 0.02, RAIL[0] - 0.02
     for side in (-1, 1):
         x_in = fx1 + 0.02 if side > 0 else fx0 - 0.02 - sw
-        b.box((x_in, fy0 + 0.04, 0.0), (x_in + sw, fy1 - 0.02, 0.035), "wood", f"{part}/shutter{side}", grain=(0, 1, 0), skip_back=True)
-        for y in (fy0 + 0.22, fy1 - 0.22):
+        b.box((x_in, sy0, 0.0), (x_in + sw, sy1, 0.035), "wood", f"{part}/shutter{side}", grain=(0, 1, 0), skip_back=True)
+        for y in (sy0 + 0.2, sy1 - 0.2):
             b.box((x_in + 0.02, y - 0.04, 0.035), (x_in + sw - 0.02, y + 0.04, 0.055), "wood", f"{part}/batten{side}{y:.2f}", skip_back=True)
     back(b, MODULE, PLINTH, fy0)
     back_parts = [(-hw, fx0), (fx1, hw)]
     for x0, x1 in back_parts:
-        b.box((x0, fy0, -WALL_T), (x1, fy1, PLASTER_Z[0] + 0.001), "plaster", f"back{x0:.2f}", grain=(1, 0, 0))
-    b.box((-hw, fy1, -WALL_T), (hw, WALL_H, PLASTER_Z[0] + 0.001), "plaster", "back.top", grain=(1, 0, 0))
+        b.box((x0, fy0, -WALL_T), (x1, RAIL[0], PLASTER_Z[0] + 0.001), "plaster", f"back{x0:.2f}", grain=(1, 0, 0))
+    b.box((-hw, RAIL[0], -WALL_T), (hw, WALL_H, PLASTER_Z[0] + 0.001), "plaster", "back.top", grain=(1, 0, 0))
     b.finish(col, root)
     window = {"center": r6([cx, (w["y0"] + w["y1"]) / 2, gz]), "width": round(w["x1"] - w["x0"], 6),
               "height": round(w["y1"] - w["y0"], 6), "sill": w["y0"], "glazed": True,
@@ -468,7 +590,7 @@ def build_wall_door(part, col, root):
     hw = MODULE / 2
     d = DOOR
     b = Builder(f"outpost.{part}.mesh")
-    fx0, fx1, top = d["x0"] - 0.16, d["x1"] + 0.16, d["height"] + 0.2
+    fx0, fx1, top = d["x0"] - 0.16, d["x1"] + 0.16, RAIL[1]
     plinth(b, -hw, fx0, f"{part}/plinth.l")
     plinth(b, fx1, hw, f"{part}/plinth.r")
     plaster(b, -hw, fx0, PLINTH, WALL_H, f"{part}/plaster.l")
@@ -481,8 +603,12 @@ def build_wall_door(part, col, root):
         b.block((pad[0], 0.0, -WALL_T), (pad[1], 0.22, 0.03), "stone", 0.02, f"{part}/pad.{k}")
         b.block((x0, 0.22, -WALL_T + 0.01), (x1, top, TIMBER_Z[1]), "timber", key=f"{part}/doorpost.{k}")
     b.block((fx0 - 0.08, d["height"], -WALL_T + 0.01), (fx1 + 0.08, top, 0.02), "timber", key=f"{part}/head")
-    b.beam((-hw + T, PLATE - 0.02), (fx0 - 0.02, top - 0.02), 0.14, TIMBER_Z[0] + 0.01, TIMBER_Z[1] - 0.005, key=f"{part}/brace.l")
-    b.beam((hw - T, PLATE - 0.02), (fx1 + 0.02, top - 0.02), 0.14, TIMBER_Z[0] + 0.01, TIMBER_Z[1] - 0.005, key=f"{part}/brace.r")
+    rail(b, -hw + T, fx0 - 0.08, f"{part}/rail.l")
+    rail(b, fx1 + 0.08, hw - T, f"{part}/rail.r")
+    # The bays beside the door posts are too narrow to brace; two braces rise from the post heads
+    # to meet under the plate over the doorway's centre.
+    brace(b, (fx0, top), (0, PLATE), f"{part}/brace.l", (fx0, top, 0, PLATE))
+    brace(b, (fx1, top), (0, PLATE), f"{part}/brace.r", (0, top, fx1, PLATE))
     # Threshold: top flush with the ground, proud of the face.
     b.block((d["x0"] - 0.02, -0.08, -WALL_T), (d["x1"] + 0.02, 0.0, 0.22), "stone", 0.02, f"{part}/threshold", grain=(1, 0, 0))
     for x0, x1 in [(-hw, fx0), (fx1, hw)]:
@@ -553,24 +679,38 @@ def build_gable(part, col, root):
     b = Builder(f"outpost.{part}.mesh")
     top = roof_under(0) - 0.01
     inset = 0.02
-    outline = [(-HALF_SPAN + inset, WALL_H), (HALF_SPAN - inset, WALL_H), (0, top)]
+    edge = HALF_SPAN - inset
+    outline = [(-edge, WALL_H), (edge, WALL_H), (0, top)]
     b.prism(outline, PLASTER_Z[0], PLASTER_Z[1], "plaster", "gable/plaster", grain=(1, 0, 0))
     b.prism(outline, -WALL_T, PLASTER_Z[0] + 0.001, "plaster", "gable/back", grain=(1, 0, 0))
-    collar = WALL_H + (top - WALL_H) * 0.45
-    cx = HALF_SPAN * (1 - (collar - WALL_H) / (top - WALL_H))
-    b.block((-cx + 0.05, collar - 0.08, TIMBER_Z[0]), (cx - 0.05, collar + 0.08, TIMBER_Z[1]), "timber", key="gable/collar")
-    b.block((-0.08, WALL_H, TIMBER_Z[0]), (0.08, top - 0.05, TIMBER_Z[1]), "timber", key="gable/kingpost", grain=(0, 1, 0))
-    for side in (-1, 1):  # struts from the collar ends up to the king post
-        b.beam((side * (cx - 0.15), collar + 0.06), (side * 0.06, top - 0.4), 0.13, TIMBER_Z[0] + 0.01, TIMBER_Z[1] - 0.005, key=f"gable/strut{side}")
-        b.beam((side * (HALF_SPAN - 0.25), WALL_H + 0.02), (side * (cx - 0.25), collar - 0.06), 0.13, TIMBER_Z[0] + 0.01, TIMBER_Z[1] - 0.005, key=f"gable/post{side}")
-    # A small louvred vent above the collar.
-    vy = (collar + top) / 2 - 0.05
-    b.box((-0.42, vy - 0.18, -0.12), (-0.12, vy + 0.18, -0.03), "soot", "gable/vent.l")
-    b.box((0.12, vy - 0.18, -0.12), (0.42, vy + 0.18, -0.03), "soot", "gable/vent.r")
-    for k in range(3):
-        y = vy - 0.12 + k * 0.12
-        for x0 in (-0.42, 0.12):
-            b.box((x0, y - 0.025, -0.06), (x0 + 0.3, y + 0.025, -0.01), "wood", f"gable/louvre{x0}{k}")
+    # Rafters follow both roof edges from the plate to the apex, so every gable timber ends on one.
+    w = 0.16
+    rise = top - WALL_H
+    across = w / math.sin(math.atan2(rise, edge))     # a rafter's horizontal width
+    def inner(y):
+        """x of the rafters' inner edge at height y."""
+        return edge * (1 - (y - WALL_H) / rise) - across
+    for side in (-1, 1):
+        ring = [(side * edge, WALL_H), (0, top), (0, top - rise * across / edge), (side * (edge - across), WALL_H)]
+        if side < 0:
+            ring.reverse()
+        b.prism(ring, TIMBER_Z[0] + 0.005, TIMBER_Z[1] - 0.002, "timber", f"gable/rafter{side}", grain=(-side * edge, rise, 0))
+    # A collar cut to the rafters; two posts under it stand over the gable wall's module joints, clear of
+    # the window below; the king post rises from the collar to the apex.
+    c0, c1 = WALL_H + rise * 0.4 - 0.08, WALL_H + rise * 0.4 + 0.08
+    b.prism([(-inner(c0), c0), (inner(c0), c0), (inner(c1), c1), (-inner(c1), c1)], TIMBER_Z[0], TIMBER_Z[1], "timber", "gable/collar", grain=(1, 0, 0))
+    for x in (-1.0, 1.0):
+        b.block((x - 0.08, WALL_H, TIMBER_Z[0]), (x + 0.08, c0, TIMBER_Z[1]), "timber", key=f"gable/post{x:.0f}", grain=(0, 1, 0))
+    y_meet = WALL_H + rise * (1 - (0.08 + across) / edge)   # where the king post's sides reach the rafters
+    b.prism([(-0.08, c1), (0.08, c1), (0.08, y_meet), (0, top - rise * across / edge), (-0.08, y_meet)],
+            TIMBER_Z[0], TIMBER_Z[1], "timber", "gable/kingpost", grain=(0, 1, 0))
+    # A small louvred vent each side of the king post, above the collar.
+    vy = c1 + 0.2
+    for x0 in (-0.4, 0.14):
+        b.box((x0, vy - 0.14, -0.12), (x0 + 0.26, vy + 0.14, -0.03), "soot", f"gable/vent{x0}")
+        for k in range(3):
+            y = vy - 0.09 + k * 0.09
+            b.box((x0, y - 0.022, -0.06), (x0 + 0.26, y + 0.022, -0.01), "wood", f"gable/louvre{x0}{k}")
     b.finish(col, root)
     return {"span": SPAN, "collisionProxies": [proxy("gable", "solid", (-HALF_SPAN, WALL_H, -WALL_T), (HALF_SPAN, top, 0))]}
 
@@ -600,9 +740,11 @@ def roof_slope(b, x0, x1, roof, key, verge_end=None):
                    point(x1, s1, lift + tilt - 0.035, side), point(x0, s1, lift + tilt - 0.035, side)]
             polys = [[0, 1, 2, 3], [7, 6, 5, 4], [3, 2, 6, 7], [0, 3, 7, 4], [1, 5, 6, 2]]
             # One texture row (a quarter of the tile) per course, so every course shows whole shingles
-            # with their butts at its lower edge; alternate courses shift by half a tile.
+            # with their butts at its lower edge. Each course starts at its own offset, so joints break
+            # between courses and worn textures' missing units do not line up in a grid.
             v0, v1 = 1 - (k % 4) / 4, 1 - (k % 4 + 1) / 4 + 0.004
-            u0, u1 = x0 + 0.5 * (k % 2), x1 + 0.5 * (k % 2)
+            shift = 0.5 * (k % 2) + 0.4 * rnd(key, "course", side, k)
+            u0, u1 = x0 + shift, x1 + shift
             uvs = [(u0, v0), (u1, v0), (u1, v1), (u0, v1), (u0, v0), (u1, v0), (u1, v1 + 0.02), (u0, v1 + 0.02)]
             made = b.faces(pts, polys + [[1, 0, 4, 5]], roof, f"{key}/course{side}{k}", uvs=uvs)
             bmesh.ops.recalc_face_normals(b.bm, faces=made)
@@ -775,12 +917,17 @@ def compositions():
 
 # ---------------------------------------------------------------- entry points
 
-def build(part, collection, location=(0, 0, 0), roof="shingle", yaw=0.0):
-    """Build one module under an empty root ``outpost.<part>`` at ``location`` (glTF axes)."""
+def build(part, collection, location=(0, 0, 0), roof="shingle", yaw=0.0, wear=0.0):
+    """Build one module under an empty root ``outpost.<part>`` at ``location`` (glTF axes), aged by
+    ``wear`` in [0, 1]: 0 is the pristine kit, ``WEAR_PRESETS`` names the bundle's worn variants."""
+    global WEAR
     if part not in BUILDERS:
         raise ValueError(f"outpost part must be one of {', '.join(PARTS)}")
     if roof not in ROOFS:
         raise ValueError(f"outpost roof must be one of {', '.join(ROOFS)}")
+    if not 0 <= wear <= 1:
+        raise ValueError("outpost wear must be in [0, 1]")
+    WEAR = float(wear)
     root = bpy.data.objects.new(f"outpost.{part}", None)
     root.empty_display_size = 0.3
     collection.objects.link(root)
@@ -791,23 +938,26 @@ def build(part, collection, location=(0, 0, 0), roof="shingle", yaw=0.0):
     return root, info
 
 
-def build_composition(name, collection, location=(0, 0, 0)):
+def build_composition(name, collection, location=(0, 0, 0), wear=0.0):
     """Lay a composition out in a live session (review only)."""
     roots = []
     for item in compositions()[name]["items"]:
         part = item["key"].split(".")[-1]
         t = item["translation"]
         roof = item["variant"] if item["variant"] in ROOFS else "shingle"
-        root, _ = build(part, collection, (t[0] + location[0], t[1] + location[1], t[2] + location[2]), roof, item["yawDegrees"])
+        root, _ = build(part, collection, (t[0] + location[0], t[1] + location[1], t[2] + location[2]), roof, item["yawDegrees"], wear)
         roots.append(root)
     return roots
 
 
 def validate(arguments, inputs):
     if not isinstance(arguments, dict) or arguments.get("schemaVersion") != 1 or "part" not in arguments:
-        raise ValueError("outpost arguments must be {schemaVersion: 1, part, roof?}")
-    if set(arguments) - {"schemaVersion", "part", "roof"}:
-        raise ValueError("outpost arguments must be {schemaVersion: 1, part, roof?}")
+        raise ValueError("outpost arguments must be {schemaVersion: 1, part, roof?, wear?}")
+    if set(arguments) - {"schemaVersion", "part", "roof", "wear"}:
+        raise ValueError("outpost arguments must be {schemaVersion: 1, part, roof?, wear?}")
+    wear = arguments.get("wear", 0)
+    if isinstance(wear, bool) or not isinstance(wear, (int, float)) or not 0 <= wear <= 1:
+        raise ValueError("outpost wear must be a number in [0, 1]")
     if arguments["part"] not in PARTS:
         raise ValueError(f"outpost part must be one of {', '.join(PARTS)}")
     if "roof" in arguments and (arguments["part"] not in ROOFED or arguments["roof"] not in ROOFS):
@@ -823,7 +973,8 @@ def generate(output_path, arguments, inputs):
     roof = arguments.get("roof", "shingle")
     bpy.ops.object.select_all(action="SELECT")
     bpy.ops.object.delete(use_global=False)
-    root, info = build(part, bpy.context.scene.collection, roof=roof)
+    wear = float(arguments.get("wear", 0))
+    root, info = build(part, bpy.context.scene.collection, roof=roof, wear=wear)
     objects = [root] + list(root.children_recursive)
     bpy.ops.object.select_all(action="DESELECT")
     for obj in objects:
@@ -838,7 +989,7 @@ def generate(output_path, arguments, inputs):
         export_yup=True, export_texcoords=True, export_normals=True, export_tangents=True,
         export_vertex_color="NONE", export_animations=False, export_skins=False, export_morph=False,
         export_cameras=False, export_lights=False, export_extras=False)
-    result = {"recipe": "outpost-kit-v1", "part": part, "roofMaterial": roof if part in ROOFED else "none", "unit": "meter",
+    result = {"recipe": "outpost-kit-v1", "part": part, "roofMaterial": roof if part in ROOFED else "none", "wear": wear, "unit": "meter",
               "axes": "right-handed-y-up", "origin": "module-base-center", "facing": "+Z", "triangleCount": triangles,
               "bounds": bounds, **info}
     if part == "wall":

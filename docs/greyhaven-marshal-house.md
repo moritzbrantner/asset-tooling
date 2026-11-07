@@ -20,7 +20,7 @@ In a live Blender (for example through the Blender MCP), run the three recipes' 
 
 - **Units and axes:** metres, +Y up, right-handed. The front, with the door, faces +Z.
 - **Origin:** the footprint's base centre. All parts share this frame. Place the origin at collider 103's centre, (-24, 0, 36) m, turned so that +Z faces the way the house's door should face.
-- **Footprint:** the walls stand on the 8 × 6 m footprint (outer faces at x = ±4 and z = ±3, 0.32 m thick, 3.2 m high). The eaves overhang 0.35 m, the verges 0.3 m, and the chimney stands outside the +X gable. The ridge is at 5.12 m and the chimney top at 6.0 m, so they rise above collider 103's 5 m.
+- **Footprint:** the walls stand on the 8 × 6 m footprint (outer faces at x = ±4 and z = ±3, 0.32 m thick, 3.6 m high). The eaves overhang 0.35 m, the verges 0.3 m, and the chimney stands outside the +X gable. The ridge is at 5.52 m and the chimney top at 6.4 m, so they rise above collider 103's 5 m.
 - **Room:** 7.36 × 5.36 m, x −3.68..3.68 and z −2.68..2.68. The floor's top is at 0.02 m and the ceiling's underside at 2.95 m.
 
 ## Bundle

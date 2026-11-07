@@ -13,7 +13,7 @@ import { verifyAssetBundleTar } from "../../../src/asset-bundle-pack.js";
 import { GLTF_RESOURCES_BUNDLE_PROFILE, readAssetBundleAttachment, verifyAssetBundle } from "../../../src/asset-bundle.js";
 import {
   OUTPOST_DESCRIPTOR_ATTACHMENT, OUTPOST_DESCRIPTOR_SCHEMA, OUTPOST_PARTS, OUTPOST_RELEASE, OUTPOST_ROOF_PARTS, OUTPOST_TRIANGLE_BUDGET,
-  buildOutpostKit, createOutpostAssetSpec, outpostKey,
+  buildOutpostKit, createOutpostAssetSpec, outpostKey, outpostRuns,
 } from "../../../scripts/build-outpost-kit.ts";
 
 type Box = { min: number[]; max: number[] };
@@ -76,6 +76,9 @@ test("the outpost spec runs the packaged recipe with exactly one module and an o
   assert.deepEqual(spec.parameters, { blenderVersion: "5.2.2", arguments: { schemaVersion: 1, part: "roof", roof: "slate" } });
   assert.equal(spec.assetId, "outpost.kit.roof");
   assert.deepEqual(createOutpostAssetSpec({ part: "wall", scriptSha256: "a".repeat(64), commonSha256: "d".repeat(64), blenderVersion: "5.2.2" }).parameters.arguments, { schemaVersion: 1, part: "wall" });
+  assert.deepEqual(createOutpostAssetSpec({ part: "wall", wear: 0.5, scriptSha256: "a".repeat(64), commonSha256: "d".repeat(64), blenderVersion: "5.2.2" }).parameters.arguments, { schemaVersion: 1, part: "wall", wear: 0.5 });
+  assert.deepEqual(outpostRuns("wall").map((run) => run.variant), ["default", "weathered", "worn"]);
+  assert.deepEqual(outpostRuns("roof").map((run) => run.variant), ["default", "weathered", "worn", "slate", "slate-weathered", "slate-worn"]);
   assert.equal(OUTPOST_PARTS.length, 11);
   assert.equal(OUTPOST_RELEASE, "outpost-kit", "one rolling release, never numbered");
 });
@@ -97,26 +100,29 @@ test("the outpost recipe builds a verified kit whose modules snap to the grid, k
     await verifyAssetBundleTar(await readFile(built.tar), { sha256: built.tarSha256, ref: built.exportRef });
     const { manifest } = await verifyAssetBundle(built.bundleDir, built.exportRef, { profile: GLTF_RESOURCES_BUNDLE_PROFILE });
     const entries = manifest.assets.map((entry) => `${entry.key}#${entry.variant}`).sort();
-    const expected = [...OUTPOST_PARTS.map((part) => `${outpostKey(part)}#default`), ...OUTPOST_ROOF_PARTS.map((part) => `${outpostKey(part)}#slate`)].sort();
+    const expected = OUTPOST_PARTS.flatMap((part) => outpostRuns(part).map((run) => `${outpostKey(part)}#${run.variant}`)).sort();
+    assert.equal(expected.length, 11 * 3 + 3 * 3);
     assert.deepEqual(entries, expected);
     const d = JSON.parse((await readAssetBundleAttachment(built.bundleDir, manifest, "outpost.kit.wall", "default", OUTPOST_DESCRIPTOR_ATTACHMENT)).toString("utf8"));
     const schema = JSON.parse(await readFile(schemaUrl, "utf8"));
     assert.deepEqual(conforms(schema, d, schema), []);
     const asset = Object.fromEntries(d.assets.map((a: any) => [a.role, a]));
 
-    // Plaster, stone, wood, shingle and slate: colour, normal and ORM each, stored once.
+    // Plaster, stone, wood, shingle and slate: colour, normal and ORM each, stored once. Each wear level
+    // adds its own maps where wear changes them: all three of plaster (fallen patches), shingle and slate
+    // (missing units), stone's colour and ORM (moss) and wood's colour.
     const pngs = (await readdir(path.join(built.bundleDir, "resources"))).filter((name) => name.endsWith(".png"));
-    assert.equal(pngs.length, 15);
+    assert.equal(pngs.length, 15 + 2 * (3 + 3 + 3 + 2 + 1));
 
     // Budgets for the Greyhaven camera.
     for (const part of OUTPOST_PARTS) assert.ok(asset[part].triangles <= OUTPOST_TRIANGLE_BUDGET[part], `${part}: ${asset[part].triangles} triangles`);
 
-    // Wall modules fill their grid width, stand 3.2 m high and lie behind the outer face (plinth and trim
+    // Wall modules fill their grid width, stand 3.6 m high and lie behind the outer face (plinth and trim
     // stand a little proud of it).
     for (const [part, width] of [["wall", 2], ["wall-half", 1], ["wall-window", 2], ["wall-door", 2]] as const) {
       const a = asset[part];
       assert.ok(Math.abs(a.bounds.min[0] + width / 2) < 1e-6 && Math.abs(a.bounds.max[0] - width / 2) < 1e-6, `${part} spans its module`);
-      assert.ok(Math.abs(a.bounds.max[1] - 3.2) < 1e-6 || part === "wall-door", `${part} is 3.2 m high`);
+      assert.ok(Math.abs(a.bounds.max[1] - 3.6) < 1e-6 || part === "wall-door", `${part} is 3.6 m high`);
       assert.ok(a.bounds.min[2] >= -0.32 - 1e-6, `${part} stays inside the wall thickness`);
     }
 
@@ -137,7 +143,7 @@ test("the outpost recipe builds a verified kit whose modules snap to the grid, k
       assert.deepEqual(asset[part].variants.map((v: any) => v.material), ["shingle", "slate"]);
       assert.equal(new Set(asset[part].variants.map((v: any) => v.triangles)).size, 1);
     }
-    assert.ok(asset.roof.roof.ridgeTop > 5 && asset.roof.roof.ridgeTop < 5.3);
+    assert.ok(asset.roof.roof.ridgeTop > 5.4 && asset.roof.roof.ridgeTop < 5.7);
     assert.ok(asset.chimney.bounds.max[1] > asset.roof.roof.ridgeTop + 0.5, "the chimney clears the ridge");
 
     // Compositions: every item is a kit entry; the walls of each side lie on the footprint's edge and fill it.

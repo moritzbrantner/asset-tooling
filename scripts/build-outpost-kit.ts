@@ -22,6 +22,12 @@ export type OutpostPart = (typeof OUTPOST_PARTS)[number];
 /** Roof modules also ship a `slate` variant; their `default` is shingle. */
 export const OUTPOST_ROOF_PARTS: readonly OutpostPart[] = ["roof", "roof-half", "roof-verge"];
 export const OUTPOST_ROOF_VARIANTS = { default: "shingle", slate: "slate" } as const;
+/**
+ * Every module also ships aged variants for remixing (the recipe takes any `wear` in [0, 1]): grime, greyed
+ * timber, moss, spalled plaster, sagging shutters and missing shingles. Roof modules combine them with
+ * slate as `slate-weathered` and `slate-worn`. The v1 descriptor lists only the pristine roof variants.
+ */
+export const OUTPOST_WEAR_VARIANTS = { weathered: 0.5, worn: 1 } as const;
 export const OUTPOST_KEY_PREFIX = "outpost.kit";
 export const OUTPOST_VARIANT = "default";
 export const OUTPOST_DESCRIPTOR_SCHEMA = "outpost-kit-descriptor-v1";
@@ -30,7 +36,7 @@ export const OUTPOST_DESCRIPTOR_ATTACHMENT = "outpost-descriptor";
 export const OUTPOST_RELEASE = "outpost-kit";
 export const OUTPOST_TAR_NAME = "outpost.kit.tar";
 export const OUTPOST_GRID = {
-  module: 2, halfModule: 1, wallHeight: 3.2, wallThickness: 0.32, plinthHeight: 0.5,
+  module: 2, halfModule: 1, wallHeight: 3.6, wallThickness: 0.32, plinthHeight: 0.5,
   span: 6, pitchDegrees: 30, eaveOverhang: 0.35, vergeOverhang: 0.3,
 } as const;
 /** Triangle ceilings per module, for the Greyhaven camera (12 m, 0.42 rad pitch, 50 degree fov). */
@@ -47,30 +53,37 @@ const EXTRAS = ["module", "window", "doorway", "mount", "hinge", "leafBounds", "
 
 export const outpostKey = (part: OutpostPart) => `${OUTPOST_KEY_PREFIX}.${part}`;
 
-export function createOutpostAssetSpec({ part, roof, scriptSha256, commonSha256, blenderVersion }: { part: OutpostPart; roof?: "shingle" | "slate" | undefined; scriptSha256: string; commonSha256: string; blenderVersion: string }) {
+export function createOutpostAssetSpec({ part, roof, wear, scriptSha256, commonSha256, blenderVersion }: { part: OutpostPart; roof?: "shingle" | "slate" | undefined; wear?: number | undefined; scriptSha256: string; commonSha256: string; blenderVersion: string }) {
   return blenderScriptSpec({
     assetId: outpostKey(part), inputs: { script: { path: "outpost.py", sha256: scriptSha256 }, common: { path: "kit_common.py", sha256: commonSha256 } },
-    blenderVersion, arguments: { schemaVersion: 1, part, ...(roof ? { roof } : {}) }, output: "outpost.glb",
+    blenderVersion, arguments: { schemaVersion: 1, part, ...(roof ? { roof } : {}), ...(wear ? { wear } : {}) }, output: "outpost.glb",
   });
 }
 
-type Built = KitPart & { part: OutpostPart; variant: string };
+type Run = { part: OutpostPart; variant: string; roof?: "slate"; wear?: number };
+type Built = KitPart & Run;
+
+/** Every bundle variant of one module: pristine and aged, and for roof modules each also in slate. */
+export function outpostRuns(part: OutpostPart): Run[] {
+  const roofs: { prefix: string; roof?: "slate" }[] = [{ prefix: "" }, ...(OUTPOST_ROOF_PARTS.includes(part) ? [{ prefix: "slate", roof: "slate" as const }] : [])];
+  return roofs.flatMap(({ prefix, roof }) => [
+    { part, variant: prefix || OUTPOST_VARIANT, ...(roof ? { roof } : {}) },
+    ...Object.entries(OUTPOST_WEAR_VARIANTS).map(([name, wear]) => ({ part, variant: prefix ? `${prefix}-${name}` : name, ...(roof ? { roof } : {}), wear })),
+  ]);
+}
 
 export async function buildOutpostKit({ outDir, log = () => {} }: { outDir: string; log?: (line: string) => void }) {
   const root = path.resolve(outDir);
   await mkdir(root, { recursive: true });
   const source = await readBlenderRecipeSource("outpost.py");
   const common = await readBlenderRecipeSource("kit_common.py");
-  const runs: { part: OutpostPart; variant: string; roof?: "slate" }[] = OUTPOST_PARTS.flatMap((part) => [
-    { part, variant: OUTPOST_VARIANT },
-    ...(OUTPOST_ROOF_PARTS.includes(part) ? [{ part, variant: "slate", roof: "slate" as const }] : []),
-  ]);
+  const runs = OUTPOST_PARTS.flatMap(outpostRuns);
   const built: Built[] = [];
   for (const run of runs) {
     log(`generate ${run.part} ${run.variant} (external.blender.script@1 outpost recipe, scene.import.gltf@2)`);
     built.push({ ...run, ...await buildKitPart(root, {
       workspace: path.join(root, "outpost", `${run.part}.${run.variant}`), files: { "outpost.py": source.bytes, "kit_common.py": common.bytes },
-      spec: createOutpostAssetSpec({ part: run.part, roof: run.roof, scriptSha256: source.sha256, commonSha256: common.sha256, blenderVersion: source.blenderVersion }),
+      spec: createOutpostAssetSpec({ part: run.part, roof: run.roof, wear: run.wear, scriptSha256: source.sha256, commonSha256: common.sha256, blenderVersion: source.blenderVersion }),
     }) });
   }
   const main = (part: OutpostPart) => built.find((b) => b.part === part && b.variant === OUTPOST_VARIANT)!;
@@ -79,7 +92,7 @@ export async function buildOutpostKit({ outDir, log = () => {} }: { outDir: stri
   const assets = OUTPOST_PARTS.map((part) => {
     const entry = kitEntry({ key: outpostKey(part), role: part, fields: { category: CATEGORY[part], parentName: `outpost.${part}` }, extras: EXTRAS, ...main(part) });
     if (OUTPOST_ROOF_PARTS.includes(part)) {
-      entry.variants = built.filter((b) => b.part === part).map((b) => ({ variant: b.variant, material: b.observations.roofMaterial, triangles: triangles(b.document) }));
+      entry.variants = built.filter((b) => b.part === part && !b.wear).map((b) => ({ variant: b.variant, material: b.observations.roofMaterial, triangles: triangles(b.document) }));
     }
     return entry;
   }).sort(byKey);
