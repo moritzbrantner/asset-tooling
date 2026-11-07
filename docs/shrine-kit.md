@@ -60,8 +60,12 @@ The numbers are from the build of 2026-10-24; the descriptor carries the measure
 - **Algae and silt:** vertex colours (`COLOR_0`, which multiplies the base colour). Teal-green algae grows on upward faces in noise patches. Ochre silt gathers towards the base of every module and on low upward faces.
 - **Carving:** the frieze is a 1.5 cm grid displaced by a cut pattern: a raised border and fillet, filled waves with a cut curl, fish with a forked tail, a cut eye and a gill line. The cut ground is darkened so that the carving reads at a distance.
 - **Plain colours:** mortar, the inlay, weed, shell, barnacle and the light shaft use plain colours. The inlay uses only `emissiveFactor`, because `scene.import.gltf@2` accepts no extensions. Weed and the light shaft are double-sided. The light shaft is alpha-blended at 6 % opacity.
-- **Bundle:** six PNGs in all, each stored once; the tar is about 8.2 MB.
+- **Bundle:** six KTX2 textures in all, each stored once; the tar is about 6.4 MB (see [Textures on the GPU](#textures-on-the-gpu)).
 - **Determinism:** there is no randomness. Variation comes from SHA-256 of fixed keys and from Blender's fixed noise; the textures come from numpy's legacy `RandomState`.
+
+### Textures on the GPU
+
+Every texture ships as KTX2 (Basis Universal, `KHR_texture_basisu`, required, no PNG or JPEG fallback), with a full mip chain and encoded once per image by the shared kit pass (`ktx2Asset`, [`src/kit-bundle.ts`](../src/kit-bundle.ts), with KTX-Software's `ktx` CLI): base colour ETC1S sRGB, ORM and other data ETC1S linear, normals UASTC. A GPU transcodes Basis to a block format of at most 1 byte per texel, a quarter of RGBA8. Consumers need a Basis transcoder (in three.js, `KTX2Loader` registered with the `GLTFLoader`); a client without one cannot read the bundle. The six textures are about 1.7 MB; the tar went from 8.2 MB (six PNGs) to 6.4 MB.
 
 ## Conventions
 
@@ -99,7 +103,7 @@ The bundle is distributed as the rolling `shrine-kit` GitHub release, whose asse
 
 - the tar and the bundle verify, and there are fourteen entries;
 - the descriptor conforms to the schema;
-- there are exactly six PNG resources;
+- there are exactly six resources, all KTX2;
 - the wall and the arch fill their 4 m module, and the floor's top is y = 0;
 - no vertex and no proxy reaches into the arch's round-headed opening;
 - no vertex and no proxy of a cave module reaches into its passage, and every open end has the tunnel's cross-section;

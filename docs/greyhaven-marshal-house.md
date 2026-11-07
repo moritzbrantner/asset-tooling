@@ -38,6 +38,10 @@ Every entry has variant `default`.
 
 The gables are in the `roof` entry, so hiding `roof` and `ceiling` opens the whole room to the camera. The shell keeps the tall chimney, which stands outside the +X wall.
 
+### Textures on the GPU
+
+Every texture ships as KTX2 (Basis Universal, `KHR_texture_basisu`, required, no PNG or JPEG fallback), with a full mip chain and encoded once per image by the shared kit pass (`ktx2Asset`, [`src/kit-bundle.ts`](../src/kit-bundle.ts), with KTX-Software's `ktx` CLI): base colour ETC1S sRGB, ORM and other data ETC1S linear, normals UASTC. A GPU transcodes Basis to a block format of at most 1 byte per texel, a quarter of RGBA8. Consumers need a Basis transcoder (in three.js, `KTX2Loader` registered with the `GLTFLoader`); a client without one cannot read the bundle. The 12 textures are about 1.1 MB; the tar went from 3.8 MB (12 PNGs) to 2.8 MB.
+
 ### Furniture
 
 | Node | Where | What |
