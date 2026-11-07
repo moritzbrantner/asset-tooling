@@ -2,6 +2,8 @@
 
 Reproducible, traceable tooling for generating and processing game and application assets.
 
+Visual authoring starts from the existing [style reference index](docs/style-references/README.md) and the consuming game's actual camera, with technical validity and owner visual approval kept separate.
+
 The repository treats generated and processed assets as build artifacts. Generation intent, generator/model identity, declared dependency bytes, execution environment, outputs, processing observations, and replay evidence are recorded so reproducibility can be tested instead of assumed.
 
 The [Greyhaven nature bundle](docs/greyhaven-nature-bundle.md) delivers game-resolution broadleaf, conifer, rock and bush families for the MMORPG.
