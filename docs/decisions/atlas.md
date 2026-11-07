@@ -143,6 +143,12 @@ Use these kits as **inspiration for our own original environment assets in the f
 
 Environment and prop style follows the consuming game, as Decision 1.1.4 does for characters: **cartoony** environments and props for **My Farm**, and the **humanlike-world** direction for **arpg and mmorpg**. The Quaternius MegaKits stay the Greyhaven starting point (Decision 3.1.1) and the inspiration for original scripted replacements (Decision 1.1.7).
 
+#### Decision 3.1.3 — Building kits: geometry authored in Blender, textures and wear in Python
+
+**Approved by owner:** 2026-11-07 (live session). **Narrows Decision 1.1.7** for modular building kits, starting with the Outpost kit; other families keep their scripted recipes.
+
+A building kit's **geometry is a hand-editable `.blend`** (first-party, under `assets/authored/` in Git LFS, pinned by SHA-256 in the builds that read it), so its frame can be shaped directly in Blender (Decision 5.1.6). Its **textures and wear stay in the Python recipe**: generated, parametric and remixable, with wear changing **textures only** (grime, moss, greyed timber, plaster fallen to wattle and daub, missing shingles as dark patches) over the shared geometry, so every wear variant reuses the pristine meshes. The kit's export checks (grid, openings, budgets, compositions) keep guarding the hand-edited geometry. Third-party payloads stay in the catalog under `assets/canonical/`; first-party authored sources do not join it.
+
 ## 4. Production-quality 2D game icons
 
 ### 4.1. Generated, reviewed ability artwork

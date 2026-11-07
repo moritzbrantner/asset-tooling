@@ -1,7 +1,7 @@
 // Build Marshal Elden Greywatch's furnished house (#413, docs/greyhaven-marshal-house.md) from the scripted
 // Blender recipe adapters/blender/marshal_house.py, which reuses the Outpost kit recipe
-// (adapters/blender/outpost.py) and the settlement props (adapters/blender/settlement_props.py) as its declared
-// Python inputs `outpost` and `settlement`:
+// (adapters/blender/outpost.py) with its authored geometry (assets/authored/outpost-kit.blend) and the settlement
+// props (adapters/blender/settlement_props.py) as its declared inputs `outpost`, `kit` and `settlement`:
 //   ASSET_TOOLING_BLENDER=<blender 5.2.2> bun scripts/build-greyhaven-marshal-house.ts --out <directory>
 // Each part (shell, ceiling, roof, door, furniture, collision) is one external.blender.script@1 run, imported
 // through scene.import.gltf@2. The house descriptor is measured on the imported GLBs. <directory> becomes the
@@ -12,7 +12,8 @@ import { mkdir } from "node:fs/promises";
 import { GLTF_RESOURCES_BUNDLE_PROFILE } from "../src/asset-bundle.js";
 import { storeAssetObject } from "../src/asset-store.js";
 import { blenderScriptSpec } from "../src/blender-script-spec.js";
-import { readBlenderRecipeSource } from "../src/blender-recipe-source.js";
+import { readAuthoredBlenderSource, readBlenderRecipeSource } from "../src/blender-recipe-source.js";
+import { OUTPOST_GEOMETRY } from "./build-outpost-kit.ts";
 import { canonicalJson } from "../src/canonical.js";
 import { buildKitPart, documentBounds as bounds, emptyTranslation, exportKitBundle, round, round3, runKitCli, triangles, type KitPart, type Vec3 } from "../src/kit-bundle.js";
 
@@ -32,14 +33,15 @@ export const HOUSE_DOOR_OPEN_ANGLE = Math.PI / 2;
 
 export const houseKey = (part: HousePart) => `${HOUSE_KEY_PREFIX}.${part}`;
 
-export function createHouseAssetSpec({ part, scriptSha256, outpostSha256, settlementSha256, commonSha256, blenderVersion }: {
-  part: HousePart; scriptSha256: string; outpostSha256: string; settlementSha256: string; commonSha256: string; blenderVersion: string;
+export function createHouseAssetSpec({ part, scriptSha256, outpostSha256, kitSha256, settlementSha256, commonSha256, blenderVersion }: {
+  part: HousePart; scriptSha256: string; outpostSha256: string; kitSha256: string; settlementSha256: string; commonSha256: string; blenderVersion: string;
 }) {
   return blenderScriptSpec({
     assetId: houseKey(part),
     inputs: {
       script: { path: "marshal_house.py", sha256: scriptSha256 },
       outpost: { path: "outpost.py", sha256: outpostSha256 },
+      kit: { path: "outpost-kit.blend", sha256: kitSha256 },
       settlement: { path: "settlement_props.py", sha256: settlementSha256 },
       common: { path: "kit_common.py", sha256: commonSha256 },
     },
@@ -68,13 +70,14 @@ export async function buildGreyhavenMarshalHouse({ outDir, log = () => {} }: { o
   const outpost = await readBlenderRecipeSource("outpost.py");
   const settlement = await readBlenderRecipeSource("settlement_props.py");
   const common = await readBlenderRecipeSource("kit_common.py");
+  const kit = await readAuthoredBlenderSource(OUTPOST_GEOMETRY);
   const parts = {} as Record<HousePart, KitPart>;
   for (const part of HOUSE_PARTS) {
     log(`generate ${part} (external.blender.script@1 marshal-house recipe, scene.import.gltf@2)`);
     parts[part] = await buildKitPart(root, {
       workspace: path.join(root, "marshal-house", part),
-      files: { "marshal_house.py": source.bytes, "outpost.py": outpost.bytes, "settlement_props.py": settlement.bytes, "kit_common.py": common.bytes },
-      spec: createHouseAssetSpec({ part, scriptSha256: source.sha256, outpostSha256: outpost.sha256, settlementSha256: settlement.sha256, commonSha256: common.sha256, blenderVersion: source.blenderVersion }),
+      files: { "marshal_house.py": source.bytes, "outpost.py": outpost.bytes, "outpost-kit.blend": kit.bytes, "settlement_props.py": settlement.bytes, "kit_common.py": common.bytes },
+      spec: createHouseAssetSpec({ part, scriptSha256: source.sha256, outpostSha256: outpost.sha256, kitSha256: kit.sha256, settlementSha256: settlement.sha256, commonSha256: common.sha256, blenderVersion: source.blenderVersion }),
     });
   }
 
@@ -122,7 +125,7 @@ export async function buildGreyhavenMarshalHouse({ outDir, log = () => {} }: { o
     lineage: {
       recipe: {
         script: "adapters/blender/marshal_house.py", sha256: source.sha256, blenderVersion: source.blenderVersion,
-        outpost: { script: "adapters/blender/outpost.py", sha256: outpost.sha256 },
+        outpost: { script: "adapters/blender/outpost.py", sha256: outpost.sha256, geometry: { file: OUTPOST_GEOMETRY, sha256: kit.sha256 } },
         common: { script: "adapters/blender/kit_common.py", sha256: common.sha256 },
         settlement: { script: "adapters/blender/settlement_props.py", sha256: settlement.sha256 },
       },
