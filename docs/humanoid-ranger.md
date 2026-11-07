@@ -415,6 +415,16 @@ Its tar goes to the rolling `humanoid-ranger-female` release.
 
 Both figures are rolling releases that CI builds (#399): merging a change to their sources starts the `Publish rolling releases` workflow, which runs one job per figure ([Publishing a rolling release](../README.md#publishing-a-rolling-release)). Republish one by hand with `gh workflow run publish-releases.yml -f release=humanoid-ranger-male` (or `-female`). Each job checks out the pinned 3d-lab processor, installs Rust, Blender and KTX-Software, and runs [`scripts/build-ranger-release.ts`](../scripts/build-ranger-release.ts), which builds the bundle and writes the per-entry downloads ([`pack-downloads.ts`](../scripts/pack-downloads.ts)) next to the tar. The Ranger jobs have a 240-minute timeout instead of the default 60: a local build of one figure takes about 1.5 hours, and both figures build in parallel.
 
+The per-entry download index already records estimated draw calls, triangles, material count, compressed texture memory, RGBA fallback memory and transferred bytes. Compare a rebuilt index with the last accepted one without rerunning Blender or requesting online services:
+
+```bash
+bun scripts/report-download-costs.ts \
+  --index /absolute/path/to/current/humanoid-ranger-male.index.json \
+  --baseline /absolute/path/to/accepted/humanoid-ranger-male.index.json
+```
+
+Omit `--baseline` for a single-build cost inventory. The read-only JSON report identifies the largest entries and exact per-variant differences, including added/removed variants; it never sums alternative LODs or shared textures into a fictitious simultaneous-load budget. These are **static estimates**, not real draw-call submissions, decoded VRAM use or frame time. Game owners must supply actual browser/native captures and budgets under [#126](https://github.com/moritzbrantner/asset-tooling/issues/126) before changing content or rejecting a candidate on performance grounds.
+
 To build locally:
 
 ```sh
