@@ -155,6 +155,7 @@ def roof_maps(size, seed, base, widths, rows, gap, strength, wear=0.0):
 
 
 MISSING_SHARE = 0.07     # of the roof units, missing at full wear
+UNIT_IDS = 64            # roof unit ids a wear mask can hold
 # Roof textures: seed, base colour, unit widths, courses, joint falloff and normal strength.
 ROOF_MAPS = {
     "shingle": (811, (0.5, 0.42, 0.35), (0.11, 0.22), 4, 0.012, 4.0),
@@ -258,8 +259,9 @@ def wear_mask(name):
     """The wear of texture ``name`` as data for a shader that ages the pristine maps at any ``wear`` in
     [0, 1] (docs/outpost-kit.md#wear-masks), so every wear level shares one material. Linear RGB in [0, 1]:
 
-    - R, reveal: the wear from which the pixel shows what lies beneath (plaster fallen to wattle and daub,
-      a roof unit missing); 1 never.
+    - R, plaster: the wear from which the pixel shows the wattle and daub beneath; 1 never. Roofs: the id of
+      the pixel's roof unit, ``(k + 0.5) / UNIT_IDS``, so a shader can drop each occurrence of a unit at its
+      own random wear. Wood and stone: 1.
     - G, grime: how much full wear darkens the pixel (rain streaks and stains, grime).
     - B, plaster: the wattle and daub beneath, from its dark rods (0) to its pale clay (1). Stone and roofs:
       the wear from which moss settles; 1 never. Wood: 1.
@@ -279,8 +281,12 @@ def wear_mask(name):
     else:
         if name in ROOF_MAPS:
             seed, _, widths, rows, gap, _ = ROOF_MAPS[name]
+            # Not a threshold: the tile repeats every metre, so a baked order would repeat its holes in a grid.
+            # The unit's id lets a shader decide each occurrence of a unit on its own.
             rank, count = unit_rank(stones(size, rows, seed, widths, gap, horizontal=False)[1])
-            reveal = np.clip(rank / (count * MISSING_SHARE), 1 / 255, 1)
+            if count > UNIT_IDS:
+                raise ValueError(f"{name}: {count} roof units do not fit {UNIT_IDS} ids")
+            reveal = (rank + 0.5) / UNIT_IDS
         lum = texture_maps(name)[0].mean(axis=-1)
         dark = np.clip((0.55 - lum / max(lum.max(), 1e-6)) * 2.5, 0, 1)
         # ``weathered``'s moss at full wear, as the wear it starts from: the more, the sooner.

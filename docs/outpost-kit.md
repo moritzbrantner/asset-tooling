@@ -131,7 +131,9 @@ The `outpost.kit.wear-masks` entry holds one 1 m quad per texture, whose materia
 
 | Channel | Meaning |
 | --- | --- |
-| R, reveal | The wear from which the pixel shows what lies beneath: plaster fallen to wattle and daub, or a missing roof unit (dark boards, rough, little occlusion). 1 means never. Units go missing whole, at most 7 % of them at full wear. |
+| R | Plaster: the wear from which the pixel shows the wattle and daub beneath; 1 means never. Roofs: the id of the pixel's roof unit, `(k + 0.5) / 64`. Wood and stone: 1. |
+
+Roof ids rather than thresholds: the roof tile repeats every metre and on every module, so any order baked into it would repeat its holes in a grid. A shader instead decides each occurrence of a unit on its own, for example by hashing `floor(id * 64)`, the tile (`floor(uv)`) and the module's placement, and drops it (dark boards, rough, little occlusion) where that hash is below 7 % of the wear. More wear then only adds holes, scattered with no pattern. Read the id with nearest filtering (`texelFetch` at level 0): filtering blends neighbouring ids at the joints.
 | G, grime | How much full wear darkens the pixel: `colour *= 1 - wear * G` (stains and rain streaks on plaster, grime elsewhere). |
 | B | Plaster: the wattle and daub beneath, from its dark rods (0) to its pale clay (1). Stone and roofs: the wear from which moss settles, earliest in the dark joints. 1 means never. Wood: 1. |
 
