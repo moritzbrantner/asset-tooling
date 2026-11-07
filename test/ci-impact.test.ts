@@ -3,6 +3,7 @@ import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { delimiter, join, resolve } from "node:path";
+import { BLENDER_SUITES, ciPlan } from "../scripts/ci-plan.ts";
 
 const classify = (rows: string[]) => {
   const root = mkdtempSync(join(tmpdir(), "asset-ci-impact-"));
@@ -26,40 +27,86 @@ const classify = (rows: string[]) => {
       },
     });
     expect(result.status).toBe(0);
-    return readFileSync(output, "utf8");
+    const outputs = Object.fromEntries(readFileSync(output, "utf8").trim().split("\n").map((line) => {
+      const at = line.indexOf("=");
+      return [line.slice(0, at), line.slice(at + 1)];
+    }));
+    return { ...outputs, os: JSON.parse(outputs.os!), skipped: JSON.parse(outputs["allow-skipped"]!) } as Record<string, any>;
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
 };
 
-test("documentation-only changes keep all expensive scopes disabled", () => {
-  expect(classify(["docs/architecture.md\t"])).toBe(
-    "extended=false\nstability=false\npages=false\nallow-skipped=[\"selected-bundle-consumer\",\"blender-script\",\"canonical-storage\",\"processing-contract\",\"stability-validation\",\"pages-validation\"]\n",
-  );
+const ALL_OS = ["ubuntu-latest", "macos-latest", "windows-latest"];
+const SCOPED = ["selected-bundle-consumer", "blender-script", "canonical-storage", "processing-contract", "stability-validation", "pages-validation"];
+const blenderTests = (changed: string[]) => Object.fromEntries(ciPlan(changed).blender.map(({ suite, tests }) => [suite, tests.split(" ")]));
+
+test("documentation-only changes run only the Linux check", () => {
+  const plan = classify(["docs/architecture.md\t"]);
+  expect(plan.os).toEqual(["ubuntu-latest"]);
+  expect(plan.skipped).toEqual(SCOPED);
 });
 
-test("gallery changes require Pages while preserving existing contract exceptions", () => {
-  expect(classify(["src/catalog-pages-site.ts\t"])).toBe(
-    "extended=false\nstability=false\npages=true\nallow-skipped=[\"selected-bundle-consumer\",\"blender-script\",\"canonical-storage\",\"processing-contract\",\"stability-validation\"]\n",
-  );
+test("gallery changes require Pages without the other platforms or contracts", () => {
+  const plan = classify(["src/catalog-pages-site.ts\t"]);
+  expect(plan.os).toEqual(["ubuntu-latest"]);
+  expect(plan.skipped).toEqual(SCOPED.filter((job) => job !== "pages-validation"));
 });
 
 test("a source-to-documentation rename keeps source validation required", () => {
-  expect(classify(["docs/retired.md\tsrc/core.ts"])).toBe(
-    "extended=true\nstability=true\npages=true\nallow-skipped=[]\n",
-  );
+  const plan = classify(["docs/retired.md\tsrc/core.ts"]);
+  expect(plan.os).toEqual(ALL_OS);
+  expect(plan.stability).toBe("true");
+  expect(plan.pages).toBe("true");
+  expect(plan["blender-enabled"]).toBe("true");
 });
 
-test("test-only changes select extended checks without Stability or Pages", () => {
-  expect(classify(["test/core.test.ts\t"])).toBe(
-    "extended=true\nstability=false\npages=false\nallow-skipped=[\"stability-validation\",\"pages-validation\"]\n",
-  );
+test("test-only changes run every platform without Stability, Pages or Blender", () => {
+  const plan = classify(["test/core.test.ts\t"]);
+  expect(plan.os).toEqual(ALL_OS);
+  expect(plan.skipped).toEqual(SCOPED);
 });
 
-test("Stability manifest changes require all contracts without Pages", () => {
-  expect(classify(["stability/consumers.json\t"])).toBe(
-    "extended=true\nstability=true\npages=false\nallow-skipped=[\"pages-validation\"]\n",
-  );
+test("Stability manifest changes require the contracts on Linux only", () => {
+  const plan = classify(["stability/consumers.json\t"]);
+  expect(plan.os).toEqual(["ubuntu-latest"]);
+  expect(plan.skipped).toEqual(["selected-bundle-consumer", "blender-script", "canonical-storage", "pages-validation"]);
+});
+
+test("pushes, validation edits and runtime changes run every job", () => {
+  for (const changed of ["all", [".github/workflows/validate.yml"], ["scripts/ci-plan.ts"], ["bun.lock"]] as const) {
+    const plan = ciPlan(changed === "all" ? "all" : [...changed]);
+    expect(plan.os).toEqual(ALL_OS);
+    expect(plan.blender.map(({ suite, tests }) => [suite, tests])).toEqual(
+      BLENDER_SUITES.map(({ suite }) => [suite, `test/blender/${suite}`]),
+    );
+    expect(plan["canonical-storage"] && plan["selected-bundle-consumer"] && plan.stability).toBe(true);
+  }
+});
+
+test("a Blender recipe runs only the tests that load it, on Linux", () => {
+  expect(blenderTests(["adapters/blender/tree.py"])).toEqual({ recipes: ["test/blender/recipes/tree-recipes.test.ts"] });
+  expect(blenderTests(["adapters/blender/outpost.py"]).kits).toEqual(expect.arrayContaining(["test/blender/kits/outpost-kit.test.ts"]));
+  expect(blenderTests(["adapters/blender/outpost.py"]).fortress).toBeUndefined();
+  const plan = ciPlan(["adapters/blender/tree.py"]);
+  expect(plan.os).toEqual(["ubuntu-latest"]);
+  expect(plan.stability || plan["selected-bundle-consumer"]).toBe(false);
+});
+
+test("a helper a recipe loads at runtime selects every kit that loads it", () => {
+  expect(blenderTests(["adapters/blender/kit_common.py"]).kits).toEqual(expect.arrayContaining([
+    "test/blender/kits/outpost-kit.test.ts", "test/blender/kits/shrine-kit.test.ts", "test/blender/kits/crypt-kit.test.ts",
+  ]));
+});
+
+test("a Blender adapter no test reaches, or the Blender runtime, runs every suite", () => {
+  for (const file of ["adapters/blender/script_runner.py", "adapters/blender/release.json"]) {
+    expect(Object.keys(blenderTests([file]))).toEqual(BLENDER_SUITES.map(({ suite }) => suite));
+  }
+});
+
+test("a suite's canonical payload runs that whole suite", () => {
+  expect(blenderTests(["assets/canonical/poly-haven.broken-wall-x/a.png"]).fortress).toEqual(["test/blender/fortress"]);
 });
 
 for (const key of ["consumers", "processors"]) {

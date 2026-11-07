@@ -10,10 +10,12 @@
 // its default branch nor its open `agent/repin-<release>` branch (scripts/prepare-release.ts) pins the new build.
 import path from "node:path";
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
 import { readdir, readFile } from "node:fs/promises";
 import { findConsumers, loadConsumers, readArtifacts, type Artifacts, type Consumer, type Pin } from "./prepare-release.ts";
 import { verifyMapsShortbreadRelease } from "./build-maps-shortbread-release.ts";
+import { sourceClosure, touches } from "./source-closure.ts";
+
+export { touches };
 
 const ROOT = path.resolve(import.meta.dir, "..");
 const TOOLING_REPO = process.env.GITHUB_REPOSITORY ?? "moritzbrantner/asset-tooling";
@@ -73,9 +75,6 @@ export const MANUAL_RELEASES: Record<string, string> = {
 
 /** Files every build depends on besides its own import graph. The publishing scripts and consumers.json change no build output. */
 const SHARED_SOURCES = ["package.json", "bun.lock", "scripts/pack-asset-bundle.ts"];
-// A repo path literal such as "adapters/blender/shrine.py"; an unfinished template prefix ("adapters/blender/${") is skipped.
-// "../adapters/…" counts; a URL's "…/assets/…" does not.
-const PATH_LITERAL = /(?<![\w.-]|[\w-]\/)((?:adapters|assets|catalog|examples)\/[A-Za-z0-9._/-]*)/g;
 
 export function rollingRelease(name: string): RollingRelease {
   const release = ROLLING_RELEASES.find((entry) => entry.name === name);
@@ -91,38 +90,11 @@ export function rollingRelease(name: string): RollingRelease {
  * rebuild that `publish` then skips as unchanged.
  */
 export function releaseSources(release: RollingRelease, root = ROOT): string[] {
-  const transpiler = new Bun.Transpiler({ loader: "ts" });
-  const sources = new Set<string>(SHARED_SOURCES);
+  const sources = new Set<string>([...SHARED_SOURCES, ...sourceClosure([release.script], root)]);
   if (release.blender) sources.add("adapters/blender/release.json");
   if (release.lfs) sources.add("assets/canonical");
   if (release.processor) sources.add("stability/processors.json");
-  const pending = [release.script];
-  const seen = new Set<string>();
-  while (pending.length) {
-    const file = pending.pop()!;
-    if (seen.has(file)) continue;
-    seen.add(file);
-    sources.add(file);
-    const text = readFileSync(path.join(root, file), "utf8");
-    for (const match of text.matchAll(PATH_LITERAL)) if (!/[/.]$/.test(match[1]!)) sources.add(match[1]!);
-    if (!/\.[cm]?[jt]sx?$/.test(file)) continue;
-    for (const { path: specifier } of transpiler.scanImports(text)) {
-      if (!specifier.startsWith(".")) continue;
-      const resolved = resolveLocal(root, path.posix.join(path.posix.dirname(file), specifier));
-      if (resolved) pending.push(resolved);
-    }
-  }
   return [...sources].sort();
-}
-
-function resolveLocal(root: string, file: string): string | undefined {
-  const candidates = [file, file.replace(/\.js$/, ".ts"), `${file}.ts`, `${file}/index.ts`];
-  return candidates.find((candidate) => existsSync(path.join(root, candidate)) && !candidate.endsWith("/"));
-}
-
-/** True when `changed` is one of `sources` or lies under one of them. */
-export function touches(sources: string[], changed: string): boolean {
-  return sources.some((source) => changed === source || changed.startsWith(`${source}/`));
 }
 
 /** One publish job: the release and what its runner needs (an empty `processor` means none). */

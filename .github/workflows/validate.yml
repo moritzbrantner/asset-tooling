@@ -17,8 +17,14 @@ jobs:
   impact:
     name: Classify PR changes
     runs-on: ubuntu-latest
+    # scripts/ci-plan.ts: a pull request runs only the jobs whose sources it changed; a push runs everything.
     outputs:
-      extended: ${{ steps.detect.outputs.extended }}
+      os: ${{ steps.detect.outputs.os }}
+      blender: ${{ steps.detect.outputs.blender }}
+      blender-enabled: ${{ steps.detect.outputs.blender-enabled }}
+      selected-bundle-consumer: ${{ steps.detect.outputs.selected-bundle-consumer }}
+      canonical-storage: ${{ steps.detect.outputs.canonical-storage }}
+      processing-contract: ${{ steps.detect.outputs.processing-contract }}
       pages: ${{ steps.detect.outputs.pages }}
       stability: ${{ steps.detect.outputs.stability }}
       allow-skipped: ${{ steps.detect.outputs.allow-skipped }}
@@ -26,6 +32,10 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           persist-credentials: false
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: latest
       - id: detect
         shell: bash
         env:
@@ -42,7 +52,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: ${{ fromJSON(github.event_name == 'pull_request' && needs.impact.outputs.extended == 'false' && '["ubuntu-latest"]' || '["ubuntu-latest","macos-latest","windows-latest"]') }}
+        os: ${{ fromJSON(needs.impact.outputs.os) }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
       - name: Set up Bun
@@ -54,7 +64,7 @@ jobs:
 
   selected-bundle-consumer:
     needs: impact
-    if: github.event_name != 'pull_request' || needs.impact.outputs.extended == 'true'
+    if: needs.impact.outputs.selected-bundle-consumer == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -75,32 +85,15 @@ jobs:
 
   blender-script:
     needs: impact
-    if: github.event_name != 'pull_request' || needs.impact.outputs.extended == 'true'
+    if: needs.impact.outputs.blender-enabled == 'true'
     name: blender-script (${{ matrix.suite }})
     runs-on: ubuntu-latest
-    timeout-minutes: ${{ matrix.timeout || 15 }}
-    # Every test under test/blender/<suite> runs here: a new Blender test is picked up by where it lives.
+    timeout-minutes: ${{ matrix.timeout }}
+    # BLENDER_SUITES (scripts/ci-plan.ts) lists the suites and their LFS payloads. A push runs every test under
+    # test/blender/<suite>; a pull request runs the tests whose sources it changed.
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - suite: kits
-            lfs: "assets/authored/**,assets/canonical/quaternius.stylized-nature-megakit-standard.*/**,assets/canonical/poly-haven.fir-tree-01-*/**,assets/canonical/poly-haven.rock-boulder-dry-*/**,assets/canonical/poly-haven.mossy-rock-*/**,assets/canonical/quaternius.animal-pack-vol2.cat-blend/**,assets/canonical/quaternius.ultimate-animated-animals-shibainu-glb/**,assets/canonical/quaternius.easy-enemy-rat-glb/**"
-          - suite: recipes
-            lfs: "assets/canonical/quaternius.universal-base-characters-standard.*/**,assets/canonical/quaternius.modular-character-outfits-fantasy-standard.*/**"
-          # The fortress kit's 51 recipe runs (17 pieces x 3 levels) take longer than the other kits together.
-          - suite: fortress
-            timeout: 60
-            lfs: "assets/canonical/poly-haven.broken-wall-*/**,assets/canonical/poly-haven.japanese-stone-wall-*/**,assets/canonical/poly-haven.stone-tiles-02-*/**,assets/canonical/poly-haven.old-planks-02-*/**"
-          # The climbing kit's 45 recipe runs (15 parts x 3 levels).
-          - suite: climbing
-            timeout: 30
-            lfs: "assets/canonical/quaternius.medieval-village-megakit-standard.t-vineleaf-png-png/**"
-          # The crag kit's 40 recipe runs (13 modules x 3 levels and the macro texture), KTX2-encoded like the terrain.
-          - suite: crag
-            timeout: 40
-            ktx: true
-            lfs: "assets/canonical/poly-haven.rock-face-03-*/**,assets/canonical/poly-haven.rock-boulder-dry-diff-2k-jpg/**,assets/canonical/poly-haven.mossy-rock-diff-2k-jpg/**"
+      matrix: ${{ fromJSON(needs.impact.outputs.blender) }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
       - name: Set up Bun
@@ -144,11 +137,11 @@ jobs:
           BLENDER_TESTS: "1"
         run: |
           bun install --frozen-lockfile
-          bun test test/blender/${{ matrix.suite }}
+          bun test ${{ matrix.tests }}
 
   canonical-storage:
     needs: impact
-    if: github.event_name != 'pull_request' || needs.impact.outputs.extended == 'true'
+    if: needs.impact.outputs.canonical-storage == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -181,7 +174,7 @@ jobs:
 
   processing-contract:
     needs: impact
-    if: github.event_name != 'pull_request' || needs.impact.outputs.extended == 'true'
+    if: needs.impact.outputs.processing-contract == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
