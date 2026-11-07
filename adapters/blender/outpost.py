@@ -146,14 +146,35 @@ def roof_maps(size, seed, base, widths, rows, gap, strength, wear=0.0):
         # ``value`` is distinct per unit, so a unit is missing whole. A tile holds only a few dozen units, so
         # a fixed share of them goes, at least one, in a hashed order: more wear only adds missing units. The
         # tile repeats every metre and every roof module alike, so holes stay sparse or they read as a grid.
-        units = np.unique(value)
-        order = units[np.argsort((units * 9973.0) % 1.0)]
-        gone = order[:math.ceil(len(units) * 0.07 * wear)]
-        missing = np.isin(value, gone).astype(float)
+        rank, count = unit_rank(value)
+        missing = (rank < math.ceil(count * MISSING_SHARE * wear)).astype(float)
         colour = colour * (1 - missing[..., None]) + np.array([0.035, 0.03, 0.028]) * missing[..., None]
         height = height * (1 - missing) - 0.3 * missing
         ao, rough = ao * (1 - 0.7 * missing), rough + (0.95 - rough) * missing
     return finish_maps(colour, height, strength, ao, rough)
+
+
+MISSING_SHARE = 0.07     # of the roof units, missing at full wear
+UNIT_IDS = 64            # roof unit ids a wear mask can hold
+# Roof textures: seed, base colour, unit widths, courses, joint falloff and normal strength.
+ROOF_MAPS = {
+    "shingle": (811, (0.5, 0.42, 0.35), (0.11, 0.22), 4, 0.012, 4.0),
+    "slate": (911, (0.4, 0.42, 0.46), (0.2, 0.3), 4, 0.01, 3.0),
+}
+
+
+def unit_rank(value):
+    """Per pixel the rank of its roof unit in the hashed order units go missing in, and the unit count."""
+    units = np.unique(value)
+    order = units[np.argsort((units * 9973.0) % 1.0)]
+    rank = np.empty(len(units), dtype=int)
+    rank[np.searchsorted(units, order)] = np.arange(len(units))
+    return rank[np.searchsorted(units, value)], len(units)
+
+
+def plaster_fall(size):
+    """The field plaster falls away along: a pixel has fallen once it exceeds ``0.8 - 0.2 * wear``."""
+    return fbm(size, 3, 4, 1201) * 0.65 + fbm(size, 12, 3, 1211) * 0.35
 
 
 def daub_maps(size, metres):
@@ -182,7 +203,7 @@ def plaster_maps(size, wear=0.0):
     colour = np.array([0.82, 0.77, 0.67]) * shade[..., None]
     ao, rough = 1 - (1 - broad) * 0.1, 0.9 + (fine - 0.5) * 0.1
     if wear > 0:
-        field = fbm(size, 3, 4, 1201) * 0.65 + fbm(size, 12, 3, 1211) * 0.35
+        field = plaster_fall(size)
         fallen = np.clip((field - (0.8 - 0.2 * wear)) * 14, 0, 1)
         rim = np.clip((field - (0.8 - 0.2 * wear) + 0.03) * 14, 0, 1) - fallen     # a broken plaster edge
         d_colour, d_height, d_rough = daub_maps(size, TILE["plaster"])
@@ -229,11 +250,81 @@ def texture_maps(name, wear=0.0):
         maps = wood_maps(TEXTURE)
     elif name == "stone":
         maps = stone_maps(TEXTURE)
-    elif name == "shingle":
-        maps = roof_maps(TEXTURE, 811, (0.5, 0.42, 0.35), (0.11, 0.22), 4, 0.012, 4.0, wear)
     else:
-        maps = roof_maps(TEXTURE, 911, (0.4, 0.42, 0.46), (0.2, 0.3), 4, 0.01, 3.0, wear)
+        maps = roof_maps(TEXTURE, *ROOF_MAPS[name], wear)
     return weathered(name, maps, wear)
+
+
+def wear_mask(name):
+    """The wear of texture ``name`` as data for a shader that ages the pristine maps at any ``wear`` in
+    [0, 1] (docs/outpost-kit.md#wear-masks), so every wear level shares one material. Linear RGB in [0, 1]:
+
+    - R, plaster: the wear from which the pixel shows the wattle and daub beneath; 1 never. Roofs: the id of
+      the pixel's roof unit, ``(k + 0.5) / UNIT_IDS``, so a shader can drop each occurrence of a unit at its
+      own random wear. Wood and stone: 1.
+    - G, grime: how much full wear darkens the pixel (rain streaks and stains, grime).
+    - B, plaster: the wattle and daub beneath, from its dark rods (0) to its pale clay (1). Stone and roofs:
+      the wear from which moss settles; 1 never. Wood: 1.
+    """
+    size = TEXTURE
+    reveal, moss = np.ones((size, size)), np.ones((size, size))
+    grime = fbm(size, 3, 4, 1101)
+    if name == "plaster":
+        reveal = np.clip((0.8 - plaster_fall(size)) / 0.2, 1 / 255, 1)
+        streak = fbm(size, 10, 3, 1111, stretch=(12, 1))
+        grime = np.clip((grime - 0.45) * 2.5, 0, 1) * 0.25 + np.clip((streak - 0.5) * 3, 0, 1) * 0.2
+        d_colour = daub_maps(size, TILE["plaster"])[0].mean(axis=-1)
+        rods, clay = np.mean([0.27, 0.22, 0.17]) * 0.75, np.mean([0.45, 0.41, 0.35]) * 1.05
+        moss = np.clip((d_colour - rods) / (clay - rods), 0, 1)
+    elif name == "wood":
+        grime = grime * 0.18
+    else:
+        if name in ROOF_MAPS:
+            seed, _, widths, rows, gap, _ = ROOF_MAPS[name]
+            # Not a threshold: the tile repeats every metre, so a baked order would repeat its holes in a grid.
+            # The unit's id lets a shader decide each occurrence of a unit on its own.
+            rank, count = unit_rank(stones(size, rows, seed, widths, gap, horizontal=False)[1])
+            if count > UNIT_IDS:
+                raise ValueError(f"{name}: {count} roof units do not fit {UNIT_IDS} ids")
+            reveal = (rank + 0.5) / UNIT_IDS
+        lum = texture_maps(name)[0].mean(axis=-1)
+        dark = np.clip((0.55 - lum / max(lum.max(), 1e-6)) * 2.5, 0, 1)
+        # ``weathered``'s moss at full wear, as the wear it starts from: the more, the sooner.
+        full = np.clip((fbm(size, 5, 4, 1121) - 0.32) * 4, 0, 1) * (0.35 + 0.65 * dark)
+        moss = 1 - full
+        grime = grime * 0.12
+    return np.clip(np.stack([reveal, grime, moss], -1), 0, 1)
+
+
+WEAR_TEXTURES = ("plaster", "wood", "stone", "shingle", "slate")
+WEAR_MASKS = "wear-masks"   # the part that builds them
+
+
+def build_wear_masks(collection):
+    """One 1 m quad per texture, its material ``outpost-wear-<texture>`` carrying the mask as its base colour
+    (Non-Color): the bundle's ``outpost.kit.wear-masks`` entry, which ships the masks beside the modules."""
+    mesh = bpy.data.meshes.new("outpost.wear-masks")
+    obj = bpy.data.objects.new("outpost.wear-masks", mesh)
+    collection.objects.link(obj)
+    bm = bmesh.new()
+    uv = bm.loops.layers.uv.new("UVMap")
+    for index, name in enumerate(WEAR_TEXTURES):
+        mat = bpy.data.materials.new(f"outpost-wear-{name}")
+        mat.use_nodes = True
+        nodes, links = mat.node_tree.nodes, mat.node_tree.links
+        bsdf = next(n for n in nodes if n.type == "BSDF_PRINCIPLED")
+        tex = nodes.new("ShaderNodeTexImage")
+        tex.image = make_image(f"outpost-wear-{name}", wear_mask(name), False)
+        links.new(tex.outputs["Color"], bsdf.inputs["Base Color"])
+        mesh.materials.append(mat)
+        corners = [to_blender((index * 1.5 + x, 0, -y)) for x, y in ((0, 0), (1, 0), (1, 1), (0, 1))]
+        face = bm.faces.new([bm.verts.new(c) for c in corners])
+        face.material_index = index
+        for loop, coord in zip(face.loops, ((0, 0), (1, 0), (1, 1), (0, 1))):
+            loop[uv].uv = coord
+    bm.to_mesh(mesh)
+    bm.free()
+    return obj
 
 
 def wear_tag():
@@ -596,8 +687,10 @@ def validate(arguments, inputs):
     wear = arguments.get("wear", 0)
     if isinstance(wear, bool) or not isinstance(wear, (int, float)) or not 0 <= wear <= 1:
         raise ValueError("outpost wear must be a number in [0, 1]")
-    if arguments["part"] not in PARTS:
-        raise ValueError(f"outpost part must be one of {', '.join(PARTS)}")
+    if arguments["part"] not in PARTS + (WEAR_MASKS,):
+        raise ValueError(f"outpost part must be one of {', '.join(PARTS + (WEAR_MASKS,))}")
+    if arguments["part"] == WEAR_MASKS and "wear" in arguments:
+        raise ValueError("the outpost wear masks take no wear")
     if "roof" in arguments and (arguments["part"] not in ROOFED or arguments["roof"] not in ROOFS):
         raise ValueError("outpost roof applies to roof modules only and must be shingle or slate")
     if set(inputs) != {"common", "kit"}:
@@ -613,6 +706,15 @@ def generate(output_path, arguments, inputs):
     bpy.ops.object.select_all(action="SELECT")
     bpy.ops.object.delete(use_global=False)
     wear = float(arguments.get("wear", 0))
+    if part == WEAR_MASKS:
+        obj = build_wear_masks(bpy.context.scene.collection)
+        bpy.ops.object.select_all(action="DESELECT")
+        obj.select_set(True)
+        bpy.ops.export_scene.gltf(
+            filepath=output_path, export_format="GLB", use_selection=True, export_yup=True, export_texcoords=True,
+            export_normals=True, export_vertex_color="NONE", export_animations=False, export_skins=False,
+            export_morph=False, export_cameras=False, export_lights=False, export_extras=False)
+        return {"recipe": "outpost-kit-v1", "part": part, "textures": list(WEAR_TEXTURES)}
     root, info = build(part, bpy.context.scene.collection, roof=roof, wear=wear)
     objects = [root] + list(root.children_recursive)
     bpy.ops.object.select_all(action="DESELECT")
