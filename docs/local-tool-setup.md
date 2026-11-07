@@ -14,7 +14,7 @@ python3 scripts/setup-tools.py setup --profile comfyui --gpu nvidia
 python3 scripts/setup-tools.py doctor --profile comfyui --json
 ```
 
-Use `--gpu cpu` instead of `--gpu nvidia` when GPU inference is deliberately unavailable. The default `core` profile uses `bun install --frozen-lockfile` and the exact Bun version from `package.json`. The `previews` profile reuses `scripts/install-blender.ts` and its SHA-256-pinned Blender release; FFmpeg/FFprobe must be on `PATH`. No privileged package-manager action is hidden in the script.
+Use `--gpu cpu` instead of `--gpu nvidia` when GPU inference is deliberately unavailable. The default `core` profile uses `bun install --frozen-lockfile` with the installed Bun (the latest stable release, from `mise install`); the lockfile keeps dependency resolution frozen. The `previews` profile reuses `scripts/install-blender.ts` and its SHA-256-pinned Blender release; FFmpeg/FFprobe must be on `PATH`. No privileged package-manager action is hidden in the script.
 
 ### Current stable FFmpeg on Ubuntu
 
