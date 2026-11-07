@@ -278,7 +278,7 @@ class FakeHost:
 def write_fixture(root: Path, cpu_torch=None, drop_cpu_torch=False) -> None:
     scripts = root / "scripts"
     scripts.mkdir(parents=True, exist_ok=True)
-    (root / "package.json").write_text(json.dumps({"engines": {"bun": "1.4.3"}, "packageManager": "bun@1.4.3"}))
+    (root / "package.json").write_text(json.dumps({"name": "fixture"}))
     comfy = {"commit": COMMIT, "comfy-cli": "1.22.0", "comfy-mcp": "0.10.0",
              "cpuTorch": cpu_torch if cpu_torch is not None else cpu_torch_fixture()}
     if drop_cpu_torch:

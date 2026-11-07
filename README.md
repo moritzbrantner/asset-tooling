@@ -77,7 +77,7 @@ The package remains `0.1.0` until a stable release is intentionally cut; stabili
 
 ## Local tool setup
 
-Run `python3 scripts/setup-tools.py doctor --profile all --json` to inspect repository tool readiness. The idempotent `setup` command prepares the chosen `core`, `previews`, or `comfyui` profile, with an explicit NVIDIA or CPU backend for ComfyUI. See [local tool setup](docs/local-tool-setup.md) for pinned versions, host prerequisites and model-acquisition boundaries.
+[`mise.toml`](mise.toml) lists the tools at their latest stable releases (Bun, Python with uv, Git LFS, gh, jq, ripgrep): `mise install && mise run setup` installs them, the Bun and Python dependencies into the repository's `.venv`, and the pinned Blender, which it exports as `ASSET_TOOLING_BLENDER`; `mise run setup:ffmpeg` adds FFmpeg. Run `python3 scripts/setup-tools.py doctor --profile all --json` to inspect repository tool readiness. The idempotent `setup` command prepares the chosen `core`, `previews`, or `comfyui` profile, with an explicit NVIDIA or CPU backend for ComfyUI. See [local tool setup](docs/local-tool-setup.md) for pinned versions, host prerequisites and model-acquisition boundaries.
 
 ## Generation
 
