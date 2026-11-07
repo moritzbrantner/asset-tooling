@@ -60,7 +60,7 @@ export const ROLLING_RELEASES: RollingRelease[] = [
   { name: "humanoid-ranger-female", ...RANGER, args: ["--figure", "female"] },
   { name: "humanoid-ranger-male", ...RANGER, args: ["--figure", "male"] },
   { name: "maps-shortbread", script: "scripts/build-maps-shortbread-release.ts" },
-  { name: "outpost-kit", script: "scripts/build-outpost-kit.ts", blender: true },
+  { name: "outpost-kit", script: "scripts/build-outpost-kit.ts", blender: true, ktx: true },
   { name: "settlement-props", script: "scripts/build-settlement-props.ts", blender: true },
   { name: "shrine-kit", script: "scripts/build-shrine-kit.ts", blender: true },
   { name: "zoo-effects", script: "scripts/build-zoo-effects.ts" },

@@ -13,7 +13,7 @@ import { verifyAssetBundleTar } from "../../../src/asset-bundle-pack.js";
 import { GLTF_RESOURCES_BUNDLE_PROFILE, readAssetBundleAttachment, verifyAssetBundle } from "../../../src/asset-bundle.js";
 import {
   OUTPOST_DESCRIPTOR_ATTACHMENT, OUTPOST_DESCRIPTOR_SCHEMA, OUTPOST_PARTS, OUTPOST_RELEASE, OUTPOST_ROOF_PARTS, OUTPOST_TRIANGLE_BUDGET,
-  buildOutpostKit, createOutpostAssetSpec, outpostKey, outpostRuns,
+  OUTPOST_WEAR_TEXTURES, buildOutpostKit, createOutpostAssetSpec, outpostKey, outpostRuns,
 } from "../../../scripts/build-outpost-kit.ts";
 
 type Box = { min: number[]; max: number[] };
@@ -77,8 +77,8 @@ test("the outpost spec runs the packaged recipe with exactly one module and an o
   assert.equal(spec.assetId, "outpost.kit.roof");
   assert.deepEqual(createOutpostAssetSpec({ part: "wall", scriptSha256: "a".repeat(64), commonSha256: "d".repeat(64), kitSha256: "e".repeat(64), blenderVersion: "5.2.2" }).parameters.arguments, { schemaVersion: 1, part: "wall" });
   assert.deepEqual(createOutpostAssetSpec({ part: "wall", wear: 0.5, scriptSha256: "a".repeat(64), commonSha256: "d".repeat(64), kitSha256: "e".repeat(64), blenderVersion: "5.2.2" }).parameters.arguments, { schemaVersion: 1, part: "wall", wear: 0.5 });
-  assert.deepEqual(outpostRuns("wall").map((run) => run.variant), ["default", "weathered", "worn"]);
-  assert.deepEqual(outpostRuns("roof").map((run) => run.variant), ["default", "weathered", "worn", "slate", "slate-weathered", "slate-worn"]);
+  assert.deepEqual(outpostRuns("wall").map((run) => run.variant), ["default"]);
+  assert.deepEqual(outpostRuns("roof").map((run) => run.variant), ["default", "slate"]);
   assert.equal(OUTPOST_PARTS.length, 11);
   assert.equal(OUTPOST_RELEASE, "outpost-kit", "one rolling release, never numbered");
 });
@@ -100,19 +100,22 @@ test("the outpost recipe builds a verified kit whose modules snap to the grid, k
     await verifyAssetBundleTar(await readFile(built.tar), { sha256: built.tarSha256, ref: built.exportRef });
     const { manifest } = await verifyAssetBundle(built.bundleDir, built.exportRef, { profile: GLTF_RESOURCES_BUNDLE_PROFILE });
     const entries = manifest.assets.map((entry) => `${entry.key}#${entry.variant}`).sort();
-    const expected = OUTPOST_PARTS.flatMap((part) => outpostRuns(part).map((run) => `${outpostKey(part)}#${run.variant}`)).sort();
-    assert.equal(expected.length, 11 * 3 + 3 * 3);
+    const expected = [...OUTPOST_PARTS.flatMap((part) => outpostRuns(part).map((run) => `${outpostKey(part)}#${run.variant}`)), "outpost.kit.wear-masks#default"].sort();
+    assert.equal(expected.length, 11 + 3 + 1);
     assert.deepEqual(entries, expected);
     const d = JSON.parse((await readAssetBundleAttachment(built.bundleDir, manifest, "outpost.kit.wall", "default", OUTPOST_DESCRIPTOR_ATTACHMENT)).toString("utf8"));
     const schema = JSON.parse(await readFile(schemaUrl, "utf8"));
     assert.deepEqual(conforms(schema, d, schema), []);
     const asset = Object.fromEntries(d.assets.map((a: any) => [a.role, a]));
 
-    // Plaster, stone, wood, shingle and slate: colour, normal and ORM each, stored once. Each wear level
-    // adds its own maps where wear changes them: all three of plaster (fallen patches), shingle and slate
-    // (missing units), stone's colour and ORM (moss) and wood's colour.
-    const pngs = (await readdir(path.join(built.bundleDir, "resources"))).filter((name) => name.endsWith(".png"));
-    assert.equal(pngs.length, 15 + 2 * (3 + 3 + 3 + 2 + 1));
+    // Plaster, stone, wood, shingle and slate: colour, normal and ORM each, plus one wear mask each, all KTX2 and
+    // stored once; no PNG ships.
+    const resources = await readdir(path.join(built.bundleDir, "resources"));
+    assert.equal(resources.filter((name) => name.endsWith(".png")).length, 0);
+    assert.equal(resources.filter((name) => name.endsWith(".ktx2")).length, 15 + 5);
+    const masks = JSON.parse(await readFile(path.join(built.bundleDir, manifest.assets.find((entry) => entry.key === "outpost.kit.wear-masks")!.path), "utf8"));
+    assert.deepEqual(masks.materials.map((m: { name: string }) => m.name).sort(), OUTPOST_WEAR_TEXTURES.map((name) => `outpost-wear-${name}`).sort());
+    assert.deepEqual(masks.extensionsRequired, ["KHR_texture_basisu"]);
 
     // Budgets for the Greyhaven camera.
     for (const part of OUTPOST_PARTS) assert.ok(asset[part].triangles <= OUTPOST_TRIANGLE_BUDGET[part], `${part}: ${asset[part].triangles} triangles`);

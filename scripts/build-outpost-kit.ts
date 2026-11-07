@@ -1,16 +1,22 @@
 // Build the Greyhaven Outpost building kit bundle (#366, docs/outpost-kit.md): the hand-authored geometry
 // assets/authored/outpost-kit.blend, dressed with the textures and wear of adapters/blender/outpost.py:
 //   ASSET_TOOLING_BLENDER=<blender 5.2.2> bun scripts/build-outpost-kit.ts --out <directory>
-// Each module variant (roofing and wear) is one external.blender.script@1 run, imported through
-// scene.import.gltf@2. The outpost-kit-descriptor-v1 attachment combines the observations stored on the authored
-// modules (proxies, openings, hinge, roof, chimney), the recipe's compositions and bounds measured on the
-// imported GLBs. <directory> becomes the object-store root; the bundle is exported to <directory>/bundle and
+// Each module variant (roofing) and the wear masks are one external.blender.script@1 run each, imported through
+// scene.import.gltf@2; every texture then ships as KTX2 (Basis Universal), encoded by KTX-Software's `ktx` CLI
+// (ASSET_TOOLING_KTX, or `ktx` on PATH). The outpost-kit-descriptor-v1 attachment combines the observations stored
+// on the authored modules (proxies, openings, hinge, roof, chimney), the recipe's compositions and bounds measured
+// on the imported GLBs. <directory> becomes the object-store root; the bundle is exported to <directory>/bundle and
 // packed to <directory>/outpost.kit.tar.
+import os from "node:os";
 import path from "node:path";
-import { mkdir } from "node:fs/promises";
-import type { Document } from "@gltf-transform/core";
+import { createHash } from "node:crypto";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { NodeIO, type Document, type Texture } from "@gltf-transform/core";
+import { KHRTextureBasisu } from "@gltf-transform/extensions";
+import { ktxArguments, textureEncoding, type TextureEncoding } from "./pack-downloads.ts";
 import { GLTF_RESOURCES_BUNDLE_PROFILE } from "../src/asset-bundle.js";
-import { storeAssetObject } from "../src/asset-store.js";
+import { resolveAssetObject, storeAssetObject } from "../src/asset-store.js";
+import type { AssetRef } from "../src/operations.js";
 import { blenderScriptSpec } from "../src/blender-script-spec.js";
 import { readAuthoredBlenderSource, readBlenderRecipeSource } from "../src/blender-recipe-source.js";
 import { canonicalJson } from "../src/canonical.js";
@@ -24,12 +30,19 @@ export type OutpostPart = (typeof OUTPOST_PARTS)[number];
 export const OUTPOST_ROOF_PARTS: readonly OutpostPart[] = ["roof", "roof-half", "roof-verge"];
 export const OUTPOST_ROOF_VARIANTS = { default: "shingle", slate: "slate" } as const;
 /**
- * Every module also ships aged variants for remixing (the recipe takes any `wear` in [0, 1]): grime, greyed
- * timber, moss, plaster fallen to wattle and daub and missing shingles, all in the textures over the same
- * geometry. Roof modules combine them with slate as `slate-weathered` and `slate-worn`. The v1 descriptor
- * lists only the pristine roof variants.
+ * Wear ships as data, not as baked variants: the `outpost.kit.wear-masks` entry holds one mask per texture
+ * (plaster, wood, stone, shingle, slate) as the base colour of material `outpost-wear-<texture>`, which a consumer's
+ * shader blends over the pristine maps at any wear in [0, 1] (docs/outpost-kit.md#wear-masks). Every wear level then
+ * shares one material. The recipe still bakes any `wear` for a live Blender session.
  */
-export const OUTPOST_WEAR_VARIANTS = { weathered: 0.5, worn: 1 } as const;
+export const OUTPOST_WEAR_MASKS = "wear-masks";
+export const OUTPOST_WEAR_TEXTURES = ["plaster", "wood", "stone", "shingle", "slate"] as const;
+/**
+ * The KTX2 encoding per texture slot, each with a full mip chain (`ktxArguments`, scripts/pack-downloads.ts): colour
+ * ETC1S sRGB, ORM ETC1S linear, normals UASTC; the wear masks UASTC linear, since their channels are thresholds that
+ * ETC1S's shared endpoints would smear into one another.
+ */
+export const OUTPOST_KTX2 = { wearMask: "uastc" } as const satisfies Record<string, TextureEncoding>;
 /** The kit's hand-authored geometry (Git LFS): one collection per module, edited in Blender. */
 export const OUTPOST_GEOMETRY = "assets/authored/outpost-kit.blend";
 export const OUTPOST_KEY_PREFIX = "outpost.kit";
@@ -58,25 +71,63 @@ const EXTRAS = ["module", "window", "doorway", "mount", "hinge", "leafBounds", "
 export const outpostKey = (part: OutpostPart) => `${OUTPOST_KEY_PREFIX}.${part}`;
 
 export function createOutpostAssetSpec({ part, roof, wear, scriptSha256, commonSha256, kitSha256, blenderVersion }: {
-  part: OutpostPart; roof?: "shingle" | "slate" | undefined; wear?: number | undefined; scriptSha256: string; commonSha256: string; kitSha256: string; blenderVersion: string;
+  part: OutpostPart | typeof OUTPOST_WEAR_MASKS; roof?: "shingle" | "slate" | undefined; wear?: number | undefined; scriptSha256: string; commonSha256: string; kitSha256: string; blenderVersion: string;
 }) {
   return blenderScriptSpec({
-    assetId: outpostKey(part),
+    assetId: `${OUTPOST_KEY_PREFIX}.${part}`,
     inputs: { script: { path: "outpost.py", sha256: scriptSha256 }, common: { path: "kit_common.py", sha256: commonSha256 }, kit: { path: "outpost-kit.blend", sha256: kitSha256 } },
     blenderVersion, arguments: { schemaVersion: 1, part, ...(roof ? { roof } : {}), ...(wear ? { wear } : {}) }, output: "outpost.glb",
   });
 }
 
-type Run = { part: OutpostPart; variant: string; roof?: "slate"; wear?: number };
+type Run = { part: OutpostPart; variant: string; roof?: "slate" };
 type Built = KitPart & Run;
 
-/** Every bundle variant of one module: pristine and aged, and for roof modules each also in slate. */
+/** Every bundle variant of one module: the default, and for roof modules also slate. */
 export function outpostRuns(part: OutpostPart): Run[] {
-  const roofs: { prefix: string; roof?: "slate" }[] = [{ prefix: "" }, ...(OUTPOST_ROOF_PARTS.includes(part) ? [{ prefix: "slate", roof: "slate" as const }] : [])];
-  return roofs.flatMap(({ prefix, roof }) => [
-    { part, variant: prefix || OUTPOST_VARIANT, ...(roof ? { roof } : {}) },
-    ...Object.entries(OUTPOST_WEAR_VARIANTS).map(([name, wear]) => ({ part, variant: prefix ? `${prefix}-${name}` : name, ...(roof ? { roof } : {}), wear })),
-  ]);
+  return [{ part, variant: OUTPOST_VARIANT }, ...(OUTPOST_ROOF_PARTS.includes(part) ? [{ part, variant: "slate", roof: "slate" as const }] : [])];
+}
+
+/** The KTX2 encoding of a texture by the slots that use it; the wear masks' base colour is data. */
+function outpostEncoding(slots: ReadonlySet<string>, wearMask: boolean): TextureEncoding {
+  return wearMask ? OUTPOST_KTX2.wearMask : textureEncoding(slots);
+}
+
+/**
+ * `asset` with every texture as KTX2 (KHR_texture_basisu, required): each distinct image and encoding is encoded
+ * once across the kit (`encoded`), so the bundle still stores every texture once.
+ */
+async function ktx2Asset(root: string, asset: AssetRef, scratch: string, encoded: Map<string, Uint8Array>, wearMask = false): Promise<AssetRef> {
+  const io = new NodeIO().registerExtensions([KHRTextureBasisu]);
+  const document = await io.readBinary(new Uint8Array(await resolveAssetObject(root, asset)));
+  const slots = new Map<Texture, Set<string>>();
+  for (const material of document.getRoot().listMaterials()) {
+    for (const [slot, texture] of [
+      ["baseColorTexture", material.getBaseColorTexture()], ["normalTexture", material.getNormalTexture()],
+      ["metallicRoughnessTexture", material.getMetallicRoughnessTexture()], ["occlusionTexture", material.getOcclusionTexture()],
+      ["emissiveTexture", material.getEmissiveTexture()],
+    ] as const) {
+      if (texture) slots.set(texture, (slots.get(texture) ?? new Set()).add(slot));
+    }
+  }
+  for (const [texture, used] of slots) {
+    if (texture.getMimeType() !== "image/png") throw new Error(`outpost texture '${texture.getName()}' is ${texture.getMimeType()}, not PNG`);
+    const encoding = outpostEncoding(used, wearMask);
+    const png = texture.getImage()!;
+    const key = `${createHash("sha256").update(png).digest("hex")}:${encoding}`;
+    let ktx2 = encoded.get(key);
+    if (!ktx2) {
+      const input = path.join(scratch, `${encoded.size}.png`), output = path.join(scratch, `${encoded.size}.ktx2`);
+      await writeFile(input, png);
+      const run = Bun.spawnSync([process.env.ASSET_TOOLING_KTX ?? "ktx", ...ktxArguments(encoding, input, output)], { stdout: "pipe", stderr: "pipe" });
+      if (run.exitCode !== 0) throw new Error(`ktx create failed for ${texture.getName()}: ${run.stderr.toString()}`);
+      ktx2 = new Uint8Array(await readFile(output));
+      encoded.set(key, ktx2);
+    }
+    texture.setImage(ktx2).setMimeType("image/ktx2");
+  }
+  document.createExtension(KHRTextureBasisu).setRequired(true);
+  return (await storeAssetObject(root, { bytes: await io.writeBinary(document), kind: asset.kind, mediaType: "model/gltf-binary" })).asset;
 }
 
 export async function buildOutpostKit({ outDir, log = () => {} }: { outDir: string; log?: (line: string) => void }) {
@@ -92,8 +143,26 @@ export async function buildOutpostKit({ outDir, log = () => {} }: { outDir: stri
     built.push({ ...run, ...await buildKitPart(root, {
       workspace: path.join(root, "outpost", `${run.part}.${run.variant}`),
       files: { "outpost.py": source.bytes, "kit_common.py": common.bytes, "outpost-kit.blend": kit.bytes },
-      spec: createOutpostAssetSpec({ part: run.part, roof: run.roof, wear: run.wear, scriptSha256: source.sha256, commonSha256: common.sha256, kitSha256: kit.sha256, blenderVersion: source.blenderVersion }),
+      spec: createOutpostAssetSpec({ part: run.part, roof: run.roof, scriptSha256: source.sha256, commonSha256: common.sha256, kitSha256: kit.sha256, blenderVersion: source.blenderVersion }),
     }) });
+  }
+  log(`generate ${OUTPOST_WEAR_MASKS} (external.blender.script@1 outpost recipe, scene.import.gltf@2)`);
+  const masks = await buildKitPart(root, {
+    workspace: path.join(root, "outpost", OUTPOST_WEAR_MASKS),
+    files: { "outpost.py": source.bytes, "kit_common.py": common.bytes, "outpost-kit.blend": kit.bytes },
+    spec: createOutpostAssetSpec({ part: OUTPOST_WEAR_MASKS, scriptSha256: source.sha256, commonSha256: common.sha256, kitSha256: kit.sha256, blenderVersion: source.blenderVersion }),
+  });
+
+  log("encode every texture as KTX2 (ktx create)");
+  const scratch = await mkdtemp(path.join(os.tmpdir(), "outpost-kit-"));
+  const encoded = new Map<string, Uint8Array>();
+  const delivered: AssetRef[] = [];
+  let maskAsset: AssetRef;
+  try {
+    for (const b of built) delivered.push(await ktx2Asset(root, b.asset, scratch, encoded));
+    maskAsset = await ktx2Asset(root, masks.asset, scratch, encoded, true);
+  } finally {
+    await rm(scratch, { recursive: true, force: true });
   }
   const main = (part: OutpostPart) => built.find((b) => b.part === part && b.variant === OUTPOST_VARIANT)!;
 
@@ -101,7 +170,7 @@ export async function buildOutpostKit({ outDir, log = () => {} }: { outDir: stri
   const assets = OUTPOST_PARTS.map((part) => {
     const entry = kitEntry({ key: outpostKey(part), role: part, fields: { category: CATEGORY[part], parentName: `outpost.${part}` }, extras: EXTRAS, ...main(part) });
     if (OUTPOST_ROOF_PARTS.includes(part)) {
-      entry.variants = built.filter((b) => b.part === part && !b.wear).map((b) => ({ variant: b.variant, material: b.observations.roofMaterial, triangles: triangles(b.document) }));
+      entry.variants = built.filter((b) => b.part === part).map((b) => ({ variant: b.variant, material: b.observations.roofMaterial, triangles: triangles(b.document) }));
     }
     return entry;
   }).sort(byKey);
@@ -111,15 +180,15 @@ export async function buildOutpostKit({ outDir, log = () => {} }: { outDir: stri
   };
   const descriptorAsset = (await storeAssetObject(root, { bytes: Buffer.from(`${canonicalJson(descriptor)}\n`), kind: "outpost-descriptor", mediaType: "application/json" })).asset;
 
-  const selections = built.map((b) => ({
+  const selections = [...built.map((b) => ({
     key: outpostKey(b.part), variant: b.variant,
     ...(b.part === "wall" && b.variant === OUTPOST_VARIANT ? { attachments: [{ name: OUTPOST_DESCRIPTOR_ATTACHMENT }] } : {}),
-  }));
+  })), { key: `${OUTPOST_KEY_PREFIX}.${OUTPOST_WEAR_MASKS}`, variant: OUTPOST_VARIANT }];
   const packed = await exportKitBundle(root, {
     tarName: OUTPOST_TAR_NAME, log,
     invocation: {
       parameters: { profile: GLTF_RESOURCES_BUNDLE_PROFILE, assets: selections },
-      inputs: { assets: built.map((b) => b.asset), attachments: [descriptorAsset] },
+      inputs: { assets: [...delivered, maskAsset], attachments: [descriptorAsset] },
     },
   });
   return {
@@ -131,7 +200,8 @@ export async function buildOutpostKit({ outDir, log = () => {} }: { outDir: stri
         geometry: { file: OUTPOST_GEOMETRY, sha256: kit.sha256 }, blenderVersion: source.blenderVersion,
       },
       release: OUTPOST_RELEASE,
-      parts: Object.fromEntries(built.map((b) => [`${b.part}.${b.variant}`, b.asset])), descriptor: descriptorAsset,
+      parts: Object.fromEntries([...built.map((b, i) => [`${b.part}.${b.variant}`, delivered[i]!] as const), [OUTPOST_WEAR_MASKS, maskAsset] as const]),
+      descriptor: descriptorAsset,
     },
   };
 }

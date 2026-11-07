@@ -23,8 +23,10 @@ export type BlenderSuite = { suite: string; lfs: string; timeout?: number; ktx?:
 
 /** The Blender test suites, one CI job each, with the canonical payloads each one hydrates. */
 export const BLENDER_SUITES: BlenderSuite[] = [
+  // The Outpost kit ships KTX2 textures.
   {
     suite: "kits",
+    ktx: true,
     lfs: "assets/authored/**,assets/canonical/quaternius.stylized-nature-megakit-standard.*/**,assets/canonical/poly-haven.fir-tree-01-*/**,assets/canonical/poly-haven.rock-boulder-dry-*/**,assets/canonical/poly-haven.mossy-rock-*/**,assets/canonical/quaternius.animal-pack-vol2.cat-blend/**,assets/canonical/quaternius.ultimate-animated-animals-shibainu-glb/**,assets/canonical/quaternius.easy-enemy-rat-glb/**",
   },
   {

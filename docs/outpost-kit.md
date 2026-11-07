@@ -18,12 +18,13 @@ ASSET_TOOLING_BLENDER=<blender 5.2.2> bun scripts/build-outpost-kit.ts --out <di
 
 [`scripts/build-outpost-kit.ts`](../scripts/build-outpost-kit.ts) works like the [shrine build](shrine-kit.md#build):
 
-1. One `external.blender.script@1` run per module variant: pristine, `weathered` and `worn`, and for each roof module also in slate. Each run appends the module from the `.blend` (the declared input `kit`), dresses it and exports it.
+1. One `external.blender.script@1` run per module variant: the default, and for each roof module also slate. Each run appends the module from the `.blend` (the declared input `kit`), dresses it and exports it. One more run (part `wear-masks`) writes the [wear masks](#wear-masks).
 2. Each GLB is imported through `scene.import.gltf@2`, with no validator exceptions.
-3. The descriptor is written from the observations stored on the authored modules, the recipe's compositions and the measured bounds.
-4. The result is exported as a `gltf-resources-v1` bundle (`asset.bundle@4`) and packed to `<directory>/outpost.kit.tar`. The script also writes `lineage.json`, `descriptor.json` and `export.ref.json`.
+3. Every texture is encoded as KTX2 (see [Textures on the GPU](#textures-on-the-gpu)) with KTX-Software's `ktx` CLI (`ASSET_TOOLING_KTX`, or `ktx` on PATH).
+4. The descriptor is written from the observations stored on the authored modules, the recipe's compositions and the measured bounds.
+5. The result is exported as a `gltf-resources-v1` bundle (`asset.bundle@4`) and packed to `<directory>/outpost.kit.tar`. The script also writes `lineage.json`, `descriptor.json` and `export.ref.json`.
 
-The build takes about 3 minutes. It needs no network and no GPU; it reads the hydrated `.blend` (`git lfs pull --include="assets/authored/**"`) and fails clearly on an LFS pointer. Snap Blender can only read and write under `$HOME`, so set `TMPDIR` to a directory there.
+The build takes about 2 minutes. It needs no network and no GPU; it reads the hydrated `.blend` (`git lfs pull --include="assets/authored/**"`) and fails clearly on an LFS pointer. Snap Blender can only read and write under `$HOME`, so set `TMPDIR` to a directory there.
 
 ### Editing the geometry
 
@@ -122,7 +123,34 @@ The recipe takes `wear` in [0, 1] (0, the default, is the pristine kit), so cons
 - **Stone and roofs:** moss in the joints and on the courses.
 - **Roofs:** some shingles or slates are missing, a dark recess where the boards show through. Every metre of a course and every roof module repeat the same texture, so they stay sparse.
 
-Every module ships `weathered` (wear 0.5) and `worn` (1.0) variants; roof modules also ship `slate-weathered` and `slate-worn`. They snap exactly like the pristine modules, so any mix of variants composes. The v1 descriptor lists only the pristine roof variants in `assets[].variants`, and the bundle manifest lists them all.
+The bundle ships no baked wear variants: each would be one more material, and a consumer that batches draws per material (mmorpg's browser client) would pay a draw call per variant in every pass. It ships the pristine modules and the wear masks instead, so a shader ages any module to any wear with one material per texture. A live Blender session still bakes any `wear` (`build(..., wear=0.5)`).
+
+### Wear masks
+
+The `outpost.kit.wear-masks` entry holds one 1 m quad per texture, whose material `outpost-wear-<texture>` (`plaster`, `wood`, `stone`, `shingle`, `slate`) carries the texture's mask as its base colour. The mask tiles exactly like its texture, so a shader samples it with the module's own UVs. It is data, not colour: linear RGB, KTX2 UASTC. A consumer reads it without the sRGB decode a base colour would get. Timber and planks use the `wood` mask, and slate roofs use the `slate` mask.
+
+| Channel | Meaning |
+| --- | --- |
+| R, reveal | The wear from which the pixel shows what lies beneath: plaster fallen to wattle and daub, or a missing roof unit (dark boards, rough, little occlusion). 1 means never. Units go missing whole, at most 7 % of them at full wear. |
+| G, grime | How much full wear darkens the pixel: `colour *= 1 - wear * G` (stains and rain streaks on plaster, grime elsewhere). |
+| B | Plaster: the wattle and daub beneath, from its dark rods (0) to its pale clay (1). Stone and roofs: the wear from which moss settles, earliest in the dark joints. 1 means never. Wood: 1. |
+
+The baked recipe also tints plaster towards a dull ochre (35 % at full wear) and greys timber (55 %); these are constants a shader applies by material, not data. The masks follow the baked wear's fields, so a shader that uses them shows the same patches, units and moss as the baked kit. It need not match the baked kit pixel for pixel.
+
+### Textures on the GPU
+
+Every texture ships as KTX2 (Basis Universal, `KHR_texture_basisu`, required, no PNG fallback), each with a full mip chain and encoded once per image (`ktxArguments`, [`scripts/pack-downloads.ts`](../scripts/pack-downloads.ts)):
+
+| Slot | Encoding |
+| --- | --- |
+| Base colour | ETC1S (BasisLZ) qlevel 160, sRGB |
+| ORM | ETC1S qlevel 160, linear |
+| Normal | UASTC quality 2, Zstandard 18, linear |
+| Wear mask | UASTC quality 2, Zstandard 18, linear: its channels are independent thresholds that ETC1S's shared endpoints would smear together |
+
+A GPU transcodes Basis to a block format of at most 1 byte per texel (BC7, ASTC or ETC2), a quarter of what RGBA8 needs. In three.js, register `KTX2Loader` with the `GLTFLoader`. A native client without a Basis transcoder cannot read the bundle. The 20 textures are about 2.1 MB, and the tar is about 2.6 MB.
+
+Geometry is not meshopt-compressed (`EXT_meshopt_compression`): mmorpg's native client reads the modules with the `gltf` crate, which does not decode it, and the geometry is only about 0.4 MB.
 
 **Determinism:** there is no randomness. Variation comes from SHA-256 of fixed keys, and the textures come from numpy's legacy `RandomState`.
 
@@ -161,9 +189,9 @@ The bundle is distributed as the rolling `outpost-kit` GitHub release, whose ass
 
 `test/blender/kits/outpost-kit.test.ts` runs in the hosted `blender-script` job. It checks:
 
-- the tar and the bundle verify, with `default`, `weathered` and `worn` entries for all eleven modules and `slate`, `slate-weathered` and `slate-worn` entries for the three roof modules;
+- the tar and the bundle verify, with `default` entries for all eleven modules, `slate` entries for the three roof modules and the `wear-masks` entry;
 - the descriptor conforms to the schema;
-- there are exactly 39 PNG resources (15 pristine, 12 for each wear level);
+- there are exactly 20 KTX2 resources (15 maps and 5 wear masks) and no PNG, and the wear-mask entry has one `outpost-wear-<texture>` material per texture;
 - every module stays within its triangle budget (`OUTPOST_TRIANGLE_BUDGET`);
 - the wall modules span their 2 m or 1 m module and stay within the wall thickness;
 - no vertex and no proxy reaches into the doorway, and the closed leaf fits it;
