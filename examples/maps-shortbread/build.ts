@@ -98,7 +98,7 @@ async function build() {
   for (const candidate of candidates) {
     const spec = {schemaVersion:1,assetId:`maps.${candidate.id}`,generator:{id:"external.planetiler.shortbread",version:"1"},randomness:{mode:"none"},
       inputs:{profile:{path:"profile.yml",sha256:profileHash},osm:{path:pins.osm.file,sha256:pins.osm.sha256},planetiler:{path:pins.planetiler.file,sha256:pins.planetiler.sha256}},models:{},
-      parameters:{javaVersion:"21.0.10",bounds:candidate.bounds,minZoom:10,maxZoom:14},output:{path:`${candidate.id}.pmtiles`},reproducibility:{expected:"approximate"}};
+      parameters:{javaVersion:"21.0.13",bounds:candidate.bounds,minZoom:10,maxZoom:14},output:{path:`${candidate.id}.pmtiles`},reproducibility:{expected:"approximate"}};
     const specPath = path.join(root,`${candidate.id}.asset.json`);
     await reconcile(specPath,JSON.stringify(spec,null,2)+"\n");
     const generation = await generateAsset(specPath);

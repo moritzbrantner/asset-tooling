@@ -37,3 +37,7 @@ The base colour is UASTC rather than ETC1S because ETC1S blurs the scans' fine d
 ## Descriptor
 
 The `terrain-descriptor` attachment (on the `grass` entry, schema `greyhaven-terrain-descriptor-v1`) lists per layer: `key`, `variant`, `layer`, `polyHavenId`, `tileMetres`, `meanColor` (the mean RGB of the 1024² base-colour texture in linear light before Basis encoding, 4 decimals, so a client can divide by it and keep only the detail around its own palette) and `provenance` (catalog source ids and sha256 per map, `CC0-1.0`, authors, the Poly Haven evidence URL and the height percentiles used).
+
+## Rock macro variation
+
+The `rock` layer's 2.7 m tile repeats visibly on the escarpment. The [crag kit](crag-kit.md#rock-macro-variation)'s `crag.kit.rock-macro` texture is tileable at 32 m per repeat: sample it at world xz / 32 and multiply the layer's linear base colour by 2 × its linear RGB, as the crag modules do, so crags and escarpment break their repeat the same way.

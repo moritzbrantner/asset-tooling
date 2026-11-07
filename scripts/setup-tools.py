@@ -121,13 +121,7 @@ def pins(root: Path) -> dict:
         if not re.fullmatch(r"\d+\.\d+\.\d+", comfy.get(name, "")):
             raise SetupError(f"{name} must have an exact release version")
     validate_cpu_torch(comfy.get("cpuTorch"))
-    package = json.loads((root / "package.json").read_text(encoding="utf8"))
-    bun = package.get("engines", {}).get("bun")
-    if not isinstance(bun, str) or not re.fullmatch(r"\d+\.\d+\.\d+", bun):
-        raise SetupError("package.json must pin an exact Bun version")
-    if package.get("packageManager") != f"bun@{bun}":
-        raise SetupError("package.json packageManager and engines.bun must agree")
-    return {**manifest, "bun": bun}
+    return manifest
 
 
 class Toolchain:
@@ -152,15 +146,14 @@ class Toolchain:
         return self.env / suffix / f"{name}{extension}"
 
     def basic_status(self) -> tuple[bool, str]:
+        # The latest stable Bun (mise.toml); the committed lockfile keeps dependency resolution frozen.
         executable = shutil.which("bun")
         if not executable:
-            return False, f"Bun {self.manifest['bun']} is required on PATH (host prerequisite)"
+            return False, "Bun is required on PATH (`mise install`, or a host install)"
         try:
             found = run(executable, "--version")
         except (OSError, subprocess.SubprocessError) as exc:
             return False, f"Cannot check Bun: {exc}"
-        if found != self.manifest["bun"]:
-            return False, f"Bun version {found} does not match {self.manifest['bun']}"
         return True, f"Bun {found}"
 
     def preview_status(self) -> tuple[bool, str]:

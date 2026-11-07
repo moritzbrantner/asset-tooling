@@ -86,6 +86,9 @@ jobs:
       - name: Hydrate the canonical payloads
         if: matrix.lfs
         run: git lfs pull --include="assets/canonical/**"
+      # The hand-authored Blender sources are small; every build that names one reads it hydrated.
+      - name: Hydrate the authored sources
+        run: git lfs pull --include="assets/authored/**"
       - id: processor
         name: Read the processor pin
         if: matrix.processor != ''
@@ -163,14 +166,24 @@ jobs:
         with:
           distribution: temurin
           java-version: ${{ matrix.java }}
-      - name: Ensure FFmpeg and install pinned dependencies
+      # Only the trusted GitHub CLI sees this write-capable job token. The
+      # subsequent installer never executes publisher binaries with it present.
+      - name: Resolve latest FFmpeg release metadata
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api repos/FFmpeg-Builds/FFmpeg-Builds/releases/latest > "$RUNNER_TEMP/ffmpeg-release.json"
+      - name: Install latest stable FFmpeg
         run: |
-          if ! command -v ffmpeg >/dev/null 2>&1; then
-            sudo apt-get update
-            sudo apt-get install -y ffmpeg
-          fi
-          ffmpeg -hide_banner -version | head -n 1
-          bun install --frozen-lockfile
+          set -euo pipefail
+          CODEC_BIN="$(bun scripts/install-ffmpeg.ts --release-metadata "$RUNNER_TEMP/ffmpeg-release.json")"
+          echo "$CODEC_BIN" >> "$GITHUB_PATH"
+      - name: Report installed FFmpeg versions
+        run: |
+          set -euo pipefail
+          ffmpeg -version | sed -n '1p'
+          ffprobe -version | sed -n '1p'
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
       - name: Acquire the pinned Maps regional source and upstream tools
         if: matrix.release == 'maps-shortbread'
         run: bun examples/maps-shortbread/build.ts acquire

@@ -17,6 +17,7 @@ import { lstat, readFile } from "node:fs/promises";
 
 import {
   APPROVED_IMAGE_BUNDLE_PROFILE,
+  createAssetBundleReadSnapshot,
   readAssetBundleAsset,
   verifyAssetBundle,
   type ApprovedImageBundleManifest,
@@ -184,10 +185,12 @@ export async function loadApprovedWardenExport(reviewDirectory: string, review?:
   const expected = selection.selections.flatMap((entry) => WARDEN_EXPORT_VARIANTS.map((variant) => `${entry.key}/${variant}=${entry.variants[variant] ?? "unnamed"}`)).sort();
   const actual = manifest.assets.map((entry) => `${entry.key}/${entry.variant}=${entry.approved.sha256}`).sort();
   if (canonicalJson(actual) !== canonicalJson(expected)) throw new Error("the committed approved export does not name exactly the selection's keys, variants and sha256 values");
+  // The verified manifest is local to this read and never mutated; each PNG still gets a fresh pinned read.
+  const readSnapshot = createAssetBundleReadSnapshot(manifest);
   const images: WardenApprovedImage[] = [];
   for (const entry of selection.selections) {
     for (const variant of WARDEN_EXPORT_VARIANTS) {
-      const bytes = await readAssetBundleAsset(directory, manifest, entry.key, variant);
+      const bytes = await readAssetBundleAsset(directory, readSnapshot, entry.key, variant);
       const width = pngWidth(bytes);
       if (variant !== "master" && width !== Number(variant)) throw new Error(`${entry.key}/${variant} is ${width} px`);
       images.push({ key: entry.key, name: entry.name, candidate: entry.candidate, variant, sha256: sha256Bytes(bytes), width, bytes });
