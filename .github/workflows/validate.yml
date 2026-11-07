@@ -121,6 +121,15 @@ jobs:
           curl --fail --location --max-time 30 --max-filesize 36296 "$SAPLING_SOURCE_URL" --output "$RUNNER_TEMP/sapling.zip"
           bun -e 'import { readFile } from "node:fs/promises"; import { sha256Bytes } from "./src/hash.ts"; import { SAPLING_TREE_SOURCE } from "./src/tree-recipes.ts"; const bytes = await readFile(process.argv[1]); if (bytes.length !== SAPLING_TREE_SOURCE.byteLength || sha256Bytes(bytes) !== SAPLING_TREE_SOURCE.sha256) throw new Error("Sapling input pin mismatch")' "$RUNNER_TEMP/sapling.zip"
           echo "ASSET_TOOLING_SAPLING_ARCHIVE=$RUNNER_TEMP/sapling.zip" >> "$GITHUB_ENV"
+      - name: Install KTX-Software
+        if: matrix.ktx
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release download --repo KhronosGroup/KTX-Software --pattern 'KTX-Software-*-Linux-x86_64.deb' --dir "$RUNNER_TEMP/ktx"
+          sudo apt-get install -y "$RUNNER_TEMP"/ktx/*.deb
+          ktx --version
       - name: Hydrate the suite's canonical sources
         run: git lfs pull --include="${{ matrix.lfs }}"
       - name: Blender script backend round trips

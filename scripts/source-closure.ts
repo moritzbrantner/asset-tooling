@@ -3,14 +3,20 @@
 import path from "node:path";
 import { existsSync, readFileSync, statSync } from "node:fs";
 
-// A repo path literal such as "adapters/blender/shrine.py"; an unfinished template prefix ("adapters/blender/${") is skipped.
-// "../adapters/…" counts; a URL's "…/assets/…" does not.
+// A repo path literal, such as the shrine kit's Blender recipe path; an unfinished template prefix ending in a slash is skipped.
+// A path behind a relative ../ counts; a path inside a URL does not.
 const PATH_LITERAL = /(?<![\w.-]|[\w-]\/)((?:adapters|assets|catalog|examples)\/[A-Za-z0-9._/-]*)/g;
 // A Blender recipe named by its bare file name, as in readBlenderRecipeSource("tree.py") or runpy.run_path("kit_common.py").
 const BLENDER_RECIPE = /["'`]([A-Za-z0-9_-]+\.py)["'`]/g;
-const BLENDER_DIR = "adapters/blender";
+// Joined, so this file's own text names no repo directory for the closures that include it.
+const BLENDER_DIR = path.posix.join("adapters", "blender");
 // A module loaded through a relative URL, as in import(new URL("./process-adapter.js", import.meta.url).href).
 const RELATIVE_URL = /new URL\(\s*["'`](\.\.?\/[^"'`$]+)["'`]\s*,\s*import\.meta\.url\s*\)/g;
+
+/** The text without comment lines and Python docstrings, where a bare recipe name is an example, not a load. */
+function code(text: string): string {
+  return text.replace(/"""[\s\S]*?"""|'''[\s\S]*?'''/g, "").replace(/^\s*(#|\/\/|\/\*|\*).*$/gm, "");
+}
 
 /** The package's own `exports` map, so `asset-tooling/operations` resolves like a relative import. */
 function selfExports(root: string): { name: string; exports: Record<string, string> } {
@@ -41,7 +47,7 @@ export function sourceClosure(entries: string[], root: string): string[] {
     sources.add(file);
     const text = readFileSync(path.join(root, file), "utf8");
     for (const match of text.matchAll(PATH_LITERAL)) if (!/[/.]$/.test(match[1]!)) recipe(match[1]!);
-    for (const match of text.matchAll(BLENDER_RECIPE)) {
+    for (const match of code(text).matchAll(BLENDER_RECIPE)) {
       if (existsSync(path.join(root, BLENDER_DIR, match[1]!))) recipe(`${BLENDER_DIR}/${match[1]}`);
     }
     if (!/\.[cm]?[jt]sx?$/.test(file)) continue;

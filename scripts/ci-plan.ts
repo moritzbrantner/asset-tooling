@@ -18,7 +18,8 @@ const RUNTIME = ["package.json", "bun.lock", "bunfig.toml", "tsconfig.json", "mi
 const BLENDER_RUNTIME = ["adapters/blender/release.json", "adapters/blender/script_runner.py", "scripts/install-blender.ts"];
 const BLENDER_DIR = "test/blender";
 
-export type BlenderSuite = { suite: string; lfs: string; timeout?: number };
+/** `ktx`: the suite's builds encode KTX2 textures, so its job installs KTX-Software. */
+export type BlenderSuite = { suite: string; lfs: string; timeout?: number; ktx?: boolean };
 
 /** The Blender test suites, one CI job each, with the canonical payloads each one hydrates. */
 export const BLENDER_SUITES: BlenderSuite[] = [
@@ -38,6 +39,13 @@ export const BLENDER_SUITES: BlenderSuite[] = [
   },
   // The climbing kit's 45 recipe runs (15 parts x 3 levels).
   { suite: "climbing", timeout: 30, lfs: "assets/canonical/quaternius.medieval-village-megakit-standard.t-vineleaf-png-png/**" },
+  // The crag kit's 40 recipe runs (13 modules x 3 levels and the macro texture), KTX2-encoded like the terrain.
+  {
+    suite: "crag",
+    timeout: 40,
+    ktx: true,
+    lfs: "assets/canonical/poly-haven.rock-face-03-*/**,assets/canonical/poly-haven.rock-boulder-dry-diff-2k-jpg/**,assets/canonical/poly-haven.mossy-rock-diff-2k-jpg/**",
+  },
 ];
 
 /** Paths that run on every platform: the package's own code and tests, not the Linux-only build tooling. */
@@ -47,7 +55,7 @@ const PAGES_ONLY = /^(src\/browser\/|test\/browser\/|src\/(animation-viewer-elig
 const PAGES = /^(catalog\/|src\/|licenses\/|THIRD_PARTY_NOTICES\.md$|scripts\/|review\/|adapters\/blender\/|examples\/reconcile-file\.ts$|package\.json$|\.github\/workflows\/(pages|validate)\.yml$)/;
 const DOCUMENTATION = /^docs\/|(^|\/)[^/]+\.md$/;
 
-export type BlenderJob = { suite: string; lfs: string; timeout: number; tests: string };
+export type BlenderJob = { suite: string; lfs: string; timeout: number; ktx: boolean; tests: string };
 
 export type CiPlan = {
   os: string[];
@@ -78,7 +86,7 @@ function lfsMatches(lfs: string, changed: string[]): boolean {
 function everything(): CiPlan {
   return {
     os: ALL_OS,
-    blender: BLENDER_SUITES.map(({ suite, lfs, timeout }) => ({ suite, lfs, timeout: timeout ?? 15, tests: `${BLENDER_DIR}/${suite}` })),
+    blender: BLENDER_SUITES.map(({ suite, lfs, timeout, ktx }) => ({ suite, lfs, timeout: timeout ?? 15, ktx: !!ktx, tests: `${BLENDER_DIR}/${suite}` })),
     "selected-bundle-consumer": true,
     "canonical-storage": true,
     "processing-contract": true,
@@ -105,7 +113,7 @@ export function ciPlan(changed: string[] | "all", root = ROOT): CiPlan {
     const selected = allBlender || lfsMatches(suite.lfs, code) ? tests : tests.filter((test) => matches(closures.get(test)!, code));
     if (selected.length === 0) return [];
     const all = selected.length === tests.length;
-    return [{ suite: suite.suite, lfs: suite.lfs, timeout: suite.timeout ?? 15, tests: all ? `${BLENDER_DIR}/${suite.suite}` : selected.join(" ") }];
+    return [{ suite: suite.suite, lfs: suite.lfs, timeout: suite.timeout ?? 15, ktx: !!suite.ktx, tests: all ? `${BLENDER_DIR}/${suite.suite}` : selected.join(" ") }];
   });
 
   const hydrated = files("test/hydrated", ".ts", root);
