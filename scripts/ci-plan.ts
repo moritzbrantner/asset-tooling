@@ -47,7 +47,7 @@ export const BLENDER_SUITES: BlenderSuite[] = [
     suite: "crag",
     timeout: 40,
     ktx: true,
-    lfs: "assets/canonical/poly-haven.rock-face-03-*/**,assets/canonical/poly-haven.rock-boulder-dry-diff-2k-jpg/**,assets/canonical/poly-haven.mossy-rock-diff-2k-jpg/**",
+    lfs: "assets/canonical/poly-haven.rock-face-03-*/**,assets/canonical/poly-haven.rock-boulder-dry-diff-2k-jpg/**,assets/canonical/poly-haven.mossy-rock-diff-2k-jpg/**,assets/canonical/poly-haven.forrest-ground-01-diff-2k-jpg/**,assets/canonical/poly-haven.rocks-ground-02-diff-2k-jpg/**",
   },
   // The Redbrand faction kit (#517): the authored garments on the male Ranger figure, built twice for the same tar.
   {
