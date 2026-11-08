@@ -4,7 +4,7 @@
 //   bun scripts/publish-release.ts plan --release <name>    # one release (workflow_dispatch)
 //   bun scripts/publish-release.ts build <release> <out>    # run the release's maintained build into <out>
 //   bun scripts/publish-release.ts publish <release> <out> [--dry-run]
-// `publish` uploads every top-level file of <out> to the one rolling release with --clobber (Atlas Decision 7.1.5,
+// `publish` uploads every top-level file of <out> to the one rolling release with --clobber, then removes live files the build no longer produces (Atlas Decision 7.1.5,
 // never a numbered release). It verifies the tar against its export.ref.json first, skips the upload when the live
 // release already holds the same tar, and refuses when a consumer in consumers.json pins the release and neither
 // its default branch nor its open `agent/repin-<release>` branch (scripts/prepare-release.ts) pins the new build.
@@ -186,6 +186,22 @@ function liveTarSha256(release: string, tar: string): string | undefined {
   return result.ok ? /^([0-9a-f]{64}) {2}/.exec(result.stdout)?.[1] : undefined;
 }
 
+/** The live release files this build did not produce: entries and renders an earlier build left behind. */
+export function staleReleaseFiles(live: string[], built: string[]): string[] {
+  const current = new Set(built);
+  return live.filter((name) => !current.has(name)).sort();
+}
+
+/** Removes what `staleReleaseFiles` names. It runs once the current build is live, so a reader always finds a complete set. */
+function pruneRelease(name: string, built: string[], dryRun: boolean): void {
+  const live = run("gh", ["release", "view", name, "--repo", TOOLING_REPO, "--json", "assets", "--jq", ".assets[].name"]).stdout.split("\n").filter(Boolean);
+  const stale = staleReleaseFiles(live, built);
+  if (!stale.length) return;
+  console.log(`${name}: ${dryRun ? "would remove" : "removing"} ${stale.length} file(s) this build did not produce: ${stale.join(", ")}`);
+  if (dryRun) return;
+  for (const file of stale) run("gh", ["release", "delete-asset", name, file, "--repo", TOOLING_REPO, "--yes"]);
+}
+
 async function publish(name: string, out: string, dryRun: boolean): Promise<number> {
   rollingRelease(name);
   const dir = path.resolve(out);
@@ -199,6 +215,7 @@ async function publish(name: string, out: string, dryRun: boolean): Promise<numb
   const live = liveTarSha256(name, artifacts.tar);
   if (live === artifacts.sha256) {
     console.log(`${name}: the live release already holds tar ${artifacts.sha256}; nothing to publish`);
+    pruneRelease(name, files, dryRun);
     return 0;
   }
   const consumers = await loadConsumers();
@@ -222,6 +239,7 @@ async function publish(name: string, out: string, dryRun: boolean): Promise<numb
   run("gh", ["release", "upload", name, "--repo", TOOLING_REPO, "--clobber", ...bundle.map((file) => path.join(dir, file))]);
   run("gh", ["release", "upload", name, "--repo", TOOLING_REPO, "--clobber", path.join(dir, "export.ref.json")]);
   console.log(`${name}: published tar ${artifacts.sha256} (was ${live ?? "none"}): ${files.join(", ")}`);
+  pruneRelease(name, files, false);
   return 0;
 }
 

@@ -4,7 +4,7 @@ import path from "node:path";
 import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { readArtifacts, type Consumer } from "../scripts/prepare-release.ts";
 import {
-  MANUAL_RELEASES, ROLLING_RELEASES, blockingConsumers, plan, planEntry, releaseFiles, releaseSources, rollingRelease, touches, type FetchFile,
+  MANUAL_RELEASES, ROLLING_RELEASES, blockingConsumers, plan, planEntry, releaseFiles, releaseSources, rollingRelease, staleReleaseFiles, touches, type FetchFile,
 } from "../scripts/publish-release.ts";
 
 const OLD = "a".repeat(64), NEW = "b".repeat(64);
@@ -73,6 +73,13 @@ describe("publish-release", () => {
 
   test("uploads every top-level build file with export.ref.json last", async () => {
     expect(await releaseFiles(await build())).toEqual(["kit.tar", "kit.tar.sha256", "lineage.json", "spark.png", "export.ref.json"]);
+  });
+
+  test("only live files the build did not produce are stale", () => {
+    const built = ["kit.tar", "kit.tar.sha256", "export.ref.json"];
+    expect(staleReleaseFiles([...built, "old.lod1.bin", "armor.gone.gltf"], built)).toEqual(["armor.gone.gltf", "old.lod1.bin"]);
+    expect(staleReleaseFiles(built, built)).toEqual([]);
+    expect(staleReleaseFiles([], built)).toEqual([]);
   });
 
   test("a pinned consumer blocks unless its default or re-pin branch pins the new build", async () => {
