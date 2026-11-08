@@ -26,6 +26,8 @@ The [crag kit](docs/crag-kit.md) is a scripted Blender recipe that dresses Greyh
 
 The [Redbrand faction kit](docs/redbrand-kit.md) dresses mmorpg's Redbrand bandits as its own rolling release: two complete figures (Dark and Light skin) on the male Ranger rig, with the coat, trousers, faction-red mantle and the socketed belt and bracers. The garments are hand-authored in `assets/authored/redbrand-kit.blend`, every texture is KTX2, and the descriptor carries an outfit record shaped like the Ranger appearance file.
 
+The [hair and beard kit](docs/hair-kit.md) ships the male Ranger's hairstyles and beards as attachable skinned pieces on the Ranger head joints, as its own rolling release. The hand-modelled pieces are authored in `assets/authored/hair-kit.blend`, the pack hairstyles stay recipe-built from the catalog, every texture is KTX2, and a descriptor names each piece's socket, joints, chains, tint materials and what it hides.
+
 The [Greyhaven settlement props](docs/settlement-props.md) are a scripted Blender prop set in the same style for an Outpost public space: a market stall, handcart, crate and barrel, a signpost, lantern post and bench, and a fence segment, planter and woodpile, with a market-square composition.
 
 [Marshal Elden Greywatch's house](docs/greyhaven-marshal-house.md) is an enterable, furnished private home on the MMORPG's west Outpost house footprint: the kit's house exterior with a hinged door, a floor, a hideable ceiling and roof, a bed, chest, table, bench, chair, hearth, the Marshal's weapon rack and shield, box colliders, and spots for the knock, the doorway and the bed.
