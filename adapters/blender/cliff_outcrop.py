@@ -35,6 +35,9 @@ OUTCROPS = {
 CELL = 0.03              # sculpt grid spacing, metres; every rock gets a grid its decimation can reduce cleanly
 SKIRT, CROWN = 0.09, 0.84  # where along v the buried foot ends and the crown begins
 BURY = 0.9               # how far below the ground the foot reaches, metres
+SECTORS = 12             # points round each ring of the collision mesh
+COLLISION_FOOT = 1.2     # the collision mesh's lowest measured height: above the soft apron, metres
+COLLISION_PERCENTILE = 88
 TILE = {"rock": 2.7, "grass": 2.0, "gravel": 2.0, "moss": 1.6}  # metres per repeat, as the terrain's layers
 # mmorpg's ground palette (sRGB): the clients divide each scan by its mean and multiply by these.
 PALETTE = {"rock": 0x8b877e, "grass": 0x667d46, "gravel": 0x8f8a7c, "moss": 0x667447}
@@ -197,6 +200,47 @@ def sculpt_arrays(cfg):
     grass = np.maximum.reduce([grass_foot, crown_grass, ledge * smoothstep(0.56, 0.68, broad)])
     gravel = np.clip(foot, 0, 1) * (1 - grass)
     return p, np.stack([gravel, grass, moss, cavity], -1)
+
+
+def collision_mesh(p, cfg):
+    """A closed low-poly mesh of the rock for gameplay collision, in glTF axes (+Y up), wound outward.
+
+    Rings of ``SECTORS`` points follow the rock's real outline at a few heights, each radius a high percentile of the
+    sculpt there, so the mesh hugs the face without its outliers. The soft apron and the rubble are left out, so a character
+    walks onto them. The foot continues to ``-BURY``."""
+    height = cfg["height"]
+    levels = np.linspace(COLLISION_FOOT, height * 0.93, int(np.clip(round(height / 2.0), 3, 8)) + 1)
+    points = p.reshape(-1, 3)
+    lean = np.maximum(points[:, 2] / height, 0) ** 1.25
+    dx = points[:, 0] - cfg["lean"][0] * lean
+    dy = points[:, 1] - cfg["lean"][1] * lean
+    sector = ((np.arctan2(dy, dx) / math.tau) % 1.0 * SECTORS).astype(int) % SECTORS
+    radial = np.hypot(dx, dy)
+    half = (levels[1] - levels[0]) / 2
+    rings = []
+    for level in levels:
+        near = np.abs(points[:, 2] - level) < half
+        rings.append([float(np.percentile(radial[near & (sector == s)], COLLISION_PERCENTILE)) for s in range(SECTORS)])
+    def ring(level, radii):
+        offset = max(level / height, 0) ** 1.25
+        return [(cfg["lean"][0] * offset + r * math.cos(math.tau * (s + 0.5) / SECTORS),
+                 cfg["lean"][1] * offset + r * math.sin(math.tau * (s + 0.5) / SECTORS), float(level)) for s, r in enumerate(radii)]
+    loops = [ring(-BURY, rings[0])] + [ring(level, radii) for level, radii in zip(levels, rings)]
+    apex_offset = (cfg["lean"][0], cfg["lean"][1])
+    top = float(points[:, 2].max())
+    vertices = [v for loop in loops for v in loop] + [(0.0, 0.0, -BURY), (apex_offset[0], apex_offset[1], top)]
+    bottom, apex = len(vertices) - 2, len(vertices) - 1
+    triangles = []
+    for r in range(len(loops) - 1):
+        for s in range(SECTORS):
+            a, b = r * SECTORS + s, r * SECTORS + (s + 1) % SECTORS
+            c, d = a + SECTORS, b + SECTORS
+            triangles += [[a, b, d], [a, d, c]]
+    last = (len(loops) - 1) * SECTORS
+    for s in range(SECTORS):
+        triangles.append([bottom, (s + 1) % SECTORS, s])
+        triangles.append([last + s, last + (s + 1) % SECTORS, apex])
+    return {"shape": "triangle-mesh", "vertices": [[round(x, 3), round(z, 3), round(-y, 3)] for x, y, z in vertices], "triangles": triangles}
 
 
 def rubble(cfg, rng):
@@ -526,7 +570,9 @@ def generate(output_path, arguments, inputs):
     cfg = OUTCROPS[part]
     collection = bpy.context.scene.collection
     name = f"outcrop_{part}"
-    sculpted = sculpt(f"{name}_sculpt", part, collection)
+    p, masks = sculpt_arrays(cfg)
+    collision = collision_mesh(p, cfg)
+    sculpted = grid_mesh(f"{name}_sculpt", p, masks, collection, cfg, np.random.RandomState(cfg["seed"] + 99))
     sculpted.data.materials.append(sculpt_material(f"{name}_sculpt", inputs))
     low = game_mesh(sculpted, cfg["triangles"], collection)
     bake(sculpted, low, name, cfg["edge"])
@@ -541,5 +587,5 @@ def generate(output_path, arguments, inputs):
         filepath=output_path, export_format="GLB", use_selection=True, export_yup=True,
         export_texcoords=True, export_normals=True, export_tangents=False, export_vertex_color="NONE", export_image_format="AUTO",
         export_animations=False, export_skins=False, export_morph=False, export_cameras=False, export_lights=False, export_extras=False)
-    return {"recipe": RECIPE, "part": part, "triangles": triangles(low), "bakeEdge": cfg["edge"], "bury": BURY,
+    return {"recipe": RECIPE, "part": part, "triangles": triangles(low), "bakeEdge": cfg["edge"], "bury": BURY, "collisionMesh": collision,
             "fit": {"radii": list(cfg["radii"]), "height": cfg["height"], "lean": [cfg["lean"][0], -cfg["lean"][1]]}}

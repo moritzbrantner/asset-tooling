@@ -16,6 +16,7 @@ import {
   CRAG_DESCRIPTOR_ATTACHMENT, CRAG_FACES, CRAG_MACRO, CRAG_MODULES, CRAG_OUTCROPS, CRAG_PARTS, CRAG_PITCH, CRAG_RELEASE, CRAG_SOURCES,
   buildCragKit, cragKey, cragLayout, cragOutcropKey, createCragAssetSpec,
 } from "../../../scripts/build-crag-kit.ts";
+import type { Document } from "@gltf-transform/core";
 import { ROLLING_RELEASES } from "../../../scripts/publish-release.ts";
 import { KIT_BUDGETS, kitBudgetViolations, kitCost } from "../../../scripts/report-kit-costs.ts";
 
@@ -116,6 +117,22 @@ test("the crag recipe builds a verified KTX2 bundle with shared textures, climbi
       const enclosed = enclosedVolume(built.documents[`outcrop-${entry.role}.default`]!);
       const cone = (Math.PI * entry.fit.radii[0] * entry.fit.radii[1] * entry.fit.height) / 3;
       assert.ok(enclosed > cone * 0.7, `${entry.role} encloses ${enclosed.toFixed(1)} m³ of a ${cone.toFixed(1)} m³ cone`);
+      // The collision mesh is closed, wound outward, small enough for physics and about the size of the visible rock.
+      const { vertices, triangles: faces } = entry.collisionMesh as { vertices: number[][]; triangles: number[][] };
+      const edges = new Map<string, number>();
+      let signed = 0;
+      for (const [a, b, c] of faces as [number, number, number][]) {
+        for (const [from, to] of [[a, b], [b, c], [c, a]] as const) edges.set(`${from}>${to}`, (edges.get(`${from}>${to}`) ?? 0) + 1);
+        const [p, q, r] = [vertices[a]!, vertices[b]!, vertices[c]!];
+        signed += (p[0]! * (q[1]! * r[2]! - q[2]! * r[1]!) - p[1]! * (q[0]! * r[2]! - q[2]! * r[0]!) + p[2]! * (q[0]! * r[1]! - q[1]! * r[0]!)) / 6;
+      }
+      for (const [edge, count] of edges) {
+        const [from, to] = edge.split(">");
+        assert.equal(count, 1, `${entry.role}: directed edge ${edge} repeats`);
+        assert.equal(edges.get(`${to}>${from}`), 1, `${entry.role}: edge ${edge} has no partner, so the mesh is open`);
+      }
+      assert.ok(faces.length <= 240, `${entry.role}: ${faces.length} collision triangles`);
+      assert.ok(signed > enclosed * 0.55 && signed < enclosed * 1.25, `${entry.role}: collision encloses ${signed.toFixed(1)} m³ of the rock's ${enclosed.toFixed(1)} m³`);
     }
     const asset = Object.fromEntries(d.assets.map((a: any) => [a.role, a]));
     for (const part of CRAG_MODULES) {

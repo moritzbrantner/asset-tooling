@@ -341,8 +341,8 @@ export async function buildCragKit({ outDir, log = () => {} }: { outDir: string;
   const outcropEntries = CRAG_OUTCROPS.map((part) => {
     const levels = outcrops.filter((o) => o.part === part);
     const bounds = documentBounds(levels[0]!.document);
-    const { fit, bury } = levels[0]!.observations;
-    return { key: cragOutcropKey(part), role: part, kind: "outcrop", triangles: triangles(levels[0]!.document), bounds, fit, bury, lods: lodChain(levels, bounds) };
+    const { fit, bury, collisionMesh } = levels[0]!.observations;
+    return { key: cragOutcropKey(part), role: part, kind: "outcrop", triangles: triangles(levels[0]!.document), bounds, fit, bury, collisionMesh, lods: lodChain(levels, bounds) };
   });
   const descriptor = {
     schema: CRAG_DESCRIPTOR_SCHEMA, units: "metre", up: "+Y", handedness: "right", pitch: CRAG_PITCH,
@@ -388,7 +388,7 @@ export async function buildCragKit({ outDir, log = () => {} }: { outDir: string;
     assets,
     outcrops: {
       frame: "Freestanding rock with its origin on the ground at the footprint centre, +Y up. The foot runs `bury` metres below y = 0, so it meets uneven ground. Scale to the rock's own footprint and height; `fit` gives the unscaled radii, height and lean (x, z metres at the top).",
-      use: "Presentation over a consumer's own collider: gameplay keeps the collision. Each outcrop's maps are baked with its foot and crown blending into the terrain's grass, gravel and moss, in mmorpg's ground palette.",
+      use: "Each outcrop's maps are baked with its foot and crown blending into the terrain's grass, gravel and moss, in mmorpg's ground palette. `collisionMesh` is a closed triangle mesh (metres, this frame, +Y up, wound outward) that follows the rock: a consumer's content build scales it with the placement to generate the rock's collision, which the consumer owns and reviews.",
       entries: outcropEntries,
     },
   };

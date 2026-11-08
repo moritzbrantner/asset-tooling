@@ -67,6 +67,11 @@
       "pins": [{ "type": "tar-sha256", "path": "scripts/fetch-bundles.sh", "after": "NATURE_TAR_SHA256=" }]
     },
     {
+      "repo": "moenarch-games/mmorpg",
+      "release": "fortress-kit",
+      "pins": [{ "type": "tar-sha256", "path": "scripts/fetch-bundles.sh", "after": "FORTRESS_TAR_SHA256=" }]
+    },
+    {
       "repo": "moenarch-games/zoo",
       "release": "zoo-scenery",
       "pins": [
