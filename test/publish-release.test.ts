@@ -63,7 +63,7 @@ describe("publish-release", () => {
   });
 
   test("plans only the releases a change touches", () => {
-    expect(plan(["adapters/blender/outpost.py"]).map((entry) => entry.release)).toEqual(["greyhaven-marshal-house", "outpost-kit", "settlement-props"]);
+    expect(plan(["adapters/blender/outpost.py"]).map((entry) => entry.release)).toEqual(["greyhaven-marshal-house", "outpost-kit", "sandstone-kit", "settlement-props"]);
     expect(plan(["adapters/blender/zoo_scenery.py"])).toEqual([{ release: "zoo-scenery", blender: true, lfs: false, processor: "", ktx: false, timeout: 60 }]);
     // The Redbrand and hair kits build from the Ranger build's constants and steps, so they follow the Ranger sources.
     expect(plan(["adapters/blender/hit_clips.py"]).map((entry) => entry.release)).toEqual(["hair-kit", "humanoid-ranger-female", "humanoid-ranger-male", "redbrand-kit"]);
