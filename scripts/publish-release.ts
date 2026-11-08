@@ -10,8 +10,10 @@
 // its default branch nor its open `agent/repin-<release>` branch (scripts/prepare-release.ts) pins the new build.
 import path from "node:path";
 import { spawnSync } from "node:child_process";
-import { readdir, readFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
 import { findConsumers, loadConsumers, readArtifacts, type Artifacts, type Consumer, type Pin } from "./prepare-release.ts";
+import { KIT_BUDGETS, kitBudgetViolations, kitCost } from "./report-kit-costs.ts";
 import { verifyMapsShortbreadRelease } from "./build-maps-shortbread-release.ts";
 import { sourceClosure, touches } from "./source-closure.ts";
 import { useSharedGenerationCache } from "./generation-cache.ts";
@@ -218,6 +220,20 @@ async function publish(name: string, out: string, dryRun: boolean): Promise<numb
     console.log(`${name}: the live release already holds tar ${artifacts.sha256}; nothing to publish`);
     pruneRelease(name, files, dryRun);
     return 0;
+  }
+  const budget = KIT_BUDGETS[name];
+  if (budget) {
+    const unpacked = await mkdtemp(path.join(tmpdir(), `${name}-cost-`));
+    try {
+      run("tar", ["-xf", path.join(dir, artifacts.tar), "-C", unpacked]);
+      const violations = kitBudgetViolations(await kitCost(unpacked), budget);
+      if (violations.length) {
+        console.error(`${name}: refusing to publish tar ${artifacts.sha256}: over its KIT_BUDGETS limit: ${violations.join("; ")}.`);
+        return 1;
+      }
+    } finally {
+      await rm(unpacked, { recursive: true, force: true });
+    }
   }
   const consumers = await loadConsumers();
   for (const consumer of findConsumers(consumers, name).unpinned) console.log(`${consumer.repo}: not pinned (${consumer.note ?? "reads the live release"})`);

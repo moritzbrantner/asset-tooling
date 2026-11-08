@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import os from "node:os";
 import path from "node:path";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { ROLLING_RELEASES } from "../scripts/publish-release.ts";
 import { KIT_BUDGETS, KIT_COST_SCHEMA, kitBudgetViolations, kitCost } from "../scripts/report-kit-costs.ts";
 
 /** The first 28 bytes of a KTX2 file: its identifier and, at 20 and 24, the width and height. */
@@ -68,8 +69,10 @@ describe("kit cost report", () => {
     }
   });
 
-  test("budgets the kits packed into atlases", () => {
+  test("budgets the kits packed into atlases, and only rolling releases", () => {
     expect(KIT_BUDGETS["sandstone-kit"]!.materials).toBe(1);
     expect(KIT_BUDGETS["crag-kit"]!.materials).toBe(3);
+    const rolling = new Set(ROLLING_RELEASES.map((release) => release.name));
+    for (const name of Object.keys(KIT_BUDGETS)) expect(rolling.has(name)).toBe(true);
   });
 });

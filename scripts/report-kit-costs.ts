@@ -12,11 +12,25 @@ export const KIT_COST_SCHEMA = "kit-cost-report-v1";
 
 export type KitBudget = { materials: number; textureMemoryBytes: number; downloadBytes: number };
 const MB = 1024 * 1024;
-/** Limits per rolling release. A kit joins here once its materials are packed into atlases. */
+/**
+ * Limits per rolling release, checked when a release is published. Kits packed into atlases have their real limits; the
+ * others are held at what they cost when these limits were set (2026-11-08), so they can only get cheaper.
+ */
 export const KIT_BUDGETS: Record<string, KitBudget> = {
   "sandstone-kit": { materials: 1, textureMemoryBytes: 16 * MB, downloadBytes: 3 * MB },
   // crag-rock, the macro texture's quad and outcrop-rock.
   "crag-kit": { materials: 3, textureMemoryBytes: 56 * MB, downloadBytes: 24 * MB },
+  "climbing-kit": { materials: 6, textureMemoryBytes: 4 * MB, downloadBytes: 5 * MB },
+  "fortress-kit": { materials: 12, textureMemoryBytes: 18 * MB, downloadBytes: 15 * MB },
+  "greyhaven-ambient-animals": { materials: 9, textureMemoryBytes: 1 * MB, downloadBytes: 2 * MB },
+  "greyhaven-marshal-house": { materials: 16, textureMemoryBytes: 5 * MB, downloadBytes: 3 * MB },
+  "greyhaven-nature": { materials: 8, textureMemoryBytes: 19 * MB, downloadBytes: 10 * MB },
+  "greyhaven-terrain": { materials: 7, textureMemoryBytes: 23 * MB, downloadBytes: 20 * MB },
+  "hair-kit": { materials: 3, textureMemoryBytes: 6 * MB, downloadBytes: 8 * MB },
+  "outpost-kit": { materials: 14, textureMemoryBytes: 8 * MB, downloadBytes: 3 * MB },
+  "redbrand-kit": { materials: 11, textureMemoryBytes: 17 * MB, downloadBytes: 13 * MB },
+  "settlement-props": { materials: 13, textureMemoryBytes: 4 * MB, downloadBytes: 2 * MB },
+  "shrine-kit": { materials: 8, textureMemoryBytes: 9 * MB, downloadBytes: 7 * MB },
 };
 
 export type KitEntryCost = { key: string; variant: string; materials: number; drawCalls: number; triangles: number };
