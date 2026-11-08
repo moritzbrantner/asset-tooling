@@ -63,6 +63,13 @@ export const BLENDER_SUITES: BlenderSuite[] = [
     ktx: true,
     lfs: "assets/authored/hair-kit.blend,assets/canonical/quaternius.universal-base-characters-standard.*/**,assets/canonical/quaternius.modular-character-outfits-fantasy-standard.*/**",
   },
+  // The limestone rocks (#536): 25 recipe runs, eight of them Cycles bakes, from the terrain's scans.
+  {
+    suite: "limestone-rocks",
+    timeout: 40,
+    ktx: true,
+    lfs: "assets/canonical/poly-haven.rock-face-03-diff-2k-jpg/**,assets/canonical/poly-haven.rock-face-03-disp-2k-jpg/**,assets/canonical/poly-haven.forrest-ground-01-diff-2k-jpg/**,assets/canonical/poly-haven.rocks-ground-02-diff-2k-jpg/**,assets/canonical/poly-haven.mossy-rock-diff-2k-jpg/**",
+  },
 ];
 
 /** Paths that run on every platform: the package's own code and tests, not the Linux-only build tooling. */
