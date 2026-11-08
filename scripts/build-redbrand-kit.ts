@@ -18,7 +18,7 @@ import path from "node:path";
 import { mkdir } from "node:fs/promises";
 import { NodeIO, type Document } from "@gltf-transform/core";
 import { KHRTextureBasisu } from "@gltf-transform/extensions";
-import { ARMOR_FACTION, ARMOR_KIT_LABELS } from "../src/armor-recipes.js";
+import { ARMOR_FACTION } from "../src/armor-recipes.js";
 import { GLTF_RESOURCES_BUNDLE_PROFILE } from "../src/asset-bundle.js";
 import { resolveAssetObject, storeAssetObject } from "../src/asset-store.js";
 import { blenderScriptSpec } from "../src/blender-script-spec.js";
@@ -54,8 +54,9 @@ export const REDBRAND_OUTFIT_KEY = `${REDBRAND_KEY_PREFIX}.outfit`;
 /** The rigid plates, one node per piece, each riding its joint's `<joint>.armor` socket. */
 export const REDBRAND_ARMOR_KEY = `${REDBRAND_KEY_PREFIX}.armor`;
 export const REDBRAND_SKINS = [{ id: "skin.dark", variant: "default" }, { id: "skin.light", variant: "skin.light" }] as const;
-/** The outfit id the Ranger's humanoid-appearance used for the same look; the kit's record keeps it. */
+/** The outfit id and label the Ranger's humanoid-appearance used for the same look until #517; the kit's record keeps them. */
 export const REDBRAND_OUTFIT_ID = "outfit.redbrand";
+export const REDBRAND_OUTFIT_LABEL = "Redbrand";
 /** The figure the kit fits, whose rig, sockets and clips it shares (male only, owner answer on #517). */
 export const REDBRAND_FIGURE = RANGER_FIGURES.male.key;
 export const REDBRAND_GEOMETRY = "assets/authored/redbrand-kit.blend";
@@ -265,7 +266,7 @@ export async function buildRedbrandKit({ outDir, log = () => {} }: { outDir: str
   log("write the redbrand-kit descriptor");
   const garments = (cloth.observations.pieces as Json[]).map((piece) => ({ id: piece.node, nodes: piece.nodes, hides: piece.hides }));
   const outfit = {
-    id: REDBRAND_OUTFIT_ID, label: ARMOR_KIT_LABELS.redbrand, character: REDBRAND_OUTFIT_KEY,
+    id: REDBRAND_OUTFIT_ID, label: REDBRAND_OUTFIT_LABEL, character: REDBRAND_OUTFIT_KEY,
     skins: REDBRAND_SKINS.map(({ id, variant }) => ({ id, entry: REDBRAND_OUTFIT_KEY, variant })),
     base: { outfit: "Male_Peasant", hidden },
     armor: { entry: REDBRAND_ARMOR_KEY, pieces: (plates.observations.pieces as Json[]).map((piece) => ({ node: piece.node, socket: `${String(piece.joint).toLowerCase()}.armor`, hides: piece.hides })) },

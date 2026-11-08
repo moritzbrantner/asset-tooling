@@ -1,9 +1,6 @@
 """Class starter outfit review sheets (#379), rendered headless:
 
-    blender -b --factory-startup --python examples/class-outfits/review.py -- <bundle dir> <out dir> [redbrand]
-
-``redbrand`` (#389) renders the Redbrand bandit and crossbowman in the Redbrand outfit instead of the classes, under the
-same file names.
+    blender -b --factory-startup --python examples/class-outfits/review.py -- <bundle dir> <out dir>
 
 ``<bundle dir>`` is a built humanoid-ranger-male bundle (its ``scenes/`` and ``attachments/``). Each class wears its
 ``outfit.class.<id>`` variant (the skin of its ``class.<id>`` appearance preset), its ``armor.class.<id>`` plates on their
@@ -35,17 +32,7 @@ PROPS = {"warden": [("equipment.sword.arming", "hand_r.weapon"), ("equipment.shi
          "necromancer": [("equipment.staff.bone", "hand_r.staff")],
          "rogue": [("equipment.dagger.blackened", "hand_r.weapon"), ("equipment.dagger.blackened", "hand_l.weapon")],
          "cleric": [("equipment.mace.flanged", "hand_r.weapon")],
-         "druid": [("equipment.staff.gnarled", "hand_r.staff")],
-         "bandit": [("equipment.sword.arming", "hand_r.weapon")], "crossbowman": [("equipment.crossbow", "hand_r.crossbow")]}
-# ``redbrand`` (#389): mmorpg's Redbrand rank and file in the Redbrand outfit, its scarf in the band's red (mmorpg's
-# REDBRAND_RED), looks of the kind the game authors over the bundle's options.
-REDBRAND_ORDER = ["bandit", "crossbowman"]
-LABELS.update({"bandit": "Redbrand Bandit", "crossbowman": "Redbrand Crossbowman"})
-REDBRAND_RED = (.3, .025, .02, 1)
-REDBRAND_PRESETS = {
-    "bandit": {"outfit": "outfit.redbrand", "skin": "skin.light", "hair": "hair.buzzed", "tint": "tint.brown", "facialHair": ["beard.short"]},
-    "crossbowman": {"outfit": "outfit.redbrand", "skin": "skin.dark", "hair": "hair.buzzed", "tint": "tint.black", "facialHair": ["beard.moustache"]},
-}
+         "druid": [("equipment.staff.gnarled", "hand_r.staff")]}
 
 
 def gltf_rest_worlds(path):
@@ -98,7 +85,7 @@ def attach(obj, rig, bone, world):
 
 def dress(bundle, info, rest, name, x):
     appearance = info["appearance"]
-    preset = REDBRAND_PRESETS.get(name) or next(p for p in appearance["presets"] if p["id"] == f"class.{name}")
+    preset = next(p for p in appearance["presets"] if p["id"] == f"class.{name}")
     outfit = next(o for o in appearance["outfits"] if o["id"] == preset["outfit"])
     variant = next(s["variant"] for s in outfit["skins"] if s["id"] == preset["skin"])
     scenes = os.path.join(bundle, "scenes")
@@ -156,12 +143,6 @@ def dress(bundle, info, rest, name, x):
         entry(facial["entry"], "default", option[preset["facialHair"][0]]["socket"], keep=preset["facialHair"])
     for key, socket_id in PROPS[name]:
         entry(key, "default", socket_id)
-    if name in REDBRAND_PRESETS:
-        for o in bpy.data.objects:
-            if o.type == "MESH" and (o.parent == rig or o.find_armature() == rig):
-                for m in o.data.materials:
-                    if m.name.split(".")[0] in outfit.get("faction", {}).get("materials", []):
-                        tinted(m, REDBRAND_RED)
     rig.location.x = x
     return rig
 
@@ -266,11 +247,8 @@ def save(rows, path):
 
 
 def main():
-    global ORDER
     args = sys.argv[sys.argv.index("--") + 1:]
     bundle, out = args[0], args[1]
-    if args[2:] == ["redbrand"]:
-        ORDER = REDBRAND_ORDER
     os.makedirs(out, exist_ok=True)
     bpy.ops.object.select_all(action="SELECT")
     bpy.ops.object.delete()
