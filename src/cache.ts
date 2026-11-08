@@ -1,6 +1,7 @@
 import path from "node:path";
 import { randomBytes } from "node:crypto";
-import { lstat, mkdir, readdir, readFile, rename, rm, utimes, writeFile } from "node:fs/promises";
+import { constants } from "node:fs";
+import { copyFile, link, lstat, mkdir, readdir, readFile, rename, rm, utimes, writeFile } from "node:fs/promises";
 import type { GenerationObservations, ReceiptGenerator } from "./backend-contract.js";
 import { canonicalJson, stablePrettyJson } from "./canonical.js";
 import { sha256Bytes, sha256Text } from "./hash.js";
@@ -307,14 +308,16 @@ export async function writeGenerationCache(
 export interface GenerationCachePruneResult {
   keptBuilds: number;
   removedBuilds: number;
+  keptOperations: number;
+  removedOperations: number;
   removedBlobs: number;
   remainingBytes: number;
 }
 
 /**
- * Drop the shared generation cache `directory`'s build entries not read or written since `since` (a hit touches its
- * entry), then every blob no remaining entry names, so a cache CI saves between runs holds only what the latest build
- * used. Pruning only ever removes disposable acceleration state.
+ * Drop the shared generation cache `directory`'s build and operation result entries not read or written since `since`
+ * (a hit touches its entry), then every blob no remaining entry names, so a cache CI saves between runs holds only what
+ * the latest build used. Pruning only ever removes disposable acceleration state.
  */
 export async function pruneGenerationCache(directory: string, since: Date): Promise<GenerationCachePruneResult> {
   const location = generationCacheLocation(directory, { directory });
@@ -328,7 +331,7 @@ export async function pruneGenerationCache(directory: string, since: Date): Prom
       throw error;
     }
   };
-  const result: GenerationCachePruneResult = { keptBuilds: 0, removedBuilds: 0, removedBlobs: 0, remainingBytes: 0 };
+  const result: GenerationCachePruneResult = { keptBuilds: 0, removedBuilds: 0, keptOperations: 0, removedOperations: 0, removedBlobs: 0, remainingBytes: 0 };
   const referenced = new Set<string>();
   for (const name of await list(buildsDirectory)) {
     const entryPath = path.join(buildsDirectory, name);
@@ -348,6 +351,31 @@ export async function pruneGenerationCache(directory: string, since: Date): Prom
     } else {
       await rm(entryPath, { force: true });
       result.removedBuilds += 1;
+    }
+  }
+  // Operation result entries (runAssetOperation with a shared directory) name their output objects' blobs.
+  const operationsDirectory = cachePath(location.base, `${location.prefix}/operations`);
+  for (const name of await list(operationsDirectory)) {
+    const entryPath = path.join(operationsDirectory, name);
+    const entry = await lstat(entryPath);
+    let outputs: string[] | undefined;
+    if (entry.isFile() && name.endsWith(".json") && entry.mtimeMs >= since.getTime()) {
+      try {
+        const result = (JSON.parse(await readFile(entryPath, "utf8")) as PlainObject).result as PlainObject;
+        outputs = Object.values(result.outputs as PlainObject).flat()
+          .map((asset) => (asset as PlainObject).sha256)
+          .filter((sha256): sha256 is string => typeof sha256 === "string" && SHA256_PATTERN.test(sha256));
+      } catch {
+        outputs = undefined;
+      }
+    }
+    if (outputs) {
+      for (const sha256 of outputs) referenced.add(sha256);
+      result.keptOperations += 1;
+      result.remainingBytes += entry.size;
+    } else {
+      await rm(entryPath, { force: true });
+      result.removedOperations += 1;
     }
   }
   for (const name of await list(blobsDirectory)) {
@@ -385,11 +413,20 @@ export interface OperationResultCacheHit {
 
 export type OperationResultCacheReadResult = OperationResultCacheMiss | OperationResultCacheHit;
 
-function operationResultIndexPortablePath(key: string): string {
+function operationResultIndexPortablePath(key: string, location: GenerationCacheLocation): string {
   if (!SHA256_PATTERN.test(key)) {
     throw new Error("operation result cache key must be a lowercase SHA-256 digest");
   }
-  return `${CACHE_VERSION_ROOT}/operations/${key}.json`;
+  return `${location.prefix}/operations/${key}.json`;
+}
+
+/**
+ * Where operation result entries live: under `root` (`.asset-tooling/cache/v1/operations/`) by default, or in a
+ * shared cache directory (`<directory>/v1/operations/`), whose `v1/blobs/` then also holds the output bytes, so a
+ * build into a fresh object store can reuse them (docs/cache.md#operation-result-entries).
+ */
+export interface OperationResultCacheOptions {
+  directory?: string;
 }
 
 function parseOperationResultEntry(value: unknown, expectedKey: string, expectedIdentity: unknown): unknown {
@@ -424,19 +461,22 @@ function parseOperationResultEntry(value: unknown, expectedKey: string, expected
 /**
  * Read the recorded result for one operation build identity. A missing entry is a
  * miss; a malformed, mismatched or symlinked entry fails closed. The returned result
- * is not trusted: the caller verifies every output object before reuse.
+ * is not trusted: the caller verifies every output object before reuse. A hit in a shared
+ * directory touches the entry, so `pruneGenerationCache` keeps what the latest build read.
  */
 export async function readOperationResultCache(
   root: string,
   key: string,
   buildIdentity: unknown,
+  options: OperationResultCacheOptions = {},
 ): Promise<OperationResultCacheReadResult> {
-  const indexPortablePath = operationResultIndexPortablePath(key);
-  await assertNoSymbolicLinks(root, indexPortablePath);
+  const location = generationCacheLocation(root, options);
+  const indexPortablePath = operationResultIndexPortablePath(key, location);
+  await assertNoSymbolicLinks(location.base, indexPortablePath);
 
   let rawEntry: string;
   try {
-    rawEntry = await readFile(cachePath(root, indexPortablePath), "utf8");
+    rawEntry = await readFile(cachePath(location.base, indexPortablePath), "utf8");
   } catch (error: unknown) {
     if (hasErrorCode(error, "ENOENT")) return { status: "miss", key };
     throw error;
@@ -448,7 +488,12 @@ export async function readOperationResultCache(
   } catch {
     throw new Error(`operation result cache entry '${key}' is not valid JSON`);
   }
-  return { status: "hit", key, result: parseOperationResultEntry(parsed, key, buildIdentity) };
+  const result = parseOperationResultEntry(parsed, key, buildIdentity);
+  if (options.directory !== undefined) {
+    const now = new Date();
+    await utimes(cachePath(location.base, indexPortablePath), now, now);
+  }
+  return { status: "hit", key, result };
 }
 
 /** Record an already verified operation result; the write is atomic per entry. */
@@ -457,9 +502,11 @@ export async function writeOperationResultCache(
   key: string,
   buildIdentity: unknown,
   result: unknown,
+  options: OperationResultCacheOptions = {},
 ): Promise<void> {
-  const indexPortablePath = operationResultIndexPortablePath(key);
-  await assertNoSymbolicLinks(root, indexPortablePath);
+  const location = generationCacheLocation(root, options);
+  const indexPortablePath = operationResultIndexPortablePath(key, location);
+  await assertNoSymbolicLinks(location.base, indexPortablePath);
   const entry: OperationResultCacheEntry = {
     schemaVersion: 1,
     key,
@@ -467,24 +514,53 @@ export async function writeOperationResultCache(
     resultSha256: sha256Text(canonicalJson(result)),
     result,
   };
-  const absolutePath = cachePath(root, indexPortablePath);
-  await mkdir(path.dirname(absolutePath), { recursive: true });
-  const temporaryPath = `${absolutePath}.${process.pid}.${randomBytes(6).toString("hex")}.tmp`;
-  try {
-    await writeFile(temporaryPath, stablePrettyJson(entry), { encoding: "utf8", flag: "wx" });
-    await rename(temporaryPath, absolutePath);
-  } catch (error: unknown) {
-    await rm(temporaryPath, { force: true });
-    throw error;
-  }
+  await writeAtomically(cachePath(location.base, indexPortablePath), stablePrettyJson(entry));
 }
 
 /**
  * Remove the entry `writeOperationResultCache` just recorded for `key`, for a run whose
  * cancellation won after the write (Atlas Decision 5.1.5). A missing entry is not an error.
  */
-export async function removeOperationResultCache(root: string, key: string): Promise<void> {
-  const indexPortablePath = operationResultIndexPortablePath(key);
-  await assertNoSymbolicLinks(root, indexPortablePath);
-  await rm(cachePath(root, indexPortablePath), { force: true });
+export async function removeOperationResultCache(root: string, key: string, options: OperationResultCacheOptions = {}): Promise<void> {
+  const location = generationCacheLocation(root, options);
+  const indexPortablePath = operationResultIndexPortablePath(key, location);
+  await assertNoSymbolicLinks(location.base, indexPortablePath);
+  await rm(cachePath(location.base, indexPortablePath), { force: true });
+}
+
+/** The absolute path of a shared cache directory's blob for `sha256` (`<directory>/v1/blobs/<sha256>`). */
+export async function sharedCacheBlobPath(directory: string, sha256: string): Promise<string> {
+  if (!SHA256_PATTERN.test(sha256)) throw new Error("cache blob name must be a lowercase SHA-256 digest");
+  const location = generationCacheLocation(directory, { directory });
+  const portablePath = blobPortablePath(location, sha256);
+  await assertNoSymbolicLinks(location.base, portablePath);
+  return cachePath(location.base, portablePath);
+}
+
+/**
+ * Put the file at `sourcePath`, whose bytes the caller verified as `sha256`, into a shared cache directory's blobs: a
+ * hard link when both are on one file system, otherwise a copy, renamed into place. An existing blob is kept (a reader
+ * verifies its hash before use).
+ */
+export async function storeSharedCacheBlob(directory: string, sha256: string, sourcePath: string): Promise<void> {
+  const target = await sharedCacheBlobPath(directory, sha256);
+  try {
+    await lstat(target);
+    return;
+  } catch (error: unknown) {
+    if (!hasErrorCode(error, "ENOENT")) throw error;
+  }
+  await mkdir(path.dirname(target), { recursive: true });
+  const temporaryPath = `${target}.${process.pid}.${randomBytes(6).toString("hex")}.tmp`;
+  try {
+    try {
+      await link(sourcePath, temporaryPath);
+    } catch (error: unknown) {
+      if (!hasErrorCode(error, "EXDEV") && !hasErrorCode(error, "EPERM")) throw error;
+      await copyFile(sourcePath, temporaryPath, constants.COPYFILE_EXCL);
+    }
+    await rename(temporaryPath, target);
+  } finally {
+    await rm(temporaryPath, { force: true });
+  }
 }

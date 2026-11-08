@@ -5,6 +5,7 @@ import { resolveAssetObject, storeAssetObject } from "./asset-store.js";
 import { readBlenderRecipeSource } from "./blender-recipe-source.js";
 import { canonicalJson } from "./canonical.js";
 import { generateAsset } from "./core.js";
+import { withoutTextures } from "./gltf-without-textures.js";
 import { sha256Bytes } from "./hash.js";
 import type { AssetRef } from "./operations.js";
 import { blenderScriptSpec } from "./blender-script-spec.js";
@@ -44,7 +45,8 @@ export async function addFaceVariants(root: string, head: AssetRef, label: strin
   const workspace = path.join(root, "face-variants", label);
   await mkdir(workspace, { recursive: true });
   await writeFile(path.join(workspace, "face_variants.py"), script.bytes);
-  const bytes = await resolveAssetObject(root, head);
+  // Only the morph targets come back, so Blender gets the head's geometry without its textures (#516).
+  const bytes = await withoutTextures(new Uint8Array(await resolveAssetObject(root, head)));
   await writeFile(path.join(workspace, "source.glb"), bytes);
   const spec = createFaceVariantsAssetSpec({ assetId: `face-variants.${label}`, scriptSha256: script.sha256, sourceSha256: sha256Bytes(bytes), blenderVersion: script.blenderVersion });
   const specPath = path.join(workspace, "asset.json");

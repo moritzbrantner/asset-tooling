@@ -237,7 +237,7 @@ jobs:
           set -euo pipefail
           bun scripts/generation-cache.ts prune "$GITHUB_WORKSPACE/.asset-tooling/cache" --since "$(cat "$RUNNER_TEMP/build-started")"
           du -sh .asset-tooling/cache
-          entries=$( (find .asset-tooling/cache/v1/builds -name '*.json' -printf '%f\n' 2>/dev/null || true) | sort | sha256sum | cut -c1-16)
+          entries=$( (find .asset-tooling/cache/v1/builds .asset-tooling/cache/v1/operations -name '*.json' -printf '%P\n' 2>/dev/null || true) | sort | sha256sum | cut -c1-16)
           echo "key=$PREFIX$entries" >> "$GITHUB_OUTPUT"
       - name: Save the shared generation cache
         if: matrix.blender && steps.generation-cache-prune.outputs.key != steps.generation-cache-restore.outputs.cache-matched-key

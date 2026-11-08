@@ -13,28 +13,26 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import pLimit from "p-limit";
 import { NodeIO, type Animation, type Document, type Node } from "@gltf-transform/core";
-import { executeAnimationRetargetOperation } from "../src/animation-processing-operations.js";
 import { GLTF_RESOURCES_BUNDLE_PROFILE, exportAssetBundle } from "../src/asset-bundle.js";
 import { ASSET_BUNDLE_REF_FILE, readAssetBundleTar } from "../src/asset-bundle-pack.js";
 import { resolveAssetObject, storeAssetObject } from "../src/asset-store.js";
 import { canonicalJson } from "../src/canonical.js";
 import { createAssetCatalog } from "../src/catalog.js";
 import { importAssetCatalogStorageSource } from "../src/catalog-storage.js";
-import { executeGltfEmbedAnimationOperation, executeGltfExtractAnimationOperation } from "../src/gltf-animation-operations.js";
-import { executeGltfComposeSkinnedOperation } from "../src/gltf-compose-operations.js";
-import { executeGltfProductionImportOperation } from "../src/gltf-production-operations.js";
-import { executeGltfSubsetSkinnedOperation } from "../src/gltf-subset-operations.js";
-import { executeGltfTextureResizeOperation } from "../src/gltf-texture-resize-operations.js";
 import { HUMANOID_ITEM_LOD_METRIC, createHumanoidItemDescriptor, validateHumanoidSocketDescriptor, type HumanoidItemDescriptor, type HumanoidItemLods } from "../src/humanoid-sockets.js";
 import { generateAsset } from "../src/index.js";
 import { generationCacheStatistics } from "../src/core.js";
 import { useSharedGenerationCache } from "./generation-cache.ts";
+import {
+  cachedCompose, cachedEmbed, cachedExtract, cachedImageDecode, cachedImageEncodePng, cachedImport, cachedRetarget, cachedSubset, cachedTextureResize,
+  operationCacheStatistics,
+} from "./cached-operations.ts";
+import { withoutTextures } from "../src/gltf-without-textures.js";
 import { WEAPON_LOD_PRESETS, WEAPON_LOD_SCREEN_SIZES, WEAPON_PRESETS, WEAPON_ROLES, createWeaponAssetSpec, readWeaponRecipeSource, type ThrowablePiece, type WeaponParameters, type WeaponPiece } from "../src/weapon-recipes.js";
 import { readBlenderRecipeSource } from "../src/blender-recipe-source.js";
 import { blenderScriptSpec } from "../src/blender-script-spec.js";
 import { runBlenderRecipe } from "../src/blender-recipe-run.js";
 import { RANGER_CLIP_FAMILIES, RANGER_SWORD_CLIPS, type ClipFamily, type ClipFamilyContext, type RangerSocket } from "../src/ranger-clips.js";
-import { executeImageDecodeOperation, executeImageEncodePngOperation } from "../src/image-codec-operations.js";
 import { encodeRgba8Image, parseRgba8Image, RGBA8_IMAGE_MEDIA_TYPE, type Rgba8Image } from "../src/image-rgba8.js";
 import { sha256Bytes } from "../src/hash.js";
 import { LOD_LEVELS } from "../src/lod-recipe.js";
@@ -600,7 +598,7 @@ async function generateWeapon(root: string, piece: WeaponPiece, parameters: Weap
   const generated = await generateAsset(specPath);
   const observations = generated.receipt.observations.script as { triangleCount: number; bounds: { min: number[]; max: number[] } };
   const glb = (await storeAssetObject(root, { bytes: await readFile(path.join(workspace, "weapon.glb")), kind: "mesh", mediaType: "model/gltf-binary" })).asset;
-  return { asset: single(await executeGltfProductionImportOperation(root, { inputs: { source: glb }, parameters: { policy: POLICY } })), observations };
+  return { asset: single(await cachedImport(root, { inputs: { source: glb }, parameters: { policy: POLICY } })), observations };
 }
 
 async function buildWeapon(root: string, piece: WeaponPiece) {
@@ -753,7 +751,8 @@ async function rangerClipMotion(root: string, { character, targetRig, clips, rol
  */
 async function authorClipFamily(root: string, family: ClipFamily, target: AssetRef, context: ClipFamilyContext) {
   const source = await readBlenderRecipeSource(family.script);
-  const targetBytes = await resolveAssetObject(root, target);
+  // The recipes export only the armature and its actions, so Blender gets the character without textures (#516).
+  const targetBytes = await withoutTextures(new Uint8Array(await resolveAssetObject(root, target)));
   const workspace = path.join(root, "authored", family.id);
   const spec = blenderScriptSpec({
     assetId: `authored.${family.id}`, inputs: { script: { path: family.script, sha256: source.sha256 }, target: { path: "target.glb", sha256: sha256Bytes(targetBytes) } },
@@ -794,7 +793,8 @@ async function buildArmor(root: string, kit: ArmorKit, output: ArmorOutput, targ
   const workspace = path.join(root, "armor", `${kit}-${output}`);
   await mkdir(workspace, { recursive: true });
   await writeFile(path.join(workspace, "armor.py"), source.bytes);
-  const targetBytes = await resolveAssetObject(root, target);
+  // The recipe fits to the target's geometry and exports only its own pieces and materials: no target textures (#516).
+  const targetBytes = await withoutTextures(new Uint8Array(await resolveAssetObject(root, target)));
   await writeFile(path.join(workspace, "target.glb"), targetBytes);
   const spec = createArmorAssetSpec({ assetId: `armor.${kit}.${output}`, parameters: { schemaVersion: 1, kit, output },
     scriptSha256: source.sha256, targetSha256: sha256Bytes(targetBytes), blenderVersion: source.blenderVersion });
@@ -802,7 +802,7 @@ async function buildArmor(root: string, kit: ArmorKit, output: ArmorOutput, targ
   await writeFile(specPath, `${canonicalJson(spec)}\n`);
   const generated = await generateAsset(specPath);
   const glb = (await storeAssetObject(root, { bytes: await readFile(path.join(workspace, "armor.glb")), kind: "mesh", mediaType: "model/gltf-binary" })).asset;
-  return { glb: single(await executeGltfProductionImportOperation(root, { inputs: { source: glb }, parameters: { policy: POLICY } })),
+  return { glb: single(await cachedImport(root, { inputs: { source: glb }, parameters: { policy: POLICY } })),
     observations: (generated.receipt.observations as Json).script as Json };
 }
 
@@ -817,7 +817,7 @@ export async function buildHeadwear(root: string, piece: HeadwearPiece) {
   await writeFile(specPath, `${canonicalJson(spec)}\n`);
   await generateAsset(specPath);
   const glb = (await storeAssetObject(root, { bytes: await readFile(path.join(workspace, "headwear.glb")), kind: "mesh", mediaType: "model/gltf-binary" })).asset;
-  return single(await executeGltfProductionImportOperation(root, { inputs: { source: glb }, parameters: { policy: POLICY } }));
+  return single(await cachedImport(root, { inputs: { source: glb }, parameters: { policy: POLICY } }));
 }
 
 /** The appearance descriptor's `headwear` list (#336): each piece's entry, socket and the appearance parts it hides. */
@@ -838,7 +838,7 @@ async function buildArchery(root: string, piece: ArcheryPiece) {
   await writeFile(specPath, `${canonicalJson(spec)}\n`);
   await generateAsset(specPath);
   const glb = (await storeAssetObject(root, { bytes: await readFile(path.join(workspace, "archery.glb")), kind: "mesh", mediaType: "model/gltf-binary" })).asset;
-  return single(await executeGltfProductionImportOperation(root, { inputs: { source: glb }, parameters: { policy: POLICY } }));
+  return single(await cachedImport(root, { inputs: { source: glb }, parameters: { policy: POLICY } }));
 }
 
 export async function buildRangerCharacter({ processorCheckout, outDir, figure = "male", log: emit = () => {} }: {
@@ -847,6 +847,7 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
   // #427: every line carries the elapsed build time, so a log is a step profile.
   const started = performance.now();
   const cacheAtStart = generationCacheStatistics();
+  const operationsAtStart = operationCacheStatistics();
   const log = (line: string) => {
     const seconds = Math.round((performance.now() - started) / 1000);
     emit(`[${String(Math.floor(seconds / 60)).padStart(3, "0")}:${String(seconds % 60).padStart(2, "0")}] ${line}`);
@@ -886,24 +887,24 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
     const uris: string[] = [...(json.buffers ?? []), ...(json.images ?? [])].map((item: Json) => item.uri);
     const resources: AssetRef[] = [];
     for (const uri of uris) resources.push(overrides[uri] ?? await member(resourceId(entry.archive, gltfId, uri)));
-    return single(await executeGltfProductionImportOperation(root, { inputs: { source, resources }, parameters: { resourceUris: uris, policy: POLICY } }));
+    return single(await cachedImport(root, { inputs: { source, resources }, parameters: { resourceUris: uris, policy: POLICY } }));
   };
 
   log("import body and outfit (scene.import.gltf@2)");
   const outfit = await importGltf(shape.outfit);
   const body = await importGltf(shape.body);
   log("subset body to head/face (scene.subset.skinned.gltf@1)");
-  const head = single(await executeGltfSubsetSkinnedOperation(root, { inputs: { source: body }, parameters: { ...RANGER_HEAD_RECIPE, keepMeshes: [...shape.headMeshes] } }));
+  const head = single(await cachedSubset(root, { inputs: { source: body }, parameters: { ...RANGER_HEAD_RECIPE, keepMeshes: [...shape.headMeshes] } }));
   log("compose on the outfit skeleton (scene.compose.skinned.gltf@1)");
-  const composed = single(await executeGltfComposeSkinnedOperation(root, { inputs: { skeleton: outfit, parts: [head] }, parameters: { policy: POLICY } }));
+  const composed = single(await cachedCompose(root, { inputs: { skeleton: outfit, parts: [head] }, parameters: { policy: POLICY } }));
   // #348: the facial variants are morph targets on the head part. The plain composition stays the clip-authoring
   // rig, armour fit target and level-of-detail source; the shipped characters carry the morph targets.
   log("face variants: shape keys in Blender (adapters/blender/face_variants.py), morph targets onto the head part (#348)");
   const face = await addFaceVariants(root, head, bundleKey);
-  const composedFace = single(await executeGltfComposeSkinnedOperation(root, { inputs: { skeleton: outfit, parts: [face.glb] }, parameters: { policy: POLICY } }));
+  const composedFace = single(await cachedCompose(root, { inputs: { skeleton: outfit, parts: [face.glb] }, parameters: { policy: POLICY } }));
 
   log("extract target rig and source clips (scene.extract.animation.gltf@1)");
-  const targetRig = single(await executeGltfExtractAnimationOperation(root, { inputs: { source: composed }, parameters: { hipsJoint: RANGER_HIPS.target, policy: POLICY } }), "rig");
+  const targetRig = single(await cachedExtract(root, { inputs: { source: composed }, parameters: { hipsJoint: RANGER_HIPS.target, policy: POLICY } }), "rig");
   const boneMaps = { clips: RANGER_BONE_MAP, clips2: RANGER_UBC_BONE_MAP };
   const libraries = {
     clips: { hips: RANGER_HIPS.source, bindings: boneMaps.clips, member: () => member(memberId(RANGER_MEMBERS.clips)) },
@@ -917,13 +918,13 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
     const lib = libraries[clip.library];
     const library = loaded[clip.library] ??= await lib.member();
     const sourceInfo = { catalogId: catalogIds[clip.library] };
-    const extracted = await executeGltfExtractAnimationOperation(root, {
+    const extracted = await cachedExtract(root, {
       inputs: { source: library }, parameters: { hipsJoint: lib.hips, clip: clip.name, policy: POLICY },
     });
     const sourceRig = sourceRigs[clip.library] = single(extracted, "rig");
     const source = single(extracted, "animation");
     log(`retarget ${clip.name} (animation.retarget@1, rootMotion ${clip.rootMotion})`);
-    const retargeted = await executeAnimationRetargetOperation(root, {
+    const retargeted = await cachedRetarget(root, {
       inputs: { animation: source, "source-rig": sourceRig, "target-rig": targetRig },
       parameters: { bindings: lib.bindings, sampleRate: RANGER_SAMPLE_RATE, rootMotion: clip.rootMotion },
     }, processor);
@@ -932,7 +933,7 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
   }
 
   log("embed clips (scene.embed.animation.gltf@1)");
-  let animated = single(await executeGltfEmbedAnimationOperation(root, {
+  let animated = single(await cachedEmbed(root, {
     inputs: { source: composed, animations: clips.map((clip) => clip.retargeted) },
     parameters: { clips: clips.map((clip) => ({ name: clip.name })), policy: POLICY },
   }));
@@ -952,7 +953,7 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
       const run = await authorClipFamily(root, family, animated, context);
       for (const name of family.clips) {
         const { keep, authored, basedOn, extra } = family.clip(name, run.observations, context);
-        const extracted = await executeGltfExtractAnimationOperation(root, {
+        const extracted = await cachedExtract(root, {
           inputs: { source: run.glb }, parameters: { hipsJoint: RANGER_HIPS.target, clip: name, policy: POLICY },
         });
         const retargeted = await reindexClip(root, extracted, targetRig, name, keep);
@@ -969,7 +970,7 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
           ...extra });
       }
     }
-    animated = single(await executeGltfEmbedAnimationOperation(root, {
+    animated = single(await cachedEmbed(root, {
       inputs: { source: composedFace, animations: clips.map((clip) => clip.retargeted) },
       parameters: { clips: clips.map((clip) => ({ name: clip.name })), policy: POLICY },
     }));
@@ -981,7 +982,7 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
     const json = await new NodeIO().binaryToJSON(await resolveAssetObject(root, glb));
     if (!json.json.images?.length) { textures[key] = { images: 0 }; return glb; }
     log(`resize ${key} textures (scene.textures.resize.gltf@1)`);
-    const result = await executeGltfTextureResizeOperation(root, { inputs: { source: glb }, parameters: { ...RANGER_TEXTURE_POLICY, policy: POLICY } });
+    const result = await cachedTextureResize(root, { inputs: { source: glb }, parameters: { ...RANGER_TEXTURE_POLICY, policy: POLICY } });
     const { images, imageBytes } = result.observations as Json;
     textures[key] = { source: glb, output: single(result), imageBytes, images };
     return single(result);
@@ -1032,7 +1033,7 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
     const decode = async (texture: AssetRef) => {
       // Catalog textures are `texture` assets; the codec takes the same PNG bytes as an `image`.
       const image = (await storeAssetObject(root, { bytes: await resolveAssetObject(root, texture), kind: "image", mediaType: "image/png" })).asset;
-      return parseRgba8Image(await resolveAssetObject(root, single(await executeImageDecodeOperation(root, { inputs: { source: image }, parameters: {} }))));
+      return parseRgba8Image(await resolveAssetObject(root, single(await cachedImageDecode(root, { inputs: { source: image }, parameters: {} }))));
     };
     // Q13 = A: the outfit's skin texture gets the body Dark -> Light per-channel mean/deviation transfer.
     const bodyDark = await member(resourceId(UBC, memberId(shape.body), look.skinLight.body.uri));
@@ -1056,15 +1057,15 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
       return Math.max(0, Math.min(255, Math.round((value - from[channel]!.mean) / from[channel]!.deviation * to[channel]!.deviation + to[channel]!.mean)));
     });
     const rgba = (await storeAssetObject(root, { bytes: encodeRgba8Image({ width: regular.width, height: regular.height, pixels }), kind: "image", mediaType: RGBA8_IMAGE_MEDIA_TYPE })).asset;
-    const regularLight = single(await executeImageEncodePngOperation(root, { inputs: { source: rgba }, parameters: { compressionLevel: 9 } }));
+    const regularLight = single(await cachedImageEncodePng(root, { inputs: { source: rgba }, parameters: { compressionLevel: 9 } }));
     const transfer = { from: bodyDark.sha256, to: bodyLight.sha256, source: regularDark.sha256, output: regularLight.sha256,
       channels: [0, 1, 2].map((c) => ({ darkMean: round4(from[c]!.mean), darkDeviation: round4(from[c]!.deviation), lightMean: round4(to[c]!.mean), lightDeviation: round4(to[c]!.deviation) })) };
 
     const outfitLight = await importGltf(shape.outfit, { [look.skinLight.outfitUri]: regularLight });
     const bodyLightGlb = await importGltf(shape.body, { [look.skinLight.body.uri]: bodyLight });
-    const headLightBase = single(await executeGltfSubsetSkinnedOperation(root, { inputs: { source: bodyLightGlb }, parameters: { ...RANGER_HEAD_RECIPE, keepMeshes: [...shape.headMeshes] } }));
+    const headLightBase = single(await cachedSubset(root, { inputs: { source: bodyLightGlb }, parameters: { ...RANGER_HEAD_RECIPE, keepMeshes: [...shape.headMeshes] } }));
     const headLight = (await applyFaceVariants(root, headLightBase, face.authored)).glb;
-    const composedLight = single(await executeGltfComposeSkinnedOperation(root, { inputs: { skeleton: outfitLight, parts: [headLight] }, parameters: { policy: POLICY } }));
+    const composedLight = single(await cachedCompose(root, { inputs: { skeleton: outfitLight, parts: [headLight] }, parameters: { policy: POLICY } }));
     // Clips ship once, in `default`; the Light character shares its skeleton and plays them by joint name.
     let lightCharacter = await resizeTextures(`${bundleKey}/skin.light`, composedLight);
     if (defaultKeys) {
@@ -1093,7 +1094,7 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
       const { first } = sources[0]!;
       const source = (await storeAssetObject(root, { bytes: Buffer.from(JSON.stringify(merged.json)), kind: first.kind, mediaType: first.mediaType })).asset;
       const buffer = (await storeAssetObject(root, { bytes: Buffer.from(merged.buffer), kind: "buffer", mediaType: "application/octet-stream" })).asset;
-      return single(await executeGltfProductionImportOperation(root, { inputs: { source, resources: [buffer, ...sources.flatMap(({ images }) => images)] },
+      return single(await cachedImport(root, { inputs: { source, resources: [buffer, ...sources.flatMap(({ images }) => images)] },
         parameters: { resourceUris: [bufferUri, ...sources.flatMap(({ imageUris }) => imageUris)], policy: POLICY } }));
     };
     const hair: { key: string; style: string; variants: Record<string, AssetRef>; chains?: SecondaryChain[] }[] = [];
@@ -1119,7 +1120,7 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
       // #301: the Light skin too; the Peasant outfit's skin texture is the same derived Light texture as the Ranger's.
       // (The female Peasant outfit shows no skin, so only its head changes.)
       const peasantLight = await importGltf(peasantOutfit, { [look.skinLight.outfitUri]: regularLight });
-      const fitTarget = single(await executeGltfComposeSkinnedOperation(root, { inputs: { skeleton: peasant, parts: [head] }, parameters: { policy: POLICY } }));
+      const fitTarget = single(await cachedCompose(root, { inputs: { skeleton: peasant, parts: [head] }, parameters: { policy: POLICY } }));
       const peasantMeshes = (await new NodeIO().readBinary(new Uint8Array(await resolveAssetObject(root, peasant)))).getRoot().listMeshes().map((mesh) => mesh.getName());
       const { jointNames } = JSON.parse((await resolveAssetObject(root, targetRig)).toString("utf8"));
       // #379: the Necromancer's pale grey skin: the Light body and outfit skin textures desaturated and lifted toward a
@@ -1138,11 +1139,11 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
           grey[index + 3] = image.pixels[index + 3]!;
         }
         const raw = (await storeAssetObject(root, { bytes: encodeRgba8Image({ width: image.width, height: image.height, pixels: grey }), kind: "image", mediaType: RGBA8_IMAGE_MEDIA_TYPE })).asset;
-        return single(await executeImageEncodePngOperation(root, { inputs: { source: raw }, parameters: { compressionLevel: 9 } }));
+        return single(await cachedImageEncodePng(root, { inputs: { source: raw }, parameters: { compressionLevel: 9 } }));
       };
       peasantGrey = await importGltf(peasantOutfit, { [look.skinLight.outfitUri]: await greyed({ width: regular.width, height: regular.height, pixels }) });
       const bodyGreyGlb = await importGltf(shape.body, { [look.skinLight.body.uri]: await greyed(light) });
-      const headGreyBase = single(await executeGltfSubsetSkinnedOperation(root, { inputs: { source: bodyGreyGlb }, parameters: { ...RANGER_HEAD_RECIPE, keepMeshes: [...shape.headMeshes] } }));
+      const headGreyBase = single(await cachedSubset(root, { inputs: { source: bodyGreyGlb }, parameters: { ...RANGER_HEAD_RECIPE, keepMeshes: [...shape.headMeshes] } }));
       headGrey = (await applyFaceVariants(root, headGreyBase, face.authored)).glb;
       }
       // A parallel step (#427) records its variety observations and transfers in its own part; the parts merge in
@@ -1165,11 +1166,11 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
         const skins: (readonly [string, AssetRef, AssetRef])[] = [["skin.dark", peasant, face.glb], ["skin.light", peasantLight, headLight],
           ...(ARMOR_GREY_SKIN_KITS.includes(kit) ? [["skin.grey", peasantGrey!, headGrey!] as const] : [])];
         for (const [skin, outfitSource, headPart] of skins) {
-          const base = hidden.length === 0 ? outfitSource : single(await executeGltfSubsetSkinnedOperation(root, {
+          const base = hidden.length === 0 ? outfitSource : single(await cachedSubset(root, {
             inputs: { source: outfitSource }, parameters: { keepJoints: ["root"], minWeight: 1, keepMeshes: peasantMeshes.filter((name) => !hidden.includes(name)), policy: POLICY },
           }));
-          const composedKit = single(await executeGltfComposeSkinnedOperation(root, { inputs: { skeleton: base, parts: [headPart, cloth.glb] }, parameters: { policy: POLICY } }));
-          const kitRig = single(await executeGltfExtractAnimationOperation(root, { inputs: { source: composedKit }, parameters: { hipsJoint: RANGER_HIPS.target, policy: POLICY } }), "rig");
+          const composedKit = single(await cachedCompose(root, { inputs: { skeleton: base, parts: [headPart, cloth.glb] }, parameters: { policy: POLICY } }));
+          const kitRig = single(await cachedExtract(root, { inputs: { source: composedKit }, parameters: { hipsJoint: RANGER_HIPS.target, policy: POLICY } }), "rig");
           if (JSON.stringify(JSON.parse((await resolveAssetObject(root, kitRig)).toString("utf8")).jointNames) !== JSON.stringify(jointNames)) {
             throw new Error(`the ${kit} outfit's joints differ from the Ranger rig, so the clips cannot be shared`);
           }
@@ -1249,7 +1250,7 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
       const modelled = await Promise.all(VARIETY_HAIRSTYLES.map((piece) => pool(async () => {
         log(`model ${piece} (external.blender.script@1 hair and beards recipe, #380)`);
         const built = await buildHairPiece(root, piece, fitTarget, hairMaterial);
-        const imported = single(await executeGltfProductionImportOperation(root, { inputs: { source: built.glb }, parameters: { policy: POLICY } }));
+        const imported = single(await cachedImport(root, { inputs: { source: built.glb }, parameters: { policy: POLICY } }));
         return { observations: built.observations, item: { key: piece, style: "hair_beards.py", variants: { "hair-1": await resizeTextures(`${piece}/hair-1`, imported) } } };
       })));
       for (const [index, piece] of VARIETY_HAIRSTYLES.entries()) {
@@ -1258,7 +1259,7 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
       }
       log("model facial hair (external.blender.script@1 hair and beards recipe, #380)");
       const builtBeards = await buildHairPiece(root, VARIETY_FACIAL_HAIR_ENTRY, fitTarget, hairMaterial);
-      const importedBeards = single(await executeGltfProductionImportOperation(root, { inputs: { source: builtBeards.glb }, parameters: { policy: POLICY } }));
+      const importedBeards = single(await cachedImport(root, { inputs: { source: builtBeards.glb }, parameters: { policy: POLICY } }));
       beards = { glb: await resizeTextures(VARIETY_FACIAL_HAIR_ENTRY, importedBeards), observations: builtBeards.observations, chains: [] };
       // #391: the hair and beard chains. The items get their own skin, rooted at their scene origin.
       log("accessory chains on the long and tied hair and the long and full beards (#391)");
@@ -1277,7 +1278,7 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
       log("paint the head skins (external.blender.script@1 skin overlays recipe, #380)");
       const skins = await buildHeadSkins(root, composedFace, composedLight);
       variety.headSkins = skins.observations;
-      const importedSkins = single(await executeGltfProductionImportOperation(root, { inputs: { source: skins.glb }, parameters: { policy: POLICY } }));
+      const importedSkins = single(await cachedImport(root, { inputs: { source: skins.glb }, parameters: { policy: POLICY } }));
       headSkins = await resizeTextures(VARIETY_HEAD_SKIN_ENTRY, importedSkins);
       }
     }
@@ -1435,6 +1436,8 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
   // #516: a merge that leaves the Blender backend, recipes and their inputs alone reuses every Blender step.
   const cacheNow = generationCacheStatistics();
   log(`generation cache: ${cacheNow.hits - cacheAtStart.hits} generation steps reused, ${cacheNow.misses - cacheAtStart.misses} run (${process.env.ASSET_TOOLING_GENERATION_CACHE_DIR ?? "per-step workspaces"})`);
+  const operationsNow = operationCacheStatistics();
+  log(`operation cache: ${operationsNow.hits - operationsAtStart.hits} operations reused, ${operationsNow.misses - operationsAtStart.misses} run`);
   log("pack release tar (scripts/pack-asset-bundle.ts)");
   const pack = Bun.spawnSync(["bun", path.join(REPOSITORY_ROOT, "scripts/pack-asset-bundle.ts"), bundleDir, tarPath], { stdout: "pipe", stderr: "pipe" });
   if (pack.exitCode !== 0) throw new Error(`pack-asset-bundle failed: ${pack.stderr.toString()}`);
