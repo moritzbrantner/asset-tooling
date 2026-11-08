@@ -56,6 +56,13 @@ export const BLENDER_SUITES: BlenderSuite[] = [
     ktx: true,
     lfs: "assets/authored/redbrand-kit.blend,assets/canonical/quaternius.universal-base-characters-standard.*/**,assets/canonical/quaternius.modular-character-outfits-fantasy-standard.*/**",
   },
+  // The hair and beard kit (#517): attachable pieces on the male Ranger head joints, built twice for the same tar.
+  {
+    suite: "hair",
+    timeout: 30,
+    ktx: true,
+    lfs: "assets/authored/hair-kit.blend,assets/canonical/quaternius.universal-base-characters-standard.*/**,assets/canonical/quaternius.modular-character-outfits-fantasy-standard.*/**",
+  },
 ];
 
 /** Paths that run on every platform: the package's own code and tests, not the Linux-only build tooling. */
