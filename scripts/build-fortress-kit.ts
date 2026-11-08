@@ -344,8 +344,8 @@ export function fortressFitViolations(piece: FortressPiece, document: Document):
 
 /** Levels of detail: LOD0 is variant `default`; `lod1` and `lod2` come from the same recipe in the same frame. */
 export const FORTRESS_LOD_VARIANTS = ["lod1", "lod2"] as const;
-/** Screen-size switch points (the #449 metric): level n while the projected sphere fraction is at least SIZES[n]. */
-export const FORTRESS_LOD_SCREEN_SIZES = [0.35, 0.12] as const;
+/** Where LOD0 and lod1 end, in metres at the reference FOV, for every piece (#534). */
+export const FORTRESS_LOD_DISTANCES = [60, 180] as const;
 export const FORTRESS_LOD_METRIC = "projected-bounding-sphere-height-fraction";
 export const FORTRESS_LOD_REFERENCE_FOV_Y = 60;
 
@@ -456,9 +456,9 @@ export async function buildFortressKit({ outDir, log = () => {} }: { outDir: str
       lods: {
         boundingSphere: { center: [0, 1, 2].map((k) => round((bounds.min[k]! + bounds.max[k]!) / 2)), radius },
         levels: [main!, ...lods].map((level, index) => {
-          const minScreenSize = FORTRESS_LOD_SCREEN_SIZES[index] ?? 0;
-          return { variant: level.variant, triangles: triangles(level.document), minScreenSize,
-            referenceMaxDistance: minScreenSize ? round(Number((radius / (minScreenSize * tan)).toFixed(2))) : null };
+          const distance = FORTRESS_LOD_DISTANCES[index];
+          return { variant: level.variant, triangles: triangles(level.document),
+            minScreenSize: distance ? round(Number((radius / (distance * tan)).toFixed(4))) : 0, referenceMaxDistance: distance ?? null };
         }),
       },
     };

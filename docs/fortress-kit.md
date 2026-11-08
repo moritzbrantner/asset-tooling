@@ -61,7 +61,7 @@ The UVs are world-scale per face (horizontal faces map X/Z; the others their hor
 
 ## Levels of detail
 
-Each piece ships `default` (LOD0), `lod1` and `lod2`, built by the same recipe in the same frame, so a consumer swaps them in place. `lod1` drops rubble, decals, bevels, quoins, corbels, slit surrounds, voussoir joints, braces, banner trims and the colour grid, and keeps the silhouette: merlons, buttresses, hoardings, the gatehouse, crowns, roofs and bartizans. `lod2` keeps the main masses, walkable tops, the roof openings, the roofs and the materials. The descriptor uses the greyhaven-nature format (#449, [greyhaven-nature-bundle.md](greyhaven-nature-bundle.md#lod-metadata)): a top-level `lodSelection` and per asset `lods: { boundingSphere, levels[] }`, switching at screen sizes 0.35 and 0.12.
+Each piece ships `default` (LOD0), `lod1` and `lod2`, built by the same recipe in the same frame, so a consumer swaps them in place. `lod1` drops rubble, decals, bevels, quoins, corbels, slit surrounds, voussoir joints, braces, banner trims and the colour grid, and keeps the silhouette: merlons, buttresses, hoardings, the gatehouse, crowns, roofs and bartizans. `lod2` keeps the main masses, walkable tops, the roof openings, the roofs and the materials. The descriptor uses the greyhaven-nature format (#449, [greyhaven-nature-bundle.md](greyhaven-nature-bundle.md#lod-metadata)): a top-level `lodSelection` and per asset `lods: { boundingSphere, levels[] }`, switching at 60 m and 180 m at a 60° vertical FOV (`FORTRESS_LOD_DISTANCES`).
 
 ## Descriptor `fortress-kit-descriptor-v1`
 
@@ -80,7 +80,7 @@ MMORPG draws the fortress as graybox: `arena_presentation::shared_scenery` turns
 3. **Place.** Draw `item.key` at `item.origin` (units → metres) turned by `item.yawDegrees` about +Y; 90° turns +Z to +X, the convention `Scenery::graybox` already uses for `RampRise::PosX` (yaw 16 384). The statics are placed once, like `outpost_kit::parts`.
 4. **Hide graybox.** Drop the graybox prop of every matched body once the kit's entries have loaded; keep graybox as the fallback while the bundle loads or if it fails (`Motion::Fallback`, as the Outpost does). Keep the collider ids on the kit draws so camera occlusion still treats them as structures; the decoration (roofs, hoardings, the gatehouse's towers) reaches outside the bodies, so cull and fade by each asset's measured `bounds`, not its body.
 5. **Lifts.** Draw `fortress.kit.lift-courtyard` and `fortress.kit.lift-tower` instead of the unit presenter's lift boxes, each at `Platform::centre_at(tick)` minus `half_extents[1]` in y, so the crib's top is the platform's top.
-6. **LOD.** Choose `default`, `lod1` or `lod2` per piece from `lodSelection` (three.js `LOD`, or the native client's screen-size test). The long pieces (curtain walls, parapets, bridges) have large spheres and stay at LOD0 across most of the arena.
+6. **LOD.** Choose `default`, `lod1` or `lod2` per piece from `lodSelection` (three.js `LOD`, or the native client's screen-size test). Every piece switches at the same distance, so the pieces within 60 m stay at LOD0.
 7. **Ground.** The courtyard lifts' platforms rest flush with the ground (y = 0) at their low stop; leave the terrain out under the four 2.8 m footprints (or draw it 1 cm lower there) so the platform does not z-fight it.
 
 ## Review

@@ -11,7 +11,7 @@ import { readAssetBundleAttachment, readAssetBundleGltf, verifyAssetBundle, type
 import { verifyAssetBundleTar } from "../../../src/asset-bundle-pack.js";
 import { sha256Bytes } from "../../../src/hash.js";
 import {
-  buildGreyhavenNature, NATURE_COLLISION_PROXY, NATURE_DESCRIPTOR_ATTACHMENT, NATURE_DESCRIPTOR_SCHEMA, NATURE_LOD_SCREEN_SIZES, NATURE_LOD_VARIANTS,
+  buildGreyhavenNature, NATURE_COLLISION_PROXY, NATURE_DESCRIPTOR_ATTACHMENT, NATURE_DESCRIPTOR_SCHEMA, NATURE_LOD_DISTANCES, NATURE_LOD_VARIANTS,
   BUSH_TRIANGLES, NATURE_LODS, NATURE_MEMBERS, ROCK_TRIANGLES,
 } from "../../../scripts/build-greyhaven-nature.ts";
 
@@ -59,10 +59,12 @@ test("nature bundle supplies independently shaped, grounded families with game-r
       const metadata = descriptor.assets.find((item: { key: string }) => item.key === entry.key);
       const provenance: Provenance = metadata.provenance;
       assert.equal(provenance.license, "CC0-1.0");
-      // #449: an LOD chain in the same frame, triangles falling by level, screen-size switch points in the descriptor.
+      // #449: an LOD chain in the same frame, triangles falling by level; #534: switch distances in the descriptor.
       const lods = metadata[NATURE_LODS];
       assert.deepEqual(lods.levels.map((level: { variant: string }) => level.variant), ["default", ...NATURE_LOD_VARIANTS]);
-      assert.deepEqual(lods.levels.map((level: { minScreenSize: number }) => level.minScreenSize), [...NATURE_LOD_SCREEN_SIZES[entry.family], 0]);
+      assert.deepEqual(lods.levels.map((level: { referenceMaxDistance: number | null }) => level.referenceMaxDistance), [...NATURE_LOD_DISTANCES[entry.family], null]);
+      assert.equal(lods.levels[2].minScreenSize, 0);
+      assert.ok(lods.levels[0].minScreenSize > lods.levels[1].minScreenSize, "the sizes fall by level");
       assert.ok(lods.boundingSphere.radius > 0);
       const trianglesIn = (doc: typeof document) => doc.getRoot().listMeshes().flatMap((mesh) => mesh.listPrimitives())
         .reduce((sum, primitive) => sum + primitive.getIndices()!.getCount() / 3, 0);
