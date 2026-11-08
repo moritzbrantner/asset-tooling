@@ -1,6 +1,6 @@
 # Redbrand faction kit
 
-The Redbrand faction kit (#517) dresses mmorpg's Redbrand Hollow bandits. They wear a rough dark oxblood long coat to mid-calf with long sleeves over brown work trousers and the Peasant boots, a mantle in the band's recolourable red (`faction`) round the neck and shoulders with a hanging end, a leather belt and leather bracers. It is the first of the Ranger bundle's unused variants rebuilt as its own model (owner answers on #517, 2026-11-08). The Ranger bundle keeps `outfit.redbrand` and `armor.redbrand` until mmorpg uses the kit.
+The Redbrand faction kit (#517) dresses mmorpg's Redbrand Hollow bandits. They wear a rough dark oxblood long coat to mid-calf with long sleeves over brown work trousers and the Peasant boots, a mantle in the band's recolourable red (`faction`) round the neck and shoulders with a hanging end, a leather belt and leather bracers. It is the first of the Ranger bundle's unused variants rebuilt as its own model (owner answers on #517, 2026-11-08). mmorpg dresses its bandits and crossbowmen from the kit (moenarch-games/mmorpg#676), so the Ranger bundle no longer ships `outfit.redbrand` or `armor.redbrand`.
 
 ```sh
 ASSET_TOOLING_BLENDER=<blender 5.2.2> bun scripts/build-redbrand-kit.ts --out <directory>

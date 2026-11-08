@@ -48,6 +48,8 @@ The same recipe dresses the named Greyhaven residents ([humanoid-ranger.md](huma
 
 mmorpg's Redbrand bandits get their own outfit (`outfit.redbrand`, male figure) instead of the soldier's gambeson with a red sash. It follows the Greyhaven Marshal's style: a long coat, straight trousers and functional boots.
 
+The Ranger bundle no longer builds this kit (#517). The outfit ships only in the [Redbrand faction kit](redbrand-kit.md), whose garments are hand-authored and were seeded from this fitting. `armor.py` keeps the `redbrand` fitting below as that seed and as the source of the kit's palette, but `src/armor-recipes.ts` no longer lists it as a kit.
+
 | Kit | Cloth | Plates | Hides |
 | --- | --- | --- | --- |
 | `redbrand` | `redbrand.coat`: the shirt pushed 14 mm out in rough dark oxblood wool (`coat.redbrand`), with a skirt to mid-calf (0.32 m) that widens toward a ragged hem and is open at the front below the belt, the split widening toward the hem; `redbrand.sleeves`: long sleeves in the coat's wool; `redbrand.trousers`: the straight brown work trousers over the boot shafts; `redbrand.scarf` and `redbrand.scarf-end`: a thick wrap rolled round the neck with its loose end down the left of the chest, in the `faction` slot | `redbrand.belt`, `redbrand.bracer_l`, `redbrand.bracer_r` (leather) | the shirt, the legs |
