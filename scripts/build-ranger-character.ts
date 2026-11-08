@@ -27,6 +27,8 @@ import { executeGltfSubsetSkinnedOperation } from "../src/gltf-subset-operations
 import { executeGltfTextureResizeOperation } from "../src/gltf-texture-resize-operations.js";
 import { HUMANOID_ITEM_LOD_METRIC, createHumanoidItemDescriptor, validateHumanoidSocketDescriptor, type HumanoidItemDescriptor, type HumanoidItemLods } from "../src/humanoid-sockets.js";
 import { generateAsset } from "../src/index.js";
+import { generationCacheStatistics } from "../src/core.js";
+import { useSharedGenerationCache } from "./generation-cache.ts";
 import { WEAPON_LOD_PRESETS, WEAPON_LOD_SCREEN_SIZES, WEAPON_PRESETS, WEAPON_ROLES, createWeaponAssetSpec, readWeaponRecipeSource, type ThrowablePiece, type WeaponParameters, type WeaponPiece } from "../src/weapon-recipes.js";
 import { readBlenderRecipeSource } from "../src/blender-recipe-source.js";
 import { blenderScriptSpec } from "../src/blender-script-spec.js";
@@ -844,6 +846,7 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
 }) {
   // #427: every line carries the elapsed build time, so a log is a step profile.
   const started = performance.now();
+  const cacheAtStart = generationCacheStatistics();
   const log = (line: string) => {
     const seconds = Math.round((performance.now() - started) / 1000);
     emit(`[${String(Math.floor(seconds / 60)).padStart(3, "0")}:${String(seconds % 60).padStart(2, "0")}] ${line}`);
@@ -1429,6 +1432,9 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
     inputs: { assets, attachments },
   });
   const tarPath = path.join(root, `${bundleKey}.tar`);
+  // #516: a merge that leaves the Blender backend, recipes and their inputs alone reuses every Blender step.
+  const cacheNow = generationCacheStatistics();
+  log(`generation cache: ${cacheNow.hits - cacheAtStart.hits} generation steps reused, ${cacheNow.misses - cacheAtStart.misses} run (${process.env.ASSET_TOOLING_GENERATION_CACHE_DIR ?? "per-step workspaces"})`);
   log("pack release tar (scripts/pack-asset-bundle.ts)");
   const pack = Bun.spawnSync(["bun", path.join(REPOSITORY_ROOT, "scripts/pack-asset-bundle.ts"), bundleDir, tarPath], { stdout: "pipe", stderr: "pipe" });
   if (pack.exitCode !== 0) throw new Error(`pack-asset-bundle failed: ${pack.stderr.toString()}`);
@@ -1461,20 +1467,25 @@ function parseArguments(args: string[]) {
   const options: Record<string, string> = {};
   for (let index = 0; index < args.length; index += 2) {
     const flag = args[index], value = args[index + 1];
-    if (!["--processor-checkout", "--out", "--figure"].includes(flag!) || !value) return undefined;
+    if (!["--processor-checkout", "--out", "--figure", "--cache-dir"].includes(flag!) || !value) return undefined;
     options[flag!.slice(2)] = value;
   }
   if (options.figure !== undefined && !Object.hasOwn(RANGER_FIGURES, options.figure)) return undefined;
   const figure = (options.figure ?? "male") as RangerFigure;
-  return options["processor-checkout"] && options.out ? { processorCheckout: options["processor-checkout"], outDir: options.out, figure } : undefined;
+  return options["processor-checkout"] && options.out
+    ? { processorCheckout: options["processor-checkout"], outDir: options.out, figure, cacheDir: options["cache-dir"] }
+    : undefined;
 }
 
 if (import.meta.main) {
-  const options = parseArguments(process.argv.slice(2));
-  if (!options) {
-    console.error("Usage: bun scripts/build-ranger-character.ts --processor-checkout <absolute 3d-lab checkout> --out <directory> [--figure male|female]");
+  const parsed = parseArguments(process.argv.slice(2));
+  if (!parsed) {
+    console.error("Usage: bun scripts/build-ranger-character.ts --processor-checkout <absolute 3d-lab checkout> --out <directory> [--figure male|female] [--cache-dir <directory>]");
     process.exit(2);
   }
+  const { cacheDir, ...options } = parsed;
+  // #516: the generation cache outlives --out (default .asset-tooling/cache, or ASSET_TOOLING_GENERATION_CACHE_DIR).
+  useSharedGenerationCache(cacheDir);
   try {
     const result = await buildRangerCharacter({ ...options, log: (line) => console.error(`[ranger] ${line}`) });
     await writeFile(path.join(path.resolve(options.outDir), "lineage.json"), `${JSON.stringify(result.lineage, null, 2)}\n`);

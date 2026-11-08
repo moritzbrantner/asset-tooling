@@ -14,6 +14,7 @@ import { readdir, readFile } from "node:fs/promises";
 import { findConsumers, loadConsumers, readArtifacts, type Artifacts, type Consumer, type Pin } from "./prepare-release.ts";
 import { verifyMapsShortbreadRelease } from "./build-maps-shortbread-release.ts";
 import { sourceClosure, touches } from "./source-closure.ts";
+import { useSharedGenerationCache } from "./generation-cache.ts";
 
 export { touches };
 
@@ -235,6 +236,9 @@ async function main(args: string[]): Promise<number> {
   }
   if (command === "build" && rest.length === 2) {
     const release = rollingRelease(rest[0]!);
+    // #516: every build reuses one generation cache (ASSET_TOOLING_GENERATION_CACHE_DIR, by default
+    // .asset-tooling/cache), which the workflow restores and saves between runs of a Blender release.
+    console.error(`generation cache: ${useSharedGenerationCache()}`);
     const result = spawnSync("bun", [path.join(ROOT, release.script), "--out", path.resolve(rest[1]!), ...(release.args ?? [])], { stdio: "inherit" });
     return result.status ?? 1;
   }

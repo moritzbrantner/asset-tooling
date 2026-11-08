@@ -9,6 +9,7 @@ import path from "node:path";
 import { writeFile } from "node:fs/promises";
 import { RANGER_FIGURES, buildRangerCharacter, type RangerFigure } from "./build-ranger-character.ts";
 import { packDownloads } from "./pack-downloads.ts";
+import { useSharedGenerationCache } from "./generation-cache.ts";
 
 /** The rolling release name of a figure's bundle (`humanoid.ranger.male` -> `humanoid-ranger-male`). */
 export const rangerReleaseName = (figure: RangerFigure) => RANGER_FIGURES[figure].key.replaceAll(".", "-");
@@ -31,6 +32,8 @@ if (import.meta.main) {
     console.error("Usage: ASSET_TOOLING_PROCESSOR_CHECKOUT_3DLAB=<absolute 3d-lab checkout> bun scripts/build-ranger-release.ts --out <out> --figure male|female");
     process.exit(2);
   }
+  // #516: the generation cache outlives --out (ASSET_TOOLING_GENERATION_CACHE_DIR, default .asset-tooling/cache).
+  useSharedGenerationCache();
   try {
     console.log(JSON.stringify(await buildRangerRelease({ outDir, figure: figure as RangerFigure, processorCheckout, log: (line) => console.error(line) }), null, 2));
   } catch (error) {

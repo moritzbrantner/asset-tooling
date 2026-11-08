@@ -21,13 +21,33 @@ This separation is deliberate. A seeded or otherwise identical-looking model inv
 The v1 build key hashes canonical JSON containing:
 
 - the complete canonical asset-spec SHA-256;
-- current `asset-tooling` tool identity/source fingerprint;
+- the `asset-tooling` tool identity: the whole `src/**/*.ts` tree fingerprint, or, for a backend that names its cache sources, the fingerprint of those files only (below);
 - normalized generator identity and backend kind;
-- current execution-environment SHA-256.
+- the execution-environment SHA-256: the full fingerprint, or, for a backend that names its cache sources, the hash of its platform and environment components only.
 
 Declared inputs and model bundles are therefore part of the identity through the spec hash, and their bytes are still verified against the declared hashes before any cache lookup.
 
-A change to the spec, tool implementation, generator identity, runtime, or declared environment components produces a different build key instead of reusing stale evidence.
+A change to the spec, the files that determine the backend's output, generator identity, or declared environment components produces a different build key instead of reusing stale evidence.
+
+### Scoped key for `external.blender.script@1`
+
+A Blender step's output is determined by its spec (the recipe script and every input it loads are declared spec inputs with SHA-256 pins), by the pinned Blender binary and its Python (environment components the runner probes, with the runner's own hash), and by the few package files that turn the spec into a Blender run. The backend names those files in `BLENDER_SCRIPT_CACHE_SOURCES` ([`src/blender-script-backend.ts`](../src/blender-script-backend.ts)):
+
+- `src/blender-script-backend.ts` and what it runs: `src/process-adapter.ts`, `src/canonical.ts` and `adapters/blender/script_runner.py`;
+- `src/schema.ts`, which parses and canonicalizes the spec;
+- `src/backend-contract.ts`, which normalizes the generation result.
+
+Its key hashes those files (`sha256-files-v1`) instead of every `src/**/*.ts` (`sha256-tree-v1`), and the platform and components of the environment instead of the full fingerprint, which also names the Bun or Node runtime that only launches Blender. An edit to an unrelated module or a Bun update therefore keeps every Blender entry, while an edit to a listed file, a recipe, a declared input or the Blender pin misses. `test/generation-cache-key.test.ts` keeps the list a superset of the backend's source closure (`scripts/source-closure.ts`), so a new import cannot be left out silently.
+
+This stays safe because the cache is not evidence: a hit is still verified against its blob's SHA-256 (below), the receipt still records the whole-tree tool identity and the full environment, and `verify` replays Blender and compares bytes, never reading the cache. A wrong scoped list could make `generate` reuse a stale output; it could not make `verify` accept one. Other backends keep the whole-tree identity and the full environment.
+
+## Shared cache directory
+
+By default the cache lives next to each spec, under `<spec directory>/.asset-tooling/cache/v1/`. A build that writes its specs into throwaway workspaces (the Ranger, the kits) instead names one shared directory: `generateAsset(spec, { cacheDirectory })`, or `ASSET_TOOLING_GENERATION_CACHE_DIR` (an absolute path) for every `generateAsset` of the process. Entries then live under `<directory>/v1/builds/` and `<directory>/v1/blobs/` with the same contract; blobs and indexes are written through a temporary file and renamed, so concurrent steps never read a partial entry.
+
+`bun scripts/publish-release.ts build`, `scripts/build-ranger-release.ts` and `scripts/build-ranger-character.ts` (`--cache-dir`) select the shared directory, by default the repository's `.asset-tooling/cache`, so a repeated local build reuses every unchanged Blender step. The Ranger build logs how many generation steps it reused and ran.
+
+The Publish rolling releases workflow restores that directory for every Blender release with `actions/cache` (key: release, Blender pin, the scoped-source fingerprint from `bun scripts/generation-cache.ts key`, and a hash of the entries; restore prefix without the last part, so a partial hit reuses every unchanged step). Before saving it runs `bun scripts/generation-cache.ts prune <directory> --since <build start>`: a hit touches its build index, so the prune keeps exactly the entries the build read or wrote and the blobs they name. The generation cache holds only `generateAsset` outputs (Blender step GLBs), not the operation object store under `--out`.
 
 ## Read contract
 
