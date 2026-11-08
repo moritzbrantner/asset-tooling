@@ -50,3 +50,38 @@ export async function captureToolIdentity(): Promise<ToolIdentity> {
     },
   };
 }
+
+/** The package root, against which a backend names its generation-cache sources. */
+const PACKAGE_ROOT = path.dirname(SOURCE_ROOT);
+
+export interface ScopedToolIdentity {
+  name: "asset-tooling";
+  version: "0.1.0";
+  sourceFingerprint: {
+    algorithm: "sha256-files-v1";
+    sha256: string;
+  };
+}
+
+/**
+ * The tool identity of a generation-cache key scoped to the files that determine one backend's output
+ * (docs/cache.md#build-identity): the SHA-256 of each named package-relative file, by path. A missing file fails
+ * closed. Receipts and `verify` keep the whole-tree identity of {@link captureToolIdentity}.
+ */
+export async function captureScopedToolIdentity(files: readonly string[], root: string = PACKAGE_ROOT): Promise<ScopedToolIdentity> {
+  const sourceHashes: Record<string, string> = {};
+  for (const file of [...files].sort(compareCodeUnitStrings)) {
+    if (path.posix.isAbsolute(file) || file.split("/").includes("..")) {
+      throw new Error(`generation-cache source '${file}' must be a package-relative path`);
+    }
+    sourceHashes[file] = await sha256File(path.join(root, ...file.split("/")));
+  }
+  return {
+    name: "asset-tooling",
+    version: "0.1.0",
+    sourceFingerprint: {
+      algorithm: "sha256-files-v1",
+      sha256: sha256Text(canonicalJson(sourceHashes)),
+    },
+  };
+}

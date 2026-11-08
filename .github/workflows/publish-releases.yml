@@ -197,10 +197,54 @@ jobs:
       - name: Install pinned Blender
         if: matrix.blender
         run: echo "ASSET_TOOLING_BLENDER=$(bun scripts/install-blender.ts "$RUNNER_TEMP/blender")" >> "$GITHUB_ENV"
-      - name: Build
+      # #516, docs/cache.md#shared-cache-directory: every Blender release keeps its generation cache (the Blender
+      # step outputs) between runs, so a merge that leaves the Blender backend, the recipes and their inputs alone
+      # reuses every Blender step. The key prefix names the release, the Blender pin and the backend's scoped
+      # cache-source fingerprint; the newest cache with that prefix is restored, and entries whose recipe or input
+      # changed simply miss.
+      - id: generation-cache-key
+        name: Key the shared generation cache
+        if: matrix.blender
         env:
           RELEASE: ${{ matrix.release }}
-        run: bun scripts/publish-release.ts build "$RELEASE" "$OUT"
+          BLENDER_PIN: ${{ hashFiles('adapters/blender/release.json') }}
+        run: |
+          set -euo pipefail
+          echo "prefix=generation-v1-$RELEASE-$BLENDER_PIN-$(bun scripts/generation-cache.ts key)-" >> "$GITHUB_OUTPUT"
+      - id: generation-cache-restore
+        name: Restore the shared generation cache
+        if: matrix.blender
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .asset-tooling/cache
+          key: ${{ steps.generation-cache-key.outputs.prefix }}
+          restore-keys: ${{ steps.generation-cache-key.outputs.prefix }}
+      - id: build
+        name: Build
+        env:
+          RELEASE: ${{ matrix.release }}
+        run: |
+          set -euo pipefail
+          date +%s%3N > "$RUNNER_TEMP/build-started"
+          ASSET_TOOLING_GENERATION_CACHE_DIR="$GITHUB_WORKSPACE/.asset-tooling/cache" bun scripts/publish-release.ts build "$RELEASE" "$OUT"
+      # Keep only the entries this build read or wrote; a cache whose entries did not change is not saved again.
+      - id: generation-cache-prune
+        name: Prune the shared generation cache
+        if: matrix.blender
+        env:
+          PREFIX: ${{ steps.generation-cache-key.outputs.prefix }}
+        run: |
+          set -euo pipefail
+          bun scripts/generation-cache.ts prune "$GITHUB_WORKSPACE/.asset-tooling/cache" --since "$(cat "$RUNNER_TEMP/build-started")"
+          du -sh .asset-tooling/cache
+          entries=$( (find .asset-tooling/cache/v1/builds -name '*.json' -printf '%f\n' 2>/dev/null || true) | sort | sha256sum | cut -c1-16)
+          echo "key=$PREFIX$entries" >> "$GITHUB_OUTPUT"
+      - name: Save the shared generation cache
+        if: matrix.blender && steps.generation-cache-prune.outputs.key != steps.generation-cache-restore.outputs.cache-matched-key
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .asset-tooling/cache
+          key: ${{ steps.generation-cache-prune.outputs.key }}
       - name: Check consumers and publish
         env:
           RELEASE: ${{ matrix.release }}

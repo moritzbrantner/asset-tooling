@@ -1,6 +1,6 @@
 import path from "node:path";
 import { randomBytes } from "node:crypto";
-import { lstat, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { lstat, mkdir, readdir, readFile, rename, rm, utimes, writeFile } from "node:fs/promises";
 import type { GenerationObservations, ReceiptGenerator } from "./backend-contract.js";
 import { canonicalJson, stablePrettyJson } from "./canonical.js";
 import { sha256Bytes, sha256Text } from "./hash.js";
@@ -140,12 +140,44 @@ export function generationCacheKey(identity: GenerationCacheIdentity): string {
   return sha256Text(canonicalJson(identity));
 }
 
-function buildIndexPortablePath(key: string): string {
-  return `${CACHE_VERSION_ROOT}/builds/${key}.json`;
+/**
+ * Where generation-cache entries live: `<root>/.asset-tooling/cache/v1/` by default, or `<directory>/v1/` for a
+ * shared cache directory that several builds and CI runs reuse (docs/cache.md#shared-cache-directory).
+ */
+export interface GenerationCacheOptions {
+  directory?: string;
 }
 
-function blobPortablePath(outputSha256: string): string {
-  return `${CACHE_VERSION_ROOT}/blobs/${outputSha256}`;
+interface GenerationCacheLocation {
+  base: string;
+  prefix: string;
+}
+
+function generationCacheLocation(root: string, options: GenerationCacheOptions = {}): GenerationCacheLocation {
+  if (options.directory === undefined) return { base: root, prefix: CACHE_VERSION_ROOT };
+  if (!path.isAbsolute(options.directory)) throw new Error("generation cache directory must be an absolute path");
+  return { base: options.directory, prefix: "v1" };
+}
+
+function buildIndexPortablePath(location: GenerationCacheLocation, key: string): string {
+  return `${location.prefix}/builds/${key}.json`;
+}
+
+function blobPortablePath(location: GenerationCacheLocation, outputSha256: string): string {
+  return `${location.prefix}/blobs/${outputSha256}`;
+}
+
+/** Write through a unique temporary file and rename, so a concurrent reader never sees a partial entry. */
+async function writeAtomically(absolutePath: string, bytes: Uint8Array | string): Promise<void> {
+  await mkdir(path.dirname(absolutePath), { recursive: true });
+  const temporaryPath = `${absolutePath}.${process.pid}.${randomBytes(6).toString("hex")}.tmp`;
+  try {
+    await writeFile(temporaryPath, bytes, { flag: "wx" });
+    await rename(temporaryPath, absolutePath);
+  } catch (error: unknown) {
+    await rm(temporaryPath, { force: true });
+    throw error;
+  }
 }
 
 function parseIndex(
@@ -184,14 +216,16 @@ function parseIndex(
 export async function readGenerationCache(
   root: string,
   identity: GenerationCacheIdentity,
+  options: GenerationCacheOptions = {},
 ): Promise<GenerationCacheReadResult> {
+  const location = generationCacheLocation(root, options);
   const key = generationCacheKey(identity);
-  const indexPortablePath = buildIndexPortablePath(key);
-  await assertNoSymbolicLinks(root, indexPortablePath);
+  const indexPortablePath = buildIndexPortablePath(location, key);
+  await assertNoSymbolicLinks(location.base, indexPortablePath);
 
   let rawIndex: string;
   try {
-    rawIndex = await readFile(cachePath(root, indexPortablePath), "utf8");
+    rawIndex = await readFile(cachePath(location.base, indexPortablePath), "utf8");
   } catch (error: unknown) {
     if (hasErrorCode(error, "ENOENT")) return { status: "miss", key };
     throw error;
@@ -204,12 +238,12 @@ export async function readGenerationCache(
     throw new Error(`generation cache index '${key}' is not valid JSON`);
   }
   const index = parseIndex(parsed, key, identity);
-  const blobPath = blobPortablePath(index.outputSha256);
-  await assertNoSymbolicLinks(root, blobPath);
+  const blobPath = blobPortablePath(location, index.outputSha256);
+  await assertNoSymbolicLinks(location.base, blobPath);
 
   let bytes: Buffer;
   try {
-    bytes = await readFile(cachePath(root, blobPath));
+    bytes = await readFile(cachePath(location.base, blobPath));
   } catch (error: unknown) {
     if (hasErrorCode(error, "ENOENT")) {
       throw new Error(`generation cache blob '${index.outputSha256}' is missing`);
@@ -222,6 +256,9 @@ export async function readGenerationCache(
       `generation cache blob hash mismatch: expected ${index.outputSha256}, got ${actualSha256}`,
     );
   }
+  // Mark the entry used, so pruneGenerationCache keeps what the latest build read.
+  const now = new Date();
+  await utimes(cachePath(location.base, indexPortablePath), now, now);
 
   return {
     status: "hit",
@@ -236,23 +273,24 @@ export async function writeGenerationCache(
   root: string,
   identity: GenerationCacheIdentity,
   generated: GeneratedCacheValue,
+  options: GenerationCacheOptions = {},
 ): Promise<GenerationCacheWriteResult> {
+  const location = generationCacheLocation(root, options);
   const key = generationCacheKey(identity);
   const outputSha256 = sha256Bytes(generated.bytes);
-  const blobPath = blobPortablePath(outputSha256);
-  const indexPath = buildIndexPortablePath(key);
-  await assertNoSymbolicLinks(root, blobPath);
-  await assertNoSymbolicLinks(root, indexPath);
+  const blobPath = blobPortablePath(location, outputSha256);
+  const indexPath = buildIndexPortablePath(location, key);
+  await assertNoSymbolicLinks(location.base, blobPath);
+  await assertNoSymbolicLinks(location.base, indexPath);
 
-  const blobAbsolutePath = cachePath(root, blobPath);
-  await mkdir(path.dirname(blobAbsolutePath), { recursive: true });
+  const blobAbsolutePath = cachePath(location.base, blobPath);
   let blobMatches = false;
   try {
     blobMatches = sha256Bytes(await readFile(blobAbsolutePath)) === outputSha256;
   } catch (error: unknown) {
     if (!hasErrorCode(error, "ENOENT")) throw error;
   }
-  if (!blobMatches) await writeFile(blobAbsolutePath, generated.bytes);
+  if (!blobMatches) await writeAtomically(blobAbsolutePath, generated.bytes);
 
   const index: GenerationCacheIndex = {
     schemaVersion: 1,
@@ -261,11 +299,68 @@ export async function writeGenerationCache(
     outputSha256,
     observations: generated.observations,
   };
-  const indexAbsolutePath = cachePath(root, indexPath);
-  await mkdir(path.dirname(indexAbsolutePath), { recursive: true });
-  await writeFile(indexAbsolutePath, stablePrettyJson(index), "utf8");
+  await writeAtomically(cachePath(location.base, indexPath), stablePrettyJson(index));
 
   return { key, outputSha256 };
+}
+
+export interface GenerationCachePruneResult {
+  keptBuilds: number;
+  removedBuilds: number;
+  removedBlobs: number;
+  remainingBytes: number;
+}
+
+/**
+ * Drop the shared generation cache `directory`'s build entries not read or written since `since` (a hit touches its
+ * entry), then every blob no remaining entry names, so a cache CI saves between runs holds only what the latest build
+ * used. Pruning only ever removes disposable acceleration state.
+ */
+export async function pruneGenerationCache(directory: string, since: Date): Promise<GenerationCachePruneResult> {
+  const location = generationCacheLocation(directory, { directory });
+  const buildsDirectory = cachePath(location.base, `${location.prefix}/builds`);
+  const blobsDirectory = cachePath(location.base, `${location.prefix}/blobs`);
+  const list = async (directoryPath: string) => {
+    try {
+      return await readdir(directoryPath);
+    } catch (error: unknown) {
+      if (hasErrorCode(error, "ENOENT")) return [];
+      throw error;
+    }
+  };
+  const result: GenerationCachePruneResult = { keptBuilds: 0, removedBuilds: 0, removedBlobs: 0, remainingBytes: 0 };
+  const referenced = new Set<string>();
+  for (const name of await list(buildsDirectory)) {
+    const entryPath = path.join(buildsDirectory, name);
+    const entry = await lstat(entryPath);
+    let outputSha256: unknown;
+    if (entry.isFile() && name.endsWith(".json") && entry.mtimeMs >= since.getTime()) {
+      try {
+        outputSha256 = (JSON.parse(await readFile(entryPath, "utf8")) as PlainObject).outputSha256;
+      } catch {
+        outputSha256 = undefined;
+      }
+    }
+    if (typeof outputSha256 === "string" && SHA256_PATTERN.test(outputSha256)) {
+      referenced.add(outputSha256);
+      result.keptBuilds += 1;
+      result.remainingBytes += entry.size;
+    } else {
+      await rm(entryPath, { force: true });
+      result.removedBuilds += 1;
+    }
+  }
+  for (const name of await list(blobsDirectory)) {
+    const blobPath = path.join(blobsDirectory, name);
+    const blob = await lstat(blobPath);
+    if (blob.isFile() && referenced.has(name)) {
+      result.remainingBytes += blob.size;
+    } else {
+      await rm(blobPath, { force: true });
+      result.removedBlobs += 1;
+    }
+  }
+  return result;
 }
 
 export interface OperationResultCacheEntry {

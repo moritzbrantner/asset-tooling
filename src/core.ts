@@ -13,7 +13,7 @@ import { captureEnvironment } from "./environment.js";
 import { sha256Bytes, sha256File, sha256Text } from "./hash.js";
 import { parseGenerationReceipt } from "./receipts.js";
 import { assertPortableRelativePath, readAssetSpec, resolveSpecPath } from "./schema.js";
-import { captureToolIdentity } from "./tool.js";
+import { captureScopedToolIdentity, captureToolIdentity } from "./tool.js";
 
 async function fileExists(filePath) {
   try {
@@ -186,6 +186,47 @@ async function generationContext(specDocument, backend, generator) {
   return { environment, tool, generator };
 }
 
+/**
+ * The generation-cache build identity (docs/cache.md#build-identity). A backend that names the package files
+ * determining its output (`generationCacheSources`) keys on those files and on its environment's platform and
+ * components, not on the whole `src/**` tree or the JavaScript runtime that only launches it; every other backend
+ * keys on the whole-tree tool identity and the full environment. Receipts keep the full identities either way.
+ */
+export async function generationCacheBuildIdentity(document, backend, context) {
+  const scoped = Array.isArray(backend.generationCacheSources);
+  return generationCacheIdentity({
+    specSha256: document.sha256,
+    tool: scoped ? await captureScopedToolIdentity(backend.generationCacheSources) : context.tool,
+    generator: context.generator,
+    environmentSha256: scoped
+      ? sha256Text(canonicalJson({
+        schemaVersion: 1,
+        platform: context.environment.platform,
+        components: context.environment.components,
+      }))
+      : context.environment.sha256,
+  });
+}
+
+/** The environment variable naming a shared generation-cache directory (an absolute path; docs/cache.md). */
+export const GENERATION_CACHE_DIRECTORY_ENV = "ASSET_TOOLING_GENERATION_CACHE_DIR";
+
+function generationCacheDirectory(options) {
+  const directory = options.cacheDirectory ?? process.env[GENERATION_CACHE_DIRECTORY_ENV];
+  if (directory === undefined || directory === "") return undefined;
+  if (!path.isAbsolute(directory)) {
+    throw new Error(`${GENERATION_CACHE_DIRECTORY_ENV} / cacheDirectory must be an absolute path`);
+  }
+  return directory;
+}
+
+const GENERATION_CACHE_STATISTICS = { hits: 0, misses: 0 };
+
+/** How many `generateAsset` calls in this process reused a generation-cache entry and how many ran the backend. */
+export function generationCacheStatistics() {
+  return { ...GENERATION_CACHE_STATISTICS };
+}
+
 function buildReceipt(specDocument, backend, outputSha256, observations, context) {
   return {
     schemaVersion: 2,
@@ -235,13 +276,9 @@ export async function generateAsset(specPath, options = {}) {
   await verifyDeclaredArtifacts(document);
 
   const context = await generationContext(document, backend, generator);
-  const identity = generationCacheIdentity({
-    specSha256: document.sha256,
-    tool: context.tool,
-    generator: context.generator,
-    environmentSha256: context.environment.sha256,
-  });
-  const cached = await readGenerationCache(document.root, identity);
+  const identity = await generationCacheBuildIdentity(document, backend, context);
+  const cacheOptions = { directory: generationCacheDirectory(options) };
+  const cached = await readGenerationCache(document.root, identity, cacheOptions);
 
   let generated;
   let cacheStatus;
@@ -253,9 +290,10 @@ export async function generateAsset(specPath, options = {}) {
     cacheStatus = "hit";
   } else {
     generated = normalizeGenerationResult(await backend.generate(document), backend.id);
-    await writeGenerationCache(document.root, identity, generated);
+    await writeGenerationCache(document.root, identity, generated, cacheOptions);
     cacheStatus = "miss";
   }
+  GENERATION_CACHE_STATISTICS[cacheStatus === "hit" ? "hits" : "misses"] += 1;
 
   const outputSha256 = sha256Bytes(generated.bytes);
   const outputChanged = await writeIfChanged(outputAbsolutePath, generated.bytes);

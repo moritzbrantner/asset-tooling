@@ -21,6 +21,22 @@ const BLENDER_LAUNCHER_ARGUMENTS = [
 const BLENDER_VERSION = /^[0-9]+\.[0-9]+\.[0-9]+$/;
 const BACKEND_ID = "external.blender.script";
 
+/**
+ * The package files that determine this backend's output for a given spec (docs/cache.md#build-identity), so its
+ * generation-cache key does not change with unrelated `src/**` edits: this module and what it runs (the process
+ * adapter, the Blender runner; test/blender-script-cache-key.test.ts keeps the list a superset of this module's
+ * source closure), the spec schema and the generation-result normalization. The recipe and every input it loads
+ * are declared spec inputs, hashed through the spec; Blender's identity is in the environment components.
+ */
+export const BLENDER_SCRIPT_CACHE_SOURCES: readonly string[] = [
+  "adapters/blender/script_runner.py",
+  "src/backend-contract.ts",
+  "src/blender-script-backend.ts",
+  "src/canonical.ts",
+  "src/process-adapter.ts",
+  "src/schema.ts",
+];
+
 /** The Blender executable: `ASSET_TOOLING_BLENDER` when set, otherwise `blender` on PATH. */
 export function blenderExecutable(): string {
   const configured = process.env.ASSET_TOOLING_BLENDER;
@@ -78,6 +94,7 @@ export const BLENDER_SCRIPT_BACKEND = {
   // Exact capability is a claim about a pinned Blender binary running a deterministic script;
   // `verify` still replays the script and compares output bytes.
   exactCapable: true,
+  generationCacheSources: BLENDER_SCRIPT_CACHE_SOURCES,
   validate: validateBlenderScript,
   async environmentComponents(document:AssetSpecDocument) {
     const validated=validateBlenderScript(document);
