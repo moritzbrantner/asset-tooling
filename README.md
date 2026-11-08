@@ -24,7 +24,7 @@ The [Battle Royale fortress kit](docs/fortress-kit.md) is a scripted Blender rec
 
 The [climbing kit](docs/climbing-kit.md) is a scripted Blender recipe for the MMORPG's climbable surfaces, sized to the Ranger's ladder, rope and climbing clips: timber ladders with rungs exactly 0.30 m apart (whole lengths, a stackable section and a top cap that hooks over a parapet), a knotted 50 mm rope on an iron ring and beam (whole lengths and stackable pieces), and CC0 ivy with cut-out leaf cards in tiling strips and whole covers, each with grip-line metadata, collision proxies and an LOD chain.
 
-The [limestone rocks](docs/limestone-rocks.md) are Greyhaven's level-bedded outcrops, a ledge, fallen blocks and walk-on scree, the first of the rock kits that will come one per geology.
+The [limestone rocks](docs/limestone-rocks.md) are Greyhaven's level-bedded outcrops, a ledge, fallen blocks and walk-on scree, the first of the rock kits that will come one per geology. The [river stones](docs/river-stones.md) are the second: water-worn boulders, stepping stones, cobbles, bank stones and gravel for Greyhaven's brook.
 
 The [crag kit](docs/crag-kit.md) is a scripted Blender recipe that dresses Greyhaven's box-shaped crags and cliffs: overlapping 3 m rock-face slabs (smooth sheer and stratified climbable variants with ledges and cracks), edge corners, top caps and a documented layout rule, textured with the terrain's CC0 `rock_face_03` rock as shared KTX2 maps, each with the climbing kit's surface metadata, box collision proxies and an LOD chain, plus a tileable rock macro-variation texture for the crags and the terrain, and sculpted freestanding outcrops whose foot and crown blend into the terrain's grass.
 

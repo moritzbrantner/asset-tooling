@@ -70,6 +70,13 @@ export const BLENDER_SUITES: BlenderSuite[] = [
     ktx: true,
     lfs: "assets/canonical/poly-haven.rock-face-03-diff-2k-jpg/**,assets/canonical/poly-haven.rock-face-03-disp-2k-jpg/**,assets/canonical/poly-haven.forrest-ground-01-diff-2k-jpg/**,assets/canonical/poly-haven.rocks-ground-02-diff-2k-jpg/**,assets/canonical/poly-haven.mossy-rock-diff-2k-jpg/**",
   },
+  // The river stones (#538): 34 recipe runs, eleven of them Cycles bakes.
+  {
+    suite: "river-stones",
+    timeout: 30,
+    ktx: true,
+    lfs: "assets/canonical/poly-haven.rock-boulder-dry-diff-2k-jpg/**,assets/canonical/poly-haven.rock-boulder-dry-disp-2k-jpg/**,assets/canonical/poly-haven.forrest-ground-01-diff-2k-jpg/**,assets/canonical/poly-haven.rocks-ground-02-diff-2k-jpg/**,assets/canonical/poly-haven.mossy-rock-diff-2k-jpg/**",
+  },
 ];
 
 /** Paths that run on every platform: the package's own code and tests, not the Linux-only build tooling. */
