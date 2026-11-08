@@ -62,6 +62,8 @@ export const ROLLING_RELEASES: RollingRelease[] = [
   { name: "humanoid-ranger-male", ...RANGER, args: ["--figure", "male"] },
   { name: "maps-shortbread", script: "scripts/build-maps-shortbread-release.ts" },
   { name: "outpost-kit", script: "scripts/build-outpost-kit.ts", blender: true, ktx: true },
+  // #517: the Redbrand faction kit, built on the male Ranger figure from the same catalog members.
+  { name: "redbrand-kit", script: "scripts/build-redbrand-kit.ts", blender: true, lfs: true, ktx: true },
   { name: "settlement-props", script: "scripts/build-settlement-props.ts", blender: true, ktx: true },
   { name: "shrine-kit", script: "scripts/build-shrine-kit.ts", blender: true, ktx: true },
   { name: "zoo-effects", script: "scripts/build-zoo-effects.ts" },

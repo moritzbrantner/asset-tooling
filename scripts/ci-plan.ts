@@ -49,6 +49,13 @@ export const BLENDER_SUITES: BlenderSuite[] = [
     ktx: true,
     lfs: "assets/canonical/poly-haven.rock-face-03-*/**,assets/canonical/poly-haven.rock-boulder-dry-diff-2k-jpg/**,assets/canonical/poly-haven.mossy-rock-diff-2k-jpg/**",
   },
+  // The Redbrand faction kit (#517): the authored garments on the male Ranger figure, built twice for the same tar.
+  {
+    suite: "redbrand",
+    timeout: 30,
+    ktx: true,
+    lfs: "assets/authored/redbrand-kit.blend,assets/canonical/quaternius.universal-base-characters-standard.*/**,assets/canonical/quaternius.modular-character-outfits-fantasy-standard.*/**",
+  },
 ];
 
 /** Paths that run on every platform: the package's own code and tests, not the Linux-only build tooling. */
