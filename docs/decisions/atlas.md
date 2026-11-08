@@ -112,6 +112,20 @@ The first usable character-customization experience offers a **curated library o
 
 Importing arbitrary third-party replacement parts or automatically fitting/rigging them is **not required for this first release**; those are possible later extensions, not currently approved commitments. The curated approach is a staged delivery boundary, not a limit on the intended realistic character quality or other asset-workbench capabilities.
 
+### 1.4. Levels of detail
+
+#### Decision 1.4.1 — Source-derived levels of detail (#123 answer A)
+
+**Approved by owner:** 2026-10-18, answer A on [#123](https://github.com/moritzbrantner/asset-tooling/issues/123). Recorded here retroactively on 2026-11-08. **Superseded for characters** by Decision 1.4.2.
+
+Assets get source-derived `lod1` and `lod2` variants of the same bundle entry, decimated in Blender from LOD0 (about 50 % and 20 % of the triangles), with switch-distance hints that consumers may ignore. As first applied, this covered every Ranger character variant (with a 25 % `lod2`) as well as props and vegetation. See [levels-of-detail.md](../levels-of-detail.md).
+
+#### Decision 1.4.2 — Characters ship no levels of detail
+
+**Approved by owner:** 2026-11-08, on [#516](https://github.com/moritzbrantner/asset-tooling/issues/516). **Supersedes** Decision 1.4.1 for characters.
+
+The Ranger character variants (the default character and every outfit and skin variant) ship only at full detail: no `lod1`/`lod2`. No consumer loaded them, and they made up a large share of the Ranger build's Blender runs. Items keep their levels: the throwables' and any other weapon, prop or item levels built from their own recipes are unchanged, as are the static kit and nature levels. The currently unused character variants (`hair-2`, the unused outfit and skin combinations, `redbrand`, `staff.gilded`, the default `skin.light`) are kept for now.
+
 ## 2. Character inspection and editing
 
 ### 2.1. Asset workbench

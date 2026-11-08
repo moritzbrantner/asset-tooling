@@ -6,7 +6,7 @@
 | --- | --- | --- | --- |
 | LOD0 | `default` (or the variant name) | all (the source) | — |
 | LOD1 | `lod1` (or `<variant>.lod1`) | about 50 % | 15 m |
-| LOD2 | `lod2` (or `<variant>.lod2`) | about 20 % for props and vegetation, 25 % for characters | 35 m |
+| LOD2 | `lod2` (or `<variant>.lod2`) | about 20 % | 35 m |
 
 The switch distances are hints. Each consumer chooses its own selection and culling.
 
@@ -30,16 +30,13 @@ The `greyhaven-nature` trees and rocks use their own recipe, [`adapters/blender/
 
 ## Characters
 
-Every Ranger character variant gets levels: `default`, `skin.light`, `outfit.soldier`, `outfit.knight` and their Light variants. Characters use the 25 % LOD2.
+The Ranger character variants (`default`, `skin.light` and the outfit and skin variants) ship **no** levels of detail. The owner dropped them on 2026-11-08 ([#516](https://github.com/moritzbrantner/asset-tooling/issues/516)), superseding answer A of #123 for characters: no consumer loaded them, and they were about a third of the Ranger build's Blender runs. The `humanoid-appearance` descriptor has no `levelsOfDetail` section and no `unsupported` lists.
 
-- **Skin and clips:** Blender decimates the clip-less composition and keeps the skin weights. The clips ship **once**, in `humanoid.ranger.male/default`. Every other variant and level has the same joints, by name, at the same rest pose. The build checks this for each one. A consumer therefore plays the default's clips on any variant or level by joint name; three.js `AnimationMixer` tracks bind by node name. Blender may reorder a level's skin joints, but name binding makes the order irrelevant, so nothing is re-indexed or embedded again.
-- **Light skin:** a Light level is its Dark level with the Light textures swapped in. The geometry is shared and not decimated twice.
-- **Descriptor:** the `humanoid-appearance` descriptor lists them under `levelsOfDetail` (`of`, `level`, `variant`, `ratio`, `triangles`, `switchDistanceHint`).
 - **Items:** the armour, weapon and hair items keep only LOD0, except the #467 throwables (`equipment.throwing-knife`, `equipment.venom-flask`, `equipment.blasting-bomb`), which ship recipe-built `lod1` and `lod2` variants listed in their `humanoid-item` descriptors ([weapon recipes](weapon-recipes.md#throwable-levels-of-detail)).
 
 ## Review
 
-Levels are compared against LOD0 at fixed cameras and distances. For characters this uses the outfit pose sheets (`examples/weapons/socket-sheets.py`) at idle, walk, raised arm, crouch and shield. For the kit it uses `examples/greyhaven-kit/render-composition.py`. Expected limits:
+Levels are compared against LOD0 at fixed cameras and distances. For the kit this uses `examples/greyhaven-kit/render-composition.py`. Expected limits:
 
 - At LOD2, the barrel's iron bands break up. That is acceptable at the 35 m hint.
 - Trees keep their silhouette through both levels.

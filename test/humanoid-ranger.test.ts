@@ -381,7 +381,10 @@ test("the Ranger recipe builds a verified bundle: in-place clips, equipment entr
       const keyed = await morphNodes(RANGER_BUNDLE_KEY, variant, expectedTargets);
       for (const name of FACE_MORPH_NODES.male) assert.ok(keyed.includes(name), `${variant} ${name}`);
     }
-    for (const variant of appearance.face.unsupported.variants) assert.deepEqual(await morphNodes(RANGER_BUNDLE_KEY, variant, () => []), [], variant);
+    // #516: the characters ship no levels of detail, so every character variant is a full-detail one.
+    assert.equal(appearance.levelsOfDetail, undefined);
+    assert.equal(appearance.face.unsupported, undefined);
+    assert.deepEqual(entries.filter((entry: string) => entry.startsWith(`${RANGER_BUNDLE_KEY}/`) && /(^|\.|\/)lod[12]$/.test(entry)), []);
     assert.deepEqual(appearance.builds.variants, appearance.face.variants);
     for (const entry of appearance.builds.entries) {
       const variant = entry.startsWith("hair.") ? "hair-1" : RANGER_BUNDLE_VARIANT;
@@ -396,12 +399,12 @@ test("the Ranger recipe builds a verified bundle: in-place clips, equipment entr
     assert.deepEqual(appearance.presets.map((preset: any) => preset.id), [...RANGER_RESIDENT_PRESETS, ...RANGER_CLASS_PRESETS].map((preset) => preset.id));
     assert.deepEqual(appearance.facialHair.options.map((option: any) => option.id).sort(), Object.keys(VARIETY_BEARDS).sort());
     validateAppearancePresets(appearance, [...RANGER_RESIDENT_PRESETS, ...RANGER_CLASS_PRESETS]);
-    // #379: each class outfit has its plain and Light skins (the Necromancer also grey), levels of detail and a class colour.
+    // #379: each class outfit has its plain and Light skins (the Necromancer also grey) and a class colour.
     for (const kit of ["warden", "ranger", "arcanist", "necromancer", "rogue", "cleric", "druid"]) {
       const outfit = appearance.outfits.find((candidate: any) => candidate.id === `outfit.class.${kit}`);
       assert.deepEqual(outfit.skins.map((skin: any) => skin.id), ["skin.dark", "skin.light", ...(kit === "necromancer" ? ["skin.grey"] : [])]);
       assert.deepEqual(outfit.classTrim.materials, ["class"]);
-      for (const skin of outfit.skins) for (const level of ["lod1", "lod2"]) assert.ok(entries.includes(`${RANGER_BUNDLE_KEY}/${skin.variant}.${level}`), `${skin.variant}.${level}`);
+      for (const skin of outfit.skins) assert.ok(entries.includes(`${RANGER_BUNDLE_KEY}/${skin.variant}`), skin.variant);
     }
     for (const { key } of [...RANGER_WEAPONS, ...RANGER_ARCHERY]) assert.deepEqual(built.lineage.textures![key], { images: 0 }, key);
 

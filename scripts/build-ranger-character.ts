@@ -35,7 +35,7 @@ import { RANGER_CLIP_FAMILIES, RANGER_SWORD_CLIPS, type ClipFamily, type ClipFam
 import { executeImageDecodeOperation, executeImageEncodePngOperation } from "../src/image-codec-operations.js";
 import { encodeRgba8Image, parseRgba8Image, RGBA8_IMAGE_MEDIA_TYPE, type Rgba8Image } from "../src/image-rgba8.js";
 import { sha256Bytes } from "../src/hash.js";
-import { LOD_LEVELS, LOD_RATIOS, LOD_SWITCH_DISTANCE_HINTS, generateLodLevel, type LodLevel } from "../src/lod-recipe.js";
+import { LOD_LEVELS } from "../src/lod-recipe.js";
 import { ARMOR_CLASS_HOODS, ARMOR_CLASS_MATERIAL, ARMOR_FACTION, ARMOR_FACTION_KITS, ARMOR_GREY_SKIN_KITS, ARMOR_KIT_LABELS, ARMOR_FEMALE_OUTFIT_KITS, ARMOR_OUTFIT_KITS, createArmorAssetSpec, readArmorRecipeSource, type ArmorKit, type ArmorOutfitKit, type ArmorOutput } from "../src/armor-recipes.js";
 import { ARCHERY_PRESETS, ARCHERY_ROLES, createArcheryAssetSpec, readArcheryRecipeSource, type ArcheryPiece } from "../src/archery-recipes.js";
 import { HEADWEAR_CONTRACT, HEADWEAR_HIDES, HEADWEAR_PRESETS, createHeadwearAssetSpec, readHeadwearRecipeSource, type HeadwearPiece } from "../src/headwear-recipes.js";
@@ -998,10 +998,9 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
     variety.transfers[RANGER_BUNDLE_VARIANT] = keyed.transfer;
   }
 
-  // #123 (owner answer A): lod1/lod2 of each character variant, decimated in Blender from the clip-less composition.
-  // Clips ship once, in `default` (round 4): every other variant and level has the same joints (by name) at the same
-  // rest pose, which the build checks, so a consumer plays the default's clips on it by joint name. Light-skin
-  // levels reuse the Dark level's geometry with the Light textures.
+  // Clips ship once, in `default` (round 4): every other character variant has the same joints (by name) at the same
+  // rest pose, which the build checks, so a consumer plays the default's clips on it by joint name. The characters
+  // ship no levels of detail (#516 supersedes #123 answer A for characters); items keep theirs.
   const targetRigDocument = JSON.parse((await resolveAssetObject(root, targetRig)).toString("utf8"));
   /** Fails unless `rig` has exactly the target rig's joints, by name, with the same rest TRS (within 1e-4). */
   const assertSameSkeleton = async (rig: AssetRef, label: string) => {
@@ -1015,43 +1014,6 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
       if (a.some((value, k) => Math.abs(value - (k >= 3 ? sign : 1) * b[k]!) > 1e-4)) throw new Error(`${label}: joint '${name}' rests differently from the Ranger rig`);
     }
   };
-  const lodVariants: { variant: string; asset: AssetRef; triangles: number; ratio: number }[] = [];
-  const characterLods = async (composition: AssetRef, variant: string, into = lodVariants) => {
-    const levels: Partial<Record<LodLevel, AssetRef>> = {};
-    for (const level of LOD_LEVELS) {
-      const ratio = LOD_RATIOS.character[level];
-      log(`${level} of ${variant} (lod.py, ratio ${ratio})`);
-      const lod = await generateLodLevel(root, composition, ratio, `${variant}.${level}`);
-      const imported = single(await executeGltfProductionImportOperation(root, { inputs: { source: lod.glb }, parameters: { policy: POLICY } }));
-      const rig = single(await executeGltfExtractAnimationOperation(root, { inputs: { source: imported }, parameters: { hipsJoint: RANGER_HIPS.target, policy: POLICY } }), "rig");
-      const name = variant === RANGER_BUNDLE_VARIANT ? level : `${variant}.${level}`;
-      await assertSameSkeleton(rig, name);
-      levels[level] = await resizeTextures(`${bundleKey}/${name}`, imported);
-      into.push({ variant: name, asset: levels[level]!, triangles: lod.observations.trianglesAfter, ratio });
-    }
-    return levels as Record<LodLevel, AssetRef>;
-  };
-  /** The Light-skin level: the Dark level with every texture the Dark and Light characters name differently swapped. */
-  const lightLods = async (darkLevels: Record<LodLevel, AssetRef>, dark: AssetRef, light: AssetRef, variant: string, skin = "skin.light", into = lodVariants) => {
-    const io = new NodeIO();
-    const images = async (asset: AssetRef) => new Map((await io.readBinary(new Uint8Array(await resolveAssetObject(root, asset)))).getRoot()
-      .listTextures().map((texture) => [texture.getName(), texture.getImage()!] as const));
-    const darkImages = await images(dark), lightImages = await images(light);
-    for (const level of LOD_LEVELS) {
-      const document = await io.readBinary(new Uint8Array(await resolveAssetObject(root, darkLevels[level])));
-      for (const texture of document.getRoot().listTextures()) {
-        const swap = lightImages.get(texture.getName());
-        if (swap && Buffer.compare(Buffer.from(swap), Buffer.from(darkImages.get(texture.getName()) ?? new Uint8Array())) !== 0) texture.setImage(swap);
-      }
-      const asset = (await storeAssetObject(root, { bytes: Buffer.from(await io.writeBinary(document)), kind: darkLevels[level].kind, mediaType: darkLevels[level].mediaType,
-        metadata: { lod: level, skin, from: darkLevels[level].sha256 } })).asset;
-      const name = `${variant}.${level}`;
-      const darkEntry = into.find((entry) => entry.asset === darkLevels[level])!;
-      into.push({ variant: name, asset, triangles: darkEntry.triangles, ratio: darkEntry.ratio });
-    }
-  };
-  log("character levels of detail (#123)");
-  const defaultLods = await characterLods(composed, RANGER_BUNDLE_VARIANT);
 
   const selections: Json[] = [{ key: bundleKey, variant: RANGER_BUNDLE_VARIANT }];
   const assets: AssetRef[] = [character];
@@ -1102,7 +1064,6 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
     const composedLight = single(await executeGltfComposeSkinnedOperation(root, { inputs: { skeleton: outfitLight, parts: [headLight] }, parameters: { policy: POLICY } }));
     // Clips ship once, in `default`; the Light character shares its skeleton and plays them by joint name.
     let lightCharacter = await resizeTextures(`${bundleKey}/skin.light`, composedLight);
-    await lightLods(defaultLods, character, lightCharacter, "skin.light");
     if (defaultKeys) {
       const keyed = await applyVarietyKeys(root, lightCharacter, defaultKeys, "skin.light");
       lightCharacter = keyed.glb;
@@ -1188,7 +1149,6 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
         Object.assign(variety.transfers, transfers);
       };
       const fitKit = async (kit: ArmorOutfitKit) => {
-        const lods: typeof lodVariants = [];
         const kitVariety: Json = { transfers: {} };
         log(`fit ${kit} armour (external.blender.script@1 armor recipe)`);
         const plates = await buildArmor(root, kit, "plates", fitTarget);
@@ -1197,7 +1157,6 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
         const hidden = [...new Set(pieces.flatMap((piece) => piece.hides as string[]))].sort();
         // The hidden-body-region list (Q12): base nodes a garment fully covers are left out of the variant.
         const variants: { variant: string; character: AssetRef; skin: string }[] = [];
-        let darkKit: { lods: Record<LodLevel, AssetRef>; character: AssetRef } | undefined;
         let kitKeys: Uint8Array | undefined;
         let kitChains: SecondaryChain[] = [];
         const skins: (readonly [string, AssetRef, AssetRef])[] = [["skin.dark", peasant, face.glb], ["skin.light", peasantLight, headLight],
@@ -1235,8 +1194,6 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
             }
           }
           variants.push({ variant, character: outfitCharacter, skin });
-          if (skin === "skin.dark") darkKit = { lods: await characterLods(composedKit, variant, lods), character: outfitCharacter };
-          else await lightLods(darkKit!.lods, darkKit!.character, outfitCharacter, variant, skin, lods);
         }
         const variant = variants[0]!.variant;
         let keyedPlates = plates.glb;
@@ -1259,13 +1216,12 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
           ...(ARMOR_FACTION_KITS.includes(kit) ? { faction: { materials: [ARMOR_FACTION.material], defaultBaseColorFactor: [...ARMOR_FACTION.default, 1] } } : {}),
           ...(cloth.observations.classTrim ? { classTrim: { materials: [ARMOR_CLASS_MATERIAL], defaultBaseColorFactor: cloth.observations.classTrim } } : {}),
         };
-        return { record: { kit, variants, plates: keyedPlates, cloth: cloth.glb, fitTarget, observations: pieces }, outfit, lods, variety: kitVariety };
+        return { record: { kit, variants, plates: keyedPlates, cloth: cloth.glb, fitTarget, observations: pieces }, outfit, variety: kitVariety };
       };
-      // The kits fit in parallel (#427); their entries, outfits and levels of detail keep the declared kit order.
+      // The kits fit in parallel (#427); their entries and outfits keep the declared kit order.
       for (const fitted of await Promise.all(RANGER_OUTFIT_KITS[figure].map((kit) => pool(() => fitKit(kit))))) {
         kits.push(fitted.record);
         outfits.push(fitted.outfit);
-        lodVariants.push(...fitted.lods);
         mergeVariety(fitted.variety);
       }
       // #380: the pack hairstyles follow the build keys (their textures share the geometry, so one authoring each).
@@ -1367,24 +1323,15 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
       face: faceAppearance({
         nodes: FACE_MORPH_NODES[figure],
         variants: [RANGER_BUNDLE_VARIANT, "skin.light", ...kits.flatMap((kit) => kit.variants.map(({ variant }) => variant))],
-        unsupported: lodVariants.map(({ variant }) => variant),
       }),
       // #380: ages, builds, heights, skin tones and the painted head skins.
       ...(figure === "male" ? varietyAppearance({
         variants: [RANGER_BUNDLE_VARIANT, "skin.light", ...kits.flatMap((kit) => kit.variants.map(({ variant }) => variant))],
-        unsupported: lodVariants.map(({ variant }) => variant),
         entries: [...kits.map((kit) => `armor.${kit.kit}`), ...hair.map((item) => item.key), RANGER_FACIAL_HAIR_ENTRY],
         head: FACE_MORPH_NODES.male[0], eyebrows: look.eyebrows,
       }) : {}),
       // #391: accessory chains are listed under `outfits[].secondary`, `hair[].secondary` and
-      // `facialHair.options[].secondary`; the levels of detail carry none.
-      ...(figure === "male" ? { secondary: { unsupported: lodVariants.map(({ variant }) => variant) } } : {}),
-      // #123: the levels of detail of each character variant; switch distances are hints, consumers choose.
-      levelsOfDetail: lodVariants.map(({ variant, triangles, ratio }) => {
-        const level = variant.endsWith("lod1") ? "lod1" : "lod2";
-        const of = variant === level ? RANGER_BUNDLE_VARIANT : variant.slice(0, -(level.length + 1));
-        return { of, level, variant, ratio, triangles, switchDistanceHint: LOD_SWITCH_DISTANCE_HINTS[level] };
-      }),
+      // `facialHair.options[].secondary`.
     };
     validateAppearancePresets(descriptor, rangerPresets(figure));
     const descriptorAsset = (await storeAssetObject(root, { bytes: Buffer.from(`${canonicalJson(descriptor)}\n`), kind: "humanoid-appearance", mediaType: "application/json" })).asset;
@@ -1425,10 +1372,6 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
         assets.push(appearance.headSkins);
       }
       selections[0]!.attachments.push({ name: RANGER_APPEARANCE_ATTACHMENT });
-      for (const { variant, asset } of lodVariants) {
-        selections.push({ key: bundleKey, variant });
-        assets.push(asset);
-      }
       attachments.push(appearance.descriptor);
     }
     {

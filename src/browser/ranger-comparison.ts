@@ -61,7 +61,6 @@ const dom = {
   hairColor: element<HTMLSelectElement>("hair-color"),
   faceControls: element<HTMLDivElement>("face-controls"),
   faction: element<HTMLInputElement>("faction"),
-  lod: element<HTMLSelectElement>("lod"),
   composeError: element<HTMLParagraphElement>("compose-error"),
   exportGlb: element<HTMLButtonElement>("export"),
   resetLook: element<HTMLButtonElement>("reset-look"),
@@ -244,7 +243,6 @@ function syncUrl(): void {
     if (look.hair) params.set("hair", look.hair);
     if (look.hairColor !== initial.hairColor) params.set("color", look.hairColor);
     if (look.faction !== initial.faction) params.set("faction", look.faction.slice(1));
-    if (look.lod !== initial.lod) params.set("lod", look.lod);
     for (const [feature, option] of Object.entries(look.face)) if (option !== initial.face[feature]) params.set(feature, option);
   }
   history.replaceState(history.state, "", `${location.pathname}?${params.toString()}${location.hash}`);
@@ -432,7 +430,6 @@ function showLook(look: HumanoidSelection): void {
   dom.hair.value = look.hair ?? "";
   dom.hairColor.value = look.hairColor;
   dom.faction.value = look.faction;
-  dom.lod.value = look.lod;
   const outfit = state.loaded?.appearance.outfits.find((candidate) => candidate.id === look.outfit);
   dom.faction.disabled = !outfit?.faction;
   dom.hairColor.disabled = !look.hair;
@@ -444,7 +441,7 @@ const faceSelects = () => [...dom.faceControls.querySelectorAll<HTMLSelectElemen
 function lookFromControls(): HumanoidSelection {
   return {
     outfit: dom.outfitSelect.value, skin: dom.skin.value, hood: dom.hood.disabled ? (state.selection?.hood ?? false) : dom.hood.checked, hair: dom.hair.value || null,
-    hairColor: dom.hairColor.value, faction: dom.faction.value, lod: dom.lod.value,
+    hairColor: dom.hairColor.value, faction: dom.faction.value,
     face: Object.fromEntries(faceSelects().map((select) => [select.dataset.feature!, select.value])),
   };
 }
@@ -487,7 +484,7 @@ async function applyLook(look: HumanoidSelection): Promise<boolean> {
   if (!instance.hasHood) dom.hood.checked = false;
   const outfit = loaded.appearance.outfits.find((candidate) => candidate.id === look.outfit)!;
   const parts = [outfit.label, look.skin, instance.hasHood ? (look.hood ? "hood" : "no hood") : "", look.hair ? `${look.hair} (${look.hairColor})` : "",
-    ...Object.values(look.face).filter((option) => !option.endsWith(".base")), look.lod];
+    ...Object.values(look.face).filter((option) => !option.endsWith(".base"))];
   replaceProcessed(loaded, {
     instance, rest, label: loaded.data.bundle.label,
     detail: `${loaded.appearance.character}/${instance.variant} · ${parts.filter(Boolean).join(", ")} · ${Math.round(instance.triangles)} triangles`,
@@ -539,7 +536,7 @@ async function exportLook(): Promise<void> {
   }
 }
 
-for (const control of [dom.outfitSelect, dom.skin, dom.hood, dom.hair, dom.hairColor, dom.faction, dom.lod]) {
+for (const control of [dom.outfitSelect, dom.skin, dom.hood, dom.hair, dom.hairColor, dom.faction]) {
   control.addEventListener("change", () => void applyLook(lookFromControls()));
 }
 dom.exportGlb.addEventListener("click", () => void exportLook());
@@ -557,8 +554,6 @@ function lookFromUrl(appearance: HumanoidAppearance, params: URLSearchParams): H
   if (color) look.hairColor = color;
   const faction = params.get("faction");
   if (faction && /^[0-9a-f]{6}$/i.test(faction)) look.faction = `#${faction.toLowerCase()}`;
-  const lod = params.get("lod");
-  if (lod) look.lod = lod;
   for (const feature of Object.keys(look.face)) {
     const option = params.get(feature);
     if (option) look.face[feature] = option;
@@ -573,8 +568,6 @@ function fillLookControls(appearance: HumanoidAppearance): void {
   options(dom.skin, appearance.skins.map((skin) => ({ value: skin.id, label: skin.label })));
   options(dom.hair, [{ value: "", label: "None" }, ...appearance.hair.map((hair) => ({ value: hair.id, label: hair.id.replace(/^hair\./, "") }))]);
   options(dom.hairColor, hairColors(appearance).map((color) => ({ value: color.id, label: color.label })));
-  const levels = [...new Set(appearance.levelsOfDetail.map((level) => level.level))];
-  options(dom.lod, [{ value: "lod0", label: "lod0 (full)" }, ...levels.map((level) => ({ value: level, label: level }))]);
   // #348: one select per face feature, from the bundle's descriptor.
   dom.faceControls.replaceChildren(...(appearance.face?.features ?? []).flatMap((feature) => {
     const label = document.createElement("label");

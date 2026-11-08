@@ -7,15 +7,14 @@ import type { AssetRef } from "./operations.js";
 
 /**
  * Source-derived levels of detail (#123, owner answer A): LOD0 is the source; `lod1` keeps about half the triangles
- * and `lod2` about a fifth (a quarter for characters, so faces and hands stay readable). Each level is Blender's
- * edge-collapse Decimate (adapters/blender/lod.py) and ships as a `lod1`/`lod2` variant of the same bundle entry.
- * The switch distances are hints for consumers, which choose their own selection.
+ * and `lod2` about a fifth. Each level is Blender's edge-collapse Decimate (adapters/blender/lod.py) and ships as a
+ * `lod1`/`lod2` variant of the same bundle entry. The switch distances are hints for consumers, which choose their own
+ * selection. Characters ship no levels (#516).
  */
 export type LodLevel = "lod1" | "lod2";
 export const LOD_RATIOS = Object.freeze({
   static: Object.freeze({ lod1: 0.5, lod2: 0.2 }),
-  character: Object.freeze({ lod1: 0.5, lod2: 0.25 }),
-}) satisfies Record<"static" | "character", Record<LodLevel, number>>;
+}) satisfies Record<"static", Record<LodLevel, number>>;
 export const LOD_LEVELS: readonly LodLevel[] = ["lod1", "lod2"];
 /** Suggested camera distances in metres at which a consumer may switch to each level. */
 export const LOD_SWITCH_DISTANCE_HINTS = Object.freeze({ lod1: 15, lod2: 35 }) satisfies Record<LodLevel, number>;

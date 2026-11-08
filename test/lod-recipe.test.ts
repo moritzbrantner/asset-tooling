@@ -3,10 +3,10 @@ import assert from "node:assert/strict";
 import { LOD_LEVELS, LOD_RATIOS, LOD_SWITCH_DISTANCE_HINTS, createLodAssetSpec } from "../src/lod-recipe.js";
 import { readBlenderRecipeSource } from "../src/blender-recipe-source.js";
 
-test("LOD levels follow the owner's answer: about 50 % and 20 % (characters 25 %), with 15 m / 35 m hints", () => {
+test("LOD levels follow the owner's answer: about 50 % and 20 %, with 15 m / 35 m hints; characters have none (#516)", () => {
   assert.deepEqual([...LOD_LEVELS], ["lod1", "lod2"]);
   assert.deepEqual({ ...LOD_RATIOS.static }, { lod1: 0.5, lod2: 0.2 });
-  assert.deepEqual({ ...LOD_RATIOS.character }, { lod1: 0.5, lod2: 0.25 });
+  assert.equal("character" in LOD_RATIOS, false);
   assert.deepEqual({ ...LOD_SWITCH_DISTANCE_HINTS }, { lod1: 15, lod2: 35 });
 });
 
