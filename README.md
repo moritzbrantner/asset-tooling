@@ -24,6 +24,8 @@ The [climbing kit](docs/climbing-kit.md) is a scripted Blender recipe for the MM
 
 The [crag kit](docs/crag-kit.md) is a scripted Blender recipe that dresses Greyhaven's box-shaped crags and cliffs: overlapping 3 m rock-face slabs (smooth sheer and stratified climbable variants with ledges and cracks), edge corners, top caps and a documented layout rule, textured with the terrain's CC0 `rock_face_03` rock as shared KTX2 maps, each with the climbing kit's surface metadata, box collision proxies and an LOD chain, plus a tileable rock macro-variation texture for the crags and the terrain.
 
+The [Redbrand faction kit](docs/redbrand-kit.md) dresses mmorpg's Redbrand bandits as its own rolling release: two complete figures (Dark and Light skin) on the male Ranger rig, with the coat, trousers, faction-red mantle and the socketed belt and bracers. The garments are hand-authored in `assets/authored/redbrand-kit.blend`, every texture is KTX2, and the descriptor carries an outfit record shaped like the Ranger appearance file.
+
 The [Greyhaven settlement props](docs/settlement-props.md) are a scripted Blender prop set in the same style for an Outpost public space: a market stall, handcart, crate and barrel, a signpost, lantern post and bench, and a fence segment, planter and woodpile, with a market-square composition.
 
 [Marshal Elden Greywatch's house](docs/greyhaven-marshal-house.md) is an enterable, furnished private home on the MMORPG's west Outpost house footprint: the kit's house exterior with a hinged door, a floor, a hideable ceiling and roof, a bed, chest, table, bench, chair, hearth, the Marshal's weapon rack and shield, box colliders, and spots for the knock, the doorway and the bed.
