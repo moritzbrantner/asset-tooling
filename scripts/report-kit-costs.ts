@@ -27,6 +27,7 @@ export const KIT_BUDGETS: Record<string, KitBudget> = {
   "greyhaven-nature": { materials: 8, textureMemoryBytes: 19 * MB, downloadBytes: 10 * MB },
   "greyhaven-terrain": { materials: 7, textureMemoryBytes: 23 * MB, downloadBytes: 20 * MB },
   "hair-kit": { materials: 3, textureMemoryBytes: 6 * MB, downloadBytes: 8 * MB },
+  "limestone-rocks": { materials: 1, textureMemoryBytes: 13 * MB, downloadBytes: 7 * MB },
   "outpost-kit": { materials: 14, textureMemoryBytes: 8 * MB, downloadBytes: 3 * MB },
   "redbrand-kit": { materials: 11, textureMemoryBytes: 17 * MB, downloadBytes: 13 * MB },
   "settlement-props": { materials: 13, textureMemoryBytes: 4 * MB, downloadBytes: 2 * MB },
