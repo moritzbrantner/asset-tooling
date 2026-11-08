@@ -439,6 +439,18 @@ The equipment, armour and authored clips run through `external.blender.script@1`
 
 The independent Blender-bound groups (the outfit kits, the pack and hand-modelled hairstyles, and the weapon, archery and headwear items) run through a bounded pool (#427). `ASSET_TOOLING_JOBS` sets how many steps run at once; the default is one less than `os.availableParallelism()`. Each step has its own workspace, and the results are added in their declared order, so the tar is the same at any job count. Every log line starts with the elapsed build time (`[mmm:ss]`), so a log is a step profile.
 
+### Reproducibility
+
+Two builds of one commit in one environment give the same tar and `export.ref.json` (#440). Until #516 the male tar changed on every publish, even when the female figure's build was skipped as unchanged. The cause was the armour recipe's hanging rows: the sleeve cuffs and trouser legs of the class kits and the Redbrand coat. Blender's `bmesh.ops.extrude_edge_only` created those faces in the order of a pointer-keyed hash map, so their triangle order and the custom normals decoded around them changed from run to run. `Derived.hang` in [`armor.py`](../adapters/blender/armor.py) now builds the rows itself, in boundary-edge order. The manifest, descriptors and `lineage.json` record only content hashes of what the build made, so they repeat whenever the steps do. `lineage.json` lists the texture resizes sorted by entry, because the parallel steps finish them in any order.
+
+To check a figure, build it twice and compare (a male `--out` holds about 8 GB, so this needs about 16 GB):
+
+```sh
+ASSET_TOOLING_PROCESSOR_CHECKOUT_3DLAB=<checkout> bun scripts/check-ranger-reproducible.ts --figure female --out <dir>
+```
+
+When the two builds differ, the script lists the Blender steps and release files whose bytes differ. A cheaper first look is `bun scripts/check-ranger-reproducible.ts --replay <out>`. It builds once and runs `verify` on every Blender step of that build: a fresh run of the step's spec and inputs is compared with its receipt. Bytes match only within one environment. A local build with snap Blender does not reproduce the CI runner's tar.
+
 A rebuild into the same `--out` reuses only the Blender steps: their generation cache lives under `--out`, keyed in their spec workspace, and its key includes a hash of every `src/**/*.ts`, so any source change runs them all again. The build's other operations (import, compose, texture resize, encode) call their `execute*` functions directly, not through the cached operation path, so they run again on every build ([#516](https://github.com/moritzbrantner/asset-tooling/issues/516) tracks both).
 
 [`scripts/build-ranger-character.ts`](../scripts/build-ranger-character.ts) is the maintained recipe. It needs no network after `cargo fetch`: the processor runs `cargo run --offline`. The processor checkout must be source-clean at the pinned commit. `Cargo.lock` and `target/` may be present, but nothing else may differ. Its identity (`git-clean-exact-head`, cargo/rustc versions and the probe) is part of the `animation.retarget@1` build identity. `<directory>` becomes the object-store root, which holds every intermediate AssetRef. The script prints the bundle directory, the tar path, the tar sha256 and the export ref, and writes `lineage.json` next to them with every intermediate AssetRef and the retarget observations.

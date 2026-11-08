@@ -989,26 +989,41 @@ class Derived:
 
     def hang(self, pick, rows):
         """Extrude the open edges whose vertices pass ``pick``, once per row; each row maps the original edge vertex
-        (glTF) to the new row's position. New vertices copy the weights of the edge vertex they grow from."""
+        (glTF) to the new row's position. New vertices copy the weights of the edge vertex they grow from.
+
+        The rows are built by hand in edge order (#440): ``bmesh.ops.extrude_edge_only`` creates its faces in the order of
+        a pointer-keyed hash map, so the exported triangle order (and with it the GLB bytes) changed from run to run.
+        Each new face runs against its edge's existing face, as the extrude operator winds it."""
+        self.bm.verts.index_update()
         edges = [e for e in self.bm.edges if e.is_boundary and all(pick(self.at(v)) for v in e.verts)]
         origin = {v: self.at(v) for e in edges for v in e.verts}
         root = {v: v for v in origin}
-        last = set(origin)
         for row in rows:
-            result = bmesh.ops.extrude_edge_only(self.bm, edges=edges)
-            fresh = [g for g in result["geom"] if isinstance(g, bmesh.types.BMVert)]
-            for vert in fresh:
-                source = next(o for e in vert.link_edges for o in e.verts if o in last)
-                root[vert] = root[source]
-                self.put(vert, row(origin[root[vert]]))
-                weights = root[vert][self.deform]
-                for group in list(vert[self.deform].keys()):
-                    del vert[self.deform][group]
+            fresh = {}
+            for vert in sorted({v for e in edges for v in e.verts}, key=lambda v: v.index):
+                new = self.bm.verts.new(vert.co, vert)
+                fresh[vert] = new
+                root[new] = root[vert]
+                self.put(new, row(origin[root[new]]))
+                weights = root[new][self.deform]
+                for group in list(new[self.deform].keys()):
+                    del new[self.deform][group]
                 for group, value in weights.items():
-                    vert[self.deform][group] = value
-            fresh_set = set(fresh)
-            edges = [g for g in result["geom"] if isinstance(g, bmesh.types.BMEdge) and all(v in fresh_set for v in g.verts)]
-            last = fresh_set
+                    new[self.deform][group] = value
+            grown = []
+            for edge in edges:
+                a, b = edge.verts
+                loop = edge.link_loops[0]
+                outer = [b, a] if loop.vert is a else [a, b]
+                face = self.bm.faces.new(outer + [fresh[outer[1]], fresh[outer[0]]], loop.face)
+                # Corner data (custom normals, UVs) from the neighbour's corner at the same edge vertex, as extrude does.
+                neighbour = {loop.vert: loop, loop.link_loop_next.vert: loop.link_loop_next}
+                neighbour.update({fresh[v]: neighbour[v] for v in outer})
+                for corner in face.loops:
+                    corner.copy_from(neighbour[corner.vert])
+                grown.append(self.bm.edges.get((fresh[a], fresh[b])))
+            self.bm.verts.index_update()
+            edges = grown
         self.bm.normal_update()
 
     def finish(self, name, materials, rig_object):

@@ -1447,7 +1447,8 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
       outfit, body, head, composed, targetRig, sourceRigs, libraries: loaded, animated,
       clips: clips.map(({ name, library, source, retargeted, observations }) => ({ name, library, source, retargeted, observations })),
       sockets, socketsDescriptor: descriptorPath, weapons,
-      character, textures, texturePolicy: RANGER_TEXTURE_POLICY,
+      // The parallel steps (#427) resize in the order they finish; sorted, lineage.json repeats (#440).
+      character, textures: Object.fromEntries(Object.entries(textures).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))), texturePolicy: RANGER_TEXTURE_POLICY,
       clipMotion,
       face: { head: face.glb, composed: composedFace, observations: face.observations },
       appearance: appearance && { light: appearance.light, composedLight: appearance.composedLight, transfer: appearance.transfer, hair: appearance.hair, descriptor: appearance.descriptor, kits: appearance.kits, beards: appearance.beards, headSkins: appearance.headSkins },
