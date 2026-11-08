@@ -27,10 +27,9 @@ export type HumanoidAppearance = {
     hood?: string;
     classTrim?: { materials: string[]; defaultBaseColorFactor: Rgba };
   }[];
-  levelsOfDetail: { level: string; of: string; variant: string; triangles: number }[];
   /** #348: face, eyes, nose and mouth options as morph weights on `nodes`, for the character variants in `variants`. */
   face?: {
-    nodes: string[]; variants: string[]; unsupported: { variants: string[]; reason: string };
+    nodes: string[]; variants: string[];
     features: { id: string; label: string; default: string; options: { id: string; label: string; morphs: Record<string, number> }[] }[];
   };
 };
@@ -38,13 +37,12 @@ export type HumanoidSockets = { sockets: { id: string; joint: string; translatio
 
 /** One editable look. `hairColor` is a tint id or, untinted, a hair texture id; `face` maps each face feature to its option. */
 export type HumanoidSelection = {
-  skin: string; outfit: string; hood: boolean; hair: string | null; hairColor: string; lod: string; faction: string; face: Record<string, string>;
+  skin: string; outfit: string; hood: boolean; hair: string | null; hairColor: string; faction: string; face: Record<string, string>;
 };
 
 /** Loads one bundle entry (key + variant) as parsed glTF; the caller caches and declares the files. */
 export type EntryLoader = (key: string, variant: string) => Promise<GLTF>;
 
-const LOD0 = "lod0";
 const HOOD = "outfit.hood";
 
 export function defaultSelection(appearance: HumanoidAppearance): HumanoidSelection {
@@ -55,7 +53,6 @@ export function defaultSelection(appearance: HumanoidAppearance): HumanoidSelect
     hood: appearance.parts.find((part) => part.id === HOOD)?.defaultVisible ?? false,
     hair: null,
     hairColor: appearance.tints[0]?.id ?? "",
-    lod: LOD0,
     faction: factorToHex(outfit.faction?.defaultBaseColorFactor),
     face: Object.fromEntries((appearance.face?.features ?? []).map((feature) => [feature.id, feature.default])),
   };
@@ -72,7 +69,7 @@ export function faceMorphs(appearance: HumanoidAppearance, selection: HumanoidSe
     Object.assign(morphs, option.morphs);
   }
   if (Object.keys(morphs).length && !appearance.face!.variants.includes(variant)) {
-    return { problem: `face options need a full-detail character; ${variant}: ${appearance.face!.unsupported.reason}` };
+    return { problem: `face options need a character variant with the face morph targets; ${variant} has none` };
   }
   return { morphs };
 }
@@ -87,8 +84,8 @@ export function hairColors(appearance: HumanoidAppearance): { id: string; label:
   ];
 }
 
-/** The base variant of an outfit and skin, before levels of detail. */
-export function baseVariant(appearance: HumanoidAppearance, selection: HumanoidSelection): string {
+/** The character variant of an outfit and skin. */
+export function variantFor(appearance: HumanoidAppearance, selection: HumanoidSelection): string {
   const outfit = appearance.outfits.find((candidate) => candidate.id === selection.outfit);
   if (!outfit) throw new Error(`unknown outfit ${selection.outfit}`);
   if (outfit.skins) {
@@ -100,14 +97,6 @@ export function baseVariant(appearance: HumanoidAppearance, selection: HumanoidS
   const skin = appearance.skins.find((candidate) => candidate.id === selection.skin);
   if (!skin) throw new Error(`unknown skin ${selection.skin}`);
   return skin.variant;
-}
-
-export function variantFor(appearance: HumanoidAppearance, selection: HumanoidSelection): string {
-  const base = baseVariant(appearance, selection);
-  if (selection.lod === LOD0) return base;
-  const level = appearance.levelsOfDetail.find((candidate) => candidate.of === base && candidate.level === selection.lod);
-  if (!level) throw new Error(`variant ${base} has no ${selection.lod}`);
-  return level.variant;
 }
 
 /**

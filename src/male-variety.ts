@@ -138,17 +138,16 @@ export function headSkinMaterials() {
  * full-detail character variant and on the armour, hair and facial-hair entries listed in `entries`), the height
  * range, the skin tones and the painted head skins.
  */
-export function varietyAppearance({ variants, unsupported, entries, head, eyebrows }: {
-  variants: readonly string[]; unsupported: readonly string[]; entries: readonly string[]; head: string; eyebrows: string;
+export function varietyAppearance({ variants, entries, head, eyebrows }: {
+  variants: readonly string[]; entries: readonly string[]; head: string; eyebrows: string;
 }) {
-  const levels = { variants: [...unsupported], reason: "levels of detail carry no age or build morph targets" };
   return {
     ages: {
-      default: "age.base", nodes: [head, eyebrows], followers: [VARIETY_FACIAL_HAIR_ENTRY], variants: [...variants], unsupported: levels,
+      default: "age.base", nodes: [head, eyebrows], followers: [VARIETY_FACIAL_HAIR_ENTRY], variants: [...variants],
       options: VARIETY_AGES.map(({ id, label, morphs, skin }) => ({ id, label, morphs: { ...morphs }, skin })),
     },
     builds: {
-      default: "build.average", nodes: "every mesh node", entries: [...entries], variants: [...variants], unsupported: levels,
+      default: "build.average", nodes: "every mesh node", entries: [...entries], variants: [...variants],
       options: VARIETY_BUILDS.map(({ id, label, morphs }) => ({ id, label, morphs: { ...morphs } })),
     },
     heights: { ...VARIETY_HEIGHTS, apply: "a uniform scale of the character root; attached items follow" },

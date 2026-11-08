@@ -28,8 +28,9 @@ test("face options: four features, a base and two keys each, matching the Blende
     const keys = feature.options.slice(1).map(([id]) => `"${id}"`).join(", ");
     assert.ok(script.includes(`"${feature.id}": [${keys}]`), `face_variants.py declares ${feature.id}: ${keys}`);
   }
-  const face = faceAppearance({ nodes: FACE_MORPH_NODES.male, variants: ["default", "skin.light"], unsupported: ["lod1"] });
-  assert.deepEqual(face.unsupported.variants, ["lod1"]);
+  const face = faceAppearance({ nodes: FACE_MORPH_NODES.male, variants: ["default", "skin.light"] });
+  assert.deepEqual(face.variants, ["default", "skin.light"]);
+  assert.equal("unsupported" in face, false);
   assert.deepEqual(face.features[1], { id: "eyes", label: "Eyes", default: "eyes.base", options: [
     { id: "eyes.base", label: "Base", morphs: {} }, { id: "eyes.large", label: "Large", morphs: { "eyes.large": 1 } },
     { id: "eyes.narrow", label: "Narrow, almond", morphs: { "eyes.narrow": 1 } }] });

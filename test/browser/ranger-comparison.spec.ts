@@ -142,9 +142,8 @@ test.describe("Ranger comparison", () => {
 
     await page.getByLabel("Skin", { exact: true }).selectOption("skin.light");
     await expect(caption).toContainText("outfit.knight.skin.light");
-    await page.getByLabel("Level of detail", { exact: true }).selectOption("lod2");
-    await expect(caption).toContainText("outfit.knight.skin.light.lod2");
-    await page.getByLabel("Level of detail", { exact: true }).selectOption("lod0");
+    // #516: the characters ship no levels of detail, so there is no level control.
+    await expect(page.locator("#lod")).toHaveCount(0);
 
     // A clip still drives the recomposed character (the clips ship once, in the default variant).
     await page.locator("#time").fill("1.2");
@@ -183,7 +182,7 @@ test.describe("Ranger comparison", () => {
     expect(errors).toEqual([]);
   });
 
-  test("face, eyes, nose and mouth change the processed face independently; a level of detail refuses them", async ({ page }) => {
+  test("face, eyes, nose and mouth change the processed face independently", async ({ page }) => {
     const evidence = ensureEvidenceDir();
     const errors = await open(page, "?clip=Walk_Loop&t=0.3&view=front");
     const caption = page.locator("#caption-processed");
@@ -198,9 +197,6 @@ test.describe("Ranger comparison", () => {
     }
     await expect(page).toHaveURL(/face=face\.broad&eyes=eyes\.large&nose=nose\.long&mouth=mouth\.full/);
     await page.screenshot({ path: path.join(evidence, "ranger-edit-face.png"), fullPage: true });
-    await page.getByLabel("Level of detail", { exact: true }).selectOption("lod1");
-    await expect(page.locator("#compose-error")).toContainText("face options need a full-detail character");
-    await expect(caption).toContainText("mouth.full");
     expect(errors).toEqual([]);
   });
 

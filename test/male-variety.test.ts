@@ -35,7 +35,7 @@ test("the descriptor sections: ages with their painted skins, builds, heights, t
   assert.equal(materials.length, 22);
   assert.ok(materials.some((texture) => texture.material === "skin.light.aged.stubble.dark"));
   assert.ok(!materials.some((texture) => texture.material === "skin.dark.base"));
-  const sections = varietyAppearance({ variants: ["default"], unsupported: ["lod1"], entries: ["armor.knight"], head: "SuperHero_Male", eyebrows: "Eyebrows" });
+  const sections = varietyAppearance({ variants: ["default"], entries: ["armor.knight"], head: "SuperHero_Male", eyebrows: "Eyebrows" });
   assert.deepEqual(sections.ages.options.map((option) => option.id), ["age.base", "age.young", "age.middle", "age.old", "age.weathered"]);
   assert.deepEqual(sections.ages.options.map((option) => option.skin), ["base", "base", "middle", "aged", "weathered"]);
   assert.deepEqual(sections.builds.options.map((option) => Object.keys(option.morphs)), [["build.lean"], [], ["build.heavy"]]);

@@ -227,8 +227,6 @@ ${panels}
         <div id="face-controls" class="face-controls"></div>
         <label for="faction">Faction colour</label>
         <input id="faction" type="color" value="#808080">
-        <label for="lod">Level of detail</label>
-        <select id="lod"></select>
         <p id="compose-error" class="compose-error" role="alert" hidden></p>
         <div class="row">
           <button type="button" id="export">Export GLB</button>

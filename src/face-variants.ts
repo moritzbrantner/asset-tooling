@@ -191,14 +191,13 @@ function samples(primitive: Primitive, indices?: readonly number[]): Sample[] {
 
 /**
  * The `face` section of the `humanoid-appearance-v1` descriptor: the features with their options (each option names
- * the morph weights it sets; the base sets none), the nodes carrying the targets, the character variants that have
- * them, and the variants that do not (levels of detail), where a non-base option must be refused.
+ * the morph weights it sets; the base sets none), the nodes carrying the targets and the character variants that have
+ * them. A consumer refuses a non-base option on any other variant.
  */
-export function faceAppearance({ nodes, variants, unsupported }: { nodes: readonly string[]; variants: readonly string[]; unsupported: readonly string[] }) {
+export function faceAppearance({ nodes, variants }: { nodes: readonly string[]; variants: readonly string[] }) {
   return {
     nodes: [...nodes],
     variants: [...variants],
-    unsupported: { variants: [...unsupported], reason: "levels of detail carry no face morph targets and show the base face" },
     features: FACE_FEATURES.map((feature) => ({
       id: feature.id, label: feature.label, default: feature.options[0][0],
       options: feature.options.map(([id, label], index) => ({ id, label, morphs: index === 0 ? {} : { [id]: 1 } })),
