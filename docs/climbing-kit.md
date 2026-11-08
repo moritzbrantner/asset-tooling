@@ -86,7 +86,7 @@ Every part ships `default` (LOD0), `lod1` and `lod2` as bundle variants in the s
 - **Ropes:** fewer sides (10, 6, 4) and rings (every 6, 15, 30 cm; knots keep their flank rings until `lod2`), a coarser ring; `lod2` drops the fray, strap and whipping.
 - **Vines:** like the bush `thin` level: `lod1` keeps a seeded 40 % of the cards grown by 0.85/√0.4, `lod2` 14 % grown by 0.78/√0.14, flat at 5 cm off the face; `lod2` drops the side shoots and root clump; stems lose sides.
 
-Switch points are distances per family (`CLIMBING_LOD_DISTANCES`: ladders 15 m and 45 m, ropes 12 m and 35 m, vines 20 m and 60 m at a 60° vertical FOV). Each part's `minScreenSize` follows from its own bounding sphere, so a 1.2 m section and a 9 m ladder switch at the same distance.
+Switch points are distances per family (`CLIMBING_LOD_DISTANCES`: 60 m and 180 m for ladders, ropes and vines at a 60° vertical FOV). Each part's `minScreenSize` follows from its own bounding sphere, so a 1.2 m section and a 9 m ladder switch at the same distance.
 
 ## Review
 

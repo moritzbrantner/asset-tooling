@@ -81,7 +81,7 @@ The `crag-kit-descriptor-v1` attachment hangs on `crag.kit.face-sheer-1/default`
 
 ## Levels of detail
 
-Every module ships `default` (LOD0), `lod1` and `lod2` as bundle variants in the same frame, built by the same recipe at `lod` 1 and 2: the relief sampled on a 0.1 m, 0.25 m and 0.6 m grid (the cap-corner on 14 × 28, 8 × 14 and 5 × 8 segments). The descriptor carries the greyhaven-nature [#449 LOD metadata](greyhaven-nature-bundle.md#lod-metadata): `lodSelection` plus per module `lods: { boundingSphere, levels: [{ variant, triangles, minScreenSize, referenceMaxDistance }] }`. Switch points are 40 m and 120 m at a 60° vertical FOV (`CRAG_LOD_DISTANCES`). The macro texture has only `default`.
+Every module ships `default` (LOD0), `lod1` and `lod2` as bundle variants in the same frame, built by the same recipe at `lod` 1 and 2: the relief sampled on a 0.1 m, 0.25 m and 0.6 m grid (the cap-corner on 14 × 28, 8 × 14 and 5 × 8 segments). The descriptor carries the greyhaven-nature [#449 LOD metadata](greyhaven-nature-bundle.md#lod-metadata): `lodSelection` plus per module `lods: { boundingSphere, levels: [{ variant, triangles, minScreenSize, referenceMaxDistance }] }`. Switch points are 60 m and 180 m at a 60° vertical FOV (`CRAG_LOD_DISTANCES`). The macro texture has only `default`.
 
 ## Outcrops
 

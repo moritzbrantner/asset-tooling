@@ -65,7 +65,7 @@ export const CRAG_LOD_VARIANTS = ["lod1", "lod2"] as const;
 export const CRAG_LOD_METRIC = "projected-bounding-sphere-height-fraction";
 export const CRAG_LOD_REFERENCE_FOV_Y = 60;
 /** Where LOD0 and lod1 end, in metres at the reference FOV, for every module. */
-export const CRAG_LOD_DISTANCES = [40, 120] as const;
+export const CRAG_LOD_DISTANCES = [60, 180] as const;
 
 /** Freestanding outcrops (adapters/blender/cliff_outcrop.py): sculpted, with baked maps that blend into the terrain's scans. */
 export const CRAG_OUTCROPS = ["buttress-1", "buttress-2", "spire", "talus-1", "talus-2"] as const;

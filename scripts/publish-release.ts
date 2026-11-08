@@ -73,6 +73,7 @@ export const ROLLING_RELEASES: RollingRelease[] = [
   { name: "sandstone-kit", script: "scripts/build-sandstone-kit.ts", blender: true, ktx: true },
   { name: "settlement-props", script: "scripts/build-settlement-props.ts", blender: true, ktx: true },
   { name: "shrine-kit", script: "scripts/build-shrine-kit.ts", blender: true, ktx: true },
+  { name: "woodland-bushes", script: "scripts/build-woodland-bushes.ts", blender: true, ktx: true },
   { name: "zoo-effects", script: "scripts/build-zoo-effects.ts" },
   { name: "zoo-scenery", script: "scripts/build-zoo-scenery.ts", blender: true },
 ];

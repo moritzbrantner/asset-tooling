@@ -84,11 +84,10 @@ const POLICY = { allowedValidatorWarnings: ["MESH_PRIMITIVE_GENERATED_TANGENT_SP
  */
 export const NATURE_LOD_VARIANTS = ["lod1", "lod2"] as const;
 /**
- * Screen-size switch points per family: show level n while the projected bounding-sphere height fraction (sphere
- * diameter over viewport height) is at least SIZES[n]; below the last one, the last level. Reviewed in Blender at
- * these distances; the far tree switch is late, where LOD1's leaf speckle has blurred away.
+ * Where LOD0 and lod1 end per family, in metres at the reference FOV (#534). Each level's minScreenSize follows from the
+ * member's own bounding sphere: fixed ratios would turn small members into hulls right by the camera.
  */
-export const NATURE_LOD_SCREEN_SIZES = { tree: [0.5, 0.12], rock: [0.3, 0.1], bush: [0.25, 0.08] } as const;
+export const NATURE_LOD_DISTANCES = { tree: [90, 300], rock: [60, 180], bush: [60, 180] } as const;
 /** Each descriptor entry carries its level-of-detail chain under this field. */
 export const NATURE_LODS = "lods";
 export const NATURE_LOD_METRIC = "projected-bounding-sphere-height-fraction";
@@ -236,13 +235,13 @@ export async function buildGreyhavenNature(outDir: string, log: (message: string
   const tan = Math.tan((NATURE_LOD_REFERENCE_FOV_Y / 2) * Math.PI / 180);
   const levelsOfDetail = ({ entry, bounds, triangles, lods }: (typeof built)[number]) => {
     const radius = Math.hypot(...[0, 1, 2].map((axis) => bounds.max[axis]! - bounds.min[axis]!)) / 2;
-    const sizes = NATURE_LOD_SCREEN_SIZES[entry.family];
-    const levels = [{ variant: "default", triangles }, ...lods.map(({ variant, triangles: count }) => ({ variant, triangles: count }))];
+    const distances = NATURE_LOD_DISTANCES[entry.family];
+    const levels =[{ variant: "default", triangles }, ...lods.map(({ variant, triangles: count }) => ({ variant, triangles: count }))];
     return {
       boundingSphere: { center: [0, 1, 2].map((axis) => (bounds.min[axis]! + bounds.max[axis]!) / 2), radius },
       levels: levels.map((level, index) => {
-        const minScreenSize = sizes[index] ?? 0;
-        return { ...level, minScreenSize, referenceMaxDistance: minScreenSize ? Number((radius / (minScreenSize * tan)).toFixed(2)) : null };
+        const distance = distances[index];
+        return { ...level, minScreenSize: distance ? Number((radius / (distance * tan)).toFixed(4)) : 0, referenceMaxDistance: distance ?? null };
       }),
     };
   };
