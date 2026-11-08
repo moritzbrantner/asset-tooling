@@ -7,7 +7,7 @@ The viewer is presentation and evidence. It never decides asset identity, animat
 ## Route and eligible assets
 
 - Route: `viewer/?asset=<catalog source id>` in the built Pages site (`dist/pages/viewer/index.html`), including on the deployed site at `https://moritzbrantner.github.io/asset-tooling/viewer/?asset=…`.
-- Eligible sources are catalog `mesh` sources whose media type is `model/gltf-binary` or `model/gltf+json`, which carry both `skinning` and `animation` tags, and which pin `sha256` and `byteLength`. Today these are `khronos.riggedfigure-glb` and `khronos.simpleskin-embedded-gltf`.
+- Eligible sources are catalog `mesh` sources whose media type is `model/gltf-binary` or `model/gltf+json`, which carry the `animation` tag and exactly one rig tag (`skinning`, or `quadruped-rigid` for the rigid-part animals of [#128](quadruped-rigid.md)), and which pin `sha256` and `byteLength`. Today these are `khronos.riggedfigure-glb`, `khronos.simpleskin-embedded-gltf`, `zoo.zebra-glb` and `zoo.giraffe-glb`. The viewer lists the rig kind with the identification rows. The Zoo animals face +X, so **Front** shows their profile and **Side** shows them head-on.
 - Each eligible asset page links to its viewer as **Inspect animation**. The gallery and other asset pages are unchanged.
 - The page loads the source from its catalog URL and checks the fetched bytes' SHA-256 and byte length against the catalog pin **before** rendering. A mismatch never renders.
 

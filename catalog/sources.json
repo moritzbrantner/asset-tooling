@@ -6676,6 +6676,74 @@
         "texture"
       ],
       "title": "Sand 01 — 2K Displacement"
+    },
+    {
+      "id": "zoo.giraffe-glb",
+      "kind": "mesh",
+      "license": {
+        "attribution": "Copyright (c) 2026 moritzbrantner. Zoo (moenarch-games/zoo) low-poly animals, MIT.",
+        "evidenceUrl": "https://github.com/moritzbrantner/asset-tooling/issues/128#issuecomment-6719424007",
+        "spdx": "MIT"
+      },
+      "mediaType": "model/gltf-binary",
+      "metadata": {
+        "generator": "moenarch-games/zoo tools/build_assets.py at a357730f56407024b71189ee2d7937d69007ec28 (deterministic Blender primitives, no imported third-party assets)",
+        "profile": "quadruped-rigid",
+        "purpose": "Zoo's existing animated low-poly giraffe, packaged as authored as the second variant of the quadruped-rigid proof (#128, Decisions 8.1.2 and 8.1.4)"
+      },
+      "provider": "moenarch-zoo",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 221116,
+        "path": "assets/3d/production/giraffe.glb",
+        "revision": "a357730f56407024b71189ee2d7937d69007ec28",
+        "sha256": "b20df27bd3e131934d4675c66b2578f6766f7656487f54aba76b006d296b7827",
+        "upstreamId": "zoo/giraffe",
+        "url": "https://raw.githubusercontent.com/moenarch-games/zoo/a357730f56407024b71189ee2d7937d69007ec28/assets/3d/production/giraffe.glb"
+      },
+      "tags": [
+        "animal",
+        "animation",
+        "gltf",
+        "low-poly",
+        "quadruped-rigid",
+        "zoo-animals"
+      ],
+      "title": "Zoo Giraffe (GLB)"
+    },
+    {
+      "id": "zoo.zebra-glb",
+      "kind": "mesh",
+      "license": {
+        "attribution": "Copyright (c) 2026 moritzbrantner. Zoo (moenarch-games/zoo) low-poly animals, MIT.",
+        "evidenceUrl": "https://github.com/moritzbrantner/asset-tooling/issues/128#issuecomment-6719424007",
+        "spdx": "MIT"
+      },
+      "mediaType": "model/gltf-binary",
+      "metadata": {
+        "generator": "moenarch-games/zoo tools/build_assets.py at a357730f56407024b71189ee2d7937d69007ec28 (deterministic Blender primitives, no imported third-party assets)",
+        "profile": "quadruped-rigid",
+        "purpose": "Zoo's existing animated low-poly zebra, packaged as authored for the quadruped-rigid proof (#128, Decisions 8.1.2 and 8.1.4)"
+      },
+      "provider": "moenarch-zoo",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 215236,
+        "path": "assets/3d/production/zebra.glb",
+        "revision": "a357730f56407024b71189ee2d7937d69007ec28",
+        "sha256": "116ba91bc5b18fe97e7ca49ae9678f53f532419d743aeacd5ed85b9e86e63f32",
+        "upstreamId": "zoo/zebra",
+        "url": "https://raw.githubusercontent.com/moenarch-games/zoo/a357730f56407024b71189ee2d7937d69007ec28/assets/3d/production/zebra.glb"
+      },
+      "tags": [
+        "animal",
+        "animation",
+        "gltf",
+        "low-poly",
+        "quadruped-rigid",
+        "zoo-animals"
+      ],
+      "title": "Zoo Zebra (GLB)"
     }
   ]
 }

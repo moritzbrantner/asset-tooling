@@ -12,6 +12,8 @@ The [Greyhaven terrain materials](docs/greyhaven-terrain.md) are seven tiling CC
 
 The [Greyhaven ambient animals](docs/greyhaven-ambient-animals.md) are a cat, a dog and a small rodent from CC0 Quaternius sources, each with in-place `Idle` and `Walk` clips, sized for the MMORPG's game camera.
 
+The [Zoo animals and the `quadruped-rigid` profile](docs/quadruped-rigid.md) package Zoo's authored low-poly zebra and giraffe as authored, with rig, clip and bounds validation, in the existing animation viewer.
+
 The [undead crypt kit](docs/crypt-kit.md) is a scripted Blender recipe for ARPG's first adventure: 2 m wall and doorway modules, a hinged door, floor tiles, pillars and props.
 
 The [sunken shrine and cave kit](docs/shrine-kit.md) is a scripted Blender recipe for the MMORPG's Sunken Shrine in Stillwater Lake: 4 m limestone wall and arch modules with a carved fish-and-wave frieze, fluted pillars, a relic altar, joinable cave tunnel modules, a wider air-pocket room and props.

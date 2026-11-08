@@ -68,6 +68,7 @@ export const ROLLING_RELEASES: RollingRelease[] = [
   { name: "redbrand-kit", script: "scripts/build-redbrand-kit.ts", blender: true, lfs: true, ktx: true },
   { name: "settlement-props", script: "scripts/build-settlement-props.ts", blender: true, ktx: true },
   { name: "shrine-kit", script: "scripts/build-shrine-kit.ts", blender: true, ktx: true },
+  { name: "zoo-animals", script: "scripts/build-zoo-animals.ts", lfs: true },
   { name: "zoo-effects", script: "scripts/build-zoo-effects.ts" },
   { name: "zoo-scenery", script: "scripts/build-zoo-scenery.ts", blender: true },
 ];

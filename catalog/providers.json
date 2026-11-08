@@ -43,6 +43,14 @@
     },
     {
       "schemaVersion": 1,
+      "id": "moenarch-zoo",
+      "label": "Zoo (moenarch-games)",
+      "homepage": "https://github.com/moenarch-games/zoo",
+      "distribution": "shared",
+      "acceptedLicenses": ["MIT"]
+    },
+    {
+      "schemaVersion": 1,
       "id": "opengameart",
       "label": "OpenGameArt.org",
       "homepage": "https://opengameart.org/",

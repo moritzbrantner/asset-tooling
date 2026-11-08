@@ -7,7 +7,7 @@
 // user-facing alerts. Contract: docs/animation-viewer.md.
 import { Box3, PerspectiveCamera, Vector3, WebGLRenderer, type Group, type Object3D, type Scene, type SkinnedMesh } from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { animationViewerIneligibility } from "../animation-viewer-eligibility.ts";
+import { animationViewerIneligibility, animationViewerRigKind } from "../animation-viewer-eligibility.ts";
 import { characterAsset, viewerScene, type CharacterAsset, type CharacterClip, type CharacterInstance } from "./three-character.ts";
 
 // ---------------------------------------------------------------------------
@@ -446,6 +446,7 @@ function renderIdentity(loaded: Loaded): void {
     row("Catalog id", entry.id, true),
     row("Title", entry.title),
     row("Displayed", "Original source"),
+    row("Rig", animationViewerRigKind(entry) === "quadruped-rigid" ? "Rigid parts on pivoted joints (quadruped-rigid)" : "Skinned"),
     row("SHA-256", `${entry.source.sha256.slice(0, 12)}…`, true),
     row("License", entry.license?.spdx ?? "unknown", true),
     entry.license?.attribution ? row("Attribution", entry.license.attribution) : "",
