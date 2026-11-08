@@ -19,7 +19,7 @@ import { blenderScriptSpec, type BlenderSpecInput } from "../src/blender-script-
 import { readBlenderRecipeSource } from "../src/blender-recipe-source.js";
 import { sha256Bytes } from "../src/hash.js";
 import { runBlenderRecipe } from "../src/blender-recipe-run.js";
-import { ktx2Assets } from "../src/kit-bundle.js";
+import { ktx2Assets, takeKitTextureMode } from "../src/kit-bundle.js";
 
 const ROOT = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
 const ARCHIVE = "quaternius.stylized-nature-megakit-standard";
@@ -292,8 +292,9 @@ export async function buildGreyhavenNature(outDir: string, log: (message: string
 }
 
 if (import.meta.main) {
+  takeKitTextureMode(process.argv);
   const [flag, out, ...extra] = process.argv.slice(2);
-  if (flag !== "--out" || !out || extra.length) throw new Error("Usage: bun scripts/build-greyhaven-nature.ts --out <directory>");
+  if (flag !== "--out" || !out || extra.length) throw new Error("Usage: bun scripts/build-greyhaven-nature.ts [--textures full|half] --out <directory>");
   const built = await buildGreyhavenNature(out, console.error);
   console.log(JSON.stringify({ tar: built.tar, exportRef: built.exportRef }, null, 2));
 }

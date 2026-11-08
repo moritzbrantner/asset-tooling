@@ -124,20 +124,47 @@ export async function packReleaseTar(root: string, bundleDir: string, tarName: s
 
 type KitBuildResult = { bundleDir: string; tar: string; tarSha256: string; tarByteLength: number; exportRef: Json; lineage: Json; descriptor: Json };
 
+/** Texture resolution modes of a build, as a scale on every texture's edge when it is encoded to KTX2. `full` is what ships. */
+export const KIT_TEXTURE_MODES = { full: 1, half: 0.5 } as const;
+export type KitTextureMode = keyof typeof KIT_TEXTURE_MODES;
+let kitTextureMode: KitTextureMode = "full";
+
+/** Selects the mode of the KTX2 encoding in this process. */
+export function setKitTextureMode(mode: KitTextureMode) {
+  kitTextureMode = mode;
+}
+
+/** Removes `--textures <mode>` from `argv`, selects that mode and returns it. */
+export function takeKitTextureMode(argv: string[]): KitTextureMode {
+  const at = argv.indexOf("--textures");
+  if (at < 0) return kitTextureMode;
+  const mode = argv.splice(at, 2)[1] as KitTextureMode;
+  if (!(mode in KIT_TEXTURE_MODES)) throw new Error(`--textures must be one of ${Object.keys(KIT_TEXTURE_MODES).join(", ")}`);
+  setKitTextureMode(mode);
+  return mode;
+}
+
+/** The power-of-two size an image of `width` x `height` is encoded at in the selected mode. */
+export function kitTextureTarget(width: number, height: number) {
+  const scale = KIT_TEXTURE_MODES[kitTextureMode];
+  return { width: powerOfTwo(Math.max(1, Math.round(width * scale))), height: powerOfTwo(Math.max(1, Math.round(height * scale))) };
+}
+
 /**
- * The `--out <directory>` command line every kit builder shares: build, write `lineage.json` (and with
- * `descriptorFile`, `descriptor.json`) next to the tar, and print the bundle, tar and export ref plus `summary`.
+ * The `[--textures full|half] --out <directory>` command line every kit builder shares: build, write `lineage.json` (and
+ * with `descriptorFile`, `descriptor.json`) next to the tar, and print the bundle, tar and export ref plus `summary`.
  */
 export async function runKitCli<R extends KitBuildResult>(script: string, label: string, build: (options: { outDir: string; log: (line: string) => void }) => Promise<R>,
   { descriptorFile = false, summary = () => ({}) }: { descriptorFile?: boolean; summary?: (result: R) => Json } = {}) {
+  const textures = takeKitTextureMode(process.argv);
   const args = process.argv.slice(2);
   if (args.length !== 2 || args[0] !== "--out") {
-    console.error(`Usage: ASSET_TOOLING_BLENDER=<blender 5.2.2> bun ${script} --out <directory>`);
+    console.error(`Usage: ASSET_TOOLING_BLENDER=<blender 5.2.2> bun ${script} [--textures full|half] --out <directory>`);
     process.exit(2);
   }
   try {
     const result = await build({ outDir: args[1]!, log: (line) => console.error(`[${label}] ${line}`) });
-    await writeFile(path.join(path.resolve(args[1]!), "lineage.json"), `${JSON.stringify(result.lineage, null, 2)}\n`);
+    await writeFile(path.join(path.resolve(args[1]!), "lineage.json"), `${JSON.stringify({ ...result.lineage, ...(textures === "full" ? {} : { textures }) }, null, 2)}\n`);
     if (descriptorFile) await writeFile(path.join(path.resolve(args[1]!), "descriptor.json"), `${JSON.stringify(result.descriptor, null, 2)}\n`);
     console.log(JSON.stringify({ bundle: result.bundleDir, tar: result.tar, tarSha256: result.tarSha256, tarByteLength: result.tarByteLength, exportRef: result.exportRef, ...summary(result) }, null, 2));
   } catch (error) {
@@ -208,7 +235,7 @@ export async function ktx2Asset(root: string, asset: AssetRef, cache: Ktx2Cache,
       const output = path.join(cache.scratch, `${cache.encoded.size}.ktx2`);
       await writeFile(input, image);
       const [width, height] = ImageUtils.getSize(image, mimeType)!;
-      const target = { width: powerOfTwo(width), height: powerOfTwo(height) };
+      const target = kitTextureTarget(width, height);
       const resize = target.width !== width || target.height !== height ? target : undefined;
       const run = Bun.spawnSync([process.env.ASSET_TOOLING_KTX ?? "ktx", ...ktxArguments(encoding, input, output, resize)], { stdout: "pipe", stderr: "pipe" });
       if (run.exitCode !== 0) throw new Error(`ktx create failed for ${texture.getName()}: ${run.stderr.toString()}`);

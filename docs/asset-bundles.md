@@ -242,6 +242,22 @@ Its real-source test runs in the hosted `canonical-storage` job. It skips on Git
 
 The limits are the static profile's.
 
+## Kit costs
+
+`scripts/report-kit-costs.ts` reports what a built `gltf-resources-v1` kit costs: its download bytes, the estimated GPU memory of its textures, its distinct materials and, per entry and variant, its draw calls and triangles.
+
+```sh
+bun scripts/report-kit-costs.ts --bundle <dir>/bundle [--budget <release>]
+```
+
+The report is read-only. With `--budget`, it exits 1 when the kit is over its limits in `KIT_BUDGETS`. The material count is the limit that matters most: mmorpg batches scenery per material, so each material is a draw in the main pass, whatever its triangle count. Opaque single-sided batched scenery shares one material in the shadow passes, so there a kit's material count does not add draws. A kit joins `KIT_BUDGETS` once its surfaces are packed into atlases, and its Blender test then fails the build when it goes over. The target scale is high graphics at 60 FPS on an RTX 3060 Ti.
+
+GPU memory is an estimate: a KTX2 texture as a 1-byte-per-texel block format and a PNG or JPEG as RGBA8, each with a full mip chain.
+
+### Texture modes
+
+Every kit builder that encodes KTX2 textures takes `--textures full|half`, for example `bun scripts/build-shrine-kit.ts --textures half --out <directory>`. `full` is the default and what the releases ship. `half` halves each texture's edge as it is encoded (`KIT_TEXTURE_MODES` in `src/kit-bundle.ts`), which takes the texture memory to a quarter. A `half` build records `textures` in its `lineage.json`. The sandstone kit also has its own [atlas modes](sandstone-kit.md#build), which generate the atlas at the chosen size.
+
 ## Opt-in bundle performance benchmark (#453)
 
 `scripts/benchmark-asset-bundle.ts` generates deterministic, valid 512-sprite (one atlas) and 3,600-sprite (eight atlases, no atlas over 512) packages in a disposable local directory. It separates manifest parsing, snapshot construction, one selected-file read, reading all selected atlas files, full pinned-closure reads, repeated-full versus incremental budget accounting, and optional full package verification (including the intentionally independent resource reads and hashes). Fixture creation, file writes and cleanup are outside measured intervals. Each named measurement reports raw samples and the median in JSON, together with its source commit, Bun version, OS and CPU fingerprint. Wall-clock results from different machines or noisy shared runners are informational, not a CI regression gate.

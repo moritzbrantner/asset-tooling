@@ -6,7 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-import { Document, NodeIO, TextureInfo, type Texture } from "@gltf-transform/core";
+import { Document, ImageUtils, NodeIO, TextureInfo, type Texture } from "@gltf-transform/core";
 import { KHRTextureBasisu } from "@gltf-transform/extensions";
 import { ktxArguments, type TextureEncoding } from "./pack-downloads.ts";
 import { GLTF_RESOURCES_BUNDLE_PROFILE, exportAssetBundle } from "../src/asset-bundle.js";
@@ -19,6 +19,7 @@ import { executeGltfProductionImportOperation } from "../src/gltf-production-ope
 import { executeGltfTextureResizeOperation } from "../src/gltf-texture-resize-operations.js";
 import { executeImageDecodeOperation, executeImageEncodePngOperation } from "../src/image-codec-operations.js";
 import { encodeRgba8Image, parseRgba8Image, RGBA8_IMAGE_MEDIA_TYPE, type Rgba8Image } from "../src/image-rgba8.js";
+import { kitTextureTarget, takeKitTextureMode } from "../src/kit-bundle.js";
 import type { AssetOperationResult, AssetRef } from "../src/operations.js";
 
 const ROOT = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
@@ -105,7 +106,10 @@ export const TERRAIN_KTX2: Readonly<Record<"baseColor" | "normal" | "metallicRou
 export async function encodeKtx2(scratch: string, texture: Texture, encoding: TextureEncoding) {
   const input = path.join(scratch, `${texture.getName()}.png`), output = path.join(scratch, `${texture.getName()}.ktx2`);
   await writeFile(input, texture.getImage()!);
-  const run = Bun.spawnSync([process.env.ASSET_TOOLING_KTX ?? "ktx", ...ktxArguments(encoding, input, output)], { stdout: "pipe", stderr: "pipe" });
+  const [width, height] = ImageUtils.getSize(texture.getImage()!, texture.getMimeType())!;
+  const target = kitTextureTarget(width, height);
+  const resize = target.width !== width || target.height !== height ? target : undefined;
+  const run = Bun.spawnSync([process.env.ASSET_TOOLING_KTX ?? "ktx", ...ktxArguments(encoding, input, output, resize)], { stdout: "pipe", stderr: "pipe" });
   if (run.exitCode !== 0) throw new Error(`ktx create failed for ${texture.getName()}: ${run.stderr.toString()}`);
   texture.setImage(new Uint8Array(await readFile(output))).setMimeType("image/ktx2");
 }
@@ -256,8 +260,9 @@ export async function buildGreyhavenTerrain(outDir: string, log: (message: strin
 }
 
 if (import.meta.main) {
+  takeKitTextureMode(process.argv);
   const [flag, out, ...extra] = process.argv.slice(2);
-  if (flag !== "--out" || !out || extra.length) throw new Error("Usage: bun scripts/build-greyhaven-terrain.ts --out <directory>");
+  if (flag !== "--out" || !out || extra.length) throw new Error("Usage: bun scripts/build-greyhaven-terrain.ts [--textures full|half] --out <directory>");
   const built = await buildGreyhavenTerrain(out, console.error);
   console.log(JSON.stringify({ tar: built.tar, byteLength: built.byteLength, exportRef: built.exportRef }, null, 2));
 }
