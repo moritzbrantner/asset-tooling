@@ -2,7 +2,9 @@ import { constants, createReadStream } from "node:fs";
 import { createHash, randomUUID } from "node:crypto";
 import path from "node:path";
 import { copyFile, link, lstat, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
-import { readOperationResultCache, removeOperationResultCache, writeOperationResultCache } from "./cache.js";
+import {
+  readOperationResultCache, removeOperationResultCache, sharedCacheBlobPath, storeSharedCacheBlob, writeOperationResultCache,
+} from "./cache.js";
 import { sha256Bytes } from "./hash.js";
 import {
   createAssetOperationBuildIdentity,
@@ -318,6 +320,13 @@ export interface RunAssetOperationOptions {
    * a signal aborted by the time `execute` settles rejects with an `AbortError` and caches nothing.
    */
   signal?: AbortSignal;
+  /**
+   * An absolute shared cache directory (docs/cache.md#shared-cache-directory) for the result entry instead of
+   * `<root>/.asset-tooling/cache`. A miss also puts every output object into `<directory>/v1/blobs/`, so a later run
+   * into a fresh object store can reuse the result: a hit copies each missing output from its blob after checking
+   * its SHA-256 and byte length.
+   */
+  cacheDirectory?: string;
 }
 
 export interface AssetOperationRunRegistration {
@@ -349,6 +358,42 @@ export interface AssetOperationRun {
   cacheKey: string;
   buildIdentity: AssetOperationBuildIdentity;
   result: AssetOperationResult;
+}
+
+/**
+ * Put a cached result's output object into `root`'s object store when it is missing there, from the shared cache
+ * directory's blob: the blob must have the object's SHA-256 and byte length. It is hard-linked when possible.
+ */
+async function restoreOutputObject(root: string, asset: AssetRef, directory: string): Promise<void> {
+  const portablePath = assetObjectPortablePath(asset);
+  await assertNoSymbolicLinks(root, portablePath);
+  const absolutePath = objectPath(root, portablePath);
+  try {
+    await stat(absolutePath);
+    return;
+  } catch (error: unknown) {
+    if (!hasErrorCode(error, "ENOENT")) throw error;
+  }
+  const blob = await sharedCacheBlobPath(directory, asset.sha256);
+  let actual: { sha256: string; byteLength: number };
+  try {
+    actual = await hashFile(blob);
+  } catch (error: unknown) {
+    if (hasErrorCode(error, "ENOENT")) throw new Error(`cache blob for output object '${asset.sha256}' is missing`);
+    throw error;
+  }
+  if (actual.sha256 !== asset.sha256 || actual.byteLength !== asset.byteLength) {
+    throw new Error(`cache blob for output object '${asset.sha256}' does not match it: got ${actual.sha256} (${actual.byteLength} bytes)`);
+  }
+  await mkdir(path.dirname(absolutePath), { recursive: true });
+  await publishObject(absolutePath, async (temporary) => {
+    try {
+      await link(blob, temporary);
+    } catch (error: unknown) {
+      if (!hasErrorCode(error, "EXDEV") && !hasErrorCode(error, "EPERM")) throw error;
+      await copyFile(blob, temporary, constants.COPYFILE_EXCL);
+    }
+  });
 }
 
 function portRefs(ports: AssetPortMap): AssetRef[] {
@@ -384,11 +429,15 @@ export async function runAssetOperation(
   root: string,
   registration: AssetOperationRunRegistration,
   { parameters = {}, inputs = {} }: AssetOperationInvocation = {},
-  { signal }: RunAssetOperationOptions = {},
+  { signal, cacheDirectory }: RunAssetOperationOptions = {},
 ): Promise<AssetOperationRun> {
   if (signal !== undefined && !(signal instanceof AbortSignal)) {
     throw new Error("runAssetOperation signal must be an AbortSignal when provided");
   }
+  if (cacheDirectory !== undefined && (typeof cacheDirectory !== "string" || !path.isAbsolute(cacheDirectory))) {
+    throw new Error("runAssetOperation cacheDirectory must be an absolute path when provided");
+  }
+  const cacheOptions = cacheDirectory === undefined ? {} : { directory: cacheDirectory };
   throwIfRunCancelled(signal, "cancelled before the asset operation started; nothing was executed or cached");
   const assetRoot = assertRoot(root);
   const identityInput: AssetOperationBuildIdentityInput = {
@@ -410,14 +459,17 @@ export async function runAssetOperation(
   // Cancellation wins every settlement race: it is re-checked at each step that could settle the run.
   throwIfRunCancelled(signal, "cancelled before the asset operation started; nothing was executed or cached");
 
-  const cached = await readOperationResultCache(assetRoot, cacheKey, buildIdentity).catch((error: unknown) => {
+  const cached = await readOperationResultCache(assetRoot, cacheKey, buildIdentity, cacheOptions).catch((error: unknown) => {
     throw unusableCacheEntry(cacheKey, error);
   });
   if (cached.status === "hit") {
     let result: AssetOperationResult;
     try {
       result = normalizeAssetOperationResult(registration.descriptor, cached.result);
-      for (const asset of portRefs(result.outputs)) await verifyAssetObject(assetRoot, asset);
+      for (const asset of portRefs(result.outputs)) {
+        if (cacheDirectory !== undefined) await restoreOutputObject(assetRoot, asset, cacheDirectory);
+        await verifyAssetObject(assetRoot, asset);
+      }
     } catch (error: unknown) {
       throw unusableCacheEntry(cacheKey, error);
     }
@@ -439,10 +491,16 @@ export async function runAssetOperation(
   const result = normalizeAssetOperationResult(registration.descriptor, executed);
   for (const asset of portRefs(result.outputs)) await verifyAssetObject(assetRoot, asset);
   throwIfRunCancelled(signal, "cancelled while the asset operation ran; its result was not cached");
-  await writeOperationResultCache(assetRoot, cacheKey, buildIdentity, result);
+  if (cacheDirectory !== undefined) {
+    // The outputs were just verified; their blobs go in before the entry that names them.
+    for (const asset of portRefs(result.outputs)) {
+      await storeSharedCacheBlob(cacheDirectory, asset.sha256, objectPath(assetRoot, assetObjectPortablePath(asset)));
+    }
+  }
+  await writeOperationResultCache(assetRoot, cacheKey, buildIdentity, result, cacheOptions);
   if (signal?.aborted) {
     // A miss had no entry before this write, so removing it restores the previous cache state.
-    await removeOperationResultCache(assetRoot, cacheKey);
+    await removeOperationResultCache(assetRoot, cacheKey, cacheOptions);
     throwIfRunCancelled(signal, "cancelled while the asset operation result was recorded; the cache entry was removed");
   }
   return { status: "miss", cacheKey, buildIdentity, result };

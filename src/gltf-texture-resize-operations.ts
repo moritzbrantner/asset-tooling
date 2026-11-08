@@ -11,6 +11,7 @@
 import { ImageUtils, VERSION, type Material, type Texture } from "@gltf-transform/core";
 import { version as validatorVersion } from "gltf-validator";
 import { resolveAssetObject, storeAssetObject } from "./asset-store.js";
+import { canonicalJson } from "./canonical.js";
 import { readDependencyLockSha256 } from "./dependency-lock.js";
 import { PRODUCTION_SUPERSEDED_VALIDATOR_CODES, gltfSummary, parseCheckedGltfBytes, validateGltf } from "./gltf-processing.js";
 import { GLTF_PRODUCTION_ALLOWED_VALIDATOR_WARNINGS } from "./gltf-production-operations.js";
@@ -238,6 +239,23 @@ function single(result: AssetOperationResult) {
   return output;
 }
 
+/** Resized PNG bytes by image, target size, encoding and codec runtime: a bounded per-process memo (#516). */
+const RESIZED_IMAGES = new Map<string, Promise<Uint8Array>>();
+const RESIZED_IMAGE_LIMIT = 64;
+
+/** Decode one image (image.decode@1), resample it to `target` and encode it as PNG (image.encode.png@1, level 9). */
+async function resizeImage(root: string, image: { bytes: Uint8Array; mimeType: string }, size: { width: number; height: number },
+  target: { width: number; height: number }, encoding: GltfTextureEncoding, runtime: unknown): Promise<Uint8Array> {
+  const stored = (await storeAssetObject(root, { bytes: image.bytes, kind: "image", mediaType: image.mimeType })).asset;
+  const decoded = single(await executeImageDecodeOperation(root, { inputs: { source: stored }, parameters: {}, runtime }));
+  const resized = resizeGltfTextureRgba8(parseRgba8Image(await resolveAssetObject(root, decoded), size), target.width, target.height, encoding);
+  const canonical = (await storeAssetObject(root, encoding === "srgb"
+    ? { bytes: encodeRgba8Image(resized), kind: "image", mediaType: RGBA8_IMAGE_MEDIA_TYPE }
+    : { bytes: encodeLinearRgba8Image(resized), kind: "image", mediaType: LINEAR_RGBA8_IMAGE_MEDIA_TYPE })).asset;
+  const png = single(await executeImageEncodePngOperation(root, { inputs: { source: canonical }, parameters: { compressionLevel: 9 }, runtime }));
+  return new Uint8Array(await resolveAssetObject(root, png));
+}
+
 export async function executeGltfTextureResizeOperation(root: string, invocation: Invocation = {}): Promise<AssetOperationResult> {
   const { parameters, runtime, source } = await checkedInputs(root, invocation);
   const allowed = parameters.policy.allowedValidatorWarnings;
@@ -277,18 +295,21 @@ export async function executeGltfTextureResizeOperation(root: string, invocation
     const before = { sha256: group.sha256, byteLength: group.bytes.byteLength, mimeType: group.mimeType, width, height };
     let after = before;
     if (target.width !== width || target.height !== height) {
-      const stored = (await storeAssetObject(root, { bytes: group.bytes, kind: "image", mediaType: group.mimeType })).asset;
-      const decoded = single(await executeImageDecodeOperation(root, { inputs: { source: stored }, parameters: {}, runtime }));
+      // #516: the same image at the same size and encoding is decoded, resampled and encoded once per process, however
+      // many GLBs carry it (the body, outfit and hair textures recur across the character variants).
+      const memoKey = canonicalJson({ sha256: group.sha256, mimeType: group.mimeType, target, encoding, runtime, implementation: IMPLEMENTATION });
+      let pending = RESIZED_IMAGES.get(memoKey);
+      if (!pending) {
+        pending = resizeImage(root, group, { width, height }, target, encoding, runtime);
+        RESIZED_IMAGES.set(memoKey, pending);
+        pending.catch(() => RESIZED_IMAGES.delete(memoKey));
+        while (RESIZED_IMAGES.size > RESIZED_IMAGE_LIMIT) RESIZED_IMAGES.delete(RESIZED_IMAGES.keys().next().value!);
+      }
+      const bytes = await pending;
       decodes += 1;
-      const resized = resizeGltfTextureRgba8(parseRgba8Image(await resolveAssetObject(root, decoded), { width, height }), target.width, target.height, encoding);
-      const canonical = (await storeAssetObject(root, encoding === "srgb"
-        ? { bytes: encodeRgba8Image(resized), kind: "image", mediaType: RGBA8_IMAGE_MEDIA_TYPE }
-        : { bytes: encodeLinearRgba8Image(resized), kind: "image", mediaType: LINEAR_RGBA8_IMAGE_MEDIA_TYPE })).asset;
-      const png = single(await executeImageEncodePngOperation(root, { inputs: { source: canonical }, parameters: { compressionLevel: 9 }, runtime }));
       encodes += 1;
-      const bytes = await resolveAssetObject(root, png);
       for (const index of group.textures) textures[index]!.setImage(bytes).setMimeType("image/png");
-      after = { sha256: png.sha256, byteLength: png.byteLength, mimeType: "image/png", ...target };
+      after = { sha256: sha256Bytes(bytes), byteLength: bytes.byteLength, mimeType: "image/png", ...target };
     }
     images.push({ textures: group.textures, names: group.textures.map((index) => textures[index]!.getName()), slots, encoding, maxEdge: group.limit,
       resized: after !== before, before, after });

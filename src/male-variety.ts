@@ -5,6 +5,7 @@ import { readBlenderRecipeSource } from "./blender-recipe-source.js";
 import { canonicalJson } from "./canonical.js";
 import { generateAsset } from "./core.js";
 import { transferMorphTargets } from "./face-variants.js";
+import { withoutTextures } from "./gltf-without-textures.js";
 import { sha256Bytes } from "./hash.js";
 import type { AssetRef } from "./operations.js";
 import { blenderScriptSpec, type BlenderSpecInput } from "./blender-script-spec.js";
@@ -90,9 +91,11 @@ async function runRecipe(root: string, { script, label, inputs, parameters, outp
 export async function authorVarietyKeys(root: string, label: string, { mode, source, items, body, age = false }: {
   mode: "character" | "item"; source: AssetRef; items?: AssetRef; body?: AssetRef; age?: boolean;
 }) {
-  const inputs: Record<string, Uint8Array | string> = { source: new Uint8Array(await resolveAssetObject(root, source)), face: "face_variants.py" };
-  if (items) inputs.items = new Uint8Array(await resolveAssetObject(root, items));
-  if (body) inputs.body = new Uint8Array(await resolveAssetObject(root, body));
+  // Only the authored morph targets come back (applyVarietyKeys), so Blender gets the geometry without textures (#516).
+  const geometry = async (asset: AssetRef) => withoutTextures(new Uint8Array(await resolveAssetObject(root, asset)));
+  const inputs: Record<string, Uint8Array | string> = { source: await geometry(source), face: "face_variants.py" };
+  if (items) inputs.items = await geometry(items);
+  if (body) inputs.body = await geometry(body);
   return runRecipe(root, { script: "male_variety.py", label, inputs, output: "keys.glb",
     parameters: { schemaVersion: 1, mode, ...(age ? { age } : {}) } });
 }
