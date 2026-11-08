@@ -23,7 +23,7 @@ Metres, +Y up, right-handed, origin at the centre of the footprint on the ground
 | `juniper` | 1.4 × 1.4 × 2.4 | needles | none |
 | `elder` | 2.6 × 2.6 × 2.1 | long, narrow | none |
 
-Each piece has 660–760 triangles at full detail, with `lod1` at most half of that and `lod2` a 120-triangle opaque hull. The descriptor (the `woodland-bushes-descriptor` attachment on the first piece) has `lodSelection` and per-piece `lods`, in the format of the [nature bundle](greyhaven-nature-bundle.md#levels-of-detail).
+Each piece has 660–760 triangles at full detail, with `lod1` at most half of that and `lod2` a 120-triangle opaque hull. Full detail ends at 60 m and `lod1` at 180 m, measured at the descriptor's 60° reference field of view, the same for every size of bush (`WOODLAND_BUSH_LOD_DISTANCES`). The descriptor (the `woodland-bushes-descriptor` attachment on the first piece) has `lodSelection` and per-piece `lods`, in the format of the [nature bundle](greyhaven-nature-bundle.md#levels-of-detail).
 
 **Materials and textures:** one cut-out material, `Leaves_Bush_Woodland`, on a 1024 px KTX2 atlas, and one opaque untextured core, `Leaves_Core_Woodland`. The full kit costs 2 materials, 1.4 MB of texture memory and a 1.5 MB download. The atlas is greyscale and every card's colour comes from `COLOR_0`. Its leaves are generated, because the catalog has only one broadleaf cluster and a fir sprig.
 

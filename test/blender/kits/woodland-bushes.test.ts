@@ -9,7 +9,7 @@ import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
 import { verifyAssetBundleTar } from "../../../src/asset-bundle-pack.js";
 import { GLTF_RESOURCES_BUNDLE_PROFILE, readAssetBundleAttachment, verifyAssetBundle } from "../../../src/asset-bundle.js";
 import {
-  WOODLAND_BUSHES_DESCRIPTOR_ATTACHMENT, WOODLAND_BUSHES_RELEASE, WOODLAND_BUSH_KINDS, WOODLAND_BUSH_PIECES, WOODLAND_BUSH_TRIANGLES, buildWoodlandBushes, createWoodlandBushSpec,
+  WOODLAND_BUSHES_DESCRIPTOR_ATTACHMENT, WOODLAND_BUSHES_RELEASE, WOODLAND_BUSH_KINDS, WOODLAND_BUSH_LOD_DISTANCES, WOODLAND_BUSH_PIECES, WOODLAND_BUSH_TRIANGLES, buildWoodlandBushes, createWoodlandBushSpec,
 } from "../../../scripts/build-woodland-bushes.ts";
 import { KIT_BUDGETS, kitBudgetViolations, kitCost } from "../../../scripts/report-kit-costs.ts";
 
@@ -50,6 +50,11 @@ test("the recipe builds a verified kit on one atlas within its limits", {
       assert.ok(lod0.triangles <= WOODLAND_BUSH_TRIANGLES, `${asset.key}: ${lod0.triangles} triangles`);
       assert.ok(lod1.triangles * 2 <= lod0.triangles, `${asset.key}: lod1 ${lod1.triangles} is at most half of ${lod0.triangles}`);
       assert.ok(lod2.triangles * 2 <= lod1.triangles, `${asset.key}: lod2 ${lod2.triangles} is at most half of ${lod1.triangles}`);
+      // The switch distances are the same for every size of bush, and the plain hull stays far away.
+      assert.deepEqual(asset.lods.levels.map((level: any) => level.referenceMaxDistance), [...WOODLAND_BUSH_LOD_DISTANCES, null]);
+      const tan = Math.tan(30 * Math.PI / 180);
+      assert.ok(Math.abs(asset.lods.boundingSphere.radius / (lod1.minScreenSize * tan) - 180) < 2, `${asset.key}: lod1 ends about 180 m away`);
+      assert.equal(lod2.minScreenSize, 0);
     }
     assert.ok(new Set(descriptor.assets.map((asset: any) => asset.footprint.height)).size >= 4, "the kinds differ in height");
   } finally {

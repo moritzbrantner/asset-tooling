@@ -15,7 +15,7 @@ import { canonicalJson } from "../src/canonical.js";
 import { executeGltfPlaceOperation } from "../src/gltf-place-operations.js";
 import { sha256Bytes } from "../src/hash.js";
 import { buildKitPart, documentBounds, exportKitBundle, ktx2Assets, round, runKitCli, single, triangles } from "../src/kit-bundle.js";
-import { NATURE_LOD_METRIC, NATURE_LOD_RECIPES, NATURE_LOD_REFERENCE_FOV_Y, NATURE_LOD_SCREEN_SIZES, NATURE_LOD_VARIANTS } from "./build-greyhaven-nature.ts";
+import { NATURE_LOD_METRIC, NATURE_LOD_RECIPES, NATURE_LOD_REFERENCE_FOV_Y, NATURE_LOD_VARIANTS } from "./build-greyhaven-nature.ts";
 
 export const WOODLAND_BUSH_KINDS = ["hazel", "holly", "bramble", "hawthorn", "juniper", "elder"] as const;
 export const WOODLAND_BUSH_VARIANTS = [1, 2] as const;
@@ -30,8 +30,13 @@ export const WOODLAND_BUSHES_TAR_NAME = "woodland-bushes.kit.tar";
 export const WOODLAND_BUSH_TRIANGLES = 780;
 /** nature_lod.py arguments. lod1 thins harder than greyhaven-nature's bushes, so it is at most half of LOD0 despite the kept core. */
 export const WOODLAND_BUSH_LODS = [{ ...NATURE_LOD_RECIPES.bush[0], keep: 0.33 }, { ...NATURE_LOD_RECIPES.bush[1], gain: 0.72 }] as const;
+/**
+ * Where LOD0 and lod1 end, in metres at the reference field of view. Fixed distances rather than screen sizes, so a small
+ * bush doesn't drop to the plain hull sooner than a large one; at 180 m the hull is about 15 pixels tall at 1080p.
+ */
+export const WOODLAND_BUSH_LOD_DISTANCES = [60, 180] as const;
 
-export const woodlandBushKey = (kind: WoodlandBushKind, variant: number) => `${WOODLAND_BUSHES_KEY_PREFIX}.${kind}-${variant}`;
+export const woodlandBushKey =(kind: WoodlandBushKind, variant: number) => `${WOODLAND_BUSHES_KEY_PREFIX}.${kind}-${variant}`;
 export const WOODLAND_BUSH_PIECES = WOODLAND_BUSH_KINDS.flatMap((kind) => WOODLAND_BUSH_VARIANTS.map((variant) => ({ kind, variant, key: woodlandBushKey(kind, variant) })));
 
 export function createWoodlandBushSpec({ kind, variant, scriptSha256, bushSha256, blenderVersion }: {
@@ -89,8 +94,8 @@ export async function buildWoodlandBushes({ outDir, log = () => {} }: { outDir: 
       lods: {
         boundingSphere: { center: [0, 1, 2].map((axis) => round((bounds.min[axis]! + bounds.max[axis]!) / 2)), radius: round(radius) },
         levels: levels.map((level, index) => {
-          const minScreenSize = NATURE_LOD_SCREEN_SIZES.bush[index] ?? 0;
-          return { ...level, minScreenSize, referenceMaxDistance: minScreenSize ? Number((radius / (minScreenSize * tan)).toFixed(2)) : null };
+          const distance = WOODLAND_BUSH_LOD_DISTANCES[index];
+          return { ...level, minScreenSize: distance ? Number((radius / (distance * tan)).toFixed(4)) : 0, referenceMaxDistance: distance ?? null };
         }),
       },
     };
