@@ -179,12 +179,13 @@ export async function buildBakedRockKit<Part extends string>(kit: BakedRockKit<P
     const levels = pieces.filter((piece) => piece.part === part);
     const bounds = documentBounds(levels[0]!.document);
     const radius = round(Math.hypot(...[0, 1, 2].map((k) => bounds.max[k]! - bounds.min[k]!)) / 2);
-    const { fit, bury, collisionMesh, collisionProxies } = levels[0]!.observations;
+    const { fit, bury, collisionMesh, collisionProxies, interior } = levels[0]!.observations;
     const distances = kit.scaleLodDistances ? scaledLodDistances(kit.lodDistances, bounds) : kit.lodDistances;
     return {
       key: bakedRockKey(kit, part), role: part, kind: bakedRockKind(part), triangles: triangles(levels[0]!.document), bounds, fit, bury,
       footprint: { width: round(bounds.max[0] - bounds.min[0]), depth: round(bounds.max[2] - bounds.min[2]), height: round(bounds.max[1]) },
       ...(collisionProxies ? { collisionProxies } : collisionMesh ? { collisionMesh } : { collision: "none" }),
+      ...(interior ? { interior } : {}),
       lods: {
         boundingSphere: { center: [0, 1, 2].map((k) => round((bounds.min[k]! + bounds.max[k]!) / 2)), radius },
         levels: levels.map((level, index) => {
