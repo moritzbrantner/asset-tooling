@@ -9,6 +9,7 @@ import {
 import { renderBrowser3DStudioHtml } from "../src/browser-pages-site.js";
 import { renderAnimationViewerHtml, renderRangerComparisonHtml } from "../src/animation-viewer-page.js";
 import { writeRangerComparisonData } from "../src/ranger-comparison.js";
+import { renderYoungResidentsHtml, writeYoungResidentsData } from "../src/young-residents-page.js";
 import { attachGeneratedGalleryPreviews, extendCatalogGalleryModel } from "../src/generated-gallery-assets.js";
 
 const root = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
@@ -142,9 +143,23 @@ if (!comparisonBuild.success) {
   throw new Error("ranger comparison bundle failed:\n" + comparisonBuild.logs.map((entry) => entry.message).join("\n"));
 }
 
+// Young resident faces (#556): sliders over the rolling young-residents release. Without its tar the page says it has no data.
+const youngRoot = path.join(outputRoot, "compare", "young");
+const young = await writeYoungResidentsData({ repositoryRoot: root, outDir: youngRoot, bundleTar: process.env.ASSET_TOOLING_YOUNG_BUNDLE_TAR || undefined });
+await mkdir(youngRoot, { recursive: true });
+await writeFile(path.join(youngRoot, "index.html"), renderYoungResidentsHtml(), "utf8");
+const youngBuild = await Bun.build({
+  entrypoints: [path.join(root, "src", "browser", "young-residents.ts")],
+  outdir: youngRoot, target: "browser", format: "esm", splitting: false, minify: true, sourcemap: "none", naming: "app.js",
+});
+if (!youngBuild.success) {
+  throw new Error("young residents bundle failed:\n" + youngBuild.logs.map((entry) => entry.message).join("\n"));
+}
+
 console.log(JSON.stringify({
   status: "built",
   rangerComparison: comparison.status === "built" ? "built" : `unavailable: ${comparison.reason}`,
+  youngResidents: young.status === "built" ? "built" : `unavailable: ${young.reason}`,
   assets: galleryModel.assets.length,
   detailPages: galleryModel.assets.length,
   browser3DStudio: true,
