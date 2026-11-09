@@ -84,6 +84,7 @@ Generated surfaces should follow how the real thing is made. Weird proportions a
 
 ## Known traps
 
+- **Ship `COLOR_0` and, with a normal map, tangents.** mmorpg's lit material needs tangents for normal maps. It reads a missing `COLOR_0` from WebGL's global default attribute values, which other draws overwrite, so the mesh can render black up close. `withLightingAttributes` in `scripts/baked-rock-kit.ts` adds both.
 - **Decimating a very dense mesh collapses it.** Size a sculpt's grid from the object (`CELL` in `cliff_outcrop.py`), and test the result: bounds can look right while the body is gone, so check enclosed volume.
 - **Atlas UVs.** Move faces by whole repeats so neighbours stay continuous, and fail the build when a face doesn't fit its cell. Split long faces at repeat boundaries.
 - **Material names in live Blender.** An appended placeholder can take the name of the finished material; rename it first.

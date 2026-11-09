@@ -7,6 +7,8 @@ import { mkdir, readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { NodeIO, type Document } from "@gltf-transform/core";
 import { KHRTextureBasisu } from "@gltf-transform/extensions";
+import { tangents, unweld, weld } from "@gltf-transform/functions";
+import { generateTangents } from "mikktspace";
 import { GLTF_RESOURCES_BUNDLE_PROFILE } from "../src/asset-bundle.js";
 import { resolveAssetObject, storeAssetObject } from "../src/asset-store.js";
 import { blenderScriptSpec, type BlenderSpecInput } from "../src/blender-script-spec.js";
@@ -37,6 +39,32 @@ export type BakedRockKit<Part extends string> = {
   lodDistances: readonly [number, number];
   placement: string;
 };
+
+/**
+ * Gives every primitive MikkTSpace tangents and a white COLOR_0. mmorpg's lit material needs tangents for normal maps, and
+ * reads an absent COLOR_0 from WebGL's global default attribute values, which other draws overwrite: without one, a mesh
+ * can render black, depending on what was drawn before it.
+ */
+async function withLightingAttributes(document: Document) {
+  await document.transform(unweld(), tangents({ generateTangents, overwrite: true }), weld());
+  for (const mesh of document.getRoot().listMeshes()) for (const primitive of mesh.listPrimitives()) {
+    const position = primitive.getAttribute("POSITION")!;
+    // Triangles the decimation made degenerate get no tangent: any unit vector across the normal is valid for them.
+    const normal = primitive.getAttribute("NORMAL")!, tangent = primitive.getAttribute("TANGENT")!;
+    for (let i = 0, n = [0, 0, 0], t = [0, 0, 0, 0]; i < tangent.getCount(); i += 1) {
+      tangent.getElement(i, t);
+      let length = Math.hypot(t[0]!, t[1]!, t[2]!);
+      if (length < 1e-4) {
+        normal.getElement(i, n);
+        const axis = Math.abs(n[1]!) < 0.9 ? [0, 1, 0] : [1, 0, 0];
+        t = [n[1]! * axis[2]! - n[2]! * axis[1]!, n[2]! * axis[0]! - n[0]! * axis[2]!, n[0]! * axis[1]! - n[1]! * axis[0]!, 1];
+        length = Math.hypot(t[0]!, t[1]!, t[2]!);
+      }
+      tangent.setElement(i, [t[0]! / length, t[1]! / length, t[2]! / length, t[3]! < 0 ? -1 : 1]);
+    }
+    primitive.setAttribute("COLOR_0", document.createAccessor().setType("VEC4").setArray(new Uint8Array(position.getCount() * 4).fill(255)).setNormalized(true).setBuffer(position.getBuffer()));
+  }
+}
 
 const fileOf = (repoPath: string) => path.posix.basename(repoPath);
 export const bakedRockKey = (kit: BakedRockKit<string>, part: string) => `${kit.keyPrefix}.${part}`;
@@ -139,6 +167,7 @@ export async function buildBakedRockKit<Part extends string>(kit: BakedRockKit<P
       material.getNormalTexture()!.setImage(atlasMaterial.getNormalTexture()!.getImage()!);
       material.getMetallicRoughnessTexture()!.setImage(atlasMaterial.getMetallicRoughnessTexture()!.getImage()!);
     }
+    await withLightingAttributes(piece.document);
     atlased.push((await storeAssetObject(root, { bytes: await io.writeBinary(piece.document), kind: "scene", mediaType: "model/gltf-binary" })).asset);
   }
 
