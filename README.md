@@ -38,6 +38,8 @@ The [monuments](docs/monuments.md) are in the same weathered limestone as the gr
 
 The [gravestones](docs/gravestones.md) are weathered limestone headstones, a cross, a ledger, a chest tomb and a footstone on one atlas, matched to the limestone rocks for Greyhaven's graveyards.
 
+The [ivy](docs/ivy.md) is seven generic pieces of dark, sparse English ivy to lay over stone: patches, a curtain over a wall's top, a ground creeper, column and corner wraps and a single runner, on one leaf atlas.
+
 The [wooden spike traps](docs/spike-traps.md) are six static hazard pieces on one wood atlas: a stake cluster, a tiling stake row, a cheval-de-frise, a pit bed, a studded board and a hanging spiked log.
 
 The [Greyhaven settlement props](docs/settlement-props.md) are a scripted Blender prop set in the same style for an Outpost public space: a market stall, handcart, crate and barrel, a signpost, lantern post and bench, and a fence segment, planter and woodpile, with a market-square composition.
