@@ -8,9 +8,12 @@ import { Accessor, Document, type Node } from "@gltf-transform/core";
 import { RANGER_FEMALE_PROPORTIONS, followHead, reproportionDocument, reproportionSockets } from "../../src/humanoid-proportions.js";
 
 const repository = path.resolve(import.meta.dir, "../..");
+const RIG = path.join(repository, "assets/canonical/quaternius.modular-character-outfits-fantasy-standard.female-ranger-gltf/Female_Ranger.gltf");
+const skip = (await readFile(RIG, "utf8")).startsWith("version https://git-lfs") && process.env.ASSET_TOOLING_REQUIRE_HYDRATED_STORAGE !== "1"
+  ? "Git LFS payloads are not hydrated; run 'git lfs pull' or set ASSET_TOOLING_REQUIRE_HYDRATED_STORAGE=1" : false;
 
 async function rig() {
-  const gltf = JSON.parse(await readFile(path.join(repository, "assets/canonical/quaternius.modular-character-outfits-fantasy-standard.female-ranger-gltf/Female_Ranger.gltf"), "utf8"));
+  const gltf = JSON.parse(await readFile(RIG, "utf8"));
   const document = new Document();
   const nodes: Node[] = gltf.nodes.map((source: { name: string; translation?: number[]; rotation?: number[]; scale?: number[] }) => {
     const node = document.createNode(source.name);
@@ -25,7 +28,7 @@ async function rig() {
   return { document, skin };
 }
 
-test("the woman's Head joint reaches 1.70 m's height, with her rotations and ground contact kept", async () => {
+test("the woman's Head joint reaches 1.70 m's height, with her rotations and ground contact kept", { skip }, async () => {
   const { document, skin } = await rig();
   const rotations = new Map(skin.listJoints().map((joint) => [joint.getName(), [...joint.getWorldRotation()]]));
   const change = reproportionDocument(document, RANGER_FEMALE_PROPORTIONS);
@@ -47,7 +50,7 @@ test("the woman's Head joint reaches 1.70 m's height, with her rotations and gro
   });
 });
 
-test("rest-pose sockets and head-mounted pieces follow the change", async () => {
+test("rest-pose sockets and head-mounted pieces follow the change", { skip }, async () => {
   const { document } = await rig();
   const change = reproportionDocument(document, RANGER_FEMALE_PROPORTIONS);
   const original = JSON.parse(await readFile(path.join(repository, "assets/descriptors/humanoid.ranger.female.sockets.json"), "utf8"));
