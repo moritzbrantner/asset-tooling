@@ -69,6 +69,7 @@ export const ROLLING_RELEASES: RollingRelease[] = [
   { name: "limestone-rocks", script: "scripts/build-limestone-rocks.ts", blender: true, lfs: true, ktx: true },
   { name: "maps-shortbread", script: "scripts/build-maps-shortbread-release.ts" },
   { name: "monuments", script: "scripts/build-monuments.ts", blender: true, lfs: true, ktx: true },
+  { name: "moss", script: "scripts/build-moss.ts", blender: true, lfs: true, ktx: true },
   { name: "outpost-kit", script: "scripts/build-outpost-kit.ts", blender: true, ktx: true },
   // #517: the Redbrand faction kit, built on the male Ranger figure from the same catalog members.
   { name: "redbrand-kit", script: "scripts/build-redbrand-kit.ts", blender: true, lfs: true, ktx: true },
