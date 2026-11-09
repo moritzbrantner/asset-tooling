@@ -33,6 +33,7 @@ export const KIT_BUDGETS: Record<string, KitBudget> = {
   "redbrand-kit": { materials: 11, textureMemoryBytes: 17 * MB, downloadBytes: 13 * MB },
   "settlement-props": { materials: 13, textureMemoryBytes: 4 * MB, downloadBytes: 2 * MB },
   "shrine-kit": { materials: 8, textureMemoryBytes: 9 * MB, downloadBytes: 7 * MB },
+  "spike-traps": { materials: 1, textureMemoryBytes: 17 * MB, downloadBytes: 3 * MB },
   "woodland-bushes": { materials: 2, textureMemoryBytes: 2 * MB, downloadBytes: 2 * MB },
 };
 

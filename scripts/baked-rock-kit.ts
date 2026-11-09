@@ -45,7 +45,7 @@ export type BakedRockKit<Part extends string> = {
  * reads an absent COLOR_0 from WebGL's global default attribute values, which other draws overwrite: without one, a mesh
  * can render black, depending on what was drawn before it.
  */
-async function withLightingAttributes(document: Document) {
+export async function withLightingAttributes(document: Document) {
   await document.transform(unweld(), tangents({ generateTangents, overwrite: true }), weld());
   for (const mesh of document.getRoot().listMeshes()) for (const primitive of mesh.listPrimitives()) {
     const position = primitive.getAttribute("POSITION")!;
