@@ -406,6 +406,8 @@ Both figures share the 65-joint rig, so the female Ranger gets the same bone map
 
 Its sockets are derived from the Female_Ranger rig into [`humanoid.ranger.female.sockets.json`](../assets/descriptors/humanoid.ranger.female.sockets.json) (`bun examples/weapons/derive-sockets.ts --rig <Female_Ranger.gltf> --out <file> --character humanoid.ranger.female`). They have the same ids as the male sockets, and the stowed sockets keep the male joint-frame values.
 
+**Proportions (#561):** she is about 1.70 m, against the male figure's 1.84 m, with narrower shoulders, slimmer arms and hands at 84%. [`src/humanoid-proportions.ts`](../src/humanoid-proportions.ts) applies them where her sources are imported, as new joint offsets and vertices. Joints keep their rotations, and her head keeps its size, so hair and face keys still fit. The rig, retargeted clips and fitted garments follow from the import. Her hair moves down with the `Head` joint, her `head.hair`, `head.armor` and `<joint>.armor` sockets are re-derived from the new rest pose at build time, and her hand sockets follow the smaller palm. The committed sockets file stays the unchanged input to that step.
+
 Its tar goes to the rolling `humanoid-ranger-female` release.
 
 ## Build
