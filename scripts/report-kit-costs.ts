@@ -29,6 +29,8 @@ export const KIT_BUDGETS: Record<string, KitBudget> = {
   "gravestones": { materials: 1, textureMemoryBytes: 13 * MB, downloadBytes: 6 * MB },
   "hair-kit": { materials: 3, textureMemoryBytes: 6 * MB, downloadBytes: 8 * MB },
   "ivy": { materials: 2, textureMemoryBytes: 2 * MB, downloadBytes: 2 * MB },
+  // Walls and floors are two tiling materials, because the surface area is too large for one baked atlas.
+  "limestone-caves": { materials: 2, textureMemoryBytes: 6 * MB, downloadBytes: 8 * MB },
   "limestone-rocks": { materials: 1, textureMemoryBytes: 13 * MB, downloadBytes: 7 * MB },
   "monuments": { materials: 1, textureMemoryBytes: 13 * MB, downloadBytes: 8 * MB },
   "moss": { materials: 1, textureMemoryBytes: 3 * MB, downloadBytes: 3 * MB },
