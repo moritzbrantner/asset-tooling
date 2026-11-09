@@ -98,12 +98,19 @@ export const BLENDER_SUITES: BlenderSuite[] = [
     ktx: true,
     lfs: "assets/canonical/poly-haven.rock-boulder-dry-diff-2k-jpg/**,assets/canonical/poly-haven.rock-boulder-dry-disp-2k-jpg/**,assets/canonical/poly-haven.forrest-ground-01-diff-2k-jpg/**,assets/canonical/poly-haven.rocks-ground-02-diff-2k-jpg/**,assets/canonical/poly-haven.mossy-rock-diff-2k-jpg/**",
   },
+  // The young residents (#556): four figure runs, from the catalogued Quaternius outfit, heads and hair.
+  {
+    suite: "young-residents",
+    timeout: 20,
+    ktx: true,
+    lfs: "assets/canonical/quaternius.universal-base-characters-standard.*/**,assets/canonical/quaternius.modular-character-outfits-fantasy-standard.*/**",
+  },
 ];
 
 /** Paths that run on every platform: the package's own code and tests, not the Linux-only build tooling. */
 const CROSS_PLATFORM = /^(src\/(?!browser\/)|test\/(?!blender\/|browser\/|hydrated\/)|examples\/copy\/)/;
 /** The Pages gallery's own sources, which the Pages build validates instead. */
-const PAGES_ONLY = /^(src\/browser\/|test\/browser\/|src\/(animation-viewer-eligibility|animation-viewer-page|browser-pages-site|catalog-pages-site|catalog-pages|catalog-preview-hints|generated-gallery-assets|ranger-comparison)\.ts$|test\/(animation-viewer-eligibility|catalog-pages-site|catalog-pages|generated-gallery-assets|ranger-comparison)\.test\.ts$|scripts\/(build-catalog-pages|build-generated-previews|serve-pages)\.ts$|\.github\/workflows\/pages\.yml$)/;
+const PAGES_ONLY = /^(src\/browser\/|test\/browser\/|src\/(animation-viewer-eligibility|animation-viewer-page|browser-pages-site|catalog-pages-site|catalog-pages|catalog-preview-hints|generated-gallery-assets|ranger-comparison|young-residents-page)\.ts$|test\/(animation-viewer-eligibility|catalog-pages-site|catalog-pages|generated-gallery-assets|ranger-comparison|young-residents-page)\.test\.ts$|scripts\/(build-catalog-pages|build-generated-previews|serve-pages)\.ts$|\.github\/workflows\/pages\.yml$)/;
 const PAGES = /^(catalog\/|src\/|licenses\/|THIRD_PARTY_NOTICES\.md$|scripts\/|review\/|adapters\/blender\/|examples\/reconcile-file\.ts$|package\.json$|\.github\/workflows\/(pages|validate)\.yml$)/;
 const DOCUMENTATION = /^docs\/|(^|\/)[^/]+\.md$/;
 

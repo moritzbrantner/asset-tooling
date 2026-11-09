@@ -39,6 +39,8 @@ export const KIT_BUDGETS: Record<string, KitBudget> = {
   "shrine-kit": { materials: 8, textureMemoryBytes: 9 * MB, downloadBytes: 7 * MB },
   "spike-traps": { materials: 1, textureMemoryBytes: 17 * MB, downloadBytes: 3 * MB },
   "woodland-bushes": { materials: 2, textureMemoryBytes: 2 * MB, downloadBytes: 2 * MB },
+  // #556: skinned figures, not batched scenery: separate skin, hands, hair, brows, eyes, outfit and skirt, as the Ranger family has.
+  "young-residents": { materials: 7, textureMemoryBytes: 28 * MB, downloadBytes: 19 * MB },
 };
 
 export type KitEntryCost = { key: string; variant: string; materials: number; drawCalls: number; triangles: number };

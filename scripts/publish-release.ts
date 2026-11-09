@@ -79,6 +79,8 @@ export const ROLLING_RELEASES: RollingRelease[] = [
   { name: "shrine-kit", script: "scripts/build-shrine-kit.ts", blender: true, ktx: true },
   { name: "spike-traps", script: "scripts/build-spike-traps.ts", blender: true, ktx: true },
   { name: "woodland-bushes", script: "scripts/build-woodland-bushes.ts", blender: true, ktx: true },
+  // #556: children and teenagers on the adults' rig, with face morph targets.
+  { name: "young-residents", script: "scripts/build-young-residents.ts", blender: true, lfs: true, ktx: true },
   { name: "zoo-effects", script: "scripts/build-zoo-effects.ts" },
   { name: "zoo-scenery", script: "scripts/build-zoo-scenery.ts", blender: true },
 ];

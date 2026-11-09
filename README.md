@@ -42,6 +42,8 @@ The [ivy](docs/ivy.md) is seven generic pieces of dark, sparse English ivy to la
 
 The [moss](docs/moss.md) is seven generic pieces of thin, ragged-edged cushion moss to lay over stone and shady ground: a top cap, an edge drape, a foot ring, two strips for a block's foot, a ground mat and a broken scatter, on one atlas.
 
+The [young residents](docs/young-residents.md) are children and teenagers on the adults' rig, always dressed, with 21 face morph targets and a slider page.
+
 The [wooden spike traps](docs/spike-traps.md) are six static hazard pieces on one wood atlas: a stake cluster, a tiling stake row, a cheval-de-frise, a pit bed, a studded board and a hanging spiked log.
 
 The [Greyhaven settlement props](docs/settlement-props.md) are a scripted Blender prop set in the same style for an Outpost public space: a market stall, handcart, crate and barrel, a signpost, lantern post and bench, and a fence segment, planter and woodpile, with a market-square composition.
