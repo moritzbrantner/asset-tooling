@@ -34,6 +34,8 @@ The [Redbrand faction kit](docs/redbrand-kit.md) dresses mmorpg's Redbrand bandi
 
 The [hair and beard kit](docs/hair-kit.md) ships the male Ranger's hairstyles and beards as attachable skinned pieces on the Ranger head joints, as its own rolling release. The hand-modelled pieces are authored in `assets/authored/hair-kit.blend`, the pack hairstyles stay recipe-built from the catalog, every texture is KTX2, and a descriptor names each piece's socket, joints, chains, tint materials and what it hides.
 
+The [gravestones](docs/gravestones.md) are weathered limestone headstones, a cross, a ledger, a chest tomb and a footstone on one atlas, matched to the limestone rocks for Greyhaven's graveyards.
+
 The [wooden spike traps](docs/spike-traps.md) are six static hazard pieces on one wood atlas: a stake cluster, a tiling stake row, a cheval-de-frise, a pit bed, a studded board and a hanging spiked log.
 
 The [Greyhaven settlement props](docs/settlement-props.md) are a scripted Blender prop set in the same style for an Outpost public space: a market stall, handcart, crate and barrel, a signpost, lantern post and bench, and a fence segment, planter and woodpile, with a market-square composition.

@@ -58,6 +58,7 @@ export const ROLLING_RELEASES: RollingRelease[] = [
   { name: "greyhaven-ambient-animals", script: "scripts/build-greyhaven-ambient-animals.ts", blender: true, lfs: true },
   { name: "greyhaven-marshal-house", script: "scripts/build-greyhaven-marshal-house.ts", blender: true, ktx: true },
   { name: "greyhaven-nature", script: "scripts/build-greyhaven-nature.ts", blender: true, lfs: true, ktx: true },
+  { name: "gravestones", script: "scripts/build-gravestones.ts", blender: true, lfs: true, ktx: true },
   { name: "greyhaven-terrain", script: "scripts/build-greyhaven-terrain.ts", lfs: true, ktx: true },
   // #517: the attachable hair and beard pieces on the male Ranger head joints.
   { name: "hair-kit", script: "scripts/build-hair-kit.ts", blender: true, lfs: true, ktx: true },
