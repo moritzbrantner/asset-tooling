@@ -31,6 +31,20 @@ export function single(result: AssetOperationResult, port = "output"): AssetRef 
 export const round = (value: number) => { const r = Math.round(value * 1e6) / 1e6; return r === 0 ? 0 : r; };
 export const round3 = (v: readonly number[]): Vec3 => [round(v[0]!), round(v[1]!), round(v[2]!)];
 
+/** The most a large piece's LOD switch distances grow over their base. */
+export const KIT_LOD_SCALE_CAP = 4;
+
+/**
+ * A piece's LOD switch distances, in whole metres: `base` is for a piece up to 1 m across, and grows with the widest side of
+ * `bounds` up to KIT_LOD_SCALE_CAP. A large piece's swap is more visible at the same distance; the floor keeps small pieces
+ * from switching next to the camera, and the cap keeps the largest meshes from staying at full detail for ever.
+ */
+export function scaledLodDistances(base: readonly number[], bounds: { min: readonly number[]; max: readonly number[] }) {
+  const widest = Math.max(...[0, 1, 2].map((k) => bounds.max[k]! - bounds.min[k]!));
+  const scale = Math.min(Math.max(widest, 1), KIT_LOD_SCALE_CAP);
+  return base.map((distance) => Math.round(distance * scale));
+}
+
 /** World-space AABB of every mesh node in the document, or of the mesh node named `nodeName`. */
 export function documentBounds(document: Document, nodeName?: string): { min: Vec3; max: Vec3 } {
   const min = [Infinity, Infinity, Infinity], max = [-Infinity, -Infinity, -Infinity];

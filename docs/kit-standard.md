@@ -54,7 +54,7 @@ Batched scenery draws once per material, so material count is the limit that mat
 - Metres, +Y up, right-handed, one documented origin per kind of piece, and modules on a stated grid.
 - As a guide: small props up to about 2,000 triangles at full detail, modular pieces up to about 1,000, hero objects up to about 9,000.
 - Ship LODs as `lod1`, `lod2` variants in the same frame, with the `lodSelection` and per-piece `lods` descriptor format of the crag and nature kits. A level only exists if it has at most half the triangles of the one before, so a very simple piece may have none.
-- Set switch points as distances, not screen-size ratios, which turn small objects into hulls right next to the camera. Keep full detail to at least 60 m and the last level beyond 180 m, at the 60° reference FOV. Derive each level's `minScreenSize` from the piece's own bounding sphere (`CRAG_LOD_DISTANCES` is the example).
+- Set switch points as distances, not screen-size ratios, which turn small objects into hulls right next to the camera. Keep full detail to at least 60 m and the last level beyond 180 m, at the 60° reference FOV. Those are the distances for a piece up to 1 m across. A larger piece's swap is more visible at the same distance, so new kits scale them with the piece's widest side, up to four times, using `scaledLodDistances` in `src/kit-bundle.ts`. Derive each level's `minScreenSize` from the piece's own bounding sphere (`build-spike-traps.ts` is the example).
 
 ### Collision
 
