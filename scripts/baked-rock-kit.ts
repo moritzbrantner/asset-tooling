@@ -17,7 +17,7 @@ import { canonicalJson } from "../src/canonical.js";
 import { createAssetCatalog } from "../src/catalog.js";
 import { importAssetCatalogStorageSource } from "../src/catalog-storage.js";
 import { sha256Bytes } from "../src/hash.js";
-import { buildKitPart, documentBounds, exportKitBundle, ktx2Assets, round, runKitCli, triangles, type KitPart } from "../src/kit-bundle.js";
+import { buildKitPart, documentBounds, exportKitBundle, ktx2Assets, round, runKitCli, scaledLodDistances, triangles, type KitPart } from "../src/kit-bundle.js";
 import type { AssetRef } from "../src/operations.js";
 
 const ROOT = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
@@ -37,6 +37,8 @@ export type BakedRockKit<Part extends string> = {
   sources: Record<string, string>;
   /** Where LOD0 and lod1 end, in metres at the reference FOV, for every piece. */
   lodDistances: readonly [number, number];
+  /** Grow lodDistances with each piece's widest side (scaledLodDistances). */
+  scaleLodDistances?: boolean;
   placement: string;
 };
 
@@ -177,15 +179,16 @@ export async function buildBakedRockKit<Part extends string>(kit: BakedRockKit<P
     const levels = pieces.filter((piece) => piece.part === part);
     const bounds = documentBounds(levels[0]!.document);
     const radius = round(Math.hypot(...[0, 1, 2].map((k) => bounds.max[k]! - bounds.min[k]!)) / 2);
-    const { fit, bury, collisionMesh } = levels[0]!.observations;
+    const { fit, bury, collisionMesh, collisionProxies } = levels[0]!.observations;
+    const distances = kit.scaleLodDistances ? scaledLodDistances(kit.lodDistances, bounds) : kit.lodDistances;
     return {
       key: bakedRockKey(kit, part), role: part, kind: bakedRockKind(part), triangles: triangles(levels[0]!.document), bounds, fit, bury,
       footprint: { width: round(bounds.max[0] - bounds.min[0]), depth: round(bounds.max[2] - bounds.min[2]), height: round(bounds.max[1]) },
-      ...(collisionMesh ? { collisionMesh } : { collision: "none" }),
+      ...(collisionProxies ? { collisionProxies } : collisionMesh ? { collisionMesh } : { collision: "none" }),
       lods: {
         boundingSphere: { center: [0, 1, 2].map((k) => round((bounds.min[k]! + bounds.max[k]!) / 2)), radius },
         levels: levels.map((level, index) => {
-          const distance = kit.lodDistances[index];
+          const distance = distances[index];
           return { variant: level.variant, triangles: triangles(level.document), minScreenSize: distance ? round(Number((radius / (distance * tan)).toFixed(4))) : 0, referenceMaxDistance: distance ?? null };
         }),
       },
