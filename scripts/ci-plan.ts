@@ -26,6 +26,8 @@ export const BLENDER_SUITES: BlenderSuite[] = [
   // The kit bundles ship KTX2 textures.
   {
     suite: "kits",
+    // About 13 minutes when it passes, too close to the 15-minute default.
+    timeout: 30,
     ktx: true,
     lfs: "assets/authored/**,assets/canonical/quaternius.stylized-nature-megakit-standard.*/**,assets/canonical/poly-haven.fir-tree-01-*/**,assets/canonical/poly-haven.rock-boulder-dry-*/**,assets/canonical/poly-haven.mossy-rock-*/**,assets/canonical/quaternius.animal-pack-vol2.cat-blend/**,assets/canonical/quaternius.ultimate-animated-animals-shibainu-glb/**,assets/canonical/quaternius.easy-enemy-rat-glb/**",
   },
