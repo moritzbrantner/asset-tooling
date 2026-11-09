@@ -39,7 +39,7 @@ The room is 4.2 × 5 m and 3.08 m high, entered through a 1.6 × 2.4 m doorway o
 
 `mausoleum-walk-in` is the walls, floor and furnishings. `mausoleum-walk-in-roof` is the ceiling, entablature and gable. **They share one frame, so place both with the same transform.** The separate roof exists so a game can hide it while a character is inside and look down into the room. The descriptor's `interior` on `mausoleum-walk-in` names the roof piece and gives the room's `volume` (`center` and `size`) in the piece's frame.
 
-Hiding the roof, moving the camera and lighting the dark room are the game's. mmorpg already does the first for its inn and Marshal's house ([`crates/mmorpg-presentation/src/buildings.rs`](https://github.com/moritzbrantner/mmorpg/blob/main/crates/mmorpg-presentation/src/buildings.rs)).
+Hiding the roof, moving the camera and lighting the dark room are the game's. mmorpg already does the first for its inn and Marshal's house ([`crates/mmorpg-presentation/src/buildings.rs`](https://github.com/moenarch-games/mmorpg/blob/main/crates/mmorpg-presentation/src/buildings.rs)).
 
 **Materials and textures:** one opaque material, `monument`, on a 2048 px KTX2 atlas (colour, normal and a half-size roughness). The kit costs 1 material, 1 draw call per piece, 12 MB of texture memory and a 6.3 MB download.
 
