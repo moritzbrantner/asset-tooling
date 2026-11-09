@@ -35,7 +35,7 @@ Metres, +Y up, right-handed, origin on the ground at the centre of the footprint
 - **Scree** is loose stones with nothing between them, so it lies on any terrain with no edge to hide. It's walk-on and declares `collision: "none"`.
 - **Levels** end at 60 m and 180 m at the descriptor's 60° reference field of view (`LIMESTONE_LOD_DISTANCES`). The descriptor (the `limestone-rocks-descriptor` attachment on the first piece) has `lodSelection` and per-piece `lods`, in the format of the [nature bundle](greyhaven-nature-bundle.md#levels-of-detail).
 
-**Materials and textures:** one opaque material, `limestone-rock`, on a 2048 px KTX2 atlas (colour, normal and a half-size roughness). Each piece's cell keeps a gutter. The kit costs 1 material, 12 MB of texture memory and a 6.4 MB download.
+**Materials and textures:** one opaque material, `limestone-rock`, on a 2048 px KTX2 atlas (colour, normal and a half-size roughness). Each piece's cell keeps a gutter. The kit costs 1 material, 12 MB of texture memory and a 7 MB download.
 
 ## Edit
 

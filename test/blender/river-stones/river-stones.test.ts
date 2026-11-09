@@ -41,6 +41,10 @@ test("the recipe builds a verified kit on one atlas within its limits", {
 
     const d = JSON.parse((await readAssetBundleAttachment(built.bundleDir, manifest, riverKey(RIVER_PARTS[0]), "default", RIVER_DESCRIPTOR_ATTACHMENT)).toString("utf8"));
     assert.equal(d.assets.length, RIVER_PARTS.length);
+    // mmorpg's lit material needs both, or a piece renders black up close.
+    for (const part of RIVER_PARTS) for (const mesh of built.documents[part].getRoot().listMeshes()) for (const primitive of mesh.listPrimitives()) {
+      assert.ok(primitive.getAttribute("COLOR_0") && primitive.getAttribute("TANGENT"), `${part} has vertex colours and tangents`);
+    }
     for (const entry of d.assets) {
       const [lod0, lod1, lod2] = entry.lods.levels;
       assert.ok(lod1.triangles * 2 <= lod0.triangles && lod2.triangles * 2 <= lod1.triangles, `${entry.role}: LODs ${lod0.triangles} ${lod1.triangles} ${lod2.triangles} at least halve`);

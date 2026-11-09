@@ -38,7 +38,7 @@ Metres, +Y up, right-handed, origin at the centre of the footprint. `y = 0` is t
 - **Debris** (beds, banks and bars) is walk-on and declares `collision: "none"`. Each piece is loose stones with nothing between them, so it lies on any ground with no edge to hide.
 - **Levels** end at 60 m and 180 m at the descriptor's 60° reference field of view. The descriptor (the `river-stones-descriptor` attachment on the first piece) has `lodSelection` and per-piece `lods`, in the format of the [nature bundle](greyhaven-nature-bundle.md#levels-of-detail).
 
-**Materials and textures:** one opaque material, `river-stone`, on a 1024 px KTX2 atlas (colour, normal and a half-size roughness). The kit costs 1 material, 3 MB of texture memory and a 1.9 MB download.
+**Materials and textures:** one opaque material, `river-stone`, on a 1024 px KTX2 atlas (colour, normal and a half-size roughness). The kit costs 1 material, 3 MB of texture memory and a 2.1 MB download.
 
 ## Edit
 
