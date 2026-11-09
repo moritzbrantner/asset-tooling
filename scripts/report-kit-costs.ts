@@ -29,6 +29,7 @@ export const KIT_BUDGETS: Record<string, KitBudget> = {
   "gravestones": { materials: 1, textureMemoryBytes: 13 * MB, downloadBytes: 6 * MB },
   "hair-kit": { materials: 3, textureMemoryBytes: 6 * MB, downloadBytes: 8 * MB },
   "limestone-rocks": { materials: 1, textureMemoryBytes: 13 * MB, downloadBytes: 7 * MB },
+  "monuments": { materials: 1, textureMemoryBytes: 13 * MB, downloadBytes: 8 * MB },
   "outpost-kit": { materials: 14, textureMemoryBytes: 8 * MB, downloadBytes: 3 * MB },
   "river-stones": { materials: 1, textureMemoryBytes: 4 * MB, downloadBytes: 3 * MB },
   "redbrand-kit": { materials: 11, textureMemoryBytes: 17 * MB, downloadBytes: 13 * MB },

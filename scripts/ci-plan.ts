@@ -77,6 +77,13 @@ export const BLENDER_SUITES: BlenderSuite[] = [
     ktx: true,
     lfs: "assets/canonical/poly-haven.rock-face-03-diff-2k-jpg/**,assets/canonical/poly-haven.rock-face-03-disp-2k-jpg/**,assets/canonical/poly-haven.mossy-rock-diff-2k-jpg/**",
   },
+  // The monuments (#550): 28 recipe runs, nine of them Cycles bakes.
+  {
+    suite: "monuments",
+    timeout: 30,
+    ktx: true,
+    lfs: "assets/canonical/poly-haven.rock-face-03-diff-2k-jpg/**,assets/canonical/poly-haven.rock-face-03-disp-2k-jpg/**,assets/canonical/poly-haven.mossy-rock-diff-2k-jpg/**",
+  },
   // The river stones (#538): 34 recipe runs, eleven of them Cycles bakes.
   {
     suite: "river-stones",
