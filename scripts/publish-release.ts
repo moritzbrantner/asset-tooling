@@ -65,6 +65,7 @@ export const ROLLING_RELEASES: RollingRelease[] = [
   // #399: each figure is its own release, so the two build in parallel jobs.
   { name: "humanoid-ranger-female", ...RANGER, args: ["--figure", "female"] },
   { name: "humanoid-ranger-male", ...RANGER, args: ["--figure", "male"] },
+  { name: "ivy", script: "scripts/build-ivy.ts", blender: true, ktx: true },
   { name: "limestone-rocks", script: "scripts/build-limestone-rocks.ts", blender: true, lfs: true, ktx: true },
   { name: "maps-shortbread", script: "scripts/build-maps-shortbread-release.ts" },
   { name: "outpost-kit", script: "scripts/build-outpost-kit.ts", blender: true, ktx: true },
