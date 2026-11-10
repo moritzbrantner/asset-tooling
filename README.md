@@ -20,6 +20,8 @@ The [Greyhaven Outpost building kit](docs/outpost-kit.md) is a scripted Blender 
 
 The [woodland bushes](docs/woodland-bushes.md) are six dark woodland-edge shrubs for the MMORPG, in two shapes each, on one leaf atlas.
 
+The [Greyhaven trees](docs/greyhaven-trees.md) are eight broadleaf trees of Greyhaven's woods, field edges and shores for the MMORPG: a wide oak and a young one, a tall smooth-barked beech and a young one, a slender white birch, a dark shore alder, a dead oak snag and a sapling, on one bark atlas and one leaf atlas, with far LODs and trunk collision.
+
 The [red sandstone building kit](docs/sandstone-kit.md) gives the MMORPG a second architecture beside the plaster-and-timber Outpost: 2 m masonry wall modules with round-arched windows and doorways, a hinged plank door, quoined corners, stepped gables and slate roofs on 6 m and 8 m spans, with six example buildings whose doors stand in long sides or gable ends.
 
 The [Battle Royale fortress kit](docs/fortress-kit.md) is a scripted Blender recipe that dresses every collider box, ramp and lift of the shared Battle Royale fortress (`battle_royale_core::arena`) with textured CC0 stone and timber pieces whose walks and blocking faces match the collision within 5 cm: curtain walls with buttresses, talus and timber hoardings, full-height merlons, a gatehouse with flanking towers and machicolations, corner and central towers with machicolated crowns and pavilion roofs, keep walls, the keep roof with bartizans, bridges, 34° ramps and lift pillars, weathered by vertex colour and moss and streak decals, each with an LOD chain and a composition keyed by body.
