@@ -1,0 +1,11 @@
+{
+  "script": "scripts/build-monuments.ts",
+  "blender": true,
+  "lfs": true,
+  "ktx": true,
+  "budget": {
+    "materials": 1,
+    "textureMemoryMB": 13,
+    "downloadMB": 8
+  }
+}

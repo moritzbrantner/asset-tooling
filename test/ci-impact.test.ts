@@ -1,11 +1,11 @@
 import { expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { delimiter, join, resolve } from "node:path";
 import { BLENDER_SUITES, ciPlan } from "../scripts/ci-plan.ts";
 
-const classify = (rows: string[]) => {
+const classify = (rows: string[], event: Record<string, string> = {}, cwd?: string) => {
   const root = mkdtempSync(join(tmpdir(), "asset-ci-impact-"));
   try {
     writeFileSync(join(root, "paths.tsv"), `${rows.join("\n")}\n`);
@@ -15,6 +15,7 @@ const classify = (rows: string[]) => {
     const output = join(root, "output");
     const result = spawnSync("bash", [resolve("scripts/ci-impact.sh")], {
       encoding: "utf8",
+      cwd,
       env: {
         ...process.env,
         PATH: `${root}${delimiter}${process.env.PATH ?? ""}`,
@@ -24,6 +25,7 @@ const classify = (rows: string[]) => {
         RUNNER_TEMP: root,
         PR_NUMBER: "1",
         PR_CHANGED_FILES: String(rows.length),
+        ...event,
       },
     });
     expect(result.status).toBe(0);
@@ -107,6 +109,68 @@ test("a Blender adapter no test reaches, or the Blender runtime, runs every suit
 
 test("a suite's canonical payload runs that whole suite", () => {
   expect(blenderTests(["assets/canonical/poly-haven.broken-wall-x/a.png"]).fortress).toEqual(["test/blender/fortress"]);
+});
+
+test("every Blender suite directory has its own suite.json", () => {
+  const dirs = readdirSync("test/blender", { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name).sort();
+  expect(BLENDER_SUITES.map(({ suite }) => suite)).toEqual(dirs);
+  expect(BLENDER_SUITES.find(({ suite }) => suite === "fortress")).toMatchObject({ timeout: 60, ktx: true });
+});
+
+test("one kit's own data runs only that kit's tests (#574)", () => {
+  // A suite's suite.json runs that whole suite and no other.
+  expect(blenderTests(["test/blender/moss/suite.json"])).toEqual({ moss: ["test/blender/moss"] });
+  // A release file (its runner needs and cost budget) runs the tests that build that release.
+  expect(blenderTests(["releases/ivy.json"])).toEqual({ kits: ["test/blender/kits/ivy.test.ts"] });
+  expect(blenderTests(["releases/river-stones.json"])).toEqual({ "river-stones": ["test/blender/river-stones"] });
+  const plan = ciPlan(["releases/ivy.json", "test/blender/moss/suite.json"]);
+  expect(plan.os).toEqual(["ubuntu-latest"]);
+  expect(plan["canonical-storage"] || plan["selected-bundle-consumer"] || plan.stability || plan.pages).toBe(false);
+});
+
+test("a release file the tree no longer holds counts as a change to the release loader", () => {
+  expect(blenderTests(["releases/retired-kit.json"])).toEqual(blenderTests(["scripts/release-data.ts"]));
+  expect(Object.keys(blenderTests(["scripts/release-data.ts"]))).toEqual(expect.arrayContaining(["kits", "crag", "moss", "river-stones"]));
+});
+
+test("shared kit code still runs every kit it reaches", () => {
+  const kitBundle = blenderTests(["src/kit-bundle.ts"]);
+  expect(Object.keys(kitBundle).length).toBeGreaterThan(5);
+  expect(blenderTests(["scripts/report-kit-costs.ts"]).kits).toEqual(expect.arrayContaining(["test/blender/kits/ivy.test.ts", "test/blender/kits/sandstone-kit.test.ts"]));
+});
+
+test("a push plans from its own diff, without the pull-request-only jobs", () => {
+  const repo = mkdtempSync(join(tmpdir(), "asset-ci-push-"));
+  try {
+    const git = (...args: string[]) => {
+      const result = spawnSync("git", ["-c", "user.name=ci", "-c", "user.email=ci@example.invalid", ...args], { cwd: repo, encoding: "utf8" });
+      expect(result.status).toBe(0);
+      return result.stdout.trim();
+    };
+    git("init", "-q");
+    mkdirSync(join(repo, "releases"));
+    writeFileSync(join(repo, "releases/ivy.json"), "{}\n");
+    git("add", ".");
+    git("commit", "-qm", "before");
+    const before = git("rev-parse", "HEAD");
+    writeFileSync(join(repo, "releases/ivy.json"), "{\"changed\": true}\n");
+    git("commit", "-qam", "after");
+    const plan = classify([], { GITHUB_EVENT_NAME: "push", BEFORE: before, GITHUB_SHA: git("rev-parse", "HEAD") }, repo);
+    expect(plan.os).toEqual(["ubuntu-latest"]);
+    expect(JSON.parse(plan.blender).include.map(({ tests }: { tests: string }) => tests)).toEqual(["test/blender/kits/ivy.test.ts"]);
+    expect(plan.skipped).toEqual(SCOPED.filter((job) => job !== "blender-script"));
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
+});
+
+test("an unknown push parent, the schedule and a dispatch run everything but the pull-request-only jobs", () => {
+  for (const event of [{ GITHUB_EVENT_NAME: "push", BEFORE: "0".repeat(40), GITHUB_SHA: "f".repeat(40) }, { GITHUB_EVENT_NAME: "schedule" }, { GITHUB_EVENT_NAME: "workflow_dispatch" }]) {
+    const plan = classify([], event);
+    expect(plan.os).toEqual(ALL_OS);
+    expect(JSON.parse(plan.blender).include.map(({ suite }: { suite: string }) => suite)).toEqual(BLENDER_SUITES.map(({ suite }) => suite));
+    expect(plan.skipped).toEqual(["stability-validation", "pages-validation"]);
+  }
 });
 
 for (const key of ["consumers", "processors"]) {

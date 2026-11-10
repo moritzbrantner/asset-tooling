@@ -250,7 +250,7 @@ The limits are the static profile's.
 bun scripts/report-kit-costs.ts --bundle <dir>/bundle [--budget <release>]
 ```
 
-The report is read-only. With `--budget`, it exits 1 when the kit is over its limits in `KIT_BUDGETS`. The material count is the limit that matters most: mmorpg batches scenery per material, so each material is a draw in the main pass, whatever its triangle count. Opaque single-sided batched scenery shares one material in the shadow passes, so there a kit's material count does not add draws. CI refuses to publish a rolling release that is over its `KIT_BUDGETS` limit. Kits packed into atlases have real limits, and the others are held at what they cost on 2026-11-08, so they can only get cheaper; lower a kit's limit when it's packed into an atlas. The target scale is high graphics at 60 FPS on an RTX 3060 Ti.
+The report is read-only. With `--budget`, it exits 1 when the kit is over its limits in `KIT_BUDGETS`, the `budget` of each `releases/<release>.json`. The material count is the limit that matters most: mmorpg batches scenery per material, so each material is a draw in the main pass, whatever its triangle count. Opaque single-sided batched scenery shares one material in the shadow passes, so there a kit's material count does not add draws. CI refuses to publish a rolling release that is over its `KIT_BUDGETS` limit. Kits packed into atlases have real limits, and the others are held at what they cost on 2026-11-08, so they can only get cheaper; lower a kit's limit when it's packed into an atlas. The target scale is high graphics at 60 FPS on an RTX 3060 Ti.
 
 GPU memory is an estimate: a KTX2 texture as a 1-byte-per-texel block format and a PNG or JPEG as RGBA8, each with a full mip chain.
 

@@ -1,0 +1,13 @@
+{
+  "note": "#399: each figure is its own release, so the two build in parallel jobs. The Ranger builds the whole bundle (clips, armour, levels of detail, appearance) in one run, about 1.5 h locally.",
+  "script": "scripts/build-ranger-release.ts",
+  "blender": true,
+  "lfs": true,
+  "processor": "three-d-animation-retarget",
+  "ktx": true,
+  "timeoutMinutes": 240,
+  "args": [
+    "--figure",
+    "male"
+  ]
+}

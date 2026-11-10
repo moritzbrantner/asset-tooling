@@ -1,0 +1,11 @@
+{
+  "script": "scripts/build-climbing-kit.ts",
+  "blender": true,
+  "lfs": true,
+  "ktx": true,
+  "budget": {
+    "materials": 6,
+    "textureMemoryMB": 4,
+    "downloadMB": 5
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "script": "scripts/build-shrine-kit.ts",
+  "blender": true,
+  "ktx": true,
+  "budget": {
+    "materials": 8,
+    "textureMemoryMB": 9,
+    "downloadMB": 7
+  }
+}

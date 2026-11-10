@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       release:
-        description: Rolling release to rebuild and publish (a name in ROLLING_RELEASES, scripts/publish-release.ts)
+        description: Rolling release to rebuild and publish (the name of a releases/<name>.json)
         required: true
         type: string
 

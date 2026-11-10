@@ -1,0 +1,10 @@
+{
+  "script": "scripts/build-settlement-props.ts",
+  "blender": true,
+  "ktx": true,
+  "budget": {
+    "materials": 13,
+    "textureMemoryMB": 4,
+    "downloadMB": 2
+  }
+}

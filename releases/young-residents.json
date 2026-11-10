@@ -1,0 +1,13 @@
+{
+  "note": "#556: children and teenagers on the adults' rig, with face morph targets.",
+  "script": "scripts/build-young-residents.ts",
+  "blender": true,
+  "lfs": true,
+  "ktx": true,
+  "budget": {
+    "note": "#556: skinned figures, not batched scenery: separate skin, hands, hair, brows, eyes, outfit and skirt, as the Ranger family has.",
+    "materials": 7,
+    "textureMemoryMB": 28,
+    "downloadMB": 19
+  }
+}

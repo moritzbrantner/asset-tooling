@@ -1,0 +1,11 @@
+{
+  "script": "scripts/build-river-stones.ts",
+  "blender": true,
+  "lfs": true,
+  "ktx": true,
+  "budget": {
+    "materials": 1,
+    "textureMemoryMB": 4,
+    "downloadMB": 3
+  }
+}
