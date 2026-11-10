@@ -13,6 +13,7 @@ import {
   LIMESTONE_DESCRIPTOR_ATTACHMENT, LIMESTONE_LOD_DISTANCES, LIMESTONE_MATERIAL, LIMESTONE_PARTS, LIMESTONE_RELEASE, buildLimestoneRocks, createLimestoneSpec, limestoneKey,
 } from "../../../scripts/build-limestone-rocks.ts";
 import { KIT_BUDGETS, kitBudgetViolations, kitCost } from "../../../scripts/report-kit-costs.ts";
+import { SURFACE_MASK_ATTRIBUTE, takeRockSurface } from "../../../scripts/baked-rock-kit.ts";
 
 /** The signed volume enclosed by a document's triangles, in cubic metres. */
 function enclosedVolume(document: Document): number {
@@ -36,6 +37,14 @@ test("the limestone spec runs the packaged recipe for exactly one piece", () => 
   assert.deepEqual(spec.parameters, { blenderVersion: "5.2.2", arguments: { schemaVersion: 1, part: "ledge" } });
   assert.equal(spec.assetId, "limestone-rocks.kit.ledge");
   assert.equal(LIMESTONE_RELEASE, "limestone-rocks", "one rolling release, never numbered");
+});
+
+test("--surface picks the baked or layered build and defaults to baked", () => {
+  const argv = ["bun", "build", "--surface", "layered", "--out", "x"];
+  assert.equal(takeRockSurface(argv), "layered");
+  assert.deepEqual(argv, ["bun", "build", "--out", "x"]);
+  assert.equal(takeRockSurface(argv), "baked");
+  assert.throws(() => takeRockSurface(["--surface", "painted"]), /--surface must be one of baked, layered/);
 });
 
 test("the recipe builds a verified kit on one atlas within its limits", {
@@ -92,6 +101,24 @@ test("the recipe builds a verified kit on one atlas within its limits", {
       }
       assert.ok(faces.length <= 240, `${entry.role}: ${faces.length} collision triangles`);
       assert.ok(signed > enclosed * 0.5 && signed < enclosed * 1.3, `${entry.role}: collision encloses ${signed.toFixed(1)} m³ of the rock's ${enclosed.toFixed(1)} m³`);
+    }
+
+    // The --surface layered trial (#567): the same pieces, no per-piece maps, masks per vertex and one shared library.
+    const bakedCost = cost;
+    const layered = await buildLimestoneRocks({ outDir, surface: "layered" });
+    assert.ok(layered.tar.endsWith("limestone-rocks-layered.kit.tar"));
+    const layeredManifest = (await verifyAssetBundle(layered.bundleDir, layered.exportRef, { profile: GLTF_RESOURCES_BUNDLE_PROFILE })).manifest;
+    const library = layered.descriptor.surface!.library.key;
+    assert.deepEqual(layeredManifest.assets.map((entry) => `${entry.key}#${entry.variant}`).sort(),
+      [...LIMESTONE_PARTS.flatMap((part) => ["default", "lod1", "lod2"].map((variant) => `${limestoneKey(part)}#${variant}`)), `${library}#default`].sort());
+    const layeredCost = await kitCost(layered.bundleDir);
+    assert.deepEqual(layeredCost.materials, ["limestone-rock-layered", "surface.limestone", "surface.moss", "surface.soil"]);
+    assert.ok(layeredCost.textureMemoryBytes < bakedCost.textureMemoryBytes / 2, `the shared library takes ${layeredCost.textureMemoryBytes} bytes`);
+    assert.deepEqual(Object.keys(layered.descriptor.surface!.weathering), ["light", "medium", "heavy"]);
+    for (const part of LIMESTONE_PARTS) for (const mesh of layered.documents[part].getRoot().listMeshes()) for (const primitive of mesh.listPrimitives()) {
+      assert.ok(primitive.getAttribute(SURFACE_MASK_ATTRIBUTE) && primitive.getAttribute("COLOR_0"), `${part} carries its masks`);
+      assert.equal(primitive.getAttribute("TEXCOORD_0"), null, `${part} needs no UVs`);
+      assert.equal(primitive.getMaterial()!.getBaseColorTexture(), null, `${part} has no texture of its own`);
     }
   } finally {
     await rm(outDir, { recursive: true, force: true });

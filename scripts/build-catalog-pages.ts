@@ -10,6 +10,7 @@ import { renderBrowser3DStudioHtml } from "../src/browser-pages-site.js";
 import { renderAnimationViewerHtml, renderRangerComparisonHtml } from "../src/animation-viewer-page.js";
 import { writeRangerComparisonData } from "../src/ranger-comparison.js";
 import { renderYoungResidentsHtml, writeYoungResidentsData } from "../src/young-residents-page.js";
+import { writeSurfaceTrialPage } from "../src/surface-trial-page.js";
 import { attachGeneratedGalleryPreviews, extendCatalogGalleryModel } from "../src/generated-gallery-assets.js";
 
 const root = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
@@ -156,8 +157,15 @@ if (!youngBuild.success) {
   throw new Error("young residents bundle failed:\n" + youngBuild.logs.map((entry) => entry.message).join("\n"));
 }
 
+// Limestone surface trial (#567): baked versus layered rocks. Without both tars the page shows the committed results.
+const surfaceTrial = await writeSurfaceTrialPage({
+  repositoryRoot: root, outDir: path.join(outputRoot, "compare", "limestone-surface"),
+  bakedTar: process.env.ASSET_TOOLING_LIMESTONE_BAKED_TAR || undefined, layeredTar: process.env.ASSET_TOOLING_LIMESTONE_LAYERED_TAR || undefined,
+});
+
 console.log(JSON.stringify({
   status: "built",
+  limestoneSurfaceTrial: surfaceTrial.status === "built" ? "built" : `results only: ${surfaceTrial.reason}`,
   rangerComparison: comparison.status === "built" ? "built" : `unavailable: ${comparison.reason}`,
   youngResidents: young.status === "built" ? "built" : `unavailable: ${young.reason}`,
   assets: galleryModel.assets.length,
