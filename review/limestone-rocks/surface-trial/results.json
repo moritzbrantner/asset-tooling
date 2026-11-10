@@ -1,0 +1,147 @@
+{
+  "schema": "limestone-surface-trial-results-v1",
+  "machine": {
+    "renderer": "ANGLE (NVIDIA, Vulkan 1.4.329 (NVIDIA NVIDIA GeForce RTX 3060 Ti (0x00002489)), NVIDIA)",
+    "browser": "Chromium 158.0.8127.18 (Playwright, headless)",
+    "viewport": "1920 x 1080, antialias, pixel ratio 1",
+    "note": "Frame time is the median of 5 runs of 240 frames rendered back to back and waited for (readPixels), so no vsync. 258 rock instances, no shadows. Texture GPU memory counts the transcoded mip chains this browser uploaded; the layered row is the shared library, which every layered kit reuses."
+  },
+  "kits": {
+    "baked": {
+      "release tar (MB)": 7.06,
+      "texture files (MB)": 4.52,
+      "geometry files (MB)": 2.38,
+      "texture GPU memory (MB)": 12,
+      "textures": 3,
+      "kit materials": 1
+    },
+    "layered": {
+      "release tar (MB)": 2.83,
+      "texture files (MB)": 1.7,
+      "geometry files (MB)": 1.01,
+      "texture GPU memory (MB)": 5.33,
+      "textures": 4,
+      "kit materials": 1
+    }
+  },
+  "frames": [
+    {
+      "mode": "baked",
+      "view": "game",
+      "msPerFrame": 0.315,
+      "drawCalls": 25,
+      "triangles": 159854
+    },
+    {
+      "mode": "light",
+      "view": "game",
+      "msPerFrame": 0.255,
+      "drawCalls": 25,
+      "triangles": 159854
+    },
+    {
+      "mode": "medium",
+      "view": "game",
+      "msPerFrame": 0.24,
+      "drawCalls": 25,
+      "triangles": 159854
+    },
+    {
+      "mode": "heavy",
+      "view": "game",
+      "msPerFrame": 0.239,
+      "drawCalls": 25,
+      "triangles": 159854
+    },
+    {
+      "mode": "baked",
+      "view": "mid",
+      "msPerFrame": 0.25,
+      "drawCalls": 25,
+      "triangles": 141702
+    },
+    {
+      "mode": "light",
+      "view": "mid",
+      "msPerFrame": 0.177,
+      "drawCalls": 25,
+      "triangles": 141702
+    },
+    {
+      "mode": "medium",
+      "view": "mid",
+      "msPerFrame": 0.173,
+      "drawCalls": 25,
+      "triangles": 141702
+    },
+    {
+      "mode": "heavy",
+      "view": "mid",
+      "msPerFrame": 0.172,
+      "drawCalls": 25,
+      "triangles": 141702
+    },
+    {
+      "mode": "baked",
+      "view": "overview",
+      "msPerFrame": 0.2,
+      "drawCalls": 17,
+      "triangles": 100077
+    },
+    {
+      "mode": "light",
+      "view": "overview",
+      "msPerFrame": 0.143,
+      "drawCalls": 17,
+      "triangles": 100077
+    },
+    {
+      "mode": "medium",
+      "view": "overview",
+      "msPerFrame": 0.143,
+      "drawCalls": 17,
+      "triangles": 100077
+    },
+    {
+      "mode": "heavy",
+      "view": "overview",
+      "msPerFrame": 0.143,
+      "drawCalls": 17,
+      "triangles": 100077
+    }
+  ],
+  "images": [
+    {
+      "file": "game-baked.jpg",
+      "caption": "Game camera (12 m, 0.42 rad, 50°) · baked"
+    },
+    {
+      "file": "game-light.jpg",
+      "caption": "Game camera (12 m, 0.42 rad, 50°) · layered, light weathering"
+    },
+    {
+      "file": "game-medium.jpg",
+      "caption": "Game camera (12 m, 0.42 rad, 50°) · layered, medium weathering"
+    },
+    {
+      "file": "game-heavy.jpg",
+      "caption": "Game camera (12 m, 0.42 rad, 50°) · layered, heavy weathering"
+    },
+    {
+      "file": "mid-baked.jpg",
+      "caption": "30 m camera · baked"
+    },
+    {
+      "file": "mid-light.jpg",
+      "caption": "30 m camera · layered, light weathering"
+    },
+    {
+      "file": "mid-medium.jpg",
+      "caption": "30 m camera · layered, medium weathering"
+    },
+    {
+      "file": "mid-heavy.jpg",
+      "caption": "30 m camera · layered, heavy weathering"
+    }
+  ]
+}
