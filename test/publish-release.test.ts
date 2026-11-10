@@ -69,6 +69,8 @@ describe("publish-release", () => {
     expect(plan(["adapters/blender/hit_clips.py"]).map((entry) => entry.release)).toEqual(["hair-kit", "humanoid-ranger-female", "humanoid-ranger-male", "redbrand-kit"]);
     expect(plan(["docs/outpost-kit.md", "README.md", "consumers.json", ".github/workflows/publish-releases.yml"])).toEqual([]);
     expect(plan("all")).toHaveLength(ROLLING_RELEASES.length);
+    // #574: each release's own data file (scripts/release-data.ts) rebuilds only that release.
+    expect(plan(["releases/ivy.json"]).map((entry) => entry.release)).toEqual(["ivy"]);
   });
 
   test("uploads every top-level build file with export.ref.json last", async () => {

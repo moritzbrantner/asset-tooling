@@ -67,7 +67,7 @@ Walk-through pieces such as grass and flowers declare that they have none. Leave
 
 ### Cost limits
 
-Add an entry to `KIT_BUDGETS` in `scripts/report-kit-costs.ts`, set just above the measured cost. CI refuses to publish a kit over its limit. Check with:
+Give the kit's `releases/<release>.json` a `budget` (`materials`, `textureMemoryMB`, `downloadMB`), set just above the measured cost. `KIT_BUDGETS` in `scripts/report-kit-costs.ts` reads it, and CI refuses to publish a kit over its limit. Check with:
 
 ```sh
 bun scripts/report-kit-costs.ts --bundle <dir>/bundle --budget <release>
@@ -94,8 +94,8 @@ Generated surfaces should follow how the real thing is made. Weird proportions a
 ## Wiring it in
 
 1. **Build script:** `scripts/build-<kit>.ts` using `src/kit-bundle.ts` and `runKitCli`.
-2. **Release:** add it to `ROLLING_RELEASES` in `scripts/publish-release.ts`, in alphabetical order, with the `blender`, `lfs` and `ktx` flags it needs.
-3. **Test:** under `test/blender/kits`, building the kit and checking the bundle, grid, openings, collision, LODs and cost limit. A slow kit, or one needing canonical LFS payloads, gets its own suite in `scripts/ci-plan.ts`.
+2. **Release:** add `releases/<release>.json` with its `script` and the `blender`, `lfs` and `ktx` flags it needs, plus its `budget`. Don't edit `scripts/publish-release.ts` or `scripts/report-kit-costs.ts`: they read every file there, and CI then plans only this kit's tests and release (#574).
+3. **Test:** under `test/blender/kits`, building the kit and checking the bundle, grid, openings, collision, LODs and cost limit. A slow kit, or one needing canonical LFS payloads, gets its own suite: a `test/blender/<suite>/` directory with a `suite.json` naming its `lfs` globs, `timeout` in minutes and `ktx`. Don't edit `scripts/ci-plan.ts`; a change there reruns every suite.
 4. **Docs:** `docs/<kit>.md` and one README line, covering what it contains, its frames, and how to edit it.
 5. **Review images:** a game-camera render, one close-up and an overview, as small JPEGs in `review/<kit>/`, shown in the PR. Use the 12 m, 0.42 rad pitch, 50° FOV Greyhaven camera for mmorpg kits. A passing test doesn't prove good-looking art.
 
@@ -108,7 +108,7 @@ Run the kit's test and `bun run check` before opening the PR. CI publishes the r
 - [ ] All textures KTX2, with an atlas
 - [ ] LODs where they save at least half
 - [ ] Collision on every solid piece, or declared absent
-- [ ] A `KIT_BUDGETS` entry
+- [ ] A `budget` in its `releases/<release>.json`
 - [ ] Built twice with identical tars
 - [ ] Docs and review images in the PR
 - [ ] No consumer repository changed

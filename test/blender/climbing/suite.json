@@ -1,0 +1,8 @@
+{
+  "note": "The climbing kit's 45 recipe runs (15 parts x 3 levels).",
+  "timeout": 30,
+  "ktx": true,
+  "lfs": [
+    "assets/canonical/quaternius.medieval-village-megakit-standard.t-vineleaf-png-png/**"
+  ]
+}

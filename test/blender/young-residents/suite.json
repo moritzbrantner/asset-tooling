@@ -1,0 +1,9 @@
+{
+  "note": "The young residents (#556): four figure runs, from the catalogued Quaternius outfit, heads and hair.",
+  "timeout": 20,
+  "ktx": true,
+  "lfs": [
+    "assets/canonical/quaternius.universal-base-characters-standard.*/**",
+    "assets/canonical/quaternius.modular-character-outfits-fantasy-standard.*/**"
+  ]
+}

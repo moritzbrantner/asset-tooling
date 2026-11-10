@@ -1,0 +1,12 @@
+{
+  "script": "scripts/build-limestone-caves.ts",
+  "blender": true,
+  "lfs": true,
+  "ktx": true,
+  "budget": {
+    "note": "Walls and floors are two tiling materials, because the surface area is too large for one baked atlas.",
+    "materials": 2,
+    "textureMemoryMB": 6,
+    "downloadMB": 8
+  }
+}

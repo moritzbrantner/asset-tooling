@@ -1,0 +1,4 @@
+{
+  "script": "scripts/build-farm-structures.ts",
+  "blender": true
+}

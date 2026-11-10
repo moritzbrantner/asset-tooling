@@ -1,0 +1,10 @@
+{
+  "script": "scripts/build-ivy.ts",
+  "blender": true,
+  "ktx": true,
+  "budget": {
+    "materials": 2,
+    "textureMemoryMB": 2,
+    "downloadMB": 2
+  }
+}

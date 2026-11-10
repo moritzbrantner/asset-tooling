@@ -1,0 +1,10 @@
+{
+  "script": "scripts/build-spike-traps.ts",
+  "blender": true,
+  "ktx": true,
+  "budget": {
+    "materials": 1,
+    "textureMemoryMB": 17,
+    "downloadMB": 3
+  }
+}

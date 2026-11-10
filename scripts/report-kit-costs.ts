@@ -2,48 +2,28 @@
 // and triangles. A kit's material count matters most: batched scenery draws once per material in the main pass, so each
 // extra material is an extra draw there (docs/asset-bundles.md#kit-costs).
 //   bun scripts/report-kit-costs.ts --bundle <dir> [--budget <release>]
-// Read-only. With --budget it exits 1 when the kit is over KIT_BUDGETS[release]. Kits without a budget are only reported.
+// Read-only. With --budget it exits 1 when the kit is over KIT_BUDGETS[release], the `budget` in releases/<release>.json.
+// Kits without a budget are only reported.
 import path from "node:path";
 import { readFile, stat } from "node:fs/promises";
 import { ImageUtils } from "@gltf-transform/core";
 import { ktx2Size } from "./pack-downloads.ts";
+import { readReleaseData } from "./release-data.ts";
 
 export const KIT_COST_SCHEMA = "kit-cost-report-v1";
 
 export type KitBudget = { materials: number; textureMemoryBytes: number; downloadBytes: number };
 const MB = 1024 * 1024;
 /**
- * Limits per rolling release, checked when a release is published. Kits packed into atlases have their real limits; the
- * others are held at what they cost when these limits were set (2026-11-08), so they can only get cheaper.
+ * Limits per rolling release, checked when a release is published: the `budget` in its releases/<release>.json
+ * (scripts/release-data.ts). Kits packed into atlases have their real limits; the others are held at what they cost
+ * when these limits were set (2026-11-08), so they can only get cheaper.
  */
-export const KIT_BUDGETS: Record<string, KitBudget> = {
-  "sandstone-kit": { materials: 1, textureMemoryBytes: 16 * MB, downloadBytes: 3 * MB },
-  // crag-rock, the macro texture's quad and outcrop-rock.
-  "crag-kit": { materials: 3, textureMemoryBytes: 56 * MB, downloadBytes: 24 * MB },
-  "climbing-kit": { materials: 6, textureMemoryBytes: 4 * MB, downloadBytes: 5 * MB },
-  "fortress-kit": { materials: 12, textureMemoryBytes: 18 * MB, downloadBytes: 15 * MB },
-  "greyhaven-ambient-animals": { materials: 9, textureMemoryBytes: 1 * MB, downloadBytes: 2 * MB },
-  "greyhaven-marshal-house": { materials: 16, textureMemoryBytes: 5 * MB, downloadBytes: 3 * MB },
-  "greyhaven-nature": { materials: 8, textureMemoryBytes: 19 * MB, downloadBytes: 10 * MB },
-  "greyhaven-terrain": { materials: 7, textureMemoryBytes: 23 * MB, downloadBytes: 20 * MB },
-  "gravestones": { materials: 1, textureMemoryBytes: 13 * MB, downloadBytes: 6 * MB },
-  "hair-kit": { materials: 3, textureMemoryBytes: 6 * MB, downloadBytes: 8 * MB },
-  "ivy": { materials: 2, textureMemoryBytes: 2 * MB, downloadBytes: 2 * MB },
-  // Walls and floors are two tiling materials, because the surface area is too large for one baked atlas.
-  "limestone-caves": { materials: 2, textureMemoryBytes: 6 * MB, downloadBytes: 8 * MB },
-  "limestone-rocks": { materials: 1, textureMemoryBytes: 13 * MB, downloadBytes: 7 * MB },
-  "monuments": { materials: 1, textureMemoryBytes: 13 * MB, downloadBytes: 8 * MB },
-  "moss": { materials: 1, textureMemoryBytes: 3 * MB, downloadBytes: 3 * MB },
-  "outpost-kit": { materials: 14, textureMemoryBytes: 8 * MB, downloadBytes: 3 * MB },
-  "river-stones": { materials: 1, textureMemoryBytes: 4 * MB, downloadBytes: 3 * MB },
-  "redbrand-kit": { materials: 11, textureMemoryBytes: 17 * MB, downloadBytes: 13 * MB },
-  "settlement-props": { materials: 13, textureMemoryBytes: 4 * MB, downloadBytes: 2 * MB },
-  "shrine-kit": { materials: 8, textureMemoryBytes: 9 * MB, downloadBytes: 7 * MB },
-  "spike-traps": { materials: 1, textureMemoryBytes: 17 * MB, downloadBytes: 3 * MB },
-  "woodland-bushes": { materials: 2, textureMemoryBytes: 2 * MB, downloadBytes: 2 * MB },
-  // #556: skinned figures, not batched scenery: separate skin, hands, hair, brows, eyes, outfit and skirt, as the Ranger family has.
-  "young-residents": { materials: 7, textureMemoryBytes: 28 * MB, downloadBytes: 19 * MB },
-};
+export const KIT_BUDGETS: Record<string, KitBudget> = Object.fromEntries(
+  readReleaseData(path.resolve(import.meta.dir, "..")).flatMap(([name, { budget }]) => budget
+    ? [[name, { materials: budget.materials, textureMemoryBytes: budget.textureMemoryMB * MB, downloadBytes: budget.downloadMB * MB }]]
+    : []),
+);
 
 export type KitEntryCost = { key: string; variant: string; materials: number; drawCalls: number; triangles: number };
 export type KitCost = {

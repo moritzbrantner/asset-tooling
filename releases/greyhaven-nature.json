@@ -1,0 +1,11 @@
+{
+  "script": "scripts/build-greyhaven-nature.ts",
+  "blender": true,
+  "lfs": true,
+  "ktx": true,
+  "budget": {
+    "materials": 8,
+    "textureMemoryMB": 19,
+    "downloadMB": 10
+  }
+}

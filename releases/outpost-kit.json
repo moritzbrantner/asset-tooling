@@ -1,0 +1,10 @@
+{
+  "script": "scripts/build-outpost-kit.ts",
+  "blender": true,
+  "ktx": true,
+  "budget": {
+    "materials": 14,
+    "textureMemoryMB": 8,
+    "downloadMB": 3
+  }
+}

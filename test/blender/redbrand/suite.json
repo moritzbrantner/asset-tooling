@@ -1,0 +1,10 @@
+{
+  "note": "The Redbrand faction kit (#517): the authored garments on the male Ranger figure, built twice for the same tar.",
+  "timeout": 30,
+  "ktx": true,
+  "lfs": [
+    "assets/authored/redbrand-kit.blend",
+    "assets/canonical/quaternius.universal-base-characters-standard.*/**",
+    "assets/canonical/quaternius.modular-character-outfits-fantasy-standard.*/**"
+  ]
+}

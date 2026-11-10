@@ -16,7 +16,7 @@ ASSET_TOOLING_BLENDER=<blender 5.2.2> bun scripts/build-crag-kit.ts --out <direc
 git lfs pull --include="assets/canonical/poly-haven.rock-face-03-*/**,assets/canonical/poly-haven.rock-boulder-dry-diff-2k-jpg/**,assets/canonical/poly-haven.mossy-rock-diff-2k-jpg/**"
 ```
 
-Snap Blender reads and writes only under `$HOME`, so set `TMPDIR` there. CI publishes the release when a change to its sources merges (`ROLLING_RELEASES` in [`scripts/publish-release.ts`](../scripts/publish-release.ts)); `gh workflow run publish-releases.yml -f release=crag-kit` republishes it.
+Snap Blender reads and writes only under `$HOME`, so set `TMPDIR` there. CI publishes the release when a change to its sources merges ([`releases/crag-kit.json`](../releases/crag-kit.json), read by [`scripts/publish-release.ts`](../scripts/publish-release.ts)); `gh workflow run publish-releases.yml -f release=crag-kit` republishes it.
 
 `crag.build(part, lod, collection, inputs)` also runs in a live Blender session once `crag.use_common(runpy.run_path("adapters/blender/kit_common.py"))` has bound the shared helpers; `inputs` maps `diff`, `normal`, `arm`, `boulder` and `moss` to the scans' paths.
 
