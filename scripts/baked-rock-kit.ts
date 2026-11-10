@@ -64,7 +64,7 @@ export async function withLightingAttributes(document: Document) {
       }
       tangent.setElement(i, [t[0]! / length, t[1]! / length, t[2]! / length, t[3]! < 0 ? -1 : 1]);
     }
-    primitive.setAttribute("COLOR_0", document.createAccessor().setType("VEC4").setArray(new Uint8Array(position.getCount() * 4).fill(255)).setNormalized(true).setBuffer(position.getBuffer()));
+    if (!primitive.getAttribute("COLOR_0")) primitive.setAttribute("COLOR_0", document.createAccessor().setType("VEC4").setArray(new Uint8Array(position.getCount() * 4).fill(255)).setNormalized(true).setBuffer(position.getBuffer()));
   }
 }
 
