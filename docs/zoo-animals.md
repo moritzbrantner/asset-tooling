@@ -1,10 +1,10 @@
 # Expressive Zoo animals
 
-This is the recipe for Zoo's finished cartoon animals ([#589](https://github.com/moritzbrantner/asset-tooling/issues/589), consumer [zoo#112](https://github.com/moenarch-games/zoo/issues/112) and [zoo#142](https://github.com/moenarch-games/zoo/issues/142)). The first animal is the **zebra**. It replaces Zoo's deprecated generator output, which has a block body, a bear-like head and a walk that splays its legs sideways ([quadruped-rigid.md](quadruped-rigid.md#what-the-viewer-shows)).
+This is the recipe for Zoo's finished cartoon animals ([#589](https://github.com/moritzbrantner/asset-tooling/issues/589), consumer [zoo#112](https://github.com/moenarch-games/zoo/issues/112) and [zoo#142](https://github.com/moenarch-games/zoo/issues/142)). The animals are the **zebra** and the **giraffe**. They replace Zoo's deprecated generator output, whose zebra has a block body, a bear-like head and a walk that splays its legs sideways ([quadruped-rigid.md](quadruped-rigid.md#what-the-viewer-shows)).
 
 - **Source:** [`adapters/blender/zoo_animals.py`](../adapters/blender/zoo_animals.py), an original scripted Blender recipe in this repository. It has no imported meshes, no third-party assets, no textures and no randomness. Zoo's generator is not ported.
 - **Rig:** the shared [`quadruped-rigid`](quadruped-rigid.md) profile. Named transform nodes pivot at their joints and rigid parts hang under them, with no skin.
-- **Release:** the existing rolling `zoo-animals` release, as the variant `expressive` of the key `zoo.animal.zebra`. Zoo's own zebra and giraffe stay unchanged as the `default` variant, so a consumer of `zoo.animal.zebra/default` sees the same model.
+- **Release:** the existing rolling `zoo-animals` release, as the variant `expressive` of the keys `zoo.animal.zebra` and `zoo.animal.giraffe`. Zoo's own zebra and giraffe stay unchanged as the `default` variant, so a consumer of a `default` member sees the same model.
 
 ## Build
 
@@ -15,7 +15,7 @@ ASSET_TOOLING_BLENDER=<blender 5.2.2> bun scripts/build-zoo-animals.ts --out .ar
 
 [`scripts/build-zoo-animals.ts`](../scripts/build-zoo-animals.ts) runs the recipe once per expressive animal through `external.blender.script@1`. It then packages every member through the shared profile path (`packageQuadrupedRigidFamily`): profile check, `scene.import.gltf@2`, profile check, `gltf-resources-v1` bundle, profile check. The build takes a few seconds, and a rebuild packs the same tar bytes. Snap Blender needs `TMPDIR` under `$HOME`.
 
-`zoo_animals.build(species, collection)` also runs in a live Blender session, for example through the Blender MCP, to shape the animal. The proportions, pivots and stripe planes are tables and short functions at the top of each species builder; the clips are the `pose_*` functions.
+`zoo_animals.build(species, collection)` also runs in a live Blender session, for example through the Blender MCP, to shape the animal. The proportions, pivots and stripe planes are tables and short functions at the top of each species builder; the clips are the `pose_*` (zebra) and `giraffe_*` functions, listed per species in `POSES`.
 
 ## The zebra
 
@@ -50,11 +50,31 @@ Every clip loops, stays in place and keys the same channels: the rotation, trans
 | `idle` | 4.0 | Breathing, a slow look around, one flick of each ear, a blink and a tail swish |
 | `walk` | 1.2 | A four-beat lateral-sequence walk (hind left, front left, hind right, front right). Each leg swings ±17° about the animal's side axis, so the hooves travel forwards and backwards, and the knees fold in the swing phase. The head nods twice per stride. |
 | `feed` | 3.0 | Neck and head down to the grass, nibbling, front legs a little forward, ears and tail still moving |
-| `rest` | 5.0 | Lying down with the legs folded under the body, eyes closed, slow breathing and an ear flick |
+| `rest` | 5.0 | Lying on folded legs: each knee rests on the grass and the lower leg lies back along the ground, spread a little so the legs show beside the body. Eyes closed, slow breathing and an ear flick |
 
 `walk` plays at 1× for a pace of about 0.6 m/s at full size; a consumer that scales the animal down scales the pace with it and may speed the clip up. Measured over every clip, nothing sinks below 1.1 mm under the ground plane and the root does not travel.
 
 **Mapping to Zoo activities:** Zoo's core owns activity. For its current `AnimalActivity` (`apps/web/src/game-types.ts`), play `walk` for `walking` and `rest` for `resting`. Play `feed` once Zoo reports feeding, and `idle` otherwise. A cross-fade of about 0.4 s hides the change between standing and lying. These names are new clips; the existing `idle` and `walk` keep their meaning, so no consumer migration is needed.
+
+## The giraffe
+
+The second animal ([#596](https://github.com/moritzbrantner/asset-tooling/issues/596)) uses the zebra's joints, clip names and checks, with its own proportions and clips.
+
+| Key / variant | Size (L × H × W, m) | Triangles | Parts | Materials |
+| --- | --- | --- | --- | --- |
+| `zoo.animal.giraffe` / `expressive` | 2.29 × 3.56 × 0.72 | 5,130 | 16 | 1 |
+
+- **Look:** a short, deep body whose back slopes down from the withers to the rump, long cream lower legs with dark hooves, a long tapering neck with a short dark mane, and a big round head with a cream muzzle, two ossicones with dark tips, sideways ears and large eyes with lids. The reticulated coat is cream lines cut across the tan in three directions on the body, neck and upper legs, leaving large polygon patches, with a cream belly.
+- **Clips:**
+
+| Clip | Seconds | What it shows |
+| --- | --- | --- |
+| `idle` | 5.0 | A slow neck sway, a curious head turn and tilt, ear flicks, a blink and a tail swish |
+| `walk` | 1.6 | A near-pacing walk: each front leg follows the hind leg on its own side closely (hind left, front left, hind right, front right). The legs swing about the side axis only, the body rolls towards the planted side and the neck pumps with each stride, for about 0.55 m/s at full size. |
+| `feed` | 3.0 | Browsing high: the neck reaches up and forwards, the head tilts up and nibbles, eyes half closed |
+| `rest` | 6.0 | Lying on folded legs like the zebra (`fold_legs`), the neck upright and the head lowered a little, eyes nearly closed, slow breathing |
+
+The Zoo activity mapping is the zebra's.
 
 ## Conventions
 
@@ -70,7 +90,7 @@ These are the conventions of the existing `zoo-animals` members: metres, +Y up, 
 `test/blender/zoo-animals/zoo-animals.test.ts` (its own Blender suite, with the two canonical sources hydrated) builds the release twice and checks:
 
 - the old members are unchanged;
-- the zebra has the joints and clips above, one material, a real palette in `COLOR_0` and no textures;
+- each expressive animal has the joints and clips above, one material, a real palette in `COLOR_0` with its coat colour, no textures, and its own height, length and triangle budget;
 - every clip keys the same channels;
 - no clip sinks or travels;
 - the rest pose lies on the ground;
@@ -83,13 +103,14 @@ These are the conventions of the existing `zoo-animals` members: metres, +Y up, 
 
 ```sh
 ASSET_TOOLING_BLENDER=<blender 5.2.2> bun scripts/review-zoo-animals.ts --bundle .artifacts/zoo-animals/bundle --key zoo.animal.zebra --out .artifacts/zoo-review
+ASSET_TOOLING_BLENDER=<blender 5.2.2> bun scripts/review-zoo-animals.ts --bundle .artifacts/zoo-animals/bundle --key zoo.animal.giraffe --compare zoo.animal.giraffe/default --out .artifacts/zoo-review-giraffe
 ```
 
-The images from the 2026-11-11 build are in [`review/zoo-animals/`](../review/zoo-animals/):
+The zebra images from the 2026-11-11 build are in [`review/zoo-animals/`](../review/zoo-animals/), and the giraffe's, beside Zoo's current giraffe, in [`review/zoo-animals/giraffe/`](../review/zoo-animals/giraffe/):
 
-- `park.jpg` and `watch.jpg`: an enclosure with the expressive zebra idling, walking, feeding and resting, beside Zoo's current zebra, at a park distance (22 m) and a close animal-watch distance (6.5 m);
+- `park.jpg` and `watch.jpg`: an enclosure with the expressive animal idling, walking, feeding and resting, beside Zoo's current one, at a park distance (22 m) and a close animal-watch distance (6.5 m);
 - `orbit-front.jpg` and `orbit-back.jpg`: two more orbit angles;
-- `compare.jpg`: the current and expressive zebra side by side;
+- `compare.jpg`: the current and expressive animal side by side;
 - `strip-idle.jpg`, `strip-walk.jpg`, `strip-feed.jpg` and `strip-rest.jpg`: the initial and intermediate poses of each clip (four phases, or every second of the walk's 12), from the side;
 - `walk.gif`: the walk loop from the watch camera.
 
@@ -97,7 +118,7 @@ They are evidence for the owner's review. Visual approval stays with the owner a
 
 ## Not covered here
 
-- **The Pages animation viewer** plays catalog sources only (`viewer/?asset=<catalog id>`). The expressive zebra is a generated release member, not a catalog source, so the review images come from the bundle as described above. Loading release-bundle members in the viewer is a separate viewer change.
-- **Zoo adoption:** loading `zoo.animal.zebra/expressive`, binding Rust activities to the clips, and desktop and phone acceptance belong to zoo#112 and zoo#142.
+- **The Pages animation viewer** plays catalog sources only (`viewer/?asset=<catalog id>`). The expressive animals are generated release members, not a catalog source, so the review images come from the bundle as described above. Loading release-bundle members in the viewer is a separate viewer change.
+- **Zoo adoption:** loading the `expressive` members, binding Rust activities to the clips, and desktop and phone acceptance belong to zoo#112 and zoo#142.
 - **More species:** the tiger ([#590](https://github.com/moritzbrantner/asset-tooling/issues/590)) reuses this recipe's builder, rig and clips as its own species.
 - **Licence:** the expressive animals ship under the family's MIT notice (`Copyright (c) 2026 moritzbrantner`), the same owner and terms as Zoo's models. The owner should confirm this on #589.

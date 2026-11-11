@@ -37,7 +37,7 @@ import bmesh
 import bpy
 from mathutils import Euler, Matrix, Quaternion, Vector
 
-SPECIES = ("zebra",)
+SPECIES = ("zebra", "giraffe")
 FPS = 30
 KEY_STEP = 2  # frames between keys; every key is linear
 SHARP_ANGLE = math.radians(50)
@@ -53,6 +53,9 @@ PALETTE = {
     "hoof": (0.2, 0.19, 0.19),
     "eye-white": (1.0, 1.0, 1.0),
     "eye-pupil": (0.05, 0.05, 0.07),
+    "giraffe-tan": (0.82, 0.52, 0.22),
+    "giraffe-cream": (0.97, 0.9, 0.74),
+    "giraffe-dark": (0.33, 0.2, 0.12),
 }
 
 
@@ -313,7 +316,121 @@ def build_zebra(collection):
     return root
 
 
-BUILDERS = {"zebra": build_zebra}
+# ---------------------------------------------------------------- giraffe
+
+GIRAFFE = {
+    "body": (0.0, 0.0, 1.72), "neck": (0.52, 0.0, 1.98), "tail": (-0.7, 0.0, 1.78),
+    # the withers stand higher than the rump, so the back slopes down to the tail
+    "hips": {"leg_0": (-0.46, -0.17, 1.6), "leg_1": (-0.46, 0.17, 1.6), "leg_2": (0.44, -0.17, 1.78), "leg_3": (0.44, 0.17, 1.78)},
+    "upper": {"front": 0.8, "hind": 0.72},
+    "neck_dir": (0.36, 0, 1), "neck_length": 1.2,
+}
+
+
+def giraffe_net(part, origin, spacing, width, base="giraffe-tan"):
+    """The reticulated coat: cream lines cut across the tan in three directions, leaving rounded polygon patches."""
+    o = Vector(origin)
+    slabs = []
+    for normal, offset in (((1, 0, 0.62), 0.0), ((1, 0, -0.62), 0.5), ((0.12, 0, 1), 0.25)):
+        n = Vector(normal).normalized()
+        for k in range(-6, 7):
+            slabs.append((o + n * spacing * (k + offset), n, width))
+    part.paint(base, "giraffe-cream", slabs)
+
+
+def build_giraffe(collection):
+    g = GIRAFFE
+    root = bpy.data.objects.new("animal_root", None)
+    root.empty_display_size = 0.5
+    collection.objects.link(root)
+
+    # Body: a short, deep barrel, higher at the chest, with the coat net and a cream belly.
+    body = Part("body", g["body"])
+    barrel = [(0, -0.72), (0.2, -0.69), (0.32, -0.6), (0.38, -0.44), (0.4, -0.2), (0.4, 0.05), (0.42, 0.28), (0.4, 0.46),
+              (0.33, 0.6), (0.2, 0.69), (0, 0.72)]
+    body.lathe("giraffe-tan", barrel, g["body"], direction=(1, 0, 0.14), scale=(0.95, 0.85, 1), segments=14)
+    body.paint("giraffe-tan", "giraffe-cream", [((0, 0, 1.36), (0, 0, 1), 0.2)])  # the belly
+    giraffe_net(body, g["body"], 0.42, 0.038)
+    body = body.finish(collection, root)
+
+    # Legs: long and slim, the upper leg patched, the lower leg cream, with dark hooves.
+    for leg, hip in g["hips"].items():
+        front = leg in ("leg_2", "leg_3")
+        hip = Vector(hip)
+        length = g["upper"]["front" if front else "hind"]
+        upper = Part(leg, hip)
+        upper.lathe("giraffe-tan", capsule(0.11 if front else 0.13, 0.065, length, cap=0.15), hip, segments=8,
+                    scale=(1.0 if front else 1.2, 1, 1))
+        giraffe_net(upper, hip - Vector((0, 0, 0.3)), 0.3, 0.03)
+        upper.paint("giraffe-tan", "giraffe-cream", [((hip.x, 0, hip.z - length + 0.12), (0, 0, 1), 0.24)])
+        upper = upper.finish(collection, body)
+        knee = hip - Vector((0, 0, length))
+        lower = Part(f"{leg}_lower", knee)
+        lower.lathe("giraffe-cream", capsule(0.062, 0.05, knee.z - 0.09, 2), knee, segments=8)
+        lower.lathe("giraffe-cream", ball(0.07, 3), knee, segments=8)  # a round knee
+        hoof = [(0, 0), (0.075, 0), (0.077, 0.025), (0.058, 0.1), (0, 0.1)]
+        lower.lathe("hoof", hoof, (knee.x + 0.012, knee.y, 0.0), segments=8, scale=(1.1, 1, 1))
+        lower.finish(collection, upper)
+
+    # Tail: a thin whip with a dark tuft.
+    tail = Part("tail", g["tail"])
+    tail.lathe("giraffe-tan", capsule(0.035, 0.02, 0.6, 2), g["tail"], direction=(0.25, 0, 1), segments=7)
+    tail.lathe("giraffe-dark", ball(0.06, 4), (-0.85, 0, 1.12), direction=(-0.25, 0, -1), scale=(0.75, 0.75, 1.9), segments=8)
+    tail.finish(collection, body)
+
+    # Neck: a long tapering column with the coat net and a short dark mane along its back.
+    neck_dir = Vector(g["neck_dir"]).normalized()
+    n0 = Vector(g["neck"])
+    neck = Part("neck", n0)
+    neck.lathe("giraffe-tan", capsule(0.21, 0.12, g["neck_length"], 3), n0, direction=-neck_dir, scale=(1.0, 0.8, 1), segments=12)
+    giraffe_net(neck, n0 + neck_dir * 0.5, 0.34, 0.034)
+    back = Vector((-neck_dir.z, 0, neck_dir.x))
+    neck.lathe("giraffe-dark", ball(1.0, 4), n0 + neck_dir * 0.62 + back * 0.15, direction=neck_dir, scale=(0.07, 0.035, 0.62),
+               segments=6)
+    neck = neck.finish(collection, body)
+
+    # Head: a round cranium, a long cream muzzle, ossicones with dark tips, a big friendly eye on each side.
+    hp = n0 + neck_dir * g["neck_length"]
+    head = Part("head", hp)
+    cranium = hp + Vector((0.02, 0, 0.06))
+    head.lathe("giraffe-tan", ball(0.23, 6), cranium, scale=(1.08, 0.92, 0.95), segments=12)
+    muzzle_dir = Vector((1, 0, -0.42)).normalized()
+    head.lathe("giraffe-tan", ball(0.24, 7), cranium + muzzle_dir * 0.24, direction=muzzle_dir, scale=(0.52, 0.48, 1.0), segments=12)
+    head.paint("giraffe-tan", "giraffe-cream", [(cranium + muzzle_dir * 0.42, muzzle_dir, 0.16)])
+    head.paint("giraffe-tan", "giraffe-cream", [(cranium + Vector((0.06, 0, 0.1)), (0.3, 0, 1), 0.06)])  # a pale forehead blaze
+    for side in (-1, 1):
+        head.lathe("giraffe-dark", ball(0.022, 3), cranium + muzzle_dir * 0.46 + Vector((0.0, side * 0.05, 0.04)),
+                   scale=(1, 1, 0.6), segments=6)  # nostrils
+        base = cranium + Vector((-0.05, side * 0.08, 0.18))
+        ossicone_dir = Vector((-0.2, side * 0.18, 1)).normalized()
+        head.lathe("giraffe-tan", capsule(0.035, 0.03, 0.16, 2, cap=0.2), base, direction=-ossicone_dir, segments=7)
+        head.lathe("giraffe-dark", ball(0.045, 4), base + ossicone_dir * 0.17, segments=8)
+    head = head.finish(collection, neck)
+
+    for side, name in ((1, "left"), (-1, "right")):
+        base = cranium + Vector((-0.11, side * 0.16, 0.1))
+        ear = Part(f"ear_{name}", base)
+        ear_dir = Vector((-0.25, side * 1.0, 0.35)).normalized()  # giraffe ears stick out sideways
+        leaf = [(0, 0), (0.045, 0.02), (0.06, 0.08), (0.05, 0.15), (0.02, 0.2), (0, 0.22)]
+        ear.lathe("giraffe-tan", leaf, base, direction=ear_dir, scale=(1, 0.45, 1), segments=8)
+        ear.lathe("ear-inner", [(0, 0), (0.04, 0.03), (0.035, 0.11), (0, 0.16)], base + Vector((0, 0, 0.02)), direction=ear_dir,
+                  scale=(1, 0.3, 1), segments=6)
+        ear.finish(collection, head)
+
+        eye_c = cranium + Vector((0.08, side * 0.165, 0.04))
+        eye = Part(f"eye_{name}", eye_c)
+        look = Vector((0.5, side * 1.0, 0.1)).normalized()
+        eye.lathe("eye-white", ball(0.075, 4), eye_c, direction=look, scale=(1, 1, 0.82), segments=10)
+        eye.lathe("eye-pupil", ball(0.044, 3), eye_c + look * 0.044 + Vector((0.014, 0, 0.004)), direction=look, scale=(1, 1, 0.68), segments=8)
+        eye.lathe("eye-white", ball(0.013, 3), eye_c + look * 0.074 + Vector((0.022, 0, 0.022)), segments=6)
+        eye.lathe("giraffe-dark", [(0, 0), (0.07, 0), (0.07, 0.012), (0, 0.012)], eye_c + Vector((0, side * 0.014, 0.058)),
+                  direction=(0.2, side * 0.6, 1), scale=(1, 0.5, 1), segments=8)  # a lid line with lashes
+        eye.finish(collection, head)
+
+    return root
+
+
+BUILDERS = {"zebra": build_zebra, "giraffe": build_giraffe}
 
 
 # ---------------------------------------------------------------- clips
@@ -343,6 +460,23 @@ def leg_cycle(u, front):
     swing = -amplitude + 2 * amplitude * smooth(s)
     fold = math.radians(52 if front else 40) * math.sin(math.pi * s)
     return swing, fold if front else -fold
+
+
+# Lying down (rest): how far the body lowers, and the folded knee's centre above the grass, per species.
+LYING_DROP = {"zebra": -0.4, "giraffe": -1.1}
+KNEE_HEIGHT = {"zebra": 0.075, "giraffe": 0.1}
+
+
+def fold_legs(pose, hips, upper_length, drop, knee_height):
+    """Lie on folded legs rather than on the belly: each upper leg reaches down and forwards until its knee is on
+    the grass, the lower leg turns back to lie flat along the ground, and the legs spread a little so they show
+    beside the body. ``hips`` are rest-pose hip pivots; ``upper_length(leg)`` is the upper leg's length."""
+    for leg in LEGS:
+        hip = hips[leg]
+        reach = math.acos(min(1.0, (hip[2] + drop - knee_height) / upper_length(leg)))
+        spread = math.radians(14) * (1 if hip[1] > 0 else -1)
+        pose[f"{leg}.r"] = (spread, -reach, 0)
+        pose[f"{leg}_lower.r"] = (0, math.radians(90) + reach, 0)
 
 
 def standing(t):
@@ -406,8 +540,8 @@ def pose_rest(t, duration):
     w = 2 * math.pi * t / duration
     breath = 0.5 - 0.5 * math.cos(w)
     pose = {
-        "body.t": (0, 0, -0.46 + 0.008 * breath),
-        "body.r": (math.radians(4), 0, 0),
+        "body.t": (0, 0, LYING_DROP["zebra"] + 0.008 * breath),
+        "body.r": (0, 0, 0),
         "neck.r": (0, math.radians(18) + math.radians(2) * breath, math.radians(-8)),
         "head.r": (math.radians(-4), math.radians(22) + math.radians(3) * breath, 0),
         "ear_left.r": (math.radians(-25) * pulse(t, 2.4, 0.4), math.radians(30), 0),
@@ -415,14 +549,90 @@ def pose_rest(t, duration):
         "eye_left.s": (1, 1, 0.12), "eye_right.s": (1, 1, 0.12),
         "tail.r": (math.radians(-20), math.radians(-70), math.radians(4) * math.sin(w)),
     }
-    for leg in LEGS:
-        front = leg in ("leg_2", "leg_3")
-        pose[f"{leg}.r"] = (0, math.radians(84) if front else math.radians(-80), 0)
-        pose[f"{leg}_lower.r"] = (0, math.radians(-160) if front else math.radians(150), 0)
+    fold_legs(pose, ZEBRA["hips"], lambda leg: ZEBRA["upper"], LYING_DROP["zebra"], KNEE_HEIGHT["zebra"])
     return pose
 
 
-POSES = {"idle": (pose_idle, 4.0), "walk": (pose_walk, 1.2), "feed": (pose_feed, 3.0), "rest": (pose_rest, 5.0)}
+def giraffe_idle(t, duration):
+    w = 2 * math.pi * t / duration
+    blink = pulse(t, 3.4, 0.22)
+    return {
+        "body.t": (0, 0, 0.008 * (1 - math.cos(2 * w))),
+        "body.r": (0, math.radians(0.5) * math.sin(2 * w), 0),
+        # the long neck sways slowly and the head turns to look around, as if curious
+        "neck.r": (math.radians(2) * math.sin(w), math.radians(-3) + math.radians(2) * math.sin(w), math.radians(5) * math.sin(w)),
+        "head.r": (math.radians(8) * pulse(t, 1.6, 1.4), math.radians(4) * math.sin(2 * w), math.radians(20) * math.sin(w + 0.4)),
+        "ear_left.r": (math.radians(-30) * pulse(t, 0.8, 0.35), 0, math.radians(8) * math.sin(w)),
+        "ear_right.r": (math.radians(30) * pulse(t, 4.2, 0.35), 0, math.radians(8) * math.sin(w + 1)),
+        "eye_left.s": (1, 1, 1 - 0.88 * blink), "eye_right.s": (1, 1, 1 - 0.88 * blink),
+        "tail.r": (math.radians(24) * math.sin(w * 2), math.radians(-5) * (1 + math.sin(w)), 0),
+    }
+
+
+def giraffe_walk(t, duration):
+    u = t / duration
+    pose = {}
+    # a giraffe walks almost like a pacer: each front leg follows its hind leg on the same side closely
+    phases = {"leg_1": 0.0, "leg_3": 0.12, "leg_0": 0.5, "leg_2": 0.62}
+    for leg, phase in phases.items():
+        swing, fold = leg_cycle((u + 1 - phase) % 1, leg in ("leg_2", "leg_3"))
+        pose[f"{leg}.r"] = (0, -swing * 0.9, 0)
+        pose[f"{leg}_lower.r"] = (0, fold * 0.85, 0)
+    w = 2 * math.pi * u
+    pose.update({
+        "body.t": (0, 0, 0.008 + 0.008 * (1 - math.cos(2 * w))),
+        # the body rolls towards the side whose legs are planted, and the neck pumps forward with each stride
+        "body.r": (math.radians(2.5) * math.sin(w), math.radians(0.8) * math.sin(2 * w), 0),
+        "neck.r": (math.radians(-1.5) * math.sin(w), math.radians(6) * math.sin(2 * w - 0.6) + math.radians(4), 0),
+        "head.r": (0, math.radians(-5) * math.sin(2 * w - 1.0) - math.radians(4), 0),
+        "ear_left.r": (math.radians(6), 0, 0), "ear_right.r": (math.radians(-6), 0, 0),
+        "eye_left.s": (1, 1, 1), "eye_right.s": (1, 1, 1),
+        "tail.r": (math.radians(12) * math.sin(w), math.radians(-10), 0),
+    })
+    return pose
+
+
+def giraffe_feed(t, duration):
+    """Browsing high: the neck reaches up and forwards and the head tilts up to nibble leaves."""
+    w = 2 * math.pi * t / duration
+    nibble = 0.5 + 0.5 * math.sin(4 * w)
+    return {
+        "body.t": (0, 0, 0.006 * (1 - math.cos(w))),
+        "body.r": (0, 0, 0),
+        "neck.r": (math.radians(2) * math.sin(w), math.radians(-22) + math.radians(2) * math.sin(w), math.radians(4) * math.sin(w)),
+        "head.r": (math.radians(5) * math.sin(w), math.radians(-52) + math.radians(8) * nibble, 0),
+        "ear_left.r": (math.radians(-20) * pulse(t, 0.7, 0.4), math.radians(-10), 0),
+        "ear_right.r": (math.radians(20) * pulse(t, 2.2, 0.4), math.radians(-10), 0),
+        "eye_left.s": (1, 1, 0.7), "eye_right.s": (1, 1, 0.7),
+        "tail.r": (math.radians(26) * math.sin(w * 2), math.radians(-4), 0),
+    }
+
+
+def giraffe_rest(t, duration):
+    """Lying on folded legs, the neck still upright and the head nodding, eyes half closed. The body rests on its
+    legs rather than the ground: each upper leg reaches down and forwards to a knee on the grass, the lower leg
+    lies back along the ground, and the legs spread a little so they show beside the body."""
+    w = 2 * math.pi * t / duration
+    breath = 0.5 - 0.5 * math.cos(w)
+    pose = {
+        "body.t": (0, 0, LYING_DROP["giraffe"] + 0.01 * breath),
+        "body.r": (0, 0, 0),
+        "neck.r": (0, math.radians(-2) + math.radians(2) * breath, math.radians(-6)),
+        "head.r": (math.radians(-4), math.radians(26) + math.radians(3) * breath, 0),
+        "ear_left.r": (math.radians(-25) * pulse(t, 2.4, 0.4), math.radians(25), 0),
+        "ear_right.r": (0, math.radians(25), 0),
+        "eye_left.s": (1, 1, 0.15), "eye_right.s": (1, 1, 0.15),
+        "tail.r": (math.radians(-15), math.radians(-60), math.radians(4) * math.sin(w)),
+    }
+    fold_legs(pose, GIRAFFE["hips"], lambda leg: GIRAFFE["upper"]["front" if leg in ("leg_2", "leg_3") else "hind"],
+              LYING_DROP["giraffe"], KNEE_HEIGHT["giraffe"])
+    return pose
+
+
+POSES = {
+    "zebra": {"idle": (pose_idle, 4.0), "walk": (pose_walk, 1.2), "feed": (pose_feed, 3.0), "rest": (pose_rest, 5.0)},
+    "giraffe": {"idle": (giraffe_idle, 5.0), "walk": (giraffe_walk, 1.6), "feed": (giraffe_feed, 3.0), "rest": (giraffe_rest, 6.0)},
+}
 
 
 def channels(root):
@@ -451,7 +661,7 @@ def animate(root):
     keys = channels(root)
     bpy.context.scene.render.fps = FPS
     for clip in CLIPS:
-        function, duration = POSES[clip]
+        function, duration = POSES[root["species"]][clip]
         frames = round(duration * FPS)
         actions = {}
         for obj in objects.values():
@@ -508,7 +718,7 @@ def measure_clips(root):
     keys = channels(root)
     result = {}
     for clip in CLIPS:
-        function, duration = POSES[clip]
+        function, duration = POSES[root["species"]][clip]
         frames = round(duration * FPS)
         lowest, start, end = math.inf, None, None
         for frame in range(0, frames + 1, KEY_STEP):
@@ -531,6 +741,7 @@ def build(species, collection):
     if species not in BUILDERS:
         raise ValueError(f"zoo animal species must be one of {', '.join(SPECIES)}")
     root = BUILDERS[species](collection)
+    root["species"] = species
     animate(root)
     return root
 

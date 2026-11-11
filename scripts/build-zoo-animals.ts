@@ -34,7 +34,10 @@ export const ZOO_ANIMALS = [
  * models as the `expressive` variant of the same key, so the `default` members stay as they were.
  */
 export const ZOO_EXPRESSIVE_VARIANT = "expressive";
-export const ZOO_EXPRESSIVE_ANIMALS = [{ animal: "zebra", key: "zoo.animal.zebra", issue: 589 }] as const;
+export const ZOO_EXPRESSIVE_ANIMALS = [
+  { animal: "zebra", key: "zoo.animal.zebra", issue: 589 },
+  { animal: "giraffe", key: "zoo.animal.giraffe", issue: 596 },
+] as const;
 export const ZOO_ANIMALS_RECIPE = "adapters/blender/zoo_animals.py";
 
 export function createZooAnimalAssetSpec({ species, scriptSha256, blenderVersion }: { species: string; scriptSha256: string; blenderVersion: string }) {
