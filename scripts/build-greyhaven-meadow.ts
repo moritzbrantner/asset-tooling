@@ -15,13 +15,14 @@ import { canonicalJson } from "../src/canonical.js";
 import { createAssetCatalog } from "../src/catalog.js";
 import { importAssetCatalogStorageSource } from "../src/catalog-storage.js";
 import { sha256Bytes } from "../src/hash.js";
-import { buildKitPart, documentBounds, exportKitBundle, ktx2Assets, round, runKitCli, scaledLodDistances, triangles, type KitPart } from "../src/kit-bundle.js";
+import { buildKitPart, documentBounds, exportKitBundle, ktx2Assets, round, runKitCli, SCATTER_LOD_SELECTION, scatterLods, triangles, type KitPart } from "../src/kit-bundle.js";
 import type { AssetRef } from "../src/operations.js";
 
 const ROOT = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
 export const MEADOW_PIECES = ["grass-short", "grass-tall", "grass-clump", "grass-dry", "flowers-yellow", "flowers-white", "flowers-red", "flowers-mixed"] as const;
 export type MeadowPiece = (typeof MEADOW_PIECES)[number];
-export const MEADOW_VARIANTS = ["default", "lod1", "lod2"] as const;
+/** Full detail and the reduced level: scatter is not drawn beyond 60 m, so it needs no far card (#586). */
+export const MEADOW_VARIANTS = ["default", "lod1"] as const;
 export const MEADOW_KEY_PREFIX = "greyhaven-meadow.kit";
 /** One rolling release (Atlas Decision 7.1.5), never numbered. */
 export const MEADOW_RELEASE = "greyhaven-meadow";
@@ -36,9 +37,6 @@ export const MEADOW_SOURCES = {
 } as const;
 /** Dense scatter: no piece may exceed a few hundred triangles at full detail. */
 export const MEADOW_TRIANGLES = 300;
-/** Where LOD0 and lod1 end for a piece up to 1 m across, in metres at the reference FOV; scaledLodDistances grows them for larger pieces. */
-export const MEADOW_LOD_DISTANCES = [60, 180] as const;
-const LOD_REFERENCE_FOV_Y = 60;
 
 export const meadowKey = (piece: MeadowPiece) => `${MEADOW_KEY_PREFIX}.${piece}`;
 
@@ -87,26 +85,17 @@ export async function buildGreyhavenMeadow({ outDir, log = () => {} }: { outDir:
   }
 
   log("measure the descriptor");
-  const tan = Math.tan((LOD_REFERENCE_FOV_Y / 2) * Math.PI / 180);
   const assets = MEADOW_PIECES.map((piece) => {
     const levels = built.filter((part) => part.piece === piece);
     const { document, observations } = levels[0]!;
     const bounds = documentBounds(document);
-    const radius = round(Math.hypot(...[0, 1, 2].map((k) => bounds.max[k]! - bounds.min[k]!)) / 2);
-    const distances = scaledLodDistances(MEADOW_LOD_DISTANCES, bounds);
     const count = triangles(document);
     return {
       key: meadowKey(piece), kind: piece, triangles: count, bounds, collision: "none",
       footprint: { width: round(bounds.max[0] - bounds.min[0]), depth: round(bounds.max[2] - bounds.min[2]), height: round(bounds.max[1]) },
       coverM2: observations.coverM2, trianglesPerCoveredM2: Math.round(count / Number(observations.coverM2)),
       flowers: observations.flowers,
-      lods: {
-        boundingSphere: { center: [0, 1, 2].map((k) => round((bounds.min[k]! + bounds.max[k]!) / 2)), radius },
-        levels: levels.map((level, index) => {
-          const distance = distances[index];
-          return { variant: level.variant, triangles: triangles(level.document), minScreenSize: distance ? Number((radius / (distance * tan)).toFixed(4)) : 0, referenceMaxDistance: distance ?? null };
-        }),
-      },
+      ...scatterLods(bounds, levels.map((level) => ({ variant: level.variant, triangles: triangles(level.document) }))),
     };
   });
   const descriptor = {
@@ -117,12 +106,7 @@ export async function buildGreyhavenMeadow({ outDir, log = () => {} }: { outDir:
       + "coverM2 is the ground a patch covers; trianglesPerCoveredM2 its full-detail triangles over that.",
     collision: "Walk-through grass and flowers: every piece declares `collision: \"none\"`.",
     tint: "Grass, stems and clover heads are greyscale in the atlas and take their colour from COLOR_0, so a material colour multiplies over them; buttercup, campion and daisy heads carry their own colour.",
-    lodSelection: {
-      metric: "projected-bounding-sphere-height-fraction", referenceFovYDegrees: LOD_REFERENCE_FOV_Y,
-      rule: "Use the first level whose minScreenSize is at most the asset's projected bounding-sphere diameter divided by the viewport height "
-        + "(radius / (distance * tan(fovY / 2)), scaled by the instance scale). referenceMaxDistance is the distance in metres at which that "
-        + "level ends for an unscaled instance at referenceFovYDegrees.",
-    },
+    lodSelection: SCATTER_LOD_SELECTION,
     assets,
   };
   const descriptorAsset = (await storeAssetObject(root, { bytes: Buffer.from(`${canonicalJson(descriptor)}\n`), kind: MEADOW_DESCRIPTOR_ATTACHMENT, mediaType: "application/json" })).asset;

@@ -18,7 +18,8 @@ So the kit has one material, ``Greyhaven_Meadow``: cut-out (``MASK``), double-si
 and daisy heads carry their own colour. Card normals lean towards +Z, so a patch shades like the ground it stands on.
 
 ``level`` picks the level of detail, in the same frame: ``1`` keeps a seeded 40 % of the tufts and flowers, grown so
-the patch keeps its coverage, with every card single-segment; ``2`` is one card along the patch's long side.
+the patch keeps its coverage, with every card single-segment. There is no far level: scatter is not drawn beyond
+60 m.
 
 The arguments are ``piece`` and ``level``. The origin is the patch's centre on the ground; card feet run 3 cm below
 it, so a patch stays rooted on uneven ground. Blender coordinates are Z up; the GLB is exported +Y up. Everything is
@@ -114,14 +115,13 @@ PIECES = {
                       "flowers": {"buttercup": 6, "daisy": 4, "campion": 3, "clover-red": 4, "clover-white": 3}},
 }
 LOD1 = {"keep": 0.4, "grow": 0.85}
-LOD2 = {"length": 0.8, "height": 0.7}
 
 
 def validate(p, inputs):
     if type(p) is not dict or set(p) != {"schemaVersion", "piece", "level"} or p["schemaVersion"] != 1:
         raise ValueError("greyhaven meadow requires exactly schemaVersion 1, piece and level")
-    if p["piece"] not in PIECES or p["level"] not in (0, 1, 2):
-        raise ValueError(f"greyhaven meadow: piece in {sorted(PIECES)}, level 0, 1 or 2")
+    if p["piece"] not in PIECES or p["level"] not in (0, 1):
+        raise ValueError(f"greyhaven meadow: piece in {sorted(PIECES)}, level 0 or 1")
     if set(inputs) != {"grass", "flowers"}:
         raise ValueError("greyhaven meadow takes exactly the declared inputs grass and flowers")
 
@@ -507,9 +507,6 @@ def build(piece, lod_level, collection, inputs):
                                            lean, kind["segs"] if lod_level == 0 else 1, mirror)
                 feet.append((foot[0], foot[1], w / 2))
 
-    if lod_level == 2:
-        return far_card(piece, spec, inputs, mat, collection)
-
     if "clump" in spec:  # one tussock: arching cards fanning out from a tight foot, upright ones inside
         c = spec["clump"]
         base_c, tip_c = (linear(srgb(col)) for col in GREENS["lush"])
@@ -573,24 +570,6 @@ def build(piece, lod_level, collection, inputs):
     return obj, {"recipe": RECIPE, "piece": piece, "level": lod_level, "cards": len(cards.faces),
                  "grassTriangles": tri["grass"], "flowerTriangles": tri["flowers"], "flowers": flower_count,
                  "coverM2": cover(feet)}
-
-
-def far_card(piece, spec, inputs, mat, collection):
-    """The last level: one card along the patch's long side, coloured as its mean."""
-    kind = spec["kinds"][0]
-    base_c, tip_c = (linear(srgb(c)) for c in GREENS["dry" if "dry" in piece else "meadow"])
-    if spec["flowers"]:
-        tip_c = tip_c * 0.85 + 0.15 * numpy.mean([linear(srgb("#e9be1c")) if n == "buttercup" else linear(srgb("#c9416f")) if "campion" in n or n == "clover-red" else numpy.ones(3) for n in spec["flowers"]], axis=0)
-    height = (sum(kind["height"]) / 2) * LOD2["height"]
-    if "clump" in spec:
-        height = sum(spec["clump"]["height"]) / 2 * LOD2["height"]
-    cards = Cards()
-    cell = "clump" if "clump" in spec else ("dry-b" if "dry" in piece else "short-a")
-    length = (spec["width"] if "clump" in spec else spec["length"]) * LOD2["length"]
-    cards.card((0, 0, 0), 0.0, length, height, cell, base_c, tip_c)
-    obj = cards.mesh(piece, mat, collection)
-    return obj, {"recipe": RECIPE, "piece": piece, "level": 2, "cards": 1, "grassTriangles": 2, "flowerTriangles": 0, "flowers": 0,
-                 "coverM2": None}
 
 
 def cover(feet, cell=0.05):

@@ -20,12 +20,13 @@ The declared inputs are:
 
 So the kit has one material, ``Greyhaven_Forest_Floor``: cut-out (``MASK``), double-sided, a 1024 px atlas times
 ``COLOR_0``. Fronds, stalks, strap leaves, anemone leaves and mushroom caps are greyscale, so the game can tint them;
-only the bluebells, the anemone flowers, the leaf litter and the far mushroom card carry their own colour (still
-multiplied by ``COLOR_0``). The palettes are darker than the meadow's, for shade.
+only the bluebells, the anemone flowers and the leaf litter carry their own colour (still multiplied by ``COLOR_0``).
+The palettes are darker than the meadow's, for shade.
 
 ``level`` picks the level of detail, in the same frame: ``1`` keeps a seeded 40 % of each group, grown so the patch
-keeps its coverage, with fronds bent once and caps with fewer sides; ``2`` is one card along the patch's long side
-(one flat quad for the leaf litter).
+keeps its coverage, with fronds bent once and caps with fewer sides. There is no far level: scatter is not drawn
+beyond 60 m. The atlas still paints the old far level's ``mushroom-card`` cell, so the seeded cells after it don't
+change.
 
 The arguments are ``piece`` and ``level``. The origin is the patch's centre on the ground; card feet run 3 cm below
 it, so a patch stays rooted on uneven ground. ``leaf-litter`` lies flat 1 cm above it (with a millimetre between
@@ -134,14 +135,13 @@ PIECES = {
     "leaf-litter": {"length": 2.2, "width": 1.2, "seed": 5727, "quads": 11, "strays": 2, "size": (0.5, 0.75)},
 }
 LOD1 = {"keep": 0.4, "grow": 0.85, "frondSegs": 2, "capSides": 5}
-LOD2 = {"length": 0.8, "height": 0.8, "litter": 1.4}
 
 
 def validate(p, inputs):
     if type(p) is not dict or set(p) != {"schemaVersion", "piece", "level"} or p["schemaVersion"] != 1:
         raise ValueError("greyhaven forest floor requires exactly schemaVersion 1, piece and level")
-    if p["piece"] not in PIECES or p["level"] not in (0, 1, 2):
-        raise ValueError(f"greyhaven forest floor: piece in {sorted(PIECES)}, level 0, 1 or 2")
+    if p["piece"] not in PIECES or p["level"] not in (0, 1):
+        raise ValueError(f"greyhaven forest floor: piece in {sorted(PIECES)}, level 0 or 1")
     if set(inputs) != {"grass", "flowers", "leaves", "meadow", "marsh"}:
         raise ValueError("greyhaven forest floor takes exactly the declared inputs grass, flowers, leaves, meadow and marsh")
 
@@ -593,8 +593,6 @@ def build(piece, lod_level, collection, inputs):
             chosen[group] = set(random.Random(spec["seed"] * 31 + len(chosen)).sample(range(total), max(1, int(total * keep))))
         return index in chosen[group]
 
-    if lod_level == 2:
-        return far(piece, spec, cards, mat, collection)
     segs = 3 if lod_level == 0 else LOD1["frondSegs"]
 
     def crown(x, y, kind, scale, group, index_base, total):
@@ -741,30 +739,6 @@ def build(piece, lod_level, collection, inputs):
 
     obj = cards.mesh(piece, mat, collection)
     return obj, observe(piece, lod_level, cards, counts, feet)
-
-
-def far(piece, spec, cards, mat, collection):
-    """The last level: one card along the patch's long side; for the leaf litter, one flat, grown quad."""
-    counts = {"fronds": 0, "flowers": 0, "caps": 0, "quads": 0}
-    if piece == "leaf-litter":
-        cards.flat((0, 0, FLOAT), 0.3, sum(spec["size"]) / 2 * LOD2["litter"], "litter-a", numpy.ones(3) * 0.9)
-        counts["quads"] = 1
-    else:
-        cell, green, height = {
-            "fern": ("bracken-a", "fern", 0.38), "fern-large": ("bracken-b", "fern-lush", 0.8), "bracken": ("bracken-c", "bracken-turning", 1.0),
-            "bluebells": ("strap", "bluebell", 0.28), "wood-anemone": ("strap", "anemone", 0.14), "mushrooms": ("mushroom-card", "stem", 0.12),
-        }[piece]
-        colours = palette(green)
-        if piece == "bluebells":
-            colours[2] = colours[2] * 0.4 + 0.6 * linear(srgb("#4a4dbb"))
-        elif piece == "wood-anemone":
-            colours[2] = colours[2] * 0.4 + 0.6 * linear(srgb("#e8e6dc"))
-        elif piece == "mushrooms":
-            colours = [numpy.ones(3)] * 3
-        length = spec["length"] * LOD2["length"]
-        cards.card((0, 0, 0), 0.0, length, height * LOD2["height"], cell, colours)
-    obj = cards.mesh(piece, mat, collection)
-    return obj, observe(piece, 2, cards, counts, None)
 
 
 def observe(piece, level, cards, counts, feet):

@@ -45,6 +45,47 @@ export function scaledLodDistances(base: readonly number[], bounds: { min: reado
   return base.map((distance) => Math.round(distance * scale));
 }
 
+/** The vertical field of view (degrees) a kit descriptor's `referenceMaxDistance` values are computed for. */
+export const KIT_LOD_REFERENCE_FOV_Y = 60;
+/**
+ * Walk-through card scatter (grass, flowers, reeds, ferns, litter; #586): full detail to 40 m, the reduced level to 60 m,
+ * then not drawn. Fixed, not scaled with the piece's size: overlapping cut-out cards cost more in overdraw than in triangles.
+ */
+export const SCATTER_LOD_DISTANCES = [40, 60] as const;
+/** Walk-through card scatter is not drawn beyond this many metres from the camera, whatever the instance scale or FOV. */
+export const SCATTER_MAX_DISTANCE = 60;
+
+/** The descriptor's `lodSelection` for walk-through card scatter: the usual screen-size rule plus the per-piece `maxDistance`. */
+export const SCATTER_LOD_SELECTION = {
+  metric: "projected-bounding-sphere-height-fraction", referenceFovYDegrees: KIT_LOD_REFERENCE_FOV_Y,
+  rule: "Use the first level whose minScreenSize is at most the asset's projected bounding-sphere diameter divided by the viewport height "
+    + "(radius / (distance * tan(fovY / 2)), scaled by the instance scale). referenceMaxDistance is the distance in metres at which that "
+    + "level ends for an unscaled instance at referenceFovYDegrees. Don't draw an instance farther from the camera than its piece's "
+    + "maxDistance (metres), whatever its scale or the field of view.",
+} as const;
+
+/**
+ * A walk-through card-scatter piece's `maxDistance` and `lods` (#586): its levels end at SCATTER_LOD_DISTANCES, each
+ * level's `minScreenSize` derived from the piece's own bounding sphere, the last at 0, and nothing is drawn past
+ * SCATTER_MAX_DISTANCE. `levels` are the piece's levels in order, full detail first; there must be exactly two.
+ */
+export function scatterLods(bounds: { min: readonly number[]; max: readonly number[] }, levels: readonly { variant: string; triangles: number }[]) {
+  if (levels.length !== SCATTER_LOD_DISTANCES.length) throw new Error(`scatter pieces have ${SCATTER_LOD_DISTANCES.length} levels, not ${levels.length}`);
+  const tan = Math.tan((KIT_LOD_REFERENCE_FOV_Y / 2) * Math.PI / 180);
+  const radius = round(Math.hypot(...[0, 1, 2].map((k) => bounds.max[k]! - bounds.min[k]!)) / 2);
+  return {
+    maxDistance: SCATTER_MAX_DISTANCE,
+    lods: {
+      boundingSphere: { center: [0, 1, 2].map((k) => round((bounds.min[k]! + bounds.max[k]!) / 2)), radius },
+      levels: levels.map(({ variant, triangles }, index) => {
+        const distance = SCATTER_LOD_DISTANCES[index]!;
+        const last = index === levels.length - 1;
+        return { variant, triangles, minScreenSize: last ? 0 : Number((radius / (distance * tan)).toFixed(4)), referenceMaxDistance: distance };
+      }),
+    },
+  };
+}
+
 /** World-space AABB of every mesh node in the document, or of the mesh node named `nodeName`. */
 export function documentBounds(document: Document, nodeName?: string): { min: Vec3; max: Vec3 } {
   const min = [Infinity, Infinity, Infinity], max = [-Infinity, -Infinity, -Infinity];
