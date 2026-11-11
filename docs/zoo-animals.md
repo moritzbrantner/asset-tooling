@@ -50,7 +50,7 @@ Every clip loops, stays in place and keys the same channels: the rotation, trans
 | `idle` | 4.0 | Breathing, a slow look around, one flick of each ear, a blink and a tail swish |
 | `walk` | 1.2 | A four-beat lateral-sequence walk (hind left, front left, hind right, front right). Each leg swings ±17° about the animal's side axis, so the hooves travel forwards and backwards, and the knees fold in the swing phase. The head nods twice per stride. |
 | `feed` | 3.0 | Neck and head down to the grass, nibbling, front legs a little forward, ears and tail still moving |
-| `rest` | 5.0 | Lying down with the legs folded under the body, eyes closed, slow breathing and an ear flick |
+| `rest` | 5.0 | Lying on folded legs: each knee rests on the grass and the lower leg lies back along the ground, spread a little so the legs show beside the body. Eyes closed, slow breathing and an ear flick |
 
 `walk` plays at 1× for a pace of about 0.6 m/s at full size; a consumer that scales the animal down scales the pace with it and may speed the clip up. Measured over every clip, nothing sinks below 1.1 mm under the ground plane and the root does not travel.
 
@@ -72,7 +72,7 @@ The second animal ([#596](https://github.com/moritzbrantner/asset-tooling/issues
 | `idle` | 5.0 | A slow neck sway, a curious head turn and tilt, ear flicks, a blink and a tail swish |
 | `walk` | 1.6 | A near-pacing walk: each front leg follows the hind leg on its own side closely (hind left, front left, hind right, front right). The legs swing about the side axis only, the body rolls towards the planted side and the neck pumps with each stride, for about 0.55 m/s at full size. |
 | `feed` | 3.0 | Browsing high: the neck reaches up and forwards, the head tilts up and nibbles, eyes half closed |
-| `rest` | 6.0 | Lying with the legs folded under the body, the neck upright and the head lowered a little, eyes nearly closed, slow breathing |
+| `rest` | 6.0 | Lying on folded legs like the zebra (`fold_legs`), the neck upright and the head lowered a little, eyes nearly closed, slow breathing |
 
 The Zoo activity mapping is the zebra's.
 

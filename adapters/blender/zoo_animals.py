@@ -462,6 +462,23 @@ def leg_cycle(u, front):
     return swing, fold if front else -fold
 
 
+# Lying down (rest): how far the body lowers, and the folded knee's centre above the grass, per species.
+LYING_DROP = {"zebra": -0.4, "giraffe": -1.1}
+KNEE_HEIGHT = {"zebra": 0.075, "giraffe": 0.1}
+
+
+def fold_legs(pose, hips, upper_length, drop, knee_height):
+    """Lie on folded legs rather than on the belly: each upper leg reaches down and forwards until its knee is on
+    the grass, the lower leg turns back to lie flat along the ground, and the legs spread a little so they show
+    beside the body. ``hips`` are rest-pose hip pivots; ``upper_length(leg)`` is the upper leg's length."""
+    for leg in LEGS:
+        hip = hips[leg]
+        reach = math.acos(min(1.0, (hip[2] + drop - knee_height) / upper_length(leg)))
+        spread = math.radians(14) * (1 if hip[1] > 0 else -1)
+        pose[f"{leg}.r"] = (spread, -reach, 0)
+        pose[f"{leg}_lower.r"] = (0, math.radians(90) + reach, 0)
+
+
 def standing(t):
     return {"body.t": (0, 0, 0)}
 
@@ -523,8 +540,8 @@ def pose_rest(t, duration):
     w = 2 * math.pi * t / duration
     breath = 0.5 - 0.5 * math.cos(w)
     pose = {
-        "body.t": (0, 0, -0.46 + 0.008 * breath),
-        "body.r": (math.radians(4), 0, 0),
+        "body.t": (0, 0, LYING_DROP["zebra"] + 0.008 * breath),
+        "body.r": (0, 0, 0),
         "neck.r": (0, math.radians(18) + math.radians(2) * breath, math.radians(-8)),
         "head.r": (math.radians(-4), math.radians(22) + math.radians(3) * breath, 0),
         "ear_left.r": (math.radians(-25) * pulse(t, 2.4, 0.4), math.radians(30), 0),
@@ -532,10 +549,7 @@ def pose_rest(t, duration):
         "eye_left.s": (1, 1, 0.12), "eye_right.s": (1, 1, 0.12),
         "tail.r": (math.radians(-20), math.radians(-70), math.radians(4) * math.sin(w)),
     }
-    for leg in LEGS:
-        front = leg in ("leg_2", "leg_3")
-        pose[f"{leg}.r"] = (0, math.radians(84) if front else math.radians(-80), 0)
-        pose[f"{leg}_lower.r"] = (0, math.radians(-160) if front else math.radians(150), 0)
+    fold_legs(pose, ZEBRA["hips"], lambda leg: ZEBRA["upper"], LYING_DROP["zebra"], KNEE_HEIGHT["zebra"])
     return pose
 
 
@@ -595,12 +609,14 @@ def giraffe_feed(t, duration):
 
 
 def giraffe_rest(t, duration):
-    """Lying down with the legs folded, the neck still upright and the head nodding, eyes half closed."""
+    """Lying on folded legs, the neck still upright and the head nodding, eyes half closed. The body rests on its
+    legs rather than the ground: each upper leg reaches down and forwards to a knee on the grass, the lower leg
+    lies back along the ground, and the legs spread a little so they show beside the body."""
     w = 2 * math.pi * t / duration
     breath = 0.5 - 0.5 * math.cos(w)
     pose = {
-        "body.t": (0, 0, -1.21 + 0.01 * breath),
-        "body.r": (math.radians(3), math.radians(-6), 0),
+        "body.t": (0, 0, LYING_DROP["giraffe"] + 0.01 * breath),
+        "body.r": (0, 0, 0),
         "neck.r": (0, math.radians(-2) + math.radians(2) * breath, math.radians(-6)),
         "head.r": (math.radians(-4), math.radians(26) + math.radians(3) * breath, 0),
         "ear_left.r": (math.radians(-25) * pulse(t, 2.4, 0.4), math.radians(25), 0),
@@ -608,10 +624,8 @@ def giraffe_rest(t, duration):
         "eye_left.s": (1, 1, 0.15), "eye_right.s": (1, 1, 0.15),
         "tail.r": (math.radians(-15), math.radians(-60), math.radians(4) * math.sin(w)),
     }
-    for leg in LEGS:
-        front = leg in ("leg_2", "leg_3")
-        pose[f"{leg}.r"] = (0, math.radians(88) if front else math.radians(-84), 0)
-        pose[f"{leg}_lower.r"] = (0, math.radians(-168) if front else math.radians(164), 0)
+    fold_legs(pose, GIRAFFE["hips"], lambda leg: GIRAFFE["upper"]["front" if leg in ("leg_2", "leg_3") else "hind"],
+              LYING_DROP["giraffe"], KNEE_HEIGHT["giraffe"])
     return pose
 
 
