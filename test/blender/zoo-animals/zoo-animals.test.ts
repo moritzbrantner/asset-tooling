@@ -1,5 +1,5 @@
 // The zoo-animals release (#128, #589; docs/zoo-animals.md): Zoo's pinned zebra and giraffe stay as authored, and
-// the expressive zebra built by adapters/blender/zoo_animals.py joins them as the `expressive` variant, with in-place
+// the expressive zebra and giraffe built by adapters/blender/zoo_animals.py join them as the `expressive` variant, with in-place
 // idle, walk, feed and rest clips whose legs swing about the animal's side axis. The build replays to the same tar.
 // It skips unless ASSET_TOOLING_BLENDER names Blender 5.2.2 and the two canonical Zoo sources are hydrated.
 import test from "node:test";
@@ -35,8 +35,14 @@ test("the expressive spec runs the packaged recipe for one species, with no othe
   assert.deepEqual(spec.parameters, { blenderVersion: "5.2.2", arguments: { schemaVersion: 1, species: "zebra" } });
   assert.deepEqual(Object.keys(spec.inputs), ["script"]);
   assert.equal(spec.assetId, "zoo.animal.zebra.expressive");
-  assert.deepEqual(ZOO_EXPRESSIVE_ANIMALS.map((entry) => entry.key), ["zoo.animal.zebra"]);
+  assert.deepEqual(ZOO_EXPRESSIVE_ANIMALS.map((entry) => entry.key), ["zoo.animal.zebra", "zoo.animal.giraffe"]);
 });
+
+/** Per animal: its full-size height and length (m), its triangle budget and one colour of its coat (linear COLOR_0). */
+const EXPECTED: Record<string, { height: [number, number]; length: [number, number]; triangles: number; coat: string; coatName: string }> = {
+  "zoo.animal.zebra": { height: [1.4, 1.9], length: [1.4, 2], triangles: 4500, coat: "0.01,0.01", coatName: "the black stripes" },
+  "zoo.animal.giraffe": { height: [3.2, 3.9], length: [1.9, 2.6], triangles: 6000, coat: "0.64,0.23", coatName: "the tan patches" },
+};
 
 /** The rotation axis of a quaternion in the leg's channel, or null when it barely turns. */
 function axisOf([x, y, z]: number[]): number[] | null {
@@ -59,12 +65,14 @@ function checkExpressive(document: Document, label: string) {
     for (let index = 0; index < colours.getCount(); index += 1) palette.add(colours.getElement(index, value).map((c) => c.toFixed(2)).join());
     assert.equal(primitive.getMaterial()?.getAlphaMode(), "OPAQUE");
   }
-  // the zebra's white, black, muzzle, inner ear, hoof, eye white and pupil
+  // coat colours, muzzle or nose, inner ear, hoof, eye white and pupil
+  const expected = EXPECTED[label.split("/")[0]!]!;
   assert.ok(palette.size >= 6, `${label}: COLOR_0 holds ${palette.size} colours`);
-  assert.ok([...palette].some((colour) => colour.startsWith("0.01,0.01")), `${label}: COLOR_0 has the black stripes`);
-  assert.ok(observations.triangles < 4500, `${label}: ${observations.triangles} triangles`);
-  assert.ok(observations.size.height > 1.4 && observations.size.height < 1.9, `${label}: height ${observations.size.height} m`);
-  assert.ok(observations.size.width > 1.4 && observations.size.width < 2, `${label}: length ${observations.size.width} m along +X`);
+  assert.ok([...palette].some((colour) => colour.startsWith(expected.coat)), `${label}: COLOR_0 has ${expected.coatName}`);
+  assert.ok(observations.triangles < expected.triangles, `${label}: ${observations.triangles} triangles`);
+  const within = (value: number, [low, high]: [number, number]) => value > low && value < high;
+  assert.ok(within(observations.size.height, expected.height), `${label}: height ${observations.size.height} m`);
+  assert.ok(within(observations.size.width, expected.length), `${label}: length ${observations.size.width} m along +X`);
   assert.ok(observations.bounds.max[0] > -observations.bounds.min[0], `${label}: the head is towards +X`);
 
   // Cross-fade safety: every clip keys the same channels, so switching clips never leaves a joint in another pose.
@@ -96,7 +104,7 @@ function checkExpressive(document: Document, label: string) {
   assert.equal(new Set(phases).size, 4, `${label}: the four legs step at four different times`);
 }
 
-test("zoo-animals builds the old members unchanged and the expressive zebra, reproducibly", { skip, timeout: 600_000 }, async () => {
+test("zoo-animals builds the old members unchanged and the expressive animals, reproducibly", { skip, timeout: 600_000 }, async () => {
   const outDir = await mkdtemp(path.join(os.tmpdir(), "zoo-animals-"));
   const replayDir = await mkdtemp(path.join(os.tmpdir(), "zoo-animals-replay-"));
   try {
@@ -104,7 +112,7 @@ test("zoo-animals builds the old members unchanged and the expressive zebra, rep
     await verifyAssetBundleTar(await readFile(built.tar), { sha256: built.tarSha256, ref: built.exportRef });
     const manifest = (await verifyAssetBundle(built.bundleDir, built.exportRef, { profile: "gltf-resources-v1" })).manifest as GltfResourcesBundleManifest;
     assert.deepEqual(manifest.assets.map((item) => `${item.key}/${item.variant}`).sort(),
-      ["zoo.animal.giraffe/default", "zoo.animal.zebra/default", `zoo.animal.zebra/${ZOO_EXPRESSIVE_VARIANT}`]);
+      ["zoo.animal.giraffe/default", `zoo.animal.giraffe/${ZOO_EXPRESSIVE_VARIANT}`, "zoo.animal.zebra/default", `zoo.animal.zebra/${ZOO_EXPRESSIVE_VARIANT}`]);
 
     const descriptor = JSON.parse(await readFile(path.join(outDir, ZOO_ANIMALS_DESCRIPTOR_FILE), "utf8"));
     assert.deepEqual(descriptor.clips.activity, ["feed", "rest"]);
