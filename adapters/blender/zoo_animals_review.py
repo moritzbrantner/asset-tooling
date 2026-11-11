@@ -195,6 +195,13 @@ def main():
     show(groups, {"current-idle", "idle-0"})
     shoot(scene, camera, "compare.jpg", (0.05, 0, 0.28), 2.6, yaw=-28, pitch=22)
 
+    # The candidate's face, close up from three-quarters front: the expression is what players bond with.
+    put("idle-0", (0, 0, 0), 0)
+    show(groups, {"idle-0"})
+    bpy.context.view_layer.update()
+    head = next(o for o in groups["idle-0"][1] if o.name.split(".")[0] == "head")
+    shoot(scene, camera, "face.jpg", head.matrix_world.translation, 0.75, yaw=118, pitch=10)
+
     # Every clip's poses in a row, seen from the animal's right side.
     for clip in ("idle", "walk", "feed", "rest"):
         ids = [p["id"] for p in PLAN["poses"] if p["clip"] == clip and p["id"].startswith(clip)]

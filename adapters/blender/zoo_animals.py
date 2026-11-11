@@ -37,7 +37,7 @@ import bmesh
 import bpy
 from mathutils import Euler, Matrix, Quaternion, Vector
 
-SPECIES = ("zebra", "giraffe")
+SPECIES = ("zebra", "giraffe", "tiger")
 FPS = 30
 KEY_STEP = 2  # frames between keys; every key is linear
 SHARP_ANGLE = math.radians(50)
@@ -56,6 +56,11 @@ PALETTE = {
     "giraffe-tan": (0.82, 0.52, 0.22),
     "giraffe-cream": (0.97, 0.9, 0.74),
     "giraffe-dark": (0.33, 0.2, 0.12),
+    "tiger-orange": (0.96, 0.52, 0.12),
+    "tiger-black": (0.09, 0.07, 0.07),
+    "tiger-white": (0.98, 0.95, 0.9),
+    "nose-pink": (0.9, 0.52, 0.55),
+    "eye-amber": (0.95, 0.72, 0.18),
 }
 
 
@@ -430,7 +435,126 @@ def build_giraffe(collection):
     return root
 
 
-BUILDERS = {"zebra": build_zebra, "giraffe": build_giraffe}
+# ---------------------------------------------------------------- tiger
+
+TIGER = {
+    "body": (0.0, 0.0, 0.62), "neck": (0.46, 0.0, 0.76), "tail": (-0.6, 0.0, 0.7),
+    "hips": {"leg_0": (-0.42, -0.14, 0.62), "leg_1": (-0.42, 0.14, 0.62), "leg_2": (0.4, -0.14, 0.64), "leg_3": (0.4, 0.14, 0.64)},
+    "upper": 0.3, "paw": 0.05,  # the paw's centre above the grass
+    "neck_dir": (0.8, 0, 1), "neck_length": 0.22,
+}
+
+
+def tiger_stripes(part, x_from, x_to, count, width, keep):
+    """Thin bands down from the spine, all leaning back a little by varying amounts, alternately wide and narrow."""
+    slabs = []
+    for k in range(count):
+        x = x_from + (x_to - x_from) * (k + 0.5) / count
+        a = math.radians(4 + 7 * ((k * 5) % 3) / 2)
+        slabs.append(((x, 0, 0.7), (math.cos(a), 0, math.sin(a)), width * (0.8 if k % 3 == 1 else 1.0)))
+    part.paint("tiger-orange", "tiger-black", slabs, keep)
+
+
+def build_tiger(collection):
+    g = TIGER
+    root = bpy.data.objects.new("animal_root", None)
+    root.empty_display_size = 0.3
+    collection.objects.link(root)
+
+    # Body: long, low and muscular, with a deeper chest, a white belly and stripes that stop short of it.
+    body = Part("body", g["body"])
+    barrel = [(0, -0.64), (0.15, -0.61), (0.23, -0.52), (0.26, -0.36), (0.25, -0.15), (0.245, 0.05), (0.26, 0.25), (0.27, 0.4),
+              (0.24, 0.52), (0.15, 0.6), (0, 0.63)]
+    body.lathe("tiger-orange", barrel, g["body"], direction=(1, 0, 0.03), scale=(1.0, 0.92, 1), segments=14)
+    body.paint("tiger-orange", "tiger-white", [((0, 0, 0.4), (0, 0, 1), 0.16)])
+    tiger_stripes(body, -0.62, 0.5, 10, 0.05, keep=lambda c: c.z > 0.5 + 0.05 * math.sin(c.x * 11))
+    body = body.finish(collection, root)
+
+    # Legs: sturdy, striped on the outside, with big round cream paws.
+    for leg, hip in g["hips"].items():
+        front = leg in ("leg_2", "leg_3")
+        hip = Vector(hip)
+        upper = Part(leg, hip)
+        upper.lathe("tiger-orange", capsule(0.12 if not front else 0.105, 0.075, g["upper"], cap=0.15), hip, segments=8,
+                    scale=(1.15 if not front else 1.0, 1, 1))
+        upper.paint("tiger-orange", "tiger-black", [((hip.x, 0, hip.z - 0.1 - 0.1 * k), (0.2, 0, 1), 0.035) for k in range(2)])
+        upper = upper.finish(collection, body)
+        knee = hip - Vector((0, 0, g["upper"]))
+        lower = Part(f"{leg}_lower", knee)
+        lower.lathe("tiger-orange", capsule(0.072, 0.066, knee.z - g["paw"], 2), knee, segments=8)
+        lower.paint("tiger-orange", "tiger-black", [((knee.x, 0, knee.z - 0.08 - 0.08 * k), (0, 0, 1), 0.03) for k in range(2)])
+        lower.lathe("tiger-white", ball(0.08, 4), (knee.x + 0.035, knee.y, g["paw"]), scale=(1.35, 1.0, 0.62), segments=10)
+        lower.finish(collection, upper)
+
+    # Tail: thick, hanging and curling up at the end, ringed in black with a black tip.
+    t0 = Vector(g["tail"])
+    tail = Part("tail", t0)
+    first = Vector((-0.75, 0, -1)).normalized()
+    tail.lathe("tiger-orange", capsule(0.06, 0.05, 0.42, 2), t0, direction=-first, segments=8)
+    bend = t0 + first * 0.42
+    second = Vector((-1, 0, 0.35)).normalized()
+    tail.lathe("tiger-orange", capsule(0.05, 0.045, 0.3, 2), bend, direction=-second, segments=8)
+    tail.lathe("tiger-orange", ball(0.052, 4), bend, segments=8)
+    tail.paint("tiger-orange", "tiger-black", [(t0 + first * (0.1 + 0.11 * k), first, 0.04) for k in range(3)]
+               + [(bend + second * (0.08 + 0.1 * k), second, 0.04) for k in range(2)] + [(bend + second * 0.33, second, 0.1)])
+    tail.finish(collection, body)
+
+    # Neck: short and thick, carrying the head well forward.
+    neck_dir = Vector(g["neck_dir"]).normalized()
+    n0 = Vector(g["neck"])
+    neck = Part("neck", n0)
+    neck.lathe("tiger-orange", capsule(0.2, 0.17, g["neck_length"], 3), n0, direction=-neck_dir, scale=(1.0, 0.95, 1), segments=12)
+    neck.paint("tiger-orange", "tiger-white", [(n0 + Vector((0.12, 0, -0.1)), (1, 0, -0.6), 0.14)])  # a white throat
+    neck.paint("tiger-orange", "tiger-black", [(n0 + neck_dir * (0.05 + 0.08 * k), (-0.4, 0, 1), 0.03) for k in range(2)],
+               keep=lambda c: c.z > n0.z + 0.05)
+    neck = neck.finish(collection, body)
+
+    # Head: big and round, with white cheek ruffs, a two-lobed white muzzle, a pink nose and forehead stripes.
+    hp = n0 + neck_dir * g["neck_length"]
+    head = Part("head", hp)
+    cranium = hp + Vector((0.06, 0, 0.06))
+    head.lathe("tiger-orange", ball(0.25, 7), cranium, scale=(0.92, 1.08, 0.9), segments=14)
+    head.paint("tiger-orange", "tiger-black",
+               [(cranium + Vector((0, 0, 0.11 + 0.05 * k)), (0.35, 0, 1), 0.02) for k in range(2)],
+               keep=lambda c: abs(c.y) < 0.1 and c.x > cranium.x + 0.04)  # the forehead marks
+    head.paint("tiger-orange", "tiger-black", [(cranium + Vector((0, side * 0.19, 0.0)), (0, side, 0.5 * k), 0.025)
+                                              for side in (-1, 1) for k in (-1, 1)], keep=lambda c: c.x < cranium.x + 0.06)
+    for side in (-1, 1):
+        head.lathe("tiger-white", ball(0.11, 4), cranium + Vector((0.05, side * 0.2, -0.08)), scale=(0.8, 0.85, 0.75), segments=10)
+        head.lathe("tiger-white", ball(0.08, 4), cranium + Vector((0.2, side * 0.055, -0.07)), scale=(1.0, 1.0, 0.85), segments=10)
+        head.lathe("tiger-white", ball(0.045, 3), cranium + Vector((0.155, side * 0.11, 0.115)), scale=(0.7, 1.3, 0.55), segments=8)  # brows
+    head.lathe("tiger-white", ball(0.055, 3), cranium + Vector((0.18, 0, -0.14)), scale=(1, 1.1, 0.7), segments=8)  # chin
+    # a small smile: a line down from the nose between the muzzle lobes, and the mouth along their underside
+    head.paint("tiger-white", "tiger-black", [(cranium + Vector((0.25, 0, -0.08)), (0, 1, 0), 0.012)],
+               keep=lambda c: cranium.z - 0.11 < c.z < cranium.z - 0.04)
+    head.paint("tiger-white", "tiger-black", [(cranium + Vector((0, 0, -0.1)), (0, 0, 1), 0.012)],
+               keep=lambda c: c.x > cranium.x + 0.2 and abs(c.y) < 0.09)
+    head.lathe("nose-pink", ball(0.045, 3), cranium + Vector((0.27, 0, -0.03)), scale=(0.7, 1.2, 0.75), segments=8)
+    head = head.finish(collection, neck)
+
+    for side, name in ((1, "left"), (-1, "right")):
+        base = cranium + Vector((-0.04, side * 0.15, 0.17))
+        ear = Part(f"ear_{name}", base)
+        ear_dir = Vector((0.3, side * 0.45, 1)).normalized()  # turned forwards, so the white inside shows
+        round_ear = [(0, 0), (0.075, 0.01), (0.085, 0.05), (0.07, 0.1), (0.035, 0.13), (0, 0.14)]
+        ear.lathe("tiger-black", round_ear, base, direction=ear_dir, scale=(1, 0.45, 1), segments=10)
+        ear.lathe("tiger-white", [(0, 0), (0.06, 0.02), (0.055, 0.08), (0, 0.11)], base + Vector((0.018, 0, 0.005)), direction=ear_dir,
+                  scale=(1, 0.3, 1), segments=8)
+        ear.finish(collection, head)
+
+        eye_c = cranium + Vector((0.17, side * 0.1, 0.04))
+        eye = Part(f"eye_{name}", eye_c)
+        look = Vector((1.0, side * 0.45, 0.05)).normalized()
+        eye.lathe("eye-white", ball(0.06, 4), eye_c, direction=look, scale=(1, 1, 0.85), segments=10)
+        eye.lathe("eye-amber", ball(0.046, 3), eye_c + look * 0.03, direction=look, scale=(1, 1, 0.55), segments=10)
+        eye.lathe("eye-pupil", ball(0.027, 3), eye_c + look * 0.052, direction=look, scale=(1, 1, 0.35), segments=10)  # in front of the iris
+        eye.lathe("eye-white", ball(0.01, 3), eye_c + look * 0.064 + Vector((0, 0, 0.016)), segments=6)
+        eye.finish(collection, head)
+
+    return root
+
+
+BUILDERS = {"zebra": build_zebra, "giraffe": build_giraffe, "tiger": build_tiger}
 
 
 # ---------------------------------------------------------------- clips
@@ -463,8 +587,8 @@ def leg_cycle(u, front):
 
 
 # Lying down (rest): how far the body lowers, and the folded knee's centre above the grass, per species.
-LYING_DROP = {"zebra": -0.4, "giraffe": -1.1}
-KNEE_HEIGHT = {"zebra": 0.075, "giraffe": 0.1}
+LYING_DROP = {"zebra": -0.4, "giraffe": -1.1, "tiger": -0.3}
+KNEE_HEIGHT = {"zebra": 0.075, "giraffe": 0.1, "tiger": 0.14}
 
 
 def fold_legs(pose, hips, upper_length, drop, knee_height):
@@ -629,9 +753,109 @@ def giraffe_rest(t, duration):
     return pose
 
 
+def tiger_idle(t, duration):
+    w = 2 * math.pi * t / duration
+    blink = pulse(t, 1.9, 0.22) + pulse(t, 4.4, 0.22)
+    yawn = pulse(t, 2.6, 1.2)
+    return {
+        "body.t": (0, 0, 0.005 * (1 - math.cos(2 * w))),
+        "body.r": (0, math.radians(0.6) * math.sin(2 * w), 0),
+        "neck.r": (0, math.radians(-4) * yawn, math.radians(8) * math.sin(w)),
+        # a slow look around, then a cat's head tilt and a big stretch of the neck up, like a yawn
+        "head.r": (math.radians(12) * pulse(t, 0.6, 1.2), math.radians(-14) * yawn, math.radians(16) * math.sin(w + 0.5)),
+        "ear_left.r": (math.radians(-25) * pulse(t, 1.2, 0.3), 0, math.radians(10) * pulse(t, 3.6, 0.5)),
+        "ear_right.r": (math.radians(25) * pulse(t, 3.2, 0.3), 0, 0),
+        "eye_left.s": (1, 1, 1 - 0.9 * min(1.0, blink + 0.7 * yawn)), "eye_right.s": (1, 1, 1 - 0.9 * min(1.0, blink + 0.7 * yawn)),
+        # the tail hangs and its tip flicks lazily, as a resting cat's does
+        "tail.r": (math.radians(14) * math.sin(w), math.radians(-6) + math.radians(8) * math.sin(2 * w), 0),
+    }
+
+
+def tiger_walk(t, duration):
+    u = t / duration
+    pose = {}
+    phases = {"leg_1": 0.0, "leg_3": 0.25, "leg_0": 0.5, "leg_2": 0.75}  # a cat's lateral-sequence walk
+    for leg, phase in phases.items():
+        swing, fold = leg_cycle((u + 1 - phase) % 1, leg in ("leg_2", "leg_3"))
+        pose[f"{leg}.r"] = (0, -swing * 1.1, 0)
+        pose[f"{leg}_lower.r"] = (0, fold, 0)
+    w = 2 * math.pi * u
+    pose.update({
+        "body.t": (0, 0, 0.004 + 0.004 * (1 - math.cos(2 * w))),
+        # a prowl: the shoulders roll, the head stays low and level, the tail sways behind
+        "body.r": (math.radians(2) * math.sin(w), math.radians(0.8) * math.sin(2 * w), math.radians(2) * math.sin(w)),
+        "neck.r": (0, math.radians(10), math.radians(-3) * math.sin(w)),
+        "head.r": (0, math.radians(-8) - math.radians(2) * math.sin(2 * w), math.radians(3) * math.sin(w)),
+        "ear_left.r": (0, 0, 0), "ear_right.r": (0, 0, 0),
+        "eye_left.s": (1, 1, 1), "eye_right.s": (1, 1, 1),
+        "tail.r": (math.radians(16) * math.sin(w), math.radians(-12), math.radians(14) * math.sin(w + 0.8)),
+    })
+    return pose
+
+
+def crouch_legs(pose, hips, upper, paw, drop, pitch, lift=(0.0, 0.0)):
+    """Bend every leg so the body lowers by ``drop`` (and pitches nose-down by ``pitch`` radians) with the paws
+    still under the hips: the elbows go back and the hind knees forward, each lower leg mirroring its upper. ``lift``
+    (front, hind) raises the paws a touch, since a tilted paw dips its rim, the hind toes most."""
+    for leg in LEGS:
+        hip = hips[leg]
+        front = leg in ("leg_2", "leg_3")
+        height = hip[2] + drop - hip[0] * math.sin(pitch) - paw - lift[0 if front else 1]
+        lower = hip[2] - upper - paw
+        a = math.acos(max(-1.0, min(1.0, height / (upper + lower))))
+        world = a if front else -a
+        pose[f"{leg}.r"] = (0, world - pitch, 0)
+        pose[f"{leg}_lower.r"] = (0, -2 * world, 0)
+
+
+def tiger_feed(t, duration):
+    """Crouched over food on the ground: front low, head down, chewing with sideways tugs, the tail flicking."""
+    w = 2 * math.pi * t / duration
+    chew = math.sin(4 * w)
+    pitch = math.radians(9)
+    pose = {
+        "body.t": (0, 0, -0.14),
+        "body.r": (0, pitch, 0),
+        "neck.r": (0, math.radians(52), math.radians(4) * math.sin(w)),
+        "head.r": (math.radians(10) * chew, math.radians(30) + math.radians(5) * (0.5 + 0.5 * chew), math.radians(4) * chew),
+        "ear_left.r": (math.radians(-15) * pulse(t, 0.9, 0.3), math.radians(-10), 0),
+        "ear_right.r": (math.radians(15) * pulse(t, 2.3, 0.3), math.radians(-10), 0),
+        "eye_left.s": (1, 1, 0.65), "eye_right.s": (1, 1, 0.65),
+        "tail.r": (math.radians(10) * math.sin(w), math.radians(-4), math.radians(22) * math.sin(2 * w)),
+    }
+    crouch_legs(pose, TIGER["hips"], TIGER["upper"], TIGER["paw"], -0.14, pitch, lift=(0.01, 0.055))
+    return pose
+
+
+def tiger_rest(t, duration):
+    """Lying like a sphinx: elbows on the grass and forepaws stretched out in front, hind legs folded, the head
+    held up with the eyes shut and nodding a little, the tail curled forward along the body and its tip twitching."""
+    w = 2 * math.pi * t / duration
+    breath = 0.5 - 0.5 * math.cos(w)
+    drop = LYING_DROP["tiger"]
+    pose = {
+        "body.t": (0, 0, drop + 0.008 * breath),
+        "body.r": (0, 0, 0),
+        "neck.r": (0, math.radians(-4) + math.radians(2) * breath, math.radians(-4)),
+        "head.r": (math.radians(-8), math.radians(12) + math.radians(4) * breath, math.radians(-6)),
+        "ear_left.r": (math.radians(-25) * pulse(t, 2.8, 0.35), math.radians(10), 0),
+        "ear_right.r": (0, math.radians(10), 0),
+        "eye_left.s": (1, 1, 0.1), "eye_right.s": (1, 1, 0.1),
+        "tail.r": (math.radians(-6), math.radians(38), math.radians(70) + math.radians(6) * pulse(t, 3.5, 0.6)),
+    }
+    fold_legs(pose, TIGER["hips"], lambda leg: TIGER["upper"], drop, KNEE_HEIGHT["tiger"])
+    for leg in ("leg_2", "leg_3"):
+        hip = TIGER["hips"][leg]
+        back = math.acos(min(1.0, (hip[2] + drop - KNEE_HEIGHT["tiger"]) / TIGER["upper"]))
+        pose[f"{leg}.r"] = (0, back, 0)  # the elbow back on the grass
+        pose[f"{leg}_lower.r"] = (0, -math.radians(90) - back, 0)  # the forearm forward, flat
+    return pose
+
+
 POSES = {
     "zebra": {"idle": (pose_idle, 4.0), "walk": (pose_walk, 1.2), "feed": (pose_feed, 3.0), "rest": (pose_rest, 5.0)},
     "giraffe": {"idle": (giraffe_idle, 5.0), "walk": (giraffe_walk, 1.6), "feed": (giraffe_feed, 3.0), "rest": (giraffe_rest, 6.0)},
+    "tiger": {"idle": (tiger_idle, 5.0), "walk": (tiger_walk, 1.1), "feed": (tiger_feed, 3.0), "rest": (tiger_rest, 6.0)},
 }
 
 
