@@ -1,0 +1,10 @@
+{
+  "note": "The Greyhaven pines (#569): 18 recipe runs, no bakes, from the catalogued Quaternius bark and Poly Haven fir twig atlas.",
+  "timeout": 20,
+  "ktx": true,
+  "lfs": [
+    "assets/canonical/quaternius.stylized-nature-megakit-standard.bark-normaltree-png/**",
+    "assets/canonical/poly-haven.fir-tree-01-twig-diff-2k-jpg/**",
+    "assets/canonical/poly-haven.fir-tree-01-twig-alpha-2k-jpg/**"
+  ]
+}
