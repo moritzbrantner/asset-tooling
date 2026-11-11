@@ -1,6 +1,6 @@
 // Greyhaven meadow (docs/greyhaven-meadow.md, #570): the recipe builds a verified gltf-resources-v1 bundle of eight
-// walk-through grass and flower patches on one cut-out atlas, each at most a few hundred triangles, with LODs that at
-// least halve down to one card, distance switch points and no collision. The build skips unless ASSET_TOOLING_BLENDER
+// walk-through grass and flower patches on one cut-out atlas, each at most a few hundred triangles, with one
+// reduced level, drawn only to 60 m, and no collision. The build skips unless ASSET_TOOLING_BLENDER
 // names Blender 5.2.2; it needs the hydrated Quaternius grass and flower textures (suite.json).
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -10,9 +10,10 @@ import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
 import { verifyAssetBundleTar } from "../../../src/asset-bundle-pack.js";
 import { GLTF_RESOURCES_BUNDLE_PROFILE, readAssetBundleAttachment, verifyAssetBundle } from "../../../src/asset-bundle.js";
 import {
-  MEADOW_DESCRIPTOR_ATTACHMENT, MEADOW_LOD_DISTANCES, MEADOW_MATERIAL, MEADOW_PIECES, MEADOW_RELEASE, MEADOW_TRIANGLES,
+  MEADOW_DESCRIPTOR_ATTACHMENT, MEADOW_MATERIAL, MEADOW_PIECES, MEADOW_RELEASE, MEADOW_TRIANGLES,
   buildGreyhavenMeadow, createMeadowSpec, meadowKey,
 } from "../../../scripts/build-greyhaven-meadow.ts";
+import { SCATTER_LOD_DISTANCES, SCATTER_MAX_DISTANCE } from "../../../src/kit-bundle.js";
 import { KIT_BUDGETS, kitBudgetViolations, kitCost } from "../../../scripts/report-kit-costs.ts";
 
 test("the meadow spec runs the packaged recipe for exactly one piece and level", () => {
@@ -21,7 +22,6 @@ test("the meadow spec runs the packaged recipe for exactly one piece and level",
   assert.deepEqual(spec.parameters, { blenderVersion: "5.2.2", arguments: { schemaVersion: 1, piece: "flowers-red", level: 1 } });
   assert.equal(spec.assetId, "greyhaven-meadow.kit.flowers-red");
   assert.equal(MEADOW_RELEASE, "greyhaven-meadow", "one rolling release, never numbered");
-  assert.ok(MEADOW_LOD_DISTANCES[0] >= 60 && MEADOW_LOD_DISTANCES[1] >= 180, "full detail to at least 60 m, the last level beyond 180 m");
 });
 
 test("the recipe builds a verified, cheap walk-through kit on one cut-out atlas", {
@@ -33,7 +33,7 @@ test("the recipe builds a verified, cheap walk-through kit on one cut-out atlas"
     await verifyAssetBundleTar(await readFile(built.tar), { sha256: built.tarSha256, ref: built.exportRef });
     const { manifest } = await verifyAssetBundle(built.bundleDir, built.exportRef, { profile: GLTF_RESOURCES_BUNDLE_PROFILE });
     assert.deepEqual(manifest.assets.map((entry) => `${entry.key}#${entry.variant}`).sort(),
-      MEADOW_PIECES.flatMap((piece) => ["default", "lod1", "lod2"].map((variant) => `${meadowKey(piece)}#${variant}`)).sort());
+      MEADOW_PIECES.flatMap((piece) => ["default", "lod1"].map((variant) => `${meadowKey(piece)}#${variant}`)).sort());
 
     // One cut-out atlas, KTX2 and stored once, inside the kit's cost limit.
     const resources = await readdir(path.join(built.bundleDir, "resources"));
@@ -61,13 +61,14 @@ test("the recipe builds a verified, cheap walk-through kit on one cut-out atlas"
       assert.ok(asset.footprint.height > 0.2 && asset.footprint.height < 1.2, `${asset.key}: ${asset.footprint.height} m tall`);
       // Ragged patches that wander along X, not round blobs.
       assert.ok(asset.footprint.width > asset.footprint.depth, `${asset.key} is longer than it is wide`);
-      const [lod0, lod1, lod2] = asset.lods.levels;
+      const [lod0, lod1, ...rest] = asset.lods.levels;
+      assert.equal(rest.length, 0, `${asset.key}: no far level`);
+      assert.equal(asset.maxDistance, SCATTER_MAX_DISTANCE, `${asset.key}: not drawn beyond ${SCATTER_MAX_DISTANCE} m`);
       assert.ok(lod0.triangles <= MEADOW_TRIANGLES, `${asset.key}: ${lod0.triangles} triangles`);
       assert.ok(lod1.triangles * 2 <= lod0.triangles, `${asset.key}: lod1 ${lod1.triangles} is at most half of ${lod0.triangles}`);
-      assert.equal(lod2.triangles, 2, `${asset.key}: the last level is one card`);
-      assert.ok(lod0.referenceMaxDistance >= MEADOW_LOD_DISTANCES[0] && lod1.referenceMaxDistance >= MEADOW_LOD_DISTANCES[1]);
-      assert.ok(Math.abs(asset.lods.boundingSphere.radius / (lod1.minScreenSize * tan) - lod1.referenceMaxDistance) < 3, `${asset.key}: lod1 ends about ${lod1.referenceMaxDistance} m away`);
-      assert.equal(lod2.minScreenSize, 0);
+      assert.deepEqual([lod0.referenceMaxDistance, lod1.referenceMaxDistance], [...SCATTER_LOD_DISTANCES], `${asset.key}: full detail to 40 m, the reduced level to 60 m`);
+      assert.ok(Math.abs(asset.lods.boundingSphere.radius / (lod0.minScreenSize * tan) - lod0.referenceMaxDistance) < 1, `${asset.key}: full detail ends about ${lod0.referenceMaxDistance} m away`);
+      assert.equal(lod1.minScreenSize, 0);
       assert.ok(asset.coverM2 > 0.3, `${asset.key} covers ${asset.coverM2} m²`);
     }
     const piece = (kind: string) => descriptor.assets.find((asset: any) => asset.kind === kind);

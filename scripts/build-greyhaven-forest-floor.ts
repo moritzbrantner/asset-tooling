@@ -16,13 +16,14 @@ import { canonicalJson } from "../src/canonical.js";
 import { createAssetCatalog } from "../src/catalog.js";
 import { importAssetCatalogStorageSource } from "../src/catalog-storage.js";
 import { sha256Bytes } from "../src/hash.js";
-import { buildKitPart, documentBounds, exportKitBundle, ktx2Assets, round, runKitCli, scaledLodDistances, triangles, type KitPart } from "../src/kit-bundle.js";
+import { buildKitPart, documentBounds, exportKitBundle, ktx2Assets, round, runKitCli, SCATTER_LOD_SELECTION, scatterLods, triangles, type KitPart } from "../src/kit-bundle.js";
 import type { AssetRef } from "../src/operations.js";
 
 const ROOT = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
 export const FLOOR_PIECES = ["fern", "fern-large", "bracken", "bluebells", "wood-anemone", "mushrooms", "leaf-litter"] as const;
 export type FloorPiece = (typeof FLOOR_PIECES)[number];
-export const FLOOR_VARIANTS = ["default", "lod1", "lod2"] as const;
+/** Full detail and the reduced level: scatter is not drawn beyond 60 m, so it needs no far card (#586). */
+export const FLOOR_VARIANTS = ["default", "lod1"] as const;
 export const FLOOR_KEY_PREFIX = "greyhaven-forest-floor.kit";
 /** One rolling release (Atlas Decision 7.1.5), never numbered. */
 export const FLOOR_RELEASE = "greyhaven-forest-floor";
@@ -38,11 +39,8 @@ export const FLOOR_SOURCES = {
 } as const;
 /** Scatter: no piece may exceed a few hundred triangles at full detail. */
 export const FLOOR_TRIANGLES = 320;
-/** Where LOD0 and lod1 end for a piece up to 1 m across, in metres at the reference FOV; scaledLodDistances grows them for larger pieces. */
-export const FLOOR_LOD_DISTANCES = [60, 180] as const;
 /** The leaf litter lies flat this far above its origin, so it doesn't z-fight the terrain. */
 export const FLOOR_LITTER_FLOAT = 0.01;
-const LOD_REFERENCE_FOV_Y = 60;
 
 export const floorKey = (piece: FloorPiece) => `${FLOOR_KEY_PREFIX}.${piece}`;
 
@@ -103,26 +101,17 @@ export async function buildGreyhavenForestFloor({ outDir, log = () => {} }: { ou
   }
 
   log("measure the descriptor");
-  const tan = Math.tan((LOD_REFERENCE_FOV_Y / 2) * Math.PI / 180);
   const assets = FLOOR_PIECES.map((piece) => {
     const levels = built.filter((part) => part.piece === piece);
     const { document, observations } = levels[0]!;
     const bounds = documentBounds(document);
-    const radius = round(Math.hypot(...[0, 1, 2].map((k) => bounds.max[k]! - bounds.min[k]!)) / 2);
-    const distances = scaledLodDistances(FLOOR_LOD_DISTANCES, bounds);
     const count = triangles(document);
     return {
       key: floorKey(piece), kind: piece, triangles: count, bounds, collision: "none", origin: "patch-centre-on-ground",
       footprint: { width: round(bounds.max[0] - bounds.min[0]), depth: round(bounds.max[2] - bounds.min[2]), height: round(bounds.max[1]) },
       coverM2: observations.coverM2, trianglesPerCoveredM2: Math.round(count / Number(observations.coverM2)),
       fronds: observations.fronds, flowers: observations.flowers, caps: observations.caps, litterQuads: observations.litterQuads,
-      lods: {
-        boundingSphere: { center: [0, 1, 2].map((k) => round((bounds.min[k]! + bounds.max[k]!) / 2)), radius },
-        levels: levels.map((level, index) => {
-          const distance = distances[index];
-          return { variant: level.variant, triangles: triangles(level.document), minScreenSize: distance ? Number((radius / (distance * tan)).toFixed(4)) : 0, referenceMaxDistance: distance ?? null };
-        }),
-      },
+      ...scatterLods(bounds, levels.map((level) => ({ variant: level.variant, triangles: triangles(level.document) }))),
     };
   });
   const descriptor = {
@@ -135,13 +124,8 @@ export async function buildGreyhavenForestFloor({ outDir, log = () => {} }: { ou
       + "coverM2 is the ground a patch covers; trianglesPerCoveredM2 its full-detail triangles over that.",
     collision: "Walk-through forest-floor plants: every piece declares `collision: \"none\"`.",
     tint: "Fronds, stalks, strap leaves, anemone leaves and mushroom caps and stems are greyscale in the atlas and take their colour from COLOR_0, so a material colour multiplies over them; "
-      + "the bluebells, the anemone flowers, the leaf litter and the far mushroom card carry their own colour, also times COLOR_0.",
-    lodSelection: {
-      metric: "projected-bounding-sphere-height-fraction", referenceFovYDegrees: LOD_REFERENCE_FOV_Y,
-      rule: "Use the first level whose minScreenSize is at most the asset's projected bounding-sphere diameter divided by the viewport height "
-        + "(radius / (distance * tan(fovY / 2)), scaled by the instance scale). referenceMaxDistance is the distance in metres at which that "
-        + "level ends for an unscaled instance at referenceFovYDegrees.",
-    },
+      + "the bluebells, the anemone flowers and the leaf litter carry their own colour, also times COLOR_0.",
+    lodSelection: SCATTER_LOD_SELECTION,
     assets,
   };
   const descriptorAsset = (await storeAssetObject(root, { bytes: Buffer.from(`${canonicalJson(descriptor)}\n`), kind: FLOOR_DESCRIPTOR_ATTACHMENT, mediaType: "application/json" })).asset;

@@ -22,8 +22,7 @@ rush heads and the two flowers carry their own colour (still multiplied by ``COL
 +Z, so a patch shades like the ground it stands on.
 
 ``level`` picks the level of detail, in the same frame: ``1`` keeps a seeded 40 % of each group, grown so the patch
-keeps its coverage, with every card single-segment; ``2`` is one card along the patch's long side (five grown pads
-for the water lilies).
+keeps its coverage, with every card single-segment. There is no far level: scatter is not drawn beyond 60 m.
 
 The arguments are ``piece`` and ``level``. The origin is the patch's centre on the ground (card feet run 3 cm below
 it); for ``water-lilies`` it is the water line, and the pads float 1 cm above it so they don't z-fight a water plane at
@@ -114,14 +113,13 @@ PIECES = {
                        "leaves": 9, "stems": 3, "leaf": (0.1, 0.16), "flower": 0.055},
 }
 LOD1 = {"keep": 0.4, "grow": 0.85}
-LOD2 = {"length": 0.8, "height": 0.8, "pads": 5, "padGrow": 1.6}
 
 
 def validate(p, inputs):
     if type(p) is not dict or set(p) != {"schemaVersion", "piece", "level"} or p["schemaVersion"] != 1:
         raise ValueError("greyhaven marsh requires exactly schemaVersion 1, piece and level")
-    if p["piece"] not in PIECES or p["level"] not in (0, 1, 2):
-        raise ValueError(f"greyhaven marsh: piece in {sorted(PIECES)}, level 0, 1 or 2")
+    if p["piece"] not in PIECES or p["level"] not in (0, 1):
+        raise ValueError(f"greyhaven marsh: piece in {sorted(PIECES)}, level 0 or 1")
     if set(inputs) != {"grass", "flowers", "meadow"}:
         raise ValueError("greyhaven marsh takes exactly the declared inputs grass, flowers and meadow")
 
@@ -537,9 +535,6 @@ def build(piece, lod_level, collection, inputs):
                 if cell.startswith("reed") or cell == "cattail":
                     counts["plumes"] += 1
 
-    if lod_level == 2:
-        return far(piece, spec, mat, collection)
-
     if piece == "water-lilies":
         return lilies(piece, spec, rng, nrng, kept, grow, lod_level, mat, collection)
     if piece == "marsh-marigold":
@@ -685,33 +680,6 @@ def marigolds(piece, spec, rng, nrng, kept, grow, lod_level, mat, collection):
             feet.append((x, y, 0.08))
     obj = cards.mesh(piece, mat, collection)
     return obj, observe(piece, lod_level, cards, tri, counts, feet)
-
-
-def far(piece, spec, mat, collection):
-    """The last level: one card along the patch's long side; for the lilies, five grown pads."""
-    cards = Cards()
-    counts = {"plumes": 0, "flowers": 0, "pads": 0}
-    if piece == "water-lilies":
-        rng = random.Random(spec["seed"] + 1)
-        colour = linear(srgb(PADS[0][0]))
-        for k in range(LOD2["pads"]):
-            x = (k / (LOD2["pads"] - 1) - 0.5) * spec["length"] * 0.7
-            cards.flat((x, rng.uniform(-0.2, 0.2) * spec["width"], FLOAT + 0.0006 * k), rng.uniform(0, math.tau),
-                       sum(spec["pad"]) / 2 * LOD2["padGrow"], "lily-pad", colour)
-            counts["pads"] += 1
-    else:
-        cell, green, height = {
-            "reeds-stand": ("reed-a", "reed", 2.2), "reeds-edge": ("reed-a", "reed", 1.9), "cattails": ("cattail", "cattail", 1.5),
-            "sedge-tussock": ("sedge-a", "sedge", 0.6), "rushes": ("rush", "rush", 0.8), "marsh-marigold": ("sedge-b", "marigold", 0.3),
-        }[piece]
-        colours = palette(green)
-        if piece == "marsh-marigold":
-            colours[2] = colours[2] * 0.7 + 0.3 * linear(srgb("#f2c41c"))
-        length = (spec["width"] if "clump" in spec else spec["length"]) * LOD2["length"]
-        y = 0.25 * spec["width"] if piece == "reeds-edge" else 0.0  # the dense, landward side
-        cards.card((0, y, 0), 0.0, length, height * LOD2["height"], cell, colours)
-    obj = cards.mesh(piece, mat, collection)
-    return obj, observe(piece, 2, cards, {"leaves": 2 * len(cards.faces), "flowers": 0}, counts, None)
 
 
 def observe(piece, level, cards, tri, counts, feet):
