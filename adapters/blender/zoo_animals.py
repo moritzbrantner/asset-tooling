@@ -37,7 +37,7 @@ import bmesh
 import bpy
 from mathutils import Euler, Matrix, Quaternion, Vector
 
-SPECIES = ("zebra", "giraffe", "tiger")
+SPECIES = ("zebra", "giraffe", "tiger", "elephant")
 FPS = 30
 KEY_STEP = 2  # frames between keys; every key is linear
 SHARP_ANGLE = math.radians(50)
@@ -61,6 +61,10 @@ PALETTE = {
     "tiger-white": (0.98, 0.95, 0.9),
     "nose-pink": (0.9, 0.52, 0.55),
     "eye-amber": (0.95, 0.72, 0.18),
+    "elephant-grey": (0.6, 0.63, 0.7),
+    "elephant-dark": (0.43, 0.45, 0.52),
+    "toenail": (0.93, 0.9, 0.82),
+    "tusk": (0.98, 0.96, 0.88),
 }
 
 
@@ -554,7 +558,114 @@ def build_tiger(collection):
     return root
 
 
-BUILDERS = {"zebra": build_zebra, "giraffe": build_giraffe, "tiger": build_tiger}
+# ---------------------------------------------------------------- elephant
+
+ELEPHANT = {
+    "body": (0.0, 0.0, 1.35), "neck": (0.75, 0.0, 1.55), "tail": (-0.9, 0.0, 1.55),
+    "hips": {"leg_0": (-0.55, -0.36, 1.12), "leg_1": (-0.55, 0.36, 1.12), "leg_2": (0.55, -0.36, 1.15), "leg_3": (0.55, 0.36, 1.15)},
+    "upper": 0.5, "foot": 0.06,  # the foot pad's centre above the grass
+    "neck_dir": (1, 0, 0.4), "neck_length": 0.18,
+    "trunk": (0.4, 0, -0.18), "trunk_dirs": ((0.25, 0, -1), (0.3, 0, -1)), "trunk_lengths": (0.5, 0.45),
+}
+
+
+def build_elephant(collection):
+    g = ELEPHANT
+    root = bpy.data.objects.new("animal_root", None)
+    root.empty_display_size = 0.5
+    collection.objects.link(root)
+
+    # Body: a big round barrel, a little higher at the shoulders.
+    body = Part("body", g["body"])
+    barrel = [(0, -0.95), (0.4, -0.88), (0.6, -0.72), (0.7, -0.45), (0.72, -0.15), (0.72, 0.15), (0.73, 0.42), (0.66, 0.7),
+              (0.42, 0.88), (0, 0.95)]
+    body.lathe("elephant-grey", barrel, g["body"], direction=(1, 0, 0.06), scale=(0.9, 0.85, 1), segments=16)
+    body = body.finish(collection, root)
+
+    # Legs: thick columns on round feet with three cream toenails at the front.
+    for leg, hip in g["hips"].items():
+        front = leg in ("leg_2", "leg_3")
+        hip = Vector(hip)
+        upper = Part(leg, hip)
+        upper.lathe("elephant-grey", capsule(0.27, 0.22, g["upper"], cap=0.04), hip, segments=10)
+        upper = upper.finish(collection, body)
+        knee = hip - Vector((0, 0, g["upper"]))
+        lower = Part(f"{leg}_lower", knee)
+        lower.lathe("elephant-grey", capsule(0.22, 0.23, knee.z - 0.2, 2), knee, segments=10)  # its round end sits in the foot
+        lower.lathe("elephant-grey", ball(0.22, 3), knee, segments=10)  # a round knee
+        lower.lathe("elephant-dark", [(0, 0), (0.24, 0), (0.25, 0.04), (0.24, 0.11), (0, 0.11)], (knee.x, knee.y, 0.0), segments=12)
+        for k in (-1, 0, 1):
+            nail = Vector((knee.x + 0.21 * math.cos(math.radians(32 * k)), knee.y + 0.21 * math.sin(math.radians(32 * k)), 0.06))
+            lower.lathe("toenail", ball(0.065, 3), nail, scale=(0.7, 1.0, 0.8), segments=8)
+        lower.finish(collection, upper)
+
+    # Tail: a thin rope with a dark tuft.
+    tail = Part("tail", g["tail"])
+    tail.lathe("elephant-grey", capsule(0.045, 0.03, 0.55, 2), g["tail"], direction=(0.3, 0, 1), segments=7)
+    tail.lathe("elephant-dark", ball(0.06, 4), (-1.07, 0, 1.0), direction=(-0.3, 0, -1), scale=(0.8, 0.8, 1.7), segments=8)
+    tail.finish(collection, body)
+
+    # Neck: a short stub between the shoulders and the big head.
+    neck_dir = Vector(g["neck_dir"]).normalized()
+    n0 = Vector(g["neck"])
+    neck = Part("neck", n0)
+    neck.lathe("elephant-grey", capsule(0.48, 0.45, g["neck_length"], 3), n0, direction=-neck_dir, segments=12)
+    neck = neck.finish(collection, body)
+
+    # Head: big and domed, with small ivory tusks and a dark mouth line under the trunk.
+    hp = n0 + neck_dir * g["neck_length"]
+    head = Part("head", hp)
+    cranium = hp + Vector((0.25, 0, 0.12))
+    head.lathe("elephant-grey", ball(0.55, 7), cranium, scale=(0.9, 1.0, 0.95), segments=16)
+    head.lathe("elephant-grey", ball(0.3, 5), cranium + Vector((0.3, 0, -0.12)), scale=(0.9, 1.0, 0.9), segments=12)  # the cheeks
+    for side in (-1, 1):
+        root_t = cranium + Vector((0.42, side * 0.17, -0.25))
+        head.lathe("tusk", capsule(0.05, 0.02, 0.22, 2, cap=0.3), root_t, direction=-Vector((1, side * 0.2, 0.35)), segments=8)
+    head.lathe("elephant-dark", ball(0.07, 3), cranium + Vector((0.43, 0, -0.33)), scale=(0.8, 1.4, 0.4), segments=8)  # mouth
+    head = head.finish(collection, neck)
+
+    # Trunk: two joints, so it can sway, curl and lift food, with soft wrinkle rings and a darker tip.
+    t0 = cranium + Vector(g["trunk"])
+    d1, d2 = (Vector(d).normalized() for d in g["trunk_dirs"])
+    l1, l2 = g["trunk_lengths"]
+    trunk = Part("trunk", t0)
+    trunk.lathe("elephant-grey", capsule(0.17, 0.13, l1, 2, cap=0.5), t0, direction=-d1, segments=10)
+    trunk.paint("elephant-grey", "elephant-dark", [(t0 + d1 * (0.18 + 0.12 * k), d1, 0.018) for k in range(3)])
+    trunk = trunk.finish(collection, head)
+    t1 = t0 + d1 * l1
+    tip = Part("trunk_tip", t1)
+    tip.lathe("elephant-grey", capsule(0.13, 0.105, l2, 2, cap=0.5), t1, direction=-d2, segments=10)
+    tip.lathe("elephant-grey", ball(0.13, 4), t1, segments=10)
+    tip.paint("elephant-grey", "elephant-dark", [(t1 + d2 * (0.1 + 0.11 * k), d2, 0.016) for k in range(3)])
+    tip.lathe("elephant-dark", ball(0.12, 4), t1 + d2 * (l2 + 0.03), direction=d2, scale=(1, 1, 0.55), segments=10)
+    tip.finish(collection, trunk)
+
+    for side, name in ((1, "left"), (-1, "right")):
+        # big round ears fanned out to the side, their pink fronts facing forwards
+        base = cranium + Vector((-0.02, side * 0.42, 0.12))
+        ear = Part(f"ear_{name}", base)
+        normal = Vector((0.8, side * 0.45, 0.0)).normalized()
+        out = Vector((-0.45, side * 0.8, 0.0)).normalized()
+        centre = base + out * 0.36 + Vector((0, 0, -0.1))
+        ear.lathe("elephant-grey", ball(1.0, 5), centre, direction=normal, scale=(0.45, 0.45, 0.07), segments=14)
+        ear.lathe("elephant-grey", ball(1.0, 4), centre + Vector((0, 0, -0.22)) - out * 0.06, direction=normal,
+                  scale=(0.3, 0.3, 0.06), segments=12)  # the lower lobe
+        ear.lathe("ear-inner", ball(1.0, 4), centre + normal * 0.03 + Vector((0, 0, -0.04)), direction=normal,
+                  scale=(0.34, 0.34, 0.04), segments=12)
+        ear.finish(collection, head)
+
+        eye_c = cranium + Vector((0.4, side * 0.3, 0.1))
+        eye = Part(f"eye_{name}", eye_c)
+        look = Vector((1.0, side * 0.55, 0.05)).normalized()
+        eye.lathe("eye-white", ball(0.085, 4), eye_c, direction=look, scale=(1, 1, 0.8), segments=10)
+        eye.lathe("eye-pupil", ball(0.055, 3), eye_c + look * 0.05, direction=look, scale=(1, 1, 0.55), segments=10)
+        eye.lathe("eye-white", ball(0.016, 3), eye_c + look * 0.085 + Vector((0, 0, 0.025)), segments=6)
+        eye.finish(collection, head)
+
+    return root
+
+
+BUILDERS = {"zebra": build_zebra, "giraffe": build_giraffe, "tiger": build_tiger, "elephant": build_elephant}
 
 
 # ---------------------------------------------------------------- clips
@@ -587,8 +698,8 @@ def leg_cycle(u, front):
 
 
 # Lying down (rest): how far the body lowers, and the folded knee's centre above the grass, per species.
-LYING_DROP = {"zebra": -0.4, "giraffe": -1.1, "tiger": -0.3}
-KNEE_HEIGHT = {"zebra": 0.075, "giraffe": 0.1, "tiger": 0.14}
+LYING_DROP = {"zebra": -0.4, "giraffe": -1.1, "tiger": -0.3, "elephant": -0.6}
+KNEE_HEIGHT = {"zebra": 0.075, "giraffe": 0.1, "tiger": 0.14, "elephant": 0.26}
 
 
 def fold_legs(pose, hips, upper_length, drop, knee_height):
@@ -852,10 +963,114 @@ def tiger_rest(t, duration):
     return pose
 
 
+def ears_open(left, right=None):
+    """Elephant ears fanned forwards by ``left`` (and ``right``) radians: each turns about its root's vertical."""
+    return {"ear_left.r": (0, 0, -left), "ear_right.r": (0, 0, left if right is None else right)}
+
+
+def keyed(u, keys):
+    """Smoothly interpolate ``keys`` = [(u, value or tuple), ...] (ascending u in [0, 1], first and last equal)."""
+    for (u0, v0), (u1, v1) in zip(keys, keys[1:]):
+        if u0 <= u <= u1:
+            s = smooth((u - u0) / (u1 - u0)) if u1 > u0 else 1.0
+            return tuple(a + (b - a) * s for a, b in zip(v0, v1))
+    return keys[-1][1]
+
+
+def elephant_idle(t, duration):
+    w = 2 * math.pi * t / duration
+    blink = pulse(t, 4.1, 0.25)
+    flap = 0.5 - 0.5 * math.cos(2 * w)
+    pose = {
+        "body.t": (0, 0, 0.01 * (1 - math.cos(2 * w))),
+        "body.r": (math.radians(1.2) * math.sin(w), 0, 0),
+        "neck.r": (0, math.radians(2) * math.sin(w), 0),
+        "head.r": (math.radians(3) * math.sin(w), math.radians(-3) * math.sin(2 * w), math.radians(6) * math.sin(w + 0.5)),
+        # the trunk sways from side to side, its tip curling and uncurling
+        "trunk.r": (math.radians(12) * math.sin(w), math.radians(-6) * math.sin(2 * w), 0),
+        "trunk_tip.r": (math.radians(6) * math.sin(w - 0.6), math.radians(30) * (0.5 + 0.5 * math.sin(2 * w - 1.0)), 0),
+        "eye_left.s": (1, 1, 1 - 0.88 * blink), "eye_right.s": (1, 1, 1 - 0.88 * blink),
+        "tail.r": (math.radians(20) * math.sin(w * 2), math.radians(-5), 0),
+    }
+    pose.update(ears_open(math.radians(22) * flap, math.radians(22) * (0.5 - 0.5 * math.cos(2 * w - 0.5))))
+    return pose
+
+
+def elephant_walk(t, duration):
+    u = t / duration
+    pose = {}
+    phases = {"leg_1": 0.0, "leg_3": 0.25, "leg_0": 0.5, "leg_2": 0.75}  # a slow lateral-sequence amble
+    for leg, phase in phases.items():
+        swing, fold = leg_cycle((u + 1 - phase) % 1, leg in ("leg_2", "leg_3"))
+        pose[f"{leg}.r"] = (0, -swing * (0.7 if leg in ("leg_2", "leg_3") else 0.58), 0)
+        pose[f"{leg}_lower.r"] = (0, fold * (0.55 if leg in ("leg_2", "leg_3") else 0.9), 0)
+    w = 2 * math.pi * u
+    pose.update({
+        "body.t": (0, 0, 0.042 + 0.01 * (1 - math.cos(2 * w))),  # the wide feet tip their rims as they swing
+        "body.r": (math.radians(1) * math.sin(w), math.radians(0.8) * math.sin(2 * w), math.radians(1.5) * math.sin(w)),
+        "neck.r": (0, math.radians(3) * math.sin(2 * w - 0.6), 0),
+        "head.r": (0, math.radians(-2) * math.sin(2 * w - 1.0), math.radians(2) * math.sin(w)),
+        # the trunk swings like a pendulum behind each stride
+        "trunk.r": (math.radians(8) * math.sin(w - 0.8), math.radians(10) * math.sin(2 * w - 1.2), 0),
+        "trunk_tip.r": (math.radians(6) * math.sin(w - 1.4), math.radians(12) + math.radians(10) * math.sin(2 * w - 1.8), 0),
+        "eye_left.s": (1, 1, 1), "eye_right.s": (1, 1, 1),
+        "tail.r": (math.radians(14) * math.sin(w), math.radians(-8), 0),
+    })
+    pose.update(ears_open(math.radians(10) + math.radians(8) * math.sin(2 * w)))
+    return pose
+
+
+ELEPHANT_FEED = [  # u, (neck, trunk, trunk tip, head) pitch in degrees: reach down, pick, lift and curl to the mouth, chew
+    (0.0, (0, 0, 10, 0)), (0.28, (22, -24, -4, 10)), (0.4, (22, -24, 22, 10)), (0.62, (-4, 46, 135, -10)),
+    (0.82, (-4, 46, 135, -10)), (1.0, (0, 0, 10, 0)),
+]
+
+
+def elephant_feed(t, duration):
+    """The trunk reaches down to the grass, picks some up, curls it to the mouth, and the elephant chews."""
+    u = t / duration
+    w = 2 * math.pi * u
+    neck, trunk, tip, head = (math.radians(v) for v in keyed(u, ELEPHANT_FEED))
+    chew = pulse(u, 0.6, 0.3) * math.sin(6 * w)
+    pose = {
+        "body.t": (0, 0, 0.006 * (1 - math.cos(w))),
+        "body.r": (0, 0, 0),
+        "neck.r": (0, neck, 0),
+        "head.r": (math.radians(2) * chew, head + math.radians(3) * chew, 0),
+        "trunk.r": (0, trunk, 0),
+        "trunk_tip.r": (0, tip, 0),
+        "eye_left.s": (1, 1, 1 - 0.5 * pulse(u, 0.6, 0.3)), "eye_right.s": (1, 1, 1 - 0.5 * pulse(u, 0.6, 0.3)),
+        "tail.r": (math.radians(22) * math.sin(w * 2), math.radians(-5), 0),
+    }
+    pose.update(ears_open(math.radians(14) * (0.5 - 0.5 * math.cos(2 * w))))
+    return pose
+
+
+def elephant_rest(t, duration):
+    """Lying on folded legs, the trunk laid out on the grass in front with its tip curled, eyes shut, ears flat."""
+    w = 2 * math.pi * t / duration
+    breath = 0.5 - 0.5 * math.cos(w)
+    drop = LYING_DROP["elephant"]
+    pose = {
+        "body.t": (0, 0, drop + 0.012 * breath),
+        "body.r": (0, 0, 0),
+        "neck.r": (0, math.radians(4) + math.radians(1.5) * breath, 0),
+        "head.r": (0, math.radians(4), math.radians(-4)),
+        "trunk.r": (0, math.radians(-24), 0),
+        "trunk_tip.r": (0, math.radians(-26), math.radians(25) + math.radians(6) * pulse(t, 3.0, 0.8)),
+        "eye_left.s": (1, 1, 0.1), "eye_right.s": (1, 1, 0.1),
+        "tail.r": (math.radians(-10), math.radians(-50), 0),
+    }
+    pose.update(ears_open(math.radians(-6) + math.radians(10) * pulse(t, 2.2, 0.6), math.radians(-6)))
+    fold_legs(pose, ELEPHANT["hips"], lambda leg: ELEPHANT["upper"], drop, KNEE_HEIGHT["elephant"])
+    return pose
+
+
 POSES = {
     "zebra": {"idle": (pose_idle, 4.0), "walk": (pose_walk, 1.2), "feed": (pose_feed, 3.0), "rest": (pose_rest, 5.0)},
     "giraffe": {"idle": (giraffe_idle, 5.0), "walk": (giraffe_walk, 1.6), "feed": (giraffe_feed, 3.0), "rest": (giraffe_rest, 6.0)},
     "tiger": {"idle": (tiger_idle, 5.0), "walk": (tiger_walk, 1.1), "feed": (tiger_feed, 3.0), "rest": (tiger_rest, 6.0)},
+    "elephant": {"idle": (elephant_idle, 6.0), "walk": (elephant_walk, 1.5), "feed": (elephant_feed, 4.0), "rest": (elephant_rest, 6.0)},
 }
 
 
