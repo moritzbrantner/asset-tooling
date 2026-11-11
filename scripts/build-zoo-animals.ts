@@ -1,15 +1,18 @@
-// Zoo's existing animated zebra and giraffe, packaged as authored (#128, Atlas Decisions 8.1.2 and 8.1.4,
-// docs/quadruped-rigid.md):
-//   bun scripts/build-zoo-animals.ts --out <directory>
-// Each animal is a hash-pinned MIT catalog payload imported offline from hydrated LFS storage, checked against the
-// shared quadruped-rigid profile, and exported as a gltf-resources-v1 bundle packed to <directory>/zoo-animals.tar,
-// next to the measured zoo-animals-descriptor-v1, the licence text, lineage.json and export.ref.json. It models and
-// animates nothing, and needs no Blender.
+// The Zoo animals (docs/quadruped-rigid.md, docs/zoo-animals.md):
+//   ASSET_TOOLING_BLENDER=<blender 5.2.2> bun scripts/build-zoo-animals.ts --out <directory>
+// Zoo's existing zebra and giraffe (#128, Atlas Decisions 8.1.2 and 8.1.4) are hash-pinned MIT catalog payloads
+// imported offline from hydrated LFS storage, as authored, as the `default` variant. The expressive animals (#589)
+// are generated here by the Blender recipe adapters/blender/zoo_animals.py, as the `expressive` variant. Every
+// member is checked against the shared quadruped-rigid profile and exported as one gltf-resources-v1 bundle packed
+// to <directory>/zoo-animals.tar, next to the measured zoo-animals-descriptor-v1, the licence text, lineage.json and
+// export.ref.json.
 import path from "node:path";
 import { mkdir, readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { createAssetCatalog } from "../src/catalog.js";
 import { importAssetCatalogStorageSource } from "../src/catalog-storage.js";
+import { blenderScriptSpec, runBlenderRecipe } from "../src/blender-recipe-run.js";
+import { readBlenderRecipeSource } from "../src/blender-recipe-source.js";
 import { runKitCli } from "../src/kit-bundle.js";
 import { packageQuadrupedRigidFamily } from "../src/quadruped-rigid.js";
 import type { AssetRef } from "../src/operations.js";
@@ -26,6 +29,20 @@ export const ZOO_ANIMALS = [
   { animal: "giraffe", key: "zoo.animal.giraffe", sourceId: "zoo.giraffe-glb" },
   { animal: "zebra", key: "zoo.animal.zebra", sourceId: "zoo.zebra-glb" },
 ] as const;
+/**
+ * The expressive animals authored here by adapters/blender/zoo_animals.py (#589), packaged beside Zoo's own
+ * models as the `expressive` variant of the same key, so the `default` members stay as they were.
+ */
+export const ZOO_EXPRESSIVE_VARIANT = "expressive";
+export const ZOO_EXPRESSIVE_ANIMALS = [{ animal: "zebra", key: "zoo.animal.zebra", issue: 589 }] as const;
+export const ZOO_ANIMALS_RECIPE = "adapters/blender/zoo_animals.py";
+
+export function createZooAnimalAssetSpec({ species, scriptSha256, blenderVersion }: { species: string; scriptSha256: string; blenderVersion: string }) {
+  return blenderScriptSpec({
+    assetId: `zoo.animal.${species}.${ZOO_EXPRESSIVE_VARIANT}`, inputs: { script: { path: "zoo_animals.py", sha256: scriptSha256 } },
+    blenderVersion, arguments: { schemaVersion: 1, species }, output: `${species}.glb`,
+  });
+}
 /** The conventions of Zoo's authored models. They are as authored, and differ from the Greyhaven animals' +Z facing. */
 const ZOO_CONVENTIONS = { facing: "+X", origin: "rig-root-on-the-ground-plane" };
 
@@ -49,6 +66,22 @@ export async function buildZooAnimals({ outDir, log = () => {} }: { outDir: stri
     });
   }
   if (!license) throw new Error("no Zoo animal entries");
+  const recipe = await readBlenderRecipeSource("zoo_animals.py");
+  for (const entry of ZOO_EXPRESSIVE_ANIMALS) {
+    log(`generate the ${ZOO_EXPRESSIVE_VARIANT} ${entry.animal} (external.blender.script@1 ${ZOO_ANIMALS_RECIPE})`);
+    const { glb, observations } = await runBlenderRecipe(root, {
+      workspace: path.join(root, "zoo-animals", entry.animal), files: { "zoo_animals.py": recipe.bytes },
+      spec: createZooAnimalAssetSpec({ species: entry.animal, scriptSha256: recipe.sha256, blenderVersion: recipe.blenderVersion }),
+    });
+    members.push({
+      key: entry.key, variant: ZOO_EXPRESSIVE_VARIANT, source: glb,
+      provenance: {
+        animal: entry.animal, issue: `https://github.com/moritzbrantner/asset-tooling/issues/${entry.issue}`,
+        recipe: { script: ZOO_ANIMALS_RECIPE, sha256: recipe.sha256, blenderVersion: recipe.blenderVersion, name: (observations as { recipe: string }).recipe },
+        generator: "procedural: original scripted geometry and clips in this repository; no imported meshes, no third-party assets, no textures",
+      },
+    });
+  }
   return packageQuadrupedRigidFamily(root, {
     release: ZOO_ANIMALS_RELEASE, tarName: ZOO_ANIMALS_TAR_NAME, descriptorFile: ZOO_ANIMALS_DESCRIPTOR_FILE,
     descriptorSchema: ZOO_ANIMALS_DESCRIPTOR_SCHEMA, descriptorAttachment: ZOO_ANIMALS_DESCRIPTOR_ATTACHMENT,

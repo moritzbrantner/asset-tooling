@@ -1,4 +1,10 @@
 {
   "script": "scripts/build-zoo-animals.ts",
-  "lfs": true
+  "blender": true,
+  "lfs": true,
+  "budget": {
+    "materials": 6,
+    "textureMemoryMB": 1,
+    "downloadMB": 2
+  }
 }

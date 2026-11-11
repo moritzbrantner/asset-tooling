@@ -68,6 +68,8 @@ The [Greyhaven settlement props](docs/settlement-props.md) are a scripted Blende
 
 The [toy-like farm structures](docs/farm-structures.md) are a scripted Blender recipe for My Farm: a chunky red-and-white Farmhouse with a dark roof and a pale domed Silo, sized for 2 × 2 tile footprints.
 
+The [expressive Zoo animals](docs/zoo-animals.md) are a scripted Blender recipe for cartoon rigid-part animals, starting with a striped zebra with idle, walk, feed and rest clips, released in `zoo-animals` beside Zoo's own models.
+
 The [toy zoo scenery](docs/zoo-scenery.md) is a scripted Blender recipe for Zoo: flat-colour, untextured round and pine trees, a berry bush and a boulder, each fitting one 1 m tile.
 
 The [Zoo particle flipbooks](docs/zoo-effects.md) are baked 16-frame dust, leaf and splash atlases with matching `BurstPreset`s for 3d-lab's seeded bursts, from a deterministic 2D recipe.
