@@ -200,7 +200,10 @@ def main():
     show(groups, {"idle-0"})
     bpy.context.view_layer.update()
     head = next(o for o in groups["idle-0"][1] if o.name.split(".")[0] == "head")
-    shoot(scene, camera, "face.jpg", head.matrix_world.translation, 0.75, yaw=118, pitch=10)
+    face = [head.matrix_world @ v.co for v in head.data.vertices]
+    size = max(max(p[i] for p in face) - min(p[i] for p in face) for i in range(3))
+    centre = Vector([(max(p[i] for p in face) + min(p[i] for p in face)) / 2 for i in range(3)])
+    shoot(scene, camera, "face.jpg", centre, 3.2 * size, yaw=118, pitch=10)  # framed by the head's own size
 
     # Every clip's poses in a row, seen from the animal's right side.
     for clip in ("idle", "walk", "feed", "rest"):

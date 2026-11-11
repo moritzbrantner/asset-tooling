@@ -1,10 +1,10 @@
 # Expressive Zoo animals
 
-This is the recipe for Zoo's finished cartoon animals ([#589](https://github.com/moritzbrantner/asset-tooling/issues/589), consumer [zoo#112](https://github.com/moenarch-games/zoo/issues/112) and [zoo#142](https://github.com/moenarch-games/zoo/issues/142)). The animals are the **zebra**, the **giraffe** and the **tiger**. The zebra and giraffe replace Zoo's deprecated generator output, whose zebra has a block body, a bear-like head and a walk that splays its legs sideways ([quadruped-rigid.md](quadruped-rigid.md#what-the-viewer-shows)).
+This is the recipe for Zoo's finished cartoon animals ([#589](https://github.com/moritzbrantner/asset-tooling/issues/589), consumer [zoo#112](https://github.com/moenarch-games/zoo/issues/112) and [zoo#142](https://github.com/moenarch-games/zoo/issues/142)). The animals are the **zebra**, the **giraffe**, the **tiger** and the **elephant**. The zebra and giraffe replace Zoo's deprecated generator output, whose zebra has a block body, a bear-like head and a walk that splays its legs sideways ([quadruped-rigid.md](quadruped-rigid.md#what-the-viewer-shows)).
 
 - **Source:** [`adapters/blender/zoo_animals.py`](../adapters/blender/zoo_animals.py), an original scripted Blender recipe in this repository. It has no imported meshes, no third-party assets, no textures and no randomness. Zoo's generator is not ported.
 - **Rig:** the shared [`quadruped-rigid`](quadruped-rigid.md) profile. Named transform nodes pivot at their joints and rigid parts hang under them, with no skin.
-- **Release:** the existing rolling `zoo-animals` release, as the variant `expressive` of the keys `zoo.animal.zebra`, `zoo.animal.giraffe` and `zoo.animal.tiger`. Zoo's own zebra and giraffe stay unchanged as the `default` variant, so a consumer of a `default` member sees the same model.
+- **Release:** the existing rolling `zoo-animals` release, as the variant `expressive` of the keys `zoo.animal.zebra`, `zoo.animal.giraffe`, `zoo.animal.tiger` and `zoo.animal.elephant`. Zoo's own zebra and giraffe stay unchanged as the `default` variant, so a consumer of a `default` member sees the same model.
 
 ## Build
 
@@ -98,6 +98,28 @@ The length includes the tail.
 
 The Zoo activity mapping is the zebra's. Predator care, welfare and habitat rules stay with Zoo (zoo#138).
 
+## The elephant
+
+The fourth animal ([#599](https://github.com/moritzbrantner/asset-tooling/issues/599)) is new to the release too, so `zoo.animal.elephant` has only the `expressive` variant. It adds two joints of its own, which the profile allows: `head > trunk > trunk_tip`, so the trunk can sway, curl and carry food.
+
+| Key / variant | Size (L × H × W, m) | Triangles | Parts | Materials |
+| --- | --- | --- | --- | --- |
+| `zoo.animal.elephant` / `expressive` | 3.06 × 2.26 × 2.23 | 3,912 | 18 | 1 |
+
+The length includes the trunk and the width the fanned ears.
+
+- **Look:** a big round body, thick column legs on dark round feet with three cream toenails each, a short neck under a big domed head with full cheeks, small ivory tusks, large round eyes with highlights, and big round ears fanned out to the sides with pink fronts. The trunk carries soft wrinkle rings and a darker tip; the tail ends in a dark tuft.
+- **Clips:**
+
+| Clip | Seconds | What it shows |
+| --- | --- | --- |
+| `idle` | 6.0 | Slow ear flaps, the trunk swaying from side to side and its tip curling, a nod, a blink and a tail swish |
+| `walk` | 1.5 | A slow lateral-sequence amble: shorter swings for the wide feet, the trunk swinging like a pendulum and the ears flapping with the stride |
+| `feed` | 4.0 | The trunk reaches down to the grass, picks some up, curls it to the mouth, and the elephant chews (keyed phases in `ELEPHANT_FEED`) |
+| `rest` | 6.0 | Lying on folded legs (`fold_legs`), the trunk laid out on the grass in front with its tip curled, eyes shut, ears flat |
+
+The amble keeps the body about 4 cm higher than standing, because the wide foot pads tip their rims down as they swing. The Zoo activity mapping is the zebra's.
+
 ## Conventions
 
 These are the conventions of the existing `zoo-animals` members: metres, +Y up, right-handed, the animal faces **+X** and its right side is +Z, and the origin is on the ground plane under the body. The asset is presentation only; Zoo owns placement, scale, activity, gameplay and physics.
@@ -127,9 +149,10 @@ These are the conventions of the existing `zoo-animals` members: metres, +Y up, 
 ASSET_TOOLING_BLENDER=<blender 5.2.2> bun scripts/review-zoo-animals.ts --bundle .artifacts/zoo-animals/bundle --key zoo.animal.zebra --out .artifacts/zoo-review
 ASSET_TOOLING_BLENDER=<blender 5.2.2> bun scripts/review-zoo-animals.ts --bundle .artifacts/zoo-animals/bundle --key zoo.animal.giraffe --compare zoo.animal.giraffe/default --out .artifacts/zoo-review-giraffe
 ASSET_TOOLING_BLENDER=<blender 5.2.2> bun scripts/review-zoo-animals.ts --bundle .artifacts/zoo-animals/bundle --key zoo.animal.tiger --compare zoo.animal.zebra/expressive --out .artifacts/zoo-review-tiger
+ASSET_TOOLING_BLENDER=<blender 5.2.2> bun scripts/review-zoo-animals.ts --bundle .artifacts/zoo-animals/bundle --key zoo.animal.elephant --compare zoo.animal.zebra/expressive --out .artifacts/zoo-review-elephant
 ```
 
-The zebra images from the 2026-11-11 build are in [`review/zoo-animals/`](../review/zoo-animals/), the giraffe's, beside Zoo's current giraffe, in [`review/zoo-animals/giraffe/`](../review/zoo-animals/giraffe/), and the tiger's, beside the expressive zebra, in [`review/zoo-animals/tiger/`](../review/zoo-animals/tiger/):
+The zebra images are in [`review/zoo-animals/`](../review/zoo-animals/), and each later animal's in its own folder, `review/zoo-animals/<species>/`. The giraffe stands beside Zoo's current giraffe; the tiger and elephant, which Zoo has no model of, beside the expressive zebra for scale:
 
 - `park.jpg` and `watch.jpg`: an enclosure with the expressive animal idling, walking, feeding and resting, beside Zoo's current one, at a park distance (22 m) and a close animal-watch distance (6.5 m);
 - `orbit-front.jpg` and `orbit-back.jpg`: two more orbit angles;
