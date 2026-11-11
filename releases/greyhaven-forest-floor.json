@@ -1,0 +1,11 @@
+{
+  "script": "scripts/build-greyhaven-forest-floor.ts",
+  "blender": true,
+  "lfs": true,
+  "ktx": true,
+  "budget": {
+    "materials": 1,
+    "textureMemoryMB": 2,
+    "downloadMB": 1
+  }
+}
