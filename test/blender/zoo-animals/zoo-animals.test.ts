@@ -1,5 +1,5 @@
 // The zoo-animals release (#128, #589; docs/zoo-animals.md): Zoo's pinned zebra and giraffe stay as authored, and
-// the expressive zebra and giraffe built by adapters/blender/zoo_animals.py join them as the `expressive` variant, with in-place
+// the expressive zebra, giraffe and tiger built by adapters/blender/zoo_animals.py join them as the `expressive` variant, with in-place
 // idle, walk, feed and rest clips whose legs swing about the animal's side axis. The build replays to the same tar.
 // It skips unless ASSET_TOOLING_BLENDER names Blender 5.2.2 and the two canonical Zoo sources are hydrated.
 import test from "node:test";
@@ -35,13 +35,14 @@ test("the expressive spec runs the packaged recipe for one species, with no othe
   assert.deepEqual(spec.parameters, { blenderVersion: "5.2.2", arguments: { schemaVersion: 1, species: "zebra" } });
   assert.deepEqual(Object.keys(spec.inputs), ["script"]);
   assert.equal(spec.assetId, "zoo.animal.zebra.expressive");
-  assert.deepEqual(ZOO_EXPRESSIVE_ANIMALS.map((entry) => entry.key), ["zoo.animal.zebra", "zoo.animal.giraffe"]);
+  assert.deepEqual(ZOO_EXPRESSIVE_ANIMALS.map((entry) => entry.key), ["zoo.animal.zebra", "zoo.animal.giraffe", "zoo.animal.tiger"]);
 });
 
 /** Per animal: its full-size height and length (m), its triangle budget and one colour of its coat (linear COLOR_0). */
 const EXPECTED: Record<string, { height: [number, number]; length: [number, number]; triangles: number; coat: string; coatName: string }> = {
   "zoo.animal.zebra": { height: [1.4, 1.9], length: [1.4, 2], triangles: 4500, coat: "0.01,0.01", coatName: "the black stripes" },
   "zoo.animal.giraffe": { height: [3.2, 3.9], length: [1.9, 2.6], triangles: 6000, coat: "0.64,0.23", coatName: "the tan patches" },
+  "zoo.animal.tiger": { height: [1.0, 1.5], length: [1.7, 2.5], triangles: 5500, coat: "0.91,0.23", coatName: "the orange coat" },
 };
 
 /** The rotation axis of a quaternion in the leg's channel, or null when it barely turns. */
@@ -73,7 +74,8 @@ function checkExpressive(document: Document, label: string) {
   const within = (value: number, [low, high]: [number, number]) => value > low && value < high;
   assert.ok(within(observations.size.height, expected.height), `${label}: height ${observations.size.height} m`);
   assert.ok(within(observations.size.width, expected.length), `${label}: length ${observations.size.width} m along +X`);
-  assert.ok(observations.bounds.max[0] > -observations.bounds.min[0], `${label}: the head is towards +X`);
+  const at = (name: string) => gltf.listNodes().find((node) => node.getName() === name)!.getWorldTranslation()[0]!;
+  assert.ok(at("head") > 0 && at("head") > at("tail"), `${label}: the head is towards +X, the tail behind`);
 
   // Cross-fade safety: every clip keys the same channels, so switching clips never leaves a joint in another pose.
   const channels = Object.values(observations.clips).map((clip) => clip.channels.join());
@@ -112,7 +114,8 @@ test("zoo-animals builds the old members unchanged and the expressive animals, r
     await verifyAssetBundleTar(await readFile(built.tar), { sha256: built.tarSha256, ref: built.exportRef });
     const manifest = (await verifyAssetBundle(built.bundleDir, built.exportRef, { profile: "gltf-resources-v1" })).manifest as GltfResourcesBundleManifest;
     assert.deepEqual(manifest.assets.map((item) => `${item.key}/${item.variant}`).sort(),
-      ["zoo.animal.giraffe/default", `zoo.animal.giraffe/${ZOO_EXPRESSIVE_VARIANT}`, "zoo.animal.zebra/default", `zoo.animal.zebra/${ZOO_EXPRESSIVE_VARIANT}`]);
+      ["zoo.animal.giraffe/default", `zoo.animal.giraffe/${ZOO_EXPRESSIVE_VARIANT}`, `zoo.animal.tiger/${ZOO_EXPRESSIVE_VARIANT}`,
+        "zoo.animal.zebra/default", `zoo.animal.zebra/${ZOO_EXPRESSIVE_VARIANT}`]);
 
     const descriptor = JSON.parse(await readFile(path.join(outDir, ZOO_ANIMALS_DESCRIPTOR_FILE), "utf8"));
     assert.deepEqual(descriptor.clips.activity, ["feed", "rest"]);
