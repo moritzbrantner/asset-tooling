@@ -134,7 +134,8 @@ def place(pose_id, location, yaw_degrees):
     bpy.context.view_layer.update()
     points = [o.matrix_world @ v.co for o in imported if o.type == "MESH" for v in o.data.vertices]
     height = max(p.z for p in points) - min(p.z for p in points)
-    return holder, imported, height
+    length = max(p.x for p in points) - min(p.x for p in points)
+    return holder, imported, height, length
 
 
 def arrange(holder, location, yaw_degrees, scale):
@@ -165,11 +166,12 @@ def shoot(scene, camera, name, target, distance, yaw=YAW, pitch=PITCH, ortho=Non
 
 def main():
     scene, camera = setup()
-    groups, heights = {}, {}
+    groups, heights, lengths = {}, {}, {}
     for pose in PLAN["poses"]:
-        holder, objects, height = place(pose["id"], (0, 0, 0), 0)
+        holder, objects, height, length = place(pose["id"], (0, 0, 0), 0)
         groups[pose["id"]] = (holder, objects)
         heights[pose["id"]] = height
+        lengths[pose["id"]] = length
     # one scale per animal, from its standing idle height
     scale_current = ZOO_HEIGHT / heights["current-idle"]
     scale_candidate = ZOO_HEIGHT / heights["idle-0"]
@@ -205,15 +207,16 @@ def main():
     centre = Vector([(max(p[i] for p in face) + min(p[i] for p in face)) / 2 for i in range(3)])
     shoot(scene, camera, "face.jpg", centre, 3.2 * size, yaw=118, pitch=10)  # framed by the head's own size
 
-    # Every clip's poses in a row, seen from the animal's right side.
+    # Every clip's poses in a row, seen from the animal's right side, spaced by the animal's own length.
+    step = max(0.8, 1.15 * lengths["idle-0"] * scale_candidate)
     for clip in ("idle", "walk", "feed", "rest"):
         ids = [p["id"] for p in PLAN["poses"] if p["clip"] == clip and p["id"].startswith(clip)]
         if clip == "walk":
             ids = ids[::2]
         for index, pose_id in enumerate(ids):
-            put(pose_id, (index * 0.8 - (len(ids) - 1) * 0.4, 0, 0), 0)
+            put(pose_id, (index * step - (len(ids) - 1) * step / 2, 0, 0), 0)
         show(groups, set(ids))
-        shoot(scene, camera, f"strip-{clip}.jpg", (0, 0, 0.27), 12, yaw=0, pitch=10, ortho=0.8 * len(ids) + 0.4)
+        shoot(scene, camera, f"strip-{clip}.jpg", (0, 0, 0.27), 12, yaw=0, pitch=10, ortho=step * len(ids) + 0.4)
 
     # A walk loop from the watch camera, as GIF frames.
     walk = [p["id"] for p in PLAN["poses"] if p["id"].startswith("walk-")]

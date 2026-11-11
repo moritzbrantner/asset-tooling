@@ -37,7 +37,7 @@ import bmesh
 import bpy
 from mathutils import Euler, Matrix, Quaternion, Vector
 
-SPECIES = ("zebra", "giraffe", "tiger", "elephant")
+SPECIES = ("zebra", "giraffe", "tiger", "elephant", "capybara")
 FPS = 30
 KEY_STEP = 2  # frames between keys; every key is linear
 SHARP_ANGLE = math.radians(50)
@@ -65,6 +65,10 @@ PALETTE = {
     "elephant-dark": (0.43, 0.45, 0.52),
     "toenail": (0.93, 0.9, 0.82),
     "tusk": (0.98, 0.96, 0.88),
+    "capy-brown": (0.66, 0.45, 0.28),
+    "capy-light": (0.76, 0.58, 0.4),
+    "capy-dark": (0.3, 0.2, 0.15),
+    "capy-nose": (0.45, 0.32, 0.26),
 }
 
 
@@ -665,7 +669,91 @@ def build_elephant(collection):
     return root
 
 
-BUILDERS = {"zebra": build_zebra, "giraffe": build_giraffe, "tiger": build_tiger, "elephant": build_elephant}
+# ---------------------------------------------------------------- capybara
+
+CAPYBARA = {
+    "body": (0.0, 0.0, 0.44), "neck": (0.36, 0.0, 0.5), "tail": (-0.5, 0.0, 0.5),
+    "hips": {"leg_0": (-0.3, -0.16, 0.34), "leg_1": (-0.3, 0.16, 0.34), "leg_2": (0.28, -0.15, 0.34), "leg_3": (0.28, 0.15, 0.34)},
+    "upper": 0.14, "foot": 0.036,
+    "neck_dir": (1, 0, 0.7), "neck_length": 0.15,
+}
+
+
+def build_capybara(collection):
+    g = CAPYBARA
+    root = bpy.data.objects.new("animal_root", None)
+    root.empty_display_size = 0.2
+    collection.objects.link(root)
+
+    # Body: a chunky, round barrel, the rump a little higher, with a lighter belly.
+    body = Part("body", g["body"])
+    barrel = [(0, -0.52), (0.18, -0.49), (0.27, -0.4), (0.31, -0.24), (0.31, 0.0), (0.3, 0.2), (0.27, 0.36), (0.18, 0.47), (0, 0.5)]
+    body.lathe("capy-brown", barrel, g["body"], direction=(1, 0, -0.04), scale=(0.95, 0.9, 1), segments=14)
+    body.paint("capy-brown", "capy-light", [((0, 0, 0.17), (0, 0, 1), 0.12)])
+    body = body.finish(collection, root)
+
+    # Legs: short and stout, on dark little feet.
+    for leg, hip in g["hips"].items():
+        hip = Vector(hip)
+        upper = Part(leg, hip)
+        upper.lathe("capy-brown", capsule(0.085, 0.065, g["upper"], cap=0.1), hip, segments=8)
+        upper = upper.finish(collection, body)
+        knee = hip - Vector((0, 0, g["upper"]))
+        lower = Part(f"{leg}_lower", knee)
+        lower.lathe("capy-brown", capsule(0.062, 0.055, knee.z - 0.08, 2), knee, segments=8)
+        lower.lathe("capy-dark", ball(0.06, 3), (knee.x + 0.025, knee.y, g["foot"]), scale=(1.35, 1.0, 0.55), segments=8)
+        lower.finish(collection, upper)
+
+    # Tail: capybaras have none to speak of, only a little nub at the rump.
+    tail = Part("tail", g["tail"])
+    tail.lathe("capy-brown", ball(0.05, 3), Vector(g["tail"]) + Vector((-0.02, 0, -0.02)), scale=(1, 1, 0.8), segments=8)
+    tail.finish(collection, body)
+
+    # Neck: short and thick, carrying the big head forwards.
+    neck_dir = Vector(g["neck_dir"]).normalized()
+    n0 = Vector(g["neck"])
+    neck = Part("neck", n0)
+    neck.lathe("capy-brown", capsule(0.16, 0.14, g["neck_length"], 3), n0, direction=-neck_dir, scale=(1, 0.95, 1), segments=12)
+    neck = neck.finish(collection, body)
+
+    # Head: long, blunt and flat-topped, almost a box, with a dark nose at the tip and small eyes set high under
+    # heavy, relaxed lids, which give the capybara its calm look. A lathe turned towards +X maps its local
+    # (X, Y, Z) scale to (height, width, length).
+    hp = n0 + neck_dir * g["neck_length"]
+    head = Part("head", hp)
+    skull = hp + Vector((0.19, 0, 0.04))
+    forward = Vector((1, 0, -0.12)).normalized()
+    head.lathe("capy-brown", ball(1.0, 5), skull, direction=forward, scale=(0.155, 0.15, 0.27), segments=8, spin=math.pi / 8)
+    head.lathe("capy-brown", ball(1.0, 4), skull + forward * 0.13 + Vector((0, 0, -0.04)), direction=forward,
+               scale=(0.115, 0.135, 0.155), segments=8, spin=math.pi / 8)  # the full, square muzzle
+    head.paint("capy-brown", "capy-nose", [(skull + forward * 0.275, forward, 0.036)], keep=lambda c: c.z > skull.z - 0.05)  # the nose
+    for side in (-1, 1):
+        head.lathe("eye-pupil", ball(0.014, 3), skull + forward * 0.268 + Vector((0, side * 0.035, 0.04)), scale=(1, 0.8, 0.6),
+                   segments=6)  # nostrils on top of the nose
+    head.lathe("capy-dark", [(0, 0), (0.018, 0), (0.018, 0.006), (0, 0.006)], skull + forward * 0.27 + Vector((0, 0, -0.1)),
+               direction=(1, 0, 0.3), scale=(0.5, 2.2, 1), segments=8)  # the mouth, a small line
+    head = head.finish(collection, neck)
+
+    for side, name in ((1, "left"), (-1, "right")):
+        base = skull + Vector((-0.16, side * 0.09, 0.1))  # sunk a little into the head, so the ear grows out of it
+        ear = Part(f"ear_{name}", base)
+        ear_dir = Vector((-0.2, side * 0.45, 1)).normalized()
+        ear.lathe("capy-dark", [(0, 0), (0.04, 0.005), (0.045, 0.03), (0.032, 0.055), (0, 0.06)], base, direction=ear_dir,
+                  scale=(1, 0.6, 1), segments=8)
+        ear.finish(collection, head)
+
+        eye_c = skull + Vector((0.02, side * 0.115, 0.088))
+        eye = Part(f"eye_{name}", eye_c)
+        look = Vector((0.45, side * 1.0, 0.25)).normalized()
+        eye.lathe("eye-pupil", ball(0.03, 4), eye_c, direction=look, scale=(1, 1, 0.8), segments=10)
+        eye.lathe("eye-white", ball(0.0075, 3), eye_c + look * 0.024 + Vector((0.006, 0, 0.004)), segments=6)
+        eye.lathe("capy-brown", ball(0.036, 4), eye_c + Vector((0, 0, 0.019)), direction=look, scale=(1, 1, 0.6), segments=10)  # the lid
+        eye.finish(collection, head)
+
+    return root
+
+
+BUILDERS = {"zebra": build_zebra, "giraffe": build_giraffe, "tiger": build_tiger, "elephant": build_elephant, "capybara": build_capybara}
 
 
 # ---------------------------------------------------------------- clips
@@ -698,8 +786,8 @@ def leg_cycle(u, front):
 
 
 # Lying down (rest): how far the body lowers, and the folded knee's centre above the grass, per species.
-LYING_DROP = {"zebra": -0.4, "giraffe": -1.1, "tiger": -0.3, "elephant": -0.6}
-KNEE_HEIGHT = {"zebra": 0.075, "giraffe": 0.1, "tiger": 0.14, "elephant": 0.26}
+LYING_DROP = {"zebra": -0.4, "giraffe": -1.1, "tiger": -0.3, "elephant": -0.6, "capybara": -0.12}
+KNEE_HEIGHT = {"zebra": 0.075, "giraffe": 0.1, "tiger": 0.14, "elephant": 0.26, "capybara": 0.09}
 
 
 def fold_legs(pose, hips, upper_length, drop, knee_height):
@@ -1066,11 +1154,86 @@ def elephant_rest(t, duration):
     return pose
 
 
+def capybara_idle(t, duration):
+    """The capybara's calm: slow breathing, a long contented blink, ear twitches and a nose wiggle."""
+    w = 2 * math.pi * t / duration
+    blink = min(1.0, pulse(t, 1.4, 1.1) * 1.4)
+    sniff = pulse(t, 3.6, 0.9) * math.sin(14 * w)
+    return {
+        "body.t": (0, 0, 0.004 * (1 - math.cos(2 * w))),
+        "body.r": (0, math.radians(0.8) * math.sin(2 * w), 0),
+        "neck.r": (0, math.radians(2) * math.sin(w), math.radians(4) * math.sin(w)),
+        "head.r": (math.radians(3) * math.sin(w + 1), math.radians(-3) * sniff, math.radians(8) * math.sin(w + 0.5)),
+        "ear_left.r": (math.radians(-30) * pulse(t, 0.7, 0.25), 0, 0),
+        "ear_right.r": (math.radians(30) * pulse(t, 2.9, 0.25) + math.radians(30) * pulse(t, 3.3, 0.25), 0, 0),
+        "eye_left.s": (1, 1, 1 - 0.85 * blink), "eye_right.s": (1, 1, 1 - 0.85 * blink),
+        "tail.r": (0, 0, 0),
+    }
+
+
+def capybara_walk(t, duration):
+    u = t / duration
+    pose = {}
+    phases = {"leg_1": 0.0, "leg_3": 0.25, "leg_0": 0.5, "leg_2": 0.75}
+    for leg, phase in phases.items():
+        swing, fold = leg_cycle((u + 1 - phase) % 1, leg in ("leg_2", "leg_3"))
+        pose[f"{leg}.r"] = (0, -swing * 1.3, 0)  # short legs take big swings
+        pose[f"{leg}_lower.r"] = (0, fold * 0.8, 0)
+    w = 2 * math.pi * u
+    pose.update({
+        "body.t": (0, 0, 0.006 + 0.005 * (1 - math.cos(2 * w))),
+        # a waddle: the round body rolls from side to side over the short legs
+        "body.r": (math.radians(4) * math.sin(w), math.radians(1) * math.sin(2 * w), math.radians(2) * math.sin(w)),
+        "neck.r": (math.radians(-2) * math.sin(w), math.radians(2) * math.sin(2 * w - 0.6), 0),
+        "head.r": (math.radians(-2) * math.sin(w), math.radians(-2) * math.sin(2 * w - 1.0), 0),
+        "ear_left.r": (0, 0, 0), "ear_right.r": (0, 0, 0),
+        "eye_left.s": (1, 1, 1), "eye_right.s": (1, 1, 1),
+        "tail.r": (0, 0, 0),
+    })
+    return pose
+
+
+def capybara_feed(t, duration):
+    """Grazing: the head down at the grass, munching steadily, an ear flick now and then."""
+    w = 2 * math.pi * t / duration
+    munch = math.sin(6 * w)
+    return {
+        "body.t": (0, 0, 0.003 * (1 - math.cos(w))),
+        "body.r": (0, 0, 0),
+        "neck.r": (0, math.radians(36), math.radians(5) * math.sin(w)),
+        "head.r": (math.radians(3) * munch, math.radians(28) + math.radians(3) * munch, math.radians(4) * math.sin(w)),
+        "ear_left.r": (math.radians(-25) * pulse(t, 1.0, 0.25), 0, 0),
+        "ear_right.r": (math.radians(25) * pulse(t, 2.4, 0.25), 0, 0),
+        "eye_left.s": (1, 1, 0.7), "eye_right.s": (1, 1, 0.7),
+        "tail.r": (0, 0, 0),
+    }
+
+
+def capybara_rest(t, duration):
+    """Flopped on its belly with the legs folded, the chin lowered, eyes shut, utterly relaxed."""
+    w = 2 * math.pi * t / duration
+    breath = 0.5 - 0.5 * math.cos(w)
+    drop = LYING_DROP["capybara"]
+    pose = {
+        "body.t": (0, 0, drop + 0.006 * breath),
+        "body.r": (0, 0, 0),
+        "neck.r": (0, math.radians(14) + math.radians(2) * breath, 0),
+        "head.r": (math.radians(-4), math.radians(8), math.radians(-6)),
+        "ear_left.r": (math.radians(-25) * pulse(t, 3.1, 0.25), 0, 0),
+        "ear_right.r": (0, 0, 0),
+        "eye_left.s": (1, 1, 0.08), "eye_right.s": (1, 1, 0.08),
+        "tail.r": (0, 0, 0),
+    }
+    fold_legs(pose, CAPYBARA["hips"], lambda leg: CAPYBARA["upper"], drop, KNEE_HEIGHT["capybara"])
+    return pose
+
+
 POSES = {
     "zebra": {"idle": (pose_idle, 4.0), "walk": (pose_walk, 1.2), "feed": (pose_feed, 3.0), "rest": (pose_rest, 5.0)},
     "giraffe": {"idle": (giraffe_idle, 5.0), "walk": (giraffe_walk, 1.6), "feed": (giraffe_feed, 3.0), "rest": (giraffe_rest, 6.0)},
     "tiger": {"idle": (tiger_idle, 5.0), "walk": (tiger_walk, 1.1), "feed": (tiger_feed, 3.0), "rest": (tiger_rest, 6.0)},
     "elephant": {"idle": (elephant_idle, 6.0), "walk": (elephant_walk, 1.5), "feed": (elephant_feed, 4.0), "rest": (elephant_rest, 6.0)},
+    "capybara": {"idle": (capybara_idle, 6.0), "walk": (capybara_walk, 0.9), "feed": (capybara_feed, 3.0), "rest": (capybara_rest, 6.0)},
 }
 
 

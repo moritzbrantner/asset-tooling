@@ -1,5 +1,5 @@
 // The zoo-animals release (#128, #589; docs/zoo-animals.md): Zoo's pinned zebra and giraffe stay as authored, and
-// the expressive zebra, giraffe, tiger and elephant built by adapters/blender/zoo_animals.py join them as the `expressive` variant, with in-place
+// the expressive zebra, giraffe, tiger, elephant and capybara built by adapters/blender/zoo_animals.py join them as the `expressive` variant, with in-place
 // idle, walk, feed and rest clips whose legs swing about the animal's side axis. The build replays to the same tar.
 // It skips unless ASSET_TOOLING_BLENDER names Blender 5.2.2 and the two canonical Zoo sources are hydrated.
 import test from "node:test";
@@ -35,7 +35,7 @@ test("the expressive spec runs the packaged recipe for one species, with no othe
   assert.deepEqual(spec.parameters, { blenderVersion: "5.2.2", arguments: { schemaVersion: 1, species: "zebra" } });
   assert.deepEqual(Object.keys(spec.inputs), ["script"]);
   assert.equal(spec.assetId, "zoo.animal.zebra.expressive");
-  assert.deepEqual(ZOO_EXPRESSIVE_ANIMALS.map((entry) => entry.key), ["zoo.animal.zebra", "zoo.animal.giraffe", "zoo.animal.tiger", "zoo.animal.elephant"]);
+  assert.deepEqual(ZOO_EXPRESSIVE_ANIMALS.map((entry) => entry.key), ["zoo.animal.zebra", "zoo.animal.giraffe", "zoo.animal.tiger", "zoo.animal.elephant", "zoo.animal.capybara"]);
 });
 
 /** Per animal: its full-size height and length (m), its triangle budget, one colour of its coat (linear COLOR_0) and any
@@ -45,6 +45,7 @@ const EXPECTED: Record<string, { height: [number, number]; length: [number, numb
   "zoo.animal.giraffe": { height: [3.2, 3.9], length: [1.9, 2.6], triangles: 6000, coat: "0.64,0.23", coatName: "the tan patches" },
   "zoo.animal.tiger": { height: [1.0, 1.5], length: [1.7, 2.5], triangles: 5500, coat: "0.91,0.23", coatName: "the orange coat" },
   "zoo.animal.elephant": { height: [1.9, 2.7], length: [2.6, 3.5], triangles: 5000, coat: "0.32,0.35", coatName: "the grey skin", joints: ["trunk", "trunk_tip"] },
+  "zoo.animal.capybara": { height: [0.6, 1.0], length: [1.2, 1.8], triangles: 3000, coat: "0.39,0.17", coatName: "the brown coat" },
 };
 
 /** The rotation axis of a quaternion in the leg's channel, or null when it barely turns. */
@@ -116,7 +117,7 @@ test("zoo-animals builds the old members unchanged and the expressive animals, r
     await verifyAssetBundleTar(await readFile(built.tar), { sha256: built.tarSha256, ref: built.exportRef });
     const manifest = (await verifyAssetBundle(built.bundleDir, built.exportRef, { profile: "gltf-resources-v1" })).manifest as GltfResourcesBundleManifest;
     assert.deepEqual(manifest.assets.map((item) => `${item.key}/${item.variant}`).sort(),
-      [`zoo.animal.elephant/${ZOO_EXPRESSIVE_VARIANT}`, "zoo.animal.giraffe/default", `zoo.animal.giraffe/${ZOO_EXPRESSIVE_VARIANT}`, `zoo.animal.tiger/${ZOO_EXPRESSIVE_VARIANT}`,
+      [`zoo.animal.capybara/${ZOO_EXPRESSIVE_VARIANT}`, `zoo.animal.elephant/${ZOO_EXPRESSIVE_VARIANT}`, "zoo.animal.giraffe/default", `zoo.animal.giraffe/${ZOO_EXPRESSIVE_VARIANT}`, `zoo.animal.tiger/${ZOO_EXPRESSIVE_VARIANT}`,
         "zoo.animal.zebra/default", `zoo.animal.zebra/${ZOO_EXPRESSIVE_VARIANT}`]);
 
     const descriptor = JSON.parse(await readFile(path.join(outDir, ZOO_ANIMALS_DESCRIPTOR_FILE), "utf8"));

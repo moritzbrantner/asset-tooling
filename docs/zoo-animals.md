@@ -1,10 +1,10 @@
 # Expressive Zoo animals
 
-This is the recipe for Zoo's finished cartoon animals ([#589](https://github.com/moritzbrantner/asset-tooling/issues/589), consumer [zoo#112](https://github.com/moenarch-games/zoo/issues/112) and [zoo#142](https://github.com/moenarch-games/zoo/issues/142)). The animals are the **zebra**, the **giraffe**, the **tiger** and the **elephant**. The zebra and giraffe replace Zoo's deprecated generator output, whose zebra has a block body, a bear-like head and a walk that splays its legs sideways ([quadruped-rigid.md](quadruped-rigid.md#what-the-viewer-shows)).
+This is the recipe for Zoo's finished cartoon animals ([#589](https://github.com/moritzbrantner/asset-tooling/issues/589), consumer [zoo#112](https://github.com/moenarch-games/zoo/issues/112) and [zoo#142](https://github.com/moenarch-games/zoo/issues/142)). The animals are the **zebra**, the **giraffe**, the **tiger**, the **elephant** and the **capybara**. The zebra and giraffe replace Zoo's deprecated generator output, whose zebra has a block body, a bear-like head and a walk that splays its legs sideways ([quadruped-rigid.md](quadruped-rigid.md#what-the-viewer-shows)).
 
 - **Source:** [`adapters/blender/zoo_animals.py`](../adapters/blender/zoo_animals.py), an original scripted Blender recipe in this repository. It has no imported meshes, no third-party assets, no textures and no randomness. Zoo's generator is not ported.
 - **Rig:** the shared [`quadruped-rigid`](quadruped-rigid.md) profile. Named transform nodes pivot at their joints and rigid parts hang under them, with no skin.
-- **Release:** the existing rolling `zoo-animals` release, as the variant `expressive` of the keys `zoo.animal.zebra`, `zoo.animal.giraffe`, `zoo.animal.tiger` and `zoo.animal.elephant`. Zoo's own zebra and giraffe stay unchanged as the `default` variant, so a consumer of a `default` member sees the same model.
+- **Release:** the existing rolling `zoo-animals` release, as the variant `expressive` of the keys `zoo.animal.zebra`, `zoo.animal.giraffe`, `zoo.animal.tiger`, `zoo.animal.elephant` and `zoo.animal.capybara`. Zoo's own zebra and giraffe stay unchanged as the `default` variant, so a consumer of a `default` member sees the same model.
 
 ## Build
 
@@ -120,6 +120,26 @@ The length includes the trunk and the width the fanned ears.
 
 The amble keeps the body about 4 cm higher than standing, because the wide foot pads tip their rims down as they swing. The Zoo activity mapping is the zebra's.
 
+## The capybara
+
+The fifth animal ([#600](https://github.com/moritzbrantner/asset-tooling/issues/600)) is new to the release as well: `zoo.animal.capybara` has only the `expressive` variant.
+
+| Key / variant | Size (L × H × W, m) | Triangles | Parts | Materials |
+| --- | --- | --- | --- | --- |
+| `zoo.animal.capybara` / `expressive` | 1.52 × 0.78 × 0.54 | 1,780 | 16 | 1 |
+
+- **Look:** a chunky round barrel with a lighter belly on short stout legs with dark little feet, a short neck and a long, blunt, flat-topped head: an octagonal, almost boxy skull and a full square muzzle with a soft brown nose, nostrils on top and a small mouth line. Small dark ears sit on top at the back, and the small eyes set high on the sides under heavy, relaxed lids give it its calm look. The tail is only a nub, as a capybara's is.
+- **Clips:**
+
+| Clip | Seconds | What it shows |
+| --- | --- | --- |
+| `idle` | 6.0 | Slow breathing, a long contented blink, ear twitches, a sniff with a nose wiggle and a slow look around |
+| `walk` | 0.9 | A short-legged waddle: big leg swings for the short legs (still about the side axis only) and the round body rolling from side to side |
+| `feed` | 3.0 | Grazing with the head down at the grass, munching steadily, an ear flick now and then |
+| `rest` | 6.0 | Flopped on its belly with the short legs folded (`fold_legs`), the chin lowered, eyes shut |
+
+The Zoo activity mapping is the zebra's.
+
 ## Conventions
 
 These are the conventions of the existing `zoo-animals` members: metres, +Y up, right-handed, the animal faces **+X** and its right side is +Z, and the origin is on the ground plane under the body. The asset is presentation only; Zoo owns placement, scale, activity, gameplay and physics.
@@ -150,15 +170,16 @@ ASSET_TOOLING_BLENDER=<blender 5.2.2> bun scripts/review-zoo-animals.ts --bundle
 ASSET_TOOLING_BLENDER=<blender 5.2.2> bun scripts/review-zoo-animals.ts --bundle .artifacts/zoo-animals/bundle --key zoo.animal.giraffe --compare zoo.animal.giraffe/default --out .artifacts/zoo-review-giraffe
 ASSET_TOOLING_BLENDER=<blender 5.2.2> bun scripts/review-zoo-animals.ts --bundle .artifacts/zoo-animals/bundle --key zoo.animal.tiger --compare zoo.animal.zebra/expressive --out .artifacts/zoo-review-tiger
 ASSET_TOOLING_BLENDER=<blender 5.2.2> bun scripts/review-zoo-animals.ts --bundle .artifacts/zoo-animals/bundle --key zoo.animal.elephant --compare zoo.animal.zebra/expressive --out .artifacts/zoo-review-elephant
+ASSET_TOOLING_BLENDER=<blender 5.2.2> bun scripts/review-zoo-animals.ts --bundle .artifacts/zoo-animals/bundle --key zoo.animal.capybara --compare zoo.animal.zebra/expressive --out .artifacts/zoo-review-capybara
 ```
 
-The zebra images are in [`review/zoo-animals/`](../review/zoo-animals/), and each later animal's in its own folder, `review/zoo-animals/<species>/`. The giraffe stands beside Zoo's current giraffe; the tiger and elephant, which Zoo has no model of, beside the expressive zebra for scale:
+The zebra images are in [`review/zoo-animals/`](../review/zoo-animals/), and each later animal's in its own folder, `review/zoo-animals/<species>/`. The giraffe stands beside Zoo's current giraffe; the tiger, elephant and capybara, which Zoo has no model of, beside the expressive zebra for scale:
 
 - `park.jpg` and `watch.jpg`: an enclosure with the expressive animal idling, walking, feeding and resting, beside Zoo's current one, at a park distance (22 m) and a close animal-watch distance (6.5 m);
 - `orbit-front.jpg` and `orbit-back.jpg`: two more orbit angles;
 - `compare.jpg`: the current (or compared) and expressive animal side by side;
 - `face.jpg`: the expressive animal's face, close up from three-quarters front;
-- `strip-idle.jpg`, `strip-walk.jpg`, `strip-feed.jpg` and `strip-rest.jpg`: the initial and intermediate poses of each clip (four phases, or every second of the walk's 12), from the side;
+- `strip-idle.jpg`, `strip-walk.jpg`, `strip-feed.jpg` and `strip-rest.jpg`: the initial and intermediate poses of each clip (four phases, or every second of the walk's 12), from the side, spaced by the animal's length;
 - `walk.gif`: the walk loop from the watch camera.
 
 They are evidence for the owner's review. Visual approval stays with the owner and with Zoo's own acceptance in a real habitat ([zoo#112](https://github.com/moenarch-games/zoo/issues/112), [zoo#142](https://github.com/moenarch-games/zoo/issues/142)).
