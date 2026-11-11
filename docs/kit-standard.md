@@ -49,6 +49,14 @@ Batched scenery draws once per material, so material count is the limit that mat
 - Leave a gutter around each atlas cell, so mip levels don't bleed in from neighbours.
 - For game-matched surfaces, divide scans by their mean and multiply by the game's palette, as the clients do (`PALETTE` in `cliff_outcrop.py`).
 
+### Baked or layered surfaces
+
+The owner decided on 2026-11-11 (#567), based on the [limestone-rocks surface trial](limestone-rocks.md):
+- **Layered** for scatter-scale natural stone: rocks, scree, cliffs and river stones. Ship the meshes with per-vertex surface masks over the shared tileable material library, as `limestone-rocks --surface layered` does. Weathering levels are mask thresholds, not extra atlases. If a kit needs its strata back, it may add one small normal map per piece.
+- **Baked** for hero and modular pieces seen close up, such as monuments and buildings, and for foliage cards.
+
+A layered kit needs the game's blend shader (mmorpg#732) before a game can use it. Until a game has it, a kit that game already uses stays baked; switching it is a coordinated consumer change (see [One issue, one kit](#one-issue-one-kit)).
+
 ### Geometry and LODs
 
 - Metres, +Y up, right-handed, one documented origin per kind of piece, and modules on a stated grid.
