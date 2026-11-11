@@ -1,0 +1,10 @@
+{
+  "note": "The Greyhaven deadwood (#573): 24 recipe runs, no bakes, from the catalogued Quaternius bark, Poly Haven mossy rock and forest ground.",
+  "timeout": 20,
+  "ktx": true,
+  "lfs": [
+    "assets/canonical/quaternius.stylized-nature-megakit-standard.bark-normaltree-png/**",
+    "assets/canonical/poly-haven.mossy-rock-diff-2k-jpg/**",
+    "assets/canonical/poly-haven.forrest-ground-01-diff-2k-jpg/**"
+  ]
+}
