@@ -1,0 +1,11 @@
+{
+  "script": "scripts/build-greyhaven-pines.ts",
+  "blender": true,
+  "lfs": true,
+  "ktx": true,
+  "budget": {
+    "materials": 2,
+    "textureMemoryMB": 3,
+    "downloadMB": 3
+  }
+}
