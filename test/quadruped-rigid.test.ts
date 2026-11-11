@@ -23,7 +23,8 @@ describe("quadruped-rigid profile", () => {
     expect(observations.profile).toBe("quadruped-rigid");
     expect(observations.joints).toEqual(["animal_root", "body", "head", "leg_0", "leg_1", "leg_2", "leg_3", "tail"]);
     expect(observations.bounds.min[1]).toBe(0);
-    expect(observations.clips.walk).toEqual({ seconds: 1, channels: ["leg_0.rotation", "leg_1.rotation", "leg_2.rotation", "leg_3.rotation"], walkTravel: 0 });
+    expect(observations.clips.walk).toEqual({ seconds: 1, channels: ["leg_0.rotation", "leg_1.rotation", "leg_2.rotation", "leg_3.rotation"], lowestPoint: -0.00206, walkTravel: 0 });
+    expect(observations.clips.idle!.lowestPoint).toBe(0);
     expect(observations.triangles).toBe(7 * 12);
   });
 
@@ -131,6 +132,36 @@ describe("quadruped-rigid profile", () => {
     const idle = channelOf(quad, "idle").listChannels()[0]!.getSampler()!.getOutput()!;
     idle.setArray(new Float32Array([0, 0, 0, 0, 0.03, 0, 0.5, 0, 0]));
     expect(issuesOf(quad)).toEqual([]);
+  });
+
+  test("rejects any clip that sinks below the ground, sampled between keys", () => {
+    const quad = quadruped();
+    // the rest pose is grounded; only the middle key of idle drops the whole rig 5 cm
+    channelOf(quad, "idle").listChannels()[0]!.getSampler()!.getOutput()!.setArray(new Float32Array([0, 0, 0, 0, -0.05, 0, 0, 0, 0]));
+    expect(issuesOf(quad).join("\n")).toMatch(/clip 'idle' sinks to y -0\.05, below the ground plane/);
+    channelOf(quad, "idle").listChannels()[0]!.getSampler()!.getOutput()!.setArray(new Float32Array([0, 0, 0, 0, -0.008, 0, 0, 0, 0]));
+    expect(issuesOf(quad)).toEqual([]);
+  });
+
+  test("the optional feed and rest clips must stay in place, and are measured", () => {
+    const quad = quadruped();
+    const idle = channelOf(quad, "idle").listChannels()[0]!.getSampler()!;
+    for (const name of ["feed", "rest"]) {
+      const clip = quad.document.createAnimation(name);
+      const channel = quad.document.createAnimationChannel().setTargetNode(quad.nodes.get("head")!).setTargetPath("rotation")
+        .setSampler(quad.document.createAnimationSampler().setInput(idle.getInput()!).setInterpolation("LINEAR")
+          .setOutput(quad.document.createAccessor().setType("VEC4").setArray(new Float32Array([0, 0, 0, 1, 0, 0, 0.17, 0.985, 0, 0, 0, 1]))));
+      clip.addChannel(channel).addSampler(channel.getSampler()!);
+    }
+    const observations = assertQuadrupedRigid(quad.document);
+    expect(observations.clips.feed).toMatchObject({ seconds: 1, travel: 0 });
+    expect(observations.clips.rest!.lowestPoint).toBe(0);
+    const rest = channelOf(quad, "rest");
+    const drift = quad.document.createAnimationChannel().setTargetNode(quad.rootNode).setTargetPath("translation")
+      .setSampler(quad.document.createAnimationSampler().setInput(idle.getInput()!).setInterpolation("LINEAR")
+        .setOutput(quad.document.createAccessor().setType("VEC3").setArray(new Float32Array([0, 0, 0, 0.1, 0, 0, 0.2, 0, 0]))));
+    rest.addChannel(drift).addSampler(drift.getSampler()!);
+    expect(issuesOf(quad).join("\n")).toMatch(/clip 'rest' travels 0\.2 m; quadruped-rigid activity clips are in place/);
   });
 
   test("rejects invalid bounds: not grounded, implausible size, off-origin footprint, non-finite", () => {
@@ -251,8 +282,8 @@ describe("Zoo animal source lineage", () => {
     expect(text).toContain("Copyright (c) 2026 moritzbrantner");
   });
 
-  test("zoo-animals is one rolling release built from the canonical payloads, without Blender", () => {
-    expect(planEntry(rollingRelease("zoo-animals"))).toEqual({ release: "zoo-animals", blender: false, lfs: true, processor: "", ktx: false, timeout: 60 });
+  test("zoo-animals is one rolling release built from the canonical payloads and the Blender recipe", () => {
+    expect(planEntry(rollingRelease("zoo-animals"))).toEqual({ release: "zoo-animals", blender: true, lfs: true, processor: "", ktx: false, timeout: 60 });
     expect(ROLLING_RELEASES.filter((release) => release.name === "zoo-animals")).toHaveLength(1);
   });
 

@@ -17,6 +17,11 @@ export const QUADRUPED_RIGID_LEGS = ["leg_0", "leg_1", "leg_2", "leg_3"] as cons
 /** The joints every quadruped carries. A species may add its own, such as the giraffe's `neck`. */
 export const QUADRUPED_RIGID_JOINTS = [QUADRUPED_RIGID_ROOT, "body", "head", "tail", ...QUADRUPED_RIGID_LEGS] as const;
 export const QUADRUPED_RIGID_CLIPS = ["idle", "walk"] as const;
+/**
+ * Optional activity clips (#589). They are not required, but a clip with one of these names is checked like
+ * `walk`: it stays in place, because the consumer positions the animal.
+ */
+export const QUADRUPED_RIGID_ACTIVITY_CLIPS = ["feed", "rest"] as const;
 /** Metres. The rest pose may float up to this far from the ground plane y = 0. */
 export const QUADRUPED_RIGID_GROUND_TOLERANCE = 0.01;
 /** Each rest-pose extent must fall in this range, in metres. */
@@ -36,7 +41,8 @@ export type QuadrupedRigidObservations = {
   materials: number;
   bounds: { min: Vec3; max: Vec3 };
   size: { width: number; depth: number; height: number };
-  clips: Record<string, { seconds: number; channels: string[]; walkTravel?: number }>;
+  /** `lowestPoint` is the lowest y of any mesh over the clip, sampled at 30 Hz: how far it dips into the ground. */
+  clips: Record<string, { seconds: number; channels: string[]; lowestPoint?: number; walkTravel?: number; travel?: number }>;
 };
 
 function subtree(node: Node, seen = new Set<Node>()): Set<Node> {
@@ -107,6 +113,73 @@ function horizontalTravel(animation: Animation, name: string): number {
     return Math.hypot(values[values.length - 3]! - values[0]!, values[values.length - 1]! - values[2]!);
   }
   return 0;
+}
+
+/** The value of a LINEAR or STEP sampler at `time`, clamped to its keys; rotations are slerped. */
+function sampleAt(times: ArrayLike<number>, values: ArrayLike<number>, size: number, interpolation: string, time: number, rotation: boolean): number[] {
+  const at = (index: number) => Array.from({ length: size }, (_, k) => values[index * size + k]!);
+  const last = times.length - 1;
+  if (time <= times[0]!) return at(0);
+  if (time >= times[last]!) return at(last);
+  let index = 0;
+  while (index < last - 1 && times[index + 1]! <= time) index += 1;
+  if (interpolation === "STEP") return at(index);
+  const a = at(index), b = at(index + 1);
+  const u = (time - times[index]!) / (times[index + 1]! - times[index]!);
+  if (!rotation) return a.map((value, k) => value + (b[k]! - value) * u);
+  let dot = a.reduce((sum, value, k) => sum + value * b[k]!, 0);
+  const target = dot < 0 ? b.map((value) => -value) : b;
+  dot = Math.abs(dot);
+  if (dot > 0.9995) {
+    const mixed = a.map((value, k) => value + (target[k]! - value) * u);
+    const length = Math.hypot(...mixed);
+    return mixed.map((value) => value / length);
+  }
+  const theta = Math.acos(dot), sin = Math.sin(theta);
+  const wa = Math.sin((1 - u) * theta) / sin, wb = Math.sin(u * theta) / sin;
+  return a.map((value, k) => value * wa + target[k]! * wb);
+}
+
+/**
+ * Pose `document` at `time` of `animation`, call `measure`, and restore the rest pose. Only LINEAR and STEP
+ * samplers are evaluated; a CUBICSPLINE channel throws, because a rigid rig has no use for one here.
+ */
+export function withClipPose<T>(document: Document, animation: Animation, time: number, measure: () => T): T {
+  const saved = document.getRoot().listNodes().map((node) => [node, node.getTranslation(), node.getRotation(), node.getScale()] as const);
+  try {
+    for (const channel of animation.listChannels()) {
+      const node = channel.getTargetNode(), sampler = channel.getSampler();
+      const input = sampler?.getInput()?.getArray(), output = sampler?.getOutput();
+      if (!node || !sampler || !input || !output) continue;
+      const interpolation = sampler.getInterpolation();
+      if (interpolation === "CUBICSPLINE") throw new Error(`clip '${animation.getName()}' uses CUBICSPLINE on '${node.getName()}'`);
+      const channelPath = channel.getTargetPath();
+      const value = sampleAt(input, output.getArray()!, output.getElementSize(), interpolation, time, channelPath === "rotation");
+      if (channelPath === "translation") node.setTranslation(value as Vec3);
+      else if (channelPath === "rotation") node.setRotation(value as [number, number, number, number]);
+      else if (channelPath === "scale") node.setScale(value as Vec3);
+    }
+    return measure();
+  } finally {
+    for (const [node, translation, rotation, scale] of saved) node.setTranslation(translation).setRotation(rotation).setScale(scale);
+  }
+}
+
+/** Samples per second when a clip is walked through for its ground contact. */
+const CLIP_SAMPLE_RATE = 30;
+
+/** The lowest point of any mesh over `animation`, sampled at CLIP_SAMPLE_RATE and at its last key. */
+export function clipLowestPoint(document: Document, animation: Animation): number {
+  const end = Math.max(0, ...animation.listChannels().map((channel) => {
+    const times = channel.getSampler()?.getInput()?.getArray();
+    return times && times.length > 0 ? times[times.length - 1]! : 0;
+  }));
+  const steps = Math.max(1, Math.ceil(end * CLIP_SAMPLE_RATE));
+  let lowest = Infinity;
+  for (let step = 0; step <= steps; step += 1) {
+    lowest = Math.min(lowest, withClipPose(document, animation, (end * step) / steps, () => documentBounds(document).min[1]));
+  }
+  return round(lowest);
 }
 
 /** Every way `document` breaks the profile, and the measurements the descriptor records. */
@@ -180,6 +253,22 @@ export function inspectQuadrupedRigid(document: Document): { issues: string[]; o
     if (travel > QUADRUPED_RIGID_MAX_WALK_TRAVEL) issues.push(`clip 'walk' travels ${round(travel)} m; quadruped-rigid walks are in place`);
     if (clips.walk) clips.walk.walkTravel = round(travel);
   }
+  for (const name of QUADRUPED_RIGID_ACTIVITY_CLIPS) {
+    const activity = clip(name);
+    if (!activity || !clips[name]) continue;
+    const travel = Math.max(...[QUADRUPED_RIGID_ROOT, "body"].map((joint) => horizontalTravel(activity, joint)));
+    if (travel > QUADRUPED_RIGID_MAX_WALK_TRAVEL) issues.push(`clip '${name}' travels ${round(travel)} m; quadruped-rigid activity clips are in place`);
+    clips[name]!.travel = round(travel);
+  }
+  for (const animation of animations) {
+    const name = animation.getName();
+    if (!name || !clips[name] || clips[name]!.seconds <= 0) continue;
+    let lowest: number;
+    try { lowest = clipLowestPoint(document, animation); } catch (error) { issues.push(`clip '${name}' cannot be sampled: ${(error as Error).message}`); continue; }
+    if (!Number.isFinite(lowest)) continue;
+    clips[name]!.lowestPoint = lowest;
+    if (lowest < -QUADRUPED_RIGID_GROUND_TOLERANCE) issues.push(`clip '${name}' sinks to y ${lowest}, below the ground plane`);
+  }
 
   let bounds: { min: Vec3; max: Vec3 } | null = null;
   try { bounds = documentBounds(document); } catch { issues.push("the rest pose has no finite mesh bounds"); }
@@ -245,7 +334,7 @@ export async function packageQuadrupedRigidFamily(root: string, options: Quadrup
   const descriptor = {
     schema: options.descriptorSchema, profile: QUADRUPED_RIGID_PROFILE, units: "metre", up: "+Y", handedness: "right", ...options.conventions,
     placement: "Presentation only. The consumer owns placement, gameplay and physics; none is implied here.",
-    clips: { required: QUADRUPED_RIGID_CLIPS, walk: "in-place", loop: true },
+    clips: { required: QUADRUPED_RIGID_CLIPS, activity: QUADRUPED_RIGID_ACTIVITY_CLIPS, walk: "in-place", activityClips: "in-place", loop: true },
     license,
     assets: built.map(({ member, observations }) => ({
       key: member.key, variant: variant(member), license: license.spdx, source: member.source, provenance: member.provenance, ...observations,

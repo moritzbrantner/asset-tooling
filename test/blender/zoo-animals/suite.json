@@ -1,0 +1,9 @@
+{
+  "note": "The zoo-animals release: Zoo's two pinned canonical animals and the expressive animals of adapters/blender/zoo_animals.py.",
+  "timeout": 20,
+  "ktx": false,
+  "lfs": [
+    "assets/canonical/zoo.zebra-glb/**",
+    "assets/canonical/zoo.giraffe-glb/**"
+  ]
+}
