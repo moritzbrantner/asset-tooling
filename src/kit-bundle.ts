@@ -31,6 +31,61 @@ export function single(result: AssetOperationResult, port = "output"): AssetRef 
 export const round = (value: number) => { const r = Math.round(value * 1e6) / 1e6; return r === 0 ? 0 : r; };
 export const round3 = (v: readonly number[]): Vec3 => [round(v[0]!), round(v[1]!), round(v[2]!)];
 
+/** The most a large piece's LOD switch distances grow over their base. */
+export const KIT_LOD_SCALE_CAP = 4;
+
+/**
+ * A piece's LOD switch distances, in whole metres: `base` is for a piece up to 1 m across, and grows with the widest side of
+ * `bounds` up to KIT_LOD_SCALE_CAP. A large piece's swap is more visible at the same distance; the floor keeps small pieces
+ * from switching next to the camera, and the cap keeps the largest meshes from staying at full detail for ever.
+ */
+export function scaledLodDistances(base: readonly number[], bounds: { min: readonly number[]; max: readonly number[] }) {
+  const widest = Math.max(...[0, 1, 2].map((k) => bounds.max[k]! - bounds.min[k]!));
+  const scale = Math.min(Math.max(widest, 1), KIT_LOD_SCALE_CAP);
+  return base.map((distance) => Math.round(distance * scale));
+}
+
+/** The vertical field of view (degrees) a kit descriptor's `referenceMaxDistance` values are computed for. */
+export const KIT_LOD_REFERENCE_FOV_Y = 60;
+/**
+ * Walk-through card scatter (grass, flowers, reeds, ferns, litter; #586): full detail to 40 m, the reduced level to 60 m,
+ * then not drawn. Fixed, not scaled with the piece's size: overlapping cut-out cards cost more in overdraw than in triangles.
+ */
+export const SCATTER_LOD_DISTANCES = [40, 60] as const;
+/** Walk-through card scatter is not drawn beyond this many metres from the camera, whatever the instance scale or FOV. */
+export const SCATTER_MAX_DISTANCE = 60;
+
+/** The descriptor's `lodSelection` for walk-through card scatter: the usual screen-size rule plus the per-piece `maxDistance`. */
+export const SCATTER_LOD_SELECTION = {
+  metric: "projected-bounding-sphere-height-fraction", referenceFovYDegrees: KIT_LOD_REFERENCE_FOV_Y,
+  rule: "Use the first level whose minScreenSize is at most the asset's projected bounding-sphere diameter divided by the viewport height "
+    + "(radius / (distance * tan(fovY / 2)), scaled by the instance scale). referenceMaxDistance is the distance in metres at which that "
+    + "level ends for an unscaled instance at referenceFovYDegrees. Don't draw an instance farther from the camera than its piece's "
+    + "maxDistance (metres), whatever its scale or the field of view.",
+} as const;
+
+/**
+ * A walk-through card-scatter piece's `maxDistance` and `lods` (#586): its levels end at SCATTER_LOD_DISTANCES, each
+ * level's `minScreenSize` derived from the piece's own bounding sphere, the last at 0, and nothing is drawn past
+ * SCATTER_MAX_DISTANCE. `levels` are the piece's levels in order, full detail first; there must be exactly two.
+ */
+export function scatterLods(bounds: { min: readonly number[]; max: readonly number[] }, levels: readonly { variant: string; triangles: number }[]) {
+  if (levels.length !== SCATTER_LOD_DISTANCES.length) throw new Error(`scatter pieces have ${SCATTER_LOD_DISTANCES.length} levels, not ${levels.length}`);
+  const tan = Math.tan((KIT_LOD_REFERENCE_FOV_Y / 2) * Math.PI / 180);
+  const radius = round(Math.hypot(...[0, 1, 2].map((k) => bounds.max[k]! - bounds.min[k]!)) / 2);
+  return {
+    maxDistance: SCATTER_MAX_DISTANCE,
+    lods: {
+      boundingSphere: { center: [0, 1, 2].map((k) => round((bounds.min[k]! + bounds.max[k]!) / 2)), radius },
+      levels: levels.map(({ variant, triangles }, index) => {
+        const distance = SCATTER_LOD_DISTANCES[index]!;
+        const last = index === levels.length - 1;
+        return { variant, triangles, minScreenSize: last ? 0 : Number((radius / (distance * tan)).toFixed(4)), referenceMaxDistance: distance };
+      }),
+    },
+  };
+}
+
 /** World-space AABB of every mesh node in the document, or of the mesh node named `nodeName`. */
 export function documentBounds(document: Document, nodeName?: string): { min: Vec3; max: Vec3 } {
   const min = [Infinity, Infinity, Infinity], max = [-Infinity, -Infinity, -Infinity];
@@ -124,20 +179,47 @@ export async function packReleaseTar(root: string, bundleDir: string, tarName: s
 
 type KitBuildResult = { bundleDir: string; tar: string; tarSha256: string; tarByteLength: number; exportRef: Json; lineage: Json; descriptor: Json };
 
+/** Texture resolution modes of a build, as a scale on every texture's edge when it is encoded to KTX2. `full` is what ships. */
+export const KIT_TEXTURE_MODES = { full: 1, half: 0.5 } as const;
+export type KitTextureMode = keyof typeof KIT_TEXTURE_MODES;
+let kitTextureMode: KitTextureMode = "full";
+
+/** Selects the mode of the KTX2 encoding in this process. */
+export function setKitTextureMode(mode: KitTextureMode) {
+  kitTextureMode = mode;
+}
+
+/** Removes `--textures <mode>` from `argv`, selects that mode and returns it. */
+export function takeKitTextureMode(argv: string[]): KitTextureMode {
+  const at = argv.indexOf("--textures");
+  if (at < 0) return kitTextureMode;
+  const mode = argv.splice(at, 2)[1] as KitTextureMode;
+  if (!(mode in KIT_TEXTURE_MODES)) throw new Error(`--textures must be one of ${Object.keys(KIT_TEXTURE_MODES).join(", ")}`);
+  setKitTextureMode(mode);
+  return mode;
+}
+
+/** The power-of-two size an image of `width` x `height` is encoded at in the selected mode. */
+export function kitTextureTarget(width: number, height: number) {
+  const scale = KIT_TEXTURE_MODES[kitTextureMode];
+  return { width: powerOfTwo(Math.max(1, Math.round(width * scale))), height: powerOfTwo(Math.max(1, Math.round(height * scale))) };
+}
+
 /**
- * The `--out <directory>` command line every kit builder shares: build, write `lineage.json` (and with
- * `descriptorFile`, `descriptor.json`) next to the tar, and print the bundle, tar and export ref plus `summary`.
+ * The `[--textures full|half] --out <directory>` command line every kit builder shares: build, write `lineage.json` (and
+ * with `descriptorFile`, `descriptor.json`) next to the tar, and print the bundle, tar and export ref plus `summary`.
  */
 export async function runKitCli<R extends KitBuildResult>(script: string, label: string, build: (options: { outDir: string; log: (line: string) => void }) => Promise<R>,
   { descriptorFile = false, summary = () => ({}) }: { descriptorFile?: boolean; summary?: (result: R) => Json } = {}) {
+  const textures = takeKitTextureMode(process.argv);
   const args = process.argv.slice(2);
   if (args.length !== 2 || args[0] !== "--out") {
-    console.error(`Usage: ASSET_TOOLING_BLENDER=<blender 5.2.2> bun ${script} --out <directory>`);
+    console.error(`Usage: ASSET_TOOLING_BLENDER=<blender 5.2.2> bun ${script} [--textures full|half] --out <directory>`);
     process.exit(2);
   }
   try {
     const result = await build({ outDir: args[1]!, log: (line) => console.error(`[${label}] ${line}`) });
-    await writeFile(path.join(path.resolve(args[1]!), "lineage.json"), `${JSON.stringify(result.lineage, null, 2)}\n`);
+    await writeFile(path.join(path.resolve(args[1]!), "lineage.json"), `${JSON.stringify({ ...result.lineage, ...(textures === "full" ? {} : { textures }) }, null, 2)}\n`);
     if (descriptorFile) await writeFile(path.join(path.resolve(args[1]!), "descriptor.json"), `${JSON.stringify(result.descriptor, null, 2)}\n`);
     console.log(JSON.stringify({ bundle: result.bundleDir, tar: result.tar, tarSha256: result.tarSha256, tarByteLength: result.tarByteLength, exportRef: result.exportRef, ...summary(result) }, null, 2));
   } catch (error) {
@@ -208,7 +290,7 @@ export async function ktx2Asset(root: string, asset: AssetRef, cache: Ktx2Cache,
       const output = path.join(cache.scratch, `${cache.encoded.size}.ktx2`);
       await writeFile(input, image);
       const [width, height] = ImageUtils.getSize(image, mimeType)!;
-      const target = { width: powerOfTwo(width), height: powerOfTwo(height) };
+      const target = kitTextureTarget(width, height);
       const resize = target.width !== width || target.height !== height ? target : undefined;
       const run = Bun.spawnSync([process.env.ASSET_TOOLING_KTX ?? "ktx", ...ktxArguments(encoding, input, output, resize)], { stdout: "pipe", stderr: "pipe" });
       if (run.exitCode !== 0) throw new Error(`ktx create failed for ${texture.getName()}: ${run.stderr.toString()}`);

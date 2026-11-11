@@ -92,6 +92,16 @@ jobs:
           echo "ASSET_TOOLING_RANGER_BUNDLE_LABEL=$TAG (tar $SHA)" >> "$GITHUB_ENV"
           echo "ASSET_TOOLING_REQUIRE_RANGER_COMPARISON=1" >> "$GITHUB_ENV"
 
+      # The slider page shows a notice until the first young-residents release exists.
+      - name: Download current young residents output
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if gh release download young-residents --repo "$GITHUB_REPOSITORY" --pattern young-residents.kit.tar --dir "$RUNNER_TEMP/young"; then
+            echo "ASSET_TOOLING_YOUNG_BUNDLE_TAR=$RUNNER_TEMP/young/young-residents.kit.tar" >> "$GITHUB_ENV"
+          fi
+
       - name: Validate catalog provenance
         run: |
           bun run catalog:check

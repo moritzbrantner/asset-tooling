@@ -1,0 +1,11 @@
+{
+  "note": "The limestone caves (#559): 36 recipe runs, built twice for the same tar.",
+  "timeout": 30,
+  "ktx": true,
+  "lfs": [
+    "assets/canonical/poly-haven.rock-face-03-diff-2k-jpg/**",
+    "assets/canonical/poly-haven.rock-face-03-disp-2k-jpg/**",
+    "assets/canonical/poly-haven.rocks-ground-02-diff-2k-jpg/**",
+    "assets/canonical/poly-haven.forrest-ground-01-diff-2k-jpg/**"
+  ]
+}

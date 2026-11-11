@@ -10,9 +10,12 @@
 // its default branch nor its open `agent/repin-<release>` branch (scripts/prepare-release.ts) pins the new build.
 import path from "node:path";
 import { spawnSync } from "node:child_process";
-import { readdir, readFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
 import { findConsumers, loadConsumers, readArtifacts, type Artifacts, type Consumer, type Pin } from "./prepare-release.ts";
+import { KIT_BUDGETS, kitBudgetViolations, kitCost } from "./report-kit-costs.ts";
 import { verifyMapsShortbreadRelease } from "./build-maps-shortbread-release.ts";
+import { readReleaseData, RELEASES_DIR } from "./release-data.ts";
 import { sourceClosure, touches } from "./source-closure.ts";
 import { useSharedGenerationCache } from "./generation-cache.ts";
 
@@ -42,36 +45,11 @@ export type RollingRelease = {
 };
 
 export const DEFAULT_TIMEOUT_MINUTES = 60;
-/** The Ranger builds the whole bundle (clips, armour, levels of detail, appearance) in one run, about 1.5 h locally. */
-const RANGER = { script: "scripts/build-ranger-release.ts", blender: true, lfs: true, processor: "three-d-animation-retarget", ktx: true, timeoutMinutes: 240 };
-
-/** Every rolling release CI rebuilds. The workflow's dispatch choices must list exactly these names. */
-export const ROLLING_RELEASES: RollingRelease[] = [
-  { name: "combat-effects", script: "scripts/build-combat-effects.ts" },
-  { name: "combat-sounds", script: "scripts/build-combat-sounds.ts", lfs: true },
-  { name: "climbing-kit", script: "scripts/build-climbing-kit.ts", blender: true, lfs: true, ktx: true },
-  { name: "crag-kit", script: "scripts/build-crag-kit.ts", blender: true, lfs: true, ktx: true },
-  { name: "farm-structures", script: "scripts/build-farm-structures.ts", blender: true },
-  { name: "fortress-kit", script: "scripts/build-fortress-kit.ts", blender: true, lfs: true, ktx: true },
-  { name: "greyhaven-ambient-animals", script: "scripts/build-greyhaven-ambient-animals.ts", blender: true, lfs: true },
-  { name: "greyhaven-marshal-house", script: "scripts/build-greyhaven-marshal-house.ts", blender: true, ktx: true },
-  { name: "greyhaven-nature", script: "scripts/build-greyhaven-nature.ts", blender: true, lfs: true, ktx: true },
-  { name: "greyhaven-terrain", script: "scripts/build-greyhaven-terrain.ts", lfs: true, ktx: true },
-  // #517: the attachable hair and beard pieces on the male Ranger head joints.
-  { name: "hair-kit", script: "scripts/build-hair-kit.ts", blender: true, lfs: true, ktx: true },
-  // #399: each figure is its own release, so the two build in parallel jobs.
-  { name: "humanoid-ranger-female", ...RANGER, args: ["--figure", "female"] },
-  { name: "humanoid-ranger-male", ...RANGER, args: ["--figure", "male"] },
-  { name: "maps-shortbread", script: "scripts/build-maps-shortbread-release.ts" },
-  { name: "outpost-kit", script: "scripts/build-outpost-kit.ts", blender: true, ktx: true },
-  // #517: the Redbrand faction kit, built on the male Ranger figure from the same catalog members.
-  { name: "redbrand-kit", script: "scripts/build-redbrand-kit.ts", blender: true, lfs: true, ktx: true },
-  { name: "settlement-props", script: "scripts/build-settlement-props.ts", blender: true, ktx: true },
-  { name: "shrine-kit", script: "scripts/build-shrine-kit.ts", blender: true, ktx: true },
-  { name: "zoo-animals", script: "scripts/build-zoo-animals.ts", lfs: true },
-  { name: "zoo-effects", script: "scripts/build-zoo-effects.ts" },
-  { name: "zoo-scenery", script: "scripts/build-zoo-scenery.ts", blender: true },
-];
+/**
+ * Every rolling release CI rebuilds: one releases/<name>.json each (scripts/release-data.ts), so adding a release
+ * edits no shared file. A manual dispatch accepts exactly these names.
+ */
+export const ROLLING_RELEASES: RollingRelease[] = readReleaseData(ROOT).map(([name, { note: _note, budget: _budget, ...release }]) => ({ name, ...release }));
 
 /** Rolling releases CI cannot rebuild yet, and why. They are still published by hand. */
 export const MANUAL_RELEASES: Record<string, string> = {
@@ -91,12 +69,12 @@ export function rollingRelease(name: string): RollingRelease {
 
 /**
  * The repository paths a release's build reads: the build script's transitive local imports, every repo path
- * literal they name (Blender recipes, catalog manifests, descriptors), Blender's pin when it needs Blender, the
- * canonical payloads when it needs LFS, and the shared packing/publishing files. Over-matching only costs a
- * rebuild that `publish` then skips as unchanged.
+ * literal they name (Blender recipes, catalog manifests, descriptors), its own releases/<name>.json, Blender's pin
+ * when it needs Blender, the canonical payloads when it needs LFS, and the shared packing/publishing files.
+ * Over-matching only costs a rebuild that `publish` then skips as unchanged.
  */
 export function releaseSources(release: RollingRelease, root = ROOT): string[] {
-  const sources = new Set<string>([...SHARED_SOURCES, ...sourceClosure([release.script], root)]);
+  const sources = new Set<string>([...SHARED_SOURCES, `${RELEASES_DIR}/${release.name}.json`, ...sourceClosure([release.script], root)]);
   if (release.blender) sources.add("adapters/blender/release.json");
   if (release.lfs) sources.add("assets/canonical");
   if (release.processor) sources.add("stability/processors.json");
@@ -218,6 +196,20 @@ async function publish(name: string, out: string, dryRun: boolean): Promise<numb
     console.log(`${name}: the live release already holds tar ${artifacts.sha256}; nothing to publish`);
     pruneRelease(name, files, dryRun);
     return 0;
+  }
+  const budget = KIT_BUDGETS[name];
+  if (budget) {
+    const unpacked = await mkdtemp(path.join(tmpdir(), `${name}-cost-`));
+    try {
+      run("tar", ["-xf", path.join(dir, artifacts.tar), "-C", unpacked]);
+      const violations = kitBudgetViolations(await kitCost(unpacked), budget);
+      if (violations.length) {
+        console.error(`${name}: refusing to publish tar ${artifacts.sha256}: over its KIT_BUDGETS limit: ${violations.join("; ")}.`);
+        return 1;
+      }
+    } finally {
+      await rm(unpacked, { recursive: true, force: true });
+    }
   }
   const consumers = await loadConsumers();
   for (const consumer of findConsumers(consumers, name).unpinned) console.log(`${consumer.repo}: not pinned (${consumer.note ?? "reads the live release"})`);

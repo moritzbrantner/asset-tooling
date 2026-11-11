@@ -1,0 +1,10 @@
+{
+  "script": "scripts/build-sandstone-kit.ts",
+  "blender": true,
+  "ktx": true,
+  "budget": {
+    "materials": 1,
+    "textureMemoryMB": 16,
+    "downloadMB": 3
+  }
+}

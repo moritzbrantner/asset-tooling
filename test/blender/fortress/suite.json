@@ -1,0 +1,11 @@
+{
+  "note": "The fortress kit's 51 recipe runs (17 pieces x 3 levels) take longer than the other kits together.",
+  "timeout": 60,
+  "ktx": true,
+  "lfs": [
+    "assets/canonical/poly-haven.broken-wall-*/**",
+    "assets/canonical/poly-haven.japanese-stone-wall-*/**",
+    "assets/canonical/poly-haven.stone-tiles-02-*/**",
+    "assets/canonical/poly-haven.old-planks-02-*/**"
+  ]
+}

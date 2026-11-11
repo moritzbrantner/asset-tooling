@@ -1,0 +1,4 @@
+{
+  "script": "scripts/build-zoo-animals.ts",
+  "lfs": true
+}

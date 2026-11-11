@@ -1,0 +1,4 @@
+{
+  "script": "scripts/build-zoo-scenery.ts",
+  "blender": true
+}

@@ -24,7 +24,7 @@ import { createAssetCatalog } from "../src/catalog.js";
 import { importAssetCatalogStorageSource } from "../src/catalog-storage.js";
 import { executeGltfTextureResizeOperation } from "../src/gltf-texture-resize-operations.js";
 import { sha256Bytes } from "../src/hash.js";
-import { buildKitPart, documentBounds, exportKitBundle, round, runKitCli, single, triangles, type KitPart } from "../src/kit-bundle.js";
+import { buildKitPart, documentBounds, exportKitBundle, ktx2Assets, round, runKitCli, single, triangles, type KitPart } from "../src/kit-bundle.js";
 import type { AssetRef } from "../src/operations.js";
 import { TERRAIN_KTX2, TERRAIN_TEXTURE_POLICY, encodeKtx2 } from "./build-greyhaven-terrain.ts";
 import type { TextureEncoding } from "./pack-downloads.ts";
@@ -65,7 +65,34 @@ export const CRAG_LOD_VARIANTS = ["lod1", "lod2"] as const;
 export const CRAG_LOD_METRIC = "projected-bounding-sphere-height-fraction";
 export const CRAG_LOD_REFERENCE_FOV_Y = 60;
 /** Where LOD0 and lod1 end, in metres at the reference FOV, for every module. */
-export const CRAG_LOD_DISTANCES = [40, 120] as const;
+export const CRAG_LOD_DISTANCES = [60, 180] as const;
+
+/** Freestanding outcrops (adapters/blender/cliff_outcrop.py): sculpted, with baked maps that blend into the terrain's scans. */
+export const CRAG_OUTCROPS = ["buttress-1", "buttress-2", "spire", "talus-1", "talus-2"] as const;
+export type CragOutcrop = (typeof CRAG_OUTCROPS)[number];
+export const cragOutcropKey = (part: CragOutcrop) => `${CRAG_KEY_PREFIX}.outcrop-${part}`;
+export const CRAG_OUTCROP_SOURCES = {
+  rockColour: "poly-haven.rock-face-03-diff-2k-jpg",
+  rockHeight: "poly-haven.rock-face-03-disp-2k-jpg",
+  grassColour: "poly-haven.forrest-ground-01-diff-2k-jpg",
+  gravelColour: "poly-haven.rocks-ground-02-diff-2k-jpg",
+  mossColour: "poly-haven.mossy-rock-diff-2k-jpg",
+} as const;
+/** nature_lod.py's rock levels: the collapse keeps the baked UVs, so every level shares LOD0's maps. */
+const CRAG_OUTCROP_LOD_RATIOS = [0.35, 0.1] as const;
+/** cliff_outcrop.py exports no tangents: the normal map uses the generated tangent space, as the nature rocks do. */
+const OUTCROP_VALIDATOR_WARNINGS = ["MESH_PRIMITIVE_GENERATED_TANGENT_SPACE"];
+
+export function createCragOutcropAssetSpec({ part, scriptSha256, inputSha256, blenderVersion }: {
+  part: CragOutcrop; scriptSha256: string; inputSha256: Record<keyof typeof CRAG_OUTCROP_SOURCES, string>; blenderVersion: string;
+}) {
+  const inputs: Record<string, BlenderSpecInput> = {};
+  for (const name of Object.keys(CRAG_OUTCROP_SOURCES) as (keyof typeof CRAG_OUTCROP_SOURCES)[]) inputs[name] = { path: `${name}.jpg`, sha256: inputSha256[name] };
+  return blenderScriptSpec({
+    assetId: cragOutcropKey(part), inputs: { script: { path: "cliff_outcrop.py", sha256: scriptSha256 }, ...inputs },
+    blenderVersion, arguments: { schemaVersion: 1, part }, output: "outcrop.glb",
+  });
+}
 
 export function createCragAssetSpec({ part, lod, scriptSha256, commonSha256, inputSha256, blenderVersion }: {
   part: CragPart; lod: 0 | 1 | 2; scriptSha256: string; commonSha256: string; inputSha256: Record<keyof typeof CRAG_SOURCES, string>; blenderVersion: string;
@@ -212,26 +239,110 @@ export async function buildCragKit({ outDir, log = () => {} }: { outDir: string;
     await rm(scratch, { recursive: true, force: true });
   }
 
+  const outcropSource = await readBlenderRecipeSource("cliff_outcrop.py");
+  const lodSource = await readBlenderRecipeSource("nature_lod.py");
+  const outcropFiles: Record<string, Uint8Array> = { "cliff_outcrop.py": outcropSource.bytes };
+  const outcropInputSha256 = {} as Record<keyof typeof CRAG_OUTCROP_SOURCES, string>;
+  const outcropInputs = {} as Record<keyof typeof CRAG_OUTCROP_SOURCES, AssetRef>;
+  for (const name of Object.keys(CRAG_OUTCROP_SOURCES) as (keyof typeof CRAG_OUTCROP_SOURCES)[]) {
+    const asset = (await importAssetCatalogStorageSource({ catalog, storage, sourceId: CRAG_OUTCROP_SOURCES[name], storageRoot: ROOT, objectStoreRoot: root })).asset as AssetRef;
+    const bytes = new Uint8Array(await resolveAssetObject(root, asset));
+    outcropFiles[`${name}.jpg`] = bytes;
+    outcropInputSha256[name] = sha256Bytes(bytes);
+    outcropInputs[name] = asset;
+  }
+  const outcrops: (KitPart & { part: CragOutcrop; variant: string })[] = [];
+  for (const part of CRAG_OUTCROPS) {
+    log(`generate outcrop ${part} (external.blender.script@1 cliff_outcrop recipe, scene.import.gltf@2)`);
+    const main = await buildKitPart(root, {
+      workspace: path.join(root, "crag", `outcrop-${part}.default`), files: outcropFiles, allowedValidatorWarnings: OUTCROP_VALIDATOR_WARNINGS,
+      spec: createCragOutcropAssetSpec({ part, scriptSha256: outcropSource.sha256, inputSha256: outcropInputSha256, blenderVersion: outcropSource.blenderVersion }),
+    });
+    outcrops.push({ ...main, part, variant: "default" });
+    const sourceBytes = new Uint8Array(await resolveAssetObject(root, main.asset));
+    for (const [index, variant] of CRAG_LOD_VARIANTS.entries()) {
+      log(`generate outcrop ${part} ${variant} (nature_lod.py decimate)`);
+      const level = await buildKitPart(root, {
+        workspace: path.join(root, "crag", `outcrop-${part}.${variant}`), files: { "nature_lod.py": lodSource.bytes, "source.glb": sourceBytes }, allowedValidatorWarnings: OUTCROP_VALIDATOR_WARNINGS,
+        spec: blenderScriptSpec({
+          assetId: cragOutcropKey(part), inputs: { script: { path: "nature_lod.py", sha256: lodSource.sha256 }, source: { path: "source.glb", sha256: sha256Bytes(sourceBytes) } },
+          blenderVersion: lodSource.blenderVersion, arguments: { schemaVersion: 1, method: "decimate", ratio: CRAG_OUTCROP_LOD_RATIOS[index]! }, output: `${variant}.glb`,
+        }),
+      });
+      outcrops.push({ ...level, part, variant });
+    }
+  }
+  log("pack the outcrops' baked maps into one atlas (cliff_outcrop recipe)");
+  const atlasFiles: Record<string, Uint8Array> = { "cliff_outcrop.py": outcropSource.bytes };
+  const atlasInputs: Record<string, BlenderSpecInput> = {};
+  CRAG_OUTCROPS.forEach((part, index) => {
+    const material = outcrops.find((o) => o.part === part && o.variant === "default")!.document.getRoot().listMaterials()[0]!;
+    for (const [kind, texture] of [["colour", material.getBaseColorTexture()], ["normal", material.getNormalTexture()], ["rough", material.getMetallicRoughnessTexture()]] as const) {
+      const bytes = texture!.getImage()!;
+      atlasFiles[`${kind}${index}.png`] = bytes;
+      atlasInputs[`${kind}${index}`] = { path: `${kind}${index}.png`, sha256: sha256Bytes(bytes) };
+    }
+  });
+  const atlas = await buildKitPart(root, {
+    workspace: path.join(root, "crag", "outcrop-atlas"), files: atlasFiles, allowedValidatorWarnings: OUTCROP_VALIDATOR_WARNINGS,
+    spec: blenderScriptSpec({
+      assetId: `${CRAG_KEY_PREFIX}.outcrop-atlas`, inputs: { script: { path: "cliff_outcrop.py", sha256: outcropSource.sha256 }, ...atlasInputs },
+      blenderVersion: outcropSource.blenderVersion, arguments: { schemaVersion: 1, part: "atlas" }, output: "atlas.glb",
+    }),
+  });
+  const atlasMaterial = atlas.document.getRoot().listMaterials()[0]!;
+  const { edge: atlasEdge, rects } = atlas.observations as { edge: number; rects: Record<CragOutcrop, { x: number; y: number; edge: number }> };
+  const outcropIo = new NodeIO().registerExtensions([KHRTextureBasisu]);
+  const atlased: AssetRef[] = [];
+  for (const outcrop of outcrops) {
+    // Every level moves onto the rock's rectangle of the shared maps and takes the one material name, so a consumer shares it.
+    const rect = rects[outcrop.part];
+    const document = outcrop.document;
+    const point = [0, 0];
+    for (const mesh of document.getRoot().listMeshes()) for (const primitive of mesh.listPrimitives()) {
+      const uv = primitive.getAttribute("TEXCOORD_0")!;
+      for (let i = 0; i < uv.getCount(); i += 1) {
+        uv.getElement(i, point);
+        uv.setElement(i, [(rect.x + point[0]! * rect.edge) / atlasEdge, (rect.y + point[1]! * rect.edge) / atlasEdge]);
+      }
+    }
+    for (const material of document.getRoot().listMaterials()) {
+      material.setName("outcrop-rock");
+      material.getBaseColorTexture()!.setImage(atlasMaterial.getBaseColorTexture()!.getImage()!);
+      material.getNormalTexture()!.setImage(atlasMaterial.getNormalTexture()!.getImage()!);
+      material.getMetallicRoughnessTexture()!.setImage(atlasMaterial.getMetallicRoughnessTexture()!.getImage()!);
+    }
+    atlased.push((await storeAssetObject(root, { bytes: await outcropIo.writeBinary(document), kind: "scene", mediaType: "model/gltf-binary" })).asset);
+  }
+  log("encode the outcrops' atlas as KTX2 (ktx create)");
+  const outcropDelivered = await ktx2Assets(root, "crag-outcrops", atlased);
+
   log("measure the crag-kit descriptor");
   const tan = Math.tan((CRAG_LOD_REFERENCE_FOV_Y / 2) * Math.PI / 180);
+  const lodChain = (levels: { variant: string; document: Document }[], bounds: { min: number[]; max: number[] }) => {
+    const radius = round(Math.hypot(...[0, 1, 2].map((k) => bounds.max[k]! - bounds.min[k]!)) / 2);
+    return {
+      boundingSphere: { center: [0, 1, 2].map((k) => round((bounds.min[k]! + bounds.max[k]!) / 2)), radius },
+      levels: levels.map((level, index) => {
+        const distance = CRAG_LOD_DISTANCES[index];
+        return { variant: level.variant, triangles: triangles(level.document),
+          minScreenSize: distance ? round(Number((radius / (distance * tan)).toFixed(4))) : 0, referenceMaxDistance: distance ?? null };
+      }),
+    };
+  };
   const assets = CRAG_PARTS.map((part) => {
     const [main, ...lods] = built.filter((b) => b.part === part);
     const bounds = documentBounds(main!.document);
     const o = main!.observations;
     const entry: Record<string, unknown> = { key: cragKey(part), role: part, family: o.family, kind: o.kind, triangles: triangles(main!.document), cell: o.cell, bounds };
     if (part === CRAG_MACRO) return { ...entry, macro: o.macro };
-    const radius = round(Math.hypot(...[0, 1, 2].map((k) => bounds.max[k]! - bounds.min[k]!)) / 2);
-    return {
-      ...entry, collisionProxies: o.collisionProxies, climb: o.climb,
-      lods: {
-        boundingSphere: { center: [0, 1, 2].map((k) => round((bounds.min[k]! + bounds.max[k]!) / 2)), radius },
-        levels: [main!, ...lods].map((level, index) => {
-          const distance = CRAG_LOD_DISTANCES[index];
-          return { variant: level.variant, triangles: triangles(level.document),
-            minScreenSize: distance ? round(Number((radius / (distance * tan)).toFixed(4))) : 0, referenceMaxDistance: distance ?? null };
-        }),
-      },
-    };
+    return { ...entry, collisionProxies: o.collisionProxies, climb: o.climb, lods: lodChain([main!, ...lods], bounds) };
+  });
+  const outcropEntries = CRAG_OUTCROPS.map((part) => {
+    const levels = outcrops.filter((o) => o.part === part);
+    const bounds = documentBounds(levels[0]!.document);
+    const { fit, bury, collisionMesh } = levels[0]!.observations;
+    return { key: cragOutcropKey(part), role: part, kind: "outcrop", triangles: triangles(levels[0]!.document), bounds, fit, bury, collisionMesh, lods: lodChain(levels, bounds) };
   });
   const descriptor = {
     schema: CRAG_DESCRIPTOR_SCHEMA, units: "metre", up: "+Y", handedness: "right", pitch: CRAG_PITCH,
@@ -275,24 +386,31 @@ export async function buildCragKit({ outDir, log = () => {} }: { outDir: string;
       referenceFovYDegrees: CRAG_LOD_REFERENCE_FOV_Y,
     },
     assets,
+    outcrops: {
+      frame: "Freestanding rock with its origin on the ground at the footprint centre, +Y up. The foot runs `bury` metres below y = 0, so it meets uneven ground. Scale to the rock's own footprint and height; `fit` gives the unscaled radii, height and lean (x, z metres at the top).",
+      use: "Each outcrop's maps are baked with its foot and crown blending into the terrain's grass, gravel and moss, in mmorpg's ground palette. `collisionMesh` is a closed triangle mesh (metres, this frame, +Y up, wound outward) that follows the rock: a consumer's content build scales it with the placement to generate the rock's collision, which the consumer owns and reviews.",
+      entries: outcropEntries,
+    },
   };
   const descriptorAsset = (await storeAssetObject(root, { bytes: Buffer.from(`${canonicalJson(descriptor)}\n`), kind: "crag-descriptor", mediaType: "application/json" })).asset;
-  const selections = built.map((b) => ({
+  const selections = [...built.map((b) => ({
     key: cragKey(b.part), variant: b.variant,
     ...(b.part === CRAG_PARTS[0] && b.variant === "default" ? { attachments: [{ name: CRAG_DESCRIPTOR_ATTACHMENT }] } : {}),
-  }));
+  })), ...outcrops.map((o) => ({ key: cragOutcropKey(o.part), variant: o.variant }))];
   const packed = await exportKitBundle(root, {
     tarName: CRAG_TAR_NAME, log,
-    invocation: { parameters: { profile: GLTF_RESOURCES_BUNDLE_PROFILE, assets: selections }, inputs: { assets: built.map((b) => b.asset), attachments: [descriptorAsset] } },
+    invocation: { parameters: { profile: GLTF_RESOURCES_BUNDLE_PROFILE, assets: selections }, inputs: { assets: [...built.map((b) => b.asset), ...outcropDelivered], attachments: [descriptorAsset] } },
   });
   return {
     ...packed, descriptor,
-    documents: Object.fromEntries(built.map((b) => [`${b.part}.${b.variant}`, b.document])) as Record<string, Document>,
+    documents: Object.fromEntries([...built.map((b) => [`${b.part}.${b.variant}`, b.document]), ...outcrops.map((o) => [`outcrop-${o.part}.${o.variant}`, o.document])]) as Record<string, Document>,
     lineage: {
       recipe: { script: "adapters/blender/crag.py", sha256: source.sha256, common: { script: "adapters/blender/kit_common.py", sha256: common.sha256 }, blenderVersion: source.blenderVersion },
+      outcrops: { script: "adapters/blender/cliff_outcrop.py", sha256: outcropSource.sha256, lod: { script: "adapters/blender/nature_lod.py", sha256: lodSource.sha256 } },
       release: CRAG_RELEASE,
       sources: Object.fromEntries((Object.keys(CRAG_SOURCES) as (keyof typeof CRAG_SOURCES)[]).map((name) => [name, { sourceId: CRAG_SOURCES[name], license: "CC0-1.0", asset: inputAssets[name] }])),
-      parts: Object.fromEntries(built.map((b) => [`${b.part}.${b.variant}`, b.asset])), descriptor: descriptorAsset,
+      outcropSources: Object.fromEntries((Object.keys(CRAG_OUTCROP_SOURCES) as (keyof typeof CRAG_OUTCROP_SOURCES)[]).map((name) => [name, { sourceId: CRAG_OUTCROP_SOURCES[name], license: "CC0-1.0", asset: outcropInputs[name] }])),
+      parts: Object.fromEntries([...built.map((b) => [`${b.part}.${b.variant}`, b.asset]), ...outcrops.map((o, i) => [`outcrop-${o.part}.${o.variant}`, outcropDelivered[i]!])]), descriptor: descriptorAsset,
     },
   };
 }

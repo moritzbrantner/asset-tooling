@@ -1,0 +1,8 @@
+{
+  "note": "The Greyhaven trees (#568): 24 recipe runs, no bakes, from the catalogued Quaternius bark.",
+  "timeout": 20,
+  "ktx": true,
+  "lfs": [
+    "assets/canonical/quaternius.stylized-nature-megakit-standard.bark-normaltree-png/**"
+  ]
+}

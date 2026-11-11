@@ -1,0 +1,12 @@
+{
+  "note": "#517: the Redbrand faction kit, built on the male Ranger figure from the same catalog members.",
+  "script": "scripts/build-redbrand-kit.ts",
+  "blender": true,
+  "lfs": true,
+  "ktx": true,
+  "budget": {
+    "materials": 11,
+    "textureMemoryMB": 17,
+    "downloadMB": 13
+  }
+}

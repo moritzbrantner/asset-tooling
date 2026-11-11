@@ -1,0 +1,11 @@
+{
+  "script": "scripts/build-moss.ts",
+  "blender": true,
+  "lfs": true,
+  "ktx": true,
+  "budget": {
+    "materials": 1,
+    "textureMemoryMB": 3,
+    "downloadMB": 3
+  }
+}

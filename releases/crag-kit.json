@@ -1,0 +1,12 @@
+{
+  "script": "scripts/build-crag-kit.ts",
+  "blender": true,
+  "lfs": true,
+  "ktx": true,
+  "budget": {
+    "note": "crag-rock, the macro texture's quad and outcrop-rock.",
+    "materials": 3,
+    "textureMemoryMB": 56,
+    "downloadMB": 24
+  }
+}

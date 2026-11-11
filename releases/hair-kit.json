@@ -1,0 +1,12 @@
+{
+  "note": "#517: the attachable hair and beard pieces on the male Ranger head joints.",
+  "script": "scripts/build-hair-kit.ts",
+  "blender": true,
+  "lfs": true,
+  "ktx": true,
+  "budget": {
+    "materials": 3,
+    "textureMemoryMB": 6,
+    "downloadMB": 8
+  }
+}

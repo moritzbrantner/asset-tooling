@@ -1,0 +1,11 @@
+{
+  "script": "scripts/build-fortress-kit.ts",
+  "blender": true,
+  "lfs": true,
+  "ktx": true,
+  "budget": {
+    "materials": 12,
+    "textureMemoryMB": 18,
+    "downloadMB": 15
+  }
+}

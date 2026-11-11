@@ -64,7 +64,14 @@
     {
       "repo": "moenarch-games/mmorpg",
       "release": "greyhaven-nature",
-      "pins": [{ "type": "tar-sha256", "path": "scripts/fetch-bundles.sh", "after": "NATURE_TAR_SHA256=" }]
+      "pinned": false,
+      "note": "scripts/fetch-bundles.sh unpacks the live release into a local copy keyed on its export.ref.json"
+    },
+    {
+      "repo": "moenarch-games/mmorpg",
+      "release": "fortress-kit",
+      "pinned": false,
+      "note": "scripts/fetch-bundles.sh unpacks the live release into a local copy keyed on its export.ref.json"
     },
     {
       "repo": "moenarch-games/zoo",

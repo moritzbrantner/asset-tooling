@@ -51,7 +51,7 @@ export const CLIMBING_LOD_REFERENCE_FOV_Y = 60;
  * Where each level ends, in metres at the reference FOV, by family. A part's minScreenSize follows from its own
  * bounding sphere, so a 1.2 m ladder section and a 9 m ladder switch at the same distance.
  */
-export const CLIMBING_LOD_DISTANCES: Record<ClimbingFamily, readonly [number, number]> = { ladder: [15, 45], rope: [12, 35], vine: [20, 60] };
+export const CLIMBING_LOD_DISTANCES: Record<ClimbingFamily, readonly [number, number]> = { ladder: [60, 180], rope: [60, 180], vine: [60, 180] };
 
 export function createClimbingAssetSpec({ part, lod, scriptSha256, commonSha256, leavesSha256, blenderVersion }: {
   part: ClimbingPart; lod: 0 | 1 | 2; scriptSha256: string; commonSha256: string; leavesSha256: string; blenderVersion: string;

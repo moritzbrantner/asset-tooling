@@ -1,0 +1,11 @@
+{
+  "script": "scripts/build-gravestones.ts",
+  "blender": true,
+  "lfs": true,
+  "ktx": true,
+  "budget": {
+    "materials": 1,
+    "textureMemoryMB": 13,
+    "downloadMB": 6
+  }
+}

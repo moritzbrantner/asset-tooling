@@ -1,0 +1,10 @@
+{
+  "script": "scripts/build-greyhaven-ambient-animals.ts",
+  "blender": true,
+  "lfs": true,
+  "budget": {
+    "materials": 9,
+    "textureMemoryMB": 1,
+    "downloadMB": 2
+  }
+}

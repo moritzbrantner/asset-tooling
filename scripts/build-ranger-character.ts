@@ -13,6 +13,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import pLimit from "p-limit";
 import { NodeIO, type Animation, type Document, type Node } from "@gltf-transform/core";
+import { RANGER_FEMALE_PROPORTIONS, followHead, reproportionDocument, reproportionSockets, type RestChange } from "../src/humanoid-proportions.js";
 import { GLTF_RESOURCES_BUNDLE_PROFILE, exportAssetBundle } from "../src/asset-bundle.js";
 import { ASSET_BUNDLE_REF_FILE, readAssetBundleTar } from "../src/asset-bundle-pack.js";
 import { resolveAssetObject, storeAssetObject } from "../src/asset-store.js";
@@ -880,6 +881,7 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
   };
   const member = async (sourceId: string) =>
     (await importAssetCatalogStorageSource({ catalog, storage, sourceId, storageRoot: REPOSITORY_ROOT, objectStoreRoot: root })).asset as AssetRef;
+  let restChange: RestChange | undefined;
   const importGltf = async (entry: { archive: string; path: string }, overrides: Record<string, AssetRef> = {}) => {
     const gltfId = memberId(entry);
     const source = await member(gltfId);
@@ -887,7 +889,20 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
     const uris: string[] = [...(json.buffers ?? []), ...(json.images ?? [])].map((item: Json) => item.uri);
     const resources: AssetRef[] = [];
     for (const uri of uris) resources.push(overrides[uri] ?? await member(resourceId(entry.archive, gltfId, uri)));
-    return single(await cachedImport(root, { inputs: { source, resources }, parameters: { resourceUris: uris, policy: POLICY } }));
+    const imported = single(await cachedImport(root, { inputs: { source, resources }, parameters: { resourceUris: uris, policy: POLICY } }));
+    if (figure !== "female") return imported;
+    // #561: the woman's proportions go in here, so the rig, the clips retargeted onto it and the fitted garments all follow.
+    const io = new NodeIO();
+    const document = await io.readBinary(new Uint8Array(await resolveAssetObject(root, imported)));
+    if (document.getRoot().listSkins().length) restChange = reproportionDocument(document, RANGER_FEMALE_PROPORTIONS);
+    else followHead(document, restChange ?? (() => { throw new Error("import the rig before a head-mounted piece"); })());
+    return (await storeAssetObject(root, { bytes: Buffer.from(await io.writeBinary(document)), kind: imported.kind, mediaType: imported.mediaType, metadata: imported.metadata })).asset;
+  };
+  /** The figure's sockets. The woman's follow her changed rest pose (#561). */
+  const socketsFor = async (descriptorPath: string) => {
+    const bytes = await readFile(path.join(REPOSITORY_ROOT, descriptorPath));
+    if (figure !== "female") return bytes;
+    return Buffer.from(`${canonicalJson(reproportionSockets(JSON.parse(bytes.toString("utf8")), restChange!, RANGER_FEMALE_PROPORTIONS))}\n`);
   };
 
   log("import body and outfit (scene.import.gltf@2)");
@@ -940,7 +955,7 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
   {
     // Authored from the retargeted library clips on this rig, then embedded with the other clips: one Blender run per
     // family (src/ranger-clips.ts), then each clip is extracted by name and re-indexed to the rig.
-    const socketsDescriptor = JSON.parse(await readFile(path.join(REPOSITORY_ROOT, figure === "female" ? RANGER_FEMALE_SOCKETS_DESCRIPTOR : RANGER_SOCKETS_DESCRIPTOR), "utf8"));
+    const socketsDescriptor = JSON.parse((await socketsFor(figure === "female" ? RANGER_FEMALE_SOCKETS_DESCRIPTOR : RANGER_SOCKETS_DESCRIPTOR)).toString("utf8"));
     const context: ClipFamilyContext = {
       socket: (id) => {
         const found = (socketsDescriptor.sockets as Json[]).find((candidate) => candidate.id === id);
@@ -1344,7 +1359,7 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
   const descriptorPath = figure === "female" ? RANGER_FEMALE_SOCKETS_DESCRIPTOR : RANGER_SOCKETS_DESCRIPTOR;
   if (descriptorPath) {
     log(`attach ${descriptorPath} as '${RANGER_SOCKETS_ATTACHMENT}'`);
-    const descriptor = await readFile(path.join(REPOSITORY_ROOT, descriptorPath));
+    const descriptor = await socketsFor(descriptorPath);
     const { jointNames } = JSON.parse((await resolveAssetObject(root, targetRig)).toString("utf8"));
     validateHumanoidSocketDescriptor(JSON.parse(descriptor.toString("utf8")), { joints: jointNames });
     sockets = (await storeAssetObject(root, { bytes: descriptor, kind: "humanoid-sockets", mediaType: "application/json" })).asset;

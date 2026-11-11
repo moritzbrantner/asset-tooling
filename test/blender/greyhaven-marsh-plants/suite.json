@@ -1,0 +1,9 @@
+{
+  "note": "The Greyhaven marsh plants (#571): 14 recipe runs, no bakes, from the catalogued Quaternius grass and flower textures.",
+  "timeout": 20,
+  "ktx": true,
+  "lfs": [
+    "assets/canonical/quaternius.stylized-nature-megakit-standard.grass-png/**",
+    "assets/canonical/quaternius.stylized-nature-megakit-standard.flowers-png/**"
+  ]
+}

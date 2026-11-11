@@ -1,0 +1,10 @@
+{
+  "script": "scripts/build-greyhaven-terrain.ts",
+  "lfs": true,
+  "ktx": true,
+  "budget": {
+    "materials": 7,
+    "textureMemoryMB": 23,
+    "downloadMB": 20
+  }
+}

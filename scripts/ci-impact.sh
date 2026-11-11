@@ -1,13 +1,27 @@
 #!/usr/bin/env bash
-# Lists a pull request's changed paths for scripts/ci-plan.ts, which picks the Validate jobs they can affect.
+# Lists a pull request's or a push's changed paths for scripts/ci-plan.ts, which picks the Validate jobs they can affect.
+# The nightly schedule and a manual dispatch run everything.
 set -euo pipefail
 
 plan() {
   bun "$(dirname "$0")/ci-plan.ts" "$@" >> "$GITHUB_OUTPUT"
 }
 
+if [[ "$GITHUB_EVENT_NAME" == 'push' ]]; then
+  # A push plans from its own diff, like a pull request (#574). A new branch, or a force push whose parent the
+  # checkout does not hold, runs everything; so does an empty diff.
+  if [[ -z "${BEFORE:-}" || "$BEFORE" =~ ^0+$ ]] || ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+    plan --branch --all
+    exit 0
+  fi
+  # Without rename detection a moved file lists both its old and its new path.
+  git diff --no-renames --name-only "$BEFORE" "$GITHUB_SHA" > "$RUNNER_TEMP/push-changed-paths"
+  plan --branch --changed "$RUNNER_TEMP/push-changed-paths"
+  exit 0
+fi
+
 if [[ "$GITHUB_EVENT_NAME" != 'pull_request' ]]; then
-  plan --all
+  plan --branch --all
   exit 0
 fi
 

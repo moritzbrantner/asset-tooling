@@ -16,7 +16,7 @@ ASSET_TOOLING_BLENDER=<blender 5.2.2> bun scripts/build-crag-kit.ts --out <direc
 git lfs pull --include="assets/canonical/poly-haven.rock-face-03-*/**,assets/canonical/poly-haven.rock-boulder-dry-diff-2k-jpg/**,assets/canonical/poly-haven.mossy-rock-diff-2k-jpg/**"
 ```
 
-Snap Blender reads and writes only under `$HOME`, so set `TMPDIR` there. CI publishes the release when a change to its sources merges (`ROLLING_RELEASES` in [`scripts/publish-release.ts`](../scripts/publish-release.ts)); `gh workflow run publish-releases.yml -f release=crag-kit` republishes it.
+Snap Blender reads and writes only under `$HOME`, so set `TMPDIR` there. CI publishes the release when a change to its sources merges ([`releases/crag-kit.json`](../releases/crag-kit.json), read by [`scripts/publish-release.ts`](../scripts/publish-release.ts)); `gh workflow run publish-releases.yml -f release=crag-kit` republishes it.
 
 `crag.build(part, lod, collection, inputs)` also runs in a live Blender session once `crag.use_common(runpy.run_path("adapters/blender/kit_common.py"))` has bound the shared helpers; `inputs` maps `diff`, `normal`, `arm`, `boulder` and `moss` to the scans' paths.
 
@@ -41,7 +41,7 @@ Metres, +Y up, right-handed. Every face, corner and cap module covers a 3 m cell
 | `crag.kit.cap-corner` | rounded top corner | the top corner at the origin; the box fills x < 0, y < 0, z < 0 |
 | `crag.kit.rock-macro` | macro-variation texture | a 1 m quad on the XZ plane facing +Y, u along +X, v along +Z (as the terrain layers) |
 
-Triangles (LOD0 / lod1 / lod2): faces 3,200 / 512 / 98, corners 2,400 / 384 / 84, caps 2,320 / 384 / 84, cap-corner 682 / 190 / 64. The release tar is about 4.9 MB, most of it the four KTX2 textures; the 40 scenes share them. A 10 × 10 × 16 m crag takes 60 face slabs, 20 corners, 12 caps and 4 cap-corners: about 270,000 triangles if every module were at LOD0, about 43,000 at lod1.
+Triangles (LOD0 / lod1 / lod2): faces 3,200 / 512 / 98, corners 2,400 / 384 / 84, caps 2,320 / 384 / 84, cap-corner 682 / 190 / 64. The modules' four KTX2 textures, which the 40 scenes share, take about 4.9 MB of the release tar; the outcrops' atlas brings it to about 20 MB. A 10 × 10 × 16 m crag takes 60 face slabs, 20 corners, 12 caps and 4 cap-corners: about 270,000 triangles if every module were at LOD0, about 43,000 at lod1.
 
 - **Slabs, not tiles.** A face module is a rock slab that overhangs its cell by `OVERLAP` (0.5 m) on every side and sinks 0.15 m into the box along a ragged border. Neighbouring slabs interpenetrate, so their overlaps read as the joints of the rock and no cell edge or grid line shows. Inside its border a slab never drops below 6 cm off the face, so no crack opens onto the grey collider.
 - **Sheer.** Smooth fracture planes (two ridges and a valley of tilted planes), a broad swell, shallow fracture steps and fine roughness, with dark vertical water streaks in `COLOR_0` and little moss. Unclimbable: no grip.
@@ -81,7 +81,32 @@ The `crag-kit-descriptor-v1` attachment hangs on `crag.kit.face-sheer-1/default`
 
 ## Levels of detail
 
-Every module ships `default` (LOD0), `lod1` and `lod2` as bundle variants in the same frame, built by the same recipe at `lod` 1 and 2: the relief sampled on a 0.1 m, 0.25 m and 0.6 m grid (the cap-corner on 14 × 28, 8 × 14 and 5 × 8 segments). The descriptor carries the greyhaven-nature [#449 LOD metadata](greyhaven-nature-bundle.md#lod-metadata): `lodSelection` plus per module `lods: { boundingSphere, levels: [{ variant, triangles, minScreenSize, referenceMaxDistance }] }`. Switch points are 40 m and 120 m at a 60° vertical FOV (`CRAG_LOD_DISTANCES`). The macro texture has only `default`.
+Every module ships `default` (LOD0), `lod1` and `lod2` as bundle variants in the same frame, built by the same recipe at `lod` 1 and 2: the relief sampled on a 0.1 m, 0.25 m and 0.6 m grid (the cap-corner on 14 × 28, 8 × 14 and 5 × 8 segments). The descriptor carries the greyhaven-nature [#449 LOD metadata](greyhaven-nature-bundle.md#lod-metadata): `lodSelection` plus per module `lods: { boundingSphere, levels: [{ variant, triangles, minScreenSize, referenceMaxDistance }] }`. Switch points are 60 m and 180 m at a 60° vertical FOV (`CRAG_LOD_DISTANCES`). The macro texture has only `default`.
+
+## Outcrops
+
+`crag.kit.outcrop-*` are freestanding rocks for spots no box dresses: buttresses, spires and the talus blocks beside them. They replace the look of low-poly rock drawn straight from its collision, such as mmorpg's basin and brook buttresses (`BASIN_ROCKS`, `WESTERN_ROCKS`). As with the box modules, the consumer keeps its collider.
+
+| Key | Radii x × z (m) | Height (m) | LOD0 triangles | Baked maps |
+| --- | --- | --- | --- | --- |
+| `crag.kit.outcrop-buttress-1` | 3.9 × 4.7 | 14.0 | 9,000 | 2048 px |
+| `crag.kit.outcrop-buttress-2` | 3.1 × 3.9 | 11.0 | 7,500 | 2048 px |
+| `crag.kit.outcrop-spire` | 2.6 × 2.8 | 13.2 | 7,000 | 2048 px |
+| `crag.kit.outcrop-talus-1` | 1.8 × 2.2 | 5.2 | 3,500 | 1024 px |
+| `crag.kit.outcrop-talus-2` | 1.3 × 1.6 | 3.4 | 2,500 | 1024 px |
+
+The baked-map column is each rock's area of the shared atlas.
+
+- **Shape.** [`adapters/blender/cliff_outcrop.py`](../adapters/blender/cliff_outcrop.py) gives each height of a polar grid a radius. Dipping strata carry their own sets of fracture planes, so each has flat faces and sharp arrises and stands proud of or back from its neighbours, with cracks along the bedding and vertical joints. Ridged noise roughens the surface, and angular rubble gathers at the foot.
+- **Top and foot.** The foot spreads into a low apron and the fractures fade out towards it. It blends from rock through gravel to grass along noisy edges, the crown is grass over rounded shoulders, and moss and grass catch on the ledges.
+- **Colour.** The blend uses the terrain's own scans (`rock_face_03`, `forrest_ground_01`, `rocks_ground_02`, plus `mossy_rock`), each divided by its mean and multiplied by mmorpg's ground palette, as the clients do, so the foot's grass matches the grass around it. The palette is `PALETTE` in the recipe. Each rock has its own bake, because the blend differs across it, but the build packs the five bakes into one atlas (4096 px colour and normal, 2048 px roughness), so every outcrop and level draws with the single material `outcrop-rock`.
+- **Game mesh.** A decimated copy is UV-unwrapped and Cycles bakes the sculpt's colour, normal and roughness (half size) onto it. `lod1` and `lod2` come from `nature_lod.py`'s `decimate` at 35% and 10% and share LOD0's maps.
+
+Each outcrop also carries `collisionMesh`: a closed triangle mesh (at most 240 triangles, wound outward, metres in the outcrop's frame) of rings that follow the rock's real outline. The apron and rubble are left out, so a character walks onto them. mmorpg's content build scales it with a placement to generate that rock's collision, and commits the result for review, so a new art release can't silently change physics. Tune it with `SECTORS`, `COLLISION_FOOT` and `COLLISION_PERCENTILE`.
+
+The descriptor's `outcrops` lists each one's `key`, `role`, `triangles`, `bounds`, `bury`, `fit`, `collisionMesh` and `lods`. The origin is on the ground at the footprint centre, +Y up, and the foot runs `bury` (0.9 m) below y = 0 so it meets uneven ground. Scale an outcrop to its site's footprint and height; `fit` holds the unscaled radii, height and lean.
+
+To shape one, run the recipe in a live Blender: `sculpt(name, part, collection)` builds the high-resolution rock, `sculpt_material(name, inputs)` its material. Raise `CELL` for quick looks.
 
 ## Review
 

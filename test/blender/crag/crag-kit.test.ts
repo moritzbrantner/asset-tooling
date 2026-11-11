@@ -11,11 +11,14 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { verifyAssetBundleTar } from "../../../src/asset-bundle-pack.js";
 import { GLTF_RESOURCES_BUNDLE_PROFILE, readAssetBundleAttachment, verifyAssetBundle } from "../../../src/asset-bundle.js";
 import { emptyTranslation } from "../../../src/kit-bundle.js";
+import type { Document } from "@gltf-transform/core";
 import {
-  CRAG_DESCRIPTOR_ATTACHMENT, CRAG_FACES, CRAG_MACRO, CRAG_MODULES, CRAG_PARTS, CRAG_PITCH, CRAG_RELEASE, CRAG_SOURCES,
-  buildCragKit, cragKey, cragLayout, createCragAssetSpec,
+  CRAG_DESCRIPTOR_ATTACHMENT, CRAG_FACES, CRAG_MACRO, CRAG_MODULES, CRAG_OUTCROPS, CRAG_PARTS, CRAG_PITCH, CRAG_RELEASE, CRAG_SOURCES,
+  buildCragKit, cragKey, cragLayout, cragOutcropKey, createCragAssetSpec,
 } from "../../../scripts/build-crag-kit.ts";
+import type { Document } from "@gltf-transform/core";
 import { ROLLING_RELEASES } from "../../../scripts/publish-release.ts";
+import { KIT_BUDGETS, kitBudgetViolations, kitCost } from "../../../scripts/report-kit-costs.ts";
 
 const root = path.resolve(import.meta.dirname, "../../..");
 const storage = JSON.parse(await readFile(path.join(root, "catalog/storage.json"), "utf8"));
@@ -71,6 +74,22 @@ test("the layout rule dresses every face cell, edge and top corner of 6-16 m box
   assert.deepEqual(cragLayout({ width: 8, depth: 8, height: 12, family: "climb", seed: "a" }), cragLayout({ width: 8, depth: 8, height: 12, family: "climb", seed: "a" }));
 });
 
+/** The signed volume enclosed by a document's triangles, in cubic metres. */
+function enclosedVolume(document: Document): number {
+  let volume = 0;
+  for (const mesh of document.getRoot().listMeshes()) for (const primitive of mesh.listPrimitives()) {
+    const position = primitive.getAttribute("POSITION")!, indices = primitive.getIndices()!;
+    const a = [0, 0, 0], b = [0, 0, 0], c = [0, 0, 0];
+    for (let i = 0; i < indices.getCount(); i += 3) {
+      position.getElement(indices.getScalar(i), a);
+      position.getElement(indices.getScalar(i + 1), b);
+      position.getElement(indices.getScalar(i + 2), c);
+      volume += (a[0]! * (b[1]! * c[2]! - b[2]! * c[1]!) - a[1]! * (b[0]! * c[2]! - b[2]! * c[0]!) + a[2]! * (b[0]! * c[1]! - b[1]! * c[0]!)) / 6;
+    }
+  }
+  return Math.abs(volume);
+}
+
 test("the crag recipe builds a verified KTX2 bundle with shared textures, climbing surfaces and shrinking LOD chains", { skip, timeout: 3_600_000 }, async () => {
   const outDir = await mkdtemp(path.join(os.tmpdir(), "crag-kit-"));
   try {
@@ -78,11 +97,43 @@ test("the crag recipe builds a verified KTX2 bundle with shared textures, climbi
     await verifyAssetBundleTar(await readFile(built.tar), { sha256: built.tarSha256, ref: built.exportRef });
     const { manifest } = await verifyAssetBundle(built.bundleDir, built.exportRef, { profile: GLTF_RESOURCES_BUNDLE_PROFILE });
     assert.deepEqual(manifest.assets.map((entry) => `${entry.key}/${entry.variant}`).sort(),
-      [...CRAG_MODULES.flatMap((part) => ["default", "lod1", "lod2"].map((v) => `${cragKey(part)}/${v}`)), `${cragKey(CRAG_MACRO)}/default`].sort());
-    // Three rock textures and the macro texture, each stored once although 39 scenes use the rock material.
+      [...CRAG_MODULES.flatMap((part) => ["default", "lod1", "lod2"].map((v) => `${cragKey(part)}/${v}`)), `${cragKey(CRAG_MACRO)}/default`,
+        ...CRAG_OUTCROPS.flatMap((part) => ["default", "lod1", "lod2"].map((v) => `${cragOutcropKey(part)}/${v}`))].sort());
+    // Three rock textures and the macro texture, each stored once although 39 scenes use the rock material, and the
+    // three maps of the atlas every outcrop level shares.
     const textures = new Set(manifest.assets.flatMap((entry) => entry.resources).filter((r) => r.mediaType === "image/ktx2").map((r) => r.path));
-    assert.equal(textures.size, 4, [...textures].join(", "));
+    assert.equal(textures.size, 4 + 3, [...textures].join(", "));
+    assert.deepEqual(kitBudgetViolations(await kitCost(built.bundleDir), KIT_BUDGETS[CRAG_RELEASE]!), []);
+    for (const part of CRAG_OUTCROPS) {
+      const gltf = JSON.parse(await readFile(path.join(built.bundleDir, manifest.assets.find((entry) => entry.key === cragOutcropKey(part) && entry.variant === "default")!.path), "utf8"));
+      assert.deepEqual(gltf.materials.map((m: { name: string }) => m.name), ["outcrop-rock"], `${part} draws with the shared material`);
+    }
     const d = JSON.parse((await readAssetBundleAttachment(built.bundleDir, manifest, cragKey(CRAG_PARTS[0]), "default", CRAG_DESCRIPTOR_ATTACHMENT)).toString("utf8"));
+    for (const entry of d.outcrops.entries) {
+      const levels = entry.lods.levels.map((level: any) => level.triangles);
+      assert.ok(levels[0] > levels[1] && levels[1] > levels[2] && levels[2] > 100, `${entry.role} LOD triangles ${levels}`);
+      assert.ok(entry.bounds.min[1] < -0.5 && entry.bounds.max[1] > entry.fit.height * 0.9, `${entry.role} is buried at the foot and reaches its height`);
+      // A decimation that collapses the body keeps the bounds but loses the volume: the rock must still fill a cone of its size.
+      const enclosed = enclosedVolume(built.documents[`outcrop-${entry.role}.default`]!);
+      const cone = (Math.PI * entry.fit.radii[0] * entry.fit.radii[1] * entry.fit.height) / 3;
+      assert.ok(enclosed > cone * 0.7, `${entry.role} encloses ${enclosed.toFixed(1)} m³ of a ${cone.toFixed(1)} m³ cone`);
+      // The collision mesh is closed, wound outward, small enough for physics and about the size of the visible rock.
+      const { vertices, triangles: faces } = entry.collisionMesh as { vertices: number[][]; triangles: number[][] };
+      const edges = new Map<string, number>();
+      let signed = 0;
+      for (const [a, b, c] of faces as [number, number, number][]) {
+        for (const [from, to] of [[a, b], [b, c], [c, a]] as const) edges.set(`${from}>${to}`, (edges.get(`${from}>${to}`) ?? 0) + 1);
+        const [p, q, r] = [vertices[a]!, vertices[b]!, vertices[c]!];
+        signed += (p[0]! * (q[1]! * r[2]! - q[2]! * r[1]!) - p[1]! * (q[0]! * r[2]! - q[2]! * r[0]!) + p[2]! * (q[0]! * r[1]! - q[1]! * r[0]!)) / 6;
+      }
+      for (const [edge, count] of edges) {
+        const [from, to] = edge.split(">");
+        assert.equal(count, 1, `${entry.role}: directed edge ${edge} repeats`);
+        assert.equal(edges.get(`${to}>${from}`), 1, `${entry.role}: edge ${edge} has no partner, so the mesh is open`);
+      }
+      assert.ok(faces.length <= 240, `${entry.role}: ${faces.length} collision triangles`);
+      assert.ok(signed > enclosed * 0.55 && signed < enclosed * 1.25, `${entry.role}: collision encloses ${signed.toFixed(1)} m³ of the rock's ${enclosed.toFixed(1)} m³`);
+    }
     const asset = Object.fromEntries(d.assets.map((a: any) => [a.role, a]));
     for (const part of CRAG_MODULES) {
       const a = asset[part];
