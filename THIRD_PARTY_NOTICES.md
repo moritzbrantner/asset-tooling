@@ -37,3 +37,12 @@ components to ONNX, converting the backbone to FP16, and serializing the
 runtime grid and color-head data for browser-compatible inference.
 
 **Powered by Stability AI.**
+
+## Zoo animal models
+
+The zebra and giraffe in the `zoo-animals` bundle are the existing low-poly models
+of [moenarch-games/zoo](https://github.com/moenarch-games/zoo) at commit
+`a357730f56407024b71189ee2d7937d69007ec28`, packaged as authored. They are
+MIT licensed ([owner statement](https://github.com/moritzbrantner/asset-tooling/issues/128#issuecomment-6719424007)).
+The notice is `licenses/zoo-animals-MIT.txt` (`Copyright (c) 2026 moritzbrantner`)
+and travels with the bundle.

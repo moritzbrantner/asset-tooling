@@ -3,9 +3,543 @@
   "entries": [
     {
       "schemaVersion": 1,
+      "sourceId": "kenney.impact-sounds.impact-metal-heavy-000-ogg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/kenney.impact-sounds.impact-metal-heavy-000-ogg/impactMetal_heavy_000.ogg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "kenney.impact-sounds.impact-metal-heavy-001-ogg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/kenney.impact-sounds.impact-metal-heavy-001-ogg/impactMetal_heavy_001.ogg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "kenney.impact-sounds.impact-metal-heavy-003-ogg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/kenney.impact-sounds.impact-metal-heavy-003-ogg/impactMetal_heavy_003.ogg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "kenney.impact-sounds.impact-metal-light-001-ogg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/kenney.impact-sounds.impact-metal-light-001-ogg/impactMetal_light_001.ogg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "kenney.impact-sounds.impact-metal-medium-000-ogg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/kenney.impact-sounds.impact-metal-medium-000-ogg/impactMetal_medium_000.ogg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "kenney.impact-sounds.impact-metal-medium-001-ogg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/kenney.impact-sounds.impact-metal-medium-001-ogg/impactMetal_medium_001.ogg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "kenney.impact-sounds.impact-metal-medium-003-ogg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/kenney.impact-sounds.impact-metal-medium-003-ogg/impactMetal_medium_003.ogg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "kenney.impact-sounds.impact-mining-000-ogg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/kenney.impact-sounds.impact-mining-000-ogg/impactMining_000.ogg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "kenney.impact-sounds.impact-mining-001-ogg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/kenney.impact-sounds.impact-mining-001-ogg/impactMining_001.ogg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "kenney.impact-sounds.impact-punch-heavy-000-ogg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/kenney.impact-sounds.impact-punch-heavy-000-ogg/impactPunch_heavy_000.ogg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "kenney.impact-sounds.impact-punch-heavy-001-ogg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/kenney.impact-sounds.impact-punch-heavy-001-ogg/impactPunch_heavy_001.ogg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "kenney.impact-sounds.impact-punch-heavy-002-ogg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/kenney.impact-sounds.impact-punch-heavy-002-ogg/impactPunch_heavy_002.ogg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "kenney.impact-sounds.impact-punch-medium-000-ogg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/kenney.impact-sounds.impact-punch-medium-000-ogg/impactPunch_medium_000.ogg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "kenney.impact-sounds.impact-punch-medium-001-ogg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/kenney.impact-sounds.impact-punch-medium-001-ogg/impactPunch_medium_001.ogg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "kenney.impact-sounds.impact-punch-medium-002-ogg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/kenney.impact-sounds.impact-punch-medium-002-ogg/impactPunch_medium_002.ogg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "kenney.impact-sounds.impact-soft-heavy-000-ogg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/kenney.impact-sounds.impact-soft-heavy-000-ogg/impactSoft_heavy_000.ogg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "kenney.impact-sounds.impact-soft-heavy-001-ogg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/kenney.impact-sounds.impact-soft-heavy-001-ogg/impactSoft_heavy_001.ogg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "kenney.impact-sounds.impact-soft-heavy-002-ogg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/kenney.impact-sounds.impact-soft-heavy-002-ogg/impactSoft_heavy_002.ogg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "kenney.impact-sounds.impact-soft-medium-000-ogg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/kenney.impact-sounds.impact-soft-medium-000-ogg/impactSoft_medium_000.ogg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "kenney.impact-sounds.impact-soft-medium-001-ogg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/kenney.impact-sounds.impact-soft-medium-001-ogg/impactSoft_medium_001.ogg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "kenney.impact-sounds.impact-soft-medium-002-ogg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/kenney.impact-sounds.impact-soft-medium-002-ogg/impactSoft_medium_002.ogg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "kenney.impact-sounds.impact-wood-heavy-000-ogg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/kenney.impact-sounds.impact-wood-heavy-000-ogg/impactWood_heavy_000.ogg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "kenney.impact-sounds.impact-wood-heavy-001-ogg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/kenney.impact-sounds.impact-wood-heavy-001-ogg/impactWood_heavy_001.ogg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "kenney.impact-sounds.impact-wood-light-000-ogg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/kenney.impact-sounds.impact-wood-light-000-ogg/impactWood_light_000.ogg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "kenney.impact-sounds.impact-wood-medium-000-ogg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/kenney.impact-sounds.impact-wood-medium-000-ogg/impactWood_medium_000.ogg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "kenney.interface-sounds.back-001-ogg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/kenney.interface-sounds.back-001-ogg/back_001.ogg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "kenney.interface-sounds.click-001-ogg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/kenney.interface-sounds.click-001-ogg/click_001.ogg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "kenney.interface-sounds.confirmation-001-ogg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/kenney.interface-sounds.confirmation-001-ogg/confirmation_001.ogg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "kenney.interface-sounds.error-008-ogg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/kenney.interface-sounds.error-008-ogg/error_008.ogg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "kenney.interface-sounds.glass-001-ogg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/kenney.interface-sounds.glass-001-ogg/glass_001.ogg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "kenney.music-jingles.jingles-sax01-ogg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/kenney.music-jingles.jingles-sax01-ogg/jingles_SAX01.ogg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "kenney.music-jingles.jingles-steel02-ogg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/kenney.music-jingles.jingles-steel02-ogg/jingles_STEEL02.ogg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "kenney.rpg-audio.creak1-ogg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/kenney.rpg-audio.creak1-ogg/creak1.ogg"
+    },
+    {
+      "schemaVersion": 1,
       "sourceId": "khronos.avocado-glb",
       "storage": "git-lfs",
       "path": "assets/canonical/khronos.avocado-glb/Avocado.glb"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "opengameart.battle-sound-effects.bow-wav",
+      "storage": "git-lfs",
+      "path": "assets/canonical/opengameart.battle-sound-effects.bow-wav/Bow.wav"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "opengameart.battle-sound-effects.swish-2-wav",
+      "storage": "git-lfs",
+      "path": "assets/canonical/opengameart.battle-sound-effects.swish-2-wav/swish_2.wav"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "opengameart.rpg-sound-pack.coin-wav",
+      "storage": "git-lfs",
+      "path": "assets/canonical/opengameart.rpg-sound-pack.coin-wav/coin.wav"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "opengameart.rpg-sound-pack.coin3-wav",
+      "storage": "git-lfs",
+      "path": "assets/canonical/opengameart.rpg-sound-pack.coin3-wav/coin3.wav"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "opengameart.rpg-sound-pack.swing-wav",
+      "storage": "git-lfs",
+      "path": "assets/canonical/opengameart.rpg-sound-pack.swing-wav/swing.wav"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "opengameart.rpg-sound-pack.swing2-wav",
+      "storage": "git-lfs",
+      "path": "assets/canonical/opengameart.rpg-sound-pack.swing2-wav/swing2.wav"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "opengameart.rpg-sound-pack.swing3-wav",
+      "storage": "git-lfs",
+      "path": "assets/canonical/opengameart.rpg-sound-pack.swing3-wav/swing3.wav"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "opengameart.their-coming-horn-ogg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/opengameart.their-coming-horn-ogg/theircoming.ogg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.broken-wall-diff-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.broken-wall-diff-2k-jpg/broken_wall_diff_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.broken-wall-disp-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.broken-wall-disp-2k-jpg/broken_wall_disp_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.broken-wall-nor-gl-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.broken-wall-nor-gl-2k-jpg/broken_wall_nor_gl_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.broken-wall-rough-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.broken-wall-rough-2k-jpg/broken_wall_rough_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.brown-mud-02-arm-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.brown-mud-02-arm-2k-jpg/brown_mud_02_arm_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.brown-mud-02-diff-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.brown-mud-02-diff-2k-jpg/brown_mud_02_diff_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.brown-mud-02-disp-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.brown-mud-02-disp-2k-jpg/brown_mud_02_disp_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.brown-mud-02-nor-gl-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.brown-mud-02-nor-gl-2k-jpg/brown_mud_02_nor_gl_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.fir-tree-01-twig-alpha-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.fir-tree-01-twig-alpha-2k-jpg/fir_tree_01_twig_alpha_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.fir-tree-01-twig-diff-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.fir-tree-01-twig-diff-2k-jpg/fir_tree_01_twig_diff_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.forest-leaves-02-arm-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.forest-leaves-02-arm-2k-jpg/forest_leaves_02_arm_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.forest-leaves-02-diff-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.forest-leaves-02-diff-2k-jpg/forest_leaves_02_diffuse_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.forest-leaves-02-disp-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.forest-leaves-02-disp-2k-jpg/forest_leaves_02_disp_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.forest-leaves-02-nor-gl-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.forest-leaves-02-nor-gl-2k-jpg/forest_leaves_02_nor_gl_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.forrest-ground-01-arm-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.forrest-ground-01-arm-2k-jpg/forrest_ground_01_arm_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.forrest-ground-01-diff-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.forrest-ground-01-diff-2k-jpg/forrest_ground_01_diff_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.forrest-ground-01-disp-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.forrest-ground-01-disp-2k-jpg/forrest_ground_01_disp_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.forrest-ground-01-nor-gl-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.forrest-ground-01-nor-gl-2k-jpg/forrest_ground_01_nor_gl_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.japanese-stone-wall-diff-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.japanese-stone-wall-diff-2k-jpg/japanese_stone_wall_diff_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.japanese-stone-wall-disp-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.japanese-stone-wall-disp-2k-jpg/japanese_stone_wall_disp_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.japanese-stone-wall-nor-gl-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.japanese-stone-wall-nor-gl-2k-jpg/japanese_stone_wall_nor_gl_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.japanese-stone-wall-rough-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.japanese-stone-wall-rough-2k-jpg/japanese_stone_wall_rough_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.mossy-rock-diff-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.mossy-rock-diff-2k-jpg/mossy_rock_diff_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.old-planks-02-diff-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.old-planks-02-diff-2k-jpg/old_planks_02_diff_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.old-planks-02-nor-gl-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.old-planks-02-nor-gl-2k-jpg/old_planks_02_nor_gl_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.old-planks-02-rough-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.old-planks-02-rough-2k-jpg/old_planks_02_rough_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.rock-boulder-dry-diff-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.rock-boulder-dry-diff-2k-jpg/rock_boulder_dry_diff_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.rock-boulder-dry-disp-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.rock-boulder-dry-disp-2k-jpg/rock_boulder_dry_disp_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.rock-boulder-dry-rough-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.rock-boulder-dry-rough-2k-jpg/rock_boulder_dry_rough_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.rock-face-03-arm-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.rock-face-03-arm-2k-jpg/rock_face_03_arm_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.rock-face-03-diff-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.rock-face-03-diff-2k-jpg/rock_face_03_diff_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.rock-face-03-disp-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.rock-face-03-disp-2k-jpg/rock_face_03_disp_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.rock-face-03-nor-gl-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.rock-face-03-nor-gl-2k-jpg/rock_face_03_nor_gl_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.rocks-ground-02-arm-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.rocks-ground-02-arm-2k-jpg/rocks_ground_02_arm_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.rocks-ground-02-diff-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.rocks-ground-02-diff-2k-jpg/rocks_ground_02_col_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.rocks-ground-02-disp-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.rocks-ground-02-disp-2k-jpg/rocks_ground_02_height_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.rocks-ground-02-nor-gl-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.rocks-ground-02-nor-gl-2k-jpg/rocks_ground_02_nor_gl_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.rocky-trail-arm-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.rocky-trail-arm-2k-jpg/rocky_trail_arm_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.rocky-trail-diff-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.rocky-trail-diff-2k-jpg/rocky_trail_diff_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.rocky-trail-disp-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.rocky-trail-disp-2k-jpg/rocky_trail_disp_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.rocky-trail-nor-gl-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.rocky-trail-nor-gl-2k-jpg/rocky_trail_nor_gl_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.sand-01-arm-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.sand-01-arm-2k-jpg/sand_01_arm_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.sand-01-diff-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.sand-01-diff-2k-jpg/sand_01_diff_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.sand-01-disp-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.sand-01-disp-2k-jpg/sand_01_disp_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.sand-01-nor-gl-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.sand-01-nor-gl-2k-jpg/sand_01_nor_gl_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.stone-tiles-02-diff-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.stone-tiles-02-diff-2k-jpg/stone_tiles_02_diff_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.stone-tiles-02-nor-gl-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.stone-tiles-02-nor-gl-2k-jpg/stone_tiles_02_nor_gl_2k.jpg"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "poly-haven.stone-tiles-02-rough-2k-jpg",
+      "storage": "git-lfs",
+      "path": "assets/canonical/poly-haven.stone-tiles-02-rough-2k-jpg/stone_tiles_02_rough_2k.jpg"
     },
     {
       "schemaVersion": 1,
@@ -297,15 +831,15 @@
     },
     {
       "schemaVersion": 1,
-      "sourceId": "quaternius.medieval-village-megakit-standard.t-woodtrim-basecolor-png",
-      "storage": "git-lfs",
-      "path": "assets/canonical/quaternius.medieval-village-megakit-standard.t-woodtrim-basecolor-png/T_WoodTrim_BaseColor.png"
-    },
-    {
-      "schemaVersion": 1,
       "sourceId": "quaternius.medieval-village-megakit-standard.t-vineleaf-png-png",
       "storage": "git-lfs",
       "path": "assets/canonical/quaternius.medieval-village-megakit-standard.t-vineleaf-png-png/T_VineLeaf_png.png"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.medieval-village-megakit-standard.t-woodtrim-basecolor-png",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.medieval-village-megakit-standard.t-woodtrim-basecolor-png/T_WoodTrim_BaseColor.png"
     },
     {
       "schemaVersion": 1,
@@ -765,537 +1299,15 @@
     },
     {
       "schemaVersion": 1,
-      "sourceId": "kenney.impact-sounds.impact-metal-heavy-000-ogg",
+      "sourceId": "zoo.giraffe-glb",
       "storage": "git-lfs",
-      "path": "assets/canonical/kenney.impact-sounds.impact-metal-heavy-000-ogg/impactMetal_heavy_000.ogg"
+      "path": "assets/canonical/zoo.giraffe-glb/giraffe.glb"
     },
     {
       "schemaVersion": 1,
-      "sourceId": "kenney.impact-sounds.impact-metal-heavy-001-ogg",
+      "sourceId": "zoo.zebra-glb",
       "storage": "git-lfs",
-      "path": "assets/canonical/kenney.impact-sounds.impact-metal-heavy-001-ogg/impactMetal_heavy_001.ogg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "kenney.impact-sounds.impact-metal-heavy-003-ogg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/kenney.impact-sounds.impact-metal-heavy-003-ogg/impactMetal_heavy_003.ogg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "kenney.impact-sounds.impact-metal-light-001-ogg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/kenney.impact-sounds.impact-metal-light-001-ogg/impactMetal_light_001.ogg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "kenney.impact-sounds.impact-metal-medium-000-ogg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/kenney.impact-sounds.impact-metal-medium-000-ogg/impactMetal_medium_000.ogg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "kenney.impact-sounds.impact-metal-medium-001-ogg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/kenney.impact-sounds.impact-metal-medium-001-ogg/impactMetal_medium_001.ogg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "kenney.impact-sounds.impact-metal-medium-003-ogg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/kenney.impact-sounds.impact-metal-medium-003-ogg/impactMetal_medium_003.ogg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "kenney.impact-sounds.impact-mining-000-ogg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/kenney.impact-sounds.impact-mining-000-ogg/impactMining_000.ogg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "kenney.impact-sounds.impact-mining-001-ogg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/kenney.impact-sounds.impact-mining-001-ogg/impactMining_001.ogg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "kenney.impact-sounds.impact-punch-heavy-000-ogg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/kenney.impact-sounds.impact-punch-heavy-000-ogg/impactPunch_heavy_000.ogg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "kenney.impact-sounds.impact-punch-heavy-001-ogg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/kenney.impact-sounds.impact-punch-heavy-001-ogg/impactPunch_heavy_001.ogg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "kenney.impact-sounds.impact-punch-heavy-002-ogg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/kenney.impact-sounds.impact-punch-heavy-002-ogg/impactPunch_heavy_002.ogg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "kenney.impact-sounds.impact-punch-medium-000-ogg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/kenney.impact-sounds.impact-punch-medium-000-ogg/impactPunch_medium_000.ogg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "kenney.impact-sounds.impact-punch-medium-001-ogg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/kenney.impact-sounds.impact-punch-medium-001-ogg/impactPunch_medium_001.ogg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "kenney.impact-sounds.impact-punch-medium-002-ogg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/kenney.impact-sounds.impact-punch-medium-002-ogg/impactPunch_medium_002.ogg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "kenney.impact-sounds.impact-soft-heavy-000-ogg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/kenney.impact-sounds.impact-soft-heavy-000-ogg/impactSoft_heavy_000.ogg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "kenney.impact-sounds.impact-soft-heavy-001-ogg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/kenney.impact-sounds.impact-soft-heavy-001-ogg/impactSoft_heavy_001.ogg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "kenney.impact-sounds.impact-soft-heavy-002-ogg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/kenney.impact-sounds.impact-soft-heavy-002-ogg/impactSoft_heavy_002.ogg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "kenney.impact-sounds.impact-soft-medium-000-ogg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/kenney.impact-sounds.impact-soft-medium-000-ogg/impactSoft_medium_000.ogg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "kenney.impact-sounds.impact-soft-medium-001-ogg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/kenney.impact-sounds.impact-soft-medium-001-ogg/impactSoft_medium_001.ogg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "kenney.impact-sounds.impact-soft-medium-002-ogg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/kenney.impact-sounds.impact-soft-medium-002-ogg/impactSoft_medium_002.ogg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "kenney.impact-sounds.impact-wood-heavy-000-ogg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/kenney.impact-sounds.impact-wood-heavy-000-ogg/impactWood_heavy_000.ogg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "kenney.impact-sounds.impact-wood-heavy-001-ogg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/kenney.impact-sounds.impact-wood-heavy-001-ogg/impactWood_heavy_001.ogg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "kenney.impact-sounds.impact-wood-light-000-ogg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/kenney.impact-sounds.impact-wood-light-000-ogg/impactWood_light_000.ogg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "kenney.impact-sounds.impact-wood-medium-000-ogg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/kenney.impact-sounds.impact-wood-medium-000-ogg/impactWood_medium_000.ogg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "kenney.interface-sounds.back-001-ogg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/kenney.interface-sounds.back-001-ogg/back_001.ogg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "kenney.interface-sounds.click-001-ogg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/kenney.interface-sounds.click-001-ogg/click_001.ogg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "kenney.interface-sounds.confirmation-001-ogg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/kenney.interface-sounds.confirmation-001-ogg/confirmation_001.ogg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "kenney.interface-sounds.error-008-ogg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/kenney.interface-sounds.error-008-ogg/error_008.ogg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "kenney.interface-sounds.glass-001-ogg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/kenney.interface-sounds.glass-001-ogg/glass_001.ogg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "kenney.music-jingles.jingles-sax01-ogg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/kenney.music-jingles.jingles-sax01-ogg/jingles_SAX01.ogg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "kenney.music-jingles.jingles-steel02-ogg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/kenney.music-jingles.jingles-steel02-ogg/jingles_STEEL02.ogg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "kenney.rpg-audio.creak1-ogg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/kenney.rpg-audio.creak1-ogg/creak1.ogg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "opengameart.battle-sound-effects.bow-wav",
-      "storage": "git-lfs",
-      "path": "assets/canonical/opengameart.battle-sound-effects.bow-wav/Bow.wav"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "opengameart.battle-sound-effects.swish-2-wav",
-      "storage": "git-lfs",
-      "path": "assets/canonical/opengameart.battle-sound-effects.swish-2-wav/swish_2.wav"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "opengameart.rpg-sound-pack.coin-wav",
-      "storage": "git-lfs",
-      "path": "assets/canonical/opengameart.rpg-sound-pack.coin-wav/coin.wav"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "opengameart.rpg-sound-pack.coin3-wav",
-      "storage": "git-lfs",
-      "path": "assets/canonical/opengameart.rpg-sound-pack.coin3-wav/coin3.wav"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "opengameart.rpg-sound-pack.swing-wav",
-      "storage": "git-lfs",
-      "path": "assets/canonical/opengameart.rpg-sound-pack.swing-wav/swing.wav"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "opengameart.rpg-sound-pack.swing2-wav",
-      "storage": "git-lfs",
-      "path": "assets/canonical/opengameart.rpg-sound-pack.swing2-wav/swing2.wav"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "opengameart.rpg-sound-pack.swing3-wav",
-      "storage": "git-lfs",
-      "path": "assets/canonical/opengameart.rpg-sound-pack.swing3-wav/swing3.wav"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "opengameart.their-coming-horn-ogg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/opengameart.their-coming-horn-ogg/theircoming.ogg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "poly-haven.fir-tree-01-twig-diff-2k-jpg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/poly-haven.fir-tree-01-twig-diff-2k-jpg/fir_tree_01_twig_diff_2k.jpg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "poly-haven.fir-tree-01-twig-alpha-2k-jpg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/poly-haven.fir-tree-01-twig-alpha-2k-jpg/fir_tree_01_twig_alpha_2k.jpg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "poly-haven.rock-boulder-dry-diff-2k-jpg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/poly-haven.rock-boulder-dry-diff-2k-jpg/rock_boulder_dry_diff_2k.jpg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "poly-haven.rock-boulder-dry-disp-2k-jpg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/poly-haven.rock-boulder-dry-disp-2k-jpg/rock_boulder_dry_disp_2k.jpg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "poly-haven.rock-boulder-dry-rough-2k-jpg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/poly-haven.rock-boulder-dry-rough-2k-jpg/rock_boulder_dry_rough_2k.jpg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "poly-haven.mossy-rock-diff-2k-jpg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/poly-haven.mossy-rock-diff-2k-jpg/mossy_rock_diff_2k.jpg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "poly-haven.broken-wall-diff-2k-jpg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/poly-haven.broken-wall-diff-2k-jpg/broken_wall_diff_2k.jpg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "poly-haven.broken-wall-nor-gl-2k-jpg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/poly-haven.broken-wall-nor-gl-2k-jpg/broken_wall_nor_gl_2k.jpg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "poly-haven.broken-wall-rough-2k-jpg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/poly-haven.broken-wall-rough-2k-jpg/broken_wall_rough_2k.jpg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "poly-haven.broken-wall-disp-2k-jpg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/poly-haven.broken-wall-disp-2k-jpg/broken_wall_disp_2k.jpg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "poly-haven.japanese-stone-wall-disp-2k-jpg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/poly-haven.japanese-stone-wall-disp-2k-jpg/japanese_stone_wall_disp_2k.jpg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "poly-haven.japanese-stone-wall-diff-2k-jpg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/poly-haven.japanese-stone-wall-diff-2k-jpg/japanese_stone_wall_diff_2k.jpg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "poly-haven.japanese-stone-wall-nor-gl-2k-jpg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/poly-haven.japanese-stone-wall-nor-gl-2k-jpg/japanese_stone_wall_nor_gl_2k.jpg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "poly-haven.japanese-stone-wall-rough-2k-jpg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/poly-haven.japanese-stone-wall-rough-2k-jpg/japanese_stone_wall_rough_2k.jpg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "poly-haven.stone-tiles-02-diff-2k-jpg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/poly-haven.stone-tiles-02-diff-2k-jpg/stone_tiles_02_diff_2k.jpg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "poly-haven.stone-tiles-02-nor-gl-2k-jpg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/poly-haven.stone-tiles-02-nor-gl-2k-jpg/stone_tiles_02_nor_gl_2k.jpg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "poly-haven.stone-tiles-02-rough-2k-jpg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/poly-haven.stone-tiles-02-rough-2k-jpg/stone_tiles_02_rough_2k.jpg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "poly-haven.old-planks-02-diff-2k-jpg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/poly-haven.old-planks-02-diff-2k-jpg/old_planks_02_diff_2k.jpg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "poly-haven.old-planks-02-nor-gl-2k-jpg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/poly-haven.old-planks-02-nor-gl-2k-jpg/old_planks_02_nor_gl_2k.jpg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "poly-haven.old-planks-02-rough-2k-jpg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/poly-haven.old-planks-02-rough-2k-jpg/old_planks_02_rough_2k.jpg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "poly-haven.forrest-ground-01-diff-2k-jpg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/poly-haven.forrest-ground-01-diff-2k-jpg/forrest_ground_01_diff_2k.jpg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "poly-haven.forrest-ground-01-nor-gl-2k-jpg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/poly-haven.forrest-ground-01-nor-gl-2k-jpg/forrest_ground_01_nor_gl_2k.jpg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "poly-haven.forrest-ground-01-arm-2k-jpg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/poly-haven.forrest-ground-01-arm-2k-jpg/forrest_ground_01_arm_2k.jpg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "poly-haven.forrest-ground-01-disp-2k-jpg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/poly-haven.forrest-ground-01-disp-2k-jpg/forrest_ground_01_disp_2k.jpg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "poly-haven.forest-leaves-02-diff-2k-jpg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/poly-haven.forest-leaves-02-diff-2k-jpg/forest_leaves_02_diffuse_2k.jpg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "poly-haven.forest-leaves-02-nor-gl-2k-jpg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/poly-haven.forest-leaves-02-nor-gl-2k-jpg/forest_leaves_02_nor_gl_2k.jpg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "poly-haven.forest-leaves-02-arm-2k-jpg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/poly-haven.forest-leaves-02-arm-2k-jpg/forest_leaves_02_arm_2k.jpg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "poly-haven.forest-leaves-02-disp-2k-jpg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/poly-haven.forest-leaves-02-disp-2k-jpg/forest_leaves_02_disp_2k.jpg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "poly-haven.rocky-trail-diff-2k-jpg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/poly-haven.rocky-trail-diff-2k-jpg/rocky_trail_diff_2k.jpg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "poly-haven.rocky-trail-nor-gl-2k-jpg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/poly-haven.rocky-trail-nor-gl-2k-jpg/rocky_trail_nor_gl_2k.jpg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "poly-haven.rocky-trail-arm-2k-jpg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/poly-haven.rocky-trail-arm-2k-jpg/rocky_trail_arm_2k.jpg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "poly-haven.rocky-trail-disp-2k-jpg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/poly-haven.rocky-trail-disp-2k-jpg/rocky_trail_disp_2k.jpg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "poly-haven.rocks-ground-02-diff-2k-jpg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/poly-haven.rocks-ground-02-diff-2k-jpg/rocks_ground_02_col_2k.jpg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "poly-haven.rocks-ground-02-nor-gl-2k-jpg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/poly-haven.rocks-ground-02-nor-gl-2k-jpg/rocks_ground_02_nor_gl_2k.jpg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "poly-haven.rocks-ground-02-arm-2k-jpg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/poly-haven.rocks-ground-02-arm-2k-jpg/rocks_ground_02_arm_2k.jpg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "poly-haven.rocks-ground-02-disp-2k-jpg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/poly-haven.rocks-ground-02-disp-2k-jpg/rocks_ground_02_height_2k.jpg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "poly-haven.rock-face-03-diff-2k-jpg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/poly-haven.rock-face-03-diff-2k-jpg/rock_face_03_diff_2k.jpg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "poly-haven.rock-face-03-nor-gl-2k-jpg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/poly-haven.rock-face-03-nor-gl-2k-jpg/rock_face_03_nor_gl_2k.jpg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "poly-haven.rock-face-03-arm-2k-jpg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/poly-haven.rock-face-03-arm-2k-jpg/rock_face_03_arm_2k.jpg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "poly-haven.rock-face-03-disp-2k-jpg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/poly-haven.rock-face-03-disp-2k-jpg/rock_face_03_disp_2k.jpg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "poly-haven.brown-mud-02-diff-2k-jpg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/poly-haven.brown-mud-02-diff-2k-jpg/brown_mud_02_diff_2k.jpg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "poly-haven.brown-mud-02-nor-gl-2k-jpg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/poly-haven.brown-mud-02-nor-gl-2k-jpg/brown_mud_02_nor_gl_2k.jpg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "poly-haven.brown-mud-02-arm-2k-jpg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/poly-haven.brown-mud-02-arm-2k-jpg/brown_mud_02_arm_2k.jpg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "poly-haven.brown-mud-02-disp-2k-jpg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/poly-haven.brown-mud-02-disp-2k-jpg/brown_mud_02_disp_2k.jpg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "poly-haven.sand-01-diff-2k-jpg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/poly-haven.sand-01-diff-2k-jpg/sand_01_diff_2k.jpg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "poly-haven.sand-01-nor-gl-2k-jpg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/poly-haven.sand-01-nor-gl-2k-jpg/sand_01_nor_gl_2k.jpg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "poly-haven.sand-01-arm-2k-jpg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/poly-haven.sand-01-arm-2k-jpg/sand_01_arm_2k.jpg"
-    },
-    {
-      "schemaVersion": 1,
-      "sourceId": "poly-haven.sand-01-disp-2k-jpg",
-      "storage": "git-lfs",
-      "path": "assets/canonical/poly-haven.sand-01-disp-2k-jpg/sand_01_disp_2k.jpg"
+      "path": "assets/canonical/zoo.zebra-glb/zebra.glb"
     }
   ]
 }

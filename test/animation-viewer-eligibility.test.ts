@@ -16,9 +16,9 @@ describe("animation viewer eligibility (#111)", () => {
     storage: readJson("catalog/storage.json"),
   }) as { assets: { id: string }[] };
 
-  test("exactly the pinned rigged and animated glTF sources are eligible today", () => {
+  test("exactly the pinned skinned and quadruped-rigid animated glTF sources are eligible today", () => {
     const eligible = model.assets.filter(isAnimationViewerEligible).map((asset) => asset.id).sort();
-    expect(eligible).toEqual(["khronos.riggedfigure-glb", "khronos.simpleskin-embedded-gltf"]);
+    expect(eligible).toEqual(["khronos.riggedfigure-glb", "khronos.simpleskin-embedded-gltf", "zoo.giraffe-glb", "zoo.zebra-glb"]);
   });
 
   test("each requirement is enforced", () => {
