@@ -9,15 +9,30 @@ import { crc32, deflateSync, inflateSync } from "node:zlib";
 import { Document, NodeIO } from "@gltf-transform/core";
 import { canonicalJson } from "./canonical.js";
 import { sha256Bytes } from "./hash.js";
+import { parseRgba8Image } from "./image-rgba8.js";
 
 export type Vec2 = [number, number];
+/** Schema 3: polyline points read from a declared saved guide instead of inline (#140). */
+export type TerrainGuideRef = { guide: string };
+export type TerrainPoints = Vec2[] | TerrainGuideRef;
 export type TerrainShape =
   | { kind: "circle"; center: Vec2; radius: number; falloff: number }
   | { kind: "rect"; center: Vec2; size: Vec2; rotationDegrees: number; falloff: number }
-  | { kind: "polyline"; points: Vec2[]; width: number; falloff: number };
+  | { kind: "polyline"; points: TerrainPoints; width: number; falloff: number }
+  /** Schema 3: the weight is a saved scalar mask guide sampled at world X/Z (#140). */
+  | { kind: "mask"; guide: string };
 export type TerrainEdit =
   | { kind: "flatten"; shape: TerrainShape; height: number; excludeDetail: boolean }
-  | { kind: "path"; points: Vec2[]; width: number; falloff: number; excludeDetail: boolean };
+  | { kind: "path"; points: TerrainPoints; width: number; falloff: number; excludeDetail: boolean };
+/**
+ * A saved guide (#140). `file` is a portable path relative to the recipe; the guide's identity is its `sha256` and
+ * byte length, which loading verifies. A mask is an opaque grayscale RGBA8 image whose pixel (i, j) centre sits at
+ * world `origin + (i, j)·pixelSize` metres (columns +X, rows +Z).
+ */
+export type TerrainGuide =
+  | { kind: "polyline"; file: string; sha256: string; bytes: number }
+  | { kind: "mask"; file: string; sha256: string; bytes: number; width: number; height: number; origin: Vec2; pixelSize: number;
+    filter: "nearest" | "bilinear"; outside: "zero" | "clamp" };
 export type TerrainShaping =
   | { kind: "noise" }
   | { kind: "island"; center: Vec2; radius: number; falloff: number; seaLevel: number }
@@ -30,11 +45,13 @@ export type TerrainDetailLayer = {
 };
 export type TerrainPatchRecipe = {
   /** Schema 2 adds a required `seed` per detail layer; `seed` then drives only the height. */
-  schemaVersion: 1 | 2; id: string; seed: number; origin: Vec2; sampleSpacing: number; samples: Vec2;
+  schemaVersion: 1 | 2 | 3; id: string; seed: number; origin: Vec2; sampleSpacing: number; samples: Vec2;
   height: { min: number; max: number; precision: number };
   noise: { baseHeight: number; amplitude: number; featureSize: number; octaves: number; roughness: number };
   shaping: TerrainShaping; edits: TerrainEdit[]; exclusions: TerrainShape[];
   paint: Record<string, TerrainShape[]>; detail: TerrainDetailLayer[];
+  /** Schema 3 only, and required there: saved guides that shapes and paths reference by name. */
+  guides?: Record<string, TerrainGuide>;
 };
 export type TerrainDetailInstance = { id: string; layer: string; cell: Vec2; position: [number, number, number]; yaw: number; scale: number; variant: number };
 export type TerrainPatch = {
@@ -46,6 +63,7 @@ export type TerrainPatch = {
 };
 
 const MAX_SAMPLES = 257, MAX_STEPS = 65535, MAX_INSTANCES = 65536, MAX_COORDINATE = 1e6;
+const MAX_GUIDE_BYTES = 8 * 1024 * 1024, MAX_MASK_SIDE = 1024, MAX_GUIDES = 32;
 
 // ---------- validation ----------
 function record(value: unknown, keys: readonly string[], label: string): Record<string, unknown> {
@@ -80,12 +98,51 @@ function range(value: unknown, label: string, min?: number, max?: number): Vec2 
   if (r[0] > r[1]) throw new Error(`${label} must be ordered low to high`);
   return r;
 }
-function points(value: unknown, label: string): Vec2[] {
+function inlinePoints(value: unknown, label: string): Vec2[] {
   if (!Array.isArray(value) || value.length < 2 || value.length > 256) throw new Error(`${label} must list 2..256 points`);
   return value.map((p, i) => vec2(p, `${label}[${i}]`));
 }
-function shape(value: unknown, label: string): TerrainShape {
+/** The guides a schema-3 recipe declares; null for schema 1 and 2, which cannot reference guides. */
+type Guides = Record<string, TerrainGuide> | null;
+function guideName(value: unknown, guides: Guides, kind: TerrainGuide["kind"], label: string): string {
+  if (guides === null) throw new Error(`${label} references a guide, which needs schemaVersion 3`);
+  const name = token(value, label), declared = guides[name];
+  if (!declared) throw new Error(`${label} names undeclared guide '${name}'`);
+  if (declared.kind !== kind) throw new Error(`${label} names ${declared.kind} guide '${name}' where a ${kind} guide is needed`);
+  return name;
+}
+function points(value: unknown, guides: Guides, label: string): TerrainPoints {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    return { guide: guideName(record(value, ["guide"], label).guide, guides, "polyline", `${label}.guide`) };
+  }
+  return inlinePoints(value, label);
+}
+function guideFile(value: unknown, label: string): string {
+  if (typeof value !== "string" || value.length > 256
+    || !value.split("/").every((part) => /^[A-Za-z0-9_-][A-Za-z0-9._-]*$/.test(part))) {
+    throw new Error(`${label} must be a portable relative path ('/'-separated, without '..', '.', absolute or empty segments)`);
+  }
+  return value;
+}
+function guide(value: unknown, label: string): TerrainGuide {
   const kind = (value as { kind?: unknown } | null)?.kind;
+  const pin = (v: Record<string, unknown>) => {
+    if (typeof v.sha256 !== "string" || !/^[0-9a-f]{64}$/.test(v.sha256)) throw new Error(`${label}.sha256 must be a lowercase hex SHA-256`);
+    return { file: guideFile(v.file, `${label}.file`), sha256: v.sha256, bytes: int(v.bytes, `${label}.bytes`, 1, MAX_GUIDE_BYTES) };
+  };
+  if (kind === "polyline") return { kind, ...pin(record(value, ["kind", "file", "sha256", "bytes"], label)) };
+  if (kind === "mask") {
+    const v = record(value, ["kind", "file", "sha256", "bytes", "width", "height", "origin", "pixelSize", "filter", "outside"], label);
+    if (v.filter !== "nearest" && v.filter !== "bilinear") throw new Error(`${label}.filter must be nearest or bilinear`);
+    if (v.outside !== "zero" && v.outside !== "clamp") throw new Error(`${label}.outside must be zero or clamp`);
+    return { kind, ...pin(v), width: int(v.width, `${label}.width`, 1, MAX_MASK_SIDE), height: int(v.height, `${label}.height`, 1, MAX_MASK_SIDE),
+      origin: vec2(v.origin, `${label}.origin`), pixelSize: num(v.pixelSize, `${label}.pixelSize`, 0.001, 1000), filter: v.filter, outside: v.outside };
+  }
+  throw new Error(`${label}.kind must be polyline or mask`);
+}
+function shape(value: unknown, guides: Guides, label: string): TerrainShape {
+  const kind = (value as { kind?: unknown } | null)?.kind;
+  if (kind === "mask") return { kind, guide: guideName(record(value, ["kind", "guide"], label).guide, guides, "mask", `${label}.guide`) };
   if (kind === "circle") {
     const v = record(value, ["kind", "center", "radius", "falloff"], label);
     return { kind, center: vec2(v.center, `${label}.center`), radius: num(v.radius, `${label}.radius`, 0), falloff: num(v.falloff, `${label}.falloff`, 0) };
@@ -97,16 +154,24 @@ function shape(value: unknown, label: string): TerrainShape {
   }
   if (kind === "polyline") {
     const v = record(value, ["kind", "points", "width", "falloff"], label);
-    return { kind, points: points(v.points, `${label}.points`), width: num(v.width, `${label}.width`, 0), falloff: num(v.falloff, `${label}.falloff`, 0) };
+    return { kind, points: points(v.points, guides, `${label}.points`), width: num(v.width, `${label}.width`, 0), falloff: num(v.falloff, `${label}.falloff`, 0) };
   }
-  throw new Error(`${label}.kind must be circle, rect or polyline`);
+  throw new Error(`${label}.kind must be circle, rect, polyline or mask`);
 }
 
 /** Validates a complete recipe; there are no implicit defaults. */
 export function normalizeTerrainPatchRecipe(value: unknown): TerrainPatchRecipe {
-  const v = record(value, ["schemaVersion", "id", "seed", "origin", "sampleSpacing", "samples", "height", "noise", "shaping", "edits", "exclusions", "paint", "detail"], "terrain patch recipe");
-  if (v.schemaVersion !== 1 && v.schemaVersion !== 2) throw new Error("terrain patch recipe schemaVersion must be 1 or 2");
-  const schemaVersion = v.schemaVersion;
+  const schemaVersion = (value as { schemaVersion?: unknown } | null)?.schemaVersion;
+  if (schemaVersion !== 1 && schemaVersion !== 2 && schemaVersion !== 3) throw new Error("terrain patch recipe schemaVersion must be 1, 2 or 3");
+  const v = record(value, ["schemaVersion", "id", "seed", "origin", "sampleSpacing", "samples", "height", "noise", "shaping", "edits", "exclusions", "paint", "detail",
+    ...(schemaVersion === 3 ? ["guides"] : [])], "terrain patch recipe");
+  let guides: Guides = null;
+  if (schemaVersion === 3) {
+    const source = record(v.guides, Object.keys((v.guides ?? {}) as object), "guides");
+    if (Object.keys(source).length > MAX_GUIDES) throw new Error(`guides must declare at most ${MAX_GUIDES} guides`);
+    guides = {};
+    for (const name of Object.keys(source).sort()) guides[token(name, `guide name '${name}'`)] = guide(source[name], `guides.${name}`);
+  }
   const h = record(v.height, ["min", "max", "precision"], "height");
   const height = { min: num(h.min, "height.min"), max: num(h.max, "height.max"), precision: num(h.precision, "height.precision", 0.0001, 1) };
   if (!(height.max > height.min)) throw new Error("height.max must be above height.min");
@@ -129,32 +194,32 @@ export function normalizeTerrainPatchRecipe(value: unknown): TerrainPatchRecipe 
     const kind = (e as { kind?: unknown } | null)?.kind, label = `edits[${i}]`;
     if (kind === "flatten") {
       const r = record(e, ["kind", "shape", "height", "excludeDetail"], label);
-      return { kind, shape: shape(r.shape, `${label}.shape`), height: num(r.height, `${label}.height`), excludeDetail: bool(r.excludeDetail, `${label}.excludeDetail`) };
+      return { kind, shape: shape(r.shape, guides, `${label}.shape`), height: num(r.height, `${label}.height`), excludeDetail: bool(r.excludeDetail, `${label}.excludeDetail`) };
     }
     if (kind === "path") {
       const r = record(e, ["kind", "points", "width", "falloff", "excludeDetail"], label);
-      return { kind, points: points(r.points, `${label}.points`), width: num(r.width, `${label}.width`, 0), falloff: num(r.falloff, `${label}.falloff`, 0), excludeDetail: bool(r.excludeDetail, `${label}.excludeDetail`) };
+      return { kind, points: points(r.points, guides, `${label}.points`), width: num(r.width, `${label}.width`, 0), falloff: num(r.falloff, `${label}.falloff`, 0), excludeDetail: bool(r.excludeDetail, `${label}.excludeDetail`) };
     }
     throw new Error(`${label}.kind must be flatten or path`);
   });
   if (!Array.isArray(v.exclusions) || v.exclusions.length > 256) throw new Error("exclusions must be an array of at most 256 shapes");
-  const exclusions = v.exclusions.map((s, i) => shape(s, `exclusions[${i}]`));
+  const exclusions = v.exclusions.map((s, i) => shape(s, guides, `exclusions[${i}]`));
   const paintSource = record(v.paint, Object.keys((v.paint ?? {}) as object), "paint");
   const paint: Record<string, TerrainShape[]> = {};
   for (const name of Object.keys(paintSource).sort()) {
     const list = paintSource[name];
     if (!Array.isArray(list) || list.length > 256) throw new Error(`paint.${name} must be an array of at most 256 shapes`);
-    paint[token(name, `paint key '${name}'`)] = list.map((s, i) => shape(s, `paint.${name}[${i}]`));
+    paint[token(name, `paint key '${name}'`)] = list.map((s, i) => shape(s, guides, `paint.${name}[${i}]`));
   }
   if (!Array.isArray(v.detail) || v.detail.length > 32) throw new Error("detail must be an array of at most 32 layers");
   const ids = new Set<string>();
   const detail = v.detail.map((d, i): TerrainDetailLayer => {
     const label = `detail[${i}]`;
-    const r = record(d, ["id", "density", "minSpacing", "slopeDegrees", "height", "maxExclusion", "paint", "scale", "variants", ...(schemaVersion === 2 ? ["seed"] : [])], label);
+    const r = record(d, ["id", "density", "minSpacing", "slopeDegrees", "height", "maxExclusion", "paint", "scale", "variants", ...(schemaVersion >= 2 ? ["seed"] : [])], label);
     const layer: TerrainDetailLayer = { id: token(r.id, `${label}.id`), density: num(r.density, `${label}.density`, 1e-6, 100), minSpacing: num(r.minSpacing, `${label}.minSpacing`, 0.01, 1000),
       slopeDegrees: range(r.slopeDegrees, `${label}.slopeDegrees`, 0, 90), height: range(r.height, `${label}.height`), maxExclusion: num(r.maxExclusion, `${label}.maxExclusion`, 0, 1),
       paint: r.paint === null ? null : token(r.paint, `${label}.paint`), scale: range(r.scale, `${label}.scale`, 0.001, 1000), variants: int(r.variants, `${label}.variants`, 1, 256),
-      ...(schemaVersion === 2 ? { seed: int(r.seed, `${label}.seed`, 0, 0xffffffff) } : {}) };
+      ...(schemaVersion >= 2 ? { seed: int(r.seed, `${label}.seed`, 0, 0xffffffff) } : {}) };
     if (ids.has(layer.id)) throw new Error(`duplicate detail layer '${layer.id}'`);
     ids.add(layer.id);
     if (layer.density * layer.minSpacing ** 2 > 1) throw new Error(`${label}.density cannot be packed at minSpacing (density × minSpacing² must be ≤ 1)`);
@@ -164,7 +229,8 @@ export function normalizeTerrainPatchRecipe(value: unknown): TerrainPatchRecipe 
   if (!Array.isArray(v.samples) || v.samples.length !== 2) throw new Error("samples must be a pair");
   const samples: Vec2 = [int(v.samples[0], "samples[0]", 2, MAX_SAMPLES), int(v.samples[1], "samples[1]", 2, MAX_SAMPLES)];
   return { schemaVersion, id: token(v.id, "id"), seed: int(v.seed, "seed", 0, 0xffffffff), origin: vec2(v.origin, "origin"),
-    sampleSpacing: num(v.sampleSpacing, "sampleSpacing", 0.01, 64), samples, height, noise, shaping, edits, exclusions, paint, detail };
+    sampleSpacing: num(v.sampleSpacing, "sampleSpacing", 0.01, 64), samples, height, noise, shaping, edits, exclusions, paint, detail,
+    ...(guides === null ? {} : { guides }) };
 }
 
 // ---------- world function ----------
@@ -202,7 +268,9 @@ function segmentDistance(px: number, pz: number, a: Vec2, b: Vec2): { distance: 
   const t = length2 === 0 ? 0 : Math.min(1, Math.max(0, ((px - a[0]) * dx + (pz - a[1]) * dz) / length2));
   return { distance: Math.hypot(px - a[0] - t * dx, pz - a[1] - t * dz), t };
 }
-function nearestOnPolyline(px: number, pz: number, line: readonly Vec2[]): { distance: number; point: Vec2 } {
+function nearestOnPolyline(px: number, pz: number, points: TerrainPoints): { distance: number; point: Vec2 } {
+  if (!Array.isArray(points)) throw new Error(`polyline guide '${points.guide}' was not loaded: pass the recipe's loaded guides (loadTerrainPatchGuides)`);
+  const line = points;
   let best = { distance: Infinity, point: line[0]! };
   for (let i = 0; i + 1 < line.length; i += 1) {
     const a = line[i]!, b = line[i + 1]!, s = segmentDistance(px, pz, a, b);
@@ -211,18 +279,136 @@ function nearestOnPolyline(px: number, pz: number, line: readonly Vec2[]): { dis
   return best;
 }
 /** Signed distance from a shape's edge (negative inside). */
-function shapeDistance(s: TerrainShape, x: number, z: number): number {
+function shapeDistance(s: Exclude<TerrainShape, { kind: "mask" }>, x: number, z: number): number {
   if (s.kind === "circle") return Math.hypot(x - s.center[0], z - s.center[1]) - s.radius;
   if (s.kind === "polyline") return nearestOnPolyline(x, z, s.points).distance - s.width / 2;
   const a = -s.rotationDegrees * Math.PI / 180, dx = x - s.center[0], dz = z - s.center[1];
   const lx = Math.abs(dx * Math.cos(a) - dz * Math.sin(a)) - s.size[0] / 2, lz = Math.abs(dx * Math.sin(a) + dz * Math.cos(a)) - s.size[1] / 2;
   return Math.hypot(Math.max(lx, 0), Math.max(lz, 0)) + Math.min(Math.max(lx, lz), 0);
 }
-/** 1 inside, smoothstep to 0 across `falloff` metres outside, 0 beyond. */
+/** 1 inside, smoothstep to 0 across `falloff` metres outside, 0 beyond. A mask shape is its sampled guide value. */
 export function terrainShapeWeight(s: TerrainShape, x: number, z: number): number {
+  if (s.kind === "mask") {
+    const sample = maskSamplers.get(s);
+    if (!sample) throw new Error(`mask guide '${s.guide}' was not loaded: pass the recipe's loaded guides (loadTerrainPatchGuides)`);
+    return sample(x, z);
+  }
   const d = shapeDistance(s, x, z);
   if (d <= 0) return 1;
   return s.falloff > 0 && d < s.falloff ? smoothstep(1 - d / s.falloff) : 0;
+}
+
+// ---------- saved guides (#140) ----------
+/** Schema of a saved polyline guide file. */
+export const TERRAIN_GUIDE_POLYLINE_SCHEMA = "terrain-guide-polyline-v1";
+/** The only coordinate space a terrain guide may declare: world X/Z in metres, the recipe's own axes. */
+export const TERRAIN_GUIDE_SPACE = "terrain-world-xz";
+export type TerrainGuideData =
+  | { kind: "polyline"; sha256: string; points: Vec2[] }
+  | { kind: "mask"; sha256: string; width: number; height: number; values: Uint8Array };
+/** Loaded guides by name, each verified against the recipe's declaration. */
+export type TerrainPatchGuides = Record<string, TerrainGuideData>;
+
+/**
+ * Reads and verifies every guide a schema-3 recipe declares. `read` receives the declared portable relative path; the
+ * caller resolves it against the recipe's directory. Byte length and SHA-256 must match the declaration, and the
+ * contents must be a valid guide, before anything is generated. Guides are never modified.
+ */
+export function loadTerrainPatchGuides(recipeValue: unknown, read: (file: string) => Uint8Array | undefined): TerrainPatchGuides {
+  const r = normalizeTerrainPatchRecipe(recipeValue), out: TerrainPatchGuides = {};
+  for (const [name, declared] of Object.entries(r.guides ?? {})) {
+    const label = `guide '${name}' (${declared.file})`, bytes = read(declared.file);
+    if (bytes === undefined) throw new Error(`${label} is missing`);
+    if (bytes.byteLength !== declared.bytes) throw new Error(`${label} has ${bytes.byteLength} bytes, not the declared ${declared.bytes}`);
+    if (sha256Bytes(bytes) !== declared.sha256) throw new Error(`${label} does not match its declared sha256`);
+    out[name] = parseGuide(declared, bytes, label);
+  }
+  return out;
+}
+function parseGuide(declared: TerrainGuide, bytes: Uint8Array, label: string): TerrainGuideData {
+  if (declared.kind === "polyline") {
+    let value: unknown;
+    try { value = JSON.parse(Buffer.from(bytes).toString("utf8")); } catch { throw new Error(`${label} is not JSON`); }
+    const v = record(value, ["schema", "space", "units", "points"], label);
+    if (v.schema !== TERRAIN_GUIDE_POLYLINE_SCHEMA) throw new Error(`${label} schema must be ${TERRAIN_GUIDE_POLYLINE_SCHEMA}`);
+    if (v.space !== TERRAIN_GUIDE_SPACE) throw new Error(`${label} space must be ${TERRAIN_GUIDE_SPACE} (world X/Z), not ${JSON.stringify(v.space)}`);
+    if (v.units !== "m") throw new Error(`${label} units must be m, not ${JSON.stringify(v.units)}`);
+    const line = inlinePoints(v.points, `${label} points`);
+    for (let i = 1; i < line.length; i += 1) {
+      if (line[i]![0] === line[i - 1]![0] && line[i]![1] === line[i - 1]![1]) throw new Error(`${label} points[${i}] repeats the previous point`);
+    }
+    return { kind: "polyline", sha256: declared.sha256, points: line };
+  }
+  let image: ReturnType<typeof parseRgba8Image>;
+  try { image = parseRgba8Image(bytes, { width: declared.width, height: declared.height }); } catch (error) {
+    throw new Error(`${label} is not a ${declared.width}×${declared.height} RGBA8 image: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  const values = new Uint8Array(image.width * image.height);
+  for (let k = 0; k < values.length; k += 1) {
+    const [red, green, blue, alpha] = image.pixels.subarray(k * 4, k * 4 + 4);
+    if (red !== green || red !== blue || alpha !== 255) throw new Error(`${label} pixel (${k % image.width}, ${Math.floor(k / image.width)}) is not opaque grayscale`);
+    values[k] = red!;
+  }
+  return { kind: "mask", sha256: declared.sha256, width: image.width, height: image.height, values };
+}
+
+/** Samplers of bound mask shapes; a shape without one was never bound to its loaded guide. */
+const maskSamplers = new WeakMap<object, (x: number, z: number) => number>();
+/**
+ * Pixel (i, j) centre sits at origin + (i, j)·pixelSize. A point outside the half-open pixel footprint
+ * [−½, n − ½) on either axis weighs 0 with `outside: zero`, or is clamped onto it with `clamp`. `nearest` rounds halves
+ * up; `bilinear` interpolates the four surrounding centres, clamping indices to the image.
+ */
+function maskSampler(g: Extract<TerrainGuide, { kind: "mask" }>, values: Uint8Array): (x: number, z: number) => number {
+  const at = (i: number, j: number) => values[Math.min(Math.max(j, 0), g.height - 1) * g.width + Math.min(Math.max(i, 0), g.width - 1)]! / 255;
+  return (x, z) => {
+    let u = (x - g.origin[0]) / g.pixelSize, v = (z - g.origin[1]) / g.pixelSize;
+    if (u < -0.5 || u >= g.width - 0.5 || v < -0.5 || v >= g.height - 0.5) {
+      if (g.outside === "zero") return 0;
+      u = Math.min(Math.max(u, -0.5), g.width - 0.5); v = Math.min(Math.max(v, -0.5), g.height - 0.5);
+    }
+    if (g.filter === "nearest") return at(Math.floor(u + 0.5), Math.floor(v + 0.5));
+    const i = Math.floor(u), j = Math.floor(v), fx = u - i, fz = v - j;
+    const top = at(i, j) + (at(i + 1, j) - at(i, j)) * fx, bottom = at(i, j + 1) + (at(i + 1, j + 1) - at(i, j + 1)) * fx;
+    return top + (bottom - top) * fz;
+  };
+}
+/** The recipe with guide references resolved to loaded data, for evaluation only (component keys use the declarations). */
+function bindGuides(r: TerrainPatchRecipe, guides: TerrainPatchGuides | undefined): TerrainPatchRecipe {
+  if (!r.guides) return r;
+  const declarations = r.guides;
+  const data = (name: string) => {
+    const loaded = guides?.[name], declared = declarations[name]!;
+    if (!loaded) throw new Error(`terrain recipe guide '${name}' was not loaded: pass loadTerrainPatchGuides(recipe, read)`);
+    if (loaded.kind !== declared.kind || loaded.sha256 !== declared.sha256) throw new Error(`loaded guide '${name}' does not match its declaration`);
+    return loaded;
+  };
+  const line = (p: TerrainPoints): Vec2[] => Array.isArray(p) ? p : (data(p.guide) as Extract<TerrainGuideData, { kind: "polyline" }>).points;
+  const bind = (s: TerrainShape): TerrainShape => {
+    if (s.kind === "polyline") return { ...s, points: line(s.points) };
+    if (s.kind !== "mask") return s;
+    const bound = { ...s }, loaded = data(s.guide) as Extract<TerrainGuideData, { kind: "mask" }>;
+    maskSamplers.set(bound, maskSampler(declarations[s.guide] as Extract<TerrainGuide, { kind: "mask" }>, loaded.values));
+    return bound;
+  };
+  return { ...r, edits: r.edits.map((e) => e.kind === "flatten" ? { ...e, shape: bind(e.shape) } : { ...e, points: line(e.points) }),
+    exclusions: r.exclusions.map(bind), paint: Object.fromEntries(Object.entries(r.paint).map(([name, shapes]) => [name, shapes.map(bind)])) };
+}
+/** Declarations (without the file path, which is not identity) of the guides a component's inputs reference. */
+function referencedGuides(r: TerrainPatchRecipe, inputs: unknown): Record<string, Omit<TerrainGuide, "file">> | undefined {
+  if (!r.guides) return undefined;
+  const names = new Set<string>();
+  const walk = (value: unknown) => {
+    if (Array.isArray(value)) value.forEach(walk);
+    else if (value && typeof value === "object") {
+      const guide = (value as { guide?: unknown }).guide;
+      if (typeof guide === "string") names.add(guide);
+      Object.values(value).forEach(walk);
+    }
+  };
+  walk(inputs);
+  if (names.size === 0) return undefined;
+  return Object.fromEntries([...names].sort().map((name) => { const { file: _, ...identity } = r.guides![name]!; return [name, identity]; }));
 }
 
 function shapedHeight(r: TerrainPatchRecipe, x: number, z: number): number {
@@ -295,8 +481,8 @@ const q8 = (w: number) => Math.round(Math.min(1, Math.max(0, w)) * 255);
  * Patch (px, pz) starts at global sample (px·(samplesX−1), pz·(samplesZ−1)): neighbours share their edge row/column.
  * Normals use central differences over the same world function, reading one sample beyond the patch border.
  */
-export function generateTerrainPatch(recipeValue: unknown, patch: Vec2): TerrainPatch {
-  const r = normalizeTerrainPatchRecipe(recipeValue), g = patchGrid(r, patch);
+export function generateTerrainPatch(recipeValue: unknown, patch: Vec2, guides?: TerrainPatchGuides): TerrainPatch {
+  const r = bindGuides(normalizeTerrainPatchRecipe(recipeValue), guides), g = patchGrid(r, patch);
   const { heights, normals, slope } = heightComponent(r, g);
   const paint = Object.fromEntries(Object.keys(r.paint).map((name) => [name, maskComponent(r, g, (x, z) => paintWeight(r.paint[name]!, x, z))]));
   return { ...g, recipe: r, heights, normals, slope, exclusion: maskComponent(r, g, (x, z) => exclusionWeight(r, x, z)), paint };
@@ -485,6 +671,8 @@ export type TerrainPatchBuildOptions = {
   previous?: { record: TerrainPatchBuildRecord; read(file: string): Uint8Array | undefined };
   /** Components that must be reused from `previous`. The build fails before producing anything if one cannot be. */
   preserve?: readonly string[];
+  /** Required when a schema-3 recipe declares guides: the result of `loadTerrainPatchGuides`. */
+  guides?: TerrainPatchGuides;
 };
 export type TerrainPatchBuild = {
   record: TerrainPatchBuildRecord;
@@ -508,14 +696,21 @@ export function terrainPatchComponentKeys(recipeValue: unknown, patch: Vec2): Re
   const r = normalizeTerrainPatchRecipe(recipeValue), g = patchGrid(r, patch);
   const grid = { patch: g.patch, origin: r.origin, sampleSpacing: r.sampleSpacing, samples: r.samples };
   const keys: Record<string, string> = {};
-  keys.height = componentKey("height", { grid, id: r.id, seed: r.seed, height: r.height, noise: r.noise, shaping: r.shaping,
-    edits: r.edits.map(({ excludeDetail: _, ...edit }) => edit) });
+  // A referenced guide adds its declared identity (hash, size, transform), never its file path, so moving a guide file
+  // changes nothing and editing its bytes invalidates exactly the components that read it. Recipes without guides keep
+  // their schema-2 keys.
+  const key = (component: string, inputs: Record<string, unknown>) => {
+    const guides = referencedGuides(r, inputs);
+    return componentKey(component, guides ? { ...inputs, guides } : inputs);
+  };
+  const edits = r.edits.map(({ excludeDetail: _, ...edit }) => edit);
+  keys.height = key("height", { grid, id: r.id, seed: r.seed, height: r.height, noise: r.noise, shaping: r.shaping, edits });
   const exclusionInputs = { edits: r.edits.filter((e) => e.excludeDetail), exclusions: r.exclusions };
-  keys.exclusion = componentKey("exclusion", { grid, ...exclusionInputs });
-  for (const [name, shapes] of Object.entries(r.paint)) keys[`paint.${name}`] = componentKey("paint", { grid, name, shapes });
+  keys.exclusion = key("exclusion", { grid, ...exclusionInputs });
+  for (const [name, shapes] of Object.entries(r.paint)) keys[`paint.${name}`] = key("paint", { grid, name, shapes });
   for (const layer of r.detail) {
     const { seed: _, ...settings } = layer;
-    keys[`detail.${layer.id}`] = componentKey("detail-layer", { grid, layer: settings, seed: terrainDetailSeed(r, layer), height: keys.height,
+    keys[`detail.${layer.id}`] = key("detail-layer", { grid, layer: settings, seed: terrainDetailSeed(r, layer), height: keys.height,
       ...exclusionInputs, paint: layer.paint === null ? null : r.paint[layer.paint] });
   }
   keys.detail = componentKey("detail", r.detail.map((l) => keys[`detail.${l.id}`]));
@@ -529,7 +724,8 @@ export function terrainPatchComponentKeys(recipeValue: unknown, patch: Vec2): Re
  * the returned files.
  */
 export async function buildTerrainPatchFiles(recipeValue: unknown, patch: Vec2, options: TerrainPatchBuildOptions = {}): Promise<TerrainPatchBuild> {
-  const r = normalizeTerrainPatchRecipe(recipeValue), g = patchGrid(r, patch), keys = terrainPatchComponentKeys(r, patch);
+  const normalized = normalizeTerrainPatchRecipe(recipeValue), keys = terrainPatchComponentKeys(normalized, patch);
+  const r = bindGuides(normalized, options.guides), g = patchGrid(r, patch);
   const preserve = new Set(options.preserve ?? []);
   for (const name of preserve) if (!Object.hasOwn(keys, name)) throw new Error(`cannot preserve unknown terrain component '${name}'`);
   const previous = options.previous, before = heightEvaluations;

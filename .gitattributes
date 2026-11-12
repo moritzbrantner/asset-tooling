@@ -13,3 +13,6 @@ test/fixtures/maps-shortbread/*.geojson text eol=lf
 test/fixtures/maps-shortbread/*.yml text eol=lf
 test/fixtures/maps-shortbread/*.json text eol=lf
 test/fixtures/maps-shortbread/*.pmtiles -text
+
+# Terrain guides are pinned by SHA-256 in the recipes that read them.
+examples/terrain-patches/guides/** -text

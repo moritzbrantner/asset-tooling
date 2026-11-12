@@ -30,8 +30,35 @@ Every field is required; `normalizeTerrainPatchRecipe` rejects unknown, missing 
 | `exclusions` | Shapes that only exclude detail. |
 | `paint` | Named paint masks, each a list of shapes. |
 | `detail` | Detail layers (below). |
+| `guides` | `schemaVersion` 3 only, and required there: saved guide files that shapes and paths reference by name (see [saved guides](#saved-guides)). |
 
-Shapes are `circle` (`center`, `radius`), `rect` (`center`, `size`, `rotationDegrees`) or `polyline` (`points`, `width`), each with `falloff` metres. Their weight is 1 inside, smoothsteps to 0 across the falloff and is 0 beyond.
+Shapes are `circle` (`center`, `radius`), `rect` (`center`, `size`, `rotationDegrees`) or `polyline` (`points`, `width`), each with `falloff` metres. Their weight is 1 inside, smoothsteps to 0 across the falloff and is 0 beyond. Schema 3 adds the `mask` shape, `{ "kind": "mask", "guide": "<name>" }`, whose weight is the sampled guide.
+
+## Saved guides
+
+When numeric shapes are not enough, a `schemaVersion` 3 recipe reads a painted mask or an externally drawn path from a saved file (#140). Schema 3 is schema 2 plus `guides`. A recipe without guide references produces the same bytes and component keys as schema 2.
+
+```json
+"guides": {
+  "trail":  { "kind": "polyline", "file": "guides/trail.polyline.json", "sha256": "8cd8…", "bytes": 195 },
+  "meadow": { "kind": "mask", "file": "guides/meadow.rgba8.json", "sha256": "bad1…", "bytes": 21952,
+              "width": 64, "height": 64, "origin": [-63, -63], "pixelSize": 2, "filter": "bilinear", "outside": "zero" }
+},
+"edits": [{ "kind": "path", "points": { "guide": "trail" }, "width": 3, "falloff": 3, "excludeDetail": true }],
+"paint": { "meadow": [{ "kind": "mask", "guide": "meadow" }] }
+```
+
+- **Identity.** `file` is a portable `/`-separated path relative to the recipe file. Absolute paths and `..`, `.` or empty segments are rejected. The guide's identity is its `sha256` and `bytes`, not its path. Component keys include the declaration without `file`, so moving a guide changes nothing. Changing its bytes rebuilds exactly the components that read it.
+- **Loading.** `loadTerrainPatchGuides(recipe, read)` calls `read(file)` for every declared guide, then checks the byte length, the SHA-256 and the contents before anything is generated. The caller resolves the path, normally against the recipe's directory. Pass the result to `generateTerrainPatch(recipe, patch, guides)` or `buildTerrainPatchFiles(recipe, patch, { guides })`. A recipe that references a guide without loaded guides, or with guides loaded for different bytes, fails. Guide files are only read, never modified. Fetching them is the caller's job: the recipe never downloads anything.
+- **Polyline guide.** A JSON file `{ "schema": "terrain-guide-polyline-v1", "space": "terrain-world-xz", "units": "m", "points": [[x, z], …] }` in world metres, on the recipe's own X/Z axes. Any other space or unit fails. It must have 2–256 finite points with no point repeating its predecessor. `{ "guide": "<name>" }` can stand anywhere inline `points` can: a `path` edit or a `polyline` shape. It behaves exactly like the same points written inline.
+- **Mask guide.** An opaque grayscale image in the repository's RGBA8 transport (`application/vnd.moritzbrantner.rgba8+json`; convert a painted PNG with `image.decode`). R = G = B and A = 255, read as linear UNORM8 weight (0 → 0, 255 → 1), with no sRGB transfer. The declared `width` and `height` must match the file, at most 1024 per side and 8 MiB. Pixel (i, j)'s centre sits at world `origin + (i, j)·pixelSize`, with columns along +X and rows along +Z. Its footprint is the half-open range [−½, n − ½) pixels on each axis. `outside: "zero"` gives 0 beyond it, and `"clamp"` extends the edge pixels. `filter: "nearest"` rounds halves up, and `"bilinear"` interpolates the four surrounding centres, clamping indices at the edges. A mask can be a `flatten` shape, an exclusion or a paint layer, so a painted mask controls a detail layer's density through `paint`. There is no implicit resizing or rotation. The transform is exactly what the recipe declares, and resizing or rotating a mask is an explicit image operation that produces a new guide with a new hash.
+
+The example [`recipe-guided.json`](../examples/terrain-patches/recipe-guided.json) is the hillside with three guides from [`examples/terrain-patches/guides/`](../examples/terrain-patches/guides): a saved trail polyline instead of the inline path, a painted 64×64 meadow density mask (bilinear) instead of the meadow circle, and an 8×6 nearest-sampled camp clearing that excludes detail. `bun examples/terrain-patches/build.ts <outDir> examples/terrain-patches/recipe-guided.json` builds it with the same seam, order and clean-reference checks, and lists the guides' hashes in `manifest.json`. Below, `recipe.json` (top) is compared with the guided recipe (bottom): the stitched masks with flowers and grass, and the Greyhaven game camera with the saved trail drawn as a magenta overlay.
+
+![inline shapes vs saved guides: height, meadow mask with flowers, exclusion with grass](../review/terrain-patches/guided-masks.jpg)
+![game camera: the detail-free strip follows the saved trail](../review/terrain-patches/guided-game.jpg)
+
+`bun test test/terrain-guides.test.ts` covers: nearest and bilinear sampling of one marked pixel on an odd, non-square mask with a negative origin; the half-open footprint; clamping; all-zero and all-one masks; a guided path matching the same inline path byte for byte, with no detail left inside it; a mask edit that rebuilds only its paint mask and the layer that reads it; moving a guide's file; and failures for path escapes, bad hashes, lengths, units, spaces, repeated or nonfinite points, sizes, non-grayscale pixels, undeclared or wrong-kind guides, and missing or mismatched loaded guides. The [terrain workbench](terrain-workbench.md) does not load guides yet.
 
 ## Patches, sampling and borders
 
