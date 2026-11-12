@@ -1,5 +1,5 @@
 // The zoo-animals release (#128, #589; docs/zoo-animals.md): Zoo's pinned zebra and giraffe stay as authored, and
-// the expressive zebra, giraffe, tiger, elephant, capybara and flamingo built by adapters/blender/zoo_animals.py join them as the `expressive` variant, with in-place
+// the expressive zebra, giraffe, tiger, elephant, capybara, flamingo and penguin built by adapters/blender/zoo_animals.py join them as the `expressive` variant, with in-place
 // idle, walk, feed and rest clips whose legs swing about the animal's side axis. The build replays to the same tar.
 // It skips unless ASSET_TOOLING_BLENDER names Blender 5.2.2 and the two canonical Zoo sources are hydrated.
 import test from "node:test";
@@ -38,7 +38,7 @@ test("the expressive spec runs the packaged recipe for one species, with no othe
   assert.deepEqual(spec.parameters, { blenderVersion: "5.2.2", arguments: { schemaVersion: 1, species: "zebra" } });
   assert.deepEqual(Object.keys(spec.inputs), ["script"]);
   assert.equal(spec.assetId, "zoo.animal.zebra.expressive");
-  assert.deepEqual(ZOO_EXPRESSIVE_ANIMALS.map((entry) => entry.key), ["zoo.animal.zebra", "zoo.animal.giraffe", "zoo.animal.tiger", "zoo.animal.elephant", "zoo.animal.capybara", "zoo.animal.flamingo"]);
+  assert.deepEqual(ZOO_EXPRESSIVE_ANIMALS.map((entry) => entry.key), ["zoo.animal.zebra", "zoo.animal.giraffe", "zoo.animal.tiger", "zoo.animal.elephant", "zoo.animal.capybara", "zoo.animal.flamingo", "zoo.animal.penguin"]);
 });
 
 /** Per animal: its full-size height and length (m), its triangle budget, one colour of its coat (linear COLOR_0) and any
@@ -50,6 +50,7 @@ const EXPECTED: Record<string, { height: [number, number]; length: [number, numb
   "zoo.animal.elephant": { height: [1.9, 2.7], length: [2.6, 3.5], triangles: 5000, coat: "0.32,0.35", coatName: "the grey skin", joints: ["trunk", "trunk_tip"] },
   "zoo.animal.capybara": { height: [0.6, 1.0], length: [1.2, 1.8], triangles: 3000, coat: "0.39,0.17", coatName: "the brown coat" },
   "zoo.animal.flamingo": { height: [1.5, 1.9], length: [0.6, 0.95], triangles: 2500, coat: "0.96,0.34", coatName: "the pink plumage", joints: ["neck", "neck_upper"], biped: true },
+  "zoo.animal.penguin": { height: [0.7, 1.0], length: [0.4, 0.65], triangles: 2500, coat: "0.02,0.02", coatName: "the black back", biped: true },
 };
 
 /** The rotation axis of a quaternion in the leg's channel, or null when it barely turns. */
@@ -122,7 +123,7 @@ test("zoo-animals builds the old members unchanged and the expressive animals, r
     await verifyAssetBundleTar(await readFile(built.tar), { sha256: built.tarSha256, ref: built.exportRef });
     const manifest = (await verifyAssetBundle(built.bundleDir, built.exportRef, { profile: "gltf-resources-v1" })).manifest as GltfResourcesBundleManifest;
     assert.deepEqual(manifest.assets.map((item) => `${item.key}/${item.variant}`).sort(),
-      [`zoo.animal.capybara/${ZOO_EXPRESSIVE_VARIANT}`, `zoo.animal.elephant/${ZOO_EXPRESSIVE_VARIANT}`, `zoo.animal.flamingo/${ZOO_EXPRESSIVE_VARIANT}`, "zoo.animal.giraffe/default", `zoo.animal.giraffe/${ZOO_EXPRESSIVE_VARIANT}`, `zoo.animal.tiger/${ZOO_EXPRESSIVE_VARIANT}`,
+      [`zoo.animal.capybara/${ZOO_EXPRESSIVE_VARIANT}`, `zoo.animal.elephant/${ZOO_EXPRESSIVE_VARIANT}`, `zoo.animal.flamingo/${ZOO_EXPRESSIVE_VARIANT}`, "zoo.animal.giraffe/default", `zoo.animal.giraffe/${ZOO_EXPRESSIVE_VARIANT}`, `zoo.animal.penguin/${ZOO_EXPRESSIVE_VARIANT}`, `zoo.animal.tiger/${ZOO_EXPRESSIVE_VARIANT}`,
         "zoo.animal.zebra/default", `zoo.animal.zebra/${ZOO_EXPRESSIVE_VARIANT}`]);
 
     const descriptor = JSON.parse(await readFile(path.join(outDir, ZOO_ANIMALS_DESCRIPTOR_FILE), "utf8"));
