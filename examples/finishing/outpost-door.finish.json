@@ -1,0 +1,14 @@
+{
+  "schema": "finish-recipe-v1",
+  "name": "outpost-door",
+  "assetId": "outpost.door.finished",
+  "source": { "authored": "assets/authored/outpost-kit.blend" },
+  "place": { "parentName": "outpost.door.finished" },
+  "parameters": {
+    "schemaVersion": 1,
+    "source": { "format": "blend", "collection": "outpost.door" },
+    "edits": { "scale": [1, 1, 1], "materials": {} },
+    "repairs": ["apply-transforms", "merge-by-distance", "recalculate-normals", "weighted-normals"],
+    "policy": { "maxTriangles": 400 }
+  }
+}

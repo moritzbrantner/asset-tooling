@@ -1,6 +1,10 @@
 {
   "lfs": [
     "assets/canonical/quaternius.universal-base-characters-standard.*/**",
-    "assets/canonical/quaternius.modular-character-outfits-fantasy-standard.*/**"
+    "assets/canonical/quaternius.modular-character-outfits-fantasy-standard.*/**",
+    "assets/authored/outpost-kit.blend",
+    "assets/canonical/quaternius.fantasy-props-megakit-standard.barrel-*/**",
+    "assets/canonical/quaternius.fantasy-props-megakit-standard.t-trim-furniture-*/**",
+    "assets/canonical/quaternius.fantasy-props-megakit-standard.t-trim-metal-*/**"
   ]
 }

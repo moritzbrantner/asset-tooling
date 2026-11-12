@@ -88,6 +88,7 @@
     "./recipes/surface-appearances": "./src/surface-appearance-recipes.ts",
     "./recipes/corn": "./src/corn-recipes.ts",
     "./recipes/grass": "./src/grass-recipes.ts",
+    "./recipes/finishing": "./src/finishing-recipe.ts",
     "./maps/shortbread": "./src/maps-shortbread.ts"
   },
   "bin": {
