@@ -432,3 +432,14 @@ Authoritative authored/source masters and deliberately retained binary versions 
 Keep roughly **3–5 useful recent binary revisions by default** rather than unlimited provisional histories; exempt consumer-pinned, published or otherwise necessary revisions, and never prune the last recoverable copy. Disposable previews remain replaceable under Decision 7.1.4. This retention preference does not override licensing, stable asset identities or active consumer dependencies.
 
 **Migration boundary:** Existing `assets/canonical/` Git LFS source storage and `catalog/storage.json` are implemented and remain authoritative until a reviewed, restore-tested transition proves parity. This Decision sets a future storage direction; it is **not evidence that a local durable store, offsite backup or LFS migration has shipped**, and does not authorize deleting current Git LFS objects or history. Implementation is tracked in [#613](https://github.com/moritzbrantner/asset-tooling/issues/613).
+
+
+#### Decision 9.1.2 — Encrypt offsite recovery backups by default
+
+**Approved by owner:** 2026-11-12, [#613](https://github.com/moritzbrantner/asset-tooling/issues/613). **Option A** for offsite-backup protection; refines Decision 9.1.1 without changing the storage/distribution channels.
+
+Every offsite mirror or external offsite backup of retained source/master blobs and manifests must be **encrypted before the data leaves the local machine**. Encryption is a default safety boundary, not an optional provider setting; selection, deduplication, incremental transfer, and integrity verification must not expose restricted source assets or sensitive manifest contents in public/plaintext. Choose an established, locally usable backup/encryption tool during implementation rather than inventing cryptography or committing secrets.
+
+Recovery keys remain under the owner's local control and **outside Git, GitHub Releases, backup payloads, and public services**. Provide an independently recoverable offline key-copy procedure so loss of the main computer does not make the offsite backup permanently unreadable. A clean-directory restore test must prove decryption, hash-verification and reconstruction of retained revisions/manifests. No provider, subscription, migration, destructive pruning, or new production service is approved by this decision.
+
+Public, legally redistributable **GitHub Releases remain a separate distribution channel**, not an encrypted recovery backup; preserve licensing and the existing rolling-release workflow.
