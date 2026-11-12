@@ -535,7 +535,7 @@ async function exportedBridgeTemplates(): Promise<Record<string, string>> {
   return templates;
 }
 
-test("#221: existing exported operations and bridge templates are unchanged; exactly ComfyUI, asset.bundle@3 (#223), asset.bundle@4 (#118/#110), image.generate@1 (#222), scene.compose.skinned.gltf@1, scene.subset.skinned.gltf@1, animation.retarget@1 and the glTF clip extract/embed operations (#110) scene.place.gltf@1 (#118), scene.textures.resize.gltf@1 (#257) and asset.bundle@5 (#297) are added", async () => {
+test("#221: existing exported operations and bridge templates are unchanged; exactly ComfyUI, asset.bundle@3 (#223), asset.bundle@4 (#118/#110), image.generate@1 (#222), scene.compose.skinned.gltf@1, scene.subset.skinned.gltf@1, animation.retarget@1 and the glTF clip extract/embed operations (#110) scene.place.gltf@1 (#118), scene.textures.resize.gltf@1 (#257), asset.bundle@5 (#297) and the #135 SVG star/ring/rasterize operations are added", async () => {
   const baseline = JSON.parse(await readFile(BASELINE_PATH, "utf8")) as { templates: Record<string, string> };
   const current = await exportedBridgeTemplates();
   const added = Object.keys(current).filter((key) => !(key in baseline.templates)).sort();
@@ -553,12 +553,14 @@ test("#221: existing exported operations and bridge templates are unchanged; exa
   // #118 adds scene.place.gltf@1 (asset-tooling/operations/processing/gltf-place, owner decision Q3).
   // #257 adds scene.textures.resize.gltf@1 (asset-tooling/operations/processing/gltf-texture-resize, game-resolution PNG textures).
   // #297 adds asset.bundle@5 (audio-wav-v1 bundle profile for the combat sounds).
+  // #135 adds vector.procedural.star@1 and vector.procedural.ring@1 (procedural-shapes subpath) and image.vector.rasterize@1 (asset-tooling/operations/image/vector).
   assert.deepEqual(
     { added, removed, changed },
     {
       added: [
-        "animation.retarget@1", "asset.bundle@3", "asset.bundle@4", "asset.bundle@5", OPERATION_KEY, "image.generate@1", "scene.compose.skinned.gltf@1",
+        "animation.retarget@1", "asset.bundle@3", "asset.bundle@4", "asset.bundle@5", OPERATION_KEY, "image.generate@1", "image.vector.rasterize@1", "scene.compose.skinned.gltf@1",
         "scene.embed.animation.gltf@1", "scene.extract.animation.gltf@1", "scene.place.gltf@1", "scene.subset.skinned.gltf@1", "scene.textures.resize.gltf@1",
+        "vector.procedural.ring@1", "vector.procedural.star@1",
       ],
       removed: [], changed: [],
     },

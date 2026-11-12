@@ -10,13 +10,16 @@ import {
   generateCircleSdfRgba8,
   generateCircleSvg,
   generateRoundedRectSdfRgba8,
+  generateRingSvg,
   generateRoundedRectSvg,
+  generateStarSvg,
 } from "./procedural-shapes.js";
 import { captureToolIdentity } from "./tool.js";
 
 const VERSION = "1";
 const MAX_DIMENSION = 4096;
 const SVG_COLOR_PATTERN = "^#[0-9a-f]{6}$";
+const SVG_STROKE_PATTERN = "^(none|#[0-9a-f]{6})$";
 
 const imageOutput = {
   id: "output",
@@ -138,13 +141,76 @@ const OPERATION_REGISTRY = createAssetOperationRegistry([
       },
     },
   },
+  {
+    schemaVersion: 1,
+    id: "vector.procedural.star",
+    version: VERSION,
+    label: "Generate SVG star or burst",
+    description:
+      "Generate one canonical editable SVG star/burst polygon with alternating outer and inner radii, integer rotation, fill and optional stroke.",
+    category: "procedural.vector",
+    inputs: [],
+    outputs: [vectorOutput],
+    parameterSchema: {
+      type: "object",
+      additionalProperties: false,
+      required: [
+        "width", "height", "centerX", "centerY", "points", "outerRadius", "innerRadius",
+        "rotationDegrees", "fill", "stroke", "strokeWidth", "strokeJoin",
+      ],
+      properties: {
+        ...dimensionProperties,
+        centerX: { type: "integer", minimum: 0, maximum: MAX_DIMENSION },
+        centerY: { type: "integer", minimum: 0, maximum: MAX_DIMENSION },
+        points: { type: "integer", minimum: 3, maximum: 64 },
+        outerRadius: { type: "integer", minimum: 1, maximum: MAX_DIMENSION },
+        innerRadius: { type: "integer", minimum: 1, maximum: MAX_DIMENSION },
+        rotationDegrees: { type: "integer", minimum: 0, maximum: 359 },
+        fill: { type: "string", pattern: SVG_COLOR_PATTERN },
+        stroke: { type: "string", pattern: SVG_STROKE_PATTERN },
+        strokeWidth: { type: "integer", minimum: 0, maximum: MAX_DIMENSION },
+        strokeJoin: { type: "string", enum: ["miter", "round"] },
+      },
+    },
+  },
+  {
+    schemaVersion: 1,
+    id: "vector.procedural.ring",
+    version: VERSION,
+    label: "Generate SVG ring",
+    description: "Generate one canonical editable SVG stroked circle (ring) with integer radius and stroke width.",
+    category: "procedural.vector",
+    inputs: [],
+    outputs: [vectorOutput],
+    parameterSchema: {
+      type: "object",
+      additionalProperties: false,
+      required: ["width", "height", "centerX", "centerY", "radius", "strokeWidth", "stroke"],
+      properties: {
+        ...dimensionProperties,
+        centerX: { type: "integer", minimum: 0, maximum: MAX_DIMENSION },
+        centerY: { type: "integer", minimum: 0, maximum: MAX_DIMENSION },
+        radius: { type: "integer", minimum: 1, maximum: MAX_DIMENSION },
+        strokeWidth: { type: "integer", minimum: 1, maximum: MAX_DIMENSION },
+        stroke: { type: "string", pattern: SVG_COLOR_PATTERN },
+      },
+    },
+  },
 ]);
 
 export const PROCEDURAL_CIRCLE_SDF_OPERATION = OPERATION_REGISTRY.get("image.procedural.sdf.circle", VERSION);
 export const PROCEDURAL_ROUNDED_RECT_SDF_OPERATION = OPERATION_REGISTRY.get("image.procedural.sdf.rounded-rect", VERSION);
 export const PROCEDURAL_CIRCLE_VECTOR_OPERATION = OPERATION_REGISTRY.get("vector.procedural.circle", VERSION);
 export const PROCEDURAL_ROUNDED_RECT_VECTOR_OPERATION = OPERATION_REGISTRY.get("vector.procedural.rounded-rect", VERSION);
+export const PROCEDURAL_STAR_VECTOR_OPERATION = OPERATION_REGISTRY.get("vector.procedural.star", VERSION);
+export const PROCEDURAL_RING_VECTOR_OPERATION = OPERATION_REGISTRY.get("vector.procedural.ring", VERSION);
 export const PROCEDURAL_SHAPE_OPERATIONS = OPERATION_REGISTRY.list();
+
+const STAR_KEYS = [
+  "width", "height", "centerX", "centerY", "points", "outerRadius", "innerRadius",
+  "rotationDegrees", "fill", "stroke", "strokeWidth", "strokeJoin",
+];
+const RING_KEYS = ["width", "height", "centerX", "centerY", "radius", "strokeWidth", "stroke"];
 
 function plainObject(value, location) {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
@@ -275,6 +341,14 @@ function normalizeParameters(operation, value) {
       fill: fill(parameters.fill),
     };
   }
+  if (operation.id === "vector.procedural.star" || operation.id === "vector.procedural.ring") {
+    const keys = operation.id === "vector.procedural.star" ? STAR_KEYS : RING_KEYS;
+    const parameters = exactKeys(value, keys, `${operation.id} parameters`);
+    const normalized = Object.fromEntries(keys.map((key) => [key, parameters[key]]));
+    // The generator owns geometry validation; running it here rejects bad geometry before a build identity exists.
+    generate(operation, normalized);
+    return normalized;
+  }
   throw new Error(`unsupported procedural shape operation '${operation.id}'`);
 }
 
@@ -291,6 +365,8 @@ function algorithm(operation) {
     "image.procedural.sdf.rounded-rect": "integer-euclidean-rounded-rect-sdf-v1",
     "vector.procedural.circle": "canonical-svg-circle-v1",
     "vector.procedural.rounded-rect": "canonical-svg-rounded-rect-v1",
+    "vector.procedural.star": "canonical-svg-star-polygon-3dp-v1",
+    "vector.procedural.ring": "canonical-svg-stroked-circle-ring-v1",
   };
   return values[operation.id];
 }
@@ -319,6 +395,8 @@ function generate(operation, parameters) {
   if (operation.id === "image.procedural.sdf.rounded-rect") return generateRoundedRectSdfRgba8(parameters);
   if (operation.id === "vector.procedural.circle") return generateCircleSvg(parameters);
   if (operation.id === "vector.procedural.rounded-rect") return generateRoundedRectSvg(parameters);
+  if (operation.id === "vector.procedural.star") return generateStarSvg(parameters);
+  if (operation.id === "vector.procedural.ring") return generateRingSvg(parameters);
   throw new Error(`unsupported procedural shape operation '${operation.id}'`);
 }
 
@@ -378,7 +456,10 @@ export const createProceduralRoundedRectSdfOperationBuildIdentity = buildFactory
 export const createProceduralCircleVectorOperationBuildIdentity = buildFactory(PROCEDURAL_CIRCLE_VECTOR_OPERATION);
 export const createProceduralRoundedRectVectorOperationBuildIdentity = buildFactory(PROCEDURAL_ROUNDED_RECT_VECTOR_OPERATION);
 
-export const executeProceduralCircleSdfOperation = executeFactory(
+export const createProceduralStarVectorOperationBuildIdentity = buildFactory(PROCEDURAL_STAR_VECTOR_OPERATION);
+export const createProceduralRingVectorOperationBuildIdentity = buildFactory(PROCEDURAL_RING_VECTOR_OPERATION);
+
+export const executeProceduralCircleSdfOperation =executeFactory(
   PROCEDURAL_CIRCLE_SDF_OPERATION,
   createProceduralCircleSdfOperationBuildIdentity,
 );
@@ -393,4 +474,12 @@ export const executeProceduralCircleVectorOperation = executeFactory(
 export const executeProceduralRoundedRectVectorOperation = executeFactory(
   PROCEDURAL_ROUNDED_RECT_VECTOR_OPERATION,
   createProceduralRoundedRectVectorOperationBuildIdentity,
+);
+export const executeProceduralStarVectorOperation = executeFactory(
+  PROCEDURAL_STAR_VECTOR_OPERATION,
+  createProceduralStarVectorOperationBuildIdentity,
+);
+export const executeProceduralRingVectorOperation = executeFactory(
+  PROCEDURAL_RING_VECTOR_OPERATION,
+  createProceduralRingVectorOperationBuildIdentity,
 );
