@@ -1,4 +1,4 @@
-"""Static self-contained core-glTF derivatives; invoke through the validated public recipe."""
+"""Self-contained core-glTF derivatives, static or at one declared clip time; invoke through the validated public recipe."""
 import math
 import sys
 import struct
@@ -36,8 +36,9 @@ def direction(value, label):
 def validate_arguments(arguments):
     keys = ("schemaVersion", "width", "height", "projection", "selection", "viewDirection", "padding",
             "lightDirection", "lightEnergy", "lightSize", "worldColor", "worldStrength", "background", "exposure", "samples", "seed")
-    if type(arguments) is dict and "framing" in arguments:
-        keys += ("framing",)
+    for optional in ("framing", "pose"):
+        if type(arguments) is dict and optional in arguments:
+            keys += (optional,)
     p = exact_object(arguments, keys, "render")
     if type(p["schemaVersion"]) is not int or p["schemaVersion"] != 1:
         raise ValueError("static render requires version 1")
@@ -71,12 +72,23 @@ def validate_arguments(arguments):
     if p["background"] not in ("transparent", "opaque"):
         raise ValueError("unsupported background")
     if "framing" in p:
-        framing = exact_object(p["framing"], ("type", "center", "horizontalSpan", "pivot"), "framing")
+        framing_keys = ("type", "center", "horizontalSpan", "pivot")
+        if type(p["framing"]) is dict and "overflow" in p["framing"]:
+            framing_keys += ("overflow",)
+        framing = exact_object(p["framing"], framing_keys, "framing")
+        if framing.get("overflow", "reject") not in ("reject", "crop"):
+            raise ValueError("unsupported framing.overflow")
         if framing["type"] != "shared-orthographic" or projection["type"] != "orthographic":
             raise ValueError("shared framing requires orthographic projection")
         vector(framing["center"], -100000, 100000, "framing.center")
         vector(framing["pivot"], -100000, 100000, "framing.pivot")
         bounded(framing["horizontalSpan"], 0.000001, 100000, "framing.horizontalSpan")
+    if "pose" in p:
+        pose = exact_object(p["pose"], ("clip", "timeSeconds"), "pose")
+        # Blender truncates data-block names beyond 63 UTF-8 bytes; longer clip names are not addressable.
+        if type(pose["clip"]) is not str or not 1 <= len(pose["clip"].encode("utf-8", errors="strict")) <= 63:
+            raise ValueError("invalid pose.clip")
+        bounded(pose["timeSeconds"], 0, 3600, "pose.timeSeconds")
     return p
 
 
@@ -156,8 +168,19 @@ def validate_source(source_path, parameters):
         raise ValueError("invalid source buffer padding")
     if len(scenes) != 1 or not nodes or len(nodes) > 4096 or not meshes:
         raise ValueError("render source exceeds scene/node budget")
-    if array("skins") or array("animations") or any("skin" in node for node in nodes):
+    pose = parameters.get("pose")
+    if pose is None and (array("skins") or array("animations") or any("skin" in node for node in nodes)):
         raise ValueError("render source must be static without skins or animations")
+    if pose is not None:
+        # Blender's importer and animation system evaluate the clip; this only checks its identity.
+        clips = [animation for animation in array("animations") if animation.get("name") == pose["clip"]]
+        if len(clips) != 1:
+            raise ValueError("pose.clip must name exactly one source animation")
+        channels = clips[0].get("channels")
+        if type(channels) is not list or not channels or any(
+                type(channel) is not dict or type(channel.get("target")) is not dict or
+                channel["target"].get("path") not in ("translation", "rotation", "scale") for channel in channels):
+            raise ValueError("pose clip may animate only node translation, rotation and scale")
     for view in views:
         if view.get("buffer") != 0:
             raise ValueError("invalid source buffer view")
@@ -284,11 +307,42 @@ def generate(output_path, arguments, inputs):
     extension_addon = bpy.context.preferences.addons.new()
     extension_addon.module = extension_name
     try:
-        bpy.ops.import_scene.gltf(filepath=inputs["source"])
+        # Bone display shapes would otherwise import as renderable meshes.
+        bpy.ops.import_scene.gltf(filepath=inputs["source"], disable_bone_shape=True)
     finally:
         bpy.context.preferences.addons.remove(extension_addon)
         del sys.modules[extension_name]
-    meshes = [obj for obj in bpy.context.scene.objects if obj.type == "MESH"]
+    scene = bpy.context.scene
+    pose = p.get("pose")
+    pose_frame = None
+    if pose:
+        # Blender's importer creates one action per glTF animation, with one slot per animated object,
+        # and stashes it in muted NLA tracks whose strips are retimed to the scene start. Assign the
+        # declared clip's action and slot directly so its keys stay at their source times; objects
+        # the clip does not animate keep their static node TRS.
+        clip_action = bpy.data.actions.get(pose["clip"])
+        if clip_action is None:
+            raise ValueError("declared pose clip was not imported")
+        driven = 0
+        for obj in scene.objects:
+            data = obj.animation_data
+            if data is None:
+                continue
+            slots = [strip.action_slot for track in data.nla_tracks for strip in track.strips if strip.action == clip_action]
+            for track in data.nla_tracks:
+                track.mute = True
+            data.action = None
+            if slots:
+                data.action = clip_action
+                data.action_slot = slots[0]
+                driven += 1
+        if driven == 0:
+            raise ValueError("declared pose clip drives no imported object")
+        # The importer keys glTF seconds at seconds * fps * fps_base frames.
+        pose_frame = pose["timeSeconds"] * scene.render.fps * scene.render.fps_base
+        scene.frame_set(int(math.floor(pose_frame)), subframe=pose_frame - math.floor(pose_frame))
+        bpy.context.view_layer.update()
+    meshes = [obj for obj in scene.objects if obj.type == "MESH"]
     selection = p["selection"]
     if selection["type"] == "nodes":
         names = selection["names"]
@@ -297,15 +351,20 @@ def generate(output_path, arguments, inputs):
         meshes = [imported_nodes[name][0] for name in names]
     elif selection["type"] != "scene":
         raise ValueError("unsupported selection")
-    if not meshes or any(obj.modifiers for obj in meshes):
-        raise ValueError("static render needs nonempty unmodified mesh geometry")
+    if not meshes or any(not pose or modifier.type != "ARMATURE" for obj in meshes for modifier in obj.modifiers):
+        raise ValueError("render needs nonempty mesh geometry without non-skin modifiers")
     selected = set(meshes)
     for obj in list(bpy.context.scene.objects):
         # Retain imported hierarchy/transforms. Only selected meshes contribute pixels; source
         # cameras/lights are hidden so render settings never inherit ambient authoring state.
         if obj.type != "EMPTY" and obj not in selected:
             obj.hide_render = True
-    corners = [obj.matrix_world @ Vector(corner) for obj in meshes for corner in obj.bound_box]
+    if pose:
+        # Posed bounds come from Blender's evaluated skinned/animated geometry, not the rest mesh.
+        depsgraph = bpy.context.evaluated_depsgraph_get()
+        corners = [obj.matrix_world @ Vector(corner) for obj in (mesh.evaluated_get(depsgraph) for mesh in meshes) for corner in obj.bound_box]
+    else:
+        corners = [obj.matrix_world @ Vector(corner) for obj in meshes for corner in obj.bound_box]
     if not all(math.isfinite(component) for point in corners for component in point):
         raise ValueError("non-finite source bounds")
     low = Vector(tuple(min(point[axis] for point in corners) for axis in range(3)))
@@ -359,7 +418,6 @@ def generate(output_path, arguments, inputs):
     camera.location = center + direction * distance
     camera.data.clip_start = max(1e-8, min(diagonal, source_diagonal) * 1e-5)
     camera.data.clip_end = max(1, distance - min(point.z for point in local) + max(diagonal, source_diagonal) * 4) if framing else max(1, distance + diagonal * 4)
-    scene = bpy.context.scene
     scene.camera = camera
     scene.render.resolution_x = p["width"]
     scene.render.resolution_y = p["height"]
@@ -371,7 +429,8 @@ def generate(output_path, arguments, inputs):
         raise ValueError("camera framing puts source behind the near plane")
     projected_bounds = {"left": min(point.x for point in projected), "right": max(point.x for point in projected),
                         "top": 1 - max(point.y for point in projected), "bottom": 1 - min(point.y for point in projected)}
-    if min(projected_bounds["left"], projected_bounds["top"], 1 - projected_bounds["right"], 1 - projected_bounds["bottom"]) < p["padding"] - 1e-5:
+    cropped = min(projected_bounds["left"], projected_bounds["top"], 1 - projected_bounds["right"], 1 - projected_bounds["bottom"]) < p["padding"] - 1e-5
+    if cropped and (not framing or framing.get("overflow", "reject") != "crop"):
         raise ValueError("camera framing clips the declared padded bounds")
     pivot = {"x": p["width"] / 2, "y": p["height"] / 2}
     if framing:
@@ -440,4 +499,8 @@ def generate(output_path, arguments, inputs):
     if framing:
         observations["framing"] = {**framing, "coordinateSpace": "gltf-world-y-up",
                                    "worldUnitsPerPixel": framing["horizontalSpan"] / p["width"], "trimOffset": {"x": 0, "y": 0}}
+        if "overflow" in framing:
+            observations["framing"]["cropped"] = cropped
+    if pose:
+        observations["pose"] = {**pose, "frame": pose_frame, "framesPerSecond": scene.render.fps / scene.render.fps_base}
     return observations
