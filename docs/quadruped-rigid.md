@@ -28,6 +28,12 @@ Both GLBs are from [moenarch-games/zoo](https://github.com/moenarch-games/zoo) a
 
 The profile does not judge art. A walk whose legs rotate on the wrong axis still passes it, as the zebra's does; see [What the viewer shows](#what-the-viewer-shows).
 
+## The `biped-rigid` sibling
+
+Two-legged animals such as Zoo's flamingo and penguin use `biped-rigid` (`src/biped-rigid.ts`, owner answer on [#605](https://github.com/moritzbrantner/asset-tooling/issues/605)). It keeps every rule above and differs only in the joints: it requires `animal_root`, `body`, `head`, `tail`, `leg_0`, `leg_1`, `wing_left` and `wing_right`, and its `walk` must rotate the two legs. `quadruped-rigid` and its animals are unchanged.
+
+A family may package both kinds together: a member that names `profile: BIPED_RIGID` is checked against it at every stage, and its descriptor entry records `"profile": "biped-rigid"`. The descriptor's top-level `profile` stays `quadruped-rigid`, the family default; each entry's own `profile` is the one it passed.
+
 ## Packaging
 
 `packageQuadrupedRigidFamily` takes a family's pinned sources through the shared boundaries: the profile checks the source, `scene.import.gltf@2` imports it and the profile checks it again, a `gltf-resources-v1` bundle is exported and packed, and the profile checks the packaged glTF. The rig measurements must match at every stage. The build fails closed on any mismatch, and a rebuild packs byte-identical tars. Neither animal has textures, so there is no KTX2 step.
@@ -55,6 +61,6 @@ Open `viewer/?asset=zoo.zebra-glb` or `viewer/?asset=zoo.giraffe-glb` in the [ex
 ## Follow-up slices
 
 1. **Zoo runtime adoption** stays with [Zoo #112](https://github.com/moenarch-games/zoo/issues/112): load `zoo-animals`, decide whether to replace the sideways walk (a new or corrected source of the same animal, through this path), and meet its own guest-viewable exhibit acceptance.
-2. **More Zoo quadrupeds.** The elephant and capybara share this rig shape; each needs a catalog entry and a key in `ZOO_ANIMALS`. Check them against the profile first. The penguin and flamingo are bipeds, and do not fit this profile.
+2. **More Zoo quadrupeds.** The elephant and capybara share this rig shape; each needs a catalog entry and a key in `ZOO_ANIMALS`. Check them against the profile first. The penguin and flamingo are bipeds and use the `biped-rigid` sibling.
 3. **An MMORPG/ARPG creature** ([Atlas 6.6.20](decisions/atlas.md)) is a skinned rig with its own family-specific attacks and boss signature clips, so it needs its own validated profile. It may reuse this profile's bundle and clip conventions, but it is not delivered by this proof.
 4. **Mounted units and siege equipment** have separate rider composition and mechanical motion needs, and come much later.

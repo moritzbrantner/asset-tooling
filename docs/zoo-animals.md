@@ -188,5 +188,5 @@ They are evidence for the owner's review. Visual approval stays with the owner a
 
 - **The Pages animation viewer** plays catalog sources only (`viewer/?asset=<catalog id>`). The expressive animals are generated release members, not a catalog source, so the review images come from the bundle as described above. Loading release-bundle members in the viewer is a separate viewer change.
 - **Zoo adoption:** loading the `expressive` members, binding Rust activities to the clips, and desktop and phone acceptance belong to zoo#112 and zoo#142.
-- **More species:** each further species is its own issue and PR on this recipe, one at a time after the owner reviews the last. Two-legged animals such as the flamingo and penguin need a rig beyond `quadruped-rigid`.
+- **More species:** each further species is its own issue and PR on this recipe, one at a time after the owner reviews the last. Two-legged animals such as the flamingo and penguin use the sibling `biped-rigid` profile ([#605](https://github.com/moritzbrantner/asset-tooling/issues/605), [docs/quadruped-rigid.md](quadruped-rigid.md#the-biped-rigid-sibling)).
 - **Licence:** the expressive animals ship under the family's MIT notice (`Copyright (c) 2026 moritzbrantner`), the same owner and terms as Zoo's models. The owner should confirm this on #589.

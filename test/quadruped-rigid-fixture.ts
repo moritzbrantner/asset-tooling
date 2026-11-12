@@ -13,13 +13,15 @@ function box(document: Document, name: string, min: [number, number, number], ma
   return document.createMesh(name).addPrimitive(primitive);
 }
 
-export type QuadrupedOptions = { name?: string; legs?: readonly [string, string, string, string]; neck?: boolean; height?: number };
+export type QuadrupedOptions = { name?: string; legs?: readonly string[]; neck?: boolean; wings?: boolean; height?: number };
 export type Quadruped = { document: Document; nodes: Map<string, Node>; rootNode: Node };
 
 const LEG_LAYOUT = [[-0.4, 0.2], [-0.4, -0.2], [0.4, 0.2], [0.4, -0.2]] as const;
+const BIPED_LEG_LAYOUT = [[0, 0.1], [0, -0.1]] as const;
 
-/** A grounded four-legged rig with the required joints and the two required clips, at y = 0 and centred on the origin. */
-export function quadruped({ name = "test-animal", legs = ["leg_0", "leg_1", "leg_2", "leg_3"], neck = false, height = 0.6 }: QuadrupedOptions = {}): Quadruped {
+/** A grounded rig (four legs, or two legs and `wings` for biped-rigid) with the required joints and the two required clips, at y = 0 and centred on the origin. */
+export function quadruped({ name = "test-animal", legs = ["leg_0", "leg_1", "leg_2", "leg_3"], neck = false, wings = false, height = 0.6 }: QuadrupedOptions = {}): Quadruped {
+  const layout = legs.length === 2 ? BIPED_LEG_LAYOUT : LEG_LAYOUT;
   const document = new Document();
   document.createBuffer();
   const nodes = new Map<string, Node>();
@@ -36,7 +38,10 @@ export function quadruped({ name = "test-animal", legs = ["leg_0", "leg_1", "leg
   const head = neck ? add("neck", rootNode, [0.5, height, 0], box(document, "neck", [-0.05, 0, -0.05], [0.05, 0.5, 0.05])) : null;
   add("head", head ?? rootNode, head ? [0, 0.5, 0] : [0.6, height, 0], box(document, "head", [0, -0.1, -0.1], [0.2, 0.1, 0.1]));
   add("tail", rootNode, [-0.55, height, 0], box(document, "tail", [-0.2, -0.01, -0.01], [0, 0.01, 0.01]));
-  legs.forEach((leg, index) => add(leg, rootNode, [LEG_LAYOUT[index]![0], height, LEG_LAYOUT[index]![1]], box(document, leg, [-0.05, -height, -0.05], [0.05, 0, 0.05])));
+  legs.forEach((leg, index) => add(leg, rootNode, [layout[index]![0], height, layout[index]![1]], box(document, leg, [-0.05, -height, -0.05], [0.05, 0, 0.05])));
+  if (wings) for (const [wing, side] of [["wing_left", 1], ["wing_right", -1]] as const) {
+    add(wing, rootNode, [0.2, height + 0.1, 0.15 * side], box(document, wing, [-0.4, -0.08, side > 0 ? 0 : -0.02], [0, 0, side > 0 ? 0.02 : 0]));
+  }
 
   const key = document.createAccessor().setType("SCALAR").setArray(new Float32Array([0, 0.5, 1])).setBuffer(document.getRoot().listBuffers()[0]!);
   const channel = (node: string, channelPath: "translation" | "rotation", values: number[]) => {
