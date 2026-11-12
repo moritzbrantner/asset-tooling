@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://moritzbrantner.github.io/asset-tooling/schemas/reward-effects-descriptor-v1.schema.json",
+  "title": "asset-tooling reward effects descriptor v1",
+  "description": "Layout of the baked reward-feedback flipbooks for ui's Pop/Pulse components (docs/reward-effects.md). Each strip is a straight-alpha sRGB PNG whose RGB is white everywhere, an alpha mask the consumer tints with its own theme tokens. Frames run left to right in columns x rows cells and play once; the last frame is blank. The consumer owns timing, motion, particle count and lifecycle, and draws nothing under reduced motion.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "consumer", "tint", "playback", "reducedMotion", "effects"],
+  "properties": {
+    "schema": { "const": "reward-effects-descriptor-v1" },
+    "consumer": { "const": "ui Pop/Pulse reward feedback" },
+    "tint": { "const": "alpha-mask" },
+    "playback": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["loop", "frameTime", "lastFrame"],
+      "properties": {
+        "loop": { "const": false },
+        "frameTime": { "const": "(k + 0.5) / frameCount" },
+        "lastFrame": { "const": "blank" }
+      }
+    },
+    "reducedMotion": { "const": "omit" },
+    "effects": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/effect" } }
+  },
+  "$defs": {
+    "rgb": { "type": "array", "items": { "type": "integer" }, "minItems": 3, "maxItems": 3 },
+    "atlas": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["width", "height", "columns", "rows", "frameCount", "filter", "cell", "colorSpace", "alpha", "rowOrder", "transparentRgb"],
+      "properties": {
+        "width": { "type": "integer" },
+        "height": { "type": "integer" },
+        "columns": { "type": "integer" },
+        "rows": { "type": "integer" },
+        "frameCount": { "type": "integer" },
+        "filter": { "enum": ["linear", "nearest"] },
+        "cell": { "type": "integer" },
+        "colorSpace": { "const": "srgb" },
+        "alpha": { "const": "straight" },
+        "rowOrder": { "const": "top-first" },
+        "transparentRgb": { "$ref": "#/$defs/rgb" }
+      }
+    },
+    "effect": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "variant", "role", "description", "atlas", "png", "cssSize"],
+      "properties": {
+        "key": { "type": "string", "pattern": "^[a-z][a-z0-9-]*\\.flipbook$" },
+        "variant": { "enum": ["subtle", "strong"] },
+        "role": { "enum": ["sparkle", "ring", "burst", "confetti"] },
+        "description": { "type": "string" },
+        "atlas": { "$ref": "#/$defs/atlas" },
+        "png": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["sha256", "byteLength"],
+          "properties": { "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }, "byteLength": { "type": "integer" } }
+        },
+        "cssSize": { "type": "integer" }
+      }
+    }
+  }
+}
