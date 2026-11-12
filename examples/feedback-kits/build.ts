@@ -13,7 +13,7 @@ import {writeIfChanged} from "../reconcile-file.js";
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),"../.."),directory=path.join(root,".artifacts/feedback-kits");
 const cold=await mkdtemp(path.join(tmpdir(),"feedback-kits-example-"));
 try {
- for(const preset of [FEEDBACK_KIT_PRESETS.uiReward,FEEDBACK_KIT_PRESETS.harvest]) {
+ for(const preset of Object.values(FEEDBACK_KIT_PRESETS)) {
   const result=await executeFeedbackKitRecipe(root,preset);
   assert.deepEqual(await executeFeedbackKitRecipe(cold,preset),result);
   const output=path.join(directory,preset.kit);await mkdir(output,{recursive:true});

@@ -5,11 +5,11 @@ import { RGBA8_IMAGE_MEDIA_TYPE } from "./image-rgba8.js";
 import { CANONICAL_AUDIO_MEDIA_TYPE } from "./audio.js";
 import { SPRITE_ATLAS_MEDIA_TYPE } from "./sprite-atlas-operations.js";
 import { createAssetRef, parseAssetRef, type AssetRef, type AssetOperationBuildIdentity } from "./operations.js";
-import { APPROVED_IMAGE_BUNDLE_PROFILE, ASSET_BUNDLE_MEDIA_TYPE, AUDIO_BUNDLE_PROFILE, GLTF_RESOURCES_BUNDLE_ALLOWED_VALIDATOR_WARNINGS, GLTF_RESOURCES_BUNDLE_PROFILE,
+import { APPROVED_IMAGE_BUNDLE_PROFILE, ASSET_BUNDLE_MEDIA_TYPE, AUDIO_BUNDLE_PROFILE, GLTF_RESOURCES_BUNDLE_ALLOWED_VALIDATOR_WARNINGS, GLTF_RESOURCES_BUNDLE_PROFILE, PNG_WAV_BUNDLE_PROFILE,
   GLTF_RESOURCE_EXTENSIONS, MAX_ASSET_BYTES, MAX_ASSETS, MAX_ATTACHMENTS, MAX_BUNDLE_BYTES, MAX_MANIFEST_BYTES, MAX_SCENE_RESOURCES, SPRITE_ATLAS_BUNDLE_PROFILE, STATIC_ASSET_BUNDLE_PROFILE,
   type AnyAssetBundleManifest, type ApprovedBundleAssetSelection, type ApprovedImageBundleEntry, type ApprovedImageBundleManifest, type AssetBundleEntry, type AssetBundleManifest,
   type AudioBundleManifest, type BundleAssetSelection, type BundleProfile, type BundleResource, type GltfBundleAttachment, type GltfBundleResource, type GltfResourcesBundleEntry,
-  type GltfResourcesBundleManifest, type SpriteAtlasBundleEntry, type SpriteAtlasBundleManifest } from "./asset-bundle-contract.js";
+  type GltfResourcesBundleManifest, type PngWavBundleManifest, type SpriteAtlasBundleEntry, type SpriteAtlasBundleManifest } from "./asset-bundle-contract.js";
 
 export function object(value:unknown,keys:string[],name:string):Record<string,unknown> {
   if(!value || typeof value!=="object" || Array.isArray(value) || ![Object.prototype,null].includes(Object.getPrototypeOf(value))) throw new Error(`${name} must be a plain object`);
@@ -59,13 +59,14 @@ export function assetPath(source:AssetRef,profile:BundleProfile=STATIC_ASSET_BUN
    case APPROVED_IMAGE_BUNDLE_PROFILE:
     if(source.mediaType==="image/png" && source.kind==="image") return `assets/${source.sha256}.png`;
     throw new Error(`asset kind/media type '${source.kind}/${source.mediaType}' is incompatible with ${APPROVED_IMAGE_BUNDLE_PROFILE}`);
-   case AUDIO_BUNDLE_PROFILE:
+   case AUDIO_BUNDLE_PROFILE: case PNG_WAV_BUNDLE_PROFILE:
     if(source.mediaType===CANONICAL_AUDIO_MEDIA_TYPE && source.kind==="audio") return `assets/${source.sha256}.wav`;
+    if(profile===PNG_WAV_BUNDLE_PROFILE && source.mediaType==="image/png" && source.kind==="image") return `assets/${source.sha256}.png`;
     if(source.mediaType==="application/json") {
       if(source.byteLength>MAX_MANIFEST_BYTES) throw new Error("bundle JSON descriptor exceeds 8 MiB byte budget");
       return `assets/${source.sha256}.json`;
     }
-    throw new Error(`asset kind/media type '${source.kind}/${source.mediaType}' is incompatible with ${AUDIO_BUNDLE_PROFILE}`);
+    throw new Error(`asset kind/media type '${source.kind}/${source.mediaType}' is incompatible with ${profile}`);
    case GLTF_RESOURCES_BUNDLE_PROFILE: throw new Error(`${GLTF_RESOURCES_BUNDLE_PROFILE} paths are scene, resource and attachment specific`);
    default: return unreachable(profile);
   }
@@ -110,7 +111,7 @@ export function parseSpriteAtlasBundleManifest(bytes:Uint8Array):SpriteAtlasBund
 export function parseApprovedImageBundleManifest(bytes:Uint8Array):ApprovedImageBundleManifest { return parseApprovedBundle(manifestJson(bytes)); }
 export function parseAnyAssetBundleManifest(bytes:Uint8Array):AnyAssetBundleManifest {
   const raw=manifestJson(bytes),version=raw && typeof raw==="object" && "schemaVersion" in raw ? raw.schemaVersion : undefined;
-  return version===2 ? parseAtlasBundle(raw) : version===3 ? parseApprovedBundle(raw) : version===4 ? parseGltfResourcesBundle(raw) : version===5 ? parseAudioBundle(raw) : parseStaticBundle(raw);
+  return version===2 ? parseAtlasBundle(raw) : version===3 ? parseApprovedBundle(raw) : version===4 ? parseGltfResourcesBundle(raw) : version===5 ? parseAudioBundle(raw) : version===6 ? parsePngWavBundle(raw) : parseStaticBundle(raw);
 }
 const APPROVED_ENTRY_FIELDS=["key","variant","approved","source","path"];
 function parseApprovedBundle(raw:unknown):ApprovedImageBundleManifest {
@@ -131,8 +132,11 @@ function parseStaticBundle(raw:unknown):AssetBundleManifest { return {schemaVers
 /** Parse an audio-wav-v1 (schemaVersion 5) manifest. */
 export function parseAudioBundleManifest(bytes:Uint8Array):AudioBundleManifest { return parseAudioBundle(manifestJson(bytes)); }
 function parseAudioBundle(raw:unknown):AudioBundleManifest { return {schemaVersion:5,profile:AUDIO_BUNDLE_PROFILE,assets:parseFlatEntries(raw,5,AUDIO_BUNDLE_PROFILE)}; }
-/** The {key, variant, source, path} entries shared by static-glb-png-v1 and audio-wav-v1. */
-function parseFlatEntries(raw:unknown,schemaVersion:1|5,profile:typeof STATIC_ASSET_BUNDLE_PROFILE|typeof AUDIO_BUNDLE_PROFILE):AssetBundleEntry[] {
+/** Parse a png-wav-v1 (schemaVersion 6) manifest. */
+export function parsePngWavBundleManifest(bytes:Uint8Array):PngWavBundleManifest { return parsePngWavBundle(manifestJson(bytes)); }
+function parsePngWavBundle(raw:unknown):PngWavBundleManifest { return {schemaVersion:6,profile:PNG_WAV_BUNDLE_PROFILE,assets:parseFlatEntries(raw,6,PNG_WAV_BUNDLE_PROFILE)}; }
+/** The {key, variant, source, path} entries shared by static-glb-png-v1, audio-wav-v1 and png-wav-v1. */
+function parseFlatEntries(raw:unknown,schemaVersion:1|5|6,profile:typeof STATIC_ASSET_BUNDLE_PROFILE|typeof AUDIO_BUNDLE_PROFILE|typeof PNG_WAV_BUNDLE_PROFILE):AssetBundleEntry[] {
   const p=object(raw,["schemaVersion","profile","assets"],"bundle manifest");
   if(p.schemaVersion!==schemaVersion || p.profile!==profile || !Array.isArray(p.assets)) throw new Error("unsupported bundle manifest schema/profile");
   const selected=selections(p.assets.map((entry,index)=>{const e=object(entry,["key","variant","source","path"],`bundle entry[${index}]`);return {key:e.key,variant:e.variant};}));
@@ -168,7 +172,7 @@ export async function storeManifest(root:string,prepared:{bytes:Buffer;manifest:
 export function bundleResources(manifest:AnyAssetBundleManifest):BundleResource[] {
   switch(manifest.schemaVersion) {
     case 4: return [];
-    case 1: case 3: case 5: return manifest.assets;
+    case 1: case 3: case 5: case 6: return manifest.assets;
     case 2: return [...manifest.assets,...manifest.assets.map(e=>e.image),...manifest.resources];
     default: return unreachable(manifest);
   }

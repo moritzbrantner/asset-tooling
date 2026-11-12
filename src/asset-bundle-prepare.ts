@@ -9,12 +9,12 @@ import { sha256Bytes } from "./hash.js";
 import { captureToolIdentity } from "./tool.js";
 import { RGBA8_IMAGE_MEDIA_TYPE } from "./image-rgba8.js";
 import { createAssetOperationBuildIdentity, createAssetRef, type AssetRef } from "./operations.js";
-import { APPROVED_IMAGE_BUNDLE_OPERATION, APPROVED_IMAGE_BUNDLE_PROFILE, ASSET_BUNDLE_OPERATION, AUDIO_BUNDLE_OPERATION, AUDIO_BUNDLE_PROFILE, SPRITE_ATLAS_BUNDLE_OPERATION, SPRITE_ATLAS_BUNDLE_PROFILE, STATIC_ASSET_BUNDLE_PROFILE,
-  type ApprovedImageBundleEntry, type ApprovedImageBundleManifest, type ApprovedImageBundleParameters, type AssetBundleManifest, type AssetBundleParameters, type AudioBundleManifest,
+import { APPROVED_IMAGE_BUNDLE_OPERATION, APPROVED_IMAGE_BUNDLE_PROFILE, ASSET_BUNDLE_OPERATION, AUDIO_BUNDLE_OPERATION, AUDIO_BUNDLE_PROFILE, PNG_WAV_BUNDLE_OPERATION, PNG_WAV_BUNDLE_PROFILE, SPRITE_ATLAS_BUNDLE_OPERATION, SPRITE_ATLAS_BUNDLE_PROFILE, STATIC_ASSET_BUNDLE_PROFILE,
+  type ApprovedImageBundleEntry, type ApprovedImageBundleManifest, type ApprovedImageBundleParameters, type AssetBundleManifest, type AssetBundleParameters, type AudioBundleManifest, type PngWavBundleManifest,
   type BundleAssetSelection, type BundleResource, type Invocation, type SpriteAtlasBundleEntry, type SpriteAtlasBundleManifest } from "./asset-bundle-contract.js";
 import { assertAbsolute } from "./asset-bundle-files.js";
 import { gltfResourcesParameters, isGltfResourcesProfile, prepareGltfResources } from "./asset-bundle-gltf.js";
-import { approvedSelections, assetPath, BundleBudget, checkBudget, compareEntries, object, parseApprovedImageBundleManifest, parseAssetBundleManifest, parseAudioBundleManifest, parseSpriteAtlasBundleManifest, selections, unreachable } from "./asset-bundle-manifest.js";
+import { approvedSelections, assetPath, BundleBudget, checkBudget, compareEntries, object, parseApprovedImageBundleManifest, parseAssetBundleManifest, parseAudioBundleManifest, parsePngWavBundleManifest, parseSpriteAtlasBundleManifest, selections, unreachable } from "./asset-bundle-manifest.js";
 import { checkAtlas, uniqueResources, validatePayload, type ReadResource } from "./asset-bundle-payload.js";
 
 function approvedParameters(value:unknown):ApprovedImageBundleParameters {
@@ -34,9 +34,10 @@ export async function prepare(root:string,invocation:Invocation,signal?:AbortSig
   signal?.throwIfAborted();assertAbsolute(root);
   if(isApprovedProfile(invocation.parameters)) return prepareApproved(root,approvedParameters(invocation.parameters),invocation.inputs,signal);
   if(isGltfResourcesProfile(invocation.parameters)) return prepareGltfResources(root,gltfResourcesParameters(invocation.parameters),invocation.inputs,signal);
-  if(isAudioProfile(invocation.parameters)) {
-    const p=object(invocation.parameters,["profile","assets"],"audio bundle parameters");
-    return prepareFlat(root,AUDIO_BUNDLE_PROFILE,selections(p.assets),invocation.inputs,signal);
+  const media=mediaProfile(invocation.parameters);
+  if(media) {
+    const p=object(invocation.parameters,["profile","assets"],"media bundle parameters");
+    return prepareFlat(root,media,selections(p.assets),invocation.inputs,signal);
   }
   const p=parameters(invocation.parameters);
   switch(p.profile) {
@@ -45,11 +46,13 @@ export async function prepare(root:string,invocation:Invocation,signal?:AbortSig
     default: return unreachable(p.profile);
   }
 }
-function isAudioProfile(value:unknown):boolean {
-  return !!value && typeof value==="object" && !Array.isArray(value) && (value as Record<string,unknown>).profile===AUDIO_BUNDLE_PROFILE;
+type MediaProfile=typeof AUDIO_BUNDLE_PROFILE|typeof PNG_WAV_BUNDLE_PROFILE;
+function mediaProfile(value:unknown):MediaProfile|undefined {
+  const profile=!!value && typeof value==="object" && !Array.isArray(value) ? (value as Record<string,unknown>).profile : undefined;
+  return profile===AUDIO_BUNDLE_PROFILE || profile===PNG_WAV_BUNDLE_PROFILE ? profile : undefined;
 }
-/** static-glb-png-v1 (asset.bundle@1) and audio-wav-v1 (asset.bundle@5): one hash-addressed file per selection. */
-async function prepareFlat(root:string,profile:typeof STATIC_ASSET_BUNDLE_PROFILE|typeof AUDIO_BUNDLE_PROFILE,chosen:BundleAssetSelection[],value:unknown,signal?:AbortSignal) {
+/** static-glb-png-v1 (asset.bundle@1), audio-wav-v1 (asset.bundle@5) and png-wav-v1 (asset.bundle@6): one hash-addressed file per selection. */
+async function prepareFlat(root:string,profile:typeof STATIC_ASSET_BUNDLE_PROFILE|MediaProfile,chosen:BundleAssetSelection[],value:unknown,signal?:AbortSignal) {
   const inputs=object(value,["assets"],"bundle inputs");
   if(!Array.isArray(inputs.assets) || inputs.assets.length!==chosen.length) throw new Error("one source AssetRef is required for each bundle selection");
   const refs=inputs.assets.map(createAssetRef),entries=chosen.map((entry,index)=>({ ...entry,source:refs[index]!,path:assetPath(refs[index]!,profile) })).sort(compareEntries);
@@ -58,13 +61,22 @@ async function prepareFlat(root:string,profile:typeof STATIC_ASSET_BUNDLE_PROFIL
   for(const entry of entries) if(!blobs.has(entry.path)) {
     signal?.throwIfAborted();const bytes=await resolveAssetObject(root,entry.source);await validatePayload(entry.source,bytes);signal?.throwIfAborted();blobs.set(entry.path,{source:entry.source,bytes});
   }
-  const audio=profile===AUDIO_BUNDLE_PROFILE;
-  const build=createAssetOperationBuildIdentity({operation:audio?AUDIO_BUNDLE_OPERATION:ASSET_BUNDLE_OPERATION,parameters:{profile,assets:entries.map(({key,variant})=>({key,variant}))},
-    inputs:{assets:entries.map(entry=>entry.source)},implementation:audio
-      ?{id:"builtin.asset.bundle",version:"5",profile,dependencyLockSha256:await readDependencyLockSha256(),tool:await captureToolIdentity()}
-      :{id:"builtin.asset.bundle",version:"1",profile,gltfTransform:VERSION,validator:validatorVersion(),dependencyLockSha256:await readDependencyLockSha256(),tool:await captureToolIdentity()}});
-  const manifest:AssetBundleManifest|AudioBundleManifest=audio?{schemaVersion:5,profile:AUDIO_BUNDLE_PROFILE,assets:entries}:{schemaVersion:1,profile:STATIC_ASSET_BUNDLE_PROFILE,assets:entries};
-  const bytes=Buffer.from(`${canonicalJson(manifest)}\n`);if(audio) parseAudioBundleManifest(bytes); else parseAssetBundleManifest(bytes);
+  const parameters={profile,assets:entries.map(({key,variant})=>({key,variant}))},sources={assets:entries.map(entry=>entry.source)};
+  const dependencyLockSha256=await readDependencyLockSha256(),tool=await captureToolIdentity();
+  const media=(operation:typeof AUDIO_BUNDLE_OPERATION,version:string)=>createAssetOperationBuildIdentity({operation,parameters,inputs:sources,
+    implementation:{id:"builtin.asset.bundle",version,profile,dependencyLockSha256,tool}});
+  let build,manifest:AssetBundleManifest|AudioBundleManifest|PngWavBundleManifest;
+  switch(profile) {
+   case AUDIO_BUNDLE_PROFILE: build=media(AUDIO_BUNDLE_OPERATION,"5");manifest={schemaVersion:5,profile,assets:entries};break;
+   case PNG_WAV_BUNDLE_PROFILE: build=media(PNG_WAV_BUNDLE_OPERATION,"6");manifest={schemaVersion:6,profile,assets:entries};break;
+   case STATIC_ASSET_BUNDLE_PROFILE:
+    build=createAssetOperationBuildIdentity({operation:ASSET_BUNDLE_OPERATION,parameters,inputs:sources,
+      implementation:{id:"builtin.asset.bundle",version:"1",profile,gltfTransform:VERSION,validator:validatorVersion(),dependencyLockSha256,tool}});
+    manifest={schemaVersion:1,profile,assets:entries};break;
+   default: return unreachable(profile);
+  }
+  const bytes=Buffer.from(`${canonicalJson(manifest)}\n`);
+  if(manifest.schemaVersion===5) parseAudioBundleManifest(bytes); else if(manifest.schemaVersion===6) parsePngWavBundleManifest(bytes); else parseAssetBundleManifest(bytes);
   return {build,manifest,bytes,blobs};
 }
 async function prepareAtlas(root:string,p:AssetBundleParameters,value:unknown,signal?:AbortSignal) {
