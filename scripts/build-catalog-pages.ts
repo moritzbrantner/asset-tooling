@@ -11,6 +11,7 @@ import { renderAnimationViewerHtml, renderRangerComparisonHtml } from "../src/an
 import { writeRangerComparisonData } from "../src/ranger-comparison.js";
 import { renderYoungResidentsHtml, writeYoungResidentsData } from "../src/young-residents-page.js";
 import { writeSurfaceTrialPage } from "../src/surface-trial-page.js";
+import { writeTextureWorkbenchPage } from "../src/texture-workbench-page.js";
 import { attachGeneratedGalleryPreviews, extendCatalogGalleryModel } from "../src/generated-gallery-assets.js";
 
 const root = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
@@ -157,6 +158,9 @@ if (!youngBuild.success) {
   throw new Error("young residents bundle failed:\n" + youngBuild.logs.map((entry) => entry.message).join("\n"));
 }
 
+// Texture workbench (#127): one tileable surface recipe with exact controls, previewed with the recipe's own kernels.
+await writeTextureWorkbenchPage({ repositoryRoot: root, outDir: path.join(outputRoot, "workbench", "texture") });
+
 // Limestone surface trial (#567): baked versus layered rocks. Without both tars the page shows the committed results.
 const surfaceTrial = await writeSurfaceTrialPage({
   repositoryRoot: root, outDir: path.join(outputRoot, "compare", "limestone-surface"),
@@ -172,5 +176,6 @@ console.log(JSON.stringify({
   detailPages: galleryModel.assets.length,
   browser3DStudio: true,
   animationViewer: true,
+  textureWorkbench: true,
   output: "dist/pages",
 }));
