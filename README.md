@@ -70,7 +70,7 @@ The [toy-like farm structures](docs/farm-structures.md) are a scripted Blender r
 
 The [expressive Zoo animals](docs/zoo-animals.md) are a scripted Blender recipe for cartoon rigid-part animals, starting with a striped zebra with idle, walk, feed and rest clips, released in `zoo-animals` beside Zoo's own models.
 
-The [toy zoo scenery](docs/zoo-scenery.md) is a scripted Blender recipe for Zoo: flat-colour, untextured round and pine trees, a berry bush and round, angular and flat rocks, each fitting one 1 m tile.
+The [toy zoo scenery](docs/zoo-scenery.md) is a scripted Blender recipe for Zoo: flat-colour, untextured round and pine trees, a berry bush and round, angular and flat rocks, each fitting one 1 m tile, plus the park pieces: wood, steel and boundary fences, a service gate, a bench, two signs and pond rim stones and reeds.
 
 The [Zoo particle flipbooks](docs/zoo-effects.md) are baked 16-frame dust, leaf and splash atlases with matching `BurstPreset`s for 3d-lab's seeded bursts, from a deterministic 2D recipe.
 

@@ -3,7 +3,7 @@
 //   ASSET_TOOLING_BLENDER=<blender 5.2.2> bun scripts/build-zoo-scenery.ts --out <directory>
 // Each piece is one external.blender.script@1 run, checked through scene.import.gltf@2. The GLBs are exported
 // as the self-contained static-glb-png-v1 package (the farm-structures format), packed to
-// <directory>/zoo-scenery.tar (+ .sha256), next to the measured zoo-scenery-descriptor-v1
+// <directory>/zoo-scenery.tar (+ .sha256), next to the measured zoo-scenery-descriptor-v2
 // (<directory>/zoo-scenery.descriptor.json), lineage.json and export.ref.json.
 import path from "node:path";
 import { mkdir, writeFile } from "node:fs/promises";
@@ -14,15 +14,20 @@ import { readBlenderRecipeSource } from "../src/blender-recipe-source.js";
 import { canonicalJson } from "../src/canonical.js";
 import { buildKitPart, documentBounds, exportKitBundle, runKitCli, triangles, type KitPart } from "../src/kit-bundle.js";
 
-export type ZooSceneryKind = "tree" | "bush" | "grass" | "rock";
+export type ZooSceneryKind = "tree" | "bush" | "grass" | "rock" | "fence" | "gate" | "bench" | "sign" | "pond";
 export type ZooSceneryPiece = { kind: ZooSceneryKind; variant: string };
 /** Logical keys `<kind>.mesh`; the first variant of each kind is its default. */
 export const ZOO_SCENERY_PIECES: readonly ZooSceneryPiece[] = [
   { kind: "tree", variant: "round" }, { kind: "tree", variant: "pine" }, { kind: "tree", variant: "acacia" }, { kind: "bush", variant: "round" },
   { kind: "grass", variant: "tuft" }, { kind: "rock", variant: "round" }, { kind: "rock", variant: "boulder" },
   { kind: "rock", variant: "flat" },
+  // Park pieces (#625): fence and gate pieces span one tile edge along X; the full posts close ends and corners.
+  { kind: "fence", variant: "wood" }, { kind: "fence", variant: "steel" }, { kind: "fence", variant: "boundary" },
+  { kind: "fence", variant: "post-wood" }, { kind: "fence", variant: "post-steel" }, { kind: "fence", variant: "post-boundary" },
+  { kind: "gate", variant: "service" }, { kind: "bench", variant: "park" }, { kind: "sign", variant: "education" },
+  { kind: "sign", variant: "post" }, { kind: "pond", variant: "edge" }, { kind: "pond", variant: "corner" }, { kind: "pond", variant: "reeds" },
 ];
-export const ZOO_DESCRIPTOR_SCHEMA = "zoo-scenery-descriptor-v1";
+export const ZOO_DESCRIPTOR_SCHEMA = "zoo-scenery-descriptor-v2";
 export const ZOO_DESCRIPTOR_FILE = "zoo-scenery.descriptor.json";
 /** One rolling release (Atlas Decision 7.1.5), never numbered. */
 export const ZOO_RELEASE = "zoo-scenery";

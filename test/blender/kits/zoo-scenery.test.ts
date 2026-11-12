@@ -13,7 +13,7 @@ import {
   ZOO_DESCRIPTOR_SCHEMA, ZOO_FOOTPRINT, ZOO_RELEASE, ZOO_SCENERY_PIECES, buildZooScenery, createZooSceneryAssetSpec, zooMeshKey,
 } from "../../../scripts/build-zoo-scenery.ts";
 
-const schemaUrl = new URL("../../../schemas/zoo-scenery-descriptor-v1.schema.json", import.meta.url);
+const schemaUrl = new URL("../../../schemas/zoo-scenery-descriptor-v2.schema.json", import.meta.url);
 
 /** The subset of JSON Schema the descriptor schema uses: const, enum, type, pattern, required, additionalProperties, items, $ref. */
 function conforms(schema: any, value: any, root: any, at = "$"): string[] {
@@ -43,11 +43,11 @@ test("the zoo-scenery spec runs the packaged recipe with exactly one piece", () 
   const spec = createZooSceneryAssetSpec({ piece: { kind: "tree", variant: "pine" }, scriptSha256: "a".repeat(64), blenderVersion: "5.2.2" });
   assert.deepEqual(spec.parameters, { blenderVersion: "5.2.2", arguments: { schemaVersion: 1, kind: "tree", variant: "pine" } });
   assert.equal(spec.assetId, "zoo.tree.pine");
-  assert.deepEqual([...new Set(ZOO_SCENERY_PIECES.map((p) => zooMeshKey(p.kind)))].sort(), ["bush.mesh", "grass.mesh", "rock.mesh", "tree.mesh"]);
+  assert.deepEqual([...new Set(ZOO_SCENERY_PIECES.map((p) => zooMeshKey(p.kind)))].sort(), ["bench.mesh", "bush.mesh", "fence.mesh", "gate.mesh", "grass.mesh", "pond.mesh", "rock.mesh", "sign.mesh", "tree.mesh"]);
   assert.equal(ZOO_RELEASE, "zoo-scenery", "one rolling release, never numbered");
 });
 
-test("the zoo-scenery-descriptor-v1 schema names the descriptor and its keys", async () => {
+test("the zoo-scenery-descriptor-v2 schema names the descriptor and its keys", async () => {
   const schema = JSON.parse(await readFile(schemaUrl, "utf8"));
   assert.equal(schema.properties.schema.const, ZOO_DESCRIPTOR_SCHEMA);
   const key = new RegExp(schema.$defs.asset.properties.key.pattern);
@@ -81,15 +81,54 @@ test("the zoo recipe builds a verified, reproducible package of grounded, untext
     const d = JSON.parse(await readFile(built.descriptorPath, "utf8"));
     const schema = JSON.parse(await readFile(schemaUrl, "utf8"));
     assert.deepEqual(conforms(schema, d, schema), []);
+    const natural = new Set(["tree", "bush", "grass", "rock"]);
     for (const asset of d.assets) {
       const id = `${asset.role}/${asset.variant}`;
       assert.equal(asset.bounds.min[1], 0, `${id} stands on y = 0`);
       for (const k of [0, 2]) assert.ok(Math.abs(asset.bounds.min[k] + asset.bounds.max[k]) < 0.15, `${id} is centred on the footprint`);
       // Only the acacia's flat crown may overhang its tile, by a little.
       const overhang = id === "tree/acacia" ? 1.2 : 1;
-      assert.ok(asset.visual.width <= ZOO_FOOTPRINT.width * overhang && asset.visual.depth <= ZOO_FOOTPRINT.depth * overhang, `${id} fits one tile`);
-      assert.ok(asset.visual.width >= (asset.role === "grass" ? 0.2 : 0.5), `${id} is chunky enough to read at the park camera`);
+      assert.ok(asset.visual.width <= ZOO_FOOTPRINT.width * overhang + 1e-5 && asset.visual.depth <= ZOO_FOOTPRINT.depth * overhang, `${id} fits one tile`);
+      if (natural.has(asset.role)) assert.ok(asset.visual.width >= (asset.role === "grass" ? 0.2 : 0.5), `${id} is chunky enough to read at the park camera`);
       assert.ok(asset.triangles < 1_000, `${id} stays light for instance batches`);
+    }
+
+    // #625 park pieces: [width, depth, height] ranges in metres, and a triangle budget near rock-round's,
+    // because fences repeat on every habitat edge.
+    const park: Record<string, { w: [number, number]; d: [number, number]; h: [number, number]; tris: number }> = {
+      "fence/wood": { w: [1, 1], d: [0.04, 0.12], h: [0.45, 0.6], tris: 150 },
+      "fence/steel": { w: [1, 1], d: [0.03, 0.1], h: [0.9, 1.05], tris: 250 },
+      "fence/boundary": { w: [1, 1], d: [0.15, 0.25], h: [0.5, 0.65], tris: 200 },
+      "fence/post-wood": { w: [0.04, 0.15], d: [0.04, 0.12], h: [0.45, 0.6], tris: 50 },
+      "fence/post-steel": { w: [0.03, 0.1], d: [0.03, 0.1], h: [0.9, 1.05], tris: 50 },
+      "fence/post-boundary": { w: [0.08, 0.2], d: [0.15, 0.25], h: [0.5, 0.65], tris: 50 },
+      "gate/service": { w: [0.9, 1], d: [0.05, 0.15], h: [0.55, 0.75], tris: 250 },
+      "bench/park": { w: [0.65, 0.8], d: [0.25, 0.35], h: [0.35, 0.45], tris: 250 },
+      "sign/education": { w: [0.45, 0.6], d: [0.04, 0.2], h: [0.62, 0.75], tris: 120 },
+      "sign/post": { w: [0.38, 0.46], d: [0.04, 0.15], h: [0.65, 0.75], tris: 120 },
+      "pond/edge": { w: [0.9, 1], d: [0.18, 0.3], h: [0.05, 0.12], tris: 200 },
+      "pond/corner": { w: [0.15, 0.3], d: [0.15, 0.3], h: [0.05, 0.12], tris: 120 },
+      "pond/reeds": { w: [0.2, 0.35], d: [0.2, 0.35], h: [0.3, 0.42], tris: 80 },
+    };
+    const within = (value: number, [lo, hi]: [number, number]) => value >= lo - 1e-5 && value <= hi + 1e-5;
+    for (const [id, limits] of Object.entries(park)) {
+      const [role, variant] = id.split("/");
+      const asset = d.assets.find((a: any) => a.role === role && a.variant === variant);
+      assert.ok(asset, `${id} is in the descriptor`);
+      assert.ok(within(asset.visual.width, limits.w) && within(asset.visual.depth, limits.d) && within(asset.visual.height, limits.h),
+        `${id} is ${asset.visual.width} x ${asset.visual.depth} x ${asset.visual.height} m`);
+      assert.ok(asset.triangles <= limits.tris, `${id} has ${asset.triangles} triangles, at most ${limits.tris}`);
+      // Edge pieces span exactly one tile edge along X, centred on it, so Zoo turns them by 90° for east and west edges.
+      if (role === "fence" && !variant.startsWith("post") || role === "pond" && variant === "edge") {
+        const slack = role === "pond" ? 0.05 : 0.005; // lumpy rim stones may stop just short of the tile corners
+        assert.ok(Math.abs(asset.bounds.min[0] + 0.5) <= slack && Math.abs(asset.bounds.max[0] - 0.5) <= slack, `${id} spans x -0.5..0.5`);
+      }
+    }
+    // A full post matches the height of the segment whose half posts it completes.
+    for (const kind of ["wood", "steel", "boundary"]) {
+      const segment = d.assets.find((a: any) => a.role === "fence" && a.variant === kind);
+      const post = d.assets.find((a: any) => a.role === "fence" && a.variant === `post-${kind}`);
+      assert.equal(post.visual.height, segment.visual.height, `fence ${kind}: the post matches the segment's half posts`);
     }
     // The flat slab lies below a grass tuft on purpose; the standing rocks keep the ordering.
     const standing = (a: any) => !(a.role === "rock" && a.variant === "flat");
