@@ -57,8 +57,18 @@ export function powerOfTwo(value: number): number {
   return 2 ** Math.max(0, Math.round(Math.log2(value)));
 }
 
-export function ktxArguments(encoding: TextureEncoding, input: string, output: string, size?: { width: number; height: number }): string[] {
-  const common = ["create", "--generate-mipmap", ...(size ? ["--width", String(size.width), "--height", String(size.height)] : [])];
+/**
+ * How mip generation samples past the image edge. Omitted, `ktx create` clamps; a tileable surface under a REPEAT
+ * sampler needs `wrap`, or its smaller mips stop tiling (#131, docs/surface-textures.md#mipmaps).
+ */
+export type MipmapWrap = "wrap" | "reflect" | "clamp";
+
+export function ktxArguments(
+  encoding: TextureEncoding, input: string, output: string, size?: { width: number; height: number },
+  { mipmapWrap }: { mipmapWrap?: MipmapWrap } = {},
+): string[] {
+  const common = ["create", "--generate-mipmap", ...(mipmapWrap ? ["--mipmap-wrap", mipmapWrap] : []),
+    ...(size ? ["--width", String(size.width), "--height", String(size.height)] : [])];
   if (encoding === "uastc" || encoding === "uastc-srgb") {
     const srgb = encoding === "uastc-srgb";
     return [...common, "--format", srgb ? "R8G8B8A8_SRGB" : "R8G8B8A8_UNORM", "--assign-tf", srgb ? "srgb" : "linear",

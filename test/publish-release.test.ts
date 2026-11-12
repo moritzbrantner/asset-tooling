@@ -71,7 +71,8 @@ describe("publish-release", () => {
     expect(plan("all")).toHaveLength(ROLLING_RELEASES.length);
     // #574: each release's own data file (scripts/release-data.ts) rebuilds only that release.
     expect(plan(["releases/ivy.json"]).map((entry) => entry.release)).toEqual(["ivy"]);
-  });
+    // Planning walks every release's import graph; windows-latest needs just over the 5 s default.
+  }, 30_000);
 
   test("uploads every top-level build file with export.ref.json last", async () => {
     expect(await releaseFiles(await build())).toEqual(["kit.tar", "kit.tar.sha256", "lineage.json", "spark.png", "export.ref.json"]);
