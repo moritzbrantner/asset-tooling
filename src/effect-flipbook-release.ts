@@ -23,6 +23,8 @@ export type EffectFlipbookPart = {
   layout: EffectFlipbookLayout;
   pixels: Uint8Array;
   reviewBackgrounds: readonly ((x: number, y: number) => readonly number[])[];
+  /** What the review board shows instead of `pixels`, such as a tinted copy of a white alpha mask. */
+  reviewPixels?: Uint8Array;
   /** This effect's descriptor entry, given its PNG pin. */
   describe: (png: { sha256: string; byteLength: number }) => Json;
 };
@@ -42,7 +44,7 @@ export async function buildEffectFlipbookRelease(options: {
   for (const part of parts) {
     const png = encodeRgbaPng(part.layout.width, part.layout.height, part.pixels);
     await writeFile(path.join(root, `${part.name}.png`), png);
-    const board = reviewBoard(part.pixels, part.reviewBackgrounds, part.layout);
+    const board = reviewBoard(part.reviewPixels ?? part.pixels, part.reviewBackgrounds, part.layout);
     await writeFile(path.join(root, "review", `${part.name}.png`), encodeRgbaPng(board.width, board.height, board.pixels));
     stored.set(part.name, { asset: (await storeAssetObject(root, { bytes: png, kind: "image", mediaType: "image/png" })).asset, png });
   }

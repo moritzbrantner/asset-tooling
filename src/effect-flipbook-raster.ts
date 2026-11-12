@@ -50,7 +50,8 @@ export function burstPresetErrors(preset: BurstPreset): string[] {
 export type Shape =
   | { type: "ellipse"; x: number; y: number; rx: number; ry: number; angle?: number; color: Rgb; alpha?: number }
   | { type: "lens"; x: number; y: number; length: number; width: number; angle: number; color: Rgb; alpha?: number }
-  | { type: "line"; x0: number; y0: number; x1: number; y1: number; width: number; color: Rgb; alpha?: number };
+  | { type: "line"; x0: number; y0: number; x1: number; y1: number; width: number; color: Rgb; alpha?: number }
+  | { type: "ring"; x: number; y: number; r: number; width: number; color: Rgb; alpha?: number };
 
 function inside(shape: Shape, px: number, py: number): boolean {
   switch (shape.type) {
@@ -75,6 +76,7 @@ function inside(shape: Shape, px: number, py: number): boolean {
       const t = len2 === 0 ? 0 : Math.max(0, Math.min(1, ((px - shape.x0) * ex + (py - shape.y0) * ey) / len2));
       return Math.hypot(px - (shape.x0 + t * ex), py - (shape.y0 + t * ey)) <= shape.width / 2;
     }
+    case "ring": return shape.width > 0 && Math.abs(Math.hypot(px - shape.x, py - shape.y) - shape.r) <= shape.width / 2;
   }
 }
 
@@ -84,6 +86,7 @@ export function inset(shape: Shape, d: number, color: Rgb): Shape {
     case "ellipse": return { ...shape, rx: Math.max(0, shape.rx - d), ry: Math.max(0, shape.ry - d), color };
     case "lens": return { ...shape, length: Math.max(0, shape.length - 2 * d), width: Math.max(0, shape.width - 2 * d), color };
     case "line": return { ...shape, width: Math.max(0, shape.width - 2 * d), color };
+    case "ring": return { ...shape, width: Math.max(0, shape.width - 2 * d), color };
   }
 }
 
@@ -140,20 +143,23 @@ export function rasterizeFlipbookAtlas(frame: (t: number) => Shape[], hidden: Rg
   return pixels;
 }
 
-/** An atlas framed on each background at 2× (nearest), with the cell borders marked, as one review image. */
+/**
+ * An atlas framed on each background at 2× (nearest), with the cell borders marked, as one review image. Panels sit
+ * side by side, or stacked when the atlas is a wide strip.
+ */
 export function reviewBoard(
   atlas: Uint8Array, backgrounds: readonly ((x: number, y: number) => readonly number[])[], layout: EffectFlipbookLayout = EFFECT_FLIPBOOK_LAYOUT,
 ): { width: number; height: number; pixels: Uint8Array } {
-  const { width: w, height: h } = layout, zoom = 2, gap = 8;
-  const width = backgrounds.length * (w * zoom + gap) + gap, height = h * zoom + 2 * gap;
+  const { width: w, height: h } = layout, zoom = 2, gap = 8, stacked = w > 2 * h, n = backgrounds.length;
+  const width = stacked ? w * zoom + 2 * gap : n * (w * zoom + gap) + gap, height = stacked ? n * (h * zoom + gap) + gap : h * zoom + 2 * gap;
   const pixels = new Uint8Array(width * height * 4).fill(255);
   backgrounds.forEach((bg, panel) => {
-    const ox = gap + panel * (w * zoom + gap);
+    const ox = stacked ? gap : gap + panel * (w * zoom + gap), oy = stacked ? gap + panel * (h * zoom + gap) : gap;
     for (let y = 0; y < h * zoom; y += 1) for (let x = 0; x < w * zoom; x += 1) {
       const s = ((y / zoom | 0) * w + (x / zoom | 0)) * 4, a = atlas[s + 3]! / 255, b = bg(x, y);
       const border = (x / zoom) % layout.cell === 0 || (y / zoom) % layout.cell === 0;
       const rgb = border ? [255, 80, 160] : [0, 1, 2].map((c) => Math.round(atlas[s + c]! * a + b[c]! * (1 - a)));
-      pixels.set([...rgb, 255], ((gap + y) * width + ox + x) * 4);
+      pixels.set([...rgb, 255], ((oy + y) * width + ox + x) * 4);
     }
   });
   return { width, height, pixels };

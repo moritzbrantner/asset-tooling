@@ -76,6 +76,8 @@ The [Zoo particle flipbooks](docs/zoo-effects.md) are baked 16-frame dust, leaf 
 
 The [ARPG combat flipbooks](docs/combat-effects.md) are baked 16-frame hit-spark, block-spark, impact-dust and weapon-trail atlases with matching `BurstPreset`s for arpg's strike feedback, from the same deterministic 2D rasterizer.
 
+The [reward-feedback flipbooks](docs/reward-effects.md) are baked 16-frame sparkle, ring, burst and confetti strips in `subtle` and `strong` variants for ui's Pop/Pulse rewards. They are white alpha masks the UI tints with its own theme tokens, from the same rasterizer.
+
 The [combat sounds](docs/combat-sounds.md) are 35 CC0 mono WAV clips (Kenney and OpenGameArt) for arpg's combat, pickup, encounter and UI cues, trimmed and normalised, with a game-audio `SoundManifest`.
 
 ## Review current assets
