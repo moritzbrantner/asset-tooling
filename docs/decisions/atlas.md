@@ -416,3 +416,19 @@ For [#128](https://github.com/moritzbrantner/asset-tooling/issues/128), should t
 **Approved by owner:** 2026-10-26, [#128 Q2](https://github.com/moritzbrantner/asset-tooling/issues/128). **Answers Question 8.1.3 (A).**
 
 This issue delivers only the asset-tooling side: profile selection and domain-specific validation, rejection of invalid pivot/clip references and bounds, source lineage, packaging of the existing **zebra** for inspection in the **existing animation viewer**, and an additional compatible Zoo variant (for example, **giraffe**) through the same path. It documents follow-on work. [Zoo #112](https://github.com/moenarch-games/zoo/issues/112) keeps its independent acceptance of animated animals in a real guest-viewable themed exhibit. Later MMORPG creatures and much-later mounts are separate consumers; neither delays this proof. This refines delivery boundaries without bypassing source rights, bundle contracts or required visual review.
+
+## 9. Durable asset storage and distribution
+
+### 9.1. Local-first masters, recovery and public bundles
+
+#### Decision 9.1.1 — Keep local masters, mirror offsite and distribute eligible bundles through GitHub Releases
+
+**Approved by owner:** 2026-11-12, [#613](https://github.com/moritzbrantner/asset-tooling/issues/613). **Combined selection** of local-first storage (A), offsite mirror (B), and GitHub Releases (C); these are complementary roles, not alternatives.
+
+Authoritative authored/source masters and deliberately retained binary versions should be available **locally first** through durable content-identified storage, while metadata, catalog identities, licenses and text retain ordinary Git history. This durable storage must not be confused with the disposable `.asset-tooling/cache` or `.asset-tooling/objects`. Local asset work must function offline. Maintain an **offsite mirror** of selected retained bytes and manifests for disaster recovery, with verifiable restoration; an encrypted external-drive backup may provide another recovery copy. Prefer cost-effective/free infrastructure where practical, without making any one distribution service the only recoverable copy.
+
+**Use the existing GitHub Releases publishing pipeline** for legally redistributable, consumer-ready packages. Continue Decision 7.1.5's **single replaceable rolling release per experimental bundle** and deliberate consumer adoption; preserve existing pinned numbered releases while consumers need them. GitHub Releases is a public **distribution channel, not a canonical backup**, and must not expose raw Mixamo or other restricted inputs.
+
+Keep roughly **3–5 useful recent binary revisions by default** rather than unlimited provisional histories; exempt consumer-pinned, published or otherwise necessary revisions, and never prune the last recoverable copy. Disposable previews remain replaceable under Decision 7.1.4. This retention preference does not override licensing, stable asset identities or active consumer dependencies.
+
+**Migration boundary:** Existing `assets/canonical/` Git LFS source storage and `catalog/storage.json` are implemented and remain authoritative until a reviewed, restore-tested transition proves parity. This Decision sets a future storage direction; it is **not evidence that a local durable store, offsite backup or LFS migration has shipped**, and does not authorize deleting current Git LFS objects or history. Implementation is tracked in [#613](https://github.com/moritzbrantner/asset-tooling/issues/613).
