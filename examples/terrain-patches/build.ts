@@ -13,7 +13,7 @@ import { fileURLToPath } from "node:url";
 import { canonicalJson } from "../../src/canonical.js";
 import { sha256Bytes } from "../../src/hash.js";
 import {
-  TERRAIN_PATCH_BUILD_SCHEMA, buildTerrainPatchFiles, encodeGrayPng, generateTerrainPatch, normalizeTerrainPatchRecipe, scatterTerrainDetail,
+  TERRAIN_PATCH_BUILD_SCHEMA, buildTerrainPatchFiles, encodeGrayPng, generateTerrainPatch, loadTerrainPatchGuides, normalizeTerrainPatchRecipe, scatterTerrainDetail,
   terrainPatchGlb, type TerrainPatchBuildRecord, type Vec2,
 } from "../../src/terrain-patch-recipes.js";
 import { writeIfChanged } from "../reconcile-file.js";
@@ -21,13 +21,17 @@ import { writeIfChanged } from "../reconcile-file.js";
 const directory = path.dirname(fileURLToPath(import.meta.url));
 const outDir = path.resolve(process.argv[2] ?? path.join(directory, "../../.artifacts/terrain-patches"));
 const recipePath = path.resolve(process.argv[3] ?? path.join(directory, "recipe.json"));
+const readOrUndefined = (file: string) => { try { return readFileSync(file); } catch { return undefined; } };
 const recipe = normalizeTerrainPatchRecipe(JSON.parse(await readFile(recipePath, "utf8")));
+// Saved guides (#140) resolve against the recipe's own directory, never the caller's working directory. Their declared
+// paths are portable and relative (validated by the recipe), and loading verifies each one's bytes and SHA-256.
+const guides = loadTerrainPatchGuides(recipe, (file) => readOrUndefined(path.join(path.dirname(recipePath), file)));
 const grid: Vec2[] = [[-1, -1], [0, -1], [-1, 0], [0, 0]];
 const patchDir = (patch: Vec2) => path.join(outDir, `patch_${patch[0]}_${patch[1]}`);
 
 /** Clean reference path: the whole patch from the recipe, without the component build. */
 async function render(patch: Vec2) {
-  const p = generateTerrainPatch(recipe, patch), detail = scatterTerrainDetail(p);
+  const p = generateTerrainPatch(recipe, patch, guides), detail = scatterTerrainDetail(p);
   const files: Record<string, Uint8Array> = {
     "height.png": encodeGrayPng(p.width, p.depth, p.heights),
     "slope.png": encodeGrayPng(p.width, p.depth, p.slope),
@@ -66,13 +70,15 @@ assert.equal(new Set(ids).size, ids.length, "detail IDs are unique across patche
 // Partial rebuild against the previous run's manifest; it must reproduce the reference bytes exactly.
 let previousManifest: { patches?: { patch: Vec2; components?: TerrainPatchBuildRecord["components"] }[] } = {};
 try { previousManifest = JSON.parse(await readFile(path.join(outDir, "manifest.json"), "utf8")); } catch { /* first run: build everything */ }
-const readOrUndefined = (file: string) => { try { return readFileSync(file); } catch { return undefined; } };
 const manifest: Record<string, unknown> = { schema: "terrain-patches-v1", recipe: sha256Bytes(canonicalJson(recipe)), sampleSpacing: recipe.sampleSpacing,
-  samples: recipe.samples, height: recipe.height, patches: [] as unknown[] };
+  samples: recipe.samples, height: recipe.height,
+  ...(recipe.guides ? { guides: Object.fromEntries(Object.entries(recipe.guides).map(([name, g]) => [name, { kind: g.kind, file: g.file, sha256: g.sha256, bytes: g.bytes }])) } : {}),
+  patches: [] as unknown[] };
 const totals = { executed: 0, reused: 0, heightSamples: 0, filesWritten: 0, bytesWritten: 0 };
 for (const [i, patch] of grid.entries()) {
   const dir = patchDir(patch), old = previousManifest.patches?.find((p) => p.patch.join(",") === patch.join(","));
-  const build = await buildTerrainPatchFiles(recipe, patch, old?.components === undefined ? {} : {
+  const build = await buildTerrainPatchFiles(recipe, patch, old?.components === undefined ? { guides } : {
+    guides,
     previous: { record: { schema: TERRAIN_PATCH_BUILD_SCHEMA, patch, components: old.components }, read: (file) => readOrUndefined(path.join(dir, file)) },
   });
   assert.deepEqual(Object.keys(build.files).sort(), Object.keys(forward[i]!.files).sort());

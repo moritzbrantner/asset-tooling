@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 3,
+  "id": "greyhaven-hillside",
+  "seed": 134,
+  "origin": [0, 0],
+  "sampleSpacing": 1,
+  "samples": [65, 65],
+  "height": { "min": -8, "max": 40, "precision": 0.001 },
+  "noise": { "baseHeight": 6, "amplitude": 14, "featureSize": 70, "octaves": 5, "roughness": 0.45 },
+  "shaping": { "kind": "terrace", "step": 3, "sharpness": 0.55 },
+  "guides": {
+    "trail": { "kind": "polyline", "file": "guides/trail.polyline.json", "sha256": "8cd8522d9ed34b414ba3273b1a9d7edd7ad8efc5b3b1b3d1a2548d66569486f7", "bytes": 195 },
+    "meadow": { "kind": "mask", "file": "guides/meadow.rgba8.json", "sha256": "bad186a13f8671593cc1adde3f5e35ae128a8a5195b3546c667e5d1f2476aaa5", "bytes": 21952,
+      "width": 64, "height": 64, "origin": [-63, -63], "pixelSize": 2, "filter": "bilinear", "outside": "zero" },
+    "clearing": { "kind": "mask", "file": "guides/clearing.rgba8.json", "sha256": "5547a0874016bb79fa1c249adc73b1c5d8e05743c267ddbcf0ef99d9ed1e8643", "bytes": 358,
+      "width": 8, "height": 6, "origin": [22, 14], "pixelSize": 4, "filter": "nearest", "outside": "zero" }
+  },
+  "edits": [
+    { "kind": "flatten", "shape": { "kind": "rect", "center": [18, -14], "size": [14, 10], "rotationDegrees": 20, "falloff": 6 }, "height": 6, "excludeDetail": true },
+    { "kind": "path", "points": { "guide": "trail" }, "width": 3, "falloff": 3, "excludeDetail": true }
+  ],
+  "exclusions": [{ "kind": "circle", "center": [-34, -30], "radius": 6, "falloff": 2 }, { "kind": "mask", "guide": "clearing" }],
+  "paint": {
+    "meadow": [{ "kind": "mask", "guide": "meadow" }]
+  },
+  "detail": [
+    { "id": "grass", "seed": 134, "density": 1.2, "minSpacing": 0.6, "slopeDegrees": [0, 28], "height": [-1, 40], "maxExclusion": 0.3, "paint": null, "scale": [0.8, 1.3], "variants": 4 },
+    { "id": "flowers", "seed": 134, "density": 0.35, "minSpacing": 1, "slopeDegrees": [0, 18], "height": [-1, 40], "maxExclusion": 0.1, "paint": "meadow", "scale": [0.9, 1.1], "variants": 3 },
+    { "id": "stones", "seed": 134, "density": 0.05, "minSpacing": 3, "slopeDegrees": [22, 70], "height": [-8, 40], "maxExclusion": 0.5, "paint": null, "scale": [0.6, 1.6], "variants": 5 }
+  ]
+}
