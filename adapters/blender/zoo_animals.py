@@ -3,7 +3,8 @@
 One run builds one animal (asset-tooling#589 zebra, consumer zoo#112/#142). It replaces nothing in Zoo: the
 animals join the rolling ``zoo-animals`` release beside Zoo's old authored zebra and giraffe as the variant
 ``expressive`` (docs/zoo-animals.md). The rig follows the shared ``quadruped-rigid`` profile
-(src/quadruped-rigid.ts): named transform nodes pivoting at their joints, rigid parts, no skin.
+(src/quadruped-rigid.ts), and the birds (the flamingo) its two-legged sibling ``biped-rigid`` (src/biped-rigid.ts):
+named transform nodes pivoting at their joints, rigid parts, no skin.
 
 Frame: metres, glTF right-handed +Y up, the animal faces +X and its right side is +Z, origin on the ground
 plane under the body (the frame of the existing ``zoo-animals`` members). Blender builds in its own axes
@@ -37,7 +38,7 @@ import bmesh
 import bpy
 from mathutils import Euler, Matrix, Quaternion, Vector
 
-SPECIES = ("zebra", "giraffe", "tiger", "elephant", "capybara")
+SPECIES = ("zebra", "giraffe", "tiger", "elephant", "capybara", "flamingo")
 FPS = 30
 KEY_STEP = 2  # frames between keys; every key is linear
 SHARP_ANGLE = math.radians(50)
@@ -69,6 +70,12 @@ PALETTE = {
     "capy-light": (0.76, 0.58, 0.4),
     "capy-dark": (0.3, 0.2, 0.15),
     "capy-nose": (0.45, 0.32, 0.26),
+    "flamingo-pink": (0.98, 0.62, 0.66),
+    "flamingo-deep": (0.94, 0.38, 0.48),
+    "flamingo-leg": (0.92, 0.5, 0.56),
+    "feather-black": (0.12, 0.1, 0.12),
+    "beak-pale": (0.97, 0.88, 0.84),
+    "eye-yellow": (0.98, 0.86, 0.3),
 }
 
 
@@ -753,7 +760,91 @@ def build_capybara(collection):
     return root
 
 
-BUILDERS = {"zebra": build_zebra, "giraffe": build_giraffe, "tiger": build_tiger, "elephant": build_elephant, "capybara": build_capybara}
+# ---------------------------------------------------------------- flamingo (biped-rigid)
+
+BIRD_LEGS = ("leg_0", "leg_1")  # right, left
+FLAMINGO = {
+    "body": (0.0, 0.0, 0.95), "neck": (0.17, 0.0, 1.0), "neck_upper": (0.0, 0.0, 1.4), "head": (0.25, 0.0, 1.66), "tail": (-0.22, 0.0, 0.98),
+    "hips": {"leg_0": (0.0, -0.055, 0.86), "leg_1": (0.0, 0.055, 0.86)},
+    "upper": 0.4, "foot": 0.012,
+}
+
+
+def build_flamingo(collection):
+    g = FLAMINGO
+    root = bpy.data.objects.new("animal_root", None)
+    root.empty_display_size = 0.2
+    collection.objects.link(root)
+
+    # Body: a plump, egg-shaped pink body, the rump a little higher than the breast.
+    body = Part("body", g["body"])
+    egg = [(0, -0.26), (0.08, -0.24), (0.125, -0.16), (0.14, -0.04), (0.135, 0.08), (0.115, 0.17), (0.07, 0.24), (0, 0.26)]
+    body.lathe("flamingo-pink", egg, g["body"], direction=(1, 0, -0.12), scale=(1.0, 0.95, 1), segments=12)
+    body = body.finish(collection, root)
+
+    # Legs: long and thin, the backward-bending ankle a knobbly joint halfway down, on webbed feet.
+    for leg, hip in g["hips"].items():
+        hip = Vector(hip)
+        upper = Part(leg, hip)
+        upper.lathe("flamingo-pink", capsule(0.045, 0.03, 0.12, cap=0.1), hip, segments=8)  # the feathered thigh
+        upper.lathe("flamingo-leg", capsule(0.014, 0.014, g["upper"] - 0.02, 2), hip + Vector((0, 0, -0.02)), segments=6)
+        upper = upper.finish(collection, body)
+        knee = hip - Vector((0, 0, g["upper"]))
+        lower = Part(f"{leg}_lower", knee)
+        lower.lathe("flamingo-deep", ball(0.022, 3), knee, segments=6)  # the ankle
+        lower.lathe("flamingo-leg", capsule(0.013, 0.012, knee.z - 0.03, 2), knee, segments=6)
+        lower.lathe("flamingo-leg", ball(1.0, 3), (knee.x + 0.04, knee.y, g["foot"]), scale=(0.07, 0.05, 0.012), segments=8)  # webbed foot
+        lower.finish(collection, upper)
+
+    # Tail: a short pointed tuft of feathers, black under the pink.
+    tail = Part("tail", g["tail"])
+    tail.lathe("flamingo-deep", [(0, 0), (0.05, 0.02), (0.035, 0.09), (0, 0.12)], g["tail"], direction=(-1, 0, 0.35), scale=(1, 1.3, 1), segments=8)
+    tail.finish(collection, body)
+
+    # Wings: folded along each side, deeper pink with the black flight feathers showing at the rear.
+    for side, name in ((1, "left"), (-1, "right")):
+        base = Vector((0.1, side * 0.1, 1.0))
+        wing = Part(f"wing_{name}", base)
+        wing.lathe("flamingo-deep", ball(1.0, 4), Vector((-0.06, side * 0.115, 0.99)), direction=(-1, 0, 0.12),
+                   scale=(0.11, 0.035, 0.2), segments=10)
+        wing.paint("flamingo-deep", "feather-black", [((-0.22, 0, 1.0), (1, 0, -0.1), 0.12)])
+        wing.finish(collection, body)
+
+    # Neck: an S in two parts, back and up from the breast, then forwards to the head.
+    n0, n1, hp = Vector(g["neck"]), Vector(g["neck_upper"]), Vector(g["head"])
+    neck = Part("neck", n0)
+    neck.lathe("flamingo-pink", capsule(0.04, 0.026, (n1 - n0).length, 3), n0, direction=n0 - n1, segments=8)
+    neck = neck.finish(collection, body)
+    neck_upper = Part("neck_upper", n1)
+    neck_upper.lathe("flamingo-pink", capsule(0.027, 0.024, (hp - n1).length, 3), n1, direction=n1 - hp, segments=8)
+    neck_upper = neck_upper.finish(collection, neck)
+
+    # Head: small and round, with the flamingo's big kinked beak, pale with a black tip, bent down halfway.
+    head = Part("head", hp)
+    skull = hp + Vector((0.01, 0, 0.01))
+    head.lathe("flamingo-pink", ball(0.052, 5), skull, scale=(1.1, 0.9, 1), segments=12)
+    kink = skull + Vector((0.12, 0, -0.012))
+    beak = skull + Vector((0.045, 0, -0.008))
+    head.lathe("beak-pale", capsule(0.02, 0.016, (kink - beak).length, 2), beak, direction=beak - kink, scale=(1.2, 1, 1), segments=8)
+    head.lathe("beak-pale", capsule(0.016, 0.007, 0.07, 2), kink, direction=(-0.45, 0, 1), segments=8)
+    tip = kink + Vector((0.45, 0, -1)).normalized() * 0.05
+    head.paint("beak-pale", "feather-black", [(tip, (0.45, 0, -1), 0.06)], keep=lambda c: (c - kink).dot(Vector((0.45, 0, -1)).normalized()) > 0.02)
+    head = head.finish(collection, neck_upper)
+
+    for side, name in ((1, "left"), (-1, "right")):
+        eye_c = skull + Vector((0.03, side * 0.03, 0.016))  # big and forward-set, so the face reads past the beak
+        eye = Part(f"eye_{name}", eye_c)
+        look = Vector((0.7, side * 1.0, 0.15)).normalized()
+        eye.lathe("eye-yellow", ball(0.015, 4), eye_c, direction=look, scale=(1, 1, 0.7), segments=10)
+        eye.lathe("eye-pupil", ball(0.008, 3), eye_c + look * 0.008, segments=8)
+        eye.lathe("eye-white", ball(0.003, 2), eye_c + look * 0.014 + Vector((0.003, 0, 0.003)), segments=6)
+        eye.finish(collection, head)
+
+    return root
+
+
+BUILDERS = {"zebra": build_zebra, "giraffe": build_giraffe, "tiger": build_tiger, "elephant": build_elephant, "capybara": build_capybara,
+            "flamingo": build_flamingo}
 
 
 # ---------------------------------------------------------------- clips
@@ -1228,12 +1319,107 @@ def capybara_rest(t, duration):
     return pose
 
 
+def bird_hip_height(pose, upper, lower, toe, heel):
+    """How high the hips must be for the lower of the two feet to touch the ground, given each leg's swing
+    (about the side axis) and its ankle fold, both in the pose. A tilted foot dips its toe (``toe`` m ahead
+    of the ankle) or its heel (``heel`` m behind it)."""
+    reach = 0.0
+    for leg in BIRD_LEGS:
+        a = pose.get(f"{leg}.r", (0, 0, 0))[1]
+        f = pose.get(f"{leg}_lower.r", (0, 0, 0))[1]
+        tilt = math.sin(a + f)
+        reach = max(reach, upper * math.cos(a) + lower * math.cos(a + f) + (toe if tilt > 0 else heel) * abs(tilt))
+    return reach
+
+
+def flamingo_idle(t, duration):
+    """Calm and alert: breathing, a slow look around with a head tilt, a blink, the wings settling."""
+    w = 2 * math.pi * t / duration
+    blink = pulse(t, 3.4, 0.22)
+    settle = pulse(t, 1.6, 0.8)
+    return {
+        "body.t": (0, 0, 0.004 * (1 - math.cos(2 * w))),
+        "body.r": (math.radians(1.5) * math.sin(w), math.radians(1) * math.sin(2 * w), 0),
+        "neck.r": (0, math.radians(3) * math.sin(w), math.radians(8) * math.sin(w)),
+        "neck_upper.r": (0, math.radians(-4) * math.sin(w + 0.5), math.radians(10) * math.sin(w + 0.4)),
+        "head.r": (math.radians(14) * math.sin(w + 1.2), math.radians(5) * math.sin(2 * w), math.radians(20) * math.sin(w + 0.8)),
+        "wing_left.r": (math.radians(10) * settle, 0, 0), "wing_right.r": (math.radians(-10) * settle, 0, 0),
+        "tail.r": (math.radians(8) * settle * math.sin(6 * w), 0, 0),
+        "eye_left.s": (1, 1, 1 - 0.88 * blink), "eye_right.s": (1, 1, 1 - 0.88 * blink),
+    }
+
+
+def flamingo_walk(t, duration):
+    """A deliberate two-beat stride: each ankle folds back as its foot swings through, and the head bobs
+    forwards and back with every step."""
+    u = t / duration
+    g = FLAMINGO
+    pose = {}
+    for leg, phase in (("leg_1", 0.0), ("leg_0", 0.5)):
+        swing, fold = leg_cycle((u + 1 - phase) % 1, True)
+        pose[f"{leg}.r"] = (0, -swing * 1.2, 0)
+        pose[f"{leg}_lower.r"] = (0, fold * 1.2, 0)
+    w = 2 * math.pi * u
+    lower = g["hips"]["leg_0"][2] - g["upper"]
+    drop = bird_hip_height(pose, g["upper"], lower, 0.11, 0.03) - g["hips"]["leg_0"][2]
+    pose.update({
+        "body.t": (0, 0, drop),
+        "body.r": (math.radians(3) * math.sin(w), math.radians(1.5) * math.sin(2 * w), math.radians(2) * math.sin(w)),
+        "neck.r": (0, math.radians(6) * math.sin(2 * w), 0),
+        "neck_upper.r": (0, math.radians(-8) * math.sin(2 * w + 0.4), 0),
+        "head.r": (0, math.radians(-4) * math.sin(2 * w + 0.4), 0),
+        "wing_left.r": (math.radians(3) * math.sin(w), 0, 0), "wing_right.r": (math.radians(-3) * math.sin(w), 0, 0),
+        "tail.r": (0, math.radians(4) * math.sin(2 * w), 0),
+        "eye_left.s": (1, 1, 1), "eye_right.s": (1, 1, 1),
+    })
+    return pose
+
+
+def flamingo_feed(t, duration):
+    """Filter feeding: the neck bent right down, the head upside down at the water, sweeping side to side."""
+    w = 2 * math.pi * t / duration
+    tilt = math.radians(26)
+    sweep = math.sin(w)
+    return {
+        "body.t": (0, 0, 0.002 * (1 - math.cos(2 * w))),
+        "body.r": (0, tilt, 0),
+        "leg_0.r": (0, -tilt, 0), "leg_1.r": (0, -tilt, 0),
+        "neck.r": (math.radians(12) * sweep, math.radians(175), 0),
+        "neck_upper.r": (math.radians(6) * sweep, math.radians(-63), 0),
+        "head.r": (math.radians(8) * sweep, math.radians(62) + math.radians(4) * math.sin(6 * w), 0),
+        "wing_left.r": (0, 0, 0), "wing_right.r": (0, 0, 0),
+        "tail.r": (0, math.radians(-10), 0),
+        "eye_left.s": (1, 1, 0.8), "eye_right.s": (1, 1, 0.8),
+    }
+
+
+def flamingo_rest(t, duration):
+    """Asleep on one leg: the left leg tucked up under the body, the neck laid back along it and the head
+    tucked onto the back, slow breathing."""
+    w = 2 * math.pi * t / duration
+    breath = 0.5 - 0.5 * math.cos(w)
+    return {
+        "body.t": (0, 0, 0.004 * breath),
+        "body.r": (0, math.radians(-4), 0),
+        "leg_0.r": (0, math.radians(4), 0),
+        "leg_1.r": (math.radians(8), math.radians(-20), 0),
+        "leg_1_lower.r": (0, math.radians(165), 0),
+        "neck.r": (0, math.radians(-51) - math.radians(2) * breath, 0),
+        "neck_upper.r": (0, math.radians(111), math.radians(-10)),
+        "head.r": (math.radians(-12), math.radians(4), math.radians(-8)),
+        "wing_left.r": (math.radians(4) * breath, 0, 0), "wing_right.r": (math.radians(-4) * breath, 0, 0),
+        "tail.r": (0, 0, 0),
+        "eye_left.s": (1, 1, 0.08), "eye_right.s": (1, 1, 0.08),
+    }
+
+
 POSES = {
     "zebra": {"idle": (pose_idle, 4.0), "walk": (pose_walk, 1.2), "feed": (pose_feed, 3.0), "rest": (pose_rest, 5.0)},
     "giraffe": {"idle": (giraffe_idle, 5.0), "walk": (giraffe_walk, 1.6), "feed": (giraffe_feed, 3.0), "rest": (giraffe_rest, 6.0)},
     "tiger": {"idle": (tiger_idle, 5.0), "walk": (tiger_walk, 1.1), "feed": (tiger_feed, 3.0), "rest": (tiger_rest, 6.0)},
     "elephant": {"idle": (elephant_idle, 6.0), "walk": (elephant_walk, 1.5), "feed": (elephant_feed, 4.0), "rest": (elephant_rest, 6.0)},
     "capybara": {"idle": (capybara_idle, 6.0), "walk": (capybara_walk, 0.9), "feed": (capybara_feed, 3.0), "rest": (capybara_rest, 6.0)},
+    "flamingo": {"idle": (flamingo_idle, 5.0), "walk": (flamingo_walk, 1.4), "feed": (flamingo_feed, 4.0), "rest": (flamingo_rest, 6.0)},
 }
 
 

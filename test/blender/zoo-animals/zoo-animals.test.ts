@@ -1,5 +1,5 @@
 // The zoo-animals release (#128, #589; docs/zoo-animals.md): Zoo's pinned zebra and giraffe stay as authored, and
-// the expressive zebra, giraffe, tiger, elephant and capybara built by adapters/blender/zoo_animals.py join them as the `expressive` variant, with in-place
+// the expressive zebra, giraffe, tiger, elephant, capybara and flamingo built by adapters/blender/zoo_animals.py join them as the `expressive` variant, with in-place
 // idle, walk, feed and rest clips whose legs swing about the animal's side axis. The build replays to the same tar.
 // It skips unless ASSET_TOOLING_BLENDER names Blender 5.2.2 and the two canonical Zoo sources are hydrated.
 import test from "node:test";
@@ -11,7 +11,8 @@ import { fileURLToPath } from "node:url";
 import { NodeIO, type Document } from "@gltf-transform/core";
 import { verifyAssetBundleTar } from "../../../src/asset-bundle-pack.js";
 import { readAssetBundleGltf, verifyAssetBundle, type GltfResourcesBundleManifest } from "../../../src/asset-bundle.js";
-import { assertQuadrupedRigid } from "../../../src/quadruped-rigid.js";
+import { BIPED_RIGID } from "../../../src/biped-rigid.js";
+import { QUADRUPED_RIGID, assertRigidAnimal } from "../../../src/quadruped-rigid.js";
 import {
   ZOO_ANIMALS, ZOO_ANIMALS_DESCRIPTOR_FILE, ZOO_ANIMALS_RECIPE, ZOO_EXPRESSIVE_ANIMALS, ZOO_EXPRESSIVE_VARIANT, buildZooAnimals, createZooAnimalAssetSpec,
 } from "../../../scripts/build-zoo-animals.ts";
@@ -29,23 +30,26 @@ const skip = !process.env.ASSET_TOOLING_BLENDER ? "set ASSET_TOOLING_BLENDER to 
 const CLIPS = ["feed", "idle", "rest", "walk"];
 const JOINTS = ["animal_root", "body", "ear_left", "ear_right", "eye_left", "eye_right", "head", "leg_0", "leg_0_lower", "leg_1", "leg_1_lower",
   "leg_2", "leg_2_lower", "leg_3", "leg_3_lower", "neck", "tail"];
+/** The flamingo and penguin (biped-rigid, #605): two legs, wings and no ears. */
+const BIRD_JOINTS = ["animal_root", "body", "eye_left", "eye_right", "head", "leg_0", "leg_0_lower", "leg_1", "leg_1_lower", "tail", "wing_left", "wing_right"];
 
 test("the expressive spec runs the packaged recipe for one species, with no other input", () => {
   const spec = createZooAnimalAssetSpec({ species: "zebra", scriptSha256: "a".repeat(64), blenderVersion: "5.2.2" });
   assert.deepEqual(spec.parameters, { blenderVersion: "5.2.2", arguments: { schemaVersion: 1, species: "zebra" } });
   assert.deepEqual(Object.keys(spec.inputs), ["script"]);
   assert.equal(spec.assetId, "zoo.animal.zebra.expressive");
-  assert.deepEqual(ZOO_EXPRESSIVE_ANIMALS.map((entry) => entry.key), ["zoo.animal.zebra", "zoo.animal.giraffe", "zoo.animal.tiger", "zoo.animal.elephant", "zoo.animal.capybara"]);
+  assert.deepEqual(ZOO_EXPRESSIVE_ANIMALS.map((entry) => entry.key), ["zoo.animal.zebra", "zoo.animal.giraffe", "zoo.animal.tiger", "zoo.animal.elephant", "zoo.animal.capybara", "zoo.animal.flamingo"]);
 });
 
 /** Per animal: its full-size height and length (m), its triangle budget, one colour of its coat (linear COLOR_0) and any
- * joints of its own beyond the shared ones. */
-const EXPECTED: Record<string, { height: [number, number]; length: [number, number]; triangles: number; coat: string; coatName: string; joints?: string[] }> = {
+ * joints of its own beyond the shared ones; a `biped` checks against biped-rigid, with the bird joints. */
+const EXPECTED: Record<string, { height: [number, number]; length: [number, number]; triangles: number; coat: string; coatName: string; joints?: string[]; biped?: boolean }> = {
   "zoo.animal.zebra": { height: [1.4, 1.9], length: [1.4, 2], triangles: 4500, coat: "0.01,0.01", coatName: "the black stripes" },
   "zoo.animal.giraffe": { height: [3.2, 3.9], length: [1.9, 2.6], triangles: 6000, coat: "0.64,0.23", coatName: "the tan patches" },
   "zoo.animal.tiger": { height: [1.0, 1.5], length: [1.7, 2.5], triangles: 5500, coat: "0.91,0.23", coatName: "the orange coat" },
   "zoo.animal.elephant": { height: [1.9, 2.7], length: [2.6, 3.5], triangles: 5000, coat: "0.32,0.35", coatName: "the grey skin", joints: ["trunk", "trunk_tip"] },
   "zoo.animal.capybara": { height: [0.6, 1.0], length: [1.2, 1.8], triangles: 3000, coat: "0.39,0.17", coatName: "the brown coat" },
+  "zoo.animal.flamingo": { height: [1.5, 1.9], length: [0.6, 0.95], triangles: 2500, coat: "0.96,0.34", coatName: "the pink plumage", joints: ["neck", "neck_upper"], biped: true },
 };
 
 /** The rotation axis of a quaternion in the leg's channel, or null when it barely turns. */
@@ -55,10 +59,10 @@ function axisOf([x, y, z]: number[]): number[] | null {
 }
 
 function checkExpressive(document: Document, label: string) {
-  const observations = assertQuadrupedRigid(document, label);
-  const gltf = document.getRoot();
   const expected = EXPECTED[label.split("/")[0]!]!;
-  assert.deepEqual(gltf.listNodes().map((node) => node.getName()).sort(), [...JOINTS, ...(expected.joints ?? [])].sort(), `${label}: the joints`);
+  const observations = assertRigidAnimal(document, expected.biped ? BIPED_RIGID : QUADRUPED_RIGID, label);
+  const gltf = document.getRoot();
+  assert.deepEqual(gltf.listNodes().map((node) => node.getName()).sort(), [...(expected.biped ? BIRD_JOINTS : JOINTS), ...(expected.joints ?? [])].sort(), `${label}: the joints`);
   assert.deepEqual(gltf.listAnimations().map((clip) => clip.getName()).sort(), CLIPS, `${label}: idle, walk, feed and rest`);
   assert.deepEqual(gltf.listMaterials().map((material) => material.getName()), ["zoo-animal"], `${label}: one shared material`);
   assert.equal(gltf.listTextures().length, 0, `${label}: no textures`);
@@ -106,7 +110,8 @@ function checkExpressive(document: Document, label: string) {
     }
     if (!name.endsWith("_lower")) phases.push(peakAt);
   }
-  assert.equal(new Set(phases).size, 4, `${label}: the four legs step at four different times`);
+  assert.equal(new Set(phases).size, phases.length, `${label}: the legs step at different times`);
+  assert.equal(phases.length, expected.biped ? 2 : 4);
 }
 
 test("zoo-animals builds the old members unchanged and the expressive animals, reproducibly", { skip, timeout: 600_000 }, async () => {
@@ -117,7 +122,7 @@ test("zoo-animals builds the old members unchanged and the expressive animals, r
     await verifyAssetBundleTar(await readFile(built.tar), { sha256: built.tarSha256, ref: built.exportRef });
     const manifest = (await verifyAssetBundle(built.bundleDir, built.exportRef, { profile: "gltf-resources-v1" })).manifest as GltfResourcesBundleManifest;
     assert.deepEqual(manifest.assets.map((item) => `${item.key}/${item.variant}`).sort(),
-      [`zoo.animal.capybara/${ZOO_EXPRESSIVE_VARIANT}`, `zoo.animal.elephant/${ZOO_EXPRESSIVE_VARIANT}`, "zoo.animal.giraffe/default", `zoo.animal.giraffe/${ZOO_EXPRESSIVE_VARIANT}`, `zoo.animal.tiger/${ZOO_EXPRESSIVE_VARIANT}`,
+      [`zoo.animal.capybara/${ZOO_EXPRESSIVE_VARIANT}`, `zoo.animal.elephant/${ZOO_EXPRESSIVE_VARIANT}`, `zoo.animal.flamingo/${ZOO_EXPRESSIVE_VARIANT}`, "zoo.animal.giraffe/default", `zoo.animal.giraffe/${ZOO_EXPRESSIVE_VARIANT}`, `zoo.animal.tiger/${ZOO_EXPRESSIVE_VARIANT}`,
         "zoo.animal.zebra/default", `zoo.animal.zebra/${ZOO_EXPRESSIVE_VARIANT}`]);
 
     const descriptor = JSON.parse(await readFile(path.join(outDir, ZOO_ANIMALS_DESCRIPTOR_FILE), "utf8"));
