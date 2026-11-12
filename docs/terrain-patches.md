@@ -19,7 +19,7 @@ Every field is required; `normalizeTerrainPatchRecipe` rejects unknown, missing 
 
 | Field | Meaning |
 | --- | --- |
-| `seed` | uint32 seed for the noise and the detail. |
+| `seed` | uint32 seed for the noise. In `schemaVersion` 1 it also seeds every detail layer; `schemaVersion` 2 gives each detail layer its own `seed` (see [seed groups](#seed-groups-and-partial-rebuilds)). |
 | `origin` | World X/Z in metres of global sample (0, 0). |
 | `sampleSpacing` | Metres between samples (0.01–64). |
 | `samples` | Vertex samples per patch along X and Z (2–257). Neighbouring patches share one edge row or column. |
@@ -49,7 +49,7 @@ A patch has:
 
 ## Detail scatter
 
-Each detail layer has `id`, `density` (instances per m²), `minSpacing`, `slopeDegrees` and `height` ranges, `maxExclusion` (instances where the exclusion weight is above it are dropped), `paint` (a paint layer name or `null`; a candidate survives with probability equal to the paint weight), `scale` range and `variants` count.
+Each detail layer has `id`, `seed` (schema 2 only), `density` (instances per m²), `minSpacing`, `slopeDegrees` and `height` ranges, `maxExclusion` (instances where the exclusion weight is above it are dropped), `paint` (a paint layer name or `null`; a candidate survives with probability equal to the paint weight), `scale` range and `variants` count.
 
 The layer divides the world into square cells of side `max(minSpacing, 1/√density)`. A cell is occupied with probability `density × cell²` and then holds one candidate anywhere inside it. Of two candidates closer than `minSpacing`, the one with the lower hash priority is dropped, so the realised density falls below `density` as `density × minSpacing²` approaches 1. That product must be at most 1. Occupancy, position, priority, yaw, scale and variant come only from the seed, layer and cell, and the spacing test reads the raw candidates, so slope, height, exclusion and paint filters only remove detail. A localized edit removes nearby detail, but never moves or adds detail elsewhere. Detail near an edit keeps its X/Z and follows the edited surface height.
 
@@ -69,3 +69,40 @@ python3 examples/terrain-patches/review.py .artifacts/terrain-patches review/ter
 `review/terrain-patches/` holds the four patches rendered together, with detail as coloured markers (`overview.jpg`), the Greyhaven game camera (12 m, 0.42 rad pitch, 50° FOV) looking across the patch seams (`game.jpg`), and the stitched masks (`masks.jpg`). They show the recipe's shape and distribution, not finished art: the game supplies the ground materials and detail meshes.
 
 `bun test test/terrain-patch-recipes.test.ts` covers shared edges in either generation order, negative patches, full against incremental rebuilds, a naive resampling reference, detail partition and minimum spacing across a seam, stable detail and heights after a localized edit, slope, height, paint and exclusion limits, all-excluded scatter, path levelling, invalid and out-of-range recipes, and the GLB and PNG outputs of every preset.
+
+## Seed groups and partial rebuilds
+
+Changing one part of the terrain should not regenerate the rest (#139). Two things make that possible.
+
+**Seed groups.** In `schemaVersion` 2 the recipe `seed` drives only the height noise, and every detail layer has its own required `seed`. Reseeding grass then moves the grass and nothing else. A layer's candidates derive from its seed, its `id` and the cell, never from its position in the list, so reordering layers changes no instance. A schema-1 recipe stays valid and unchanged. Converting it to schema 2 by giving every layer the old `seed` produces the same bytes and the same component keys.
+
+**Components.** `buildTerrainPatchFiles(recipe, patch, { previous, preserve })` builds a patch as separate components. Each one has a key, the SHA-256 of the inputs it actually reads:
+
+| Component | Files | Depends on |
+| --- | --- | --- |
+| `height` | `height.png`, `slope.png`, `mesh.glb` | the patch grid, `id`, `seed`, `height`, `noise`, `shaping` and the edit geometry (not `excludeDetail`) |
+| `exclusion` | `exclusion.png` | the edits with `excludeDetail` and `exclusions` |
+| `paint.<name>` | `paint-<name>.png` | that paint layer's shapes |
+| `detail.<layer>` | its instances in `detail.json` | the layer's settings and seed, the `height` key, the exclusion inputs and its own paint layer |
+| `detail` | `detail.json` | the layer keys, in recipe order |
+
+The function writes nothing. It returns the files, a build record (`terrain-patch-build-v1`: each component's key and output hashes) and `stages.executed` / `stages.reused`. Pass the previous record and a reader for its files as `previous`. A component is reused only when its key is unchanged and its earlier bytes still match their recorded SHA-256. Missing, corrupt or half-written files are regenerated. A reused height is decoded from `height.png`, and `heightSamplesEvaluated` reports 0, so a palette or mask edit provably skips the noise rather than recomputing equal bytes. The result is always byte-identical to a cold build of the same recipe.
+
+`preserve` lists components that must be reused. If one cannot be, because its inputs changed or its bytes don't verify, the build fails before returning anything. A noise edit with `preserve: ["height"]` is refused, not approximated. Detail on top of a changed height always moves with it, so there is no way to keep detail and change the ground under it.
+
+Some edits and what they rebuild:
+
+| Edit | Executed | Reused |
+| --- | --- | --- |
+| move a paint shape | `paint.<name>`, the layers that read it, `detail` | `height`, `exclusion`, the other layers |
+| reseed one layer (schema 2) | that layer, `detail` | everything else |
+| toggle an edit's `excludeDetail` | `exclusion`, every layer, `detail` | `height`, paint |
+| change `noise`, `shaping`, `seed` or an edit's shape | `height`, every layer, `detail`, plus `exclusion` when the edit excludes detail | paint |
+
+`bun examples/terrain-patches/build.ts [outDir] [recipe.json]` uses this. It reads the previous `manifest.json`, whose patches now carry their `components` records, rebuilds what changed, checks every file against a clean reference build and prints the counts of executed and reused components, height samples evaluated and files and bytes written. Rebuilding the hillside after [`recipe-meadow-moved.json`](../examples/terrain-patches/recipe-meadow-moved.json) moves the meadow executes 12 components and reuses 16, evaluates no height samples and rewrites 7 files. `python3 examples/terrain-patches/partial-review.py <before> <after> <board.jpg>` draws the two builds side by side:
+
+![moved meadow: height and grass identical, meadow mask and flowers changed](../review/terrain-patches/partial-meadow-edit.jpg)
+
+`bun test test/terrain-patch-partial-rebuild.test.ts` covers cold parity with the whole-patch path and between schema 1 and 2, paint edits, reseeding one layer, height edits and refused locks, corrupt and missing files, and an edit sequence (reorder, add, remove, reseed, undo, interrupted write) whose every step matches a clean build.
+
+This covers terrain patches only. Trees (keeping trunk and branches while reseeding foliage), rock outlines under new surface detail and the workbench's lock and reseed controls are still open under #139.
