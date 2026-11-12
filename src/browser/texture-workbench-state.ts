@@ -21,13 +21,13 @@ export function workbenchRecipe(value: unknown): SurfaceTextureRecipe {
   return recipe;
 }
 
-function toBase64Url(text: string): string {
+export function toBase64Url(text: string): string {
   const bytes = new TextEncoder().encode(text);
   let binary = "";
   for (const byte of bytes) binary += String.fromCharCode(byte);
   return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
 }
-function fromBase64Url(value: string): string {
+export function fromBase64Url(value: string): string {
   const padded = value.replaceAll("-", "+").replaceAll("_", "/") + "=".repeat((4 - (value.length % 4)) % 4);
   const binary = atob(padded);
   return new TextDecoder().decode(Uint8Array.from(binary, (char) => char.charCodeAt(0)));
@@ -48,14 +48,14 @@ export function decodeRecipeParam(value: string | null): SurfaceTextureRecipe | 
   }
 }
 
-/** Linear undo/redo over valid recipes; pushing after an undo drops the redo branch. */
-export class RecipeHistory {
-  #entries: SurfaceTextureRecipe[];
+/** Linear undo/redo over valid recipes (canonical JSON identity); pushing after an undo drops the redo branch. */
+export class RecipeHistory<Recipe = SurfaceTextureRecipe> {
+  #entries: Recipe[];
   #index = 0;
-  constructor(initial: SurfaceTextureRecipe) {
+  constructor(initial: Recipe) {
     this.#entries = [initial];
   }
-  get current(): SurfaceTextureRecipe {
+  get current(): Recipe {
     return this.#entries[this.#index]!;
   }
   get canUndo(): boolean {
@@ -65,18 +65,18 @@ export class RecipeHistory {
     return this.#index < this.#entries.length - 1;
   }
   /** Records a new current recipe; returns false when it equals the current one. */
-  push(recipe: SurfaceTextureRecipe): boolean {
-    if (recipeKey(recipe) === recipeKey(this.current)) return false;
+  push(recipe: Recipe): boolean {
+    if (canonicalJson(recipe) === canonicalJson(this.current)) return false;
     this.#entries = [...this.#entries.slice(0, this.#index + 1), recipe].slice(-200);
     this.#index = this.#entries.length - 1;
     return true;
   }
-  undo(): SurfaceTextureRecipe | undefined {
+  undo(): Recipe | undefined {
     if (!this.canUndo) return undefined;
     this.#index -= 1;
     return this.current;
   }
-  redo(): SurfaceTextureRecipe | undefined {
+  redo(): Recipe | undefined {
     if (!this.canRedo) return undefined;
     this.#index += 1;
     return this.current;

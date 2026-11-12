@@ -105,4 +105,4 @@ Some edits and what they rebuild:
 
 `bun test test/terrain-patch-partial-rebuild.test.ts` covers cold parity with the whole-patch path and between schema 1 and 2, paint edits, reseeding one layer, height edits and refused locks, corrupt and missing files, and an edit sequence (reorder, add, remove, reseed, undo, interrupted write) whose every step matches a clean build.
 
-This covers terrain patches only. Trees (keeping trunk and branches while reseeding foliage), rock outlines under new surface detail and the workbench's lock and reseed controls are still open under #139.
+This covers terrain patches only. The [terrain workbench](terrain-workbench.md) exposes these components with lock, reseed and keep controls. Trees (keeping trunk and branches while reseeding foliage) and rock outlines under new surface detail are still open under #139.
