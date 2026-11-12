@@ -178,3 +178,87 @@ export function generateRoundedRectSvg({
     ),
   };
 }
+
+export type SvgStrokeJoin = "miter" | "round";
+export type StarSvgParameters = {
+  width:number; height:number; centerX:number; centerY:number;
+  points:number; outerRadius:number; innerRadius:number; rotationDegrees:number;
+  fill:string; stroke:string; strokeWidth:number; strokeJoin:SvgStrokeJoin;
+};
+export type RingSvgParameters = {width:number;height:number;centerX:number;centerY:number;radius:number;strokeWidth:number;stroke:string};
+
+/** Canonical decimal text for SVG coordinates: at most three fractional digits, no trailing zeros, no "-0". */
+export function svgNumber(value: number) {
+  if (!Number.isFinite(value)) throw new Error("SVG coordinate must be finite");
+  const rounded = Math.round(value * 1000) / 1000;
+  const text = (Object.is(rounded, -0) ? 0 : rounded).toFixed(3).replace(/\.?0+$/, "");
+  return text === "-0" ? "0" : text;
+}
+
+function svgStrokeColor(value: unknown, location: string) {
+  return value === "none" ? "none" : svgColor(value, location);
+}
+
+/**
+ * Alternating outer/inner vertices of a star or burst, starting at the outer vertex pointing up
+ * (negative y) and rotated clockwise by `rotationDegrees`. A burst is a star with many points and a
+ * small inner radius; a regular polygon is a star whose inner vertices lie on its edges.
+ */
+export function generateStarSvg({
+  width, height, centerX, centerY, points, outerRadius, innerRadius, rotationDegrees, fill, stroke, strokeWidth, strokeJoin,
+}: StarSvgParameters) {
+  const canvasWidth = dimension(width, "star SVG width");
+  const canvasHeight = dimension(height, "star SVG height");
+  const cx = integer(centerX, "star SVG centerX", 0, canvasWidth);
+  const cy = integer(centerY, "star SVG centerY", 0, canvasHeight);
+  const count = integer(points, "star SVG points", 3, 64);
+  const outer = integer(outerRadius, "star SVG outerRadius", 1, MAX_DIMENSION);
+  const inner = integer(innerRadius, "star SVG innerRadius", 1, outer);
+  const rotation = integer(rotationDegrees, "star SVG rotationDegrees", 0, 359);
+  const fillColor = svgColor(fill, "star SVG fill");
+  const strokeColor = svgStrokeColor(stroke, "star SVG stroke");
+  const lineWidth = integer(strokeWidth, "star SVG strokeWidth", 0, MAX_DIMENSION);
+  if ((strokeColor === "none") !== (lineWidth === 0)) {
+    throw new Error("star SVG stroke must be 'none' exactly when strokeWidth is 0");
+  }
+  if (strokeJoin !== "miter" && strokeJoin !== "round") throw new Error("star SVG strokeJoin must be 'miter' or 'round'");
+  // A miter join can extend far past the vertex; the bounds check uses the round-join extent and miter joins
+  // are clipped by stroke-miterlimit="4" (the SVG default made explicit), i.e. at most 2 × strokeWidth.
+  const reach = outer + (strokeJoin === "miter" ? 2 * lineWidth : lineWidth / 2);
+  if (cx - reach < 0 || cy - reach < 0 || cx + reach > canvasWidth || cy + reach > canvasHeight) {
+    throw new Error("star SVG geometry including its stroke must fit inside the canvas");
+  }
+  const vertices: string[] = [];
+  for (let index = 0; index < count * 2; index += 1) {
+    const radius = index % 2 === 0 ? outer : inner;
+    const angle = ((rotation + (index * 180) / count) * Math.PI) / 180;
+    vertices.push(`${svgNumber(cx + radius * Math.sin(angle))},${svgNumber(cy - radius * Math.cos(angle))}`);
+  }
+  const strokeAttributes = strokeColor === "none"
+    ? ""
+    : ` stroke="${strokeColor}" stroke-width="${lineWidth}" stroke-linejoin="${strokeJoin}" stroke-miterlimit="4"`;
+  return {
+    width: canvasWidth,
+    height: canvasHeight,
+    bytes: svgDocument(canvasWidth, canvasHeight, `<polygon points="${vertices.join(" ")}" fill="${fillColor}"${strokeAttributes}/>`),
+  };
+}
+
+export function generateRingSvg({ width, height, centerX, centerY, radius, strokeWidth, stroke }: RingSvgParameters) {
+  const canvasWidth = dimension(width, "ring SVG width");
+  const canvasHeight = dimension(height, "ring SVG height");
+  const cx = integer(centerX, "ring SVG centerX", 0, canvasWidth);
+  const cy = integer(centerY, "ring SVG centerY", 0, canvasHeight);
+  const r = integer(radius, "ring SVG radius", 1, MAX_DIMENSION);
+  const lineWidth = integer(strokeWidth, "ring SVG strokeWidth", 1, 2 * r);
+  const color = svgColor(stroke, "ring SVG stroke");
+  const reach = r + lineWidth / 2;
+  if (cx - reach < 0 || cy - reach < 0 || cx + reach > canvasWidth || cy + reach > canvasHeight) {
+    throw new Error("ring SVG geometry including its stroke must fit inside the canvas");
+  }
+  return {
+    width: canvasWidth,
+    height: canvasHeight,
+    bytes: svgDocument(canvasWidth, canvasHeight, `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${color}" stroke-width="${lineWidth}"/>`),
+  };
+}

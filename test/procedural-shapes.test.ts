@@ -35,7 +35,9 @@ test("procedural shape registry keeps raster SDF and SVG vector domains explicit
       "image.procedural.sdf.circle",
       "image.procedural.sdf.rounded-rect",
       "vector.procedural.circle",
+      "vector.procedural.ring",
       "vector.procedural.rounded-rect",
+      "vector.procedural.star",
     ],
   );
   assert.deepEqual(PROCEDURAL_SHAPE_OPERATIONS[0].outputs[0].mediaTypes, [RGBA8_IMAGE_MEDIA_TYPE]);
