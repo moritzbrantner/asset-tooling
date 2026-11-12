@@ -14,6 +14,7 @@ import { importAssetCatalogStorageSource } from "../src/catalog-storage.js";
 import { blenderScriptSpec, runBlenderRecipe } from "../src/blender-recipe-run.js";
 import { readBlenderRecipeSource } from "../src/blender-recipe-source.js";
 import { runKitCli } from "../src/kit-bundle.js";
+import { BIPED_RIGID } from "../src/biped-rigid.js";
 import { packageQuadrupedRigidFamily } from "../src/quadruped-rigid.js";
 import type { AssetRef } from "../src/operations.js";
 
@@ -31,7 +32,8 @@ export const ZOO_ANIMALS = [
 ] as const;
 /**
  * The expressive animals authored here by adapters/blender/zoo_animals.py (#589), packaged beside Zoo's own
- * models as the `expressive` variant of the same key, so the `default` members stay as they were.
+ * models as the `expressive` variant of the same key, so the `default` members stay as they were. A two-legged
+ * animal names the `biped-rigid` profile (#605); the rest are quadruped-rigid.
  */
 export const ZOO_EXPRESSIVE_VARIANT = "expressive";
 export const ZOO_EXPRESSIVE_ANIMALS = [
@@ -40,6 +42,7 @@ export const ZOO_EXPRESSIVE_ANIMALS = [
   { animal: "tiger", key: "zoo.animal.tiger", issue: 590 },
   { animal: "elephant", key: "zoo.animal.elephant", issue: 599 },
   { animal: "capybara", key: "zoo.animal.capybara", issue: 600 },
+  { animal: "flamingo", key: "zoo.animal.flamingo", issue: 609, profile: BIPED_RIGID },
 ] as const;
 export const ZOO_ANIMALS_RECIPE = "adapters/blender/zoo_animals.py";
 
@@ -80,7 +83,7 @@ export async function buildZooAnimals({ outDir, log = () => {} }: { outDir: stri
       spec: createZooAnimalAssetSpec({ species: entry.animal, scriptSha256: recipe.sha256, blenderVersion: recipe.blenderVersion }),
     });
     members.push({
-      key: entry.key, variant: ZOO_EXPRESSIVE_VARIANT, source: glb,
+      key: entry.key, variant: ZOO_EXPRESSIVE_VARIANT, source: glb, ...("profile" in entry ? { profile: entry.profile } : {}),
       provenance: {
         animal: entry.animal, issue: `https://github.com/moritzbrantner/asset-tooling/issues/${entry.issue}`,
         recipe: { script: ZOO_ANIMALS_RECIPE, sha256: recipe.sha256, blenderVersion: recipe.blenderVersion, name: (observations as { recipe: string }).recipe },
