@@ -16,6 +16,12 @@ export const QUADRUPED_RIGID_ROOT = "animal_root";
 export const QUADRUPED_RIGID_LEGS = ["leg_0", "leg_1", "leg_2", "leg_3"] as const;
 /** The joints every quadruped carries. A species may add its own, such as the giraffe's `neck`. */
 export const QUADRUPED_RIGID_JOINTS = [QUADRUPED_RIGID_ROOT, "body", "head", "tail", ...QUADRUPED_RIGID_LEGS] as const;
+/**
+ * The rules a rigid animal profile varies (#605): its name, the joints every animal of it carries and the legs its
+ * `walk` must swing. `quadruped-rigid` and its two-legged sibling `biped-rigid` (src/biped-rigid.ts) share the rest.
+ */
+export type RigidAnimalProfile = { name: string; joints: readonly string[]; legs: readonly string[] };
+export const QUADRUPED_RIGID: RigidAnimalProfile = { name: QUADRUPED_RIGID_PROFILE, joints: QUADRUPED_RIGID_JOINTS, legs: QUADRUPED_RIGID_LEGS };
 export const QUADRUPED_RIGID_CLIPS = ["idle", "walk"] as const;
 /**
  * Optional activity clips (#589). They are not required, but a clip with one of these names is checked like
@@ -34,7 +40,7 @@ const MIN_CHANNEL_MOTION = 1e-3;
 const MIN_LEG_SWING = 0.01;
 
 export type QuadrupedRigidObservations = {
-  profile: typeof QUADRUPED_RIGID_PROFILE;
+  profile: string;
   joints: string[];
   rigidParts: number;
   triangles: number;
@@ -182,11 +188,11 @@ export function clipLowestPoint(document: Document, animation: Animation): numbe
   return round(lowest);
 }
 
-/** Every way `document` breaks the profile, and the measurements the descriptor records. */
-export function inspectQuadrupedRigid(document: Document): { issues: string[]; observations: QuadrupedRigidObservations | null } {
+/** Every way `document` breaks `profile`, and the measurements the descriptor records. */
+export function inspectRigidAnimal(document: Document, profile: RigidAnimalProfile): { issues: string[]; observations: QuadrupedRigidObservations | null } {
   const issues: string[] = [];
   const root = document.getRoot();
-  if (root.listSkins().length > 0) issues.push(`the rig has ${root.listSkins().length} skin(s); quadruped-rigid carries no skin`);
+  if (root.listSkins().length > 0) issues.push(`the rig has ${root.listSkins().length} skin(s); ${profile.name} carries no skin`);
   for (const mesh of root.listMeshes()) for (const primitive of mesh.listPrimitives()) {
     if (primitive.listTargets().length > 0) issues.push(`mesh '${mesh.getName()}' has morph targets; a rigid part has none`);
   }
@@ -213,13 +219,13 @@ export function inspectQuadrupedRigid(document: Document): { issues: string[]; o
       issues.push(`the rig root '${QUADRUPED_RIGID_ROOT}' must have an identity transform`);
     }
   }
-  for (const joint of QUADRUPED_RIGID_JOINTS) {
+  for (const joint of profile.joints) {
     const node = byName.get(joint);
     if (!node) { issues.push(`required joint '${joint}' is missing`); continue; }
     if (rootNode && !rig.has(node)) issues.push(`required joint '${joint}' is not under the rig root`);
     if (joint !== QUADRUPED_RIGID_ROOT && !hasGeometry(node)) issues.push(`joint '${joint}' moves no geometry`);
   }
-  for (const leg of QUADRUPED_RIGID_LEGS) {
+  for (const leg of profile.legs) {
     const node = byName.get(leg);
     if (!node?.getMesh()) continue;
     let top: number;
@@ -244,20 +250,20 @@ export function inspectQuadrupedRigid(document: Document): { issues: string[]; o
 
   const walk = clip("walk");
   if (walk) {
-    for (const leg of QUADRUPED_RIGID_LEGS) {
+    for (const leg of profile.legs) {
       const motion = channelMotion(walk, leg, "rotation");
       if (!motion) issues.push(`clip 'walk' does not rotate joint '${leg}'`);
       else if (Math.max(...motion) <= MIN_LEG_SWING) issues.push(`clip 'walk' barely moves joint '${leg}'`);
     }
     const travel = Math.max(...[QUADRUPED_RIGID_ROOT, "body"].map((name) => horizontalTravel(walk, name)));
-    if (travel > QUADRUPED_RIGID_MAX_WALK_TRAVEL) issues.push(`clip 'walk' travels ${round(travel)} m; quadruped-rigid walks are in place`);
+    if (travel > QUADRUPED_RIGID_MAX_WALK_TRAVEL) issues.push(`clip 'walk' travels ${round(travel)} m; ${profile.name} walks are in place`);
     if (clips.walk) clips.walk.walkTravel = round(travel);
   }
   for (const name of QUADRUPED_RIGID_ACTIVITY_CLIPS) {
     const activity = clip(name);
     if (!activity || !clips[name]) continue;
     const travel = Math.max(...[QUADRUPED_RIGID_ROOT, "body"].map((joint) => horizontalTravel(activity, joint)));
-    if (travel > QUADRUPED_RIGID_MAX_WALK_TRAVEL) issues.push(`clip '${name}' travels ${round(travel)} m; quadruped-rigid activity clips are in place`);
+    if (travel > QUADRUPED_RIGID_MAX_WALK_TRAVEL) issues.push(`clip '${name}' travels ${round(travel)} m; ${profile.name} activity clips are in place`);
     clips[name]!.travel = round(travel);
   }
   for (const animation of animations) {
@@ -282,8 +288,8 @@ export function inspectQuadrupedRigid(document: Document): { issues: string[]; o
     if (min[0] > 0 || max[0] < 0 || min[2] > 0 || max[2] < 0) issues.push("the rig origin lies outside the rest-pose footprint");
   }
   const observations = bounds ? {
-    profile: QUADRUPED_RIGID_PROFILE,
-    joints: QUADRUPED_RIGID_JOINTS.filter((joint) => byName.has(joint)).sort(),
+    profile: profile.name,
+    joints: profile.joints.filter((joint) => byName.has(joint)).sort(),
     rigidParts: nodes.filter((node) => node.getMesh()).length,
     triangles: triangles(document),
     materials: root.listMaterials().length,
@@ -294,15 +300,28 @@ export function inspectQuadrupedRigid(document: Document): { issues: string[]; o
   return { issues, observations };
 }
 
-/** The measurements of a valid quadruped-rigid `document`; throws naming every issue otherwise. */
-export function assertQuadrupedRigid(document: Document, label = "asset"): QuadrupedRigidObservations {
-  const { issues, observations } = inspectQuadrupedRigid(document);
-  if (issues.length > 0 || !observations) throw new Error(`${label} fails ${QUADRUPED_RIGID_PROFILE}:\n- ${issues.join("\n- ") || "no observations"}`);
+/** Every way `document` breaks quadruped-rigid, and the measurements the descriptor records. */
+export function inspectQuadrupedRigid(document: Document) {
+  return inspectRigidAnimal(document, QUADRUPED_RIGID);
+}
+
+/** The measurements of a valid `document` under `profile`; throws naming every issue otherwise. */
+export function assertRigidAnimal(document: Document, profile: RigidAnimalProfile, label = "asset"): QuadrupedRigidObservations {
+  const { issues, observations } = inspectRigidAnimal(document, profile);
+  if (issues.length > 0 || !observations) throw new Error(`${label} fails ${profile.name}:\n- ${issues.join("\n- ") || "no observations"}`);
   return observations;
 }
 
-/** One animal of a family, as a pinned source with what it came from. */
-export type QuadrupedFamilyMember = { key: string; variant?: string; source: AssetRef; provenance: Record<string, unknown> };
+/** The measurements of a valid quadruped-rigid `document`; throws naming every issue otherwise. */
+export function assertQuadrupedRigid(document: Document, label = "asset"): QuadrupedRigidObservations {
+  return assertRigidAnimal(document, QUADRUPED_RIGID, label);
+}
+
+/**
+ * One animal of a family, as a pinned source with what it came from. `profile` is the rigid profile it is checked
+ * against, quadruped-rigid unless given (a two-legged animal names `BIPED_RIGID`); its descriptor entry records it.
+ */
+export type QuadrupedFamilyMember = { key: string; variant?: string; profile?: RigidAnimalProfile; source: AssetRef; provenance: Record<string, unknown> };
 export type QuadrupedFamilyLicense = { spdx: string; attribution: string; evidenceUrl: string; text: string };
 export type QuadrupedFamilyOptions = {
   release: string; tarName: string; descriptorFile: string; descriptorSchema: string; descriptorAttachment: string;
@@ -323,10 +342,11 @@ export async function packageQuadrupedRigidFamily(root: string, options: Quadrup
   const policy = { allowedValidatorWarnings: [...GLTF_RESOURCES_BUNDLE_ALLOWED_VALIDATOR_WARNINGS] };
   const built = [];
   for (const member of [...members].sort((a, b) => a.key.localeCompare(b.key))) {
-    log(`check ${member.key} against ${QUADRUPED_RIGID_PROFILE} and import it (scene.import.gltf@2)`);
-    const sourceObservations = assertQuadrupedRigid(await io.readBinary(new Uint8Array(await resolveAssetObject(root, member.source))), `${member.key} source`);
+    const profile = member.profile ?? QUADRUPED_RIGID;
+    log(`check ${member.key} against ${profile.name} and import it (scene.import.gltf@2)`);
+    const sourceObservations = assertRigidAnimal(await io.readBinary(new Uint8Array(await resolveAssetObject(root, member.source))), profile, `${member.key} source`);
     const imported = single(await executeGltfProductionImportOperation(root, { inputs: { source: member.source }, parameters: { policy } }));
-    const observations = assertQuadrupedRigid(await io.readBinary(new Uint8Array(await resolveAssetObject(root, imported))), `${member.key} import`);
+    const observations = assertRigidAnimal(await io.readBinary(new Uint8Array(await resolveAssetObject(root, imported))), profile, `${member.key} import`);
     if (canonicalJson(observations) !== canonicalJson(sourceObservations)) throw new Error(`${member.key}: the import changed the measured rig, clips or bounds`);
     built.push({ member, imported, observations });
   }
@@ -357,7 +377,7 @@ export async function packageQuadrupedRigidFamily(root: string, options: Quadrup
   for (const { member, observations } of built) {
     const { gltf, resources } = await readAssetBundleGltf(packed.bundleDir, manifest, member.key, variant(member));
     const document = await io.readJSON({ json: JSON.parse(gltf.toString("utf8")), resources: Object.fromEntries(resources) });
-    if (canonicalJson(assertQuadrupedRigid(document, `${member.key} bundle`)) !== canonicalJson(observations)) throw new Error(`${member.key}: the bundle changed the measured rig, clips or bounds`);
+    if (canonicalJson(assertRigidAnimal(document, member.profile ?? QUADRUPED_RIGID, `${member.key} bundle`)) !== canonicalJson(observations)) throw new Error(`${member.key}: the bundle changed the measured rig, clips or bounds`);
   }
   await writeFile(path.join(root, `${options.tarName.replace(/\.tar$/, "")}.LICENSE.txt`), license.text);
   return {
