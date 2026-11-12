@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://moritzbrantner.github.io/asset-tooling/schemas/zoo-scenery-descriptor-v2.schema.json",
+  "title": "asset-tooling Zoo scenery descriptor v2",
+  "description": "Measured size and bounds of the toy-style, flat-colour Zoo scenery and park pieces (docs/zoo-scenery.md). v2 adds the park roles fence, gate, bench, sign and pond (#625) to the v1 roles. Every value is in metres (one Zoo tile is 1 m) in the piece's own frame: +Y up, front +Z, origin at the centre of the footprint on the ground. Each piece stands on the footprint; only a wide tree crown (the acacia) may overhang it slightly. Fence, gate and pond-edge pieces run along X on one tile edge, centred on that edge.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "units", "tile", "up", "facing", "handedness", "origin", "footprint", "assets"],
+  "properties": {
+    "schema": { "const": "zoo-scenery-descriptor-v2" },
+    "units": { "const": "metre" },
+    "tile": { "const": 1 },
+    "up": { "const": "+Y" },
+    "facing": { "const": "+Z" },
+    "handedness": { "const": "right" },
+    "origin": { "const": "footprint-ground-center" },
+    "footprint": { "$ref": "#/$defs/footprint" },
+    "assets": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/asset" } }
+  },
+  "$defs": {
+    "vec3": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 },
+    "footprint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["width", "depth"],
+      "properties": { "width": { "type": "integer" }, "depth": { "type": "integer" } }
+    },
+    "asset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "variant", "role", "triangles", "visual", "bounds", "piece"],
+      "properties": {
+        "key": { "type": "string", "pattern": "^[a-z]+\\.mesh$" },
+        "variant": { "type": "string", "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*$" },
+        "role": { "enum": ["tree", "bush", "grass", "rock", "fence", "gate", "bench", "sign", "pond"] },
+        "triangles": { "type": "integer" },
+        "visual": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["width", "depth", "height"],
+          "properties": { "width": { "type": "number" }, "depth": { "type": "number" }, "height": { "type": "number" } }
+        },
+        "bounds": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["min", "max"],
+          "properties": { "min": { "$ref": "#/$defs/vec3" }, "max": { "$ref": "#/$defs/vec3" } }
+        },
+        "piece": { "type": "object" }
+      }
+    }
+  }
+}

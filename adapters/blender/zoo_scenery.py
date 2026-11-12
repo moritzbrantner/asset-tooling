@@ -20,8 +20,19 @@ plain-colour materials (no textures, no vertex colours). The palette follows Zoo
 - ``rock`` / ``flat``: a low, wide, slightly tilted slab with a thin chip beside it, the flat member of
   the rounded/angular/flat rock family (#132).
 
-Every shape is a lathe of a rounded profile (the rocks with a fixed analytic lumpiness), built directly
-into one BMesh, so the face order is fixed and there is no randomness. ``build(kind, variant, collection,
+Park pieces (#625, consumer zoo#190) replace Zoo's code-built fences, gates, benches, signs and pond edges:
+
+- ``fence`` / ``wood``, ``steel``, ``boundary``: one 1 m tile-edge segment along X with half a post at each
+  end, so neighbouring segments share one post; ``post-wood``, ``post-steel``, ``post-boundary`` are the
+  matching full posts for open ends and corners;
+- ``gate`` / ``service``: two posts under a lintel and a closed, braced plank leaf, in place of a segment;
+- ``bench`` / ``park``: slatted wooden seat and back on dark metal side frames, facing +Z;
+- ``sign`` / ``education`` and ``post``: a plain cream board on two posts and a small yellow signpost;
+- ``pond`` / ``edge``, ``corner``, ``reeds``: rim stones along one water-tile edge, an outer-corner stone
+  pair and a reed clump with two cattails.
+
+The natural shapes are lathes of a rounded profile (the rocks with a fixed analytic lumpiness), the park
+pieces flat-shaded blocks, all built directly into one BMesh, so the face order is fixed and there is no randomness. ``build(kind, variant, collection,
 location)`` also works in a live Blender session; ``generate`` is the script-backend entry point.
 """
 import math
@@ -31,7 +42,11 @@ import bpy
 from mathutils import Matrix, Vector
 
 PIECES = (("tree", "round"), ("tree", "pine"), ("tree", "acacia"), ("bush", "round"), ("grass", "tuft"),
-          ("rock", "round"), ("rock", "boulder"), ("rock", "flat"))
+          ("rock", "round"), ("rock", "boulder"), ("rock", "flat"),
+          ("fence", "wood"), ("fence", "steel"), ("fence", "boundary"),
+          ("fence", "post-wood"), ("fence", "post-steel"), ("fence", "post-boundary"),
+          ("gate", "service"), ("bench", "park"), ("sign", "education"), ("sign", "post"),
+          ("pond", "edge"), ("pond", "corner"), ("pond", "reeds"))
 SHARP_ANGLE = math.radians(48)
 
 # name: (sRGB base colour, roughness)
@@ -48,6 +63,16 @@ MATERIALS = {
     "rock-light": ((0.69, 0.68, 0.62), 0.85),
     "acacia": ((0.43, 0.6, 0.25), 0.7),
     "acacia-light": ((0.5, 0.66, 0.3), 0.7),
+    # park pieces (#625)
+    "wood": ((0.48, 0.35, 0.23), 0.8),
+    "wood-dark": ((0.34, 0.24, 0.16), 0.8),
+    "steel": ((0.5, 0.54, 0.57), 0.5),
+    "iron": ((0.22, 0.23, 0.25), 0.6),
+    "hedge": ((0.18, 0.35, 0.27), 0.6),
+    "board": ((0.95, 0.92, 0.82), 0.8),
+    "sign-yellow": ((0.95, 0.82, 0.45), 0.7),
+    "reed": ((0.42, 0.58, 0.3), 0.7),
+    "cattail": ((0.45, 0.3, 0.18), 0.8),
 }
 
 
@@ -125,6 +150,36 @@ class Builder:
         piece.free()
         self.bm.from_mesh(mesh)
         bpy.data.meshes.remove(mesh)
+
+    def block(self, mat, rings, roll=None):
+        """A closed, flat-shaded block through ``rings`` [(z, x0, x1, y0, y1), ...], bottom to top: a box with
+        two rings, a capped post with three. ``roll`` = (degrees, (cx, cz)) turns it about the Y axis through
+        that point (a diagonal brace)."""
+        piece = bmesh.new()
+        loops = [[piece.verts.new(co) for co in ((x0, y0, z), (x1, y0, z), (x1, y1, z), (x0, y1, z))] for z, x0, x1, y0, y1 in rings]
+        piece.faces.new(list(reversed(loops[0])))
+        for a, b in zip(loops, loops[1:]):
+            for i in range(4):
+                j = (i + 1) % 4
+                piece.faces.new((a[i], a[j], b[j], b[i]))
+        piece.faces.new(loops[-1])
+        if roll:
+            angle, (cx, cz) = roll
+            matrix = Matrix.Translation((cx, 0, cz)) @ Matrix.Rotation(math.radians(angle), 4, "Y") @ Matrix.Translation((-cx, 0, -cz))
+            bmesh.ops.transform(piece, matrix=matrix, verts=piece.verts)
+        index = self.slot(mat)
+        for face in piece.faces:
+            face.material_index = index
+            face.smooth = False
+        mesh = bpy.data.meshes.new("zoo-piece")
+        piece.to_mesh(mesh)
+        piece.free()
+        self.bm.from_mesh(mesh)
+        bpy.data.meshes.remove(mesh)
+
+    def box(self, mat, x, y, z, roll=None):
+        """An axis-aligned box over the ranges ``x``, ``y`` and ``z`` (Blender axes)."""
+        self.block(mat, [(z[0], x[0], x[1], y[0], y[1]), (z[1], x[0], x[1], y[0], y[1])], roll)
 
     def finish(self, collection, parent):
         mesh = bpy.data.meshes.new(self.name)
@@ -244,10 +299,181 @@ def build_rock_flat(b):
     return {"stones": 2}
 
 
+# ---------------------------------------------------------------- park pieces (#625)
+# Fence and gate pieces span one 1 m tile edge along X (x -0.5..0.5), centred on the edge. A fence segment
+# carries half a post at each end, so neighbouring segments share one whole post; the full posts close a run's
+# open ends and turned corners. The park pieces are flat-shaded blocks. In Blender axes the front is -Y.
+
+# kind: (post width along the run, post depth, body height, cap height, cap scale, body material, cap material)
+POSTS = {
+    "wood": (0.08, 0.08, 0.5, 0.05, 0.35, "wood", "wood"),
+    "steel": (0.05, 0.05, 0.97, 0.03, 0.5, "steel", "steel"),
+    "boundary": (0.12, 0.2, 0.52, 0.08, 0.55, "rock", "rock-light"),
+}
+
+
+def post(b, kind, x0, x1, centre):
+    """The slice x0..x1 of a ``kind`` post centred on ``centre``, with its tapered cap."""
+    _, depth, height, cap, scale, mat, cap_mat = POSTS[kind]
+    half, lip = depth / 2, depth / 2 + 0.006
+
+    def taper(x):  # the cap narrows towards the post's centre
+        return centre + (x - centre) * scale
+
+    b.box(mat, (x0, x1), (-half, half), (0, height))
+    b.block(cap_mat, [(height - 0.004, x0, x1, -lip, lip), (height + cap * 0.35, x0, x1, -lip, lip),
+                      (height + cap, taper(x0), taper(x1), -half * scale, half * scale)])
+
+
+def half_posts(b, kind):
+    """Half a post at each end of a segment; returns the inner face's distance from the centre."""
+    width = POSTS[kind][0]
+    post(b, kind, -0.5, -0.5 + width / 2, -0.5)
+    post(b, kind, 0.5 - width / 2, 0.5, 0.5)
+    return 0.5 - width / 2
+
+
+def rail(b, mat, inner, depth, z, height):
+    """A rail between the half posts, reaching a little into each so it shares no vertex with them."""
+    b.box(mat, (-inner - 0.01, inner + 0.01), (-depth / 2, depth / 2), (z - height / 2, z + height / 2))
+
+
+def build_fence_wood(b):
+    inner = half_posts(b, "wood")
+    for z in (0.2, 0.42):
+        rail(b, "wood", inner, 0.045, z, 0.06)
+    return {"rails": 2, "halfPosts": 2, "tileEdge": 1}
+
+
+def build_fence_steel(b):
+    inner = half_posts(b, "steel")
+    rails = (0.08, 0.51, 0.94)
+    for z in rails:
+        rail(b, "steel", inner, 0.032, z, 0.036)
+    bars = 9  # an open grid of thin opaque bars, so the animals stay visible through it
+    for i in range(bars):
+        x = -inner + 2 * inner * (i + 1) / (bars + 1)
+        b.box("steel", (x - 0.008, x + 0.008), (-0.008, 0.008), (rails[0], rails[-1]))
+    return {"rails": len(rails), "bars": bars, "halfPosts": 2, "tileEdge": 1}
+
+
+def build_fence_boundary(b):
+    inner = half_posts(b, "boundary")
+    b.box("rock", (-inner - 0.01, inner + 0.01), (-0.075, 0.075), (0, 0.2))
+    b.box("rock-light", (-inner - 0.01, inner + 0.01), (-0.085, 0.085), (0.2, 0.235))
+    for z in (0.34, 0.55):
+        rail(b, "hedge", inner, 0.04, z, 0.044)
+    balusters = 4
+    for i in range(balusters):
+        x = -inner + 2 * inner * (i + 1) / (balusters + 1)
+        b.box("hedge", (x - 0.016, x + 0.016), (-0.016, 0.016), (0.235, 0.55))
+    return {"wallHeight": 0.235, "rails": 2, "balusters": balusters, "halfPosts": 2, "tileEdge": 1}
+
+
+def full_post(kind):
+    def build_post(b):
+        width = POSTS[kind][0]
+        post(b, kind, -width / 2, width / 2, 0)
+        return {"post": kind}
+    return build_post
+
+
+def build_gate_service(b):
+    # Two wooden posts under a lintel, and a closed, braced plank leaf with steel hinges; it takes one segment's place.
+    for x in (-0.44, 0.44):
+        b.box("wood", (x - 0.045, x + 0.045), (-0.045, 0.045), (0, 0.6))
+    b.box("wood", (-0.49, 0.49), (-0.05, 0.05), (0.6, 0.655))
+    planks, left, right = 6, -0.39, 0.39
+    pitch = (right - left) / planks
+    for i in range(planks):
+        x0 = left + i * pitch
+        b.box("wood-dark", (x0 + 0.006, x0 + pitch - 0.006), (-0.012, 0.012), (0.06, 0.54))
+    for z in (0.12, 0.46):  # ledges and hinges on the front face
+        b.box("wood", (left, right), (-0.03, -0.012), (z - 0.03, z + 0.03))
+        b.box("steel", (left - 0.005, left + 0.12), (-0.036, -0.03), (z - 0.02, z + 0.02))
+    rise, run = 0.28, right - left - 0.1
+    length = math.hypot(run, rise)
+    b.box("wood", (-length / 2, length / 2), (-0.028, -0.014), (0.29 - 0.026, 0.29 + 0.026), roll=(-math.degrees(math.atan2(rise, run)), (0, 0.29)))
+    return {"leaf": "closed", "planks": planks, "posts": 2, "tileEdge": 1}
+
+
+def build_bench_park(b):
+    # Three seat slats and two back slats on dark metal side frames, facing +Z.
+    half = 0.36
+    for y in (-0.145, -0.07, 0.005):
+        b.box("wood", (-half, half), (y, y + 0.065), (0.19, 0.22))
+    for z in (0.26, 0.34):
+        b.box("wood", (-half, half), (0.09, 0.115), (z, z + 0.055))
+    for x in (-0.29, 0.29):
+        b.box("iron", (x - 0.018, x + 0.018), (-0.13, -0.1), (0, 0.19))  # front leg
+        b.box("iron", (x - 0.018, x + 0.018), (0.115, 0.145), (0, 0.4))  # back leg and back support
+        b.box("iron", (x - 0.02, x + 0.02), (-0.145, 0.13), (0.165, 0.19))  # seat bearer
+        b.box("iron", (x - 0.02, x + 0.02), (-0.1, 0.115), (0.04, 0.06))  # foot rail
+    return {"seatHeight": 0.22, "seatSlats": 3, "backSlats": 2}
+
+
+def build_sign_education(b):
+    # A plain light board in a dark wooden frame on two posts, under a small top rail, facing +Z.
+    for x in (-0.19, 0.19):
+        b.box("wood", (x - 0.03, x + 0.03), (0.0, 0.06), (0, 0.66))
+    b.box("wood-dark", (-0.26, 0.26), (-0.03, 0.0), (0.37, 0.67))
+    b.box("board", (-0.235, 0.235), (-0.04, -0.01), (0.395, 0.645))
+    b.box("wood", (-0.28, 0.28), (-0.05, 0.035), (0.66, 0.685))
+    return {"board": [0.52, 0.3], "boardTop": 0.685, "posts": 2}
+
+
+def build_sign_post(b):
+    # A small signpost with a plain yellow board, facing +Z.
+    b.block("wood", [(0, -0.025, 0.025, 0.0, 0.05), (0.62, -0.025, 0.025, 0.0, 0.05), (0.66, -0.01, 0.01, 0.015, 0.035)])
+    b.box("wood-dark", (-0.21, 0.21), (-0.025, 0.0), (0.46, 0.7))
+    b.box("sign-yellow", (-0.195, 0.195), (-0.035, -0.015), (0.475, 0.685))
+    return {"board": [0.42, 0.24], "boardTop": 0.7, "posts": 1}
+
+
+def rim_stone(b, mat, x, y, radius, height, seed, squash=0.9):
+    b.lathe(mat, dome(radius, height, 3), (x, y, 0), segments=7, scale=(1, squash, 1), lump=lumpy(seed))
+
+
+def build_pond_edge(b):
+    # Four rounded rim stones along one water-tile edge (x -0.5..0.5), centred on the edge.
+    stones = ((-0.375, 0.01, 0.112, 0.1, "rock", 0.4), (-0.13, -0.015, 0.118, 0.115, "rock-light", 1.9),
+              (0.125, 0.012, 0.11, 0.09, "rock", 3.3), (0.38, -0.01, 0.106, 0.105, "rock-light", 5.1))
+    for x, y, radius, height, mat, seed in stones:
+        rim_stone(b, mat, x, y, radius, height, seed)
+    return {"stones": len(stones), "tileEdge": 1}
+
+
+def build_pond_corner(b):
+    rim_stone(b, "rock", -0.01, 0.01, 0.105, 0.11, 2.7, squash=1)
+    rim_stone(b, "rock-light", 0.07, -0.075, 0.05, 0.06, 0.9, squash=1)
+    return {"stones": 2, "corner": "outer"}
+
+
+def build_pond_reeds(b):
+    # Open three-sided reed blades and two cattails on thin stalks: the lightest park piece.
+    blades = ((0, 0, 0.38), (14, 30, 0.33), (18, 150, 0.3), (16, 260, 0.34), (22, 330, 0.26))
+    for lean, heading, height in blades:
+        offset = 0.07 if lean else 0
+        center = (offset * math.cos(math.radians(heading)), offset * math.sin(math.radians(heading)), 0)
+        b.lathe("reed", [(0.035, 0), (0, height)], center, segments=3, tilt=(lean, heading) if lean else None)
+    for x, y, height, lean, heading in ((0.04, 0.03, 0.4, 8, 60), (-0.06, -0.02, 0.35, 10, 200)):
+        b.lathe("reed", [(0.008, 0), (0, height)], (x, y, 0), segments=3, tilt=(lean, heading))
+        reach = height * 0.8
+        top = (x + reach * math.sin(math.radians(lean)) * math.cos(math.radians(heading)),
+               y + reach * math.sin(math.radians(lean)) * math.sin(math.radians(heading)), reach * math.cos(math.radians(lean)))
+        b.lathe("cattail", [(0, -0.045), (0.02, -0.035), (0.02, 0.035), (0, 0.045)], top, segments=4, tilt=(lean, heading))
+    return {"blades": len(blades), "cattails": 2}
+
+
 BUILDERS = {("tree", "round"): build_tree_round, ("tree", "pine"): build_tree_pine, ("tree", "acacia"): build_tree_acacia,
             ("bush", "round"): build_bush_round, ("grass", "tuft"): build_grass_tuft,
             ("rock", "round"): build_rock_round, ("rock", "boulder"): build_rock_boulder,
-            ("rock", "flat"): build_rock_flat}
+            ("rock", "flat"): build_rock_flat,
+            ("fence", "wood"): build_fence_wood, ("fence", "steel"): build_fence_steel, ("fence", "boundary"): build_fence_boundary,
+            ("fence", "post-wood"): full_post("wood"), ("fence", "post-steel"): full_post("steel"),
+            ("fence", "post-boundary"): full_post("boundary"), ("gate", "service"): build_gate_service,
+            ("bench", "park"): build_bench_park, ("sign", "education"): build_sign_education, ("sign", "post"): build_sign_post,
+            ("pond", "edge"): build_pond_edge, ("pond", "corner"): build_pond_corner, ("pond", "reeds"): build_pond_reeds}
 
 
 def build(kind, variant, collection, location=(0, 0, 0)):
