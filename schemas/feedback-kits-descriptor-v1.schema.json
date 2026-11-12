@@ -1,0 +1,134 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://moritzbrantner.github.io/asset-tooling/schemas/feedback-kits-descriptor-v1.schema.json",
+  "title": "asset-tooling coordinated feedback kits descriptor v1",
+  "description": "The feedback-kits.descriptor/default entry of the feedback-kits release (png-wav-v1 bundle, #144). Each kit pairs an authored one-shot sprite atlas PNG, a reduced-motion still PNG and a synthesized canonical WAV cue per intensity, all timed in milliseconds from the consumer's accepted cosmetic event. It schedules nothing: the runtime owner plays, mixes, coalesces and skips them.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "release", "presentation", "time", "controls", "images", "audio", "provenance", "kits"],
+  "properties": {
+    "schema": { "const": "feedback-kits-descriptor-v1" },
+    "release": { "const": "feedback-kits" },
+    "presentation": { "const": "cosmetic-only" },
+    "time": {
+      "type": "object", "additionalProperties": false, "required": ["unit", "origin"],
+      "properties": { "unit": { "const": "ms" }, "origin": { "const": "accepted-cosmetic-event" } }
+    },
+    "controls": {
+      "type": "object", "additionalProperties": false, "required": ["intensities", "visual", "audio", "reducedMotion", "off"],
+      "properties": {
+        "intensities": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "$ref": "#/$defs/intensity" } },
+        "visual": { "const": "independent" },
+        "audio": { "const": "independent" },
+        "reducedMotion": { "const": "still" },
+        "off": { "const": "draw-and-play-nothing" }
+      }
+    },
+    "images": {
+      "type": "object", "additionalProperties": false, "required": ["mediaType", "colorSpace", "alpha", "coordinates"],
+      "properties": {
+        "mediaType": { "const": "image/png" }, "colorSpace": { "const": "srgb" }, "alpha": { "const": "straight" },
+        "coordinates": { "const": "top-left-pixels" }
+      }
+    },
+    "audio": {
+      "type": "object", "additionalProperties": false, "required": ["mediaType", "codec", "sampleRate", "channels", "clipping"],
+      "properties": {
+        "mediaType": { "const": "audio/wav" }, "codec": { "const": "pcm-s16le" }, "sampleRate": { "const": 48000 },
+        "channels": { "const": 1 }, "clipping": { "const": "amplitude-sum-headroom" }
+      }
+    },
+    "provenance": {
+      "type": "object", "additionalProperties": false, "required": ["license", "visual", "audio", "recipeSource"],
+      "properties": {
+        "license": { "type": "string" }, "visual": { "type": "string" }, "audio": { "type": "string" }, "recipeSource": { "type": "string" }
+      }
+    },
+    "kits": { "type": "array", "minItems": 1, "maxItems": 32, "items": { "$ref": "#/$defs/kit" } }
+  },
+  "$defs": {
+    "intensity": { "enum": ["strong", "subtle"] },
+    "token": { "type": "string", "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*$" },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "pin": {
+      "type": "object", "additionalProperties": false, "required": ["sha256", "byteLength"],
+      "properties": { "sha256": { "$ref": "#/$defs/sha256" }, "byteLength": { "type": "integer" } }
+    },
+    "png": {
+      "type": "object", "additionalProperties": false, "required": ["sha256", "byteLength", "width", "height"],
+      "properties": { "sha256": { "$ref": "#/$defs/sha256" }, "byteLength": { "type": "integer" }, "width": { "type": "integer" }, "height": { "type": "integer" } }
+    },
+    "point": {
+      "type": "object", "additionalProperties": false, "required": ["x", "y"],
+      "properties": { "x": { "type": "integer" }, "y": { "type": "integer" } }
+    },
+    "size": {
+      "type": "object", "additionalProperties": false, "required": ["width", "height"],
+      "properties": { "width": { "type": "integer" }, "height": { "type": "integer" } }
+    },
+    "rect": {
+      "type": "object", "additionalProperties": false, "required": ["x", "y", "width", "height"],
+      "properties": { "x": { "type": "integer" }, "y": { "type": "integer" }, "width": { "type": "integer" }, "height": { "type": "integer" } }
+    },
+    "frame": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "index", "timeMs", "durationMs", "rect", "trimOffset", "sourceSize", "pivot", "empty"],
+      "properties": {
+        "id": { "$ref": "#/$defs/token" }, "index": { "type": "integer" }, "timeMs": { "type": "integer" }, "durationMs": { "type": "integer" },
+        "rect": { "$ref": "#/$defs/rect" }, "trimOffset": { "$ref": "#/$defs/point" }, "sourceSize": { "$ref": "#/$defs/size" },
+        "pivot": { "$ref": "#/$defs/point" }, "empty": { "type": "boolean" }
+      }
+    },
+    "variant": {
+      "type": "object", "additionalProperties": false, "required": ["visual", "reducedMotion", "audio", "endMs"],
+      "properties": {
+        "visual": {
+          "type": "object", "additionalProperties": false, "required": ["key", "variant", "png", "onsetMs", "durationMs", "loop", "frames"],
+          "properties": {
+            "key": { "$ref": "#/$defs/token" }, "variant": { "$ref": "#/$defs/intensity" }, "png": { "$ref": "#/$defs/png" },
+            "onsetMs": { "type": "integer" }, "durationMs": { "type": "integer" }, "loop": { "const": false },
+            "frames": { "type": "array", "minItems": 2, "maxItems": 32, "items": { "$ref": "#/$defs/frame" } }
+          }
+        },
+        "reducedMotion": {
+          "type": "object", "additionalProperties": false, "required": ["key", "variant", "png", "frameIndex", "frameId"],
+          "properties": {
+            "key": { "$ref": "#/$defs/token" }, "variant": { "$ref": "#/$defs/intensity" }, "png": { "$ref": "#/$defs/png" },
+            "frameIndex": { "type": "integer" }, "frameId": { "$ref": "#/$defs/token" }
+          }
+        },
+        "audio": {
+          "type": "object", "additionalProperties": false,
+          "required": ["key", "variant", "wav", "onsetMs", "durationMs", "frameCount", "peakDbfs", "rmsDbfs", "tones"],
+          "properties": {
+            "key": { "$ref": "#/$defs/token" }, "variant": { "$ref": "#/$defs/intensity" }, "wav": { "$ref": "#/$defs/pin" },
+            "onsetMs": { "type": "integer" }, "durationMs": { "type": "integer" }, "frameCount": { "type": "integer" },
+            "peakDbfs": { "type": "number" }, "rmsDbfs": { "type": "number" }, "tones": { "type": "integer" }
+          }
+        },
+        "endMs": { "type": "integer" }
+      }
+    },
+    "kit": {
+      "type": "object", "additionalProperties": false, "required": ["kit", "consumer", "recipe", "recipeSha256", "kitManifest", "concurrency", "variants"],
+      "properties": {
+        "kit": { "$ref": "#/$defs/token" },
+        "consumer": { "type": "string" },
+        "recipe": {
+          "type": "object", "additionalProperties": false, "required": ["key", "variant", "sha256", "byteLength"],
+          "properties": { "key": { "$ref": "#/$defs/token" }, "variant": { "const": "default" }, "sha256": { "$ref": "#/$defs/sha256" }, "byteLength": { "type": "integer" } }
+        },
+        "recipeSha256": { "$ref": "#/$defs/sha256" },
+        "kitManifest": { "$ref": "#/$defs/pin" },
+        "concurrency": {
+          "type": "object", "additionalProperties": false, "required": ["maxActive", "overflow"],
+          "properties": { "maxActive": { "type": "integer" }, "overflow": { "enum": ["drop-new", "replace-oldest"] } }
+        },
+        "variants": {
+          "type": "object", "additionalProperties": false, "required": ["strong", "subtle"],
+          "properties": { "strong": { "$ref": "#/$defs/variant" }, "subtle": { "$ref": "#/$defs/variant" } }
+        }
+      }
+    }
+  }
+}

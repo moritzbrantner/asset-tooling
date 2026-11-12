@@ -13,6 +13,8 @@ export const APPROVED_IMAGE_BUNDLE_PROFILE = "approved-png-v1";
 export const GLTF_RESOURCES_BUNDLE_PROFILE = "gltf-resources-v1";
 /** Canonical PCM-16 WAV clips plus JSON descriptors, each stored once by hash (#297). */
 export const AUDIO_BUNDLE_PROFILE = "audio-wav-v1";
+/** PNG images, canonical PCM-16 WAV clips and JSON descriptors, each stored once by hash: one coordinated feedback kit release (#144). */
+export const PNG_WAV_BUNDLE_PROFILE = "png-wav-v1";
 /** The scene.import.gltf@2 warning allowance, applied profile-wide and recorded in build identity and manifest. */
 export const GLTF_RESOURCES_BUNDLE_ALLOWED_VALIDATOR_WARNINGS: readonly string[] = Object.freeze([...GLTF_PRODUCTION_ALLOWED_VALIDATOR_WARNINGS]);
 export const MAX_ASSETS = 256, MAX_ASSET_BYTES = 64*1024*1024, MAX_BUNDLE_BYTES = 256*1024*1024, MAX_MANIFEST_BYTES = 8*1024*1024;
@@ -40,8 +42,10 @@ export type GltfResourcesBundleManifest = { schemaVersion:4; profile:typeof GLTF
   policy:{ allowedValidatorWarnings:string[] }; assets:GltfResourcesBundleEntry[] };
 export type AudioBundleParameters = { profile:typeof AUDIO_BUNDLE_PROFILE; assets:BundleAssetSelection[] };
 export type AudioBundleManifest = { schemaVersion:5; profile:typeof AUDIO_BUNDLE_PROFILE; assets:AssetBundleEntry[] };
-export type AnyAssetBundleManifest = AssetBundleManifest|SpriteAtlasBundleManifest|ApprovedImageBundleManifest|GltfResourcesBundleManifest|AudioBundleManifest;
-export type BundleProfile = AssetBundleParameters["profile"]|typeof APPROVED_IMAGE_BUNDLE_PROFILE|typeof GLTF_RESOURCES_BUNDLE_PROFILE|typeof AUDIO_BUNDLE_PROFILE;
+export type PngWavBundleParameters = { profile:typeof PNG_WAV_BUNDLE_PROFILE; assets:BundleAssetSelection[] };
+export type PngWavBundleManifest = { schemaVersion:6; profile:typeof PNG_WAV_BUNDLE_PROFILE; assets:AssetBundleEntry[] };
+export type AnyAssetBundleManifest = AssetBundleManifest|SpriteAtlasBundleManifest|ApprovedImageBundleManifest|GltfResourcesBundleManifest|AudioBundleManifest|PngWavBundleManifest;
+export type BundleProfile = AssetBundleParameters["profile"]|typeof APPROVED_IMAGE_BUNDLE_PROFILE|typeof GLTF_RESOURCES_BUNDLE_PROFILE|typeof AUDIO_BUNDLE_PROFILE|typeof PNG_WAV_BUNDLE_PROFILE;
 export type Invocation = { parameters?:unknown; inputs?:unknown };
 export type BundleExportProgress = { path:string; status:"changed"|"unchanged"; byteLength:number };
 export type BundleExportOptions = { signal?:AbortSignal; onArtifact?:(artifact:BundleExportProgress)=>void|Promise<void> };
@@ -83,6 +87,13 @@ export const AUDIO_BUNDLE_OPERATION = createAssetOperationDescriptor({
   inputs:[{id:"assets",assetKinds:[],mediaTypes:[CANONICAL_AUDIO_MEDIA_TYPE,"application/json"],cardinality:{min:1,max:MAX_ASSETS}}],
   outputs:[{id:"manifest",assetKinds:["asset-bundle"],mediaTypes:[ASSET_BUNDLE_MEDIA_TYPE]}],
   parameterSchema:parameterSchema(AUDIO_BUNDLE_PROFILE),
+});
+/** asset.bundle@6: PNG images, canonical PCM-16 WAV clips and JSON descriptors stored by hash (#144). */
+export const PNG_WAV_BUNDLE_OPERATION = createAssetOperationDescriptor({
+  schemaVersion:1,id:"asset.bundle",version:"6",label:"Package PNG images, canonical WAV clips and JSON descriptors",category:"asset.packaging",
+  inputs:[{id:"assets",assetKinds:[],mediaTypes:["image/png",CANONICAL_AUDIO_MEDIA_TYPE,"application/json"],cardinality:{min:1,max:MAX_ASSETS}}],
+  outputs:[{id:"manifest",assetKinds:["asset-bundle"],mediaTypes:[ASSET_BUNDLE_MEDIA_TYPE]}],
+  parameterSchema:parameterSchema(PNG_WAV_BUNDLE_PROFILE),
 });
 export const MAX_ATTACHMENTS = 16, MAX_SCENE_RESOURCES = 1024;
 const GLTF_ATTACHMENT_MEDIA_TYPES: readonly string[] = ["application/json","model/gltf-binary"];

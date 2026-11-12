@@ -3,8 +3,8 @@ import { RGBA8_IMAGE_MEDIA_TYPE } from "./image-rgba8.js";
 import { parseSpriteAtlasManifest } from "./sprite-atlas-operations.js";
 import { createAssetRef, normalizeAssetOperationResult, type AssetOperationBuildIdentity } from "./operations.js";
 import { APPROVED_IMAGE_BUNDLE_OPERATION, APPROVED_IMAGE_BUNDLE_PROFILE, ASSET_BUNDLE_MEDIA_TYPE, ASSET_BUNDLE_OPERATION, AUDIO_BUNDLE_OPERATION, AUDIO_BUNDLE_PROFILE, GLTF_RESOURCES_BUNDLE_OPERATION, GLTF_RESOURCES_BUNDLE_PROFILE,
-  MAX_MANIFEST_BYTES, SPRITE_ATLAS_BUNDLE_OPERATION, SPRITE_ATLAS_BUNDLE_PROFILE, STATIC_ASSET_BUNDLE_PROFILE, type AnyAssetBundleManifest, type ApprovedImageBundleManifest, type AssetBundleManifest,
-  type AudioBundleManifest, type BundleProfile, type BundleResource, type GltfResourcesBundleManifest, type Invocation, type SpriteAtlasBundleManifest } from "./asset-bundle-contract.js";
+  PNG_WAV_BUNDLE_OPERATION, PNG_WAV_BUNDLE_PROFILE, MAX_MANIFEST_BYTES, SPRITE_ATLAS_BUNDLE_OPERATION, SPRITE_ATLAS_BUNDLE_PROFILE, STATIC_ASSET_BUNDLE_PROFILE, type AnyAssetBundleManifest, type ApprovedImageBundleManifest, type AssetBundleManifest,
+  type AudioBundleManifest, type BundleProfile, type BundleResource, type GltfResourcesBundleManifest, type Invocation, type PngWavBundleManifest, type SpriteAtlasBundleManifest } from "./asset-bundle-contract.js";
 import { assertAbsolute, readHashed, readPinned } from "./asset-bundle-files.js";
 import { verifyGltfResources } from "./asset-bundle-gltf.js";
 import { assetPath, bundleResources, object, parseAnyAssetBundleManifest, resolveAssetBundleReadEntry, storeManifest, unreachable,
@@ -13,13 +13,13 @@ import { checkAtlas, uniqueResources, validatePayload, type ReadResource } from 
 import { prepare } from "./asset-bundle-prepare.js";
 
 export { APPROVED_IMAGE_BUNDLE_OPERATION, APPROVED_IMAGE_BUNDLE_PROFILE, ASSET_BUNDLE_MEDIA_TYPE, ASSET_BUNDLE_OPERATION, AUDIO_BUNDLE_OPERATION, AUDIO_BUNDLE_PROFILE,
-  GLTF_RESOURCES_BUNDLE_ALLOWED_VALIDATOR_WARNINGS, GLTF_RESOURCES_BUNDLE_OPERATION, GLTF_RESOURCES_BUNDLE_PROFILE, SPRITE_ATLAS_BUNDLE_OPERATION, SPRITE_ATLAS_BUNDLE_PROFILE, STATIC_ASSET_BUNDLE_PROFILE } from "./asset-bundle-contract.js";
+  PNG_WAV_BUNDLE_OPERATION, PNG_WAV_BUNDLE_PROFILE, GLTF_RESOURCES_BUNDLE_ALLOWED_VALIDATOR_WARNINGS, GLTF_RESOURCES_BUNDLE_OPERATION, GLTF_RESOURCES_BUNDLE_PROFILE, SPRITE_ATLAS_BUNDLE_OPERATION, SPRITE_ATLAS_BUNDLE_PROFILE, STATIC_ASSET_BUNDLE_PROFILE } from "./asset-bundle-contract.js";
 export type { AnyAssetBundleManifest, ApprovedBundleAssetSelection, ApprovedImageBundleEntry, ApprovedImageBundleManifest, ApprovedImageBundleParameters, AssetBundleEntry, AssetBundleManifest, AssetBundleParameters,
-  AudioBundleManifest, AudioBundleParameters, BundleApproval, BundleAssetSelection, BundleExportOptions, BundleExportProgress, BundleResource, GltfBundleAttachment, GltfBundleObservations, GltfBundleResource,
+  AudioBundleManifest, AudioBundleParameters, PngWavBundleManifest, PngWavBundleParameters, BundleApproval, BundleAssetSelection, BundleExportOptions, BundleExportProgress, BundleResource, GltfBundleAttachment, GltfBundleObservations, GltfBundleResource,
   GltfResourcesAttachmentSelection, GltfResourcesBundleAssetSelection, GltfResourcesBundleEntry, GltfResourcesBundleManifest, GltfResourcesBundleParameters, SpriteAtlasBundleEntry, SpriteAtlasBundleManifest } from "./asset-bundle-contract.js";
 export { exportAssetBundle } from "./asset-bundle-export.js";
 export { readAssetBundleAttachment, readAssetBundleGltf } from "./asset-bundle-gltf.js";
-export { createAssetBundleReadSnapshot, listAssetBundleFiles, parseApprovedImageBundleManifest, parseAssetBundleManifest, parseAudioBundleManifest,
+export { createAssetBundleReadSnapshot, listAssetBundleFiles, parseApprovedImageBundleManifest, parseAssetBundleManifest, parseAudioBundleManifest, parsePngWavBundleManifest,
   parseGltfResourcesBundleManifest, parseSpriteAtlasBundleManifest, resolveAssetBundleEntry } from "./asset-bundle-manifest.js";
 export type { AssetBundleReadSnapshot } from "./asset-bundle-manifest.js";
 
@@ -35,6 +35,7 @@ function bundleOperation(manifest:AnyAssetBundleManifest) {
     case 3: return APPROVED_IMAGE_BUNDLE_OPERATION;
     case 4: return GLTF_RESOURCES_BUNDLE_OPERATION;
     case 5: return AUDIO_BUNDLE_OPERATION;
+    case 6: return PNG_WAV_BUNDLE_OPERATION;
     default: return unreachable(manifest);
   }
 }
@@ -44,6 +45,7 @@ export function verifyAssetBundle(directory:string,manifestValue:unknown,options
 export function verifyAssetBundle(directory:string,manifestValue:unknown,options:{profile:typeof APPROVED_IMAGE_BUNDLE_PROFILE}):Promise<BundleVerification<ApprovedImageBundleManifest>>;
 export function verifyAssetBundle(directory:string,manifestValue:unknown,options:{profile:typeof GLTF_RESOURCES_BUNDLE_PROFILE}):Promise<BundleVerification<GltfResourcesBundleManifest>>;
 export function verifyAssetBundle(directory:string,manifestValue:unknown,options:{profile:typeof AUDIO_BUNDLE_PROFILE}):Promise<BundleVerification<AudioBundleManifest>>;
+export function verifyAssetBundle(directory:string,manifestValue:unknown,options:{profile:typeof PNG_WAV_BUNDLE_PROFILE}):Promise<BundleVerification<PngWavBundleManifest>>;
 export async function verifyAssetBundle(directory:string,manifestValue:unknown,options:{profile:BundleProfile}={profile:STATIC_ASSET_BUNDLE_PROFILE}):Promise<BundleVerification<AnyAssetBundleManifest>> {
   const selected=object(options,["profile"],"bundle verification profile");
   assertAbsolute(directory);const ref=createAssetRef(manifestValue);
@@ -53,7 +55,7 @@ export async function verifyAssetBundle(directory:string,manifestValue:unknown,o
   const resources=bundleResources(manifest);
   for(const entry of resources) if(!verified.has(entry.path)) {await validatePayload(entry.source,await readPinned(directory,entry.path,entry.source));verified.add(entry.path);}
   switch(manifest.schemaVersion) {
-   case 1: case 3: case 5: break;
+   case 1: case 3: case 5: case 6: break;
    case 4: return {manifest,assetsVerified:manifest.assets.length,uniquePayloads:await verifyGltfResources(directory,manifest)};
    case 2: {
     const expected:BundleResource[]=[];

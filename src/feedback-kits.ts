@@ -168,7 +168,31 @@ const pop=(amplitude:number):FeedbackTone[]=>[
  {waveform:"triangle",frequencyHz:220,amplitude,startMs:0,durationMs:90,attackMs:2,decayMs:30,sustainLevelQ15:8000,releaseMs:50},
  {waveform:"sine",frequencyHz:880,amplitude:Math.round(amplitude/2),startMs:30,durationMs:120,...envelope},
 ];
-/** Two starting kits: a UI reward pulse (ring + rising chime) and a harvest pop (puff + soft pop). */
+/** An expanding one-shot ring on a 64×64 canvas: [timeMs, durationMs, radius, stroke, opacity] per pose, ending blank. */
+function ringSequence(sequence:string,color:[number,number,number],poses:[number,number,number,number,number][]):AuthoredEffectSequenceRecipe {
+ return {schemaVersion:1,sequence,loop:false,atlas:{columns:3,padding:2,extrusion:1,trim:true},frames:poses.map(([timeMs,durationMs,radius,stroke,opacity],index)=>({
+  index,timeMs,durationMs,artwork:{shape:"ring" as const,width:64,height:64,centerX:32,centerY:32,radius,softness:2,stroke,color,opacity}}))};
+}
+/** The subtle visual keeps every pose and time and scales only the declared opacities, like the authored sequence presets. */
+const subtleOf=(recipe:AuthoredEffectSequenceRecipe):AuthoredEffectSequenceRecipe=>({...recipe,sequence:recipe.sequence.replace(/\.strong$/,".subtle"),
+ frames:recipe.frames.map(f=>({...f,artwork:{...f.artwork,opacity:Math.round(f.artwork.opacity*96/255)}}))});
+/** A fast pale-gold flash ring for a confirmed shield or weapon contact. */
+const impactFlash=ringSequence("impact-flash.strong",[255,236,196],[[0,20,6,4,0],[20,30,7,5,255],[50,40,11,4,220],[90,50,16,3,140],[140,60,20,2,60],[200,40,22,2,0]]);
+/** A slower mint ring that settles out for a solved puzzle. */
+const solvedRing=ringSequence("solved-ring.strong",[128,226,176],[[0,40,6,3,0],[40,60,9,4,255],[100,80,13,4,230],[180,100,17,3,160],[280,140,21,2,70],[420,100,23,2,0]]);
+/** A metallic hit: a low triangle thump under three inharmonic sine partials that ring out (bell-like, not a pitched note). */
+const clang=(scale:number):FeedbackTone[]=>[
+ {waveform:"triangle",frequencyHz:150,amplitude:Math.round(9000*scale),startMs:0,durationMs:120,attackMs:1,decayMs:40,sustainLevelQ15:6000,releaseMs:70},
+ {waveform:"sine",frequencyHz:1870,amplitude:Math.round(7000*scale),startMs:0,durationMs:260,attackMs:1,decayMs:30,sustainLevelQ15:9000,releaseMs:220},
+ {waveform:"sine",frequencyHz:2960,amplitude:Math.round(5000*scale),startMs:0,durationMs:200,attackMs:1,decayMs:20,sustainLevelQ15:8000,releaseMs:170},
+ {waveform:"sine",frequencyHz:4410,amplitude:Math.round(3500*scale),startMs:0,durationMs:140,attackMs:1,decayMs:15,sustainLevelQ15:6000,releaseMs:120},
+];
+/** A rising C-major arpeggio (C6, E6, G6, C7); the subtle cue keeps only the first and last notes. */
+const arpeggio=(amplitude:number,notes:readonly number[]):FeedbackTone[]=>notes.map(index=>{
+ const last=index===3;
+ return {waveform:"sine",frequencyHz:[1047,1319,1568,2093][index]!,amplitude,startMs:index*80,durationMs:last?360:160,attackMs:4,decayMs:40,sustainLevelQ15:12000,releaseMs:last?240:60};
+});
+/** Four kits: a UI reward pulse (ring + rising chime), a harvest pop (puff + soft pop), a shield impact (flash ring + clang) and a puzzle solve (mint ring + arpeggio). */
 export const FEEDBACK_KIT_PRESETS=deepFreeze({
  uiReward:{schemaVersion:1,kit:"ui.reward-pulse",concurrency:{maxActive:2,overflow:"replace-oldest"},variants:{
   strong:{visual:clone(AUTHORED_EFFECT_SEQUENCE_PRESETS.ring.strong),visualOnsetMs:0,reducedMotionFrameIndex:2,audioOnsetMs:0,tones:chime(9000)},
@@ -177,5 +201,13 @@ export const FEEDBACK_KIT_PRESETS=deepFreeze({
  harvest:{schemaVersion:1,kit:"farm.harvest-pop",concurrency:{maxActive:4,overflow:"drop-new"},variants:{
   strong:{visual:clone(AUTHORED_EFFECT_SEQUENCE_PRESETS.puff.strong),visualOnsetMs:0,reducedMotionFrameIndex:2,audioOnsetMs:20,tones:pop(10000)},
   subtle:{visual:clone(AUTHORED_EFFECT_SEQUENCE_PRESETS.puff.subtle),visualOnsetMs:0,reducedMotionFrameIndex:2,audioOnsetMs:20,tones:pop(4000)},
+ }} satisfies FeedbackKitRecipe,
+ impact:{schemaVersion:1,kit:"combat.shield-impact",concurrency:{maxActive:6,overflow:"drop-new"},variants:{
+  strong:{visual:impactFlash,visualOnsetMs:0,reducedMotionFrameIndex:2,audioOnsetMs:0,tones:clang(1)},
+  subtle:{visual:subtleOf(impactFlash),visualOnsetMs:0,reducedMotionFrameIndex:2,audioOnsetMs:0,tones:clang(0.4)},
+ }} satisfies FeedbackKitRecipe,
+ puzzleSolved:{schemaVersion:1,kit:"puzzle.solved",concurrency:{maxActive:1,overflow:"drop-new"},variants:{
+  strong:{visual:solvedRing,visualOnsetMs:0,reducedMotionFrameIndex:2,audioOnsetMs:0,tones:arpeggio(7000,[0,1,2,3])},
+  subtle:{visual:subtleOf(solvedRing),visualOnsetMs:0,reducedMotionFrameIndex:2,audioOnsetMs:0,tones:arpeggio(3000,[0,3])},
  }} satisfies FeedbackKitRecipe,
 });

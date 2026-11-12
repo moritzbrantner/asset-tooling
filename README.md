@@ -78,6 +78,8 @@ The [ARPG combat flipbooks](docs/combat-effects.md) are baked 16-frame hit-spark
 
 The [reward-feedback flipbooks](docs/reward-effects.md) are baked 16-frame sparkle, ring, burst and confetti strips in `subtle` and `strong` variants for ui's Pop/Pulse rewards. They are white alpha masks the UI tints with its own theme tokens, from the same rasterizer.
 
+The [coordinated feedback kits](docs/feedback-kits.md) pair a short authored effect atlas, a reduced-motion still and a synthesized 48 kHz WAV cue per intensity for a UI reward, a Farm harvest, a shield impact and a solved puzzle, shipped as the `feedback-kits` rolling release.
+
 The [combat sounds](docs/combat-sounds.md) are 35 CC0 mono WAV clips (Kenney and OpenGameArt) for arpg's combat, pickup, encounter and UI cues, trimmed and normalised, with a game-audio `SoundManifest`.
 
 ## Review current assets

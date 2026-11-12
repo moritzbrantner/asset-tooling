@@ -242,6 +242,16 @@ Its real-source test runs in the hosted `canonical-storage` job. It skips on Git
 
 The limits are the static profile's.
 
+## PNG and WAV profile
+
+`PNG_WAV_BUNDLE_PROFILE` selects `png-wav-v1`, `asset.bundle@6` (`PNG_WAV_BUNDLE_OPERATION`), added for the [coordinated feedback kits](feedback-kits.md) of #144, where one release carries each kit's images and sounds together. It is the audio profile with PNG images admitted as well, and uses the same exporter, reader and tar helpers. Its manifest follows the [v6 schema](../schemas/asset-bundle-v6.schema.json): `schemaVersion: 6`, the profile, and `assets` of `{ key, variant, source, path }`, sorted by key and then variant.
+
+- **Selection.** Each selection is `{ key, variant }`, paired in order with one `inputs.assets` AssetRef: an `image`/`image/png`, a canonical audio AssetRef or any-kind `application/json` of at most 8 MiB.
+- **Layout.** Each payload is stored once at `assets/<sha256>.png`, `.wav` or `.json`.
+- **Verification.** `verifyAssetBundle(dir, ref, { profile: PNG_WAV_BUNDLE_PROFILE })` re-hashes every file, checks each PNG header and its 1–4096 dimensions, re-checks each WAV against its canonical audio metadata and parses the JSON. The other profiles reject a v6 manifest, and this one rejects theirs. `parsePngWavBundleManifest` parses the manifest alone.
+
+The limits are the static profile's.
+
 ## Kit costs
 
 `scripts/report-kit-costs.ts` reports what a built `gltf-resources-v1` kit costs: its download bytes, the estimated GPU memory of its textures, its distinct materials and, per entry and variant, its draw calls and triangles.
