@@ -20,6 +20,7 @@ export type ZooSceneryPiece = { kind: ZooSceneryKind; variant: string };
 export const ZOO_SCENERY_PIECES: readonly ZooSceneryPiece[] = [
   { kind: "tree", variant: "round" }, { kind: "tree", variant: "pine" }, { kind: "tree", variant: "acacia" }, { kind: "bush", variant: "round" },
   { kind: "grass", variant: "tuft" }, { kind: "rock", variant: "round" }, { kind: "rock", variant: "boulder" },
+  { kind: "rock", variant: "flat" },
 ];
 export const ZOO_DESCRIPTOR_SCHEMA = "zoo-scenery-descriptor-v1";
 export const ZOO_DESCRIPTOR_FILE = "zoo-scenery.descriptor.json";

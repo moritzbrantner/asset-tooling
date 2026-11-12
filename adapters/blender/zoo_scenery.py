@@ -16,7 +16,9 @@ plain-colour materials (no textures, no vertex colours). The palette follows Zoo
 - ``rock`` / ``round``: a lumpy grey boulder with a small pebble beside it;
 - ``tree`` / ``acacia``: a thin trunk forking once under a flat, olive umbrella crown (#359, habitats);
 - ``grass`` / ``tuft``: five three-sided blades, the lightest piece because it repeats the most (#359);
-- ``rock`` / ``boulder``: a taller, angular six-sided boulder with a small chip beside it (#359).
+- ``rock`` / ``boulder``: a taller, angular six-sided boulder with a small chip beside it (#359);
+- ``rock`` / ``flat``: a low, wide, slightly tilted slab with a thin chip beside it, the flat member of
+  the rounded/angular/flat rock family (#132).
 
 Every shape is a lathe of a rounded profile (the rocks with a fixed analytic lumpiness), built directly
 into one BMesh, so the face order is fixed and there is no randomness. ``build(kind, variant, collection,
@@ -29,7 +31,7 @@ import bpy
 from mathutils import Matrix, Vector
 
 PIECES = (("tree", "round"), ("tree", "pine"), ("tree", "acacia"), ("bush", "round"), ("grass", "tuft"),
-          ("rock", "round"), ("rock", "boulder"))
+          ("rock", "round"), ("rock", "boulder"), ("rock", "flat"))
 SHARP_ANGLE = math.radians(48)
 
 # name: (sRGB base colour, roughness)
@@ -234,9 +236,18 @@ def build_rock_boulder(b):
     return {"stones": 2}
 
 
+def build_rock_flat(b):
+    profile = [(0, 0), (0.36, 0), (0.39, 0.05), (0.33, 0.14), (0.12, 0.16), (0, 0.16)]
+    b.lathe("rock", profile, (-0.06, 0.02, 0), segments=7, scale=(1.12, 0.82, 1), lump=lumpy(1.7), tilt=(5, 200))
+    chip = [(0, 0), (0.17, 0), (0.18, 0.03), (0.13, 0.07), (0, 0.075)]
+    b.lathe("rock-light", chip, (0.3, -0.19, 0), segments=6, scale=(1, 0.8, 1), lump=lumpy(4.2), tilt=(8, 320))
+    return {"stones": 2}
+
+
 BUILDERS = {("tree", "round"): build_tree_round, ("tree", "pine"): build_tree_pine, ("tree", "acacia"): build_tree_acacia,
             ("bush", "round"): build_bush_round, ("grass", "tuft"): build_grass_tuft,
-            ("rock", "round"): build_rock_round, ("rock", "boulder"): build_rock_boulder}
+            ("rock", "round"): build_rock_round, ("rock", "boulder"): build_rock_boulder,
+            ("rock", "flat"): build_rock_flat}
 
 
 def build(kind, variant, collection, location=(0, 0, 0)):
