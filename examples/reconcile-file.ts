@@ -1,10 +1,10 @@
 import path from "node:path";
 import { mkdtemp, readFile, rename, rm, writeFile } from "node:fs/promises";
 
-/** Example output reconciliation; parent directory is created by the caller. */
-export async function writeIfChanged(filePath: string, bytes: Uint8Array): Promise<void> {
+/** Example output reconciliation; parent directory is created by the caller. Returns whether the file was (re)written. */
+export async function writeIfChanged(filePath: string, bytes: Uint8Array): Promise<boolean> {
   try {
-    if ((await readFile(filePath)).equals(bytes)) return;
+    if ((await readFile(filePath)).equals(bytes)) return false;
   } catch (error: unknown) {
     if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) throw error;
   }
@@ -16,4 +16,5 @@ export async function writeIfChanged(filePath: string, bytes: Uint8Array): Promi
   } finally {
     await rm(temporary, { recursive: true, force: true });
   }
+  return true;
 }

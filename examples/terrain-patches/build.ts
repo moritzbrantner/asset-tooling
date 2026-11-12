@@ -1,23 +1,31 @@
 /**
  * Builds a 2×2 grid of terrain patches with masks, meshes and detail into .artifacts/terrain-patches/ (#134).
- * Usage: bun examples/terrain-patches/build.ts [outDir]. See docs/terrain-patches.md.
+ * Usage: bun examples/terrain-patches/build.ts [outDir] [recipe.json]. See docs/terrain-patches.md.
+ *
+ * Rerunning after an edit rebuilds only the components the edit reaches (#139): unchanged components are reused from
+ * the previous manifest after their bytes verify. A clean reference build checks that the result matches byte for byte.
  */
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { mkdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { canonicalJson } from "../../src/canonical.js";
 import { sha256Bytes } from "../../src/hash.js";
 import {
-  encodeGrayPng, generateTerrainPatch, normalizeTerrainPatchRecipe, scatterTerrainDetail, terrainPatchGlb, type Vec2,
+  TERRAIN_PATCH_BUILD_SCHEMA, buildTerrainPatchFiles, encodeGrayPng, generateTerrainPatch, normalizeTerrainPatchRecipe, scatterTerrainDetail,
+  terrainPatchGlb, type TerrainPatchBuildRecord, type Vec2,
 } from "../../src/terrain-patch-recipes.js";
 import { writeIfChanged } from "../reconcile-file.js";
 
 const directory = path.dirname(fileURLToPath(import.meta.url));
 const outDir = path.resolve(process.argv[2] ?? path.join(directory, "../../.artifacts/terrain-patches"));
-const recipe = normalizeTerrainPatchRecipe(JSON.parse(await readFile(path.join(directory, "recipe.json"), "utf8")));
+const recipePath = path.resolve(process.argv[3] ?? path.join(directory, "recipe.json"));
+const recipe = normalizeTerrainPatchRecipe(JSON.parse(await readFile(recipePath, "utf8")));
 const grid: Vec2[] = [[-1, -1], [0, -1], [-1, 0], [0, 0]];
+const patchDir = (patch: Vec2) => path.join(outDir, `patch_${patch[0]}_${patch[1]}`);
 
+/** Clean reference path: the whole patch from the recipe, without the component build. */
 async function render(patch: Vec2) {
   const p = generateTerrainPatch(recipe, patch), detail = scatterTerrainDetail(p);
   const files: Record<string, Uint8Array> = {
@@ -55,15 +63,30 @@ for (const f of forward) {
 const ids = forward.flatMap((f) => f.detail.map((d) => d.id));
 assert.equal(new Set(ids).size, ids.length, "detail IDs are unique across patches");
 
+// Partial rebuild against the previous run's manifest; it must reproduce the reference bytes exactly.
+let previousManifest: { patches?: { patch: Vec2; components?: TerrainPatchBuildRecord["components"] }[] } = {};
+try { previousManifest = JSON.parse(await readFile(path.join(outDir, "manifest.json"), "utf8")); } catch { /* first run: build everything */ }
+const readOrUndefined = (file: string) => { try { return readFileSync(file); } catch { return undefined; } };
 const manifest: Record<string, unknown> = { schema: "terrain-patches-v1", recipe: sha256Bytes(canonicalJson(recipe)), sampleSpacing: recipe.sampleSpacing,
   samples: recipe.samples, height: recipe.height, patches: [] as unknown[] };
-for (const { p, detail, files } of forward) {
-  const dir = path.join(outDir, `patch_${p.patch[0]}_${p.patch[1]}`);
+const totals = { executed: 0, reused: 0, heightSamples: 0, filesWritten: 0, bytesWritten: 0 };
+for (const [i, patch] of grid.entries()) {
+  const dir = patchDir(patch), old = previousManifest.patches?.find((p) => p.patch.join(",") === patch.join(","));
+  const build = await buildTerrainPatchFiles(recipe, patch, old?.components === undefined ? {} : {
+    previous: { record: { schema: TERRAIN_PATCH_BUILD_SCHEMA, patch, components: old.components }, read: (file) => readOrUndefined(path.join(dir, file)) },
+  });
+  assert.deepEqual(Object.keys(build.files).sort(), Object.keys(forward[i]!.files).sort());
+  for (const [name, bytes] of Object.entries(build.files)) assert.deepEqual(Buffer.from(bytes), Buffer.from(forward[i]!.files[name]!), `partial ${patch} ${name}`);
+  totals.executed += build.stages.executed.length; totals.reused += build.stages.reused.length; totals.heightSamples += build.heightSamplesEvaluated;
   await mkdir(dir, { recursive: true });
-  for (const [name, bytes] of Object.entries(files)) await writeIfChanged(path.join(dir, name), bytes);
-  const counts = Object.fromEntries(recipe.detail.map((l) => [l.id, detail.filter((d) => d.layer === l.id).length]));
-  (manifest.patches as unknown[]).push({ patch: p.patch, origin: p.origin, firstSample: p.firstSample, detail: counts,
-    files: Object.fromEntries(Object.entries(files).map(([n, b]) => [n, sha256Bytes(b)])) });
+  for (const [name, bytes] of Object.entries(build.files)) {
+    if (await writeIfChanged(path.join(dir, name), bytes)) { totals.filesWritten += 1; totals.bytesWritten += bytes.byteLength; }
+  }
+  const counts = Object.fromEntries(recipe.detail.map((l) => [l.id, build.detail.filter((d) => d.layer === l.id).length]));
+  (manifest.patches as unknown[]).push({ patch: build.record.patch, origin: forward[i]!.p.origin, firstSample: forward[i]!.p.firstSample, detail: counts,
+    files: Object.fromEntries(Object.entries(build.files).map(([n, b]) => [n, sha256Bytes(b)])), components: build.record.components });
 }
 await writeIfChanged(path.join(outDir, "manifest.json"), Buffer.from(`${JSON.stringify(manifest, null, 2)}\n`));
 console.log(`${forward.length} patches, ${seams} shared edges identical, ${ids.length} detail instances -> ${outDir}`);
+console.log(`components: ${totals.executed} executed, ${totals.reused} reused; ${totals.heightSamples} height samples evaluated; `
+  + `${totals.filesWritten} files / ${totals.bytesWritten} bytes written; matches the clean reference build`);

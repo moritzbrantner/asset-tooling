@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "greyhaven-hillside",
+  "seed": 134,
+  "origin": [0, 0],
+  "sampleSpacing": 1,
+  "samples": [65, 65],
+  "height": { "min": -8, "max": 40, "precision": 0.001 },
+  "noise": { "baseHeight": 6, "amplitude": 14, "featureSize": 70, "octaves": 5, "roughness": 0.45 },
+  "shaping": { "kind": "terrace", "step": 3, "sharpness": 0.55 },
+  "edits": [
+    { "kind": "flatten", "shape": { "kind": "rect", "center": [18, -14], "size": [14, 10], "rotationDegrees": 20, "falloff": 6 }, "height": 6, "excludeDetail": true },
+    { "kind": "path", "points": [[-64, 30], [-30, 18], [-4, 0], [18, -14], [40, -30], [64, -40]], "width": 3, "falloff": 3, "excludeDetail": true }
+  ],
+  "exclusions": [{ "kind": "circle", "center": [-34, -30], "radius": 6, "falloff": 2 }],
+  "paint": {
+    "meadow": [{ "kind": "circle", "center": [24, 34], "radius": 22, "falloff": 14 }]
+  },
+  "detail": [
+    { "id": "grass", "density": 1.2, "minSpacing": 0.6, "slopeDegrees": [0, 28], "height": [-1, 40], "maxExclusion": 0.3, "paint": null, "scale": [0.8, 1.3], "variants": 4 },
+    { "id": "flowers", "density": 0.35, "minSpacing": 1, "slopeDegrees": [0, 18], "height": [-1, 40], "maxExclusion": 0.1, "paint": "meadow", "scale": [0.9, 1.1], "variants": 3 },
+    { "id": "stones", "density": 0.05, "minSpacing": 3, "slopeDegrees": [22, 70], "height": [-8, 40], "maxExclusion": 0.5, "paint": null, "scale": [0.6, 1.6], "variants": 5 }
+  ]
+}
