@@ -91,8 +91,15 @@ test("the zoo recipe builds a verified, reproducible package of grounded, untext
       assert.ok(asset.visual.width >= (asset.role === "grass" ? 0.2 : 0.5), `${id} is chunky enough to read at the park camera`);
       assert.ok(asset.triangles < 1_000, `${id} stays light for instance batches`);
     }
-    const height = (role: string) => Math.min(...d.assets.filter((a: any) => a.role === role).map((a: any) => a.visual.height));
+    // The flat slab lies below a grass tuft on purpose; the standing rocks keep the ordering.
+    const standing = (a: any) => !(a.role === "rock" && a.variant === "flat");
+    const height = (role: string) => Math.min(...d.assets.filter((a: any) => a.role === role && standing(a)).map((a: any) => a.visual.height));
     assert.ok(height("tree") > 1.2 && height("tree") > height("bush") && height("bush") > height("rock") && height("rock") > height("grass"), "trees over bushes over rocks over grass");
+    // #132: rounded, angular and flat rocks have distinct silhouettes, not one shape at different sizes.
+    const rock = (variant: string) => d.assets.find((a: any) => a.role === "rock" && a.variant === variant);
+    const aspect = (variant: string) => rock(variant).visual.height / rock(variant).visual.width;
+    assert.ok(aspect("flat") < 0.25 && aspect("flat") * 1.5 < aspect("round") && aspect("round") * 1.3 < aspect("boulder"), "flat < round < boulder in height-to-width");
+    assert.ok(rock("flat").visual.width >= rock("round").visual.width && rock("flat").visual.width >= rock("boulder").visual.width, "the flat slab is the widest rock");
     const tuft = d.assets.find((a: any) => a.role === "grass");
     assert.ok(d.assets.every((a: any) => a === tuft || a.triangles > tuft.triangles), "the grass tuft, repeated the most, has the fewest triangles");
     const acacia = d.assets.find((a: any) => a.variant === "acacia");

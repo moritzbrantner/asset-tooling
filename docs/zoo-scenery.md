@@ -25,7 +25,7 @@ The build takes about fifteen seconds and needs no network, no LFS payloads and 
 
 ## Pieces
 
-The logical keys are `tree.mesh`, `bush.mesh`, `grass.mesh` and `rock.mesh`. `tree.mesh` has three variants and `rock.mesh` two; the others have one. The acacia, grass tuft and boulder were added for Zoo's habitat dressing ([#359](https://github.com/moritzbrantner/asset-tooling/issues/359)).
+The logical keys are `tree.mesh`, `bush.mesh`, `grass.mesh` and `rock.mesh`. `tree.mesh` and `rock.mesh` have three variants each; the others have one. The acacia, grass tuft and boulder were added for Zoo's habitat dressing ([#359](https://github.com/moritzbrantner/asset-tooling/issues/359)), and the flat slab completes the rounded, angular and flat rock family ([#132](https://github.com/moritzbrantner/asset-tooling/issues/132)).
 
 | Key / variant | Triangles | Visual W × D × H (m) |
 | --- | --- | --- |
@@ -36,6 +36,7 @@ The logical keys are `tree.mesh`, `bush.mesh`, `grass.mesh` and `rock.mesh`. `tr
 | `grass.mesh` / `tuft` | 15 | 0.258 × 0.276 × 0.230 |
 | `rock.mesh` / `round` | 148 | 0.717 × 0.521 × 0.320 |
 | `rock.mesh` / `boulder` | 68 | 0.743 × 0.544 × 0.500 |
+| `rock.mesh` / `flat` | 92 | 0.937 × 0.679 × 0.171 |
 
 The numbers are from the build of 2026-10-24; the descriptor carries the measured values of each build. The whole tar is about 70 KB.
 
@@ -46,6 +47,7 @@ The numbers are from the build of 2026-10-24; the descriptor carries the measure
 - **`grass` / `tuft`:** five open, three-sided leaf-green spikes, one upright and four leaning outwards. It is the lightest piece because Zoo repeats it the most.
 - **`rock` / `round`:** a lumpy grey boulder with a lighter pebble beside it. The lumpiness is a fixed analytic function, not noise.
 - **`rock` / `boulder`:** a taller, more angular six-sided grey boulder with a flat top and a lighter chip beside it.
+- **`rock` / `flat`:** a low, wide seven-sided slab with a bevelled rim, tilted 5° so it doesn't read as a paving tile, and a thin lighter chip beside it. It is the widest rock and lower than the grass tuft, for stepping stones, pond edges and the ground between boulders.
 
 ## Look and materials
 
@@ -81,7 +83,8 @@ Zoo downloads the rolling `zoo-scenery` release, pins it by the tar's SHA-256 an
 - each GLB has no textures, skins, animations or morph targets, and every material is opaque;
 - the descriptor conforms to the schema;
 - each piece stands on y = 0, centred on its footprint, fits one tile (the acacia within 1.2 m), is at least 0.5 m wide (the grass tuft 0.2 m) and has fewer than 1,000 triangles;
-- trees are taller than bushes, bushes taller than rocks and rocks taller than grass; the grass tuft has the fewest triangles and the acacia a wide, flat crown;
+- trees are taller than bushes, bushes taller than the standing rocks and those taller than grass; the grass tuft has the fewest triangles and the acacia a wide, flat crown;
+- the rocks have distinct silhouettes: height to width rises from the flat slab through the round rock to the boulder, and the slab is the widest;
 - an independent rebuild packs the same tar.
 
 Without `BLENDER_TESTS=1` and `ASSET_TOOLING_BLENDER` it skips.
