@@ -81,7 +81,7 @@ test("offline installer never executes fetched tools, reuses verified archives, 
     let downloads = 0;
     let metadataRequests = 0;
     const fetcher = (async (url: string | URL | Request) => {
-      if (String(url).endsWith("/releases/latest")) {
+      if (String(url).endsWith("/releases/tags/latest")) {
         metadataRequests++;
         return new Response(JSON.stringify(published));
       }
@@ -135,7 +135,7 @@ test("archive transport retries are bounded and permanent HTTP failures are not 
     for (const fail of ["reset", "not-found"] as const) {
       let downloads = 0;
       const fetcher = (async (url: string | URL | Request) => {
-        if (String(url).endsWith("/releases/latest")) return new Response(JSON.stringify({ tag_name: "latest", assets: [spec] }));
+        if (String(url).endsWith("/releases/tags/latest")) return new Response(JSON.stringify({ tag_name: "latest", assets: [spec] }));
         downloads++;
         if (fail === "reset") throw new TypeError("simulated ECONNRESET");
         return new Response("Missing", { status: 404 });
@@ -157,7 +157,7 @@ test("offline installer rejects archive digest mismatch without leaving an insta
   const root = await mkdtemp(path.join(os.tmpdir(), "asset-tooling-ffmpeg-test-"));
   try {
     const spec = { ...asset("9.0"), size: 1_100_000 };
-    const fetcher = (async (url: string | URL | Request) => String(url).endsWith("/releases/latest")
+    const fetcher = (async (url: string | URL | Request) => String(url).endsWith("/releases/tags/latest")
       ? new Response(JSON.stringify({ tag_name: "latest", assets: [spec] }))
       : new Response(randomBytes(1_100_000))) as typeof fetch;
     const store = path.join(root, "installed");

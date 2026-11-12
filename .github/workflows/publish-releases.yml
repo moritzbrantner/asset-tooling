@@ -171,7 +171,7 @@ jobs:
       - name: Resolve latest FFmpeg release metadata
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh api repos/FFmpeg-Builds/FFmpeg-Builds/releases/latest > "$RUNNER_TEMP/ffmpeg-release.json"
+        run: gh api repos/FFmpeg-Builds/FFmpeg-Builds/releases/tags/latest > "$RUNNER_TEMP/ffmpeg-release.json"
       - name: Install latest stable FFmpeg
         run: |
           set -euo pipefail
