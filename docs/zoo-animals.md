@@ -1,10 +1,10 @@
 # Expressive Zoo animals
 
-This is the recipe for Zoo's finished cartoon animals ([#589](https://github.com/moritzbrantner/asset-tooling/issues/589), consumer [zoo#112](https://github.com/moenarch-games/zoo/issues/112) and [zoo#142](https://github.com/moenarch-games/zoo/issues/142)). The animals are the **zebra**, the **giraffe**, the **tiger**, the **elephant**, the **capybara** and the **flamingo**. The zebra and giraffe replace Zoo's deprecated generator output, whose zebra has a block body, a bear-like head and a walk that splays its legs sideways ([quadruped-rigid.md](quadruped-rigid.md#what-the-viewer-shows)).
+This is the recipe for Zoo's finished cartoon animals ([#589](https://github.com/moritzbrantner/asset-tooling/issues/589), consumer [zoo#112](https://github.com/moenarch-games/zoo/issues/112) and [zoo#142](https://github.com/moenarch-games/zoo/issues/142)). The animals are the **zebra**, the **giraffe**, the **tiger**, the **elephant**, the **capybara**, the **flamingo** and the **penguin**. The zebra and giraffe replace Zoo's deprecated generator output, whose zebra has a block body, a bear-like head and a walk that splays its legs sideways ([quadruped-rigid.md](quadruped-rigid.md#what-the-viewer-shows)).
 
 - **Source:** [`adapters/blender/zoo_animals.py`](../adapters/blender/zoo_animals.py), an original scripted Blender recipe in this repository. It has no imported meshes, no third-party assets, no textures and no randomness. Zoo's generator is not ported.
 - **Rig:** the shared [`quadruped-rigid`](quadruped-rigid.md) profile, and for the birds its two-legged sibling [`biped-rigid`](quadruped-rigid.md#the-biped-rigid-sibling). Named transform nodes pivot at their joints and rigid parts hang under them, with no skin.
-- **Release:** the existing rolling `zoo-animals` release, as the variant `expressive` of the keys `zoo.animal.zebra`, `zoo.animal.giraffe`, `zoo.animal.tiger`, `zoo.animal.elephant`, `zoo.animal.capybara` and `zoo.animal.flamingo`. Zoo's own zebra and giraffe stay unchanged as the `default` variant, so a consumer of a `default` member sees the same model.
+- **Release:** the existing rolling `zoo-animals` release, as the variant `expressive` of the keys `zoo.animal.zebra`, `zoo.animal.giraffe`, `zoo.animal.tiger`, `zoo.animal.elephant`, `zoo.animal.capybara`, `zoo.animal.flamingo` and `zoo.animal.penguin`. Zoo's own zebra and giraffe stay unchanged as the `default` variant, so a consumer of a `default` member sees the same model.
 
 ## Build
 
@@ -160,6 +160,26 @@ The sixth animal ([#609](https://github.com/moritzbrantner/asset-tooling/issues/
 
 The Zoo activity mapping is the zebra's.
 
+## The penguin
+
+The seventh animal ([#611](https://github.com/moritzbrantner/asset-tooling/issues/611)) is the second bird on `biped-rigid`. `zoo.animal.penguin` has only the `expressive` variant. It has no neck joint: `animal_root > body > head > eye_left, eye_right`, `body > tail, wing_left, wing_right` and `body > leg_0 (right) > leg_0_lower, leg_1 (left) > leg_1_lower`.
+
+| Key / variant | Size (L × H × W, m) | Triangles | Parts | Materials |
+| --- | --- | --- | --- | --- |
+| `zoo.animal.penguin` / `expressive` | 0.50 × 0.87 × 0.51 | 1,524 | 11 | 1 |
+
+- **Look:** a chubby upright pear, black behind and white in front, on short black legs with big orange webbed feet, and a short black tail wedge. The black flippers hang from the shoulders and are white on their inner side. The big round head has a black cap, a white face, small yellow patches behind the cheeks and a short black beak with an orange stripe below. Big glossy black eyes with a highlight complete it.
+- **Clips:**
+
+| Clip | Seconds | What it shows |
+| --- | --- | --- |
+| `idle` | 5.0 | Breathing, a look around with a head tilt, a blink and a happy flipper flap |
+| `walk` | 0.8 | The waddle: short steps, the body rolling over onto each stance foot, flippers held out for balance. `penguin_lift` keeps the lowest toe, heel or sole edge on the ground through the roll |
+| `feed` | 4.0 | Feeding time: leans in and pecks twice, straightens and gulps with the head thrown back, then wiggles its flippers |
+| `rest` | 6.0 | A belly-down nap: flopped forwards onto the white belly with the feet up behind, the chin forward and the eyes shut |
+
+The Zoo activity mapping is the zebra's.
+
 ## Conventions
 
 These are the conventions of the existing `zoo-animals` members: metres, +Y up, right-handed, the animal faces **+X** and its right side is +Z, and the origin is on the ground plane under the body. The asset is presentation only; Zoo owns placement, scale, activity, gameplay and physics.
@@ -192,9 +212,10 @@ ASSET_TOOLING_BLENDER=<blender 5.2.2> bun scripts/review-zoo-animals.ts --bundle
 ASSET_TOOLING_BLENDER=<blender 5.2.2> bun scripts/review-zoo-animals.ts --bundle .artifacts/zoo-animals/bundle --key zoo.animal.elephant --compare zoo.animal.zebra/expressive --out .artifacts/zoo-review-elephant
 ASSET_TOOLING_BLENDER=<blender 5.2.2> bun scripts/review-zoo-animals.ts --bundle .artifacts/zoo-animals/bundle --key zoo.animal.capybara --compare zoo.animal.zebra/expressive --out .artifacts/zoo-review-capybara
 ASSET_TOOLING_BLENDER=<blender 5.2.2> bun scripts/review-zoo-animals.ts --bundle .artifacts/zoo-animals/bundle --key zoo.animal.flamingo --compare zoo.animal.zebra/expressive --out .artifacts/zoo-review-flamingo
+ASSET_TOOLING_BLENDER=<blender 5.2.2> bun scripts/review-zoo-animals.ts --bundle .artifacts/zoo-animals/bundle --key zoo.animal.penguin --compare zoo.animal.zebra/expressive --out .artifacts/zoo-review-penguin
 ```
 
-The zebra images are in [`review/zoo-animals/`](../review/zoo-animals/), and each later animal's in its own folder, `review/zoo-animals/<species>/`. The giraffe stands beside Zoo's current giraffe; the tiger, elephant, capybara and flamingo, which Zoo has no expressive model of, beside the expressive zebra for scale:
+The zebra images are in [`review/zoo-animals/`](../review/zoo-animals/), and each later animal's in its own folder, `review/zoo-animals/<species>/`. The giraffe stands beside Zoo's current giraffe; the tiger, elephant, capybara, flamingo and penguin, which Zoo has no expressive model of, beside the expressive zebra for scale:
 
 - `park.jpg` and `watch.jpg`: an enclosure with the expressive animal idling, walking, feeding and resting, beside Zoo's current one, at a park distance (22 m) and a close animal-watch distance (6.5 m);
 - `orbit-front.jpg` and `orbit-back.jpg`: two more orbit angles;

@@ -3,7 +3,7 @@
 One run builds one animal (asset-tooling#589 zebra, consumer zoo#112/#142). It replaces nothing in Zoo: the
 animals join the rolling ``zoo-animals`` release beside Zoo's old authored zebra and giraffe as the variant
 ``expressive`` (docs/zoo-animals.md). The rig follows the shared ``quadruped-rigid`` profile
-(src/quadruped-rigid.ts), and the birds (the flamingo) its two-legged sibling ``biped-rigid`` (src/biped-rigid.ts):
+(src/quadruped-rigid.ts), and the birds (the flamingo and penguin) its two-legged sibling ``biped-rigid`` (src/biped-rigid.ts):
 named transform nodes pivoting at their joints, rigid parts, no skin.
 
 Frame: metres, glTF right-handed +Y up, the animal faces +X and its right side is +Z, origin on the ground
@@ -38,7 +38,7 @@ import bmesh
 import bpy
 from mathutils import Euler, Matrix, Quaternion, Vector
 
-SPECIES = ("zebra", "giraffe", "tiger", "elephant", "capybara", "flamingo")
+SPECIES = ("zebra", "giraffe", "tiger", "elephant", "capybara", "flamingo", "penguin")
 FPS = 30
 KEY_STEP = 2  # frames between keys; every key is linear
 SHARP_ANGLE = math.radians(50)
@@ -76,6 +76,10 @@ PALETTE = {
     "feather-black": (0.12, 0.1, 0.12),
     "beak-pale": (0.97, 0.88, 0.84),
     "eye-yellow": (0.98, 0.86, 0.3),
+    "penguin-black": (0.13, 0.14, 0.18),
+    "penguin-white": (0.97, 0.97, 0.95),
+    "penguin-orange": (0.98, 0.58, 0.14),
+    "penguin-yellow": (1.0, 0.8, 0.26),
 }
 
 
@@ -843,8 +847,88 @@ def build_flamingo(collection):
     return root
 
 
+# ---------------------------------------------------------------- penguin (biped-rigid)
+
+PENGUIN = {
+    "body": (0.0, 0.0, 0.38), "head": (0.02, 0.0, 0.6), "tail": (-0.17, 0.0, 0.14),
+    "hips": {"leg_0": (0.03, -0.08, 0.1), "leg_1": (0.03, 0.08, 0.1)},
+    "shoulders": {"left": (0.0, 0.18, 0.56), "right": (0.0, -0.18, 0.56)},
+    "upper": 0.05, "foot": 0.014,
+}
+
+
+def build_penguin(collection):
+    g = PENGUIN
+    root = bpy.data.objects.new("animal_root", None)
+    root.empty_display_size = 0.2
+    collection.objects.link(root)
+
+    # Body: a chubby upright pear, wider below, black behind and white in front.
+    body = Part("body", g["body"])
+    pear = [(0, -0.3), (0.12, -0.28), (0.19, -0.2), (0.215, -0.08), (0.205, 0.05), (0.17, 0.17), (0.11, 0.26), (0, 0.3)]
+    body.lathe("penguin-black", pear, g["body"], scale=(0.95, 1, 1), segments=14)
+    body.paint("penguin-black", "penguin-white", [((0.2, 0, 0.38), (1, 0, 0.12), 0.38)])
+    body = body.finish(collection, root)
+
+    # Legs: short black stumps on big orange webbed feet.
+    for leg, hip in g["hips"].items():
+        hip = Vector(hip)
+        upper = Part(leg, hip)
+        upper.lathe("penguin-black", capsule(0.045, 0.035, g["upper"], cap=0.1), hip, segments=8)
+        upper = upper.finish(collection, body)
+        knee = hip - Vector((0, 0, g["upper"]))
+        lower = Part(f"{leg}_lower", knee)
+        lower.lathe("penguin-orange", capsule(0.03, 0.03, knee.z - g["foot"] - 0.01, 2), knee, segments=8)
+        lower.lathe("penguin-orange", ball(1.0, 3), (knee.x + 0.05, knee.y, g["foot"]), scale=(0.09, 0.06, 0.014), segments=10)
+        lower.finish(collection, upper)
+
+    # Tail: a short black wedge at the bottom of the back.
+    tail = Part("tail", g["tail"])
+    tail.lathe("penguin-black", [(0, 0), (0.05, 0.01), (0.03, 0.07), (0, 0.09)], g["tail"], direction=(-1, 0, -0.5), scale=(0.6, 1.3, 1),
+               segments=8)
+    tail.finish(collection, body)
+
+    # Wings: flat black flippers hanging from the shoulders, white on their inner side.
+    for name, shoulder in g["shoulders"].items():
+        side = 1 if name == "left" else -1
+        shoulder = Vector(shoulder)
+        wing = Part(f"wing_{name}", shoulder)
+        centre = shoulder + Vector((-0.01, side * 0.035, -0.16))
+        wing.lathe("penguin-black", ball(1.0, 4), centre, direction=(0, side * 0.25, 1), scale=(0.065, 0.02, 0.16), segments=10)
+        wing.paint("penguin-black", "penguin-white", [(centre - Vector((0, side * 0.012, 0)), (0, 1, 0), 0.016)])
+        wing.finish(collection, body)
+
+    # Head: a big round black head with a white face, yellow cheek patches, a short beak with an orange stripe and
+    # big cartoon eyes.
+    hp = Vector(g["head"])
+    head = Part("head", hp)
+    skull = hp + Vector((0.02, 0, 0.14))
+    head.lathe("penguin-black", ball(0.135, 6), skull, scale=(1.05, 1, 0.95), segments=14)
+    head.paint("penguin-black", "penguin-white", [(skull + Vector((0.12, 0, -0.02)), (1, 0, -0.2), 0.12)],
+               keep=lambda c: c.z < skull.z + 0.07)  # the white face below the black cap
+    for side in (-1, 1):
+        head.lathe("penguin-yellow", ball(1.0, 3), skull + Vector((-0.005, side * 0.108, -0.06)), direction=(0, side, 0.2),
+                   scale=(0.032, 0.05, 0.02), segments=8)  # cheek patch
+    beak = skull + Vector((0.125, 0, -0.03))
+    head.lathe("penguin-black", capsule(0.03, 0.008, 0.08, 2), beak, direction=(-1, 0, 0.25), scale=(1, 1.1, 1), segments=8)
+    head.lathe("penguin-orange", capsule(0.022, 0.006, 0.06, 2), beak + Vector((0, 0, -0.012)), direction=(-1, 0, 0.35),
+               scale=(0.8, 1.15, 1), segments=8)  # the orange stripe on the lower beak
+    head = head.finish(collection, body)
+
+    for side, name in ((1, "left"), (-1, "right")):
+        eye_c = skull + Vector((0.095, side * 0.06, 0.02))
+        eye = Part(f"eye_{name}", eye_c)
+        look = Vector((1.0, side * 0.55, 0.05)).normalized()
+        eye.lathe("eye-white", ball(0.032, 4), eye_c, direction=look, scale=(1, 1, 0.55), segments=12)
+        eye.lathe("eye-pupil", ball(0.026, 4), eye_c + look * 0.02, direction=look, scale=(1, 1, 0.5), segments=10)
+        eye.lathe("eye-white", ball(0.008, 2), eye_c + look * 0.032 + Vector((0, 0, 0.01)), segments=6)
+        eye.finish(collection, head)
+
+    return root
+
+
 BUILDERS = {"zebra": build_zebra, "giraffe": build_giraffe, "tiger": build_tiger, "elephant": build_elephant, "capybara": build_capybara,
-            "flamingo": build_flamingo}
+            "flamingo": build_flamingo, "penguin": build_penguin}
 
 
 # ---------------------------------------------------------------- clips
@@ -1413,6 +1497,107 @@ def flamingo_rest(t, duration):
     }
 
 
+def penguin_lift(pose):
+    """How far the penguin's body must rise (or sink, if negative) for its lowest foot to rest on the ground,
+    given the pose's body rotation and each leg's and ankle's rotation. The feet are sampled at the toe, heel and
+    both sides of the sole, so a waddle's roll and a lean's pitch keep them grounded."""
+    g = PENGUIN
+    pivot = Vector(g["body"])
+    body = Euler(pose.get("body.r", (0, 0, 0)), "XYZ").to_matrix()
+    lowest = math.inf
+    for leg, hip in g["hips"].items():
+        hip = Vector(hip)
+        knee = hip - Vector((0, 0, g["upper"]))
+        upper = Euler(pose.get(f"{leg}.r", (0, 0, 0)), "XYZ").to_matrix()
+        lower = Euler(pose.get(f"{leg}_lower.r", (0, 0, 0)), "XYZ").to_matrix()
+        for dx, dy in ((0.14, 0), (-0.04, 0), (0.05, 0.06), (0.05, -0.06)):
+            sole = Vector((knee.x + dx, knee.y + dy, 0.0))
+            point = pivot + body @ ((hip - pivot) + upper @ ((knee - hip) + lower @ (sole - knee)))
+            lowest = min(lowest, point.z)
+    return -lowest
+
+
+def penguin_idle(t, duration):
+    """Content and curious: breathing, a look around with a head tilt, a blink and a happy flipper flap."""
+    w = 2 * math.pi * t / duration
+    blink = pulse(t, 2.2, 0.22)
+    flap = pulse(t, 3.6, 0.9) * (0.5 + 0.5 * math.sin(10 * w))
+    return {
+        "body.t": (0, 0, 0.004 * (1 - math.cos(2 * w))),
+        "body.r": (math.radians(2) * math.sin(w), 0, 0),
+        "head.r": (math.radians(12) * math.sin(w + 1.0), math.radians(-4) * math.sin(2 * w), math.radians(28) * math.sin(w + 0.4)),
+        "wing_left.r": (math.radians(10) + math.radians(40) * flap, 0, 0), "wing_right.r": (math.radians(-10) - math.radians(40) * flap, 0, 0),
+        "tail.r": (0, 0, math.radians(10) * math.sin(3 * w)),
+        "eye_left.s": (1, 1, 1 - 0.88 * blink), "eye_right.s": (1, 1, 1 - 0.88 * blink),
+    }
+
+
+def penguin_walk(t, duration):
+    """The waddle: short steps, the body rolling over onto each stance foot, flippers held out for balance."""
+    u = t / duration
+    w = 2 * math.pi * u
+    pose = {}
+    for leg, phase in (("leg_1", 0.0), ("leg_0", 0.5)):
+        swing, fold = leg_cycle((u + 1 - phase) % 1, True)
+        pose[f"{leg}.r"] = (0, -swing * 1.6, 0)
+        pose[f"{leg}_lower.r"] = (0, -fold * 0.4, 0)  # the foot stays level-ish as it swings
+    roll = math.radians(9) * math.cos(w - 2 * math.pi * 0.31)  # over the left foot while it bears the weight
+    pose["body.r"] = (-roll, 0, math.radians(4) * math.sin(w))
+    pose.update({
+        "body.t": (0, 0, 0),
+        "head.r": (roll * 0.8, math.radians(3) * math.sin(2 * w), math.radians(-3) * math.sin(w)),
+        "wing_left.r": (math.radians(28) + roll * 0.6, 0, 0), "wing_right.r": (math.radians(-28) + roll * 0.6, 0, 0),
+        "tail.r": (0, 0, math.radians(8) * math.sin(w)),
+        "eye_left.s": (1, 1, 1), "eye_right.s": (1, 1, 1),
+    })
+    pose["body.t"] = (0, 0, penguin_lift(pose))
+    return pose
+
+
+PENGUIN_FEED = [  # u, (body lean, head pitch) in degrees: lean in, peck twice, straighten, head back to gulp
+    (0.0, (0, 0)), (0.15, (38, 30)), (0.22, (42, 42)), (0.28, (38, 26)), (0.34, (42, 42)), (0.42, (38, 26)),
+    (0.58, (-4, -48)), (0.7, (-4, -48)), (0.84, (0, 0)), (1.0, (0, 0)),
+]
+
+
+def penguin_feed(t, duration):
+    """Feeding time: lean in and peck up a fish, straighten up and gulp it down with the head thrown back, then
+    a happy flipper wiggle."""
+    u = t / duration
+    w = 2 * math.pi * u
+    lean, nod = (math.radians(v) for v in keyed(u, PENGUIN_FEED))
+    gulp = pulse(u, 0.56, 0.16)
+    happy = pulse(u, 0.72, 0.2) * math.sin(14 * w)
+    pose = {
+        "body.r": (0, lean, 0),
+        "leg_0.r": (0, -lean, 0), "leg_1.r": (0, -lean, 0),
+        "head.r": (0, nod, 0),
+        "wing_left.r": (math.radians(18) * (lean / math.radians(42)) + math.radians(30) * abs(happy), 0, 0),
+        "wing_right.r": (-math.radians(18) * (lean / math.radians(42)) - math.radians(30) * abs(happy), 0, 0),
+        "tail.r": (0, 0, 0),
+        "eye_left.s": (1, 1, 1 - 0.8 * gulp), "eye_right.s": (1, 1, 1 - 0.8 * gulp),
+    }
+    pose["body.t"] = (0, 0, penguin_lift(pose))
+    return pose
+
+
+def penguin_rest(t, duration):
+    """A belly-down nap: flopped forwards onto the white belly, the feet up behind, flippers along the sides, the
+    chin resting forward and the eyes shut."""
+    w = 2 * math.pi * t / duration
+    breath = 0.5 - 0.5 * math.cos(w)
+    return {
+        "body.t": (0, 0, -0.16 + 0.004 * breath),
+        "body.r": (0, math.radians(80), 0),
+        "leg_0.r": (0, math.radians(-30), 0), "leg_1.r": (0, math.radians(-30), 0),
+        "leg_0_lower.r": (0, math.radians(-40), 0), "leg_1_lower.r": (0, math.radians(-40), 0),
+        "head.r": (0, math.radians(-62) + math.radians(2) * breath, math.radians(6)),
+        "wing_left.r": (math.radians(12), math.radians(-10), 0), "wing_right.r": (math.radians(-12), math.radians(-10), 0),
+        "tail.r": (0, 0, math.radians(6) * math.sin(w)),
+        "eye_left.s": (1, 1, 0.08), "eye_right.s": (1, 1, 0.08),
+    }
+
+
 POSES = {
     "zebra": {"idle": (pose_idle, 4.0), "walk": (pose_walk, 1.2), "feed": (pose_feed, 3.0), "rest": (pose_rest, 5.0)},
     "giraffe": {"idle": (giraffe_idle, 5.0), "walk": (giraffe_walk, 1.6), "feed": (giraffe_feed, 3.0), "rest": (giraffe_rest, 6.0)},
@@ -1420,6 +1605,7 @@ POSES = {
     "elephant": {"idle": (elephant_idle, 6.0), "walk": (elephant_walk, 1.5), "feed": (elephant_feed, 4.0), "rest": (elephant_rest, 6.0)},
     "capybara": {"idle": (capybara_idle, 6.0), "walk": (capybara_walk, 0.9), "feed": (capybara_feed, 3.0), "rest": (capybara_rest, 6.0)},
     "flamingo": {"idle": (flamingo_idle, 5.0), "walk": (flamingo_walk, 1.4), "feed": (flamingo_feed, 4.0), "rest": (flamingo_rest, 6.0)},
+    "penguin": {"idle": (penguin_idle, 5.0), "walk": (penguin_walk, 0.8), "feed": (penguin_feed, 4.0), "rest": (penguin_rest, 6.0)},
 }
 
 

@@ -43,6 +43,7 @@ export const ZOO_EXPRESSIVE_ANIMALS = [
   { animal: "elephant", key: "zoo.animal.elephant", issue: 599 },
   { animal: "capybara", key: "zoo.animal.capybara", issue: 600 },
   { animal: "flamingo", key: "zoo.animal.flamingo", issue: 609, profile: BIPED_RIGID },
+  { animal: "penguin", key: "zoo.animal.penguin", issue: 611, profile: BIPED_RIGID },
 ] as const;
 export const ZOO_ANIMALS_RECIPE = "adapters/blender/zoo_animals.py";
 
