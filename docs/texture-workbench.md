@@ -23,6 +23,6 @@ It runs `executeSurfaceTextureRecipe`, encodes each channel with the existing PN
 
 ## Not in this slice
 
-Approval states beyond the local baseline, the workflow-editor/runner projection, mesh, sprite and effect inspectors, and the #139–#145 follow-up controls remain under #127.
+The [terrain workbench](terrain-workbench.md) is the second slice. Approval states beyond the local baseline, the workflow-editor/runner projection, mesh, sprite and effect inspectors, and the remaining #139–#145 follow-up controls remain under #127.
 
 `bun test test/texture-workbench.test.ts` checks that workbench channels hash like the CLI recipe and that only stages with changed inputs rebuild. It also covers the URL round trip, undo/redo, the field each message points to, the latest-request gate and the page bundles.

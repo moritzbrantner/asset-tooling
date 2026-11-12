@@ -4,10 +4,11 @@
 import { SURFACE_TEXTURE_PRESETS, type SurfaceTextureRecipe } from "../surface-texture-kernels.js";
 import { TEXTURE_CHANNELS, type TextureChannel } from "./texture-workbench-compute.js";
 import {
-  decodeRecipeParam, encodeRecipeParam, fieldForError, LatestRequest, RecipeHistory, recipeKey, WORKBENCH_FIELDS,
+  decodeRecipeParam, encodeRecipeParam, fieldForError, RecipeHistory, recipeKey, WORKBENCH_FIELDS,
   workbenchRecipe, type WorkbenchField,
 } from "./texture-workbench-state.js";
 import type { WorkbenchChannelResult, WorkbenchResult } from "./texture-workbench-worker.js";
+import { WorkbenchRunner } from "./workbench-runner.js";
 
 type Channels = Record<TextureChannel, WorkbenchChannelResult>;
 type Accepted = { recipe: SurfaceTextureRecipe; sha256: Record<TextureChannel, string> };
@@ -119,58 +120,6 @@ function showError(message: string | undefined) {
   if (name) field(name).setAttribute("aria-invalid", "true");
 }
 
-// ---- worker runners --------------------------------------------------------------------------------------------
-
-/** One worker with at most one running and one waiting job; superseded waiting jobs are dropped before they start. */
-class Runner {
-  #worker: Worker;
-  #latest = new LatestRequest();
-  #busy = false;
-  #waiting: { id: number; recipe: SurfaceTextureRecipe } | undefined;
-  constructor(private readonly onResult: (result: WorkbenchResult) => void, private readonly onBusy: (busy: boolean) => void) {
-    this.#worker = this.#spawn();
-  }
-  #spawn() {
-    const worker = new Worker("./worker.js", { type: "module" });
-    worker.onmessage = (event: MessageEvent<WorkbenchResult>) => {
-      this.#busy = false;
-      if (this.#latest.isCurrent(event.data.id)) this.onResult(event.data);
-      this.#pump();
-    };
-    worker.onerror = (event) => {
-      this.#busy = false;
-      this.onResult({ id: -1, ok: false, error: event.message || "the preview worker failed" });
-      this.#pump();
-    };
-    return worker;
-  }
-  run(recipe: SurfaceTextureRecipe) {
-    this.#waiting = { id: this.#latest.next(), recipe };
-    this.#pump();
-  }
-  /** Stops the running job; its result never arrives. The next job starts a fresh worker without kept stages. */
-  cancel() {
-    this.#latest.next();
-    this.#waiting = undefined;
-    if (!this.#busy) return;
-    this.#worker.terminate();
-    this.#worker = this.#spawn();
-    this.#busy = false;
-    this.onBusy(false);
-  }
-  #pump() {
-    if (this.#busy || !this.#waiting) {
-      this.onBusy(this.#busy);
-      return;
-    }
-    const job = this.#waiting;
-    this.#waiting = undefined;
-    this.#busy = true;
-    this.onBusy(true);
-    this.#worker.postMessage(job);
-  }
-}
-
 // ---- state -----------------------------------------------------------------------------------------------------
 
 const params = new URLSearchParams(location.search);
@@ -185,7 +134,9 @@ let channel: TextureChannel = TEXTURE_CHANNELS.includes(params.get("channel") as
 let tiled = params.get("tile") !== "1";
 try { if (accepted) accepted.recipe = workbenchRecipe(accepted.recipe); } catch { accepted = undefined; }
 
-const currentRunner = new Runner((result) => {
+const newRunner = (onResult: (result: WorkbenchResult) => void, onBusy: (busy: boolean) => void) =>
+  new WorkbenchRunner<{ recipe: SurfaceTextureRecipe }, WorkbenchResult>("./worker.js", onResult, onBusy);
+const currentRunner = newRunner((result) => {
   if (!result.ok) {
     status.dataset.state = "error";
     status.textContent = `Preview failed: ${result.error}. The last valid result stays.`;
@@ -201,7 +152,7 @@ const currentRunner = new Runner((result) => {
   cancelButton.hidden = !busy;
   if (busy) { status.dataset.state = ""; status.textContent = "Building…"; }
 });
-const acceptedRunner = new Runner((result) => {
+const acceptedRunner = newRunner((result) => {
   if (result.ok) acceptedChannels = result.channels;
   render();
 }, () => undefined);
@@ -232,7 +183,7 @@ function commit(recipe: SurfaceTextureRecipe, { record = true, writeBack = true 
   undoButton.disabled = !history.canUndo;
   redoButton.disabled = !history.canRedo;
   syncUrl();
-  currentRunner.run(history.current);
+  currentRunner.run({ recipe: history.current });
   render();
 }
 
@@ -349,7 +300,7 @@ cancelButton.addEventListener("click", () => {
   currentRunner.cancel();
   status.textContent = "Cancelled. The last finished result stays; edit or press Rebuild to run again.";
 });
-$<HTMLButtonElement>("rebuild").addEventListener("click", () => currentRunner.run(history.current));
+$<HTMLButtonElement>("rebuild").addEventListener("click", () => currentRunner.run({ recipe: history.current }));
 for (const button of document.querySelectorAll<HTMLButtonElement>("[data-channel]")) {
   button.addEventListener("click", () => { channel = button.dataset.channel as TextureChannel; syncUrl(); render(); });
 }
@@ -419,4 +370,4 @@ window.addEventListener("beforeunload", (event) => {
 
 presetOptions();
 commit(history.current, { record: false });
-if (accepted) acceptedRunner.run(accepted.recipe);
+if (accepted) acceptedRunner.run({ recipe: accepted.recipe });

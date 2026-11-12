@@ -633,6 +633,7 @@ export function renderCatalogGalleryHtml(model) {
     <a href="compare/young/"><strong>Young resident faces</strong><span>Shape the faces of the children and teenagers with live sliders.</span></a>
     <a href="review/warden-icons/"><strong>Warden icon review</strong><span>See the selected images and alternatives at 512, 64, 48 and 32 px.</span></a>
     <a href="workbench/texture/"><strong>Texture workbench</strong><span>Adjust a tileable surface recipe with exact inputs, compare it tiled and export it.</span></a>
+    <a href="workbench/terrain/"><strong>Terrain workbench</strong><span>Adjust terrain patches, keep or reseed height, masks and detail layers, and rebuild only what changed.</span></a>
     <a href="generate/"><strong>Image-to-3D studio</strong><span>Generate a local GLB and inspect it with orbit and zoom.</span></a>
   </section>
   <section class="controls" aria-label="Asset filters">
