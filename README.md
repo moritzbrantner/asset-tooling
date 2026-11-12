@@ -129,6 +129,7 @@ The generation architecture supports the same provenance model across:
 
 - deterministic/seeded procedural generators;
 - consumer-owned Blender scripts run in an exactly pinned Blender release (`external.blender.script`, see `docs/blender-script.md`);
+- one reusable finishing recipe that inspects an editable source (a catalog glTF or an authored `.blend`), applies only declared Blender repairs, records them with the source lineage and promotes the finished GLB only when every step passes (`asset-tooling/recipes/finishing`, see `docs/finishing-recipe.md`);
 - local model-backed generators such as Stable Diffusion, TRELLIS.2, Stable Fast 3D, and TripoSR;
 - utility backends used to prove contracts.
 

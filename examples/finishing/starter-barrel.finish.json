@@ -1,0 +1,41 @@
+{
+  "schema": "finish-recipe-v1",
+  "name": "starter-barrel",
+  "assetId": "greyhaven.starter.barrel.finished",
+  "source": {
+    "catalog": "quaternius.fantasy-props-megakit-standard.barrel-gltf"
+  },
+  "resources": {
+    "Barrel.bin": "quaternius.fantasy-props-megakit-standard.barrel-bin",
+    "T_Trim_Furniture_BaseColor.png": "quaternius.fantasy-props-megakit-standard.t-trim-furniture-basecolor-png",
+    "T_Trim_Furniture_Normal.png": "quaternius.fantasy-props-megakit-standard.t-trim-furniture-normal-png",
+    "T_Trim_Furniture_ORM.png": "quaternius.fantasy-props-megakit-standard.t-trim-furniture-orm-png",
+    "T_Trim_Metal_BaseColor.png": "quaternius.fantasy-props-megakit-standard.t-trim-metal-basecolor-png",
+    "T_Trim_Metal_Normal.png": "quaternius.fantasy-props-megakit-standard.t-trim-metal-normal-png",
+    "T_Trim_Metal_ORM.png": "quaternius.fantasy-props-megakit-standard.t-trim-metal-orm-png"
+  },
+  "place": {
+    "parentName": "greyhaven.barrel"
+  },
+  "parameters": {
+    "schemaVersion": 1,
+    "source": {
+      "format": "gltf"
+    },
+    "edits": {
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "materials": {}
+    },
+    "repairs": [
+      "apply-transforms",
+      "merge-by-distance"
+    ],
+    "policy": {
+      "maxTriangles": 4000
+    }
+  }
+}
