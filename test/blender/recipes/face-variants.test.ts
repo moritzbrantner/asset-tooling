@@ -15,6 +15,7 @@ import { executeGltfComposeSkinnedOperation } from "../../../src/gltf-compose-op
 import { executeGltfProductionImportOperation } from "../../../src/gltf-production-operations.js";
 import { executeGltfSubsetSkinnedOperation } from "../../../src/gltf-subset-operations.js";
 import type { AssetOperationResult, AssetRef } from "../../../src/operations.js";
+import { authorVarietyKeys, applyVarietyKeys, PHYSIQUE_TARGETS, FEMALE_BUST_TARGETS } from "../../../src/male-variety.js";
 import { RANGER_FIGURES, RANGER_HEAD_RECIPE } from "../../../scripts/build-ranger-character.js";
 
 type Json = Record<string, any>;
@@ -138,4 +139,52 @@ for (const figure of ["male", "female"] as const) {
     const mouth = morphed.find((node) => node.getName() === headNode)!.getMesh()!.listPrimitives()[0]!.listTargets()[FACE_MORPH_TARGETS.indexOf("mouth.thin")]!;
     assert.equal(mouth.getAttribute("POSITION")!.getSparse(), true);
   });
+}
+
+
+for (const figure of ["male", "female"] as const) {
+  test(`${figure} physique: real Ranger body and fitted outfit have paired endpoints without changing the rig`,
+    { skip: !blender, timeout: 600_000 }, async (t) => {
+      const root = await mkdtemp(path.join(os.tmpdir(), "physique-"));
+      t.after(() => rm(root, { recursive: true, force: true }));
+      const load = await importer(root), shape = RANGER_FIGURES[figure];
+      const body = await load(shape.body), outfit = await load(shape.outfit);
+      if (!body || !outfit) return t.skip("Git LFS payloads are not hydrated");
+      const head = single(await executeGltfSubsetSkinnedOperation(root, {
+        inputs: { source: body }, parameters: { ...RANGER_HEAD_RECIPE, keepMeshes: [...shape.headMeshes] },
+      }));
+      const character = single(await executeGltfComposeSkinnedOperation(root, {
+        inputs: { skeleton: outfit, parts: [head] }, parameters: { policy: POLICY },
+      }));
+      const authored = await authorVarietyKeys(root, `physique.${figure}`, { mode: "character", source: character, figure });
+      const keyed = await applyVarietyKeys(root, character, authored.bytes, figure);
+      const io = new NodeIO();
+      const before = await io.readBinary(new Uint8Array(await resolveAssetObject(root, character)));
+      const after = await io.readBinary(new Uint8Array(await resolveAssetObject(root, keyed.glb)));
+      const rig = (document: Document) => ({
+        nodes: document.getRoot().listNodes().map((node) => [node.getName(), node.getTranslation(), node.getRotation(), node.getScale()]),
+        skins: document.getRoot().listSkins().map((skin) => [skin.listJoints().map((node) => node.getName()), [...skin.getInverseBindMatrices()!.getArray()!]]),
+      });
+      assert.deepEqual(rig(after), rig(before), "only morph targets come back from Blender");
+      const pairs = [...Object.values(PHYSIQUE_TARGETS), ...(figure === "female" ? [FEMALE_BUST_TARGETS] : [])];
+      for (const pair of pairs) {
+        let largest = 0;
+        for (const mesh of after.getRoot().listMeshes()) {
+          const names = (mesh.getExtras() as { targetNames?: string[] }).targetNames ?? [];
+          if (!names.includes(pair[0])) continue;
+          assert.ok(mesh.getWeights().every((weight) => weight === 0), "neutral midpoint");
+          for (const primitive of mesh.listPrimitives()) {
+            const lower = primitive.listTargets()[names.indexOf(pair[0])]!.getAttribute("POSITION")!.getArray()!;
+            const upper = primitive.listTargets()[names.indexOf(pair[1])]!.getAttribute("POSITION")!.getArray()!;
+            for (let i = 0; i < lower.length; i++) {
+              assert.ok(Math.abs(lower[i]! + upper[i]!) < 1e-5, pair.join(" / "));
+              largest = Math.max(largest, Math.abs(upper[i]!));
+            }
+          }
+        }
+        assert.ok(largest > .004 && largest < .15, `${pair}: visible bounded movement ${largest}`);
+        const garment = after.getRoot().listNodes().find((node) => node.getName() === `${figure === "male" ? "Male" : "Female"}_Ranger_Body`)!.getMesh()!;
+        assert.ok(((garment.getExtras() as { targetNames: string[] }).targetNames).includes(pair[0]), "fitted garment carries the same targets");
+      }
+    });
 }

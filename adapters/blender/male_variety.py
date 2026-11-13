@@ -17,6 +17,8 @@ against the ``body`` input). The build copies only the morph targets back onto t
   and keep their clearance. The heavy build also fills the cheeks and the jaw line; the lean build hollows them.
   Hanging garments (tabards, robes, aprons) take no leg weights and grow only sideways round the body's vertical axis,
   so their hems hang straight instead of flaring with the thighs.
+- Physique (#588): paired, localized frame, muscle, shoulder, waist, hip, glute and jaw fields on both figures;
+  the female recipe also authors bust fullness. Zero influences retain the original neutral midpoint.
 - Height: a per-character uniform scale of the rig (``HEIGHTS``, about +-9%), set by the consumer.
 - Skin tones as base-colour multipliers over the light skin texture (``SKIN_TONES``); the painted aged and weathered
   variants per tone are in ``skin_overlays.py``, the hand-modelled hair and beards in ``hair_beards.py``.
@@ -29,7 +31,18 @@ from mathutils.kdtree import KDTree
 
 AGE_KEYS = ["age.young", "age.middle", "age.old", "age.weathered"]
 BUILD_KEYS = ["build.lean", "build.heavy"]
-BODY_MESHES = ("Male_Peasant_Arms", "Male_Peasant_Body", "Male_Peasant_Feet", "Male_Peasant_Legs", "SuperHero_Male")
+# Paired targets: zero weights are the neutral midpoint, one target at weight 1 is an authored endpoint.
+PHYSIQUE_KEYS = {
+    "frame": ("frame.narrow", "frame.broad"),
+    "muscularity": ("muscularity.soft", "muscularity.defined"),
+    "shoulderWidth": ("shoulders.narrow", "shoulders.broad"),
+    "waistWidth": ("waist.narrow", "waist.wide"),
+    "hipWidth": ("hips.narrow", "hips.wide"),
+    "gluteFullness": ("glutes.small", "glutes.full"),
+    "jawProjection": ("jaw.receding", "jaw.projected"),
+}
+BUST_KEYS = ("bust.small", "bust.full")
+BODY_MESHES = tuple(f"{sex}_Ranger_{part}" for sex in ("Male", "Female") for part in ("Arms", "Body", "Feet", "Feet_Boots", "Legs")) + ("Male_Peasant_Arms", "Male_Peasant_Body", "Male_Peasant_Feet", "Male_Peasant_Legs", "SuperHero_Male", "Female_Peasant_Arms", "Female_Peasant_Body", "Female_Peasant_Feet", "Female_Peasant_Legs", "Superhero_Female")
 
 # Skin tones: a multiplier over the light skin base colour (linear), from fair to deep brown.
 SKIN_TONES = {
@@ -300,13 +313,84 @@ def face_fill(lm, amount):
     return f
 
 
-def add_build_keys(rig, meshes, lm, body=None):
+def physique_offset(p, ws, axes, lm, control, sign, hanging=False):
+    """Local anatomical fields in rest space; every clothing layer samples the same field.
+
+    Torso width grows radially (outer cloth grows further), while jaw and bust fields fade before
+    the neck, cranium, eyes and arm sockets. No joint, bind matrix, hand or foot is changed.
+    """
+    scale = (axes["neck_01"][0].z - axes["pelvis"][0].z) / .55
+    pelvis = axes["pelvis"][0]
+    waist = axes["spine_01"][0]
+    chest = axes["spine_03"][0]
+    q = Vector()
+    if control in ("frame", "muscularity"):
+        gains = ({"pelvis": .12, "spine_01": .14, "spine_02": .16, "spine_03": .15,
+                  "upperarm": .13, "lowerarm": .07, "thigh": .12, "calf": .08}
+                 if control == "frame" else
+                 {"spine_02": .16, "spine_03": .22, "upperarm": .28, "lowerarm": .12, "thigh": .2, "calf": .18})
+        for bone, weight in ws:
+            kind = bone_kind(bone)
+            if kind not in gains:
+                continue
+            a, b = axes[bone]
+            u = b - a
+            t = max(0.0, min(1.0, (p - a).dot(u) / u.length_squared))
+            radial = p - (a + u * t)
+            if hanging:
+                radial = Vector((p.x, p.y - waist.y, 0))
+            q += radial * (gains[kind] * weight * sign)
+        return q
+    if control == "jawProjection":
+        s, chin, tip = lm["scale"], lm["chin"], lm["tip"]
+        w = smooth((tip.z + .004 * s - p.z) / (.035 * s))
+        w *= smooth((p.z - chin.z + .028 * s) / (.02 * s))
+        w *= smooth((tip.y + .13 * s - p.y) / (.055 * s))
+        w *= smooth((.105 * s - abs(p.x)) / (.035 * s))
+        q.y = -.014 * s * sign * w
+        return q
+    if control == "shoulderWidth":
+        # Move the deltoids, fading through the arms to zero at the wrists; the rig stays shared.
+        z = axes["upperarm_l"][0].z
+        w = math.exp(-((p.z - z) / (.13 * scale)) ** 4)
+        lateral = smooth(abs(p.x) / (.14 * scale))
+        wrist = 1 - smooth((abs(p.x) - .3 * scale) / (.28 * scale))
+        q.x = math.copysign(.035 * scale, p.x) * sign * w * lateral * wrist
+        return q
+    if control == "waistWidth":
+        w = math.exp(-((p.z - waist.z) / (.16 * scale)) ** 4)
+        q.x = p.x * .24 * sign * w
+        return q
+    if control == "hipWidth":
+        w = math.exp(-((p.z - pelvis.z) / (.18 * scale)) ** 4)
+        q.x = p.x * .2 * sign * w
+        return q
+    if control == "gluteFullness":
+        w = math.exp(-((p.z - (pelvis.z - .035 * scale)) / (.13 * scale)) ** 4)
+        rear = max(0, p.y - pelvis.y)
+        q.y = rear * .44 * sign * w
+        return q
+    if control == "bustFullness":
+        # Two lobes, no centreline spike: breast roots fade at sternum, armpits and abdomen.
+        z = chest.z - .025 * scale
+        w = math.exp(-((p.z - z) / (.105 * scale)) ** 4)
+        w *= 1 - smooth((abs(p.x) - .12 * scale) / (.095 * scale))
+        front = max(0, chest.y - p.y)
+        q.y = -front * .48 * sign * w
+        q.x = p.x * .10 * sign * w * smooth(front / (.08 * scale))
+    return q
+
+
+def add_build_keys(rig, meshes, lm, body=None, female=False):
     """Build keys on ``meshes``; ``body`` (default: the body meshes among them) gives the skin weights to follow."""
     axes = bone_axes(rig)
     bones = set(axes)
     body = body if body is not None else [o for o in meshes if o.name.split(".")[0] in BODY_MESHES]
     tree_points, tree_weights = [], []
-    for o in body:
+    # Coverage can remove the torso body mesh. Its fitted, skinned cloth remains a valid anatomical donor
+    # for rigid plates; borrowing only the remaining head/limbs would leave a breastplate visually inert.
+    donors = list(body) + [o for o in meshes if o not in body and any(g.name in bones for g in o.vertex_groups)]
+    for o in donors:
         tree_points += points(o)
         tree_weights += skin_weights(o, bones)
     tree = KDTree(len(tree_points))
@@ -317,8 +401,30 @@ def add_build_keys(rig, meshes, lm, body=None):
     for obj in meshes:
         base = points(obj)
         own = obj in body  # everything else takes the nearest body weights, so layers follow one field
-        weights = skin_weights(obj, bones) if own else None
+        # Fitted cloth already carries the shared rig weights, even when its covered body region was hidden.
+        # Static attachments alone borrow the nearest retained body weights.
+        weights = skin_weights(obj, bones)
         hanging = not own and any(h in obj.name for h in HANGING)
+        followed = []
+        for i, p in enumerate(base):
+            if weights is not None and weights[i]:
+                followed.append(weights[i])
+            else:
+                near = tree.find_n(p, 4)
+                total = sum(1 / (d + 1e-4) for _, _, d in near)
+                mix = {}
+                for _, index, d in near:
+                    for n, w in tree_weights[index]:
+                        mix[n] = mix.get(n, 0) + w / (d + 1e-4) / total
+                followed.append(list(mix.items()))
+        controls = dict(PHYSIQUE_KEYS)
+        if female:
+            controls["bustFullness"] = BUST_KEYS
+        for control, keys in controls.items():
+            for sign, key in zip((-1, 1), keys):
+                moved = [p + physique_offset(p, followed[i], axes, lm, control, sign, hanging)
+                         for i, p in enumerate(base)]
+                stats.setdefault(key, {})[obj.name] = round(set_key(obj, key, moved), 5)
         for which, key in enumerate(BUILD_KEYS):
             fill = face_fill(lm, -1 if which == 0 else 1)
             moved = []
@@ -374,10 +480,12 @@ MODES = ("character", "item")
 
 
 def validate(p, inputs):
-    if type(p) is not dict or set(p) - {"schemaVersion", "mode", "age"} or p.get("schemaVersion") != 1:
+    if type(p) is not dict or set(p) - {"schemaVersion", "mode", "age", "figure"} or p.get("schemaVersion") != 1:
         raise ValueError("male variety takes schemaVersion 1, mode and optionally age")
     if p.get("mode") not in MODES or type(p.get("age", False)) is not bool:
         raise ValueError(f"mode must be one of {MODES} and age a boolean")
+    if p.get("figure", "male") not in ("male", "female"):
+        raise ValueError("figure must be male or female")
     needed = {"source", "face"} | ({"body"} if p["mode"] == "item" else set())
     allowed = needed | ({"items"} if p["mode"] == "character" else set())
     if not needed <= set(inputs) or set(inputs) - allowed:
@@ -415,7 +523,8 @@ def generate(output_path, arguments, inputs):
     rig.data.pose_position = "REST"
     bpy.context.view_layer.update()
     named = {o.name: o for o in body if o.type == "MESH"}
-    head, eyes, brows = named[HEAD], named[EYES], named[BROWS]
+    female = arguments.get("figure", "male") == "female"
+    head, eyes, brows = named["Superhero_Female" if female else HEAD], named[EYES], named[BROWS]
     body_meshes = [o for o in body if o.type == "MESH" and o.name.split(".")[0] in BODY_MESHES]
     meshes = [o for o in (body if character else []) + items if o.type == "MESH" and not o.name.startswith("Icosphere") and o.name != EYES]
     if character:
@@ -423,7 +532,7 @@ def generate(output_path, arguments, inputs):
     else:
         keyed = [o for o in items if o.type == "MESH"] if arguments.get("age") else []
     lm, age = add_age_keys(head, eyes, brows, face["landmarks"], keyed=keyed)
-    build = add_build_keys(rig, meshes, lm, body=body_meshes)
+    build = add_build_keys(rig, meshes, lm, body=body_meshes, female=female)
     exported = (body + items) if character else items
     bpy.ops.object.select_all(action="DESELECT")
     for o in exported:

@@ -42,7 +42,7 @@ import { ARCHERY_PRESETS, ARCHERY_ROLES, createArcheryAssetSpec, readArcheryReci
 import { HEADWEAR_CONTRACT, HEADWEAR_HIDES, HEADWEAR_PRESETS, createHeadwearAssetSpec, readHeadwearRecipeSource, type HeadwearPiece } from "../src/headwear-recipes.js";
 import { FACE_MORPH_NODES, addFaceVariants, applyFaceVariants, faceAppearance } from "../src/face-variants.js";
 import { RANGER_BEARD_CHAINS, RANGER_HAIR_CHAINS, RANGER_OUTFIT_CHAINS, applySecondaryChains, type SecondaryChain } from "../src/humanoid-secondary.js";
-import { VARIETY_BEARDS, VARIETY_FACIAL_HAIR_ENTRY, VARIETY_HAIRSTYLES, VARIETY_HEAD_SKIN_ENTRY, applyVarietyKeys, authorVarietyKeys, buildHairPiece, buildHeadSkins, varietyAppearance } from "../src/male-variety.js";
+import { VARIETY_BEARDS, VARIETY_FACIAL_HAIR_ENTRY, VARIETY_HAIRSTYLES, VARIETY_HEAD_SKIN_ENTRY, applyVarietyKeys, authorVarietyKeys, buildHairPiece, buildHeadSkins, varietyAppearance, physiqueAppearance } from "../src/male-variety.js";
 import type { AssetOperationResult, AssetRef } from "../src/operations.js";
 
 type Json = Record<string, any>;
@@ -1007,9 +1007,9 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
   // shipped character (and the Light skin, which has the same geometry).
   const variety: Json = { transfers: {} };
   let defaultKeys: Uint8Array | undefined;
-  if (figure === "male") {
-    log("age and build keys on the archer (adapters/blender/male_variety.py, #380)");
-    const authored = await authorVarietyKeys(root, "character.default", { mode: "character", source: composedFace });
+  {
+    log("age, build and physique keys on the archer (adapters/blender/male_variety.py, #380)");
+    const authored = await authorVarietyKeys(root, "character.default", { mode: "character", source: composedFace, figure });
     defaultKeys = authored.bytes;
     variety.default = authored.observations;
     const keyed = await applyVarietyKeys(root, character, defaultKeys, RANGER_BUNDLE_VARIANT);
@@ -1125,8 +1125,8 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
     const kits: { kit: ArmorOutfitKit; variants: { variant: string; character: AssetRef }[]; plates: AssetRef; cloth: AssetRef; fitTarget: AssetRef; observations: Json[] }[] = [];
     let beards: { glb: AssetRef; observations: Json; chains: SecondaryChain[] } | undefined;
     let headSkins: AssetRef | undefined;
-    // The Peasant-based outfits: the male kits (#117 Q8 onward) and the female tanner (#378). Age and build keys, the
-    // grey skin, the hand-modelled hair and beards and the head skins stay male-only.
+    // The Peasant-based outfits: male kits (#117 Q8 onward) and female tanner (#378), both with fitted physique keys.
+    // Grey skin, hand-modelled hair, beards and painted head skins stay male-only.
     const male = figure === "male";
     {
       log("outfits: Peasant base and fitted armour (#117)");
@@ -1195,10 +1195,10 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
           let outfitCharacter = await resizeTextures(`${bundleKey}/${variant}`, composedKit);
           // #380: the outfit and its plates follow the age and build keys, authored once per kit (the skins share
           // the geometry).
-          if (male) {
+          {
             if (!kitKeys) {
               log(`age and build keys on the ${kit} outfit and plates (adapters/blender/male_variety.py, #380)`);
-              const authored = await authorVarietyKeys(root, `kit.${kit}`, { mode: "character", source: composedKit, items: plates.glb });
+              const authored = await authorVarietyKeys(root, `kit.${kit}`, { mode: "character", source: composedKit, items: plates.glb, figure });
               kitKeys = authored.bytes;
               kitVariety[`kit.${kit}`] = authored.observations;
             }
@@ -1206,7 +1206,7 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
             outfitCharacter = keyed.glb;
             kitVariety.transfers[variant] = keyed.transfer;
             // #391: accessory chains on the loose garments; at rest they deform exactly as before.
-            if (RANGER_OUTFIT_CHAINS[kit]) {
+            if (male && RANGER_OUTFIT_CHAINS[kit]) {
               const chained = await applySecondaryChains(root, outfitCharacter, RANGER_OUTFIT_CHAINS[kit]!);
               outfitCharacter = chained.glb;
               kitChains = chained.chains;
@@ -1216,7 +1216,7 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
         }
         const variant = variants[0]!.variant;
         let keyedPlates = plates.glb;
-        if (male) {
+        {
           const keyed = await applyVarietyKeys(root, plates.glb, kitKeys!, `armor.${kit}`);
           kitVariety.transfers[`armor.${kit}`] = keyed.transfer;
           keyedPlates = keyed.glb;
@@ -1244,11 +1244,11 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
         mergeVariety(fitted.variety);
       }
       // #380: the pack hairstyles follow the build keys (their textures share the geometry, so one authoring each).
-      if (male) {
+      {
       // Each pack hairstyle is keyed on its own (in parallel, #427); its variants keep their order.
       const hairKeys = await Promise.all(hair.map((item) => pool(async () => {
         log(`build keys on ${item.key} (adapters/blender/male_variety.py, #380)`);
-        const authored = await authorVarietyKeys(root, item.key, { mode: "item", source: item.variants["hair-1"]!, body: fitTarget });
+        const authored = await authorVarietyKeys(root, item.key, { mode: "item", source: item.variants["hair-1"]!, body: fitTarget, figure });
         const part: Json = { [item.key]: authored.observations, transfers: {} };
         for (const [name, asset] of Object.entries(item.variants)) {
           const keyed = await applyVarietyKeys(root, asset, authored.bytes, `${item.key}/${name}`);
@@ -1258,6 +1258,8 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
         return part;
       })));
       hairKeys.forEach(mergeVariety);
+      }
+      if (male) {
       // #380: the hand-modelled hairstyles and facial hair (#376 names kept), fitted to the same head, wearing the
       // pack's MI_Hair_1, with their build (and for facial hair, age) keys. Facial hair rides the `head.armor` socket.
       // The hairstyles are modelled in parallel (#427) and added in their declared order.
@@ -1349,6 +1351,15 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
         entries: [...kits.map((kit) => `armor.${kit.kit}`), ...hair.map((item) => item.key), RANGER_FACIAL_HAIR_ENTRY],
         head: FACE_MORPH_NODES.male[0], eyebrows: look.eyebrows,
       }) : {}),
+      ...(figure === "female" ? {
+        builds: varietyAppearance({ variants: [RANGER_BUNDLE_VARIANT, "skin.light", ...kits.flatMap((kit) => kit.variants.map(({ variant }) => variant))],
+          entries: [...kits.map((kit) => `armor.${kit.kit}`), ...hair.map((item) => item.key)],
+          head: FACE_MORPH_NODES.female[0], eyebrows: look.eyebrows }).builds,
+        heights: { min: .91, max: 1.09, default: 1, apply: "uniform root scale" },
+      } : {}),
+      physique: physiqueAppearance(figure,
+        [RANGER_BUNDLE_VARIANT, "skin.light", ...kits.flatMap((kit) => kit.variants.map(({ variant }) => variant))],
+        [...kits.map((kit) => `armor.${kit.kit}`), ...hair.map((item) => item.key), ...(male ? [RANGER_FACIAL_HAIR_ENTRY] : [])]),
       // #391: accessory chains are listed under `outfits[].secondary`, `hair[].secondary` and
       // `facialHair.options[].secondary`.
     };

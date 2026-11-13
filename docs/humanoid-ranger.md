@@ -31,7 +31,7 @@ The `humanoid.ranger.male` bundle holds the following.
     - `humanoid-clips`: per-clip motion metadata ([Clip motion](#clip-motion)).
     - `humanoid-appearance` (`humanoid-appearance-v1`): skins, the toggleable hood (`outfit.hood`), hairstyles with their textures and tints, eyebrows that follow the hair tint, and the outfits, and (male) the `headwear` list: each piece's `entry`, `label`, `socket` and the appearance parts it `hides` while worn (`outfit.hood` and `hair`). The `face` section lists the [facial variants](#facial-variants).
       - `presets`: the male figure's [Resident presets](#resident-presets) and [Class presets](#class-presets); the female figure's `resident.tanner` ([Resident presets](#resident-presets)).
-      - Male only: `facialHair`, and `ages`, `builds`, `heights`, `skinTones` and `headSkins` ([Male variety](#male-variety-380)).
+      - Both figures: `builds`, `heights` and `physique` ([Body proportions](#body-proportions-588)). Male only: `facialHair`, `ages`, `skinTones` and `headSkins` ([Male variety](#male-variety-380)).
       - The class outfits add `hood` (their hood garment, also listed as an `outfit.hood` part node, so hair that needs the hood off hides under it) and `classTrim` (the recolourable `class` material and its default linear colour).
 - **Facial variants (#348):** see [Facial variants](#facial-variants).
 - **Secondary motion chains (#391, male):** accessory joints on the long robes, skirts, aprons, capes, the long and tied hair and the long and full beards; see [Secondary motion chains](#secondary-motion-chains-391).
@@ -757,3 +757,48 @@ These remain open on #110 and its consumers:
 - the source-versus-runtime pose comparisons;
 - the consumer smoke tests in mmorpg#210 and arpg;
 - publishing the GitHub Release.
+
+
+## Body proportions (#588)
+
+Both rolling figures (`humanoid-ranger-male`, `humanoid-ranger-female`) author real local shape targets on their existing
+CC0 Quaternius geometry. The female figure uses the existing female body and its fitted Ranger and Tanner outfits;
+it is available for a consumer to adopt as a player base. The recipe does not select a game's player catalog.
+
+The `humanoid-appearance` descriptor's `physique.controls` maps a normalized 0–1 control to its `lower` and `upper`
+target names, with neutral `default: 0.5`. At neutral both weights are zero. Below neutral set only the lower target
+weight to `(0.5 - value) * 2`; above neutral set only the upper target to `(value - 0.5) * 2`.
+
+| Control | Lower target | Upper target | Bases |
+| --- | --- | --- | --- |
+| Frame | `frame.narrow` | `frame.broad` | Both |
+| Muscularity | `muscularity.soft` | `muscularity.defined` | Both |
+| Shoulder width | `shoulders.narrow` | `shoulders.broad` | Both |
+| Waist width | `waist.narrow` | `waist.wide` | Both |
+| Hip width | `hips.narrow` | `hips.wide` | Both |
+| Glute fullness | `glutes.small` | `glutes.full` | Both |
+| Jaw projection | `jaw.receding` | `jaw.projected` | Both |
+| Bust fullness | `bust.small` | `bust.full` | Female |
+
+Body fat retains `build.lean` / `build.heavy`; jaw width retains the existing `face.narrow` / `face.broad` choices.
+Height retains the existing 0.91–1.09 uniform root scale. The new controls deform localized geometry instead of
+scaling the whole character. Jaw projection fades before the neck seam, cranium, ears and eyes. Frame and muscle
+volume follow the existing rig axes; shoulder width fades before the hands. Bust, waist, hip and glute fields
+change the corresponding torso regions. Fitted cloth samples the same anatomical fields with its existing skin
+weights, even when its covered base region is hidden; static plates and hair borrow the nearest skinned body or garment weights.
+The same targets are transferred onto every declared outfit, its plates and hair. Covered-body masks stay in effect.
+
+The female descriptor includes Slender, Athletic, Curvy, Voluptuous and Fuller figured mixtures under
+`physique.presets`. They combine the real targets continuously and retain the existing independent face options.
+The existing semi-realistic illustrated female source supplies the neutral silhouette. Female age/skin overlay
+and male beard catalogs are not advertised by this extension.
+
+Only morph position/normal deltas transfer back from Blender. Skeletons, inverse bind matrices, original geometry,
+UVs, clip data, sockets and existing item LOD selection remain on the original asset path. Characters continue to
+ship full detail only. Resolve the look when loading/editing; game authority and collision do not consume these keys.
+Both existing rolling-release jobs rebuild from this shared recipe after merge; no numbered release is introduced.
+
+The focused real-source Blender test in `test/blender/recipes/face-variants.test.ts` checks visible bounded paired
+endpoints, zero neutral weights, garment target presence and unchanged skeleton/bind matrices on both figures.
+Live Blender inspection is supplementary art evidence; it does not establish published game-camera acceptance or
+owner approval. Consumers still inspect the actual replacement at their gameplay camera when adopting it.

@@ -9,7 +9,7 @@ import { Document, NodeIO } from "@gltf-transform/core";
 import { transferMorphTargets } from "../src/face-variants.js";
 import {
   VARIETY_AGE_TARGETS, VARIETY_BEARDS, VARIETY_BUILD_TARGETS, VARIETY_HAIRSTYLES, VARIETY_HEIGHTS, VARIETY_MORPH_TARGETS, VARIETY_SKIN_TONES,
-  headSkinMaterials, varietyAppearance,
+  headSkinMaterials, varietyAppearance, physiqueAppearance, PHYSIQUE_TARGETS, FEMALE_BUST_TARGETS,
 } from "../src/male-variety.js";
 
 const ROOT = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
@@ -71,9 +71,21 @@ test("the variety targets are appended after the face targets the shipped mesh a
   assert.deepEqual((mesh.getExtras() as any).targetNames, [...face, ...VARIETY_MORPH_TARGETS]);
   const targets = mesh.listPrimitives()[0]!.listTargets();
   assert.deepEqual([...targets[0]!.getAttribute("POSITION")!.getArray()!], [0, 0, 0.5, 0, 0, 0.5, 0, 0, 0.5], "the face target is untouched");
-  // build.heavy is the authored target 6 (after face.broad); vertex 2 of the shipped order moved.
-  assert.deepEqual([...targets[6]!.getAttribute("POSITION")!.getArray()!].map((value) => Math.round(value * 100)), [0, 0, 0, 0, 0, 0, 0, 0, 6]);
+  // Vertex 2 of the shipped order takes build.heavy, after all independently authored physique targets.
+  const heavy = [...face, ...VARIETY_MORPH_TARGETS].indexOf("build.heavy");
+  assert.deepEqual([...targets[heavy]!.getAttribute("POSITION")!.getArray()!].map((value) => Math.round(value * 100)), [0, 0, 0, 0, 0, 0, 0, 0, heavy]);
   assert.equal(transfer.Eyebrows!.movedVertices["build.heavy"], 1);
   await assert.rejects(transferMorphTargets(glb, authored, VARIETY_MORPH_TARGETS), /already has the morph target/);
   await assert.rejects(transferMorphTargets(shipped, shipped, VARIETY_MORPH_TARGETS), /no morph targets/);
+});
+
+
+test("physique descriptors declare neutral paired controls and the supported female silhouettes", () => {
+  const male = physiqueAppearance("male", ["default"], ["armor.knight"]);
+  const female = physiqueAppearance("female", ["default"], ["armor.tanner"]);
+  assert.deepEqual(Object.keys(male.controls), Object.keys(PHYSIQUE_TARGETS));
+  assert.equal(male.controls.bustFullness, undefined);
+  assert.deepEqual([female.controls.bustFullness!.lower, female.controls.bustFullness!.upper], FEMALE_BUST_TARGETS);
+  for (const control of Object.values(female.controls)) assert.deepEqual([control.min, control.default, control.max], [0, .5, 1]);
+  assert.deepEqual(female.presets!.map((preset) => preset.id), ["slender", "athletic", "curvy", "voluptuous", "fuller"]);
 });
