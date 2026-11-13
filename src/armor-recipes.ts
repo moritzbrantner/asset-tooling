@@ -23,7 +23,8 @@ import { readBlenderRecipeSource } from "./blender-recipe-source.js";
  */
 export type ArmorClassKit = "class.warden" | "class.ranger" | "class.arcanist" | "class.necromancer" | "class.rogue" | "class.cleric" | "class.druid";
 export type ArmorMaleKit = "soldier" | "knight" | "farmer" | "innkeeper" | "monk" | ArmorClassKit;
-export type ArmorFemaleKit = "tanner";
+/** The female base reuses the knight fit (#630); no separate class wardrobe is implied. */
+export type ArmorFemaleKit = "tanner" | "knight";
 export type ArmorOutfitKit = ArmorMaleKit | ArmorFemaleKit;
 export type ArmorKit = ArmorOutfitKit;
 export type ArmorOutput = "plates" | "cloth";
@@ -32,9 +33,9 @@ export type ArmorParameters = { schemaVersion: 1; kit: ArmorKit; output: ArmorOu
 export const ARMOR_CLASS_KITS: readonly ArmorClassKit[] = ["class.warden", "class.ranger", "class.arcanist", "class.necromancer", "class.rogue", "class.cleric", "class.druid"];
 /** The kits that dress the male Peasant base as an outfit variant, in bundle order. */
 export const ARMOR_OUTFIT_KITS: readonly ArmorMaleKit[] = ["soldier", "knight", "farmer", "innkeeper", "monk", ...ARMOR_CLASS_KITS];
-/** The kits that dress the female Peasant base (#378), in bundle order. */
-export const ARMOR_FEMALE_OUTFIT_KITS: readonly ArmorFemaleKit[] = ["tanner"];
-export const ARMOR_KITS: readonly ArmorKit[] = [...ARMOR_OUTFIT_KITS, ...ARMOR_FEMALE_OUTFIT_KITS];
+/** The kits that dress the female Peasant base (#378, #630), in bundle order. */
+export const ARMOR_FEMALE_OUTFIT_KITS: readonly ArmorFemaleKit[] = ["tanner", "knight"];
+export const ARMOR_KITS: readonly ArmorKit[] = [...new Set([...ARMOR_OUTFIT_KITS, ...ARMOR_FEMALE_OUTFIT_KITS])];
 /** Outfit labels for the appearance descriptor. */
 export const ARMOR_KIT_LABELS = {
   soldier: "Soldier", knight: "Knight", farmer: "Farmer", innkeeper: "Innkeeper", monk: "Monk",

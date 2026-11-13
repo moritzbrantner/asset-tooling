@@ -1,10 +1,12 @@
 # Soldier and knight armour, resident clothes and class outfits
 
-[`adapters/blender/armor.py`](../adapters/blender/armor.py) (with `src/armor-recipes.ts`) authors the [#117](https://github.com/moritzbrantner/asset-tooling/issues/117) soldier and knight outfits. It runs through the pinned Blender script backend ([blender-script.md](blender-script.md)) and follows the owner answers of 2026-10-17. The male figure comes first (Q8).
+[`adapters/blender/armor.py`](../adapters/blender/armor.py) (with `src/armor-recipes.ts`) authors the [#117](https://github.com/moritzbrantner/asset-tooling/issues/117) soldier and knight outfits. It runs through the pinned Blender script backend ([blender-script.md](blender-script.md)) and follows the owner answers of 2026-10-17. The male figure comes first (Q8). The same knight recipe also fits the female Peasant base (#630), producing `outfit.knight` (Dark/Light) and `armor.knight` in `humanoid-ranger-female`; the other class kits remain male-only. The female fit omits the male bascinet, whose cheek rim does not fit her full face/jaw range.
 
 - **Archer:** the existing Ranger outfit, which is the character's `default` variant.
 - **Soldier:** the Quaternius Peasant outfit, with an original gambeson-style tunic over it, a kettle hat, a belt and front greaves. The sash carries the faction colour.
 - **Knight:** the Peasant outfit, with original plate over it: bascinet, breastplate, spaulders and pauldrons, couters, gauntlets, cuisses with knee cops, greaves and sabatons. The tabard carries the faction colour.
+
+The female fit selects the real target's mesh names and shares its physique fields, including bust, with the tabard and plates. Its declared `bodyMorphScale: 0.35` bounds the armored exterior and under-clothes at combined slider limits; head/face/jaw fields stay full strength. It keeps the female rig, clips, sockets and current item LOD paths; it adds no separate runtime fitting system.
 
 The pieces are scripted originals following the [humanlike style spec](style-humanlike.md). They are not copied from any game or pack, and they use factor-only materials: `steel`, `iron`, `leather`, `gambeson` and the `faction` slot. The faction slot defaults to muted dark red (linear 0.25/0.04/0.04, Q11), and a consumer recolours it through the material's base-colour factor.
 

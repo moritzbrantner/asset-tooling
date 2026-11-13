@@ -118,8 +118,8 @@ async function runRecipe(root: string, { script, label, inputs, parameters, outp
  * Authors age, build and local physique keys for either figure in Blender on a copy of a character variant (and its armour plates), or on an item
  * worn on `body` (hair, plates; `age` adds the age keys, for facial hair). Returns the authored GLB to transfer from.
  */
-export async function authorVarietyKeys(root: string, label: string, { mode, source, items, body, age = false, figure = "male" }: {
-  mode: "character" | "item"; source: AssetRef; items?: AssetRef; body?: AssetRef; age?: boolean; figure?: "male" | "female";
+export async function authorVarietyKeys(root: string, label: string, { mode, source, items, body, age = false, figure = "male", bodyMorphScale = 1 }: {
+  mode: "character" | "item"; source: AssetRef; items?: AssetRef; body?: AssetRef; age?: boolean; figure?: "male" | "female"; bodyMorphScale?: number;
 }) {
   // Only the authored morph targets come back (applyVarietyKeys), so Blender gets the geometry without textures (#516).
   const geometry = async (asset: AssetRef) => withoutTextures(new Uint8Array(await resolveAssetObject(root, asset)));
@@ -127,7 +127,7 @@ export async function authorVarietyKeys(root: string, label: string, { mode, sou
   if (items) inputs.items = await geometry(items);
   if (body) inputs.body = await geometry(body);
   return runRecipe(root, { script: "male_variety.py", label, inputs, output: "keys.glb",
-    parameters: { schemaVersion: 1, mode, figure, ...(age ? { age } : {}) } });
+    parameters: { schemaVersion: 1, mode, figure, ...(age ? { age } : {}), ...(bodyMorphScale !== 1 ? { bodyMorphScale } : {}) } });
 }
 
 /** `asset` with the age and build morph targets of `authored` (by node name and vertex position). */

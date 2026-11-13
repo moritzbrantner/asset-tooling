@@ -179,7 +179,7 @@ test("the female figure's tanner preset names options its descriptor offers (#37
   assert.deepEqual(rangerPresets("female").map((preset) => preset.id), ["resident.tanner"]);
   validateAppearancePresets(descriptor, rangerPresets("female"));
   assert.throws(() => validateAppearancePresets({ ...descriptor, outfits: [] }, rangerPresets("female")), /unknown outfit/);
-  assert.deepEqual([...RANGER_OUTFIT_KITS.female], ["tanner"]);
+  assert.deepEqual([...RANGER_OUTFIT_KITS.female], ["tanner", "knight"]);
   assert.ok(!(RANGER_OUTFIT_KITS.male as readonly string[]).includes("tanner"));
   assert.match(RANGER_PEASANT_OUTFITS.female.path, /Female_Peasant\.gltf$/);
 });

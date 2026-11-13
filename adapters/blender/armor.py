@@ -40,8 +40,6 @@ KITS = ("soldier", "knight", "farmer", "innkeeper", "monk", *CLASS_KITS, "redbra
 # Resident outfits (#376): plain clothes over the Peasant base; their only rigid piece is a belt. The tanner (#378) is
 # the female figure's: a long work skirt and a leather apron over the Female_Peasant outfit.
 RESIDENT_KITS = ("farmer", "innkeeper", "monk", "tanner")
-# Kits fitted on the female figure (#378); every other kit is fitted on the male figure.
-FEMALE_KITS = ("tanner",)
 OUTPUTS = ("plates", "cloth")
 MATERIALS = {
     # name: (linear base colour, metallic, roughness)
@@ -441,9 +439,12 @@ def plate_surfaces(body, rig, kit):
     if kit in RESIDENT_KITS:
         return resident_plates(body, kit)
     pieces = []
-    surface, mask, apex = helmet(body, kit)
-    pieces.append((f"{kit}.{'bascinet' if kit == 'knight' else 'kettle-hat'}", "Head", "iron" if kit == "soldier" else "steel",
-                   surface, mask, apex, .004))
+    # #630: female headwear has no fitted source yet. Keep the full face/jaw range exposed instead of shipping
+    # the male bascinet's cheek rim through it; all other knight plates fit her own body below.
+    if SHIRT != FIGURES["female"][0]:
+        surface, mask, apex = helmet(body, kit)
+        pieces.append((f"{kit}.{'bascinet' if kit == 'knight' else 'kettle-hat'}", "Head", "iron" if kit == "soldier" else "steel",
+                       surface, mask, apex, .004))
     for side, s in SIDES:
         out = Vector((s, 0, 0))
         knee, ankle, hip = rig.at(f"calf_{side}"), rig.at(f"foot_{side}"), rig.at(f"thigh_{side}")
@@ -1664,8 +1665,11 @@ def generate(output_path, arguments, inputs):
         raise ValueError("the target GLB must have one armature")
     rig_object = rigs[0]
     rig = Rig(rest_worlds(glb_json(inputs["target"])))
-    # #378: the female kits fit the Female_Peasant base; the target names the figure by its base nodes.
-    use_figure("female" if kit in FEMALE_KITS else "male")
+    # #630: knight is shared by both figures. The declared target, not the kit name, selects its real base.
+    female = any(o.type == "MESH" and o.name == FIGURES["female"][0] for o in bpy.context.scene.objects)
+    use_figure("female" if female else "male")
+    if kit == "tanner" and not female:
+        raise ValueError("the tanner kit requires the Female_Peasant base")
     body = Body(rig)
     if not body.select(None, meshes=[SHIRT], minimum=0):
         raise ValueError(f"the target must contain the base outfit node {SHIRT}")
