@@ -26,7 +26,7 @@ import {
 import { RANGER_BOW_CLIPS, RANGER_BOW_UPPER_CLIPS, RANGER_CROSSBOW_CLIPS, RANGER_CAST_CLIPS, RANGER_SOCIAL_CLIPS, RANGER_CLIP_FAMILIES, RANGER_GAIT_CLIPS, RANGER_GRIPS, RANGER_HIT_CLIPS, RANGER_SWIM_CLIPS, RANGER_DAGGER_CLIPS, RANGER_SWORD_CLIPS, RANGER_TRAVERSAL_CLIPS, rangerGripJoints } from "../src/ranger-clips.js";
 import { WEAPON_ROLES } from "../src/weapon-recipes.js";
 import { FACE_MORPH_NODES, FACE_MORPH_TARGETS } from "../src/face-variants.js";
-import { VARIETY_BEARDS, VARIETY_BUILD_TARGETS, VARIETY_MORPH_TARGETS } from "../src/male-variety.js";
+import { VARIETY_BEARDS, VARIETY_BODY_TARGETS, VARIETY_MORPH_TARGETS } from "../src/male-variety.js";
 import { ARMOR_OUTFIT_KITS } from "../src/armor-recipes.js";
 
 const ROOT = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
@@ -369,7 +369,7 @@ test("the Ranger recipe builds a verified bundle: in-place clips, equipment entr
     // targets.
     const [head, eyes, eyebrows] = FACE_MORPH_NODES.male;
     const expectedTargets = (name: string) => name === head || name === eyebrows ? [...FACE_MORPH_TARGETS, ...VARIETY_MORPH_TARGETS]
-      : name === eyes ? FACE_MORPH_TARGETS : VARIETY_BUILD_TARGETS;
+      : name === eyes ? FACE_MORPH_TARGETS : VARIETY_BODY_TARGETS;
     const morphNodes = async (key: string, variant: string, expected: (name: string) => readonly string[]) => {
       const read = await readAssetBundleGltf(built.bundleDir, manifest, key, variant);
       const variantDocument = await new NodeIO().readJSON({ json: JSON.parse(read.gltf.toString("utf8")), resources: Object.fromEntries(read.resources) });
@@ -389,7 +389,7 @@ test("the Ranger recipe builds a verified bundle: in-place clips, equipment entr
     for (const entry of appearance.builds.entries) {
       const variant = entry.startsWith("hair.") ? "hair-1" : RANGER_BUNDLE_VARIANT;
       const facial = entry === "facial-hair.beards";
-      assert.ok((await morphNodes(entry, variant, () => facial ? VARIETY_MORPH_TARGETS : VARIETY_BUILD_TARGETS)).length > 0, entry);
+      assert.ok((await morphNodes(entry, variant, () => facial ? VARIETY_MORPH_TARGETS : VARIETY_BODY_TARGETS)).length > 0, entry);
     }
     // #380: the painted head skins, one material per skin, age and stubble shade.
     const skins = await readAssetBundleGltf(built.bundleDir, manifest, "skin.head", RANGER_BUNDLE_VARIANT);

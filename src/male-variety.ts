@@ -30,7 +30,37 @@ export const VARIETY_BUILDS = Object.freeze([
 ] as const);
 export const VARIETY_AGE_TARGETS: readonly string[] = Object.freeze(["age.young", "age.middle", "age.old", "age.weathered"]);
 export const VARIETY_BUILD_TARGETS: readonly string[] = Object.freeze(["build.lean", "build.heavy"]);
-export const VARIETY_MORPH_TARGETS: readonly string[] = Object.freeze([...VARIETY_AGE_TARGETS, ...VARIETY_BUILD_TARGETS]);
+/** Zero influence is neutral; normalized sliders blend one endpoint from .5 towards 0 or 1. */
+export const PHYSIQUE_TARGETS = Object.freeze({
+  frame: ["frame.narrow", "frame.broad"],
+  muscularity: ["muscularity.soft", "muscularity.defined"],
+  shoulderWidth: ["shoulders.narrow", "shoulders.broad"],
+  waistWidth: ["waist.narrow", "waist.wide"],
+  hipWidth: ["hips.narrow", "hips.wide"],
+  gluteFullness: ["glutes.small", "glutes.full"],
+  jawProjection: ["jaw.receding", "jaw.projected"],
+} as const);
+export const FEMALE_BUST_TARGETS = Object.freeze(["bust.small", "bust.full"] as const);
+export const VARIETY_BODY_TARGETS: readonly string[] = Object.freeze([...Object.values(PHYSIQUE_TARGETS).flat(), ...VARIETY_BUILD_TARGETS]);
+export const VARIETY_MORPH_TARGETS: readonly string[] = Object.freeze([...VARIETY_AGE_TARGETS, ...VARIETY_BODY_TARGETS]);
+export const FEMALE_VARIETY_MORPH_TARGETS: readonly string[] = Object.freeze([...VARIETY_AGE_TARGETS, ...Object.values(PHYSIQUE_TARGETS).flat(), ...FEMALE_BUST_TARGETS, ...VARIETY_BUILD_TARGETS]);
+
+export function physiqueAppearance(figure: "male" | "female", variants: readonly string[], entries: readonly string[]) {
+  const controls = { ...PHYSIQUE_TARGETS, ...(figure === "female" ? { bustFullness: FEMALE_BUST_TARGETS } : {}) };
+  return {
+    figure, variants: [...variants], entries: [...entries],
+    controls: Object.fromEntries(Object.entries(controls).map(([id, targets]) => [id,
+      { min: 0, max: 1, default: 0.5, lower: targets[0], upper: targets[1] }])),
+    // These mix the authored fields, rather than swapping static figures. Existing face choices remain independent.
+    ...(figure === "female" ? { presets: [
+      { id: "slender", label: "Slender", morphs: { "frame.narrow": .55, "build.lean": .45, "bust.small": .3, "waist.narrow": .25 } },
+      { id: "athletic", label: "Athletic", morphs: { "muscularity.defined": .7, "shoulders.broad": .25, "build.lean": .25 } },
+      { id: "curvy", label: "Curvy", morphs: { "bust.full": .45, "waist.narrow": .25, "hips.wide": .4, "glutes.full": .4 } },
+      { id: "voluptuous", label: "Voluptuous", morphs: { "bust.full": 1, "hips.wide": .65, "glutes.full": .7, "build.heavy": .15 } },
+      { id: "fuller", label: "Fuller figured", morphs: { "build.heavy": .7, "frame.broad": .3, "bust.full": .5, "waist.wide": .25, "hips.wide": .4 } },
+    ] } : {}),
+  };
+}
 /** The height range: a uniform scale of the character root (male_variety.HEIGHTS). */
 export const VARIETY_HEIGHTS = Object.freeze({ min: 0.91, max: 1.09, default: 1 });
 /** Skin tones: linear base-colour factors over the Light skin's skin materials (male_variety.SKIN_TONES). */
@@ -85,11 +115,11 @@ async function runRecipe(root: string, { script, label, inputs, parameters, outp
 }
 
 /**
- * Authors the age and build keys in Blender on a copy of a character variant (and its armour plates), or on an item
+ * Authors age, build and local physique keys for either figure in Blender on a copy of a character variant (and its armour plates), or on an item
  * worn on `body` (hair, plates; `age` adds the age keys, for facial hair). Returns the authored GLB to transfer from.
  */
-export async function authorVarietyKeys(root: string, label: string, { mode, source, items, body, age = false }: {
-  mode: "character" | "item"; source: AssetRef; items?: AssetRef; body?: AssetRef; age?: boolean;
+export async function authorVarietyKeys(root: string, label: string, { mode, source, items, body, age = false, figure = "male" }: {
+  mode: "character" | "item"; source: AssetRef; items?: AssetRef; body?: AssetRef; age?: boolean; figure?: "male" | "female";
 }) {
   // Only the authored morph targets come back (applyVarietyKeys), so Blender gets the geometry without textures (#516).
   const geometry = async (asset: AssetRef) => withoutTextures(new Uint8Array(await resolveAssetObject(root, asset)));
@@ -97,12 +127,12 @@ export async function authorVarietyKeys(root: string, label: string, { mode, sou
   if (items) inputs.items = await geometry(items);
   if (body) inputs.body = await geometry(body);
   return runRecipe(root, { script: "male_variety.py", label, inputs, output: "keys.glb",
-    parameters: { schemaVersion: 1, mode, ...(age ? { age } : {}) } });
+    parameters: { schemaVersion: 1, mode, figure, ...(age ? { age } : {}) } });
 }
 
 /** `asset` with the age and build morph targets of `authored` (by node name and vertex position). */
 export async function applyVarietyKeys(root: string, asset: AssetRef, authored: Uint8Array, label: string) {
-  const { glb, transfer } = await transferMorphTargets(new Uint8Array(await resolveAssetObject(root, asset)), authored, VARIETY_MORPH_TARGETS, { label, tolerance: VARIETY_MATCH_TOLERANCE });
+  const { glb, transfer } = await transferMorphTargets(new Uint8Array(await resolveAssetObject(root, asset)), authored, FEMALE_VARIETY_MORPH_TARGETS, { label, tolerance: VARIETY_MATCH_TOLERANCE });
   const stored = (await storeAssetObject(root, { bytes: glb, kind: asset.kind, mediaType: asset.mediaType,
     metadata: { operation: "male-variety-v1", source: asset.sha256, authored: sha256Bytes(authored) } })).asset;
   return { glb: stored, transfer };
