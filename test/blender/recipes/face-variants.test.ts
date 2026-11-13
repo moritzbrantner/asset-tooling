@@ -186,5 +186,19 @@ for (const figure of ["male", "female"] as const) {
         const garment = after.getRoot().listNodes().find((node) => node.getName() === `${figure === "male" ? "Male" : "Female"}_Ranger_Body`)!.getMesh()!;
         assert.ok(((garment.getExtras() as { targetNames: string[] }).targetNames).includes(pair[0]), "fitted garment carries the same targets");
       }
+      if (figure === "female") {
+        // #630: the armored exterior keeps a visible bounded response at combined corners; its face stays full strength.
+        const bounded = await authorVarietyKeys(root, "physique.female.bounded", {
+          mode: "character", source: character, figure, bodyMorphScale: 0.35,
+        });
+        const torso = "Female_Ranger_Body";
+        for (const target of ["bust.full", "hips.wide", "waist.narrow"]) {
+          assert.ok(Math.abs(bounded.observations.build[target][torso] - authored.observations.build[target][torso] * .35) < 2e-5, target);
+          assert.ok(bounded.observations.build[target][torso] > 0, "cloth remains continuously deformable");
+        }
+        assert.equal(bounded.observations.build["jaw.projected"].Superhero_Female, authored.observations.build["jaw.projected"].Superhero_Female);
+        const fitted = await applyVarietyKeys(root, character, bounded.bytes, "female.bounded");
+        assert.deepEqual(rig(await io.readBinary(new Uint8Array(await resolveAssetObject(root, fitted.glb)))), rig(before));
+      }
     });
 }

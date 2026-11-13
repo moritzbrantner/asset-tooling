@@ -22,7 +22,7 @@ The `humanoid.ranger.male` bundle holds the following.
   - **Variants:**
     - `default`: the archer, Dark skin.
     - `skin.light`: the Light skin, with the outfit's skin texture derived by a colour transfer (#116 Q13).
-    - `outfit.soldier` and `outfit.knight`, plus their `.skin.light` variants: the Peasant outfit under the [armour](armor-recipes.md) (#117, #301, male only).
+    - `outfit.soldier` and `outfit.knight`, plus their `.skin.light` variants: the Peasant outfit under the [armour](armor-recipes.md) (#117, #301; knight also fits the female base, #630).
     - `outfit.farmer`, `outfit.innkeeper` and `outfit.monk`, plus their `.skin.light` variants: the Peasant outfit with the [resident clothes](armor-recipes.md#resident-outfits-376) (#376, male only).
     - `outfit.class.warden`, `outfit.class.ranger`, `outfit.class.arcanist`, `outfit.class.necromancer`, `outfit.class.rogue`, `outfit.class.cleric` and `outfit.class.druid`, plus their `.skin.light` variants and `outfit.class.necromancer.skin.grey`: the [class starter outfits](armor-recipes.md#class-starter-outfits-379) (#379, male only).
     - `outfit.tanner` and `outfit.tanner.skin.light` (female only): the Female_Peasant outfit with the [tanner's work skirt and leather apron](armor-recipes.md#tanner-378) (#378).
@@ -55,7 +55,7 @@ The `humanoid.ranger.male` bundle holds the following.
   The authored clips come from one table, `RANGER_CLIP_FAMILIES` in [`src/ranger-clips.ts`](../src/ranger-clips.ts) (#425). Each row is a family (gait, bow, grips, swim, hit): its recipe, its clip names, its arguments and how its observations become the clip's `humanoid-clips` fields. The build runs each family's recipe once with `arguments.clips` (the grips with `arguments.grips`). The recipe writes one action per clip, each authored from the freshly imported rig, and the build extracts each clip by name. Adding a family is one row plus its recipe; adding a clip is one name in its row. An authored clip's `source.animationSha256` is the extracted clip, not the family's whole GLB.
 - **Equipment entries:** `equipment.sword.arming`, `equipment.shield.heater`, the class set `equipment.dagger.blackened` (on `hand_r.weapon`) and `equipment.staff.bone`, `equipment.staff.gilded`, `equipment.staff.gnarled` (on `hand_r.staff`, #372), the class starter props `equipment.staff.crystal` (on `hand_r.staff`), `equipment.book.tome` (on `hand_l.shield`), `equipment.mace.flanged` (on `hand_r.weapon`, #379) and the Rogue's throwables `equipment.throwing-knife`, `equipment.venom-flask` and `equipment.blasting-bomb` (on `belt.throwable`, drawn into `hand_r.weapon` for a throw, each with `lod1` and `lod2` variants, #467) ([weapon recipes](weapon-recipes.md)) and `equipment.bow.long` (skinned to `grip` and `nock`), `equipment.arrow`, `equipment.quiver.back` and `equipment.crossbow` (on `hand_r.crossbow`, #389) ([archery](weapon-recipes.md#archery)), all parented at runtime through the sockets.
 - **Hair entries:** `hair.buzzed`, `hair.simple-parted` and `hair.long` (male) or `hair.long` and `hair.buns` (female), each with the variants `hair-1` and `hair-2`, on the `head.hair` socket. The pack textures `T_Hair_1` and `T_Hair_2` are per-mesh bakes with different UV layouts, so every style carries its own pack in both variants (#336; swapping packs garbled the strands). The male `hair.long` also merges the `Hair_Buzzed` cap as its crown, because Quaternius `Hair_Long` is only a fringe and a back curtain; its `tintMaterials` are `MI_Hair_2` (strands) and `MI_Hair_1` (crown). The hair materials are opaque, like the source: the packs have no alpha. The male figure also has the hand-modelled `hair.balding`, `hair.receding`, `hair.swept` and `hair.tied` ([Male variety](#male-variety-380)), each with the one variant `hair-1`.
-- **Armour entries:** `armor.soldier`, `armor.knight`, `armor.farmer`, `armor.innkeeper`, `armor.monk`, the class plates `armor.class.<id>` (male); `armor.tanner` (female, #378). The Redbrand outfit and plates (`outfit.redbrand`, `armor.redbrand`, #389) left this bundle for the [Redbrand faction kit](redbrand-kit.md) (#517) once mmorpg used it (moenarch-games/mmorpg#676).
+- **Armour entries:** `armor.soldier`, `armor.knight`, `armor.farmer`, `armor.innkeeper`, `armor.monk`, the class plates `armor.class.<id>` (male); `armor.tanner` and `armor.knight` (female, #378, #630). The Redbrand outfit and plates (`outfit.redbrand`, `armor.redbrand`, #389) left this bundle for the [Redbrand faction kit](redbrand-kit.md) (#517) once mmorpg used it (moenarch-games/mmorpg#676).
 - **Facial hair entry (#376, male):** `facial-hair.beards`, with the hand-modelled nodes `beard.full`, `beard.short`, `beard.long`, `beard.goatee`, `beard.moustache` and `beard.walrus` (#380, [Male variety](#male-variety-380)).
 - **Head skins entry (#380, male):** `skin.head`, one small quad per painted head skin, named after its material ([Male variety](#male-variety-380)).
 - **Headwear entries (#336, #376, male):** `equipment.cap.ranger` (Ranger's Cap: felt crown, leather band and plume), `equipment.hat.straw` (Straw Hat: low flat crown, leather band, wide brim drooping at the edge; #376) and `equipment.helm.ironcrest` (Ironcrest Helm: iron dome, brass rim and crest fin, nasal bar) from the [headwear recipe](../adapters/blender/headwear.py). Each GLB holds one mesh node named after its piece and an identity `grip` node; the geometry is in the male rest model space around the head, so the `head.armor` socket places it. The owner approved the cap and helm on the live Ranger (2026-10-21). All three hide the hair (owner answer, 2026-10-21).
@@ -400,7 +400,7 @@ The strokes are authored **upright**, with the body along +Y and facing +Z. Over
 
 ## Female Ranger
 
-`--figure female` (#115, owner answer Q1 = A) builds `humanoid.ranger.female` with the same recipe. Of the Peasant-based outfits it has only the tanner (#378, over the pack's `Female_Peasant` outfit), and it has no headwear, facial hair or male variety. It uses the Universal Base Characters `Superhero_Female_FullBody` head (`keepMeshes: ["Eyebrows", "Eyes"]`) on the full `Female_Ranger` outfit ([humanoid-sources.md](humanoid-sources.md#female-body-and-outfit-115)).
+`--figure female` (#115, owner answer Q1 = A) builds `humanoid.ranger.female` with the same recipe. Its Peasant-based outfits are the tanner (#378) and one fitted knight (#630), over the pack's `Female_Peasant` outfit. It has no headwear or facial-hair catalog; the female knight omits the male bascinet so the full face/jaw range stays exposed. It uses the Universal Base Characters `Superhero_Female_FullBody` head (`keepMeshes: ["Eyebrows", "Eyes"]`) on the full `Female_Ranger` outfit ([humanoid-sources.md](humanoid-sources.md#female-body-and-outfit-115)).
 
 Both figures share the 65-joint rig, so the female Ranger gets the same bone maps, clips, equipment entries and `humanoid-clips` metadata. Its hips reference height is measured on its own rig. This is the second real humanoid performing the same clip set through the shared operation path.
 
@@ -762,7 +762,7 @@ These remain open on #110 and its consumers:
 ## Body proportions (#588)
 
 Both rolling figures (`humanoid-ranger-male`, `humanoid-ranger-female`) author real local shape targets on their existing
-CC0 Quaternius geometry. The female figure uses the existing female body and its fitted Ranger and Tanner outfits;
+CC0 Quaternius geometry. The female figure uses the existing female body and its fitted Ranger, Tanner and knight outfits;
 it is available for a consumer to adopt as a player base. The recipe does not select a game's player catalog.
 
 The `humanoid-appearance` descriptor's `physique.controls` maps a normalized 0–1 control to its `lower` and `upper`
@@ -802,3 +802,32 @@ The focused real-source Blender test in `test/blender/recipes/face-variants.test
 endpoints, zero neutral weights, garment target presence and unchanged skeleton/bind matrices on both figures.
 Live Blender inspection is supplementary art evidence; it does not establish published game-camera acceptance or
 owner approval. Consumers still inspect the actual replacement at their gameplay camera when adopting it.
+
+
+### Female knight fit (#630)
+
+The female rolling release adds `outfit.knight` and `outfit.knight.skin.light`, with the rigid
+`armor.knight` entry. It reuses the existing knight recipe and CC0 Female_Peasant geometry on the female
+Ranger rig: breastplate, shoulder and arm plates, gauntlets, cuisses, greaves and sabatons,
+plus the skinned faction-colour tabard. The recipe selects the female fitting landmarks from the
+declared target mesh names; there is no consumer-side fit transform or second deformation path.
+
+The existing `physique.variants` and `physique.entries` lists declare the new outfit and plates.
+All female paired physique targets (including bust), build keys and the existing face keys follow
+the same descriptor and morph transfer as the other female outfits. The knight outfit declares
+`physiqueFit: { mode: "bounded-exterior", bodyMorphScale: 0.35, headMorphScale: 1 }`: all its
+non-head garment and plate deltas use 35% of the body field, while the head and eyebrows retain
+the full response. This prevents the observed pinching/bunching when additive fields all reach
+their lower/upper limits; it keeps the armor exterior and exposed under-clothes continuously
+responsive, with a deliberately smaller silhouette range than the Ranger/tunic base. Per-piece sockets and coverage
+lists retain the existing format; no covered region is removed unless a piece declares it in `hides`.
+The original female skeleton, inverse binds and shared clips remain the bundle's authority.
+Characters and armor retain their existing full-detail path; equipment keeps its established LODs.
+
+The male bascinet is omitted: its cheek rim did not fit the female head at the full combined
+face/build limits. No female helmet or headwear capability is claimed.
+
+This is one representative armor outfit, not seven female class wardrobes. Separate female
+headwear, age overlays and the other class outfits remain unavailable. CI republishes the existing
+`humanoid-ranger-female` rolling release after merge. Game-camera adoption remains the consumer's
+acceptance; the live Blender fit review is supplementary and does not claim consumer or owner approval.

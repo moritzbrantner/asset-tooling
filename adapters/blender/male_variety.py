@@ -381,7 +381,7 @@ def physique_offset(p, ws, axes, lm, control, sign, hanging=False):
     return q
 
 
-def add_build_keys(rig, meshes, lm, body=None, female=False):
+def add_build_keys(rig, meshes, lm, body=None, female=False, body_morph_scale=1.0):
     """Build keys on ``meshes``; ``body`` (default: the body meshes among them) gives the skin weights to follow."""
     axes = bone_axes(rig)
     bones = set(axes)
@@ -400,6 +400,8 @@ def add_build_keys(rig, meshes, lm, body=None, female=False):
     stats = {}
     for obj in meshes:
         base = points(obj)
+        # #630: a declared armor exterior keeps a bounded response; its exposed face/jaw retain the full fields.
+        response = 1.0 if obj.name in (HEAD, "Superhero_Female", BROWS) else body_morph_scale
         own = obj in body  # everything else takes the nearest body weights, so layers follow one field
         # Fitted cloth already carries the shared rig weights, even when its covered body region was hidden.
         # Static attachments alone borrow the nearest retained body weights.
@@ -422,7 +424,7 @@ def add_build_keys(rig, meshes, lm, body=None, female=False):
             controls["bustFullness"] = BUST_KEYS
         for control, keys in controls.items():
             for sign, key in zip((-1, 1), keys):
-                moved = [p + physique_offset(p, followed[i], axes, lm, control, sign, hanging)
+                moved = [p + physique_offset(p, followed[i], axes, lm, control, sign, hanging) * response
                          for i, p in enumerate(base)]
                 stats.setdefault(key, {})[obj.name] = round(set_key(obj, key, moved), 5)
         for which, key in enumerate(BUILD_KEYS):
@@ -453,7 +455,7 @@ def add_build_keys(rig, meshes, lm, body=None, female=False):
                 q = p + offset
                 if head_w and obj.name.split(".")[0] != "Eyes":
                     q = q + (fill(p) - p) * head_w
-                moved.append(q)
+                moved.append(p + (q - p) * response)
             stats.setdefault(key, {})[obj.name] = round(set_key(obj, key, moved), 4)
     return stats
 
@@ -480,12 +482,15 @@ MODES = ("character", "item")
 
 
 def validate(p, inputs):
-    if type(p) is not dict or set(p) - {"schemaVersion", "mode", "age", "figure"} or p.get("schemaVersion") != 1:
+    if type(p) is not dict or set(p) - {"schemaVersion", "mode", "age", "figure", "bodyMorphScale"} or p.get("schemaVersion") != 1:
         raise ValueError("male variety takes schemaVersion 1, mode and optionally age")
     if p.get("mode") not in MODES or type(p.get("age", False)) is not bool:
         raise ValueError(f"mode must be one of {MODES} and age a boolean")
     if p.get("figure", "male") not in ("male", "female"):
         raise ValueError("figure must be male or female")
+    response = p.get("bodyMorphScale", 1.0)
+    if type(response) not in (int, float) or not math.isfinite(response) or not 0 < response <= 1:
+        raise ValueError("bodyMorphScale must be finite, positive and at most 1")
     needed = {"source", "face"} | ({"body"} if p["mode"] == "item" else set())
     allowed = needed | ({"items"} if p["mode"] == "character" else set())
     if not needed <= set(inputs) or set(inputs) - allowed:
@@ -532,7 +537,7 @@ def generate(output_path, arguments, inputs):
     else:
         keyed = [o for o in items if o.type == "MESH"] if arguments.get("age") else []
     lm, age = add_age_keys(head, eyes, brows, face["landmarks"], keyed=keyed)
-    build = add_build_keys(rig, meshes, lm, body=body_meshes, female=female)
+    build = add_build_keys(rig, meshes, lm, body=body_meshes, female=female, body_morph_scale=arguments.get("bodyMorphScale", 1.0))
     exported = (body + items) if character else items
     bpy.ops.object.select_all(action="DESELECT")
     for o in exported:
@@ -543,4 +548,4 @@ def generate(output_path, arguments, inputs):
         export_normals=True, export_tangents=False, export_animations=False, export_skins=True, export_morph=True,
         export_morph_normal=True, export_cameras=False, export_lights=False, export_extras=False)
     return {"recipe": "male-variety-v1", "mode": arguments["mode"], "age": age, "build": build,
-            "keyedMeshes": sorted(o.name for o in meshes)}
+            "bodyMorphScale": arguments.get("bodyMorphScale", 1.0), "keyedMeshes": sorted(o.name for o in meshes)}

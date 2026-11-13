@@ -1169,6 +1169,7 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
       };
       const fitKit = async (kit: ArmorOutfitKit) => {
         const kitVariety: Json = { transfers: {} };
+        const bodyMorphScale = figure === "female" && kit === "knight" ? 0.35 : 1;
         log(`fit ${kit} armour (external.blender.script@1 armor recipe)`);
         const plates = await buildArmor(root, kit, "plates", fitTarget);
         const cloth = await buildArmor(root, kit, "cloth", fitTarget);
@@ -1198,7 +1199,8 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
           {
             if (!kitKeys) {
               log(`age and build keys on the ${kit} outfit and plates (adapters/blender/male_variety.py, #380)`);
-              const authored = await authorVarietyKeys(root, `kit.${kit}`, { mode: "character", source: composedKit, items: plates.glb, figure });
+              const authored = await authorVarietyKeys(root, `kit.${kit}`, { mode: "character", source: composedKit, items: plates.glb, figure,
+                bodyMorphScale });
               kitKeys = authored.bytes;
               kitVariety[`kit.${kit}`] = authored.observations;
             }
@@ -1229,6 +1231,8 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
           base: { outfit: male ? "Male_Peasant" : "Female_Peasant", hidden },
           armor: { entry: `armor.${kit}`, pieces: (plates.observations.pieces as Json[]).map((piece) => ({ node: piece.node, socket: `${String(piece.joint).toLowerCase()}.armor`, hides: piece.hides })) },
           garments,
+          // #630: the armored exterior remains continuous without adding every full-strength body field at corners.
+          ...(bodyMorphScale !== 1 ? { physiqueFit: { mode: "bounded-exterior", bodyMorphScale, headMorphScale: 1 } } : {}),
           // #379: a class hood is part of the outfit; it shows as the `outfit.hood` part and hides the hair.
           ...(hood ? { hood: hood.id } : {}),
           ...(kitChains.length ? { secondary: kitChains } : {}),
