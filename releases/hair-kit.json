@@ -1,5 +1,5 @@
 {
-  "note": "#517: the attachable hair and beard pieces on the male Ranger head joints.",
+  "note": "#517: the attachable hair and beard pieces on the male Ranger head joints. #588: download allowance includes the fitted physique morph targets from #629.",
   "script": "scripts/build-hair-kit.ts",
   "blender": true,
   "lfs": true,
@@ -7,6 +7,6 @@
   "budget": {
     "materials": 3,
     "textureMemoryMB": 6,
-    "downloadMB": 8
+    "downloadMB": 13
   }
 }

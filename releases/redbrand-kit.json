@@ -1,5 +1,5 @@
 {
-  "note": "#517: the Redbrand faction kit, built on the male Ranger figure from the same catalog members.",
+  "note": "#517: the Redbrand faction kit, built on the male Ranger figure from the same catalog members. #588: download allowance includes the fitted physique morph targets from #629.",
   "script": "scripts/build-redbrand-kit.ts",
   "blender": true,
   "lfs": true,
@@ -7,6 +7,6 @@
   "budget": {
     "materials": 11,
     "textureMemoryMB": 17,
-    "downloadMB": 13
+    "downloadMB": 14
   }
 }
