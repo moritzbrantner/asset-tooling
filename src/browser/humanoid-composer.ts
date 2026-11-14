@@ -5,6 +5,7 @@
 // Presentation only: it reads the bundle's declarations and never invents a fit.
 import { Group, PropertyBinding, Quaternion, type AnimationClip, type Material, type Mesh, type MeshStandardMaterial, type Object3D } from "three";
 import type { GLTF } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { clone as cloneSkinned } from "three/examples/jsm/utils/SkeletonUtils.js";
 import { characterAsset, type CharacterInstance } from "./three-character.ts";
 
 type Rgba = [number, number, number, number];
@@ -223,7 +224,8 @@ export async function composeHumanoid({ appearance, sockets, selection, clips, l
     for (const material of ownMaterials(root, outfit.faction.materials, owned)) material.color.set(selection.faction);
   }
   if (hair && hairGltf) {
-    const attached = hairGltf.scene.clone();
+    // A hair kit piece is skinned to its own Head joint (#517), so it is cloned with its skeleton.
+    const attached = cloneSkinned(hairGltf.scene);
     socketGroup(hair.socket).add(attached);
     if (tint) {
       for (const material of ownMaterials(attached, hair.tintMaterials, owned)) material.color.setRGB(tint.baseColorFactor[0], tint.baseColorFactor[1], tint.baseColorFactor[2]);

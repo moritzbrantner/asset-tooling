@@ -21,7 +21,7 @@ import { validateHumanoidItemDescriptor, validateHumanoidSocketDescriptor } from
 import {
   RANGER_APPEARANCE, RANGER_ARCHERY, RANGER_BONE_MAP, RANGER_BUNDLE_KEY, RANGER_BUNDLE_VARIANT, RANGER_CLIPS,
   RANGER_CLIPS_ATTACHMENT, RANGER_CLIP_ROLES, RANGER_FIGURES, RANGER_GAITS, RANGER_HAIR_TINTS, RANGER_MEMBERS,
-  RANGER_CLASS_PRESETS, RANGER_FACIAL_HAIR_ENTRY, RANGER_ITEM_ATTACHMENT, RANGER_RESIDENT_PRESETS, RANGER_SOCKETS_ATTACHMENT, RANGER_SOCKETS_DESCRIPTOR, RANGER_TEXTURE_POLICY,
+  RANGER_CLASS_PRESETS, RANGER_HAIR_KIT_OPTIONS, RANGER_ITEM_ATTACHMENT, RANGER_RESIDENT_PRESETS, RANGER_SOCKETS_ATTACHMENT, RANGER_SOCKETS_DESCRIPTOR, RANGER_TEXTURE_POLICY,
   RANGER_UBC_BONE_MAP, RANGER_WEAPONS, RANGER_THROWABLES, RANGER_ITEM_LOD_SELECTION, rangerItemLods, RANGER_OUTFIT_KITS, RANGER_PEASANT_OUTFITS, validateAppearancePresets,
   buildRangerCharacter, rangerItemDescriptor, rangerJobs, rangerPresets,
 } from "../scripts/build-ranger-character.ts";
@@ -169,6 +169,12 @@ test("resident presets must name options the appearance descriptor offers", () =
   assert.throws(() => validateAppearancePresets(descriptor, [{ ...marshal!, skin: "skin.grey" }]), /skin/);
   const necromancer = RANGER_CLASS_PRESETS.find((preset) => preset.id === "class.necromancer")!;
   assert.throws(() => validateAppearancePresets(descriptor, [{ ...necromancer, hair: "hair.buzzed" }]), /hood/);
+  // #517: a figure that wears the hair kit takes its hair and beard options from the kit's ids.
+  const { hair: _hair, facialHair: _facialHair, ...withoutHair } = descriptor;
+  const kitDescriptor = { ...withoutHair, hairKit: { release: "hair-kit", provides: ["hair", "facialHair"] } };
+  validateAppearancePresets(kitDescriptor, [...RANGER_RESIDENT_PRESETS, ...RANGER_CLASS_PRESETS]);
+  assert.ok(RANGER_HAIR_KIT_OPTIONS.hair.includes("hair.tied") && RANGER_HAIR_KIT_OPTIONS.beards.includes("beard.walrus"));
+  assert.throws(() => validateAppearancePresets(kitDescriptor, [{ ...marshal!, hair: "hair.mohawk" }]), /unknown hair/);
 });
 
 test("the female figure's tanner preset names options its descriptor offers (#378)", () => {
@@ -226,7 +232,7 @@ test("the Ranger recipe builds a verified bundle: in-place clips, equipment entr
     const entries = manifest.assets.map((entry) => `${entry.key}/${entry.variant}`);
     for (const expected of [`${RANGER_BUNDLE_KEY}/${RANGER_BUNDLE_VARIANT}`, `${RANGER_BUNDLE_KEY}/skin.light`, `${RANGER_BUNDLE_KEY}/outfit.soldier`,
       ...["knight", "farmer", "innkeeper", "monk"].map((kit) => `${RANGER_BUNDLE_KEY}/outfit.${kit}`), ...ARMOR_OUTFIT_KITS.map((kit) => `armor.${kit}/default`),
-      `${RANGER_FACIAL_HAIR_ENTRY}/default`, ...[...RANGER_WEAPONS, ...RANGER_ARCHERY].map((item) => `${item.key}/default`)]) {
+      ...[...RANGER_WEAPONS, ...RANGER_ARCHERY].map((item) => `${item.key}/default`)]) {
       assert.ok(entries.includes(expected), expected);
     }
     const entry = manifest.assets.find((candidate) => candidate.key === RANGER_BUNDLE_KEY)!;
@@ -391,17 +397,19 @@ test("the Ranger recipe builds a verified bundle: in-place clips, equipment entr
     assert.deepEqual(entries.filter((entry: string) => entry.startsWith(`${RANGER_BUNDLE_KEY}/`) && /(^|\.|\/)lod[12]$/.test(entry)), []);
     assert.deepEqual(appearance.builds.variants, appearance.face.variants);
     for (const entry of appearance.builds.entries) {
-      const variant = entry.startsWith("hair.") ? "hair-1" : RANGER_BUNDLE_VARIANT;
-      const facial = entry === "facial-hair.beards";
-      assert.ok((await morphNodes(entry, variant, () => facial ? VARIETY_MORPH_TARGETS : VARIETY_BODY_TARGETS)).length > 0, entry);
+      assert.ok((await morphNodes(entry, RANGER_BUNDLE_VARIANT, () => VARIETY_BODY_TARGETS)).length > 0, entry);
     }
     // #380: the painted head skins, one material per skin, age and stubble shade.
     const skins = await readAssetBundleGltf(built.bundleDir, manifest, "skin.head", RANGER_BUNDLE_VARIANT);
     const skinMaterials = (JSON.parse(skins.gltf.toString("utf8")).materials as any[]).map((material) => material.name).sort();
     assert.deepEqual(skinMaterials, appearance.headSkins.textures.map((texture: any) => texture.material).sort());
-    // #376: the resident presets and the facial hair they name ship in the descriptor (#380: hand-modelled, six).
+    // #376: the resident presets ship in the descriptor. #517: the male figure wears the hair kit's hair and beards,
+    // so his bundle has no hair entries and the descriptor names the kit instead.
     assert.deepEqual(appearance.presets.map((preset: any) => preset.id), [...RANGER_RESIDENT_PRESETS, ...RANGER_CLASS_PRESETS].map((preset) => preset.id));
-    assert.deepEqual(appearance.facialHair.options.map((option: any) => option.id).sort(), Object.keys(VARIETY_BEARDS).sort());
+    assert.deepEqual(appearance.hairKit, { release: "hair-kit", provides: ["hair", "facialHair"] });
+    assert.equal(appearance.hair, undefined);
+    assert.equal(appearance.facialHair, undefined);
+    assert.deepEqual(entries.filter((entry: string) => entry.startsWith("hair.") || entry.startsWith("facial-hair.")), []);
     validateAppearancePresets(appearance, [...RANGER_RESIDENT_PRESETS, ...RANGER_CLASS_PRESETS]);
     // #379: each class outfit has its plain and Light skins (the Necromancer also grey) and a class colour.
     for (const kit of ["warden", "ranger", "arcanist", "necromancer", "rogue", "cleric", "druid"]) {
