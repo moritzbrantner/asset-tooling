@@ -39,6 +39,7 @@ export {
 };
 import { withoutTextures } from "../src/gltf-without-textures.js";
 import { ktx2Asset, withKtx2Cache } from "../src/kit-bundle.js";
+import { mergeSkinnedParts, variantKeep } from "../src/skinned-part-merge.js";
 import { readBlenderRecipeSource } from "../src/blender-recipe-source.js";
 import { blenderScriptSpec } from "../src/blender-script-spec.js";
 import { runBlenderRecipe } from "../src/blender-recipe-run.js";
@@ -1136,6 +1137,23 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
   }
 
   log(`export gltf-resources-v1 bundle (asset.bundle@4, ${selections.map((selection) => `${selection.key}/${selection.variant}`).join(", ")})`);
+  // #517: fewer draw calls. Each character variant's parts that share a material and that the appearance never
+  // addresses by name (src/skinned-part-merge.ts) join into one primitive, keeping their skinning, colours and morph
+  // targets: the archer draws 6 times instead of 13, a Peasant-based outfit 1–3 times fewer.
+  const partMerges: Record<string, string[][]> = {};
+  if (appearance) {
+    const descriptor = JSON.parse((await resolveAssetObject(root, appearance.descriptor)).toString("utf8"));
+    const io = new NodeIO();
+    for (const [index, selection] of selections.entries()) {
+      if (selection.key !== bundleKey) continue;
+      const document = await io.readBinary(new Uint8Array(await resolveAssetObject(root, assets[index]!)));
+      const { merged } = await mergeSkinnedParts(document, { keep: variantKeep(descriptor, selection.variant) });
+      if (!merged.length) continue;
+      partMerges[`${bundleKey}/${selection.variant}`] = merged;
+      assets[index] = (await storeAssetObject(root, { bytes: Buffer.from(await io.writeBinary(document)), kind: assets[index]!.kind, mediaType: "model/gltf-binary" })).asset;
+    }
+    log(`merge same-material parts (${Object.keys(partMerges).length} character variants)`);
+  }
   // #517: the bundle ships KTX2 textures like every kit (docs/kit-standard.md#textures). They are encoded per slot
   // exactly as the per-entry downloads always were (`textureEncoding`, pack-downloads.ts), which pass them through.
   log("encode every texture as KTX2 (ktx create, the per-entry download encodings)");
@@ -1172,7 +1190,7 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
       processor: { repository: processor.repository, revision: processor.revision },
       outfit, body, head, composed, targetRig, sourceRigs, libraries: loaded, animated,
       clips: clips.map(({ name, library, source, retargeted, observations }) => ({ name, library, source, retargeted, observations })),
-      sockets, socketsDescriptor: descriptorPath,
+      sockets, socketsDescriptor: descriptorPath, partMerges,
       // The parallel steps (#427) resize in the order they finish; sorted, lineage.json repeats (#440).
       character, textures: Object.fromEntries(Object.entries(textures).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))), texturePolicy: RANGER_TEXTURE_POLICY,
       clipMotion,
