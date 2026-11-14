@@ -1,6 +1,7 @@
 // Shooter combat robot parts (docs/combat-robot-kit.md, #595): the recipe builds a verified gltf-resources-v1 bundle of
-// the nine static socket-grid parts on one metal atlas, each inside its catalog cuboid, with LODs that at least halve,
-// a hit proxy and a descriptor that conforms to socket-grid-kit-descriptor-v1.
+// the socket-grid parts on one metal atlas, each inside its catalog cuboid and closed (it renders detached without
+// tears), with LODs that at least halve, a hit proxy and a descriptor that conforms to socket-grid-kit-descriptor-v1.
+// The hinge, rotor and leg are rigidly skinned to joint nodes at the descriptor's pivots; the leg carries its walk clips.
 // The build skips unless ASSET_TOOLING_BLENDER names Blender 5.2.2.
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -11,8 +12,29 @@ import { verifyAssetBundleTar } from "../../../src/asset-bundle-pack.js";
 import { GLTF_RESOURCES_BUNDLE_PROFILE, readAssetBundleAttachment, verifyAssetBundle } from "../../../src/asset-bundle.js";
 import { documentBounds } from "../../../src/kit-bundle.js";
 import {
-  ROBOT_DESCRIPTOR_ATTACHMENT, ROBOT_MATERIAL, ROBOT_PARTS, ROBOT_RELEASE, ROBOT_TRIANGLE_BUDGET, buildCombatRobot, bundleVariant, createRobotSpec,
+  LEG_CLIPS, ROBOT_DESCRIPTOR_ATTACHMENT, ROBOT_JOINTS, ROBOT_MATERIAL, ROBOT_PARTS, ROBOT_RELEASE, ROBOT_TRIANGLE_BUDGET, buildCombatRobot, bundleVariant, createRobotSpec,
 } from "../../../scripts/build-combat-robot.ts";
+import type { Document } from "@gltf-transform/core";
+
+/** Edges used by exactly one triangle, with vertices welded by position (and joint): an open edge shows as a tear. */
+function openEdges(document: Document) {
+  let open = 0;
+  for (const mesh of document.getRoot().listMeshes()) for (const primitive of mesh.listPrimitives()) {
+    const position = primitive.getAttribute("POSITION")!, joints = primitive.getAttribute("JOINTS_0");
+    const indices = primitive.getIndices()!.getArray()!;
+    const key = (i: number) => `${position.getElement(i, []).map((c) => c.toFixed(5))}|${joints ? joints.getElement(i, [])[0] : 0}`;
+    const uses = new Map<string, number>();
+    for (let t = 0; t < indices.length; t += 3) for (let e = 0; e < 3; e += 1) {
+      const edge = [key(indices[t + e]!), key(indices[t + (e + 1) % 3]!)].sort().join(" ");
+      uses.set(edge, (uses.get(edge) ?? 0) + 1);
+    }
+    for (const count of uses.values()) if (count === 1) open += 1;
+  }
+  return open;
+}
+
+/** A unit quaternion's angle about +X, if it only turns about +X. */
+const angleAboutX = ([x, y, z, w]: number[]) => (Math.abs(y!) < 1e-5 && Math.abs(z!) < 1e-5 ? 2 * Math.atan2(x!, w!) : NaN);
 import { KIT_BUDGETS, kitBudgetViolations, kitCost } from "../../../scripts/report-kit-costs.ts";
 import { partCuboid } from "../../../src/socket-grid.ts";
 
@@ -46,7 +68,7 @@ function conforms(schema: any, value: any, root: any, at = "$"): string[] {
 }
 
 test("the robot spec runs the packaged recipe for exactly one part, variant and level", () => {
-  const spec = createRobotSpec({ part: ROBOT_PARTS.at(-1)!, level: 1, variant: "damaged", scriptSha256: "a".repeat(64), commonSha256: "b".repeat(64), blenderVersion: "5.2.2" });
+  const spec = createRobotSpec({ part: ROBOT_PARTS.find((part) => part.key === "robot.armor.plate")!, level: 1, variant: "damaged", scriptSha256: "a".repeat(64), commonSha256: "b".repeat(64), blenderVersion: "5.2.2" });
   assert.deepEqual(spec.parameters, { blenderVersion: "5.2.2", arguments: { schemaVersion: 1, part: "robot.armor.plate", cells: [2, 2, 1], level: 1, variant: "damaged" } });
   assert.equal(spec.assetId, "robot.armor.plate");
   assert.equal(ROBOT_RELEASE, "shooter-combat-robot", "one rolling release, never numbered");
@@ -85,6 +107,38 @@ test("the recipe builds a verified kit on one atlas, every part inside its cuboi
       }
       // It rests on its mount face.
       assert.ok(Math.abs(bounds.min[1]!) < 1e-4, `${entry} rests on its mount face`);
+      // Closed: attached, detached or turned at a joint, no open edge shows (every face is one bone's, rigidly).
+      assert.equal(openEdges(document), 0, `${entry} is closed`);
+
+      const rig = ROBOT_JOINTS[part.key];
+      const skins = document.getRoot().listSkins();
+      assert.equal(skins.length, rig ? 1 : 0, `${entry}: skinned exactly when it articulates`);
+      if (!rig) { assert.equal(document.getRoot().listAnimations().length, 0); continue; }
+      const nodes = new Map(skins[0]!.listJoints().map((node) => [node.getName(), node]));
+      for (const joint of rig.joints) {
+        const node = nodes.get(joint.node)!;
+        assert.ok(node, `${entry}: joint node ${joint.node}`);
+        assert.deepEqual(node.getWorldTranslation().map((c) => Math.round(c * 1e4) / 1e4 || 0), joint.origin, `${entry}: ${joint.node} sits on its pivot`);
+        assert.deepEqual(node.getRotation(), [0, 0, 0, 1], `${entry}: ${joint.node} rests unrotated, in the part's axes`);
+      }
+      for (const primitive of document.getRoot().listMeshes()[0]!.listPrimitives()) {
+        const weights = primitive.getAttribute("WEIGHTS_0")!;
+        for (let i = 0; i < weights.getCount(); i += 1) assert.ok(Math.abs(weights.getElement(i, [])[0]! - 1) < 1e-3, `${entry}: rigid weights`);
+      }
+      const clips = document.getRoot().listAnimations();
+      assert.deepEqual(clips.map((clip) => clip.getName()).sort(), part.key === "robot.leg" ? Object.keys(LEG_CLIPS).sort() : []);
+      for (const clip of clips) {
+        const seconds = LEG_CLIPS[clip.getName() as keyof typeof LEG_CLIPS].seconds;
+        for (const channel of clip.listChannels()) {
+          assert.equal(channel.getTargetPath(), "rotation", `${entry} ${clip.getName()}: rotations only`);
+          const joint = rig.joints.find((candidate) => candidate.node === channel.getTargetNode()!.getName())!;
+          const input = channel.getSampler()!.getInput()!.getArray()!, output = channel.getSampler()!.getOutput()!;
+          assert.ok(Math.abs(input[input.length - 1]! - input[0]! - seconds) < 1e-3, `${entry} ${clip.getName()}: one ${seconds} s cycle`);
+          const angles = Array.from({ length: output.getCount() }, (_, i) => angleAboutX(output.getElement(i, [])));
+          assert.ok(angles.every((angle) => angle >= joint.range![0] - 1e-3 && angle <= joint.range![1] + 1e-3), `${entry} ${clip.getName()} ${joint.name}: within its range`);
+          assert.ok(Math.abs(angles[0]! - angles.at(-1)!) < 1e-4, `${entry} ${clip.getName()} ${joint.name}: loops`);
+        }
+      }
     }
 
     const descriptor = JSON.parse((await readAssetBundleAttachment(built.bundleDir, manifest, ROBOT_PARTS[0]!.key, "default", ROBOT_DESCRIPTOR_ATTACHMENT)).toString("utf8"));
@@ -92,8 +146,12 @@ test("the recipe builds a verified kit on one atlas, every part inside its cuboi
     assert.deepEqual(conforms(schema, descriptor, schema), []);
     assert.deepEqual(descriptor.parts.map((part: any) => [part.key, part.socketCount]), [
       ["robot.chassis.20x40x80", 28], ["robot.chassis.40x40x80", 40], ["robot.chassis.40x60x80", 52], ["robot.beam.20x20x40", 10], ["robot.beam.20x20x80", 18],
-      ["robot.core", 0], ["robot.sensor", 0], ["robot.battery", 0], ["robot.armor.plate", 0],
+      ["robot.core", 0], ["robot.sensor", 0], ["robot.battery", 0], ["robot.armor.plate", 0], ["robot.joint.hinge", 1], ["robot.joint.rotor", 1], ["robot.leg", 0],
     ]);
+    for (const part of descriptor.parts) {
+      assert.deepEqual(part.joints, ROBOT_JOINTS[part.key]?.joints ?? [], `${part.key}: joints`);
+      assert.deepEqual(part.anchors, ROBOT_JOINTS[part.key]?.anchors ?? [], `${part.key}: anchors`);
+    }
     const tan = Math.tan(30 * Math.PI / 180);
     for (const part of descriptor.parts) {
       assert.equal(part.hitProxies.length, 1, `${part.key} has a hit proxy`);
@@ -107,7 +165,7 @@ test("the recipe builds a verified kit on one atlas, every part inside its cuboi
       }
     }
     assert.deepEqual(Object.keys(descriptor.parts.find((part: any) => part.key === "robot.armor.plate").variants), ["damaged"]);
-    assert.deepEqual(descriptor.compositions.map((composition: any) => composition.name), ["humanoid", "turret"]);
+    assert.deepEqual(descriptor.compositions.map((composition: any) => composition.name), ["humanoid", "robo-dog", "mini-tank", "turret"]);
     for (const composition of descriptor.compositions) for (const item of composition.items) {
       assert.ok(item.placeholder || manifest.assets.some((entry) => entry.key === item.key && entry.variant === item.variant), `${composition.name}: ${item.id} is a bundle entry or a placeholder`);
     }
