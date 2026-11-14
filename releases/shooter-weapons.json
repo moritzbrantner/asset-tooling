@@ -1,0 +1,10 @@
+{
+  "script": "scripts/build-shooter-weapons.ts",
+  "blender": true,
+  "ktx": true,
+  "budget": {
+    "materials": 1,
+    "textureMemoryMB": 6,
+    "downloadMB": 1.8
+  }
+}

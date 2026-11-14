@@ -64,6 +64,8 @@ The [young residents](docs/young-residents.md) are children and teenagers on the
 
 The [Shooter combat robot parts](docs/combat-robot-kit.md) are socket-grid robot parts for the Shooter on one metal atlas: three chassis sections and two beams with a coupling on every 20 cm surface cell, the glowing control core, a sensor head, a battery, an armor plate with a damaged variant, a hinge and a rotor joint, and a self-contained leg with reference walk clips. Their descriptor defines the socket, frame, origin and joint-axis convention the Shooter's weapon and locomotion kits share.
 
+The [Shooter weapons](docs/shooter-weapons.md) are the eight socket-grid weapons of the Shooter (energy rifle, shotgun, laser, flamethrower, grapple hook, energy blade, rail gun and rocket launcher) and its four weapon mods, on one atlas in the robot kit's style: each weapon points out of its socket, with muzzle and mod anchors, two emissive channel nodes, its fire, charge, swing, launch and reload states as glTF animations, and LODs. It ships as its own rolling release, `shooter-weapons`, with a `socket-grid-kit-descriptor-v2` descriptor.
+
 The [wooden spike traps](docs/spike-traps.md) are six static hazard pieces on one wood atlas: a stake cluster, a tiling stake row, a cheval-de-frise, a pit bed, a studded board and a hanging spiked log.
 
 The [Greyhaven settlement props](docs/settlement-props.md) are a scripted Blender prop set in the same style for an Outpost public space: a market stall, handcart, crate and barrel, a signpost, lantern post and bench, and a fence segment, planter and woodpile, with a market-square composition.
