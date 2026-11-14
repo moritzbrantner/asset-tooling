@@ -1,0 +1,238 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://moritzbrantner.github.io/asset-tooling/schemas/socket-grid-kit-descriptor-v1.schema.json",
+  "title": "asset-tooling socket-grid part kit descriptor v1",
+  "description": "The shared socket, frame and origin convention of the Shooter part kits (robot parts #595, weapons #594, wheels and tracks #634; docs/combat-robot-kit.md). Parts are cuboids of whole cells on Shooter's socket grid. Every value is in metres in the part's own glTF frame: +Y up, right-handed, the origin at the part's mount anchor. Sockets, joints and anchors are presentation metadata; Shooter owns part IDs, footprints, hit state, damage, collision, motion, attachment legality and assembly.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "kit", "units", "up", "handedness", "cell", "frame", "faces", "socketNumbering", "mounting", "lodSelection", "authority", "parts", "compositions"],
+  "properties": {
+    "schema": { "const": "socket-grid-kit-descriptor-v1" },
+    "kit": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+    "units": { "const": "metre" },
+    "up": { "const": "+Y" },
+    "handedness": { "const": "right" },
+    "cell": { "type": "number" },
+    "frame": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["partAxes", "origin", "mountFace", "rule"],
+      "properties": {
+        "partAxes": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["x", "y", "z"],
+          "properties": { "x": { "const": "+X" }, "y": { "const": "-Z" }, "z": { "const": "+Y" } }
+        },
+        "origin": { "const": "mount-anchor" },
+        "mountFace": { "const": "NegZ" },
+        "rule": { "type": "string" }
+      }
+    },
+    "faces": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["face", "normal", "uAxis", "vAxis"],
+        "properties": {
+          "face": { "$ref": "#/$defs/face" },
+          "normal": { "$ref": "#/$defs/vec3" },
+          "uAxis": { "$ref": "#/$defs/vec3" },
+          "vAxis": { "$ref": "#/$defs/vec3" }
+        }
+      }
+    },
+    "socketNumbering": { "type": "string" },
+    "mounting": { "type": "string" },
+    "lodSelection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["metric", "referenceFovYDegrees", "rule"],
+      "properties": {
+        "metric": { "const": "projected-bounding-sphere-height-fraction" },
+        "referenceFovYDegrees": { "type": "number" },
+        "rule": { "type": "string" }
+      }
+    },
+    "authority": { "type": "string" },
+    "parts": { "type": "array", "items": { "$ref": "#/$defs/part" } },
+    "compositions": { "type": "array", "items": { "$ref": "#/$defs/composition" } }
+  },
+  "$defs": {
+    "vec3": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "number" } },
+    "quat": { "type": "array", "minItems": 4, "maxItems": 4, "items": { "type": "number" } },
+    "cells": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer" } },
+    "face": { "enum": ["PosX", "NegX", "PosY", "NegY", "PosZ", "NegZ"] },
+    "box": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["min", "max"],
+      "properties": { "min": { "$ref": "#/$defs/vec3" }, "max": { "$ref": "#/$defs/vec3" } }
+    },
+    "frame": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["position", "normal", "uAxis", "vAxis"],
+      "properties": {
+        "position": { "$ref": "#/$defs/vec3" },
+        "normal": { "$ref": "#/$defs/vec3" },
+        "uAxis": { "$ref": "#/$defs/vec3" },
+        "vAxis": { "$ref": "#/$defs/vec3" }
+      }
+    },
+    "socket": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "face", "u", "v", "position", "normal", "uAxis", "vAxis"],
+      "properties": {
+        "id": { "type": "integer" },
+        "face": { "$ref": "#/$defs/face" },
+        "u": { "type": "integer" },
+        "v": { "type": "integer" },
+        "position": { "$ref": "#/$defs/vec3" },
+        "normal": { "$ref": "#/$defs/vec3" },
+        "uAxis": { "$ref": "#/$defs/vec3" },
+        "vAxis": { "$ref": "#/$defs/vec3" }
+      }
+    },
+    "joint": {
+      "description": "A motor axis Shooter drives (hinge, rotor, wheel, leg sub-joint): the node it turns, its origin and unit axis in the part frame, the sockets and nodes on its moving side, and its range in radians (absent for a continuous joint).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "kind", "origin", "axis"],
+      "properties": {
+        "name": { "type": "string" },
+        "kind": { "type": "string", "pattern": "^[a-z-]+$" },
+        "node": { "type": "string" },
+        "parent": { "type": "string" },
+        "origin": { "$ref": "#/$defs/vec3" },
+        "axis": { "$ref": "#/$defs/vec3" },
+        "movingSockets": { "type": "array", "items": { "type": "integer" } },
+        "range": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number" } }
+      }
+    },
+    "anchor": {
+      "description": "A named point with a direction that is not a socket, such as a muzzle or a mod mount.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "kind", "position", "normal"],
+      "properties": {
+        "name": { "type": "string" },
+        "kind": { "type": "string", "pattern": "^[a-z-]+$" },
+        "node": { "type": "string" },
+        "position": { "$ref": "#/$defs/vec3" },
+        "normal": { "$ref": "#/$defs/vec3" },
+        "up": { "$ref": "#/$defs/vec3" }
+      }
+    },
+    "proxy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "tag", "center", "size"],
+      "properties": {
+        "name": { "type": "string" },
+        "tag": { "const": "hit-proxy" },
+        "center": { "$ref": "#/$defs/vec3" },
+        "size": { "$ref": "#/$defs/vec3" }
+      }
+    },
+    "lods": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["boundingSphere", "levels"],
+      "properties": {
+        "boundingSphere": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["center", "radius"],
+          "properties": { "center": { "$ref": "#/$defs/vec3" }, "radius": { "type": "number" } }
+        },
+        "levels": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["variant", "triangles", "minScreenSize", "referenceMaxDistance"],
+            "properties": {
+              "variant": { "type": "string" },
+              "triangles": { "type": "integer" },
+              "minScreenSize": { "type": "number" },
+              "referenceMaxDistance": { "type": ["number", "null"] }
+            }
+          }
+        }
+      }
+    },
+    "part": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "kind", "cells", "socketFaces", "cuboid", "bounds", "triangles", "mount", "socketCount", "sockets", "joints", "anchors", "hitProxies", "lods", "variants"],
+      "properties": {
+        "key": { "type": "string", "pattern": "^[a-z]+(\\.[a-z0-9-]+)+$" },
+        "kind": { "type": "string", "pattern": "^[a-z-]+$" },
+        "cells": { "$ref": "#/$defs/cells" },
+        "socketFaces": { "type": "array", "items": { "$ref": "#/$defs/face" } },
+        "cuboid": { "$ref": "#/$defs/box" },
+        "bounds": { "$ref": "#/$defs/box" },
+        "triangles": { "type": "integer" },
+        "mount": { "$ref": "#/$defs/frame" },
+        "socketCount": { "type": "integer" },
+        "sockets": { "type": "array", "items": { "$ref": "#/$defs/socket" } },
+        "joints": { "type": "array", "items": { "$ref": "#/$defs/joint" } },
+        "anchors": { "type": "array", "items": { "$ref": "#/$defs/anchor" } },
+        "hitProxies": { "type": "array", "items": { "$ref": "#/$defs/proxy" } },
+        "lods": { "$ref": "#/$defs/lods" },
+        "variants": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["lods"],
+            "properties": { "lods": { "$ref": "#/$defs/lods" } }
+          }
+        }
+      }
+    },
+    "orientation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["yaw", "pitch", "roll"],
+      "properties": { "yaw": { "type": "integer" }, "pitch": { "type": "integer" }, "roll": { "type": "integer" } }
+    },
+    "composition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "note", "items"],
+      "properties": {
+        "name": { "type": "string" },
+        "note": { "type": "string" },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "key", "translation", "rotation"],
+            "properties": {
+              "id": { "type": "string" },
+              "key": { "type": "string" },
+              "variant": { "type": "string" },
+              "placeholder": { "const": true },
+              "cells": { "$ref": "#/$defs/cells" },
+              "parent": { "type": "string" },
+              "socket": { "type": "integer" },
+              "face": { "$ref": "#/$defs/face" },
+              "u": { "type": "integer" },
+              "v": { "type": "integer" },
+              "orientation": { "$ref": "#/$defs/orientation" },
+              "translation": { "$ref": "#/$defs/vec3" },
+              "rotation": { "$ref": "#/$defs/quat" }
+            }
+          }
+        }
+      }
+    }
+  }
+}
