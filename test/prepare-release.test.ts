@@ -36,6 +36,21 @@ describe("prepare-release", () => {
     expect(() => findConsumers([{ repo: "o/d", release: "kit" }], "kit")).toThrow("lists no pins");
   });
 
+  test("a Renovate consumer is neither re-pinned nor unpinned and names one pin file", () => {
+    const found = findConsumers([{ repo: "o/r", release: "kit", updates: "renovate", pinFile: "kit.pin.json" }], "kit");
+    expect(found.renovate.map((c) => c.repo)).toEqual(["o/r"]);
+    expect(found.pinned).toEqual([]);
+    expect(found.unpinned).toEqual([]);
+    expect(() => findConsumers([{ repo: "o/r", release: "kit", updates: "renovate" }], "kit")).toThrow("one pinFile");
+  });
+
+  test("the committed consumer list lets Renovate move every Zoo pin", async () => {
+    const consumers = await loadConsumers();
+    for (const release of ["zoo-scenery", "zoo-effects", "zoo-animals"]) {
+      expect(findConsumers(consumers, release).renovate.map((c) => c.repo)).toEqual(["moenarch-games/zoo"]);
+    }
+  });
+
   test("the committed consumer list reads the Ranger unpinned everywhere", async () => {
     const found = findConsumers(await loadConsumers(), "humanoid-ranger-male");
     expect(found.pinned).toEqual([]);

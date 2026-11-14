@@ -389,6 +389,12 @@ Keep one replaceable working output with only meaningful active alternatives; a 
 
 An approximately **3,600-sprite bundle across multiple atlases is a supported workload**, separate from the existing 512-sprite maximum **per atlas**. Investigate and adopt incremental unique-payload budget checks when reproducible 512/3,600 comparisons justify them, without changing size limits, error semantics or published output. Retain both independent payload reads and hashes in explicit bundle verification: its authority is the current pinned files, never a generation or consumer cache. A manifest read cache is allowed only through a validated, immutable snapshot or demonstrably complete invalidation/versioning for mutable inputs. An explicit snapshot retains the version it admitted; callers recreate it when their manifest changes, and every selected payload read continues to check current bytes. Benchmark these paths separately and keep expensive runs opt-in rather than unconditional CI gates.
 
+#### Decision 7.1.8 — Pinned consumers follow immutable builds through Renovate
+
+**Approved by owner:** 2026-11-14 (live session): Zoo "does not use exact build pins … I'd like it to get updated via renovate bot." **Refines** Decision 7.1.5; Decision 9.1's retention preference applies.
+
+A consumer that pins a rolling release no longer holds up its publish with copied release files and hand-opened re-pin PRs. The rolling release stays the current output under its fixed name. A release whose consumer opts in (`"updates": "renovate"` in `consumers.json`) also gets each new build as an immutable `<release>-v<N>` GitHub release, created by the publish workflow, never by hand. The consumer pins one version by its tar URL and sha256 in a `<release>.pin.json`, and Renovate moves that pin through the shared [`renovate/asset-releases.json`](../../renovate/asset-releases.json) preset, merging on the consumer's green CI. These versions exist for consumer updates, not as per-iteration review history: keep the newest five plus every version a consumer still pins. Releases without such a consumer stay rolling-only, and exact re-pins remain for consumers that have not opted in.
+
 ## 8. Non-humanoid asset families
 
 ### 8.1. Zoo-first animated rigid quadrupeds

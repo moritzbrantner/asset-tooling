@@ -4,10 +4,11 @@
 //   bun scripts/publish-release.ts plan --release <name>    # one release (workflow_dispatch)
 //   bun scripts/publish-release.ts build <release> <out>    # run the release's maintained build into <out>
 //   bun scripts/publish-release.ts publish <release> <out> [--dry-run]
-// `publish` uploads every top-level file of <out> to the one rolling release with --clobber, then removes live files the build no longer produces (Atlas Decision 7.1.5,
-// never a numbered release). It verifies the tar against its export.ref.json first, skips the upload when the live
-// release already holds the same tar, and refuses when a consumer in consumers.json pins the release and neither
-// its default branch nor its open `agent/repin-<release>` branch (scripts/prepare-release.ts) pins the new build.
+// `publish` uploads every top-level file of <out> to the one rolling release with --clobber, then removes live files the build no longer produces (Atlas Decision 7.1.5).
+// It verifies the tar against its export.ref.json first, skips the upload when the live release already holds the
+// same tar, and refuses when a consumer in consumers.json pins the release exactly and neither its default branch nor
+// its open `agent/repin-<release>` branch (scripts/prepare-release.ts) pins the new build. A release a consumer follows
+// by Renovate also gets each new build as an immutable `<release>-v<N>` release, keeping a few (Atlas Decision 7.1.8).
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
@@ -146,6 +147,32 @@ export async function blockingConsumers(consumers: Consumer[], release: string, 
   return blocking;
 }
 
+/**
+ * How many immutable `<release>-v<N>` versions a Renovate-followed release keeps, besides any a consumer still pins
+ * (Atlas Decision 7.1.8: a few recent revisions, never the one a consumer loads).
+ */
+export const KEPT_VERSIONS = 5;
+
+/** N of an immutable `<release>-v<N>` tag, or undefined for the rolling tag and every other release's tags. */
+export function versionOf(release: string, tag: string): number | undefined {
+  const match = /^(.+)-v(\d+)$/.exec(tag);
+  return match?.[1] === release ? Number(match[2]) : undefined;
+}
+
+/** The immutable version of `release` a consumer's pin file downloads, read from its release download URL. */
+export function pinnedVersion(release: string, content: string): string | undefined {
+  for (const match of content.matchAll(/\/releases\/download\/([^/"\s]+)\//g)) {
+    if (versionOf(release, match[1]!) !== undefined) return match[1];
+  }
+  return undefined;
+}
+
+/** The versions retention deletes, oldest first: every one but the newest `keep` and those a consumer still pins. */
+export function staleVersions(release: string, tags: string[], pinned: string[], keep = KEPT_VERSIONS): string[] {
+  const newestFirst = tags.filter((tag) => versionOf(release, tag) !== undefined).sort((a, b) => versionOf(release, b)! - versionOf(release, a)!);
+  return newestFirst.slice(keep).filter((tag) => !pinned.includes(tag)).reverse();
+}
+
 function run(command: string, args: string[], options: { allowFailure?: boolean } = {}): { ok: boolean; stdout: string } {
   const result = spawnSync(command, args, { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
   const ok = result.status === 0;
@@ -181,6 +208,41 @@ function pruneRelease(name: string, built: string[], dryRun: boolean): void {
   for (const file of stale) run("gh", ["release", "delete-asset", name, file, "--repo", TOOLING_REPO, "--yes"]);
 }
 
+/**
+ * Gives the build its own immutable `<release>-v<N>` release for the consumers Renovate keeps on one version, unless
+ * the newest version already holds this tar, then deletes the versions retention no longer keeps. A consumer's
+ * pinned version is never deleted; when a pin file cannot be read, nothing is.
+ */
+function publishVersion(name: string, dir: string, files: string[], artifacts: Artifacts, renovate: Consumer[], dryRun: boolean): void {
+  if (!renovate.length) return;
+  const tags = run("gh", ["release", "list", "--repo", TOOLING_REPO, "--limit", "1000", "--json", "tagName", "--jq", ".[].tagName"]).stdout.split("\n").filter(Boolean);
+  const latest = Math.max(0, ...tags.map((tag) => versionOf(name, tag) ?? 0));
+  if (latest && liveTarSha256(`${name}-v${latest}`, artifacts.tar) === artifacts.sha256) {
+    console.log(`${name}: ${name}-v${latest} already holds tar ${artifacts.sha256}`);
+  } else {
+    const tag = `${name}-v${latest + 1}`;
+    if (dryRun) {
+      console.log(`${name}: would create ${tag} with ${files.join(", ")}`);
+    } else {
+      const notes = `Immutable build ${latest + 1} of the rolling \`${name}\` release (tar sha256 \`${artifacts.sha256}\`). Renovate moves consumer pins here; retention keeps the newest ${KEPT_VERSIONS} and every pinned version.`;
+      const target = process.env.GITHUB_SHA ? ["--target", process.env.GITHUB_SHA] : [];
+      run("gh", ["release", "create", tag, "--repo", TOOLING_REPO, "--latest=false", "--title", tag, "--notes", notes, ...target, ...files.map((file) => path.join(dir, file))]);
+      console.log(`${name}: created ${tag}`);
+      tags.push(tag);
+    }
+  }
+  const pins = renovate.map((consumer) => ghFetchFile(consumer.repo, consumer.pinFile!));
+  if (pins.some((content) => content === undefined)) {
+    console.log(`${name}: could not read every Renovate consumer's pin file; keeping all versions`);
+    return;
+  }
+  const pinned = pins.map((content) => pinnedVersion(name, content!)).filter((tag): tag is string => tag !== undefined);
+  for (const tag of staleVersions(name, tags, pinned)) {
+    console.log(`${name}: ${dryRun ? "would delete" : "deleting"} ${tag}, past the newest ${KEPT_VERSIONS} and pinned by no consumer`);
+    if (!dryRun) run("gh", ["release", "delete", tag, "--repo", TOOLING_REPO, "--cleanup-tag", "--yes"]);
+  }
+}
+
 async function publish(name: string, out: string, dryRun: boolean): Promise<number> {
   rollingRelease(name);
   const dir = path.resolve(out);
@@ -191,10 +253,13 @@ async function publish(name: string, out: string, dryRun: boolean): Promise<numb
     console.log(run("bun", [path.join(ROOT, "scripts/pack-asset-bundle.ts"), "--verify", path.join(dir, artifacts.tar), "--ref", path.join(dir, "export.ref.json")]).stdout.trim());
   }
   const files = await releaseFiles(dir);
+  const consumers = await loadConsumers();
+  const { renovate, unpinned } = findConsumers(consumers, name);
   const live = liveTarSha256(name, artifacts.tar);
   if (live === artifacts.sha256) {
     console.log(`${name}: the live release already holds tar ${artifacts.sha256}; nothing to publish`);
     pruneRelease(name, files, dryRun);
+    publishVersion(name, dir, files, artifacts, renovate, dryRun);
     return 0;
   }
   const budget = KIT_BUDGETS[name];
@@ -211,8 +276,8 @@ async function publish(name: string, out: string, dryRun: boolean): Promise<numb
       await rm(unpacked, { recursive: true, force: true });
     }
   }
-  const consumers = await loadConsumers();
-  for (const consumer of findConsumers(consumers, name).unpinned) console.log(`${consumer.repo}: not pinned (${consumer.note ?? "reads the live release"})`);
+  for (const consumer of unpinned) console.log(`${consumer.repo}: not pinned (${consumer.note ?? "reads the live release"})`);
+  for (const consumer of renovate) console.log(`${consumer.repo}: Renovate moves ${consumer.pinFile} to the new version`);
   const blocking = await blockingConsumers(consumers, name, { ...artifacts, releaseFiles: files }, ghFetchFile);
   if (blocking.length) {
     console.error(
@@ -223,6 +288,7 @@ async function publish(name: string, out: string, dryRun: boolean): Promise<numb
   }
   if (dryRun) {
     console.log(`${name}: would replace ${files.join(", ")} (live tar ${live ?? "none"})`);
+    publishVersion(name, dir, files, artifacts, renovate, true);
     return 0;
   }
   if (!run("gh", ["release", "view", name, "--repo", TOOLING_REPO], { allowFailure: true }).ok) {
@@ -233,6 +299,7 @@ async function publish(name: string, out: string, dryRun: boolean): Promise<numb
   run("gh", ["release", "upload", name, "--repo", TOOLING_REPO, "--clobber", path.join(dir, "export.ref.json")]);
   console.log(`${name}: published tar ${artifacts.sha256} (was ${live ?? "none"}): ${files.join(", ")}`);
   pruneRelease(name, files, false);
+  publishVersion(name, dir, files, artifacts, renovate, false);
   return 0;
 }
 

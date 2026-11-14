@@ -90,7 +90,7 @@ During experimentation, generated outputs are replaceable **current** work, not 
 
 ## Publishing a rolling release
 
-Rolling releases publish themselves from CI (#397). Merging a change starts the [`Publish rolling releases`](.github/workflows/publish-releases.yml) workflow on `main`. It rebuilds every release whose sources the push changed and replaces that release's assets in place with `gh release upload --clobber`, under the release's one name, then deletes any asset of that release the build did not produce, so a rolling release always matches its latest build. It never creates a numbered release. Workers do not hand the owner upload commands for these releases.
+Rolling releases publish themselves from CI (#397). Merging a change starts the [`Publish rolling releases`](.github/workflows/publish-releases.yml) workflow on `main`. It rebuilds every release whose sources the push changed and replaces that release's assets in place with `gh release upload --clobber`, under the release's one name, then deletes any asset of that release the build did not produce, so a rolling release always matches its latest build. It creates numbered `<release>-v<N>` releases only for a consumer that follows the release with Renovate (below). Workers do not hand the owner upload commands for these releases.
 
 - **Which releases.** Each release has its own [`releases/<release>.json`](releases/), which [`scripts/publish-release.ts`](scripts/publish-release.ts) reads into `ROLLING_RELEASES`: its build script, what its job needs (Blender, LFS, a pinned 3d-lab processor, KTX-Software and a longer timeout for the two Ranger figures, #399). A release's sources are its own `releases/<release>.json`, its build script and that script's local imports, the repository files they name (for example `adapters/blender/outpost.py` or `catalog/storage.json`), Blender's pin and the LFS payloads when the build needs them, and `package.json`, `bun.lock` and `scripts/pack-asset-bundle.ts`. The workflow installs Blender from the official tarball pinned in `adapters/blender/release.json`, caches the archive, keeps each Blender release's generation cache between runs so unchanged Blender steps are reused ([docs/cache.md](docs/cache.md#shared-cache-directory)), and hydrates `assets/canonical/` for the builds that read catalog payloads.
 - **What it uploads.** Every top-level file of the build output: the tar, its `.sha256`, `export.ref.json`, `lineage.json`, descriptors and the flipbook PNGs. `export.ref.json` goes last, so a consumer keyed on it never sees a new ref beside the old tar. Then it dispatches `pages.yml`.
@@ -114,6 +114,22 @@ bun scripts/prepare-release.ts <release> <artifactsDir> [--downloads <dir>] [--d
 4. prints how to publish, then one line that marks the re-pin PRs ready and lands them. For a release CI builds, that is a re-run of the refused job or `gh workflow run publish-releases.yml -f release=<release>`. The re-run rebuilds the same commit and now finds the re-pin branch pinning it. For a release in `MANUAL_RELEASES`, it prints the owner's `gh release upload … --clobber` commands for the bundle files and the downloads, and `gh workflow run pages.yml`.
 
 It never uploads. Once the release is replaced, the coordinator runs the land line, so a consumer is red only between the publish and its re-pin landing. `--dry-run` verifies the build and prints the commands without cloning or opening PRs.
+
+### Following a release with Renovate
+
+A consumer can avoid re-pins entirely (Atlas Decision 7.1.8). Its `consumers.json` entry says `"updates": "renovate"` and names its `pinFile`, and nothing else. For such a release, every publish that brings a new tar also creates an immutable `<release>-v<N>` release with the same files (`--latest=false`). A dispatch whose build is already live creates the first version if none exists. Publishing never waits for these consumers. Retention deletes versions past the newest five unless a consumer's pin file on its default branch still downloads them; when a pin file cannot be read, nothing is deleted.
+
+The consumer pins one version in its `<release>.pin.json`, with these three keys in this order:
+
+```json
+{
+  "release": "zoo-scenery",
+  "tarUrl": "https://github.com/moritzbrantner/asset-tooling/releases/download/zoo-scenery-v1/zoo-scenery.tar",
+  "tarSha256": "<sha256 of the tar>"
+}
+```
+
+It reads any other release file it needs (`lineage.json`, descriptors) from the same versioned release and checks it against the tar, so it commits no copies. Its Renovate config extends `github>moritzbrantner/asset-tooling//renovate/asset-releases`. Renovate then finds the newer `<release>-v<N>`, reads the new sha256 from its `<release>.tar.sha256`, rewrites the URL and hash, and merges the PR when the consumer's CI is green.
 
 ## Stability
 

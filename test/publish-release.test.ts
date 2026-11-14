@@ -4,7 +4,7 @@ import path from "node:path";
 import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { readArtifacts, type Consumer } from "../scripts/prepare-release.ts";
 import {
-  MANUAL_RELEASES, ROLLING_RELEASES, blockingConsumers, plan, planEntry, releaseFiles, releaseSources, rollingRelease, staleReleaseFiles, touches, type FetchFile,
+  MANUAL_RELEASES, ROLLING_RELEASES, blockingConsumers, pinnedVersion, plan, planEntry, releaseFiles, releaseSources, rollingRelease, staleReleaseFiles, staleVersions, touches, versionOf, type FetchFile,
 } from "../scripts/publish-release.ts";
 
 const OLD = "a".repeat(64), NEW = "b".repeat(64);
@@ -100,5 +100,29 @@ describe("publish-release", () => {
     expect(await blockingConsumers(consumers, "kit", artifacts, files({ main: stale, "agent/repin-kit": fresh }))).toEqual([]);
     expect(await blockingConsumers(consumers, "kit", artifacts, files({ main: { ...fresh, "pin.json": stale["pin.json"] } }))).toEqual(["o/pinned"]);
     expect(await blockingConsumers(consumers, "kit", artifacts, files({}))).toEqual(["o/pinned"]);
+  });
+
+  test("a consumer Renovate keeps on a version never blocks a publish", async () => {
+    const dir = await build();
+    const artifacts = { ...(await readArtifacts(dir)), releaseFiles: await releaseFiles(dir) };
+    const consumers: Consumer[] = [{ repo: "o/renovate", release: "kit", updates: "renovate", pinFile: "kit.pin.json" }];
+    expect(await blockingConsumers(consumers, "kit", artifacts, () => undefined)).toEqual([]);
+  });
+
+  test("versions are the release's own -v<N> tags", () => {
+    expect(versionOf("kit", "kit-v12")).toBe(12);
+    expect(versionOf("kit", "kit")).toBeUndefined();
+    expect(versionOf("kit", "other-kit-v3")).toBeUndefined();
+    expect(versionOf("zoo", "zoo-scenery-v3")).toBeUndefined();
+    const pin = `{\n  "release": "kit",\n  "tarUrl": "https://github.com/moritzbrantner/asset-tooling/releases/download/kit-v7/kit.tar",\n  "tarSha256": "${NEW}"\n}`;
+    expect(pinnedVersion("kit", pin)).toBe("kit-v7");
+    expect(pinnedVersion("kit", pin.replace("kit-v7", "kit"))).toBeUndefined();
+  });
+
+  test("retention keeps the newest versions and every pinned one", () => {
+    const tags = ["kit", "other-v1", ...Array.from({ length: 9 }, (_, i) => `kit-v${i + 1}`)];
+    expect(staleVersions("kit", tags, ["kit-v2"])).toEqual(["kit-v1", "kit-v3", "kit-v4"]);
+    expect(staleVersions("kit", tags, [], 9)).toEqual([]);
+    expect(staleVersions("kit", ["kit-v10", "kit-v9"], [], 1)).toEqual(["kit-v9"]);
   });
 });
