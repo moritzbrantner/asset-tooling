@@ -66,6 +66,8 @@ The [Shooter combat robot parts](docs/combat-robot-kit.md) are socket-grid robot
 
 The [Shooter weapons](docs/shooter-weapons.md) are the eight socket-grid weapons of the Shooter (energy rifle, shotgun, laser, flamethrower, grapple hook, energy blade, rail gun and rocket launcher) and its four weapon mods, on one atlas in the robot kit's style: each weapon points out of its socket, with muzzle and mod anchors, two emissive channel nodes, its fire, charge, swing, launch and reload states as glTF animations, and LODs. It ships as its own rolling release, `shooter-weapons`, with a `socket-grid-kit-descriptor-v2` descriptor.
 
+The [Shooter robot locomotion](docs/robot-locomotion.md) is the driven wheel (`robot.wheel`) and the track module (`robot.track`) of the Shooter's socket-grid robots, on one atlas in the robot kit's style: each turns about its mount normal on the axles where Shooter's mechanics put its wheel bodies, the track's 25 links scroll round its sprocket, road wheels and idler, and both have a damaged variant, a looping roll clip and LODs. It ships as its own rolling release, `shooter-robot-locomotion`, with a `socket-grid-kit-descriptor-v3` descriptor.
+
 The [wooden spike traps](docs/spike-traps.md) are six static hazard pieces on one wood atlas: a stake cluster, a tiling stake row, a cheval-de-frise, a pit bed, a studded board and a hanging spiked log.
 
 The [Greyhaven settlement props](docs/settlement-props.md) are a scripted Blender prop set in the same style for an Outpost public space: a market stall, handcart, crate and barrel, a signpost, lantern post and bench, and a fence segment, planter and woodpile, with a market-square composition.
