@@ -647,15 +647,21 @@ async function start(): Promise<void> {
       if (relative !== undefined && !declared.has(relative)) throw new Error(`bundle file ${relative} is not declared in the manifest`);
       return url;
     });
+    // #517: the male figure wears the hair kit's hairstyles; its entries load from hairkit/ when the page has the kit.
+    const kitManifest = data.hairKit ? JSON.parse(new TextDecoder().decode(await fetchBytes(data.hairKit.manifest, signal))) : undefined;
+    const kitAssets = (kitManifest?.assets ?? []) as ManifestEntry[];
     const entries = new Map<string, Promise<GLTF>>();
     const loadEntry = (key: string, variant: string): Promise<GLTF> => {
       const id = `${key}/${variant}`;
       let pending = entries.get(id);
       if (!pending) {
         const found = (manifest.assets as ManifestEntry[]).find((asset) => asset.key === key && asset.variant === variant);
+        const kit = kitAssets.find((asset) => asset.key === key && asset.variant === variant);
         pending = found
           ? new GLTFLoader(manager).setKTX2Loader(ktx2).loadAsync(new URL(`bundle/${found.path}`, location.href).href)
-          : Promise.reject(new Error(`the bundle has no ${id} entry`));
+          : kit
+            ? new GLTFLoader().setKTX2Loader(ktx2).loadAsync(new URL(`hairkit/${kit.path}`, location.href).href)
+            : Promise.reject(new Error(`the bundle has no ${id} entry`));
         pending.catch(() => entries.delete(id));
         entries.set(id, pending);
       }
@@ -664,7 +670,14 @@ async function start(): Promise<void> {
     const processedAsset = characterAsset(await loadEntry(entry.key, entry.variant));
     const motion = (await attachment("humanoid-clips")) as { clips: MotionEntry[] };
     const sockets = (await attachment("humanoid-sockets")) as HumanoidSockets;
-    const appearance = (await attachment("humanoid-appearance")) as HumanoidAppearance;
+    const appearance = (await attachment("humanoid-appearance")) as HumanoidAppearance & { hairKit?: unknown };
+    if (appearance.hairKit) {
+      // The kit's hair records name their variants; the composer reads them as texture variants.
+      const descriptorPath = kitAssets.flatMap((asset) => asset.attachments ?? []).find((item) => item.name === "hair-descriptor")?.path;
+      const kit = descriptorPath ? JSON.parse(new TextDecoder().decode(await fetchBytes(`hairkit/${descriptorPath}`, signal))) : { hair: [] };
+      appearance.hair = (kit.hair as { id: string; entry: string; socket: string; variants: string[]; tintMaterials: string[]; requires?: Record<string, boolean> }[])
+        .map(({ id, entry, socket, variants, tintMaterials, requires }) => ({ id, entry, socket, tintMaterials, requires, textures: variants.map((variant) => ({ id: variant, variant })) }));
+    }
 
     dom.status.textContent = "Loading the original source and clip libraries…";
     const bodyAsset = await loadSourceGltf(data.ranger.body, signal);

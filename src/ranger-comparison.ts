@@ -37,6 +37,8 @@ export type RangerComparisonData = {
   ranger: { body: PinnedGltf; outfit: PinnedGltf; bodyId: string; outfitId: string };
   libraries: { catalogId: string; label: string; file: PinnedFile }[];
   bundle: { label: string; key: string; variant: string; manifest: string };
+  /** #517: the hair kit the male figure wears (`hairKit` in its appearance), when its tar was given. */
+  hairKit?: { label: string; manifest: string };
   archer: { file: PinnedFile; unitScale: number };
 };
 
@@ -45,8 +47,8 @@ export type RangerComparisonData = {
  * anything when the canonical payloads are LFS pointers or no bundle tar is given, unless `require` is
  * set, in which case it throws. Any pin mismatch always throws.
  */
-export async function writeRangerComparisonData({ repositoryRoot, outDir, bundleTar, bundleLabel = "current working bundle", require = false }: {
-  repositoryRoot: string; outDir: string; bundleTar?: string; bundleLabel?: string; require?: boolean;
+export async function writeRangerComparisonData({ repositoryRoot, outDir, bundleTar, bundleLabel = "current working bundle", hairKitTar, hairKitLabel = "current hair kit", require = false }: {
+  repositoryRoot: string; outDir: string; bundleTar?: string; bundleLabel?: string; hairKitTar?: string; hairKitLabel?: string; require?: boolean;
 }): Promise<{ status: "built"; data: RangerComparisonData } | { status: "unavailable"; reason: string }> {
   const sources: Json[] = JSON.parse(await readFile(path.join(repositoryRoot, "catalog/sources.json"), "utf8")).sources;
   const storage: Json[] = JSON.parse(await readFile(path.join(repositoryRoot, "catalog/storage.json"), "utf8")).entries;
@@ -121,6 +123,8 @@ export async function writeRangerComparisonData({ repositoryRoot, outDir, bundle
     throw new Error("Ranger comparison bundle has no humanoid.ranger.male/default entry");
   }
   for (const entry of entries) files.set(`bundle/${entry.path}`, entry.bytes);
+  // #517: the male figure's hair and beards are the hair kit's pieces; the page offers them when the kit is given.
+  if (hairKitTar) for (const entry of readAssetBundleTar(await readFile(hairKitTar))) files.set(`hairkit/${entry.path}`, entry.bytes);
 
   const archer = add(Buffer.from(generateMedievalCharacterObj("archer").bytes), "archer.obj");
   const data: RangerComparisonData = {
@@ -132,6 +136,7 @@ export async function writeRangerComparisonData({ repositoryRoot, outDir, bundle
       key: RANGER_COMPARISON_BUNDLE.key, variant: RANGER_COMPARISON_BUNDLE.variant, manifest: "bundle/manifest.json",
     },
     archer: { file: archer, unitScale: 0.001 },
+    ...(hairKitTar ? { hairKit: { label: hairKitLabel, manifest: "hairkit/manifest.json" } } : {}),
   };
   await rm(outDir, { recursive: true, force: true });
   for (const [file, bytes] of files) {

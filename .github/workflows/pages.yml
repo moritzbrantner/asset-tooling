@@ -91,6 +91,10 @@ jobs:
           SHA=$(sha256sum "$RUNNER_TEMP/ranger/humanoid.ranger.male.tar" | cut -c1-12)
           echo "ASSET_TOOLING_RANGER_BUNDLE_LABEL=$TAG (tar $SHA)" >> "$GITHUB_ENV"
           echo "ASSET_TOOLING_REQUIRE_RANGER_COMPARISON=1" >> "$GITHUB_ENV"
+          # #517: the male figure wears the hair kit's hairstyles; the comparison offers them from its rolling release.
+          gh release download hair-kit --repo "$GITHUB_REPOSITORY" --pattern hair.kit.tar --dir "$RUNNER_TEMP/hair"
+          echo "ASSET_TOOLING_HAIR_KIT_TAR=$RUNNER_TEMP/hair/hair.kit.tar" >> "$GITHUB_ENV"
+          echo "ASSET_TOOLING_HAIR_KIT_LABEL=hair-kit (tar $(sha256sum "$RUNNER_TEMP/hair/hair.kit.tar" | cut -c1-12))" >> "$GITHUB_ENV"
 
       # The slider page shows a notice until the first young-residents release exists.
       - name: Download current young residents output

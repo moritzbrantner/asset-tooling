@@ -1,6 +1,6 @@
 # Hair and beard kit
 
-The hair and beard kit (#517) ships the male Ranger's hairstyles and beards as separate skinned pieces on the Ranger head joints, so mmorpg can attach the chosen piece to any male figure (owner answer on #517, 2026-11-08). It rebuilds the Ranger bundle's unused hair and beard variants as their own model. The Ranger bundle keeps its own `hair-1` entries until mmorpg switches.
+The hair and beard kit (#517) ships the male Ranger's hairstyles and beards as separate skinned pieces on the Ranger head joints, so mmorpg can attach the chosen piece to any male figure (owner answer on #517, 2026-11-08). It rebuilds the Ranger bundle's unused hair and beard variants as their own model. mmorpg switched (mmorpg#677, mmorpg#797), so the male Ranger bundle no longer has hair or beards of its own: its appearance names this kit (`hairKit`), and the kit is the only source of the male hairstyles and beards.
 
 ```sh
 ASSET_TOOLING_BLENDER=<blender 5.2.2> bun scripts/build-hair-kit.ts --out <directory>
