@@ -12,7 +12,9 @@ import os from "node:os";
 import path from "node:path";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-import { ImageUtils, NodeIO } from "@gltf-transform/core";
+import { NodeIO } from "@gltf-transform/core";
+import { KHRTextureBasisu } from "@gltf-transform/extensions";
+import { ktx2Size } from "../scripts/pack-downloads.ts";
 import { verifyAssetBundleTar } from "../src/asset-bundle-pack.js";
 import { GLTF_RESOURCES_BUNDLE_PROFILE, readAssetBundleAttachment, readAssetBundleGltf, verifyAssetBundle } from "../src/asset-bundle.js";
 import { validateHumanoidItemDescriptor, validateHumanoidSocketDescriptor } from "../src/humanoid-sockets.js";
@@ -340,14 +342,15 @@ test("the Ranger recipe builds a verified bundle: in-place clips, equipment entr
     }
 
     const { gltf, resources } = await readAssetBundleGltf(built.bundleDir, manifest, RANGER_BUNDLE_KEY, RANGER_BUNDLE_VARIANT);
-    const document = await new NodeIO().readJSON({ json: JSON.parse(gltf.toString("utf8")), resources: Object.fromEntries(resources) });
+    const document = await new NodeIO().registerExtensions([KHRTextureBasisu]).readJSON({ json: JSON.parse(gltf.toString("utf8")), resources: Object.fromEntries(resources) });
     // #285: each grip pose keys only its hand's 15 finger and thumb rotations.
     for (const grip of RANGER_GRIPS) {
       const animation = document.getRoot().listAnimations().find((candidate) => candidate.getName() === grip.clip)!;
       const channels = animation.listChannels().map((channel) => `${channel.getTargetNode()!.getName()}.${channel.getTargetPath()}`).sort();
       assert.deepEqual(channels, rangerGripJoints(grip.socket.startsWith("hand_l") ? "l" : "r").map((joint) => `${joint}.rotation`).sort(), grip.clip);
     }
-    // v3 and later: 13 PNG textures, each within its slot's limit, the 4096 px sources reduced and none upscaled.
+    // v3 and later: 13 textures, each resized within its slot's limit, the 4096 px sources reduced and none upscaled;
+    // since #517 the bundle ships them as KTX2, at power-of-two sizes of at most 1024 px.
     const textures = built.lineage.textures![RANGER_BUNDLE_KEY]!;
     assert.equal(document.getRoot().listTextures().length, 13);
     for (const image of textures.images) {
@@ -358,7 +361,8 @@ test("the Ranger recipe builds a verified bundle: in-place clips, equipment entr
     }
     assert.ok(textures.imageBytes.after * 4 < textures.imageBytes.before, "texture bytes shrink at least fourfold");
     for (const texture of document.getRoot().listTextures()) {
-      const [width, height] = ImageUtils.getSize(texture.getImage()!, "image/png")!;
+      assert.equal(texture.getMimeType(), "image/ktx2", texture.getName());
+      const { width, height } = ktx2Size(texture.getImage()!);
       assert.ok(Math.max(width, height) <= 1024, texture.getName());
     }
     // #348: every full-detail variant the appearance lists carries the face morph targets; levels of detail do not.
@@ -372,7 +376,7 @@ test("the Ranger recipe builds a verified bundle: in-place clips, equipment entr
       : name === eyes ? FACE_MORPH_TARGETS : VARIETY_BODY_TARGETS;
     const morphNodes = async (key: string, variant: string, expected: (name: string) => readonly string[]) => {
       const read = await readAssetBundleGltf(built.bundleDir, manifest, key, variant);
-      const variantDocument = await new NodeIO().readJSON({ json: JSON.parse(read.gltf.toString("utf8")), resources: Object.fromEntries(read.resources) });
+      const variantDocument = await new NodeIO().registerExtensions([KHRTextureBasisu]).readJSON({ json: JSON.parse(read.gltf.toString("utf8")), resources: Object.fromEntries(read.resources) });
       const meshNodes = variantDocument.getRoot().listNodes().filter((node) => node.getMesh());
       return meshNodes.filter((node) => node.getMesh()!.listPrimitives().some((primitive) => primitive.listTargets().length))
         .map((node) => { assert.deepEqual((node.getMesh()!.getExtras() as any).targetNames, expected(node.getName()), `${key}/${variant} ${node.getName()}`); return node.getName(); }).sort();

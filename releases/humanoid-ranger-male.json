@@ -1,5 +1,5 @@
 {
-  "note": "#399: each figure is its own release, so the two build in parallel jobs. The Ranger builds the whole bundle (clips, outfits, armour, equipment, hair, appearance) in one run. The budget holds the bundle at its cost on 2026-11-14, so it can only get cheaper; adding content raises it deliberately (#517).",
+  "note": "#399: each figure is its own release, so the two build in parallel jobs. The Ranger builds the whole bundle (clips, outfits, armour, equipment, hair, appearance) in one run. The budget holds the KTX2 bundle at its cost on 2026-11-14, so it can only get cheaper; adding content raises it deliberately (#517).",
   "script": "scripts/build-ranger-release.ts",
   "blender": true,
   "lfs": true,
@@ -12,7 +12,7 @@
   ],
   "budget": {
     "materials": 146,
-    "textureMemoryMB": 285,
-    "downloadMB": 149
+    "textureMemoryMB": 72,
+    "downloadMB": 128
   }
 }
