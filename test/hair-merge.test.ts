@@ -1,7 +1,7 @@
 // #336: a hairstyle and its crown cap merged into one static glTF with one buffer.
 import {test} from "node:test";
 import assert from "node:assert/strict";
-import {mergeStaticGltfJson} from "../scripts/build-ranger-character.js";
+import {mergeStaticGltfJson} from "../src/ranger-figure.js";
 
 const part=(name:string,bytes:number)=>({buffer:new Uint8Array(bytes).fill(bytes),json:{asset:{version:"2.0"},scene:0,scenes:[{nodes:[0]}],
  nodes:[{mesh:0,name}],meshes:[{primitives:[{attributes:{POSITION:0},indices:1,material:0}]}],materials:[{name:`MI_${name}`,

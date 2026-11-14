@@ -20,6 +20,7 @@ import { executeGltfTextureResizeOperation } from "../src/gltf-texture-resize-op
 import { executeImageDecodeOperation, executeImageEncodePngOperation } from "../src/image-codec-operations.js";
 import { encodeRgba8Image, parseRgba8Image, RGBA8_IMAGE_MEDIA_TYPE, type Rgba8Image } from "../src/image-rgba8.js";
 import { kitTextureTarget, takeKitTextureMode } from "../src/kit-bundle.js";
+import { TERRAIN_KTX2 } from "../src/ktx2-encodings.js";
 import type { AssetOperationResult, AssetRef } from "../src/operations.js";
 
 const ROOT = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
@@ -94,15 +95,8 @@ export function linearMeanColor({ pixels }: Rgba8Image): [number, number, number
   return sum.map((value) => Number((value / count).toFixed(4))) as [number, number, number];
 }
 
-/**
- * The KTX2 (Basis Universal, KHR_texture_basisu) encoding per slot, all with a full mip chain: UASTC (quality 2,
- * Zstandard 18) for the base colour, whose height alpha and fine ground detail ETC1S blurs, and for the normal maps;
- * ETC1S (BasisLZ, qlevel 160) for the AO/roughness/metal data map. `ktxArguments` (scripts/pack-downloads.ts) holds the
- * exact `ktx create` flags.
- */
-export const TERRAIN_KTX2: Readonly<Record<"baseColor" | "normal" | "metallicRoughness", TextureEncoding>> = {
-  baseColor: "uastc-srgb", normal: "uastc", metallicRoughness: "etc1s-linear",
-};
+/** The KTX2 encoding per slot (src/ktx2-encodings.ts). */
+export { TERRAIN_KTX2 };
 export async function encodeKtx2(scratch: string, texture: Texture, encoding: TextureEncoding) {
   const input = path.join(scratch, `${texture.getName()}.png`), output = path.join(scratch, `${texture.getName()}.ktx2`);
   await writeFile(input, texture.getImage()!);
