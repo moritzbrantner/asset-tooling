@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { readArtifacts, type Consumer } from "../scripts/prepare-release.ts";
+import { KIT_BUDGETS } from "../scripts/report-kit-costs.ts";
 import {
   MANUAL_RELEASES, ROLLING_RELEASES, blockingConsumers, pinnedVersion, plan, planEntry, releaseFiles, releaseSources, rollingRelease, staleReleaseFiles, staleVersions, touches, versionOf, type FetchFile,
 } from "../scripts/publish-release.ts";
@@ -36,6 +37,8 @@ describe("publish-release", () => {
       expect(planEntry(release)).toEqual({
         release: `humanoid-ranger-${figure}`, blender: true, lfs: true, processor: "three-d-animation-retarget", ktx: true, timeout: 240,
       });
+      // #517: a cost budget, so a Ranger build over it is refused like any kit.
+      expect(KIT_BUDGETS[release.name]).toBeDefined();
       expect(releaseSources(release)).toEqual(expect.arrayContaining([
         "scripts/build-ranger-character.ts", "scripts/pack-downloads.ts", "adapters/blender/gait_clips.py", "adapters/blender/hit_clips.py",
         "adapters/blender/swim_clips.py", "adapters/blender/traversal_clips.py", "adapters/blender/sword_clips.py", "adapters/blender/dagger_clips.py", "adapters/blender/crossbow_clips.py", "adapters/blender/cast_clips.py", "adapters/blender/social_clips.py", "stability/processors.json", "assets/canonical",
@@ -65,8 +68,10 @@ describe("publish-release", () => {
   test("plans only the releases a change touches", () => {
     expect(plan(["adapters/blender/outpost.py"]).map((entry) => entry.release)).toEqual(["greyhaven-marshal-house", "outpost-kit", "sandstone-kit", "settlement-props"]);
     expect(plan(["adapters/blender/zoo_scenery.py"])).toEqual([{ release: "zoo-scenery", blender: true, lfs: false, processor: "", ktx: false, timeout: 60 }]);
-    // The Redbrand and hair kits build from the Ranger build's constants and steps, so they follow the Ranger sources.
-    expect(plan(["adapters/blender/hit_clips.py"]).map((entry) => entry.release)).toEqual(["hair-kit", "humanoid-ranger-female", "humanoid-ranger-male", "redbrand-kit"]);
+    // The Redbrand and hair kits read the Ranger figure from src/ranger-figure.ts, not the Ranger build, so a Ranger clip
+    // does not rebuild them (#517).
+    expect(plan(["adapters/blender/hit_clips.py"]).map((entry) => entry.release)).toEqual(["humanoid-ranger-female", "humanoid-ranger-male"]);
+    expect(plan(["src/ranger-figure.ts"]).map((entry) => entry.release)).toEqual(["hair-kit", "humanoid-ranger-female", "humanoid-ranger-male", "redbrand-kit"]);
     expect(plan(["docs/outpost-kit.md", "README.md", "consumers.json", ".github/workflows/publish-releases.yml"])).toEqual([]);
     expect(plan("all")).toHaveLength(ROLLING_RELEASES.length);
     // #574: each release's own data file (scripts/release-data.ts) rebuilds only that release.

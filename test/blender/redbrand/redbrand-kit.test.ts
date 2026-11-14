@@ -14,10 +14,11 @@ import path from "node:path";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { verifyAssetBundleTar } from "../../../src/asset-bundle-pack.js";
 import { GLTF_RESOURCES_BUNDLE_PROFILE, readAssetBundleAttachment, verifyAssetBundle } from "../../../src/asset-bundle.js";
-import { RANGER_FIGURES, RANGER_PEASANT_OUTFITS } from "../../../scripts/build-ranger-character.ts";
+import { slotKtx2Encoding } from "../../../src/ktx2-encodings.js";
+import { RANGER_FIGURES, RANGER_PEASANT_OUTFITS } from "../../../src/ranger-figure.js";
 import {
   REDBRAND_ARMOR_KEY, REDBRAND_DESCRIPTOR_ATTACHMENT, REDBRAND_DESCRIPTOR_SCHEMA, REDBRAND_GEOMETRY, REDBRAND_OUTFIT_ID, REDBRAND_OUTFIT_KEY,
-  REDBRAND_RELEASE, REDBRAND_SKINS, REDBRAND_TAR_NAME, buildRedbrandKit, createRedbrandAssetSpec, redbrandTextureEncoding,
+  REDBRAND_RELEASE, REDBRAND_SKINS, REDBRAND_TAR_NAME, buildRedbrandKit, createRedbrandAssetSpec,
 } from "../../../scripts/build-redbrand-kit.ts";
 import { ROLLING_RELEASES } from "../../../scripts/publish-release.ts";
 import { BLENDER_SUITES } from "../../../scripts/ci-plan.ts";
@@ -41,9 +42,9 @@ test("the redbrand spec runs the packaged recipe on one output, from the authore
   assert.equal(REDBRAND_TAR_NAME, "redbrand.kit.tar");
   assert.ok(ROLLING_RELEASES.some((r) => r.name === REDBRAND_RELEASE && r.script === "scripts/build-redbrand-kit.ts" && r.blender && r.lfs && r.ktx));
   assert.ok(BLENDER_SUITES.some((s) => s.suite === "redbrand" && s.ktx && s.lfs.includes("assets/authored/redbrand-kit.blend")));
-  assert.equal(redbrandTextureEncoding(new Set(["baseColorTexture"])), "uastc-srgb");
-  assert.equal(redbrandTextureEncoding(new Set(["normalTexture"])), "uastc");
-  assert.equal(redbrandTextureEncoding(new Set(["occlusionTexture", "metallicRoughnessTexture"])), "etc1s-linear");
+  assert.equal(slotKtx2Encoding(new Set(["baseColorTexture"])), "uastc-srgb");
+  assert.equal(slotKtx2Encoding(new Set(["normalTexture"])), "uastc");
+  assert.equal(slotKtx2Encoding(new Set(["occlusionTexture", "metallicRoughnessTexture"])), "etc1s-linear");
   assert.ok(RANGER_PEASANT_OUTFITS.male && RANGER_FIGURES.male.key === "humanoid.ranger.male");
 });
 

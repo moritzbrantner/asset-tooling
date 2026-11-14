@@ -37,11 +37,10 @@ import { applyVarietyKeys, authorVarietyKeys } from "../src/male-variety.js";
 import type { AssetRef } from "../src/operations.js";
 import {
   RANGER_APPEARANCE, RANGER_FIGURES, RANGER_HEAD_RECIPE, RANGER_HIPS, RANGER_PEASANT_OUTFITS, RANGER_TEXTURE_POLICY,
-} from "./build-ranger-character.ts";
+} from "../src/ranger-figure.js";
 import { cachedCompose, cachedExtract, cachedImageDecode, cachedImageEncodePng, cachedImport, cachedSubset, cachedTextureResize } from "./cached-operations.ts";
-import { TERRAIN_KTX2 } from "./build-greyhaven-terrain.ts";
+import { TERRAIN_KTX2, slotKtx2Encoding } from "../src/ktx2-encodings.js";
 import { useSharedGenerationCache } from "./generation-cache.ts";
-import type { TextureEncoding } from "./pack-downloads.ts";
 
 type Json = Record<string, any>;
 
@@ -182,13 +181,6 @@ async function assertSameSkeleton(root: string, target: AssetRef, rig: AssetRef,
   }
 }
 
-/** The KTX2 encoding of a texture by its slots, as the crag kit and the terrain encode theirs (TERRAIN_KTX2). */
-export function redbrandTextureEncoding(slots: ReadonlySet<string>): TextureEncoding {
-  if (slots.has("normalTexture")) return TERRAIN_KTX2.normal;
-  if (slots.has("baseColorTexture") || slots.has("emissiveTexture")) return TERRAIN_KTX2.baseColor;
-  return TERRAIN_KTX2.metallicRoughness;
-}
-
 export async function buildRedbrandKit({ outDir, log = () => {} }: { outDir: string; log?: (line: string) => void }) {
   const root = path.resolve(outDir);
   await mkdir(root, { recursive: true });
@@ -255,7 +247,7 @@ export async function buildRedbrandKit({ outDir, log = () => {} }: { outDir: str
   const delivered = await withKtx2Cache("redbrand-kit", async (cache) => {
     const out: AssetRef[] = [];
     for (const asset of [...figures.map((figure) => figure.character), keyedPlates.glb]) {
-      out.push(await ktx2Asset(root, asset, cache, { slotEncoding: redbrandTextureEncoding }));
+      out.push(await ktx2Asset(root, asset, cache, { slotEncoding: slotKtx2Encoding }));
     }
     return out;
   });

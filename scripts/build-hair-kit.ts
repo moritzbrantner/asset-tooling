@@ -30,10 +30,9 @@ import type { AssetRef } from "../src/operations.js";
 import {
   RANGER_APPEARANCE, RANGER_FIGURES, RANGER_HAIR_TINTS, RANGER_HEAD_RECIPE, RANGER_HIPS, RANGER_PEASANT_OUTFITS, RANGER_SOCKETS_DESCRIPTOR,
   RANGER_TEXTURE_POLICY, mergeStaticGltfJson,
-} from "./build-ranger-character.ts";
-import { redbrandTextureEncoding } from "./build-redbrand-kit.ts";
+} from "../src/ranger-figure.js";
 import { cachedCompose, cachedExtract, cachedImport, cachedSubset, cachedTextureResize } from "./cached-operations.ts";
-import { TERRAIN_KTX2 } from "./build-greyhaven-terrain.ts";
+import { TERRAIN_KTX2, slotKtx2Encoding } from "../src/ktx2-encodings.js";
 import { useSharedGenerationCache } from "./generation-cache.ts";
 
 type Json = Record<string, any>;
@@ -295,7 +294,7 @@ export async function buildHairKit({ outDir, log = () => {} }: { outDir: string;
   const delivered = await withKtx2Cache("hair-kit", async (cache) => {
     const out = new Map<string, AssetRef>();
     for (const piece of pieces) for (const { asset } of piece.variants) {
-      if (!out.has(asset.sha256)) out.set(asset.sha256, await ktx2Asset(root, asset, cache, { slotEncoding: redbrandTextureEncoding }));
+      if (!out.has(asset.sha256)) out.set(asset.sha256, await ktx2Asset(root, asset, cache, { slotEncoding: slotKtx2Encoding }));
     }
     return out;
   });

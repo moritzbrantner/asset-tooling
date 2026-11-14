@@ -16,7 +16,7 @@ import { executeGltfProductionImportOperation } from "../../../src/gltf-producti
 import { executeGltfSubsetSkinnedOperation } from "../../../src/gltf-subset-operations.js";
 import type { AssetOperationResult, AssetRef } from "../../../src/operations.js";
 import { authorVarietyKeys, applyVarietyKeys, PHYSIQUE_TARGETS, FEMALE_BUST_TARGETS } from "../../../src/male-variety.js";
-import { RANGER_FIGURES, RANGER_HEAD_RECIPE } from "../../../scripts/build-ranger-character.js";
+import { RANGER_FIGURES, RANGER_HEAD_RECIPE } from "../../../src/ranger-figure.js";
 
 type Json = Record<string, any>;
 const ROOT = path.resolve(fileURLToPath(new URL("../../..", import.meta.url)));

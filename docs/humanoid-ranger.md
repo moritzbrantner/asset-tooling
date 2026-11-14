@@ -414,6 +414,10 @@ Its tar goes to the rolling `humanoid-ranger-female` release.
 
 Both figures are rolling releases that CI builds (#399): merging a change to their sources starts the `Publish rolling releases` workflow, which runs one job per figure ([Publishing a rolling release](../README.md#publishing-a-rolling-release)). Republish one by hand with `gh workflow run publish-releases.yml -f release=humanoid-ranger-male` (or `-female`). Each job checks out the pinned 3d-lab processor, installs Rust, Blender and KTX-Software, and runs [`scripts/build-ranger-release.ts`](../scripts/build-ranger-release.ts), which builds the bundle and writes the per-entry downloads ([`pack-downloads.ts`](../scripts/pack-downloads.ts)) next to the tar. The Ranger jobs have a 240-minute timeout instead of the default 60: a local build of one figure takes about 1.5 hours, and both figures build in parallel.
 
+**Cost budget (#517).** Each figure's `releases/humanoid-ranger-<figure>.json` has a `budget` like every kit ([kit-standard.md](kit-standard.md#cost-limits)), so CI refuses to publish a build over it. The budget is set at the tar's cost on 2026-11-14 (male: 145 materials, 283 MB texture memory, 148 MB download; female: 54, 91 MB, 63 MB), so the bundle can only get cheaper. A change that adds content raises it in the same PR, on purpose. Check a build with `bun scripts/report-kit-costs.ts --bundle <out>/bundle --budget humanoid-ranger-male`.
+
+**Shared figure definition.** The figure's catalog members, appearance sources, head subset, hips, Peasant outfits and texture policy live in [`src/ranger-figure.ts`](../src/ranger-figure.ts), not in the build script. The [hair kit](hair-kit.md) and the [Redbrand kit](redbrand-kit.md), which are fitted to the male figure, read them there. A change to a Ranger clip, weapon or other build step therefore rebuilds only the two figures, and not those kits.
+
 The per-entry download index already records estimated draw calls, triangles, material count, compressed texture memory, RGBA fallback memory and transferred bytes. Compare a rebuilt index with the last accepted one without rerunning Blender or requesting online services:
 
 ```bash
