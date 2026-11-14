@@ -147,3 +147,26 @@ export function quaternion(m: Mat3): Quat {
 
 /** The faces a Shooter `Faces` value names: every face, only the moving side (+z), or none. */
 export const SOCKET_FACES = { ALL: [...FACES], TOP: ["PosZ"], NONE: [] } as const satisfies Record<string, readonly Face[]>;
+
+/** The inverse of a rigid transform. */
+export function invert(t: Transform): Transform {
+  const r = t.rotation;
+  const rotation: Mat3 = [[r[0][0], r[1][0], r[2][0]], [r[0][1], r[1][1], r[2][1]], [r[0][2], r[1][2], r[2][2]]];
+  const back = mulVec(rotation, t.translation);
+  return { rotation, translation: [-back[0], -back[1], -back[2]] };
+}
+
+/**
+ * A joint's revolute frames for a physics engine whose joints take a local anchor and a local axis per body
+ * (physics-engine's RevoluteJoint, Rapier's): body A is the joint part itself (the joint's `origin` and `axis` as they
+ * are), body B the child mounted on the joint's moving `socket` with `orientation`, which gets the same pivot and axis
+ * in its own frame. Both are glTF part frames in metres; at rest the joint angle is zero.
+ */
+export function revoluteFrames(joint: { origin: readonly number[]; axis: readonly number[] }, socket: Pick<Socket, "position" | "normal" | "uAxis" | "vAxis">, orientation: Orientation = IDENTITY) {
+  const toChild = invert(mountTransform(socket, orientation));
+  const axis = mulVec(toChild.rotation, joint.axis);
+  return {
+    anchorA: joint.origin.map(clean) as Vec3, axisA: joint.axis.map(clean) as Vec3,
+    anchorB: apply(toChild, joint.origin).map(clean) as Vec3, axisB: axis.map(clean) as Vec3,
+  };
+}

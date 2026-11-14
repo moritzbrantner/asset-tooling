@@ -6,8 +6,14 @@ the exported glTF (+Y up) has the part's x along +X, its height z along +Y and i
 **mount anchor**, the centre of the base's first cell (0, 0) on the mount face (the part's -z face): the cuboid runs
 from (-0.1, -0.1, 0) to (0.2 x - 0.1, 0.2 y - 0.1, 0.2 z) metres. Nothing leaves that cuboid.
 
-Parts with sockets (chassis and beams) carry one recessed coupling per surface cell; the others are closed. Socket
+Parts with sockets (chassis and beams) carry one recessed coupling per surface cell; the joints carry one flat coupling
+on their moving top. Every part is a closed surface, so it renders attached or detached without tears. Socket
 positions, numbering and frames are not in the mesh: the build script computes them from the catalog (src/socket-grid.ts).
+
+The hinge, the rotor and the leg are one mesh skinned rigidly (every vertex weighted 1 to one bone) to a short bone
+chain whose bones sit on the joints' pivots, point along the part's +z and have no roll, so each exported joint node
+rests unrotated in the part's own axes. The leg also carries its reference walk clips (``WALK_CLIPS``), one NLA track
+and one glTF animation each.
 
 ``arguments`` are ``part``, ``cells``, ``level`` (0 full detail, 1 and 2 are ``lod1`` and ``lod2``) and ``variant``
 (``default``, or ``damaged`` for the armor plate). No randomness: variation is a SHA-256 of fixed keys, the textures
@@ -37,6 +43,9 @@ PARTS = {
     "robot.sensor": ((1, 1, 1), False),
     "robot.battery": ((1, 2, 1), False),
     "robot.armor.plate": ((2, 2, 1), False),
+    "robot.joint.hinge": ((1, 1, 1), False),
+    "robot.joint.rotor": ((1, 1, 1), False),
+    "robot.leg": ((1, 1, 4), False),
 }
 VARIANTS = {"robot.armor.plate": ("default", "damaged")}
 
@@ -370,6 +379,11 @@ class Part:
         self.bm = bmesh.new()
         self.surface = self.bm.faces.layers.int.new("surface")
         self.mode = self.bm.faces.layers.int.new("mode")
+        # Articulated parts (the joints, the leg) are one mesh skinned rigidly to a chain of bones: every face belongs to
+        # exactly one bone, so turning a joint moves whole pieces and never stretches or tears the surface.
+        self.bone_layer = self.bm.faces.layers.int.new("bone")
+        self.bones = [("base", (0.0, 0.0, 0.0), None)]
+        self.current = 0
         self.names = list(CELLS)
         self.lo = Vector((-CELL / 2, -CELL / 2, 0))
         self.hi = Vector((cells[0] * CELL - CELL / 2, cells[1] * CELL - CELL / 2, cells[2] * CELL))
@@ -380,6 +394,12 @@ class Part:
         for f in faces:
             f[self.surface] = self.names.index(cell)
             f[self.mode] = 0 if mode == FIT else 1
+            f[self.bone_layer] = self.current
+
+    def bone(self, name, head, parent):
+        """Start a bone: everything built from now on moves with it. ``head`` is its pivot in the part frame."""
+        self.bones.append((name, tuple(head), parent))
+        self.current = len(self.bones) - 1
 
     # -- primitives -----------------------------------------------------
 
@@ -493,15 +513,16 @@ class Part:
             corners = [(tuple(round(c, 6) + 0.0 for c in l.vert.co), tuple(round(c, 6) + 0.0 for c in l[uv].uv)) for l in f.loops]
             k = corners.index(min(corners))
             if len({co for co, _ in corners}) == 3:  # drop triangles that collapse at 1 µm
-                tris.append(tuple(corners[k:] + corners[:k]))
+                tris.append((f[self.bone_layer],) + tuple(corners[k:] + corners[:k]))
         bm.free()
         tris.sort()
+        # A vertex is a position on one bone: pieces on different bones never share a vertex, so they part cleanly.
         points, faces, uvs = {}, [], []
-        for tri in tris:
-            faces.append([points.setdefault(co, len(points)) for co, _ in tri])
+        for bone, *tri in tris:
+            faces.append([points.setdefault((co, bone), len(points)) for co, _ in tri])
             uvs.extend(t for _, t in tri)
         data = bpy.data.meshes.new(name)
-        data.from_pydata(list(points), [], faces)
+        data.from_pydata([co for co, _ in points], [], faces)
         data.uv_layers.new(name="UVMap")
         data.uv_layers[0].data.foreach_set("uv", np.array(uvs, dtype=np.float32).ravel())
         data.polygons.foreach_set("use_smooth", np.zeros(len(faces), dtype=bool))
@@ -509,7 +530,35 @@ class Part:
         data.materials.append(atlas_material())
         obj = bpy.data.objects.new(name, data)
         collection.objects.link(obj)
+        if len(self.bones) > 1:
+            self.skin(obj, collection, [bone for _, bone in points])
         return obj
+
+    def skin(self, obj, collection, vertex_bones):
+        """An armature of ``self.bones`` (each pointing along +z with no roll, so its glTF node starts unrotated, its
+        axes the part's) and one vertex group per bone, every vertex weighted 1 to its own bone."""
+        rig = bpy.data.objects.new(f"{obj.name}.rig", bpy.data.armatures.new(f"{obj.name}.rig"))
+        collection.objects.link(rig)
+        view_layer = bpy.context.view_layer
+        previous = view_layer.objects.active
+        view_layer.objects.active = rig
+        bpy.ops.object.mode_set(mode="EDIT")
+        for name, head, parent in self.bones:
+            edit = rig.data.edit_bones.new(name)
+            edit.head = Vector(head)
+            edit.tail = Vector(head) + Vector((0, 0, 0.05))
+            edit.roll = 0.0
+            if parent:
+                edit.parent = rig.data.edit_bones[parent]
+        bpy.ops.object.mode_set(mode="OBJECT")
+        view_layer.objects.active = previous
+        for index, (name, _, _) in enumerate(self.bones):
+            group = obj.vertex_groups.new(name=name)
+            group.add([i for i, bone in enumerate(vertex_bones) if bone == index], 1.0, "REPLACE")
+        obj.parent = rig
+        obj.modifiers.new("rig", "ARMATURE").object = rig
+        for pose in rig.pose.bones:
+            pose.rotation_mode = "QUATERNION"
 
 
 # ---------------------------------------------------------------- parts
@@ -537,11 +586,10 @@ def core(p):
             p.box(lo, hi, "gunmetal", bevel=0.003 if lvl == 0 else 0)
         p.sphere((0, 0, 0.11), 0.074, 20 if lvl == 0 else 10, 12 if lvl == 0 else 6, "core-glow")
         if lvl == 0:
-            # Containment rings: one round the equator, two meridians.
+            # Containment rings: one round the equator, two meridians. Each is a closed thin disc whose middle hides
+            # inside the sphere, so only the ring shows and no open edge does from any side.
             for axis in ((0, 0, 1), (1, 0, 0), (0, 1, 0)):
-                ring_sides, _ = p.cylinder(Vector((0, 0, 0.11)) - Vector(axis) * 0.005, axis, 0.077, 0.01, 24, "steel")
-                for f in _:
-                    bmesh.ops.delete(p.bm, geom=[f], context="FACES_ONLY")
+                p.cylinder(Vector((0, 0, 0.11)) - Vector(axis) * 0.005, axis, 0.077, 0.01, 24, "steel")
             p.cylinder((0, 0, 0.035), (0, 0, 1), 0.03, 0.012, 12, "steel")
     else:
         p.box((-0.07, -0.07, 0.04), (0.07, 0.07, 0.18), "core-glow")
@@ -650,20 +698,205 @@ def armor_plate(p):
     return {}
 
 
+# ---------------------------------------------------------------- joints and the leg
+#
+# A joint's pivot is a knuckle (a cylinder round the axis) on the moving side, held between clevis cheeks on the fixed
+# side, so turning it never opens a gap or pushes one piece through another inside its clearance range. Every axis
+# runs through the part's centre line: the hinge's and the leg's along the part's x, the rotor's along its z.
+
+HINGE_PIVOT = (0.0, 0.0, 0.1)
+ROTOR_PIVOT = (0.0, 0.0, 0.1)
+# The leg's joints along its length (z from the hip mount, 0, to the sole, 0.8) and its segments' lengths.
+LEG_HIP, LEG_KNEE, LEG_ANKLE, LEG_SOLE = 0.08, 0.43, 0.73, 0.8
+LEG_THIGH, LEG_SHIN = LEG_KNEE - LEG_HIP, LEG_ANKLE - LEG_KNEE
+
+
+def knuckle(p, z, half_width, radius, sides, cell="gunmetal"):
+    """A pivot knuckle along x at height ``z``."""
+    p.cylinder((-half_width, 0, z), (1, 0, 0), radius, 2 * half_width, sides, cell)
+
+
+def clevis(p, z, inner, outer, half_depth, below, radius, sides, cell="gunmetal", bevel=0.0):
+    """Two cheeks round a pivot along x at height ``z``, from ``inner`` to ``outer`` either side, reaching ``below``
+    towards the part's base (or away from it, if ``below`` > ``z``), rounded round the axis."""
+    for sx in (-1, 1):
+        x0, x1 = sorted((sx * inner, sx * outer))
+        z0, z1 = sorted((below, z))
+        p.box((x0, -half_depth, z0), (x1, half_depth, z1), cell, bevel=bevel)
+        p.cylinder((x0, 0, z), (1, 0, 0), radius, x1 - x0, sides, cell)
+
+
+def hinge(p):
+    """A hinge servo: a clevis bracket on the mount face holds a knuckle on x through the cell's centre; the knuckle
+    carries the moving plate, whose top is the joint's one socket. The plate clears the bracket a quarter turn either
+    way."""
+    lvl = p.level
+    sides = 16 if lvl == 0 else 8
+    z = HINGE_PIVOT[2]
+    if lvl == 2:
+        p.box((-0.1, -0.045, 0), (0.1, 0.045, 0.145), "gunmetal")
+        p.bone("hinge", HINGE_PIVOT, "base")
+        p.box((-0.1, -0.1, 0.155), (0.1, 0.1, 0.2), "paint", top="socket-flat")
+        return {}
+    bevel = 0.004 if lvl == 0 else 0.0
+    p.box((-0.1, -0.045, 0), (0.1, 0.045, 0.03), "gunmetal", bevel=bevel)
+    clevis(p, z, 0.06, 0.096, 0.045, 0.03, 0.045, sides, "paint", bevel)
+    for sx in (-1, 1):  # the servo's drive caps on the axis
+        p.cylinder((sx * 0.096, 0, z), (sx, 0, 0), 0.028, 0.004, sides, "hazard" if sx > 0 else "steel", cap="steel")
+    p.bone("hinge", HINGE_PIVOT, "base")
+    knuckle(p, z, 0.058, 0.043, sides)
+    p.box((-0.055, -0.03, z), (0.055, 0.03, 0.156), "gunmetal", bevel=bevel)
+    p.box((-0.1, -0.1, 0.155), (0.1, 0.1, 0.2), "paint", bevel=bevel, top="socket-flat")
+    return {}
+
+
+def rotor(p):
+    """A continuous rotor: a square flange and a drum on the mount face, a steel bearing ring, and the moving turntable
+    with hazard stripes round its rim (so a turn reads) and the joint's one socket on top."""
+    lvl = p.level
+    sides = 24 if lvl == 0 else 12
+    if lvl == 2:
+        p.box((-0.1, -0.1, 0), (0.1, 0.1, 0.09), "gunmetal")
+        p.bone("rotor", ROTOR_PIVOT, "base")
+        p.box((-0.085, -0.085, 0.09), (0.085, 0.085, 0.2), "hazard", top="socket-flat")
+        return {}
+    bevel = 0.004 if lvl == 0 else 0.0
+    p.box((-0.1, -0.1, 0), (0.1, 0.1, 0.025), "gunmetal", bevel=bevel)
+    p.cylinder((0, 0, 0.025), (0, 0, 1), 0.094, 0.06, sides, "paint")
+    if lvl == 0:
+        for sx in (-1, 1):  # flange bolts
+            for sy in (-1, 1):
+                p.cylinder((sx * 0.082, sy * 0.082, 0.025), (0, 0, 1), 0.008, 0.005, 6, "steel", cap="steel")
+    p.bone("rotor", ROTOR_PIVOT, "base")
+    p.cylinder((0, 0, 0.08), (0, 0, 1), 0.08, 0.035, sides, "steel")
+    p.cylinder((0, 0, 0.115), (0, 0, 1), 0.098, 0.045, sides, "hazard")
+    p.cylinder((0, 0, 0.16), (0, 0, 1), 0.098, 0.04, sides, "paint", cap="socket")
+    return {}
+
+
+def leg(p):
+    """The self-contained 80 cm leg, hip at the mount face, sole at the far end: a clevis hip bracket, a pale thigh
+    with a steel actuator behind it, a graphite shin with an olive guard in front, and a foot whose toe points along
+    the part's +y. Hip, knee and ankle turn about x; a positive knee angle folds the shin back (the knee forward)."""
+    lvl = p.level
+    if lvl == 2:
+        p.box((-0.1, -0.1, 0), (0.1, 0.1, 0.03), "gunmetal")
+        p.bone("hip", (0, 0, LEG_HIP), "base")
+        p.box((-0.06, -0.065, 0.035), (0.06, 0.055, LEG_KNEE), "paint")
+        p.bone("knee", (0, 0, LEG_KNEE), "hip")
+        p.box((-0.05, -0.045, LEG_KNEE), (0.05, 0.06, LEG_ANKLE), "beam-paint")
+        p.bone("ankle", (0, 0, LEG_ANKLE), "knee")
+        p.box((-0.085, -0.08, LEG_ANKLE), (0.085, 0.1, LEG_SOLE), "gunmetal")
+        return {}
+    sides = 16 if lvl == 0 else 8
+    bevel = 0.004 if lvl == 0 else 0.0
+    # The hip bracket (fixed to the parent).
+    p.box((-0.1, -0.1, 0), (0.1, 0.1, 0.03), "gunmetal", bevel=bevel)
+    clevis(p, LEG_HIP, 0.06, 0.095, 0.05, 0.03, 0.05, sides, "paint", bevel)
+    if lvl == 0:
+        p.box((-0.07, 0.06, 0.03), (0.07, 0.1, 0.04), "hazard")  # the front edge, so a leg's facing reads
+    # The thigh.
+    p.bone("hip", (0, 0, LEG_HIP), "base")
+    knuckle(p, LEG_HIP, 0.058, 0.045, sides)
+    p.box((-0.055, -0.06, 0.13), (0.055, 0.05, 0.385), "paint", bevel=0.008 if lvl == 0 else 0.0)
+    p.box((-0.04, -0.03, LEG_HIP), (0.04, 0.03, 0.135), "gunmetal")
+    clevis(p, LEG_KNEE, 0.06, 0.09, 0.045, 0.37, 0.045, sides, "gunmetal", bevel)
+    p.box((-0.09, -0.045, 0.37), (0.09, 0.03, 0.39), "gunmetal")  # the bridge joining the knee cheeks
+    if lvl == 0:
+        p.cylinder((0, -0.075, 0.14), (0, 0, 1), 0.013, 0.24, 8, "steel", cap="steel")  # the knee actuator
+        p.box((-0.02, -0.08, 0.13), (0.02, -0.06, 0.15), "gunmetal")
+        p.box((-0.02, -0.08, 0.37), (0.02, -0.06, 0.39), "gunmetal")
+        p.box((-0.056, 0.05, 0.16), (0.056, 0.056, 0.35), "vent", FIT)
+    # The shin.
+    p.bone("knee", (0, 0, LEG_KNEE), "hip")
+    knuckle(p, LEG_KNEE, 0.058, 0.042, sides)
+    p.box((-0.05, -0.045, 0.45), (0.05, 0.045, 0.70), "beam-paint", bevel=0.006 if lvl == 0 else 0.0)
+    p.box((-0.035, -0.03, LEG_KNEE), (0.035, 0.03, 0.455), "gunmetal")
+    p.box((-0.045, 0.045, 0.46), (0.045, 0.062, 0.68), "armor", bevel=0.003 if lvl == 0 else 0.0)
+    p.box((-0.035, -0.025, 0.695), (0.035, 0.025, LEG_ANKLE), "gunmetal")
+    knuckle(p, LEG_ANKLE, 0.052, 0.03, sides)
+    # The foot (its clevis holds the shin's ankle knuckle).
+    p.bone("ankle", (0, 0, LEG_ANKLE), "knee")
+    clevis(p, LEG_ANKLE, 0.056, 0.085, 0.035, 0.765, 0.035, sides, "gunmetal", bevel)
+    p.box((-0.085, -0.075, 0.765), (0.085, 0.1, 0.785), "paint", bevel=bevel)
+    p.box((-0.09, -0.08, 0.785), (0.09, 0.1, LEG_SOLE), "panel")
+    if lvl == 0:
+        p.box((-0.07, 0.065, 0.758), (0.07, 0.095, 0.765), "hazard")  # the toe
+    return {}
+
+
+# Reference walk cycles for one leg (preview only: Shooter moves legs physically). Per clip: seconds per cycle, the
+# stride (how far the sole travels back along the leg's -y while planted), the planted fraction of the cycle, the
+# swing's lift and the hip-to-ankle distance while planted. Phases per leg are in the docs.
+CLIP_FPS = 30
+WALK_CLIPS = {
+    "walk-biped": {"seconds": 1.0, "stride": 0.36, "duty": 0.6, "lift": 0.07, "depth": 0.6},
+    "walk-quadruped": {"seconds": 0.8, "stride": 0.28, "duty": 0.7, "lift": 0.05, "depth": 0.6},
+}
+
+
+def leg_pose(clip, phase):
+    """Hip, knee and ankle angles (radians about x) at ``phase`` in [0, 1): the ankle follows a planted line back, then
+    a lifted swing forward; two-link IK places the knee forward and the ankle keeps the sole level."""
+    c = WALK_CLIPS[clip]
+    stride, duty, lift, depth = c["stride"], c["duty"], c["lift"], c["depth"]
+    if phase < duty:
+        s = phase / duty
+        y, z = stride * (0.5 - s), depth
+    else:
+        s = (phase - duty) / (1 - duty)
+        y, z = stride * (-0.5 + (1 - math.cos(math.pi * s)) / 2), depth - lift * math.sin(math.pi * s)
+    d = math.hypot(y, z)
+    psi = math.atan2(-y, z)
+    beta = math.acos((LEG_THIGH ** 2 + d * d - LEG_SHIN ** 2) / (2 * LEG_THIGH * d))
+    gamma = math.acos((LEG_THIGH ** 2 + LEG_SHIN ** 2 - d * d) / (2 * LEG_THIGH * LEG_SHIN))
+    hip_angle, knee_angle = psi - beta, math.pi - gamma
+    return {"hip": hip_angle, "knee": knee_angle, "ankle": -(hip_angle + knee_angle)}
+
+
+def add_clips(obj):
+    """Bake each walk cycle on the leg's rig, one keyframe a frame, as its own NLA track (one glTF animation each)."""
+    rig = obj.parent
+    rig.animation_data_create()
+    for name, clip in WALK_CLIPS.items():
+        action = bpy.data.actions.new(name)
+        rig.animation_data.action = action
+        frames = round(clip["seconds"] * CLIP_FPS)
+        for frame in range(frames + 1):
+            angles = leg_pose(name, (frame % frames) / frames)
+            for bone, angle in angles.items():
+                pose = rig.pose.bones[bone]
+                pose.rotation_quaternion = (math.cos(angle / 2), math.sin(angle / 2), 0, 0)
+                pose.keyframe_insert("rotation_quaternion", frame=frame, group=bone)
+        rig.animation_data.action = None
+        track = rig.animation_data.nla_tracks.new()
+        track.name = name
+        track.strips.new(name, 0, action)
+    for pose in rig.pose.bones:
+        pose.rotation_quaternion = (1, 0, 0, 0)
+
+
 BUILDERS = {
     "robot.chassis.20x40x80": chassis, "robot.chassis.40x40x80": chassis, "robot.chassis.40x60x80": chassis,
     "robot.beam.20x20x40": beam, "robot.beam.20x20x80": beam,
     "robot.core": core, "robot.sensor": sensor, "robot.battery": battery, "robot.armor.plate": armor_plate,
+    "robot.joint.hinge": hinge, "robot.joint.rotor": rotor, "robot.leg": leg,
 }
 
 
 def build(key, collection, level=0, variant="default", location=(0, 0, 0)):
-    """One part as one mesh object whose origin is the part's mount anchor, placed at ``location`` (Blender axes)."""
+    """One part as one mesh object whose origin is the part's mount anchor, placed at ``location`` (Blender axes).
+    Articulated parts come as a mesh skinned to an armature (``obj.parent``), which is what ``location`` moves."""
     cells, _ = PARTS[key]
     part = Part(key, cells, level, variant)
     info = BUILDERS[key](part) or {}
     obj = part.mesh(key, collection)
-    obj.location = location
+    (obj.parent or obj).location = location
+    if obj.parent:
+        info["bones"] = [{"name": name, "head": [round(c, 6) for c in head], "parent": parent} for name, head, parent in part.bones]
+    if key == "robot.leg":
+        add_clips(obj)
+        info["clips"] = sorted(WALK_CLIPS)
     return obj, info
 
 
@@ -689,12 +922,21 @@ def generate(output_path, arguments, inputs):
     bpy.ops.object.delete(use_global=False)
     key, level, variant = arguments["part"], arguments["level"], arguments["variant"]
     obj, info = build(key, bpy.context.scene.collection, level, variant)
+    bpy.context.scene.render.fps = CLIP_FPS
     bpy.ops.object.select_all(action="DESELECT")
     obj.select_set(True)
+    rig = obj.parent
+    if rig:
+        # glTF ignores a skinned mesh's parents, so the mesh is exported as a root node beside its skeleton.
+        obj.parent = None
+        rig.select_set(True)
+    animated = bool(rig and rig.animation_data and rig.animation_data.nla_tracks)
     bpy.ops.export_scene.gltf(
         filepath=output_path, export_format="GLB", use_selection=True, export_yup=True,
         export_texcoords=True, export_normals=True, export_tangents=False, export_vertex_color="NONE", export_image_format="AUTO",
-        export_animations=False, export_skins=False, export_morph=False, export_cameras=False, export_lights=False, export_extras=False)
+        export_animations=animated, export_skins=bool(rig), export_morph=False, export_cameras=False, export_lights=False, export_extras=False,
+        **({"export_animation_mode": "NLA_TRACKS", "export_force_sampling": True, "export_frame_step": 1, "export_optimize_animation_size": True,
+            "export_reset_pose_bones": True} if animated else {}))
     triangles = sum(len(polygon.vertices) - 2 for polygon in obj.data.polygons)
     return {"recipe": RECIPE, "part": key, "level": level, "variant": variant, "unit": "meter", "axes": "right-handed-y-up",
             "origin": "mount-anchor", "triangleCount": triangles, **info}
