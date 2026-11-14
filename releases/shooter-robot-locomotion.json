@@ -1,0 +1,10 @@
+{
+  "script": "scripts/build-robot-locomotion.ts",
+  "blender": true,
+  "ktx": true,
+  "budget": {
+    "materials": 1,
+    "textureMemoryMB": 6,
+    "downloadMB": 2.1
+  }
+}
