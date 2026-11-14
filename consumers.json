@@ -82,21 +82,20 @@
     {
       "repo": "moenarch-games/zoo",
       "release": "zoo-scenery",
-      "pins": [
-        { "type": "tar-sha256", "path": "assets/scenery/zoo-scenery.pin.json", "after": "\"tarSha256\": \"" },
-        { "type": "export-ref", "path": "assets/scenery/export.ref.json" },
-        { "type": "file", "from": "lineage.json", "path": "assets/scenery/lineage.json" }
-      ]
+      "updates": "renovate",
+      "pinFile": "assets/scenery/zoo-scenery.pin.json"
     },
     {
       "repo": "moenarch-games/zoo",
       "release": "zoo-effects",
-      "pins": [
-        { "type": "tar-sha256", "path": "assets/effects/zoo-effects.pin.json", "after": "\"tarSha256\": \"" },
-        { "type": "export-ref", "path": "assets/effects/export.ref.json" },
-        { "type": "file", "from": "lineage.json", "path": "assets/effects/lineage.json" },
-        { "type": "file", "from": "zoo-effects.descriptor.json", "path": "assets/effects/zoo-effects.descriptor.json" }
-      ]
+      "updates": "renovate",
+      "pinFile": "assets/effects/zoo-effects.pin.json"
+    },
+    {
+      "repo": "moenarch-games/zoo",
+      "release": "zoo-animals",
+      "updates": "renovate",
+      "pinFile": "assets/animals/zoo-animals.pin.json"
     },
     {
       "repo": "moenarch-games/arpg",

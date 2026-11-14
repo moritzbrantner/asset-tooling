@@ -19,20 +19,40 @@ export type Pin =
   | { type: "tar-sha256"; path: string; after: string };
 // `format` is a shell command run in the consumer checkout after the pins are rewritten, for consumers whose
 // formatter checks the pinned copies (release JSON is copied byte for byte otherwise).
-export type Consumer = { repo: string; release: string; pinned?: boolean; note?: string; pins?: Pin[]; format?: string };
+// `updates: "renovate"` marks a consumer that pins one immutable `<release>-v<N>` build by its tar URL and sha256 in
+// `pinFile`, and lets Renovate move the pin (renovate/asset-releases.json). Publishing never waits for it.
+export type Consumer = {
+  repo: string;
+  release: string;
+  pinned?: boolean;
+  note?: string;
+  pins?: Pin[];
+  format?: string;
+  updates?: "renovate";
+  pinFile?: string;
+};
 export type Artifacts = { dir: string; tar: string; sha256: string; releaseFiles: string[]; downloads?: string };
 
 const ROOT = path.resolve(import.meta.dir, "..");
 const TOOLING_REPO = "moritzbrantner/asset-tooling";
 const USAGE = "Usage: bun scripts/prepare-release.ts <release> <artifactsDir> [--downloads <dir>] [--dry-run]";
 
-/** The consumers of `release`, split into those whose pins must follow it and those that read it unpinned. */
-export function findConsumers(consumers: Consumer[], release: string): { pinned: Consumer[]; unpinned: Consumer[] } {
+/**
+ * The consumers of `release`, split into those whose exact pins must follow it before it is replaced, those Renovate
+ * moves between its immutable versions, and those that read it unpinned.
+ */
+export function findConsumers(consumers: Consumer[], release: string): { pinned: Consumer[]; renovate: Consumer[]; unpinned: Consumer[] } {
   const matching = consumers.filter((consumer) => consumer.release === release);
   for (const consumer of matching) {
-    if (consumer.pinned !== false && !consumer.pins?.length) throw new Error(`${consumer.repo} pins ${release} but lists no pins`);
+    if (consumer.updates === "renovate") {
+      if (!consumer.pinFile || consumer.pins?.length || consumer.pinned === false) throw new Error(`${consumer.repo} follows ${release} by Renovate, so it lists one pinFile and no pins`);
+    } else if (consumer.pinned !== false && !consumer.pins?.length) throw new Error(`${consumer.repo} pins ${release} but lists no pins`);
   }
-  return { pinned: matching.filter((c) => c.pinned !== false), unpinned: matching.filter((c) => c.pinned === false) };
+  return {
+    pinned: matching.filter((c) => c.updates !== "renovate" && c.pinned !== false),
+    renovate: matching.filter((c) => c.updates === "renovate"),
+    unpinned: matching.filter((c) => c.pinned === false),
+  };
 }
 
 export async function loadConsumers(file = path.join(ROOT, "consumers.json")): Promise<Consumer[]> {
@@ -128,8 +148,9 @@ async function main(args: string[]): Promise<number> {
   const tarPath = path.join(artifacts.dir, artifacts.tar);
   console.log(run("bun", [path.join(ROOT, "scripts/pack-asset-bundle.ts"), "--verify", tarPath, "--ref", path.join(artifacts.dir, "export.ref.json")]));
 
-  const { pinned, unpinned } = findConsumers(await loadConsumers(), release);
+  const { pinned, renovate, unpinned } = findConsumers(await loadConsumers(), release);
   for (const consumer of unpinned) console.log(`${consumer.repo}: not pinned (${consumer.note ?? "reads the live release"})`);
+  for (const consumer of renovate) console.log(`${consumer.repo}: Renovate moves ${consumer.pinFile} to the next ${release}-v<N> release`);
   const prs: { repo: string; number: number; url: string; clone: string }[] = [];
   for (const consumer of pinned) {
     if (dryRun) { console.log(`${consumer.repo}: would re-pin ${consumer.pins!.map((p) => p.path).join(", ")}`); continue; }
