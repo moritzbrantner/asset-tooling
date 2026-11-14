@@ -5,7 +5,7 @@
 // experimental processed outputs can be replaced without changing a stored release hash.
 // Contract: docs/animation-viewer.md#ranger-comparison.
 import path from "node:path";
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { readAssetBundleTar } from "./asset-bundle-pack.js";
 import { sha256Bytes } from "./hash.js";
 import { generateMedievalCharacterObj } from "./medieval-character-kit.js";
@@ -137,6 +137,11 @@ export async function writeRangerComparisonData({ repositoryRoot, outDir, bundle
   for (const [file, bytes] of files) {
     await mkdir(path.dirname(path.join(outDir, file)), { recursive: true });
     await writeFile(path.join(outDir, file), bytes);
+  }
+  // The bundle ships KTX2 textures (#517); the page decodes them with three.js's Basis transcoder from basis/.
+  await mkdir(path.join(outDir, "basis"), { recursive: true });
+  for (const name of ["basis_transcoder.js", "basis_transcoder.wasm"]) {
+    await copyFile(path.join(repositoryRoot, "node_modules/three/examples/jsm/libs/basis", name), path.join(outDir, "basis", name));
   }
   await writeFile(path.join(outDir, "data.json"), `${JSON.stringify(data, null, 2)}\n`);
   return { status: "built", data };

@@ -163,6 +163,12 @@ export async function packDownloads({ bundleDir, outDir, name, clips, log = () =
         const encoding = textureEncoding(slots.get(texture) ?? new Set());
         const cacheKey = `${sha256Bytes(png)}:${encoding}`;
         let file = encoded.get(cacheKey);
+        if (!file && texture.getMimeType() === "image/ktx2") {
+          // A bundle that already ships KTX2 (the Ranger since #517, encoded with these same settings) passes through.
+          file = await written(`tex-${sha256Bytes(png).slice(0, 16)}.ktx2`, png);
+          encoded.set(cacheKey, file);
+          encodings[file] = encoding;
+        }
         if (!file) {
           const input = path.join(scratch, `${encoded.size}.png`), output = path.join(scratch, `${encoded.size}.ktx2`);
           await writeFile(input, png);

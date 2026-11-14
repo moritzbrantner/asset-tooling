@@ -18,7 +18,7 @@ The `humanoid.ranger.male` bundle holds the following.
 
 - **Character entry `humanoid.ranger.male`:**
   - **Composition:** the Male_Ranger outfit composed with the Universal Base Characters head subset on the shared 65-joint skeleton.
-  - **Textures:** game-resolution PNGs ([Textures](#textures)).
+  - **Textures:** game-resolution textures, shipped as KTX2 ([Textures](#textures)).
   - **Variants:**
     - `default`: the archer, Dark skin.
     - `skin.light`: the Light skin, with the outfit's skin texture derived by a colour transfer (#116 Q13).
@@ -414,7 +414,7 @@ Its tar goes to the rolling `humanoid-ranger-female` release.
 
 Both figures are rolling releases that CI builds (#399): merging a change to their sources starts the `Publish rolling releases` workflow, which runs one job per figure ([Publishing a rolling release](../README.md#publishing-a-rolling-release)). Republish one by hand with `gh workflow run publish-releases.yml -f release=humanoid-ranger-male` (or `-female`). Each job checks out the pinned 3d-lab processor, installs Rust, Blender and KTX-Software, and runs [`scripts/build-ranger-release.ts`](../scripts/build-ranger-release.ts), which builds the bundle and writes the per-entry downloads ([`pack-downloads.ts`](../scripts/pack-downloads.ts)) next to the tar. The Ranger jobs have a 240-minute timeout instead of the default 60: a local build of one figure takes about 1.5 hours, and both figures build in parallel.
 
-**Cost budget (#517).** Each figure's `releases/humanoid-ranger-<figure>.json` has a `budget` like every kit ([kit-standard.md](kit-standard.md#cost-limits)), so CI refuses to publish a build over it. The budget is set at the tar's cost on 2026-11-14 (male: 145 materials, 283 MB texture memory, 148 MB download; female: 54, 91 MB, 63 MB), so the bundle can only get cheaper. A change that adds content raises it in the same PR, on purpose. Check a build with `bun scripts/report-kit-costs.ts --bundle <out>/bundle --budget humanoid-ranger-male`.
+**Cost budget (#517).** Each figure's `releases/humanoid-ranger-<figure>.json` has a `budget` like every kit ([kit-standard.md](kit-standard.md#cost-limits)), so CI refuses to publish a build over it. The budget is set at the KTX2 tar's cost on 2026-11-14 (male: 145 materials, 71 MB texture memory, 127 MB download; female: 54, 23 MB, 58 MB), so the bundle can only get cheaper. A change that adds content raises it in the same PR, on purpose. Check a build with `bun scripts/report-kit-costs.ts --bundle <out>/bundle --budget humanoid-ranger-male`.
 
 **Shared figure definition.** The figure's catalog members, appearance sources, head subset, hips, Peasant outfits and texture policy live in [`src/ranger-figure.ts`](../src/ranger-figure.ts), not in the build script. The [hair kit](hair-kit.md) and the [Redbrand kit](redbrand-kit.md), which are fitted to the male figure, read them there. A change to a Ranger clip, weapon or other build step therefore rebuilds only the two figures, and not those kits.
 
@@ -556,7 +556,9 @@ The build runs every character GLB through [`scene.textures.resize.gltf@1`](gltf
 - `default` is 1024 px;
 - smaller images, such as the 256 px eye textures, are kept byte for byte.
 
-The textures stay PNG, so no consumer needs a KTX2 or WebP decoder. Colour is averaged in linear light, ORM and roughness data as stored, and normal maps as renormalized vectors, and the PNGs are written at zlib level 9. Only image bytes change. The v3 character `.gltf` differs from v2 only in its `images` entries, the geometry and animation `.bin` is the same file, and the two equipment entries are byte-identical to v2.
+**KTX2 (#517).** After the resize, the build encodes every texture to KTX2 (`KHR_texture_basisu`) before it exports the bundle, as every kit does ([kit-standard.md](kit-standard.md#textures)). Each slot gets the encoding the per-entry downloads always used (`textureEncoding` in [`pack-downloads.ts`](../scripts/pack-downloads.ts): UASTC normal maps, ETC1S sRGB colour, ETC1S linear data maps, power-of-two sizes with mipmaps), and `pack-downloads.ts` passes the bundle's KTX2 files through. The downloads therefore name the same `tex-<hash>.ktx2` files as before. Bundle texture memory fell from 283 MB to 71 MB (male) and from 91 MB to 23 MB (female). The tar shrank less, from 155 MB to 134 MB and from 67 MB to 62 MB: most of it is geometry, morph targets and clips. The [Ranger comparison](animation-viewer.md#ranger-comparison) decodes them with three.js's Basis transcoder.
+
+The resize itself works on PNGs. Colour is averaged in linear light, ORM and roughness data as stored, and normal maps as renormalized vectors, and the PNGs are written at zlib level 9. Only image bytes change. The v3 character `.gltf` differs from v2 only in its `images` entries, the geometry and animation `.bin` is the same file, and the two equipment entries are byte-identical to v2.
 
 From the recorded v3 build (the 13 images total 53,414,027 bytes before and 7,169,668 bytes after):
 

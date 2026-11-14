@@ -28,7 +28,9 @@ import {
   cachedCompose, cachedEmbed, cachedExtract, cachedImageDecode, cachedImageEncodePng, cachedImport, cachedRetarget, cachedSubset, cachedTextureResize,
   operationCacheStatistics,
 } from "./cached-operations.ts";
+import { textureEncoding } from "./pack-downloads.ts";
 import { withoutTextures } from "../src/gltf-without-textures.js";
+import { ktx2Asset, withKtx2Cache } from "../src/kit-bundle.js";
 import { WEAPON_LOD_PRESETS, WEAPON_LOD_SCREEN_SIZES, WEAPON_PRESETS, WEAPON_ROLES, createWeaponAssetSpec, readWeaponRecipeSource, type ThrowablePiece, type WeaponParameters, type WeaponPiece } from "../src/weapon-recipes.js";
 import { readBlenderRecipeSource } from "../src/blender-recipe-source.js";
 import { blenderScriptSpec } from "../src/blender-script-spec.js";
@@ -1343,10 +1345,18 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
   }
 
   log(`export gltf-resources-v1 bundle (asset.bundle@4, ${selections.map((selection) => `${selection.key}/${selection.variant}`).join(", ")})`);
+  // #517: the bundle ships KTX2 textures like every kit (docs/kit-standard.md#textures). They are encoded per slot
+  // exactly as the per-entry downloads always were (`textureEncoding`, pack-downloads.ts), which pass them through.
+  log("encode every texture as KTX2 (ktx create, the per-entry download encodings)");
+  const delivered = await withKtx2Cache("ranger", async (cache) => {
+    const out: AssetRef[] = [];
+    for (const asset of assets) out.push(await ktx2Asset(root, asset, cache, { slotEncoding: textureEncoding }));
+    return out;
+  });
   const bundleDir = path.join(root, "bundle");
   await exportAssetBundle(root, bundleDir, {
     parameters: { profile: GLTF_RESOURCES_BUNDLE_PROFILE, assets: selections },
-    inputs: { assets, attachments },
+    inputs: { assets: delivered, attachments },
   });
   const tarPath = path.join(root, `${bundleKey}.tar`);
   // #516: a merge that leaves the Blender backend, recipes and their inputs alone reuses every Blender step.

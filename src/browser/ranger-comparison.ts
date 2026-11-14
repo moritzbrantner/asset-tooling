@@ -13,7 +13,9 @@
 // Contract: docs/animation-viewer.md#ranger-comparison.
 import { AxesHelper, Group, LoadingManager, Mesh, MeshStandardMaterial, PerspectiveCamera, Quaternion, Scene, SkeletonHelper, Vector3, WebGLRenderer, type Material, type Object3D } from "three";
 import { GLTFExporter } from "three/examples/jsm/exporters/GLTFExporter.js";
+import * as WebGLTextureUtils from "three/examples/jsm/utils/WebGLTextureUtils.js";
 import { GLTFLoader, type GLTF } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { KTX2Loader } from "three/examples/jsm/loaders/KTX2Loader.js";
 import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader.js";
 import { characterAsset, viewerScene, type CharacterAsset, type CharacterInstance } from "./three-character.ts";
 import {
@@ -517,7 +519,8 @@ async function exportLook(): Promise<void> {
   const parents = helpers.map((axes) => axes.parent!);
   for (const axes of helpers) axes.removeFromParent();
   try {
-    const bytes = (await new GLTFExporter().parseAsync(root, { binary: true, animations: loaded.processedAsset.gltf.animations, onlyVisible: true })) as ArrayBuffer;
+    // KTX2 textures are decoded back to PNG for the exported GLB (#517).
+    const bytes = (await new GLTFExporter().setTextureUtils(WebGLTextureUtils).parseAsync(root, { binary: true, animations: loaded.processedAsset.gltf.animations, onlyVisible: true })) as ArrayBuffer;
     helpers.forEach((axes, index) => parents[index]!.add(axes));
     const name = `${loaded.appearance.character}.${look.outfit}.glb`;
     download(bytes, name);
@@ -633,6 +636,10 @@ async function start(): Promise<void> {
       if (!declaredAttachment) throw new Error(`processed Ranger entry has no ${name} attachment`);
       return JSON.parse(new TextDecoder().decode(await readResource(declaredAttachment.path)));
     };
+    // The bundle ships KTX2 textures (#517); the processed panel's renderer is made now so the transcoder can pick a
+    // format it supports, and the page copies the Basis transcoder to basis/.
+    const processedRenderer = new WebGLRenderer({ canvas: dom.canvases.processed, alpha: true, antialias: true, preserveDrawingBuffer: true });
+    const ktx2 = new KTX2Loader().setTranscoderPath("basis/").detectSupport(processedRenderer);
     // The bundle's scene refers to its resources relatively, so GLTFLoader resolves them under bundle/.
     const manager = new LoadingManager();
     manager.setURLModifier((url) => {
@@ -647,7 +654,7 @@ async function start(): Promise<void> {
       if (!pending) {
         const found = (manifest.assets as ManifestEntry[]).find((asset) => asset.key === key && asset.variant === variant);
         pending = found
-          ? new GLTFLoader(manager).loadAsync(new URL(`bundle/${found.path}`, location.href).href)
+          ? new GLTFLoader(manager).setKTX2Loader(ktx2).loadAsync(new URL(`bundle/${found.path}`, location.href).href)
           : Promise.reject(new Error(`the bundle has no ${id} entry`));
         pending.catch(() => entries.delete(id));
         entries.set(id, pending);
@@ -689,7 +696,7 @@ async function start(): Promise<void> {
     const requested = clips.findIndex((clip) => clip.name === params.get("clip"));
     const view = params.get("view")?.toLowerCase() ?? null;
     state.renderers = Object.fromEntries(Object.entries(dom.canvases).map(([id, canvas]) =>
-      [id, { renderer: new WebGLRenderer({ canvas, alpha: true, antialias: true, preserveDrawingBuffer: true }), ...viewerScene() }])) as NonNullable<typeof state.renderers>;
+      [id, { renderer: id === "processed" ? processedRenderer : new WebGLRenderer({ canvas, alpha: true, antialias: true, preserveDrawingBuffer: true }), ...viewerScene() }])) as NonNullable<typeof state.renderers>;
     selectView(isView(view) ? view : "front");
     selectClip(requested >= 0 ? requested : 0);
     fillLookControls(appearance);
