@@ -232,7 +232,7 @@ test("the Ranger recipe builds a verified bundle: in-place clips, equipment entr
     const entries = manifest.assets.map((entry) => `${entry.key}/${entry.variant}`);
     for (const expected of [`${RANGER_BUNDLE_KEY}/${RANGER_BUNDLE_VARIANT}`, `${RANGER_BUNDLE_KEY}/skin.light`, `${RANGER_BUNDLE_KEY}/outfit.soldier`,
       ...["knight", "farmer", "innkeeper", "monk"].map((kit) => `${RANGER_BUNDLE_KEY}/outfit.${kit}`), ...ARMOR_OUTFIT_KITS.map((kit) => `armor.${kit}/default`),
-      ...[...RANGER_WEAPONS, ...RANGER_ARCHERY].map((item) => `${item.key}/default`)]) {
+      ]) {
       assert.ok(entries.includes(expected), expected);
     }
     const entry = manifest.assets.find((candidate) => candidate.key === RANGER_BUNDLE_KEY)!;
@@ -418,7 +418,7 @@ test("the Ranger recipe builds a verified bundle: in-place clips, equipment entr
       assert.deepEqual(outfit.classTrim.materials, ["class"]);
       for (const skin of outfit.skins) assert.ok(entries.includes(`${RANGER_BUNDLE_KEY}/${skin.variant}`), skin.variant);
     }
-    for (const { key } of [...RANGER_WEAPONS, ...RANGER_ARCHERY]) assert.deepEqual(built.lineage.textures![key], { images: 0 }, key);
+
 
     const joints = document.getRoot().listSkins()[0]!.listJoints();
     assert.equal(joints.length, 65);
@@ -471,45 +471,9 @@ test("the Ranger recipe builds a verified bundle: in-place clips, equipment entr
       assert.ok(clip.observations.endSeconds > 0 && clip.observations.sampleCount > 1, clip.name);
     }
 
-    // Weapons are separate, unskinned, unanimated entries; the consumer parents them via the sockets.
-    for (const { key, piece } of RANGER_WEAPONS) {
-      const weapon = manifest.assets.find((candidate) => candidate.key === key)!;
-      assert.equal(weapon.observations.skins, 0, key);
-      assert.deepEqual(weapon.observations.animations, [], key);
-      assert.ok(weapon.observations.triangles > 0, key);
-      // Each item ships its humanoid-item-v2 descriptor (#264): its role and its identity `grip` frame.
-      assert.deepEqual(weapon.attachments.map((attachment: any) => attachment.name), [RANGER_ITEM_ATTACHMENT], key);
-      const item = JSON.parse((await readAssetBundleAttachment(built.bundleDir, manifest, key, "default", RANGER_ITEM_ATTACHMENT)).toString("utf8"));
-      assert.deepEqual(item, rangerItemDescriptor(key, WEAPON_ROLES[piece]), key);
-      const scene = await readAssetBundleGltf(built.bundleDir, manifest, key, "default");
-      const json = JSON.parse(scene.gltf.toString("utf8"));
-      assert.deepEqual(json.nodes.map((node: any) => node.name).sort(), ["grip", piece].sort(), key);
-    }
-    // #467: each throwable ships default, lod1 and lod2, and its descriptor lists them nearest first.
-    for (const { key, piece } of RANGER_THROWABLES) {
-      const variants = manifest.assets.filter((candidate) => candidate.key === key);
-      assert.deepEqual(variants.map((variant) => variant.variant), ["default", "lod1", "lod2"], key);
-      const item = JSON.parse((await readAssetBundleAttachment(built.bundleDir, manifest, key, "default", RANGER_ITEM_ATTACHMENT)).toString("utf8"));
-      assert.deepEqual(item.roles, [WEAPON_ROLES[piece]], key);
-      assert.deepEqual(item.lods.levels.map((level: any) => [level.variant, level.triangles]),
-        variants.map((variant) => [variant.variant, variant.observations.triangles]), key);
-      assert.ok(item.lods.levels[0].triangles > item.lods.levels[1].triangles && item.lods.levels[1].triangles > item.lods.levels[2].triangles, key);
-    }
-    // v7 archery: the arrow and quiver are static like the weapons; the bow is skinned to grip and nock.
-    for (const { key, piece } of RANGER_ARCHERY) {
-      const item = manifest.assets.find((candidate) => candidate.key === key)!;
-      assert.deepEqual(item.observations.animations, [], key);
-      const json = JSON.parse((await readAssetBundleGltf(built.bundleDir, manifest, key, "default")).gltf.toString("utf8"));
-      const names = json.nodes.map((node: any) => node.name);
-      if (piece === "bow.long") {
-        assert.equal(item.observations.skins, 1, key);
-        assert.deepEqual(json.skins[0].joints.map((index: number) => json.nodes[index].name), ["grip", "nock"]);
-        assert.ok(names.includes(piece), key);
-      } else {
-        assert.equal(item.observations.skins, 0, key);
-        assert.deepEqual(names.sort(), ["grip", piece].sort(), key);
-      }
-    }
+    // #517: the items are the humanoid-equipment kit's (test/blender/kits/humanoid-equipment.test.ts), not the figure's.
+    assert.deepEqual(entries.filter((entry: string) => entry.startsWith("equipment.")), []);
+    assert.deepEqual(appearance.equipmentKit, { release: "humanoid-equipment" });
     const descriptor = JSON.parse(sockets.toString("utf8"));
     for (const id of ["hand_l.bow", "hand_r.arrow", "back.quiver", "back.bow.stowed"]) assert.ok(descriptor.sockets.some((socket: any) => socket.id === id), id);
   } finally {

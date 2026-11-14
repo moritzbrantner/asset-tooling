@@ -1,6 +1,6 @@
 # Humanoid equipment kit
 
-The humanoid equipment kit (#517) ships the items the Ranger figures hold or wear. Each item is built once and published as the rolling `humanoid-equipment` release. Until now every figure's bundle carried its own copies: 22 items in the male bundle and 19 in the female one, byte-identical between the two.
+The humanoid equipment kit (#517) ships the items the Ranger figures hold or wear. Each item is built once and published as the rolling `humanoid-equipment` release. Before this kit, each figure's bundle carried its own copies: 22 items in the male bundle and 19 in the female one, byte-identical between the two.
 
 ## Contents
 
@@ -30,8 +30,8 @@ The items ship no textures, only flat-colour materials. Held items load one at a
 ASSET_TOOLING_BLENDER=<blender 5.2.2> bun scripts/build-humanoid-equipment.ts --out <directory>
 ```
 
-[`scripts/humanoid-equipment.ts`](../scripts/humanoid-equipment.ts) holds the item lists and builders. The Ranger build uses the same builders for as long as the figures still carry the items. The kit needs only Blender: no LFS payloads and no processor. With the shared generation cache, a rebuild that leaves the recipes alone takes a few seconds. The test is [`test/blender/kits/humanoid-equipment.test.ts`](../test/blender/kits/humanoid-equipment.test.ts).
+[`scripts/humanoid-equipment.ts`](../scripts/humanoid-equipment.ts) holds the item lists and builders. The kit needs only Blender: no LFS payloads and no processor. With the shared generation cache, a rebuild that leaves the recipes alone takes a few seconds. The test is [`test/blender/kits/humanoid-equipment.test.ts`](../test/blender/kits/humanoid-equipment.test.ts).
 
-## Retiring the figures' copies
+## The figures' copies, retired
 
-Following the 2026-11-09 decision on #517, the figure releases keep their equipment entries until mmorpg, arpg and 3d-lab read them from this release. After that, the figure bundles drop them.
+Following the 2026-11-09 decision on #517, the figure releases kept their equipment entries until mmorpg (mmorpg#798), arpg (arpg#282) and 3d-lab (3d-lab#188) read them from this release. After that, the figure bundles dropped them. Both figures' `humanoid-appearance` names this kit as `equipmentKit`. The male figure's `headwear` list still names its headwear entries, which live here. The item checks of the Ranger test moved to this kit's test.

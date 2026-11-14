@@ -31,7 +31,7 @@ import {
 import { textureEncoding } from "./pack-downloads.ts";
 import {
   RANGER_ARCHERY, RANGER_HEADWEAR, RANGER_ITEM_ATTACHMENT, RANGER_ITEM_LOD_REFERENCE_FOV_Y, RANGER_ITEM_LOD_SELECTION, RANGER_THROWABLES, RANGER_WEAPONS,
-  buildEquipmentItems, buildHeadwear, rangerHeadwearAppearance, rangerItemDescriptor, rangerItemLods,
+  buildHeadwear, rangerHeadwearAppearance, rangerItemDescriptor, rangerItemLods,
 } from "./humanoid-equipment.ts";
 export {
   RANGER_ARCHERY, RANGER_HEADWEAR, RANGER_ITEM_ATTACHMENT, RANGER_ITEM_LOD_REFERENCE_FOV_Y, RANGER_ITEM_LOD_SELECTION, RANGER_THROWABLES, RANGER_WEAPONS,
@@ -800,7 +800,7 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
   const selections: Json[] = [{ key: bundleKey, variant: RANGER_BUNDLE_VARIANT }];
   const assets: AssetRef[] = [character];
   const attachments: AssetRef[] = [];
-  const weapons: Record<string, AssetRef> = {};
+
   let sockets: AssetRef | undefined;
   let clipMotion: AssetRef | undefined;
   let appearance: Awaited<ReturnType<typeof buildAppearance>> | undefined;
@@ -1049,6 +1049,8 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
       parts: [{ id: "outfit.hood", nodes: [look.hood, ...(figure === "male" ? ARMOR_CLASS_HOODS : [])], defaultVisible: true }],
       // #517: the male figure wears the hair kit's hairstyles and beards (their ids are the option ids the presets use).
       ...(figure === "male" ? { hairKit: { release: "hair-kit", provides: ["hair", "facialHair"] } } : {}),
+      // #517: the held items and the headwear entries the `headwear` list names are the humanoid-equipment kit's.
+      equipmentKit: { release: "humanoid-equipment" },
       ...(hair.length ? { hair: await Promise.all(hair.map(async ({ key, style, variants, chains }) => ({
         id: key, entry: key, socket: "head.hair", source: style,
         ...(chains?.length ? { secondary: chains } : {}),
@@ -1131,13 +1133,6 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
       selections[0]!.attachments.push({ name: RANGER_CLIPS_ATTACHMENT });
       attachments.push(clipMotion);
     }
-    // The equipment (scripts/humanoid-equipment.ts) the figure still carries until its consumers read the
-    // humanoid-equipment release (#517).
-    const equipment = await buildEquipmentItems(root, { headwear: figure === "male", pool, log, resize: resizeTextures });
-    selections.push(...equipment.selections);
-    assets.push(...equipment.assets);
-    attachments.push(...equipment.attachments);
-    Object.assign(weapons, equipment.items);
   }
 
   log(`export gltf-resources-v1 bundle (asset.bundle@4, ${selections.map((selection) => `${selection.key}/${selection.variant}`).join(", ")})`);
@@ -1177,7 +1172,7 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
       processor: { repository: processor.repository, revision: processor.revision },
       outfit, body, head, composed, targetRig, sourceRigs, libraries: loaded, animated,
       clips: clips.map(({ name, library, source, retargeted, observations }) => ({ name, library, source, retargeted, observations })),
-      sockets, socketsDescriptor: descriptorPath, weapons,
+      sockets, socketsDescriptor: descriptorPath,
       // The parallel steps (#427) resize in the order they finish; sorted, lineage.json repeats (#440).
       character, textures: Object.fromEntries(Object.entries(textures).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))), texturePolicy: RANGER_TEXTURE_POLICY,
       clipMotion,
