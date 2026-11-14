@@ -97,8 +97,14 @@ export async function prepareNativeDownloads(options: {
       const nativeClips = entry.clips?.replace(/\.glb$/, ".native.glb");
       if (entry.clips && nativeClips && !preparedClips.has(entry.clips)) {
         const library = await io.readBinary(await readFile(path.join(directory, entry.clips)));
+        if (library.getRoot().listTextures().length > 0) {
+          throw new Error(`animation-only library ${entry.clips} must not contain textures`);
+        }
         for (const extension of library.getRoot().listExtensionsUsed()) {
-          if (extension.extensionName === "EXT_meshopt_compression") extension.dispose();
+          // Packed libraries may declare BasisU despite having no images to decode.
+          if (extension.extensionName === "KHR_texture_basisu" || extension.extensionName === "EXT_meshopt_compression") {
+            extension.dispose();
+          }
         }
         await library.transform(dequantize());
         const libraryBytes = await io.writeBinary(library);
