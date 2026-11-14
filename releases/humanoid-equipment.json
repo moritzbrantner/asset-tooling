@@ -1,0 +1,10 @@
+{
+  "note": "#517: the weapons, throwables, archery pieces and headwear of the Ranger figures, built once. Held items load one at a time on a socket, not batched as scenery, so each keeps its own flat-colour materials (31 in all) and no textures. The budget holds the kit at its cost on 2026-11-14.",
+  "script": "scripts/build-humanoid-equipment.ts",
+  "blender": true,
+  "budget": {
+    "materials": 31,
+    "textureMemoryMB": 1,
+    "downloadMB": 1
+  }
+}

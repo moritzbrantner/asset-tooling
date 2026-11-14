@@ -50,6 +50,8 @@ The [Redbrand faction kit](docs/redbrand-kit.md) dresses mmorpg's Redbrand bandi
 
 The [hair and beard kit](docs/hair-kit.md) ships the male Ranger's hairstyles and beards as attachable skinned pieces on the Ranger head joints, as its own rolling release. The hand-modelled pieces are authored in `assets/authored/hair-kit.blend`, the pack hairstyles stay recipe-built from the catalog, every texture is KTX2, and a descriptor names each piece's socket, joints, chains, tint materials and what it hides.
 
+The [humanoid equipment kit](docs/humanoid-equipment.md) ships the weapons, throwables, archery pieces and headwear of the Ranger figures once, as the rolling `humanoid-equipment` release, with a tar and per-entry downloads. Each item's origin is its grip frame, and its `humanoid-item` attachment names its role.
+
 The [monuments](docs/monuments.md) are in the same weathered limestone as the gravestones: an obelisk, a broken column, an urn, a hooded statue, a memorial wall, a sealed mausoleum and a walk-in one whose roof is a separate piece.
 
 The [gravestones](docs/gravestones.md) are weathered limestone headstones, a cross, a ledger, a chest tomb and a footstone on one atlas, matched to the limestone rocks for Greyhaven's graveyards.
