@@ -62,6 +62,8 @@ The [moss](docs/moss.md) is seven generic pieces of thin, ragged-edged cushion m
 
 The [young residents](docs/young-residents.md) are children and teenagers on the adults' rig, always dressed, with 21 face morph targets and a slider page.
 
+The [Shooter combat robot parts](docs/combat-robot-kit.md) are socket-grid robot parts for the Shooter on one metal atlas: three chassis sections and two beams with a coupling on every 20 cm surface cell, the glowing control core, a sensor head, a battery and an armor plate with a damaged variant. Their descriptor defines the socket, frame and origin convention the Shooter's weapon and locomotion kits share.
+
 The [wooden spike traps](docs/spike-traps.md) are six static hazard pieces on one wood atlas: a stake cluster, a tiling stake row, a cheval-de-frise, a pit bed, a studded board and a hanging spiked log.
 
 The [Greyhaven settlement props](docs/settlement-props.md) are a scripted Blender prop set in the same style for an Outpost public space: a market stall, handcart, crate and barrel, a signpost, lantern post and bench, and a fence segment, planter and woodpile, with a market-square composition.

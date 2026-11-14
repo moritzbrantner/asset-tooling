@@ -31,6 +31,7 @@ const PUBLISHED_SCHEMA_BLOBS = {
   "processing-receipt-v2.schema.json": "417820551f5033140addac3684a4ed105ede6195",
   "settlement-props-descriptor-v1.schema.json": "92ce800c43d49ea4ce6fddfdcc8ee13e5964b08c",
   "shrine-kit-descriptor-v1.schema.json": "45b2c3f319d8e6b7b8b85b9c74ccdb1415dbf727",
+  "socket-grid-kit-descriptor-v1.schema.json": "db8e33297db2d7ed72aadf3624190d83501970da",
   "zoo-scenery-descriptor-v1.schema.json": "01e41bd30a0945f59e30daf698d644751b6e0bc3",
   "zoo-scenery-descriptor-v2.schema.json": "25948e75f8bf8d54cf403c842d6130309669aeff",
 };

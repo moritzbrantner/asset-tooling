@@ -1,0 +1,10 @@
+{
+  "script": "scripts/build-combat-robot.ts",
+  "blender": true,
+  "ktx": true,
+  "budget": {
+    "materials": 1,
+    "textureMemoryMB": 23,
+    "downloadMB": 2
+  }
+}
