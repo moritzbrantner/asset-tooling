@@ -1,0 +1,10 @@
+{
+  "script": "scripts/build-shooter-arena.ts",
+  "blender": true,
+  "ktx": true,
+  "budget": {
+    "materials": 1,
+    "textureMemoryMB": 24,
+    "downloadMB": 2.4
+  }
+}

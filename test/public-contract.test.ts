@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import * as publicApi from "../src/index.js";
 
 const PUBLISHED_SCHEMA_BLOBS = {
+  "arena-kit-descriptor-v1.schema.json": "231120922d1db05de997cf7e0feae7979e331856",
   "asset-bundle-v1.schema.json": "2de513d0ca3733eae9d4f5e3c95de87a3db4ac5f",
   "asset-bundle-v2.schema.json": "7dd87542fb9e4d0a03ba2bf1be7f4312ef3eebaa",
   "asset-bundle-v3.schema.json": "caf63ba526ad50fbae3a74e1725e0e1536b1a36f",

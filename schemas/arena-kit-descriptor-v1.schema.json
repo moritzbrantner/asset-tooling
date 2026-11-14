@@ -1,0 +1,204 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/moritzbrantner/asset-tooling/schemas/arena-kit-descriptor-v1.schema.json",
+  "title": "Modular arena kit descriptor v1",
+  "description": "Placement boxes, grid, collision proxies (Block, Ramp and JumpPad pieces), destructible variants, LODs and review compositions of a modular arena environment kit (docs/shooter-arena.md). Metres, glTF frame (+Y up, front +Z).",
+  "type": "object",
+  "required": ["schema", "kit", "units", "up", "facing", "handedness", "origin", "grid", "placement", "collision", "destruction", "authority", "lodSelection", "material", "assets", "compositions", "sources"],
+  "additionalProperties": false,
+  "properties": {
+    "schema": { "const": "arena-kit-descriptor-v1" },
+    "kit": { "type": "string" },
+    "units": { "const": "metre" },
+    "up": { "const": "+Y" },
+    "facing": { "const": "+Z" },
+    "handedness": { "const": "right" },
+    "origin": { "type": "string" },
+    "grid": {
+      "type": "object",
+      "required": ["cell", "module", "heightStep", "wallThickness", "wallHeights", "coverHeights", "rampSlope", "hullModule", "hullShoulderDegrees"],
+      "additionalProperties": false,
+      "properties": {
+        "cell": { "type": "number" },
+        "module": { "type": "number" },
+        "heightStep": { "type": "number" },
+        "wallThickness": { "type": "number" },
+        "wallHeights": { "type": "array", "items": { "type": "number" } },
+        "coverHeights": { "type": "array", "items": { "type": "number" } },
+        "rampSlope": {
+          "type": "object",
+          "required": ["rise", "run", "degrees"],
+          "additionalProperties": false,
+          "properties": { "rise": { "type": "number" }, "run": { "type": "number" }, "degrees": { "type": "number" } }
+        },
+        "hullModule": { "type": "number" },
+        "hullShoulderDegrees": { "type": "number" }
+      }
+    },
+    "placement": { "type": "string" },
+    "collision": { "type": "string" },
+    "destruction": { "type": "string" },
+    "authority": { "type": "string" },
+    "lodSelection": {
+      "type": "object",
+      "required": ["metric", "referenceFovYDegrees", "rule"],
+      "additionalProperties": false,
+      "properties": {
+        "metric": { "const": "projected-bounding-sphere-height-fraction" },
+        "referenceFovYDegrees": { "type": "number" },
+        "rule": { "type": "string" }
+      }
+    },
+    "material": {
+      "type": "object",
+      "required": ["name", "note"],
+      "additionalProperties": false,
+      "properties": { "name": { "type": "string" }, "note": { "type": "string" } }
+    },
+    "assets": { "type": "array", "items": { "$ref": "#/$defs/asset" } },
+    "compositions": { "type": "array", "items": { "$ref": "#/$defs/composition" } },
+    "sources": { "type": "string" }
+  },
+  "$defs": {
+    "vec3": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 },
+    "aabb": {
+      "type": "object",
+      "required": ["min", "max"],
+      "additionalProperties": false,
+      "properties": { "min": { "$ref": "#/$defs/vec3" }, "max": { "$ref": "#/$defs/vec3" } }
+    },
+    "proxy": {
+      "type": "object",
+      "required": ["name", "tag", "shape", "center", "size"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "tag": { "enum": ["walkable", "blocked", "trigger"] },
+        "shape": { "enum": ["box", "ramp"] },
+        "center": { "$ref": "#/$defs/vec3" },
+        "size": { "$ref": "#/$defs/vec3" },
+        "rises": { "enum": ["+X", "-X", "+Z", "-Z"] }
+      }
+    },
+    "lods": {
+      "type": "object",
+      "required": ["boundingSphere", "levels"],
+      "additionalProperties": false,
+      "properties": {
+        "boundingSphere": {
+          "type": "object",
+          "required": ["center", "radius"],
+          "additionalProperties": false,
+          "properties": { "center": { "$ref": "#/$defs/vec3" }, "radius": { "type": "number" } }
+        },
+        "levels": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["variant", "triangles", "minScreenSize", "referenceMaxDistance"],
+            "additionalProperties": false,
+            "properties": {
+              "variant": { "type": "string" },
+              "triangles": { "type": "integer" },
+              "minScreenSize": { "type": "number" },
+              "referenceMaxDistance": { "type": ["number", "null"] }
+            }
+          }
+        }
+      }
+    },
+    "variant": {
+      "type": "object",
+      "required": ["bundleVariant", "collisionProxies", "triangles", "bounds", "lods"],
+      "additionalProperties": false,
+      "properties": {
+        "bundleVariant": { "type": "string" },
+        "collisionProxies": { "type": "array", "items": { "$ref": "#/$defs/proxy" } },
+        "triangles": { "type": "integer" },
+        "bounds": { "$ref": "#/$defs/aabb" },
+        "lods": { "$ref": "#/$defs/lods" }
+      }
+    },
+    "asset": {
+      "type": "object",
+      "required": ["key", "category", "kind", "origin", "note", "box", "size", "bounds", "triangles", "nodes", "collisionProxies", "lods", "variants"],
+      "additionalProperties": false,
+      "properties": {
+        "key": { "type": "string", "pattern": "^arena\\.[a-z-]+$" },
+        "category": { "enum": ["surface", "wall", "door", "cover", "platform", "ramp", "jump-pad", "prop", "hull"] },
+        "kind": { "enum": ["module", "prop"] },
+        "origin": { "enum": ["base-center", "top-center"] },
+        "note": { "type": "string" },
+        "box": { "$ref": "#/$defs/aabb" },
+        "size": { "$ref": "#/$defs/vec3" },
+        "bounds": { "$ref": "#/$defs/aabb" },
+        "triangles": { "type": "integer" },
+        "nodes": { "type": "array", "items": { "type": "string" } },
+        "collisionProxies": { "type": "array", "items": { "$ref": "#/$defs/proxy" } },
+        "lods": { "$ref": "#/$defs/lods" },
+        "variants": {
+          "type": "object",
+          "required": ["default"],
+          "additionalProperties": false,
+          "properties": { "default": { "$ref": "#/$defs/variant" }, "broken": { "$ref": "#/$defs/variant" } }
+        },
+        "doorway": {
+          "type": "object",
+          "required": ["center", "width", "height", "depth", "min", "max"],
+          "additionalProperties": false,
+          "properties": {
+            "center": { "$ref": "#/$defs/vec3" },
+            "width": { "type": "number" },
+            "height": { "type": "number" },
+            "depth": { "type": "number" },
+            "min": { "$ref": "#/$defs/vec3" },
+            "max": { "$ref": "#/$defs/vec3" }
+          }
+        },
+        "mount": {
+          "type": "object",
+          "required": ["key", "translation"],
+          "additionalProperties": false,
+          "properties": { "key": { "type": "string" }, "translation": { "$ref": "#/$defs/vec3" } }
+        },
+        "open": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": { "leaf-left": { "$ref": "#/$defs/vec3" }, "leaf-right": { "$ref": "#/$defs/vec3" } }
+        },
+        "anchors": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "kind", "position"],
+            "additionalProperties": false,
+            "properties": { "name": { "type": "string" }, "kind": { "type": "string" }, "position": { "$ref": "#/$defs/vec3" } }
+          }
+        }
+      }
+    },
+    "composition": {
+      "type": "object",
+      "required": ["name", "note", "items"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "note": { "type": "string" },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["key", "translation"],
+            "additionalProperties": false,
+            "properties": {
+              "key": { "type": "string" },
+              "variant": { "enum": ["default", "broken"] },
+              "translation": { "$ref": "#/$defs/vec3" },
+              "yawDegrees": { "enum": [0, 90, 180, 270] }
+            }
+          }
+        }
+      }
+    }
+  }
+}
