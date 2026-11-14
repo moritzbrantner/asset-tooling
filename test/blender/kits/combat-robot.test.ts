@@ -146,7 +146,7 @@ test("the recipe builds a verified kit on one atlas, every part inside its cuboi
     assert.deepEqual(conforms(schema, descriptor, schema), []);
     assert.deepEqual(descriptor.parts.map((part: any) => [part.key, part.socketCount]), [
       ["robot.chassis.20x40x80", 28], ["robot.chassis.40x40x80", 40], ["robot.chassis.40x60x80", 52], ["robot.beam.20x20x40", 10], ["robot.beam.20x20x80", 18],
-      ["robot.core", 0], ["robot.sensor", 0], ["robot.battery", 0], ["robot.armor.plate", 0], ["robot.joint.hinge", 1], ["robot.joint.rotor", 1], ["robot.leg", 0],
+      ["robot.sensor", 0], ["robot.battery", 0], ["robot.armor.plate", 0], ["robot.joint.hinge", 1], ["robot.joint.rotor", 1], ["robot.leg", 0],
     ]);
     for (const part of descriptor.parts) {
       assert.deepEqual(part.joints, ROBOT_JOINTS[part.key]?.joints ?? [], `${part.key}: joints`);

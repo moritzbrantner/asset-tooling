@@ -39,7 +39,8 @@ export type RobotPartType = { key: string; kind: string; cells: [number, number,
 
 /**
  * The parts this kit builds, exactly as Shooter's catalog declares them (crates/shooter-sim/src/robot.rs `parts`:
- * key, cells x * y * z, socket faces). robot.battery arrived with shooter#79.
+ * key, cells x * y * z, socket faces). robot.battery arrived with shooter#79; robot.core was retired with shooter#89 (the
+ * root chassis is now the vital part).
  */
 export const ROBOT_PARTS: readonly RobotPartType[] = [
   { key: "robot.chassis.20x40x80", kind: "chassis", cells: [1, 2, 4], sockets: "ALL", variants: ["default"] },
@@ -47,7 +48,6 @@ export const ROBOT_PARTS: readonly RobotPartType[] = [
   { key: "robot.chassis.40x60x80", kind: "chassis", cells: [2, 3, 4], sockets: "ALL", variants: ["default"] },
   { key: "robot.beam.20x20x40", kind: "beam", cells: [1, 1, 2], sockets: "ALL", variants: ["default"] },
   { key: "robot.beam.20x20x80", kind: "beam", cells: [1, 1, 4], sockets: "ALL", variants: ["default"] },
-  { key: "robot.core", kind: "core", cells: [1, 1, 1], sockets: "NONE", variants: ["default"] },
   { key: "robot.sensor", kind: "sensor", cells: [1, 1, 1], sockets: "NONE", variants: ["default"] },
   { key: "robot.battery", kind: "battery", cells: [1, 2, 1], sockets: "NONE", variants: ["default"] },
   { key: "robot.armor.plate", kind: "armor", cells: [2, 2, 1], sockets: "NONE", variants: ["default", "damaged"] },
@@ -129,7 +129,7 @@ const turn = (quarters: number): Orientation => ({ ...IDENTITY, yaw: quarters * 
 
 /**
  * Review builds, each a single-parent tree on the socket grid. `humanoid` is Shooter's HEAVY build exactly (robot.rs:
- * the medium chassis, core and battery on its back, sensor on top, a long beam per arm, two legs, the rail gun along
+ * the medium chassis, a battery on its back, sensor on top, a long beam per arm, two legs, the rail gun along
  * the left arm, the blade in the right hand, the rocket launcher on top, the grapple on the chest) plus one armor plate
  * on its chest. `robo-dog` lays the medium chassis along +X on four legs with a nodding sensor head on a hinge.
  * `mini-tank` lays the large chassis on two placeholder tracks with a rotor, riser, hinge and gun. `turret` is a
@@ -141,7 +141,6 @@ export const ROBOT_COMPOSITIONS: Record<string, { note: string; items: Item[] }>
     note: "Shooter's HEAVY build (crates/shooter-sim/src/robot.rs) plus an armor plate on the chest, standing on its placeholder legs; it faces +X.",
     items: [
       { id: "torso", key: "robot.chassis.40x40x80", translation: [0, 0.8, 0] },
-      { id: "core", key: "robot.core", parent: "torso", mount: { face: "NegX", u: 2, v: 0 } },
       { id: "sensor", key: "robot.sensor", parent: "torso", mount: { face: "PosZ", u: 0, v: 0 } },
       { id: "arm-left", key: "robot.beam.20x20x80", parent: "torso", mount: { face: "PosY", u: 3, v: 0 } },
       { id: "arm-right", key: "robot.beam.20x20x80", parent: "torso", mount: { face: "NegY", u: 0, v: 3 } },
@@ -156,7 +155,7 @@ export const ROBOT_COMPOSITIONS: Record<string, { note: string; items: Item[] }>
     ],
   },
   "robo-dog": {
-    note: "A quadruped: the medium chassis lying along +X as the body, four legs underneath at its corners, a sensor head nodding on a hinge at the front, the core and a battery on its back and armor plates on its flanks (one damaged).",
+    note: "A quadruped: the medium chassis lying along +X as the body, four legs underneath at its corners, a sensor head nodding on a hinge at the front, a battery on its back and armor plates on its flanks (one damaged).",
     items: [
       { id: "body", key: "robot.chassis.40x40x80", translation: [-0.4, 1.1, 0.2], orientation: { yaw: 0, pitch: QUARTER_TURN, roll: 0 } },
       { id: "leg-rear-left", key: "robot.leg", parent: "body", mount: { face: "PosX", u: 0, v: 0 } },
@@ -165,14 +164,13 @@ export const ROBOT_COMPOSITIONS: Record<string, { note: string; items: Item[] }>
       { id: "leg-front-right", key: "robot.leg", parent: "body", mount: { face: "PosX", u: 1, v: 3 } },
       { id: "neck", key: "robot.joint.hinge", parent: "body", mount: { face: "NegX", u: 3, v: 0, orientation: turn(1) } },
       { id: "head", key: "robot.sensor", parent: "neck", mount: { face: "PosZ", u: 0, v: 0, orientation: turn(-1) } },
-      { id: "core", key: "robot.core", parent: "body", mount: { face: "NegX", u: 0, v: 1 } },
       { id: "battery", key: "robot.battery", parent: "body", mount: { face: "NegX", u: 1, v: 0, orientation: turn(1) } },
       { id: "flank-left", key: "robot.armor.plate", parent: "body", mount: { face: "PosY", u: 1, v: 0 } },
       { id: "flank-right", key: "robot.armor.plate", variant: "damaged", parent: "body", mount: { face: "NegY", u: 0, v: 1 } },
     ],
   },
   "mini-tank": {
-    note: "A low tracked tank: the large chassis lying along +X on two tracks (placeholders until #634), a rotor on its deck with a riser, a hinge and the rail gun (placeholder until #594) as a pitching, turning turret, the core at the back, a sensor and a battery on the deck and an armor plate on the nose.",
+    note: "A low tracked tank: the large chassis lying along +X on two tracks (placeholders until #634), a rotor on its deck with a riser, a hinge and the rail gun (placeholder until #594) as a pitching, turning turret, a sensor and a battery on the deck and an armor plate on the nose.",
     items: [
       { id: "hull", key: "robot.chassis.40x60x80", translation: [-0.4, 0.7, 0.3], orientation: { yaw: 0, pitch: QUARTER_TURN, roll: 0 } },
       { id: "track-left", key: "robot.track", parent: "hull", mount: { face: "PosX", u: 0, v: 0 } },
@@ -181,14 +179,13 @@ export const ROBOT_COMPOSITIONS: Record<string, { note: string; items: Item[] }>
       { id: "riser", key: "robot.beam.20x20x40", parent: "rotor", mount: { face: "PosZ", u: 0, v: 0 } },
       { id: "elevation", key: "robot.joint.hinge", parent: "riser", mount: { face: "PosX", u: 0, v: 1 } },
       { id: "rail-gun", key: "weapon.rail-gun", parent: "elevation", mount: { face: "PosZ", u: 0, v: 0 } },
-      { id: "core", key: "robot.core", parent: "hull", mount: { face: "NegZ", u: 1, v: 1 } },
       { id: "sensor", key: "robot.sensor", parent: "hull", mount: { face: "NegX", u: 3, v: 0 } },
       { id: "battery", key: "robot.battery", parent: "hull", mount: { face: "NegX", u: 0, v: 0 } },
       { id: "nose-plate", key: "robot.armor.plate", parent: "hull", mount: { face: "PosZ", u: 0, v: 0 } },
     ],
   },
   turret: {
-    note: "A stationary turret: the large chassis as the pedestal, a rotor, a riser beam, a hinge and the medium chassis as the gun housing pointing +X, with armor, the core, a battery and a sensor.",
+    note: "A stationary turret: the large chassis as the pedestal, a rotor, a riser beam, a hinge and the medium chassis as the gun housing pointing +X, with armor, a battery and a sensor.",
     items: [
       { id: "pedestal", key: "robot.chassis.40x60x80", translation: [-0.1, 0, 0.2] },
       { id: "rotor", key: "robot.joint.rotor", parent: "pedestal", mount: { face: "PosZ", u: 0, v: 1 } },
@@ -197,7 +194,6 @@ export const ROBOT_COMPOSITIONS: Record<string, { note: string; items: Item[] }>
       { id: "housing", key: "robot.chassis.40x40x80", parent: "elevation", mount: { face: "PosZ", u: 0, v: 0 } },
       { id: "sensor", key: "robot.sensor", parent: "housing", mount: { face: "PosY", u: 3, v: 0 } },
       { id: "rail-gun", key: "weapon.rail-gun", parent: "housing", mount: { face: "PosZ", u: 0, v: 0 } },
-      { id: "core", key: "robot.core", parent: "pedestal", mount: { face: "NegX", u: 3, v: 1 } },
       { id: "battery", key: "robot.battery", parent: "pedestal", mount: { face: "NegX", u: 1, v: 0 } },
       { id: "front-plate", key: "robot.armor.plate", parent: "pedestal", mount: { face: "PosX", u: 0, v: 0 } },
       { id: "side-plate", key: "robot.armor.plate", variant: "damaged", parent: "pedestal", mount: { face: "PosY", u: 0, v: 0, orientation: turn(0) } },

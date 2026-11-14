@@ -66,9 +66,9 @@ The descriptor is canonical JSON, the `socket-grid-descriptor` attachment of `ro
 ## Compositions
 
 - **`biped`**: for comparison, Shooter's humanoid frame on the small chassis on the robot kit's legs, with the rifle and the grapple.
-- **`wheeler`**: Shooter's `car` fixture exactly (`mechanics/fixtures.rs`: the large chassis on end, the core on top, four wheels on its sides, each turned on its socket to hang over a bottom corner), plus a sensor and the grapple on its front.
+- **`wheeler`**: Shooter's `car` fixture exactly (`mechanics/fixtures.rs`: the large chassis on end, a sensor on top where the retired core sat, four wheels on its sides, each turned on its socket to hang over a bottom corner), plus the grapple on its front.
 - **`strafer`**: Shooter's `strafer` fixture exactly: the same wheels on the chassis' front and back, so the same drive moves it sideways. The unusual wheel mounting.
-- **`mini-tank`**: the large chassis lying along +X as a 40 cm hull with a track on each side over its lower cell row (axles across the hull), a rotor, riser and hinge carrying the rail gun, the core at the back, a sensor and the grapple in front. The robot and weapon kits' `mini-tank` builds keep their tracks as placeholders on the hull's underside, where Shooter's mechanics would turn them about a vertical axis; this kit's mini-tank mounts them where they roll.
+- **`mini-tank`**: the large chassis lying along +X as a 40 cm hull with a track on each side over its lower cell row (axles across the hull), a rotor, riser and hinge carrying the rail gun, a sensor and the grapple in front. The robot and weapon kits' `mini-tank` builds keep their tracks as placeholders on the hull's underside, where Shooter's mechanics would turn them about a vertical axis; this kit's mini-tank mounts them where they roll.
 - **`crab`**: the same hull with its tracks on its front and back ends, overhanging by a cell, so it crawls sideways. The unusual track mounting.
 
 `test/robot-locomotion.test.ts` checks that they assemble flush without overlaps, every child touching its parent, and that every Shooter body of every wheel and track touches the ground with a horizontal axle.

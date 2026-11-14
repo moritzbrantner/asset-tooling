@@ -9,11 +9,11 @@ const cross = (a: number[], b: number[]) => [a[1]! * b[2]! - a[2]! * b[1]!, a[2]
 
 test("the kit's parts are Shooter's catalog rows, with its socket counts", () => {
   const rows = Object.fromEntries(ROBOT_PARTS.map((part) => [part.key, [part.cells, part.sockets]]));
-  // robot.rs parts: key, cells, socket faces (robot.battery from shooter#79).
+  // robot.rs parts: key, cells, socket faces (robot.battery from shooter#79; robot.core retired with shooter#89).
   assert.deepEqual(rows, {
     "robot.chassis.20x40x80": [[1, 2, 4], "ALL"], "robot.chassis.40x40x80": [[2, 2, 4], "ALL"], "robot.chassis.40x60x80": [[2, 3, 4], "ALL"],
     "robot.beam.20x20x40": [[1, 1, 2], "ALL"], "robot.beam.20x20x80": [[1, 1, 4], "ALL"],
-    "robot.core": [[1, 1, 1], "NONE"], "robot.sensor": [[1, 1, 1], "NONE"], "robot.battery": [[1, 2, 1], "NONE"], "robot.armor.plate": [[2, 2, 1], "NONE"],
+    "robot.sensor": [[1, 1, 1], "NONE"], "robot.battery": [[1, 2, 1], "NONE"], "robot.armor.plate": [[2, 2, 1], "NONE"],
     "robot.joint.hinge": [[1, 1, 1], "TOP"], "robot.joint.rotor": [[1, 1, 1], "TOP"], "robot.leg": [[1, 1, 4], "NONE"],
   });
   const count = (key: string) => { const part = ROBOT_PARTS.find((p) => p.key === key)!; return partSockets(part.cells, SOCKET_FACES[part.sockets]).length; };
@@ -25,14 +25,14 @@ test("the kit's parts are Shooter's catalog rows, with its socket counts", () =>
   assert.equal(count("robot.chassis.40x60x80"), 52);
   assert.equal(count("robot.beam.20x20x40"), 10);
   assert.equal(count("robot.beam.20x20x80"), 18);
-  assert.equal(count("robot.core"), 0);
+  assert.equal(count("robot.sensor"), 0);
   assert.equal(ROBOT_PARTS.find((p) => p.key === "robot.armor.plate")!.variants.includes("damaged"), true);
 });
 
 test("sockets follow Shooter's numbering and sit on their faces, one per cell", () => {
   const cells = [1, 2, 4];
   const sockets = partSockets(cells, FACES);
-  // Shooter's frame(): the arm on PosY at (side - 1, 0) and on NegY at (0, right - 1), the core on NegX at (2, 0).
+  // Shooter's frame(): the arm on PosY at (side - 1, 0) and on NegY at (0, right - 1); a back socket, NegX (2, 0).
   assert.equal(sockets.find((s) => s.face === "PosY" && s.u === 3 && s.v === 0)!.id, 8 + 8 + 3);
   assert.equal(sockets.find((s) => s.face === "NegX" && s.u === 2 && s.v === 0)!.id, 8 + 2);
   assert.deepEqual(faceGrid("NegY", cells), [1, 4]);

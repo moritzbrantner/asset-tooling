@@ -123,14 +123,14 @@ const GROUND = { normal: [0, 1, 0] as Vec3, uAxis: [1, 0, 0] as Vec3, vAxis: [0,
 const yaw = (quarters: number): Orientation => ({ ...IDENTITY, yaw: quarters * QUARTER_TURN });
 const L = "robot.chassis.40x60x80";
 
-/** Shooter's wheeled fixtures (crates/shooter-sim/src/mechanics/fixtures.rs `wheeled`): the large chassis on end, the core
- * on top, four wheels hanging over the bottom corners of two opposite faces. */
+/** Shooter's wheeled fixtures (crates/shooter-sim/src/mechanics/fixtures.rs `wheeled`): the large chassis on end, a sensor
+ * on top where the retired core sat (shooter#89), four wheels hanging over the bottom corners of two opposite faces. */
 function wheeled(sideways: boolean, lift: number): Item[] {
   const [left, right]: Face[] = sideways ? ["PosX", "NegX"] : ["PosY", "NegY"];
   const [secondLeft, secondRight, quarterLeft, quarterRight] = sideways ? [[2, 0], [0, 2], 3, 1] as const : [[0, 1], [1, 0], 1, 3] as const;
   return [
     { id: "chassis", key: L, translation: [-0.1, lift, 0.1] },
-    { id: "core", key: "robot.core", parent: "chassis", mount: { face: "PosZ", u: 0, v: 0 } },
+    { id: "sensor", key: "robot.sensor", parent: "chassis", mount: { face: "PosZ", u: 0, v: 0 } },
     { id: "wheel-left-rear", key: "robot.wheel", parent: "chassis", mount: { face: left, u: 0, v: 0, orientation: yaw(2) } },
     { id: "wheel-left-front", key: "robot.wheel", parent: "chassis", mount: { face: left, u: secondLeft[0], v: secondLeft[1], orientation: yaw(quarterLeft) } },
     { id: "wheel-right-rear", key: "robot.wheel", parent: "chassis", mount: { face: right, u: 0, v: 0, orientation: yaw(2) } },
@@ -138,18 +138,17 @@ function wheeled(sideways: boolean, lift: number): Item[] {
   ];
 }
 
-/** The large chassis lying along +X as a hull (40 cm tall, 60 wide, its bottom on the ground), the core on its back. */
+/** The large chassis lying along +X as a hull (40 cm tall, 60 wide, its bottom on the ground). */
 function hull(): Item[] {
   return [
     { id: "hull", key: L, translation: [-0.4, 0.3, 0.2], orientation: { yaw: 0, pitch: QUARTER_TURN, roll: 0 } },
-    { id: "core", key: "robot.core", parent: "hull", mount: { face: "NegZ", u: 1, v: 0 } },
   ];
 }
 
 /**
  * Review builds. `biped` is Shooter's humanoid frame on the robot kit's legs, for comparison; `wheeler` and `strafer` are
  * Shooter's `car` and `strafer` fixtures exactly (wheels on the sides, then on the front and back: the unusual mounting
- * that drives it sideways), each with a sensor and a grapple added; `mini-tank` lays the large chassis on two tracks on
+ * that drives it sideways), the wheeler with a grapple added; `mini-tank` lays the large chassis on two tracks on
  * its sides (their axles across the hull) under a rotor, hinge and rail-gun turret; `crab` carries its tracks on the
  * hull's ends, overhanging, so it crawls sideways.
  */
@@ -158,7 +157,6 @@ export const LOCOMOTION_COMPOSITIONS: Record<string, { note: string; items: Item
     note: "For comparison: Shooter's humanoid frame on the small chassis (robot.rs `frame`) on the robot kit's legs, with the rifle and the grapple.",
     items: [
       { id: "torso", key: "robot.chassis.20x40x80", translation: [0, 0.8, 0] },
-      { id: "core", key: "robot.core", parent: "torso", mount: { face: "NegX", u: 2, v: 0 } },
       { id: "sensor", key: "robot.sensor", parent: "torso", mount: { face: "PosZ", u: 0, v: 0 } },
       { id: "arm-left", key: "robot.beam.20x20x80", parent: "torso", mount: { face: "PosY", u: 3, v: 0 } },
       { id: "arm-right", key: "robot.beam.20x20x80", parent: "torso", mount: { face: "NegY", u: 0, v: 3 } },
@@ -169,15 +167,15 @@ export const LOCOMOTION_COMPOSITIONS: Record<string, { note: string; items: Item
     ],
   },
   wheeler: {
-    note: "Shooter's `car` fixture exactly (the large chassis on end, the core on top, four wheels hanging over the bottom corners of its sides, axles across), plus a sensor and the grapple on its front.",
-    items: [...wheeled(false, 0.2 - 0.02), { id: "sensor", key: "robot.sensor", parent: "chassis", mount: { face: "PosX", u: 2, v: 3 } }, { id: "grapple", key: "weapon.grapple-hook", parent: "chassis", mount: { face: "PosX", u: 0, v: 3 } }],
+    note: "Shooter's `car` fixture exactly (the large chassis on end, a sensor on top where the retired core sat, four wheels hanging over the bottom corners of its sides, axles across), plus the grapple on its front.",
+    items: [...wheeled(false, 0.2 - 0.02), { id: "grapple", key: "weapon.grapple-hook", parent: "chassis", mount: { face: "PosX", u: 0, v: 3 } }],
   },
   strafer: {
     note: "Shooter's `strafer` fixture exactly: the same four wheels on the chassis' front and back, axles along its length, so the same drive moves it sideways. The unusual wheel mounting.",
-    items: [...wheeled(true, 0.2 - 0.02), { id: "sensor", key: "robot.sensor", parent: "chassis", mount: { face: "PosX", u: 1, v: 3 } }],
+    items: wheeled(true, 0.2 - 0.02),
   },
   "mini-tank": {
-    note: "A low tank: the large chassis lying along +X (40 cm tall, 60 wide) with a track on each side over its lower cell row (axles across the hull, the belt's bottom flush with the hull's), a rotor, riser and hinge carrying the rail gun, the core at the back, a sensor and the grapple on the front.",
+    note: "A low tank: the large chassis lying along +X (40 cm tall, 60 wide) with a track on each side over its lower cell row (axles across the hull, the belt's bottom flush with the hull's), a rotor, riser and hinge carrying the rail gun, a sensor and the grapple on the front.",
     items: [
       ...hull(),
       { id: "track-left", key: "robot.track", parent: "hull", mount: { face: "PosY", u: 0, v: 1, orientation: yaw(-1) } },

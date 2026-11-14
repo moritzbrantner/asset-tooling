@@ -178,11 +178,10 @@ type Mount = { face: Face; u: number; v: number; orientation?: Orientation };
 type Item = { id: string; key: string; variant?: string; parent?: string; mount?: Mount; translation?: Vec3; orientation?: Orientation; mod?: string };
 const GROUND = { normal: [0, 1, 0] as Vec3, uAxis: [1, 0, 0] as Vec3, vAxis: [0, 0, -1] as Vec3 };
 
-/** Shooter's humanoid frame (robot.rs `frame`) on `torso`: the core on its back, the sensor on top, an arm a side, two legs. */
+/** Shooter's humanoid frame (robot.rs `frame`) on `torso`: the sensor on top, an arm a side, two legs. */
 function frame(torso: string, cells: readonly number[]): Item[] {
   return [
     { id: "torso", key: torso, translation: [0, 0.8, 0] },
-    { id: "core", key: "robot.core", parent: "torso", mount: { face: "NegX", u: 2, v: 0 } },
     { id: "sensor", key: "robot.sensor", parent: "torso", mount: { face: "PosZ", u: 0, v: 0 } },
     { id: "arm-left", key: "robot.beam.20x20x80", parent: "torso", mount: { face: "PosY", u: cells[2]! - 1, v: 0 } },
     { id: "arm-right", key: "robot.beam.20x20x80", parent: "torso", mount: { face: "NegY", u: 0, v: cells[2]! - 1 } },
