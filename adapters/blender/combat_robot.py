@@ -39,7 +39,6 @@ PARTS = {
     "robot.chassis.40x60x80": ((2, 3, 4), True),
     "robot.beam.20x20x40": ((1, 1, 2), True),
     "robot.beam.20x20x80": ((1, 1, 4), True),
-    "robot.core": ((1, 1, 1), False),
     "robot.sensor": ((1, 1, 1), False),
     "robot.battery": ((1, 2, 1), False),
     "robot.armor.plate": ((2, 2, 1), False),
@@ -71,6 +70,7 @@ ARMOR = np.array((0.42, 0.44, 0.38))         # armor: olive drab
 ATLAS_EDGE = 2048
 CELL_PX = 512
 GUTTER = 8
+# "core-glow" is unused since robot.core was retired (shooter#89, #649); it stays so the atlas layout does not move.
 CELLS = {
     "socket": (0, 0), "socket-flat": (1, 0), "paint": (2, 0), "gunmetal": (3, 0),
     "steel": (0, 1), "socket-beam": (1, 1), "hazard": (2, 1), "vent": (3, 1),
@@ -571,31 +571,6 @@ def beam(p):
     p.socket_cuboid("beam-paint", "socket-beam", "socket-flat-beam", "gunmetal")
 
 
-def core(p):
-    """The control core, the kill target: a white-hot reactor sphere in an open armoured cage on a hazard-striped base."""
-    lvl = p.level
-    p.box((-0.1, -0.1, 0), (0.1, 0.1, 0.035), "hazard", bevel=0.006 if lvl == 0 else 0, top="panel")
-    if lvl < 2:
-        for sx in (-1, 1):
-            for sy in (-1, 1):
-                p.box((sx * 0.1 - (0.02 if sx > 0 else 0), sy * 0.1 - (0.02 if sy > 0 else 0), 0.035),
-                      (sx * 0.1 + (0.02 if sx < 0 else 0), sy * 0.1 + (0.02 if sy < 0 else 0), 0.184), "gunmetal", bevel=0.004 if lvl == 0 else 0)
-        # The top frame: four bars round an open square, so the glow shows from above too.
-        for lo, hi in (((-0.1, -0.1, 0.184), (0.1, -0.08, 0.2)), ((-0.1, 0.08, 0.184), (0.1, 0.1, 0.2)),
-                       ((-0.1, -0.08, 0.184), (-0.08, 0.08, 0.2)), ((0.08, -0.08, 0.184), (0.1, 0.08, 0.2))):
-            p.box(lo, hi, "gunmetal", bevel=0.003 if lvl == 0 else 0)
-        p.sphere((0, 0, 0.11), 0.074, 20 if lvl == 0 else 10, 12 if lvl == 0 else 6, "core-glow")
-        if lvl == 0:
-            # Containment rings: one round the equator, two meridians. Each is a closed thin disc whose middle hides
-            # inside the sphere, so only the ring shows and no open edge does from any side.
-            for axis in ((0, 0, 1), (1, 0, 0), (0, 1, 0)):
-                p.cylinder(Vector((0, 0, 0.11)) - Vector(axis) * 0.005, axis, 0.077, 0.01, 24, "steel")
-            p.cylinder((0, 0, 0.035), (0, 0, 1), 0.03, 0.012, 12, "steel")
-    else:
-        p.box((-0.07, -0.07, 0.04), (0.07, 0.07, 0.18), "core-glow")
-    return {}
-
-
 def sensor(p):
     """A sensor head: a housing with a large lens looking along +x, side vents and a neck collar."""
     lvl = p.level
@@ -879,7 +854,7 @@ def add_clips(obj):
 BUILDERS = {
     "robot.chassis.20x40x80": chassis, "robot.chassis.40x40x80": chassis, "robot.chassis.40x60x80": chassis,
     "robot.beam.20x20x40": beam, "robot.beam.20x20x80": beam,
-    "robot.core": core, "robot.sensor": sensor, "robot.battery": battery, "robot.armor.plate": armor_plate,
+    "robot.sensor": sensor, "robot.battery": battery, "robot.armor.plate": armor_plate,
     "robot.joint.hinge": hinge, "robot.joint.rotor": rotor, "robot.leg": leg,
 }
 

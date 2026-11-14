@@ -4,7 +4,7 @@ The eight weapons and four weapon mods of the [Shooter](https://github.com/moena
 
 It is a reproducible Blender recipe, [`adapters/blender/shooter_weapons.py`](../adapters/blender/shooter_weapons.py), built to the [kit standard](kit-standard.md) and shipped as its own rolling release, `shooter-weapons` (`shooter-weapons.kit.tar`). It is original procedural work with no third-party assets (see [Sources](#sources)). No game places it yet.
 
-**Why its own release.** The robot release is at 1.97 MB of its 2 MB download budget, and weapons are a separate catalogue a game may load on its own (pickups, shooter#62). One kit, one release (kit standard): `shooter-weapons` has its own `releases/shooter-weapons.json` and budget (1 material, 6 MB texture memory, 1.8 MB download; measured 5.6 MB and 1.61 MB).
+**Why its own release.** The robot release is near its 2 MB download budget (1.80 MB since the core was retired), and weapons are a separate catalogue a game may load on its own (pickups, shooter#62). One kit, one release (kit standard): `shooter-weapons` has its own `releases/shooter-weapons.json` and budget (1 material, 6 MB texture memory, 1.8 MB download; measured 5.6 MB and 1.61 MB).
 
 ## Build
 

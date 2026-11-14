@@ -4,7 +4,9 @@ Modular robot parts for the [Shooter](https://github.com/moenarch-games/shooter)
 
 It is a reproducible Blender recipe, [`adapters/blender/combat_robot.py`](../adapters/blender/combat_robot.py), built to the [kit standard](kit-standard.md) and shipped as one rolling release, `shooter-combat-robot` (`shooter-combat-robot.kit.tar`). It is original procedural work with no third-party assets (see [Sources](#sources)). No game places it yet.
 
-**Status.** The release has every part of #595: the nine static parts, the hinge and rotor joints with their axis frames, and the leg with its joint chain and reference walk clips. Every part is a closed surface, so it renders attached or detached on its own. Wheels and tracks come with #634 and weapons with #594.
+**Status.** The release has the eight static parts, the hinge and rotor joints with their axis frames, and the leg with its joint chain and reference walk clips. Every part is a closed surface, so it renders attached or detached on its own. Wheels and tracks come with #634 and weapons with #594.
+
+**Retired: `robot.core`.** Shooter removed the control core from its catalog (shooter#89): a robot's root chassis is now its vital part. The release no longer builds `robot.core` (models, LODs and descriptor entry are gone, #649), and no review build uses it. The atlas keeps its unused glow cell, so the layout does not move. Shooter owns the vital-part rule; the kit draws no cue for it.
 
 ## Build
 
@@ -25,7 +27,6 @@ Each part's key, cells and socket faces are Shooter's catalog row (`crates/shoot
 | `robot.chassis.40x60x80` | 2 × 3 × 4 | 52 | 1,016 / 184 / 12 | |
 | `robot.beam.20x20x40` | 1 × 1 × 2 | 10 | 220 / 60 / 12 | dark graphite structural beam, couplings on every cell |
 | `robot.beam.20x20x80` | 1 × 1 × 4 | 18 | 380 / 92 / 12 | |
-| `robot.core` | 1 × 1 × 1 | – | 1,156 / 208 / 24 | the kill target: a glowing orange reactor sphere in an open black cage on a hazard-striped base |
 | `robot.sensor` | 1 × 1 × 1 | – | 220 / 84 / 36 | a housing with a large lens looking along the part's +x, side vents |
 | `robot.battery` | 1 × 2 × 1 | – | 524 / 132 / 24 | one large cell along y in a cradle, a lit green charge window on top |
 | `robot.armor.plate` | 2 × 2 × 1 | – | 262 / 44 / 12 | an olive faceted plate on two brackets; `damaged`: holed, dented, scorched, a corner shot away |
@@ -33,11 +34,11 @@ Each part's key, cells and socket faces are Shooter's catalog row (`crates/shoot
 | `robot.joint.rotor` | 1 × 1 × 1 | 1 (top) | 492 / 188 / 24 | a continuous rotor: a square flange and drum, a steel bearing ring, and a turntable with hazard stripes round its rim (so a turn reads) and the coupling on top |
 | `robot.leg` | 1 × 1 × 4 | – | 1,172 / 444 / 48 | a self-contained 80 cm leg from a hip bracket on the mount face to the sole: pale thigh with an actuator and vent, graphite shin with an olive guard, a foot whose hazard toe points along the part's +y |
 
-The triangle counts are from the build of 2026-11-14; the descriptor carries each build's own. The core, sensor, battery, plate and leg have no sockets (Shooter's `Faces::NONE`), so nothing mounts on them; the hinge and rotor have one, on their moving top (Shooter's `Faces::TOP`, socket 0).
+The triangle counts are from the build of 2026-11-14; the descriptor carries each build's own. The sensor, battery, plate and leg have no sockets (Shooter's `Faces::NONE`), so nothing mounts on them; the hinge and rotor have one, on their moving top (Shooter's `Faces::TOP`, socket 0).
 
 **Bundle entries.** Every part has `default`, `lod1` and `lod2`; the plate also has `damaged`, `damaged-lod1` and `damaged-lod2`, with the same outline and hit proxy. The hinge, rotor and leg have the same skin and joint nodes at every level (lod2 is one box per moving piece), and every leg level carries the walk clips. Levels end at 60 m and 180 m for a piece up to 1 m across, scaled with its widest side (`scaledLodDistances`), in the descriptor's `lodSelection` and per-part `lods` (variant `lods` under `variants`). On chassis and beams, lod1 draws each coupling flat in the texture and lod2 is the bare cuboid with one flat coupling drawn over each face, which keeps lod1's average tone.
 
-**Materials and textures:** one opaque material, `robot-metal`, on a 2048 px KTX2 atlas of colour, normal, ORM (occlusion, roughness, metallic) and emissive. Its 4 × 4 cells hold the couplings (one per palette, plus their flat lod1 versions), paint, gunmetal, steel, hazard stripes, vents, the core's glow, the lens, the charge window, the armor and its damage, and the housings' panels. The glow of the core, lens and charge window is in the emissive map, at glTF emissive strength 1. Every part draws in one call.
+**Materials and textures:** one opaque material, `robot-metal`, on a 2048 px KTX2 atlas of colour, normal, ORM (occlusion, roughness, metallic) and emissive. Its 4 × 4 cells hold the couplings (one per palette, plus their flat lod1 versions), paint, gunmetal, steel, hazard stripes, vents, a spare glow cell (the retired core's), the lens, the charge window, the armor and its damage, and the housings' panels. The glow of the lens and charge window is in the emissive map, at glTF emissive strength 1. Every part draws in one call.
 
 ## Socket-grid convention
 
@@ -117,10 +118,10 @@ The descriptor is canonical JSON, the `socket-grid-descriptor` attachment of `ro
 
 ## Compositions
 
-- **`humanoid`:** Shooter's `HEAVY` build exactly (the medium chassis as the torso, the core and a battery on its back, the sensor on top, a long beam per arm, two legs below, the rail gun along the left arm, the blade on the right arm's tip, the rocket launcher on top, the grapple on the chest), plus one armor plate on the chest. It faces +X and stands with its legs' feet at y = 0.
-- **`robo-dog`:** the medium chassis turned a quarter (pitch) to lie along +X as the body, four legs on its underside at the corners, a sensor head on a hinge at the front that nods, the core and a battery on its back and an armor plate on each flank (one damaged).
-- **`mini-tank`:** the large chassis lying along +X on two tracks underneath, a rotor on its deck with a short riser, a hinge on the riser's front and the rail gun on the hinge, so the gun turns and pitches; the core on the back, the sensor and a battery on the deck and an armor plate on the nose.
-- **`turret`:** a stationary build: the large chassis as a pedestal with armor plates (one damaged) on its front and side, the core and a battery on its back, a rotor on top, a short riser beam, a hinge on the riser's front and the medium chassis on the hinge as a horizontal gun housing, with the sensor on top, an armor plate on its side and the rail gun on its muzzle end.
+- **`humanoid`:** Shooter's `HEAVY` build exactly (the medium chassis as the torso, a battery on its back, the sensor on top, a long beam per arm, two legs below, the rail gun along the left arm, the blade on the right arm's tip, the rocket launcher on top, the grapple on the chest), plus one armor plate on the chest. It faces +X and stands with its legs' feet at y = 0.
+- **`robo-dog`:** the medium chassis turned a quarter (pitch) to lie along +X as the body, four legs on its underside at the corners, a sensor head on a hinge at the front that nods, a battery on its back and an armor plate on each flank (one damaged).
+- **`mini-tank`:** the large chassis lying along +X on two tracks underneath, a rotor on its deck with a short riser, a hinge on the riser's front and the rail gun on the hinge, so the gun turns and pitches; the sensor and a battery on the deck and an armor plate on the nose.
+- **`turret`:** a stationary build: the large chassis as a pedestal with armor plates (one damaged) on its front and side, a battery on its back, a rotor on top, a short riser beam, a hinge on the riser's front and the medium chassis on the hinge as a horizontal gun housing, with the sensor on top, an armor plate on its side and the rail gun on its muzzle end.
 
 Every build faces +X. Parts other kits make (`robot.wheel`, `robot.track` from #634 and the `weapon.*` modules from #594) are listed as placeholders with their catalog cells. `test/socket-grid.test.ts` checks that every build assembles flush, with no two cuboids overlapping and every child touching its parent, that the legs' toes face +X and their joints turn about a sideways axis, that rotors turn about up and that the gun hinges pitch.
 
@@ -132,7 +133,7 @@ The tables at the top of the recipe set the recess (`RIM`, `WALL`, `RECESS`), th
 import bpy, runpy
 kit = runpy.run_path("adapters/blender/combat_robot.py")
 kit["use_common"](runpy.run_path("adapters/blender/kit_common.py"))
-kit["build"]("robot.core", bpy.context.scene.collection, level=0)
+kit["build"]("robot.sensor", bpy.context.scene.collection, level=0)
 ```
 
 An articulated part comes back parented to its armature (`obj.parent`, `<key>.rig`): pose it through `rig.pose.bones[...]`, and the leg's walk clips are NLA tracks on the armature. Delete the `robot-metal` material and its `robot-metal-*` images first when you change the atlas: it is painted once per session. Blender's X, Y and Z are the part's own x, y and z, so a part built there is in Shooter's frame (the glTF exporter turns it to +Y up).
@@ -153,7 +154,9 @@ Review images are in [`review/shooter-combat-robot/`](../review/shooter-combat-r
 - `close.jpg`: the turret's back, with the core, the battery, the rotor and the couplings close up;
 - `parts.jpg`: every part and the damaged plate at full detail; `lods.jpg`: each part's three levels, front to back.
 
-Placeholder parts are drawn as translucent purple boxes, each labelled with its catalog key, `PLACEHOLDER` and the issue that makes it. Shooter has no approved style capture yet; a passing test is not visual approval.
+The four build sheets, `parts.jpg` and `lods.jpg` were re-rendered without the core (#649) with the helpers of `scripts/review-shooter-weapons.py` (unlabelled placeholders, its lighting). The motion strips, `detach.jpg`, `gameplay.jpg` and `close.jpg` predate the core's retirement and still show it; they have no committed render script.
+
+Placeholder parts are drawn as translucent purple boxes (in the older sheets labelled with their catalog key, `PLACEHOLDER` and the issue that makes them). Shooter has no approved style capture yet; a passing test is not visual approval.
 
 ## Tests
 
