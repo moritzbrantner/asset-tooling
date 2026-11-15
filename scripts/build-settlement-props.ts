@@ -17,7 +17,7 @@ import { canonicalJson } from "../src/canonical.js";
 import { buildKitPart, byKey, exportKitBundle, ktx2Assets, kitEntry, runKitCli, type KitPart } from "../src/kit-bundle.js";
 
 export const SETTLEMENT_PROPS = [
-  "stall", "cart", "crate", "barrel", "signpost", "lantern-post", "bench", "fence", "planter", "firewood",
+  "stall", "cart", "crate", "barrel", "signpost", "lantern-post", "bench", "fence", "planter", "firewood", "footbridge",
 ] as const;
 export type SettlementProp = (typeof SETTLEMENT_PROPS)[number];
 export type SettlementFamily = "market" | "street" | "dressing";
@@ -25,7 +25,7 @@ export type SettlementFamily = "market" | "street" | "dressing";
 export const SETTLEMENT_FAMILY: Record<SettlementProp, SettlementFamily> = {
   stall: "market", cart: "market", crate: "market", barrel: "market",
   signpost: "street", "lantern-post": "street", bench: "street",
-  fence: "dressing", planter: "dressing", firewood: "dressing",
+  fence: "dressing", planter: "dressing", firewood: "dressing", footbridge: "street",
 };
 export const SETTLEMENT_KEY_PREFIX = "settlement.props";
 export const SETTLEMENT_VARIANT = "default";
@@ -37,7 +37,7 @@ export const SETTLEMENT_TAR_NAME = "settlement.props.tar";
 /** Triangle ceilings per prop, for the Greyhaven camera (12 m, 0.42 rad pitch, 50 degree fov). */
 export const SETTLEMENT_TRIANGLE_BUDGET: Record<SettlementProp, number> = {
   stall: 1400, cart: 1600, crate: 300, barrel: 500, signpost: 450, "lantern-post": 400, bench: 350,
-  fence: 250, planter: 600, firewood: 1200,
+  fence: 250, planter: 600, firewood: 1200, footbridge: 2400,
 };
 /** Recipe observations copied into the descriptor when a prop declares them. */
 const EXTRAS = ["stackTop", "sign", "light", "seat", "module"] as const;

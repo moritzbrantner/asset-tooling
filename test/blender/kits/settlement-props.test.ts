@@ -94,8 +94,14 @@ test("the settlement recipe builds verified props within budget that share the k
       const a = asset[prop];
       assert.ok(a.triangles <= SETTLEMENT_TRIANGLE_BUDGET[prop], `${prop}: ${a.triangles} triangles`);
       assert.equal(a.family, SETTLEMENT_FAMILY[prop]);
-      assert.ok(Math.abs(a.bounds.min[1]) < 1e-3, `${prop} stands on the ground`);
+      // The footbridge's ends rest on the ground; its trestles reach 1.6 m down into a stream bed (#651).
+      const below = prop === "footbridge" ? 1.6 : 0;
+      assert.ok(Math.abs(a.bounds.min[1] + below) < 1e-3, `${prop} stands on the ground`);
     }
+    // The footbridge's deck is level 0.55 m up between its sloped ends, and its rails run its length.
+    const deck = asset.footbridge.collisionProxies.find((p: any) => p.name === "deck");
+    assert.ok(Math.abs(deck.center[1] + deck.size[1] / 2 - 0.55) < 1e-6 && deck.size[2] === 6.6);
+    assert.deepEqual(asset.footbridge.collisionProxies.map((p: any) => p.name), ["deck", "ramp-back", "ramp-front", "rail-left", "rail-right"]);
     // The fence fills its 2 m module exactly, so segments chain; crates stack.
     assert.deepEqual([asset.fence.bounds.min[0], asset.fence.bounds.max[0]], [-1, 1]);
     assert.ok(Math.abs(asset.crate.stackTop - asset.crate.bounds.max[1]) < 1e-6);
