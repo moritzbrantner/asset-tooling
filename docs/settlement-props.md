@@ -1,6 +1,6 @@
 # Greyhaven settlement props
 
-This is the build recipe for the reusable settlement props of one Greyhaven Outpost public space ([#369](https://github.com/moritzbrantner/asset-tooling/issues/369), consumer [mmorpg#421](https://github.com/moritzbrantner/mmorpg/issues/421)). mmorpg#421 asks for at least one prop from each of three families: work and market props, street furniture and architectural dressing.
+This is the build recipe for the reusable settlement props of one Greyhaven Outpost public space ([#369](https://github.com/moritzbrantner/asset-tooling/issues/369), consumer [mmorpg#421](https://github.com/moritzbrantner/mmorpg/issues/421)). mmorpg#421 asks for at least one prop from each of three families: work and market props, street furniture and architectural dressing. The footbridge ([#651](https://github.com/moritzbrantner/asset-tooling/issues/651)) joins the street family for the region's stream crossings.
 
 - **Approach:** an original scripted Blender recipe, [`adapters/blender/settlement_props.py`](../adapters/blender/settlement_props.py), as Atlas Decisions 1.1.7 and 3.1.2 direct for mmorpg's humanlike-world environments. Quaternius props were the inspiration only. The set uses no imported meshes and no third-party assets.
 - **Style:** it matches the [Outpost building kit](outpost-kit.md) and the [Greyhaven inn](greyhaven-inn.md): dark braced timber, plain plank wood, iron straps and hoops, coursed stone footings and shingle. The recipe builds its props with the kit's own `Builder`, materials and numpy textures, so the textures are byte-identical to the kit's.
@@ -37,6 +37,7 @@ In a live Blender session, run `outpost.py` and `settlement_props.py` into two n
 | `settlement.props.fence` | dressing | 172 | 2.00 × 0.16 × 1.14 | `fence` | A 2 m post-and-rail segment along X. Like the kit's walls, it has half a post at each end, so neighbouring segments share one post. |
 | `settlement.props.planter` | dressing | 420 | 1.20 × 0.50 × 0.83 | `planter` | A timber planter box with soil and three leafy shrubs. |
 | `settlement.props.firewood` | dressing | 968 | 1.90 × 0.82 × 1.20 | `woodpile` | Five rows of split billets on sleepers between end stakes, end grain to the front, under a short shingle cover. |
+| `settlement.props.footbridge` | street | 2,136 | 2.30 × 9.07 × 3.17 | `deck`, `ramp-back`, `ramp-front`, `rail-left`, `rail-right` | A 9 m plank footbridge along Z (#651): a level 6.6 m deck 0.55 m up on two stringers and two braced trestles, 1.2 m sloped ends down to the ground and post-and-rail sides. Its ends rest on the ground; the trestle posts reach 1.6 m below it, into a stream bed. |
 
 The numbers are from the build of 2026-10-24. The descriptor carries the measured values of each build. The budgets in `SETTLEMENT_TRIANGLE_BUDGET` are for the Greyhaven camera (12 m, 0.42 rad pitch, 50° fov).
 

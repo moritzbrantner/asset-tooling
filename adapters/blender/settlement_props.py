@@ -9,7 +9,8 @@ as mmorpg#421 asks:
 - market: ``stall`` (counter with a striped canvas awning), ``cart`` (two-wheeled handcart), ``crate``
   and ``barrel``;
 - street: ``signpost`` (hanging board sign), ``lantern-post`` and ``bench``;
-- dressing: ``fence`` (2 m segment), ``planter`` and ``firewood`` (a stacked woodpile).
+- dressing: ``fence`` (2 m segment), ``planter`` and ``firewood`` (a stacked woodpile);
+- a crossing (#651), in the street family: ``footbridge`` (a 9 m plank footbridge on trestles).
 
 Frame: metres, glTF right-handed +Y up, origin on the ground at the centre of the prop's footprint, its
 front towards +Z. ``fence`` follows the kit's wall convention: a 2 m module (x -1..1) with half a post
@@ -27,9 +28,10 @@ import bmesh
 import bpy
 from mathutils import Matrix, Vector
 
-PROPS = ("stall", "cart", "crate", "barrel", "signpost", "lantern-post", "bench", "fence", "planter", "firewood")
+PROPS = ("stall", "cart", "crate", "barrel", "signpost", "lantern-post", "bench", "fence", "planter", "firewood", "footbridge")
 FAMILY = {"stall": "market", "cart": "market", "crate": "market", "barrel": "market", "signpost": "street",
-          "lantern-post": "street", "bench": "street", "fence": "dressing", "planter": "dressing", "firewood": "dressing"}
+          "lantern-post": "street", "bench": "street", "fence": "dressing", "planter": "dressing", "firewood": "dressing",
+          "footbridge": "street"}
 
 # Plain-colour materials the props add to the kit's: (sRGB base colour, metallic, roughness, texture).
 EXTRA_MATERIALS = {
@@ -445,9 +447,82 @@ def build_firewood(part, col, root):
     return {"collisionProxies": [proxy("woodpile", (-hw - 0.07, 0, -0.42), (hw + 0.07, top + 0.2, 0.42))]}
 
 
+# ---------------------------------------------------------------- crossings
+
+BRIDGE_LENGTH, BRIDGE_HALF_WIDTH, BRIDGE_DECK, BRIDGE_LEVEL = 9.0, 1.1, 0.55, 3.3
+
+
+def build_footbridge(part, col, root):
+    """A 9 m plank footbridge along Z (#651): a level 6.6 m deck 0.55 m up on two stringers and two
+    braced trestles whose posts reach 1.6 m below the ends' ground into a stream bed, 1.2 m sloped
+    ends down to the ground, and post-and-rail sides."""
+    b = K["Builder"](f"settlement.{part}.mesh")
+    L, hw, top, flat, t = BRIDGE_LENGTH, BRIDGE_HALF_WIDTH, BRIDGE_DECK, BRIDGE_LEVEL, 0.08
+    end, foot = L / 2, 0.02
+    slope = math.atan2(top - foot, end - flat)
+    run = (end - flat) / math.cos(slope)
+
+    def along(fn):
+        # A timber drawn in its (x, y) plane, turned so its x runs along +Z; its z becomes -x.
+        placed(b, Matrix.Rotation(-math.pi / 2, 4, "Y"), fn)
+
+    # Stringers under each side: level under the deck, sloped under each end.
+    for x in (-0.8, 0.8):
+        for (z0, y0), (z1, y1) in (((-end, foot), (-flat, top - t)), ((-flat, top - t), (flat, top - t)), ((flat, top - t), (end, foot))):
+            along(lambda z0=z0, y0=y0, z1=z1, y1=y1, x=x: b.beam(
+                (z0, y0 - 0.11), (z1, y1 - 0.11), 0.2, -x - 0.09, -x + 0.09, "timber", f"bridge/stringer{x}/{z0}"))
+    # Level planks across the deck, with a hairline between them.
+    count = 22
+    for i in range(count):
+        z0 = -flat + i * (2 * flat / count)
+        z1 = z0 + 2 * flat / count - 0.012
+        sag = (rnd("bridge/plank", i) - 0.5) * 0.006
+        b.block((-hw, top - t + sag, z0), (hw, top + sag, z1), "wood", 0.008, f"bridge/plank{i}", grain=(1, 0, 0))
+    # Sloped planks on each end.
+    steps = 4
+    for side in (-1, 1):
+        for i in range(steps):
+            s = (i + 0.5) * run / steps
+            z = side * (flat + s * math.cos(slope))
+            y = top - t / 2 - s * math.sin(slope)
+            half = run / steps / 2 - 0.008
+            tilted(b, (0, y, z), side * slope, 0, lambda half=half, side=side, i=i: b.block(
+                (-hw, -t / 2, -half), (hw, t / 2, half), "wood", 0.008, f"bridge/ramp{side}/{i}", grain=(1, 0, 0)))
+    # Two trestles under the deck's ends: posts, a cap beam and a cross brace.
+    cap = top - t - 0.22
+    for z in (-flat + 0.25, flat - 0.25):
+        b.block((-hw - 0.05, cap - 0.14, z - 0.11), (hw + 0.05, cap, z + 0.11), "timber", 0.012, f"bridge/cap{z}", grain=(1, 0, 0))
+        for x in (-0.95, 0.95):
+            b.box((x - 0.1, -1.6, z - 0.1), (x + 0.1, cap - 0.14, z + 0.1), "timber", f"bridge/post{x}/{z}", grain=(0, 1, 0))
+        b.beam((-0.95, -1.35), (0.95, cap - 0.2), 0.09, z - 0.04, z + 0.04, "timber", f"bridge/brace{z}")
+        b.beam((-0.95, cap - 0.2), (0.95, -1.35), 0.09, z - 0.13, z - 0.05, "timber", f"bridge/brace-back{z}")
+    # Rails: posts along the level deck and at the ends' feet, a top and a middle rail.
+    for x in (-hw + 0.05, hw - 0.05):
+        for k in range(5):
+            z = -flat + k * flat / 2
+            b.box((x - 0.05, top, z - 0.05), (x + 0.05, top + 1.0, z + 0.05), "timber", f"bridge/rail-post{x}/{k}", grain=(0, 1, 0))
+            b.box((x - 0.06, top + 0.96, z - 0.06), (x + 0.06, top + 1.02, z + 0.06), "iron", f"bridge/rail-cap{x}/{k}")
+        for side in (-1, 1):
+            b.box((x - 0.05, foot, side * (end - 0.1) - 0.05), (x + 0.05, foot + 1.0, side * (end - 0.1) + 0.05),
+                  "timber", f"bridge/end-post{x}/{side}", grain=(0, 1, 0))
+        for y, h in ((0.92, 0.07), (0.45, 0.06)):
+            b.block((x - 0.04, top + y, -flat), (x + 0.04, top + y + h, flat), "wood", 0.008, f"bridge/rail{x}/{y}", grain=(0, 0, 1))
+            for z0, y0, z1, y1 in ((-end + 0.1, foot + y, -flat, top + y), (flat, top + y, end - 0.1, foot + y)):
+                along(lambda z0=z0, y0=y0, z1=z1, y1=y1, x=x, h=h, y=y: b.beam(
+                    (z0, y0 + h / 2), (z1, y1 + h / 2), h, -x - 0.04, -x + 0.04, "wood", f"bridge/rail-slope{x}/{y}/{z0}"))
+    b.finish(col, root)
+    rail = lambda x: proxy(f"rail{'-left' if x < 0 else '-right'}", (x - 0.06, foot, -end), (x + 0.06, top + 1.02, end))
+    return {"collisionProxies": [
+        proxy("deck", (-hw, top - t, -flat), (hw, top, flat)),
+        proxy("ramp-back", (-hw, foot, -end), (hw, top, -flat)),
+        proxy("ramp-front", (-hw, foot, flat), (hw, top, end)),
+        rail(-hw + 0.05), rail(hw - 0.05)]}
+
+
 BUILDERS = {"stall": build_stall, "cart": build_cart, "crate": build_crate_part, "barrel": build_barrel_part,
             "signpost": build_signpost, "lantern-post": build_lantern_post, "bench": build_bench,
-            "fence": build_fence, "planter": build_planter, "firewood": build_firewood}
+            "fence": build_fence, "planter": build_planter, "firewood": build_firewood,
+            "footbridge": build_footbridge}
 
 
 # ---------------------------------------------------------------- composition
