@@ -22,6 +22,9 @@ The entries keep the keys they had in the [Ranger bundles](humanoid-ranger.md#co
 - **One-handed (`hand_r.weapon`):** the business end runs along +Y, edges and striking faces along +X, flats ±Z, as for the arming sword. The lantern, bucket and basket hang from the fist along +X with their bail along Y; the tankard's body sits on the +X side of its handle.
 - **Staff (`hand_r.staff`):** the shaft runs along +Y through the grip with its foot 0.8 m below (0.85 m for the walking stick), so it stands beside the leg in the idle. The shovel's and broom's working ends are at the foot.
 - **Shield and book (`hand_l.shield`):** as the heater shield and the tome.
+- **Handedness ([#679](https://github.com/moritzbrantner/asset-tooling/issues/679)):** the lantern, bucket, basket and tankard are right-hand items. The Ranger's `hand_l.weapon` socket, the mirror of `hand_r.weapon`, turns an item 180° about its +Y axis, so item +X points down in the right hand but up in the left: a symmetric blade looks the same in either hand, but a hanging item rises above the left fist. Hang them from `hand_r.weapon`, or carry a weapon in the left hand. A true left-hand mirror would keep +X down and flip ±Z instead; that is a change to the Ranger's fitted sockets and its left-hand grip clips (the off-hand dagger and the crossbow crank use `hand_l.weapon`), not to these items.
+
+The [review renders](../review/humanoid-equipment/) show the items on the Ranger in its idle clips, composed by the socket contract (`jointWorld × socket × inverse(grip)`): swords, axes and the maul in `Sword_Idle` beside the arming sword they follow, the staff-socket tools in `Idle_Loop` beside the gnarled staff, and the hand tools close up. The grips sit in the fist and the sizes read true against the Ranger; the left-hand hanging items are the one problem.
 
 | Key | Socket | Length (m) | Triangles | Notes |
 | --- | --- | --- | --- | --- |
