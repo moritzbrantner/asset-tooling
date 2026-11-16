@@ -395,6 +395,21 @@ export const RANGER_CLIP_ROLES: Readonly<Record<string, { role: string; contact?
   Knockdown_Fall: { role: "knockdown.fall" },
   Lie_Loop: { role: "knockdown.lie" },
   GetUp: { role: "knockdown.getup" },
+  // #709: the movement-state strikes and the standing chain additions (src/ranger-clips.ts RANGER_STRIKE_CLIPS).
+  Sword_Run_Strike: { role: "sword.strike.run", contact: "hand_r" },
+  Sword_Jump_Strike: { role: "sword.strike.jump", contact: "hand_r" },
+  Mace_Run_Strike: { role: "mace.strike.run", contact: "hand_r" },
+  Mace_Jump_Strike: { role: "mace.strike.jump", contact: "hand_r" },
+  Dagger_Run_Strike: { role: "dagger.strike.run", contact: "hand_r" },
+  Dagger_Jump_Strike: { role: "dagger.strike.jump", contact: "hand_r" },
+  Staff_Run_Strike: { role: "staff.strike.run", contact: "hand_r" },
+  Staff_Jump_Strike: { role: "staff.strike.jump", contact: "hand_r" },
+  Spear_Run_Strike: { role: "spear.strike.run", contact: "hand_r" },
+  Spear_Jump_Strike: { role: "spear.strike.jump", contact: "hand_r" },
+  Mace_Swing_C: { role: "mace.strike.smash", contact: "hand_r" },
+  Staff_Strike_C: { role: "staff.strike.overhead", contact: "hand_r" },
+  Spear_Thrust_A: { role: "spear.thrust.jab", contact: "hand_r" },
+  Spear_Thrust_B: { role: "spear.thrust.high", contact: "hand_r" },
 };
 /** The gait loops whose ground speed the `humanoid-clips` attachment records. */
 export const RANGER_GAITS: ReadonlySet<string> = new Set(["Walk_Loop", "Jog_Fwd_Loop", "Sprint_Loop", "Crouch_Fwd_Loop", "Jog_Bwd_Loop", "Walk_Bwd_Loop", "Wade_Fwd_Loop"]);

@@ -121,6 +121,20 @@ export const RANGER_RAID_CLIPS = [
   "Lever_Pull", "Trap_Place", "Trap_Disarm_Loop", "Knockdown_Fall", "Lie_Loop", "GetUp",
 ] as const;
 /**
+ * #709 (movement-state melee: the game picks the strike from the attacker's movement state): a running and a jumping
+ * strike per weapon and the standing strikes that complete the mace, staff and spear chains, authored in place on the
+ * Ranger rig by adapters/blender/strike_clips.py from weapon frames on `hand_r.weapon` (sword, mace, dagger) or
+ * `hand_r.staff` (staff, spear) with the shield, the off-hand dagger or the shaft in the left hand (two-bone arm IK; the
+ * CC0 UAL1 seeds only as reference). The running strikes are full body on `Jog_Fwd_Loop`'s legs and last one of its
+ * cycles; the jumping strikes are full body from `Jump_Loop`'s first pose to `Jump_Land`'s deepest crouch; the standing
+ * strikes keep only the `spine_01` subtree. Each records its contact, the strike point there, its height band and its
+ * reach. They follow the raid clips in bundle order.
+ */
+export const RANGER_STRIKE_CLIPS = [
+  "Sword_Run_Strike", "Sword_Jump_Strike", "Mace_Run_Strike", "Mace_Jump_Strike", "Dagger_Run_Strike", "Dagger_Jump_Strike", "Staff_Run_Strike",
+  "Staff_Jump_Strike", "Spear_Run_Strike", "Spear_Jump_Strike", "Mace_Swing_C", "Staff_Strike_C", "Spear_Thrust_A", "Spear_Thrust_B",
+] as const;
+/**
  * #285: static grip poses authored on the rig by adapters/blender/grip_poses.py. Each clip keys only the finger and
  * thumb rotations of one hand; a consumer plays it over the body clip's finger channels while that hand's socket holds
  * an item of `role`. The fingers wrap a handle of `radius` (metres) along the item's grip-frame `axis`; the tome leaves
@@ -510,6 +524,27 @@ export const RANGER_CLIP_FAMILIES: readonly ClipFamily[] = [
           fields: { ...(Object.keys(raid).length ? { raid } : {}), ...(secondaryPose ? { secondaryPose } : {}) },
           ...(observed.contactSeconds === undefined ? {} : { contactSeconds: observed.contactSeconds as number }),
         },
+      };
+    },
+  },
+  {
+    id: "strike", script: "strike_clips.py", clips: RANGER_STRIKE_CLIPS,
+    arguments: ({ socket }) => {
+      const at = socketAt(socket);
+      return {
+        schemaVersion: 1, clips: [...RANGER_STRIKE_CLIPS],
+        sockets: { weapon: at("hand_r.weapon"), offhand: at("hand_l.weapon"), shield: at("hand_l.shield"), staff: at("hand_r.staff"), staffLeft: at("hand_l.staff") },
+      };
+    },
+    clip: (name, family) => {
+      // The standing strikes list their joints; the weapon, the contact's strike point, band and reach and the jump's
+      // hand-off go to the clip's `strike` object and the chain pose beside it. The contact is the authored strike.
+      const { joints, source, secondaryPose, ...observed } = family.clips[name] as Json;
+      const strike = pickKeys(observed, ["weapon", "offhand", "contactSeconds", "tipAt", "band", "reachMeters", "landSeconds", "from", "to"]);
+      return {
+        ...(joints ? { keep: joints as string[] } : {}),
+        authored: { recipe: family.recipe, clip: name, fps: family.fps, ...observed }, basedOn: source as string,
+        extra: { fields: { strike, ...(secondaryPose ? { secondaryPose } : {}) }, contactSeconds: observed.contactSeconds as number },
       };
     },
   },

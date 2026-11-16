@@ -53,7 +53,8 @@ The `humanoid.ranger.male` bundle holds the following.
   - the residents' carry, sweep, counter wipe, pour, hoe and watering clips ([Carry and chore clips](#carry-and-chore-clips-693));
   - the guards' post idles, the marshal's inspection, the prayer and blessing, the wall lean and the idle breaks ([Post idles and devotions](#post-idles-and-devotions-697));
   - the chopping, mining, herb-picking and skinning loops, the chest opening and the nod, head shake, shrug, clap and two-armed cheer ([Gathering loops and emotes](#gathering-loops-and-emotes-701));
-  - the raiders' torch and palisade hacking, the two-handed load carry, the repair, pushing, the lever, the traps and the knockdown ([Raid, repair, push, trap and knockdown clips](#raid-repair-push-trap-and-knockdown-clips-705)).
+  - the raiders' torch and palisade hacking, the two-handed load carry, the repair, pushing, the lever, the traps and the knockdown ([Raid, repair, push, trap and knockdown clips](#raid-repair-push-trap-and-knockdown-clips-705));
+  - the running and jumping strike per melee weapon and the mace, staff and spear chain additions ([Movement-state strikes](#movement-state-strikes-709)).
 
   No clip uses Mixamo data (#399). Mixamo is only a motion reference, so the build needs no local input and both figures publish from CI.
 
@@ -495,6 +496,35 @@ The strokes are authored **upright**, with the body along +Y and facing +Z. Over
 - **The knockdown:** the body lies along the figure's back, its pelvis 0.42 m behind the origin and the head about 1.2 m behind, the feet 0.42 m ahead. The skirt's back panel hangs as when standing, so it passes into the ground behind the lying body.
 - **The traps:** the Ranger's arms are short for a kneel, so the shoulders roll forward (`reach`) and the trap sits close, under the chest.
 - **Review:** shaped and reviewed in the live Blender on the male Ranger (the published figure with its `Idle_Loop` and `Walk_Loop`) with stand-in torch, axe, hammer, crate, palisade, board, lever and trap.
+
+### Movement-state strikes (#709)
+
+[`adapters/blender/strike_clips.py`](../adapters/blender/strike_clips.py) authors a running and a jumping strike per melee weapon, and the standing strikes that complete the mace, staff and spear chains, in Blender on the animated Ranger (`RANGER_STRIKE_CLIPS`, the `strike` family, after the raid clips in bundle order). The game picks the variant from the attacker's movement state; the zone owns timing and damage, and each clip records where and when its weapon lands so the zone can author matching hit timing. The sword, mace and dagger ride `hand_r.weapon` (the shield on `hand_l.shield`, the second dagger on `hand_l.weapon`, a free left fist with the mace); the staff and spear ride `hand_r.staff` with the left hand on the shaft (`hand_l.staff`). A key names the right grip and the weapon's +Y; between keys a Hermite curve carries them, and a blade's edge turns along the strike point's motion, so every cut leads with its edge. Two-bone arm IK puts the sockets there (within 6 cm everywhere; the clavicle rolls toward a hand the arm alone cannot reach). Each strike has a held anticipation, a fast strike of three or four frames into the contact and a decelerating follow-through. The CC0 UAL1 seeds were only watched as reference.
+
+| Clip | Length | Layer | Motion | Contact | Band | Reach |
+| --- | --- | --- | --- | --- | --- | --- |
+| `Sword_Run_Strike` | `Jog_Fwd_Loop` (0.933 s) | full body | The blade cocked back over the right shoulder and held, then cut over the top and across the chest as the right foot lands; the shield pulled in. | 0.5 s | mid | 1.29 m |
+| `Sword_Jump_Strike` | 0.8 s | full body | Arching back in the air with the blade high behind the head, chopping straight down as the feet touch, carried low into the crouch. | 0.4 s | mid | 1.23 m |
+| `Mace_Run_Strike` | `Jog_Fwd_Loop` | full body | The mace swung back and up behind the shoulder, brought over the top on to a head-height target, its weight carrying it low. | 0.5 s | mid | 0.95 m |
+| `Mace_Jump_Strike` | 0.8 s | full body | The mace raised overhead, over the top and slammed down as the feet touch. | 0.4 s | mid | 0.84 m |
+| `Dagger_Run_Strike` | `Jog_Fwd_Loop` | full body | The right dagger drawn back to the hip, then driven ahead at the belly; the left held low in guard. | 0.5 s | mid | 0.92 m |
+| `Dagger_Jump_Strike` | 0.8 s | full body | Both daggers raised, plunged together down and ahead as the feet touch. | 0.4 s | mid | 0.76 m |
+| `Staff_Run_Strike` | `Jog_Fwd_Loop` | full body | The staff drawn back along the body, its foot driven out ahead at chest height by both hands. | 0.5 s | mid | 1.31 m |
+| `Staff_Jump_Strike` | 0.8 s | full body | The staff raised high, its foot ahead, driven down into the ground ahead on landing. | 0.433 s | low | 0.92 m |
+| `Spear_Run_Strike` | `Jog_Fwd_Loop` | full body | The spear level at the hip, drawn back, then thrust out at chest height. | 0.5 s | mid | 1.62 m |
+| `Spear_Jump_Strike` | 0.8 s | full body | The spear raised overhand, its point driven down into the ground ahead on landing. | 0.433 s | low | 1.37 m |
+| `Mace_Swing_C` | 0.9 s | `spine_01` | The chain's finisher: a big wind-up high over the right shoulder, a vertical smash down the centre line. | 0.467 s | mid | 0.77 m |
+| `Staff_Strike_C` | 0.8 s | `spine_01` | The staff's foot swung up over the head and brought down on a head-height target. | 0.4 s | mid | 1.17 m |
+| `Spear_Thrust_A` | 0.6 s | `spine_01` | A quick jab from the guard at the belly. | 0.267 s | mid | 1.59 m |
+| `Spear_Thrust_B` | 0.733 s | `spine_01` | The spear lifted to the shoulder, cocked back and thrust out high at the face. | 0.367 s | high | 1.60 m |
+
+- **`strike` object:** `weapon` (`item`, `socket`, `strikePoint`: the point on the item's +Y that strikes), `offhand` (the shield or second dagger's `item` and `socket`, or the shaft hand's `socket` and `onShaftMeters` at the contact), `contactSeconds`, `tipAt` (the strike point at the contact, root frame, glTF axes), `band` (`low` below 0.7 m, `high` above 1.4 m, else `mid`), `reachMeters` (the strike point's horizontal distance from the root at the contact) and, for the jumping strikes, `landSeconds` (touchdown), `from` (`Jump_Loop`) and `to` (`Jump_Land` and the time of its deepest crouch). Every strike is a `hand_r` contact at the authored `contactSeconds`.
+- **The items:** reviewed with `equipment.sword.arming` and `equipment.shield.heater`, `equipment.mace.flanged`, `equipment.dagger.blackened` (both hands), `equipment.staff.quarter` and `equipment.spear.leaf`; each is held at its own `grip`, so none needs an `itemOffset`. The strike points are the sword's and dagger's tips, the mace's head (0.5 m), the spear's point (1.46 m) and the staff's foot (0.8 m below the grip, as the #420 staff strikes lead with it).
+- **Running:** the legs are `Jog_Fwd_Loop`'s, frame for frame over one whole cycle from its first frame; the upper body leaves the run's pose by 0.15 s, strikes on the right foot's plant and is back in the run's pose by the last frame, so the clip blends in and out of running without a stop.
+- **Jumping:** `Jump_Loop`'s first pose, tucked as `Jump_Start` is at its highest, touching down in `Jump_Land`'s first pose at 0.352 s and ending in its deepest crouch (`to.seconds`), where `Jump_Land` or the idle takes over. In place: the zone moves the body.
+- **The shaft:** on the staff and spear the shaft slides through the left hand as in a thrust, so the left hand holds it where it passes nearest a point ahead of and below the left shoulder (0.3-0.6 m up the staff, 0.15-0.6 m up the spear).
+- **Chains:** `Mace_Swing_C` follows `Mace_Swing_A`/`B` and `Staff_Strike_C` follows `Staff_Strike_A`/`B` as the third hit, and `Spear_Thrust_A`/`B` are the spear's two-thrust chain; all four keep the upper body as the #420 chains do and start and end in the first `Idle_Loop` pose.
+- **Review:** shaped and reviewed in the live Blender on the male Ranger (the published figure with its library clips) with the published items above on their sockets.
 
 ## Female Ranger
 
