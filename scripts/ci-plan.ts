@@ -9,6 +9,7 @@
 import path from "node:path";
 import { readdirSync, readFileSync } from "node:fs";
 import { sourceClosure, touches } from "./source-closure.ts";
+import { plan as releasePlan, SHARED_SOURCES, type PlanEntry } from "./publish-release.ts";
 
 const ROOT = path.resolve(import.meta.dir, "..");
 
@@ -60,6 +61,12 @@ export type CiPlan = {
   os: string[];
   blender: BlenderJob[];
   "selected-bundle-consumer": boolean;
+  /**
+   * The rolling releases whose own sources a pull request changed (#691), built and loaded through the game's
+   * loaders before merge. A change to the files every release shares (SHARED_SOURCES: the lockfile, the packer)
+   * would rebuild all of them, so it is left to the same check in the publish job, which still runs before upload.
+   */
+  releases: PlanEntry[];
   "canonical-storage": boolean;
   "processing-contract": boolean;
   stability: boolean;
@@ -104,6 +111,8 @@ function everything(root: string): CiPlan {
     os: ALL_OS,
     blender: blenderSuites(root).map(({ suite, lfs, timeout, ktx }) => ({ suite, lfs, timeout: timeout ?? 15, ktx: !!ktx, tests: `${BLENDER_DIR}/${suite}` })),
     "selected-bundle-consumer": true,
+    // Every release would be every Blender build; the publish job checks what a merge changes.
+    releases: [],
     "canonical-storage": true,
     "processing-contract": true,
     stability: true,
@@ -143,6 +152,7 @@ export function ciPlan(changed: string[] | "all", root = ROOT): CiPlan {
     os: contract.some((file) => CROSS_PLATFORM.test(file)) || runtime ? ALL_OS : ["ubuntu-latest"],
     blender,
     "selected-bundle-consumer": runtime || matches(sourceClosure(["scripts/verify-bundle-consumer.ts"], root), code),
+    releases: releasePlan(listed.filter((file) => !DOCUMENTATION.test(file) && !SHARED_SOURCES.includes(file)), root),
     "canonical-storage": runtime || matches(["assets/canonical", "catalog", ".gitattributes", ...sourceClosure(["scripts/verify-catalog-storage.ts", ...hydrated], root)], code),
     "processing-contract": matches(["requirements-validation.txt", "examples", "schemas", "stability", ...python], code),
     stability: runtime || matches([
@@ -159,9 +169,11 @@ export function ciPlan(changed: string[] | "all", root = ROOT): CiPlan {
  * validation jobs.
  */
 export function stepOutputs(planned: CiPlan, { branch = false } = {}): string {
-  const plan = branch ? { ...planned, stability: false, pages: false } : planned;
+  // A push to main builds and checks its releases in the publish job instead.
+  const plan = branch ? { ...planned, stability: false, pages: false, releases: [] } : planned;
   const jobs = {
     "selected-bundle-consumer": plan["selected-bundle-consumer"],
+    "release-consumer": plan.releases.length > 0,
     "blender-script": plan.blender.length > 0,
     "canonical-storage": plan["canonical-storage"],
     "processing-contract": plan["processing-contract"],
@@ -174,6 +186,7 @@ export function stepOutputs(planned: CiPlan, { branch = false } = {}): string {
     `blender=${JSON.stringify({ include: plan.blender })}`,
     `blender-enabled=${jobs["blender-script"]}`,
     `selected-bundle-consumer=${plan["selected-bundle-consumer"]}`,
+    `releases=${JSON.stringify(plan.releases)}`,
     `canonical-storage=${plan["canonical-storage"]}`,
     `processing-contract=${plan["processing-contract"]}`,
     `stability=${plan.stability}`,

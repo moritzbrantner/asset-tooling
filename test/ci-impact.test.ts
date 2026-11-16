@@ -40,7 +40,7 @@ const classify = (rows: string[], event: Record<string, string> = {}, cwd?: stri
 };
 
 const ALL_OS = ["ubuntu-latest", "macos-latest", "windows-latest"];
-const SCOPED = ["selected-bundle-consumer", "blender-script", "canonical-storage", "processing-contract", "stability-validation", "pages-validation"];
+const SCOPED = ["selected-bundle-consumer", "release-consumer", "blender-script", "canonical-storage", "processing-contract", "stability-validation", "pages-validation"];
 const blenderTests = (changed: string[]) => Object.fromEntries(ciPlan(changed).blender.map(({ suite, tests }) => [suite, tests.split(" ")]));
 
 test("documentation-only changes run only the Linux check", () => {
@@ -72,7 +72,7 @@ test("test-only changes run every platform without Stability, Pages or Blender",
 test("Stability manifest changes require the contracts on Linux only", () => {
   const plan = classify(["stability/consumers.json\t"]);
   expect(plan.os).toEqual(["ubuntu-latest"]);
-  expect(plan.skipped).toEqual(["selected-bundle-consumer", "blender-script", "canonical-storage", "pages-validation"]);
+  expect(plan.skipped).toEqual(["selected-bundle-consumer", "release-consumer", "blender-script", "canonical-storage", "pages-validation"]);
 });
 
 test("pushes, validation edits and runtime changes run every job", () => {
@@ -128,6 +128,15 @@ test("one kit's own data runs only that kit's tests (#574)", () => {
   expect(plan["canonical-storage"] || plan["selected-bundle-consumer"] || plan.stability || plan.pages).toBe(false);
 });
 
+test("a pull request builds and loads the releases whose own sources it changed (#691)", () => {
+  expect(ciPlan(["releases/ivy.json"]).releases.map(({ release }) => release)).toEqual(["ivy"]);
+  // The files every release shares are left to the publish job's check; so are full runs.
+  expect(ciPlan(["bun.lock"]).releases).toEqual([]);
+  expect(ciPlan(["scripts/pack-asset-bundle.ts"]).releases).toEqual([]);
+  expect(ciPlan("all").releases).toEqual([]);
+  expect(ciPlan(["docs/architecture.md"]).releases).toEqual([]);
+});
+
 test("a release file the tree no longer holds counts as a change to the release loader", () => {
   expect(blenderTests(["releases/retired-kit.json"])).toEqual(blenderTests(["scripts/release-data.ts"]));
   expect(Object.keys(blenderTests(["scripts/release-data.ts"]))).toEqual(expect.arrayContaining(["kits", "crag", "moss", "river-stones"]));
@@ -164,12 +173,12 @@ test("a push plans from its own diff, without the pull-request-only jobs", () =>
   }
 });
 
-test("an unknown push parent, the schedule and a dispatch run everything but the pull-request-only jobs", () => {
+test("an unknown push parent, the schedule and a dispatch run everything but the pull-request-only jobs and release builds", () => {
   for (const event of [{ GITHUB_EVENT_NAME: "push", BEFORE: "0".repeat(40), GITHUB_SHA: "f".repeat(40) }, { GITHUB_EVENT_NAME: "schedule" }, { GITHUB_EVENT_NAME: "workflow_dispatch" }]) {
     const plan = classify([], event);
     expect(plan.os).toEqual(ALL_OS);
     expect(JSON.parse(plan.blender).include.map(({ suite }: { suite: string }) => suite)).toEqual(BLENDER_SUITES.map(({ suite }) => suite));
-    expect(plan.skipped).toEqual(["stability-validation", "pages-validation"]);
+    expect(plan.skipped).toEqual(["release-consumer", "stability-validation", "pages-validation"]);
   }
 });
 
