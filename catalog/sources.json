@@ -6744,6 +6744,151 @@
         "zoo-animals"
       ],
       "title": "Zoo Zebra (GLB)"
+    },
+    {
+      "id": "quaternius.ultimate-animated-animals-cow-glb",
+      "kind": "mesh",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/ultimateanimatedanimals.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "model/gltf-binary",
+      "metadata": {
+        "distributionMirror": "github.com/trebeljahr/quaternius-showcase (byte copy of the CC0 pack GLB; official download is a rate-limited Google Drive folder)",
+        "purpose": "Rigged cow with Idle, Walk and Eating clips for Greyhaven farm animals (#659)"
+      },
+      "provider": "quaternius",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 643984,
+        "path": "public/glb/animals_pack/Cow.glb",
+        "revision": "478a184d29af65637ba335ea3127995066fe11b6",
+        "sha256": "23f82a318dd3c05f94b8c4d377752a33d4dabefd244f6f4548102aee36be183e",
+        "upstreamId": "ultimate-animated-animals/Cow",
+        "url": "https://raw.githubusercontent.com/trebeljahr/quaternius-showcase/478a184d29af65637ba335ea3127995066fe11b6/public/glb/animals_pack/Cow.glb"
+      },
+      "tags": [
+        "animal",
+        "animated",
+        "greyhaven-farm-animals"
+      ],
+      "title": "Ultimate Animated Animals — Cow (GLB)"
+    },
+    {
+      "id": "quaternius.ultimate-animated-animals-horse-glb",
+      "kind": "mesh",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/ultimateanimatedanimals.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "model/gltf-binary",
+      "metadata": {
+        "distributionMirror": "github.com/trebeljahr/quaternius-showcase (byte copy of the CC0 pack GLB; official download is a rate-limited Google Drive folder)",
+        "purpose": "Rigged horse with Idle, Walk and Eating clips for Greyhaven farm animals (#659)"
+      },
+      "provider": "quaternius",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 682356,
+        "path": "public/glb/animals_pack/Horse.glb",
+        "revision": "478a184d29af65637ba335ea3127995066fe11b6",
+        "sha256": "fbddb2c97179eca896ec69c985cd9cc74540484510776c400df64e088e9f2414",
+        "upstreamId": "ultimate-animated-animals/Horse",
+        "url": "https://raw.githubusercontent.com/trebeljahr/quaternius-showcase/478a184d29af65637ba335ea3127995066fe11b6/public/glb/animals_pack/Horse.glb"
+      },
+      "tags": [
+        "animal",
+        "animated",
+        "greyhaven-farm-animals"
+      ],
+      "title": "Ultimate Animated Animals — Horse (GLB)"
+    },
+    {
+      "id": "quaternius.ultimate-animated-animals-donkey-glb",
+      "kind": "mesh",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/ultimateanimatedanimals.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "model/gltf-binary",
+      "metadata": {
+        "distributionMirror": "github.com/trebeljahr/quaternius-showcase (byte copy of the CC0 pack GLB; official download is a rate-limited Google Drive folder)",
+        "purpose": "Rigged donkey with Idle, Walk and Eating clips for Greyhaven farm animals (#659)"
+      },
+      "provider": "quaternius",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 667168,
+        "path": "public/glb/animals_pack/Donkey.glb",
+        "revision": "478a184d29af65637ba335ea3127995066fe11b6",
+        "sha256": "79cbb14d88a2ca416a858f72dbca81e4280d62e00245116deec28902a08d5cd3",
+        "upstreamId": "ultimate-animated-animals/Donkey",
+        "url": "https://raw.githubusercontent.com/trebeljahr/quaternius-showcase/478a184d29af65637ba335ea3127995066fe11b6/public/glb/animals_pack/Donkey.glb"
+      },
+      "tags": [
+        "animal",
+        "animated",
+        "greyhaven-farm-animals"
+      ],
+      "title": "Ultimate Animated Animals — Donkey (GLB)"
+    },
+    {
+      "id": "quaternius.farm-animals-pig-blend",
+      "kind": "mesh",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/farmanimal.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "application/x-blender",
+      "metadata": {
+        "distributionMirror": "github.com/tilakpatell/tilakverse-assets quaternius/farm-animals (copy of the CC0 pack with its License.txt; official download is a rate-limited Google Drive folder)",
+        "purpose": "Rigged pig with Idle and Walk actions for Greyhaven farm animals (#659)"
+      },
+      "provider": "quaternius",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 904380,
+        "path": "quaternius/farm-animals/Blends/Pig.blend",
+        "revision": "85064399bbdacc0e8cc50807179490314bc4ff1c",
+        "sha256": "8aec801123f31ca475000c738287dcd075dda6be4c5650c03b5657d801a847ef",
+        "upstreamId": "farm-animals/Pig",
+        "url": "https://raw.githubusercontent.com/tilakpatell/tilakverse-assets/85064399bbdacc0e8cc50807179490314bc4ff1c/quaternius/farm-animals/Blends/Pig.blend"
+      },
+      "tags": [
+        "animal",
+        "animated",
+        "greyhaven-farm-animals"
+      ],
+      "title": "Farm Animals — Pig (.blend)"
+    },
+    {
+      "id": "quaternius.farm-animals-sheep-blend",
+      "kind": "mesh",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/farmanimal.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "application/x-blender",
+      "metadata": {
+        "distributionMirror": "github.com/tilakpatell/tilakverse-assets quaternius/farm-animals (copy of the CC0 pack with its License.txt; official download is a rate-limited Google Drive folder)",
+        "purpose": "Rigged sheep with Idle and Walk actions for Greyhaven farm animals (#659)"
+      },
+      "provider": "quaternius",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 923936,
+        "path": "quaternius/farm-animals/Blends/Sheep.blend",
+        "revision": "85064399bbdacc0e8cc50807179490314bc4ff1c",
+        "sha256": "d4f137f393e5b3e5ba28af0977efbaef6e0ba7a6682e35b35f868f5caff47c7e",
+        "upstreamId": "farm-animals/Sheep",
+        "url": "https://raw.githubusercontent.com/tilakpatell/tilakverse-assets/85064399bbdacc0e8cc50807179490314bc4ff1c/quaternius/farm-animals/Blends/Sheep.blend"
+      },
+      "tags": [
+        "animal",
+        "animated",
+        "greyhaven-farm-animals"
+      ],
+      "title": "Farm Animals — Sheep (.blend)"
     }
   ]
 }

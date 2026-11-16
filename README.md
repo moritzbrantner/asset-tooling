@@ -11,6 +11,7 @@ The [Greyhaven nature bundle](docs/greyhaven-nature-bundle.md) delivers game-res
 The [Greyhaven terrain materials](docs/greyhaven-terrain.md) are seven tiling CC0 Poly Haven ground layers (grass, forest floor, path, gravel, rock, mud, sand) for the MMORPG's terrain.
 
 The [Greyhaven ambient animals](docs/greyhaven-ambient-animals.md) are a cat, a dog and a small rodent from CC0 Quaternius sources, each with in-place `Idle` and `Walk` clips, sized for the MMORPG's game camera.
+The [Greyhaven farm animals](docs/greyhaven-farm-animals.md) follow them: a cow, horse, donkey, pig and sheep from CC0 Quaternius sources and an authored goat and chicken, with in-place `Idle`, `Walk` and, where available, `Eat`.
 
 The [Zoo animals and the `quadruped-rigid` profile](docs/quadruped-rigid.md) package Zoo's authored low-poly zebra and giraffe as authored, with rig, clip and bounds validation, in the existing animation viewer.
 
