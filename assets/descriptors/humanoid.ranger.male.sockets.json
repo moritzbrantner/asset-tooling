@@ -105,6 +105,12 @@
      "attachFrame": "grip", "accepts": ["crossbow"], "mirror": "hand_l.crossbow"},
     {"id": "hand_l.crossbow", "joint": "hand_l",
      "translation": [0.0365, 0.0839, -0.0043], "rotation": [-0.129331, -0.001557, -0.031857, 0.991088],
-     "attachFrame": "grip", "accepts": ["crossbow"], "mirror": "hand_r.crossbow"}
+     "attachFrame": "grip", "accepts": ["crossbow"], "mirror": "hand_r.crossbow"},
+    {"id": "hand_r.carry", "joint": "hand_r",
+     "translation": [-0.0365, 0.0839, -0.0043], "rotation": [0.415728, 0.576917, 0.446029, 0.543503],
+     "attachFrame": "grip", "accepts": ["carried"], "mirror": "hand_l.carry"},
+    {"id": "hand_l.carry", "joint": "hand_l",
+     "translation": [0.0365, 0.0839, -0.0043], "rotation": [0.446029, 0.543503, 0.415728, 0.576917],
+     "attachFrame": "grip", "accepts": ["carried"], "mirror": "hand_r.carry"}
   ]
 }
