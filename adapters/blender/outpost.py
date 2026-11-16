@@ -118,9 +118,40 @@ def stones(size, rows, seed, widths, gap, horizontal=True):
     return joint, value
 
 
+# The stone's course grid, in metres: courses of COURSE[0] laid in running bond of COURSE[1] long blocks, each
+# course offset by half a block from the one below. ``course_stone`` maps every stone face onto it.
+COURSE = (0.25, 0.5)
+
+
+def bond(size, seed, gap, jitter=0.03):
+    """Running-bond blocks on a 1 m tile (``COURSE``): per pixel the joint factor (0 in a joint, 1 inside a
+    block) and a per-block value. Odd courses start half a block along; each joint wanders by up to ``jitter``
+    metres so the blocks are hand-dressed, not machined, yet every course keeps the bond."""
+    rows, per_row = round(1 / COURSE[0]), round(1 / COURSE[1])
+    xs = ys = np.arange(size) / size
+    state = np.random.RandomState(seed)
+    row = np.minimum((ys * rows).astype(int), rows - 1)
+    fy = ys * rows - row
+    edge = np.zeros((size, size))
+    value = np.zeros((size, size))
+    for r in range(rows):
+        start = (r % 2) * COURSE[1] / 2
+        cuts = np.array([start + k * COURSE[1] + (state.rand() - 0.5) * 2 * jitter for k in range(per_row)])
+        cuts = np.concatenate([cuts - 1, cuts, cuts + 1])
+        k = np.searchsorted(cuts, xs, side="right") - 1
+        dx = np.minimum(xs - cuts[k], cuts[k + 1] - xs)
+        mask = row == r
+        dy = np.minimum(fy[mask], 1 - fy[mask]) / rows
+        vals = state.rand(per_row)
+        edge[mask] = np.minimum(dx[None, :], dy[:, None])
+        value[mask] = vals[k % per_row][None, :]
+    return np.clip(edge / gap, 0, 1), value
+
+
 def stone_maps(size):
-    """Coursed rubble, 1 m per tile: four courses of irregular grey-brown stones in dark mortar."""
-    joint, value = stones(size, 4, 711, (0.16, 0.42), 0.03)
+    """Coursed stone, 1 m per tile: four 0.25 m courses of 0.5 m grey-brown blocks in running bond, in dark
+    mortar."""
+    joint, value = bond(size, 711, 0.03)
     rough_n = fbm(size, 16, 3, 721)
     bulge = np.sqrt(joint)
     height = bulge * 0.7 + rough_n * 0.3
@@ -545,6 +576,90 @@ def dress(objects, roof="shingle"):
                 bpy.data.materials.remove(placeholder)
 
 
+# Where a module's left end sits on the 1 m stone tile: 2 m modules are centred on whole metres, the 1 m
+# ``wall-half`` on half metres, so measuring U from each module's left end keeps the bond continuous across
+# every seam, and the building's corners, which are on whole metres, fall at QUOIN.
+COURSE_ORIGIN = {"wall": 1.0, "wall-window": 1.0, "wall-door": 1.0, "wall-half": 0.5}
+# Where an outside corner falls along a course: a quarter block into a stone, so the corner stone shows a
+# quarter on one face and three quarters round the other, and the next course, offset half a block, the
+# other way round. The corners alternate like quoins.
+QUOIN = COURSE[1] / 4
+
+
+def stone_islands(mesh, stone):
+    """The connected pieces of ``mesh`` made of the ``stone`` material indices, as lists of polygon indices."""
+    by_vertex = {}
+    polys = [p for p in mesh.polygons if p.material_index in stone]
+    for p in polys:
+        for v in p.vertices:
+            by_vertex.setdefault(v, []).append(p.index)
+    seen, islands = set(), []
+    for p in polys:
+        if p.index in seen:
+            continue
+        stack, island = [p.index], []
+        seen.add(p.index)
+        while stack:
+            i = stack.pop()
+            island.append(i)
+            for v in mesh.polygons[i].vertices:
+                for j in by_vertex[v]:
+                    if j not in seen:
+                        seen.add(j)
+                        stack.append(j)
+        islands.append(sorted(island))
+    return islands
+
+
+def course_stone(objects, part):
+    """Lay every stone face on the kit's course grid (``COURSE``, ``bond``) in world-space metres, so the
+    plinth's and the chimney's courses meet across faces, corners and modules at one scale and the corners
+    alternate like quoins.
+
+    V is the height above the ground, so every course of every module is level with its neighbours. U runs
+    round each stone piece as one strip: along X on its front face, then on round both ends, so the bond turns
+    the corners. Plinths start U from the module's left end plus ``QUOIN`` (``COURSE_ORIGIN``), the corner
+    block from its origin, the building's corner, plus ``QUOIN``; each chimney piece starts ``QUOIN`` before its
+    own left front corner. Tops and soffits take X and Z."""
+    root = next(o for o in objects if o.parent is None)
+    to_root = root.matrix_world.inverted()
+    scale = 1.0 / TILE["stone"]
+    for obj in objects:
+        if obj.type != "MESH":
+            continue
+        stone = {i for i, m in enumerate(obj.data.materials) if m and m.name.startswith("outpost-stone")}
+        if not stone:
+            continue
+        local = to_root @ obj.matrix_world
+        normals = local.to_3x3().inverted().transposed()
+        mesh = obj.data
+        uv = mesh.uv_layers.active.data
+        point = lambda i: (lambda c: (c.x, c.z, -c.y))(local @ mesh.vertices[i].co)  # glTF axes
+        for island in stone_islands(mesh, stone):
+            pts = [point(v) for i in island for v in mesh.polygons[i].vertices]
+            x0, x1, front = min(p[0] for p in pts), max(p[0] for p in pts), max(p[2] for p in pts)
+            if part == "chimney":
+                fx = QUOIN - x0
+            else:
+                fx = COURSE_ORIGIN.get(part, 0.0) + QUOIN
+            for i in island:
+                poly = mesh.polygons[i]
+                nb = normals @ poly.normal
+                n = (nb.x, nb.z, -nb.y)
+                axis = max(range(3), key=lambda k: abs(n[k]))
+                for li in poly.loop_indices:
+                    x, y, z = point(mesh.loops[li].vertex_index)
+                    if axis == 1:
+                        u, v = x + fx, z
+                    elif axis == 0 and n[0] > 0:
+                        u, v = x1 + fx + (front - z), y
+                    elif axis == 0:
+                        u, v = x0 + fx - (front - z), y
+                    else:
+                        u, v = x + fx, y
+                    uv[li].uv = (u * scale, v * scale)
+
+
 def load_module(part, collection):
     """Append module ``part`` from the authored geometry into ``collection``, undressed; its root and the
     observations stored on the root."""
@@ -662,6 +777,7 @@ def build(part, collection, location=(0, 0, 0), roof="shingle", yaw=0.0, wear=0.
     WEAR = float(wear)
     root, info = load_module(part, collection)
     dress([root] + list(root.children_recursive), roof if part in ROOFED else "shingle")
+    course_stone([root] + list(root.children_recursive), part)
     root.location = to_blender(location)
     root.rotation_euler = (0, 0, math.radians(yaw))
     return root, info
