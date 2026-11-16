@@ -94,8 +94,9 @@ test("the settlement recipe builds verified props within budget that share the k
       const a = asset[prop];
       assert.ok(a.triangles <= SETTLEMENT_TRIANGLE_BUDGET[prop], `${prop}: ${a.triangles} triangles`);
       assert.equal(a.family, SETTLEMENT_FAMILY[prop]);
-      // The footbridge's ends rest on the ground; its trestles reach 1.6 m down into a stream bed (#651).
-      const below = prop === "footbridge" ? 1.6 : 0;
+      // The footbridge's ends rest on the ground; its trestles reach 1.6 m down into a stream bed (#651). The jetty's
+      // piles reach 1.2 m below the water line into the bed (#675).
+      const below = prop === "footbridge" ? 1.6 : prop === "jetty" ? 1.2 : 0;
       assert.ok(Math.abs(a.bounds.min[1] + below) < 1e-3, `${prop} stands on the ground`);
     }
     // The footbridge's deck is level 0.55 m up between its sloped ends, and its rails run its length.

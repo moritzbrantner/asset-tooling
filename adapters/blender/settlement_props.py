@@ -39,7 +39,8 @@ PROPS = ("stall", "cart", "crate", "barrel", "signpost", "lantern-post", "bench"
          "shrine", "standing-stone", "watchtower-ruin", "bridge-railing", "stall-awning",
          "bread-basket", "cheese-board", "fish-crate", "apple-crate", "hanging-meats", "cask-rack", "merchant-scale",
          "cloth-bolts", "pottery", "anvil", "grindstone", "cooper-barrel",
-         "table-set", "candles", "candelabra", "inn-sign", "stool", "bar-counter", "log-stack", "wall-shield", "wall-trophy")
+         "table-set", "candles", "candelabra", "inn-sign", "stool", "bar-counter", "log-stack", "wall-shield", "wall-trophy",
+         "rowing-boat", "jetty", "fishing-nets")
 FAMILY = {"stall": "market", "cart": "market", "crate": "market", "barrel": "market", "signpost": "street",
           "lantern-post": "street", "bench": "street", "fence": "dressing", "planter": "dressing", "firewood": "dressing",
           "footbridge": "street", "bed": "dressing", "table": "dressing", "chair": "dressing", "chest": "dressing",
@@ -56,7 +57,7 @@ FAMILY = {"stall": "market", "cart": "market", "crate": "market", "barrel": "mar
           "anvil": "dressing", "grindstone": "dressing", "cooper-barrel": "dressing",
           **{prop: "dressing" for prop in ("table-set", "candles", "candelabra", "stool", "bar-counter", "log-stack",
                                            "wall-shield", "wall-trophy")},
-          "inn-sign": "street"}
+          "inn-sign": "street", "rowing-boat": "dressing", "jetty": "street", "fishing-nets": "dressing"}
 
 # Plain-colour materials the props add to the kit's: (sRGB base colour, metallic, roughness, texture).
 EXTRA_MATERIALS = {
@@ -1817,6 +1818,165 @@ def build_wall_trophy(part, col, root):
     return {"collisionProxies": [proxy("trophy", (-0.5, 0, 0), (0.5, 1.12, 0.2))]}
 
 
+# ---------------------------------------------------------------- river and lake (#675)
+
+def oriented_faces(b, verts, polys, mat, key, outward, grain=None):
+    """``b.faces`` with each polygon wound so its normal points along ``outward(centre)`` (a glTF direction)."""
+    fixed = []
+    for poly in polys:
+        p = [Vector(verts[i]) for i in poly]
+        normal = (p[1] - p[0]).cross(p[2] - p[0])
+        if normal.length < 1e-12 and len(p) > 3:
+            normal = (p[2] - p[1]).cross(p[3] - p[1])
+        centre = sum(p, Vector()) / len(p)
+        fixed.append(poly if normal.dot(Vector(outward(centre))) >= 0 else list(reversed(poly)))
+    return b.faces(verts, fixed, mat, key, grain)
+
+
+BOAT = {"length": 3.6, "beam": 1.2, "sheer": 0.5, "rise": 0.14, "transom": 0.55}
+
+
+def hull_section(x):
+    """Half-breadth and sheer height of the rowing boat at ``x`` along its length (bow toward +X)."""
+    L, W = BOAT["length"], BOAT["beam"] / 2
+    t = 2 * x / L  # -1 at the transom, +1 at the stem
+    w = W * (1 - max(t, 0) ** 1.8) ** 0.75 if t > 0 else W * (1 - (1 - BOAT["transom"]) * (-t) ** 3)
+    return max(w, 0.0), BOAT["sheer"] + BOAT["rise"] * t * t
+
+
+def build_rowing_boat(part, col, root):
+    """A 3.6 m clinker-look rowing boat drawn up on the bank, bow toward +X: a lofted plank hull with a
+    transom stern, a gunwale, three thwarts, two oars laid along the thwarts and a mooring ring at the stem.
+    Its keel is on the ground (y = 0)."""
+    b = K["Builder"](f"settlement.{part}.mesh")
+    L = BOAT["length"]
+    stations = [-L / 2 + L * 0.993 * k / 12 for k in range(13)]
+    profile = [(0.0, 0.0), (0.45, 0.04), (0.82, 0.16), (0.97, 0.34), (1.0, 1.0)]  # (share of half-breadth, share of sheer)
+    def ring(x, inset):
+        w, h = hull_section(x)
+        pts = []
+        for s in (1, -1):
+            row = [(x, inset + (h - inset) * fh if fh < 1 else h, s * max(w * fw - inset, 0.0)) for fw, fh in profile]
+            pts.append(row if s > 0 else list(reversed(row)))
+        return pts[1] + pts[0][1:]  # starboard gunwale ... keel ... port gunwale
+    for skin, inset, mat in (("outer", 0.0, "wood"), ("inner", 0.035, "wood")):
+        verts, polys = [], []
+        rings = [ring(x, inset) for x in stations]
+        n = len(rings[0])
+        for r in rings:
+            verts += r
+        for i in range(len(rings) - 1):
+            for j in range(n - 1):
+                polys.append([i * n + j, i * n + j + 1, (i + 1) * n + j + 1, (i + 1) * n + j])
+        sign = 1 if skin == "outer" else -1
+        oriented_faces(b, verts, polys, mat, f"boat/{skin}", lambda c, sign=sign: (0, sign * (c.y - 0.35), sign * 2 * c.z), grain=(1, 0, 0))
+    # Gunwale cap and the transom: close the two skins along the sheer and across the stern.
+    verts, top, outside, inside = [], [], [], []
+    for x in stations:
+        w, h = hull_section(x)
+        for s in (1, -1):
+            verts += [(x, h, s * w), (x, h, s * max(w - 0.035, 0.0)), (x, h + 0.03, s * w), (x, h + 0.03, s * max(w - 0.035, 0.0))]
+    for i in range(len(stations) - 1):
+        for s in range(2):
+            a, c = (i * 2 + s) * 4, ((i + 1) * 2 + s) * 4
+            top.append([a + 2, a + 3, c + 3, c + 2])
+            outside.append([a, a + 2, c + 2, c])
+            inside.append([a + 1, c + 1, c + 3, a + 3])
+    oriented_faces(b, verts, top, "timber", "boat/gunwale-top", lambda c: (0, 1, 0), grain=(1, 0, 0))
+    oriented_faces(b, verts, outside, "timber", "boat/gunwale-out", lambda c: (0, 0, c.z), grain=(1, 0, 0))
+    oriented_faces(b, verts, inside, "timber", "boat/gunwale-in", lambda c: (0, 0, -c.z), grain=(1, 0, 0))
+    x0 = stations[0]
+    outer, inner = ring(x0, 0.0), ring(x0, 0.035)
+    transom = [(x0, y, z) for _, y, z in outer] + [(x0 + 0.035, y, z) for _, y, z in inner]
+    n = len(outer)
+    polys = [list(range(n)), list(range(n, 2 * n))]
+    oriented_faces(b, transom, polys, "timber", "boat/transom", lambda c: (-1, 0, 0) if c.x < x0 + 0.02 else (1, 0, 0), grain=(0, 0, 1))
+    b.block((-L / 2 + 0.02, 0.0, -0.04), (L / 2 - 0.12, 0.05, 0.04), "timber", 0.01, "boat/keel", grain=(1, 0, 0))
+    for k, x in enumerate((-1.25, -0.2, 0.75)):
+        w, h = hull_section(x)
+        b.block((x - 0.12, h - 0.14, -w + 0.05), (x + 0.12, h - 0.1, w - 0.05), "wood", 0.008, f"boat/thwart{k}", grain=(0, 0, 1))
+    for s in (1, -1):
+        rod(b, (-1.5, 0.42, s * 0.28), (1.0, 0.42, s * 0.3), 0.02, 5, "timber", f"boat/oar{s}")
+        b.block((-1.5, 0.405, s * 0.29 - 0.07), (-1.0, 0.425, s * 0.29 + 0.07), "wood", 0.005, f"boat/blade{s}", grain=(1, 0, 0))
+    placed(b, Matrix.Translation((L / 2 - 0.06, hull_section(L / 2 - 0.06)[1] - 0.08, 0)) @ Matrix.Rotation(math.pi / 2, 4, "Y"),
+           lambda: ring_part(b))
+    b.finish(col, root)
+    hb, hs = BOAT["beam"] / 2, BOAT["sheer"] + BOAT["rise"] + 0.03
+    return {"collisionProxies": [proxy("hull", (-L / 2, 0, -hb), (L / 2, hs, hb))]}
+
+
+def ring_part(b):
+    ring(b, 0.03, 0.04, -0.008, 0.008, 6, "iron", "boat/mooring-ring")
+
+
+JETTY_MODULE = 3.0
+
+
+def build_jetty(part, col, root):
+    """A 3 m plank jetty segment along X for a river or lake bank: a 1.6 m deck 0.5 m above the water line (y = 0)
+    on two stringers and cross-bearers, carried by pairs of round piles 1.5 m apart that reach 1.2 m down into
+    the bed. The pile pairs sit 0.75 m in from each end, so chained segments (``module`` width 3) keep the 1.5 m
+    spacing."""
+    b = K["Builder"](f"settlement.{part}.mesh")
+    hw, hd, deck, bed = JETTY_MODULE / 2, 0.8, 0.5, -1.2
+    t = 0.05
+    for k in range(12):
+        x0 = -hw + k * JETTY_MODULE / 12 + 0.006
+        x1 = x0 + JETTY_MODULE / 12 - 0.012
+        sag = 0.006 * rnd("jetty/plank", k)
+        b.box((x0, deck - t - sag, -hd + 0.02 * rnd("jetty/l", k)), (x1, deck - sag, hd - 0.02 * rnd("jetty/r", k)), "wood", f"jetty/plank{k}", grain=(0, 0, 1))
+    for z in (-0.6, 0.6):
+        b.block((-hw, deck - t - 0.16, z - 0.06), (hw, deck - t, z + 0.06), "timber", 0.01, f"jetty/stringer{z}", grain=(1, 0, 0))
+    for x in (-0.75, 0.75):
+        b.block((x - 0.07, deck - t - 0.3, -hd + 0.02), (x + 0.07, deck - t - 0.16, hd - 0.02), "timber", 0.01, f"jetty/bearer{x}", grain=(0, 0, 1))
+        for z in (-0.7, 0.7):
+            placed(b, Matrix.Translation((x, bed, z)), lambda x=x, z=z: lathe(
+                b, [(0, 0.08), (deck - t - 0.16 - bed, 0.09), (deck - t - 0.16 - bed + 0.04, 0.0)], 8, "timber", f"jetty/pile{x}{z}", cap_mat="endgrain", jitter=0.06))
+        b.block((x - 0.03, deck - t - 0.3, -hd + 0.05), (x + 0.03, -0.1, -hd + 0.09), "timber", 0.008, f"jetty/brace{x}", grain=(0, 1, 0))
+    for x in (-hw + 0.35, hw - 0.35):
+        placed(b, Matrix.Translation((x, deck, hd - 0.12)), lambda x=x: lathe(b, [(0, 0.06), (0.22, 0.06), (0.26, 0.04), (0.26, 0.0)], 7, "timber", f"jetty/bollard{x}", cap_mat="endgrain"))
+    b.finish(col, root)
+    return {"module": {"width": JETTY_MODULE, "height": deck},
+            "collisionProxies": [proxy("deck", (-hw, deck - t - 0.3, -hd), (hw, deck, hd)), proxy("piles", (-hw + 0.6, bed, -0.8), (hw - 0.6, deck - t - 0.3, 0.8))]}
+
+
+def build_fishing_nets(part, col, root):
+    """Fishing nets hung to dry: two 2.2 m poles 2.4 m apart along X with a cross pole, a sagging net between
+    them with cork floats along its head rope, a second net heaped over a trestle, and a creel."""
+    b = K["Builder"](f"settlement.{part}.mesh")
+    hw, top = 1.2, 2.2
+    for x in (-hw, hw):
+        rod(b, (x, 0.0, 0.0), (x * 1.02, top, 0.0), 0.045, 7, "timber", f"nets/pole{x}")
+        b.block((x - 0.12, 0, -0.12), (x + 0.12, 0.05, 0.12), "stone", 0.02, f"nets/footing{x}")
+    rod(b, (-hw - 0.1, top - 0.08, 0), (hw + 0.1, top - 0.08, 0), 0.03, 6, "timber", "nets/cross-pole")
+    def sag(u):
+        return 0.14 * math.sin(math.pi * u)
+    rows, cols = 6, 11
+    head, foot = top - 0.12, 0.55
+    for i in range(rows):  # horizontal cords, sagging more toward the head rope's middle
+        y = head - (head - foot) * i / (rows - 1)
+        pts = [(-hw + 2 * hw * j / (cols - 1), y - sag(j / (cols - 1)) * (0.5 + i / rows), 0.01 * math.sin(j * 1.7 + i)) for j in range(cols)]
+        for j, (a, c) in enumerate(zip(pts, pts[1:])):
+            b.beam((a[0], a[1]), (c[0], c[1]), 0.012 if i else 0.022, -0.006, 0.006, "sacking", f"nets/cord{i}{j}")
+    for j in range(cols):
+        x = -hw + 2 * hw * j / (cols - 1)
+        u = j / (cols - 1)
+        b.beam((x, head - sag(u) * 0.5), (x, foot - sag(u) * 1.5), 0.012, -0.006, 0.006, "sacking", f"nets/mesh{j}")
+    for j in range(1, cols - 1, 2):
+        x, u = -hw + 2 * hw * j / (cols - 1), j / (cols - 1)
+        placed(b, Matrix.Translation((x, head - sag(u) * 0.5 - 0.05, 0)), lambda j=j: lathe(b, [(0, 0.0), (0.02, 0.04), (0.08, 0.04), (0.1, 0.0)], 6, "endgrain", f"nets/float{j}"))
+    # A second net heaped over a low trestle in front, and a wicker creel.
+    tz = 0.9
+    for x in (-0.55, 0.55):
+        b.beam((x - 0.15, 0.0071), (x, 0.55), 0.05, tz - 0.25, tz - 0.2, "timber", f"nets/trestle{x}a")
+        b.beam((x + 0.15, 0.0071), (x, 0.55), 0.05, tz - 0.25, tz - 0.2, "timber", f"nets/trestle{x}b")
+    b.block((-0.75, 0.55, tz - 0.27), (0.75, 0.6, tz - 0.18), "timber", 0.01, "nets/trestle-bar", grain=(1, 0, 0))
+    lying(b, (0.0, 0.62, tz - 0.22), 0.0, 1.5, lambda: lathe(b, [(0, 0.0), (0.1, 0.12), (0.75, 0.16), (1.4, 0.12), (1.5, 0.0)], 7, "sacking", "nets/heap", jitter=0.15), squash=(0.7, 1.4))
+    placed(b, Matrix.Translation((0.9, 0, tz)), lambda: lathe(b, [(0, 0.14), (0.32, 0.18), (0.32, 0.16), (0.04, 0.12)], 9, "straw", "nets/creel"))
+    b.finish(col, root)
+    return {"collisionProxies": [proxy("poles", (-hw - 0.12, 0, -0.12), (hw + 0.12, top + 0.02, 0.12)), proxy("trestle", (-0.75, 0, tz - 0.45), (1.1, 0.75, tz + 0.18))]}
+
+
 BUILDERS = {"stall": build_stall, "cart": build_cart, "crate": build_crate_part, "barrel": build_barrel_part,
             "signpost": build_signpost, "lantern-post": build_lantern_post, "bench": build_bench,
             "fence": build_fence, "planter": build_planter, "firewood": build_firewood,
@@ -1836,7 +1996,8 @@ BUILDERS = {"stall": build_stall, "cart": build_cart, "crate": build_crate_part,
             "anvil": build_anvil, "grindstone": build_grindstone, "cooper-barrel": build_cooper_barrel,
             "table-set": build_table_set, "candles": build_candles, "candelabra": build_candelabra, "inn-sign": build_inn_sign,
             "stool": build_stool, "bar-counter": build_bar_counter, "log-stack": build_log_stack, "wall-shield": build_wall_shield,
-            "wall-trophy": build_wall_trophy}
+            "wall-trophy": build_wall_trophy,
+            "rowing-boat": build_rowing_boat, "jetty": build_jetty, "fishing-nets": build_fishing_nets}
 
 
 # ---------------------------------------------------------------- composition
