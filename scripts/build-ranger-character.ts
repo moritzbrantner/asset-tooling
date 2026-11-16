@@ -351,6 +351,14 @@ export const RANGER_CLIP_ROLES: Readonly<Record<string, { role: string; contact?
   Sleep_Bed_Enter: { role: "sleep.bed.enter" },
   Sleep_Bed_Loop: { role: "sleep.bed.loop" },
   Sleep_Bed_Wake: { role: "sleep.bed.wake" },
+  // #693: the residents' carry and chore loops (src/ranger-clips.ts RANGER_CHORE_CLIPS). The hoe's contact is its strike.
+  Carry_Hang_Idle_Loop: { role: "carry.hang.idle" },
+  Carry_Hang_Walk_Loop: { role: "carry.hang.walk" },
+  Sweep_Loop: { role: "chore.sweep" },
+  Bar_Wipe_Loop: { role: "chore.wipe" },
+  Pour: { role: "chore.pour" },
+  Farm_Hoe_Loop: { role: "chore.hoe", contact: "hand_r" },
+  Farm_Water_Loop: { role: "chore.water" },
 };
 /** The gait loops whose ground speed the `humanoid-clips` attachment records. */
 export const RANGER_GAITS: ReadonlySet<string> = new Set(["Walk_Loop", "Jog_Fwd_Loop", "Sprint_Loop", "Crouch_Fwd_Loop", "Jog_Bwd_Loop", "Walk_Bwd_Loop", "Wade_Fwd_Loop"]);

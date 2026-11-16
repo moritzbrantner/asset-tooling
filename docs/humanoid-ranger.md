@@ -49,7 +49,8 @@ The `humanoid.ranger.male` bundle holds the following.
   - the authored dagger, throw, flourish and bandage clips of the Rogue ([Dagger, throw and bandage clips](#dagger-throw-and-bandage-clips-418));
   - the upper-body bow, rapid and power clips and the crossbow clips ([Upper-body bow, rapid and power clips](#upper-body-bow-rapid-and-power-clips-419), [Crossbow clips](#crossbow-clips-419));
   - the casters' casting styles, staff and mace strikes and the war cry ([Casting, staff and mace clips](#casting-staff-and-mace-clips-420));
-  - the emotes, door, knock, loot, talk, trade, sitting and sleeping clips ([Social and interaction clips](#social-and-interaction-clips-421)).
+  - the emotes, door, knock, loot, talk, trade, sitting and sleeping clips ([Social and interaction clips](#social-and-interaction-clips-421));
+  - the residents' carry, sweep, counter wipe, pour, hoe and watering clips ([Carry and chore clips](#carry-and-chore-clips-693)).
 
   No clip uses Mixamo data (#399). Mixamo is only a motion reference, so the build needs no local input and both figures publish from CI.
 
@@ -398,6 +399,26 @@ The strokes are authored **upright**, with the body along +Y and facing +Z. Over
 - **Chain pose:** the full-body clips record a `secondaryPose` as the cast summon (`skirt_f_01`, `skirt_b_01`, `skirt_l_01`, `skirt_r_01`, the plumb `skirt_f_03`, `skirt_l_02`, `skirt_r_02` and `cape_01`): the panels follow the thighs, so the robe stays over the knees when kneeling and sitting and the front panel hangs plumb past the knee over the shin. Lying down, the panels turn back toward their rest under the pelvis, so the robe lies along the legs.
 - **Long robes:** the kneel steps the left foot 0.5 m forward as the #443 kneels, so the robe's front covers the shin. Sitting, the shins show below the robe's hem between the front and side panels; cross-legged, the robe falls between the knees to the ground.
 - **Review:** reviewed in the live Blender on the male `outfit.monk` (every clip), `outfit.class.arcanist` and `outfit.knight` (the full-body clips), and on the female `outfit.tanner` (the full-body clips, the wave, the knock, the push, the explaining gesture and the handover), with stand-in boxes for the door, the corpse, the chair and the bed and the chain pose driven. Hilda's skirt has no #391 chain joints, so its `secondaryPose` drives nothing; the skirt follows the legs through their skin weights.
+
+### Carry and chore clips (#693)
+
+[`adapters/blender/chore_clips.py`](../adapters/blender/chore_clips.py) authors the residents' carry and work loops of #422 in Blender on the animated Ranger (`RANGER_CHORE_CLIPS`, the `chores` family, after the social clips in bundle order), for mmorpg's residents who hang a lantern, bucket, basket or tankard from `hand_r.carry` and work with the broom and hoe on `hand_r.staff` ([humanoid equipment](humanoid-equipment.md)). The recipe keys those sockets' frames (`arguments.sockets.carry` and `.staff`): the carried item's +X plumb down and its +Y (the bail) forward, as it hangs in the idle; the broom's and hoe's shaft along their +Y. Two-bone arm IK puts the socket or the left palm there, the chest turn is spread over `spine_01`-`03`, and the hand shapes (flat, cup, grip) are keyed on the finger joints; the full-body clips move the pelvis and plant the ankles with two-bone leg IK. The CC0 UAL1 `Farm_*` and `Walk_Carry_Loop` clips were only watched as reference. Every clip starts from the first `Idle_Loop` pose (the walk carry from `Walk_Loop`) and is in place.
+
+| Clip | Length | Layer | Motion | `humanoid-clips` |
+| --- | --- | --- | --- | --- |
+| `Carry_Hang_Idle_Loop` | 3.0 s loop | `spine_01` | The item hangs from the right fist held 5.5 cm out from the thigh; the chest leans 3° away from the load, the right shoulder drops 4°, the chest breathes and the item sways a little. | `role: carry.hang.idle` |
+| `Carry_Hang_Walk_Loop` | `Walk_Loop`'s length (1.33 s) | `spine_01` | `Walk_Loop`'s upper body with the carrying arm keeping 30% of its swing about the held-out hang, the item plumb, the chest leaning away from the load. | `role: carry.hang.walk` |
+| `Sweep_Loop` | 3.0 s loop | full body | Three strokes (at 0, 1 and 2 s) of the broom at its grip: the bristles on the ground 0.55 m ahead swept from the figure's right to its left and lifted back; the left hand on the shaft at the broom's offhand grip, 0.45 m above the right; bent 34°, the hips shifting with each stroke. | `role: chore.sweep`, `secondaryPose` |
+| `Bar_Wipe_Loop` | 3.0 s loop | `spine_01` | Bent 32° over a 0.98 m counter, the right palm flat on it circling twice (from 0 and 1.5 s), the left palm resting on it. | `role: chore.wipe` |
+| `Pour` | 1.5 s | `spine_01` | The vessel in the right fist lifted before the chest, tipped 78° toward the cup the left hand holds (0.69-1.2 s), set upright and lowered back to the idle. | `role: chore.pour` |
+| `Farm_Hoe_Loop` | 2.0 s loop | full body | The left foot forward; the hoe, its blade end down and held near the butt, pulled back, raised, struck into the ground about 0.8 m ahead (1.04 s) and dragged back; the left hand 0.25 m lower down the shaft, the pelvis dipping into the strike. | `role: chore.hoe`, `contact` (`hand_r`, the strike), `secondaryPose` |
+| `Farm_Water_Loop` | 2.0 s loop | full body | The bucket held out at the right side clear of the thigh, swung forward and tipped 70° (0.6-1.24 s), its bottom swinging back past the thigh; the chest turned a little toward the row, the left arm hanging. | `role: chore.water`, `secondaryPose` |
+
+- **`chore` object:** `carrySocket` (`hand_r.carry`) on the clips that hold the item; the timing in seconds (`strokeSeconds`, `circleSeconds`, `pourSeconds`, `strikeSeconds`); `counterHeightMeters` (0.98); `tool` on the broom and hoe clips (`item`, `socket` (`hand_r.staff`), the broom's `headReachMeters`, the hoe's `itemOffset` and `bladeAt`, where its blade's edge strikes, root frame, glTF axes).
+- **The hoe's hold:** the hoe's grip is a carrying grip 0.74 m from the blade, too low to hoe with the Ranger's 0.5 m arms (a 60° stoop still misses by 5 cm), so the clip holds the shaft 0.5 m further toward the butt. Mount the hoe at `jointWorld × socket × translate(itemOffset) × inverse(grip)` while the clip plays (`itemOffset` is `[0, 0.5, 0]`, along the item's +Y); the broom and the carried items mount as usual.
+- **Reach:** the counter wipe, the sweep and the hoe bend the chest (and, full body, the knees) to reach; the authored socket and palm targets are met to within 1.2 cm (the hoe's left hand between keys), elsewhere within 5 mm.
+- **Chain pose:** the full-body clips record a `secondaryPose` as the social clips (the panels follow the thighs).
+- **Review:** shaped and reviewed in the live Blender on the male Ranger with stand-in props (a bucket and a tankard on `hand_r.carry`, the broom's and hoe's shaft, bristles and blade on `hand_r.staff`, a counter box).
 
 ## Female Ranger
 
