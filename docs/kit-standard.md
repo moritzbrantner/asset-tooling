@@ -45,7 +45,8 @@ Batched scenery draws once per material, so material count is the limit that mat
 ### Textures
 
 - Encode every texture as KTX2, through `ktx2Assets` in `src/kit-bundle.ts`. Kit builds inherit `--textures full|half`.
-- Use power-of-two sizes. 2048 px is the default atlas; go higher only for a large set of baked hero objects.
+- Use power-of-two sizes. 2048 px is the default atlas. The KTX2 pass caps every texture at 2048 px and the normal maps (UASTC) at 1024 px (`KTX2_MAX_EDGE`, `src/ktx2-encodings.ts`, #681): a larger source is halved until it fits.
+- Base colour, emissive and data maps are ETC1S; only normal maps (which band under ETC1S) and cut-out base colours (whose alpha edge ETC1S frays) are UASTC, at about four times the bytes.
 - Leave a gutter around each atlas cell, so mip levels don't bleed in from neighbours.
 - For game-matched surfaces, divide scans by their mean and multiply by the game's palette, as the clients do (`PALETTE` in `cliff_outcrop.py`).
 

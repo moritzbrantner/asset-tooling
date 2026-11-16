@@ -559,6 +559,8 @@ The build runs every character GLB through [`scene.textures.resize.gltf@1`](gltf
 - `default` is 1024 px;
 - smaller images, such as the 256 px eye textures, are kept byte for byte.
 
+**Normal maps at 512 px (#681).** `RANGER_TEXTURE_POLICY` resizes normal maps to 512 px (1024 px before): they were about 9.4 MB of the male figure's 14.3 MB of textures, and at the game camera a figure is a few hundred pixels tall.
+
 **KTX2 (#517).** After the resize, the build encodes every texture to KTX2 (`KHR_texture_basisu`) before it exports the bundle, as every kit does ([kit-standard.md](kit-standard.md#textures)). Each slot gets the encoding the per-entry downloads always used (`textureEncoding` in [`pack-downloads.ts`](../scripts/pack-downloads.ts): UASTC normal maps, ETC1S sRGB colour, ETC1S linear data maps, power-of-two sizes with mipmaps), and `pack-downloads.ts` passes the bundle's KTX2 files through. The downloads therefore name the same `tex-<hash>.ktx2` files as before. Bundle texture memory fell from 283 MB to 71 MB (male) and from 91 MB to 23 MB (female). The tar shrank less, from 155 MB to 134 MB and from 67 MB to 62 MB: most of it is geometry, morph targets and clips. The [Ranger comparison](animation-viewer.md#ranger-comparison) decodes them with three.js's Basis transcoder.
 
 The resize itself works on PNGs. Colour is averaged in linear light, ORM and roughness data as stored, and normal maps as renormalized vectors, and the PNGs are written at zlib level 9. Only image bytes change. The v3 character `.gltf` differs from v2 only in its `images` entries, the geometry and animation `.bin` is the same file, and the two equipment entries are byte-identical to v2.

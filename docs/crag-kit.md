@@ -53,11 +53,11 @@ Triangles (LOD0 / lod1 / lod2): faces 3,200 / 512 / 98, corners 2,400 / 384 / 84
 
 One material, `crag-rock`, on every module: `rock_face_03`'s base colour, OpenGL normal and AO/roughness/metal (`arm`, also the occlusion texture) maps at one repeat per 3 m, offset and mirrored per module so neighbours don't repeat. `COLOR_0` multiplies the base colour: cavities and joints darken, recessed rock is shadowed, moss gathers on up-facing rock, sheer faces carry streaks, and a broad drift moves towards `rock_boulder_dry`. Since every module embeds the same textures, the bundle stores the three KTX2 files once.
 
-KTX2 (`KHR_texture_basisu`, required) as the terrain encodes it (#475/#478): UASTC sRGB for base colour and UASTC linear for normals at 1024 px, ETC1S linear for the AO/roughness/metal map at 512 px, all with full mip chains.
+KTX2 (`KHR_texture_basisu`, required) as the terrain encodes it (#475/#478): ETC1S sRGB for base colour and UASTC linear for normals at 1024 px (`CRAG_TEXTURE_POLICY`: the terrain's normals are 512 px, but these faces are climbed), ETC1S linear for the AO/roughness/metal map at 512 px, all with full mip chains. Until #681 the base colour was UASTC. The outcrops' 4096 px atlas ships at 2048 px colour and 1024 px normals (`KTX2_MAX_EDGE`), down from 11.3 MB of UASTC normals.
 
 ### Rock macro variation
 
-`crag.kit.rock-macro` is a tileable 1024 px texture (KTX2 UASTC sRGB, the base colour of a 1 m quad) to break the visible repeat of the rock texture at large world scale. Sample its base colour (sRGB-decoded, so linear) at world position / 32 m (`macro.worldMetres`): xz for the terrain's rock layer, the face-plane axes or triplanar for the crag modules. Multiply the linear base colour by 2 × its RGB: 0.5 leaves the colour unchanged. It mixes broad brightness swells (about ±18 %), patches tinted towards `rock_boulder_dry` and sparse moss-green, in periodic fractal noise.
+`crag.kit.rock-macro` is a tileable 1024 px texture (KTX2 ETC1S sRGB since #681, the base colour of a 1 m quad) to break the visible repeat of the rock texture at large world scale. Sample its base colour (sRGB-decoded, so linear) at world position / 32 m (`macro.worldMetres`): xz for the terrain's rock layer, the face-plane axes or triplanar for the crag modules. Multiply the linear base colour by 2 × its RGB: 0.5 leaves the colour unchanged. It mixes broad brightness swells (about ±18 %), patches tinted towards `rock_boulder_dry` and sparse moss-green, in periodic fractal noise.
 
 ## Layout
 

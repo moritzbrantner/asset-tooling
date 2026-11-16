@@ -7,6 +7,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { ImageUtils, NodeIO, type Document, type Texture } from "@gltf-transform/core";
 import { KHRTextureBasisu } from "@gltf-transform/extensions";
 import { ktxArguments, powerOfTwo, textureEncoding, type TextureEncoding } from "../scripts/pack-downloads.ts";
+import { ktx2MaxEdge } from "./ktx2-encodings.js";
 import { exportAssetBundle } from "./asset-bundle.js";
 import { ASSET_BUNDLE_REF_FILE, packAssetBundle } from "./asset-bundle-pack.js";
 import { resolveAssetObject, storeAssetObject } from "./asset-store.js";
@@ -199,10 +200,19 @@ export function takeKitTextureMode(argv: string[]): KitTextureMode {
   return mode;
 }
 
-/** The power-of-two size an image of `width` x `height` is encoded at in the selected mode. */
-export function kitTextureTarget(width: number, height: number) {
+/**
+ * The power-of-two size an image of `width` x `height` is encoded at in the selected mode. With `encoding`, both
+ * edges are then halved until the longest fits that encoding's cap (`ktx2MaxEdge`, src/ktx2-encodings.ts).
+ */
+export function kitTextureTarget(width: number, height: number, encoding?: TextureEncoding) {
   const scale = KIT_TEXTURE_MODES[kitTextureMode];
-  return { width: powerOfTwo(Math.max(1, Math.round(width * scale))), height: powerOfTwo(Math.max(1, Math.round(height * scale))) };
+  const target = { width: powerOfTwo(Math.max(1, Math.round(width * scale))), height: powerOfTwo(Math.max(1, Math.round(height * scale))) };
+  const maxEdge = encoding ? ktx2MaxEdge(encoding) : Infinity;
+  while (Math.max(target.width, target.height) > maxEdge) {
+    target.width = Math.max(1, target.width / 2);
+    target.height = Math.max(1, target.height / 2);
+  }
+  return target;
 }
 
 /**
@@ -290,7 +300,7 @@ export async function ktx2Asset(root: string, asset: AssetRef, cache: Ktx2Cache,
       const output = path.join(cache.scratch, `${cache.encoded.size}.ktx2`);
       await writeFile(input, image);
       const [width, height] = ImageUtils.getSize(image, mimeType)!;
-      const target = kitTextureTarget(width, height);
+      const target = kitTextureTarget(width, height, encoding);
       const resize = target.width !== width || target.height !== height ? target : undefined;
       const run = Bun.spawnSync([process.env.ASSET_TOOLING_KTX ?? "ktx", ...ktxArguments(encoding, input, output, resize)], { stdout: "pipe", stderr: "pipe" });
       if (run.exitCode !== 0) throw new Error(`ktx create failed for ${texture.getName()}: ${run.stderr.toString()}`);

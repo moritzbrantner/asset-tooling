@@ -20,7 +20,7 @@ Each key has variant `default`, a glTF with one mesh: a 1 m × 1 m quad on the X
 
 - `pbrMetallicRoughness.baseColorTexture`: RGBA, 1024². RGB is the Poly Haven colour (sRGB). A encodes height: `round(255 × (0.5 + 0.5 × h))`, where h is the `disp` map normalised so its 1st percentile maps to 0 and its 99th to 1 (clamped), so alpha lies in 128..255;
 - `metallicRoughnessTexture`: 512², from `arm` (R = ambient occlusion, G = roughness, B = metal), also the `occlusionTexture` (the same image);
-- `normalTexture`: 1024², from `nor_gl` (OpenGL, +Y);
+- `normalTexture`: 512², from `nor_gl` (OpenGL, +Y);
 - `metallicFactor` 0, roughness factor 1 and a white base colour factor (glTF defaults, so omitted from the JSON), `alphaMode` `MASK` with `alphaCutoff` 0.5, so every texel is opaque;
 - one sampler: `REPEAT`/`REPEAT`, `LINEAR_MIPMAP_LINEAR` minification, `LINEAR` magnification.
 
@@ -28,11 +28,11 @@ The 2K maps are downscaled by `scene.textures.resize.gltf@1` (area average; colo
 
 | Map | Encoding | Size per layer |
 | --- | --- | --- |
-| Base colour (with height alpha) | UASTC quality 2, Zstandard 18, sRGB | about 1.3 MB |
-| Normal | UASTC quality 2, Zstandard 18, linear | about 1.3 MB |
+| Base colour (with height alpha) | ETC1S (BasisLZ) qlevel 160, clevel 2, sRGB | about 360 KB |
+| Normal (512²) | UASTC quality 2, Zstandard 18, linear | about 330 KB |
 | AO/roughness/metal | ETC1S (BasisLZ) qlevel 160, clevel 2, linear | about 60 KB |
 
-The base colour is UASTC rather than ETC1S because ETC1S blurs the scans' fine detail and the height alpha: on the grass layer it measured about 27 dB PSNR, against 35 dB for UASTC. The bundle is about 18.5 MB, down from 30 MB of PNG and JPEG (the PNG base colours were about 3 MB each). On the GPU, Basis transcodes to a format that takes 1 byte per texel (BC7, ASTC or ETC2), a quarter of the RGBA8 the PNGs needed. Consumers need a Basis transcoder. In three.js, register `KTX2Loader` with the `GLTFLoader`.
+Until #681 the base colour was UASTC (about 1.3 MB a layer) and the normals 1024² (about 1.3 MB), an 18.5 MB bundle. ETC1S blurs the scans' finest detail (about 27 dB PSNR against UASTC's 35 dB on the grass, 32.5 dB on the rock), but at the game camera the two render alike and only a 2× close-up shows the softer grain. The normals at 512² are about 4 mm a texel on a 2 m tile, finer than a screen pixel a few metres from the camera. The bundle is now about 5.3 MB, down from 30 MB of PNG and JPEG. On the GPU, Basis transcodes to a format that takes 1 byte per texel (BC7, ASTC or ETC2), a quarter of the RGBA8 the PNGs needed. Consumers need a Basis transcoder. In three.js, register `KTX2Loader` with the `GLTFLoader`.
 
 ## Descriptor
 

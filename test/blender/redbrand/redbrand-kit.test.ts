@@ -42,7 +42,7 @@ test("the redbrand spec runs the packaged recipe on one output, from the authore
   assert.equal(REDBRAND_TAR_NAME, "redbrand.kit.tar");
   assert.ok(ROLLING_RELEASES.some((r) => r.name === REDBRAND_RELEASE && r.script === "scripts/build-redbrand-kit.ts" && r.blender && r.lfs && r.ktx));
   assert.ok(BLENDER_SUITES.some((s) => s.suite === "redbrand" && s.ktx && s.lfs.includes("assets/authored/redbrand-kit.blend")));
-  assert.equal(slotKtx2Encoding(new Set(["baseColorTexture"])), "uastc-srgb");
+  assert.equal(slotKtx2Encoding(new Set(["baseColorTexture"])), "etc1s-srgb");
   assert.equal(slotKtx2Encoding(new Set(["normalTexture"])), "uastc");
   assert.equal(slotKtx2Encoding(new Set(["occlusionTexture", "metallicRoughnessTexture"])), "etc1s-linear");
   assert.ok(RANGER_PEASANT_OUTFITS.male && RANGER_FIGURES.male.key === "humanoid.ranger.male");

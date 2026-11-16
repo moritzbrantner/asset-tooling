@@ -11,9 +11,9 @@ export const RANGER_MEMBERS = {
   clips: { archive: "quaternius.universal-animation-library-standard", path: "Animation Library[Standard]/Godot/AnimationLibrary_Godot_Standard.glb" },
   clips2: { archive: "quaternius.universal-animation-library-2-standard", path: "Universal Animation Library 2 [Standard]/Unreal-Godot/UAL2_Standard.glb" },
 } as const;
-/** #257: per-slot maximum texture edges for browser delivery; images are never upscaled. */
+/** #257: per-slot maximum texture edges for browser delivery; images are never upscaled. #681: normal maps at 512 px. */
 export const RANGER_TEXTURE_POLICY = {
-  maxEdgeBySlot: { baseColor: 1024, normal: 1024, metallicRoughness: 512, occlusion: 512, emissive: 1024 },
+  maxEdgeBySlot: { baseColor: 1024, normal: 512, metallicRoughness: 512, occlusion: 512, emissive: 1024 },
   default: 1024,
 } as const;
 
