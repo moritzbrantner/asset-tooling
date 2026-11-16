@@ -30,6 +30,7 @@ export const SETTLEMENT_PROPS = [
   "banner-outpost", "banner-village", "pennant-outpost", "pennant-village", "bunting",
   "scarecrow", "weather-vane", "beehive-skeps", "water-trough", "feed-trough", "hen-coop", "plough",
   "watermill", "water-wheel", "windmill", "forge", "well-windlass",
+  "spit-roast", "butter-churn", "loom", "potters-wheel", "hide-frame", "shop-sign-smith", "shop-sign-baker", "shop-sign-tailor",
 ] as const;
 export type SettlementProp = (typeof SETTLEMENT_PROPS)[number];
 export type SettlementFamily = "market" | "street" | "dressing";
@@ -55,6 +56,8 @@ export const SETTLEMENT_FAMILY: Record<SettlementProp, SettlementFamily> = {
   scarecrow: "dressing", "weather-vane": "dressing", "beehive-skeps": "dressing", "water-trough": "dressing", "feed-trough": "dressing",
   "hen-coop": "dressing", plough: "dressing",
   watermill: "dressing", "water-wheel": "dressing", windmill: "dressing", forge: "dressing", "well-windlass": "dressing",
+  "spit-roast": "dressing", "butter-churn": "dressing", loom: "dressing", "potters-wheel": "dressing", "hide-frame": "dressing",
+  "shop-sign-smith": "street", "shop-sign-baker": "street", "shop-sign-tailor": "street",
 };
 export const SETTLEMENT_KEY_PREFIX = "settlement.props";
 export const SETTLEMENT_VARIANT = "default";
@@ -81,12 +84,16 @@ export const SETTLEMENT_TRIANGLE_BUDGET: Record<SettlementProp, number> = {
   "banner-outpost": 550, "banner-village": 550, "pennant-outpost": 300, "pennant-village": 300, bunting: 700,
   scarecrow: 1000, "weather-vane": 800, "beehive-skeps": 1000, "water-trough": 350, "feed-trough": 250, "hen-coop": 550, plough: 750,
   watermill: 2500, "water-wheel": 1100, windmill: 2300, forge: 1300, "well-windlass": 1000,
+  "spit-roast": 1200, "butter-churn": 500, loom: 1200, "potters-wheel": 1400, "hide-frame": 750,
+  "shop-sign-smith": 600, "shop-sign-baker": 900, "shop-sign-tailor": 900,
 };
-/** The named node-animation loops (#695, #699), in seconds. They live in the props' glTF and the bundle manifest's observations; the
+/** The named node-animation loops (#695, #699, #703), in seconds. They live in the props' glTF and the bundle manifest's observations; the
  * published descriptor schema keeps its fields. */
 export const SETTLEMENT_CLIPS: Partial<Record<SettlementProp, Record<string, number>>> = {
   scarecrow: { Sway_Loop: 4 }, "weather-vane": { Turn_Loop: 8 },
   watermill: { Turn_Loop: 6 }, "water-wheel": { Turn_Loop: 6 }, windmill: { Turn_Loop: 8 }, forge: { Pump_Loop: 2 }, "well-windlass": { Crank_Loop: 3 },
+  "spit-roast": { Turn_Loop: 5 }, "potters-wheel": { Spin_Loop: 1 },
+  "shop-sign-smith": { Swing_Loop: 3 }, "shop-sign-baker": { Swing_Loop: 3 }, "shop-sign-tailor": { Swing_Loop: 3 },
 };
 /** Recipe observations copied into the descriptor when a prop declares them. */
 const EXTRAS = ["stackTop", "sign", "light", "seat", "module"] as const;
