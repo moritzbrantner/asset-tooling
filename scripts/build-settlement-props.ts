@@ -22,6 +22,7 @@ export const SETTLEMENT_PROPS = [
   "barrel-group", "crate-stack", "grain-sacks", "wheelbarrow", "well", "fingerpost", "hay-bale", "haystack",
   "chopping-block", "washing-line", "flower-tub", "vegetable-bed", "kennel",
   "dresser", "settle", "rug", "cooking-pot", "jar-shelf", "spinning-wheel", "cradle", "hall-table",
+  "shrine", "standing-stone", "watchtower-ruin", "bridge-railing", "stall-awning",
 ] as const;
 export type SettlementProp = (typeof SETTLEMENT_PROPS)[number];
 export type SettlementFamily = "market" | "street" | "dressing";
@@ -36,6 +37,7 @@ export const SETTLEMENT_FAMILY: Record<SettlementProp, SettlementFamily> = {
   "washing-line": "dressing", "flower-tub": "dressing", "vegetable-bed": "dressing", kennel: "dressing",
   dresser: "dressing", settle: "dressing", rug: "dressing", "cooking-pot": "dressing", "jar-shelf": "dressing",
   "spinning-wheel": "dressing", cradle: "dressing", "hall-table": "dressing",
+  shrine: "street", "standing-stone": "street", "watchtower-ruin": "street", "bridge-railing": "street", "stall-awning": "market",
 };
 export const SETTLEMENT_KEY_PREFIX = "settlement.props";
 export const SETTLEMENT_VARIANT = "default";
@@ -53,6 +55,7 @@ export const SETTLEMENT_TRIANGLE_BUDGET: Record<SettlementProp, number> = {
   "hay-bale": 200, haystack: 400, "chopping-block": 600, "washing-line": 400, "flower-tub": 700, "vegetable-bed": 650,
   kennel: 400, dresser: 850, settle: 400, rug: 350, "cooking-pot": 800, "jar-shelf": 900, "spinning-wheel": 600,
   cradle: 350, "hall-table": 900,
+  shrine: 700, "standing-stone": 500, "watchtower-ruin": 700, "bridge-railing": 200, "stall-awning": 1200,
 };
 /** Recipe observations copied into the descriptor when a prop declares them. */
 const EXTRAS = ["stackTop", "sign", "light", "seat", "module"] as const;

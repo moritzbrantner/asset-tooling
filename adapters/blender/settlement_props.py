@@ -35,7 +35,8 @@ PROPS = ("stall", "cart", "crate", "barrel", "signpost", "lantern-post", "bench"
          "bed", "table", "chair", "chest", "hearth",
          "barrel-group", "crate-stack", "grain-sacks", "wheelbarrow", "well", "fingerpost", "hay-bale", "haystack",
          "chopping-block", "washing-line", "flower-tub", "vegetable-bed", "kennel",
-         "dresser", "settle", "rug", "cooking-pot", "jar-shelf", "spinning-wheel", "cradle", "hall-table")
+         "dresser", "settle", "rug", "cooking-pot", "jar-shelf", "spinning-wheel", "cradle", "hall-table",
+         "shrine", "standing-stone", "watchtower-ruin", "bridge-railing", "stall-awning")
 FAMILY = {"stall": "market", "cart": "market", "crate": "market", "barrel": "market", "signpost": "street",
           "lantern-post": "street", "bench": "street", "fence": "dressing", "planter": "dressing", "firewood": "dressing",
           "footbridge": "street", "bed": "dressing", "table": "dressing", "chair": "dressing", "chest": "dressing",
@@ -44,7 +45,9 @@ FAMILY = {"stall": "market", "cart": "market", "crate": "market", "barrel": "mar
           "well": "street", "fingerpost": "street", "hay-bale": "dressing", "haystack": "dressing",
           "chopping-block": "dressing", "washing-line": "dressing", "flower-tub": "dressing", "vegetable-bed": "dressing",
           "kennel": "dressing", **{prop: "dressing" for prop in ("dresser", "settle", "rug", "cooking-pot", "jar-shelf",
-                                                                   "spinning-wheel", "cradle", "hall-table")}}
+                                                                   "spinning-wheel", "cradle", "hall-table")},
+          "shrine": "street", "standing-stone": "street", "watchtower-ruin": "street", "bridge-railing": "street",
+          "stall-awning": "market"}
 
 # Plain-colour materials the props add to the kit's: (sRGB base colour, metallic, roughness, texture).
 EXTRA_MATERIALS = {
@@ -56,6 +59,7 @@ EXTRA_MATERIALS = {
     "endgrain": ((0.66, 0.53, 0.38), 0.0, 0.95, None),
     "horn": ((0.86, 0.66, 0.36), 0.0, 0.4, None),
     "straw": ((0.8, 0.67, 0.37), 0.0, 0.95, None),
+    "monolith": ((0.46, 0.46, 0.43), 0.0, 0.95, None),
 }
 
 K = {}
@@ -1111,6 +1115,156 @@ def build_hall_table(part, col, root):
     return {"collisionProxies": [proxy("table", (-hw, 0, -hd), (hw, top, hd))]}
 
 
+# ---------------------------------------------------------------- landmarks (#665)
+
+def build_shrine(part, col, root):
+    """A roadside shrine: a coursed stone pillar on a stepped plinth carrying a small gabled timber niche with a
+    figure and a candle, an offering bowl of flowers on the step. It faces +Z."""
+    b = K["Builder"](f"settlement.{part}.mesh")
+    b.block((-0.42, 0, -0.36), (0.42, 0.2, 0.36), "stone", 0.03, "shrine/step")
+    b.block((-0.28, 0.2, -0.24), (0.28, 0.4, 0.24), "stone", 0.03, "shrine/plinth")
+    for k, y in enumerate((0.4, 0.75, 1.1)):
+        b.block((-0.17, y, -0.15), (0.17, y + 0.35, 0.15), "stone", 0.02, f"shrine/course{k}")
+    n0, n1 = 1.45, 1.95
+    b.box((-0.26, n0, -0.2), (0.26, n0 + 0.05, 0.22), "timber", "shrine/sill", grain=(1, 0, 0))
+    for x in (-0.24, 0.2):
+        b.box((x, n0 + 0.05, -0.18), (x + 0.04, n1, -0.14), "timber", f"shrine/post-back{x}", grain=(0, 1, 0))
+        b.box((x, n0 + 0.05, 0.16), (x + 0.04, n1, 0.2), "timber", f"shrine/post-front{x}", grain=(0, 1, 0))
+    b.box((-0.2, n0 + 0.05, -0.17), (0.2, n1, -0.15), "wood", "shrine/back", grain=(0, 1, 0))
+    for x in (-0.24, 0.2):
+        b.box((x + 0.005, n0 + 0.05, -0.14), (x + 0.035, n1, 0.16), "wood", f"shrine/side{x}", grain=(0, 0, 1))
+    for s in (-1, 1):
+        b.beam((s * 0.34, n1 - 0.06), (0, n1 + 0.26), 0.035, -0.28, 0.3, "shingle", f"shrine/roof{s}")
+    b.box((-0.025, n1 + 0.24, -0.3), (0.025, n1 + 0.3, 0.32), "timber", "shrine/ridge", grain=(0, 0, 1))
+    placed(b, Matrix.Translation((0, n0 + 0.05, -0.05)), lambda: lathe(
+        b, [(0, 0.06), (0.18, 0.045), (0.24, 0.04), (0.26, 0.05), (0.33, 0.035), (0.36, 0)], 7, "canvas", "shrine/figure"))
+    placed(b, Matrix.Translation((0.12, n0 + 0.05, 0.08)), lambda: lathe(b, [(0, 0.02), (0.08, 0.02), (0.11, 0)], 6, "horn", "shrine/candle"))
+    placed(b, Matrix.Translation((0, 0.2, 0.28)), lambda: lathe(b, [(0, 0.05), (0.04, 0.1), (0.06, 0.11), (0.06, 0.09), (0.03, 0)], 8, "stone", "shrine/bowl"))
+    for k in range(5):
+        a = k * 1.3
+        flower(b, (0.06 * math.cos(a), 0.27, 0.28 - 0.06 * math.sin(a)), ("dye", "canvas", "horn")[k % 3], f"shrine/flower{k}")
+    b.finish(col, root)
+    return {"collisionProxies": [proxy("plinth", (-0.42, 0, -0.36), (0.42, 0.4, 0.36)), proxy("pillar", (-0.34, 0.4, -0.3), (0.34, n1 + 0.3, 0.32))]}
+
+
+def build_standing_stone(part, col, root):
+    """A 2.4 m weathered standing stone, its broad face toward +Z carved with a spiral and a column of runes, a few
+    fallen stones at its foot."""
+    b = K["Builder"](f"settlement.{part}.mesh")
+    rings = [(0.0, 0.52), (0.6, 0.5), (1.3, 0.44), (1.9, 0.34), (2.25, 0.2), (2.4, 0.06)]
+    placed(b, Matrix.Diagonal((1.0, 1.0, 0.5, 1.0)),
+           lambda: lathe(b, rings, 7, "monolith", "standing/body", jitter=0.12, phase=0.2))
+    # Carvings: shallow dark grooves proud of the front face (z about 0.22-0.26).
+    def groove(a, c, key):
+        b.beam(a, c, 0.035, 0.0, 0.045, "soot", key)
+    spiral = [(0.16 * (1 - k / 14) * math.cos(k * 0.9), 1.45 + 0.16 * (1 - k / 14) * math.sin(k * 0.9)) for k in range(15)]
+    def carve():
+        for k, (p, q) in enumerate(zip(spiral, spiral[1:])):
+            groove(p, q, f"standing/spiral{k}")
+        for k, y in enumerate((0.55, 0.78, 1.0)):
+            groove((-0.1, y), (0.1, y + 0.12), f"standing/rune{k}a")
+            groove((0.0, y - 0.04), (0.0, y + 0.16), f"standing/rune{k}b")
+    placed(b, Matrix.Translation((0.0, 0.0, 0.225)), carve)
+    for k, (x, z, s) in enumerate(((0.65, 0.35, 0.22), (-0.6, 0.45, 0.16), (0.3, -0.5, 0.18))):
+        b.block((x - s, 0, z - s * 0.8), (x + s, s * 0.9, z + s * 0.8), "monolith", 0.05, f"standing/rubble{k}")
+    b.finish(col, root)
+    return {"collisionProxies": [proxy("stone", (-0.52, 0, -0.27), (0.52, 2.4, 0.27))]}
+
+
+def build_watchtower_ruin(part, col, root):
+    """The stump of a round stone watchtower, 4.6 m across: a 0.55 m thick wall broken off between 1.2 and 3.6 m, a
+    doorway gap toward +Z and rubble spilled around it. Its inside is open ground."""
+    b = K["Builder"](f"settlement.{part}.mesh")
+    R, t, n = 2.3, 0.55, 16
+    proxies = []
+    for k in range(n):
+        if k == 12:  # the doorway, toward +Z
+            continue
+        a0, a1 = math.tau * k / n, math.tau * (k + 1) / n
+        h = 1.2 + 2.4 * rnd("tower/height", k) ** 1.5
+        h1 = 1.2 + 2.4 * rnd("tower/height", (k + 1) % n) ** 1.5
+        pts = [(R * math.cos(a0), -R * math.sin(a0)), (R * math.cos(a1), -R * math.sin(a1)),
+               ((R - t) * math.cos(a1), -(R - t) * math.sin(a1)), ((R - t) * math.cos(a0), -(R - t) * math.sin(a0))]
+        top = min(h, h1) + 0.6 * abs(h - h1) * 0.5
+        verts = [(x, 0.0, z) for x, z in pts] + [(pts[0][0], h, pts[0][1]), (pts[1][0], top, pts[1][1]), (pts[2][0], top, pts[2][1]), (pts[3][0], h, pts[3][1])]
+        polys = [[0, 1, 5, 4], [1, 2, 6, 5], [2, 3, 7, 6], [3, 0, 4, 7], [4, 5, 6, 7], [3, 2, 1, 0]]
+        bmesh.ops.recalc_face_normals(b.bm, faces=b.faces(verts, polys, "stone", f"tower/wall{k}", grain=(1, 0, 0)))
+        xs, zs = [p[0] for p in pts], [p[1] for p in pts]
+        proxies.append(proxy(f"wall{k}", (min(xs), 0, min(zs)), (max(xs), max(h, top), max(zs))))
+    for k in range(9):
+        a = math.tau * rnd("tower/rubble", k, "a")
+        r = R + 0.3 + 0.7 * rnd("tower/rubble", k, "r")
+        s = 0.18 + 0.15 * rnd("tower/rubble", k, "s")
+        x, z = r * math.cos(a), -r * math.sin(a)
+        b.block((x - s, 0, z - s * 0.7), (x + s, s, z + s * 0.7), "stone", 0.04, f"tower/rubble{k}")
+    b.finish(col, root)
+    return {"collisionProxies": proxies}
+
+
+RAILING_MODULE = 3.0
+
+
+def build_bridge_railing(part, col, root):
+    """A 3 m weathered timber railing segment along X for a bridge deck edge: half a post at each end, a sagging top
+    rail, a mid rail broken in the middle and a leaning centre post."""
+    b = K["Builder"](f"settlement.{part}.mesh")
+    hw, top = RAILING_MODULE / 2, 1.05
+    for x0, x1 in ((-hw, -hw + 0.07), (hw - 0.07, hw)):
+        b.box((x0, 0, -0.07), (x1, top, 0.07), "timber", f"railing/post{x0}", grain=(0, 1, 0))
+    tilted(b, (0.0, 0, 0), 0.06, 0, lambda: b.box((-0.06, 0.004, -0.06), (0.06, top - 0.04, 0.06), "timber", "railing/mid-post", grain=(0, 1, 0)))
+    b.beam((-hw + 0.07, top - 0.02), (0.0, top - 0.07), 0.09, -0.04, 0.04, "wood", "railing/top-left")
+    b.beam((0.0, top - 0.07), (hw - 0.07, top - 0.03), 0.09, -0.04, 0.04, "wood", "railing/top-right")
+    b.beam((-hw + 0.07, 0.52), (-0.25, 0.5), 0.08, -0.03, 0.03, "wood", "railing/mid-left")
+    b.beam((-0.25, 0.5), (-0.05, 0.36), 0.08, -0.03, 0.03, "wood", "railing/mid-broken")
+    b.beam((0.06, 0.5), (hw - 0.07, 0.53), 0.08, -0.03, 0.03, "wood", "railing/mid-right")
+    for x in (-hw + 0.035, 0.0, hw - 0.035):
+        b.box((x - 0.05, top - 0.12, 0.04), (x + 0.05, top - 0.09, 0.05), "iron", f"railing/strap{x}")
+    b.finish(col, root)
+    return {"module": {"width": RAILING_MODULE, "height": top},
+            "collisionProxies": [proxy("railing", (-hw, 0, -0.08), (hw, top, 0.08))]}
+
+
+def build_stall_awning(part, col, root):
+    """A market stall variant under a gable awning: a 2.4 x 1.2 m trestle counter of produce baskets and loaves, four
+    poles and a red canvas gable with a light valance, its ridge along X."""
+    b = K["Builder"](f"settlement.{part}.mesh")
+    hw, hd, counter = 1.2, 0.6, 0.85
+    b.block((-hw, counter - 0.05, -hd), (hw, counter, hd), "wood", 0.01, "awning/counter", grain=(1, 0, 0))
+    for x in (-0.95, 0.95):
+        b.block((x - 0.05, 0, -hd + 0.05), (x + 0.05, 0.06, hd - 0.05), "timber", 0.01, f"awning/foot{x}", grain=(0, 0, 1))
+        b.box((x - 0.035, 0.06, -0.04), (x + 0.035, counter - 0.05, 0.04), "timber", f"awning/leg{x}", grain=(0, 1, 0))
+    b.box((-hw + 0.2, counter - 0.11, hd - 0.04), (hw - 0.2, counter - 0.05, hd), "timber", "awning/apron", grain=(1, 0, 0))
+    eave, ridge = 2.05, 2.6
+    for x in (-hw - 0.05, hw + 0.05):
+        for z in (-hd - 0.1, hd + 0.1):
+            b.box((x - 0.04, 0, z - 0.04), (x + 0.04, eave, z + 0.04), "timber", f"awning/pole{x}{z}", grain=(0, 1, 0))
+        rod(b, (x, eave - 0.02, -hd - 0.1), (x, ridge, 0), 0.025, 6, "timber", f"awning/rafter-back{x}")
+        rod(b, (x, eave - 0.02, hd + 0.1), (x, ridge, 0), 0.025, 6, "timber", f"awning/rafter-front{x}")
+    def gable():
+        for s in (-1, 1):
+            b.beam((s * (hd + 0.3), eave - 0.12), (0, ridge + 0.03), 0.02, -hw - 0.25, hw + 0.25, "dye", f"awning/canvas{s}")
+            for k in range(6):
+                z0 = -hw - 0.25 + k * (2 * hw + 0.5) / 6
+                z1 = z0 + (2 * hw + 0.5) / 6
+                zc = (z0 + z1) / 2
+                ex, ey = s * (hd + 0.3), eave - 0.12
+                b.prism([(ex - 0.006, ey), (ex + 0.006, ey), (ex + 0.006, ey - 0.16), (ex - 0.006, ey - 0.16)], z0, z1, "canvas", f"awning/valance{s}{k}")
+                b.prism([(ex - 0.006, ey - 0.16), (ex + 0.006, ey - 0.16), (ex, ey - 0.24)], zc - 0.06, zc + 0.06, "canvas", f"awning/point{s}{k}")
+    placed(b, Matrix.Rotation(math.pi / 2, 4, "Y"), gable)
+    # Goods: baskets of produce and loaves on the counter, a crate below.
+    for k, x in enumerate((-0.8, -0.3, 0.25)):
+        # A basket heaped with greens (its top cap), three apples or onions on top.
+        placed(b, Matrix.Translation((x, counter, 0.15)), lambda k=k: lathe(b, [(0, 0.14), (0.14, 0.2), (0.12, 0.19)], 8, "endgrain", f"awning/basket{k}", cap_mat="leaf"))
+        for j in range(3):
+            flower(b, (x + 0.08 * math.cos(j * 2.1), counter + 0.11, 0.15 - 0.08 * math.sin(j * 2.1)), ("dye", "horn", "dye")[(k + j) % 3], f"awning/produce{k}{j}")
+    for k, x in enumerate((0.7, 0.85, 1.0)):
+        b.block((x - 0.06, counter, -0.05), (x + 0.06, counter + 0.08, 0.15), "endgrain", 0.03, f"awning/loaf{k}")
+    build_crate(b, (0.5, 0, -0.2), 0.45, "awning/crate")
+    b.finish(col, root)
+    return {"collisionProxies": [proxy("counter", (-hw - 0.09, 0, -hd - 0.14), (hw + 0.09, counter, hd + 0.14)),
+                                 proxy("awning", (-hw - 0.3, eave - 0.36, -hd - 0.32), (hw + 0.3, ridge + 0.05, hd + 0.32))]}
+
+
 BUILDERS = {"stall": build_stall, "cart": build_cart, "crate": build_crate_part, "barrel": build_barrel_part,
             "signpost": build_signpost, "lantern-post": build_lantern_post, "bench": build_bench,
             "fence": build_fence, "planter": build_planter, "firewood": build_firewood,
@@ -1121,7 +1275,9 @@ BUILDERS = {"stall": build_stall, "cart": build_cart, "crate": build_crate_part,
             "haystack": build_haystack, "chopping-block": build_chopping_block, "washing-line": build_washing_line,
             "flower-tub": build_flower_tub, "vegetable-bed": build_vegetable_bed, "kennel": build_kennel,
             "dresser": build_dresser, "settle": build_settle, "rug": build_rug, "cooking-pot": build_cooking_pot,
-            "jar-shelf": build_jar_shelf, "spinning-wheel": build_spinning_wheel, "cradle": build_cradle, "hall-table": build_hall_table}
+            "jar-shelf": build_jar_shelf, "spinning-wheel": build_spinning_wheel, "cradle": build_cradle, "hall-table": build_hall_table,
+            "shrine": build_shrine, "standing-stone": build_standing_stone, "watchtower-ruin": build_watchtower_ruin,
+            "bridge-railing": build_bridge_railing, "stall-awning": build_stall_awning}
 
 
 # ---------------------------------------------------------------- composition
