@@ -99,8 +99,8 @@ test("the settlement recipe builds verified props within budget that share the k
       const below = prop === "footbridge" ? 1.6 : prop === "jetty" ? 1.2 : 0;
       assert.ok(Math.abs(a.bounds.min[1] + below) < 1e-3, `${prop} stands on the ground`);
     }
-    // The scarecrow, the weather vane (#695) and the village machinery (#699) ship their loops as named node-animation clips,
-    // no skin; nothing else animates.
+    // The scarecrow, the weather vane (#695), the village machinery (#699), the spit, the potter's wheel and the shop signs (#703)
+    // ship their loops as named node-animation clips, no skin; nothing else animates.
     for (const prop of SETTLEMENT_PROPS) {
       const clips = Object.fromEntries(built.documents[prop].getRoot().listAnimations().map((a) => {
         const end = Math.max(...a.listSamplers().map((s) => s.getInput()!.getMaxNormalized([])[0]!));
@@ -111,9 +111,11 @@ test("the settlement recipe builds verified props within budget that share the k
       assert.deepEqual(entry.observations.animations, Object.keys(SETTLEMENT_CLIPS[prop] ?? {}), `${prop} keeps its clips in the bundle`);
       assert.equal(entry.observations.skins, 0);
     }
-    // The forge's coal bed glows (#699).
-    const ember = built.documents.forge.getRoot().listMaterials().find((m) => m.getName() === "outpost-ember");
-    assert.ok(ember && ember.getEmissiveFactor()[0]! > 0.5, "the forge's ember is emissive");
+    // The forge's and the spit roast's coal beds glow (#699, #703).
+    for (const prop of ["forge", "spit-roast"] as const) {
+      const ember = built.documents[prop].getRoot().listMaterials().find((m) => m.getName() === "outpost-ember");
+      assert.ok(ember && ember.getEmissiveFactor()[0]! > 0.5, `the ${prop}'s ember is emissive`);
+    }
     // The footbridge's deck is level 0.55 m up between its sloped ends, and its rails run its length.
     const deck = asset.footbridge.collisionProxies.find((p: any) => p.name === "deck");
     assert.ok(Math.abs(deck.center[1] + deck.size[1] / 2 - 0.55) < 1e-6 && deck.size[2] === 6.6);

@@ -20,6 +20,10 @@ as mmorpg#421 asks:
 - village machinery (#699): ``watermill``, ``water-wheel``, ``windmill``, ``forge`` and ``well-windlass``, whose
   wheels, sails, bellows and windlass drum are their own nodes turned by the loop clips ``Turn_Loop``, ``Pump_Loop``
   and ``Crank_Loop``; the forge's coal bed glows (emissive ``ember``).
+- craft stations and shop signs for Greyhaven's trades (#703): ``spit-roast``, whose spit turns by ``Turn_Loop`` over
+  an emissive coal bed, ``butter-churn``, ``loom``, ``potters-wheel``, whose wheel spins by ``Spin_Loop``, and
+  ``hide-frame``; ``shop-sign-smith``, ``shop-sign-baker`` and ``shop-sign-tailor``, whose painted boards swing by
+  ``Swing_Loop``.
 
 Frame: metres, glTF right-handed +Y up, origin on the ground at the centre of the prop's footprint, its
 front towards +Z. ``fence`` follows the kit's wall convention: a 2 m module (x -1..1) with half a post
@@ -50,7 +54,8 @@ PROPS = ("stall", "cart", "crate", "barrel", "signpost", "lantern-post", "bench"
          "rowing-boat", "jetty", "fishing-nets",
          "banner-outpost", "banner-village", "pennant-outpost", "pennant-village", "bunting",
          "scarecrow", "weather-vane", "beehive-skeps", "water-trough", "feed-trough", "hen-coop", "plough",
-         "watermill", "water-wheel", "windmill", "forge", "well-windlass")
+         "watermill", "water-wheel", "windmill", "forge", "well-windlass",
+         "spit-roast", "butter-churn", "loom", "potters-wheel", "hide-frame", "shop-sign-smith", "shop-sign-baker", "shop-sign-tailor")
 FAMILY = {"stall": "market", "cart": "market", "crate": "market", "barrel": "market", "signpost": "street",
           "lantern-post": "street", "bench": "street", "fence": "dressing", "planter": "dressing", "firewood": "dressing",
           "footbridge": "street", "bed": "dressing", "table": "dressing", "chair": "dressing", "chest": "dressing",
@@ -70,7 +75,9 @@ FAMILY = {"stall": "market", "cart": "market", "crate": "market", "barrel": "mar
           "inn-sign": "street", "rowing-boat": "dressing", "jetty": "street", "fishing-nets": "dressing",
           **{prop: "street" for prop in ("banner-outpost", "banner-village", "pennant-outpost", "pennant-village", "bunting")},
           **{prop: "dressing" for prop in ("scarecrow", "weather-vane", "beehive-skeps", "water-trough", "feed-trough", "hen-coop", "plough")},
-          **{prop: "dressing" for prop in ("watermill", "water-wheel", "windmill", "forge", "well-windlass")}}
+          **{prop: "dressing" for prop in ("watermill", "water-wheel", "windmill", "forge", "well-windlass")},
+          **{prop: "dressing" for prop in ("spit-roast", "butter-churn", "loom", "potters-wheel", "hide-frame")},
+          **{prop: "street" for prop in ("shop-sign-smith", "shop-sign-baker", "shop-sign-tailor")}}
 
 # Plain-colour materials the props add to the kit's: (sRGB base colour, metallic, roughness, texture).
 EXTRA_MATERIALS = {
@@ -2683,6 +2690,252 @@ def build_well_windlass(part, col, root):
     return {"clips": [clip], "collisionProxies": [proxy(f"frame-{side}", (s * px - 0.1, 0, -0.62), (s * px + 0.1, ay + 0.36, 0.62)) for s, side in ((-1, "left"), (1, "right"))]}
 
 
+# ---------------------------------------------------------------- craft stations and shop signs (#703)
+
+def build_spit_roast(part, col, root):
+    """A campfire spit: a ring of stones round a glowing coal bed (emissive ``ember``) with charred logs, two forked
+    posts at ±X and an iron spit along X through a tied joint, cranked at +X. The spit, joint and crank are one node,
+    which ``Turn_Loop`` (5 s a turn) turns about the spit (X); ``fire`` is where a warm light belongs. The origin is
+    the fire's centre."""
+    b = K["Builder"](f"settlement.{part}.mesh")
+    R, px, ay = 0.48, 0.78, 0.92
+    for k in range(11):
+        a = 2 * math.pi * (k + 0.3 * rnd("spit/stone", k)) / 11
+        r = 0.09 + 0.03 * rnd("spit/stone-r", k)
+        placed(b, Matrix.Translation((R * math.cos(a), 0, -R * math.sin(a))),
+               lambda k=k, r=r: lathe(b, [(0, r * 0.8), (r * 0.6, r), (r * 1.1, r * 0.6), (r * 1.3, 0)], 6, "monolith", f"spit/stone{k}", jitter=0.2, phase=rnd("spit/stone-p", k)))
+    lathe(b, [(0, 0.4), (0.03, 0.38), (0.06, 0)], 12, "ember", "spit/coals")
+    for k in range(7):
+        cx, cz = 0.5 * (rnd("spit/coal-x", k) - 0.5), 0.5 * (rnd("spit/coal-z", k) - 0.5)
+        placed(b, Matrix.Translation((cx, 0.03, cz)), lambda k=k: lathe(b, [(0, 0.05), (0.035, 0.055), (0.06, 0)], 5, "soot", f"spit/coal{k}", jitter=0.3, phase=rnd("spit/coal-p", k)))
+    for k, (a, c) in enumerate((((-0.34, 0.05, -0.12), (0.3, 0.1, 0.14)), ((-0.2, 0.06, 0.3), (0.12, 0.13, -0.32)), ((0.32, 0.05, 0.12), (-0.05, 0.12, -0.26)))):
+        rod(b, a, c, 0.05, 6, "timber", f"spit/log{k}", "soot")
+    for s in (-1, 1):  # forked posts, the spit resting in the crotch
+        x = s * px
+        rod(b, (x, 0, 0), (x, ay - 0.06, 0), 0.045, 6, "timber", f"spit/post{s}", "endgrain")
+        for side in (-1, 1):
+            rod(b, (x, ay - 0.1, 0), (x, ay + 0.12, side * 0.09), 0.028, 5, "timber", f"spit/fork{s}{side}", "endgrain")
+    b.finish(col, root)
+    glow("ember")
+
+    sb = K["Builder"](f"settlement.{part}.spit")
+    rod(sb, (-px - 0.12, ay, 0), (px + 0.1, ay, 0), 0.014, 6, "iron", "spit/rod")
+    joint = [(-0.3, 0), (-0.27, 0.07), (-0.15, 0.13), (0.05, 0.15), (0.2, 0.12), (0.28, 0.06), (0.3, 0)]
+    placed(sb, Matrix.Translation((0, ay, 0)) @ Matrix.Rotation(-math.pi / 2, 4, "Z"), lambda: lathe(sb, joint, 10, "clay", "spit/joint", jitter=0.08))
+    for k, (y, r) in enumerate(((-0.15, 0.135), (0.1, 0.147))):
+        placed(sb, Matrix.Translation((0, ay, 0)) @ Matrix.Rotation(-math.pi / 2, 4, "Z"), lambda y=y, r=r, k=k: lathe(sb, [(y - 0.012, r), (y + 0.012, r)], 10, "sacking", f"spit/tie{k}"))
+    sb.box((px + 0.08, ay - 0.2, -0.015), (px + 0.11, ay + 0.015, 0.015), "iron", "spit/crank-arm")
+    rod(sb, (px + 0.095, ay - 0.19, 0), (px + 0.25, ay - 0.19, 0), 0.018, 6, "timber", "spit/crank-handle")
+    spit = pivoted(sb, col, root, (0, ay, 0))
+    clip = loop_clip("Turn_Loop", 5.0, [(spit, lambda t: (-2 * math.pi * t, 0.0, 0.0))], linear=True)
+    return {"clips": [clip], "fire": {"position": r6((0.0, 0.2, 0.0))},
+            "collisionProxies": [proxy("fire", (-R - 0.12, 0, -R - 0.12), (R + 0.12, 0.15, R + 0.12))]
+            + [proxy(f"post-{side}", (s * px - 0.06, 0, -0.1), (s * px + 0.06, ay + 0.12, 0.1)) for s, side in ((-1, "left"), (1, "right"))]}
+
+
+def build_butter_churn(part, col, root):
+    """A tall plunger churn: a tapering stave churn in three iron hoops under a lid with a collar, the dasher's handle
+    standing half a metre out of it."""
+    b = K["Builder"](f"settlement.{part}.mesh")
+    H = 0.85
+    lathe(b, [(0, 0.2), (0.02, 0.21), (H, 0.16), (H, 0.145), (H - 0.03, 0.145), (H - 0.03, 0)], 12, "wood", "churn/body", cap_mat="endgrain")
+    for k, y in enumerate((0.08, 0.42, 0.76)):
+        r = 0.21 - 0.05 * (y - 0.02) / (H - 0.02) + 0.008
+        lathe(b, [(y - 0.022, r), (y + 0.022, r)], 12, "iron", f"churn/hoop{k}")
+    lathe(b, [(H - 0.02, 0.15), (H + 0.03, 0.15), (H + 0.04, 0.05), (H + 0.08, 0.04), (H + 0.08, 0)], 12, "wood", "churn/lid")
+    rod(b, (0, H + 0.08, 0), (0, H + 0.55, 0), 0.02, 6, "timber", "churn/dasher")
+    lathe(b, [(H + 0.55, 0.03), (H + 0.59, 0.035), (H + 0.62, 0)], 6, "timber", "churn/knob")
+    b.finish(col, root)
+    return {"collisionProxies": [proxy("churn", (-0.22, 0, -0.22), (0.22, H + 0.62, 0.22))]}
+
+
+def build_loom(part, col, root):
+    """An upright warp-weighted loom leaning back against a wall at -Z: two 2.1 m uprights, a cloth beam at the top
+    with the half-woven cloth wound on and hanging to mid-height in dyed stripes, a heddle rod on pegs and a shed rod,
+    and the warp hanging below in two sheets to rows of clay loom weights."""
+    b = K["Builder"](f"settlement.{part}.mesh")
+    lean, hw, top = 0.18, 0.8, 2.1
+    beam_y, beam_z, cloth_z, fell = top - 0.15, 0.06, 0.15, 1.25
+    def loom():
+        for s in (-1, 1):
+            b.block((s * hw - 0.05, 0, -0.05), (s * hw + 0.05, top, 0.05), "timber", key=f"loom/upright{s}", grain=(0, 1, 0))
+            b.block((s * hw - 0.035, 1.12, 0.05), (s * hw + 0.035, 1.17, 0.3), "timber", key=f"loom/peg{s}", grain=(0, 0, 1))
+        rod(b, (-hw - 0.12, beam_y, beam_z), (hw + 0.12, beam_y, beam_z), 0.06, 8, "timber", "loom/beam", "endgrain")
+        rod(b, (-0.64, beam_y, beam_z), (0.64, beam_y, beam_z), 0.1, 8, "dye", "loom/roll")
+        b.box((-0.64, fell, cloth_z - 0.01), (0.64, beam_y, cloth_z + 0.01), "dye", "loom/cloth", grain=(0, 1, 0))
+        for k, y in enumerate((1.36, 1.42, 1.66)):
+            b.box((-0.64, y, cloth_z + 0.01), (0.64, y + 0.035, cloth_z + 0.014), "ochre", f"loom/stripe{k}", grain=(1, 0, 0))
+        rod(b, (-hw - 0.05, 1.19, 0.24), (hw + 0.05, 1.19, 0.24), 0.022, 6, "timber", "loom/heddle-rod", "endgrain")
+        rod(b, (-hw, 0.78, 0.05), (hw, 0.78, 0.05), 0.035, 6, "timber", "loom/shed-rod", "endgrain")
+        for k in range(14):
+            x = -0.6 + 1.2 * k / 13
+            if k % 2:  # the back sheet, over the shed rod to the back weights
+                rod(b, (x, fell, cloth_z), (x, 0.42, 0.0), 0.005, 3, "canvas", f"loom/warp{k}")
+            else:
+                rod(b, (x, fell, cloth_z), (x, 0.42, cloth_z), 0.005, 3, "canvas", f"loom/warp{k}")
+        for k in range(14):
+            x = -0.6 + 1.2 * k / 13
+            z = 0.0 if k % 2 else cloth_z
+            placed(b, Matrix.Translation((x, 0.26 + 0.03 * rnd("loom/weight", k), z)),
+                   lambda k=k: lathe(b, [(0, 0), (0.02, 0.045), (0.1, 0.05), (0.14, 0.028), (0.16, 0)], 6, "clay", f"loom/weight{k}", jitter=0.06))
+    lift = (0.05 - 0.015) * math.sin(lean)  # the uprights' chamfered back feet on the ground
+    placed(b, Matrix.Translation((0, lift, 0.13)) @ Matrix.Rotation(-lean, 4, "X"), loom)
+    b.finish(col, root)
+    return {"collisionProxies": [proxy("loom", (-hw - 0.12, 0, -0.3), (hw + 0.12, top * math.cos(lean), 0.3))]}
+
+
+def build_potters_wheel(part, col, root):
+    """A potter's kick wheel: a timber frame on sills with a work board round the wheel head and a seat plank to -Z,
+    and a spoked flywheel at the foot of an upright iron shaft whose head carries a half-thrown pot. The flywheel,
+    shaft, head and pot are one node, which ``Spin_Loop`` (1 s a turn) spins anticlockwise seen from above."""
+    b = K["Builder"](f"settlement.{part}.mesh")
+    hy, fy, oz = 0.78, 0.13, 0.175
+    def frame():
+        for s in (-1, 1):
+            b.block((s * 0.38 - 0.05, 0, -0.75), (s * 0.38 + 0.05, 0.08, 0.4), "timber", key=f"wheel/sill{s}", grain=(0, 0, 1))
+            for sz in (-1, 1):
+                b.block((s * 0.38 - 0.04, 0.08, sz * 0.3 - 0.04), (s * 0.38 + 0.04, 0.66, sz * 0.3 + 0.04), "timber", key=f"wheel/post{s}{sz}", grain=(0, 1, 0))
+            b.block((s * 0.27 - 0.03, 0.08, -0.64), (s * 0.27 + 0.03, 0.46, -0.58), "timber", key=f"wheel/seat-leg{s}", grain=(0, 1, 0))
+        b.block((-0.43, 0, -0.06), (0.43, 0.06, 0.06), "timber", key="wheel/foot-bar", grain=(1, 0, 0))
+        b.block((-0.43, 0.56, -0.05), (0.43, 0.62, 0.05), "timber", key="wheel/bearing-bar", grain=(1, 0, 0))
+        for k, (lo, hi) in enumerate((((-0.43, 0.66, -0.37), (0.43, 0.7, -0.22)), ((-0.43, 0.66, 0.22), (0.43, 0.7, 0.37)),
+                                       ((-0.43, 0.66, -0.22), (-0.22, 0.7, 0.22)), ((0.22, 0.66, -0.22), (0.43, 0.7, 0.22)))):
+            b.block(lo, hi, "wood", 0.01, f"wheel/board{k}")
+        b.block((-0.32, 0.46, -0.75), (0.32, 0.52, -0.5), "wood", 0.012, "wheel/seat", grain=(1, 0, 0))
+        placed(b, Matrix.Translation((0.3, 0.7, 0.29)), lambda: lathe(b, [(0, 0.05), (0.06, 0.055), (0.06, 0)], 8, "clay", "wheel/slip-bowl"))
+    placed(b, Matrix.Translation((0, 0, oz)), frame)
+    b.finish(col, root)
+
+    wb = K["Builder"](f"settlement.{part}.wheel")
+    def spinner():
+        def flywheel():  # drawn in XY with the shaft along Z, then laid flat
+            ring(wb, 0.29, 0.37, -0.045, 0.045, 16, "wood", "wheel/flywheel-rim")
+            for k in range(4):
+                a = math.pi * k / 2 + math.pi / 4
+                wb.beam((0.03 * math.cos(a), 0.03 * math.sin(a)), (0.3 * math.cos(a), 0.3 * math.sin(a)), 0.06, -0.03, 0.03, "timber", f"wheel/spoke{k}")
+        placed(wb, Matrix.Translation((0, fy, 0)) @ Matrix.Rotation(math.pi / 2, 4, "X"), flywheel)
+        rod(wb, (0, 0.06, 0), (0, hy, 0), 0.025, 6, "iron", "wheel/shaft")
+        lathe(wb, [(hy, 0.16), (hy + 0.04, 0.17), (hy + 0.04, 0)], 12, "wood", "wheel/head")
+        pot = [(hy + 0.04, 0.08), (hy + 0.08, 0.11), (hy + 0.16, 0.12), (hy + 0.24, 0.08), (hy + 0.27, 0.07), (hy + 0.285, 0.08),
+               (hy + 0.285, 0.068), (hy + 0.26, 0.058), (hy + 0.12, 0.09), (hy + 0.1, 0)]
+        lathe(wb, pot, 10, "clay", "wheel/pot", jitter=0.03)
+    placed(wb, Matrix.Translation((0, 0, oz)), spinner)
+    wheel = pivoted(wb, col, root, (0, fy, oz))
+    clip = loop_clip("Spin_Loop", 1.0, [(wheel, lambda t: (0.0, 2 * math.pi * t, 0.0))], linear=True)
+    return {"clips": [clip],
+            "collisionProxies": [proxy("wheel", (-0.43, 0, -0.37 + oz), (0.43, hy + 0.29, 0.4 + oz)),
+                                 proxy("seat", (-0.43, 0, -0.75 + oz), (0.43, 0.52, -0.37 + oz))]}
+
+
+HIDE = [(0.0, 0.48), (0.16, 0.46), (0.3, 0.52), (0.44, 0.42), (0.5, 0.5), (0.47, 0.63), (0.56, 0.8), (0.6, 1.05), (0.56, 1.3),
+        (0.48, 1.45), (0.54, 1.58), (0.42, 1.62), (0.3, 1.55), (0.14, 1.6), (0.0, 1.66)]  # the right half, bottom to top
+
+
+def build_hide_frame(part, col, root):
+    """A tanner's stretching frame: two posts on feet along Z, braced from -Z and joined by top and bottom bars, with
+    a hide laced taut inside by cords to every side, hair side (``leather``) to +Z and the scraped flesh side
+    (``canvas``) to -Z."""
+    b = K["Builder"](f"settlement.{part}.mesh")
+    hw, y0, y1 = 0.85, 0.25, 1.85
+    for s in (-1, 1):
+        x = s * hw
+        b.block((x - 0.05, 0.08, -0.05), (x + 0.05, y1 + 0.1, 0.05), "timber", key=f"hide/post{s}", grain=(0, 1, 0))
+        b.block((x - 0.06, 0, -0.35), (x + 0.06, 0.08, 0.35), "timber", key=f"hide/foot{s}", grain=(0, 0, 1))
+        rod(b, (x, 0.08, -0.32), (x, 0.9, -0.05), 0.035, 5, "timber", f"hide/brace{s}")
+    for y in (y0, y1):
+        rod(b, (-hw - 0.12, y, 0), (hw + 0.12, y, 0), 0.04, 6, "timber", f"hide/bar{y}", "endgrain")
+    outline = HIDE + [(-x, y) for x, y in reversed(HIDE[1:-1])]
+    b.prism(outline, 0.0, 0.008, "leather", "hide/hair", grain=(0, 1, 0))
+    b.prism(outline, -0.008, 0.0, "canvas", "hide/flesh", grain=(0, 1, 0))
+    for s in (-1, 1):  # lacing from the hide's edge to the frame
+        for k, (a, c) in enumerate((((0.44, 0.42), (0.5, y0)), ((0.3, 0.52), (0.3, y0)), ((0.54, 1.58), (0.62, y1)), ((0.3, 1.55), (0.3, y1)),
+                                     ((0.56, 0.8), (hw, 0.72)), ((0.6, 1.05), (hw, 1.05)), ((0.56, 1.3), (hw, 1.38)))):
+            rod(b, (s * a[0], a[1], 0), (s * c[0], c[1], 0), 0.006, 3, "sacking", f"hide/cord{s}{k}")
+    for k, (a, c) in enumerate((((0, 0.48), (0, y0)), ((0, 1.66), (0, y1)))):
+        rod(b, (0, a[1], 0), (0, c[1], 0), 0.006, 3, "sacking", f"hide/cord-mid{k}")
+    b.finish(col, root)
+    return {"collisionProxies": [proxy("frame", (-hw - 0.12, 0, -0.35), (hw + 0.12, y1 + 0.1, 0.35))]}
+
+
+def arc(cx, cy, r, a0, a1, n):
+    return [(cx + r * math.cos(a0 + (a1 - a0) * k / n), cy + r * math.sin(a0 + (a1 - a0) * k / n)) for k in range(n + 1)]
+
+
+SIGN_BOARDS = {  # outline (u along Z, v up, about the board's centre) and the height of its top at the hangers
+    "rect": ([(-0.3, -0.24), (0.3, -0.24), (0.3, 0.24), (-0.3, 0.24)], 0.24),
+    "arch": ([(-0.28, -0.24), (0.28, -0.24)] + arc(0, 0, 0.28, 0, math.pi, 10), 0.19),
+    "shield": ([(-0.28, 0.24), (-0.28, -0.02), (-0.18, -0.18), (0.0, -0.27), (0.18, -0.18), (0.28, -0.02), (0.28, 0.24)], 0.24),
+}
+
+
+def smith_emblem(b, z0, z1):
+    """An anvil under a hammer."""
+    anvil = [(-0.1, -0.15), (0.12, -0.15), (0.12, -0.11), (0.06, -0.08), (0.06, 0.0), (0.16, 0.02), (0.16, 0.07), (-0.1, 0.07),
+             (-0.22, 0.05), (-0.1, 0.01), (-0.04, 0.0), (-0.04, -0.08), (-0.1, -0.11)]
+    b.prism(anvil, z0, z1, "iron", "sign/anvil")
+    b.beam((-0.14, 0.1), (0.1, 0.18), 0.025, z0, z1, "iron", "sign/hammer-haft")
+    b.beam((0.08, 0.12), (0.12, 0.25), 0.055, z0, z1, "iron", "sign/hammer-head")
+
+
+def baker_emblem(b, z0, z1):
+    """A scored loaf under a small roll."""
+    b.prism([(0.17 * math.cos(a), -0.06 + 0.09 * math.sin(a)) for a in (2 * math.pi * k / 14 for k in range(14))], z0, z1, "ochre", "sign/loaf")
+    b.prism([(0.07 * math.cos(a), 0.1 + 0.05 * math.sin(a)) for a in (2 * math.pi * k / 10 for k in range(10))], z0, z1, "ochre", "sign/roll")
+    for k in range(3):
+        x = -0.08 + 0.08 * k
+        b.beam((x - 0.03, -0.11), (x + 0.03, -0.01), 0.014, z0 - 0.003, z1 + 0.003, "soot", f"sign/score{k}")  # proud of whichever face is outward
+
+
+def tailor_emblem(b, z0, z1):
+    """Open shears, blades up."""
+    for s in (-1, 1):
+        b.beam((s * 0.1, -0.12), (-s * 0.09, 0.19), 0.035, z0, z1, "canvas", f"sign/blade{s}")
+        placed(b, Matrix.Translation((s * 0.12, -0.16, 0)), lambda s=s: ring(b, 0.03, 0.05, z0, z1, 10, "canvas", f"sign/bow{s}"))
+    b.box((-0.015, -0.005, z0 - 0.003), (0.015, 0.025, z1 + 0.003), "iron", "sign/rivet")
+
+
+SHOP_SIGNS = {"smith": ("rect", "ochre", smith_emblem, 0.0), "baker": ("arch", "dye", baker_emblem, 1.3), "tailor": ("shield", "indigo", tailor_emblem, 2.5)}
+
+
+def build_shop_sign(trade):
+    shape, ground, emblem, phase = SHOP_SIGNS[trade]
+
+    def build(part, col, root):
+        """A hanging shop sign for a wall at -Z, like the inn sign: a timber wall plate and a braced iron bracket
+        reaching 1 m out toward +Z, and a painted board hanging edge-on to the wall from two iron hangers, so it faces
+        ±X, with the trade's emblem on both faces. The board and hangers are one node, which ``Swing_Loop`` (3 s)
+        swings gently about the bracket arm. The origin is the foot of the wall plate; mount it about 2.4 m up."""
+        b = K["Builder"](f"settlement.{part}.mesh")
+        arm_y, reach, zc, yc = 0.8, 1.0, 0.6, 0.36
+        b.block((-0.09, 0, 0), (0.09, 0.95, 0.05), "timber", 0.01, "shop/plate", grain=(0, 1, 0))
+        b.box((-0.018, arm_y, 0.05), (0.018, arm_y + 0.04, reach), "iron", "shop/arm", grain=(0, 0, 1))
+        tilted(b, (0, 0, 0), 0, -math.pi / 2, lambda: b.beam((0.05, 0.12), (0.65, arm_y), 0.03, -0.014, 0.014, "iron", "shop/stay"))
+        placed(b, Matrix.Translation((0, arm_y + 0.02, reach)), lambda: lathe(b, [(0, 0.025), (0.03, 0.0)], 5, "iron", "shop/finial"))
+        b.finish(col, root)
+
+        sb = K["Builder"](f"settlement.{part}.board")
+        outline, hang = SIGN_BOARDS[shape]
+        def face(x0, x1, pts, mat, key, draw=None):
+            """Flat work on the board, ``pts`` (u, v) or ``draw(z0, z1)`` in board space, from x0 to x1 (glTF X)."""
+            fn = (lambda: draw(sb, -x1, -x0)) if draw else (lambda: sb.prism(pts, -x1, -x0, mat, key))
+            placed(sb, Matrix.Translation((0, yc, zc)) @ Matrix.Rotation(-math.pi / 2, 4, "Y"), fn)
+        face(-0.025, 0.025, outline, "wood", "shop/board")
+        for s in (-1, 1):
+            def layer(t0, t1):
+                return (t0, t1) if s > 0 else (-t1, -t0)
+            face(*layer(0.025, 0.029), [(u * 0.93, v * 0.93) for u, v in outline], "soot", f"shop/border{s}")
+            face(*layer(0.025, 0.033), [(u * 0.86, v * 0.86) for u, v in outline], ground, f"shop/ground{s}")
+            face(*layer(0.033, 0.039), None, None, None, draw=emblem)
+        for z in (zc - 0.2, zc + 0.2):
+            sb.box((-0.01, yc + hang - 0.03, z - 0.01), (0.01, arm_y, z + 0.01), "iron", f"shop/hanger{z}")
+            placed(sb, Matrix.Translation((0, arm_y + 0.02, z)), lambda z=z: ring(sb, 0.025, 0.035, -0.008, 0.008, 6, "iron", f"shop/eye{z}"))
+        board = pivoted(sb, col, root, (0, arm_y + 0.02, zc))
+        tau = 2 * math.pi
+        clip = loop_clip("Swing_Loop", 3.0, [(board, lambda t: (0.0, 0.0, 0.11 * math.sin(tau * t + phase) + 0.025 * math.sin(2 * tau * t + 2 * phase + 0.6)))])
+        return {"clips": [clip], "collisionProxies": [proxy("bracket", (-0.09, 0, 0), (0.09, arm_y + 0.06, reach + 0.03))]}
+    return build
+
+
 BUILDERS = {"stall": build_stall, "cart": build_cart, "crate": build_crate_part, "barrel": build_barrel_part,
             "signpost": build_signpost, "lantern-post": build_lantern_post, "bench": build_bench,
             "fence": build_fence, "planter": build_planter, "firewood": build_firewood,
@@ -2709,7 +2962,9 @@ BUILDERS = {"stall": build_stall, "cart": build_cart, "crate": build_crate_part,
             "scarecrow": build_scarecrow, "weather-vane": build_weather_vane, "beehive-skeps": build_beehive_skeps,
             "water-trough": build_water_trough, "feed-trough": build_feed_trough, "hen-coop": build_hen_coop, "plough": build_plough,
             "watermill": build_watermill, "water-wheel": build_water_wheel, "windmill": build_windmill, "forge": build_forge,
-            "well-windlass": build_well_windlass}
+            "well-windlass": build_well_windlass,
+            "spit-roast": build_spit_roast, "butter-churn": build_butter_churn, "loom": build_loom, "potters-wheel": build_potters_wheel,
+            "hide-frame": build_hide_frame, **{f"shop-sign-{trade}": build_shop_sign(trade) for trade in SHOP_SIGNS}}
 
 
 # ---------------------------------------------------------------- composition
