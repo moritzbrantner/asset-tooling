@@ -19,7 +19,17 @@ test("the committed Ranger descriptor declares the hand, stowed, archery, hair a
  assert.deepEqual(d,descriptor,"the committed file is already canonical");
  assert.deepEqual(d.sockets.map(s=>[s.id,s.joint]),[["hand_r.weapon","hand_r"],["hand_l.shield","hand_l"],["hand_l.weapon","hand_l"],["hand_r.shield","hand_r"],["back.stowed","spine_03"],["hip_l.stowed","pelvis"],["hip_r.stowed","pelvis"],["belt.throwable","pelvis"],
   ["hand_l.bow","hand_l"],["hand_r.arrow","hand_r"],["back.quiver","spine_03"],["back.bow.stowed","spine_03"],["head.hair","Head"],
-  ...ARMOR_JOINTS.map(joint=>[`${joint.toLowerCase()}.armor`,joint]),["hand_r.staff","hand_r"],["hand_l.staff","hand_l"],["hand_r.crossbow","hand_r"],["hand_l.crossbow","hand_l"]]);
+  ...ARMOR_JOINTS.map(joint=>[`${joint.toLowerCase()}.armor`,joint]),["hand_r.staff","hand_r"],["hand_l.staff","hand_l"],["hand_r.crossbow","hand_r"],["hand_l.crossbow","hand_l"],["hand_r.carry","hand_r"],["hand_l.carry","hand_l"]]);
+ // #687: hanging items hang from the carry sockets: the right one is hand_r.weapon's frame, the left one hand_l.weapon
+ // turned half round its handle (+Y), so the item's body (+X) hangs the same way in either hand.
+ assert.deepEqual(humanoidSocketsAccepting(d,"carried"),["hand_r.carry","hand_l.carry"]);
+ {
+  const at=(id:string)=>humanoidSocketMatrix(d.sockets.find(s=>s.id===id)!);
+  assert.deepEqual(at("hand_r.carry"),at("hand_r.weapon"));
+  const carry=at("hand_l.carry"),weapon=at("hand_l.weapon");
+  for(const i of [0,1,2]) assert.ok(Math.abs(carry[i]!+weapon[i]!)<1e-5 && Math.abs(carry[8+i]!+weapon[8+i]!)<1e-5 && Math.abs(carry[4+i]!-weapon[4+i]!)<1e-5,"hand_l.carry is hand_l.weapon turned half round its handle");
+  assert.deepEqual(carry.slice(12,15),weapon.slice(12,15));
+ }
  assert.deepEqual(humanoidSocketsAccepting(d,"hair"),["head.hair"]);
  assert.deepEqual(humanoidSocketsAccepting(d,WEAPON_ROLES["staff.gnarled"]),["hand_r.staff","hand_l.staff"]);
  assert.deepEqual(humanoidSocketsAccepting(d,WEAPON_ROLES["dagger.blackened"]),humanoidSocketsAccepting(d,WEAPON_ROLES["sword.arming"]));

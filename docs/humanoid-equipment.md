@@ -22,7 +22,7 @@ The entries keep the keys they had in the [Ranger bundles](humanoid-ranger.md#co
 - **One-handed (`hand_r.weapon`):** the business end runs along +Y, edges and striking faces along +X, flats ±Z, as for the arming sword. The lantern, bucket and basket hang from the fist along +X with their bail along Y; the tankard's body sits on the +X side of its handle.
 - **Staff (`hand_r.staff`):** the shaft runs along +Y through the grip with its foot 0.8 m below (0.85 m for the walking stick), so it stands beside the leg in the idle. The shovel's and broom's working ends are at the foot.
 - **Shield and book (`hand_l.shield`):** as the heater shield and the tome.
-- **Handedness ([#679](https://github.com/moritzbrantner/asset-tooling/issues/679)):** the lantern, bucket, basket and tankard are right-hand items. The Ranger's `hand_l.weapon` socket, the mirror of `hand_r.weapon`, turns an item 180° about its +Y axis, so item +X points down in the right hand but up in the left: a symmetric blade looks the same in either hand, but a hanging item rises above the left fist. Hang them from `hand_r.weapon`, or carry a weapon in the left hand. A true left-hand mirror would keep +X down and flip ±Z instead; that is a change to the Ranger's fitted sockets and its left-hand grip clips (the off-hand dagger and the crossbow crank use `hand_l.weapon`), not to these items.
+- **Handedness ([#679](https://github.com/moritzbrantner/asset-tooling/issues/679), [#687](https://github.com/moritzbrantner/asset-tooling/issues/687)):** hang the lantern, bucket, basket and tankard (role `carried`) from `hand_r.carry` or `hand_l.carry`, with the `Grip_Weapon_R` or `Grip_Weapon_L` grip. The Ranger's `hand_l.weapon` socket, the mirror of `hand_r.weapon`, turns an item 180° about its +Y axis, so item +X points down in the right hand but up in the left: a symmetric blade looks the same in either hand, but a hanging item rises above the left fist. `hand_l.carry` keeps +X down and flips ±Z instead, the true mirror for these items, which are symmetric about their XY plane; `hand_r.carry` is `hand_r.weapon`'s frame. `hand_l.weapon` and the clips are unchanged (the off-hand dagger and the crossbow crank use it).
 
 The [review renders](../review/humanoid-equipment/) show the items on the Ranger in its idle clips, composed by the socket contract (`jointWorld × socket × inverse(grip)`): swords, axes and the maul in `Sword_Idle` beside the arming sword they follow, the staff-socket tools in `Idle_Loop` beside the gnarled staff, and the hand tools close up. The grips sit in the fist and the sizes read true against the Ranger; the left-hand hanging items are the one problem.
 
@@ -48,7 +48,7 @@ The [review renders](../review/humanoid-equipment/) show the items on the Ranger
 | `equipment.shield.round` | `hand_l.shield` | 0.61 | 286 | 0.6 m round plank shield, red face, iron rim and boss. |
 | `equipment.shield.buckler` | `hand_l.shield` | 0.35 | 174 | Domed steel buckler with a brass rim. |
 | `equipment.shield.kite` | `hand_l.shield` | 0.94 | 128 | Blue kite shield with a red cross. |
-| `equipment.tool.lantern` | `hand_r.weapon` | 0.33 | 150 | Hanging lantern; glass panes, glowing `ember` candle. |
+| `equipment.tool.lantern` | `hand_r.carry` | 0.33 | 150 | Hanging lantern; glass panes, glowing `ember` candle. |
 | `equipment.tool.torch` | `hand_r.weapon` | 0.74 | 98 | Wrapped head with a glowing `ember` flame. |
 | `equipment.tool.pitchfork` | `hand_r.staff` | 2.04 | 88 | Three tines up; `grip.offhand` at y 0.5. |
 | `equipment.tool.hoe` | `hand_r.staff` | 1.54 | 68 | Blade at the top toward +Z; `grip.offhand` at y 0.5. |
@@ -56,9 +56,9 @@ The [review renders](../review/humanoid-equipment/) show the items on the Ranger
 | `equipment.tool.fishing-rod` | `hand_r.staff` | 2.62 | 106 | Cork butt, tapered rod, line and red float; butt 0.32 m below the grip. |
 | `equipment.tool.wood-axe` | `hand_r.weapon` | 0.78 | 64 | Heavy splitting head; `grip.offhand` at y −0.12. |
 | `equipment.tool.hammer` | `hand_r.weapon` | 0.39 | 52 | Round face toward +X. |
-| `equipment.tool.bucket` | `hand_r.weapon` | 0.43 | 134 | Hooped wooden bucket on an iron bail. |
-| `equipment.tool.basket` | `hand_r.weapon` | 0.37 | 198 | Wicker basket under an arched handle, with two apples. |
-| `equipment.tool.tankard` | `hand_r.weapon` | 0.14 | 134 | Brass-hooped wooden tankard. |
+| `equipment.tool.bucket` | `hand_r.carry` | 0.43 | 134 | Hooped wooden bucket on an iron bail. |
+| `equipment.tool.basket` | `hand_r.carry` | 0.37 | 198 | Wicker basket under an arched handle, with two apples. |
+| `equipment.tool.tankard` | `hand_r.carry` | 0.14 | 134 | Brass-hooped wooden tankard. |
 | `equipment.book.ledger` | `hand_l.shield` | 0.22 | 60 | 0.16 × 0.22 m leather book with a brass clasp. |
 | `equipment.tool.broom` | `hand_r.staff` | 1.45 | 100 | Bound bristles at the foot; `grip.offhand` at y 0.45. |
 | `equipment.tool.walking-stick` | `hand_r.staff` | 1.09 | 52 | Knobbed stick with an iron ferrule. |
