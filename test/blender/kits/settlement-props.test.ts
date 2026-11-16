@@ -58,7 +58,7 @@ test("the settlement spec runs the packaged recipe with the outpost kit recipe a
   assert.deepEqual(spec.parameters, { blenderVersion: "5.2.2", arguments: { schemaVersion: 1, prop: "cart" } });
   assert.equal(spec.assetId, "settlement.props.cart");
   assert.deepEqual(Object.keys(spec.inputs).sort(), ["common", "outpost", "script"]);
-  assert.deepEqual(new Set(Object.values(SETTLEMENT_FAMILY)), new Set(["market", "street", "dressing", "furniture"]));
+  assert.deepEqual(new Set(Object.values(SETTLEMENT_FAMILY)), new Set(["market", "street", "dressing"]));
   assert.equal(SETTLEMENT_RELEASE, "settlement-props", "one rolling release, never numbered");
 });
 

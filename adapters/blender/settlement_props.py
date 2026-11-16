@@ -32,8 +32,8 @@ PROPS = ("stall", "cart", "crate", "barrel", "signpost", "lantern-post", "bench"
          "bed", "table", "chair", "chest", "hearth")
 FAMILY = {"stall": "market", "cart": "market", "crate": "market", "barrel": "market", "signpost": "street",
           "lantern-post": "street", "bench": "street", "fence": "dressing", "planter": "dressing", "firewood": "dressing",
-          "footbridge": "street", "bed": "furniture", "table": "furniture", "chair": "furniture", "chest": "furniture",
-          "hearth": "furniture"}
+          "footbridge": "street", "bed": "dressing", "table": "dressing", "chair": "dressing", "chest": "dressing",
+          "hearth": "dressing"}
 
 # Plain-colour materials the props add to the kit's: (sRGB base colour, metallic, roughness, texture).
 EXTRA_MATERIALS = {

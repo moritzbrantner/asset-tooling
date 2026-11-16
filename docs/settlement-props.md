@@ -1,7 +1,7 @@
 # Greyhaven settlement props
 
 This is the build recipe for the reusable settlement props of one Greyhaven Outpost public space ([#369](https://github.com/moritzbrantner/asset-tooling/issues/369), consumer [mmorpg#421](https://github.com/moritzbrantner/mmorpg/issues/421)). mmorpg#421 asks for at least one prop from each of three families: work and market props, street furniture and architectural dressing. The footbridge ([#651](https://github.com/moritzbrantner/asset-tooling/issues/651)) joins the street family for the region's stream crossings.
-The furniture family (bed, table, chair, chest and hearth) furnishes the cottage interiors of [mmorpg#843](https://github.com/moenarch-games/mmorpg/issues/843).
+The cottage furniture (bed, table, chair, chest and hearth) joins the dressing family to furnish the cottage interiors of [mmorpg#843](https://github.com/moenarch-games/mmorpg/issues/843). Its `sleep`, `top` and `fire` observations stay in the recipe result; the descriptor schema keeps its published extras.
 
 - **Approach:** an original scripted Blender recipe, [`adapters/blender/settlement_props.py`](../adapters/blender/settlement_props.py), as Atlas Decisions 1.1.7 and 3.1.2 direct for mmorpg's humanlike-world environments. Quaternius props were the inspiration only. The set uses no imported meshes and no third-party assets.
 - **Style:** it matches the [Outpost building kit](outpost-kit.md) and the [Greyhaven inn](greyhaven-inn.md): dark braced timber, plain plank wood, iron straps and hoops, coursed stone footings and shingle. The recipe builds its props with the kit's own `Builder`, materials and numpy textures, so the textures are byte-identical to the kit's.
@@ -39,11 +39,11 @@ In a live Blender session, run `outpost.py` and `settlement_props.py` into two n
 | `settlement.props.planter` | dressing | 420 | 1.20 × 0.50 × 0.83 | `planter` | A timber planter box with soil and three leafy shrubs. |
 | `settlement.props.firewood` | dressing | 968 | 1.90 × 0.82 × 1.20 | `woodpile` | Five rows of split billets on sleepers between end stakes, end grain to the front, under a short shingle cover. |
 | `settlement.props.footbridge` | street | 2,136 | 2.30 × 9.07 × 3.17 | `deck`, `ramp-back`, `ramp-front`, `rail-left`, `rail-right` | A 9 m plank footbridge along Z (#651): a level 6.6 m deck 0.55 m up on two stringers and two braced trestles, 1.2 m sloped ends down to the ground and post-and-rail sides. Its ends rest on the ground; the trestle posts reach 1.6 m below it, into a stream bed. |
-| `settlement.props.bed` | furniture | 432 | 1.00 × 2.00 × 0.95 | `bed`, `headboard` | A plank bed along Z, its headboard at −Z: a straw mattress under a dyed blanket and a pillow ([mmorpg#843](https://github.com/moenarch-games/mmorpg/issues/843)). `sleep` gives the mattress height (0.48 m) and the head of the sleeper. |
-| `settlement.props.table` | furniture | 386 | 1.40 × 0.80 × 1.01 | `table` | A trestle table, its top 0.76 m up (`top`), with a jug and two bowls. |
-| `settlement.props.chair` | furniture | 128 | 0.45 × 0.45 × 0.95 | `chair` | A slat-backed chair, its back towards −Z. The seat is at 0.45 m. |
-| `settlement.props.chest` | furniture | 168 | 0.92 × 0.53 × 0.55 | `chest` | An iron-bound chest with a slightly domed lid and a hasp to +Z. |
-| `settlement.props.hearth` | furniture | 372 | 1.80 × 0.85 × 2.60 | `hearth`, `flue` | A stone fireplace for a wall at −Z: a raised firebox with logs and embers under a mantel and a hood narrowing to a 2.6 m flue. `fire` is where a warm light belongs. |
+| `settlement.props.bed` | dressing | 432 | 1.00 × 2.00 × 0.95 | `bed`, `headboard` | A plank bed along Z, its headboard at −Z: a straw mattress under a dyed blanket and a pillow ([mmorpg#843](https://github.com/moenarch-games/mmorpg/issues/843)). |
+| `settlement.props.table` | dressing | 386 | 1.40 × 0.80 × 1.01 | `table` | A trestle table, its top 0.76 m up, with a jug and two bowls. |
+| `settlement.props.chair` | dressing | 128 | 0.45 × 0.45 × 0.95 | `chair` | A slat-backed chair, its back towards −Z. The seat is at 0.45 m. |
+| `settlement.props.chest` | dressing | 168 | 0.92 × 0.53 × 0.55 | `chest` | An iron-bound chest with a slightly domed lid and a hasp to +Z. |
+| `settlement.props.hearth` | dressing | 372 | 1.80 × 0.85 × 2.60 | `hearth`, `flue` | A stone fireplace for a wall at −Z: a raised firebox with logs and embers under a mantel and a hood narrowing to a 2.6 m flue. |
 
 The numbers are from the build of 2026-10-24. The descriptor carries the measured values of each build. The budgets in `SETTLEMENT_TRIANGLE_BUDGET` are for the Greyhaven camera (12 m, 0.42 rad pitch, 50° fov).
 
