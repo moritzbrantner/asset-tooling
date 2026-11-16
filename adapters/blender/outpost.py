@@ -545,6 +545,47 @@ def dress(objects, roof="shingle"):
                 bpy.data.materials.remove(placeholder)
 
 
+# Where a module's left end sits on the 1 m stone tile: 2 m modules are centred on whole metres, the 1 m
+# ``wall-half`` on half metres, so measuring U from each module's left end keeps the courses' joints continuous
+# across every seam. Corners and the chimney are measured from their own origin, which is on the grid.
+COURSE_ORIGIN = {"wall": 1.0, "wall-window": 1.0, "wall-door": 1.0, "wall-half": 0.5}
+
+
+def course_stone(objects, part):
+    """Lay every stone face in world-space courses: box-projected UVs in metres (``TILE["stone"]``, four
+    0.25 m courses per tile) with V the height above the ground, so the plinth's and the chimney's courses
+    meet across faces, corners and modules at one scale. Front and back faces run U along X from the
+    module's left end; end faces continue it around the corner, along -Z; tops and soffits take X and Z."""
+    root = next(o for o in objects if o.parent is None)
+    to_root = root.matrix_world.inverted()
+    scale, u0 = 1.0 / TILE["stone"], COURSE_ORIGIN.get(part, 0.0)
+    for obj in objects:
+        if obj.type != "MESH":
+            continue
+        stone = {i for i, m in enumerate(obj.data.materials) if m and m.name.startswith("outpost-stone")}
+        if not stone:
+            continue
+        local = to_root @ obj.matrix_world
+        normals = local.to_3x3().inverted().transposed()
+        uv = obj.data.uv_layers.active.data
+        for poly in obj.data.polygons:
+            if poly.material_index not in stone:
+                continue
+            nb = normals @ poly.normal
+            n = Vector((nb.x, nb.z, -nb.y))  # glTF axes
+            axis = max(range(3), key=lambda i: abs(n[i]))
+            for li in poly.loop_indices:
+                c = local @ obj.data.vertices[obj.data.loops[li].vertex_index].co
+                x, y, z = c.x, c.z, -c.y
+                if axis == 1:
+                    u, v = x + u0, z
+                elif axis == 0:
+                    u, v = -z if n.x > 0 else z, y
+                else:
+                    u, v = x + u0, y
+                uv[li].uv = (u * scale, v * scale)
+
+
 def load_module(part, collection):
     """Append module ``part`` from the authored geometry into ``collection``, undressed; its root and the
     observations stored on the root."""
@@ -662,6 +703,7 @@ def build(part, collection, location=(0, 0, 0), roof="shingle", yaw=0.0, wear=0.
     WEAR = float(wear)
     root, info = load_module(part, collection)
     dress([root] + list(root.children_recursive), roof if part in ROOFED else "shingle")
+    course_stone([root] + list(root.children_recursive), part)
     root.location = to_blender(location)
     root.rotation_euler = (0, 0, math.radians(yaw))
     return root, info
