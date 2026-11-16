@@ -1143,9 +1143,21 @@
     },
     {
       "schemaVersion": 1,
+      "sourceId": "quaternius.ultimate-animated-animals-deer-glb",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.ultimate-animated-animals-deer-glb/Deer.glb"
+    },
+    {
+      "schemaVersion": 1,
       "sourceId": "quaternius.ultimate-animated-animals-donkey-glb",
       "storage": "git-lfs",
       "path": "assets/canonical/quaternius.ultimate-animated-animals-donkey-glb/Donkey.glb"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.ultimate-animated-animals-fox-glb",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.ultimate-animated-animals-fox-glb/Fox.glb"
     },
     {
       "schemaVersion": 1,
@@ -1158,6 +1170,12 @@
       "sourceId": "quaternius.ultimate-animated-animals-shibainu-glb",
       "storage": "git-lfs",
       "path": "assets/canonical/quaternius.ultimate-animated-animals-shibainu-glb/ShibaInu.glb"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.ultimate-animated-animals-stag-glb",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.ultimate-animated-animals-stag-glb/Stag.glb"
     },
     {
       "schemaVersion": 1,
