@@ -6,6 +6,8 @@ import path from "node:path";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { ARCHERY_PRESETS, ARCHERY_ROLES, createArcheryAssetSpec, readArcheryRecipeSource, type ArcheryPiece } from "../src/archery-recipes.js";
 import { storeAssetObject } from "../src/asset-store.js";
+import { readBlenderRecipeSource } from "../src/blender-recipe-source.js";
+import { blenderScriptSpec } from "../src/blender-script-spec.js";
 import { canonicalJson } from "../src/canonical.js";
 import { HEADWEAR_CONTRACT, HEADWEAR_HIDES, HEADWEAR_PRESETS, createHeadwearAssetSpec, readHeadwearRecipeSource, type HeadwearPiece } from "../src/headwear-recipes.js";
 import { HUMANOID_ITEM_LOD_METRIC, createHumanoidItemDescriptor, type HumanoidItemDescriptor, type HumanoidItemLods } from "../src/humanoid-sockets.js";
@@ -76,6 +78,46 @@ export const RANGER_HEADWEAR: readonly { key: string; piece: HeadwearPiece; labe
   { key: "equipment.helm.ironcrest", piece: "helm.ironcrest", label: "Ironcrest Helm" },
   { key: "equipment.hat.straw", piece: "hat.straw", label: "Straw Hat" },
 ];
+/**
+ * #661: weapon variety and residents' hand tools from the fixed-design `held_items.py` recipe. Each declares the roles
+ * the existing sockets accept (`one-hand-weapon`, `staff`, `shield`, `book`), plus a descriptive second role where it
+ * helps (`two-hand-weapon`, `spear`, `tool`, `carried`), and two-handed pieces a `grip.offhand` frame.
+ */
+export const RANGER_HELD_ITEMS: readonly { key: string; item: string }[] = [
+  "sword.footman", "sword.falchion", "sword.longsword", "sword.bastard", "dagger.plain", "dagger.seax",
+  "axe.battle", "axe.bearded", "axe.hand", "mace.studded", "mace.morningstar", "warhammer.horseman", "warhammer.maul",
+  "spear.leaf", "spear.boar", "staff.quarter", "staff.crook", "shield.round", "shield.buckler", "shield.kite",
+  "tool.lantern", "tool.torch", "tool.pitchfork", "tool.hoe", "tool.shovel", "tool.fishing-rod", "tool.wood-axe",
+  "tool.hammer", "tool.bucket", "tool.basket", "tool.tankard", "book.ledger", "tool.broom", "tool.walking-stick",
+].map((item) => ({ key: `equipment.${item}`, item }));
+/** The roles the Ranger sockets accept, one of which every held item lists first. */
+export const SOCKET_ROLES = ["one-hand-weapon", "staff", "shield", "book"] as const;
+type HeldObservations = { roles: string[]; frames: Record<string, [number, number, number]>; triangleCount: number; bounds: { min: number[]; max: number[] } };
+
+/** A held item's `humanoid-item-v2` descriptor: its roles, the identity `grip` and any further frames it declares. */
+export function heldItemDescriptor(key: string, observations: Pick<HeldObservations, "roles" | "frames">): HumanoidItemDescriptor {
+  return createHumanoidItemDescriptor({ item: key, roles: observations.roles, frames: [
+    { name: "grip", translation: [0, 0, 0], rotation: [0, 0, 0, 1] },
+    ...Object.entries(observations.frames).map(([name, translation]) => ({ name, translation, rotation: [0, 0, 0, 1] as [number, number, number, number] })),
+  ] });
+}
+
+/** Generate one held item through the pinned Blender backend (ASSET_TOOLING_BLENDER) and import it. */
+async function buildHeldItem(root: string, item: string) {
+  const source = await readBlenderRecipeSource("held_items.py");
+  const workspace = path.join(root, "held", item);
+  await mkdir(workspace, { recursive: true });
+  await writeFile(path.join(workspace, "held_items.py"), source.bytes);
+  const spec = blenderScriptSpec({ assetId: `held.${item}`, inputs: { script: { path: "held_items.py", sha256: source.sha256 } },
+    blenderVersion: source.blenderVersion, arguments: { schemaVersion: 1, item }, output: "held.glb" });
+  const specPath = path.join(workspace, "asset.json");
+  await writeFile(specPath, `${canonicalJson(spec)}\n`);
+  const generated = await generateAsset(specPath);
+  const observations = generated.receipt.observations.script as HeldObservations;
+  const glb = (await storeAssetObject(root, { bytes: await readFile(path.join(workspace, "held.glb")), kind: "mesh", mediaType: "model/gltf-binary" })).asset;
+  return { asset: single(await cachedImport(root, { inputs: { source: glb }, parameters: { policy: POLICY } })), observations };
+}
+
 /** Each equipment entry's `humanoid-item-v2` attachment (#264): its role and its `grip` frame. */
 export const RANGER_ITEM_ATTACHMENT = "humanoid-item";
 /** Every recipe GLB's origin is its grip frame, so `grip` is the identity in the item's scene frame. */
@@ -176,10 +218,10 @@ export async function buildEquipmentItems(root: string, { headwear, pool, log, r
   resize?: (key: string, asset: AssetRef) => Promise<AssetRef>;
 }): Promise<EquipmentItems> {
   const out: EquipmentItems = { selections: [], assets: [], attachments: [], items: {} };
-  const selectItem = async (key: string, role: string, asset: AssetRef, lods?: HumanoidItemLods) => {
+  const selectItem = async (key: string, role: string, asset: AssetRef, lods?: HumanoidItemLods, descriptor?: HumanoidItemDescriptor) => {
     out.selections.push({ key, variant: DEFAULT_VARIANT, attachments: [{ name: RANGER_ITEM_ATTACHMENT }] });
     out.assets.push(asset);
-    const bytes = Buffer.from(`${canonicalJson(rangerItemDescriptor(key, role, lods))}\n`);
+    const bytes = Buffer.from(`${canonicalJson(descriptor ?? rangerItemDescriptor(key, role, lods))}\n`);
     out.attachments.push((await storeAssetObject(root, { bytes, kind: RANGER_ITEM_ATTACHMENT, mediaType: "application/json" })).asset);
   };
   // The held items build in parallel (#427) and are selected in their declared order.
@@ -201,6 +243,10 @@ export async function buildEquipmentItems(root: string, { headwear, pool, log, r
     log(`generate ${piece} and its lod1/lod2 (external.blender.script@1 weapon recipe, scene.import.gltf@2)`);
     return buildThrowable(root, piece);
   }));
+  const holding = RANGER_HELD_ITEMS.map(({ item }) => pool(() => {
+    log(`generate ${item} (external.blender.script@1 held-items recipe, scene.import.gltf@2)`);
+    return buildHeldItem(root, item);
+  }));
   const built = await Promise.all(items.map((item) => pool(item.build)));
   for (const [index, { key, role, resize: resized }] of items.entries()) {
     out.items[key] = built[index]!;
@@ -215,6 +261,12 @@ export async function buildEquipmentItems(root: string, { headwear, pool, log, r
       out.selections.push({ key, variant });
       out.assets.push(asset);
     }
+  }
+  // #661: the held items follow every earlier entry, so those keep their order.
+  for (const [index, { key }] of RANGER_HELD_ITEMS.entries()) {
+    const { asset, observations } = await holding[index]!;
+    out.items[key] = asset;
+    await selectItem(key, observations.roles[0]!, asset, undefined, heldItemDescriptor(key, observations));
   }
   return out;
 }

@@ -11,11 +11,11 @@ import { verifyAssetBundleTar } from "../../../src/asset-bundle-pack.js";
 import { GLTF_RESOURCES_BUNDLE_PROFILE, readAssetBundleAttachment, readAssetBundleGltf, verifyAssetBundle } from "../../../src/asset-bundle.js";
 import { validateHumanoidItemDescriptor } from "../../../src/humanoid-sockets.js";
 import { EQUIPMENT_RELEASE, buildHumanoidEquipment } from "../../../scripts/build-humanoid-equipment.ts";
-import { RANGER_ARCHERY, RANGER_HEADWEAR, RANGER_ITEM_ATTACHMENT, RANGER_THROWABLES, RANGER_WEAPONS, rangerItemDescriptor } from "../../../scripts/humanoid-equipment.ts";
+import { RANGER_ARCHERY, RANGER_HEADWEAR, RANGER_HELD_ITEMS, RANGER_ITEM_ATTACHMENT, RANGER_THROWABLES, RANGER_WEAPONS, SOCKET_ROLES, rangerItemDescriptor } from "../../../scripts/humanoid-equipment.ts";
 import { WEAPON_ROLES } from "../../../src/weapon-recipes.js";
 import { KIT_BUDGETS, kitBudgetViolations, kitCost } from "../../../scripts/report-kit-costs.ts";
 
-const ITEMS = [...RANGER_WEAPONS, ...RANGER_ARCHERY, ...RANGER_HEADWEAR, ...RANGER_THROWABLES].map(({ key }) => key);
+const ITEMS = [...RANGER_WEAPONS, ...RANGER_ARCHERY, ...RANGER_HEADWEAR, ...RANGER_THROWABLES, ...RANGER_HELD_ITEMS].map(({ key }) => key);
 
 test("the equipment is one rolling release with a budget and the Ranger's item keys", () => {
   assert.equal(EQUIPMENT_RELEASE, "humanoid-equipment");
@@ -83,6 +83,17 @@ test("the recipe builds a verified equipment kit within its limits", {
         assert.equal(item.observations.skins, 0, key);
         assert.deepEqual(names.sort(), ["grip", piece].sort(), key);
       }
+    }
+    // #661: the held items are static, held by an identity grip, and fill a role an existing socket accepts.
+    for (const { key, item } of RANGER_HELD_ITEMS) {
+      const entry = manifest.assets.find((candidate) => candidate.key === key)!;
+      assert.equal(entry.observations.skins, 0, key);
+      assert.deepEqual(entry.observations.animations, [], key);
+      const descriptor = JSON.parse((await readAssetBundleAttachment(built.bundleDir, manifest, key, "default", RANGER_ITEM_ATTACHMENT)).toString("utf8"));
+      assert.ok((SOCKET_ROLES as readonly string[]).includes(descriptor.roles[0]), key);
+      assert.deepEqual(descriptor.frames[0], { name: "grip", translation: [0, 0, 0], rotation: [0, 0, 0, 1] }, key);
+      const json = JSON.parse((await readAssetBundleGltf(built.bundleDir, manifest, key, "default")).gltf.toString("utf8"));
+      assert.deepEqual(json.nodes.map((node: any) => node.name).sort(), ["grip", item].sort(), key);
     }
   } finally {
     await rm(outDir, { recursive: true, force: true });
