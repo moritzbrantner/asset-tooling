@@ -38,6 +38,7 @@ MATERIALS = {
     "brass": ((.62, .44, .16), 1.0, .38),
     "gold": ((.83, .58, .17), 1.0, .3),
     "parchment": ((.7, .62, .45), 0.0, .9),
+    "bone": ((.79, .74, .58), 0.0, .62),
     "cork": ((.42, .27, .14), 0.0, .9),
     "fuse": ((.5, .38, .2), 0.0, .95),
     "glass": ((.62, .8, .66), 0.0, .06),
@@ -474,6 +475,84 @@ def walking_stick(b):
     b.lathe([(-0.88, 0.0), (-0.85, 0.015)], 5, "iron", caps=(False, True))
 
 
+def pickaxe(b):
+    haft(b, -0.16, 0.64, 0.017)
+    with b.at(T(0, 0.58, 0)):
+        b.lathe([(-0.04, 0.024), (0.04, 0.024)], 6, "iron")
+        for side in (1, -1):  # a pointed pick each way along X, curving down toward the hand
+            path = [(0.02, 0.0, 0.022), (0.1, -0.008, 0.018), (0.17, -0.03, 0.012), (0.22, -0.065, 0.0)]
+            for (x0, y0, r0), (x1, y1, r1) in zip(path, path[1:]):
+                b.rod((side * x0, y0, 0), (side * x1, y1, 0), r0, r1, 4, "iron")
+
+
+def sickle(b):
+    b.lathe([(-0.08, 0.0), (-0.075, 0.016), (0.05, 0.015)], 6, "wood")
+    b.lathe([(0.05, 0.017), (0.075, 0.015)], 6, "iron")
+    # A crescent in the X-Y plane from the ferrule, over the top and round toward +X; the edge is on the inside.
+    cx, cy, radius, steps = 0.12, 0.09, 0.12, 9
+    outer, inner = [], []
+    for k in range(steps + 1):
+        u = k / steps
+        a = math.pi - u * math.pi * 1.05
+        w = 0.036 * (1 - u) ** 0.6 + 0.004 * (1 - u)
+        outer.append((cx + radius * math.cos(a), cy + 0.02 + radius * math.sin(a)))
+        inner.append((cx + (radius - w) * math.cos(a), cy + 0.02 + (radius - w) * math.sin(a)))
+    with b.at(T(0, -0.04, 0)):
+        b.prism(outer[::-1] + inner[1:-1], -0.002, 0.002, "steel")
+
+
+def skinning_knife(b):
+    b.lathe([(-0.065, 0.0), (-0.06, 0.014), (-0.02, 0.016), (0.03, 0.014), (0.05, 0.015)], 6, "bone")
+    b.lathe([(0.05, 0.016), (0.06, 0.014)], 6, "iron")
+    blade(b, 0.12, 0.016, 0.004, "steel", base=0.06, tip=0.35, curve=0.25, single=True, widen=1.5)
+
+
+def hand_saw(b):
+    # An open pistol handle round the grip; the blade tapers along +Y, its teeth on the +X edge.
+    b.prism([(-0.022, -0.075), (0.02, -0.08), (0.03, -0.06), (0.024, 0.045), (0.1, 0.06), (0.1, 0.11), (-0.03, 0.11), (-0.035, 0.03),
+             (-0.016, 0.0)], -0.012, 0.012, "wood")
+    edge = [(0.095 - 0.045 * k / 12, 0.11 + 0.38 * k / 12) for k in range(13)]
+    teeth = []
+    for k, (x, y) in enumerate(edge):
+        teeth.append((x + (0.008 if k % 2 else 0.0), y))
+    b.prism([(-0.02, 0.1)] + teeth + [(0.0, 0.49)], -0.0012, 0.0012, "steel")
+    for y in (0.07, 0.095):
+        with b.at(T(0.04, y, 0) @ rot("X", 90)):
+            b.lathe([(-0.014, 0.006), (0.014, 0.006)], 5, "brass")
+
+
+def mallet(b):
+    haft(b, -0.12, 0.27, 0.014)
+    with b.at(T(0, 0.31, 0) @ rot("Z", -90)):  # the head's end-grain faces toward ±X
+        b.lathe([(-0.075, 0.042), (-0.07, 0.046), (0.07, 0.046), (0.075, 0.042)], 8, "wood", cap_mat="wood.dark")
+
+
+def rake(b):
+    haft(b, -FOOT, 0.95, 0.016)
+    b.box((-0.26, 0.95, -0.016), (0.26, 0.985, 0.016), "wood")
+    for x in (-0.1, 0.1):
+        b.rod((0, 0.75, 0), (x, 0.96, 0), 0.008, 0.008, 4, "wood")
+    for k in range(9):  # the teeth point to +Z, like the hoe's blade
+        x = -0.22 + 0.055 * k
+        b.rod((x, 0.967, 0.012), (x, 0.94, 0.1), 0.006, 0.0, 4, "wood")
+
+
+def scythe(b):
+    haft(b, -FOOT, 0.72, 0.017)
+    for y in (0.06, 0.55):  # the two nibs toward +Z; the lower sits just above the fist
+        b.rod((0, y, 0.012), (0, y, 0.13), 0.012, 0.011, 5, "wood")
+    b.lathe([(-FOOT - 0.01, 0.022), (-FOOT + 0.06, 0.02)], 6, "iron")
+    # The blade at the foot runs out along +X, flat in the X-Z plane, curving toward +Z, the edge on its +Z side.
+    spine, edge, steps = [], [], 10
+    for k in range(steps + 1):
+        u = k / steps
+        x = 0.02 + 0.66 * u
+        z = 0.14 * u * u
+        w = 0.07 * (1 - u) ** 0.7 + 0.01 * (1 - u)
+        spine.append((x, z))
+        edge.append((x, z + w))
+    with b.at(T(0, -FOOT + 0.015, 0) @ rot("X", 90)):
+        b.prism(spine + edge[-2::-1], -0.003, 0.003, "steel")
 # ---------------------------------------------------------------- catalogue
 
 # item: (builder, roles, frames beyond grip as {name: (x, y, z)}, triangle budget)
@@ -512,6 +591,13 @@ ITEMS = {
     "book.ledger": (ledger, ["book"], {}, 100),
     "tool.broom": (broom, ["staff", "tool"], {"grip.offhand": (0, 0.45, 0)}, 200),
     "tool.walking-stick": (walking_stick, ["staff", "tool"], {}, 100),
+    "tool.pickaxe": (pickaxe, ["one-hand-weapon", "tool"], {"grip.offhand": (0, -0.12, 0)}, 300),
+    "tool.sickle": (sickle, ["one-hand-weapon", "tool"], {}, 200),
+    "tool.skinning-knife": (skinning_knife, ["one-hand-weapon", "tool"], {}, 200),
+    "tool.hand-saw": (hand_saw, ["one-hand-weapon", "tool"], {}, 300),
+    "tool.mallet": (mallet, ["one-hand-weapon", "tool"], {}, 200),
+    "tool.rake": (rake, ["staff", "tool"], {"grip.offhand": (0, 0.5, 0)}, 300),
+    "tool.scythe": (scythe, ["staff", "tool"], {"grip.offhand": (0, 0.55, 0.07)}, 300),
 }
 
 
