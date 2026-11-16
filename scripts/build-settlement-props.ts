@@ -27,6 +27,7 @@ export const SETTLEMENT_PROPS = [
   "pottery", "anvil", "grindstone", "cooper-barrel",
   "table-set", "candles", "candelabra", "inn-sign", "stool", "bar-counter", "log-stack", "wall-shield", "wall-trophy",
   "rowing-boat", "jetty", "fishing-nets",
+  "banner-outpost", "banner-village", "pennant-outpost", "pennant-village", "bunting",
 ] as const;
 export type SettlementProp = (typeof SETTLEMENT_PROPS)[number];
 export type SettlementFamily = "market" | "street" | "dressing";
@@ -48,6 +49,7 @@ export const SETTLEMENT_FAMILY: Record<SettlementProp, SettlementFamily> = {
   "table-set": "dressing", candles: "dressing", candelabra: "dressing", "inn-sign": "street", stool: "dressing",
   "bar-counter": "dressing", "log-stack": "dressing", "wall-shield": "dressing", "wall-trophy": "dressing",
   "rowing-boat": "dressing", jetty: "street", "fishing-nets": "dressing",
+  "banner-outpost": "street", "banner-village": "street", "pennant-outpost": "street", "pennant-village": "street", bunting: "street",
 };
 export const SETTLEMENT_KEY_PREFIX = "settlement.props";
 export const SETTLEMENT_VARIANT = "default";
@@ -71,6 +73,7 @@ export const SETTLEMENT_TRIANGLE_BUDGET: Record<SettlementProp, number> = {
   "table-set": 1100, candles: 300, candelabra: 550, "inn-sign": 300, stool: 250, "bar-counter": 1000, "log-stack": 450,
   "wall-shield": 400, "wall-trophy": 400,
   "rowing-boat": 1000, jetty: 700, "fishing-nets": 1500,
+  "banner-outpost": 550, "banner-village": 550, "pennant-outpost": 300, "pennant-village": 300, bunting: 700,
 };
 /** Recipe observations copied into the descriptor when a prop declares them. */
 const EXTRAS = ["stackTop", "sign", "light", "seat", "module"] as const;
