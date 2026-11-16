@@ -91,12 +91,16 @@ In a live Blender session, run `outpost.py` and `settlement_props.py` into two n
 | `settlement.props.log-stack` | dressing | 364 | 1.06 × 0.45 × 0.46 | `logs` | Firewood stacked by a hearth: three rows of split logs on iron log-dogs, a straw basket of kindling beside it toward +X. |
 | `settlement.props.wall-shield` | dressing | 336 | 1.47 × 0.15 × 1.43 | `shield` | A round painted shield with a boss and a pale cross over two crossed spears, for a wall at −Z, facing +Z. The origin is the bottom of its back; mount it at the height you want. |
 | `settlement.props.wall-trophy` | dressing | 294 | 0.94 × 0.18 × 0.98 | `trophy` | A stag's antlers and skull on a carved oak plaque, for a wall at −Z, facing +Z. The origin is the bottom of its back; mount it at the height you want. |
+| `settlement.props.rowing-boat` | dressing | 886 | 3.57 × 1.20 × 0.67 | `hull` | A 3.6 m rowing boat drawn up on the bank ([#675](https://github.com/moritzbrantner/asset-tooling/issues/675)), bow toward +X: a lofted plank hull with a transom stern, a gunwale, a keel, three thwarts, two oars laid along them and a mooring ring at the stem. Its keel is on the ground. |
+| `settlement.props.jetty` | street | 608 | 3.00 × 1.61 × 1.96 | `deck`, `piles` | A 3 m plank jetty segment along X (`module` width 3, so segments chain out over the water): a 1.6 m deck 0.5 m above the water line (y = 0) on stringers and bearers, round piles 1.5 m apart reaching 1.2 m down into the bed, and two bollards. |
+| `settlement.props.fishing-nets` | dressing | 1,330 | 2.64 × 1.20 × 2.20 | `poles`, `trestle` | Fishing nets hung to dry: two 2.2 m poles with a cross pole, a sagging net with cork floats on its head rope, a second net heaped over a trestle and a creel. |
 
 The village dressing from `barrel-group` down ([#657](https://github.com/moritzbrantner/asset-tooling/issues/657)) is for Greyhaven's villages, Barrowdown and Fenford. The existing `cart`, `firewood` and `planter` complement it.
 The interiors from `dresser` down ([#663](https://github.com/moritzbrantner/asset-tooling/issues/663)) furnish more walk-in farmhouses and Westmere Lodge's hall, beside the cottage furniture.
 The landmarks from `shrine` down ([#665](https://github.com/moritzbrantner/asset-tooling/issues/665)) mark Greyhaven's roads, crossings and market corners.
 The market goods and workshops from `bread-basket` down ([#669](https://github.com/moritzbrantner/asset-tooling/issues/669)) stock Greyhaven's stalls, shops and smithies.
 The inn and hall clutter from `table-set` down ([#671](https://github.com/moritzbrantner/asset-tooling/issues/671)) dresses inns, taverns and halls; the wall pieces stand on their own back edge so they can be hung at any height.
+The river and lake props from `rowing-boat` down ([#675](https://github.com/moritzbrantner/asset-tooling/issues/675)) dress Greyhaven's banks and landings. Lily pads and reeds are in the [marsh plants](greyhaven-marsh-plants.md) (`water-lilies`, `reeds-stand`, `reeds-edge`, `cattails`).
 
 The numbers are from the build of 2026-10-24. The descriptor carries the measured values of each build. The budgets in `SETTLEMENT_TRIANGLE_BUDGET` are for the Greyhaven camera (12 m, 0.42 rad pitch, 50° fov).
 
@@ -128,7 +132,7 @@ The props use the kit's wood, stone and shingle texture sets (colour, normal and
 - `monolith`: the standing stone, the grindstone and the fish, a plain weathered grey where coursed masonry would read wrong;
 - `clay`: the terracotta pottery and the sausages.
 
-Every face has backface culling. In the bundle there are 9 KTX2 textures in all, each stored once. Repeated props in a scene share their GLB resources. The tar is about 4.5 MB.
+Every face has backface culling. In the bundle there are 9 KTX2 textures in all, each stored once. Repeated props in a scene share their GLB resources. The tar is about 4.8 MB.
 
 **Determinism:** there is no randomness. Variation comes from SHA-256 of fixed keys, through the kit's `rnd`.
 
