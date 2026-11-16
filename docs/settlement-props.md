@@ -57,8 +57,17 @@ In a live Blender session, run `outpost.py` and `settlement_props.py` into two n
 | `settlement.props.flower-tub` | dressing | 492 | 0.74 × 0.74 × 0.69 | `tub` | A hooped half-barrel of soil with leafy clumps and red, white and yellow flowers. |
 | `settlement.props.vegetable-bed` | dressing | 342 | 1.80 × 1.00 × 0.43 | `bed` | A raised plank bed with two rows of cabbages and a row of carrot tops at the front. |
 | `settlement.props.kennel` | dressing | 216 | 1.13 × 1.55 × 1.06 | `kennel` | A plank dog kennel with a shingle gable, its doorway to +Z, and a water bowl in front. |
+| `settlement.props.dresser` | dressing | 754 | 1.28 × 0.50 × 1.96 | `cupboard`, `racks` | A kitchen dresser for a wall at −Z ([#663](https://github.com/moritzbrantner/asset-tooling/issues/663)): a two-door cupboard under a worktop and open plate racks above, with plates, cups and a jug. |
+| `settlement.props.settle` | dressing | 300 | 1.50 × 0.51 × 1.25 | `seat`, `back` | A high-backed settle for a wall at −Z, shaped arms and a cushion. The seat is at 0.45 m (`seat`). |
+| `settlement.props.rug` | dressing | 276 | 2.14 × 1.30 × 0.02 | `rug` | A flat woven rug: dyed field, light border, centre lozenge and fringed ends along ±X. Its 1.6 cm proxy can be walked over or ignored. |
+| `settlement.props.cooking-pot` | dressing | 716 | 1.12 × 1.18 × 1.26 | `hearth`, `pot` | An iron pot on a chain from a 1.2 m iron tripod over a ring of stones, logs and embers. The embers are a warm-light spot at about y 0.05. |
+| `settlement.props.jar-shelf` | dressing | 844 | 1.24 × 0.32 × 1.94 | `shelf` | A freestanding shelf unit for a wall at −Z, four shelves of jars, crocks and bottles. |
+| `settlement.props.spinning-wheel` | dressing | 480 | 0.95 × 0.39 × 1.10 | `spinning-wheel` | A spinning wheel on a slanted three-legged bench: the spoked wheel to +X, the treadle in front, the flyer to −X and a distaff of wool. |
+| `settlement.props.cradle` | dressing | 240 | 1.04 × 0.48 × 0.61 | `cradle` | A rocking cradle on two rockers, hooded head to −X, bedding and a blanket. |
+| `settlement.props.hall-table` | dressing | 884 | 3.60 × 0.90 × 1.01 | `table` | A long trestle table for Westmere Lodge's hall, top 0.78 m up on three trestles, laid with platters, a loaf, tankards, bowls and a candle. |
 
 The village dressing from `barrel-group` down ([#657](https://github.com/moritzbrantner/asset-tooling/issues/657)) is for Greyhaven's villages, Barrowdown and Fenford. The existing `cart`, `firewood` and `planter` complement it.
+The interiors from `dresser` down ([#663](https://github.com/moritzbrantner/asset-tooling/issues/663)) furnish more walk-in farmhouses and Westmere Lodge's hall, beside the cottage furniture.
 
 The numbers are from the build of 2026-10-24. The descriptor carries the measured values of each build. The budgets in `SETTLEMENT_TRIANGLE_BUDGET` are for the Greyhaven camera (12 m, 0.42 rad pitch, 50° fov).
 
