@@ -52,7 +52,8 @@ The `humanoid.ranger.male` bundle holds the following.
   - the emotes, door, knock, loot, talk, trade, sitting and sleeping clips ([Social and interaction clips](#social-and-interaction-clips-421));
   - the residents' carry, sweep, counter wipe, pour, hoe and watering clips ([Carry and chore clips](#carry-and-chore-clips-693));
   - the guards' post idles, the marshal's inspection, the prayer and blessing, the wall lean and the idle breaks ([Post idles and devotions](#post-idles-and-devotions-697));
-  - the chopping, mining, herb-picking and skinning loops, the chest opening and the nod, head shake, shrug, clap and two-armed cheer ([Gathering loops and emotes](#gathering-loops-and-emotes-701)).
+  - the chopping, mining, herb-picking and skinning loops, the chest opening and the nod, head shake, shrug, clap and two-armed cheer ([Gathering loops and emotes](#gathering-loops-and-emotes-701));
+  - the raiders' torch and palisade hacking, the two-handed load carry, the repair, pushing, the lever, the traps and the knockdown ([Raid, repair, push, trap and knockdown clips](#raid-repair-push-trap-and-knockdown-clips-705)).
 
   No clip uses Mixamo data (#399). Mixamo is only a motion reference, so the build needs no local input and both figures publish from CI.
 
@@ -467,6 +468,33 @@ The strokes are authored **upright**, with the body along +Y and facing +Z. Over
 - **The chest:** a chest 0.55 m high whose lid's front edge stands 0.38 m ahead, 0.36 m deep; the hands push the lid to 65° and let go, and the consumer swings it on to `lidOpenDegrees` over `lidSeconds`.
 - **Wave and cheer:** `Emote_Wave` and the one-armed `Emote_Cheer` are the #421 social clips and stay as they are; `Emote_Cheer_Both` is the both-arms cheer #701 asks for, under its own name so no clip changes.
 - **Review:** shaped and reviewed in the live Blender on the male Ranger (the published figure with its Idle clip) with stand-in axe, hammer and knife on `hand_r.weapon`.
+
+### Raid, repair, push, trap and knockdown clips (#705)
+
+[`adapters/blender/raid_clips.py`](../adapters/blender/raid_clips.py) authors #422's night-raid, repair, pushable, trap and knockdown clips in Blender on the animated Ranger (`RANGER_RAID_CLIPS`, the `raid` family, after the gather clips in bundle order). The torch, the battle axe and the hammer ride `hand_r.weapon` (`arguments.sockets.weapon`) as `held_items.py` builds them, and the carried load rides the new [`chest.carry`](humanoid-sockets.md) socket (`arguments.sockets.carry`); everything else is explicit palm frames. Two-bone arm IK puts the socket or palm there (within 3 cm everywhere, exactly for the tools and the load), the full-body clips move and tip the pelvis and plant the ankles with two-bone leg IK, and the hand shapes (flat, rest, cup, grip, pinch) are keyed on the finger joints. The CC0 UAL1 seeds were only watched as reference. Every clip starts from the first `Idle_Loop` pose (the walking ones from each `Walk_Loop` frame) and is in place; the one-shots start and end exactly in the idle unless the table says otherwise.
+
+| Clip | Length | Layer | Motion | `humanoid-clips` |
+| --- | --- | --- | --- | --- |
+| `Raid_Torch_Carry_Loop` | 2.0 s loop | `spine_01` | The torch raised beside the head in the right fist, circling a little while the chest breathes. | `role: raid.torch.carry` |
+| `Raid_Hack_Structure_Loop` | 1.5 s loop | `spine_01` | The battle axe drawn back over the right shoulder and hacked into a palisade about 0.8 m ahead (struck at 0.675 s), wrenched free and drawn back. | `role: raid.hack`, contact `hand_r` |
+| `Carry_Idle_Loop` | 3.0 s loop | `spine_01` | A crate held against the chest in both hands, palms on its sides; the chest leans back and breathes. | `role: carry.load.idle` |
+| `Carry_Walk_Loop` | `Walk_Loop` | `spine_01` | The walk's upper body with the crate held still against the chest. | `role: carry.load.walk` |
+| `Repair_Hammer_Loop` | 1.5 s loop | full body | Crouched over a board 0.4 m high, the left palm holding it, the hammer struck down on a nail twice (0.3 s, 1.05 s). | `role: repair.hammer`, contact `hand_r`, `secondaryPose` |
+| `Push_Start` | 0.6 s | full body | From the idle, both palms come up flat on a crate's face and the body leans in, stepping the feet back; ends in `Push_Loop`'s first frame. | `role: push.start`, `secondaryPose` |
+| `Push_Loop` | `Walk_Loop` | full body | Leaning into the crate on `Walk_Loop`'s legs, the pelvis tipped forward and the feet further behind, the palms flat at 1.04 m. | `role: push.loop`, `secondaryPose` |
+| `Lever_Pull` | 1.2 s | full body | Reaching for a lever's bar ahead, both hands round it, pulling it from -10° to 30° toward the body (0.36-0.744 s) while leaning back, letting go. | `role: interact.lever.pull`, `secondaryPose` |
+| `Trap_Place` | 1.5 s | full body | Kneeling on the right knee, both hands carry a trap from before the belly to the ground ahead, set it down (0.78 s), let go and stand. | `role: trap.place`, `secondaryPose` |
+| `Trap_Disarm_Loop` | 3.0 s loop | full body | Kneeling over the trap, the left palm holding its jaw while the right fingers work the spring three times a loop. | `role: trap.disarm`, `secondaryPose` |
+| `Knockdown_Fall` | 0.8 s | full body | Staggering back, tipping back about the ankles with the arms thrown forward and landing on the back (0.576 s); ends in `Lie_Loop`'s first frame. | `role: knockdown.fall`, `secondaryPose` |
+| `Lie_Loop` | 3.0 s loop | full body | Lying on the back, the feet ahead and the knees a little bent, breathing, the head rolling a little. | `role: knockdown.lie`, `secondaryPose` |
+| `GetUp` | 1.5 s | full body | From `Lie_Loop`'s first frame: sitting up, drawing the feet in, rocking forward over them with the hands on the knees and standing into the idle. | `role: knockdown.getup`, `secondaryPose` |
+
+- **`raid` object:** `tool` (`item`, `socket` `hand_r.weapon`; the torch's `flameAt`, the axe's `edgeAt`, the hammer's `faceAt`; root frame, glTF axes), `load` (`socket` `chest.carry`, the reference `sizeMeters`), `strikeSeconds`, the board's `boardAt`, the push's `pushHandsAt`, the lever's `leverSeconds`, `leverPivotAt`, `leverLengthMeters` and `leverDegrees`, the trap's `trapAt` (the middle of its open jaws, 0.1 m up), `setSeconds` and `probeSeconds`, the knockdown's `landSeconds`, and `from`/`to` for the chained clips.
+- **The grips:** `equipment.tool.torch`, `equipment.axe.battle` and `equipment.tool.hammer` are held at their own `grip` on `hand_r.weapon`, so none needs a `tool.itemOffset`.
+- **The load:** no load item exists yet; a crate or sack for `chest.carry` takes the role `load` and its `grip` frame at the middle of the face against the chest.
+- **The knockdown:** the body lies along the figure's back, its pelvis 0.42 m behind the origin and the head about 1.2 m behind, the feet 0.42 m ahead. The skirt's back panel hangs as when standing, so it passes into the ground behind the lying body.
+- **The traps:** the Ranger's arms are short for a kneel, so the shoulders roll forward (`reach`) and the trap sits close, under the chest.
+- **Review:** shaped and reviewed in the live Blender on the male Ranger (the published figure with its `Idle_Loop` and `Walk_Loop`) with stand-in torch, axe, hammer, crate, palisade, board, lever and trap.
 
 ## Female Ranger
 

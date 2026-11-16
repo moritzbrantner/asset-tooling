@@ -381,6 +381,20 @@ export const RANGER_CLIP_ROLES: Readonly<Record<string, { role: string; contact?
   Emote_Shrug: { role: "emote.shrug" },
   Emote_Clap: { role: "emote.clap" },
   Emote_Cheer_Both: { role: "emote.cheer.both" },
+  // #705: the raids, the carried load, the repair, pushing, the lever, the traps and the knockdown (src/ranger-clips.ts RANGER_RAID_CLIPS).
+  Raid_Torch_Carry_Loop: { role: "raid.torch.carry" },
+  Raid_Hack_Structure_Loop: { role: "raid.hack", contact: "hand_r" },
+  Carry_Idle_Loop: { role: "carry.load.idle" },
+  Carry_Walk_Loop: { role: "carry.load.walk" },
+  Repair_Hammer_Loop: { role: "repair.hammer", contact: "hand_r" },
+  Push_Start: { role: "push.start" },
+  Push_Loop: { role: "push.loop" },
+  Lever_Pull: { role: "interact.lever.pull" },
+  Trap_Place: { role: "trap.place" },
+  Trap_Disarm_Loop: { role: "trap.disarm" },
+  Knockdown_Fall: { role: "knockdown.fall" },
+  Lie_Loop: { role: "knockdown.lie" },
+  GetUp: { role: "knockdown.getup" },
 };
 /** The gait loops whose ground speed the `humanoid-clips` attachment records. */
 export const RANGER_GAITS: ReadonlySet<string> = new Set(["Walk_Loop", "Jog_Fwd_Loop", "Sprint_Loop", "Crouch_Fwd_Loop", "Jog_Bwd_Loop", "Walk_Bwd_Loop", "Wade_Fwd_Loop"]);
