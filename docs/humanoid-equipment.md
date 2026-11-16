@@ -13,6 +13,54 @@ The entries keep the keys they had in the [Ranger bundles](humanoid-ranger.md#co
 - **Throwables (#467):** `equipment.throwing-knife`, `equipment.venom-flask` and `equipment.blasting-bomb`, each with `lod1` and `lod2` variants.
 - **Archery** ([archery](weapon-recipes.md#archery)): `equipment.bow.long` (skinned to `grip` and `nock`), `equipment.arrow`, `equipment.quiver.back` and `equipment.crossbow`.
 - **Headwear (#336, fitted to the male head):** `equipment.cap.ranger`, `equipment.helm.ironcrest` and `equipment.hat.straw`.
+- **Held items ([#661](https://github.com/moritzbrantner/asset-tooling/issues/661)):** weapon variety and the hand tools residents carry, below.
+
+### Held items
+
+[`adapters/blender/held_items.py`](../adapters/blender/held_items.py) builds 34 fixed-design items on the weapon recipes' grip contract ([weapon-recipes.md](weapon-recipes.md)), with the weapon recipes' material names and colours, so the kit's material count is unchanged. Each item's first role is one the Ranger sockets already accept, which names its socket; a second role (`two-hand-weapon`, `spear`, `tool`, `carried`) only describes it. Two-handed pieces declare a `grip.offhand` frame (identity rotation) for the other hand's IK target.
+
+- **One-handed (`hand_r.weapon`):** the business end runs along +Y, edges and striking faces along +X, flats ±Z, as for the arming sword. The lantern, bucket and basket hang from the fist along +X with their bail along Y; the tankard's body sits on the +X side of its handle.
+- **Staff (`hand_r.staff`):** the shaft runs along +Y through the grip with its foot 0.8 m below (0.85 m for the walking stick), so it stands beside the leg in the idle. The shovel's and broom's working ends are at the foot.
+- **Shield and book (`hand_l.shield`):** as the heater shield and the tome.
+
+| Key | Socket | Length (m) | Triangles | Notes |
+| --- | --- | --- | --- | --- |
+| `equipment.sword.footman` | `hand_r.weapon` | 0.90 | 126 | Straight 0.72 m blade, bar guard, ball pommel. |
+| `equipment.sword.falchion` | `hand_r.weapon` | 0.78 | 126 | Single-edged blade widening and curving toward the tip. |
+| `equipment.sword.longsword` | `hand_r.weapon` | 1.27 | 126 | 0.95 m blade, long grip, wheel pommel; `grip.offhand` at y −0.13. |
+| `equipment.sword.bastard` | `hand_r.weapon` | 1.11 | 126 | Hand-and-a-half; `grip.offhand` at y −0.10. |
+| `equipment.dagger.plain` | `hand_r.weapon` | 0.38 | 126 | 0.24 m blade, small guard. |
+| `equipment.dagger.seax` | `hand_r.weapon` | 0.43 | 126 | Single-edged, dark wood grip, brass fittings. |
+| `equipment.axe.battle` | `hand_r.weapon` | 0.78 | 98 | Broad crescent head toward +X. |
+| `equipment.axe.bearded` | `hand_r.weapon` | 0.74 | 88 | Bearded head, dark haft. |
+| `equipment.axe.hand` | `hand_r.weapon` | 0.42 | 64 | Small hatchet. |
+| `equipment.mace.studded` | `hand_r.weapon` | 0.64 | 136 | Iron ball head with six studs. |
+| `equipment.mace.morningstar` | `hand_r.weapon` | 0.72 | 166 | Spiked ball head. |
+| `equipment.warhammer.horseman` | `hand_r.weapon` | 0.78 | 76 | Hammer face to +X, back spike, top spike. |
+| `equipment.warhammer.maul` | `hand_r.weapon` | 1.05 | 76 | Heavy block head; `grip.offhand` at y −0.22. |
+| `equipment.spear.leaf` | `hand_r.staff` | 2.29 | 96 | Leaf head at the top, iron butt cap; `grip.offhand` at y 0.45. |
+| `equipment.spear.boar` | `hand_r.staff` | 2.26 | 98 | Broad head with lugs; `grip.offhand` at y 0.45. |
+| `equipment.staff.quarter` | `hand_r.staff` | 1.80 | 96 | Iron-shod quarterstaff with a leather grip band. |
+| `equipment.staff.crook` | `hand_r.staff` | 1.63 | 160 | Shepherd's crook. |
+| `equipment.shield.round` | `hand_l.shield` | 0.61 | 286 | 0.6 m round plank shield, red face, iron rim and boss. |
+| `equipment.shield.buckler` | `hand_l.shield` | 0.35 | 174 | Domed steel buckler with a brass rim. |
+| `equipment.shield.kite` | `hand_l.shield` | 0.94 | 128 | Blue kite shield with a red cross. |
+| `equipment.tool.lantern` | `hand_r.weapon` | 0.33 | 150 | Hanging lantern; glass panes, glowing `ember` candle. |
+| `equipment.tool.torch` | `hand_r.weapon` | 0.74 | 98 | Wrapped head with a glowing `ember` flame. |
+| `equipment.tool.pitchfork` | `hand_r.staff` | 2.04 | 88 | Three tines up; `grip.offhand` at y 0.5. |
+| `equipment.tool.hoe` | `hand_r.staff` | 1.54 | 68 | Blade at the top toward +Z; `grip.offhand` at y 0.5. |
+| `equipment.tool.shovel` | `hand_r.staff` | 1.32 | 112 | Blade at the foot, D-handle on top; `grip.offhand` at y 0.47. |
+| `equipment.tool.fishing-rod` | `hand_r.staff` | 2.62 | 106 | Cork butt, tapered rod, line and red float; butt 0.32 m below the grip. |
+| `equipment.tool.wood-axe` | `hand_r.weapon` | 0.78 | 64 | Heavy splitting head; `grip.offhand` at y −0.12. |
+| `equipment.tool.hammer` | `hand_r.weapon` | 0.39 | 52 | Round face toward +X. |
+| `equipment.tool.bucket` | `hand_r.weapon` | 0.43 | 134 | Hooped wooden bucket on an iron bail. |
+| `equipment.tool.basket` | `hand_r.weapon` | 0.37 | 198 | Wicker basket under an arched handle, with two apples. |
+| `equipment.tool.tankard` | `hand_r.weapon` | 0.14 | 134 | Brass-hooped wooden tankard. |
+| `equipment.book.ledger` | `hand_l.shield` | 0.22 | 60 | 0.16 × 0.22 m leather book with a brass clasp. |
+| `equipment.tool.broom` | `hand_r.staff` | 1.45 | 100 | Bound bristles at the foot; `grip.offhand` at y 0.45. |
+| `equipment.tool.walking-stick` | `hand_r.staff` | 1.09 | 52 | Knobbed stick with an iron ferrule. |
+
+Length is the item's longest extent. The numbers are from the build of 2026-11-16. A rebuild is byte-identical: the recipe builds explicit vertex lists and triangulates them itself, in a fixed order.
 
 Every item is a recipe preset whose origin is its grip frame. Its `humanoid-item` attachment (`humanoid-item-v2`) names its role and its `grip` frame. The throwables' attachments also list their levels and switch points. A consumer parents an item under the socket its role names, using the figure's sockets descriptor ([humanoid-sockets.md](humanoid-sockets.md)). The male figure's `humanoid-appearance.headwear` list still names the headwear entries and the parts each hides.
 

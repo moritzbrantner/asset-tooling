@@ -1,0 +1,610 @@
+"""Held items: weapon variety and residents' hand tools for the humanoid equipment kit, an original scripted recipe.
+
+One run builds one item (``{schemaVersion: 1, item}``) for the pinned Blender script backend. The items follow the
+weapon recipes' grip contract (docs/weapon-recipes.md) so they attach through the existing humanoid sockets
+(docs/humanoid-sockets.md) with the roles those sockets already accept:
+
+- ``one-hand-weapon`` (``hand_r.weapon``): the grip frame is the centre of the hand's contact on the grip, the business
+  end runs along +Y, edges and striking faces along +X (the fingers) and flats face ±Z. Carried items that hang from
+  the fist (lantern, bucket, basket) hang along +X with their bail or handle along Y; the tankard's body sits on the +X
+  side of its handle.
+- ``staff`` (``hand_r.staff``): the shaft runs along +Y through the grip, its foot ``FOOT`` (0.8 m) below the grip so it
+  stands beside the leg in the hanging-arm idle. Long tools and spears use it.
+- ``shield`` (``hand_l.shield``): the grip frame is the centre of the hand handle along Y, the face points to +Z, the
+  point to -Y and the forearm strap lies along +X.
+- ``book`` (``hand_l.shield``): the grip frame is the middle of the back cover, the spine along +Y, the book toward +Z.
+
+Every GLB has one mesh node named after the item and an empty ``grip`` node at the origin. Materials are the weapon
+recipes' factor-only PBR colours (same names), with no UVs or textures; ``ember`` glows. Geometry is built from explicit
+vertex lists and triangulated here, in a fixed order, so a rebuild is byte-identical. There is no randomness.
+"""
+import hashlib
+import math
+from contextlib import contextmanager
+
+import bpy
+from mathutils import Matrix, Vector, geometry
+
+FOOT = 0.8
+MATERIALS = {
+    # name: (linear base colour, metallic, roughness); the weapon recipes' values.
+    "steel": ((.62, .64, .66), 1.0, .32),
+    "iron": ((.29, .28, .27), 1.0, .48),
+    "leather": ((.2, .1, .05), 0.0, .72),
+    "wood": ((.34, .22, .12), 0.0, .78),
+    "wood.dark": ((.07, .036, .018), 0.0, .85),
+    "paint": ((.04, .07, .18), 0.0, .62),
+    "paint.red": ((.42, .045, .03), 0.0, .55),
+    "brass": ((.62, .44, .16), 1.0, .38),
+    "gold": ((.83, .58, .17), 1.0, .3),
+    "parchment": ((.7, .62, .45), 0.0, .9),
+    "cork": ((.42, .27, .14), 0.0, .9),
+    "fuse": ((.5, .38, .2), 0.0, .95),
+    "glass": ((.62, .8, .66), 0.0, .06),
+    "ember": ((1.0, .32, .04), 0.0, .2),
+}
+ALPHA = {"glass": .32}
+EMISSIVE = {"ember"}
+SHARP_ANGLE = math.radians(35)
+
+
+class Builder:
+    """Vertices in glTF axes under a transform stack; faces as vertex-index loops with a material name."""
+
+    def __init__(self):
+        self.verts, self.faces, self.m = [], [], Matrix.Identity(4)
+
+    @contextmanager
+    def at(self, matrix):
+        old = self.m
+        self.m = old @ matrix
+        try:
+            yield
+        finally:
+            self.m = old
+
+    def add(self, points):
+        start = len(self.verts)
+        self.verts += [self.m @ Vector(p) for p in points]
+        return list(range(start, len(self.verts)))
+
+    def face(self, loop, mat):
+        self.faces.append((list(loop), mat))
+
+    def loft(self, rings, mat, cap_mat=None, caps=(True, True)):
+        """Rings of equal length (or single apex points), each wound like ``lathe`` (x = r cos a, z = -r sin a), along
+        their travel direction; quads between neighbours, caps at open ends."""
+        index = [self.add(ring) for ring in rings]
+        for lo, hi in zip(index, index[1:]):
+            if len(lo) == 1:
+                n = len(hi)
+                for s in range(n):
+                    self.face([lo[0], hi[(s + 1) % n], hi[s]], mat)
+            elif len(hi) == 1:
+                n = len(lo)
+                for s in range(n):
+                    self.face([lo[s], lo[(s + 1) % n], hi[0]], mat)
+            else:
+                n = len(lo)
+                for s in range(n):
+                    self.face([lo[s], lo[(s + 1) % n], hi[(s + 1) % n], hi[s]], mat)
+        bottom, top = cap_mat if isinstance(cap_mat, tuple) else (cap_mat, cap_mat)
+        if caps[0] and len(index[0]) > 1:
+            self.face(list(reversed(index[0])), bottom or mat)
+        if caps[1] and len(index[-1]) > 1:
+            self.face(index[-1], top or mat)
+
+    def lathe(self, profile, n, mat, cap_mat=None, phase=0.0, caps=(True, True)):
+        """A solid of revolution about +Y from ``profile`` [(y, r)], bottom to top; r = 0 is a pole."""
+        rings = []
+        for y, r in profile:
+            if r <= 1e-9:
+                rings.append([(0.0, y, 0.0)])
+            else:
+                rings.append([(r * math.cos(phase + 2 * math.pi * s / n), y, -r * math.sin(phase + 2 * math.pi * s / n)) for s in range(n)])
+        self.loft(rings, mat, cap_mat, caps)
+
+    def prism(self, outline, z0, z1, mat, cap_mat=None):
+        """A counter-clockwise (x, y) outline extruded from z0 (back) to z1 (front); ``cap_mat`` paints the front."""
+        back = self.add([(x, y, z0) for x, y in outline])
+        front = self.add([(x, y, z1) for x, y in outline])
+        n = len(outline)
+        for i in range(n):
+            self.face([back[i], back[(i + 1) % n], front[(i + 1) % n], front[i]], mat)
+        self.face(front, cap_mat or mat)
+        self.face(list(reversed(back)), mat)
+
+    def box(self, lo, hi, mat):
+        with self.at(Matrix.Identity(4)):
+            self.prism([(lo[0], lo[1]), (hi[0], lo[1]), (hi[0], hi[1]), (lo[0], hi[1])], lo[2], hi[2], mat)
+
+    def rod(self, a, c, r0, r1, n, mat, cap_mat=None):
+        a, c = Vector(a), Vector(c)
+        d = c - a
+        turn = Vector((0, 1, 0)).rotation_difference(d.normalized()).to_matrix().to_4x4()
+        with self.at(Matrix.Translation(a) @ turn):
+            self.lathe([(0, r0), (d.length, r1)], n, mat, cap_mat)
+
+    def ball(self, centre, radius, mat, n=8, rows=4, squash=(1, 1, 1)):
+        profile = [(-radius, 0)] + [(-radius * math.cos(math.pi * k / rows), radius * math.sin(math.pi * k / rows)) for k in range(1, rows)] + [(radius, 0)]
+        with self.at(Matrix.Translation(centre) @ Matrix.Diagonal((*squash, 1))):
+            self.lathe(profile, n, mat)
+
+
+def rot(axis, degrees):
+    return Matrix.Rotation(math.radians(degrees), 4, axis)
+
+
+def T(x, y, z):
+    return Matrix.Translation((x, y, z))
+
+
+# ---------------------------------------------------------------- blades and hafts
+
+def blade(b, length, width, thickness, mat, base=0.0, tip=0.18, curve=0.0, single=False, widen=1.0):
+    """A lozenge-section blade along +Y from ``base``: edges along ±X, a point over its last ``tip`` fraction.
+    ``curve`` bends it toward +X; ``single`` makes the back (-X) edge blunt; ``widen`` scales the width at the tip."""
+    rings, steps = [], 6
+    for k in range(steps + 1):
+        u = k / steps
+        y = base + length * u
+        w = width * (1 + (widen - 1) * u)
+        if u > 1 - tip:
+            w *= max(0.0, (1 - u) / tip) ** 0.7
+        x0 = curve * length * u * u
+        t = thickness * (1 - 0.5 * u)
+        if k == steps:
+            rings.append([(x0 + (width * 0.3 if single else 0), y, 0)])
+            continue
+        back = -w * 0.55 if single else -w
+        rings.append([(x0 + w, y, 0), (x0, y, -t), (x0 + back, y, 0), (x0, y, t)])
+    b.loft(rings, mat)
+
+
+def hilt(b, grip, guard, pommel, n=6, mats=("leather", "iron", "iron"), guard_depth=0.025, pommel_kind="ball"):
+    """A grip from -grip*0.6 to +grip*0.4 around the hand, a crossguard bar above it and a pommel below."""
+    g0, g1 = -grip * 0.6, grip * 0.4
+    b.lathe([(g0, 0.014), (g0 + grip * 0.5, 0.016), (g1, 0.014)], n, mats[0])
+    b.box((-guard / 2, g1, -guard_depth / 2), (guard / 2, g1 + 0.022, guard_depth / 2), mats[1])
+    if pommel_kind == "ball":
+        b.ball((0, g0 - pommel * 0.9, 0), pommel, mats[2], n, 4)
+    else:  # wheel
+        with b.at(T(0, g0 - pommel, 0) @ rot("X", 90)):
+            b.lathe([(-0.01, pommel), (0.01, pommel)], 10, mats[2])
+    return g1 + 0.022
+
+
+def sword(b, length, width, grip, guard, pommel, curve=0.0, single=False, widen=1.0, pommel_kind="ball"):
+    top = hilt(b, grip, guard, pommel, pommel_kind=pommel_kind)
+    blade(b, length, width / 2, 0.006, "steel", base=top, curve=curve, single=single, widen=widen)
+
+
+def haft(b, y0, y1, r, mat="wood", n=6, grip=None):
+    b.lathe([(y0, r * 0.95), (y1, r)], n, mat)
+    if grip:
+        b.lathe([(-grip / 2, r + 0.003), (grip / 2, r + 0.003)], n, "leather")
+
+
+def axe_head(b, y, outline, thickness, mat="steel", socket=0.022):
+    """An axe head in the X-Y plane (blade toward +X) centred on the haft at height ``y``."""
+    with b.at(T(0, y, 0)):
+        b.prism(outline, -thickness / 2, thickness / 2, mat)
+        b.lathe([(-0.035, socket), (0.035, socket)], 6, "iron")
+
+
+# ---------------------------------------------------------------- weapons
+
+def sword_footman(b):
+    sword(b, 0.72, 0.05, 0.11, 0.18, 0.024)
+
+
+def sword_falchion(b):
+    sword(b, 0.62, 0.05, 0.1, 0.16, 0.022, curve=0.06, single=True, widen=1.45)
+
+
+def sword_longsword(b):
+    sword(b, 0.95, 0.05, 0.24, 0.24, 0.03, pommel_kind="wheel")
+
+
+def sword_bastard(b):
+    sword(b, 0.85, 0.055, 0.18, 0.22, 0.028)
+
+
+def dagger_plain(b):
+    top = hilt(b, 0.09, 0.08, 0.016)
+    blade(b, 0.24, 0.018, 0.005, "steel", base=top)
+
+
+def dagger_seax(b):
+    top = hilt(b, 0.1, 0.03, 0.014, mats=("wood.dark", "brass", "brass"), guard_depth=0.02)
+    blade(b, 0.28, 0.02, 0.005, "steel", base=top, single=True, widen=1.3, tip=0.25)
+
+
+def axe_battle(b):
+    haft(b, -0.14, 0.62, 0.016, grip=0.14)
+    axe_head(b, 0.54, [(-0.02, -0.03), (0.05, -0.04), (0.16, -0.11), (0.19, -0.02), (0.19, 0.06), (0.15, 0.1), (0.05, 0.04), (-0.02, 0.035)], 0.014)
+    b.lathe([(0.62, 0.017), (0.64, 0.0)], 6, "iron")
+
+
+def axe_bearded(b):
+    haft(b, -0.14, 0.6, 0.016, mat="wood.dark", grip=0.14)
+    axe_head(b, 0.5, [(-0.02, -0.02), (0.06, -0.025), (0.1, -0.13), (0.16, -0.16), (0.17, -0.05), (0.16, 0.06), (0.05, 0.035), (-0.02, 0.03)], 0.013)
+
+
+def axe_hand(b):
+    haft(b, -0.1, 0.32, 0.013)
+    axe_head(b, 0.26, [(-0.015, -0.02), (0.04, -0.025), (0.1, -0.06), (0.11, 0.0), (0.1, 0.05), (0.04, 0.025), (-0.015, 0.02)], 0.012)
+
+
+def mace_studded(b):
+    haft(b, -0.12, 0.42, 0.015, mat="wood.dark", grip=0.13)
+    b.ball((0, 0.47, 0), 0.05, "iron", n=8, rows=4)
+    for k in range(6):
+        a = math.tau * k / 6
+        b.ball((0.05 * math.cos(a), 0.47, -0.05 * math.sin(a)), 0.012, "steel", n=4, rows=2)
+
+
+def mace_morningstar(b):
+    haft(b, -0.12, 0.44, 0.016, grip=0.13)
+    centre = Vector((0, 0.5, 0))
+    b.ball(centre, 0.055, "iron", n=8, rows=4)
+    for k, (a, e) in enumerate([(a, e) for e in (-35, 15) for a in range(0, 360, 60)] + [(0, 90)]):
+        d = Vector((math.cos(math.radians(e)) * math.cos(math.radians(a + (30 if e > 0 else 0))), math.sin(math.radians(e)),
+                    -math.cos(math.radians(e)) * math.sin(math.radians(a + (30 if e > 0 else 0)))))
+        b.rod(centre + d * 0.045, centre + d * 0.1, 0.012, 0.0, 4, "steel")
+
+
+def warhammer_horseman(b):
+    haft(b, -0.12, 0.56, 0.015, grip=0.13)
+    with b.at(T(0, 0.5, 0)):
+        b.box((-0.03, -0.025, -0.022), (0.08, 0.025, 0.022), "steel")
+        b.box((0.08, -0.03, -0.028), (0.1, 0.03, 0.028), "steel")
+        b.rod((-0.03, 0, 0), (-0.14, -0.03, 0), 0.018, 0.0, 4, "steel")
+    b.rod((0, 0.56, 0), (0, 0.66, 0), 0.012, 0.0, 4, "steel")
+
+
+def warhammer_maul(b):
+    haft(b, -0.3, 0.72, 0.019, grip=0.4)
+    with b.at(T(0, 0.68, 0)):
+        b.box((-0.11, -0.06, -0.055), (0.11, 0.06, 0.055), "iron")
+        for x in (-0.11, 0.11):
+            b.box((x - 0.012 if x > 0 else x - 0.006, -0.068, -0.062), (x + 0.006 if x > 0 else x + 0.012, 0.068, 0.062), "steel")
+
+
+def spear_leaf(b):
+    haft(b, -FOOT, 1.15, 0.016)
+    b.lathe([(1.12, 0.019), (1.2, 0.016)], 6, "iron")
+    blade(b, 0.26, 0.026, 0.006, "steel", base=1.2, tip=0.45, widen=0.9)
+    b.lathe([(-FOOT - 0.03, 0.0), (-FOOT, 0.017)], 6, "iron", caps=(False, True))
+
+
+def spear_boar(b):
+    haft(b, -FOOT, 1.1, 0.018, mat="wood.dark")
+    b.lathe([(1.06, 0.021), (1.16, 0.017)], 6, "iron")
+    b.box((-0.07, 1.12, -0.008), (0.07, 1.14, 0.008), "iron")
+    blade(b, 0.3, 0.035, 0.007, "steel", base=1.16, tip=0.4)
+
+
+def staff_quarter(b):
+    haft(b, -FOOT, 1.0, 0.019, n=7)
+    for y0, y1 in ((-FOOT, -FOOT + 0.08), (0.92, 1.0)):
+        b.lathe([(y0, 0.021), (y1, 0.021)], 7, "iron")
+    b.lathe([(-0.06, 0.022), (0.06, 0.022)], 7, "leather")
+
+
+def staff_crook(b):
+    haft(b, -FOOT, 0.7, 0.017, n=6)
+    path = [(0.0, 0.7)] + [(0.09 - 0.09 * math.cos(math.pi * k / 6), 0.7 + 0.11 * math.sin(math.pi * k / 6)) for k in range(1, 7)] + [(0.18, 0.62)]
+    for (x0, y0), (x1, y1) in zip(path, path[1:]):
+        b.rod((x0, y0, 0), (x1, y1, 0), 0.0165, 0.0165, 6, "wood")
+
+
+def shield_round(b, radius=0.3, face="paint.red", rim="iron", boss="iron", planks=True):
+    with b.at(T(0, 0, 0.03) @ rot("X", 90)):
+        b.lathe([(0, radius), (0.016, radius), (0.016, radius - 0.02), (0.02, radius - 0.03)], 16, "wood", cap_mat=(None, face))
+        b.lathe([(-0.002, radius + 0.006), (0.024, radius + 0.006)], 16, rim, caps=(False, False))
+        b.lathe([(0.02, 0.07), (0.04, 0.06), (0.06, 0.03), (0.065, 0)], 10, boss)
+    if planks:
+        for x in (-0.1, 0.1):
+            b.box((x - 0.004, -radius * 0.9, 0.0495), (x + 0.004, radius * 0.9, 0.0515), "wood.dark")
+    b.box((-0.012, -0.06, -0.012), (0.012, 0.06, 0.012), "leather")
+    for y in (-0.06, 0.06):
+        b.box((-0.012, y - 0.008, -0.012), (0.012, y + 0.008, 0.03), "leather")
+    b.box((0.13, -0.06, 0.012), (0.17, 0.06, 0.03), "leather")
+
+
+def shield_buckler(b):
+    with b.at(T(0, 0, 0.025) @ rot("X", 90)):
+        b.lathe([(0, 0.17), (0.01, 0.17), (0.03, 0.14), (0.045, 0.06), (0.06, 0.0)], 14, "steel")
+        b.lathe([(-0.002, 0.176), (0.012, 0.176)], 14, "brass", caps=(False, False))
+    b.box((-0.012, -0.05, -0.012), (0.012, 0.05, 0.012), "leather")
+    for y in (-0.05, 0.05):
+        b.box((-0.012, y - 0.008, -0.012), (0.012, y + 0.008, 0.027), "leather")
+
+
+def shield_kite(b):
+    w, top, point = 0.25, 0.32, -0.62
+    outline = [(0.0, point)]
+    for k in range(1, 6):
+        u = k / 6
+        outline.append((w * math.sin(u * math.pi / 2) ** 0.8, point + (top - 0.06 - point) * u))
+    outline += [(w, top - 0.06), (w * 0.7, top), (-w * 0.7, top), (-w, top - 0.06)]
+    for k in range(5, 0, -1):
+        u = k / 6
+        outline.append((-w * math.sin(u * math.pi / 2) ** 0.8, point + (top - 0.06 - point) * u))
+    b.prism(outline, 0.03, 0.05, "wood", cap_mat="paint")
+    b.box((-0.03, point + 0.1, 0.05), (0.03, top - 0.02, 0.054), "paint.red")
+    b.box((-w * 0.75, 0.05, 0.05), (w * 0.75, 0.11, 0.054), "paint.red")
+    b.box((-0.012, -0.06, -0.012), (0.012, 0.06, 0.012), "leather")
+    for y in (-0.06, 0.06):
+        b.box((-0.012, y - 0.008, -0.012), (0.012, y + 0.008, 0.03), "leather")
+    b.box((0.13, -0.06, 0.012), (0.17, 0.06, 0.03), "leather")
+
+
+# ---------------------------------------------------------------- tools and carried items
+
+def hanging(b, fn):
+    """Build ``fn`` upright with its bail or handle top at the origin along X; hang it along +X from a fist."""
+    with b.at(rot("Z", 90)):
+        fn()
+
+
+def lantern(b):
+    def build():
+        b.rod((-0.05, 0, 0), (0.05, 0, 0), 0.008, 0.008, 5, "iron")
+        for x in (-0.05, 0.05):
+            b.rod((x, 0, 0), (x * 0.6, -0.07, 0), 0.004, 0.004, 4, "iron")
+        b.lathe([(-0.1, 0.075), (-0.085, 0.075), (-0.07, 0.0)], 4, "iron", phase=math.pi / 4)
+        b.box((-0.05, -0.3, -0.05), (0.05, -0.1, 0.05), "glass")
+        for dx in (-0.055, 0.055):
+            for dz in (-0.055, 0.055):
+                b.box((dx - 0.006, -0.3, dz - 0.006), (dx + 0.006, -0.1, dz + 0.006), "iron")
+        b.box((-0.065, -0.32, -0.065), (0.065, -0.3, 0.065), "iron")
+        b.lathe([(-0.29, 0.012), (-0.25, 0.012)], 5, "parchment")
+        b.lathe([(-0.25, 0.012), (-0.2, 0.0)], 5, "ember")
+    hanging(b, build)
+
+
+def torch(b):
+    haft(b, -0.18, 0.3, 0.016, mat="wood.dark")
+    b.lathe([(0.24, 0.022), (0.27, 0.03), (0.34, 0.028), (0.36, 0.02)], 6, "fuse")
+    b.lathe([(0.355, 0.024), (0.42, 0.028), (0.5, 0.012), (0.56, 0.0)], 6, "ember", phase=0.4)
+
+
+def pitchfork(b):
+    haft(b, -FOOT, 0.95, 0.016)
+    b.box((-0.09, 0.95, -0.012), (0.09, 0.98, 0.012), "iron")
+    b.lathe([(0.93, 0.02), (0.99, 0.018)], 6, "iron")
+    for x in (-0.08, 0.0, 0.08):
+        b.rod((x, 0.98, 0), (x * 1.1, 1.24, 0.015), 0.007, 0.002, 4, "iron")
+
+
+def hoe(b):
+    haft(b, -FOOT, 0.72, 0.016)
+    b.lathe([(0.66, 0.02), (0.74, 0.02)], 6, "iron")
+    b.rod((0, 0.71, 0), (0, 0.71, 0.08), 0.011, 0.011, 5, "iron")
+    b.box((-0.08, 0.6, 0.075), (0.08, 0.73, 0.085), "iron")
+
+
+def shovel(b):
+    haft(b, -0.55, 0.42, 0.016)
+    b.box((-0.06, 0.42, -0.012), (0.06, 0.44, 0.012), "wood")
+    for x in (-0.06, 0.06):
+        b.box((x - 0.012, 0.42, -0.012), (x + 0.012, 0.52, 0.012), "wood")
+    b.box((-0.07, 0.5, -0.013), (0.07, 0.525, 0.013), "wood")
+    b.lathe([(-0.6, 0.021), (-0.52, 0.018)], 6, "iron")
+    b.prism([(-0.11, -0.62), (0.0, -0.66), (0.11, -0.62), (0.115, -FOOT + 0.06), (0.06, -FOOT), (-0.06, -FOOT), (-0.115, -FOOT + 0.06)][::-1],
+            -0.004, 0.004, "iron")
+
+
+def fishing_rod(b):
+    b.lathe([(-0.32, 0.015), (0.08, 0.014)], 6, "cork")
+    b.lathe([(0.08, 0.011), (1.2, 0.007), (2.3, 0.003)], 5, "wood")
+    b.lathe([(-0.06, 0.03), (-0.02, 0.03)], 8, "brass")
+    b.rod((0.003, 2.3, 0), (0.12, 1.9, 0.02), 0.0015, 0.0015, 3, "parchment")
+    b.ball((0.12, 1.88, 0.02), 0.014, "paint.red", n=6, rows=3)
+
+
+def wood_axe(b):
+    haft(b, -0.16, 0.62, 0.017)
+    axe_head(b, 0.55, [(-0.04, -0.03), (0.06, -0.035), (0.15, -0.07), (0.16, 0.0), (0.15, 0.07), (0.06, 0.035), (-0.04, 0.03)], 0.03, mat="iron", socket=0.024)
+
+
+def hammer(b):
+    haft(b, -0.1, 0.27, 0.013)
+    with b.at(T(0, 0.27, 0)):
+        b.box((-0.05, -0.016, -0.016), (0.05, 0.016, 0.016), "iron")
+    with b.at(T(0.05, 0.27, 0) @ rot("Z", -90)):  # the round striking face, toward +X
+        b.lathe([(0, 0.02), (0.02, 0.02)], 6, "iron")
+
+
+def bucket(b):
+    def build():
+        b.rod((-0.15, 0, 0), (0.15, 0, 0), 0.006, 0.006, 4, "iron")
+        for x in (-0.15, 0.15):
+            b.rod((x, 0, 0), (x * 1.05, -0.12, 0), 0.005, 0.005, 4, "iron")
+        b.lathe([(-0.42, 0.11), (-0.12, 0.155), (-0.12, 0.145), (-0.16, 0.0)], 10, "wood", cap_mat="wood.dark")
+        for y, r in ((-0.38, 0.118), (-0.17, 0.152)):
+            b.lathe([(y - 0.012, r), (y + 0.012, r + 0.002)], 10, "iron", caps=(False, False))
+    with b.at(T(-0.04, 0, 0)):
+        hanging(b, build)
+
+
+def basket(b):
+    def build():
+        arch = [(-0.17 + 0.34 * k / 6, -0.02 - 0.18 * (1 - math.sin(math.pi * k / 6))) for k in range(7)]
+        for (x0, y0), (x1, y1) in zip(arch, arch[1:]):
+            b.rod((x0, y0, 0), (x1, y1, 0), 0.008, 0.008, 4, "fuse")
+        b.lathe([(-0.34, 0.14), (-0.2, 0.18), (-0.2, 0.17), (-0.3, 0.0)], 10, "fuse", cap_mat="cork")
+        b.lathe([(-0.215, 0.181), (-0.195, 0.184)], 10, "cork", caps=(False, False))
+        b.ball((0.05, -0.22, 0.03), 0.05, "paint.red", n=6, rows=3)
+        b.ball((-0.06, -0.225, -0.02), 0.045, "parchment", n=6, rows=3)
+    hanging(b, build)
+
+
+def tankard(b):
+    with b.at(T(0.075, 0, 0)):
+        b.lathe([(-0.07, 0.048), (0.07, 0.052), (0.07, 0.046), (-0.06, 0.0)], 10, "wood", cap_mat="cork")
+        for y in (-0.05, 0.05):
+            b.lathe([(y - 0.008, 0.052 + y * 0.03), (y + 0.008, 0.053 + y * 0.03)], 10, "brass", caps=(False, False))
+    for y0, y1 in ((0.05, 0.05), (-0.05, -0.05)):
+        b.box((-0.005, y0 - 0.01, -0.01), (0.03, y1 + 0.01, 0.01), "wood")
+    b.box((-0.012, -0.06, -0.01), (0.0, 0.06, 0.01), "wood")
+
+
+def ledger(b):
+    w, h, t = 0.16, 0.22, 0.045
+    b.box((-w / 2, -h / 2, 0.0), (w / 2, h / 2, 0.006), "leather")
+    b.box((-w / 2 + 0.006, -h / 2 + 0.006, 0.006), (w / 2 - 0.004, h / 2 - 0.006, t - 0.006), "parchment")
+    b.box((-w / 2, -h / 2, t - 0.006), (w / 2, h / 2, t), "leather")
+    b.box((-w / 2 - 0.004, -h / 2, 0.0), (-w / 2 + 0.006, h / 2, t), "leather")
+    b.box((w / 2 - 0.004, -0.015, -0.002), (w / 2 + 0.006, 0.015, t + 0.002), "brass")
+
+
+def broom(b):
+    haft(b, -0.5, 0.65, 0.015)
+    b.lathe([(-0.52, 0.03), (-0.47, 0.025)], 6, "fuse")
+    b.lathe([(-FOOT, 0.09), (-0.62, 0.075), (-0.5, 0.03)], 8, "fuse")
+    b.lathe([(-0.57, 0.062), (-0.55, 0.058)], 8, "leather", caps=(False, False))
+
+
+def walking_stick(b):
+    haft(b, -0.85, 0.16, 0.014, mat="wood.dark")
+    b.ball((0, 0.18, 0), 0.026, "wood", n=6, rows=3)
+    b.lathe([(-0.88, 0.0), (-0.85, 0.015)], 5, "iron", caps=(False, True))
+
+
+# ---------------------------------------------------------------- catalogue
+
+# item: (builder, roles, frames beyond grip as {name: (x, y, z)}, triangle budget)
+ITEMS = {
+    "sword.footman": (sword_footman, ["one-hand-weapon"], {}, 400),
+    "sword.falchion": (sword_falchion, ["one-hand-weapon"], {}, 400),
+    "sword.longsword": (sword_longsword, ["one-hand-weapon", "two-hand-weapon"], {"grip.offhand": (0, -0.13, 0)}, 400),
+    "sword.bastard": (sword_bastard, ["one-hand-weapon", "two-hand-weapon"], {"grip.offhand": (0, -0.1, 0)}, 400),
+    "dagger.plain": (dagger_plain, ["one-hand-weapon"], {}, 300),
+    "dagger.seax": (dagger_seax, ["one-hand-weapon"], {}, 300),
+    "axe.battle": (axe_battle, ["one-hand-weapon"], {}, 300),
+    "axe.bearded": (axe_bearded, ["one-hand-weapon"], {}, 300),
+    "axe.hand": (axe_hand, ["one-hand-weapon"], {}, 300),
+    "mace.studded": (mace_studded, ["one-hand-weapon"], {}, 500),
+    "mace.morningstar": (mace_morningstar, ["one-hand-weapon"], {}, 500),
+    "warhammer.horseman": (warhammer_horseman, ["one-hand-weapon"], {}, 300),
+    "warhammer.maul": (warhammer_maul, ["one-hand-weapon", "two-hand-weapon"], {"grip.offhand": (0, -0.22, 0)}, 300),
+    "spear.leaf": (spear_leaf, ["staff", "spear"], {"grip.offhand": (0, 0.45, 0)}, 300),
+    "spear.boar": (spear_boar, ["staff", "spear"], {"grip.offhand": (0, 0.45, 0)}, 300),
+    "staff.quarter": (staff_quarter, ["staff"], {"grip.offhand": (0, 0.55, 0)}, 300),
+    "staff.crook": (staff_crook, ["staff"], {}, 400),
+    "shield.round": (shield_round, ["shield"], {}, 600),
+    "shield.buckler": (shield_buckler, ["shield"], {}, 400),
+    "shield.kite": (shield_kite, ["shield"], {}, 300),
+    "tool.lantern": (lantern, ["one-hand-weapon", "carried"], {}, 400),
+    "tool.torch": (torch, ["one-hand-weapon", "tool"], {}, 200),
+    "tool.pitchfork": (pitchfork, ["staff", "tool"], {"grip.offhand": (0, 0.5, 0)}, 200),
+    "tool.hoe": (hoe, ["staff", "tool"], {"grip.offhand": (0, 0.5, 0)}, 200),
+    "tool.shovel": (shovel, ["staff", "tool"], {"grip.offhand": (0, 0.47, 0)}, 300),
+    "tool.fishing-rod": (fishing_rod, ["staff", "tool"], {}, 200),
+    "tool.wood-axe": (wood_axe, ["one-hand-weapon", "tool"], {"grip.offhand": (0, -0.12, 0)}, 200),
+    "tool.hammer": (hammer, ["one-hand-weapon", "tool"], {}, 200),
+    "tool.bucket": (bucket, ["one-hand-weapon", "carried"], {}, 400),
+    "tool.basket": (basket, ["one-hand-weapon", "carried"], {}, 400),
+    "tool.tankard": (tankard, ["one-hand-weapon", "carried"], {}, 300),
+    "book.ledger": (ledger, ["book"], {}, 100),
+    "tool.broom": (broom, ["staff", "tool"], {"grip.offhand": (0, 0.45, 0)}, 200),
+    "tool.walking-stick": (walking_stick, ["staff", "tool"], {}, 100),
+}
+
+
+def validate(arguments, inputs):
+    if type(arguments) is not dict or set(arguments) != {"schemaVersion", "item"} or arguments["schemaVersion"] != 1 or arguments["item"] not in ITEMS:
+        raise ValueError(f"held items takes schemaVersion 1 and an item of {sorted(ITEMS)}")
+    if inputs:
+        raise ValueError("held items takes no inputs")
+
+
+def material(name):
+    colour, metallic, roughness = MATERIALS[name]
+    result = bpy.data.materials.new(name)
+    result.use_nodes = True
+    shader = next(n for n in result.node_tree.nodes if n.type == "BSDF_PRINCIPLED")
+    shader.inputs["Base Color"].default_value = (*colour, 1)
+    shader.inputs["Metallic"].default_value = metallic
+    shader.inputs["Roughness"].default_value = roughness
+    if name in ALPHA:
+        shader.inputs["Alpha"].default_value = ALPHA[name]
+        result.surface_render_method = "BLENDED"
+    if name in EMISSIVE:
+        shader.inputs["Emission Color"].default_value = (*colour, 1)
+        shader.inputs["Emission Strength"].default_value = 1.0
+    return result
+
+
+def triangles(builder):
+    """Triangulate every face in order: fans for quads and triangles, ``tessellate_polygon`` for larger loops (wound
+    like the loop's own Newell normal)."""
+    out = []
+    for loop, mat in builder.faces:
+        pts = [builder.verts[i] for i in loop]
+        if len(loop) <= 4:
+            tris = [(0, k, k + 1) for k in range(1, len(loop) - 1)]
+        else:
+            normal = Vector()
+            for a, c in zip(pts, pts[1:] + pts[:1]):
+                normal += Vector(((a.y - c.y) * (a.z + c.z), (a.z - c.z) * (a.x + c.x), (a.x - c.x) * (a.y + c.y)))
+            tris = []
+            for t in geometry.tessellate_polygon([pts]):
+                if (pts[t[1]] - pts[t[0]]).cross(pts[t[2]] - pts[t[0]]).dot(normal) < 0:
+                    t = (t[0], t[2], t[1])
+                tris.append(tuple(t))
+        out += [([loop[i] for i in t], mat) for t in tris]
+    return out
+
+
+def build(item):
+    builder = Builder()
+    ITEMS[item][0](builder)
+    tris = triangles(builder)
+    names = sorted({mat for _, mat in tris}, key=list(MATERIALS).index)
+    mesh = bpy.data.meshes.new(f"{item}-geometry")
+    mesh.from_pydata([(v.x, -v.z, v.y) for v in builder.verts], [], [t for t, _ in tris])
+    for name in names:
+        mesh.materials.append(material(name))
+    for polygon, (_, mat) in zip(mesh.polygons, tris):
+        polygon.material_index = names.index(mat)
+        polygon.use_smooth = True
+    mesh.set_sharp_from_angle(angle=SHARP_ANGLE)
+    mesh.validate()
+    return mesh, builder.verts, len(tris), names
+
+
+def generate(output_path, arguments, inputs):
+    validate(arguments, inputs)
+    item = arguments["item"]
+    bpy.ops.object.select_all(action="SELECT")
+    bpy.ops.object.delete(use_global=False)
+    mesh, verts, count, names = build(item)
+    budget = ITEMS[item][3]
+    if count > budget:
+        raise ValueError(f"held item {item} has {count} triangles, over its budget of {budget}")
+    obj = bpy.data.objects.new(item, mesh)
+    grip = bpy.data.objects.new("grip", None)
+    for o in (obj, grip):
+        bpy.context.scene.collection.objects.link(o)
+    bpy.ops.object.select_all(action="DESELECT")
+    obj.select_set(True)
+    grip.select_set(True)
+    bpy.context.view_layer.objects.active = obj
+    lows = [min(v[i] for v in verts) for i in range(3)]
+    highs = [max(v[i] for v in verts) for i in range(3)]
+    geometry_bytes = b"".join(float(c).hex().encode("ascii") + b"\n" for v in mesh.vertices for c in v.co)
+    geometry_bytes += b"".join((",".join(str(i) for i in f.vertices) + ":" + str(f.material_index) + "\n").encode("ascii") for f in mesh.polygons)
+    bpy.ops.export_scene.gltf(
+        filepath=output_path, export_format="GLB", use_selection=True,
+        export_yup=True, export_texcoords=False, export_normals=True, export_tangents=False,
+        export_animations=False, export_skins=False, export_morph=False,
+        export_cameras=False, export_lights=False, export_extras=False)
+    _, roles, frames, _ = ITEMS[item]
+    return {"recipe": "held-items-v1", "item": item, "roles": roles, "frames": {k: list(v) for k, v in frames.items()},
+            "unit": "meter", "axes": "right-handed-y-up", "origin": "grip", "gripNode": "grip", "triangleCount": count,
+            "bounds": {"min": [round(c, 6) for c in lows], "max": [round(c, 6) for c in highs]},
+            "materials": names, "geometrySha256": hashlib.sha256(geometry_bytes).hexdigest()}
