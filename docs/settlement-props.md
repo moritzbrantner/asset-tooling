@@ -82,11 +82,21 @@ In a live Blender session, run `outpost.py` and `settlement_props.py` into two n
 | `settlement.props.anvil` | dressing | 322 | 0.97 × 0.60 × 0.78 | `anvil`, `bucket` | A blacksmith's anvil on an elm stump, horn toward +X, a hammer and tongs leaning on the stump and a quench bucket beside it. |
 | `settlement.props.grindstone` | dressing | 500 | 1.16 × 0.69 × 1.16 | `grindstone` | A 0.76 m sandstone grindstone on an iron axle between timber uprights, a crank toward +Z, a water trough below on splayed legs. |
 | `settlement.props.cooper-barrel` | dressing | 420 | 1.92 × 1.42 × 0.85 | `barrel` | A cooper's barrel being raised: fourteen staves gathered in two hoops at the foot and splayed open at the top, loose staves and a spare hoop beside it. The proxy covers only the barrel. |
+| `settlement.props.table-set` | dressing | 994 | 1.04 × 0.58 × 0.24 | `set` | Inn table dressing ([#671](https://github.com/moritzbrantner/asset-tooling/issues/671)) for a 1.2 × 0.6 m top, its origin on the tabletop: four places of plates with food and tankards (two pewter, two turned wood), a jug, a loaf on a board and a candle. Place it on any table. |
+| `settlement.props.candles` | dressing | 202 | 0.29 × 0.23 × 0.25 | `dish` | Three candles of different heights on a pewter dish with a ring handle, for a table, shelf or mantel. Its empty node `light` is at the tallest flame. |
+| `settlement.props.candelabra` | dressing | 452 | 0.71 × 0.48 × 1.66 | `candelabrum` | A 1.5 m wrought-iron floor candelabrum: three splayed feet, a shaft and a crossarm of three candles in drip cups. Its `light` node is at the middle flame, 1.64 m up. |
+| `settlement.props.inn-sign` | street | 192 | 0.18 × 1.12 × 0.90 | `bracket` | A blank hanging inn sign for a wall at −Z: a wall plate and a braced iron bracket reaching 1.1 m out toward +Z, a 0.7 × 0.55 m board hanging edge-on to the wall, blank inside a dark border. The origin is the foot of the wall plate; mount it about 2.4 m up. Its `sign` node and board bounds are for a consumer's painted emblem. |
+| `settlement.props.stool` | dressing | 178 | 0.34 × 0.35 × 0.45 | `stool` | A three-legged round tavern stool with a stretcher ring; the seat is at 0.45 m. |
+| `settlement.props.bar-counter` | dressing | 784 | 2.00 × 0.76 × 1.05 | `counter` | A 2 m inn bar counter segment along X (`module` width 2, so segments chain): a panelled front toward the room at +Z with an iron footrail, a 1.05 m top, and behind it a pot shelf with tankards. |
+| `settlement.props.log-stack` | dressing | 364 | 1.06 × 0.45 × 0.46 | `logs` | Firewood stacked by a hearth: three rows of split logs on iron log-dogs, a straw basket of kindling beside it toward +X. |
+| `settlement.props.wall-shield` | dressing | 336 | 1.47 × 0.15 × 1.43 | `shield` | A round painted shield with a boss and a pale cross over two crossed spears, for a wall at −Z, facing +Z. The origin is the bottom of its back; mount it at the height you want. |
+| `settlement.props.wall-trophy` | dressing | 294 | 0.94 × 0.18 × 0.98 | `trophy` | A stag's antlers and skull on a carved oak plaque, for a wall at −Z, facing +Z. The origin is the bottom of its back; mount it at the height you want. |
 
 The village dressing from `barrel-group` down ([#657](https://github.com/moritzbrantner/asset-tooling/issues/657)) is for Greyhaven's villages, Barrowdown and Fenford. The existing `cart`, `firewood` and `planter` complement it.
 The interiors from `dresser` down ([#663](https://github.com/moritzbrantner/asset-tooling/issues/663)) furnish more walk-in farmhouses and Westmere Lodge's hall, beside the cottage furniture.
 The landmarks from `shrine` down ([#665](https://github.com/moritzbrantner/asset-tooling/issues/665)) mark Greyhaven's roads, crossings and market corners.
 The market goods and workshops from `bread-basket` down ([#669](https://github.com/moritzbrantner/asset-tooling/issues/669)) stock Greyhaven's stalls, shops and smithies.
+The inn and hall clutter from `table-set` down ([#671](https://github.com/moritzbrantner/asset-tooling/issues/671)) dresses inns, taverns and halls; the wall pieces stand on their own back edge so they can be hung at any height.
 
 The numbers are from the build of 2026-10-24. The descriptor carries the measured values of each build. The budgets in `SETTLEMENT_TRIANGLE_BUDGET` are for the Greyhaven camera (12 m, 0.42 rad pitch, 50° fov).
 
@@ -118,7 +128,7 @@ The props use the kit's wood, stone and shingle texture sets (colour, normal and
 - `monolith`: the standing stone, the grindstone and the fish, a plain weathered grey where coursed masonry would read wrong;
 - `clay`: the terracotta pottery and the sausages.
 
-Every face has backface culling. In the bundle there are 9 KTX2 textures in all, each stored once. Repeated props in a scene share their GLB resources. The tar is about 4.1 MB.
+Every face has backface culling. In the bundle there are 9 KTX2 textures in all, each stored once. Repeated props in a scene share their GLB resources. The tar is about 4.5 MB.
 
 **Determinism:** there is no randomness. Variation comes from SHA-256 of fixed keys, through the kit's `rnd`.
 

@@ -25,6 +25,7 @@ export const SETTLEMENT_PROPS = [
   "shrine", "standing-stone", "watchtower-ruin", "bridge-railing", "stall-awning",
   "bread-basket", "cheese-board", "fish-crate", "apple-crate", "hanging-meats", "cask-rack", "merchant-scale", "cloth-bolts",
   "pottery", "anvil", "grindstone", "cooper-barrel",
+  "table-set", "candles", "candelabra", "inn-sign", "stool", "bar-counter", "log-stack", "wall-shield", "wall-trophy",
 ] as const;
 export type SettlementProp = (typeof SETTLEMENT_PROPS)[number];
 export type SettlementFamily = "market" | "street" | "dressing";
@@ -43,6 +44,8 @@ export const SETTLEMENT_FAMILY: Record<SettlementProp, SettlementFamily> = {
   "bread-basket": "market", "cheese-board": "market", "fish-crate": "market", "apple-crate": "market", "hanging-meats": "market",
   "cask-rack": "market", "merchant-scale": "market", "cloth-bolts": "market", pottery: "market",
   anvil: "dressing", grindstone: "dressing", "cooper-barrel": "dressing",
+  "table-set": "dressing", candles: "dressing", candelabra: "dressing", "inn-sign": "street", stool: "dressing",
+  "bar-counter": "dressing", "log-stack": "dressing", "wall-shield": "dressing", "wall-trophy": "dressing",
 };
 export const SETTLEMENT_KEY_PREFIX = "settlement.props";
 export const SETTLEMENT_VARIANT = "default";
@@ -63,6 +66,8 @@ export const SETTLEMENT_TRIANGLE_BUDGET: Record<SettlementProp, number> = {
   shrine: 700, "standing-stone": 500, "watchtower-ruin": 700, "bridge-railing": 200, "stall-awning": 1200,
   "bread-basket": 500, "cheese-board": 350, "fish-crate": 1000, "apple-crate": 700, "hanging-meats": 750, "cask-rack": 1300,
   "merchant-scale": 550, "cloth-bolts": 700, pottery: 900, anvil: 400, grindstone: 600, "cooper-barrel": 500,
+  "table-set": 1100, candles: 300, candelabra: 550, "inn-sign": 300, stool: 250, "bar-counter": 1000, "log-stack": 450,
+  "wall-shield": 400, "wall-trophy": 400,
 };
 /** Recipe observations copied into the descriptor when a prop declares them. */
 const EXTRAS = ["stackTop", "sign", "light", "seat", "module"] as const;
