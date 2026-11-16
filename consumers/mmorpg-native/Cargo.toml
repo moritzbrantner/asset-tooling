@@ -1,0 +1,16 @@
+[package]
+name = "mmorpg-native-consumer"
+version = "0.0.0"
+edition = "2024"
+publish = false
+description = "Loads release entries through moenarch-games/mmorpg's native glTF path (asset-tooling #691)"
+
+# The game's own versions (crates/mmorpg-client/Cargo.toml), so a release that decodes here decodes there.
+[dependencies]
+basisu = "=0.1.0"
+bytemuck = { version = "=1.25.2", features = ["derive"] }
+gltf = { version = "=1.4.1", default-features = false, features = ["import", "utils", "names", "extras"] }
+meshopt = "=0.7.0"
+serde_json = "=1.0.154"
+
+[workspace]

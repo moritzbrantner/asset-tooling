@@ -14,3 +14,6 @@ __pycache__/
 
 # mise's Python virtualenv (mise.toml)
 /.venv/
+
+# The game-loader consumer build (scripts/check-game-loaders.ts)
+/consumers/mmorpg-native/target/

@@ -138,6 +138,8 @@
     "examples/selected-bundle/adoption.ts",
     "examples/selected-bundle/consumer.ts",
     "scripts/verify-bundle-consumer.ts",
+    "scripts/check-game-loaders.ts",
+    "scripts/game-loaders/web-check.ts",
     "src/dependency-lock.ts",
     "scripts/prepare-package.ts",
     "src/tree-appearance-recipes.ts",
