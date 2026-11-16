@@ -263,6 +263,18 @@ export function deriveCarrySockets(gltf: { nodes: Record<string, any>[] }): Huma
   return [{ ...right!, mirror: left!.id }, { ...left!, mirror: right!.id }];
 }
 
+/**
+ * The chest load socket (#705): a two-handed load (`load`: a crate or a sack) held against the chest rides `spine_03`.
+ * The origin is the middle of the load's face against the chest, `CHEST_CARRY` below and ahead of the joint's rest
+ * position, so it fits either figure; +Y is up and +Z out of the chest. The Carry clips hold the load's sides there.
+ */
+export const CHEST_CARRY = { below: 0.12, ahead: 0.15 } as const;
+export function deriveChestCarrySocket(gltf: { nodes: Record<string, any>[] }): HumanoidSocket[] {
+  const worlds = restWorlds(gltf), chest = worlds.get("spine_03");
+  if (!chest) throw new Error("rig has no joint 'spine_03'");
+  return [stowedSocket(worlds, "chest.carry", "spine_03", [chest[12]!, chest[13]! - CHEST_CARRY.below, chest[14]! + CHEST_CARRY.ahead], [0, 1, 0], [0, 0, 1], ["load"])];
+}
+
 /** The committed layout: one socket per three lines. */
 export function formatSocketDescriptor(descriptor: HumanoidSocketDescriptor): string {
   const list = (values: readonly unknown[]) => `[${values.map((v) => JSON.stringify(v)).join(", ")}]`;
@@ -274,12 +286,12 @@ export function formatSocketDescriptor(descriptor: HumanoidSocketDescriptor): st
     `  "axes": "right-handed-y-up",\n  "sockets": [\n${sockets.join(",\n")}\n  ]\n}\n`;
 }
 
-/** The Ranger descriptor: the mirrored hand sockets, the stowed sockets, the archery, hair, armour, staff, crossbow and carry sockets. */
+/** The Ranger descriptor: the mirrored hand sockets, the stowed sockets, the archery, hair, armour, staff, crossbow and carry sockets and the chest load socket. */
 export function deriveRangerSockets(gltf: { nodes: Record<string, any>[]; skins?: { joints: number[] }[] }, character = "humanoid.ranger.male"): string {
   const joints = gltf.skins?.[0]?.joints.map((index) => gltf.nodes[index]!.name as string);
   return formatSocketDescriptor(createHumanoidSocketDescriptor({
     character, sockets: [...deriveMirroredHandSockets(gltf), ...RANGER_STOWED_SOCKETS, ...deriveArcherySockets(gltf), ...deriveHairSockets(gltf),
-      ...deriveArmorSockets(gltf), ...deriveStaffSockets(gltf), ...deriveCrossbowSockets(gltf), ...deriveCarrySockets(gltf)], ...(joints ? { joints } : {}),
+      ...deriveArmorSockets(gltf), ...deriveStaffSockets(gltf), ...deriveCrossbowSockets(gltf), ...deriveCarrySockets(gltf), ...deriveChestCarrySocket(gltf)], ...(joints ? { joints } : {}),
   }));
 }
 
