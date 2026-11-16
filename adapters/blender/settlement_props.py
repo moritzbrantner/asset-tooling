@@ -14,6 +14,9 @@ as mmorpg#421 asks:
 - village dressing for Barrowdown and Fenford (#657): ``barrel-group``, ``crate-stack``, ``grain-sacks``,
   ``wheelbarrow``, ``well``, ``fingerpost``, ``hay-bale``, ``haystack``, ``chopping-block``, ``washing-line``,
   ``flower-tub``, ``vegetable-bed`` and ``kennel``.
+- farmstead dressing for the Greyhaven farms and hamlets (#695): ``scarecrow`` and ``weather-vane``, whose
+  sleeves, hat and vane are their own nodes animated by the named loop clips ``Sway_Loop`` and ``Turn_Loop``
+  (node animation, no skin), ``beehive-skeps``, ``water-trough``, ``feed-trough``, ``hen-coop`` and ``plough``.
 
 Frame: metres, glTF right-handed +Y up, origin on the ground at the centre of the prop's footprint, its
 front towards +Z. ``fence`` follows the kit's wall convention: a 2 m module (x -1..1) with half a post
@@ -41,7 +44,8 @@ PROPS = ("stall", "cart", "crate", "barrel", "signpost", "lantern-post", "bench"
          "cloth-bolts", "pottery", "anvil", "grindstone", "cooper-barrel",
          "table-set", "candles", "candelabra", "inn-sign", "stool", "bar-counter", "log-stack", "wall-shield", "wall-trophy",
          "rowing-boat", "jetty", "fishing-nets",
-         "banner-outpost", "banner-village", "pennant-outpost", "pennant-village", "bunting")
+         "banner-outpost", "banner-village", "pennant-outpost", "pennant-village", "bunting",
+         "scarecrow", "weather-vane", "beehive-skeps", "water-trough", "feed-trough", "hen-coop", "plough")
 FAMILY = {"stall": "market", "cart": "market", "crate": "market", "barrel": "market", "signpost": "street",
           "lantern-post": "street", "bench": "street", "fence": "dressing", "planter": "dressing", "firewood": "dressing",
           "footbridge": "street", "bed": "dressing", "table": "dressing", "chair": "dressing", "chest": "dressing",
@@ -59,7 +63,8 @@ FAMILY = {"stall": "market", "cart": "market", "crate": "market", "barrel": "mar
           **{prop: "dressing" for prop in ("table-set", "candles", "candelabra", "stool", "bar-counter", "log-stack",
                                            "wall-shield", "wall-trophy")},
           "inn-sign": "street", "rowing-boat": "dressing", "jetty": "street", "fishing-nets": "dressing",
-          **{prop: "street" for prop in ("banner-outpost", "banner-village", "pennant-outpost", "pennant-village", "bunting")}}
+          **{prop: "street" for prop in ("banner-outpost", "banner-village", "pennant-outpost", "pennant-village", "bunting")},
+          **{prop: "dressing" for prop in ("scarecrow", "weather-vane", "beehive-skeps", "water-trough", "feed-trough", "hen-coop", "plough")}}
 
 # Plain-colour materials the props add to the kit's: (sRGB base colour, metallic, roughness, texture).
 EXTRA_MATERIALS = {
@@ -2113,6 +2118,247 @@ def build_bunting(part, col, root):
     return {"collisionProxies": [proxy(f"pole{s}", (s * hw - 0.14, 0, -0.14), (s * hw + 0.14, H, 0.14)) for s in (-1, 1)]}
 
 
+# ---------------------------------------------------------------- farmstead (#695)
+
+CLIP_FPS = 24
+
+
+def pivoted(b, col, root, pivot):
+    """Finish ``b`` as its own node under ``root`` with its origin at the glTF point ``pivot``, so a clip can turn it there."""
+    obj = b.finish(col, root)
+    p = K["to_blender"](pivot)
+    obj.data.transform(Matrix.Translation(-p))
+    obj.location = p
+    return obj
+
+
+def loop_clip(name, seconds, tracks):
+    """One named node-animation clip of ``seconds`` that loops: ``tracks`` is [(node, turn)], where ``turn(t)``
+    gives the node's rotation about the glTF X, Y and Z axes (radians, small) at phase t in [0, 1]. Every
+    ``turn`` must be periodic in t, so the clip's last key equals its first. One action with a slot per node
+    exports as one glTF animation."""
+    action = bpy.data.actions.new(name)
+    frames = round(seconds * CLIP_FPS)
+    for obj, turn in tracks:
+        obj.animation_data_create()
+        slot = action.slots.new(id_type="OBJECT", name=obj.name)
+        obj.animation_data.action = action
+        obj.animation_data.action_slot = slot
+        obj.rotation_mode = "XYZ"
+        for f in range(0, frames + 1, 2):
+            rx, ry, rz = turn(f / frames)
+            obj.rotation_euler = (rx, -rz, ry)  # glTF axes to Blender's
+            obj.keyframe_insert("rotation_euler", frame=f)
+    return {"name": name, "duration": round(frames / CLIP_FPS, 6), "nodes": sorted(obj.name for obj, _ in tracks)}
+
+
+def build_scarecrow(part, col, root):
+    """A scarecrow on a 2.2 m cross pole: a patched coat with a rope belt, a stitched sacking head, straw at the
+    cuffs and hem, and a wide straw hat. Its sleeves and hat are their own nodes, which ``Sway_Loop`` (4 s) flutters."""
+    b = K["Builder"](f"settlement.{part}.mesh")
+    lathe(b, [(0, 0.3), (0.05, 0.22), (0.08, 0)], 9, "soil", "scarecrow/mound", jitter=0.12)
+    b.block((-0.045, 0, -0.045), (0.045, 2.0, 0.045), "timber", key="scarecrow/pole", grain=(0, 1, 0))
+    b.block((-0.72, 1.5, -0.035), (0.72, 1.57, 0.035), "timber", key="scarecrow/crossbar", grain=(1, 0, 0))
+    lathe(b, [(0.82, 0.3), (0.86, 0.28), (1.1, 0.2), (1.12, 0.17), (1.35, 0.2), (1.55, 0.22), (1.6, 0.12), (1.64, 0.06)],
+          10, "dye", "scarecrow/coat", cap_mat="straw", jitter=0.07)
+    lathe(b, [(1.08, 0.19), (1.13, 0.19)], 10, "sacking", "scarecrow/belt")
+    b.box((-0.16, 1.2, 0.18), (-0.04, 1.34, 0.215), "canvas", "scarecrow/patch")
+    for k in range(7):  # straw hanging under the hem
+        a = 2 * math.pi * (k + rnd("hem", k)) / 7
+        placed(b, Matrix.Translation((0.25 * math.cos(a), 0.83, -0.25 * math.sin(a))),
+               lambda k=k: lathe(b, [(-0.12 - 0.06 * rnd("hem-l", k), 0), (0, 0.05)], 4, "straw", f"scarecrow/hem{k}"))
+    lathe(b, [(1.62, 0.05), (1.68, 0.11), (1.78, 0.14), (1.88, 0.12), (1.95, 0.06), (1.97, 0)], 9, "sacking", "scarecrow/head", jitter=0.06)
+    for s in (-1, 1):
+        b.box((s * 0.05 - 0.018, 1.8, 0.128), (s * 0.05 + 0.018, 1.82, 0.142), "soot", f"scarecrow/eye{s}")
+    b.box((-0.05, 1.71, 0.125), (0.05, 1.725, 0.138), "soot", "scarecrow/mouth")
+    b.finish(col, root)
+
+    sleeves = []
+    for s, side in ((-1, "left"), (1, "right")):
+        sb = K["Builder"](f"settlement.{part}.sleeve-{side}")
+        turn = Matrix.Translation((s * 0.16, 1.535, 0)) @ Matrix.Rotation(-s * math.pi / 2, 4, "Z") @ Matrix.Rotation(-0.08, 4, "X")
+        placed(sb, turn, lambda sb=sb, side=side: lathe(sb, [(0, 0.1), (0.3, 0.09), (0.52, 0.11)], 8, "dye", f"scarecrow/sleeve-{side}", cap_mat="straw", jitter=0.06))
+        placed(sb, turn, lambda sb=sb, side=side: lathe(sb, [(0.5, 0.08), (0.64, 0)], 5, "straw", f"scarecrow/cuff-{side}", jitter=0.2))
+        sleeves.append((pivoted(sb, col, root, (s * 0.16, 1.535, 0)), s))
+    hb = K["Builder"](f"settlement.{part}.hat")
+    lathe(hb, [(1.9, 0), (1.9, 0.29), (1.925, 0.3), (1.94, 0.13), (2.06, 0.11), (2.09, 0.08), (2.1, 0)], 12, "straw", "scarecrow/hat", jitter=0.04)
+    lathe(hb, [(1.94, 0.132), (1.98, 0.125)], 12, "dye", "scarecrow/hat-band")
+    hat = pivoted(hb, col, root, (0, 1.9, 0))
+    tau = 2 * math.pi
+    clip = loop_clip("Sway_Loop", 4.0, [
+        *[(obj, lambda t, s=s: (0.22 * math.sin(tau * t + (0.0 if s < 0 else 1.9)) + 0.07 * math.sin(3 * tau * t + s),
+                                0.0, s * 0.1 * math.sin(2 * tau * t + 0.7 * s))) for obj, s in sleeves],
+        (hat, lambda t: (0.05 * math.sin(2 * tau * t + 0.4), 0.04 * math.sin(tau * t), 0.07 * math.sin(tau * t + 1.1))),
+    ])
+    return {"clips": [clip],
+            "collisionProxies": [proxy("pole", (-0.06, 0, -0.06), (0.06, 2.0, 0.06)), proxy("body", (-0.25, 0.85, -0.25), (0.25, 1.97, 0.25))]}
+
+
+GLYPHS = {  # compass letters as strokes in a 0.6 x 1 cell
+    "N": [((0, 0), (0, 1)), ((0, 1), (0.6, 0)), ((0.6, 0), (0.6, 1))],
+    "E": [((0, 0), (0, 1)), ((0, 1), (0.55, 1)), ((0, 0.5), (0.45, 0.5)), ((0, 0), (0.55, 0))],
+    "S": [((0.6, 1), (0, 1)), ((0, 1), (0, 0.5)), ((0, 0.5), (0.6, 0.5)), ((0.6, 0.5), (0.6, 0)), ((0.6, 0), (0, 0))],
+    "W": [((0, 1), (0.15, 0)), ((0.15, 0), (0.3, 0.6)), ((0.3, 0.6), (0.45, 0)), ((0.45, 0), (0.6, 1))],
+}
+
+
+def build_weather_vane(part, col, root):
+    """A rooster weather vane for a roof ridge or a post top: an iron spindle on a 0.2 m mounting plate, compass
+    arms lettered N (-Z), E (+X), S (+Z) and W (-X), and a gilt rooster on an arrow, which ``Turn_Loop`` (8 s)
+    veers slowly back and forth about the spindle. The origin is the foot of the plate."""
+    b = K["Builder"](f"settlement.{part}.mesh")
+    b.block((-0.1, 0, -0.1), (0.1, 0.03, 0.1), "iron", key="vane/plate")
+    rod(b, (0, 0.03, 0), (0, 1.0, 0), 0.016, 6, "iron", "vane/spindle")
+    lathe(b, [(0.7, 0), (0.72, 0.035), (0.76, 0.04), (0.8, 0.035), (0.82, 0)], 8, "iron", "vane/collar")
+    arm = 0.34
+    rod(b, (-arm, 0.76, 0), (arm, 0.76, 0), 0.008, 4, "iron", "vane/arm-x")
+    rod(b, (0, 0.76, -arm), (0, 0.76, arm), 0.008, 4, "iron", "vane/arm-z")
+    for letter, yaw, end in (("N", math.pi, (0, 0.76, -arm)), ("E", math.pi / 2, (arm, 0.76, 0)), ("S", 0.0, (0, 0.76, arm)), ("W", -math.pi / 2, (-arm, 0.76, 0))):
+        placed(b, Matrix.Translation(end), lambda letter=letter: lathe(b, [(-0.02, 0), (-0.014, 0.016), (0.014, 0.016), (0.02, 0)], 6, "iron", f"vane/ball-{letter}"))
+        def glyph(letter=letter):
+            for k, (a, c) in enumerate(GLYPHS[letter]):
+                b.beam((a[0] * 0.1 - 0.03, a[1] * 0.1), (c[0] * 0.1 - 0.03, c[1] * 0.1), 0.012, -0.004, 0.004, "iron", f"vane/{letter}{k}")
+        placed(b, Matrix.Translation((end[0] * 0.85, 0.78, end[2] * 0.85)) @ Matrix.Rotation(yaw, 4, "Y"), glyph)
+    b.finish(col, root)
+
+    vb = K["Builder"](f"settlement.{part}.vane")
+    lathe(vb, [(0.96, 0.024), (1.08, 0.024), (1.1, 0)], 8, "iron", "vane/sleeve")
+    rod(vb, (-0.42, 1.06, 0), (0.42, 1.06, 0), 0.01, 5, "iron", "vane/arrow")
+    vb.prism([(0.42, 1.0), (0.58, 1.06), (0.42, 1.12)], -0.005, 0.005, "iron", "vane/head")
+    vb.prism([(-0.62, 0.96), (-0.4, 1.04), (-0.4, 1.08), (-0.62, 1.16), (-0.55, 1.06)], -0.005, 0.005, "ochre", "vane/tail")
+    rooster = [(-0.03, 0.0), (0.03, 0.0), (0.04, 0.06), (0.12, 0.1), (0.15, 0.17), (0.14, 0.24), (0.17, 0.29), (0.22, 0.28),
+               (0.17, 0.31), (0.16, 0.35), (0.13, 0.37), (0.11, 0.34), (0.09, 0.36), (0.07, 0.31), (0.06, 0.22), (-0.02, 0.17),
+               (-0.1, 0.3), (-0.18, 0.37), (-0.17, 0.26), (-0.21, 0.24), (-0.14, 0.14), (-0.08, 0.07), (-0.04, 0.06)]
+    vb.prism([(x * 1.25, 1.065 + y * 1.25) for x, y in rooster], -0.006, 0.006, "ochre", "vane/rooster")
+    vane = pivoted(vb, col, root, (0, 1.0, 0))
+    tau = 2 * math.pi
+    clip = loop_clip("Turn_Loop", 8.0, [(vane, lambda t: (0.0, 0.55 * math.sin(tau * t) + 0.15 * math.sin(3 * tau * t + 0.7), 0.0))])
+    return {"clips": [clip], "collisionProxies": [proxy("spindle", (-0.1, 0, -0.1), (0.1, 1.0, 0.1))]}
+
+
+def build_beehive_skeps(part, col, root):
+    """Three coiled straw skeps on a plank bench, each with an entrance at its foot facing +Z; the middle one wears a straw hackle."""
+    b = K["Builder"](f"settlement.{part}.mesh")
+    top = 0.46
+    b.block((-0.7, top - 0.05, -0.2), (0.7, top, 0.2), "wood", key="skeps/bench", grain=(1, 0, 0))
+    for s in (-1, 1):
+        b.block((s * 0.55 - 0.05, 0, -0.18), (s * 0.55 + 0.05, top - 0.05, 0.18), "timber", key=f"skeps/leg{s}", grain=(0, 1, 0))
+    b.block((-0.5, 0.12, -0.03), (0.5, 0.18, 0.03), "timber", key="skeps/stretcher", grain=(1, 0, 0))
+    for k, x in enumerate((-0.46, 0.0, 0.46)):
+        R, H = 0.19 + 0.02 * rnd("skep-r", k), 0.38 + 0.05 * rnd("skep-h", k)
+        rings = [(0, R * 0.95)]
+        for i in range(1, 9):
+            y = H * i / 9.5
+            rings.append((y, R * math.sqrt(1 - (y / H) ** 2) * (1.0 + 0.05 * (i % 2))))
+        rings += [(H, R * 0.12), (H + 0.01, 0)]
+        placed(b, Matrix.Translation((x, top, 0)), lambda rings=rings, k=k: lathe(b, rings, 10, "straw", f"skeps/skep{k}", phase=rnd("skep-p", k)))
+        b.box((x - 0.045, top, R * 0.9), (x + 0.045, top + 0.045, R * 0.97), "soot", f"skeps/entrance{k}")
+        if k == 1:
+            placed(b, Matrix.Translation((x, top + H * 0.72, 0)), lambda R=R, H=H: lathe(b, [(0, R * 0.78), (0.03, R * 0.74), (H * 0.42, 0)], 8, "straw", "skeps/hackle", jitter=0.1))
+    b.finish(col, root)
+    return {"collisionProxies": [proxy("bench", (-0.7, 0, -0.22), (0.7, top + 0.45, 0.22))]}
+
+
+def build_water_trough(part, col, root):
+    """A hewn stone trough, 1.6 x 0.62 m and 0.55 m high, half full of dark water."""
+    b = K["Builder"](f"settlement.{part}.mesh")
+    L, W, H, t = 0.8, 0.31, 0.55, 0.1
+    b.block((-L, 0, -W), (L, 0.14, W), "monolith", key="trough/bottom", chamfer=0.03)
+    for s in (-1, 1):
+        b.block((-L, 0.1, s * W - (t if s > 0 else 0)), (L, H, s * W + (t if s < 0 else 0)), "monolith", key=f"trough/side{s}", chamfer=0.03)
+        b.block((s * L - (t if s > 0 else 0), 0.1, -W + t), (s * L + (t if s < 0 else 0), H, W - t), "monolith", key=f"trough/end{s}", chamfer=0.03)
+    b.quad([(-L + t, 0.34, W - t), (L - t, 0.34, W - t), (L - t, 0.34, -W + t), (-L + t, 0.34, -W + t)], "soot", "trough/water")
+    b.finish(col, root)
+    return {"collisionProxies": [proxy("trough", (-L, 0, -W), (L, H, W))]}
+
+
+def build_feed_trough(part, col, root):
+    """A low plank trough on splayed trestle legs for pigs and sheep, 1.5 m along X, its rim 0.44 m up, with mash in the bottom."""
+    b = K["Builder"](f"settlement.{part}.mesh")
+    def trough():  # drawn with x as depth and z as length, then turned to run along X
+        b.box((-0.11, 0.2, -0.72), (0.11, 0.24, 0.72), "wood", "feed/bottom", grain=(0, 0, 1))
+        for s in (-1, 1):
+            b.beam((s * 0.1, 0.22), (s * 0.25, 0.44), 0.03, -0.72, 0.72, "wood", f"feed/side{s}")
+            b.prism([(-0.12, 0.18), (0.12, 0.18), (0.28, 0.45), (-0.28, 0.45)], s * 0.75 - 0.03 * (s > 0), s * 0.75 + 0.03 * (s < 0), "timber", f"feed/end{s}")
+            for side in (-1, 1):
+                b.prism([(side * x, y) for x, y in ((0.06, 0.2), (0.22, 0.0), (0.27, 0.0), (0.11, 0.2))], s * 0.58 - 0.025, s * 0.58 + 0.025, "timber", f"feed/leg{s}{side}")
+        b.box((-0.1, 0.24, -0.7), (0.1, 0.29, 0.7), "straw", "feed/mash", grain=(0, 0, 1))
+    placed(b, Matrix.Rotation(math.pi / 2, 4, "Y"), trough)
+    b.finish(col, root)
+    return {"collisionProxies": [proxy("trough", (-0.78, 0, -0.28), (0.78, 0.45, 0.28))]}
+
+
+def build_hen_coop(part, col, root):
+    """A small hen coop raised on four legs: a plank house under a shingle gable (ridge along X), a pop hole to +Z
+    and a cleated ramp down to the ground in front."""
+    b = K["Builder"](f"settlement.{part}.mesh")
+    oz = -0.33  # centres the footprint, ramp included
+    def coop():
+        for x in (-0.47, 0.41):
+            for z in (-0.32, 0.26):
+                b.block((x, 0, z), (x + 0.06, 1.05, z + 0.06), "timber", key=f"coop/leg{x}{z}", grain=(0, 1, 0))
+        b.box((-0.5, 0.45, -0.35), (0.5, 0.5, 0.35), "timber", "coop/floor")
+        b.box((-0.48, 0.5, -0.33), (0.48, 1.05, 0.33), "wood", "coop/walls", grain=(1, 0, 0))
+        b.box((0.12, 0.5, 0.33), (0.34, 0.76, 0.34), "soot", "coop/pop-hole")
+        b.box((-0.36, 0.62, 0.33), (-0.06, 0.9, 0.345), "wood", "coop/hatch", grain=(0, 1, 0))
+        for k, y in enumerate((0.64, 0.88)):
+            b.box((-0.36, y, 0.345), (-0.06, y + 0.02, 0.355), "iron", f"coop/hinge{k}")
+        ridge, eave, reach = 1.36, 1.0, 0.46
+        def roof():  # ridge along Z, turned to run along X
+            for s in (-1, 1):
+                b.beam((s * reach, eave), (0, ridge), 0.04, -0.56, 0.56, "shingle", f"coop/roof{s}")
+                b.prism([(-0.33, 1.05), (0.33, 1.05), (0, 1.33)], s * 0.48 - 0.02 * (s > 0), s * 0.48 + 0.02 * (s < 0), "wood", f"coop/gable{s}")
+            b.box((-0.04, ridge - 0.02, -0.58), (0.04, ridge + 0.04, 0.58), "timber", "coop/ridge", grain=(0, 0, 1))
+        placed(b, Matrix.Rotation(math.pi / 2, 4, "Y"), roof)
+        length, angle = math.hypot(0.5, 0.75), math.atan2(0.5, 0.75)
+        def ramp():
+            b.box((-0.11, -0.025, 0), (0.11, 0, length), "wood", "coop/ramp", grain=(0, 0, 1))
+            for k in range(1, 6):
+                b.box((-0.1, 0, k * 0.15), (0.1, 0.02, k * 0.15 + 0.03), "timber", f"coop/cleat{k}")
+        placed(b, Matrix.Translation((0.23, 0.5 + 0.025 * math.cos(angle), 0.35)) @ Matrix.Rotation(angle, 4, "X"), ramp)
+    placed(b, Matrix.Translation((0, 0, oz)), coop)
+    b.finish(col, root)
+    return {"collisionProxies": [proxy("coop", (-0.5, 0, -0.47 + oz), (0.5, 1.4, 0.47 + oz)),
+                                 proxy("ramp", (0.12, 0, 0.35 + oz), (0.34, 0.5, 1.12 + oz))]}
+
+
+def build_plough(part, col, root):
+    """A wooden mouldboard plough along Z, resting level: a beam on a small front wheel (+Z) with a hitch ring, an
+    iron coulter and share, a curved board turning the furrow to +X, and two handles reaching back (-Z) with a rung."""
+    b = K["Builder"](f"settlement.{part}.mesh")
+    oz = -0.21  # centres the footprint
+    def plough():
+        b.block((-0.05, 0, -0.55), (0.05, 0.08, 0.28), "timber", key="plough/sole", grain=(0, 0, 1))
+        b.block((-0.07, 0, 0.26), (0.07, 0.06, 0.42), "iron", key="plough/share")
+        placed(b, Matrix.Translation((0, 0.03, 0.42)) @ Matrix.Rotation(math.pi / 2, 4, "X"), lambda: lathe(b, [(0, 0.03), (0.14, 0)], 4, "iron", "plough/point", phase=math.pi / 4))
+        verts, polys = [], []
+        for i in range(5):  # the mouldboard twists out to +X as it runs back
+            u = i / 4
+            for v in (0.0, 1.0):
+                verts.append((0.05 + 0.24 * u * (0.35 + 0.65 * v), 0.04 + 0.34 * v, 0.36 - 0.75 * u))
+        polys = [[2 * i, 2 * i + 2, 2 * i + 3, 2 * i + 1] for i in range(4)]
+        b.faces(verts, polys, "wood", "plough/mouldboard", grain=(0, 0, 1))
+        b.faces([(x - 0.015, y, z) for x, y, z in verts], [q[::-1] for q in polys], "wood", "plough/mouldboard-back", grain=(0, 0, 1))
+        b.block((-0.045, 0.06, 0.02), (0.045, 0.42, 0.14), "timber", key="plough/sheath", grain=(0, 1, 0))
+        rod(b, (0, 0.33, -0.62), (0, 0.5, 1.44), 0.05, 6, "timber", "plough/beam", "endgrain")
+        rod(b, (0, 0.44, 0.62), (0, 0.06, 0.46), 0.018, 4, "iron", "plough/coulter")
+        for s in (-1, 1):
+            rod(b, (s * 0.05, 0.06, -0.5), (s * 0.3, 0.92, -1.15), 0.028, 6, "timber", f"plough/handle{s}")
+            b.block((s * 0.07 - 0.02, 0.0, 1.4), (s * 0.07 + 0.02, 0.5, 1.46), "timber", key=f"plough/fork{s}", grain=(0, 1, 0))
+        rod(b, (-0.21, 0.62, -0.92), (0.21, 0.62, -0.92), 0.02, 5, "timber", "plough/rung")
+        def wheel():
+            ring(b, 0.19, 0.23, -0.025, 0.025, 12, "timber", "plough/rim")
+            for k in range(3):
+                a = math.pi * k / 3
+                b.beam((-0.2 * math.cos(a), -0.2 * math.sin(a)), (0.2 * math.cos(a), 0.2 * math.sin(a)), 0.03, -0.015, 0.015, "wood", f"plough/spoke{k}")
+        placed(b, Matrix.Translation((0, 0.23, 1.43)) @ Matrix.Rotation(math.pi / 2, 4, "Y"), wheel)
+        rod(b, (-0.1, 0.23, 1.43), (0.1, 0.23, 1.43), 0.02, 6, "iron", "plough/axle")
+        placed(b, Matrix.Translation((0, 0.5, 1.6)) @ Matrix.Rotation(math.pi / 2, 4, "Y"), lambda: ring(b, 0.035, 0.05, -0.008, 0.008, 8, "iron", "plough/hitch"))
+    placed(b, Matrix.Translation((0, 0, oz)), plough)
+    b.finish(col, root)
+    return {"collisionProxies": [proxy("plough", (-0.33, 0, -1.18 + oz), (0.33, 0.95, 1.66 + oz))]}
+
+
 BUILDERS = {"stall": build_stall, "cart": build_cart, "crate": build_crate_part, "barrel": build_barrel_part,
             "signpost": build_signpost, "lantern-post": build_lantern_post, "bench": build_bench,
             "fence": build_fence, "planter": build_planter, "firewood": build_firewood,
@@ -2135,7 +2381,9 @@ BUILDERS = {"stall": build_stall, "cart": build_cart, "crate": build_crate_part,
             "wall-trophy": build_wall_trophy,
             "rowing-boat": build_rowing_boat, "jetty": build_jetty, "fishing-nets": build_fishing_nets,
             "banner-outpost": build_banner("outpost"), "banner-village": build_banner("village"),
-            "pennant-outpost": build_pennant("outpost"), "pennant-village": build_pennant("village"), "bunting": build_bunting}
+            "pennant-outpost": build_pennant("outpost"), "pennant-village": build_pennant("village"), "bunting": build_bunting,
+            "scarecrow": build_scarecrow, "weather-vane": build_weather_vane, "beehive-skeps": build_beehive_skeps,
+            "water-trough": build_water_trough, "feed-trough": build_feed_trough, "hen-coop": build_hen_coop, "plough": build_plough}
 
 
 # ---------------------------------------------------------------- composition
@@ -2216,17 +2464,20 @@ def generate(output_path, arguments, inputs):
     prop = arguments["prop"]
     bpy.ops.object.select_all(action="SELECT")
     bpy.ops.object.delete(use_global=False)
+    scene = bpy.context.scene
+    scene.render.fps, scene.render.fps_base = CLIP_FPS, 1.0
     root, info = build(prop, bpy.context.scene.collection)
     objects = [root] + list(root.children_recursive)
     bpy.ops.object.select_all(action="DESELECT")
     for obj in objects:
         obj.select_set(True)
     triangles = sum(sum(len(p.vertices) - 2 for p in o.data.polygons) for o in objects if o.type == "MESH")
+    scene.frame_set(0)  # the rest pose is the clips' first key
     bpy.ops.export_scene.gltf(
         filepath=output_path, export_format="GLB", use_selection=True,
         export_yup=True, export_texcoords=True, export_normals=True, export_tangents=True,
-        export_vertex_color="NONE", export_animations=False, export_skins=False, export_morph=False,
-        export_cameras=False, export_lights=False, export_extras=False)
+        export_vertex_color="NONE", export_animations=bool(info.get("clips")), export_animation_mode="ACTIONS",
+        export_skins=False, export_morph=False,         export_cameras=False, export_lights=False, export_extras=False)
     result = {"recipe": "settlement-props-v1", "prop": prop, "family": FAMILY[prop], "unit": "meter",
               "axes": "right-handed-y-up", "origin": "footprint-base-center", "facing": "+Z", "triangleCount": triangles, **info}
     if prop == "stall":
