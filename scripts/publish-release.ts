@@ -59,7 +59,7 @@ export const MANUAL_RELEASES: Record<string, string> = {
 };
 
 /** Files every build depends on besides its own import graph. The publishing scripts and consumers.json change no build output. */
-const SHARED_SOURCES = ["package.json", "bun.lock", "scripts/pack-asset-bundle.ts"];
+export const SHARED_SOURCES = ["package.json", "bun.lock", "scripts/pack-asset-bundle.ts"];
 
 export function rollingRelease(name: string): RollingRelease {
   const release = ROLLING_RELEASES.find((entry) => entry.name === name);

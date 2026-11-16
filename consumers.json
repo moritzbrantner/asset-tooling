@@ -5,13 +5,19 @@
       "repo": "moenarch-games/mmorpg",
       "release": "humanoid-ranger-male",
       "pinned": false,
-      "note": "scripts/fetch-ranger.py acquires the selected entries of the live release into a local copy keyed on its export.ref.json"
+      "note": "scripts/fetch-bundles.sh (fetch_rolling_files) acquires every file of the live release but its tar, refreshing each file whose digest changed (mmorpg #866)"
     },
     {
       "repo": "moenarch-games/mmorpg",
       "release": "humanoid-ranger-female",
       "pinned": false,
-      "note": "scripts/fetch-ranger.py acquires the selected entries of the live release into a local copy keyed on its export.ref.json"
+      "note": "scripts/fetch-bundles.sh (fetch_rolling_files) acquires every file of the live release but its tar, refreshing each file whose digest changed (mmorpg #866)"
+    },
+    {
+      "repo": "moenarch-games/mmorpg",
+      "release": "humanoid-equipment",
+      "pinned": false,
+      "note": "scripts/fetch-bundles.sh (fetch_rolling_files) acquires every file of the live release but its tar, refreshing each file whose digest changed (mmorpg #866)"
     },
     {
       "repo": "moenarch-games/mmorpg",
