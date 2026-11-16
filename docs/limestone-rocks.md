@@ -62,7 +62,7 @@ ASSET_TOOLING_BLENDER=<blender 5.2.2> bun scripts/build-limestone-rocks.ts --sur
 | --- | --- | --- |
 | Release tar | 7.06 MB | 2.83 MB, of which 1.70 MB is the shared library |
 | Texture files | 4.52 MB, 3 textures | 1.70 MB, 4 textures, shared by every layered kit |
-| Texture GPU memory | 12.0 MB | 5.33 MB, shared |
+| Texture GPU memory | 12.0 MB (about 8 MB since #681 caps its normal map at 1024 px) | 5.33 MB, shared |
 | Geometry files | 2.38 MB | 1.01 MB (no UVs or tangents) |
 | Materials | 1 | 1; the blend binds the library's textures |
 | Draw calls, game camera | 25 | 25 |

@@ -113,7 +113,8 @@ test("the recipe builds a verified kit on one atlas within its limits", {
       [...LIMESTONE_PARTS.flatMap((part) => ["default", "lod1", "lod2"].map((variant) => `${limestoneKey(part)}#${variant}`)), `${library}#default`].sort());
     const layeredCost = await kitCost(layered.bundleDir);
     assert.deepEqual(layeredCost.materials, ["limestone-rock-layered", "surface.limestone", "surface.moss", "surface.soil"]);
-    assert.ok(layeredCost.textureMemoryBytes < bakedCost.textureMemoryBytes / 2, `the shared library takes ${layeredCost.textureMemoryBytes} bytes`);
+    // Since #681 caps the baked normal map at 1024 px, one baked kit takes about 8 MB, so one layered kit is no longer half.
+    assert.ok(layeredCost.textureMemoryBytes < bakedCost.textureMemoryBytes, `the shared library takes ${layeredCost.textureMemoryBytes} bytes, the baked kit ${bakedCost.textureMemoryBytes}`);
     assert.deepEqual(Object.keys(layered.descriptor.surface!.weathering), ["light", "medium", "heavy"]);
     for (const part of LIMESTONE_PARTS) for (const mesh of layered.documents[part].getRoot().listMeshes()) for (const primitive of mesh.listPrimitives()) {
       assert.ok(primitive.getAttribute(SURFACE_MASK_ATTRIBUTE) && primitive.getAttribute("COLOR_0"), `${part} carries its masks`);

@@ -64,7 +64,7 @@ The `hair-descriptor` attachment (on `hair.buzzed/hair-1`, schema `hair-kit-desc
   - the pack hairstyles' import (with the long style's crown) and texture resize;
   - the build keys on every piece and, on the beards, the age keys (`male_variety.py`);
   - the head skin: every mesh goes on a `Head` joint at the rest pose (the inverse of the `head.hair` socket), then the accessory chains are added below it with `addSecondaryChains` (the Ranger's `RANGER_HAIR_CHAINS` and `RANGER_BEARD_CHAINS`, each chain on its own piece, parent `Head`);
-  - every texture becomes KTX2 (`KHR_texture_basisu`), encoded like the crag and Redbrand kits (`TERRAIN_KTX2`): UASTC sRGB base colour, UASTC normals, ETC1S linear data maps.
+  - every texture becomes KTX2 (`KHR_texture_basisu`), encoded like the crag and Redbrand kits (`TERRAIN_KTX2`): ETC1S sRGB base colour (UASTC until #681), UASTC normals at 512 px, ETC1S linear data maps.
 - **Determinism:** the release build uses the shared generation and operation cache (`docs/cache.md`, #516). `test/blender/hair/hair-kit.test.ts` builds twice and compares the tars.
 
 To shape the pieces again, append the two collections into a scene of a live Blender next to the fit target and edit them. Then write the collections back into the `.blend` with their `hairkit` properties and no third-party data. Rebuild, and look at the result on the head at the game camera before merging.

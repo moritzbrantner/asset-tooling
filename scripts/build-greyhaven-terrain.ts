@@ -45,8 +45,9 @@ export const TERRAIN_MAPS = ["diff", "nor-gl", "arm", "disp"] as const;
 export const terrainKey = (layer: string) => `greyhaven.terrain.${layer}`;
 export const terrainSourceId = (polyHavenId: string, map: (typeof TERRAIN_MAPS)[number]) =>
   `poly-haven.${polyHavenId.replaceAll("_", "-")}-${map}-2k-jpg`;
+/** #681: the ground's normal maps at 512 px, about 4 mm a texel on a 2 m tile, finer than a screen pixel past a few metres. */
 export const TERRAIN_TEXTURE_POLICY = {
-  maxEdgeBySlot: { baseColor: 1024, normal: 1024, metallicRoughness: 512, occlusion: 512 },
+  maxEdgeBySlot: { baseColor: 1024, normal: 512, metallicRoughness: 512, occlusion: 512 },
   default: 1024,
 } as const;
 /** Height percentiles that map to alpha 128 and 255. */
@@ -101,7 +102,7 @@ export async function encodeKtx2(scratch: string, texture: Texture, encoding: Te
   const input = path.join(scratch, `${texture.getName()}.png`), output = path.join(scratch, `${texture.getName()}.ktx2`);
   await writeFile(input, texture.getImage()!);
   const [width, height] = ImageUtils.getSize(texture.getImage()!, texture.getMimeType())!;
-  const target = kitTextureTarget(width, height);
+  const target = kitTextureTarget(width, height, encoding);
   const resize = target.width !== width || target.height !== height ? target : undefined;
   const run = Bun.spawnSync([process.env.ASSET_TOOLING_KTX ?? "ktx", ...ktxArguments(encoding, input, output, resize)], { stdout: "pipe", stderr: "pipe" });
   if (run.exitCode !== 0) throw new Error(`ktx create failed for ${texture.getName()}: ${run.stderr.toString()}`);
@@ -188,7 +189,8 @@ export async function buildGreyhavenTerrain(outDir: string, log: (message: strin
     const resized = await io.readBinary(new Uint8Array(await resolveAssetObject(root, asset)));
     const shipped = resized.getRoot().listMaterials()[0]!;
     const shippedBase = shipped.getBaseColorTexture()!;
-    const expected = [[shippedBase, 1024], [shipped.getNormalTexture()!, 1024], [shipped.getMetallicRoughnessTexture()!, 512]] as const;
+    const { baseColor, normal, metallicRoughness } = TERRAIN_TEXTURE_POLICY.maxEdgeBySlot;
+    const expected = [[shippedBase, baseColor], [shipped.getNormalTexture()!, normal], [shipped.getMetallicRoughnessTexture()!, metallicRoughness]] as const;
     for (const [shippedTexture, edge] of expected) {
       const size = shippedTexture.getSize();
       if (shippedTexture.getMimeType() !== "image/png" || size?.[0] !== edge || size[1] !== edge) throw new Error(`${key}: expected a ${edge}px PNG, got ${shippedTexture.getMimeType()} ${size}`);

@@ -219,7 +219,7 @@ The retargeted clips leave the fingers at their open rest pose, so a held item w
 
 - **Wrap:** each finger curls toward the palm, joint by joint from the knuckle, until its segment touches the handle (the radius plus the finger's half thickness from the handle's axis) or reaches the joint's limit (90°, 105°, 80°). The thumb then swings over the wrapped index finger and bends its tip round the handle. The handle is the item's grip-frame Y axis through the socket (Z for the crossbow).
 - **Metadata:** each `humanoid-clips` entry has `role: "grip"`, `loop: true` and `grip: { socket, role }`.
-- **Consumer:** while a hand socket holds an item, play the grip whose `grip.socket` and `grip.role` match on top of the body clip. The grip replaces that hand's finger rotations: drop them from the body clip, or give the grip the full weight on those joints. The bow clips already carry their own finger curl (a fist on the grip and a hook on the string), so they need no grip.
+- **Consumer:** while a hand socket holds an item, play the grip whose `grip.socket` and `grip.role` match on top of the body clip. The carry sockets (`hand_r.carry`, `hand_l.carry`, #687) have no grip of their own: they share the weapon sockets' grip point and handle axis, so play `Grip_Weapon_R` or `Grip_Weapon_L`. The grip replaces that hand's finger rotations: drop them from the body clip, or give the grip the full weight on those joints. The bow clips already carry their own finger curl (a fist on the grip and a hook on the string), so they need no grip.
 - **Shield handle:** in the hand sockets the heater is held with the forearm across the board (`examples/weapons/derive-sockets.ts`), so the shield's hand handle runs along its Y axis, across the palm, and the forearm strap sits toward +X round the left forearm (#285). Before #285 the handle ran along the fingers, so a fist could not close round it.
 
 ### Water clips (#393)
@@ -558,6 +558,8 @@ The build runs every character GLB through [`scene.textures.resize.gltf@1`](gltf
 - the longest edge is at most 1024 px for `baseColor`, `normal` and `emissive`, and at most 512 px for `metallicRoughness` and `occlusion`;
 - `default` is 1024 px;
 - smaller images, such as the 256 px eye textures, are kept byte for byte.
+
+**Normal maps at 512 px (#681).** `RANGER_TEXTURE_POLICY` resizes normal maps to 512 px (1024 px before): they were about 9.4 MB of the male figure's 14.3 MB of textures, and at the game camera a figure is a few hundred pixels tall.
 
 **KTX2 (#517).** After the resize, the build encodes every texture to KTX2 (`KHR_texture_basisu`) before it exports the bundle, as every kit does ([kit-standard.md](kit-standard.md#textures)). Each slot gets the encoding the per-entry downloads always used (`textureEncoding` in [`pack-downloads.ts`](../scripts/pack-downloads.ts): UASTC normal maps, ETC1S sRGB colour, ETC1S linear data maps, power-of-two sizes with mipmaps), and `pack-downloads.ts` passes the bundle's KTX2 files through. The downloads therefore name the same `tex-<hash>.ktx2` files as before. Bundle texture memory fell from 283 MB to 71 MB (male) and from 91 MB to 23 MB (female). The tar shrank less, from 155 MB to 134 MB and from 67 MB to 62 MB: most of it is geometry, morph targets and clips. The [Ranger comparison](animation-viewer.md#ranger-comparison) decodes them with three.js's Basis transcoder.
 

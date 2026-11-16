@@ -54,7 +54,7 @@ Adopting the kit is a loader switch. Take the outfit record from the kit and loa
   - the compose, the texture resize to the Ranger's sizes, the age and build keys and the chains;
   - the Ranger rig check.
 
-  Every texture then becomes KTX2 (`KHR_texture_basisu`), encoded like the crag kit and the terrain (`TERRAIN_KTX2`): UASTC sRGB base colour, UASTC normals, ETC1S linear data maps.
+  Every texture then becomes KTX2 (`KHR_texture_basisu`), encoded like the crag kit and the terrain (`TERRAIN_KTX2`): ETC1S sRGB base colour (UASTC until #681), UASTC normals at 512 px, ETC1S linear data maps.
 - **Determinism:** the release build uses the shared generation and operation cache (`docs/cache.md`, #516). Two builds, one with the shared cache and one with an empty cache, gave the same tar. `test/blender/redbrand/redbrand-kit.test.ts` builds twice and compares.
 
 To shape the garments again, append the two collections into a scene of a live Blender next to the Ranger fit target and edit them. Then write the collections back into the `.blend` with their `redbrand` properties and no armature modifiers or parents. Rebuild, and look at the result at the game camera before merging.

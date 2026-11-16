@@ -34,6 +34,8 @@ const ROOT = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
 export const CRAG_RELEASE = "crag-kit";
 export const CRAG_TAR_NAME = "crag.kit.tar";
 export const CRAG_KEY_PREFIX = "crag.kit";
+/** The terrain's texture sizes, but normal maps at 1024 px: the faces are climbed, so seen from a metre or two (#681). */
+export const CRAG_TEXTURE_POLICY = { ...TERRAIN_TEXTURE_POLICY, maxEdgeBySlot: { ...TERRAIN_TEXTURE_POLICY.maxEdgeBySlot, normal: 1024 } } as const;
 export const CRAG_DESCRIPTOR_SCHEMA = "crag-kit-descriptor-v1";
 export const CRAG_DESCRIPTOR_ATTACHMENT = "crag-descriptor";
 export const CRAG_FACES = { sheer: ["face-sheer-1", "face-sheer-2", "face-sheer-3"], climb: ["face-climb-1", "face-climb-2", "face-climb-3"] } as const;
@@ -215,7 +217,7 @@ export async function buildCragKit({ outDir, log = () => {} }: { outDir: string;
         const sourceKeys = textureSlots(kit.document).map(([texture, encoding]) => `${sha256Bytes(texture.getImage()!)}:${encoding}`);
         let document = kit.document;
         if (sourceKeys.some((id) => !encoded.has(id))) {
-          const resized = single(await executeGltfTextureResizeOperation(root, { inputs: { source: kit.asset }, parameters: { ...TERRAIN_TEXTURE_POLICY, policy: { allowedValidatorWarnings: [] } } }));
+          const resized = single(await executeGltfTextureResizeOperation(root, { inputs: { source: kit.asset }, parameters: { ...CRAG_TEXTURE_POLICY, policy: { allowedValidatorWarnings: [] } } }));
           document = await io.readBinary(new Uint8Array(await resolveAssetObject(root, resized)));
           const slots = textureSlots(document);
           if (slots.length !== sourceKeys.length) throw new Error(`${part} ${variant}: texture resize changed the material's slots`);
@@ -370,7 +372,7 @@ export async function buildCragKit({ outDir, log = () => {} }: { outDir: string;
       + "presentation over the box collider, and collisionProxies are boxes for consumers without one.",
     textures: {
       material: "One material, crag-rock, on every module: base colour, normal and occlusion/roughness/metal maps of the CC0 Poly Haven rock_face_03 (Greyhaven's terrain rock layer), one repeat per 3 m, offset and mirrored per module; COLOR_0 multiplies the base colour (cavities, moss, streaks, drift).",
-      ktx2: TERRAIN_KTX2, texturePolicy: TERRAIN_TEXTURE_POLICY,
+      ktx2: TERRAIN_KTX2, texturePolicy: CRAG_TEXTURE_POLICY,
     },
     macro: {
       key: cragKey(CRAG_MACRO), worldMetres: CRAG_MACRO_METRES,
