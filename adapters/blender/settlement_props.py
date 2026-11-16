@@ -17,6 +17,9 @@ as mmorpg#421 asks:
 - farmstead dressing for the Greyhaven farms and hamlets (#695): ``scarecrow`` and ``weather-vane``, whose
   sleeves, hat and vane are their own nodes animated by the named loop clips ``Sway_Loop`` and ``Turn_Loop``
   (node animation, no skin), ``beehive-skeps``, ``water-trough``, ``feed-trough``, ``hen-coop`` and ``plough``.
+- village machinery (#699): ``watermill``, ``water-wheel``, ``windmill``, ``forge`` and ``well-windlass``, whose
+  wheels, sails, bellows and windlass drum are their own nodes turned by the loop clips ``Turn_Loop``, ``Pump_Loop``
+  and ``Crank_Loop``; the forge's coal bed glows (emissive ``ember``).
 
 Frame: metres, glTF right-handed +Y up, origin on the ground at the centre of the prop's footprint, its
 front towards +Z. ``fence`` follows the kit's wall convention: a 2 m module (x -1..1) with half a post
@@ -32,6 +35,7 @@ import math
 
 import bmesh
 import bpy
+from bpy_extras import anim_utils
 from mathutils import Matrix, Vector
 
 PROPS = ("stall", "cart", "crate", "barrel", "signpost", "lantern-post", "bench", "fence", "planter", "firewood", "footbridge",
@@ -45,7 +49,8 @@ PROPS = ("stall", "cart", "crate", "barrel", "signpost", "lantern-post", "bench"
          "table-set", "candles", "candelabra", "inn-sign", "stool", "bar-counter", "log-stack", "wall-shield", "wall-trophy",
          "rowing-boat", "jetty", "fishing-nets",
          "banner-outpost", "banner-village", "pennant-outpost", "pennant-village", "bunting",
-         "scarecrow", "weather-vane", "beehive-skeps", "water-trough", "feed-trough", "hen-coop", "plough")
+         "scarecrow", "weather-vane", "beehive-skeps", "water-trough", "feed-trough", "hen-coop", "plough",
+         "watermill", "water-wheel", "windmill", "forge", "well-windlass")
 FAMILY = {"stall": "market", "cart": "market", "crate": "market", "barrel": "market", "signpost": "street",
           "lantern-post": "street", "bench": "street", "fence": "dressing", "planter": "dressing", "firewood": "dressing",
           "footbridge": "street", "bed": "dressing", "table": "dressing", "chair": "dressing", "chest": "dressing",
@@ -64,7 +69,8 @@ FAMILY = {"stall": "market", "cart": "market", "crate": "market", "barrel": "mar
                                            "wall-shield", "wall-trophy")},
           "inn-sign": "street", "rowing-boat": "dressing", "jetty": "street", "fishing-nets": "dressing",
           **{prop: "street" for prop in ("banner-outpost", "banner-village", "pennant-outpost", "pennant-village", "bunting")},
-          **{prop: "dressing" for prop in ("scarecrow", "weather-vane", "beehive-skeps", "water-trough", "feed-trough", "hen-coop", "plough")}}
+          **{prop: "dressing" for prop in ("scarecrow", "weather-vane", "beehive-skeps", "water-trough", "feed-trough", "hen-coop", "plough")},
+          **{prop: "dressing" for prop in ("watermill", "water-wheel", "windmill", "forge", "well-windlass")}}
 
 # Plain-colour materials the props add to the kit's: (sRGB base colour, metallic, roughness, texture).
 EXTRA_MATERIALS = {
@@ -80,7 +86,11 @@ EXTRA_MATERIALS = {
     "clay": ((0.66, 0.38, 0.24), 0.0, 0.85, None),
     "indigo": ((0.16, 0.24, 0.42), 0.0, 0.9, None),
     "ochre": ((0.74, 0.54, 0.2), 0.0, 0.9, None),
+    "ember": ((0.9, 0.3, 0.08), 0.0, 0.9, None),
+    "leather": ((0.36, 0.22, 0.13), 0.0, 0.8, None),
 }
+# Materials that also glow: their emissive colour (sRGB), set on the material after the kit makes it.
+EMISSIVE = {"ember": (1.0, 0.36, 0.08)}
 
 K = {}
 
@@ -2132,11 +2142,11 @@ def pivoted(b, col, root, pivot):
     return obj
 
 
-def loop_clip(name, seconds, tracks):
+def loop_clip(name, seconds, tracks, linear=False):
     """One named node-animation clip of ``seconds`` that loops: ``tracks`` is [(node, turn)], where ``turn(t)``
-    gives the node's rotation about the glTF X, Y and Z axes (radians, small) at phase t in [0, 1]. Every
-    ``turn`` must be periodic in t, so the clip's last key equals its first. One action with a slot per node
-    exports as one glTF animation."""
+    gives the node's rotation about the glTF X, Y and Z axes (radians) at phase t in [0, 1]. Every ``turn`` must
+    be periodic in t, up to whole turns, so the clip's last key equals its first. ``linear`` keys a steady spin
+    without easing at the loop seam. One action with a slot per node exports as one glTF animation."""
     action = bpy.data.actions.new(name)
     frames = round(seconds * CLIP_FPS)
     for obj, turn in tracks:
@@ -2149,6 +2159,10 @@ def loop_clip(name, seconds, tracks):
             rx, ry, rz = turn(f / frames)
             obj.rotation_euler = (rx, -rz, ry)  # glTF axes to Blender's
             obj.keyframe_insert("rotation_euler", frame=f)
+        if linear:
+            for fc in anim_utils.action_get_channelbag_for_slot(action, slot).fcurves:
+                for key in fc.keyframe_points:
+                    key.interpolation = "LINEAR"
     return {"name": name, "duration": round(frames / CLIP_FPS, 6), "nodes": sorted(obj.name for obj, _ in tracks)}
 
 
@@ -2359,6 +2373,316 @@ def build_plough(part, col, root):
     return {"collisionProxies": [proxy("plough", (-0.33, 0, -1.18 + oz), (0.33, 0.95, 1.66 + oz))]}
 
 
+# ---------------------------------------------------------------- village machinery (#699)
+
+def glow(name):
+    """Make the kit material ``name`` emissive in its ``EMISSIVE`` colour (the glTF ``emissiveFactor``)."""
+    bsdf = next(n for n in bpy.data.materials[f"outpost-{name}"].node_tree.nodes if n.type == "BSDF_PRINCIPLED")
+    linear = [c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4 for c in EMISSIVE[name]]
+    bsdf.inputs["Emission Color"].default_value = (*linear, 1)
+    bsdf.inputs["Emission Strength"].default_value = 1.0
+
+
+def two_sided_loft(b, lower, upper, mat, key, thickness=0.05):
+    """A hood or a funnel: the sides between two rings of glTF corners (same count, open ends), with an inner skin
+    ``thickness`` in from the outer one so it reads from inside too."""
+    n = len(lower)
+    def skin(rings, inward):
+        verts = [p for ring_ in rings for p in ring_]
+        cx, cz = sum(p[0] for p in verts) / len(verts), sum(p[2] for p in verts) / len(verts)
+        polys = []
+        for i in range(n):
+            q = [i, (i + 1) % n, n + (i + 1) % n, n + i]
+            a, c, d = (Vector(verts[q[k]]) for k in (0, 1, 3))
+            mid = sum((Vector(verts[k]) for k in q), Vector()) / 4
+            if ((c - a).cross(d - a)).dot(mid - Vector((cx, mid.y, cz))) < 0:
+                q.reverse()
+            polys.append(q[::-1] if inward else q)
+        b.faces(verts, polys, mat, key)
+    skin((lower, upper), False)
+    def shrink(ring_):
+        cx, cz = sum(p[0] for p in ring_) / n, sum(p[2] for p in ring_) / n
+        out = []
+        for x, y, z in ring_:
+            d = math.hypot(x - cx, z - cz)
+            out.append((cx + (x - cx) * (1 - thickness / d), y, cz + (z - cz) * (1 - thickness / d)))
+        return out
+    skin((shrink(lower), shrink(upper)), True)
+
+
+def mill_wheel(b, center, radius, width, key, floats=12, spokes=6):
+    """An undershot mill wheel on an axle along X through ``center``: two spoked rims ``width`` apart joined by
+    ``floats`` radial paddles, which reach ``radius`` + 0.12."""
+    def make():  # drawn in XY with the axle along Z, then turned
+        for s in (-1, 1):
+            z = s * width / 2
+            ring(b, radius - 0.1, radius, z - 0.035, z + 0.035, 16, "wood", f"{key}/rim{s}")
+            for k in range(spokes):
+                a = 2 * math.pi * k / spokes
+                b.beam((0.12 * math.cos(a), 0.12 * math.sin(a)), ((radius - 0.06) * math.cos(a), (radius - 0.06) * math.sin(a)),
+                       0.07, z - 0.025, z + 0.025, "timber", f"{key}/spoke{s}{k}")
+        for k in range(floats):
+            a = 2 * math.pi * (k + 0.5) / floats
+            b.beam(((radius - 0.32) * math.cos(a), (radius - 0.32) * math.sin(a)), ((radius + 0.12) * math.cos(a), (radius + 0.12) * math.sin(a)),
+                   0.035, -width / 2 - 0.04, width / 2 + 0.04, "wood", f"{key}/float{k}")
+        placed(b, Matrix.Translation((0, 0, -width / 2 - 0.12)) @ Matrix.Rotation(math.pi / 2, 4, "X"),
+               lambda: lathe(b, [(0, 0.15), (width + 0.24, 0.15)], 8, "timber", f"{key}/hub", "endgrain"))
+    placed(b, Matrix.Translation(Vector(center)) @ Matrix.Rotation(math.pi / 2, 4, "Y"), make)
+
+
+def bearing_post(b, x, hub, key):
+    """A braced timber post on a sill along Z, its bearing block carrying an axle along X at height ``hub``."""
+    b.block((x - 0.08, 0, -0.9), (x + 0.08, 0.16, 0.9), "timber", key=f"{key}/sill", grain=(0, 0, 1))
+    b.block((x - 0.07, 0.16, -0.07), (x + 0.07, hub - 0.15, 0.07), "timber", key=f"{key}/post", grain=(0, 1, 0))
+    for side in (-1, 1):
+        rod(b, (x, 0.16, side * 0.75), (x, hub - 0.5, side * 0.05), 0.04, 5, "timber", f"{key}/brace{side}")
+    b.block((x - 0.1, hub - 0.17, -0.13), (x + 0.1, hub - 0.07, 0.13), "timber", key=f"{key}/bearing", grain=(0, 0, 1))
+
+
+def build_water_wheel(part, col, root):
+    """An undershot water wheel to set into a stream beside a building: a 2.7 m wheel of twelve floats on a timber
+    axle between two braced bearing posts on sills along Z. The wheel and its axle are one node, which ``Turn_Loop``
+    (6 s a turn) turns about the axle (X), the floats at the bottom moving to +Z, downstream. The floats reach the
+    ground plane, so set the origin at the stream's water line."""
+    b = K["Builder"](f"settlement.{part}.mesh")
+    R, w = 1.25, 0.6
+    hub, px = R + 0.12, w / 2 + 0.28
+    for s in (-1, 1):
+        bearing_post(b, s * px, hub, f"wheel/post{s}")
+    b.finish(col, root)
+    wb = K["Builder"](f"settlement.{part}.wheel")
+    mill_wheel(wb, (0, hub, 0), R, w, "wheel")
+    rod(wb, (-px - 0.18, hub, 0), (px + 0.18, hub, 0), 0.07, 8, "timber", "wheel/axle", "endgrain")
+    wheel = pivoted(wb, col, root, (0, hub, 0))
+    clip = loop_clip("Turn_Loop", 6.0, [(wheel, lambda t: (-2 * math.pi * t, 0.0, 0.0))], linear=True)
+    return {"clips": [clip], "collisionProxies": [proxy(f"post-{side}", (s * px - 0.1, 0, -0.9), (s * px + 0.1, hub, 0.9)) for s, side in ((-1, "left"), (1, "right"))]
+            + [proxy("wheel", (-w / 2 - 0.04, 0, -hub), (w / 2 + 0.04, 2 * hub, hub))]}
+
+
+def build_watermill(part, col, root):
+    """A timber watermill: a plank mill house in a braced frame on a stone footing under a shingle gable (ridge
+    along X), with a door, steps and a shuttered window to +Z and sacks by the door, and an undershot wheel on its
+    +X side between the wall and an outer bearing post. The wheel and its axle are one node, which ``Turn_Loop``
+    (6 s a turn) turns about the axle (X), the floats at the bottom moving to +Z, downstream."""
+    b = K["Builder"](f"settlement.{part}.mesh")
+    hw, hd, plinth, eave, ridge = 1.9, 1.6, 0.45, 2.9, 4.4
+    R, w = 1.35, 0.55
+    hub = R + 0.12
+    wx = hw + 0.3 + w / 2  # the wheel's centre
+    post_x = wx + w / 2 + 0.3
+    ox = -((post_x + 0.18) + (-hw - 0.3)) / 2  # centres the footprint, from the roof's overhang to the axle's end
+    def house():
+        b.block((-hw - 0.08, 0, -hd - 0.08), (hw + 0.08, plinth, hd + 0.08), "stone", 0.03, "mill/footing")
+        b.box((-hw, plinth, -hd), (hw, eave, hd), "wood", "mill/walls", grain=(0, 1, 0))
+        for sx in (-1, 1):
+            for sz in (-1, 1):
+                b.block((sx * hw - 0.09, plinth, sz * hd - 0.09), (sx * hw + 0.09, eave, sz * hd + 0.09), "timber", key=f"mill/corner{sx}{sz}", grain=(0, 1, 0))
+        for y in (plinth, 1.62, eave - 0.14):
+            for s in (-1, 1):
+                b.block((-hw, y, s * hd - 0.05), (hw, y + 0.14, s * hd + 0.05), "timber", key=f"mill/rail-z{s}{y}", grain=(1, 0, 0))
+                b.block((s * hw - 0.05, y, -hd), (s * hw + 0.05, y + 0.14, hd), "timber", key=f"mill/rail-x{s}{y}", grain=(0, 0, 1))
+        for s in (-1, 1):  # braces in the long walls
+            for x0, x1 in ((-hw + 0.1, -hw + 0.9), (hw - 0.1, hw - 0.9)):
+                placed(b, Matrix.Translation((0, 0, s * (hd + 0.03))), lambda x0=x0, x1=x1, s=s: b.beam((x0, 1.76), (x1, eave - 0.14), 0.1, -0.03, 0.03, "timber", f"mill/brace{s}{x0}"))
+        b.box((-1.0, plinth, hd + 0.02), (-0.2, 2.25, hd + 0.07), "timber", "mill/door", grain=(0, 1, 0))
+        for k, y in enumerate((0.75, 1.9)):
+            b.box((-0.98, y, hd + 0.07), (-0.45, y + 0.05, hd + 0.085), "iron", f"mill/hinge{k}")
+        b.block((-1.15, 0, hd + 0.08), (-0.05, 0.22, hd + 0.62), "stone", 0.02, "mill/step-low")
+        b.block((-1.15, 0.22, hd + 0.08), (-0.05, plinth, hd + 0.34), "stone", 0.02, "mill/step-high")
+        b.box((0.6, 1.5, hd + 0.02), (1.2, 2.1, hd + 0.04), "soot", "mill/window")
+        b.box((0.55, 1.44, hd + 0.02), (1.25, 1.5, hd + 0.14), "timber", "mill/sill")
+        for s, x in ((-1, 0.6), (1, 1.2)):
+            b.box((x + (s - 1) * 0.15, 1.5, hd + 0.05), (x + (s + 1) * 0.15, 2.1, hd + 0.09), "wood", f"mill/shutter{s}", grain=(0, 1, 0))
+        b.box((-hw - 0.02, 1.6, -0.35), (-hw - 0.01, 2.1, 0.35), "soot", "mill/end-window")
+        for k, x in enumerate((0.15, 0.52)):
+            sack(b, (x, 0, hd + 0.32 + 0.06 * k), 0.19, 0.55, f"mill/sack{k}")
+        reach = hd + 0.35
+        def roof():  # ridge along Z, turned to run along X
+            for s in (-1, 1):
+                b.beam((s * reach, eave - 0.25), (0, ridge), 0.07, -hw - 0.3, hw + 0.3, "shingle", f"mill/roof{s}")
+                b.prism([(-hd, eave), (hd, eave), (0, ridge - 0.05)], s * hw - 0.04 * (s > 0), s * hw + 0.04 * (s < 0), "wood", f"mill/gable{s}")
+            b.box((-0.06, ridge - 0.03, -hw - 0.32), (0.06, ridge + 0.06, hw + 0.32), "timber", "mill/ridge", grain=(0, 0, 1))
+        placed(b, Matrix.Rotation(math.pi / 2, 4, "Y"), roof)
+        b.block((hw, hub - 0.17, -0.15), (hw + 0.14, hub - 0.07, 0.15), "timber", key="mill/wall-bearing", grain=(0, 0, 1))
+        bearing_post(b, post_x, hub, "mill/post")
+    placed(b, Matrix.Translation((ox, 0, 0)), house)
+    b.finish(col, root)
+    wb = K["Builder"](f"settlement.{part}.wheel")
+    mill_wheel(wb, (wx + ox, hub, 0), R, w, "mill-wheel")
+    rod(wb, (hw - 0.1 + ox, hub, 0), (post_x + 0.18 + ox, hub, 0), 0.07, 8, "timber", "mill/axle", "endgrain")
+    wheel = pivoted(wb, col, root, (wx + ox, hub, 0))
+    clip = loop_clip("Turn_Loop", 6.0, [(wheel, lambda t: (-2 * math.pi * t, 0.0, 0.0))], linear=True)
+    return {"clips": [clip],
+            "collisionProxies": [proxy("house", (-hw - 0.08 + ox, 0, -hd - 0.08), (hw + 0.08 + ox, ridge, hd + 0.08)),
+                                 proxy("steps", (-1.15 + ox, 0, hd + 0.08), (-0.05 + ox, plinth, hd + 0.62)),
+                                 proxy("wheel", (wx - w / 2 - 0.04 + ox, 0, -0.9), (post_x + 0.1 + ox, 2 * hub, 0.9))]}
+
+
+def build_windmill(part, col, root):
+    """A small post mill: a weatherboarded body under a shingle gable (ridge along Z) on a crown tree, turning on a
+    main post braced by four quarter bars from crossed sills on stone piers, a door and ladder to the back (-Z) and
+    four lattice sails with canvas on a windshaft to the front (+Z). The sails, shaft and hub are one node, which
+    ``Turn_Loop`` (8 s a turn) turns about the shaft (Z), anticlockwise seen from the front."""
+    b = K["Builder"](f"settlement.{part}.mesh")
+    y0, y1, ridge = 3.2, 6.0, 6.8
+    bw, bd = 1.15, 1.45
+    hub_y, hub_z, arm = 5.4, 2.05, 4.4
+    ladder_z = -3.1
+    oz = -(ladder_z + hub_z + 0.25) / 2  # centres the footprint, from the ladder's foot to the hub
+    def mill():
+        for k, (x, z) in enumerate(((-1.3, 0), (1.3, 0), (0, -1.3), (0, 1.3))):
+            b.block((x - 0.22, 0, z - 0.22), (x + 0.22, 0.4, z + 0.22), "stone", 0.03, f"windmill/pier{k}")
+        b.block((-1.45, 0.4, -0.13), (1.45, 0.64, 0.13), "timber", key="windmill/sill-x", grain=(1, 0, 0))
+        b.block((-0.13, 0.4, -1.45), (0.13, 0.64, 1.45), "timber", key="windmill/sill-z", grain=(0, 0, 1))
+        b.block((-0.18, 0.64, -0.18), (0.18, y0 - 0.25, 0.18), "timber", key="windmill/post", grain=(0, 1, 0))
+        for k, (x, z) in enumerate(((-1, 0), (1, 0), (0, -1), (0, 1))):
+            rod(b, (1.2 * x, 0.6, 1.2 * z), (0.17 * x, 2.1, 0.17 * z), 0.07, 6, "timber", f"windmill/quarter-bar{k}")
+        b.block((-1.25, y0 - 0.25, -0.2), (1.25, y0, 0.2), "timber", key="windmill/crown-tree", grain=(1, 0, 0))
+        b.box((-bw, y0, -bd), (bw, y1, bd), "wood", "windmill/body", grain=(0, 1, 0))
+        for sx in (-1, 1):
+            for sz in (-1, 1):
+                b.block((sx * bw - 0.08, y0 - 0.05, sz * bd - 0.08), (sx * bw + 0.08, y1, sz * bd + 0.08), "timber", key=f"windmill/corner{sx}{sz}", grain=(0, 1, 0))
+        for y in (y0, y1 - 0.14):
+            for s in (-1, 1):
+                b.block((-bw, y, s * bd - 0.05), (bw, y + 0.14, s * bd + 0.05), "timber", key=f"windmill/rail-z{s}{y}", grain=(1, 0, 0))
+                b.block((s * bw - 0.05, y, -bd), (s * bw + 0.05, y + 0.14, bd), "timber", key=f"windmill/rail-x{s}{y}", grain=(0, 0, 1))
+        b.box((-0.4, y0 + 0.14, -bd - 0.06), (0.4, y0 + 1.95, -bd - 0.01), "timber", "windmill/door", grain=(0, 1, 0))
+        for s in (-1, 1):
+            b.box((s * (bw + 0.01) - 0.01, 4.7, -0.3), (s * (bw + 0.01) + 0.01, 5.2, 0.2), "soot", f"windmill/window{s}")
+        b.block((-0.6, hub_y - 0.3, bd), (0.6, hub_y - 0.16, bd + 0.16), "timber", key="windmill/breast-beam", grain=(1, 0, 0))
+        for s in (-1, 1):
+            b.beam((s * (bw + 0.25), y1 - 0.15), (0, ridge), 0.07, -bd - 0.2, bd + 0.2, "shingle", f"windmill/roof{s}")
+            b.prism([(-bw, y1), (bw, y1), (0, ridge - 0.05)], s * bd - 0.04 * (s > 0), s * bd + 0.04 * (s < 0), "wood", f"windmill/gable{s}")
+        b.box((-0.06, ridge - 0.03, -bd - 0.22), (0.06, ridge + 0.06, bd + 0.22), "timber", "windmill/ridge", grain=(0, 0, 1))
+        for s in (-1, 1):
+            rod(b, (s * 0.32, 0.04, ladder_z), (s * 0.32, y0 + 0.05, -bd - 0.05), 0.04, 5, "timber", f"windmill/stringer{s}")
+        for k in range(1, 10):
+            u = k / 10
+            y, z = u * (y0 + 0.05), ladder_z + u * (-bd - 0.05 - ladder_z)
+            b.box((-0.32, y - 0.02, z - 0.08), (0.32, y + 0.02, z + 0.08), "wood", f"windmill/tread{k}", grain=(1, 0, 0))
+    placed(b, Matrix.Translation((0, 0, oz)), mill)
+    b.finish(col, root)
+
+    sb = K["Builder"](f"settlement.{part}.sails")
+    def sails():  # about the hub, the shaft along Z
+        rod(sb, (0, 0, bd - 0.2 - hub_z), (0, 0, 0.0), 0.13, 8, "timber", "windmill/shaft", "endgrain")
+        placed(sb, Matrix.Rotation(math.pi / 2, 4, "X"), lambda: lathe(sb, [(-0.02, 0.22), (0.24, 0.22), (0.3, 0.12), (0.32, 0)], 8, "timber", "windmill/hub", "iron"))
+        for k in range(4):
+            def stock(k=k):
+                sb.block((-0.07, 0.18, 0.1), (0.07, arm, 0.22), "timber", key=f"windmill/stock{k}", grain=(0, 1, 0))
+                sb.box((0.07, 1.0, 0.13), (0.8, arm - 0.1, 0.15), "canvas", f"windmill/sail{k}", grain=(0, 1, 0))
+                sb.box((0.8, 0.95, 0.12), (0.86, arm - 0.05, 0.2), "timber", f"windmill/hemlath{k}", grain=(0, 1, 0))
+                for i in range(7):
+                    y = 1.0 + (arm - 1.1) * i / 6
+                    sb.box((0.0, y - 0.025, 0.15), (0.86, y + 0.025, 0.19), "timber", f"windmill/bar{k}{i}")
+            placed(sb, Matrix.Rotation(k * math.pi / 2 + math.pi / 4, 4, "Z"), stock)
+    placed(sb, Matrix.Translation((0, hub_y, hub_z + oz)), sails)
+    sails_node = pivoted(sb, col, root, (0, hub_y, hub_z + oz))
+    clip = loop_clip("Turn_Loop", 8.0, [(sails_node, lambda t: (0.0, 0.0, 2 * math.pi * t))], linear=True)
+    return {"clips": [clip],
+            "collisionProxies": [proxy("trestle", (-1.52, 0, -1.52 + oz), (1.52, y0, 1.52 + oz)),
+                                 proxy("body", (-bw - 0.1, y0, -bd - 0.1 + oz), (bw + 0.1, ridge, bd + 0.16 + oz)),
+                                 proxy("ladder", (-0.38, 0, ladder_z + oz), (0.38, y0, -bd + oz))]}
+
+
+def build_forge(part, col, root):
+    """A village forge: a waist-high stone hearth with a glowing coal bed (emissive ``ember``) in a stone rim, a back
+    wall at -Z under a hood narrowing to a chimney, a quench tub to +X and a lever bellows to -X on a plank stand,
+    its nozzle into the hearth. The bellows' top board, leather and lever are one node, hinged at the nozzle, which
+    ``Pump_Loop`` (2 s) lifts and lets fall; ``fire`` is where a warm light belongs."""
+    b = K["Builder"](f"settlement.{part}.mesh")
+    top = 0.8
+    x0, x1, z0, z1 = -0.3, 1.1, -0.55, 0.45
+    ox, oz = -((-1.92) + 1.67) / 2, -((-0.8) + 0.62) / 2  # centres the footprint, from the lever to the tub
+    def forge():
+        b.block((x0, 0, z0), (x1, top, z1), "stone", 0.02, "forge/hearth")
+        for k, (lo, hi) in enumerate((((x0, top, z0), (x1, top + 0.09, z0 + 0.1)), ((x0, top, z1 - 0.1), (x1, top + 0.09, z1)),
+                                       ((x0, top, z0 + 0.1), (x0 + 0.1, top + 0.09, z1 - 0.1)), ((x1 - 0.1, top, z0 + 0.1), (x1, top + 0.09, z1 - 0.1)))):
+            b.block(lo, hi, "stone", 0.015, f"forge/rim{k}")
+        b.box((x0 + 0.1, top, z0 + 0.1), (x1 - 0.1, top + 0.04, z1 - 0.1), "ember", "forge/coals")
+        for k in range(9):
+            cx, cz = x0 + 0.2 + 1.0 * rnd("coal-x", k), z0 + 0.2 + 0.6 * rnd("coal-z", k)
+            placed(b, Matrix.Translation((cx, top + 0.03, cz)), lambda k=k: lathe(b, [(0, 0.045), (0.035, 0.05), (0.06, 0)], 5, "soot", f"forge/coal{k}", jitter=0.3, phase=rnd("coal-p", k)))
+        b.block((x0 - 0.05, 0, -0.8), (x1 + 0.05, 1.9, z0), "stone", 0.02, "forge/back-wall")
+        hood_y0, hood_y1 = 1.75, 2.55
+        lower = [(x0 - 0.05, hood_y0, z1 + 0.05), (x1 + 0.05, hood_y0, z1 + 0.05), (x1 + 0.05, hood_y0, -0.8), (x0 - 0.05, hood_y0, -0.8)]
+        upper = [(0.15, hood_y1, -0.35), (0.65, hood_y1, -0.35), (0.65, hood_y1, -0.8), (0.15, hood_y1, -0.8)]
+        two_sided_loft(b, lower, upper, "stone", "forge/hood")
+        b.block((x0 - 0.08, hood_y0 - 0.1, z1 - 0.02), (x1 + 0.08, hood_y0 + 0.02, z1 + 0.1), "timber", key="forge/hood-beam", grain=(1, 0, 0))
+        b.block((0.12, hood_y1, -0.83), (0.68, 3.5, -0.32), "stone", 0.02, "forge/chimney")
+        # quench tub
+        placed(b, Matrix.Translation((1.4, 0, 0.35)), lambda: lathe(b, [(0, 0.24), (0.5, 0.27), (0.5, 0.23), (0.12, 0.21)], 10, "wood", "forge/tub", cap_mat="soot"))
+        for k, y in enumerate((0.1, 0.4)):
+            placed(b, Matrix.Translation((1.4, 0, 0.35)), lambda y=y, k=k: lathe(b, [(y, 0.25 + 0.06 * y), (y + 0.04, 0.25 + 0.06 * y + 0.006)], 10, "iron", f"forge/tub-hoop{k}"))
+        # bellows: a plank stand, the fixed bottom board and the nozzle into the hearth
+        b.block((-1.58, 0, -0.38), (-0.62, 0.58, 0.28), "wood", 0.015, "forge/stand")
+        board(b, 0.58, 0.62, 0.0, "timber", "forge/bottom-board")
+        b.block((-0.66, 0.58, -0.16), (-0.5, 0.82, 0.06), "timber", key="forge/nozzle-block")
+        rod(b, (-0.52, 0.71, -0.05), (x0 + 0.05, 0.71, -0.05), 0.035, 6, "iron", "forge/tuyere")
+    placed(b, Matrix.Translation((ox, 0, oz)), forge)
+    b.finish(col, root)
+    glow("ember")
+
+    lb = K["Builder"](f"settlement.{part}.bellows")
+    def bellows():
+        board(lb, 0.82, 0.86, 0.0, "timber", "forge/top-board")
+        board(lb, 0.42, 0.82, 0.025, "leather", "forge/leather")
+        lb.block((-1.15, 0.86, -0.17), (-0.9, 0.98, 0.07), "stone", 0.02, "forge/weight")
+        lb.box((-1.5, 0.86, -0.08), (-0.75, 0.87, -0.02), "iron", "forge/strap")
+        rod(lb, (-1.45, 0.86, -0.05), (-1.86, 1.48, -0.05), 0.03, 6, "timber", "forge/lever")
+        rod(lb, (-1.86, 1.48, -0.25), (-1.86, 1.48, 0.15), 0.025, 6, "timber", "forge/grip")
+    placed(lb, Matrix.Translation((ox, 0, oz)), bellows)
+    hinge = (-0.6 + ox, 0.72, -0.05 + oz)
+    node = pivoted(lb, col, root, hinge)
+    tau = 2 * math.pi
+    clip = loop_clip("Pump_Loop", 2.0, [(node, lambda t: (0.0, 0.0, -0.14 * (0.5 - 0.5 * math.cos(tau * t))))])
+    return {"clips": [clip], "fire": {"position": r6((0.4 + ox, top + 0.15, -0.05 + oz))},
+            "collisionProxies": [proxy("hearth", (x0 - 0.05 + ox, 0, -0.8 + oz), (x1 + 0.05 + ox, top + 0.09, z1 + oz)),
+                                 proxy("chimney", (x0 - 0.05 + ox, top + 0.09, -0.8 + oz), (x1 + 0.05 + ox, 3.5, z0 + oz)),
+                                 proxy("bellows", (-1.58 + ox, 0, -0.38 + oz), (-0.5 + ox, 0.9, 0.28 + oz)),
+                                 proxy("tub", (1.13 + ox, 0, 0.08 + oz), (1.67 + ox, 0.5, 0.62 + oz))]}
+
+
+BELLOWS = [(-0.6, 0.09), (-0.8, 0.19), (-1.05, 0.27), (-1.3, 0.3), (-1.48, 0.25), (-1.56, 0.12)]
+
+
+def board(b, y0, y1, inset, mat, key):
+    """The pear-shaped outline of the forge bellows along -X (nozzle end at x -0.6), from ``y0`` to ``y1``, ``inset`` in."""
+    zc = -0.05
+    outline = [(x, -(zc + h - inset)) for x, h in BELLOWS] + [(x, -(zc - h + inset)) for x, h in reversed(BELLOWS)]
+    placed(b, Matrix.Rotation(-math.pi / 2, 4, "X"), lambda: b.prism(outline, y0, y1, mat, key, grain=(1, 0, 0)))
+
+
+def build_well_windlass(part, col, root):
+    """A windlass to set over a well curb like the ``well``'s (1.5 m): two A-frame trestles on sills along Z, 1.9 m
+    apart, under a tie beam, carrying a drum along X with a rope coil, a rope hanging down the shaft and an iron
+    crank to +X. The drum, axle and crank are one node, which ``Crank_Loop`` (3 s a turn) winds, the rope side
+    rising. The origin is the well's centre on the ground."""
+    b = K["Builder"](f"settlement.{part}.mesh")
+    px, ay = 0.95, 1.3
+    for s in (-1, 1):
+        x = s * px
+        b.block((x - 0.07, 0, -0.62), (x + 0.07, 0.12, 0.62), "timber", key=f"windlass/sill{s}", grain=(0, 0, 1))
+        for side in (-1, 1):
+            rod(b, (x, 0.08, side * 0.5), (x, ay + 0.16, side * 0.04), 0.05, 6, "timber", f"windlass/leg{s}{side}")
+        b.block((x - 0.08, ay + 0.1, -0.14), (x + 0.08, ay + 0.24, 0.14), "timber", key=f"windlass/cap{s}", grain=(0, 0, 1))
+    b.block((-px - 0.14, ay + 0.24, -0.07), (px + 0.14, ay + 0.36, 0.07), "timber", key="windlass/tie", grain=(1, 0, 0))
+    b.box((-0.012, 0.3, 0.125), (0.012, ay, 0.15), "sacking", "windlass/rope")
+    b.finish(col, root)
+    db = K["Builder"](f"settlement.{part}.drum")
+    rod(db, (-px - 0.12, ay, 0), (px + 0.2, ay, 0), 0.04, 6, "iron", "windlass/axle")
+    rod(db, (-px + 0.1, ay, 0), (px - 0.1, ay, 0), 0.11, 8, "timber", "windlass/drum", "endgrain")
+    for k, x in enumerate((-px + 0.14, px - 0.14)):
+        rod(db, (x - 0.025, ay, 0), (x + 0.025, ay, 0), 0.12, 8, "iron", f"windlass/band{k}")
+    rings = [(0.025 * i, 0.128 + 0.014 * (i % 2)) for i in range(21)]  # turns of rope
+    placed(db, Matrix.Translation((-0.25, ay, 0)) @ Matrix.Rotation(-math.pi / 2, 4, "Z"), lambda: lathe(db, rings, 8, "sacking", "windlass/coil", jitter=0.04))
+    db.box((px + 0.14, ay - 0.03, -0.02), (px + 0.19, ay + 0.03, 0.3), "iron", "windlass/crank-arm")
+    rod(db, (px + 0.16, ay, 0.28), (px + 0.38, ay, 0.28), 0.02, 6, "iron", "windlass/crank-handle")
+    drum = pivoted(db, col, root, (0, ay, 0))
+    clip = loop_clip("Crank_Loop", 3.0, [(drum, lambda t: (-2 * math.pi * t, 0.0, 0.0))], linear=True)
+    return {"clips": [clip], "collisionProxies": [proxy(f"frame-{side}", (s * px - 0.1, 0, -0.62), (s * px + 0.1, ay + 0.36, 0.62)) for s, side in ((-1, "left"), (1, "right"))]}
+
+
 BUILDERS = {"stall": build_stall, "cart": build_cart, "crate": build_crate_part, "barrel": build_barrel_part,
             "signpost": build_signpost, "lantern-post": build_lantern_post, "bench": build_bench,
             "fence": build_fence, "planter": build_planter, "firewood": build_firewood,
@@ -2383,7 +2707,9 @@ BUILDERS = {"stall": build_stall, "cart": build_cart, "crate": build_crate_part,
             "banner-outpost": build_banner("outpost"), "banner-village": build_banner("village"),
             "pennant-outpost": build_pennant("outpost"), "pennant-village": build_pennant("village"), "bunting": build_bunting,
             "scarecrow": build_scarecrow, "weather-vane": build_weather_vane, "beehive-skeps": build_beehive_skeps,
-            "water-trough": build_water_trough, "feed-trough": build_feed_trough, "hen-coop": build_hen_coop, "plough": build_plough}
+            "water-trough": build_water_trough, "feed-trough": build_feed_trough, "hen-coop": build_hen_coop, "plough": build_plough,
+            "watermill": build_watermill, "water-wheel": build_water_wheel, "windmill": build_windmill, "forge": build_forge,
+            "well-windlass": build_well_windlass}
 
 
 # ---------------------------------------------------------------- composition
