@@ -99,6 +99,13 @@ In a live Blender session, run `outpost.py` and `settlement_props.py` into two n
 | `settlement.props.pennant-outpost` | street | 202 | 2.02 × 0.36 × 4.32 | `pole` | A 4.2 m pole flying a 1.8 m tapering indigo pennant with an ochre hoist, streaming toward +X. |
 | `settlement.props.pennant-village` | street | 202 | 2.02 × 0.36 × 4.32 | `pole` | The same pennant in linen with a red hoist. |
 | `settlement.props.bunting` | street | 556 | 6.28 × 0.28 × 3.20 | `pole-1`, `pole1` | A market bunting line: two 3.2 m poles 6 m apart along X and a sagging cord hung with 18 triangular flags in red, linen, indigo, ochre and green. |
+| `settlement.props.scarecrow` | dressing | 760 | 1.59 × 0.62 × 2.10 | `pole`, `body` | A scarecrow on a 2.2 m cross pole ([#695](https://github.com/moritzbrantner/asset-tooling/issues/695)): a patched red coat with a rope belt and straw at the hem, a stitched sacking head and a wide straw hat. **Animated:** `Sway_Loop` (4 s) flutters its sleeves and hat. |
+| `settlement.props.weather-vane` | dressing | 582 | 1.20 × 0.71 × 1.53 | `spindle` | A rooster weather vane for a roof ridge or a post top: an iron spindle on a 0.2 m mounting plate, compass arms lettered N (−Z), E (+X), S (+Z) and W (−X), and a gilt rooster on an arrow pointing to +X. The origin is the foot of the plate; mount it at the height you want. **Animated:** `Turn_Loop` (8 s) veers the vane slowly back and forth. |
+| `settlement.props.beehive-skeps` | dressing | 836 | 1.40 × 0.43 × 0.94 | `bench` | Three coiled straw skeps on a plank bench, their entrances facing +Z, the middle one under a straw hackle. |
+| `settlement.props.water-trough` | dressing | 222 | 1.60 × 0.62 × 0.55 | `trough` | A hewn stone trough along X, half full of dark water. |
+| `settlement.props.feed-trough` | dressing | 120 | 1.50 × 0.56 × 0.45 | `trough` | A low plank trough along X on splayed trestle legs for pigs and sheep, mash in the bottom. |
+| `settlement.props.hen-coop` | dressing | 372 | 1.16 × 1.57 × 1.40 | `coop`, `ramp` | A small hen coop on four legs: a plank house under a shingle gable (ridge along X), a hatch and a pop hole to +Z and a cleated ramp down to the ground in front. |
+| `settlement.props.plough` | dressing | 546 | 0.65 × 2.83 × 0.94 | `plough` | A wooden mouldboard plough along Z, resting level on a small front wheel (+Z) with a hitch ring: an iron coulter and share, a curved board turning the furrow to +X and two handles with a rung reaching back to −Z. |
 
 The village dressing from `barrel-group` down ([#657](https://github.com/moritzbrantner/asset-tooling/issues/657)) is for Greyhaven's villages, Barrowdown and Fenford. The existing `cart`, `firewood` and `planter` complement it.
 The interiors from `dresser` down ([#663](https://github.com/moritzbrantner/asset-tooling/issues/663)) furnish more walk-in farmhouses and Westmere Lodge's hall, beside the cottage furniture.
@@ -107,8 +114,9 @@ The market goods and workshops from `bread-basket` down ([#669](https://github.c
 The inn and hall clutter from `table-set` down ([#671](https://github.com/moritzbrantner/asset-tooling/issues/671)) dresses inns, taverns and halls; the wall pieces stand on their own back edge so they can be hung at any height.
 The river and lake props from `rowing-boat` down ([#675](https://github.com/moritzbrantner/asset-tooling/issues/675)) dress Greyhaven's banks and landings. Lily pads and reeds are in the [marsh plants](greyhaven-marsh-plants.md) (`water-lilies`, `reeds-stand`, `reeds-edge`, `cattails`).
 The banners from `banner-outpost` down ([#677](https://github.com/moritzbrantner/asset-tooling/issues/677)) fly the Outpost's livery, the Marshal's indigo with ochre heraldry as on the [fortress kit](fortress-kit.md)'s banners, or a neutral village one. The cloth is two-sided; only the poles collide.
+The farmstead dressing from `scarecrow` down ([#695](https://github.com/moritzbrantner/asset-tooling/issues/695)) is for Greyhaven's farms and hamlets (mmorpg#880). It joins this release rather than a new one, because it is the same style, recipe, materials and descriptor; it adds no materials or textures.
 
-The numbers are from the build of 2026-10-24. The descriptor carries the measured values of each build. The budgets in `SETTLEMENT_TRIANGLE_BUDGET` are for the Greyhaven camera (12 m, 0.42 rad pitch, 50° fov).
+The numbers are from the build of 2026-10-24, the farmstead dressing from the build of 2026-11-16. The descriptor carries the measured values of each build. The budgets in `SETTLEMENT_TRIANGLE_BUDGET` are for the Greyhaven camera (12 m, 0.42 rad pitch, 50° fov).
 
 ## Frame
 
@@ -139,9 +147,20 @@ The props use the kit's wood, stone and shingle texture sets (colour, normal and
 - `clay`: the terracotta pottery and the sausages;
 - `indigo` and `ochre`: the Outpost's banner livery and the bunting.
 
-Every face has backface culling. In the bundle there are 9 KTX2 textures in all, each stored once. Repeated props in a scene share their GLB resources. The tar is about 5.0 MB.
+Every face has backface culling. In the bundle there are 9 KTX2 textures in all, each stored once. Repeated props in a scene share their GLB resources. The tar is about 5.4 MB.
 
 **Determinism:** there is no randomness. Variation comes from SHA-256 of fixed keys, through the kit's `rnd`.
+
+### Animated props
+
+The scarecrow and the weather vane carry named glTF node-animation clips that loop; there is no skin. Each animated part is its own node, with its origin at the joint it turns about:
+
+| Prop | Clip | Length | Nodes |
+| --- | --- | --- | --- |
+| `scarecrow` | `Sway_Loop` | 4 s | `settlement.scarecrow.sleeve-left`, `settlement.scarecrow.sleeve-right` (at the shoulders, flapping about the crossbar), `settlement.scarecrow.hat` (on the head) |
+| `weather-vane` | `Turn_Loop` | 8 s | `settlement.weather-vane.vane` (on the spindle, veering about +Y) |
+
+A clip's last key equals its first, so a consumer plays it on repeat (three.js: `AnimationMixer.clipAction(clip).play()` with the default `LoopRepeat`), and may offset each instance's start time so neighbours don't move in step. The recipe keys the rotations at 24 fps in one Blender action per clip, with a slot per node, which the glTF exporter writes as one animation. The clip names are in each GLB and in the bundle manifest's `observations.animations`; the published descriptor schema keeps its fields, so `SETTLEMENT_CLIPS` in the build script lists them for tests.
 
 ### Textures on the GPU
 
@@ -176,6 +195,7 @@ The bundle is distributed as the rolling `settlement-props` GitHub release, whos
 - the descriptor conforms to the schema;
 - there are exactly 9 resources, all KTX2: the kit's wood, stone and shingle;
 - every prop stays within its triangle budget (`SETTLEMENT_TRIANGLE_BUDGET`), has its family and stands on the ground;
+- the scarecrow and the weather vane carry exactly their named clips at their lengths, in the GLB and the bundle manifest, with no skin, and no other prop animates;
 - the fence fills its 2 m module, the crate's `stackTop` is its top, and the lantern and the sign hang above head height;
 - in the square, every item is a bundle entry, all three families are placed, and every proxy stays inside the footprint and out of the walkway.
 
