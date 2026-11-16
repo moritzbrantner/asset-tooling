@@ -5,7 +5,7 @@ import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { readArtifacts, type Consumer } from "../scripts/prepare-release.ts";
 import { KIT_BUDGETS } from "../scripts/report-kit-costs.ts";
 import {
-  MANUAL_RELEASES, ROLLING_RELEASES, blockingConsumers, pinnedVersion, plan, planEntry, releaseFiles, releaseSources, rollingRelease, staleReleaseFiles, staleVersions, touches, versionOf, type FetchFile,
+  MANUAL_RELEASES, ROLLING_RELEASES, blockingConsumers, changedReleaseFiles, pinnedVersion, plan, planEntry, releaseFiles, releaseSources, rollingRelease, staleReleaseFiles, staleVersions, touches, versionOf, type FetchFile,
 } from "../scripts/publish-release.ts";
 
 const OLD = "a".repeat(64), NEW = "b".repeat(64);
@@ -88,6 +88,13 @@ describe("publish-release", () => {
     expect(staleReleaseFiles([...built, "old.lod1.bin", "armor.gone.gltf"], built)).toEqual(["armor.gone.gltf", "old.lod1.bin"]);
     expect(staleReleaseFiles(built, built)).toEqual([]);
     expect(staleReleaseFiles([], built)).toEqual([]);
+  });
+
+  test("files beside an unchanged tar publish when their live digest differs or is missing", () => {
+    const built = new Map([["kit.tar", "aa"], ["kit.clips.glb", "bb"], ["tex-1.ktx2", "cc"]]);
+    const live = new Map<string, string | undefined>([["kit.tar", "sha256:aa"], ["kit.clips.glb", "sha256:00"], ["old.bin", "sha256:dd"]]);
+    expect(changedReleaseFiles(live, built)).toEqual(["kit.clips.glb", "tex-1.ktx2"]);
+    expect(changedReleaseFiles(new Map([["kit.tar", "sha256:aa"]]), new Map([["kit.tar", "aa"]]))).toEqual([]);
   });
 
   test("a pinned consumer blocks unless its default or re-pin branch pins the new build", async () => {

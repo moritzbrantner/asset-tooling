@@ -198,6 +198,35 @@ export function staleReleaseFiles(live: string[], built: string[]): string[] {
   return live.filter((name) => !current.has(name)).sort();
 }
 
+/**
+ * The built files whose bytes the live release lacks, by GitHub's per-asset sha256 digest. The tar can stay identical
+ * while files derived from it change, such as the KTX2 download textures or the compacted clips (#683), so an unchanged
+ * tar alone does not mean nothing changed.
+ */
+export function changedReleaseFiles(live: Map<string, string | undefined>, built: Map<string, string>): string[] {
+  return [...built].filter(([name, sha256]) => live.get(name) !== `sha256:${sha256}`).map(([name]) => name).sort();
+}
+
+async function sha256File(file: string): Promise<string> {
+  return new Bun.CryptoHasher("sha256").update(await Bun.file(file).arrayBuffer()).digest("hex");
+}
+
+/** Uploads the built files the live release holds different bytes for, when its tar already matches. */
+async function publishChangedFiles(name: string, dir: string, files: string[], tarSha256: string, dryRun: boolean): Promise<boolean> {
+  const assets = JSON.parse(run("gh", ["release", "view", name, "--repo", TOOLING_REPO, "--json", "assets"]).stdout).assets as { name: string; digest?: string }[];
+  const live = new Map(assets.map((asset) => [asset.name, asset.digest]));
+  const built = new Map(await Promise.all(files.map(async (file) => [file, await sha256File(path.join(dir, file))] as [string, string])));
+  const changed = changedReleaseFiles(live, built);
+  if (!changed.length) return false;
+  if (dryRun) {
+    console.log(`${name}: would replace ${changed.length} changed file(s) beside the unchanged tar: ${changed.join(", ")}`);
+    return true;
+  }
+  run("gh", ["release", "upload", name, "--repo", TOOLING_REPO, "--clobber", ...changed.map((file) => path.join(dir, file))]);
+  console.log(`${name}: published tar ${tarSha256} (unchanged) with ${changed.length} changed file(s): ${changed.join(", ")}`);
+  return true;
+}
+
 /** Removes what `staleReleaseFiles` names. It runs once the current build is live, so a reader always finds a complete set. */
 function pruneRelease(name: string, built: string[], dryRun: boolean): void {
   const live = run("gh", ["release", "view", name, "--repo", TOOLING_REPO, "--json", "assets", "--jq", ".assets[].name"]).stdout.split("\n").filter(Boolean);
@@ -257,7 +286,7 @@ async function publish(name: string, out: string, dryRun: boolean): Promise<numb
   const { renovate, unpinned } = findConsumers(consumers, name);
   const live = liveTarSha256(name, artifacts.tar);
   if (live === artifacts.sha256) {
-    console.log(`${name}: the live release already holds tar ${artifacts.sha256}; nothing to publish`);
+    if (!(await publishChangedFiles(name, dir, files, artifacts.sha256, dryRun))) console.log(`${name}: the live release already holds tar ${artifacts.sha256}; nothing to publish`);
     pruneRelease(name, files, dryRun);
     publishVersion(name, dir, files, artifacts, renovate, dryRun);
     return 0;
