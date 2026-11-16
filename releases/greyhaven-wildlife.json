@@ -1,0 +1,10 @@
+{
+  "script": "scripts/build-greyhaven-wildlife.ts",
+  "blender": true,
+  "lfs": true,
+  "budget": {
+    "materials": 56,
+    "textureMemoryMB": 1,
+    "downloadMB": 4
+  }
+}

@@ -6833,6 +6833,93 @@
       "title": "Ultimate Animated Animals — Donkey (GLB)"
     },
     {
+      "id": "quaternius.ultimate-animated-animals-stag-glb",
+      "kind": "mesh",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/ultimateanimatedanimals.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "model/gltf-binary",
+      "metadata": {
+        "distributionMirror": "github.com/trebeljahr/quaternius-showcase (byte copy of the CC0 pack GLB; official download is a rate-limited Google Drive folder)",
+        "purpose": "Rigged antlered stag with Idle, Walk and Eating clips for Greyhaven wildlife (#667)"
+      },
+      "provider": "quaternius",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 685176,
+        "path": "public/glb/animals_pack/Stag.glb",
+        "revision": "478a184d29af65637ba335ea3127995066fe11b6",
+        "sha256": "34818768f3e9298c9580ea79bfca2b79854a36877888a5e1e5df374b015f9e89",
+        "upstreamId": "ultimate-animated-animals/Stag",
+        "url": "https://raw.githubusercontent.com/trebeljahr/quaternius-showcase/478a184d29af65637ba335ea3127995066fe11b6/public/glb/animals_pack/Stag.glb"
+      },
+      "tags": [
+        "animal",
+        "animated",
+        "greyhaven-wildlife"
+      ],
+      "title": "Ultimate Animated Animals — Stag (GLB)"
+    },
+    {
+      "id": "quaternius.ultimate-animated-animals-deer-glb",
+      "kind": "mesh",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/ultimateanimatedanimals.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "model/gltf-binary",
+      "metadata": {
+        "distributionMirror": "github.com/trebeljahr/quaternius-showcase (byte copy of the CC0 pack GLB; official download is a rate-limited Google Drive folder)",
+        "purpose": "Rigged doe with Idle, Walk and Eating clips for Greyhaven wildlife (#667)"
+      },
+      "provider": "quaternius",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 662108,
+        "path": "public/glb/animals_pack/Deer.glb",
+        "revision": "478a184d29af65637ba335ea3127995066fe11b6",
+        "sha256": "b6558249bfb225313c35dd1b6c91d832b2031d064039bb6b3600a624a882a174",
+        "upstreamId": "ultimate-animated-animals/Deer",
+        "url": "https://raw.githubusercontent.com/trebeljahr/quaternius-showcase/478a184d29af65637ba335ea3127995066fe11b6/public/glb/animals_pack/Deer.glb"
+      },
+      "tags": [
+        "animal",
+        "animated",
+        "greyhaven-wildlife"
+      ],
+      "title": "Ultimate Animated Animals — Deer (GLB)"
+    },
+    {
+      "id": "quaternius.ultimate-animated-animals-fox-glb",
+      "kind": "mesh",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/ultimateanimatedanimals.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "model/gltf-binary",
+      "metadata": {
+        "distributionMirror": "github.com/trebeljahr/quaternius-showcase (byte copy of the CC0 pack GLB; official download is a rate-limited Google Drive folder)",
+        "purpose": "Rigged fox with Idle, Walk and Eating clips for Greyhaven wildlife (#667)"
+      },
+      "provider": "quaternius",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 590112,
+        "path": "public/glb/animals_pack/Fox.glb",
+        "revision": "478a184d29af65637ba335ea3127995066fe11b6",
+        "sha256": "1785e9ce836107276853a8a8183d7c6fa14e5befbd105d79be1fb7e38de9f446",
+        "upstreamId": "ultimate-animated-animals/Fox",
+        "url": "https://raw.githubusercontent.com/trebeljahr/quaternius-showcase/478a184d29af65637ba335ea3127995066fe11b6/public/glb/animals_pack/Fox.glb"
+      },
+      "tags": [
+        "animal",
+        "animated",
+        "greyhaven-wildlife"
+      ],
+      "title": "Ultimate Animated Animals — Fox (GLB)"
+    },
+    {
       "id": "quaternius.farm-animals-pig-blend",
       "kind": "mesh",
       "license": {

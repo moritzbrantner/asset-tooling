@@ -1,0 +1,10 @@
+{
+  "note": "Greyhaven wildlife (#667): nine recipe runs, three over catalogued Quaternius sources, built twice for the same tar.",
+  "timeout": 20,
+  "ktx": false,
+  "lfs": [
+    "assets/canonical/quaternius.ultimate-animated-animals-stag-glb/**",
+    "assets/canonical/quaternius.ultimate-animated-animals-deer-glb/**",
+    "assets/canonical/quaternius.ultimate-animated-animals-fox-glb/**"
+  ]
+}
