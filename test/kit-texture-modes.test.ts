@@ -9,6 +9,13 @@ describe("kit texture modes", () => {
     expect(kitTextureTarget(1008, 981)).toEqual({ width: 1024, height: 1024 });
   });
 
+  test("an encoding caps the longest edge: linear UASTC (normal maps) at 1024, everything else at 2048 (#681)", () => {
+    expect(kitTextureTarget(4096, 4096, "uastc")).toEqual({ width: 1024, height: 1024 });
+    expect(kitTextureTarget(4096, 2048, "etc1s-srgb")).toEqual({ width: 2048, height: 1024 });
+    expect(kitTextureTarget(2048, 2048, "uastc-srgb")).toEqual({ width: 2048, height: 2048 });
+    expect(kitTextureTarget(512, 512, "uastc")).toEqual({ width: 512, height: 512 });
+  });
+
   test("half halves every edge", () => {
     setKitTextureMode("half");
     expect(kitTextureTarget(4096, 4096)).toEqual({ width: 2048, height: 2048 });

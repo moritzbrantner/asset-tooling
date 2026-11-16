@@ -218,7 +218,7 @@ test("the Ranger declares its equipment, figures, appearance and texture limits"
   assert.equal(RANGER_APPEARANCE.female.hood, "Female_Ranger_Head_Hood");
   assert.deepEqual(Object.keys(RANGER_HAIR_TINTS), ["black", "brown", "blond", "grey"]);
   assert.deepEqual(RANGER_TEXTURE_POLICY, {
-    maxEdgeBySlot: { baseColor: 1024, normal: 1024, metallicRoughness: 512, occlusion: 512, emissive: 1024 }, default: 1024,
+    maxEdgeBySlot: { baseColor: 1024, normal: 512, metallicRoughness: 512, occlusion: 512, emissive: 1024 }, default: 1024,
   });
 });
 
