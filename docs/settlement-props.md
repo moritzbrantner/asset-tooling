@@ -70,10 +70,23 @@ In a live Blender session, run `outpost.py` and `settlement_props.py` into two n
 | `settlement.props.watchtower-ruin` | street | 576 | 5.43 × 6.27 × 3.50 | `wall0` … `wall15` | The stump of a round stone watchtower 4.6 m across, its 0.55 m wall broken off between 1.2 and 3.5 m, a doorway gap toward +Z, rubble around. One box proxy per wall segment (15); the inside is open ground. |
 | `settlement.props.bridge-railing` | street | 132 | 3.00 × 0.19 × 1.07 | `railing` | A weathered 3 m timber railing segment along X for a bridge deck's edge, half a post at each end (`module` width 3), a sagging top rail, a broken mid rail and a leaning centre post. |
 | `settlement.props.stall-awning` | market | 1,146 | 2.90 × 1.81 × 2.64 | `counter`, `awning` | A market stall variant: a 2.4 m trestle counter with baskets of produce, loaves and a crate below, under a red canvas gable awning with a light pointed valance, ridge along X. |
+| `settlement.props.bread-basket` | market | 424 | 0.56 × 0.56 × 0.24 | `basket` | A wide, shallow wicker bread basket ([#669](https://github.com/moritzbrantner/asset-tooling/issues/669)) heaped with five round loaves and two long ones; for a counter or the ground. |
+| `settlement.props.cheese-board` | market | 260 | 0.80 × 0.45 × 0.23 | `board` | A plank cheese board for a counter: two stacked wheels, a cut wheel with its wedge beside it and a knife. |
+| `settlement.props.fish-crate` | market | 936 | 0.70 × 0.51 × 0.24 | `crate` | A shallow plank fish crate on straw, heaped with a dozen grey fish. |
+| `settlement.props.apple-crate` | market | 630 | 0.60 × 0.56 × 0.42 | `crate` | A slatted crate heaped with red, yellow and green apples, two rolled out in front. |
+| `settlement.props.hanging-meats` | market | 660 | 1.70 × 0.50 × 1.98 | `frame` | A 1.5 m timber hanging frame for a butcher's or smokehouse front: two hams and three strings of sausages on cords from a crossbar at 1.9 m. |
+| `settlement.props.cask-rack` | market | 1,234 | 1.40 × 0.80 × 1.02 | `rack` | Three wine and ale casks lying head-out toward +Z on a timber gantry, two on the rails with wooden taps, one in the groove above. |
+| `settlement.props.merchant-scale` | market | 454 | 0.90 × 0.40 × 1.24 | `scale` | A merchant's balance: a turned post on a stepped base, an iron beam with two brass pans on chains and a row of weights. |
+| `settlement.props.cloth-bolts` | market | 624 | 1.20 × 0.80 × 0.94 | `table` | A draper's trestle table stacked with folded bolts of cloth in four colours, two more bolts leaning against its front. |
+| `settlement.props.pottery` | market | 786 | 1.08 × 0.71 × 0.66 | `jar`, `ware` | A group of terracotta ware: a tall storage jar, two handled jugs, a wide pot, a pitcher and a stack of bowls. |
+| `settlement.props.anvil` | dressing | 322 | 0.97 × 0.60 × 0.78 | `anvil`, `bucket` | A blacksmith's anvil on an elm stump, horn toward +X, a hammer and tongs leaning on the stump and a quench bucket beside it. |
+| `settlement.props.grindstone` | dressing | 500 | 1.16 × 0.69 × 1.16 | `grindstone` | A 0.76 m sandstone grindstone on an iron axle between timber uprights, a crank toward +Z, a water trough below on splayed legs. |
+| `settlement.props.cooper-barrel` | dressing | 420 | 1.92 × 1.42 × 0.85 | `barrel` | A cooper's barrel being raised: fourteen staves gathered in two hoops at the foot and splayed open at the top, loose staves and a spare hoop beside it. The proxy covers only the barrel. |
 
 The village dressing from `barrel-group` down ([#657](https://github.com/moritzbrantner/asset-tooling/issues/657)) is for Greyhaven's villages, Barrowdown and Fenford. The existing `cart`, `firewood` and `planter` complement it.
 The interiors from `dresser` down ([#663](https://github.com/moritzbrantner/asset-tooling/issues/663)) furnish more walk-in farmhouses and Westmere Lodge's hall, beside the cottage furniture.
 The landmarks from `shrine` down ([#665](https://github.com/moritzbrantner/asset-tooling/issues/665)) mark Greyhaven's roads, crossings and market corners.
+The market goods and workshops from `bread-basket` down ([#669](https://github.com/moritzbrantner/asset-tooling/issues/669)) stock Greyhaven's stalls, shops and smithies.
 
 The numbers are from the build of 2026-10-24. The descriptor carries the measured values of each build. The budgets in `SETTLEMENT_TRIANGLE_BUDGET` are for the Greyhaven camera (12 m, 0.42 rad pitch, 50° fov).
 
@@ -101,10 +114,11 @@ The props use the kit's wood, stone and shingle texture sets (colour, normal and
 - `soil` and `leaf`: the planter;
 - `endgrain`: the billet ends;
 - `horn`: the lantern panes;
-- `straw`: the hay bale and haystack;
-- `monolith`: the standing stone, a plain weathered grey where coursed masonry would read wrong.
+- `straw`: the hay bale, haystack, bread basket and fish-crate bedding;
+- `monolith`: the standing stone, the grindstone and the fish, a plain weathered grey where coursed masonry would read wrong;
+- `clay`: the terracotta pottery and the sausages.
 
-Every face has backface culling. In the bundle there are 9 KTX2 textures in all, each stored once. Repeated props in a scene share their GLB resources. The tar is about 1.4 MB.
+Every face has backface culling. In the bundle there are 9 KTX2 textures in all, each stored once. Repeated props in a scene share their GLB resources. The tar is about 4.1 MB.
 
 **Determinism:** there is no randomness. Variation comes from SHA-256 of fixed keys, through the kit's `rnd`.
 

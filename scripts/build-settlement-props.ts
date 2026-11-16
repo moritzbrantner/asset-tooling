@@ -23,6 +23,8 @@ export const SETTLEMENT_PROPS = [
   "chopping-block", "washing-line", "flower-tub", "vegetable-bed", "kennel",
   "dresser", "settle", "rug", "cooking-pot", "jar-shelf", "spinning-wheel", "cradle", "hall-table",
   "shrine", "standing-stone", "watchtower-ruin", "bridge-railing", "stall-awning",
+  "bread-basket", "cheese-board", "fish-crate", "apple-crate", "hanging-meats", "cask-rack", "merchant-scale", "cloth-bolts",
+  "pottery", "anvil", "grindstone", "cooper-barrel",
 ] as const;
 export type SettlementProp = (typeof SETTLEMENT_PROPS)[number];
 export type SettlementFamily = "market" | "street" | "dressing";
@@ -38,6 +40,9 @@ export const SETTLEMENT_FAMILY: Record<SettlementProp, SettlementFamily> = {
   dresser: "dressing", settle: "dressing", rug: "dressing", "cooking-pot": "dressing", "jar-shelf": "dressing",
   "spinning-wheel": "dressing", cradle: "dressing", "hall-table": "dressing",
   shrine: "street", "standing-stone": "street", "watchtower-ruin": "street", "bridge-railing": "street", "stall-awning": "market",
+  "bread-basket": "market", "cheese-board": "market", "fish-crate": "market", "apple-crate": "market", "hanging-meats": "market",
+  "cask-rack": "market", "merchant-scale": "market", "cloth-bolts": "market", pottery: "market",
+  anvil: "dressing", grindstone: "dressing", "cooper-barrel": "dressing",
 };
 export const SETTLEMENT_KEY_PREFIX = "settlement.props";
 export const SETTLEMENT_VARIANT = "default";
@@ -56,6 +61,8 @@ export const SETTLEMENT_TRIANGLE_BUDGET: Record<SettlementProp, number> = {
   kennel: 400, dresser: 850, settle: 400, rug: 350, "cooking-pot": 800, "jar-shelf": 900, "spinning-wheel": 600,
   cradle: 350, "hall-table": 900,
   shrine: 700, "standing-stone": 500, "watchtower-ruin": 700, "bridge-railing": 200, "stall-awning": 1200,
+  "bread-basket": 500, "cheese-board": 350, "fish-crate": 1000, "apple-crate": 700, "hanging-meats": 750, "cask-rack": 1300,
+  "merchant-scale": 550, "cloth-bolts": 700, pottery: 900, anvil: 400, grindstone: 600, "cooper-barrel": 500,
 };
 /** Recipe observations copied into the descriptor when a prop declares them. */
 const EXTRAS = ["stackTop", "sign", "light", "seat", "module"] as const;
