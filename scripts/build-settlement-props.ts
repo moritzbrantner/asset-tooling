@@ -18,14 +18,16 @@ import { buildKitPart, byKey, exportKitBundle, ktx2Assets, kitEntry, runKitCli, 
 
 export const SETTLEMENT_PROPS = [
   "stall", "cart", "crate", "barrel", "signpost", "lantern-post", "bench", "fence", "planter", "firewood", "footbridge",
+  "bed", "table", "chair", "chest", "hearth",
 ] as const;
 export type SettlementProp = (typeof SETTLEMENT_PROPS)[number];
-export type SettlementFamily = "market" | "street" | "dressing";
-/** mmorpg#421's three families: work/market props, street furniture and architectural dressing. */
+export type SettlementFamily = "market" | "street" | "dressing" | "furniture";
+/** mmorpg#421's three families: work/market props, street furniture and architectural dressing; and cottage furniture (mmorpg#843). */
 export const SETTLEMENT_FAMILY: Record<SettlementProp, SettlementFamily> = {
   stall: "market", cart: "market", crate: "market", barrel: "market",
   signpost: "street", "lantern-post": "street", bench: "street",
   fence: "dressing", planter: "dressing", firewood: "dressing", footbridge: "street",
+  bed: "furniture", table: "furniture", chair: "furniture", chest: "furniture", hearth: "furniture",
 };
 export const SETTLEMENT_KEY_PREFIX = "settlement.props";
 export const SETTLEMENT_VARIANT = "default";
@@ -38,9 +40,10 @@ export const SETTLEMENT_TAR_NAME = "settlement.props.tar";
 export const SETTLEMENT_TRIANGLE_BUDGET: Record<SettlementProp, number> = {
   stall: 1400, cart: 1600, crate: 300, barrel: 500, signpost: 450, "lantern-post": 400, bench: 350,
   fence: 250, planter: 600, firewood: 1200, footbridge: 2400,
+  bed: 500, table: 700, chair: 250, chest: 250, hearth: 900,
 };
 /** Recipe observations copied into the descriptor when a prop declares them. */
-const EXTRAS = ["stackTop", "sign", "light", "seat", "module"] as const;
+const EXTRAS = ["stackTop", "sign", "light", "seat", "module", "sleep", "top", "fire"] as const;
 
 export const settlementKey = (prop: SettlementProp) => `${SETTLEMENT_KEY_PREFIX}.${prop}`;
 
