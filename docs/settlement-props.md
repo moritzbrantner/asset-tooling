@@ -65,9 +65,15 @@ In a live Blender session, run `outpost.py` and `settlement_props.py` into two n
 | `settlement.props.spinning-wheel` | dressing | 480 | 0.95 × 0.39 × 1.10 | `spinning-wheel` | A spinning wheel on a slanted three-legged bench: the spoked wheel to +X, the treadle in front, the flyer to −X and a distaff of wool. |
 | `settlement.props.cradle` | dressing | 240 | 1.04 × 0.48 × 0.61 | `cradle` | A rocking cradle on two rockers, hooded head to −X, bedding and a blanket. |
 | `settlement.props.hall-table` | dressing | 884 | 3.60 × 0.90 × 1.01 | `table` | A long trestle table for Westmere Lodge's hall, top 0.78 m up on three trestles, laid with platters, a loaf, tankards, bowls and a candle. |
+| `settlement.props.shrine` | street | 590 | 0.84 × 0.78 × 2.25 | `plinth`, `pillar` | A roadside shrine facing +Z ([#665](https://github.com/moritzbrantner/asset-tooling/issues/665)): a coursed stone pillar on a stepped plinth, a gabled timber niche with a figure and a candle at 1.5 m, an offering bowl of flowers on the step. |
+| `settlement.props.standing-stone` | street | 452 | 1.63 × 1.22 × 2.40 | `stone` | A 2.4 m weathered standing stone, its broad face to +Z carved with a spiral and a column of runes, fallen stones at its foot. |
+| `settlement.props.watchtower-ruin` | street | 576 | 5.43 × 6.27 × 3.50 | `wall0` … `wall15` | The stump of a round stone watchtower 4.6 m across, its 0.55 m wall broken off between 1.2 and 3.5 m, a doorway gap toward +Z, rubble around. One box proxy per wall segment (15); the inside is open ground. |
+| `settlement.props.bridge-railing` | street | 132 | 3.00 × 0.19 × 1.07 | `railing` | A weathered 3 m timber railing segment along X for a bridge deck's edge, half a post at each end (`module` width 3), a sagging top rail, a broken mid rail and a leaning centre post. |
+| `settlement.props.stall-awning` | market | 1,146 | 2.90 × 1.81 × 2.64 | `counter`, `awning` | A market stall variant: a 2.4 m trestle counter with baskets of produce, loaves and a crate below, under a red canvas gable awning with a light pointed valance, ridge along X. |
 
 The village dressing from `barrel-group` down ([#657](https://github.com/moritzbrantner/asset-tooling/issues/657)) is for Greyhaven's villages, Barrowdown and Fenford. The existing `cart`, `firewood` and `planter` complement it.
 The interiors from `dresser` down ([#663](https://github.com/moritzbrantner/asset-tooling/issues/663)) furnish more walk-in farmhouses and Westmere Lodge's hall, beside the cottage furniture.
+The landmarks from `shrine` down ([#665](https://github.com/moritzbrantner/asset-tooling/issues/665)) mark Greyhaven's roads, crossings and market corners.
 
 The numbers are from the build of 2026-10-24. The descriptor carries the measured values of each build. The budgets in `SETTLEMENT_TRIANGLE_BUDGET` are for the Greyhaven camera (12 m, 0.42 rad pitch, 50° fov).
 
@@ -95,7 +101,8 @@ The props use the kit's wood, stone and shingle texture sets (colour, normal and
 - `soil` and `leaf`: the planter;
 - `endgrain`: the billet ends;
 - `horn`: the lantern panes;
-- `straw`: the hay bale and haystack.
+- `straw`: the hay bale and haystack;
+- `monolith`: the standing stone, a plain weathered grey where coursed masonry would read wrong.
 
 Every face has backface culling. In the bundle there are 9 KTX2 textures in all, each stored once. Repeated props in a scene share their GLB resources. The tar is about 1.4 MB.
 
