@@ -1,0 +1,10 @@
+{
+  "script": "scripts/build-greyhaven-farm-animals.ts",
+  "blender": true,
+  "lfs": true,
+  "budget": {
+    "materials": 24,
+    "textureMemoryMB": 1,
+    "downloadMB": 3.5
+  }
+}

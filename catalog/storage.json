@@ -681,6 +681,18 @@
     },
     {
       "schemaVersion": 1,
+      "sourceId": "quaternius.farm-animals-pig-blend",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.farm-animals-pig-blend/Pig.blend"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.farm-animals-sheep-blend",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.farm-animals-sheep-blend/Sheep.blend"
+    },
+    {
+      "schemaVersion": 1,
       "sourceId": "quaternius.medieval-village-megakit-standard.corner-exterior-wood-bin",
       "storage": "git-lfs",
       "path": "assets/canonical/quaternius.medieval-village-megakit-standard.corner-exterior-wood-bin/Corner_Exterior_Wood.bin"
@@ -1122,6 +1134,24 @@
       "sourceId": "quaternius.stylized-nature-megakit-standard.rocks-diffuse-png",
       "storage": "git-lfs",
       "path": "assets/canonical/quaternius.stylized-nature-megakit-standard.rocks-diffuse-png/Rocks_Diffuse.png"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.ultimate-animated-animals-cow-glb",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.ultimate-animated-animals-cow-glb/Cow.glb"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.ultimate-animated-animals-donkey-glb",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.ultimate-animated-animals-donkey-glb/Donkey.glb"
+    },
+    {
+      "schemaVersion": 1,
+      "sourceId": "quaternius.ultimate-animated-animals-horse-glb",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.ultimate-animated-animals-horse-glb/Horse.glb"
     },
     {
       "schemaVersion": 1,

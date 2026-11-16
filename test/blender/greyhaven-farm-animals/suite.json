@@ -1,0 +1,12 @@
+{
+  "note": "The Greyhaven farm animals (#659): seven recipe runs, five over catalogued Quaternius sources, built twice for the same tar.",
+  "timeout": 20,
+  "ktx": false,
+  "lfs": [
+    "assets/canonical/quaternius.ultimate-animated-animals-cow-glb/**",
+    "assets/canonical/quaternius.ultimate-animated-animals-horse-glb/**",
+    "assets/canonical/quaternius.ultimate-animated-animals-donkey-glb/**",
+    "assets/canonical/quaternius.farm-animals-pig-blend/**",
+    "assets/canonical/quaternius.farm-animals-sheep-blend/**"
+  ]
+}
