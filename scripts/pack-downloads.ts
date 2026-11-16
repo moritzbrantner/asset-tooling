@@ -6,16 +6,17 @@
 // content-addressed `tex-<hash>.ktx2` files (KHR_texture_basisu): UASTC with Zstandard for normal maps, ETC1S
 // (BasisLZ) for colour (sRGB) and for the data maps (ORM, roughness, occlusion), all with mipmaps. With `--clips`,
 // that entry's animations go into one shared `<key>.clips.glb` (joints and clips, no meshes), and every download is
-// clip-less. Characters that share the skeleton play the clips by joint name. The bundle's JSON attachments are
+// clip-less. Characters that share the skeleton play the clips by joint name; the clips drop the channels no clip moves
+// off the rest pose and use meshopt's quaternion and exponential filters (#683). The bundle's JSON attachments are
 // copied as `<key>.<variant>.<attachment>.json`. `<name>.index.json` lists each download's files and bytes, so
 // a consumer fetches only what it uses. KTX2 encoding needs KTX-Software's `ktx` CLI (ASSET_TOOLING_KTX, or `ktx`
 // on PATH).
 import path from "node:path";
 import os from "node:os";
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
-import { NodeIO, type Document, type Texture } from "@gltf-transform/core";
+import { NodeIO, PropertyType, type AnimationChannel, type Document, type Texture } from "@gltf-transform/core";
 import { ALL_EXTENSIONS, KHRTextureBasisu } from "@gltf-transform/extensions";
-import { meshopt, prune } from "@gltf-transform/functions";
+import { dedup, meshopt, prune } from "@gltf-transform/functions";
 import { MeshoptDecoder, MeshoptEncoder } from "meshoptimizer";
 import { createAssetBundleReadSnapshot, readAssetBundleGltf, type GltfResourcesBundleManifest } from "../src/asset-bundle.js";
 import { sha256Bytes } from "../src/hash.js";
@@ -114,6 +115,50 @@ export function stripToClips(document: Document): Document {
   return document;
 }
 
+/** How far (per component) a channel's key may sit from its joint's rest value and still count as the rest pose. */
+export const CLIP_REST_TOLERANCE = 1e-5;
+
+/**
+ * Compact a clips document (#683) without changing what it plays: drop every channel whose joint and path no clip
+ * moves off the rest pose (a joint without a channel rests, in three.js's mixer and in mmorpg's native sampler), keep
+ * at least one channel per clip so its duration stays, and share identical accessors. Clip names, durations and the
+ * remaining keys stay as they are. Returns the channels dropped.
+ */
+export async function compactClips(document: Document): Promise<number> {
+  const root = document.getRoot();
+  const key = (channel: AnimationChannel) => `${root.listNodes().indexOf(channel.getTargetNode()!)}.${channel.getTargetPath()}`;
+  const moved = new Set<string>();
+  for (const animation of root.listAnimations()) {
+    for (const channel of animation.listChannels()) {
+      const node = channel.getTargetNode(), path = channel.getTargetPath(), output = channel.getSampler()?.getOutput();
+      if (!node || !output || moved.has(key(channel))) continue;
+      if (path !== "translation" && path !== "rotation" && path !== "scale") { moved.add(key(channel)); continue; }
+      const rest = path === "translation" ? node.getTranslation() : path === "rotation" ? node.getRotation() : node.getScale();
+      const value: number[] = [];
+      for (let index = 0; index < output.getCount(); index += 1) {
+        output.getElement(index, value);
+        // q and -q are the same rotation.
+        const sign = path === "rotation" && value.reduce((sum, component, k) => sum + component * rest[k]!, 0) < 0 ? -1 : 1;
+        if (value.some((component, k) => Math.abs(sign * component - rest[k]!) > CLIP_REST_TOLERANCE)) { moved.add(key(channel)); break; }
+      }
+    }
+  }
+  let dropped = 0;
+  for (const animation of root.listAnimations()) {
+    const channels = animation.listChannels();
+    const kept = channels.filter((channel) => moved.has(key(channel)));
+    for (const channel of channels) {
+      if (kept.includes(channel) || (kept.length === 0 && channel === channels[0])) continue;
+      const sampler = channel.getSampler();
+      channel.dispose();
+      if (sampler && sampler.listParents().every((parent) => parent === root || parent === animation)) sampler.dispose();
+      dropped += 1;
+    }
+  }
+  await document.transform(prune({ keepLeaves: true }), dedup({ propertyTypes: [PropertyType.ACCESSOR] }));
+  return dropped;
+}
+
 export async function packDownloads({ bundleDir, outDir, name, clips, log = () => {} }: {
   bundleDir: string; outDir: string; name: string; clips?: string; log?: (line: string) => void;
 }) {
@@ -141,9 +186,11 @@ export async function packDownloads({ bundleDir, outDir, name, clips, log = () =
       if (clips === id && root.listAnimations().length > 0) {
         // The shared clips: the skeleton's nodes and every animation, without meshes, skins or materials.
         const clipDocument = stripToClips(await io.readJSON({ json: JSON.parse(gltf.toString("utf8")), resources: Object.fromEntries([...resources].map(([uri, bytes]) => [uri, new Uint8Array(bytes)])) }));
-        await clipDocument.transform(meshopt({ encoder: MeshoptEncoder, level: "medium" }));
+        const dropped = await compactClips(clipDocument);
+        // `high` adds meshopt's filters (#683): 16-bit quaternions and 12-bit-mantissa translations and scales.
+        await clipDocument.transform(meshopt({ encoder: MeshoptEncoder, level: "high" }));
         clipsFile = await written(`${asset.key}.clips.glb`, await io.writeBinary(clipDocument));
-        log(`clips ${clipsFile} (${root.listAnimations().length} clips)`);
+        log(`clips ${clipsFile} (${root.listAnimations().length} clips, ${dropped} rest-pose channels dropped)`);
       }
       if (clips) {
         for (const animation of root.listAnimations()) {

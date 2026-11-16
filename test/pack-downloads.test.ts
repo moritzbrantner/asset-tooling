@@ -61,3 +61,41 @@ test("the shared clips keep only animation accessors: meshes, primitives and mor
   const report = await validateBytes(glb, { maxIssues: 0 });
   assert.equal(report.issues.numErrors, 0, JSON.stringify(report.issues.messages));
 });
+
+test("compacting the clips drops only the channels no clip moves off the rest pose, keeps names and durations, and validates (#683)", async () => {
+  const { Document, NodeIO } = await import("@gltf-transform/core");
+  const { ALL_EXTENSIONS } = await import("@gltf-transform/extensions");
+  const { meshopt } = await import("@gltf-transform/functions");
+  const { MeshoptDecoder, MeshoptEncoder } = await import("meshoptimizer");
+  const { validateBytes } = await import("gltf-validator");
+  const { compactClips } = await import("../scripts/pack-downloads.ts");
+  await MeshoptEncoder.ready;
+  const document = new Document();
+  const buffer = document.createBuffer();
+  const accessor = (type: "SCALAR" | "VEC3" | "VEC4", values: number[]) => document.createAccessor().setType(type).setArray(new Float32Array(values)).setBuffer(buffer);
+  const pelvis = document.createNode("pelvis").setTranslation([0, 1, 0]);
+  const finger = document.createNode("finger").setTranslation([0, 0.1, 0]).setRotation([0, 0, 0, 1]);
+  document.createScene().addChild(pelvis.addChild(finger));
+  const clip = (name: string, duration: number, channels: [typeof pelvis, "translation" | "rotation", number[]][]) => {
+    const animation = document.createAnimation(name);
+    const input = accessor("SCALAR", [0, duration]);
+    for (const [node, path, values] of channels) {
+      const sampler = document.createAnimationSampler().setInput(input).setOutput(accessor(path === "rotation" ? "VEC4" : "VEC3", values));
+      animation.addSampler(sampler).addChannel(document.createAnimationChannel().setTargetNode(node).setTargetPath(path).setSampler(sampler));
+    }
+  };
+  // The pelvis moves in Walk; the finger's translation never leaves its rest, and its rotation rests in Idle only.
+  clip("Walk", 1, [[pelvis, "translation", [0, 1, 0, 0, 1.1, 0]], [finger, "translation", [0, 0.1, 0, 0, 0.1, 0]], [finger, "rotation", [0, 0, 0, 1, 0, 0, 0, -1]]]);
+  clip("Idle", 2, [[pelvis, "translation", [0, 1, 0, 0, 1, 0]], [finger, "translation", [0, 0.1, 0, 0, 0.1, 0]], [finger, "rotation", [0, 0, 0, 1, 0, 0.5, 0, 0.866]]]);
+  clip("Rest", 0.5, [[finger, "translation", [0, 0.1, 0, 0, 0.1, 0]]]);
+  assert.equal(await compactClips(document), 2);
+  const channels = Object.fromEntries(document.getRoot().listAnimations().map((animation) => [animation.getName(),
+    animation.listChannels().map((channel) => `${channel.getTargetNode()!.getName()}.${channel.getTargetPath()}`)]));
+  assert.deepEqual(channels, { Walk: ["pelvis.translation", "finger.rotation"], Idle: ["pelvis.translation", "finger.rotation"], Rest: ["finger.translation"] });
+  const durations = document.getRoot().listAnimations().map((animation) => Math.max(...animation.listSamplers().map((sampler) => sampler.getInput()!.getMax([])[0]!)));
+  assert.deepEqual(durations, [1, 2, 0.5]);
+  const io = new NodeIO().registerExtensions(ALL_EXTENSIONS).registerDependencies({ "meshopt.encoder": MeshoptEncoder, "meshopt.decoder": MeshoptDecoder });
+  await document.transform(meshopt({ encoder: MeshoptEncoder, level: "high" }));
+  const report = await validateBytes(await io.writeBinary(document), { maxIssues: 0 });
+  assert.equal(report.issues.numErrors, 0, JSON.stringify(report.issues.messages));
+});
