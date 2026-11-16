@@ -38,7 +38,8 @@ PROPS = ("stall", "cart", "crate", "barrel", "signpost", "lantern-post", "bench"
          "dresser", "settle", "rug", "cooking-pot", "jar-shelf", "spinning-wheel", "cradle", "hall-table",
          "shrine", "standing-stone", "watchtower-ruin", "bridge-railing", "stall-awning",
          "bread-basket", "cheese-board", "fish-crate", "apple-crate", "hanging-meats", "cask-rack", "merchant-scale",
-         "cloth-bolts", "pottery", "anvil", "grindstone", "cooper-barrel")
+         "cloth-bolts", "pottery", "anvil", "grindstone", "cooper-barrel",
+         "table-set", "candles", "candelabra", "inn-sign", "stool", "bar-counter", "log-stack", "wall-shield", "wall-trophy")
 FAMILY = {"stall": "market", "cart": "market", "crate": "market", "barrel": "market", "signpost": "street",
           "lantern-post": "street", "bench": "street", "fence": "dressing", "planter": "dressing", "firewood": "dressing",
           "footbridge": "street", "bed": "dressing", "table": "dressing", "chair": "dressing", "chest": "dressing",
@@ -52,7 +53,10 @@ FAMILY = {"stall": "market", "cart": "market", "crate": "market", "barrel": "mar
           "stall-awning": "market",
           **{prop: "market" for prop in ("bread-basket", "cheese-board", "fish-crate", "apple-crate", "hanging-meats",
                                          "cask-rack", "merchant-scale", "cloth-bolts", "pottery")},
-          "anvil": "dressing", "grindstone": "dressing", "cooper-barrel": "dressing"}
+          "anvil": "dressing", "grindstone": "dressing", "cooper-barrel": "dressing",
+          **{prop: "dressing" for prop in ("table-set", "candles", "candelabra", "stool", "bar-counter", "log-stack",
+                                           "wall-shield", "wall-trophy")},
+          "inn-sign": "street"}
 
 # Plain-colour materials the props add to the kit's: (sRGB base colour, metallic, roughness, texture).
 EXTRA_MATERIALS = {
@@ -1519,7 +1523,7 @@ def build_pottery(part, col, root):
     ware(-0.35, -0.12, [(0, 0.12), (0.12, 0.2), (0.35, 0.22), (0.55, 0.14), (0.62, 0.09), (0.66, 0.1), (0.66, 0.0)], "pottery/jar")
     for k, (x, z, h) in enumerate(((0.05, -0.15, 0.36), (0.25, 0.05, 0.3))):
         ware(x, z, [(0, 0.07), (h * 0.35, 0.11), (h * 0.7, 0.08), (h * 0.88, 0.045), (h, 0.055), (h, 0.0)], f"pottery/jug{k}", 9)
-        placed(b, Matrix.Translation((x + 0.1, h * 0.62, z)) @ Matrix.Rotation(math.pi / 2, 4, "X"), lambda k=k: ring(b, 0.04, 0.055, -0.012, 0.012, 6, "clay", f"pottery/handle{k}"))
+        placed(b, Matrix.Translation((x + 0.1, h * 0.62, z)), lambda k=k: ring(b, 0.04, 0.055, -0.012, 0.012, 6, "clay", f"pottery/handle{k}"))
     ware(-0.05, 0.2, [(0, 0.1), (0.1, 0.17), (0.2, 0.18), (0.24, 0.15), (0.24, 0.0)], "pottery/pot", 12)
     ware(0.42, -0.2, [(0, 0.06), (0.15, 0.09), (0.27, 0.06), (0.3, 0.075), (0.3, 0.0)], "pottery/pitcher", 9)
     for j in range(4):
@@ -1602,6 +1606,217 @@ def build_cooper_barrel(part, col, root):
     return {"collisionProxies": [proxy("barrel", (-r1, 0, -r1), (r1, H, r1))]}
 
 
+# ---------------------------------------------------------------- inn and hall clutter (#671)
+
+def tankard(b, center, mat, key, handle_yaw=0.0):
+    """A lidless tankard 0.13 m tall, ``center`` on its base, its handle turned ``handle_yaw`` from +X."""
+    placed(b, Matrix.Translation(Vector(center)), lambda: lathe(
+        b, [(0, 0.045), (0.012, 0.047), (0.12, 0.042), (0.13, 0.044), (0.13, 0.036), (0.03, 0)], 7, mat, f"{key}/body"))
+    placed(b, Matrix.Translation(Vector(center)) @ Matrix.Rotation(handle_yaw, 4, "Y") @ Matrix.Translation((0.05, 0.07, 0)),
+           lambda: ring(b, 0.028, 0.04, -0.008, 0.008, 5, mat, f"{key}/handle"))
+
+
+def platter(b, center, radius, mat, key):
+    placed(b, Matrix.Translation(Vector(center)), lambda: lathe(
+        b, [(0, radius * 0.75), (0.012, radius), (0.016, radius * 0.95), (0.008, 0)], 8, mat, key))
+
+
+def build_table_set(part, col, root):
+    """Inn table dressing for a 1.2 x 0.6 m tabletop, its origin on the top: four places of plates and tankards (two
+    pewter, two turned wood), a jug, a loaf on a board and a candle stub. Place it on any table."""
+    b = K["Builder"](f"settlement.{part}.mesh")
+    for k, (x, z, mat) in enumerate(((-0.4, 0.18, "iron"), (0.35, 0.17, "timber"), (-0.3, -0.18, "timber"), (0.42, -0.17, "iron"))):
+        platter(b, (x, 0, z), 0.11, "endgrain", f"set/plate{k}")
+        bun(b, (x + 0.02, 0.01, z - 0.01), 0.04, f"set/food{k}")
+        tankard(b, (x + (0.16 if x < 0 else -0.16), 0, z + (0.06 if z > 0 else -0.06)), mat, f"set/tankard{k}", handle_yaw=math.pi if x > 0 else 0.0)
+    placed(b, Matrix.Translation((0.02, 0, 0.0)), lambda: lathe(
+        b, [(0, 0.06), (0.1, 0.08), (0.17, 0.05), (0.21, 0.04), (0.24, 0.05), (0.24, 0.0)], 9, "clay", "set/jug"))
+    b.block((-0.16, 0, -0.06), (-0.02, 0.02, 0.06), "wood", 0.005, "set/board")
+    loaf(b, (-0.09, 0.02 + 0.045, 0.0), 0.16, 0.06, 0.2, "set/loaf")
+    placed(b, Matrix.Translation((0.14, 0, 0.0)), lambda: lathe(b, [(0, 0.04), (0.012, 0.04), (0.012, 0)], 6, "iron", "set/candle-dish"))
+    placed(b, Matrix.Translation((0.14, 0.012, 0.0)), lambda: lathe(b, [(0, 0.016), (0.07, 0.015), (0.075, 0.0)], 6, "canvas", "set/candle"))
+    b.finish(col, root)
+    return {"collisionProxies": [proxy("set", (-0.6, 0, -0.3), (0.6, 0.24, 0.3))]}
+
+
+def candle(b, x, y, z, height, key):
+    """A wax candle standing at (x, y, z) with a small flame; returns the flame's position."""
+    placed(b, Matrix.Translation((x, y, z)), lambda: lathe(b, [(0, 0.018), (height, 0.016), (height + 0.006, 0.0)], 6, "canvas", f"{key}/wax"))
+    placed(b, Matrix.Translation((x, y + height + 0.004, z)), lambda: lathe(b, [(0, 0.0), (0.012, 0.009), (0.035, 0.0)], 5, "horn", f"{key}/flame"))
+    return (x, y + height + 0.02, z)
+
+
+def build_candles(part, col, root):
+    """Three candles of different heights on a pewter dish with a ring handle, 0.25 m across, for a table, shelf or
+    mantel. Its ``light`` node is at the tallest flame."""
+    b = K["Builder"](f"settlement.{part}.mesh")
+    lathe(b, [(0, 0.1), (0.012, 0.12), (0.02, 0.118), (0.008, 0.0)], 10, "iron", "candles/dish")
+    placed(b, Matrix.Translation((0.14, 0.01, 0)) @ Matrix.Rotation(math.pi / 2, 4, "X"), lambda: ring(b, 0.02, 0.032, -0.005, 0.005, 6, "iron", "candles/ring"))
+    flames = [candle(b, x, 0.012, z, h, f"candles/c{k}") for k, (x, z, h) in enumerate(((-0.03, -0.02, 0.2), (0.04, 0.0, 0.13), (-0.01, 0.05, 0.08)))]
+    b.finish(col, root)
+    light = r6(flames[0])
+    K["empty"]("light", col, root, tuple(light))
+    return {"light": {"node": "light", "position": light}, "collisionProxies": [proxy("dish", (-0.12, 0, -0.12), (0.12, 0.24, 0.12))]}
+
+
+def build_candelabra(part, col, root):
+    """A 1.5 m wrought-iron floor candelabrum for a hall: three splayed feet, a twisted shaft and a crossarm of three
+    drip cups with candles. Its ``light`` node is at the middle flame."""
+    b = K["Builder"](f"settlement.{part}.mesh")
+    for k in range(3):
+        a = math.tau * k / 3 + math.pi / 2
+        rod(b, (0, 0.18, 0), (0.28 * math.cos(a), 0.0135, -0.28 * math.sin(a)), 0.016, 5, "iron", f"candelabra/foot{k}")
+        placed(b, Matrix.Translation((0.28 * math.cos(a), 0, -0.28 * math.sin(a))), lambda k=k: lathe(b, [(0, 0.035), (0.02, 0.03), (0.03, 0.0)], 6, "iron", f"candelabra/pad{k}"))
+    lathe(b, [(0.15, 0.04), (0.2, 0.025), (1.3, 0.018), (1.33, 0.03), (1.36, 0.018), (1.42, 0.02)], 6, "iron", "candelabra/shaft")
+    b.box((-0.32, 1.36, -0.014), (0.32, 1.39, 0.014), "iron", "candelabra/arm", grain=(1, 0, 0))
+    flames = []
+    for k, x in enumerate((-0.3, 0.0, 0.3)):
+        y = 1.42 if x == 0 else 1.39
+        placed(b, Matrix.Translation((x, y, 0)), lambda k=k: lathe(b, [(0, 0.01), (0.015, 0.05), (0.025, 0.055), (0.025, 0.0)], 8, "iron", f"candelabra/cup{k}"))
+        flames.append(candle(b, x, y + 0.02, 0, 0.18 if x == 0 else 0.14, f"candelabra/c{k}"))
+        if x:
+            rod(b, (x * 0.55, 1.38, 0), (x, 1.39, 0), 0.01, 4, "iron", f"candelabra/scroll{k}")
+    b.finish(col, root)
+    light = r6(flames[1])
+    K["empty"]("light", col, root, tuple(light))
+    return {"light": {"node": "light", "position": light}, "collisionProxies": [proxy("candelabrum", (-0.3, 0, -0.3), (0.3, light[1] + 0.03, 0.3))]}
+
+
+def build_inn_sign(part, col, root):
+    """A blank hanging inn sign for a wall at −Z: a timber wall plate and a braced iron bracket reaching 1.1 m out
+    toward +Z, a 0.7 x 0.55 m board hanging edge-on to the wall so it faces ±X, blank inside a dark painted border.
+    The origin is the foot of the wall plate; mount it on a wall about 2.4 m up. Its ``sign`` node is at the
+    board's centre for a consumer's painted emblem."""
+    b = K["Builder"](f"settlement.{part}.mesh")
+    b.block((-0.09, 0, 0), (0.09, 0.9, 0.05), "timber", 0.01, "inn/plate", grain=(0, 1, 0))
+    arm_y, reach = 0.8, 1.1
+    b.box((-0.018, arm_y, 0.05), (0.018, arm_y + 0.04, reach), "iron", "inn/arm", grain=(0, 0, 1))
+    tilted(b, (0, 0, 0), 0, -math.pi / 2, lambda: b.beam((0.05, 0.12), (0.7, arm_y), 0.03, -0.014, 0.014, "iron", "inn/stay"))
+    placed(b, Matrix.Translation((0, arm_y + 0.02, reach)), lambda: lathe(b, [(0, 0.025), (0.03, 0.0)], 5, "iron", "inn/finial"))
+    board = {"z0": 0.32, "z1": 1.02, "y0": 0.1, "y1": 0.65}
+    for z in (board["z0"] + 0.06, board["z1"] - 0.06):
+        b.box((-0.01, board["y1"], z - 0.01), (0.01, arm_y, z + 0.01), "iron", f"inn/hanger{z}")
+    b.block((-0.025, board["y0"], board["z0"]), (0.025, board["y1"], board["z1"]), "wood", 0.01, "inn/board", grain=(0, 0, 1))
+    for s in (-1, 1):
+        x0, x1 = (0.025, 0.031) if s > 0 else (-0.031, -0.025)
+        b.box((x0, board["y0"] + 0.04, board["z0"] + 0.04), (x1, board["y1"] - 0.04, board["z1"] - 0.04), "soot", f"inn/border{s}", grain=(0, 0, 1))
+        x0, x1 = (0.027, 0.034) if s > 0 else (-0.034, -0.027)
+        b.box((x0, board["y0"] + 0.065, board["z0"] + 0.065), (x1, board["y1"] - 0.065, board["z1"] - 0.065), "canvas", f"inn/blank{s}", grain=(0, 0, 1))
+    b.finish(col, root)
+    centre = (0.0, (board["y0"] + board["y1"]) / 2, (board["z0"] + board["z1"]) / 2)
+    K["empty"]("sign", col, root, centre)
+    return {"sign": {"node": "sign", "board": {"min": [-0.034, board["y0"], board["z0"]], "max": [0.034, board["y1"], board["z1"]]}},
+            "collisionProxies": [proxy("bracket", (-0.09, 0, 0), (0.09, arm_y + 0.06, reach + 0.03))]}
+
+
+def build_stool(part, col, root):
+    """A three-legged round tavern stool, its seat 0.45 m up and 0.32 m across, with a stretcher ring."""
+    b = K["Builder"](f"settlement.{part}.mesh")
+    seat = 0.45
+    lathe(b, [(seat - 0.045, 0.15), (seat - 0.01, 0.16), (seat, 0.155), (seat, 0.0)], 12, "wood", "stool/seat", cap_mat="endgrain")
+    for k in range(3):
+        a = math.tau * k / 3 + 0.3
+        rod(b, (0.08 * math.cos(a), seat - 0.04, -0.08 * math.sin(a)), (0.17 * math.cos(a), 0.0042, -0.17 * math.sin(a)), 0.02, 6, "timber", f"stool/leg{k}")
+        c = math.tau * (k + 1) / 3 + 0.3
+        rod(b, (0.135 * math.cos(a), 0.16, -0.135 * math.sin(a)), (0.135 * math.cos(c), 0.16, -0.135 * math.sin(c)), 0.012, 5, "timber", f"stool/rung{k}")
+    b.finish(col, root)
+    return {"seat": {"height": seat, "length": 0.32, "depth": 0.32}, "collisionProxies": [proxy("stool", (-0.17, 0, -0.17), (0.17, seat, 0.17))]}
+
+
+BAR_MODULE = 2.0
+
+
+def build_bar_counter(part, col, root):
+    """A 2 m inn bar counter segment along X: a panelled front toward the room at +Z, a 1.05 m oak top overhanging
+    it, a footrail, and behind it (−Z) a pot shelf with a few tankards. Segments chain end to end."""
+    b = K["Builder"](f"settlement.{part}.mesh")
+    hw, top, d = BAR_MODULE / 2, 1.05, 0.6
+    b.block((-hw, top - 0.05, -d / 2), (hw, top, d / 2 + 0.06), "wood", 0.012, "bar/top", grain=(1, 0, 0))
+    b.box((-hw, 0, d / 2 - 0.04), (hw, top - 0.05, d / 2), "wood", "bar/front", grain=(0, 1, 0))
+    for k in range(5):
+        x = -hw + k * BAR_MODULE / 4
+        x0, x1 = (x, x + 0.04) if k == 0 else ((x - 0.04, x) if k == 4 else (x - 0.035, x + 0.035))
+        b.box((x0, 0.0, d / 2), (x1, top - 0.05, d / 2 + 0.025), "timber", f"bar/stile{k}", grain=(0, 1, 0))
+    for y0, y1 in ((0.0, 0.12), (top - 0.17, top - 0.05)):
+        b.box((-hw, y0, d / 2), (hw, y1, d / 2 + 0.03), "timber", f"bar/rail{y0}", grain=(1, 0, 0))
+    b.box((-hw, 0, -d / 2), (hw, 0.08, d / 2 - 0.04), "timber", "bar/plinth", grain=(1, 0, 0))
+    for x in (-hw + 0.03, 0.0, hw - 0.03):
+        b.box((x - 0.03, 0.08, -d / 2), (x + 0.03, top - 0.05, -d / 2 + 0.06), "timber", f"bar/post{x}", grain=(0, 1, 0))
+    shelf = 0.55
+    b.box((-hw, shelf - 0.03, -d / 2), (hw, shelf, d / 2 - 0.04), "wood", "bar/shelf", grain=(1, 0, 0))
+    for k, x in enumerate((-0.7, -0.55, 0.3, 0.45, 0.6)):
+        tankard(b, (x, shelf, -0.1), ("iron", "timber")[k % 2], f"bar/tankard{k}")
+    for x in (-0.75, 0.75):
+        b.box((x - 0.02, 0.12, d / 2 + 0.03), (x + 0.02, 0.2, d / 2 + 0.16), "iron", f"bar/rail-bracket{x}", grain=(0, 0, 1))
+    rod(b, (-hw, 0.18, d / 2 + 0.14), (hw, 0.18, d / 2 + 0.14), 0.02, 6, "iron", "bar/footrail")
+    b.finish(col, root)
+    return {"module": {"width": BAR_MODULE, "height": top},
+            "collisionProxies": [proxy("counter", (-hw, 0, -d / 2), (hw, top, d / 2 + 0.06))]}
+
+
+def build_log_stack(part, col, root):
+    """Firewood stacked by a hearth: about 0.9 x 0.45 m of split logs between two iron log-dogs on the floor, and a
+    kindling basket beside it toward +X."""
+    b = K["Builder"](f"settlement.{part}.mesh")
+    L = 0.45
+    for k in range(4):
+        x = -0.36 + 0.24 * k
+        b.box((x - 0.015, 0, -L / 2 + 0.02), (x + 0.015, 0.03, L / 2 - 0.02), "iron", f"logs/dog{k}", grain=(0, 0, 1))
+    rows = ((0.03, (-0.33, -0.17, -0.01, 0.15)), (0.17, (-0.25, -0.09, 0.07)), (0.31, (-0.17, 0.0)))
+    for r_, (y, xs) in enumerate(rows):
+        for j, x in enumerate(xs):
+            key = f"logs/log{r_}{j}"
+            r = 0.07 + 0.01 * rnd(key, "r")
+            placed(b, Matrix.Translation((x, y + r * 0.95, -L / 2)) @ Matrix.Rotation(math.pi / 2, 4, "X") @ Matrix.Rotation(rnd(key, "a") * 6, 4, "Y"),
+                   lambda key=key, r=r: lathe(b, [(0, r), (L, r * 0.95)], 6, "wood", key, cap_mat="endgrain", jitter=0.08))
+    placed(b, Matrix.Translation((0.48, 0, 0.0)), lambda: lathe(b, [(0, 0.13), (0.3, 0.17), (0.3, 0.155), (0.04, 0.12)], 10, "straw", "logs/basket"))
+    for k in range(5):
+        a = k * 1.25
+        tilted(b, (0.48 + 0.06 * math.cos(a), 0.05, 0.06 * math.sin(a)), 0.12 * math.sin(a), 0.12 * math.cos(a), lambda k=k: b.box(
+            (-0.015, 0, -0.015), (0.015, 0.36, 0.015), "timber", f"logs/kindling{k}", grain=(0, 1, 0)))
+    b.finish(col, root)
+    return {"collisionProxies": [proxy("logs", (-0.42, 0, -L / 2), (0.66, 0.45, L / 2))]}
+
+
+def build_wall_shield(part, col, root):
+    """A round painted shield over two crossed spears, 1.4 m across, for a wall at −Z (its back at z = 0, facing
+    +Z). The origin is the bottom of its back; mount it on the wall at the height you want."""
+    b = K["Builder"](f"settlement.{part}.mesh")
+    cy, R = 0.7, 0.36
+    for s in (-1, 1):
+        rod(b, (s * 0.62, 0.0099, 0.03), (-s * 0.62, cy + 0.62, 0.03), 0.014, 5, "timber", f"shield/spear{s}")
+        placed(b, Matrix.Translation((-s * 0.62, cy + 0.62, 0.03)) @ Matrix.Rotation(s * math.pi / 4, 4, "Z"),
+               lambda s=s: lathe(b, [(0, 0.018), (0.06, 0.035), (0.16, 0.0)], 4, "iron", f"shield/head{s}"))
+    placed(b, Matrix.Translation((0, cy, 0.05)) @ Matrix.Rotation(math.pi / 2, 4, "X"), lambda: lathe(
+        b, [(-0.02, R), (0.0, R + 0.01), (0.02, R), (0.035, R * 0.9), (0.05, 0.0)], 14, "dye", "shield/face", cap_mat="dye"))
+    placed(b, Matrix.Translation((0, cy, 0.05)), lambda: ring(
+        b, R - 0.015, R + 0.015, -0.025, 0.025, 14, "iron", "shield/rim"))
+    for k, (dx, dy) in enumerate(((0.0, 1.0), (1.0, 0.0))):
+        b.box((-0.03 if dx == 0 else -R + 0.02, cy - (R - 0.02 if dx == 0 else 0.03), 0.085), (0.03 if dx == 0 else R - 0.02, cy + (R - 0.02 if dx == 0 else 0.03), 0.095), "canvas", f"shield/cross{k}")
+    placed(b, Matrix.Translation((0, cy, 0.09)) @ Matrix.Rotation(math.pi / 2, 4, "X"), lambda: lathe(
+        b, [(0, 0.08), (0.04, 0.06), (0.06, 0.0)], 8, "iron", "shield/boss"))
+    b.finish(col, root)
+    return {"collisionProxies": [proxy("shield", (-0.62, 0, 0), (0.62, cy + 0.78, 0.16))]}
+
+
+def build_wall_trophy(part, col, root):
+    """A stag's antlers on a carved oak plaque for a wall at −Z (its back at z = 0, facing +Z), 0.95 m across. The
+    origin is the bottom of the plaque's back; mount it on the wall at the height you want."""
+    b = K["Builder"](f"settlement.{part}.mesh")
+    b.prism([(-0.16, 0.0), (0.16, 0.0), (0.2, 0.18), (0.16, 0.42), (0.0, 0.48), (-0.16, 0.42), (-0.2, 0.18)], 0.0, 0.05, "wood", "trophy/plaque", grain=(0, 1, 0))
+    placed(b, Matrix.Translation((0, 0.24, 0.05)) @ Matrix.Rotation(math.pi / 2, 4, "X"), lambda: lathe(
+        b, [(0, 0.08), (0.06, 0.075), (0.1, 0.05), (0.12, 0.0)], 8, "canvas", "trophy/skull"))
+    for s in (-1, 1):
+        pts = [(s * 0.05, 0.3, 0.12), (s * 0.18, 0.42, 0.14), (s * 0.3, 0.6, 0.12), (s * 0.4, 0.8, 0.08), (s * 0.44, 0.98, 0.05)]
+        for k, (a, c) in enumerate(zip(pts, pts[1:])):
+            rod(b, a, c, 0.022 - 0.004 * k, 5, "horn", f"trophy/beam{s}{k}")
+        for k, (i, dx, dy) in enumerate(((1, 0.02, 0.16), (2, -0.1, 0.14), (3, 0.06, 0.15), (3, -0.1, 0.12))):
+            p = pts[i]
+            rod(b, p, (p[0] + s * dx, p[1] + dy, p[2] + 0.03), 0.013, 4, "horn", f"trophy/tine{s}{k}")
+    b.finish(col, root)
+    return {"collisionProxies": [proxy("trophy", (-0.5, 0, 0), (0.5, 1.12, 0.2))]}
+
+
 BUILDERS = {"stall": build_stall, "cart": build_cart, "crate": build_crate_part, "barrel": build_barrel_part,
             "signpost": build_signpost, "lantern-post": build_lantern_post, "bench": build_bench,
             "fence": build_fence, "planter": build_planter, "firewood": build_firewood,
@@ -1618,7 +1833,10 @@ BUILDERS = {"stall": build_stall, "cart": build_cart, "crate": build_crate_part,
             "bread-basket": build_bread_basket, "cheese-board": build_cheese_board, "fish-crate": build_fish_crate,
             "apple-crate": build_apple_crate, "hanging-meats": build_hanging_meats, "cask-rack": build_cask_rack,
             "merchant-scale": build_merchant_scale, "cloth-bolts": build_cloth_bolts, "pottery": build_pottery,
-            "anvil": build_anvil, "grindstone": build_grindstone, "cooper-barrel": build_cooper_barrel}
+            "anvil": build_anvil, "grindstone": build_grindstone, "cooper-barrel": build_cooper_barrel,
+            "table-set": build_table_set, "candles": build_candles, "candelabra": build_candelabra, "inn-sign": build_inn_sign,
+            "stool": build_stool, "bar-counter": build_bar_counter, "log-stack": build_log_stack, "wall-shield": build_wall_shield,
+            "wall-trophy": build_wall_trophy}
 
 
 # ---------------------------------------------------------------- composition
