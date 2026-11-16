@@ -95,6 +95,19 @@ export const RANGER_POST_CLIPS = [
   "Idle_Variant_Shift", "Idle_Variant_Stretch", "Idle_Variant_Yawn",
 ] as const;
 /**
+ * #701 (#422's gathering and emotes, for players and residents): gathering loops, a chest opening and social emotes
+ * authored in place on the Ranger rig by adapters/blender/gather_clips.py from the `hand_r.weapon` frame (the wood axe,
+ * the hammer as a pick and the knife) and explicit palm frames (two-bone arm IK) and, for the full-body clips, pelvis
+ * and ankle targets (two-bone leg IK; the CC0 UAL1 seeds only as reference). The gathering loops and the chest are full
+ * body with a `secondaryPose`; the emotes keep only the `spine_01` subtree. `Emote_Wave` and the one-armed
+ * `Emote_Cheer` are the #421 social clips; `Emote_Cheer_Both` is the both-arms cheer. They follow the post clips in
+ * bundle order.
+ */
+export const RANGER_GATHER_CLIPS = [
+  "Gather_Chop_Loop", "Gather_Mine_Loop", "Gather_Herb_Loop", "Gather_Skin_Loop", "Chest_Open", "Emote_Yes", "Emote_No", "Emote_Shrug",
+  "Emote_Clap", "Emote_Cheer_Both",
+] as const;
+/**
  * #285: static grip poses authored on the rig by adapters/blender/grip_poses.py. Each clip keys only the finger and
  * thumb rotations of one hand; a consumer plays it over the body clip's finger channels while that hand's socket holds
  * an item of `role`. The fingers wrap a handle of `radius` (metres) along the item's grip-frame `axis`; the tome leaves
@@ -440,6 +453,28 @@ export const RANGER_CLIP_FAMILIES: readonly ClipFamily[] = [
         ...(joints ? { keep: joints as string[] } : {}),
         authored: { recipe: family.recipe, clip: name, fps: family.fps, ...observed }, basedOn: source as string,
         extra: { fields: { ...(Object.keys(post).length ? { post } : {}), ...(secondaryPose ? { secondaryPose } : {}) } },
+      };
+    },
+  },
+  {
+    id: "gather", script: "gather_clips.py", clips: RANGER_GATHER_CLIPS,
+    arguments: ({ socket }) => {
+      const at = socketAt(socket);
+      return { schemaVersion: 1, clips: [...RANGER_GATHER_CLIPS], sockets: { weapon: at("hand_r.weapon") } };
+    },
+    clip: (name, family) => {
+      // The emotes list their joints; the tool, the timing and the chest's lid go to the clip's `gather` object and the
+      // chain pose beside it. The chop's and the mining strike's contact is the authored strike.
+      const { joints, source, secondaryPose, ...observed } = family.clips[name] as Json;
+      const gather = pickKeys(observed, ["tool", "strikeSeconds", "pickSeconds", "strokeSeconds", "kneelDropMeters", "lidSeconds", "lidHingeAt",
+        "lidDepthMeters", "lidOpenDegrees", "clapSeconds"]);
+      return {
+        ...(joints ? { keep: joints as string[] } : {}),
+        authored: { recipe: family.recipe, clip: name, fps: family.fps, ...observed }, basedOn: source as string,
+        extra: {
+          fields: { ...(Object.keys(gather).length ? { gather } : {}), ...(secondaryPose ? { secondaryPose } : {}) },
+          ...(observed.contactSeconds === undefined ? {} : { contactSeconds: observed.contactSeconds as number }),
+        },
       };
     },
   },

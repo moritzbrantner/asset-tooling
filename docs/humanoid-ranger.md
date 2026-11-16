@@ -51,7 +51,8 @@ The `humanoid.ranger.male` bundle holds the following.
   - the casters' casting styles, staff and mace strikes and the war cry ([Casting, staff and mace clips](#casting-staff-and-mace-clips-420));
   - the emotes, door, knock, loot, talk, trade, sitting and sleeping clips ([Social and interaction clips](#social-and-interaction-clips-421));
   - the residents' carry, sweep, counter wipe, pour, hoe and watering clips ([Carry and chore clips](#carry-and-chore-clips-693));
-  - the guards' post idles, the marshal's inspection, the prayer and blessing, the wall lean and the idle breaks ([Post idles and devotions](#post-idles-and-devotions-697)).
+  - the guards' post idles, the marshal's inspection, the prayer and blessing, the wall lean and the idle breaks ([Post idles and devotions](#post-idles-and-devotions-697));
+  - the chopping, mining, herb-picking and skinning loops, the chest opening and the nod, head shake, shrug, clap and two-armed cheer ([Gathering loops and emotes](#gathering-loops-and-emotes-701)).
 
   No clip uses Mixamo data (#399). Mixamo is only a motion reference, so the build needs no local input and both figures publish from CI.
 
@@ -443,6 +444,29 @@ The strokes are authored **upright**, with the body along +Y and facing +Z. Over
 - **The kneel:** the prayer kneels on the right knee as the #443 kneels, but genuflecting upright: the left foot steps only 0.2 m forward so its shin stands plumb under the knee, and the robe's front panel rides the level thigh and hangs plumb past the knee (`secondaryPose`).
 - **The wall:** `wallBehindMeters` is measured on the Ranger outfit, whose hood and back touch the plane; a slimmer outfit stands a few centimetres off it.
 - **Review:** shaped and reviewed in the live Blender on the male Ranger (the published figure with its Idle clip) with a stand-in spear on `hand_r.staff` and a wall box.
+
+### Gathering loops and emotes (#701)
+
+[`adapters/blender/gather_clips.py`](../adapters/blender/gather_clips.py) authors #422's gathering loops, a chest opening and the social emotes in Blender on the animated Ranger (`RANGER_GATHER_CLIPS`, the `gather` family, after the post clips in bundle order), for players and residents alike. The tools ride `hand_r.weapon` (`arguments.sockets.weapon`) as `held_items.py` builds them; everything else is explicit palm frames, in the chest's frame for the emotes. Two-bone arm IK puts the socket or palm there (every target is met within 1 mm), the full-body clips move and tip the pelvis and plant the ankles with two-bone leg IK, and the hand shapes (flat, rest, cup, grip, pinch, fist) are keyed on the finger joints. The CC0 UAL1 seeds were only watched as reference. Every clip starts from the first `Idle_Loop` pose and is in place; the one-shots end in it.
+
+| Clip | Length | Layer | Motion | `humanoid-clips` |
+| --- | --- | --- | --- | --- |
+| `Gather_Chop_Loop` | 2.0 s loop | full body | The wood axe in both hands, the left on its `grip.offhand` below the right: raised over the head, swung down into a log on a block ahead (struck at 0.84 s), wrenched free and raised; the left foot ahead, the pelvis dipping into the strike. | `role: gather.chop`, contact `hand_r`, `secondaryPose` |
+| `Gather_Mine_Loop` | 2.0 s loop | full body | The hammer as a pick in the right hand, drawn back over the shoulder and struck flat into a rock face ahead at about 1.35 m (0.92 s), recoiling; the left palm braced on the rock. | `role: gather.mine`, contact `hand_r`, `secondaryPose` |
+| `Gather_Herb_Loop` | 3.0 s loop | full body | Crouched, hinged at the hips: each hand in turn reaches to a stem low on the ground, pinches it and pulls it up, twice a loop each. | `role: gather.herb`, `secondaryPose` |
+| `Gather_Skin_Loop` | 3.0 s loop | full body | Kneeling on the right knee over a carcass: the left hand pulls the hide up, the right draws the knife along it and lifts it back, twice a loop. | `role: gather.skin`, `secondaryPose` |
+| `Chest_Open` | 1.5 s | full body | Crouching, both palms under the lid's front edge, lifting it about its hinge (0.45-0.93 s) until it falls open, letting go and standing. | `role: interact.chest.open`, `secondaryPose` |
+| `Emote_Yes` | 1.2 s | `spine_01` | Two nods. | `role: emote.yes` |
+| `Emote_No` | 1.2 s | `spine_01` | The head shakes twice. | `role: emote.no` |
+| `Emote_Shrug` | 1.2 s | `spine_01` | The forearms out with the palms up, the shoulders raised and the head tilted; held and lowered. | `role: emote.shrug` |
+| `Emote_Clap` | 2.0 s | `spine_01` | Four claps before the chest (0.55, 0.85, 1.15, 1.45 s). | `role: emote.clap` |
+| `Emote_Cheer_Both` | 1.5 s | `spine_01` | Both fists thrown overhead and pumped twice, the head back; held and lowered. | `role: emote.cheer.both` |
+
+- **`gather` object:** `tool` (`item`, `socket` `hand_r.weapon`; the axe's `offhand` frame and where its `edgeAt` strikes, the hammer's `faceAt`, root frame, glTF axes); `strikeSeconds`, `pickSeconds`, `strokeSeconds`, the skinning kneel's `kneelDropMeters`, the chest's `lidSeconds`, `lidHingeAt`, `lidDepthMeters` and `lidOpenDegrees`, and the clap's `clapSeconds`.
+- **The grips:** `equipment.tool.wood-axe` (both hands), `equipment.tool.hammer` (the pick, until a pick exists) and `equipment.dagger.plain` (the knife) are all held at their own `grip` on `hand_r.weapon`, so none needs a `tool.itemOffset`.
+- **The chest:** a chest 0.55 m high whose lid's front edge stands 0.38 m ahead, 0.36 m deep; the hands push the lid to 65° and let go, and the consumer swings it on to `lidOpenDegrees` over `lidSeconds`.
+- **Wave and cheer:** `Emote_Wave` and the one-armed `Emote_Cheer` are the #421 social clips and stay as they are; `Emote_Cheer_Both` is the both-arms cheer #701 asks for, under its own name so no clip changes.
+- **Review:** shaped and reviewed in the live Blender on the male Ranger (the published figure with its Idle clip) with stand-in axe, hammer and knife on `hand_r.weapon`.
 
 ## Female Ranger
 
