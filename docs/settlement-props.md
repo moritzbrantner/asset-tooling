@@ -94,6 +94,11 @@ In a live Blender session, run `outpost.py` and `settlement_props.py` into two n
 | `settlement.props.rowing-boat` | dressing | 886 | 3.57 × 1.20 × 0.67 | `hull` | A 3.6 m rowing boat drawn up on the bank ([#675](https://github.com/moritzbrantner/asset-tooling/issues/675)), bow toward +X: a lofted plank hull with a transom stern, a gunwale, a keel, three thwarts, two oars laid along them and a mooring ring at the stem. Its keel is on the ground. |
 | `settlement.props.jetty` | street | 608 | 3.00 × 1.61 × 1.96 | `deck`, `piles` | A 3 m plank jetty segment along X (`module` width 3, so segments chain out over the water): a 1.6 m deck 0.5 m above the water line (y = 0) on stringers and bearers, round piles 1.5 m apart reaching 1.2 m down into the bed, and two bollards. |
 | `settlement.props.fishing-nets` | dressing | 1,330 | 2.64 × 1.20 × 2.20 | `poles`, `trestle` | Fishing nets hung to dry: two 2.2 m poles with a cross pole, a sagging net with cork floats on its head rope, a second net heaped over a trestle and a creel. |
+| `settlement.props.banner-outpost` | street | 434 | 1.00 × 0.36 × 3.72 | `pole` | A 3.6 m banner pole on a stone footing ([#677](https://github.com/moritzbrantner/asset-tooling/issues/677)) with a crossbar carrying a 0.8 × 1.5 m swallow-tailed banner in the Outpost's livery: Marshal indigo with an ochre band and pale, hanging in gentle folds and facing ±Z. |
+| `settlement.props.banner-village` | street | 418 | 1.00 × 0.36 × 3.72 | `pole` | The same banner in a village's livery: undyed linen with two madder-red stripes. |
+| `settlement.props.pennant-outpost` | street | 202 | 2.02 × 0.36 × 4.32 | `pole` | A 4.2 m pole flying a 1.8 m tapering indigo pennant with an ochre hoist, streaming toward +X. |
+| `settlement.props.pennant-village` | street | 202 | 2.02 × 0.36 × 4.32 | `pole` | The same pennant in linen with a red hoist. |
+| `settlement.props.bunting` | street | 556 | 6.28 × 0.28 × 3.20 | `pole-1`, `pole1` | A market bunting line: two 3.2 m poles 6 m apart along X and a sagging cord hung with 18 triangular flags in red, linen, indigo, ochre and green. |
 
 The village dressing from `barrel-group` down ([#657](https://github.com/moritzbrantner/asset-tooling/issues/657)) is for Greyhaven's villages, Barrowdown and Fenford. The existing `cart`, `firewood` and `planter` complement it.
 The interiors from `dresser` down ([#663](https://github.com/moritzbrantner/asset-tooling/issues/663)) furnish more walk-in farmhouses and Westmere Lodge's hall, beside the cottage furniture.
@@ -101,6 +106,7 @@ The landmarks from `shrine` down ([#665](https://github.com/moritzbrantner/asset
 The market goods and workshops from `bread-basket` down ([#669](https://github.com/moritzbrantner/asset-tooling/issues/669)) stock Greyhaven's stalls, shops and smithies.
 The inn and hall clutter from `table-set` down ([#671](https://github.com/moritzbrantner/asset-tooling/issues/671)) dresses inns, taverns and halls; the wall pieces stand on their own back edge so they can be hung at any height.
 The river and lake props from `rowing-boat` down ([#675](https://github.com/moritzbrantner/asset-tooling/issues/675)) dress Greyhaven's banks and landings. Lily pads and reeds are in the [marsh plants](greyhaven-marsh-plants.md) (`water-lilies`, `reeds-stand`, `reeds-edge`, `cattails`).
+The banners from `banner-outpost` down ([#677](https://github.com/moritzbrantner/asset-tooling/issues/677)) fly the Outpost's livery, the Marshal's indigo with ochre heraldry as on the [fortress kit](fortress-kit.md)'s banners, or a neutral village one. The cloth is two-sided; only the poles collide.
 
 The numbers are from the build of 2026-10-24. The descriptor carries the measured values of each build. The budgets in `SETTLEMENT_TRIANGLE_BUDGET` are for the Greyhaven camera (12 m, 0.42 rad pitch, 50° fov).
 
@@ -130,9 +136,10 @@ The props use the kit's wood, stone and shingle texture sets (colour, normal and
 - `horn`: the lantern panes;
 - `straw`: the hay bale, haystack, bread basket and fish-crate bedding;
 - `monolith`: the standing stone, the grindstone and the fish, a plain weathered grey where coursed masonry would read wrong;
-- `clay`: the terracotta pottery and the sausages.
+- `clay`: the terracotta pottery and the sausages;
+- `indigo` and `ochre`: the Outpost's banner livery and the bunting.
 
-Every face has backface culling. In the bundle there are 9 KTX2 textures in all, each stored once. Repeated props in a scene share their GLB resources. The tar is about 4.8 MB.
+Every face has backface culling. In the bundle there are 9 KTX2 textures in all, each stored once. Repeated props in a scene share their GLB resources. The tar is about 5.0 MB.
 
 **Determinism:** there is no randomness. Variation comes from SHA-256 of fixed keys, through the kit's `rnd`.
 

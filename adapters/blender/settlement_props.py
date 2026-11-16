@@ -40,7 +40,8 @@ PROPS = ("stall", "cart", "crate", "barrel", "signpost", "lantern-post", "bench"
          "bread-basket", "cheese-board", "fish-crate", "apple-crate", "hanging-meats", "cask-rack", "merchant-scale",
          "cloth-bolts", "pottery", "anvil", "grindstone", "cooper-barrel",
          "table-set", "candles", "candelabra", "inn-sign", "stool", "bar-counter", "log-stack", "wall-shield", "wall-trophy",
-         "rowing-boat", "jetty", "fishing-nets")
+         "rowing-boat", "jetty", "fishing-nets",
+         "banner-outpost", "banner-village", "pennant-outpost", "pennant-village", "bunting")
 FAMILY = {"stall": "market", "cart": "market", "crate": "market", "barrel": "market", "signpost": "street",
           "lantern-post": "street", "bench": "street", "fence": "dressing", "planter": "dressing", "firewood": "dressing",
           "footbridge": "street", "bed": "dressing", "table": "dressing", "chair": "dressing", "chest": "dressing",
@@ -57,7 +58,8 @@ FAMILY = {"stall": "market", "cart": "market", "crate": "market", "barrel": "mar
           "anvil": "dressing", "grindstone": "dressing", "cooper-barrel": "dressing",
           **{prop: "dressing" for prop in ("table-set", "candles", "candelabra", "stool", "bar-counter", "log-stack",
                                            "wall-shield", "wall-trophy")},
-          "inn-sign": "street", "rowing-boat": "dressing", "jetty": "street", "fishing-nets": "dressing"}
+          "inn-sign": "street", "rowing-boat": "dressing", "jetty": "street", "fishing-nets": "dressing",
+          **{prop: "street" for prop in ("banner-outpost", "banner-village", "pennant-outpost", "pennant-village", "bunting")}}
 
 # Plain-colour materials the props add to the kit's: (sRGB base colour, metallic, roughness, texture).
 EXTRA_MATERIALS = {
@@ -71,6 +73,8 @@ EXTRA_MATERIALS = {
     "straw": ((0.8, 0.67, 0.37), 0.0, 0.95, None),
     "monolith": ((0.46, 0.46, 0.43), 0.0, 0.95, None),
     "clay": ((0.66, 0.38, 0.24), 0.0, 0.85, None),
+    "indigo": ((0.16, 0.24, 0.42), 0.0, 0.9, None),
+    "ochre": ((0.74, 0.54, 0.2), 0.0, 0.9, None),
 }
 
 K = {}
@@ -1977,6 +1981,138 @@ def build_fishing_nets(part, col, root):
     return {"collisionProxies": [proxy("poles", (-hw - 0.12, 0, -0.12), (hw + 0.12, top + 0.02, 0.12)), proxy("trestle", (-0.75, 0, tz - 0.45), (1.1, 0.75, tz + 0.18))]}
 
 
+# ---------------------------------------------------------------- banners and heraldry (#677)
+
+# Liveries: field and charge colours. The Outpost flies the Marshal's indigo with ochre heraldry (as the fortress
+# kit's banners and mmorpg's fortifications); a village flies undyed linen with madder-red stripes.
+LIVERY = {"outpost": ("indigo", "ochre"), "village": ("canvas", "dye")}
+
+
+def cloth(b, mat, key, x0, x1, top, bottom, fold, nu=8, nv=5, z0=0.0, thick=0.008, u_range=(0.0, 1.0), v_range=(0.0, 1.0)):
+    """A thin hanging cloth sheet, both faces: columns from ``x0`` to ``x1``, each hanging from ``top(u)`` down to
+    ``bottom(u)`` (u in 0..1 across), its surface waved out of the XY plane by ``fold(u, v)`` metres. ``u_range``
+    and ``v_range`` cut a patch out of the same sheet, so charges and stripes lie on the field's folds."""
+    def point(u, v, side):
+        x = x0 + (x1 - x0) * u
+        y = top(u) + (bottom(u) - top(u)) * v
+        return (x, y, z0 + fold(u, v) + side * thick / 2)
+    us = [u_range[0] + (u_range[1] - u_range[0]) * i / nu for i in range(nu + 1)]
+    vs = [v_range[0] + (v_range[1] - v_range[0]) * j / nv for j in range(nv + 1)]
+    verts, front, back = [], [], []
+    for side in (1, -1):
+        for u in us:
+            for v in vs:
+                verts.append(point(u, v, side))
+    m = nv + 1
+    half = len(us) * m
+    for i in range(nu):
+        for j in range(nv):
+            a, c = i * m + j, (i + 1) * m + j
+            front.append([a, c, c + 1, a + 1])
+            back.append([half + a, half + a + 1, half + c + 1, half + c])
+    made = b.faces(verts, front + back, mat, key, grain=(1, 0, 0))
+    for f in made[:len(front)]:
+        if f.normal.y > 0:  # glTF +Z is Blender -Y: make the front face out toward +Z
+            f.normal_flip()
+    for f in made[len(front):]:
+        if f.normal.y < 0:
+            f.normal_flip()
+    return made
+
+
+def flagpole(b, height, key, finial=True):
+    b.block((-0.18, 0, -0.18), (0.18, 0.12, 0.18), "stone", 0.02, f"{key}/footing")
+    rod(b, (0, 0.12, 0), (0, height, 0), 0.04, 7, "timber", f"{key}/pole")
+    if finial:
+        placed(b, Matrix.Translation((0, height, 0)), lambda: lathe(b, [(0, 0.05), (0.04, 0.06), (0.12, 0.0)], 6, "iron", f"{key}/finial"))
+
+
+def build_banner(livery):
+    field, charge = LIVERY[livery]
+
+    def build(part, col, root):
+        """A 3.6 m banner pole on a stone footing with a crossbar carrying a 0.8 x 1.5 m swallow-tailed banner in
+        the {livery} livery, hanging in gentle folds and facing ±Z."""
+        b = K["Builder"](f"settlement.{part}.mesh")
+        H, w, top, h, notch = 3.6, 0.8, 3.3, 1.5, 0.3
+        flagpole(b, H, "banner")
+        rod(b, (-w / 2 - 0.08, top + 0.03, 0.05), (w / 2 + 0.08, top + 0.03, 0.05), 0.022, 6, "timber", "banner/crossbar")
+        for x in (-w / 2 - 0.08, w / 2 + 0.08):
+            placed(b, Matrix.Translation((x, top + 0.03, 0.05)) @ Matrix.Rotation(-math.pi / 2, 4, "Z"),
+                   lambda x=x: lathe(b, [(0, 0.03), (0.04, 0.0)], 6, "iron", f"banner/knob{x}"))
+        top_f = lambda u: top
+        bottom_f = lambda u: top - h + notch * (1 - abs(2 * u - 1))
+        fold = lambda u, v: 0.05 + 0.035 * math.sin(u * 3 * math.pi) * (0.3 + v)
+        cloth(b, field, "banner/field", -w / 2, w / 2, top_f, bottom_f, fold)
+        lift = lambda u, v: fold(u, v) + 0.006
+        sink = lambda u, v: fold(u, v) - 0.006
+        if livery == "outpost":
+            # An ochre pale down the middle and a band across the head, both faces.
+            for f, s in ((lift, "front"), (sink, "back")):
+                cloth(b, charge, f"banner/pale-{s}", -w / 2, w / 2, top_f, bottom_f, f, nu=2, nv=5, thick=0.002, u_range=(0.4, 0.6), v_range=(0.16, 1.0))
+                cloth(b, charge, f"banner/band-{s}", -w / 2, w / 2, top_f, bottom_f, f, nu=8, nv=1, thick=0.002, u_range=(0.0, 1.0), v_range=(0.06, 0.16))
+        else:
+            for f, s in ((lift, "front"), (sink, "back")):
+                for k, (v0, v1) in enumerate(((0.12, 0.24), (0.36, 0.48))):
+                    cloth(b, charge, f"banner/stripe{k}-{s}", -w / 2, w / 2, top_f, bottom_f, f, nu=8, nv=1, thick=0.002, u_range=(0.0, 1.0), v_range=(v0, v1))
+        b.finish(col, root)
+        return {"collisionProxies": [proxy("pole", (-0.18, 0, -0.18), (0.18, H + 0.12, 0.18))]}
+
+    build.__doc__ = build.__doc__.format(livery=livery)
+    return build
+
+
+def build_pennant(livery):
+    field, charge = LIVERY[livery]
+
+    def build(part, col, root):
+        """A 4.2 m pole on a stone footing flying a 1.8 m tapering pennant in the {livery} livery from its head,
+        streaming toward +X in shallow waves."""
+        b = K["Builder"](f"settlement.{part}.mesh")
+        H, L, hoist = 4.2, 1.8, 0.45
+        flagpole(b, H, "pennant")
+        y0 = H - 0.08
+        top_f = lambda u: y0 - 0.05 * u
+        bottom_f = lambda u: y0 - hoist * (1 - u) - 0.05 * u - 0.01
+        wave = lambda u, v: 0.12 * math.sin(u * 2.2 * math.pi) * u
+        cloth(b, field, "pennant/field", 0.04, 0.04 + L, top_f, bottom_f, wave, nu=10, nv=2)
+        lift, sink = (lambda u, v: wave(u, v) + 0.006), (lambda u, v: wave(u, v) - 0.006)
+        for f, s in ((lift, "front"), (sink, "back")):
+            cloth(b, charge, f"pennant/hoist-{s}", 0.04, 0.04 + L, top_f, bottom_f, f, nu=2, nv=2, thick=0.002, u_range=(0.0, 0.18), v_range=(0.0, 1.0))
+        b.finish(col, root)
+        return {"collisionProxies": [proxy("pole", (-0.18, 0, -0.18), (0.18, H + 0.12, 0.18))]}
+
+    build.__doc__ = build.__doc__.format(livery=livery)
+    return build
+
+
+def build_bunting(part, col, root):
+    """A market bunting line: two 3.2 m poles 6 m apart along X with a sagging cord between them hung with 18
+    triangular flags in red, linen, indigo, ochre and green."""
+    b = K["Builder"](f"settlement.{part}.mesh")
+    hw, H = 3.0, 3.2
+    for x in (-hw, hw):
+        b.block((x - 0.14, 0, -0.14), (x + 0.14, 0.1, 0.14), "stone", 0.02, f"bunting/footing{x}")
+        rod(b, (x, 0.1, 0), (x, H, 0), 0.035, 6, "timber", f"bunting/pole{x}")
+    cord = lambda x: H - 0.12 - 0.45 * (1 - (x / hw) ** 2)
+    n = 24
+    pts = [(-hw + 2 * hw * k / n, cord(-hw + 2 * hw * k / n)) for k in range(n + 1)]
+    for k, (a, c) in enumerate(zip(pts, pts[1:])):
+        b.beam(a, c, 0.012, -0.006, 0.006, "sacking", f"bunting/cord{k}")
+    colours = ("dye", "canvas", "indigo", "ochre", "leaf")
+    flags = 18
+    for k in range(flags):
+        x = -hw + 0.25 + (2 * hw - 0.5) * (k + 0.5) / flags
+        w, h = 0.24, 0.3
+        y = cord(x) - 0.005
+        top_f = lambda u, x=x, w=w: cord(x - w / 2 + w * u) - 0.005
+        bottom_f = lambda u, x=x, w=w, h=h: cord(x - w / 2 + w * u) - 0.005 - h * (1 - abs(2 * u - 1))
+        flutter = lambda u, v, k=k: 0.02 * math.sin(k * 1.3) * v
+        cloth(b, colours[k % len(colours)], f"bunting/flag{k}", x - w / 2, x + w / 2, top_f, bottom_f, flutter, nu=2, nv=1)
+    b.finish(col, root)
+    return {"collisionProxies": [proxy(f"pole{s}", (s * hw - 0.14, 0, -0.14), (s * hw + 0.14, H, 0.14)) for s in (-1, 1)]}
+
+
 BUILDERS = {"stall": build_stall, "cart": build_cart, "crate": build_crate_part, "barrel": build_barrel_part,
             "signpost": build_signpost, "lantern-post": build_lantern_post, "bench": build_bench,
             "fence": build_fence, "planter": build_planter, "firewood": build_firewood,
@@ -1997,7 +2133,9 @@ BUILDERS = {"stall": build_stall, "cart": build_cart, "crate": build_crate_part,
             "table-set": build_table_set, "candles": build_candles, "candelabra": build_candelabra, "inn-sign": build_inn_sign,
             "stool": build_stool, "bar-counter": build_bar_counter, "log-stack": build_log_stack, "wall-shield": build_wall_shield,
             "wall-trophy": build_wall_trophy,
-            "rowing-boat": build_rowing_boat, "jetty": build_jetty, "fishing-nets": build_fishing_nets}
+            "rowing-boat": build_rowing_boat, "jetty": build_jetty, "fishing-nets": build_fishing_nets,
+            "banner-outpost": build_banner("outpost"), "banner-village": build_banner("village"),
+            "pennant-outpost": build_pennant("outpost"), "pennant-village": build_pennant("village"), "bunting": build_bunting}
 
 
 # ---------------------------------------------------------------- composition
