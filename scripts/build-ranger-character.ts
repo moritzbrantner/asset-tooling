@@ -359,6 +359,17 @@ export const RANGER_CLIP_ROLES: Readonly<Record<string, { role: string; contact?
   Pour: { role: "chore.pour" },
   Farm_Hoe_Loop: { role: "chore.hoe", contact: "hand_r" },
   Farm_Water_Loop: { role: "chore.water" },
+  // #697: the post idles, devotions and ambient idle breaks (src/ranger-clips.ts RANGER_POST_CLIPS).
+  Guard_Attention_Loop: { role: "post.guard.attention" },
+  Guard_Salute: { role: "post.guard.salute" },
+  Guard_LookAround: { role: "post.guard.look" },
+  Marshal_Inspect_Loop: { role: "post.marshal.inspect" },
+  Pray_Kneel_Loop: { role: "devotion.pray.kneel" },
+  Bless: { role: "devotion.bless" },
+  Lean_Wall_Loop: { role: "idle.lean.wall" },
+  Idle_Variant_Shift: { role: "idle.variant.shift" },
+  Idle_Variant_Stretch: { role: "idle.variant.stretch" },
+  Idle_Variant_Yawn: { role: "idle.variant.yawn" },
 };
 /** The gait loops whose ground speed the `humanoid-clips` attachment records. */
 export const RANGER_GAITS: ReadonlySet<string> = new Set(["Walk_Loop", "Jog_Fwd_Loop", "Sprint_Loop", "Crouch_Fwd_Loop", "Jog_Bwd_Loop", "Walk_Bwd_Loop", "Wade_Fwd_Loop"]);
