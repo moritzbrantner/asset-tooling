@@ -3,8 +3,8 @@
   "blender": true,
   "ktx": true,
   "budget": {
-    "materials": 13,
+    "materials": 14,
     "textureMemoryMB": 4,
-    "downloadMB": 2
+    "downloadMB": 2.5
   }
 }

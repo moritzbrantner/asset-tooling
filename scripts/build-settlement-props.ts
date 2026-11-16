@@ -19,6 +19,8 @@ import { buildKitPart, byKey, exportKitBundle, ktx2Assets, kitEntry, runKitCli, 
 export const SETTLEMENT_PROPS = [
   "stall", "cart", "crate", "barrel", "signpost", "lantern-post", "bench", "fence", "planter", "firewood", "footbridge",
   "bed", "table", "chair", "chest", "hearth",
+  "barrel-group", "crate-stack", "grain-sacks", "wheelbarrow", "well", "fingerpost", "hay-bale", "haystack",
+  "chopping-block", "washing-line", "flower-tub", "vegetable-bed", "kennel",
 ] as const;
 export type SettlementProp = (typeof SETTLEMENT_PROPS)[number];
 export type SettlementFamily = "market" | "street" | "dressing";
@@ -28,6 +30,9 @@ export const SETTLEMENT_FAMILY: Record<SettlementProp, SettlementFamily> = {
   signpost: "street", "lantern-post": "street", bench: "street",
   fence: "dressing", planter: "dressing", firewood: "dressing", footbridge: "street",
   bed: "dressing", table: "dressing", chair: "dressing", chest: "dressing", hearth: "dressing",
+  "barrel-group": "market", "crate-stack": "market", "grain-sacks": "market", wheelbarrow: "market",
+  well: "street", fingerpost: "street", "hay-bale": "dressing", haystack: "dressing", "chopping-block": "dressing",
+  "washing-line": "dressing", "flower-tub": "dressing", "vegetable-bed": "dressing", kennel: "dressing",
 };
 export const SETTLEMENT_KEY_PREFIX = "settlement.props";
 export const SETTLEMENT_VARIANT = "default";
@@ -41,6 +46,9 @@ export const SETTLEMENT_TRIANGLE_BUDGET: Record<SettlementProp, number> = {
   stall: 1400, cart: 1600, crate: 300, barrel: 500, signpost: 450, "lantern-post": 400, bench: 350,
   fence: 250, planter: 600, firewood: 1200, footbridge: 2400,
   bed: 500, table: 700, chair: 250, chest: 250, hearth: 900,
+  "barrel-group": 900, "crate-stack": 750, "grain-sacks": 650, wheelbarrow: 600, well: 900, fingerpost: 350,
+  "hay-bale": 200, haystack: 400, "chopping-block": 600, "washing-line": 400, "flower-tub": 700, "vegetable-bed": 650,
+  kennel: 400,
 };
 /** Recipe observations copied into the descriptor when a prop declares them. */
 const EXTRAS = ["stackTop", "sign", "light", "seat", "module"] as const;
