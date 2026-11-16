@@ -370,6 +370,17 @@ export const RANGER_CLIP_ROLES: Readonly<Record<string, { role: string; contact?
   Idle_Variant_Shift: { role: "idle.variant.shift" },
   Idle_Variant_Stretch: { role: "idle.variant.stretch" },
   Idle_Variant_Yawn: { role: "idle.variant.yawn" },
+  // #701: the gathering loops, the chest and the social emotes (src/ranger-clips.ts RANGER_GATHER_CLIPS).
+  Gather_Chop_Loop: { role: "gather.chop", contact: "hand_r" },
+  Gather_Mine_Loop: { role: "gather.mine", contact: "hand_r" },
+  Gather_Herb_Loop: { role: "gather.herb" },
+  Gather_Skin_Loop: { role: "gather.skin" },
+  Chest_Open: { role: "interact.chest.open" },
+  Emote_Yes: { role: "emote.yes" },
+  Emote_No: { role: "emote.no" },
+  Emote_Shrug: { role: "emote.shrug" },
+  Emote_Clap: { role: "emote.clap" },
+  Emote_Cheer_Both: { role: "emote.cheer.both" },
 };
 /** The gait loops whose ground speed the `humanoid-clips` attachment records. */
 export const RANGER_GAITS: ReadonlySet<string> = new Set(["Walk_Loop", "Jog_Fwd_Loop", "Sprint_Loop", "Crouch_Fwd_Loop", "Jog_Bwd_Loop", "Walk_Bwd_Loop", "Wade_Fwd_Loop"]);
