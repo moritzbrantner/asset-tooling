@@ -83,6 +83,18 @@ export const RANGER_CHORE_CLIPS = [
   "Carry_Hang_Idle_Loop", "Carry_Hang_Walk_Loop", "Sweep_Loop", "Bar_Wipe_Loop", "Pour", "Farm_Hoe_Loop", "Farm_Water_Loop",
 ] as const;
 /**
+ * #697 (#422's post idles and ambient idles: Greyhaven's guards, Marshal Elden, Brother Aldous and the townsfolk): post
+ * idles, devotions and idle breaks authored in place on the Ranger rig by adapters/blender/post_clips.py from the
+ * `hand_r.staff` frame (a grounded spear), the `hip_l.stowed` hilt and explicit palm frames (two-bone arm IK) and, for the
+ * full-body clips, pelvis and ankle targets (two-bone leg IK; the CC0 UAL1 `Idle_FoldArms_Loop` only as reference). The
+ * guard, marshal and blessing clips keep only the `spine_01` subtree; the prayer, the wall lean and the idle breaks are
+ * full body with a `secondaryPose`. They follow the chore clips in bundle order.
+ */
+export const RANGER_POST_CLIPS = [
+  "Guard_Attention_Loop", "Guard_Salute", "Guard_LookAround", "Marshal_Inspect_Loop", "Pray_Kneel_Loop", "Bless", "Lean_Wall_Loop",
+  "Idle_Variant_Shift", "Idle_Variant_Stretch", "Idle_Variant_Yawn",
+] as const;
+/**
  * #285: static grip poses authored on the rig by adapters/blender/grip_poses.py. Each clip keys only the finger and
  * thumb rotations of one hand; a consumer plays it over the body clip's finger channels while that hand's socket holds
  * an item of `role`. The fingers wrap a handle of `radius` (metres) along the item's grip-frame `axis`; the tome leaves
@@ -410,6 +422,24 @@ export const RANGER_CLIP_FAMILIES: readonly ClipFamily[] = [
           fields: { ...(Object.keys(chore).length ? { chore } : {}), ...(secondaryPose ? { secondaryPose } : {}) },
           ...(observed.contactSeconds === undefined ? {} : { contactSeconds: observed.contactSeconds as number }),
         },
+      };
+    },
+  },
+  {
+    id: "posts", script: "post_clips.py", clips: RANGER_POST_CLIPS,
+    arguments: ({ socket }) => {
+      const at = socketAt(socket);
+      return { schemaVersion: 1, clips: [...RANGER_POST_CLIPS], sockets: { staff: at("hand_r.staff"), stowed: at("hip_l.stowed") } };
+    },
+    clip: (name, family) => {
+      // The upper-body clips list their joints; the timing, the spear and the wall go to the clip's `post` object and
+      // the chain pose beside it.
+      const { joints, source, secondaryPose, ...observed } = family.clips[name] as Json;
+      const post = pickKeys(observed, ["tool", "restSocket", "saluteSeconds", "lookSeconds", "strokeSeconds", "kneelDropMeters", "wallBehindMeters"]);
+      return {
+        ...(joints ? { keep: joints as string[] } : {}),
+        authored: { recipe: family.recipe, clip: name, fps: family.fps, ...observed }, basedOn: source as string,
+        extra: { fields: { ...(Object.keys(post).length ? { post } : {}), ...(secondaryPose ? { secondaryPose } : {}) } },
       };
     },
   },

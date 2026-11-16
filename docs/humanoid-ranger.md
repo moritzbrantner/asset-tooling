@@ -50,7 +50,8 @@ The `humanoid.ranger.male` bundle holds the following.
   - the upper-body bow, rapid and power clips and the crossbow clips ([Upper-body bow, rapid and power clips](#upper-body-bow-rapid-and-power-clips-419), [Crossbow clips](#crossbow-clips-419));
   - the casters' casting styles, staff and mace strikes and the war cry ([Casting, staff and mace clips](#casting-staff-and-mace-clips-420));
   - the emotes, door, knock, loot, talk, trade, sitting and sleeping clips ([Social and interaction clips](#social-and-interaction-clips-421));
-  - the residents' carry, sweep, counter wipe, pour, hoe and watering clips ([Carry and chore clips](#carry-and-chore-clips-693)).
+  - the residents' carry, sweep, counter wipe, pour, hoe and watering clips ([Carry and chore clips](#carry-and-chore-clips-693));
+  - the guards' post idles, the marshal's inspection, the prayer and blessing, the wall lean and the idle breaks ([Post idles and devotions](#post-idles-and-devotions-697)).
 
   No clip uses Mixamo data (#399). Mixamo is only a motion reference, so the build needs no local input and both figures publish from CI.
 
@@ -419,6 +420,29 @@ The strokes are authored **upright**, with the body along +Y and facing +Z. Over
 - **Reach:** the counter wipe, the sweep and the hoe bend the chest (and, full body, the knees) to reach; the authored socket and palm targets are met to within 1.2 cm (the hoe's left hand between keys), elsewhere within 5 mm.
 - **Chain pose:** the full-body clips record a `secondaryPose` as the social clips (the panels follow the thighs).
 - **Review:** shaped and reviewed in the live Blender on the male Ranger with stand-in props (a bucket and a tankard on `hand_r.carry`, the broom's and hoe's shaft, bristles and blade on `hand_r.staff`, a counter box).
+
+### Post idles and devotions (#697)
+
+[`adapters/blender/post_clips.py`](../adapters/blender/post_clips.py) authors #422's post idles and ambient idles in Blender on the animated Ranger (`RANGER_POST_CLIPS`, the `posts` family, after the chore clips in bundle order), so Greyhaven's guards, Marshal Elden, Brother Aldous and the townsfolk stop sharing one idle. The recipe keys the `hand_r.staff` frame for the guards' spear (`arguments.sockets.staff`) and rests the left palm on the hilt of a sword at `hip_l.stowed` (`.stowed`); everything else is explicit palm frames in the chest's frame, so the hands follow the chest. Two-bone arm IK puts the socket or palm there (every target is met within 1 mm), the chest turn is spread over `spine_01`-`03`, the hand shapes (flat, rest, grip, fist, bless) are keyed on the finger joints, and the full-body clips move the pelvis and plant the ankles with two-bone leg IK. The CC0 UAL1 `Idle_FoldArms_Loop` was only watched as reference. Every clip starts from the first `Idle_Loop` pose and is in place; the one-shots end in it.
+
+| Clip | Length | Layer | Motion | `humanoid-clips` |
+| --- | --- | --- | --- | --- |
+| `Guard_Attention_Loop` | 4.0 s loop | `spine_01` | The spear grounded upright beside the right foot, the right fist round it; the left palm on the sword's hilt; the chest breathes. | `role: post.guard.attention` |
+| `Guard_Salute` | 1.2 s | `spine_01` | The left fist from the hilt to the chest with a small nod, held (0.38-0.79 s) and back; the spear stays grounded. | `role: post.guard.salute` |
+| `Guard_LookAround` | 3.0 s | `spine_01` | The chest turns 22° to the left and the head further, holds, sweeps 24° to the right, holds and comes back; the hands stay put. | `role: post.guard.look` |
+| `Marshal_Inspect_Loop` | 4.0 s loop | `spine_01` | Arms folded (the left forearm over the right, the right hand under the left arm); the chest and head turn slowly 12° each way with a slight nod at each side. | `role: post.marshal.inspect` |
+| `Pray_Kneel_Loop` | 4.0 s loop | full body | Kneeling on the right knee, the left shin plumb, the palms pressed together before the chest and the head bowed; the chest breathes. | `role: devotion.pray.kneel`, `secondaryPose` |
+| `Bless` | 1.2 s | `spine_01` | The right hand raised beside the face, palm out with two fingers straight, draws a stroke down and then across (0.36-0.91 s) and lowers; the left hand rests at the belly. | `role: devotion.bless` |
+| `Lean_Wall_Loop` | 5.0 s loop | full body | Leaning back on a wall 0.34 m behind the root, the feet 0.24 m ahead, arms folded; the chest breathes and the head glances to the left once a loop. | `role: idle.lean.wall`, `secondaryPose` |
+| `Idle_Variant_Shift` | 4.0 s | full body | The weight onto the left leg: the pelvis slides over the left foot and tips, the right knee eases, the chest leans back the other way; held and back. | `role: idle.variant.shift`, `secondaryPose` |
+| `Idle_Variant_Stretch` | 4.0 s | full body | Both hands up over the head, palms up and fingertips meeting, the back arching and the head tipping back; held and lowered. | `role: idle.variant.stretch`, `secondaryPose` |
+| `Idle_Variant_Yawn` | 4.0 s | full body | The right hand before the mouth, the head tipping back and the shoulders rising; held and lowered. | `role: idle.variant.yawn`, `secondaryPose` |
+
+- **`post` object:** on the guard clips `tool` (`item` `equipment.spear.leaf`, `socket` `hand_r.staff`, `itemOffset`, `buttAt`, where the butt stands, root frame, glTF axes) and `restSocket` (`hip_l.stowed`); `saluteSeconds`, `lookSeconds` (when the head arrives at and leaves each side), the blessing's `strokeSeconds`, the prayer's `kneelDropMeters` and the lean's `wallBehindMeters`.
+- **The spear's hold:** a staff's grip sits 0.8 m above its foot, below where the Ranger's hand hangs, so the guards hold the spear 0.18 m higher up the shaft. Mount it at `jointWorld × socket × translate(itemOffset) × inverse(grip)` while a guard clip plays (`itemOffset` is `[0, -0.18, 0]`, along the item's +Y) and its butt stands on the ground. A sword-only guard plays the same clips with an empty right hand; the left palm still rests on the stowed hilt.
+- **The kneel:** the prayer kneels on the right knee as the #443 kneels, but genuflecting upright: the left foot steps only 0.2 m forward so its shin stands plumb under the knee, and the robe's front panel rides the level thigh and hangs plumb past the knee (`secondaryPose`).
+- **The wall:** `wallBehindMeters` is measured on the Ranger outfit, whose hood and back touch the plane; a slimmer outfit stands a few centimetres off it.
+- **Review:** shaped and reviewed in the live Blender on the male Ranger (the published figure with its Idle clip) with a stand-in spear on `hand_r.staff` and a wall box.
 
 ## Female Ranger
 
