@@ -108,6 +108,19 @@ export const RANGER_GATHER_CLIPS = [
   "Emote_Clap", "Emote_Cheer_Both",
 ] as const;
 /**
+ * #705 (#422's raids, repairs, pushables, traps and knockdowns): clips authored in place on the Ranger rig by
+ * adapters/blender/raid_clips.py from the `hand_r.weapon` frame (the torch, the battle axe and the hammer), the
+ * `chest.carry` frame (a two-handed load) and explicit palm frames (two-bone arm IK) and, for the full-body clips,
+ * pelvis and ankle targets (two-bone leg IK; the CC0 UAL1 seeds only as reference). The torch, the hack and the carries
+ * keep only the `spine_01` subtree; the rest are full body with a `secondaryPose`. `Carry_Walk_Loop` and `Push_Loop`
+ * have `Walk_Loop`'s length; `Push_Start` ends in `Push_Loop`, `Knockdown_Fall` in `Lie_Loop`, and `GetUp` starts
+ * there. They follow the gather clips in bundle order.
+ */
+export const RANGER_RAID_CLIPS = [
+  "Raid_Torch_Carry_Loop", "Raid_Hack_Structure_Loop", "Carry_Idle_Loop", "Carry_Walk_Loop", "Repair_Hammer_Loop", "Push_Start", "Push_Loop",
+  "Lever_Pull", "Trap_Place", "Trap_Disarm_Loop", "Knockdown_Fall", "Lie_Loop", "GetUp",
+] as const;
+/**
  * #285: static grip poses authored on the rig by adapters/blender/grip_poses.py. Each clip keys only the finger and
  * thumb rotations of one hand; a consumer plays it over the body clip's finger channels while that hand's socket holds
  * an item of `role`. The fingers wrap a handle of `radius` (metres) along the item's grip-frame `axis`; the tome leaves
@@ -473,6 +486,28 @@ export const RANGER_CLIP_FAMILIES: readonly ClipFamily[] = [
         authored: { recipe: family.recipe, clip: name, fps: family.fps, ...observed }, basedOn: source as string,
         extra: {
           fields: { ...(Object.keys(gather).length ? { gather } : {}), ...(secondaryPose ? { secondaryPose } : {}) },
+          ...(observed.contactSeconds === undefined ? {} : { contactSeconds: observed.contactSeconds as number }),
+        },
+      };
+    },
+  },
+  {
+    id: "raid", script: "raid_clips.py", clips: RANGER_RAID_CLIPS,
+    arguments: ({ socket }) => {
+      const at = socketAt(socket);
+      return { schemaVersion: 1, clips: [...RANGER_RAID_CLIPS], sockets: { weapon: at("hand_r.weapon"), carry: at("chest.carry") } };
+    },
+    clip: (name, family) => {
+      // The carries, torch and hack list their joints; the tool, the load, the props and the timing go to the clip's
+      // `raid` object and the chain pose beside it. The hack's and the hammer's contact is the authored strike.
+      const { joints, source, secondaryPose, ...observed } = family.clips[name] as Json;
+      const raid = pickKeys(observed, ["tool", "load", "strikeSeconds", "boardAt", "pushHandsAt", "leverSeconds", "leverPivotAt", "leverLengthMeters",
+        "leverDegrees", "setSeconds", "probeSeconds", "trapAt", "landSeconds", "from", "to"]);
+      return {
+        ...(joints ? { keep: joints as string[] } : {}),
+        authored: { recipe: family.recipe, clip: name, fps: family.fps, ...observed }, basedOn: source as string,
+        extra: {
+          fields: { ...(Object.keys(raid).length ? { raid } : {}), ...(secondaryPose ? { secondaryPose } : {}) },
           ...(observed.contactSeconds === undefined ? {} : { contactSeconds: observed.contactSeconds as number }),
         },
       };

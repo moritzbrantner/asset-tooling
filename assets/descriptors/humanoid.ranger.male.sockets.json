@@ -111,6 +111,9 @@
      "attachFrame": "grip", "accepts": ["carried"], "mirror": "hand_l.carry"},
     {"id": "hand_l.carry", "joint": "hand_l",
      "translation": [0.0365, 0.0839, -0.0043], "rotation": [0.446029, 0.543503, 0.415728, 0.576917],
-     "attachFrame": "grip", "accepts": ["carried"], "mirror": "hand_r.carry"}
+     "attachFrame": "grip", "accepts": ["carried"], "mirror": "hand_r.carry"},
+    {"id": "chest.carry", "joint": "spine_03",
+     "translation": [0, -0.1506, 0.1192], "rotation": [0.113001, 0, 0, 0.993595],
+     "attachFrame": "grip", "accepts": ["load"]}
   ]
 }
