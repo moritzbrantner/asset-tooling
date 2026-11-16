@@ -17,10 +17,10 @@ The entries keep the keys they had in the [Ranger bundles](humanoid-ranger.md#co
 
 ### Held items
 
-[`adapters/blender/held_items.py`](../adapters/blender/held_items.py) builds 34 fixed-design items on the weapon recipes' grip contract ([weapon-recipes.md](weapon-recipes.md)), with the weapon recipes' material names and colours, so the kit's material count is unchanged. Each item's first role is one the Ranger sockets already accept, which names its socket; a second role (`two-hand-weapon`, `spear`, `tool`, `carried`) only describes it. Two-handed pieces declare a `grip.offhand` frame (identity rotation) for the other hand's IK target.
+[`adapters/blender/held_items.py`](../adapters/blender/held_items.py) builds 41 fixed-design items on the weapon recipes' grip contract ([weapon-recipes.md](weapon-recipes.md)), with the weapon recipes' material names and colours, so the kit's material count is unchanged. Each item's first role is one the Ranger sockets already accept, which names its socket; a second role (`two-hand-weapon`, `spear`, `tool`, `carried`) only describes it. Two-handed pieces declare a `grip.offhand` frame (identity rotation) for the other hand's IK target.
 
 - **One-handed (`hand_r.weapon`):** the business end runs along +Y, edges and striking faces along +X, flats ±Z, as for the arming sword. The lantern, bucket and basket hang from the fist along +X with their bail along Y; the tankard's body sits on the +X side of its handle.
-- **Staff (`hand_r.staff`):** the shaft runs along +Y through the grip with its foot 0.8 m below (0.85 m for the walking stick), so it stands beside the leg in the idle. The shovel's and broom's working ends are at the foot.
+- **Staff (`hand_r.staff`):** the shaft runs along +Y through the grip with its foot 0.8 m below (0.85 m for the walking stick), so it stands beside the leg in the idle. The shovel's, broom's and scythe's working ends are at the foot.
 - **Shield and book (`hand_l.shield`):** as the heater shield and the tome.
 - **Handedness ([#679](https://github.com/moritzbrantner/asset-tooling/issues/679), [#687](https://github.com/moritzbrantner/asset-tooling/issues/687)):** hang the lantern, bucket, basket and tankard (role `carried`) from `hand_r.carry` or `hand_l.carry`, with the `Grip_Weapon_R` or `Grip_Weapon_L` grip. The Ranger's `hand_l.weapon` socket, the mirror of `hand_r.weapon`, turns an item 180° about its +Y axis, so item +X points down in the right hand but up in the left: a symmetric blade looks the same in either hand, but a hanging item rises above the left fist. `hand_l.carry` keeps +X down and flips ±Z instead, the true mirror for these items, which are symmetric about their XY plane; `hand_r.carry` is `hand_r.weapon`'s frame. `hand_l.weapon` and the clips are unchanged (the off-hand dagger and the crossbow crank use it).
 
@@ -62,6 +62,13 @@ The [review renders](../review/humanoid-equipment/) show the items on the Ranger
 | `equipment.book.ledger` | `hand_l.shield` | 0.22 | 60 | 0.16 × 0.22 m leather book with a brass clasp. |
 | `equipment.tool.broom` | `hand_r.staff` | 1.45 | 100 | Bound bristles at the foot; `grip.offhand` at y 0.45. |
 | `equipment.tool.walking-stick` | `hand_r.staff` | 1.09 | 52 | Knobbed stick with an iron ferrule. |
+| `equipment.tool.pickaxe` | `hand_r.weapon` | 0.80 | 100 | Two-sided iron pick head, points curving toward the hand; `grip.offhand` at y −0.12. |
+| `equipment.tool.sickle` | `hand_r.weapon` | 0.27 | 110 | Crescent blade over the top toward +X, edge inside; wooden handle. |
+| `equipment.tool.skinning-knife` | `hand_r.weapon` | 0.25 | 112 | Short blade curving toward +X, antler (`bone`) handle. |
+| `equipment.tool.hand-saw` | `hand_r.weapon` | 0.57 | 120 | Open pistol handle; tapering blade with its teeth along +X. |
+| `equipment.tool.mallet` | `hand_r.weapon` | 0.48 | 80 | Wooden carpenter's mallet, end-grain faces toward ±X. |
+| `equipment.tool.rake` | `hand_r.staff` | 1.79 | 110 | Hay rake, nine wooden teeth toward +Z; `grip.offhand` at y 0.5. |
+| `equipment.tool.scythe` | `hand_r.staff` | 1.53 | 152 | Snath with two nibs toward +Z, long blade at the foot along +X; `grip.offhand` on the upper nib (0, 0.55, 0.07). |
 
 Length is the item's longest extent. The numbers are from the build of 2026-11-16. A rebuild is byte-identical: the recipe builds explicit vertex lists and triangulates them itself, in a fixed order.
 
