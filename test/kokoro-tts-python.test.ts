@@ -91,8 +91,9 @@ function source() {
 // ---------------------------------------------------------------------------
 // Pure Python seams
 // ---------------------------------------------------------------------------
+// A cold Python start on the Windows runner can take longer than the default 5 s.
 
-test("kokoro_tts.py imports with the standard library only (heavy deps are lazy)", { skip: NO_PYTHON }, () => {
+test("kokoro_tts.py imports with the standard library only (heavy deps are lazy)", { skip: NO_PYTHON, timeout: 30_000 }, () => {
   source();
   const result = runPython(
     [
@@ -106,7 +107,7 @@ test("kokoro_tts.py imports with the standard library only (heavy deps are lazy)
   assert.equal(result.stdout.trim(), "ok");
 });
 
-test("find_out_of_vocabulary reports unresolved word tokens once, in order, and ignores punctuation", { skip: NO_PYTHON }, () => {
+test("find_out_of_vocabulary reports unresolved word tokens once, in order, and ignores punctuation", { skip: NO_PYTHON, timeout: 30_000 }, () => {
   source();
   const result = runPython(
     [
@@ -124,7 +125,7 @@ test("find_out_of_vocabulary reports unresolved word tokens once, in order, and 
   assert.deepEqual(resolved, []);
 });
 
-test("require_in_vocabulary fails closed naming every out-of-vocabulary token", { skip: NO_PYTHON }, () => {
+test("require_in_vocabulary fails closed naming every out-of-vocabulary token", { skip: NO_PYTHON, timeout: 30_000 }, () => {
   source();
   const failing = runPython(
     [
@@ -150,7 +151,7 @@ test("require_in_vocabulary fails closed naming every out-of-vocabulary token", 
   assert.equal(passing.stdout.trim(), "accepted");
 });
 
-test("verify_model_bundle rejects weights that are not the pinned kokoro-v1_0.pth", { skip: NO_PYTHON }, () => {
+test("verify_model_bundle rejects weights that are not the pinned kokoro-v1_0.pth", { skip: NO_PYTHON, timeout: 30_000 }, () => {
   source();
   const root = mkdtempSync(path.join(os.tmpdir(), "asset-tooling-kokoro-bundle-"));
   try {
@@ -178,7 +179,7 @@ test("verify_model_bundle rejects weights that are not the pinned kokoro-v1_0.pt
   }
 });
 
-test("usage errors exit non-zero without importing the runtime", { skip: NO_PYTHON }, () => {
+test("usage errors exit non-zero without importing the runtime", { skip: NO_PYTHON, timeout: 30_000 }, () => {
   source();
   const result = spawnSync(PYTHON!, ["-I", SCRIPT, "synthesize"], { encoding: "utf8", env: { PATH: process.env.PATH ?? "" } });
   assert.notEqual(result.status, 0);
