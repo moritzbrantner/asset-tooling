@@ -58,18 +58,18 @@ outpost["build_composition"]("house", bpy.context.scene.collection, wear=0.5)
 | `outpost.kit.roof-half` | roof | 302 | 1.00 × 6.73 × 2.22 | `roof` |
 | `outpost.kit.roof-verge` | roof | 366 | 0.30 × 6.85 × 2.23 | `roof` |
 | `outpost.kit.wall` | wall | 404 | 2.00 × 0.34 × 3.60 | `wall` |
-| `outpost.kit.wall-door` | wall | 770 | 2.00 × 0.54 × 3.68 | `left-jamb`, `right-jamb`, `lintel` |
+| `outpost.kit.wall-door` | wall | 596 | 2.00 × 0.54 × 3.68 | `left-jamb`, `right-jamb`, `lintel` |
 | `outpost.kit.wall-half` | wall | 296 | 1.00 × 0.34 × 3.60 | `wall` |
-| `outpost.kit.wall-window` | wall | 714 | 2.00 × 0.38 × 3.60 | `wall` |
+| `outpost.kit.wall-window` | wall | 682 | 2.00 × 0.38 × 3.60 | `wall` |
 
-The numbers are from the build of 2026-11-07 (pristine variants; the roof modules are unchanged). The descriptor carries the measured values of each build.
+The numbers are from the build of 2026-11-07 (pristine variants; the roof modules are unchanged), and for `wall-door` and `wall-window` from 2026-11-16 ([#672](https://github.com/moritzbrantner/asset-tooling/issues/672)). The descriptor carries the measured values of each build.
 
 - **Walls:** each wall module has a 0.5 m stone plinth, plaster panels set 4 cm behind the timber face, a sill beam and a top plate. At each end stands half of a 0.18 m post, so two neighbouring modules make one post between them.
   - Every wall module carries a head rail at 2.25–2.41 m, so it reads as one timber around the building, and the window and door heads meet it. Braces are cut to their bay, so their ends sit flush against the posts, rails and sills.
   - `wall` has a centre post and a brace in each lower bay.
   - `wall-half` (1 m) has one brace below the rail.
-  - `wall-window` has a 0.9 × 1.1 m glazed window with its sill at 1.15 m. Studs run from the sill beam to the top plate either side of it, a sill rail and the head rail carry it, and knee braces above the rail stay clear of the window and its open plank shutters. It has a mullion and a transom, a proud timber sill and a lintel.
-  - `wall-door` has the inn's 1.2 × 2.2 m doorway. Its posts stand on stone pads, a head beam spans it, and a stone threshold sits flush with the ground. The empty node `door.hinge` marks where the door hangs.
+  - `wall-window` has a 0.9 × 1.1 m glazed window with its sill at 1.15 m. Studs run from the sill beam to the top plate either side of it, a sill rail and the head rail carry it (the head rail runs flush from post to stud and across the window as its lintel), and knee braces above the rail stay clear of the window and its open plank shutters. It has a mullion and a transom, a proud timber sill and a lintel.
+  - `wall-door` has the inn's 1.2 × 2.2 m doorway. Its posts stand on stone pads and run the full storey up to the top plate. The head rail runs from each seam post to its door post, a lintel at the rail spans the doorway down to its 2.2 m head, and above it two braces rise from the door posts to meet under the top plate. A stone threshold sits flush with the ground. The empty node `door.hinge` marks where the door hangs.
 - **`door`:** a five-plank leaf with inside battens and a brace, iron strap hinges and a latch. Its origin is the hinge, and the closed leaf runs along +X. It has an empty node `hinge`.
 - **`corner`:** the corner post and a stone plinth block. It covers the overlap of the two walls that meet at a corner.
 - **`gable`:** the plaster gable triangle for the 6 m span. Rafters follow both roof edges, and every other gable timber ends on them: a collar cut to the rafters, two posts under it over the gable wall's module joints (clear of the window below) and a king post from the collar to the apex, with a louvred vent each side. It stands on a gable wall's top plate.
@@ -105,7 +105,7 @@ Notes for the consumer:
 The kit uses five tileable PBR texture sets of 512 px each: colour (sRGB), normal (OpenGL, +Y up) and ORM (occlusion, roughness, metallic).
 
 - **Plaster:** a warm lime plaster with blotches and trowel waves; one tile covers 2 m.
-- **Stone:** coursed rubble with four courses of irregular stones in dark mortar; one tile covers 1 m.
+- **Stone:** coursed rubble with four 0.25 m courses of irregular stones in dark mortar; one tile covers 1 m. The recipe lays every stone face in world-space courses when it builds a module (`course_stone`): box-projected UVs in metres with V the height above the ground and U running from each module's left end (2 m modules start on whole metres, `wall-half` on half metres) and on around the corners. So the plinth's and the chimney's courses meet across faces, corners and modules at one scale, whatever UVs the authored geometry carries.
 - **Wood:** grain along U; one tile covers 1 m. The timber frame uses it with a darker base-colour factor and the planks without one, so the frame and the planks share one image.
 - **Shingle:** weathered grey-brown shingles.
 - **Slate:** blue-grey slates.
