@@ -18,7 +18,7 @@ Frame of every module: metres, glTF right-handed +Y up, origin on the ground at 
 outer face (the hinge for ``door``, the outer corner for ``corner``, the ground under the ridge for roof
 modules), the outside towards +Z. docs/outpost-kit.md describes the grid the authored geometry keeps.
 Roof modules take ``roof``: ``shingle`` (default) or ``slate``. ``compositions`` places the modules on the
-mmorpg house (8 x 6 m) and smithy (6 x 7 m) footprints.
+mmorpg house (8 x 6 m), smithy (6 x 7 m) and two-room farmhouse (8 x 7 m) footprints.
 
 No randomness: variation comes from a SHA-256 of fixed keys, the textures from numpy's legacy
 ``RandomState``, which is stable across numpy versions. Every module that uses a texture embeds the same
@@ -39,13 +39,16 @@ import numpy as np
 from mathutils import Vector
 
 PARTS = ("wall", "wall-half", "wall-window", "wall-door", "door", "corner", "gable", "roof", "roof-half",
-         "roof-verge", "chimney")
-ROOFED = ("roof", "roof-half", "roof-verge")
+         "roof-verge", "chimney", "gable-wide", "roof-wide", "roof-wide-verge", "wall-hearth", "partition-door")
+ROOFED = ("roof", "roof-half", "roof-verge", "roof-wide", "roof-wide-verge")
 ROOFS = ("shingle", "slate")
 # The grid the compositions lay out; the authored modules keep it (docs/outpost-kit.md).
 MODULE = 2.0
 SPAN = 6.0
 HALF_SPAN = SPAN / 2
+WIDE_SPAN = 7.0         # the farmhouse's span: gable-wide, roof-wide and roof-wide-verge (#685)
+# Wall modules that are not one 2 m module wide.
+WIDTHS = {"wall-half": MODULE / 2, "wall-hearth": 3.0}
 DOOR = {"x0": -0.6, "x1": 0.6, "height": 2.2}
 LEAF = {"width": 1.16, "height": 2.18, "thickness": 0.06, "z": -0.12}
 TEXTURE = 512
@@ -579,7 +582,7 @@ def dress(objects, roof="shingle"):
 # Where a module's left end sits on the 1 m stone tile: 2 m modules are centred on whole metres, the 1 m
 # ``wall-half`` on half metres, so measuring U from each module's left end keeps the bond continuous across
 # every seam, and the building's corners, which are on whole metres, fall at QUOIN.
-COURSE_ORIGIN = {"wall": 1.0, "wall-window": 1.0, "wall-door": 1.0, "wall-half": 0.5}
+COURSE_ORIGIN = {"wall": 1.0, "wall-window": 1.0, "wall-door": 1.0, "wall-half": 0.5, "wall-hearth": 1.5}
 # Where an outside corner falls along a course: a quarter block into a stone, so the corner stone shows a
 # quarter on one face and three quarters round the other, and the next course, offset half a block, the
 # other way round. The corners alternate like quoins.
@@ -620,7 +623,9 @@ def course_stone(objects, part):
     round each stone piece as one strip: along X on its front face, then on round both ends, so the bond turns
     the corners. Plinths start U from the module's left end plus ``QUOIN`` (``COURSE_ORIGIN``), the corner
     block from its origin, the building's corner, plus ``QUOIN``; each chimney piece starts ``QUOIN`` before its
-    own left front corner. Tops and soffits take X and Z."""
+    own left front corner. Tops and soffits take X and Z. A piece that stands inside, behind the wall's inner
+    face (``wall-hearth``'s fireplace), is laid as seen from the room, turned half round, and like a chimney
+    piece starts ``QUOIN`` before its own left front corner."""
     root = next(o for o in objects if o.parent is None)
     to_root = root.matrix_world.inverted()
     scale = 1.0 / TILE["stone"]
@@ -634,18 +639,21 @@ def course_stone(objects, part):
         normals = local.to_3x3().inverted().transposed()
         mesh = obj.data
         uv = mesh.uv_layers.active.data
-        point = lambda i: (lambda c: (c.x, c.z, -c.y))(local @ mesh.vertices[i].co)  # glTF axes
+        gltf = lambda i: (lambda c: (c.x, c.z, -c.y))(local @ mesh.vertices[i].co)  # glTF axes
         for island in stone_islands(mesh, stone):
+            inside = max(gltf(v)[2] for i in island for v in mesh.polygons[i].vertices) <= -0.3
+            turn = -1 if inside else 1
+            point = lambda i: (lambda p: (turn * p[0], p[1], turn * p[2]))(gltf(i))
             pts = [point(v) for i in island for v in mesh.polygons[i].vertices]
             x0, x1, front = min(p[0] for p in pts), max(p[0] for p in pts), max(p[2] for p in pts)
-            if part == "chimney":
+            if part == "chimney" or inside:
                 fx = QUOIN - x0
             else:
                 fx = COURSE_ORIGIN.get(part, 0.0) + QUOIN
             for i in island:
                 poly = mesh.polygons[i]
                 nb = normals @ poly.normal
-                n = (nb.x, nb.z, -nb.y)
+                n = (turn * nb.x, nb.z, -turn * nb.y)
                 axis = max(range(3), key=lambda k: abs(n[k]))
                 for li in poly.loop_indices:
                     x, y, z = point(mesh.loops[li].vertex_index)
@@ -697,8 +705,8 @@ def yaw_point(p, degrees):
 
 
 def layout(modules, length):
-    """Centres of ``modules`` (each 2 or 1 m wide) laid end to end over ``length``, from -length/2."""
-    widths = [MODULE / 2 if m == "wall-half" else MODULE for m in modules]
+    """Centres of ``modules`` (2 m wide, or as ``WIDTHS`` gives) laid end to end over ``length``, from -length/2."""
+    widths = [WIDTHS.get(m, MODULE) for m in modules]
     if abs(sum(widths) - length) > 1e-9:
         raise ValueError(f"modules {modules} do not fill {length} m")
     x, out = -length / 2, []
@@ -708,40 +716,50 @@ def layout(modules, length):
     return out
 
 
-def composition(length, front, back_side, left, right, door_side, chimney_side, roof, building_yaw):
-    """A ridge-frame building (ridge along X, ``length`` long, 6 m span along Z) turned by ``building_yaw``.
-    The eave walls are ``front`` (+Z) and ``back_side`` (-Z), the gable walls ``right`` (+X) and ``left`` (-X)."""
+def composition(length, front, back_side, left, right, door_side, chimney_side, roof, building_yaw, wide=False,
+                hang_door=True, inside=()):
+    """A ridge-frame building (ridge along X, ``length`` long, 6 m span along Z, or with ``wide`` 7 m and the
+    ``-wide`` gable and roof) turned by ``building_yaw``. The eave walls are ``front`` (+Z) and ``back_side``
+    (-Z), the gable walls ``right`` (+X) and ``left`` (-X). With ``hang_door`` False the doorway stays open;
+    ``inside`` adds ``(part, translation, yaw)`` items such as a partition."""
+    span = WIDE_SPAN if wide else SPAN
+    half_span = span / 2
+    suffix = "-wide" if wide else ""
     items = []
     def add(key, t, yaw, variant="default"):
         items.append({"key": f"outpost.kit.{key}", "variant": variant, "translation": t, "yawDegrees": yaw})
-    sides = [("front", front, (0, 0, HALF_SPAN), 0, length), ("back", back_side, (0, 0, -HALF_SPAN), 180, length),
-             ("right", right, (length / 2, 0, 0), 90, SPAN), ("left", left, (-length / 2, 0, 0), -90, SPAN)]
+    sides = [("front", front, (0, 0, half_span), 0, length), ("back", back_side, (0, 0, -half_span), 180, length),
+             ("right", right, (length / 2, 0, 0), 90, span), ("left", left, (-length / 2, 0, 0), -90, span)]
     door = None
     for name, modules, origin, yaw, run in sides:
         for module, u in layout(modules, run):
             t = yaw_point((u, 0, 0), yaw)
             t = (t[0] + origin[0], 0, t[2] + origin[2])
             add(module, t, yaw)
-            if module == "wall-door" and name == door_side:
+            if module == "wall-door" and name == door_side and hang_door:
                 hinge = yaw_point((DOOR["x0"] + (DOOR["x1"] - DOOR["x0"] - LEAF["width"]) / 2, 0.01, LEAF["z"]), yaw)
                 door = ((t[0] + hinge[0], hinge[1], t[2] + hinge[2]), yaw)
         if name in ("right", "left"):
-            add("gable", origin, yaw)
+            add(f"gable{suffix}", origin, yaw)
         if name == chimney_side:
             add("chimney", origin, yaw)
     if door:
         add("door", door[0], door[1])
-    for x, z, yaw in [(length / 2, HALF_SPAN, 0), (-length / 2, HALF_SPAN, -90), (-length / 2, -HALF_SPAN, 180), (length / 2, -HALF_SPAN, 90)]:
+    for part, t, yaw in inside:
+        add(part, t, yaw)
+    for x, z, yaw in [(length / 2, half_span, 0), (-length / 2, half_span, -90), (-length / 2, -half_span, 180), (length / 2, -half_span, 90)]:
         add("corner", (x, 0, z), yaw)
     variant = "default" if roof == "shingle" else roof  # the bundle variant of that roofing
-    roof_modules = ["roof"] * int(length // MODULE) + (["roof-half"] if length % MODULE else [])
+    if wide and length % MODULE:
+        raise ValueError("the wide roof has no half section: a wide building is whole 2 m modules long")
+    roof_modules = [f"roof{suffix}"] * int(length // MODULE) + (["roof-half"] if length % MODULE else [])
     x = -length / 2
     for m in roof_modules:
-        w = MODULE if m == "roof" else MODULE / 2
+        w = MODULE / 2 if m == "roof-half" else MODULE
         add(m, (x + w / 2, 0, 0), 0, variant)
         x += w
-    add("roof-verge", (length / 2, 0, 0), 0, variant)
-    add("roof-verge", (-length / 2, 0, 0), 180, variant)
+    add(f"roof{suffix}-verge", (length / 2, 0, 0), 0, variant)
+    add(f"roof{suffix}-verge", (-length / 2, 0, 0), 180, variant)
     for item in items:
         t = yaw_point(item["translation"], building_yaw)
         item["translation"] = r6([t[0], t[1], t[2]])
@@ -750,16 +768,24 @@ def composition(length, front, back_side, left, right, door_side, chimney_side, 
 
 
 def compositions():
-    """Working placements for mmorpg's Outpost house (8 x 6 m, colliders 103-106) and smithy (6 x 7 m,
-    collider 102), in a footprint-base-centre frame whose +Z side has the door."""
+    """Working placements for mmorpg's Outpost house (8 x 6 m, colliders 103-106), smithy (6 x 7 m,
+    collider 102) and farmhouse (8 x 7 m), in a footprint-base-centre frame whose +Z side has the door."""
     house = composition(8.0, ["wall-window", "wall-half", "wall-door", "wall-half", "wall-window"],
                         ["wall", "wall-window", "wall-window", "wall"], ["wall", "wall-window", "wall"],
                         ["wall", "wall-window", "wall"], "front", "right", "shingle", 0)
     # The smithy's ridge runs along its 7 m depth; its door is in the front gable wall.
     smithy = composition(7.0, ["wall-half", "wall-window", "wall", "wall-window"], ["wall-window", "wall", "wall-window", "wall-half"],
                          ["wall", "wall", "wall"], ["wall", "wall-door", "wall"], "right", "left", "slate", -90)
+    # The farmhouse (#685): 8 x 7 m, its ridge along the 8 m width over the 7 m span. The front doorway stays
+    # open. The hall (x -4..1) has the hearth on the -X gable, under the chimney; through the partition's
+    # doorway at the back lies the chamber (x 1..4). The partition stands on the eave walls' module joints.
+    farmhouse = composition(8.0, ["wall-window", "wall-half", "wall-door", "wall-window", "wall-half"],
+                            ["wall-half", "wall-window", "wall", "wall-window", "wall-half"], ["wall", "wall-hearth", "wall"],
+                            ["wall", "wall-half", "wall-window", "wall"], "front", "left", "shingle", 0, wide=True,
+                            hang_door=False, inside=[("partition-door", (1.0, 0, 0), 90)])
     return {"house": {"footprint": {"width": 8.0, "depth": 6.0}, "items": house},
-            "smithy": {"footprint": {"width": 6.0, "depth": 7.0}, "items": smithy}}
+            "smithy": {"footprint": {"width": 6.0, "depth": 7.0}, "items": smithy},
+            "farmhouse": {"footprint": {"width": 8.0, "depth": WIDE_SPAN}, "items": farmhouse}}
 
 
 # ---------------------------------------------------------------- entry points

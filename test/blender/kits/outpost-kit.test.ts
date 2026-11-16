@@ -79,7 +79,7 @@ test("the outpost spec runs the packaged recipe with exactly one module and an o
   assert.deepEqual(createOutpostAssetSpec({ part: "wall", wear: 0.5, scriptSha256: "a".repeat(64), commonSha256: "d".repeat(64), kitSha256: "e".repeat(64), blenderVersion: "5.2.2" }).parameters.arguments, { schemaVersion: 1, part: "wall", wear: 0.5 });
   assert.deepEqual(outpostRuns("wall").map((run) => run.variant), ["default"]);
   assert.deepEqual(outpostRuns("roof").map((run) => run.variant), ["default", "slate"]);
-  assert.equal(OUTPOST_PARTS.length, 11);
+  assert.equal(OUTPOST_PARTS.length, 16);
   assert.equal(OUTPOST_RELEASE, "outpost-kit", "one rolling release, never numbered");
 });
 
@@ -101,7 +101,7 @@ test("the outpost recipe builds a verified kit whose modules snap to the grid, k
     const { manifest } = await verifyAssetBundle(built.bundleDir, built.exportRef, { profile: GLTF_RESOURCES_BUNDLE_PROFILE });
     const entries = manifest.assets.map((entry) => `${entry.key}#${entry.variant}`).sort();
     const expected = [...OUTPOST_PARTS.flatMap((part) => outpostRuns(part).map((run) => `${outpostKey(part)}#${run.variant}`)), "outpost.kit.wear-masks#default"].sort();
-    assert.equal(expected.length, 11 + 3 + 1);
+    assert.equal(expected.length, 16 + 5 + 1);
     assert.deepEqual(entries, expected);
     const d = JSON.parse((await readAssetBundleAttachment(built.bundleDir, manifest, "outpost.kit.wall", "default", OUTPOST_DESCRIPTOR_ATTACHMENT)).toString("utf8"));
     const schema = JSON.parse(await readFile(schemaUrl, "utf8"));
@@ -122,11 +122,12 @@ test("the outpost recipe builds a verified kit whose modules snap to the grid, k
 
     // Wall modules fill their grid width, stand 3.6 m high and lie behind the outer face (plinth and trim
     // stand a little proud of it).
-    for (const [part, width] of [["wall", 2], ["wall-half", 1], ["wall-window", 2], ["wall-door", 2]] as const) {
+    for (const [part, width] of [["wall", 2], ["wall-half", 1], ["wall-window", 2], ["wall-door", 2], ["wall-hearth", 3]] as const) {
       const a = asset[part];
       assert.ok(Math.abs(a.bounds.min[0] + width / 2) < 1e-6 && Math.abs(a.bounds.max[0] - width / 2) < 1e-6, `${part} spans its module`);
       assert.ok(Math.abs(a.bounds.max[1] - 3.6) < 1e-6 || part === "wall-door", `${part} is 3.6 m high`);
-      assert.ok(a.bounds.min[2] >= -0.32 - 1e-6, `${part} stays inside the wall thickness`);
+      // The hearth wall's fireplace stands in the room, in front of its inner face.
+      assert.ok(a.bounds.min[2] >= (part === "wall-hearth" ? -1.2 : -0.32) - 1e-6, `${part} stays inside the wall thickness`);
     }
 
     // Nothing reaches into the doorway, and the closed leaf fits it.
@@ -153,7 +154,7 @@ test("the outpost recipe builds a verified kit whose modules snap to the grid, k
     for (const [name, { footprint, items }] of Object.entries<any>(d.compositions)) {
       const hx = footprint.width / 2, hz = footprint.depth / 2;
       for (const item of items) assert.ok(entries.includes(`${item.key}#${item.variant}`), `${name}: ${item.key}#${item.variant}`);
-      const walls = items.filter((item: any) => ["wall", "wall-half", "wall-window", "wall-door"].some((p) => item.key === outpostKey(p as any)));
+      const walls = items.filter((item: any) => ["wall", "wall-half", "wall-window", "wall-door", "wall-hearth"].some((p) => item.key === outpostKey(p as any)));
       for (const [axis, half, other] of [[2, hz, hx], [2, -hz, hx], [0, hx, hz], [0, -hx, hz]] as const) {
         const side = walls.filter((item: any) => Math.abs(item.translation[axis] - half) < 1e-6);
         const width = side.reduce((sum: number, item: any) => sum + asset[item.key.split(".").pop()].module.width, 0);
@@ -163,13 +164,32 @@ test("the outpost recipe builds a verified kit whose modules snap to the grid, k
           assert.ok(Math.abs(outward[axis]! - Math.sign(half)) < 1e-6, `${name}: ${item.key} at ${item.translation} faces outwards`);
         }
       }
-      // The door hangs in its doorway, and the doorway is on the front (+Z).
+      // The door hangs in its doorway (the farmhouse's stays open), and the doorway is on the front (+Z).
       const door = items.find((item: any) => item.key === "outpost.kit.door");
       const wallDoor = items.find((item: any) => item.key === "outpost.kit.wall-door");
-      const hinge = place(mount, wallDoor.translation, wallDoor.yawDegrees);
-      assert.ok(hinge.every((c, k) => Math.abs(c - door.translation[k]) < 1e-6) && door.yawDegrees === wallDoor.yawDegrees, `${name}: the door is mounted`);
+      if (name === "farmhouse") assert.equal(door, undefined, "the farmhouse's front doorway is open");
+      else {
+        const hinge = place(mount, wallDoor.translation, wallDoor.yawDegrees);
+        assert.ok(hinge.every((c, k) => Math.abs(c - door.translation[k]) < 1e-6) && door.yawDegrees === wallDoor.yawDegrees, `${name}: the door is mounted`);
+      }
       assert.ok(Math.abs(wallDoor.translation[2] - hz) < 1e-6, `${name}: the doorway faces +Z`);
     }
+
+    // The farmhouse (#685): 8 x 7 m under the wide roof, the hearth on a gable under the chimney, and a partition
+    // with a doorway that spans the 7 m depth between the eave walls and keeps its doorway clear.
+    const farmhouse = d.compositions.farmhouse;
+    assert.deepEqual(farmhouse.footprint, { width: 8, depth: 7 });
+    const keys = farmhouse.items.map((item: any) => item.key.split(".").pop());
+    assert.ok(!keys.includes("gable") && !keys.includes("roof") && keys.filter((k: string) => k === "gable-wide").length === 2);
+    const hearth = farmhouse.items.find((item: any) => item.key === "outpost.kit.wall-hearth");
+    const chimney = farmhouse.items.find((item: any) => item.key === "outpost.kit.chimney");
+    assert.ok(Math.abs(hearth.translation[2] - chimney.translation[2]) < 1e-6 && Math.abs(hearth.translation[0] - chimney.translation[0]) < 1e-6, "the hearth stands in front of the chimney");
+    const partition = farmhouse.items.find((item: any) => item.key === "outpost.kit.partition-door");
+    assert.ok(Math.abs(partition.translation[0]) < 4 - 1 && Math.abs(Math.abs(partition.yawDegrees) - 90) < 1e-6, "the partition crosses the depth inside");
+    assert.ok(Math.abs(asset["partition-door"].bounds.max[0] - asset["partition-door"].bounds.min[0] - (7 - 2 * 0.32)) < 0.05, "the partition spans between the eave walls");
+    assert.ok(asset["partition-door"].doorway.width >= 0.9 && asset["partition-door"].doorway.height >= 2, "the partition's doorway admits a figure");
+    assert.ok(asset["roof-wide"].roof.span === 7 && asset["gable-wide"].span === 7);
+    assert.ok(asset.chimney.bounds.max[1] > asset["roof-wide"].roof.ridgeTop + 0.3, "the chimney clears the wide ridge");
   } finally {
     await rm(outDir, { recursive: true, force: true });
   }
