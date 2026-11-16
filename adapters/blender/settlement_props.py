@@ -28,10 +28,12 @@ import bmesh
 import bpy
 from mathutils import Matrix, Vector
 
-PROPS = ("stall", "cart", "crate", "barrel", "signpost", "lantern-post", "bench", "fence", "planter", "firewood", "footbridge")
+PROPS = ("stall", "cart", "crate", "barrel", "signpost", "lantern-post", "bench", "fence", "planter", "firewood", "footbridge",
+         "bed", "table", "chair", "chest", "hearth")
 FAMILY = {"stall": "market", "cart": "market", "crate": "market", "barrel": "market", "signpost": "street",
           "lantern-post": "street", "bench": "street", "fence": "dressing", "planter": "dressing", "firewood": "dressing",
-          "footbridge": "street"}
+          "footbridge": "street", "bed": "dressing", "table": "dressing", "chair": "dressing", "chest": "dressing",
+          "hearth": "dressing"}
 
 # Plain-colour materials the props add to the kit's: (sRGB base colour, metallic, roughness, texture).
 EXTRA_MATERIALS = {
@@ -519,10 +521,107 @@ def build_footbridge(part, col, root):
         rail(-hw + 0.05), rail(hw - 0.05)]}
 
 
+# ---------------------------------------------------------------- furniture (cottage interiors)
+
+def build_bed(part, col, root):
+    """A 1.0 x 2.0 m plank bed along Z, headboard at -Z: a straw mattress 0.48 m up under a dyed blanket."""
+    b = K["Builder"](f"settlement.{part}.mesh")
+    hw, hl, rail = 0.5, 1.0, 0.3
+    for x in (-hw, hw - 0.07):
+        for z, top in ((-hl, 0.95), (hl - 0.07, 0.55)):
+            b.block((x, 0, z), (x + 0.07, top, z + 0.07), "timber", 0.008, f"bed/post{x}{z}", grain=(0, 1, 0))
+    b.block((-hw + 0.07, 0.5, -hl + 0.01), (hw - 0.07, 0.9, -hl + 0.05), "wood", 0.008, "bed/headboard", grain=(1, 0, 0))
+    b.block((-hw + 0.07, 0.24, hl - 0.06), (hw - 0.07, 0.5, hl - 0.02), "wood", 0.008, "bed/footboard", grain=(1, 0, 0))
+    for x in (-hw, hw - 0.05):
+        b.box((x, 0.18, -hl + 0.07), (x + 0.05, rail, hl - 0.07), "wood", f"bed/rail{x}", grain=(0, 0, 1))
+    b.box((-hw + 0.05, 0.24, -hl + 0.07), (hw - 0.05, 0.28, hl - 0.07), "wood", "bed/slats", grain=(1, 0, 0))
+    b.block((-hw + 0.06, 0.28, -hl + 0.08), (hw - 0.06, 0.44, hl - 0.08), "sacking", 0.04, "bed/mattress")
+    b.block((-hw + 0.04, 0.42, -hl + 0.5), (hw - 0.04, 0.48, hl - 0.06), "dye", 0.03, "bed/blanket")
+    b.block((-hw + 0.14, 0.44, -hl + 0.1), (hw - 0.14, 0.54, -hl + 0.42), "canvas", 0.04, "bed/pillow")
+    b.finish(col, root)
+    return {"sleep": {"height": 0.48, "head": [0.0, 0.48, -0.75]},
+            "collisionProxies": [proxy("bed", (-hw, 0, -hl), (hw, 0.55, hl)), proxy("headboard", (-hw, 0, -hl), (hw, 0.95, -hl + 0.07))]}
+
+
+def build_table(part, col, root):
+    """A 1.4 x 0.8 m trestle table, its top 0.76 m up, with a jug and two bowls."""
+    b = K["Builder"](f"settlement.{part}.mesh")
+    hw, hd, top = 0.7, 0.4, 0.76
+    b.block((-hw, top - 0.05, -hd), (hw, top, hd), "wood", 0.01, "table/top", grain=(1, 0, 0))
+    for x in (-hw + 0.12, hw - 0.18):
+        b.box((x, 0.05, -0.04), (x + 0.06, top - 0.05, 0.04), "timber", f"table/leg{x}", grain=(0, 1, 0))
+        b.block((x - 0.03, 0, -hd + 0.06), (x + 0.09, 0.06, hd - 0.06), "timber", 0.01, f"table/foot{x}", grain=(0, 0, 1))
+        b.box((x - 0.02, top - 0.11, -hd + 0.06), (x + 0.08, top - 0.05, hd - 0.06), "timber", f"table/bearer{x}", grain=(0, 0, 1))
+    b.box((-hw + 0.18, 0.2, -0.03), (hw - 0.18, 0.27, 0.03), "timber", "table/stretcher", grain=(1, 0, 0))
+    placed(b, Matrix.Translation(Vector((0.35, top, -0.1))), lambda: lathe(
+        b, [(0, 0.06), (0.12, 0.08), (0.2, 0.05), (0.24, 0.035), (0.25, 0)], 10, "endgrain", "table/jug"))
+    for x, z in ((-0.3, 0.12), (0.0, -0.15)):
+        placed(b, Matrix.Translation(Vector((x, top, z))), lambda: lathe(
+            b, [(0, 0.04), (0.04, 0.08), (0.05, 0.085), (0.05, 0)], 10, "wood", f"table/bowl{x}"))
+    b.finish(col, root)
+    return {"top": {"height": top, "width": 2 * hw, "depth": 2 * hd},
+            "collisionProxies": [proxy("table", (-hw, 0, -hd), (hw, top, hd))]}
+
+
+def build_chair(part, col, root):
+    """A 0.45 m square chair, its seat 0.45 m up and its back towards -Z."""
+    b = K["Builder"](f"settlement.{part}.mesh")
+    h, seat = 0.225, 0.45
+    for x in (-h, h - 0.045):
+        for z in (-h, h - 0.045):
+            top = 0.95 if z < 0 else seat - 0.04
+            b.box((x, 0, z), (x + 0.045, top, z + 0.045), "timber", f"chair/leg{x}{z}", grain=(0, 1, 0))
+    b.block((-h, seat - 0.04, -h), (h, seat, h), "wood", 0.008, "chair/seat", grain=(1, 0, 0))
+    for y in (0.62, 0.8):
+        b.box((-h + 0.045, y, -h + 0.005), (h - 0.045, y + 0.08, -h + 0.035), "wood", f"chair/slat{y}", grain=(1, 0, 0))
+    b.box((-h + 0.045, 0.14, -0.02), (h - 0.045, 0.18, 0.02), "timber", "chair/stretcher", grain=(1, 0, 0))
+    b.finish(col, root)
+    return {"seat": {"height": seat, "length": 2 * h, "depth": 2 * h},
+            "collisionProxies": [proxy("chair", (-h, 0, -h), (h, seat, h))]}
+
+
+def build_chest(part, col, root):
+    """A 0.9 x 0.5 m iron-bound chest 0.55 m tall, its lid slightly domed."""
+    b = K["Builder"](f"settlement.{part}.mesh")
+    hw, hd, h = 0.45, 0.25, 0.46
+    b.block((-hw, 0, -hd), (hw, h, hd), "wood", 0.012, "chest/body", grain=(1, 0, 0))
+    b.block((-hw - 0.01, h, -hd - 0.01), (hw + 0.01, h + 0.06, hd + 0.01), "wood", 0.02, "chest/lid", grain=(1, 0, 0))
+    b.block((-hw + 0.02, h + 0.06, -hd + 0.04), (hw - 0.02, h + 0.09, hd - 0.04), "wood", 0.02, "chest/dome", grain=(1, 0, 0))
+    for x in (-hw + 0.1, hw - 0.14):
+        b.box((x, 0, -hd - 0.012), (x + 0.04, h + 0.065, hd + 0.012), "iron", f"chest/band{x}")
+    b.box((-0.05, h - 0.12, hd), (0.05, h + 0.02, hd + 0.02), "iron", "chest/hasp")
+    b.finish(col, root)
+    return {"collisionProxies": [proxy("chest", (-hw - 0.01, 0, -hd - 0.012), (hw + 0.01, h + 0.09, hd + 0.012))]}
+
+
+def build_hearth(part, col, root):
+    """A 1.6 m stone fireplace against a wall at -Z: a raised firebox with logs and embers under a
+    stone hood that narrows to a 2.6 m flue; its ``fire`` point is where a warm light belongs."""
+    b = K["Builder"](f"settlement.{part}.mesh")
+    hw, d, mouth, hood = 0.8, 0.6, 0.85, 2.6
+    b.block((-hw - 0.1, 0, -d), (hw + 0.1, 0.18, 0.25), "stone", 0.02, "hearth/plinth")
+    for x0, x1 in ((-hw, -hw + 0.28), (hw - 0.28, hw)):
+        b.block((x0, 0.18, -d), (x1, mouth, 0.0), "stone", 0.02, f"hearth/cheek{x0}")
+    b.box((-hw + 0.28, 0.18, -d), (hw - 0.28, mouth, -d + 0.06), "soot", "hearth/back")
+    b.block((-hw - 0.05, mouth, -d), (hw + 0.05, mouth + 0.22, 0.05), "stone", 0.02, "hearth/lintel")
+    b.block((-hw + 0.1, mouth + 0.22, -d), (hw - 0.1, mouth + 0.9, -0.08), "stone", 0.02, "hearth/hood")
+    b.block((-0.35, mouth + 0.9, -d), (0.35, hood, -0.25), "stone", 0.02, "hearth/flue")
+    b.box((-hw + 0.1, mouth + 0.22, -0.11), (hw - 0.1, mouth + 0.28, 0.0), "timber", "hearth/mantel", grain=(1, 0, 0))
+    for k, (x, ry) in enumerate(((-0.12, 0.3), (0.1, -0.25), (0.0, 1.4))):
+        rod(b, (x - 0.22 * math.cos(ry), 0.26 + 0.07 * (k == 2), -0.3 - 0.22 * math.sin(ry)),
+            (x + 0.22 * math.cos(ry), 0.26 + 0.07 * (k == 2), -0.3 + 0.22 * math.sin(ry)), 0.055, 7, "timber", f"hearth/log{k}", "endgrain")
+    b.box((-0.25, 0.18, -0.45), (0.25, 0.22, -0.15), "horn", "hearth/embers")
+    b.finish(col, root)
+    return {"fire": {"position": [0.0, 0.4, -0.3]},
+            "collisionProxies": [proxy("hearth", (-hw - 0.1, 0, -d), (hw + 0.1, mouth + 0.28, 0.25)),
+                                 proxy("flue", (-hw + 0.1, mouth + 0.28, -d), (hw - 0.1, hood, -0.08))]}
+
+
 BUILDERS = {"stall": build_stall, "cart": build_cart, "crate": build_crate_part, "barrel": build_barrel_part,
             "signpost": build_signpost, "lantern-post": build_lantern_post, "bench": build_bench,
             "fence": build_fence, "planter": build_planter, "firewood": build_firewood,
-            "footbridge": build_footbridge}
+            "footbridge": build_footbridge, "bed": build_bed, "table": build_table, "chair": build_chair,
+            "chest": build_chest, "hearth": build_hearth}
 
 
 # ---------------------------------------------------------------- composition
