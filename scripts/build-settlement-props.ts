@@ -29,6 +29,7 @@ export const SETTLEMENT_PROPS = [
   "rowing-boat", "jetty", "fishing-nets",
   "banner-outpost", "banner-village", "pennant-outpost", "pennant-village", "bunting",
   "scarecrow", "weather-vane", "beehive-skeps", "water-trough", "feed-trough", "hen-coop", "plough",
+  "watermill", "water-wheel", "windmill", "forge", "well-windlass",
 ] as const;
 export type SettlementProp = (typeof SETTLEMENT_PROPS)[number];
 export type SettlementFamily = "market" | "street" | "dressing";
@@ -53,6 +54,7 @@ export const SETTLEMENT_FAMILY: Record<SettlementProp, SettlementFamily> = {
   "banner-outpost": "street", "banner-village": "street", "pennant-outpost": "street", "pennant-village": "street", bunting: "street",
   scarecrow: "dressing", "weather-vane": "dressing", "beehive-skeps": "dressing", "water-trough": "dressing", "feed-trough": "dressing",
   "hen-coop": "dressing", plough: "dressing",
+  watermill: "dressing", "water-wheel": "dressing", windmill: "dressing", forge: "dressing", "well-windlass": "dressing",
 };
 export const SETTLEMENT_KEY_PREFIX = "settlement.props";
 export const SETTLEMENT_VARIANT = "default";
@@ -78,10 +80,14 @@ export const SETTLEMENT_TRIANGLE_BUDGET: Record<SettlementProp, number> = {
   "rowing-boat": 1000, jetty: 700, "fishing-nets": 1500,
   "banner-outpost": 550, "banner-village": 550, "pennant-outpost": 300, "pennant-village": 300, bunting: 700,
   scarecrow: 1000, "weather-vane": 800, "beehive-skeps": 1000, "water-trough": 350, "feed-trough": 250, "hen-coop": 550, plough: 750,
+  watermill: 2500, "water-wheel": 1100, windmill: 2300, forge: 1300, "well-windlass": 1000,
 };
-/** The named node-animation loops (#695), in seconds. They live in the props' glTF and the bundle manifest's observations; the
+/** The named node-animation loops (#695, #699), in seconds. They live in the props' glTF and the bundle manifest's observations; the
  * published descriptor schema keeps its fields. */
-export const SETTLEMENT_CLIPS: Partial<Record<SettlementProp, Record<string, number>>> = { scarecrow: { Sway_Loop: 4 }, "weather-vane": { Turn_Loop: 8 } };
+export const SETTLEMENT_CLIPS: Partial<Record<SettlementProp, Record<string, number>>> = {
+  scarecrow: { Sway_Loop: 4 }, "weather-vane": { Turn_Loop: 8 },
+  watermill: { Turn_Loop: 6 }, "water-wheel": { Turn_Loop: 6 }, windmill: { Turn_Loop: 8 }, forge: { Pump_Loop: 2 }, "well-windlass": { Crank_Loop: 3 },
+};
 /** Recipe observations copied into the descriptor when a prop declares them. */
 const EXTRAS = ["stackTop", "sign", "light", "seat", "module"] as const;
 
