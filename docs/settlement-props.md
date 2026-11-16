@@ -106,6 +106,11 @@ In a live Blender session, run `outpost.py` and `settlement_props.py` into two n
 | `settlement.props.feed-trough` | dressing | 120 | 1.50 × 0.56 × 0.45 | `trough` | A low plank trough along X on splayed trestle legs for pigs and sheep, mash in the bottom. |
 | `settlement.props.hen-coop` | dressing | 372 | 1.16 × 1.57 × 1.40 | `coop`, `ramp` | A small hen coop on four legs: a plank house under a shingle gable (ridge along X), a hatch and a pop hole to +Z and a cleated ramp down to the ground in front. |
 | `settlement.props.plough` | dressing | 546 | 0.65 × 2.83 × 0.94 | `plough` | A wooden mouldboard plough along Z, resting level on a small front wheel (+Z) with a hitch ring: an iron coulter and share, a curved board turning the furrow to +X and two handles with a rung reaching back to −Z. |
+| `settlement.props.watermill` | dressing | 2,040 | 5.45 × 4.19 × 4.46 | `house`, `steps`, `wheel` | A timber watermill ([#699](https://github.com/moritzbrantner/asset-tooling/issues/699)): a plank mill house in a braced frame on a stone footing under a shingle gable (ridge along X), with a door, steps and a shuttered window to +Z and sacks by the door, and a 2.9 m undershot wheel on its +X side between the wall and an outer bearing post. The floats reach the ground plane: set the wheel side over a stream. **Animated:** `Turn_Loop` (6 s a turn) turns the wheel. |
+| `settlement.props.water-wheel` | dressing | 928 | 1.52 × 2.66 × 2.70 | `post-left`, `post-right`, `wheel` | The undershot wheel alone, 2.7 m across, on a timber axle between two braced bearing posts on sills along Z, to set into a stream beside any building. The floats reach the ground plane, so put the origin at the water line. **Animated:** `Turn_Loop` (6 s a turn) turns the wheel. |
+| `settlement.props.windmill` | dressing | 1,926 | 7.37 × 5.50 × 9.08 | `trestle`, `body`, `ladder` | A small post mill: a weatherboarded body under a shingle gable (ridge along Z) on a main post braced by quarter bars from crossed sills on four stone piers, a door and ladder at the back (−Z) and four 4.4 m lattice sails with canvas to the front (+Z). Only the trestle, body and ladder collide. **Animated:** `Turn_Loop` (8 s a turn) turns the sails anticlockwise, seen from the front. |
+| `settlement.props.forge` | dressing | 1,026 | 3.57 × 1.45 × 3.50 | `hearth`, `chimney`, `bellows`, `tub` | A village forge: a waist-high stone hearth with a glowing coal bed (emissive `ember`) in a stone rim, a back wall at −Z under a hood narrowing to a chimney, a quench tub to +X and a lever bellows to −X with its nozzle into the hearth. Its `fire` point (recipe observation) is where a warm light belongs. **Animated:** `Pump_Loop` (2 s) lifts the bellows by its lever and lets it fall. |
+| `settlement.props.well-windlass` | dressing | 780 | 2.42 × 1.24 × 1.66 | `frame-left`, `frame-right` | A windlass to set over a well curb like the `well`'s 1.5 m one: two A-frame trestles 1.9 m apart on sills along Z under a tie beam, a drum along X wound with rope, a rope down the shaft and an iron crank to +X. The origin is the well's centre. The `well` keeps its own static windlass and roof; use this over a bare curb. **Animated:** `Crank_Loop` (3 s a turn) winds the drum, the rope side rising. |
 
 The village dressing from `barrel-group` down ([#657](https://github.com/moritzbrantner/asset-tooling/issues/657)) is for Greyhaven's villages, Barrowdown and Fenford. The existing `cart`, `firewood` and `planter` complement it.
 The interiors from `dresser` down ([#663](https://github.com/moritzbrantner/asset-tooling/issues/663)) furnish more walk-in farmhouses and Westmere Lodge's hall, beside the cottage furniture.
@@ -115,8 +120,9 @@ The inn and hall clutter from `table-set` down ([#671](https://github.com/moritz
 The river and lake props from `rowing-boat` down ([#675](https://github.com/moritzbrantner/asset-tooling/issues/675)) dress Greyhaven's banks and landings. Lily pads and reeds are in the [marsh plants](greyhaven-marsh-plants.md) (`water-lilies`, `reeds-stand`, `reeds-edge`, `cattails`).
 The banners from `banner-outpost` down ([#677](https://github.com/moritzbrantner/asset-tooling/issues/677)) fly the Outpost's livery, the Marshal's indigo with ochre heraldry as on the [fortress kit](fortress-kit.md)'s banners, or a neutral village one. The cloth is two-sided; only the poles collide.
 The farmstead dressing from `scarecrow` down ([#695](https://github.com/moritzbrantner/asset-tooling/issues/695)) is for Greyhaven's farms and hamlets (mmorpg#880). It joins this release rather than a new one, because it is the same style, recipe, materials and descriptor; it adds no materials or textures.
+The village machinery from `watermill` down ([#699](https://github.com/moritzbrantner/asset-tooling/issues/699)) gives Millbrook its mill and the smithy a forge. Its moving parts are separate nodes turned by named loop clips, as the farmstead's are. It adds two plain materials, `ember` and `leather`, and no textures. [`review/settlement-props/village-machinery.jpg`](../review/settlement-props/village-machinery.jpg) is a viewport capture from the live Blender session.
 
-The numbers are from the build of 2026-10-24, the farmstead dressing from the build of 2026-11-16. The descriptor carries the measured values of each build. The budgets in `SETTLEMENT_TRIANGLE_BUDGET` are for the Greyhaven camera (12 m, 0.42 rad pitch, 50° fov).
+The numbers are from the build of 2026-10-24, the farmstead dressing and the village machinery from the builds of 2026-11-16. The descriptor carries the measured values of each build. The budgets in `SETTLEMENT_TRIANGLE_BUDGET` are for the Greyhaven camera (12 m, 0.42 rad pitch, 50° fov).
 
 ## Frame
 
@@ -145,22 +151,29 @@ The props use the kit's wood, stone and shingle texture sets (colour, normal and
 - `straw`: the hay bale, haystack, bread basket and fish-crate bedding;
 - `monolith`: the standing stone, the grindstone and the fish, a plain weathered grey where coursed masonry would read wrong;
 - `clay`: the terracotta pottery and the sausages;
-- `indigo` and `ochre`: the Outpost's banner livery and the bunting.
+- `indigo` and `ochre`: the Outpost's banner livery and the bunting;
+- `leather`: the forge bellows;
+- `ember`: the forge's coal bed, the one emissive material (`emissiveFactor` a warm orange, strength 1).
 
-Every face has backface culling. In the bundle there are 9 KTX2 textures in all, each stored once. Repeated props in a scene share their GLB resources. The tar is about 5.4 MB.
+Every face has backface culling. In the bundle there are 9 KTX2 textures in all, each stored once. Repeated props in a scene share their GLB resources. The tar is about 6.2 MB.
 
 **Determinism:** there is no randomness. Variation comes from SHA-256 of fixed keys, through the kit's `rnd`.
 
 ### Animated props
 
-The scarecrow and the weather vane carry named glTF node-animation clips that loop; there is no skin. Each animated part is its own node, with its origin at the joint it turns about:
+The scarecrow, the weather vane and the village machinery carry named glTF node-animation clips that loop; there is no skin. Each animated part is its own node, with its origin at the joint it turns about:
 
 | Prop | Clip | Length | Nodes |
 | --- | --- | --- | --- |
 | `scarecrow` | `Sway_Loop` | 4 s | `settlement.scarecrow.sleeve-left`, `settlement.scarecrow.sleeve-right` (at the shoulders, flapping about the crossbar), `settlement.scarecrow.hat` (on the head) |
 | `weather-vane` | `Turn_Loop` | 8 s | `settlement.weather-vane.vane` (on the spindle, veering about +Y) |
+| `watermill` | `Turn_Loop` | 6 s | `settlement.watermill.wheel` (wheel and axle, a full turn about X; the floats at the bottom move to +Z) |
+| `water-wheel` | `Turn_Loop` | 6 s | `settlement.water-wheel.wheel` (wheel and axle, a full turn about X; the floats at the bottom move to +Z) |
+| `windmill` | `Turn_Loop` | 8 s | `settlement.windmill.sails` (sails, hub and windshaft, a full turn about Z) |
+| `forge` | `Pump_Loop` | 2 s | `settlement.forge.bellows` (top board, leather and lever, hinged at the nozzle about Z) |
+| `well-windlass` | `Crank_Loop` | 3 s | `settlement.well-windlass.drum` (drum, axle and crank, a full turn about X) |
 
-A clip's last key equals its first, so a consumer plays it on repeat (three.js: `AnimationMixer.clipAction(clip).play()` with the default `LoopRepeat`), and may offset each instance's start time so neighbours don't move in step. The recipe keys the rotations at 24 fps in one Blender action per clip, with a slot per node, which the glTF exporter writes as one animation. The clip names are in each GLB and in the bundle manifest's `observations.animations`; the published descriptor schema keeps its fields, so `SETTLEMENT_CLIPS` in the build script lists them for tests.
+A clip's last key equals its first, so a consumer plays it on repeat (three.js: `AnimationMixer.clipAction(clip).play()` with the default `LoopRepeat`), and may offset each instance's start time so neighbours don't move in step. The recipe keys the rotations at 24 fps in one Blender action per clip, with a slot per node, which the glTF exporter writes as one animation. The turning loops are keyed linearly, so they keep a steady speed across the seam; a full turn ends on the identity rotation, and the exporter may flip a quaternion's sign on the way round, which interpolation along the shortest arc (three.js) ignores. The clip names are in each GLB and in the bundle manifest's `observations.animations`; the published descriptor schema keeps its fields, so `SETTLEMENT_CLIPS` in the build script lists them for tests.
 
 ### Textures on the GPU
 
@@ -195,7 +208,8 @@ The bundle is distributed as the rolling `settlement-props` GitHub release, whos
 - the descriptor conforms to the schema;
 - there are exactly 9 resources, all KTX2: the kit's wood, stone and shingle;
 - every prop stays within its triangle budget (`SETTLEMENT_TRIANGLE_BUDGET`), has its family and stands on the ground;
-- the scarecrow and the weather vane carry exactly their named clips at their lengths, in the GLB and the bundle manifest, with no skin, and no other prop animates;
+- the scarecrow, the weather vane and the village machinery carry exactly their named clips at their lengths, in the GLB and the bundle manifest, with no skin, and no other prop animates;
+- the forge's `ember` material is emissive;
 - the fence fills its 2 m module, the crate's `stackTop` is its top, and the lantern and the sign hang above head height;
 - in the square, every item is a bundle entry, all three families are placed, and every proxy stays inside the footprint and out of the walkway.
 
