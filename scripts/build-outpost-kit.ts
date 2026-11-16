@@ -21,10 +21,12 @@ import { buildKitPart, byKey, exportKitBundle, kitEntry, ktx2Asset, runKitCli, t
 
 export const OUTPOST_PARTS = [
   "wall", "wall-half", "wall-window", "wall-door", "door", "corner", "gable", "roof", "roof-half", "roof-verge", "chimney",
+  // The 8 x 7 m two-room farmhouse (#685): the 7 m span's gable and roof, a hearth wall and an interior partition.
+  "gable-wide", "roof-wide", "roof-wide-verge", "wall-hearth", "partition-door",
 ] as const;
 export type OutpostPart = (typeof OUTPOST_PARTS)[number];
 /** Roof modules also ship a `slate` variant; their `default` is shingle. */
-export const OUTPOST_ROOF_PARTS: readonly OutpostPart[] = ["roof", "roof-half", "roof-verge"];
+export const OUTPOST_ROOF_PARTS: readonly OutpostPart[] = ["roof", "roof-half", "roof-verge", "roof-wide", "roof-wide-verge"];
 export const OUTPOST_ROOF_VARIANTS = { default: "shingle", slate: "slate" } as const;
 /**
  * Wear ships as data, not as baked variants: the `outpost.kit.wear-masks` entry holds one mask per texture
@@ -57,10 +59,12 @@ export const OUTPOST_GRID = {
 export const OUTPOST_TRIANGLE_BUDGET: Record<OutpostPart, number> = {
   wall: 500, "wall-half": 400, "wall-window": 800, "wall-door": 800, door: 300, corner: 200, gable: 400,
   roof: 500, "roof-half": 450, "roof-verge": 450, chimney: 400,
+  "gable-wide": 400, "roof-wide": 500, "roof-wide-verge": 500, "wall-hearth": 1000, "partition-door": 800,
 };
 const CATEGORY: Record<OutpostPart, "wall" | "door" | "corner" | "roof" | "chimney"> = {
   wall: "wall", "wall-half": "wall", "wall-window": "wall", "wall-door": "wall", door: "door", corner: "corner",
   gable: "wall", roof: "roof", "roof-half": "roof", "roof-verge": "roof", chimney: "chimney",
+  "gable-wide": "wall", "roof-wide": "roof", "roof-wide-verge": "roof", "wall-hearth": "wall", "partition-door": "wall",
 };
 /** Recipe observations copied into the descriptor when a module declares them. */
 const EXTRAS = ["module", "window", "doorway", "mount", "hinge", "leafBounds", "roof", "span", "smoke"] as const;

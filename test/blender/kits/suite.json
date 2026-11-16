@@ -1,6 +1,6 @@
 {
-  "note": "The kit bundles ship KTX2 textures. About 13 minutes when it passes, too close to the 15-minute default.",
-  "timeout": 30,
+  "note": "The kit bundles ship KTX2 textures. About 13 minutes when it passes, too close to the 15-minute default; by 2026-11-16 the grown suite ran past 30 minutes with every test passing (#685).",
+  "timeout": 45,
   "ktx": true,
   "lfs": [
     "assets/authored/**",

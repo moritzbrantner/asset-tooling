@@ -53,16 +53,21 @@ outpost["build_composition"]("house", bpy.context.scene.collection, wear=0.5)
 | `outpost.kit.chimney` | chimney | 232 | 1.20 × 0.90 × 6.40 | `chimney` |
 | `outpost.kit.corner` | corner | 88 | 0.42 × 0.42 × 3.62 | `corner` |
 | `outpost.kit.door` | door | 156 | 1.17 × 0.15 × 2.18 | `leaf` (`dynamic-door`) |
+| `outpost.kit.partition-door` | wall | 712 | 6.38 × 0.14 × 3.60 | `left`, `right`, `lintel` |
 | `outpost.kit.gable` | wall | 250 | 5.96 × 0.32 × 1.72 | `gable` |
+| `outpost.kit.gable-wide` | wall | 250 | 6.96 × 0.32 × 2.01 | `gable` |
 | `outpost.kit.roof` | roof | 350 | 2.00 × 6.73 × 2.22 | `roof` |
 | `outpost.kit.roof-half` | roof | 302 | 1.00 × 6.73 × 2.22 | `roof` |
 | `outpost.kit.roof-verge` | roof | 366 | 0.30 × 6.85 × 2.23 | `roof` |
+| `outpost.kit.roof-wide` | roof | 366 | 2.00 × 7.73 × 2.51 | `roof` |
+| `outpost.kit.roof-wide-verge` | roof | 390 | 0.30 × 7.85 × 2.52 | `roof` |
 | `outpost.kit.wall` | wall | 384 | 2.00 × 0.34 × 3.60 | `wall` |
 | `outpost.kit.wall-door` | wall | 572 | 2.00 × 0.54 × 3.68 | `left-jamb`, `right-jamb`, `lintel` |
+| `outpost.kit.wall-hearth` | wall | 948 | 3.00 × 1.19 × 3.60 | `wall`, `hearth` |
 | `outpost.kit.wall-half` | wall | 276 | 1.00 × 0.34 × 3.60 | `wall` |
 | `outpost.kit.wall-window` | wall | 650 | 2.00 × 0.38 × 3.60 | `wall` |
 
-The numbers are from the build of 2026-11-07 (pristine variants; the roof modules are unchanged), and for the wall modules from 2026-11-16 ([#672](https://github.com/moritzbrantner/asset-tooling/issues/672)), which changed no module's bounds, footprint or collision. The descriptor carries the measured values of each build.
+The numbers are from the build of 2026-11-07 (pristine variants; the roof modules are unchanged), and for the wall modules from 2026-11-16 ([#672](https://github.com/moritzbrantner/asset-tooling/issues/672)), which changed no module's bounds, footprint or collision.  The farmhouse modules (`gable-wide`, `roof-wide`, `roof-wide-verge`, `wall-hearth`, `partition-door`; [#685](https://github.com/moritzbrantner/asset-tooling/issues/685)) were measured in the authored `.blend` on 2026-11-16. The descriptor carries the measured values of each build.
 
 The frame is continuous: every timber ends on another member's face. Posts run from the sill beam (or a door post's stone pad) to the top plate, rails and the sill beam and top plate run from post to post, and braces run from a post or stud at a rail to a post at the next rail or the plate. Modules have no end caps: the faces in a wall module's end planes would only ever lie against its neighbour, or at a corner in the other wall's face, where they showed the plaster's and rails' cut ends.
 
@@ -89,18 +94,19 @@ The frame is continuous: every timber ends on another member's face. Posts run f
 
 ## Compositions
 
-The descriptor's `compositions` place every module on mmorpg's two Outpost footprints. Each is in a footprint-base-centre frame whose +Z side has the door. An item is `{ key, variant, translation, yawDegrees }`, where the yaw is about +Y.
+The descriptor's `compositions` place every module on mmorpg's two Outpost footprints and its 8 × 7 m farmhouse footprint. Each is in a footprint-base-centre frame whose +Z side has the door. An item is `{ key, variant, translation, yawDegrees }`, where the yaw is about +Y.
 
 | Composition | Footprint | Items | Triangles | Layout |
 | --- | --- | --- | --- | --- |
 | `house` | 8 × 6 m (colliders 103–106) | 29 | 10,488 | Ridge along X, shingle roof. The front has window, half, door, half, window, so the door is centred as in the blockout. The chimney is on the +X gable. |
 | `smithy` | 6 × 7 m (collider 102) | 28 | 9,484 | Ridge along its 7 m depth, slate roof. The door is in the front gable wall, and the chimney is on the back gable. |
+| `farmhouse` | 8 × 7 m | 31 | about 12,100 | Ridge along X over the 7 m span (`gable-wide`, `roof-wide`, `roof-wide-verge`), shingle roof. The front has window, half, door, window, half, and its doorway stays open. Inside, `partition-door` crosses the depth at x = 1 m, on the eave walls' module joints, its doorway at the back: the 5 m hall has `wall-hearth` on the -X gable in front of the chimney, the 3 m chamber a window in the +X gable. |
 
 Notes for the consumer:
 
 - **Footprints:** the walls stand exactly on the collider footprints. Only the plinth (2 cm), the eaves (0.35 m), the verges (0.3 m), the door's threshold and the chimney stand outside them.
-- **Heights:** the ridge is at 5.52 m. That is 0.52 m above the houses' 5 m colliders and 1.02 m above the smithy's 4.5 m collider; the footprints are unchanged.
-- **Door:** the door hangs closed in the doorway. The houses are not enterable, so a consumer should keep the door closed and the opening solid. There is then no traversable-looking entrance where none exists (mmorpg#420).
+- **Heights:** the ridge is at 5.52 m (the farmhouse's wide ridge at 5.81 m). That is 0.52 m above the houses' 5 m colliders and 1.02 m above the smithy's 4.5 m collider; the footprints are unchanged.
+- **Door:** in the house and smithy the door hangs closed in the doorway. Those houses are not enterable, so a consumer should keep the door closed and the opening solid. There is then no traversable-looking entrance where none exists (mmorpg#420). The farmhouse is meant to be entered: its composition hangs no leaf, and the consumer keeps its doorway and the partition's doorway free of colliders.
 
 ## Look and materials
 
@@ -175,7 +181,7 @@ The descriptor is canonical JSON and the `outpost-descriptor` attachment of `out
 | `assets[].roof` | Roof modules: `span`, `pitchDegrees`, `eaveOverhang`, `length`, `wallTop`, `ridgeTop`, `eaveHeight` (and `vergeOverhang` on the verge). |
 | `assets[].variants` | Roof modules: `default` (shingle) and `slate`, with the same geometry. |
 | `assets[].smoke` | `chimney`: the `smoke` node and its position. |
-| `compositions` | `house` and `smithy`: `{ footprint, items[] }` (above). |
+| `compositions` | `house`, `smithy` and `farmhouse`: `{ footprint, items[] }` (above). |
 
 `collisionProxies` are axis-aligned boxes `{ name, tag, center, size }` in the module's frame:
 
@@ -193,7 +199,7 @@ The bundle is distributed as the rolling `outpost-kit` GitHub release, whose ass
 
 `test/blender/kits/outpost-kit.test.ts` runs in the hosted `blender-script` job. It checks:
 
-- the tar and the bundle verify, with `default` entries for all eleven modules, `slate` entries for the three roof modules and the `wear-masks` entry;
+- the tar and the bundle verify, with `default` entries for all sixteen modules, `slate` entries for the five roof modules and the `wear-masks` entry;
 - the descriptor conforms to the schema;
 - there are exactly 20 KTX2 resources (15 maps and 5 wear masks) and no PNG, and the wear-mask entry has one `outpost-wear-<texture>` material per texture;
 - every module stays within its triangle budget (`OUTPOST_TRIANGLE_BUDGET`);
@@ -201,7 +207,8 @@ The bundle is distributed as the rolling `outpost-kit` GitHub release, whose ass
 - no vertex and no proxy reaches into the doorway, and the closed leaf fits it;
 - the roof variants share their geometry, and the chimney clears the ridge;
 - in both compositions, every item is a bundle entry and the walls fill every footprint edge, facing outwards;
-- the door is mounted at its doorway on the +Z side.
+- the door is mounted at its doorway on the +Z side, except in the farmhouse, whose doorway is open;
+- the farmhouse uses the wide gable and roof, its hearth stands in front of the chimney, its partition spans between the eave walls with a doorway a figure fits through, and the chimney clears the wide ridge.
 
 Without `BLENDER_TESTS=1` and `ASSET_TOOLING_BLENDER` it skips.
 
