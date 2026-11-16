@@ -44,6 +44,21 @@ In a live Blender session, run `outpost.py` and `settlement_props.py` into two n
 | `settlement.props.chair` | dressing | 128 | 0.45 × 0.45 × 0.95 | `chair` | A slat-backed chair, its back towards −Z. The seat is at 0.45 m. |
 | `settlement.props.chest` | dressing | 168 | 0.92 × 0.53 × 0.55 | `chest` | An iron-bound chest with a slightly domed lid and a hasp to +Z. |
 | `settlement.props.hearth` | dressing | 372 | 1.80 × 0.85 × 2.60 | `hearth`, `flue` | A stone fireplace for a wall at −Z: a raised firebox with logs and embers under a mantel and a hood narrowing to a 2.6 m flue. |
+| `settlement.props.barrel-group` | market | 766 | 1.27 × 1.25 × 0.90 | `barrels-back`, `barrel-lying` | Two standing barrels at the back and a third lying along X on wedges in front ([#657](https://github.com/moritzbrantner/asset-tooling/issues/657)). |
+| `settlement.props.crate-stack` | market | 720 | 1.96 × 0.84 × 1.32 | `crates`, `crate-top` | Two 0.7 m crates side by side, a 0.62 m crate turned across them and a small crate beside, for a wall at −Z. |
+| `settlement.props.grain-sacks` | market | 564 | 1.42 × 0.99 × 0.63 | `sacks` | Five tied sacks standing in two rows and one lying across the front. |
+| `settlement.props.wheelbarrow` | market | 330 | 0.70 × 1.71 × 0.85 | `wheelbarrow` | A plank wheelbarrow, its wheel to +Z and handles to −Z, resting on two legs with a sack in the tray. |
+| `settlement.props.well` | street | 550 | 2.20 × 1.59 × 2.64 | `curb`, `post-left`, `post-right` | A 1.5 m round stone well curb with dark water inside, two posts with a windlass and crank (+X), a rope to a hanging bucket and a shingle gable roof, ridge along X. |
+| `settlement.props.fingerpost` | street | 222 | 1.54 × 1.07 × 2.61 | `post` | A 2.5 m fingerpost on a stone footing with three pointed, lettered arms at different heights and bearings. |
+| `settlement.props.hay-bale` | dressing | 100 | 1.00 × 0.48 × 0.50 | `bale` | A rectangular bale tied with two twine bands, a few wisps on top. `stackTop` is 0.45. |
+| `settlement.props.haystack` | dressing | 230 | 2.65 × 2.61 × 2.75 | `haystack` | A rounded field haystack 2.3 m high around a pole, with a skirt of fallen hay. |
+| `settlement.props.chopping-block` | dressing | 228 | 1.63 × 0.94 × 0.94 | `block`, `logs` | A stump with an axe bitten into it, split pieces at its foot and three logs to its left (−X). |
+| `settlement.props.washing-line` | dressing | 298 | 3.70 × 1.05 × 2.05 | `post-left`, `post-right` | A 3.6 m line along X between two T-posts, sagging under a sheet, a shirt and two cloths, with a basket in front. Only the posts collide. |
+| `settlement.props.flower-tub` | dressing | 492 | 0.74 × 0.74 × 0.69 | `tub` | A hooped half-barrel of soil with leafy clumps and red, white and yellow flowers. |
+| `settlement.props.vegetable-bed` | dressing | 342 | 1.80 × 1.00 × 0.43 | `bed` | A raised plank bed with two rows of cabbages and a row of carrot tops at the front. |
+| `settlement.props.kennel` | dressing | 216 | 1.13 × 1.55 × 1.06 | `kennel` | A plank dog kennel with a shingle gable, its doorway to +Z, and a water bowl in front. |
+
+The village dressing from `barrel-group` down ([#657](https://github.com/moritzbrantner/asset-tooling/issues/657)) is for Greyhaven's villages, Barrowdown and Fenford. The existing `cart`, `firewood` and `planter` complement it.
 
 The numbers are from the build of 2026-10-24. The descriptor carries the measured values of each build. The budgets in `SETTLEMENT_TRIANGLE_BUDGET` are for the Greyhaven camera (12 m, 0.42 rad pitch, 50° fov).
 
@@ -70,7 +85,8 @@ The props use the kit's wood, stone and shingle texture sets (colour, normal and
 - `sacking`: the sacks;
 - `soil` and `leaf`: the planter;
 - `endgrain`: the billet ends;
-- `horn`: the lantern panes.
+- `horn`: the lantern panes;
+- `straw`: the hay bale and haystack.
 
 Every face has backface culling. In the bundle there are 9 KTX2 textures in all, each stored once. Repeated props in a scene share their GLB resources. The tar is about 1.4 MB.
 
@@ -105,7 +121,7 @@ The bundle is distributed as the rolling `settlement-props` GitHub release, whos
 
 `test/blender/kits/settlement-props.test.ts` runs in the hosted `blender-script` job. It checks:
 
-- the tar and the bundle verify, with ten `default` entries;
+- the tar and the bundle verify, with one `default` entry per prop;
 - the descriptor conforms to the schema;
 - there are exactly 9 resources, all KTX2: the kit's wood, stone and shingle;
 - every prop stays within its triangle budget (`SETTLEMENT_TRIANGLE_BUDGET`), has its family and stands on the ground;
