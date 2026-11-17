@@ -1,0 +1,9 @@
+{
+  "script": "scripts/build-spell-effects.ts",
+  "blender": true,
+  "budget": {
+    "materials": 8,
+    "textureMemoryMB": 1,
+    "downloadMB": 1
+  }
+}
