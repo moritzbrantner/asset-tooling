@@ -1,0 +1,9 @@
+{
+  "script": "scripts/build-strike-effects.ts",
+  "blender": true,
+  "budget": {
+    "materials": 2,
+    "textureMemoryMB": 1,
+    "downloadMB": 1
+  }
+}
