@@ -32,8 +32,8 @@ const EXTRACT_PROFILE = "gltf-skin-animation-extract-v1";
 const EMBED_PROFILE = "gltf-skin-animation-embed-v1";
 const EXTRACT_IMPLEMENTATION = { id: "gltf-transform-skin-animation-extract", version: "1" };
 const EMBED_IMPLEMENTATION = { id: "gltf-transform-skin-animation-embed", version: "1" };
-// The Ranger embeds 135 clips with the ranged kit (#419).
-const MAX_CLIPS = 256;
+// Arbitrary bound with headroom: the Ranger embeds 135 clips with the ranged kit (#419) and over 256 with the ready family (#717).
+const MAX_CLIPS = 1024;
 const KINDS = ["translation", "rotation", "scale"] as const;
 type Kind = (typeof KINDS)[number];
 type Json = Record<string, unknown>;
