@@ -14,12 +14,12 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { NodeIO } from "@gltf-transform/core";
 import { KHRTextureBasisu } from "@gltf-transform/extensions";
-import { ktx2Size } from "../scripts/pack-downloads.ts";
+import { clipFamilyProblems, ktx2Size } from "../scripts/pack-downloads.ts";
 import { verifyAssetBundleTar } from "../src/asset-bundle-pack.js";
 import { GLTF_RESOURCES_BUNDLE_PROFILE, readAssetBundleAttachment, readAssetBundleGltf, verifyAssetBundle } from "../src/asset-bundle.js";
 import { validateHumanoidItemDescriptor, validateHumanoidSocketDescriptor } from "../src/humanoid-sockets.js";
 import {
-  RANGER_APPEARANCE, RANGER_ARCHERY, RANGER_BONE_MAP, RANGER_BUNDLE_KEY, RANGER_BUNDLE_VARIANT, RANGER_CLIPS,
+  RANGER_APPEARANCE, RANGER_ARCHERY, RANGER_BONE_MAP, RANGER_BUNDLE_KEY, RANGER_BUNDLE_VARIANT, RANGER_CLIPS, RANGER_CLIP_DOWNLOADS,
   RANGER_CLIPS_ATTACHMENT, RANGER_CLIP_ROLES, RANGER_FIGURES, RANGER_GAITS, RANGER_HAIR_TINTS, RANGER_MEMBERS,
   RANGER_CLASS_PRESETS, RANGER_HAIR_KIT_OPTIONS, RANGER_ITEM_ATTACHMENT, RANGER_RESIDENT_PRESETS, RANGER_SOCKETS_ATTACHMENT, RANGER_SOCKETS_DESCRIPTOR, RANGER_TEXTURE_POLICY,
   RANGER_UBC_BONE_MAP, RANGER_WEAPONS, RANGER_THROWABLES, RANGER_ITEM_LOD_SELECTION, rangerItemLods, RANGER_OUTFIT_KITS, RANGER_PEASANT_OUTFITS, validateAppearancePresets,
@@ -152,6 +152,15 @@ test("the Ranger retargets the library clips in bundle order, then authors its o
   assert.equal(RANGER_CLIP_ROLES.Sword_Regular_A!.role, "sword.light-strike");
   assert.equal(RANGER_CLIP_ROLES.Hit_Shove_Spin!.role, "hit.shove");
   assert.ok(!names.some((name) => name.startsWith("Melee_Hook")));
+});
+
+test("#733: the clip downloads split every Ranger clip into one family each, in bundle order, with base first", () => {
+  const bundleOrder = [...RANGER_CLIPS.map((clip) => clip.name), ...RANGER_CLIP_FAMILIES.flatMap((family) => family.clips)];
+  assert.deepEqual(clipFamilyProblems(bundleOrder, RANGER_CLIP_DOWNLOADS), []);
+  assert.deepEqual(RANGER_CLIP_DOWNLOADS.map((download) => download.family),
+    ["base", "combat", "bow", "swim", "hit", "traversal", "sword", "dagger", "bow-upper", "crossbow", "cast", "social", "chores", "posts", "gather", "raid", "strike", "ready", "defend"]);
+  const base = RANGER_CLIP_DOWNLOADS[0]!.clips;
+  assert.ok(["Idle_Loop", "Walk_Loop", "Jog_Fwd_Loop", "Sprint_Loop", "Jump_Loop", "Death01", "Walk_Bwd_Loop", "Grip_Crank_L"].every((clip) => base.includes(clip)));
 });
 
 test("#427: the build pool runs ASSET_TOOLING_JOBS steps at once, else one less than the available parallelism", () => {

@@ -99,3 +99,27 @@ test("compacting the clips drops only the channels no clip moves off the rest po
   const report = await validateBytes(await io.writeBinary(document), { maxIssues: 0 });
   assert.equal(report.issues.numErrors, 0, JSON.stringify(report.issues.messages));
 });
+
+test("clip families split the clips once each, and a family file keeps only its clips on the whole skeleton (#733)", async () => {
+  const { Document } = await import("@gltf-transform/core");
+  const { clipDuration, clipFamilyProblems, keepClips } = await import("../scripts/pack-downloads.ts");
+  assert.deepEqual(clipFamilyProblems(["Idle", "Walk", "Wave"], [{ family: "base", clips: ["Idle", "Walk"] }, { family: "emotes", clips: ["Wave"] }]), []);
+  assert.deepEqual(clipFamilyProblems(["Idle", "Walk", "Wave"], [{ family: "base", clips: ["Idle", "Jump"] }, { family: "Emotes", clips: ["Idle"] }]), [
+    "'Jump' (base) is not a clip of the entry", "family 'Emotes' is not a file-name word", "'Idle' is in 'base' and 'Emotes'",
+    "'Walk' is in no family", "'Wave' is in no family",
+  ]);
+  const document = new Document();
+  const buffer = document.createBuffer();
+  const pelvis = document.createNode("pelvis"), hand = document.createNode("hand");
+  document.createScene().addChild(pelvis.addChild(hand));
+  for (const [name, duration] of [["Idle", 2], ["Walk", 1], ["Wave", 1.5]] as const) {
+    const sampler = document.createAnimationSampler()
+      .setInput(document.createAccessor().setType("SCALAR").setArray(new Float32Array([0, duration])).setBuffer(buffer))
+      .setOutput(document.createAccessor().setType("VEC3").setArray(new Float32Array([0, 0, 0, 0, 1, 0])).setBuffer(buffer));
+    document.createAnimation(name).addSampler(sampler)
+      .addChannel(document.createAnimationChannel().setTargetNode(pelvis).setTargetPath("translation").setSampler(sampler));
+  }
+  keepClips(document, new Set(["Wave", "Idle"]));
+  assert.deepEqual(document.getRoot().listAnimations().map((animation) => [animation.getName(), clipDuration(animation)]), [["Idle", 2], ["Wave", 1.5]]);
+  assert.deepEqual(document.getRoot().listNodes().map((node) => node.getName()), ["pelvis", "hand"]);
+});

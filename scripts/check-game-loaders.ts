@@ -26,13 +26,14 @@ async function sha256(file: string): Promise<string> {
   return new Bun.CryptoHasher("sha256").update(await readFile(file)).digest("hex");
 }
 
-/** The entries of every `asset-downloads-v1` index in `dir`: each entry's glTF and the shared clip libraries. */
+/** The entries of every `asset-downloads-v1` index in `dir`: each entry's glTF, the shared clip libraries and their families. */
 export async function downloadEntries(dir: string): Promise<Entry[]> {
   const entries: Entry[] = [];
   for (const name of (await readdir(dir)).filter((name) => name.endsWith(".index.json")).sort()) {
     const index = JSON.parse(await readFile(path.join(dir, name), "utf8")) as {
       schema?: string;
       entries?: { key: string; variant: string; files: string[]; textures: string[]; clips?: string }[];
+      clips?: { families?: { file: string }[] };
     };
     if (index.schema !== "asset-downloads-v1") continue;
     const clips = new Set<string>();
@@ -42,6 +43,8 @@ export async function downloadEntries(dir: string): Promise<Entry[]> {
       if (scene) entries.push({ id: `${entry.key}/${entry.variant}`, root: dir, file: scene, files });
       if (entry.clips) clips.add(entry.clips);
     }
+    // #733: the per-family clip files, which the game loads as it loads the combined one.
+    for (const family of index.clips?.families ?? []) clips.add(family.file);
     for (const file of clips) entries.push({ id: file, root: dir, file, files: [file] });
   }
   return entries;

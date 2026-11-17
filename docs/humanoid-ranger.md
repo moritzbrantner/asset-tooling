@@ -631,6 +631,29 @@ Both figures are rolling releases that CI builds (#399): merging a change to the
 
 **Cost budget (#517).** Each figure's `releases/humanoid-ranger-<figure>.json` has a `budget` like every kit ([kit-standard.md](kit-standard.md#cost-limits)), so CI refuses to publish a build over it. The budget is set at the bundle's cost on 2026-11-14, after the KTX2 textures and the retired hair and equipment (male: 112 materials, 68 MB texture memory, 114 MB download; female: 25, 23 MB, 58 MB), so the bundle can only get cheaper. A change that adds content raises it in the same PR, on purpose. Check a build with `bun scripts/report-kit-costs.ts --bundle <out>/bundle --budget humanoid-ranger-male`.
 
+**Clip family downloads (#733).** Besides the combined `humanoid.ranger.<figure>.clips.glb`, the release ships one `humanoid.ranger.<figure>.clips.<family>.glb` per clip family. Each file has the same 72 joints and the same compaction as the combined file, and only its own family's clips, so a new clip rebuilds and re-downloads one family. A consumer loads `base` with the figure and fetches the rest the first time it plays one of their clips. The families are `RANGER_CLIP_DOWNLOADS` in [`build-ranger-character.ts`](../scripts/build-ranger-character.ts):
+
+- `base`: the library's idle, gaits, sword and shield idles, death, jumps, crouch, roll, climb and slide, plus the authored `gait` (back, strafe, start, stop and turn) and `grips` families;
+- `combat`: the library's sword, shield, hit and spell clips;
+- every other authored family under its own id: `bow`, `swim`, `hit`, `traversal`, `sword`, `dagger`, `bow-upper`, `crossbow`, `cast`, `social` (the emotes), `chores`, `posts`, `gather`, `raid`, `strike` (with the reactions and deaths), `ready` and `defend`.
+
+The index (`humanoid-ranger-<figure>.index.json`) lists the files under `clips.families`, with each family's bytes and each clip's name and duration ([release-downloads.md](release-downloads.md)). Every clip is in exactly one family, or the pack fails. A family file over 1 MB (`RANGER_CLIP_FAMILY_LIMIT_MB` in [`build-ranger-release.ts`](../scripts/build-ranger-release.ts)) also fails the build. That limit replaces raising one clip budget with every batch: a family that outgrows it splits into two. Sizes on 2026-11-17 (male; female within 1.2%), 3.52 MB together against 3.78 MB for the combined file:
+
+| Family | Clips | KB | Family | Clips | KB |
+| --- | ---: | ---: | --- | ---: | ---: |
+| `base` | 43 | 367 | `cast` | 21 | 195 |
+| `combat` | 16 | 134 | `social` | 23 | 341 |
+| `bow` | 6 | 132 | `chores` | 7 | 114 |
+| `swim` | 7 | 61 | `posts` | 10 | 159 |
+| `hit` | 5 | 35 | `gather` | 10 | 163 |
+| `traversal` | 16 | 240 | `raid` | 13 | 210 |
+| `sword` | 20 | 122 | `strike` | 34 | 485 |
+| `dagger` | 10 | 56 | `ready` | 25 | 329 |
+| `bow-upper` | 8 | 145 | `defend` | 16 | 199 |
+| `crossbow` | 4 | 33 | | | |
+
+The combined file and the `default` entry's embedded clips stay for one release cycle, until mmorpg loads the families (moenarch-games/mmorpg#898).
+
 **Shared figure definition.** The figure's catalog members, appearance sources, head subset, hips, Peasant outfits and texture policy live in [`src/ranger-figure.ts`](../src/ranger-figure.ts), not in the build script. The [hair kit](hair-kit.md) and the [Redbrand kit](redbrand-kit.md), which are fitted to the male figure, read them there. A change to a Ranger clip, weapon or other build step therefore rebuilds only the two figures, and not those kits.
 
 **Fewer draw calls (#517).** The Quaternius outfits ship one mesh per part (pauldron, bracers, belts, boots, legs), so a character drew once per part even where the parts share one material. Before export, the build joins, per material, the primitives of the parts that the appearance never addresses by name ([`src/skinned-part-merge.ts`](../src/skinned-part-merge.ts)). They land on one `merged.<material>` node, with the same skin binding, vertex colours, used UV sets and morph targets (stored sparse where few vertices move). What the appearance names stays separate: the hood, eyebrows, face nodes, and the garments and secondary chains of the variant's own outfit. The renders do not change: six looks of the Pages comparison (archer, Light skin, knight, warden, farmer, posed from three sides) are pixel-identical before and after. Draw calls fall from 13 to 6 for the archer and its Light skin, from 9 to 6 for the knight, by 1–3 for the class outfits, and from 294 to 228 over all male character variants (female: 60 to 34). Each variant's merges are listed under `partMerges` in `lineage.json`.

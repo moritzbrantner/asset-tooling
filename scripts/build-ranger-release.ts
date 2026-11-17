@@ -7,12 +7,17 @@
 // out); KTX2 encoding needs KTX-Software's `ktx` (ASSET_TOOLING_KTX or on PATH).
 import path from "node:path";
 import { writeFile } from "node:fs/promises";
-import { RANGER_FIGURES, buildRangerCharacter, type RangerFigure } from "./build-ranger-character.ts";
+import { RANGER_CLIP_DOWNLOADS, RANGER_FIGURES, buildRangerCharacter, type RangerFigure } from "./build-ranger-character.ts";
 import { packDownloads } from "./pack-downloads.ts";
 import { useSharedGenerationCache } from "./generation-cache.ts";
 
 /** The rolling release name of a figure's bundle (`humanoid.ranger.male` -> `humanoid-ranger-male`). */
 export const rangerReleaseName = (figure: RangerFigure) => RANGER_FIGURES[figure].key.replaceAll(".", "-");
+/**
+ * #733: the most one clip family download may weigh. It replaces raising a whole-figure clip budget with each new
+ * batch: a family that outgrows it splits into two downloads (RANGER_CLIP_DOWNLOADS) instead.
+ */
+export const RANGER_CLIP_FAMILY_LIMIT_MB = 1;
 
 export async function buildRangerRelease({ outDir, figure, processorCheckout, log = () => {} }: {
   outDir: string; figure: RangerFigure; processorCheckout: string; log?: (line: string) => void;
@@ -21,7 +26,10 @@ export async function buildRangerRelease({ outDir, figure, processorCheckout, lo
   const result = await buildRangerCharacter({ processorCheckout, outDir: out, figure, log: (line) => log(`[ranger] ${line}`) });
   await writeFile(path.join(out, "lineage.json"), `${JSON.stringify(result.lineage, null, 2)}\n`);
   const key = RANGER_FIGURES[figure].key;
-  const { indexFile } = await packDownloads({ bundleDir: result.bundleDir, outDir: out, name: rangerReleaseName(figure), clips: `${key}/default`, log: (line) => log(`[downloads] ${line}`) });
+  const { indexFile } = await packDownloads({
+    bundleDir: result.bundleDir, outDir: out, name: rangerReleaseName(figure), clips: `${key}/default`,
+    clipFamilies: RANGER_CLIP_DOWNLOADS, clipFamilyLimitBytes: RANGER_CLIP_FAMILY_LIMIT_MB * 1e6, log: (line) => log(`[downloads] ${line}`),
+  });
   return { tar: result.tar, tarSha256: result.tarSha256, exportRefPath: result.exportRefPath, index: indexFile };
 }
 
