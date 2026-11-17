@@ -482,6 +482,20 @@ export const RANGER_CLIP_ROLES: Readonly<Record<string, { role: string; contact?
 export const RANGER_GAITS: ReadonlySet<string> = new Set(["Walk_Loop", "Jog_Fwd_Loop", "Sprint_Loop", "Crouch_Fwd_Loop", "Jog_Bwd_Loop", "Walk_Bwd_Loop", "Wade_Fwd_Loop"]);
 /** The library clips the Ranger retargets, in bundle order; the authored families (src/ranger-clips.ts) follow them. */
 export const RANGER_CLIPS: readonly RangerClip[] = [...BASE_CLIPS, ...GAIT_COMBAT_CLIPS, ...TRAVERSAL_CLIPS, ...COMBAT_CLIPS];
+/** The authored families that ship in the `base` clip download (#733): the back and side gaits and the item grips. */
+const BASE_DOWNLOAD_FAMILIES: ReadonlySet<string> = new Set(["gait", "grips"]);
+/**
+ * The Ranger's clip downloads, one `<key>.clips.<family>.glb` each (#733). `base` is what a character plays from its
+ * first frame: the library's idle, gaits, sword and shield idles, death, jumps, crouch, roll, climb and slide, with the
+ * authored `gait` and `grips` families. `combat` is the library's sword, shield, hit and spell clips. Every other
+ * authored family (src/ranger-clips.ts) is a download of its own under its id, so a new family adds a file.
+ */
+export const RANGER_CLIP_DOWNLOADS: readonly { family: string; clips: readonly string[] }[] = [
+  { family: "base", clips: [...[...BASE_CLIPS, ...GAIT_COMBAT_CLIPS, ...TRAVERSAL_CLIPS].map((clip) => clip.name),
+    ...RANGER_CLIP_FAMILIES.filter((family) => BASE_DOWNLOAD_FAMILIES.has(family.id)).flatMap((family) => family.clips)] },
+  { family: "combat", clips: COMBAT_CLIPS.map((clip) => clip.name) },
+  ...RANGER_CLIP_FAMILIES.filter((family) => !BASE_DOWNLOAD_FAMILIES.has(family.id)).map((family) => ({ family: family.id, clips: family.clips })),
+];
 export const RANGER_CLIPS_ATTACHMENT = "humanoid-clips";
 export const RANGER_SOCKETS_ATTACHMENT = "humanoid-sockets";
 export const RANGER_SAMPLE_RATE = 30;

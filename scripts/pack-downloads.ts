@@ -6,7 +6,8 @@
 // content-addressed `tex-<hash>.ktx2` files (KHR_texture_basisu): UASTC with Zstandard for normal maps, ETC1S
 // (BasisLZ) for colour (sRGB) and for the data maps (ORM, roughness, occlusion), all with mipmaps. With `--clips`,
 // that entry's animations go into one shared `<key>.clips.glb` (joints and clips, no meshes), and every download is
-// clip-less. Characters that share the skeleton play the clips by joint name; the clips drop the channels no clip moves
+// clip-less (with `clipFamilies`, also one `<key>.clips.<family>.glb` per clip family, #733). Characters that share the
+// skeleton play the clips by joint name; the clips drop the channels no clip moves
 // off the rest pose and use meshopt's quaternion and exponential filters (#683). The bundle's JSON attachments are
 // copied as `<key>.<variant>.<attachment>.json`. `<name>.index.json` lists each download's files and bytes, so
 // a consumer fetches only what it uses. KTX2 encoding needs KTX-Software's `ktx` CLI (ASSET_TOOLING_KTX, or `ktx`
@@ -14,9 +15,9 @@
 import path from "node:path";
 import os from "node:os";
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
-import { NodeIO, PropertyType, type AnimationChannel, type Document, type Texture } from "@gltf-transform/core";
+import { Logger, NodeIO, PropertyType, type Animation, type AnimationChannel, type Document, type Texture } from "@gltf-transform/core";
 import { ALL_EXTENSIONS, KHRTextureBasisu } from "@gltf-transform/extensions";
-import { dedup, meshopt, prune } from "@gltf-transform/functions";
+import { cloneDocument, dedup, meshopt, prune } from "@gltf-transform/functions";
 import { MeshoptDecoder, MeshoptEncoder } from "meshoptimizer";
 import { createAssetBundleReadSnapshot, readAssetBundleGltf, type GltfResourcesBundleManifest } from "../src/asset-bundle.js";
 import { sha256Bytes } from "../src/hash.js";
@@ -115,6 +116,40 @@ export function stripToClips(document: Document): Document {
   return document;
 }
 
+/** #733: one download of a family's clips, `<key>.clips.<family>.glb`, beside the combined clips. */
+export type ClipFamilyFile = { family: string; clips: readonly string[] };
+
+/** What keeps `families` from splitting `names` (the document's clips): a clip in no or two families, a missing clip. */
+export function clipFamilyProblems(names: readonly string[], families: readonly ClipFamilyFile[]): string[] {
+  const problems: string[] = [], owner = new Map<string, string>(), present = new Set(names);
+  for (const { family, clips } of families) {
+    if (!/^[a-z0-9-]+$/.test(family)) problems.push(`family '${family}' is not a file-name word`);
+    if (clips.length === 0) problems.push(`family '${family}' has no clips`);
+    for (const clip of clips) {
+      if (owner.has(clip)) problems.push(`'${clip}' is in '${owner.get(clip)}' and '${family}'`);
+      else owner.set(clip, family);
+      if (!present.has(clip)) problems.push(`'${clip}' (${family}) is not a clip of the entry`);
+    }
+  }
+  if (new Set(families.map((file) => file.family)).size !== families.length) problems.push("a family is listed twice");
+  for (const name of names) if (!owner.has(name)) problems.push(`'${name}' is in no family`);
+  return problems;
+}
+
+/** A clip's duration: its latest key. */
+export const clipDuration = (animation: Animation) => Math.max(0, ...animation.listSamplers().map((sampler) => sampler.getInput()?.getMax([])[0] ?? 0));
+
+/** Keep only the clips named in `names`, in the document's order; the next prune drops what the others used. */
+export function keepClips(document: Document, names: ReadonlySet<string>): Document {
+  for (const animation of document.getRoot().listAnimations()) {
+    if (names.has(animation.getName())) continue;
+    for (const channel of animation.listChannels()) channel.dispose();
+    for (const sampler of animation.listSamplers()) sampler.dispose();
+    animation.dispose();
+  }
+  return document;
+}
+
 /** How far (per component) a channel's key may sit from its joint's rest value and still count as the rest pose. */
 export const CLIP_REST_TOLERANCE = 1e-5;
 
@@ -159,8 +194,14 @@ export async function compactClips(document: Document): Promise<number> {
   return dropped;
 }
 
-export async function packDownloads({ bundleDir, outDir, name, clips, log = () => {} }: {
-  bundleDir: string; outDir: string; name: string; clips?: string; log?: (line: string) => void;
+/**
+ * With `clipFamilies` (#733), the `--clips` entry's clips are also split into one `<key>.clips.<family>.glb` per family,
+ * the same joints and the same compaction as the combined file, so a consumer fetches a family when it first plays one
+ * of its clips. Every clip must be in exactly one family. A family file over `clipFamilyLimitBytes` fails the pack.
+ */
+export async function packDownloads({ bundleDir, outDir, name, clips, clipFamilies, clipFamilyLimitBytes, log = () => {} }: {
+  bundleDir: string; outDir: string; name: string; clips?: string; clipFamilies?: readonly ClipFamilyFile[]; clipFamilyLimitBytes?: number;
+  log?: (line: string) => void;
 }) {
   const ktx = process.env.ASSET_TOOLING_KTX ?? "ktx";
   await MeshoptEncoder.ready;
@@ -177,6 +218,7 @@ export async function packDownloads({ bundleDir, outDir, name, clips, log = () =
   const size = async (file: string) => (await stat(path.join(outDir, file))).size;
   const entries: Json[] = [];
   let clipsFile: string | undefined;
+  const families: Json[] = [];
   try {
     for (const asset of manifest.assets) {
       const id = `${asset.key}/${asset.variant}`;
@@ -186,6 +228,23 @@ export async function packDownloads({ bundleDir, outDir, name, clips, log = () =
       if (clips === id && root.listAnimations().length > 0) {
         // The shared clips: the skeleton's nodes and every animation, without meshes, skins or materials.
         const clipDocument = stripToClips(await io.readJSON({ json: JSON.parse(gltf.toString("utf8")), resources: Object.fromEntries([...resources].map(([uri, bytes]) => [uri, new Uint8Array(bytes)])) }));
+        if (clipFamilies) {
+          const problems = clipFamilyProblems(root.listAnimations().map((animation) => animation.getName()), clipFamilies);
+          if (problems.length) throw new Error(`the clip families do not split ${id}'s clips: ${problems.join("; ")}`);
+          const over: string[] = [];
+          for (const { family, clips: names } of clipFamilies) {
+            const familyDocument = keepClips(cloneDocument(clipDocument), new Set(names)).setLogger(new Logger(Logger.Verbosity.WARN));
+            const durations = new Map(familyDocument.getRoot().listAnimations().map((animation) => [animation.getName(), clipDuration(animation)]));
+            await compactClips(familyDocument);
+            await familyDocument.transform(meshopt({ encoder: MeshoptEncoder, level: "high" }));
+            const file = await written(`${asset.key}.clips.${family}.glb`, await io.writeBinary(familyDocument));
+            const bytes = await size(file);
+            families.push({ family, file, bytes, clips: names.map((clip) => ({ name: clip, durationSeconds: Math.round(durations.get(clip)! * 1e4) / 1e4 })) });
+            if (clipFamilyLimitBytes !== undefined && bytes > clipFamilyLimitBytes) over.push(`${file} ${(bytes / 1e6).toFixed(2)} MB`);
+            log(`clip family ${file} (${names.length} clips, ${(bytes / 1e6).toFixed(2)} MB)`);
+          }
+          if (over.length) throw new Error(`clip family files over the ${(clipFamilyLimitBytes! / 1e6).toFixed(2)} MB limit: ${over.join(", ")}; split the family`);
+        }
         const dropped = await compactClips(clipDocument);
         // `high` adds meshopt's filters (#683): 16-bit quaternions and 12-bit-mantissa translations and scales.
         await clipDocument.transform(meshopt({ encoder: MeshoptEncoder, level: "high" }));
@@ -264,7 +323,7 @@ export async function packDownloads({ bundleDir, outDir, name, clips, log = () =
     const index = {
       schema: DOWNLOAD_INDEX_SCHEMA, release: name,
       decoders: { mesh: "EXT_meshopt_compression (three.js: GLTFLoader.setMeshoptDecoder(MeshoptDecoder))", textures: "KHR_texture_basisu (three.js: GLTFLoader.setKTX2Loader(new KTX2Loader().setTranscoderPath(...).detectSupport(renderer)))" },
-      ...(clipsFile ? { clips: { file: clipsFile, bytes: await size(clipsFile), binding: "play on any entry of the same key by joint name" } } : {}),
+      ...(clipsFile ? { clips: { file: clipsFile, bytes: await size(clipsFile), binding: "play on any entry of the same key by joint name", ...(families.length ? { families } : {}) } } : {}),
       textureEncodings: Object.fromEntries(Object.entries(encodings).sort()),
       entries,
     };
