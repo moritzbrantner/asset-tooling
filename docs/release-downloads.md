@@ -16,8 +16,9 @@ gh release upload humanoid-ranger-male <downloads>/* --clobber
 | `<key>.<variant>.gltf` + `.bin` | One entry, for example `humanoid.ranger.male.outfit.knight.lod1`. The `.bin` is meshopt-compressed (`EXT_meshopt_compression` with `KHR_mesh_quantization`). |
 | `tex-<hash>.ktx2` | Textures as KTX2 (`KHR_texture_basisu`), content-addressed and shared by every entry that uses them, so a Dark/Light pair or a level chain downloads them once. |
 | `<key>.clips.glb` | Ranger only: the joints and every clip, with no meshes. Every character entry has the same joints at the same rest pose, so a consumer plays these clips on any variant or level by joint name. It holds no channel for a joint and path that no clip moves off the rest pose (#683): such a joint rests, as it would under a rest-valued channel, in three.js's mixer and in a native sampler that fills unanimated joints with the rest pose. Rotations are 16-bit quaternions and translations and scales 12-bit-mantissa floats (meshopt's quaternion and exponential filters). The Ranger figure's clips fell from 7.7 MB to 2.2 MB, every joint within 0.4 mm of the float clips, with every clip's name and duration unchanged. |
+| `<key>.clips.<family>.glb` | Ranger only (#733): one clip family each, for example `humanoid.ranger.male.clips.base.glb`, with the same joints and compaction as `<key>.clips.glb` and only that family's clips. A consumer loads `base` with the figure and each other family the first time it plays one of its clips. The families and their clips are in [humanoid-ranger.md](humanoid-ranger.md#build); a family file over 1 MB fails the build. The combined file stays for one release cycle while consumers switch. |
 | `<key>.<variant>.<attachment>.json` | The entry's attachments, for example `humanoid.ranger.male.default.humanoid-sockets.json`. |
-| `<name>.index.json` | `asset-downloads-v1`: each entry's files, textures and total bytes, the clips file, each texture's encoding, and a `runtime` cost per entry (#124): draw calls, materials, triangles, and the texture memory estimated from the KTX2 headers. That estimate is 1 byte per texel after Basis transcodes to a block format (BC7/ETC2/ASTC), against 4 bytes per texel for an RGBA8 fallback, with a third added for mips. |
+| `<name>.index.json` | `asset-downloads-v1`: each entry's files, textures and total bytes, the clips file and, under `clips.families`, each clip family's file, bytes and clips with their durations, each texture's encoding, and a `runtime` cost per entry (#124): draw calls, materials, triangles, and the texture memory estimated from the KTX2 headers. That estimate is 1 byte per texel after Basis transcodes to a block format (BC7/ETC2/ASTC), against 4 bytes per texel for an RGBA8 fallback, with a third added for mips. |
 
 **Texture encoding**, chosen per texture by the material slots that use it:
 
@@ -39,6 +40,17 @@ const loader = new GLTFLoader()
 const clips = (await loader.loadAsync("humanoid.ranger.male.clips.glb")).animations;
 const knight = await loader.loadAsync("humanoid.ranger.male.outfit.knight.gltf");
 new THREE.AnimationMixer(knight.scene).clipAction(THREE.AnimationClip.findByName(clips, "Walk_Loop")).play();
+```
+
+With the clip families (#733), load `base` instead of the combined file and fetch a family when a clip of it first plays:
+
+```js
+const index = await (await fetch("humanoid-ranger-male.index.json")).json();
+const familyOf = new Map(index.clips.families.flatMap((family) => family.clips.map((clip) => [clip.name, family.file])));
+const loaded = new Map(); // file -> Promise<AnimationClip[]>
+const clipsIn = (file) => loaded.get(file) ?? loaded.set(file, loader.loadAsync(file).then((gltf) => gltf.animations)).get(file);
+const clip = async (name) => THREE.AnimationClip.findByName(await clipsIn(familyOf.get(name)), name);
+await clipsIn("humanoid.ranger.male.clips.base.glb");
 ```
 
 Packing preserves empty attachment-frame nodes, including static equipment `grip` frames. The index lists what to fetch. An entry's `.gltf` refers to its `.bin` and its `tex-*.ktx2` by relative URI, so the files must sit side by side, for example when downloaded into one folder or served from the release download URL.
@@ -76,4 +88,4 @@ ASSET_TOOLING_KTX=<KTX-Software 4.4.2 ktx CLI> bun scripts/prepare-native-downlo
 
 Acquire only the selected entries' `files`, `textures` and `clips` from the index first, keeping them beside the index. The command performs no network acquisition. glTF Transform and meshoptimizer decode geometry; Khronos KTX-Software transcodes textures to PNG. The output is a self-contained `<key>.<variant>.native.glb` with float attributes for standard glTF import. Select multiple entries with comma-separated `key/variant` names.
 
-The shared clips GLB is also decoded once as `<key>.clips.native.glb` into the output directory and remains separate: load its animation channels and bind their target joint names to the selected character's joints. This animation-only library must contain no textures; preparation rejects a library with textures and removes an unused BasisU declaration from a texture-free library. Keep attachments, the original index, release identity and source/license metadata with the acquired inputs. Preparation neither changes the rolling release nor promotes a candidate. Keep that local input copy until deliberately adopting a replacement; the command does not refresh it.
+The shared clips GLB is also decoded once as `<key>.clips.native.glb` into the output directory and remains separate: load its animation channels and bind their target joint names to the selected character's joints. This animation-only library must contain no textures; preparation rejects a library with textures and removes an unused BasisU declaration from a texture-free library. Keep attachments, the original index, release identity and source/license metadata with the acquired inputs. Preparation neither changes the rolling release nor promotes a candidate. Keep that local input copy until deliberately adopting a replacement; the command does not refresh it. It decodes the combined clips only; the per-family clip files (#733) are meshopt-compressed the same way and load through the same decoder.
