@@ -105,10 +105,12 @@ FAMILIES = {
               "idle": {"r": {"s": "staff", "g": (-.18, -.14, 1.02), "b": (.12, -.6, .79), "z": (-.4, -.6, .3)}, "l": "shaft", "pitch": 4},
               "guard": {"r": {"s": "staff", "g": (-.15, .04, 1.1), "b": (.18, -.95, .22), "z": (-.4, -.6, .3)}, "l": "shaft",
                         "pitch": 10, "yaw": -12, "neck": 4}},
-    "twohand": {"item": None, "socket": "staff", "stow": "back", "hand": "r", "pull": ("+z", .16), "shaft": (-.22, -.14),
-                "idle": {"r": {"s": "staff", "g": (-.16, -.24, 1.18), "b": (-.06, .68, .73), "z": (-.6, -.2, .3)}, "l": "shaft",
-                         "pitch": 3},
-                "guard": {"r": {"s": "staff", "g": (-.12, -.36, 1.12), "b": (.12, -.45, .88), "z": (-.4, -.6, .3)}, "l": "shaft",
+    # The maul's left hand stays on its ``grip.offhand``, 0.22 m down the haft (as the #711 maul strikes).
+    "two-hand": {"item": "equipment.warhammer.maul", "socket": "weapon", "stow": "back", "hand": "r", "pull": ("+z", .16),
+                 "shaft": (-.22, -.22),
+                 "idle": {"r": {"s": "weapon", "g": (-.16, -.24, 1.18), "b": (-.06, .68, .73), "x": (0, -1, 0)}, "l": "shaft",
+                          "pitch": 3},
+                 "guard": {"r": {"s": "weapon", "g": (-.12, -.36, 1.12), "b": (.12, -.45, .88), "x": (-.2, -.3, .9)}, "l": "shaft",
                           "pitch": 10, "yaw": -6, "neck": 4}},
     "bow": {"item": "equipment.bow.long", "socket": "bow", "stow": "backBow", "hand": "l", "pull": ("+z", .14),
             "idle": {"l": {"s": "bow", "g": (.24, -.2, 1.0), "b": (.12, -.35, .93), "z": (-.3, -.95, 0)}, "r": None, "pitch": 3}},
@@ -158,7 +160,7 @@ BACK_SHEATHE = [
 OVER_KEY = {
     "staff": {"g": (-.2, -.08, 1.62), "b": (.55, -.35, .76), "z": (-.6, -.4, .3)},
     "spear": {"g": (-.2, -.08, 1.62), "b": (.2, -.75, .6), "z": (-.6, -.4, .3)},
-    "twohand": {"g": (-.22, -.06, 1.6), "b": (-.05, -.3, .95), "z": (-.6, -.4, .3)},
+    "two-hand": {"g": (-.22, -.06, 1.6), "b": (-.05, -.3, .95), "x": (-.2, -.9, .2)},
     "bow": {"g": (.22, -.1, 1.6), "b": (.3, -.35, .88), "z": (-.3, -.95, 0)},
 }
 ONE_SHOTS = {
@@ -167,7 +169,7 @@ ONE_SHOTS = {
     "Dagger_Draw": ("dagger", HIP_DRAW, .6), "Dagger_Sheathe": ("dagger", HIP_SHEATHE, .7),
     "Staff_Draw": ("staff", BACK_DRAW, .8), "Staff_Sheathe": ("staff", BACK_SHEATHE, .8),
     "Spear_Draw": ("spear", BACK_DRAW, .8), "Spear_Sheathe": ("spear", BACK_SHEATHE, .8),
-    "TwoHand_Draw": ("twohand", BACK_DRAW, .8), "TwoHand_Sheathe": ("twohand", BACK_SHEATHE, .8),
+    "TwoHand_Draw": ("two-hand", BACK_DRAW, .8), "TwoHand_Sheathe": ("two-hand", BACK_SHEATHE, .8),
     "Bow_Draw_Weapon": ("bow", BACK_DRAW, .7), "Bow_Stow": ("bow", BACK_SHEATHE, .7),
 }
 # The loops: the family, the pose, the length, and the motion that closes on itself: the chest's ``sway`` (yaw,
@@ -177,13 +179,13 @@ LOOPS = {
     "Mace_Idle_Loop": ("mace", "idle", 3.0, {"sway": 4, "breathe": 1.5, "bob": .018, "turn": 6}),
     "Staff_Idle_Loop": ("staff", "idle", 3.0, {"sway": 4, "breathe": 1.5, "bob": .016, "turn": 4}),
     "Spear_Idle_Loop": ("spear", "idle", 3.0, {"sway": 4, "breathe": 1.5, "bob": .016, "turn": 3}),
-    "TwoHand_Idle_Loop": ("twohand", "idle", 3.0, {"sway": 4, "breathe": 1.5, "bob": .016, "turn": 4}),
+    "TwoHand_Idle_Loop": ("two-hand", "idle", 3.0, {"sway": 4, "breathe": 1.5, "bob": .016, "turn": 4}),
     "Unarmed_Idle_Loop": ("unarmed", "idle", 3.0, {"sway": 5, "breathe": 2, "bob": .022, "turn": 0}),
     "Mace_Guard_Loop": ("mace", "guard", 2.0, {"sway": 2, "breathe": 1, "bob": .01, "turn": 3}),
     "Dagger_Guard_Loop": ("dagger", "guard", 2.0, {"sway": 3, "breathe": 1, "bob": .012, "turn": 5}),
     "Staff_Guard_Loop": ("staff", "guard", 2.0, {"sway": 2, "breathe": 1, "bob": .01, "turn": 2}),
     "Spear_Guard_Loop": ("spear", "guard", 2.0, {"sway": 2, "breathe": 1, "bob": .01, "turn": 2}),
-    "TwoHand_Guard_Loop": ("twohand", "guard", 2.0, {"sway": 2, "breathe": 1, "bob": .01, "turn": 2}),
+    "TwoHand_Guard_Loop": ("two-hand", "guard", 2.0, {"sway": 2, "breathe": 1, "bob": .01, "turn": 2}),
     "Unarmed_Guard_Loop": ("unarmed", "guard", 2.0, {"sway": 3, "breathe": 1, "bob": .012, "turn": 0}),
 }
 CLIPS = (
