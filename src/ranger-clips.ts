@@ -148,6 +148,20 @@ export const RANGER_STRIKE_CLIPS = [
  */
 export const RANGER_REACT_CLIPS = ["Hit_Light_L", "Hit_Light_R", "Hit_Heavy_Front", "Death_Back", "Death_Fwd", "Death_Spin"] as const;
 /**
+ * #717 (drawing and sheathing are an explicit gameplay mode): a draw and a sheathe per weapon family, the combat idles
+ * and the guards the earlier kits lacked, authored in place on the Ranger rig by adapters/blender/ready_clips.py from
+ * hand frames solved with two-bone arm IK on the `Idle_Loop` pose. Every clip keeps only the `spine_01` subtree. A draw
+ * or sheathe records the hand socket, the stow socket (`hip_l.stowed`, `hip_r.stowed`, `back.stowed`,
+ * `back.bow.stowed`) and `swapSeconds`, the frame the hand's socket is on the stow socket, where the game moves the item
+ * between them. They follow the strike family in bundle order.
+ */
+export const RANGER_READY_CLIPS = [
+  "Sword_Draw", "Sword_Sheathe", "Mace_Draw", "Mace_Sheathe", "Dagger_Draw", "Dagger_Sheathe", "Staff_Draw", "Staff_Sheathe",
+  "Spear_Draw", "Spear_Sheathe", "TwoHand_Draw", "TwoHand_Sheathe", "Bow_Draw_Weapon", "Bow_Stow",
+  "Mace_Idle_Loop", "Staff_Idle_Loop", "Spear_Idle_Loop", "TwoHand_Idle_Loop", "Unarmed_Idle_Loop",
+  "Mace_Guard_Loop", "Dagger_Guard_Loop", "Staff_Guard_Loop", "Spear_Guard_Loop", "TwoHand_Guard_Loop", "Unarmed_Guard_Loop",
+] as const;
+/**
  * #285: static grip poses authored on the rig by adapters/blender/grip_poses.py. Each clip keys only the finger and
  * thumb rotations of one hand; a consumer plays it over the body clip's finger channels while that hand's socket holds
  * an item of `role`. The fingers wrap a handle of `radius` (metres) along the item's grip-frame `axis`; the tome leaves
@@ -566,6 +580,28 @@ export const RANGER_CLIP_FAMILIES: readonly ClipFamily[] = [
         ...(joints ? { keep: joints as string[] } : {}),
         authored: { recipe: family.recipe, clip: name, fps: family.fps, ...observed }, basedOn: source as string,
         extra: { fields: { strike, ...(secondaryPose ? { secondaryPose } : {}) }, contactSeconds: observed.contactSeconds as number },
+      };
+    },
+  },
+  {
+    id: "ready", script: "ready_clips.py", clips: RANGER_READY_CLIPS,
+    arguments: ({ socket }) => {
+      const at = socketAt(socket);
+      return {
+        schemaVersion: 1, clips: [...RANGER_READY_CLIPS],
+        sockets: {
+          weapon: at("hand_r.weapon"), offhand: at("hand_l.weapon"), shield: at("hand_l.shield"), staff: at("hand_r.staff"), staffLeft: at("hand_l.staff"),
+          bow: at("hand_l.bow"), hipL: at("hip_l.stowed"), hipR: at("hip_r.stowed"), back: at("back.stowed"), backBow: at("back.bow.stowed"),
+        },
+      };
+    },
+    clip: (name, family) => {
+      // The family, the sockets and the swap go to the clip's `ready` object.
+      const { joints, source, ready, ...observed } = family.clips[name] as Json;
+      return {
+        keep: joints as string[],
+        authored: { recipe: family.recipe, clip: name, fps: family.fps, ready, ...observed }, basedOn: source as string,
+        extra: { fields: { ready } },
       };
     },
   },
