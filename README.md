@@ -74,6 +74,8 @@ The [Shooter arena kit](docs/shooter-arena.md) is the Shooter's modular clean-fu
 
 The [wooden spike traps](docs/spike-traps.md) are six static hazard pieces on one wood atlas: a stake cluster, a tiling stake row, a cheval-de-frise, a pit bed, a studded board and a hanging spiked log.
 
+The [strike effect meshes](docs/strike-effects.md) are six small animated meshes a game spawns at a strike's contact point: a cut arc, a heavy arc, a thrust streak, an impact burst, a ground-slam ring and lunge dust, each under 200 triangles with one `Play` clip, shipped as the `strike-effects` rolling release.
+
 The [Greyhaven settlement props](docs/settlement-props.md) are a scripted Blender prop set in the same style for an Outpost public space: a market stall, handcart, crate and barrel, a signpost, lantern post and bench, and a fence segment, planter and woodpile, with a market-square composition.
 
 [Marshal Elden Greywatch's house](docs/greyhaven-marshal-house.md) is an enterable, furnished private home on the MMORPG's west Outpost house footprint: the kit's house exterior with a hinged door, a floor, a hideable ceiling and roof, a bed, chest, table, bench, chair, hearth, the Marshal's weapon rack and shield, box colliders, and spots for the knock, the doorway and the bed.

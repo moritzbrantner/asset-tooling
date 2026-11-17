@@ -1,0 +1,68 @@
+# Strike effect meshes
+
+Six small animated meshes that a game spawns at a strike's contact point, so hits read at the gameplay camera ([#724](https://github.com/moritzbrantner/asset-tooling/issues/724), for moenarch-games/mmorpg#885's contact frames). They are node- and morph-animated glTF meshes, not flipbooks; the arpg flipbooks in [`combat-effects`](combat-effects.md) stay as they are. They come from one reproducible Blender recipe, [`adapters/blender/strike_effects.py`](../adapters/blender/strike_effects.py), in one rolling release, `strike-effects` (`strike.effects.tar`). They are original and use no third-party sources. No game spawns them yet: timing, placement, tint and gameplay belong to the game.
+
+## Build
+
+```sh
+ASSET_TOOLING_BLENDER=<blender 5.2.2> bun scripts/build-strike-effects.ts --out <directory>
+```
+
+[`scripts/build-strike-effects.ts`](../scripts/build-strike-effects.ts) runs the recipe once per entry through `external.blender.script@1`, checks each GLB with `scene.import.gltf@2` and exports a `gltf-resources-v1` bundle. It writes `strike.effects.tar` (+ `.sha256`), `export.ref.json`, `descriptor.json` and `lineage.json` in about twenty seconds. It needs no network, GPU, KTX-Software or LFS payloads, and a rebuild packs the same tar.
+
+## Entries
+
+Each key is `strike.effects.<entry>`, with one clip, `Play`, which plays once. Every entry ends at zero scale or zero area, so a game removes the instance when the clip ends.
+
+| Entry | Use | Look | `Play` | Triangles | Extent over the clip (m) |
+| --- | --- | --- | --- | --- | --- |
+| `strike-arc-cut` | sword, dagger and axe chain hits | thin crescent ribbon, 1.15 m swing radius, sweeps 52° and thins onto its bright edge | 0.18 s | 64 | 2.2 × 1.6 |
+| `strike-arc-heavy` | finishers, maces, two-handers | wider crescent, 1.55 m swing radius, with a low edge band | 0.25 s | 160 | 3.1 × 2.3 |
+| `strike-thrust` | spear and dagger stabs | narrow six-sided streak that stretches forward and thins, with a star flare at the contact | 0.15 s | 32 | 0.6 × 1.5 |
+| `impact-burst` | any hit on a body | a core and 14 short spikes that pop, overshoot and shrink | 0.2 s | 50 | about 0.9 across |
+| `ground-slam` | jumping-strike landing | flat ring with a low shock lip that grows to 1.6 m and thins away, and six chips thrown up and out | 0.4 s | 168 | 3.2 × 3.2 × 0.45 high |
+| `lunge-dust` | running-strike start | five low dust puffs at and behind the feet that bloom, drift back and dissipate | 0.35 s | 120 | 1.0 × 1.0 × 0.3 high |
+
+**Frames.** Metres, +Y up, right-handed, sized for the Ranger's reach.
+- **Strike entries** (`align: "strike"`): origin at the contact point, +Z along the strike direction. The arcs lie in the XZ plane, their outer edge through the contact point and tangent to +Z there, curving back to their swing centre at `(-swingRadius, 0, 0)`. Roll them about Z for a diagonal or overhead cut, and mirror X for the other side.
+- **Ground entries** (`align: "ground"`, `ground-slam` and `lunge-dust`): origin at the landing or foot point on the ground, +Z the attacker's facing.
+
+**Materials.** No textures. Colour and opacity are per vertex, in `COLOR_0` (RGBA): a bright edge at alpha 1 fading to alpha 0. Both materials are core glTF (no extensions), blended and double-sided:
+- `strike-glow`: a warm white base colour with the same emissive colour, so it reads in an unlit or emissive pass. Used by the arcs, thrust, burst and ring.
+- `strike-dust`: a dusty brown base colour, no emission. Used by the dust puffs and the slam's chips.
+
+Tint an effect by changing its material's base and emissive colours. The kit costs 2 materials, at most 7 draw calls per entry, no texture memory and a 90 KB download.
+
+**Animation.** Node translation, rotation and scale, sampled at 100 frames per second so every clip length is a whole number of frames. The two arcs and the slam's ring also have one morph target, `Thin`, which collapses the ribbon onto its bright edge (or the ring onto its crest); its weight is part of the same `Play` clip.
+
+## Descriptor `strike-effects-descriptor-v1`
+
+The `strike-effects-descriptor` attachment on the first entry (also written as `descriptor.json`) has the frames (`origins`), the playback rule and, per entry, `key`, `role`, `use`, `align`, `clip` (`name`, `duration` in seconds, `loop: false`), `intendedScale` (1: the entries are already sized for the Ranger), `swingRadius` for the arcs, `triangles`, `materials` and `bounds`. `bounds` is the box every frame of the clip stays inside, morphs included, so a game can cull an instance by it.
+
+## Consumers
+
+mmorpg would fetch the release like its other rolling bundles, for example `fetch_rolling strike-effects strike.effects effects/strike.effects` in its `scripts/fetch-bundles.sh`, and then load each `strike.effects.<entry>` glTF from the unpacked bundle. Wiring it in is mmorpg's change, not part of this kit.
+
+## Edit
+
+The tables at the top of the recipe set the clip lengths (`CLIP_SECONDS`), the arcs' radius, width, span, segments and sweep (`ARCS`), the burst's spikes (`SPIKES`), the slam's chips (`CHIPS`), the dust puffs (`PUFFS`) and the two material colours. Each entry is one function. To see a change, build it in a live Blender (for example through the Blender MCP) in its own scene with the scene at 100 fps:
+
+```python
+import bpy, runpy
+fx = runpy.run_path("adapters/blender/strike_effects.py")
+scene = bpy.data.scenes.new("strike-effects")
+scene.render.fps = 100
+fx["build"]("ground-slam", scene.collection)
+```
+
+Every `build` call starts its clip at frame 0. Delete the `strike-glow` and `strike-dust` materials to rebuild them after changing their colours.
+
+## Test
+
+`test/blender/strike-effects/` builds the real bundle and checks the keys, the two materials and no textures, the cost limit, one `Play` clip per entry of its declared length, RGBA `COLOR_0` on every primitive, blended double-sided core-glTF materials, the triangle ceiling, the frames (the arcs reach the contact point and curve back past their swing centre, the ground entries rest on the ground, the thrust trails back along -Z) and a byte-identical rebuild. It skips without Blender.
+
+## Review
+
+Review renders are in [`review/strike-effects/`](../review/strike-effects/): `game-camera.jpg` (the 12 m, 0.42 rad pitch, 50° Greyhaven camera, early in each clip, with 1.8 m stand-in figures), `close-up.jpg` (the burst, thrust and arcs from the side) and `overview.jpg` (from above, later in each clip).
+
+CI publishes the rolling `strike-effects` release when this merges ([Publishing a rolling release](../README.md#publishing-a-rolling-release)). `releases/strike-effects.json` holds its budget (2 materials, 1 MB of texture memory, a 1 MB download).
