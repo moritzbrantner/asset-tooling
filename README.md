@@ -12,7 +12,7 @@ The [Greyhaven terrain materials](docs/greyhaven-terrain.md) are seven tiling CC
 
 The [Greyhaven ambient animals](docs/greyhaven-ambient-animals.md) are a cat, a dog and a small rodent from CC0 Quaternius sources, each with in-place `Idle` and `Walk` clips, sized for the MMORPG's game camera.
 The [Greyhaven farm animals](docs/greyhaven-farm-animals.md) follow them: a cow, horse, donkey, pig and sheep from CC0 Quaternius sources and an authored goat and chicken, with in-place `Idle`, `Walk` and, where available, `Eat`.
-The [Greyhaven wildlife](docs/greyhaven-wildlife.md) adds a stag, doe, fox and wolf from CC0 Quaternius sources, the Easy Enemy rat and an authored rabbit, wild boar, crow, duck, heron and songbird, with in-place `Idle`, `Walk` and `Eat`, a looping `Fly` on the birds, and `Run`, two attacks with contact times, `Hit`, `Death` and `Alert` on the hostile wolf, boar and rat.
+The [Greyhaven wildlife](docs/greyhaven-wildlife.md) adds a stag, doe, fox and wolf from CC0 Quaternius sources, the Easy Enemy rat and an authored rabbit, wild boar, crow, duck, heron and songbird, with in-place `Idle`, `Walk` and `Eat`, a looping `Fly` on the birds, and `Run`, two attacks with contact times, `Hit`, `Death` and `Alert` on the hostile wolf, boar and rat and on an authored brown bear, giant cave spider and marsh lurker.
 
 The [Zoo animals and the `quadruped-rigid` profile](docs/quadruped-rigid.md) package Zoo's authored low-poly zebra and giraffe as authored, with rig, clip and bounds validation, in the existing animation viewer.
 
