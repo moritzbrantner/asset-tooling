@@ -2,7 +2,8 @@ import { describe, expect, test } from "bun:test";
 import os from "node:os";
 import path from "node:path";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
-import { ROLLING_RELEASES } from "../scripts/publish-release.ts";
+import { spawnSync } from "node:child_process";
+import { ROLLING_RELEASES, tarBudgetViolations } from "../scripts/publish-release.ts";
 import { KIT_BUDGETS, KIT_COST_SCHEMA, kitBudgetViolations, kitCost } from "../scripts/report-kit-costs.ts";
 
 /** The first 28 bytes of a KTX2 file: its identifier and, at 20 and 24, the width and height. */
@@ -66,6 +67,19 @@ describe("kit cost report", () => {
       expect(kitBudgetViolations(cost, { materials: 1, textureMemoryBytes: 1 << 30, downloadBytes: 1 << 30 })[0]).toContain("iron, rock");
     } finally {
       await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("a pull request checks the built tar against the same budget publish refuses it over (#732)", async () => {
+    const dir = await bundle();
+    const tar = `${dir}.tar`;
+    try {
+      expect(spawnSync("tar", ["-cf", tar, "-C", dir, "."]).status).toBe(0);
+      expect((await tarBudgetViolations("sandstone-kit", tar))[0]).toContain("2 materials (iron, rock), limit 1");
+      expect(await tarBudgetViolations("no-such-release", tar)).toEqual([]);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+      await rm(tar, { force: true });
     }
   });
 
