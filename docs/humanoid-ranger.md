@@ -56,7 +56,8 @@ The `humanoid.ranger.male` bundle holds the following.
   - the raiders' torch and palisade hacking, the two-handed load carry, the repair, pushing, the lever, the traps and the knockdown ([Raid, repair, push, trap and knockdown clips](#raid-repair-push-trap-and-knockdown-clips-705));
   - the running and jumping strike per melee weapon and the mace, staff and spear chain additions ([Movement-state strikes](#movement-state-strikes-709));
   - the bare-fist, two-handed maul and bow-in-melee strike sets and the light and heavy hits and three deaths ([Fist, two-handed and bow strikes, hits and deaths](#fist-two-handed-and-bow-strikes-hits-and-deaths-711));
-  - a draw and a sheathe per weapon family, the combat idles and the guards ([Draw, sheathe, combat idle and guard clips](#draw-sheathe-combat-idle-and-guard-clips-717)).
+  - a draw and a sheathe per weapon family, the combat idles and the guards ([Draw, sheathe, combat idle and guard clips](#draw-sheathe-combat-idle-and-guard-clips-717));
+  - the dodges, a parry per weapon family, the ripostes, the shield brace, hit and bash and the push kick ([Defensive clips](#defensive-clips-729)).
 
   No clip uses Mixamo data (#399). Mixamo is only a motion reference, so the build needs no local input and both figures publish from CI.
 
@@ -585,6 +586,32 @@ The same recipe ([`adapters/blender/strike_clips.py`](../adapters/blender/strike
 - **Two-handed heavy:** the #711 maul (`equipment.warhammer.maul`) on `hand_r.weapon` with the left hand on its `grip.offhand`, 0.22 m down the haft (`hand_l.staff`), as in its strikes; the roles use the strikes' `two-hand` prefix.
 - **Back stow:** `back.stowed` is the shield's socket, centred between the shoulder blades; a staff, spear or two-hander rides it upright along its +Y. The bow uses its own `back.bow.stowed`.
 - **Review:** shaped and reviewed in the live Blender on the male Ranger (the published figure with its library clips) with proxy items on the hand sockets; not yet viewed in the game.
+
+### Defensive clips (#729)
+
+[`adapters/blender/defend_clips.py`](../adapters/blender/defend_clips.py) authors the defensive half of the combat overhaul in Blender on the animated Ranger (`RANGER_DEFEND_CLIPS`, the `defend` family, after the ready clips in bundle order): dodges that snap, parries with a clear deflection frame and a braced, weighty shield. Every clip starts from the `Idle_Loop` pose. The upper-body clips use the ready clips' hand keys and arm IK, keep only the `spine_01` subtree (#422) and start and end in their family's #717 guard (the sword's is `Sword_Idle` with the shield up) or the shield brace. The full-body clips turn and move the whole body about the pelvis through keys, swing the arms and put each ankle on a key (or, tucked in the roll, bend the legs at the hip and knee), keep the feet out of the ground and end in the `Idle_Loop` pose. They are in place: the pelvis's travel is taken off and recorded in `sourceRootDisplacement`, so the game moves the capsule. They also record a `secondaryPose` for the #391 chain joints.
+
+| Clip | Layer | Length | `role` | Marked time | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `Roll_Bwd` | full | 0.8 s | `dodge.roll.back` | — | squat, sit back, over the shoulders with the knees tucked, up from a crouch; 1.3 m back |
+| `Sidestep_L`, `Sidestep_R` | full | 0.467 s | `dodge.side.left`, `.right` | — | dip, the far leg drives, the near foot reaches and lands; 0.6 m aside |
+| `Dodge_Back` | full | 0.5 s | `dodge.back` | — | dip, both feet spring back, land on the balls; 0.5 m back |
+| `Sword_Parry` | `spine_01` | 0.467 s | `sword.parry` | parry 0.2 s | sixte: gathers in, beats out across the right, point up |
+| `Mace_Parry` | `spine_01` | 0.467 s | `mace.parry` | parry 0.2 s | the haft beats out to the right, the left fist stays up |
+| `Dagger_Parry` | `spine_01` | 0.4 s | `dagger.parry` | parry 0.167 s | the off-hand dagger sweeps out past the left shoulder |
+| `Staff_Parry` | `spine_01` | 0.467 s | `staff.parry` | parry 0.2 s | the staff punched up and out across the body |
+| `Spear_Parry` | `spine_01` | 0.467 s | `spear.parry` | parry 0.2 s | the point circles under and beats across to the left |
+| `TwoHand_Parry` | `spine_01` | 0.5 s | `two-hand.parry` | parry 0.233 s | the maul's haft swung across to the right |
+| `Sword_Riposte` | `spine_01` | 0.6 s | `sword.riposte` | contact 0.233 s (`hand_r`) | short chamber, thrust at the chest; reach 1.39 m, mid |
+| `Dagger_Riposte` | `spine_01` | 0.6 s | `dagger.riposte` | contact 0.233 s (`hand_r`) | low stab while the left dagger checks high; reach 0.97 m, mid |
+| `Shield_Block_Loop` | `spine_01` | 2 s loop | `shield.block` | — | the brace: shield high and close, top tipped back, head down, sword point up beside it |
+| `Shield_Block_Hit` | `spine_01` | 0.333 s | `shield.block-hit` | impact 0.067 s | the shield arm knocked into the chest, rebounds into the brace |
+| `Shield_Bash` | `spine_01` | 0.6 s | `shield.bash` | contact 0.267 s (`hand_l`) | gathered behind the shield, the left side driven forward at face height |
+| `Kick_Front` | full | 0.7 s | `kick.front` | contact 0.3 s (`foot_r`) | push kick for any family: fists up, knee chambered, heel out at hip height; reach 0.77 m |
+
+- **`defend` object:** `kind` (`dodge`, `parry`, `riposte`, `block`, `block-hit`, `bash`, `kick`); the upper-body clips add `family`, `item` and `socket` (and `offhand`); a dodge its `direction`; `parrySeconds` (the deflection frame: the weapon has beaten across the line and stops there), `impactSeconds` or `contactSeconds`; a riposte, the bash and the kick add where the strike point is at contact (`tipAt` in the root frame, `band`, `reachMeters`; the bash's point is the shield socket, the kick's `strikeJoint` is `foot_r`); and `from`/`to` (`<family>.guard`, `Shield_Block_Loop` or `Idle_Loop`).
+- **Shield bash:** `Shield_Bash` takes the `shield.bash` role; the library `Shield_OneShot` keeps its clip under `shield.bash.library`.
+- **Review:** shaped and reviewed in the live Blender on the male Ranger (the published figure with its library clips) with the published sword, round shield, daggers, quarterstaff, leaf spear, maul and flanged mace on their sockets; not yet viewed in the game.
 
 ## Female Ranger
 
