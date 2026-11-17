@@ -99,6 +99,8 @@ export async function buildGreyhavenAmbientAnimals({ outDir, log = () => {} }: {
         source: entry.sourceClips[a.getName() as (typeof AMBIENT_CLIPS)[number]],
       }])),
       walkTravel: observations.walkTravel,
+      // Metres the body travels per Walk cycle with its planted paws held still, and their worst slip per frame (#799).
+      ...(observations.walkStride == null ? {} : { walkStride: observations.walkStride, walkSlip: observations.walkSlip }),
       provenance: { pack: entry.pack, member: entry.member, catalogSource: entry.sourceId, license: "CC0-1.0", source, recipe: { script: "adapters/blender/ambient_animals.py", sha256: recipe.sha256 } },
     })),
   };
