@@ -3,6 +3,7 @@
 //   bun scripts/publish-release.ts plan --changed <file>    # releases whose sources a push changed, as a matrix
 //   bun scripts/publish-release.ts plan --release <name>    # one release (workflow_dispatch)
 //   bun scripts/publish-release.ts build <release> <out>    # run the release's maintained build into <out>
+//   bun scripts/publish-release.ts budget <release> <out>   # the publish budget check alone, for pull requests (#732)
 //   bun scripts/publish-release.ts publish <release> <out> [--dry-run]
 // `publish` uploads every top-level file of <out> to the one rolling release with --clobber, then removes live files the build no longer produces (Atlas Decision 7.1.5).
 // It verifies the tar against its export.ref.json first, skips the upload when the live release already holds the
@@ -272,6 +273,32 @@ function publishVersion(name: string, dir: string, files: string[], artifacts: A
   }
 }
 
+/** Every way the built `tar` exceeds KIT_BUDGETS[name], empty when it fits or the release has no budget. */
+export async function tarBudgetViolations(name: string, tar: string): Promise<string[]> {
+  const budget = KIT_BUDGETS[name];
+  if (!budget) return [];
+  const unpacked = await mkdtemp(path.join(tmpdir(), `${name}-cost-`));
+  try {
+    run("tar", ["-xf", tar, "-C", unpacked]);
+    return kitBudgetViolations(await kitCost(unpacked), budget);
+  } finally {
+    await rm(unpacked, { recursive: true, force: true });
+  }
+}
+
+/** The publish job's budget check on its own, for pull requests (#732): exits 1 where publish would refuse the tar. */
+async function checkBudget(name: string, out: string): Promise<number> {
+  rollingRelease(name);
+  const artifacts = await readArtifacts(path.resolve(out));
+  const violations = await tarBudgetViolations(name, path.join(artifacts.dir, artifacts.tar));
+  if (violations.length) {
+    console.error(`${name}: publish would refuse tar ${artifacts.sha256}: over its KIT_BUDGETS limit: ${violations.join("; ")}.`);
+    return 1;
+  }
+  console.log(`${name}: tar ${artifacts.sha256} is within ${KIT_BUDGETS[name] ? "its KIT_BUDGETS limit" : "budget (none declared)"}`);
+  return 0;
+}
+
 async function publish(name: string, out: string, dryRun: boolean): Promise<number> {
   rollingRelease(name);
   const dir = path.resolve(out);
@@ -291,19 +318,10 @@ async function publish(name: string, out: string, dryRun: boolean): Promise<numb
     publishVersion(name, dir, files, artifacts, renovate, dryRun);
     return 0;
   }
-  const budget = KIT_BUDGETS[name];
-  if (budget) {
-    const unpacked = await mkdtemp(path.join(tmpdir(), `${name}-cost-`));
-    try {
-      run("tar", ["-xf", path.join(dir, artifacts.tar), "-C", unpacked]);
-      const violations = kitBudgetViolations(await kitCost(unpacked), budget);
-      if (violations.length) {
-        console.error(`${name}: refusing to publish tar ${artifacts.sha256}: over its KIT_BUDGETS limit: ${violations.join("; ")}.`);
-        return 1;
-      }
-    } finally {
-      await rm(unpacked, { recursive: true, force: true });
-    }
+  const violations = await tarBudgetViolations(name, path.join(dir, artifacts.tar));
+  if (violations.length) {
+    console.error(`${name}: refusing to publish tar ${artifacts.sha256}: over its KIT_BUDGETS limit: ${violations.join("; ")}.`);
+    return 1;
   }
   for (const consumer of unpinned) console.log(`${consumer.repo}: not pinned (${consumer.note ?? "reads the live release"})`);
   for (const consumer of renovate) console.log(`${consumer.repo}: Renovate moves ${consumer.pinFile} to the new version`);
@@ -353,10 +371,11 @@ async function main(args: string[]): Promise<number> {
     const result = spawnSync("bun", [path.join(ROOT, release.script), "--out", path.resolve(rest[1]!), ...(release.args ?? [])], { stdio: "inherit" });
     return result.status ?? 1;
   }
+  if (command === "budget" && rest.length === 2) return checkBudget(rest[0]!, rest[1]!);
   if (command === "publish" && (rest.length === 2 || (rest.length === 3 && rest[2] === "--dry-run"))) {
     return publish(rest[0]!, rest[1]!, rest[2] === "--dry-run");
   }
-  console.error("Usage: bun scripts/publish-release.ts plan --changed <file> | plan --release <name> | build <release> <out> | publish <release> <out> [--dry-run]");
+  console.error("Usage: bun scripts/publish-release.ts plan --changed <file> | plan --release <name> | build <release> <out> | budget <release> <out> | publish <release> <out> [--dry-run]");
   return 2;
 }
 

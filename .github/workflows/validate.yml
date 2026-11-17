@@ -121,6 +121,11 @@ jobs:
           processor: ${{ matrix.processor }}
           ktx: ${{ matrix.ktx }}
           java: ${{ matrix.java }}
+      # #732: the publish job's KIT_BUDGETS check on the same tar, so a release publish would refuse fails before merge.
+      - name: Check the release budget
+        env:
+          RELEASE: ${{ matrix.release }}
+        run: bun scripts/publish-release.ts budget "$RELEASE" "$OUT"
       - name: Load the changed entries through the game's loaders
         env:
           RELEASE: ${{ matrix.release }}
