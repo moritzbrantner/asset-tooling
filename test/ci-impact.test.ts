@@ -1,9 +1,13 @@
-import { expect, test } from "bun:test";
+import { expect, setDefaultTimeout, test } from "bun:test";
 import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { delimiter, join, resolve } from "node:path";
 import { BLENDER_SUITES, ciPlan } from "../scripts/ci-plan.ts";
+
+// Each test shells out to scripts/ci-impact.sh, which walks the tree with git; the slower
+// macOS and Windows runners (and a busy Linux one) take 5-8 s, past bun's 5 s default.
+setDefaultTimeout(30_000);
 
 const classify = (rows: string[], event: Record<string, string> = {}, cwd?: string) => {
   const root = mkdtempSync(join(tmpdir(), "asset-ci-impact-"));
