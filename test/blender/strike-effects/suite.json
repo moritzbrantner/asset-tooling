@@ -1,0 +1,6 @@
+{
+  "note": "The strike effect meshes (#724): six small recipe runs, built twice for the same tar. They read no canonical payload; the one glob names the recipe, which is no LFS file, so the hydrate step pulls nothing.",
+  "timeout": 15,
+  "ktx": false,
+  "lfs": ["adapters/blender/strike_effects.py"]
+}
