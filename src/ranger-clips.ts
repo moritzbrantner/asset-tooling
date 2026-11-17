@@ -151,6 +151,14 @@ export const RANGER_STRIKE_CLIPS = [
  */
 export const RANGER_COMBAT_STANDARD_CLIPS: readonly string[] = ["Sword_Regular_A", "TwoHand_Swing_A", "Spear_Thrust_B"];
 /**
+ * mmorpg#804: strikes whose weapon passed through the torso in game, fixed without redoing them to the whole standard.
+ * The Ranger build test holds them to the weapon–body clearance check, and to the planted-foot check over the spans
+ * listed (`Sword_Cleave` turns on both planted feet; the staff and mace strikes are upper body over the game's legs).
+ */
+export const RANGER_CLEARANCE_CLIPS: Readonly<Record<string, { footPlants?: Record<string, number[][]> }>> = {
+  Sword_Cleave: { footPlants: { l: [[0, .9]], r: [[0, .9]] } }, Staff_Strike_A: {}, Staff_Strike_B: {}, Mace_Swing_B: {},
+};
+/**
  * #711: hit reactions and deaths played on the victim (health-only rules, so purely presentation), full body and in
  * place from the first `Idle_Loop` pose, authored by the same recipe after the strikes. The light hits flinch away from
  * the side named and end in the idle; the heavy hit staggers a step back and recovers; each death falls its own way and

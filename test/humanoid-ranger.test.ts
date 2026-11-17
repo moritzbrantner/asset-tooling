@@ -25,8 +25,8 @@ import {
   RANGER_UBC_BONE_MAP, RANGER_WEAPONS, RANGER_THROWABLES, RANGER_ITEM_LOD_SELECTION, rangerItemLods, RANGER_OUTFIT_KITS, RANGER_PEASANT_OUTFITS, validateAppearancePresets,
   buildRangerCharacter, rangerItemDescriptor, rangerJobs, rangerPresets,
 } from "../scripts/build-ranger-character.ts";
-import { RANGER_BOW_CLIPS, RANGER_BOW_UPPER_CLIPS, RANGER_CROSSBOW_CLIPS, RANGER_CAST_CLIPS, RANGER_SOCIAL_CLIPS, RANGER_CHORE_CLIPS, RANGER_POST_CLIPS, RANGER_GATHER_CLIPS, RANGER_RAID_CLIPS, RANGER_STRIKE_CLIPS, RANGER_REACT_CLIPS, RANGER_READY_CLIPS, RANGER_DEFEND_CLIPS, RANGER_CLIP_FAMILIES, RANGER_GAIT_CLIPS, RANGER_GRIPS, RANGER_HIT_CLIPS, RANGER_SWIM_CLIPS, RANGER_DAGGER_CLIPS, RANGER_SWORD_CLIPS, RANGER_TRAVERSAL_CLIPS, RANGER_COMBAT_STANDARD_CLIPS, rangerGripJoints } from "../src/ranger-clips.js";
-import { checkCombatClip } from "../src/combat-clip-checks.js";
+import { RANGER_BOW_CLIPS, RANGER_BOW_UPPER_CLIPS, RANGER_CROSSBOW_CLIPS, RANGER_CAST_CLIPS, RANGER_SOCIAL_CLIPS, RANGER_CHORE_CLIPS, RANGER_POST_CLIPS, RANGER_GATHER_CLIPS, RANGER_RAID_CLIPS, RANGER_STRIKE_CLIPS, RANGER_REACT_CLIPS, RANGER_READY_CLIPS, RANGER_DEFEND_CLIPS, RANGER_CLIP_FAMILIES, RANGER_GAIT_CLIPS, RANGER_GRIPS, RANGER_HIT_CLIPS, RANGER_SWIM_CLIPS, RANGER_DAGGER_CLIPS, RANGER_SWORD_CLIPS, RANGER_TRAVERSAL_CLIPS, RANGER_COMBAT_STANDARD_CLIPS, RANGER_CLEARANCE_CLIPS, rangerGripJoints } from "../src/ranger-clips.js";
+import { CLEARANCE_SUBSTEPS, checkCombatClip, combatCheckEntry } from "../src/combat-clip-checks.js";
 import { WEAPON_ROLES } from "../src/weapon-recipes.js";
 import { FACE_MORPH_NODES, FACE_MORPH_TARGETS } from "../src/face-variants.js";
 import { VARIETY_BEARDS, VARIETY_BODY_TARGETS, VARIETY_MORPH_TARGETS } from "../src/male-variety.js";
@@ -487,6 +487,13 @@ test("the Ranger recipe builds a verified bundle: in-place clips, equipment entr
       const report = checkCombatClip(document, byName[name], socketList);
       if (!RANGER_COMBAT_STANDARD_CLIPS.includes(name)) { console.log(`combat standard (not yet held): ${JSON.stringify(report)}`); continue; }
       assert.ok(report.clearance?.ok && report.feet?.ok && report.timing?.ok && !report.timing.inferredWindupEnd, JSON.stringify(report));
+    }
+    // mmorpg#804: the strikes whose weapon passed through the torso keep it out, between their keys too, and Sword_Cleave
+    // its planted feet still. A staff strike starts and ends in the idle, whose staff stands against the right thigh
+    // (2.2 cm into its capsule on the male figure, 7 cm on the female): no frame may go deeper than the first.
+    for (const [name, { footPlants }] of Object.entries(RANGER_CLEARANCE_CLIPS)) {
+      const report = checkCombatClip(document, combatCheckEntry(byName[name], footPlants)!, socketList, { substeps: CLEARANCE_SUBSTEPS });
+      assert.ok(report.clearance && (report.clearance.ok || report.clearance.worstMeters <= report.clearance.startMeters + .005) && (!footPlants || report.feet?.ok), JSON.stringify(report));
     }
     // #285: each grip pose keys only its hand's 15 finger and thumb rotations.
     for (const grip of RANGER_GRIPS) {

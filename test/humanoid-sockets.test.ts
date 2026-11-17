@@ -98,6 +98,28 @@ test("examples/weapons/derive-sockets.ts reproduces the committed descriptor fro
  assert.deepEqual(weapon!.translation,[-descriptor.sockets[0].translation[0],...descriptor.sockets[0].translation.slice(1)]);
 });
 
+// mmorpg#804 found hand_l.carry's quaternion components permuted against hand_r.carry's. They differ because the carry
+// pair is mirrored about the item's XY plane (#687), not by the weapon pair's (x, -y, -z, w); on the figure, at rest,
+// the left frame is the right one reflected across its YZ plane, with +Z flipped to stay right-handed.
+for (const figure of ["male", "female"] as const) test(`hand_l.carry is hand_r.carry mirrored across the ${figure} Ranger (mmorpg#804)`,async(t)=>{
+ const name=figure==="male" ? "Male_Ranger" : "Female_Ranger";
+ const text=await readFile(new URL(`../assets/canonical/quaternius.modular-character-outfits-fantasy-standard.${figure}-ranger-gltf/${name}.gltf`,import.meta.url),"utf8");
+ if(text.startsWith("version https://git-lfs.github.com/spec/v1")) return t.skip("Git LFS payload not hydrated");
+ const worlds=restWorlds(JSON.parse(text));
+ const d=JSON.parse(await readFile(new URL(`../assets/descriptors/humanoid.ranger.${figure}.sockets.json`,import.meta.url),"utf8"));
+ const world=(id:string)=>{
+  const s=d.sockets.find((candidate:HumanoidSocket)=>candidate.id===id),a=worlds.get(s.joint)!,b=humanoidSocketMatrix(s),out=new Array(16).fill(0);
+  for(let c=0;c<4;c++) for(let r=0;r<4;r++) for(let k=0;k<4;k++) out[c*4+r]+=a[k*4+r]!*b[c*4+k]!;
+  return out;
+ };
+ const right=world("hand_r.carry"),left=world("hand_l.carry");
+ // Columns X, Y, Z and the origin: reflect x, then flip Z.
+ for(const [column,sign] of [[0,1],[1,1],[2,-1],[3,1]] as const) {
+  const r=right.slice(column*4,column*4+3),l=left.slice(column*4,column*4+3),want=[-r[0]!,r[1]!,r[2]!].map(v=>v*sign);
+  assert.ok(l.every((v,i)=>Math.abs(v-want[i]!)<2e-3),`column ${column}: ${l} against ${want}`);
+ }
+});
+
 test("the Ranger descriptor names only joints of the Male_Ranger rig",{skip:hydrated?false:"Git LFS payload not hydrated"},()=>{
  const gltf=JSON.parse(outfitText),joints:string[]=gltf.skins[0].joints.map((index:number)=>gltf.nodes[index].name);
  assert.equal(joints.length,65);

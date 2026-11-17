@@ -148,21 +148,35 @@ INTERRUPTED = {"duration": .4, "keys": [
 ]}
 # The two-handed staff strikes: the right hand forward on the grip, the left hand behind it on the shaft toward the head
 # (``LEFT_ON_SHAFT`` metres), the staff's foot leading. ``y`` points from the right hand to the head.
+# mmorpg#804: the shaft never passes through the body. The staff comes forward upright out of the idle before it tips
+# into the guard (``STAFF_FRONT``), so its head clears the face; in the guard it runs up to the left before the chest;
+# every grip is within the arm's reach, and the shaft's line passes about 0.2 m or more from the torso's axis; the
+# sweep's foot crosses low before the legs while its head rises past the right shoulder, rather than swinging round
+# behind the body.
 LEFT_ON_SHAFT = .42
-STAFF_GUARD = {"g": (-.12, -.36, 1.04), "y": (.55, .55, .62), "z": (-.4, -.6, .3)}
+STAFF_FRONT = {"g": (-.22, -.3, .98), "y": (.1, -.1, 1)}
+STAFF_GUARD = {"g": (-.14, -.38, 1.02), "y": (.6, .2, .77), "z": (-.4, -.6, .3)}
 JAB = {"duration": .7, "release": .46, "keys": [
-    (0.16, {"r": STAFF_GUARD, "yaw": 16}),
-    (.3, {"r": {"g": (-.1, -.22, 1.08), "y": (.5, .7, .5)}, "yaw": 22}),
-    (.46, {"r": {"g": (-.06, -.6, 1.12), "y": (.3, .9, .3)}, "yaw": -6, "pitch": 8}),
-    (.64, {"r": {"g": (-.08, -.52, 1.1)}, "yaw": -2, "pitch": 6}),
+    (.08, {"r": STAFF_FRONT, "yaw": 8}),
+    (.16, {"r": STAFF_GUARD, "yaw": 16}),
+    (.3, {"r": {"g": (-.2, -.3, 1.0), "y": (.62, .27, .74)}, "yaw": 22}),
+    (.35, {}),
+    (.46, {"r": {"g": (0, -.5, 1.18), "y": (.45, .8, .4)}, "yaw": -6, "pitch": 8}),
+    (.64, {"r": {"g": (-.02, -.46, 1.16)}, "yaw": -2, "pitch": 6}),
     (.84, {"r": STAFF_GUARD, "yaw": 16}),
+    (.93, {"r": STAFF_FRONT, "yaw": 8}),
 ]}
 SWEEP = {"duration": .7, "release": .5, "keys": [
+    (.08, {"r": STAFF_FRONT, "yaw": 8}),
     (.16, {"r": STAFF_GUARD, "yaw": 16}),
-    (.32, {"r": {"g": (-.3, -.12, 1.0), "y": (.75, .35, .55), "z": (-.3, -.7, .3)}, "yaw": -30}),
-    (.5, {"r": {"g": (-.02, -.46, 1.0), "y": (-.1, .9, .45), "z": (.4, -.6, .4)}, "yaw": 10, "pitch": 8}),
-    (.66, {"r": {"g": (.18, -.32, 1.02), "y": (-.75, .45, .5), "z": (.5, -.5, .4)}, "yaw": 34, "pitch": 6}),
+    (.32, {"r": {"g": (-.32, -.3, 1.0), "y": (.8, .2, .56), "z": (-.3, -.7, .3)}, "yaw": -30}),
+    (.37, {}),
+    (.5, {"r": {"g": (0, -.44, 1.12), "y": (.45, .68, .58), "z": (.4, -.6, .4)}, "yaw": 10, "pitch": 8}),
+    (.58, {"r": {"g": (0, -.44, 1.1), "y": (.1, .12, .99)}, "yaw": 22, "pitch": 7}),
+    (.66, {"r": {"g": (.08, -.4, 1.08), "y": (-.35, .15, .92), "z": (.5, -.5, .4)}, "yaw": 34, "pitch": 6}),
+    (.76, {"r": {"g": (-.06, -.42, 1.06), "y": (.15, -.05, .99)}, "yaw": 24, "pitch": 4}),
     (.86, {"r": STAFF_GUARD, "yaw": 16}),
+    (.93, {"r": STAFF_FRONT, "yaw": 8}),
 ]}
 # The mace blows (``hand_r.weapon``: the haft ``y`` toward the head, the edge hint ``z``).
 MACE_A = {"duration": .7, "release": .5, "keys": [
@@ -171,9 +185,13 @@ MACE_A = {"duration": .7, "release": .5, "keys": [
     (.5, {"r": {"g": (-.12, -.56, 1.2), "y": (.05, -.9, -.3), "z": (-1, 0, 0)}, "l": {"g": (.24, -.12, 1.08)}, "yaw": 14, "pitch": 14}),
     (.68, {"r": {"g": (-.04, -.42, .98), "y": (.1, -.4, -.9)}, "yaw": 18, "pitch": 16}),
 ]}
+# mmorpg#804: the backhand first lifts the mace before the chest, its head up, so the pommel stays off the chest on the
+# way up to the left shoulder.
 MACE_B = {"duration": .7, "release": .5, "keys": [
+    (.15, {"r": {"g": (-.08, -.38, 1.2), "y": (.2, -.2, 1), "z": (0, -1, 0)}}),
     (.3, {"r": {"g": (.16, -.22, 1.4), "y": (.6, .3, .7), "z": (0, -1, 0)}, "l": {"g": (.28, -.06, 1.08), "y": (0, -.8, -.4), "z": (-.6, 0, -.4)},
           "shape": "fist", "yaw": 26}),
+    (.36, {}),
     (.5, {"r": {"g": (-.22, -.56, 1.3), "y": (-.6, -.8, .1), "z": (0, 1, 0)}, "yaw": -10, "pitch": 6}),
     (.68, {"r": {"g": (-.42, -.28, 1.24), "y": (-.9, .3, .1)}, "yaw": -22, "pitch": 4}),
 ]}
