@@ -67,6 +67,8 @@ A field that a key leaves out holds its value from the previous key. The body tr
 - **Planted-foot drift:** for each span in `footPlants`, the foot's ball may move at most 2 cm from where the span starts.
 - **Timing profile:** the strike point's peak speed between `windupEnd` and the contact must be at least three times its mean speed over the wind-up. A clip without `windupEnd` (every clip from before this standard) takes the slowest frame in the last two thirds before the contact instead, and the report says the end was inferred.
 
+A game interpolates between the keys, so a hand that turns most of a revolution from one key to the next can whip its weapon through the body between two clean keys. With `substeps` (`CLEARANCE_SUBSTEPS`, 4) the clearance check also samples between the keys ([mmorpg#804](https://github.com/moenarch-games/mmorpg/issues/804)). A strike that records no `strike` object is checked with its role family's item (`combatCheckEntry`): the library sword strikes with the arming sword, and the cast recipe's `staff.strike.*` and `mace.strike.*` with the quarterstaff on `hand_r.staff` and the flanged mace on `hand_r.weapon`.
+
 The Ranger build test (`test/humanoid-ranger.test.ts`) runs the checks on every strike clip of the built bundle. Every check must pass for the clips in `RANGER_COMBAT_STANDARD_CLIPS` (`src/ranger-clips.ts`). The test logs the others' reports, and a clip joins the list when phase 2 redoes it. [`test/combat-clip-checks.test.ts`](../test/combat-clip-checks.test.ts) covers the checks themselves on a small stand-in rig.
 
 To check a build or a published release by hand:
@@ -75,7 +77,20 @@ To check a build or a published release by hand:
 bun scripts/check-combat-clips.ts <character .gltf/.glb or clips .glb> <humanoid-clips.json> <humanoid-sockets.json> [clip ...]
 ```
 
-Without clip names, the script checks every clip with a `strike` object and the library sword strikes. It prints one line per clip, or JSON with `--json`.
+Without clip names, the script checks every clip with a `strike` object, the library sword strikes and the staff and mace strikes. It prints one line per clip, or JSON with `--json`. `--between` checks every clip's clearance between its keys; the clips of `RANGER_CLEARANCE_CLIPS` always are.
+
+### The in-game clipping fixes (mmorpg#804)
+
+The game found the weapon inside the torso in four clips that phase 2 has not redone. Each is fixed on its own, keeping its timing and contact, and the build test holds it to the clearance check between its keys (`RANGER_CLEARANCE_CLIPS`; no deeper than the first frame, `startMeters`, for the idle staff), and `Sword_Cleave` also to its planted feet. The male figure's published bundle (before) and this change (after), checked between the keys. The female figure's clips were 6.9 to 14.6 cm into the torso and now clear it too (`Sword_Cleave` by 0.9 cm; `Mace_Swing_B` touches the right thigh's capsule by 0.2 cm, within the tolerance):
+
+| Clip | Cause | Before | After |
+| --- | --- | --- | --- |
+| `Sword_Cleave` | The blade's direction, eased from the wind-up (pointing back) to the contact (front-left), passed through the chest at 0.42 s. A key at 0.41 s now carries it out round the right side. | 13.4 cm into the torso | 1.3 cm clear; feet 0.1 cm; 3.8× |
+| `Staff_Strike_A` | The shaft ran from the thrusting hand back through the chest, and swung through it out of and back into the idle. The guard now crosses before the chest, the thrust's grip is within reach and the staff comes forward upright before it tips into the guard. | 11.9 cm into the torso | clear (the idle staff it starts and ends with stays 2.2 cm into the right thigh's capsule, 7 cm on the female figure); 1.8× (was 0.85×) |
+| `Staff_Strike_B` | As the jab, and the follow-through swung the staff's head round behind the body. The foot now sweeps low across the front while the head rises past the right shoulder. | 13.6 cm into the torso | clear (idle first frame as above); 1.8× (was 1.5×) |
+| `Mace_Swing_B` | The pommel crossed the chest on the way up to the backhand's wind-up. The mace now lifts before the chest first, and holds a moment at the top. | 6.6 cm into the torso | 4.2 cm clear; 3.1× |
+
+Checking the published references between their keys also finds `Sword_Regular_A`'s blade 11.1 cm into the torso at 0.18 s and `TwoHand_Swing_A`'s haft 3.0 cm into the left thigh at 1.02 s, from forearm turns of up to 178° between keys. They are left for phase 2 ([#738](https://github.com/moritzbrantner/asset-tooling/issues/738)), which is why the build test checks between the keys only for these four clips.
 
 ### Before and after
 

@@ -1,24 +1,20 @@
 // The combat-animation checks of docs/combat-animation-standard.md (#737) on a built Ranger: the weapon's clearance from
 // the body, planted-foot drift and the strike's speed against its wind-up, per clip.
 //
-//   bun scripts/check-combat-clips.ts <character .glb/.gltf or clips .glb> <humanoid-clips.json> <humanoid-sockets.json> [clip ...]
+//   bun scripts/check-combat-clips.ts <character .glb/.gltf or clips .glb> <humanoid-clips.json> <humanoid-sockets.json> [clip ...] [--json] [--between]
 //
-// Without clip names it checks every clip with a `strike` object, and the library sword strikes (which have none: they
-// are checked with the arming sword on `hand_r.weapon` and their measured contact). Prints one line per clip and the
-// reports as JSON with --json.
+// Without clip names it checks every clip with a `strike` object, the library sword strikes and the cast recipe's staff
+// and mace strikes (which have none: they are checked with their role's item and their measured contact, and the clips
+// of `RANGER_CLEARANCE_CLIPS` with their planted feet; `combatCheckEntry`). Prints one line per clip and the reports as
+// JSON with --json. Those clips, and every clip with --between, are also checked between their keys (`CLEARANCE_SUBSTEPS`).
 import { readFile } from "node:fs/promises";
 import { NodeIO } from "@gltf-transform/core";
 import { ALL_EXTENSIONS } from "@gltf-transform/extensions";
 import { MeshoptDecoder } from "meshoptimizer";
-import { checkCombatClip, type CombatClipEntry, type CombatClipReport } from "../src/combat-clip-checks.ts";
+import { CLEARANCE_SUBSTEPS, checkCombatClip, combatCheckEntry, type CombatClipReport } from "../src/combat-clip-checks.ts";
+import { RANGER_CLEARANCE_CLIPS } from "../src/ranger-clips.ts";
 
 type Json = Record<string, any>;
-
-/** A library sword strike's check data: the arming sword and its measured contact. */
-function libraryStrike(clip: Json): CombatClipEntry | undefined {
-  if (clip.strike || !/^sword\./.test(clip.role ?? "") || !clip.contact) return undefined;
-  return { ...clip, strike: { weapon: { item: "equipment.sword.arming", socket: "hand_r.weapon", strikePoint: [0, .84, 0] }, contactSeconds: clip.contact.seconds } } as CombatClipEntry;
-}
 
 export function formatReport(report: CombatClipReport) {
   const cm = (meters: number) => `${(meters * 100).toFixed(1)} cm`;
@@ -32,7 +28,8 @@ export function formatReport(report: CombatClipReport) {
 
 if (import.meta.main) {
   const json = process.argv.includes("--json");
-  const [model, clipsFile, socketsFile, ...names] = process.argv.slice(2).filter((arg) => arg !== "--json");
+  const between = process.argv.includes("--between");
+  const [model, clipsFile, socketsFile, ...names] = process.argv.slice(2).filter((arg) => arg !== "--json" && arg !== "--between");
   if (!model || !clipsFile || !socketsFile) throw new Error("usage: check-combat-clips.ts <model> <humanoid-clips.json> <humanoid-sockets.json> [clip ...]");
   await MeshoptDecoder.ready;
   const io = new NodeIO().registerExtensions(ALL_EXTENSIONS).registerDependencies({ "meshopt.decoder": MeshoptDecoder });
@@ -40,9 +37,9 @@ if (import.meta.main) {
   const clips = JSON.parse(await readFile(clipsFile, "utf8")).clips as Json[];
   const sockets = JSON.parse(await readFile(socketsFile, "utf8")).sockets;
   const entries = clips
-    .filter((clip) => names.length ? names.includes(clip.name) : clip.strike || libraryStrike(clip))
-    .map((clip) => (libraryStrike(clip) ?? clip) as CombatClipEntry);
-  const reports = entries.map((entry) => checkCombatClip(document, entry, sockets));
+    .map((clip) => combatCheckEntry(clip as never, RANGER_CLEARANCE_CLIPS[clip.name]?.footPlants) ?? (names.includes(clip.name) ? clip : undefined))
+    .filter((entry): entry is NonNullable<typeof entry> => entry !== undefined && (!names.length || names.includes(entry.name)));
+  const reports = entries.map((entry) => checkCombatClip(document, entry, sockets, { substeps: between || entry.name in RANGER_CLEARANCE_CLIPS ? CLEARANCE_SUBSTEPS : 1 }));
   if (json) console.log(JSON.stringify(reports, null, 2));
   else for (const report of reports) console.log(formatReport(report));
 }

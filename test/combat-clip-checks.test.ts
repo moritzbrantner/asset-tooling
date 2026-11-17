@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { Document, type Node } from "@gltf-transform/core";
-import { CLEARANCE_TOLERANCE, PLANTED_DRIFT_LIMIT, STRIKE_SPEED_RATIO, checkCombatClip } from "../src/combat-clip-checks.ts";
+import { CLEARANCE_SUBSTEPS, CLEARANCE_TOLERANCE, PLANTED_DRIFT_LIMIT, STRIKE_SPEED_RATIO, checkCombatClip, combatCheckEntry } from "../src/combat-clip-checks.ts";
 
 const SOCKETS = [{ id: "hand_r.weapon", joint: "hand_r", translation: [0, 0, 0], rotation: [0, 0, 0, 1] }];
 const FRAMES = 13;
@@ -45,6 +45,8 @@ function figure() {
   clip("Clean_Strike", { hand_r: swing(-.6), ball_l: () => [0, -.43, .1] });
   // The blade held upright at the chest, the left ball sliding 1 cm a frame, the hand at one speed throughout.
   clip("Bad_Strike", { hand_r: (frame) => [-.02, .1, .02 + frame * .02], ball_l: (frame) => [0, -.43, .1 + frame * .01] });
+  // mmorpg#804: every key clear of the body, the hand crossing in front of it from one key to the next.
+  clip("Whip_Strike", { hand_r: (frame) => [frame <= 6 ? -.6 : .6, .1, 0] });
   return document;
 }
 
@@ -83,4 +85,23 @@ test("#737: without a recorded wind-up end the check takes the slowest frame bef
   assert.equal(report.feet, undefined);
   const bare = checkCombatClip(figure(), { name: "Clean_Strike", durationSeconds: .4 }, SOCKETS);
   assert.deepEqual(bare, { clip: "Clean_Strike" });
+});
+
+test("mmorpg#804: a weapon that whips through the body between two clean keys fails when the check samples between them", () => {
+  const keys = checkCombatClip(figure(), entry("Whip_Strike"), SOCKETS);
+  assert.ok(keys.clearance!.ok, JSON.stringify(keys.clearance));
+  const between = checkCombatClip(figure(), entry("Whip_Strike"), SOCKETS, { substeps: CLEARANCE_SUBSTEPS });
+  assert.equal(between.clearance!.ok, false);
+  assert.ok(between.clearance!.frame > 6 && between.clearance!.frame < 7 && between.clearance!.part === "torso", JSON.stringify(between.clearance));
+});
+
+test("mmorpg#804: a strike without a strike object is checked with its role family's item and its measured contact", () => {
+  const clip = { name: "Whip_Strike", durationSeconds: .4, contact: { seconds: .2 } };
+  assert.deepEqual(combatCheckEntry({ ...clip, role: "mace.strike.backhand" })!.strike, { weapon: { item: "equipment.mace.flanged", socket: "hand_r.weapon", strikePoint: [0, .5, 0] }, contactSeconds: .2 });
+  assert.equal(combatCheckEntry({ ...clip, role: "staff.strike.jab" }, { l: [[0, .4]] })!.strike!.weapon!.socket, "hand_r.staff");
+  assert.deepEqual(combatCheckEntry({ ...clip, role: "staff.strike.jab" }, { l: [[0, .4]] })!.strike!.footPlants, { l: [[0, .4]] });
+  assert.equal(combatCheckEntry({ ...clip, role: "staff.draw" }), undefined);
+  assert.equal(combatCheckEntry({ ...clip, role: "bow.shot" }), undefined);
+  const recorded = entry("Clean_Strike");
+  assert.equal(combatCheckEntry(recorded), recorded);
 });

@@ -40,6 +40,12 @@ export const BODY_CAPSULES: readonly { part: string; from: string; to: string; r
 export const GRIP_TOLERANCE = .1;
 /** How deep the weapon may sink into a body capsule (the capsules are approximate). */
 export const CLEARANCE_TOLERANCE = .02;
+/**
+ * mmorpg#804: how many steps inside each frame the clearance check samples with `substeps`. A consumer interpolates
+ * between the keys, so a hand that turns most of a revolution from one key to the next can whip its weapon through the
+ * body between two clean keys (`Sword_Cleave` did, at 0.41 s). The default (1) checks the keys alone.
+ */
+export const CLEARANCE_SUBSTEPS = 4;
 /** How far a foot's ball may drift while the clip marks it planted. */
 export const PLANTED_DRIFT_LIMIT = .02;
 /** How many times the wind-up's mean strike-point speed the strike's peak must reach. */
@@ -53,7 +59,12 @@ export type CombatClipEntry = {
     contactSeconds?: number; windupEnd?: number; recoveryStart?: number; footPlants?: Record<string, number[][]>;
   };
 };
-export type ClearanceReport = { worstMeters: number; frame: number; seconds: number; part: string; alongItemMeters: number; ok: boolean };
+/** `frame` counts the clip's frames and falls between two when the check samples `substeps`. */
+export type ClearanceReport = {
+  worstMeters: number; frame: number; seconds: number; part: string; alongItemMeters: number; ok: boolean;
+  /** The deepest point in the first frame: the pose the clip starts from (an idle hold may touch the body). */
+  startMeters: number;
+};
 export type FootReport = { worstMeters: number; foot: string; span: number[]; ok: boolean };
 export type TimingReport = {
   windupEnd: number; contactSeconds: number; windupMeanSpeed: number; strikePeakSpeed: number; ratio: number;
@@ -171,10 +182,11 @@ const position = (matrix: Mat4): Vec3 => [matrix[12]!, matrix[13]!, matrix[14]!]
  * Check one clip (`entry` from `humanoid-clips`) of `document` against the standard. `sockets` are the figure's
  * `humanoid-sockets` entries. A check the clip gives no data for is left out of the report: clearance needs an item of
  * `COMBAT_ITEM_CAPSULES`, the planted feet `strike.footPlants`, the timing `strike.contactSeconds`. The joints a clip
- * does not key (an upper-body clip's legs) stand in `base`'s first pose, the idle the game layers it over.
+ * does not key (an upper-body clip's legs) stand in `base`'s first pose, the idle the game layers it over. With
+ * `substeps` (`CLEARANCE_SUBSTEPS`) the clearance is also checked between the keys.
  */
 export function checkCombatClip(document: Document, entry: CombatClipEntry, sockets: readonly { id: string; joint: string; translation: number[]; rotation: number[] }[],
-  { rate = 30, base = "Idle_Loop" }: { rate?: number; base?: string } = {}): CombatClipReport {
+  { rate = 30, base = "Idle_Loop", substeps = 1 }: { rate?: number; base?: string; substeps?: number } = {}): CombatClipReport {
   const animations = document.getRoot().listAnimations();
   const animation = animations.find((candidate) => candidate.getName() === entry.name);
   if (!animation) throw new Error(`${entry.name}: no such clip`);
@@ -187,9 +199,11 @@ export function checkCombatClip(document: Document, entry: CombatClipEntry, sock
   const gripAt = (frame: number) => multiply(worlds[frame]!.get(socket!.joint)!, grip!);
 
   if (item && socket) {
-    let worst: ClearanceReport | undefined;
-    for (let frame = 0; frame < worlds.length; frame += 1) {
-      const joints = worlds[frame]!, at = gripAt(frame);
+    let worst: Omit<ClearanceReport, "startMeters"> | undefined, start = -Infinity;
+    const fine = substeps === 1 ? { seconds, worlds } : samplePoses(document, animation, rate * substeps, animations.find((candidate) => candidate.getName() === base));
+    for (let sample = 0; sample < fine.worlds.length; sample += 1) {
+      const joints = fine.worlds[sample]!, at = multiply(joints.get(socket.joint)!, grip!);
+      const frame = round(sample / substeps, 2);
       const hands = [position(joints.get("hand_l")!), position(joints.get("hand_r")!)];
       const body = BODY_CAPSULES.map(({ part, from, to, radius, extend }) => {
         const a = position(joints.get(from)!);
@@ -205,14 +219,15 @@ export function checkCombatClip(document: Document, entry: CombatClipEntry, sock
           if (hands.some((hand) => length(sub(point, hand)) < GRIP_TOLERANCE)) continue;
           for (const capsule of body) {
             const depth = capsule.radius + radius - segmentDistance(point, capsule.a, capsule.b);
+            if (sample === 0) start = Math.max(start, depth);
             if (!worst || depth > worst.worstMeters) {
-              worst = { worstMeters: depth, frame, seconds: seconds[frame]!, part: capsule.part, alongItemMeters: round(along, 2), ok: false };
+              worst = { worstMeters: depth, frame, seconds: fine.seconds[sample]!, part: capsule.part, alongItemMeters: round(along, 2), ok: false };
             }
           }
         }
       }
     }
-    if (worst) report.clearance = { ...worst, worstMeters: round(worst.worstMeters), ok: worst.worstMeters <= CLEARANCE_TOLERANCE };
+    if (worst) report.clearance = { ...worst, worstMeters: round(worst.worstMeters), ok: worst.worstMeters <= CLEARANCE_TOLERANCE, startMeters: round(start) };
   }
 
   if (strike.footPlants) {
@@ -254,4 +269,26 @@ export function checkCombatClip(document: Document, entry: CombatClipEntry, sock
     };
   }
   return report;
+}
+
+/** What a check needs from a strike clip's weapon: the item, its socket and the point that strikes, by role family. */
+const ROLE_WEAPONS: Readonly<Record<string, NonNullable<NonNullable<CombatClipEntry["strike"]>["weapon"]>>> = {
+  sword: { item: "equipment.sword.arming", socket: "hand_r.weapon", strikePoint: [0, .84, 0] },
+  // The staff strikes lead with the staff's foot (adapters/blender/cast_clips.py).
+  staff: { item: "equipment.staff.quarter", socket: "hand_r.staff", strikePoint: [0, -.8, 0] },
+  mace: { item: "equipment.mace.flanged", socket: "hand_r.weapon", strikePoint: [0, .5, 0] },
+};
+
+/**
+ * A `humanoid-clips` entry as the checks read it. A clip with a `strike` object is checked as it is. A strike that records
+ * none (the library sword strikes, and since mmorpg#804 the cast recipe's `staff.strike.*` and `mace.strike.*`) is
+ * checked with its role family's item on its socket (`ROLE_WEAPONS`) and its measured contact; `footPlants` adds the
+ * spans its recipe plants the feet. Undefined for a clip that is no checkable strike.
+ */
+export function combatCheckEntry(clip: CombatClipEntry & { role?: string; contact?: { seconds: number } },
+  footPlants?: Record<string, number[][]>): CombatClipEntry | undefined {
+  if (clip.strike) return clip;
+  const family = /^(sword|staff|mace)\./.exec(clip.role ?? "")?.[1];
+  if (!family || !clip.contact || (family !== "sword" && !/\.strike\./.test(clip.role!))) return undefined;
+  return { ...clip, strike: { weapon: ROLE_WEAPONS[family], contactSeconds: clip.contact.seconds, ...(footPlants ? { footPlants } : {}) } };
 }

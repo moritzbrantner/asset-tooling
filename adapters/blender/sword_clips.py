@@ -92,8 +92,11 @@ GUARDS = {
 }
 GUARD_SECONDS = 2.0
 # Cleave: the sword keys in armature space, the turn split between the pelvis (a third, feet planted) and the chest.
-CLEAVE = {"duration": .9, "drop": .07, "keys": [
+# mmorpg#804: the key at .46 carries the blade out round the right side, so it sweeps round the body to the contact
+# rather than straight through the chest (its direction, eased from back to front-left, passed through the torso).
+CLEAVE = {"duration": .9, "drop": .07, "contact": 2, "keys": [
     (.36, {"g": (-.55, .16, 1.28), "b": (-.3, .95, .05), "yaw": -50}),
+    (.46, {"g": (-.5, -.3, 1.24), "b": (-.75, -.65, .02), "yaw": -22}),
     (.56, {"g": (-.14, -.56, 1.16), "b": (.8, -.6, -.02), "yaw": 10}),
     (.74, {"g": (.48, -.1, 1.14), "b": (.55, .8, -.08), "yaw": 70}),
 ]}
@@ -493,7 +496,7 @@ def cleave(rig, seed):
     feet = feet_of(rig)
     shield = guard_shield(rig)
     pivot = rig.head("pelvis")
-    strike = Strike(CLEAVE["keys"], 1)
+    strike = Strike(CLEAVE["keys"], CLEAVE["contact"])
     frames = int(round(CLEAVE["duration"] * FPS))
     poses = []
     for k in range(frames + 1):
@@ -511,7 +514,7 @@ def cleave(rig, seed):
         place_grip(rig, "shield", sh, SHIELD_POLE)
         place_grip(rig, "weapon", frame, SWORD_POLE)
         poses.append(rig.capture())
-    return poses, {"degrees": CLEAVE["keys"][-1][1]["yaw"] - CLEAVE["keys"][0][1]["yaw"], "contactFraction": CLEAVE["keys"][1][0]}
+    return poses, {"degrees": CLEAVE["keys"][-1][1]["yaw"] - CLEAVE["keys"][0][1]["yaw"], "contactFraction": CLEAVE["keys"][CLEAVE["contact"]][0]}
 
 
 def charge_pose(rig, sprint, t, chest0):
