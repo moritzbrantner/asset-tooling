@@ -71,7 +71,14 @@ test("the ambient-animals recipe builds a verified, reproducible bundle of groun
       assert.match(asset.provenance.source.sha256, /^[0-9a-f]{64}$/);
 
       const colours = gltf.listMaterials().map((m) => m.getBaseColorFactor());
-      if (entry.animal === "cat") assert.ok(colours.some(([r, g, b]) => Math.max(r!, g!, b!) < 0.15), "the cat keeps its dark fur");
+      if (entry.animal === "cat") {
+        assert.ok(colours.some(([r, g, b]) => Math.max(r!, g!, b!) < 0.15), "the cat keeps its dark fur");
+        assert.ok(gltf.listMaterials().some((m) => m.getName() === "Eye"), "the cat has eyes (#799)");
+        assert.ok(asset.triangles > 3_000 && asset.triangles < 6_000, "the cat is smoothed, not heavy");
+        assert.ok(Math.abs(asset.clips.Walk.seconds - 32 / 24) < 1e-3, "the cat's walk is a 32-frame cycle");
+        assert.ok(asset.walkStride > 0.3 && asset.walkStride < 0.4, "the cat records its stride per walk cycle");
+        assert.ok(asset.walkSlip < 1e-4, "the cat's planted paws hold still at that stride");
+      } else assert.equal(asset.walkStride, undefined, `${entry.animal} records no stride`);
       if (entry.animal === "rodent") {
         const fur = gltf.listMaterials().find((m) => m.getName() === "Grey")!.getBaseColorFactor();
         assert.ok(fur[0]! > fur[1]! && fur[1]! > fur[2]! && fur[0]! - fur[2]! > 0.1, "the rodent is brown, unlike the hostile grey Rat");
