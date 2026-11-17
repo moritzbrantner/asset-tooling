@@ -17,7 +17,7 @@ The entries keep the keys they had in the [Ranger bundles](humanoid-ranger.md#co
 
 ### Held items
 
-[`adapters/blender/held_items.py`](../adapters/blender/held_items.py) builds 41 fixed-design items on the weapon recipes' grip contract ([weapon-recipes.md](weapon-recipes.md)), with the weapon recipes' material names and colours, so the kit's material count is unchanged. Each item's first role is one the Ranger sockets already accept, which names its socket; a second role (`two-hand-weapon`, `spear`, `tool`, `carried`) only describes it. Two-handed pieces declare a `grip.offhand` frame (identity rotation) for the other hand's IK target.
+[`adapters/blender/held_items.py`](../adapters/blender/held_items.py) builds 47 fixed-design items on the weapon recipes' grip contract ([weapon-recipes.md](weapon-recipes.md)), with the weapon recipes' material names and colours, so the kit's material count is unchanged. Each item's first role is one the Ranger sockets already accept, which names its socket; a second role (`two-hand-weapon`, `spear`, `tool`, `carried`) only describes it. Two-handed pieces declare a `grip.offhand` frame (identity rotation) for the other hand's IK target.
 
 - **One-handed (`hand_r.weapon`):** the business end runs along +Y, edges and striking faces along +X, flats ±Z, as for the arming sword. The lantern, bucket and basket hang from the fist along +X with their bail along Y; the tankard's body sits on the +X side of its handle.
 - **Staff (`hand_r.staff`):** the shaft runs along +Y through the grip with its foot 0.8 m below (0.85 m for the walking stick), so it stands beside the leg in the idle. The shovel's, broom's and scythe's working ends are at the foot.
@@ -69,6 +69,14 @@ The [review renders](../review/humanoid-equipment/) show the items on the Ranger
 | `equipment.tool.mallet` | `hand_r.weapon` | 0.48 | 80 | Wooden carpenter's mallet, end-grain faces toward ±X. |
 | `equipment.tool.rake` | `hand_r.staff` | 1.79 | 110 | Hay rake, nine wooden teeth toward +Z; `grip.offhand` at y 0.5. |
 | `equipment.tool.scythe` | `hand_r.staff` | 1.53 | 152 | Snath with two nibs toward +Z, long blade at the foot along +X; `grip.offhand` on the upper nib (0, 0.55, 0.07). |
+| `equipment.sword.great` | `hand_r.weapon` | 1.60 | 178 | Zweihänder: 0.92 m blade, upswept guard, leather-wrapped ricasso with parrying lugs; `grip.offhand` at y −0.22. |
+| `equipment.axe.great` | `hand_r.weapon` | 1.46 | 142 | Long-hafted bearded great axe, wide head toward +X, back and top spikes; `grip.offhand` at y −0.22. |
+| `equipment.hammer.great` | `hand_r.weapon` | 1.56 | 166 | Lucerne hammer: four-pronged face toward +X, fluke behind, top spike; `grip.offhand` at y −0.22. |
+| `equipment.polearm.halberd` | `hand_r.staff` | 2.24 | 178 | Axe blade toward +X, back hook, top spike, langets; `grip.offhand` at y 0.45. |
+| `equipment.polearm.glaive` | `hand_r.staff` | 2.15 | 126 | Single-edged blade curving toward its +X edge, back spur, dark haft; `grip.offhand` at y 0.45. |
+| `equipment.spear.pike` | `hand_r.staff` | 2.87 | 120 | Tapering ash shaft, small leaf head on long langets; `grip.offhand` at y 0.45. |
+
+The heavy weapons (#719) are fitted to the Ranger's heavy clips. The great sword, axe and hammer ride `hand_r.weapon` with the maul's `grip.offhand` (0.22 m below the main grip), so the left hand lands where `TwoHand_Swing_A`/`B`/`C` put it on the maul (within a few millimetres in the swings). The polearms ride `hand_r.staff` like the spears: the left hand slides 0.15–0.5 m up the shaft through `Spear_Thrust_A`/`B`. They were reviewed on the male Ranger in the live Blender. The guard loops (`TwoHand_Guard_Loop`, `Spear_Guard_Loop`) were not yet published, so they were not checked.
 
 Length is the item's longest extent. The numbers are from the build of 2026-11-16. A rebuild is byte-identical: the recipe builds explicit vertex lists and triangulates them itself, in a fixed order.
 

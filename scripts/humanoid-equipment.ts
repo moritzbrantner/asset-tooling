@@ -91,6 +91,8 @@ export const RANGER_HELD_ITEMS: readonly { key: string; item: string }[] = [
   "tool.hammer", "tool.bucket", "tool.basket", "tool.tankard", "book.ledger", "tool.broom", "tool.walking-stick",
   // #707: the gathering and craft tools the work clips borrowed stand-ins for.
   "tool.pickaxe", "tool.sickle", "tool.skinning-knife", "tool.hand-saw", "tool.mallet", "tool.rake", "tool.scythe",
+  // #719: the heavy weapons for the two-handed and spear clips.
+  "sword.great", "axe.great", "hammer.great", "polearm.halberd", "polearm.glaive", "spear.pike",
 ].map((item) => ({ key: `equipment.${item}`, item }));
 /** The roles the Ranger sockets accept, one of which every held item lists first. */
 export const SOCKET_ROLES = ["one-hand-weapon", "staff", "shield", "book"] as const;

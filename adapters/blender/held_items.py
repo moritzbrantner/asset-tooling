@@ -553,6 +553,100 @@ def scythe(b):
         edge.append((x, z + w))
     with b.at(T(0, -FOOT + 0.015, 0) @ rot("X", 90)):
         b.prism(spine + edge[-2::-1], -0.003, 0.003, "steel")
+
+
+# ---------------------------------------------------------------- heavy weapons (#719)
+# The two-handers ride hand_r.weapon like the maul: the right hand under the head, the left on ``grip.offhand`` 0.22 m
+# below, where the TwoHand clips hold it. The polearms ride hand_r.staff like the spears, the foot ``FOOT`` below.
+
+def heavy_haft(b, y0, y1, r, mat="wood", grip=(-0.3, 0.06)):
+    """A thick two-hand haft with a leather wrap over both hands and an iron butt cap."""
+    b.lathe([(y0, r * 0.95), (y1, r)], 6, mat)
+    if grip:
+        b.lathe([(grip[0], r + 0.003), (grip[1], r + 0.003)], 6, "leather")
+    b.lathe([(y0 - 0.03, 0.0), (y0, r + 0.002)], 6, "iron", caps=(False, True))
+
+
+def langets(b, y0, y1, r):
+    """Iron strips down both edges (±X) of a haft below a head."""
+    for x in (-r, r):
+        b.box((x - 0.005, y0, -0.008), (x + 0.005, y1, 0.008), "iron")
+
+
+def sword_great(b):
+    # A zweihänder: a long grip for both hands, a wide guard with upswept quillons, a leather-wrapped ricasso with
+    # parrying lugs and a broad blade.
+    b.lathe([(-0.34, 0.016), (-0.12, 0.019), (0.1, 0.017)], 6, "leather")
+    b.ball((0, -0.37, 0), 0.032, "iron", n=6, rows=4, squash=(1, 1.3, 1))
+    b.box((-0.2, 0.1, -0.016), (0.2, 0.13, 0.016), "iron")
+    for side in (1, -1):
+        b.rod((side * 0.19, 0.115, 0), (side * 0.25, 0.17, 0), 0.016, 0.009, 4, "iron")
+    b.box((-0.024, 0.13, -0.012), (0.024, 0.27, 0.012), "leather")
+    b.prism([(0.024, 0.27), (0.085, 0.3), (0.024, 0.31)], -0.007, 0.007, "steel")
+    b.prism([(-0.024, 0.27), (-0.024, 0.31), (-0.085, 0.3)], -0.007, 0.007, "steel")
+    blade(b, 0.92, 0.034, 0.009, "steel", base=0.27, tip=0.12)
+
+
+def axe_great(b):
+    # A long-hafted bearded great axe: a wide steel head toward +X with a deep beard, a back spike and a top spike.
+    heavy_haft(b, -0.33, 1.0, 0.019)
+    langets(b, 0.72, 0.84, 0.019)
+    with b.at(T(0, 0.9, 0)):
+        b.prism([(-0.03, -0.05), (0.07, -0.05), (0.14, -0.2), (0.25, -0.27), (0.28, -0.1), (0.28, 0.05), (0.25, 0.13), (0.12, 0.07),
+                 (0.05, 0.05), (-0.03, 0.05)], -0.011, 0.011, "steel")
+        b.lathe([(-0.07, 0.025), (0.07, 0.025)], 6, "iron")
+        b.rod((-0.02, 0, 0), (-0.13, -0.02, 0), 0.02, 0.0, 4, "iron")
+    b.rod((0, 0.97, 0), (0, 1.1, 0), 0.017, 0.0, 4, "iron")
+
+
+def hammer_great(b):
+    # A lucerne hammer: a four-pronged hammer face toward +X, a long fluke curving down behind and a top spike.
+    heavy_haft(b, -0.33, 1.02, 0.019)
+    langets(b, 0.72, 0.88, 0.019)
+    with b.at(T(0, 0.95, 0)):
+        b.lathe([(-0.08, 0.026), (0.08, 0.026)], 6, "iron")
+        b.box((0.02, -0.04, -0.04), (0.11, 0.04, 0.04), "steel")
+        for dy in (-0.025, 0.025):
+            for dz in (-0.025, 0.025):
+                b.rod((0.11, dy, dz), (0.15, dy * 1.2, dz * 1.2), 0.013, 0.0, 4, "steel")
+        path = [(-0.02, 0.0, 0.026), (-0.1, -0.01, 0.02), (-0.17, -0.04, 0.012), (-0.22, -0.09, 0.0)]
+        for (x0, y0, r0), (x1, y1, r1) in zip(path, path[1:]):
+            b.rod((x0, y0, 0), (x1, y1, 0), r0, r1, 4, "steel")
+    b.rod((0, 1.0, 0), (0, 1.2, 0), 0.02, 0.0, 4, "steel")
+
+
+def polearm_halberd(b):
+    # An axe blade toward +X, a back hook toward -X and a spike on top, on a long haft with langets.
+    haft(b, -FOOT, 1.12, 0.019)
+    b.lathe([(-FOOT - 0.06, 0.0), (-FOOT, 0.02)], 6, "iron", caps=(False, True))
+    langets(b, 0.78, 0.96, 0.019)
+    with b.at(T(0, 1.03, 0)):
+        b.prism([(0.0, -0.1), (0.06, -0.1), (0.21, -0.18), (0.23, -0.05), (0.23, 0.08), (0.21, 0.15), (0.06, 0.06), (0.0, 0.06)],
+                -0.008, 0.008, "steel")
+        b.lathe([(-0.11, 0.024), (0.09, 0.024)], 6, "iron")
+        path = [(-0.02, 0.0, 0.018), (-0.1, 0.01, 0.014), (-0.17, 0.05, 0.008), (-0.2, 0.11, 0.0)]
+        for (x0, y0, r0), (x1, y1, r1) in zip(path, path[1:]):
+            b.rod((x0, y0, 0), (x1, y1, 0), r0, r1, 4, "steel")
+    blade(b, 0.26, 0.022, 0.008, "steel", base=1.12, tip=0.5)
+
+
+def polearm_glaive(b):
+    # A long single-edged blade on a pole, curving toward its +X edge, with a back spur at its base.
+    haft(b, -FOOT, 0.88, 0.019, mat="wood.dark")
+    b.lathe([(-FOOT - 0.03, 0.0), (-FOOT, 0.02)], 6, "iron", caps=(False, True))
+    langets(b, 0.66, 0.82, 0.019)
+    b.lathe([(0.8, 0.024), (0.9, 0.021)], 6, "iron")
+    b.rod((-0.015, 0.92, 0), (-0.09, 0.97, 0), 0.016, 0.0, 4, "steel")
+    blade(b, 0.42, 0.036, 0.009, "steel", base=0.9, tip=0.3, curve=0.12, single=True, widen=1.35)
+
+
+def spear_pike(b):
+    # A long ash pike: a shaft tapering to a small leaf head with long langets, an iron butt cap.
+    b.lathe([(-FOOT, 0.018), (1.78, 0.013)], 6, "wood")
+    b.lathe([(-FOOT - 0.03, 0.0), (-FOOT, 0.019)], 6, "iron", caps=(False, True))
+    langets(b, 1.5, 1.76, 0.0135)
+    b.lathe([(1.74, 0.017), (1.84, 0.014)], 6, "iron")
+    blade(b, 0.2, 0.021, 0.006, "steel", base=1.84, tip=0.5, widen=0.9)
 # ---------------------------------------------------------------- catalogue
 
 # item: (builder, roles, frames beyond grip as {name: (x, y, z)}, triangle budget)
@@ -598,6 +692,12 @@ ITEMS = {
     "tool.mallet": (mallet, ["one-hand-weapon", "tool"], {}, 200),
     "tool.rake": (rake, ["staff", "tool"], {"grip.offhand": (0, 0.5, 0)}, 300),
     "tool.scythe": (scythe, ["staff", "tool"], {"grip.offhand": (0, 0.55, 0.07)}, 300),
+    "sword.great": (sword_great, ["one-hand-weapon", "two-hand-weapon"], {"grip.offhand": (0, -0.22, 0)}, 400),
+    "axe.great": (axe_great, ["one-hand-weapon", "two-hand-weapon"], {"grip.offhand": (0, -0.22, 0)}, 300),
+    "hammer.great": (hammer_great, ["one-hand-weapon", "two-hand-weapon"], {"grip.offhand": (0, -0.22, 0)}, 400),
+    "polearm.halberd": (polearm_halberd, ["staff", "spear"], {"grip.offhand": (0, 0.45, 0)}, 400),
+    "polearm.glaive": (polearm_glaive, ["staff", "spear"], {"grip.offhand": (0, 0.45, 0)}, 300),
+    "spear.pike": (spear_pike, ["staff", "spear"], {"grip.offhand": (0, 0.45, 0)}, 300),
 }
 
 
