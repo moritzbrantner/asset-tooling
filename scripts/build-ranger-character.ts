@@ -12,7 +12,8 @@ import { availableParallelism } from "node:os";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import pLimit from "p-limit";
-import { NodeIO, type Animation, type Document, type Node } from "@gltf-transform/core";
+import { NodeIO, PropertyType, type Animation, type Document, type Node } from "@gltf-transform/core";
+import { dedup } from "@gltf-transform/functions";
 import { RANGER_FEMALE_PROPORTIONS, followHead, reproportionDocument, reproportionSockets, type RestChange } from "../src/humanoid-proportions.js";
 import { GLTF_RESOURCES_BUNDLE_PROFILE, exportAssetBundle } from "../src/asset-bundle.js";
 import { ASSET_BUNDLE_REF_FILE, readAssetBundleTar } from "../src/asset-bundle-pack.js";
@@ -1234,6 +1235,19 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
       assets[index] = (await storeAssetObject(root, { bytes: Buffer.from(await io.writeBinary(document)), kind: assets[index]!.kind, mediaType: "model/gltf-binary" })).asset;
     }
     log(`merge same-material parts (${Object.keys(partMerges).length} character variants)`);
+  }
+  // #711: every clip's channels repeat the same key times, and its rest-pose channels the same values; one accessor
+  // each keeps the clip-carrying entry's glTF JSON under the bundle's 8 MiB budget. Lossless: same channels and keys.
+  {
+    const io = new NodeIO();
+    for (const [index, asset] of assets.entries()) {
+      const document = await io.readBinary(new Uint8Array(await resolveAssetObject(root, asset)));
+      if (!document.getRoot().listAnimations().length) continue;
+      const before = document.getRoot().listAccessors().length;
+      await document.transform(dedup({ propertyTypes: [PropertyType.ACCESSOR] }));
+      log(`share identical accessors in ${selections[index]!.key}/${selections[index]!.variant} (${before} -> ${document.getRoot().listAccessors().length})`);
+      assets[index] = (await storeAssetObject(root, { bytes: Buffer.from(await io.writeBinary(document)), kind: asset.kind, mediaType: "model/gltf-binary" })).asset;
+    }
   }
   // #517: the bundle ships KTX2 textures like every kit (docs/kit-standard.md#textures). They are encoded per slot
   // exactly as the per-entry downloads always were (`textureEncoding`, pack-downloads.ts), which pass them through.
