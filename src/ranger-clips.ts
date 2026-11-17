@@ -129,9 +129,14 @@ export const RANGER_RAID_CLIPS = [
  * cycles; the jumping strikes are full body from `Jump_Loop`'s first pose to `Jump_Land`'s deepest crouch; the standing
  * strikes keep only the `spine_01` subtree. Each records its contact, the strike point there, its height band and its
  * reach. They follow the raid clips in bundle order.
+ *
+ * #737: the three references of docs/combat-animation-standard.md (`RANGER_COMBAT_STANDARD_CLIPS`) are full body: the
+ * feet plant, the hips and legs drive the strike, and each records its phases (`windupEnd`, `contactSeconds`,
+ * `recoveryStart`) and the spans its feet stand planted (`footPlants`). `Sword_Regular_A` replaces the library clip of
+ * that name, so it moves from the library combat clips to this family.
  */
 export const RANGER_STRIKE_CLIPS = [
-  "Sword_Run_Strike", "Sword_Jump_Strike", "Mace_Run_Strike", "Mace_Jump_Strike", "Dagger_Run_Strike", "Dagger_Jump_Strike", "Staff_Run_Strike",
+  "Sword_Regular_A", "Sword_Run_Strike", "Sword_Jump_Strike", "Mace_Run_Strike", "Mace_Jump_Strike", "Dagger_Run_Strike", "Dagger_Jump_Strike", "Staff_Run_Strike",
   "Staff_Jump_Strike", "Spear_Run_Strike", "Spear_Jump_Strike", "Mace_Swing_C", "Staff_Strike_C", "Spear_Thrust_A", "Spear_Thrust_B",
   // #711: the bare-fist, two-handed maul and bow-in-melee sets, each a standing chain plus a running and a jumping
   // strike. The fists strike with the knuckles of the hand that throws them (the barge with the right shoulder), the
@@ -140,6 +145,11 @@ export const RANGER_STRIKE_CLIPS = [
   "Unarmed_Jab", "Unarmed_Cross", "Unarmed_Hook", "Unarmed_Run_Strike", "Unarmed_Jump_Strike", "TwoHand_Swing_A", "TwoHand_Swing_B",
   "TwoHand_Swing_C", "TwoHand_Run_Strike", "TwoHand_Jump_Strike", "Bow_Bash_A", "Bow_Bash_B", "Bow_Run_Strike", "Bow_Jump_Strike",
 ] as const;
+/**
+ * #737: the clips that meet the combat-animation standard (docs/combat-animation-standard.md); the Ranger build test
+ * requires its checks to pass on each. Phase 2 (#738) adds every other attack as it is redone.
+ */
+export const RANGER_COMBAT_STANDARD_CLIPS: readonly string[] = ["Sword_Regular_A", "TwoHand_Swing_A", "Spear_Thrust_B"];
 /**
  * #711: hit reactions and deaths played on the victim (health-only rules, so purely presentation), full body and in
  * place from the first `Idle_Loop` pose, authored by the same recipe after the strikes. The light hits flinch away from
@@ -587,7 +597,8 @@ export const RANGER_CLIP_FAMILIES: readonly ClipFamily[] = [
         const react = pickKeys(observed, ["hitSide", "peakSeconds", "landSeconds", "lies"]);
         return { authored: { recipe: family.recipe, clip: name, fps: family.fps, ...observed }, basedOn: source as string, extra: { fields: { react, secondaryPose } } };
       }
-      const strike = pickKeys(observed, ["weapon", "offhand", "strikeJoint", "contactSeconds", "tipAt", "band", "reachMeters", "landSeconds", "from", "to"]);
+      const strike = pickKeys(observed, ["weapon", "offhand", "strikeJoint", "contactSeconds", "tipAt", "band", "reachMeters", "landSeconds", "from", "to",
+        "windupEnd", "recoveryStart", "footPlants"]);
       return {
         ...(joints ? { keep: joints as string[] } : {}),
         authored: { recipe: family.recipe, clip: name, fps: family.fps, ...observed }, basedOn: source as string,
