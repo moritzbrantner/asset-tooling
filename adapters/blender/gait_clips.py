@@ -17,6 +17,9 @@ strafe pair built the same way, so a consumer blends walk and jog by angle and b
 - ``Walk_Stop``: from ``Walk_Loop`` phase 0 into the first ``Idle_Loop`` pose.
 - ``Turn_Left`` / ``Turn_Right``: a 90 degree turn on the spot in two steps, the inside foot first. The head and chest
   lead the turn. The body ends rotated (owner answer #112 Q2).
+- ``Run_Fwd_Loop`` / ``Run_Strafe_*_Loop`` (mmorpg#804): a run stride authored at the game's 6.3 m/s, forward and
+  sideways, with a flight phase. The balls follow explicit in-place trajectories, planted at exactly the ground speed;
+  the upper body is the ``Sprint_Loop`` drive at a run's lean. Each reports its planted spans as ``footPlants``.
 
 Travelling clips report the horizontal travel they would cover (glTF x, z: +x is the figure's left, +z ahead) as
 ``removedTravel``. No Mixamo data is used; Mixamo clips were only watched as motion reference. The output GLB is the
@@ -44,12 +47,29 @@ GAITS = {
              "strafe": {"period": .8, "speed": .875, "lead": (.6, 1.0), "trail": (.3, .55), "lift": (.06, .045), "gap": .12,
                         "lean": 3.0, "damp": .45, "bob": .012}},
 }
+# Run (#804): a stride authored at the game's 6.3 m/s run and strafe speed. Each foot's ball is planted from its
+# touchdown `reach` ahead of the hip to its toe-off `push` behind it and slides back at `speed`; the rest of the cycle is
+# the swing and a flight. Left touchdown at phase 0, right at 0.5. The heel lifts from `heelFrom` of the stance to
+# `toeOff` degrees. `swing` keys the ankle (ahead, up from the ground, foot pitch in degrees) at swing fractions: the
+# heel kicks up behind, folds under the hip, the knee drives and the shin reaches out, the foot coming back to land.
+# The pelvis is lowest at mid-stance, the hip `stance` of the leg's length above the ankle so the knee bends to take the
+# weight, and twice `bob` higher in the flight; `track` is each foot's line out from the centre. Distances are for a
+# `legLength` leg (the male Ranger's thigh and shin) and scale with the figure's own. The upper body is the source
+# sprint's arm and spine drive, raised `lean` degrees to a run's lean, the head `nod` back down to look ahead.
+# Side-runs turn the pelvis `hipYaw` and the feet and knees `footYaw` into the travel; the spine and neck turn the chest
+# and head back to the facing, keeping `chestYaw` of it. Their feet run on lines wider apart (`strafe.track`), so the
+# swing knee passes the stance leg.
+RUN = {"source": "Sprint_Loop", "period": .6, "speed": 6.3, "reach": .34, "push": .4, "heelFrom": .45, "toeOff": 50.0,
+       "swing": ((.25, -.42, .45, 70.0), (.45, -.15, .55, 55.0), (.65, .25, .45, 30.0), (.85, .32, .22, 10.0)),
+       "legLength": .86, "stance": .93, "bob": .0225, "track": .07, "lean": -22.0, "nod": 16.0,
+       "strafe": {"hipYaw": 55.0, "footYaw": 75.0, "chestYaw": 15.0, "track": .13}}
 TRANSITION = {"Walk_Start": .8, "Walk_Stop": .8}
 # Turn: total yaw, duration, the inside then the outside foot's step window (fractions), the step lift, how far the
 # head and chest lead the pelvis.
 TURN = {"degrees": 90.0, "duration": .9333, "steps": ((.12, .5), (.45, .85)), "lift": .05, "lead": 14.0}
 CLIPS = ("Jog_Bwd_Loop", "Jog_Strafe_Left_Loop", "Jog_Strafe_Right_Loop", "Walk_Bwd_Loop", "Walk_Strafe_Left_Loop",
-         "Walk_Strafe_Right_Loop", "Walk_Start", "Walk_Stop", "Turn_Left", "Turn_Right")
+         "Walk_Strafe_Right_Loop", "Walk_Start", "Walk_Stop", "Turn_Left", "Turn_Right", "Run_Fwd_Loop",
+         "Run_Strafe_Left_Loop", "Run_Strafe_Right_Loop")
 
 
 def validate(p, inputs):
@@ -287,6 +307,143 @@ def strafe(rig, clip):
                    "direction": "left" if direction > 0 else "right", "removedTravel": [round(travel, 4), 0.0]}
 
 
+def hermite(keys, s):
+    """Cubic Hermite through ``keys`` = [(s, value Vector, tangent Vector or None)]; a missing tangent is the neighbours' slope."""
+    for i in range(len(keys) - 1):
+        if keys[i][0] <= s <= keys[i + 1][0]:
+            break
+    tangents = []
+    for j in (i, i + 1):
+        s_j, _, given = keys[j]
+        if given is not None:
+            tangents.append(given)
+        else:
+            before, after = keys[max(j - 1, 0)], keys[min(j + 1, len(keys) - 1)]
+            tangents.append((after[1] - before[1]) / (after[0] - before[0]))
+    (s0, p0, _), (s1, p1, _) = keys[i], keys[i + 1]
+    h = s1 - s0
+    u = (s - s0) / h
+    return (p0 * (2 * u ** 3 - 3 * u ** 2 + 1) + tangents[0] * h * (u ** 3 - 2 * u ** 2 + u)
+            + p1 * (-2 * u ** 3 + 3 * u ** 2) + tangents[1] * h * (u ** 3 - u ** 2))
+
+
+def orient_foot(rig, name, yaw, pitch):
+    """The foot at its rest orientation, pitched heel-up by ``pitch`` and turned ``yaw`` degrees about the vertical."""
+    pb = rig.bones[name]
+    m = (Matrix.Rotation(math.radians(yaw), 4, UP) @ Matrix.Rotation(math.radians(pitch), 4, Vector((1, 0, 0)))
+         @ rig.rest[name].to_3x3().to_4x4())
+    m.translation = pb.head.copy()
+    pb.matrix = m
+    bpy.context.view_layer.update()
+
+
+def run(rig, clip):
+    """``Run_Fwd_Loop`` and ``Run_Strafe_*_Loop``: the run stride at ``RUN["speed"]``, forward or sideways (#804)."""
+    source, start, duration, import_fps = loop_source(RUN["source"])
+    period, speed = RUN["period"], RUN["speed"]
+    frames = int(round(period * FPS))
+    sideways = 0.0 if "_Fwd_" in clip else (1.0 if "_Left_" in clip else -1.0)
+    s = RUN["strafe"]
+    hip_yaw, foot_yaw, chest_yaw = (sideways * s[key] for key in ("hipYaw", "footYaw", "chestYaw"))
+    travel_yaw = sideways * 90.0
+    # Armature space: -Y is the facing, +X the figure's left. `ahead` is the travel direction, `side` its left.
+    ahead = Matrix.Rotation(math.radians(travel_yaw), 3, UP) @ Vector((0, -1, 0))
+    side = Matrix.Rotation(math.radians(90.0), 3, UP) @ ahead
+    rest_pose = {name: Matrix.Identity(4) for name in rig.rest}
+    rig.apply(rest_pose)
+    rest_hips = rig.head("pelvis")
+    hip_offset = {k: rig.head(LEGS[k][0]) - rest_hips for k in LEGS}
+    to_ball = {k: rig.head(LEGS[k][3]) - rig.head(LEGS[k][2]) for k in LEGS}
+    ground = {k: rig.head(LEGS[k][3]).z for k in LEGS}
+    leg_length = {k: rig.length(LEGS[k][0], LEGS[k][1]) + rig.length(LEGS[k][1], LEGS[k][2]) for k in LEGS}
+    # Distances are the reference leg's; a figure with other legs runs the same stride scaled to its own.
+    scale = (leg_length["l"] + leg_length["r"]) / 2 / RUN["legLength"]
+    reach, push, bob = RUN["reach"] * scale, RUN["push"] * scale, RUN["bob"] * scale
+    lowest = min(rig.head(LEGS[k][2]).z + RUN["stance"] * leg_length[k] - hip_offset[k].z for k in LEGS)
+    turn = Matrix.Rotation(math.radians(hip_yaw), 3, UP)
+    feet_turn = Matrix.Rotation(math.radians(foot_yaw), 3, UP)
+    # Each foot runs on a line `track` out from the centre on its hip's side, level with its turned hip along the travel.
+    track = (s["track"] if sideways else RUN["track"]) * scale
+    line = {}
+    for k in LEGS:
+        h = turn @ Vector((hip_offset[k].x, hip_offset[k].y, 0))
+        line[k] = Vector((rest_hips.x, rest_hips.y, 0)) + ahead * h.dot(ahead) + side * math.copysign(track, h.dot(side))
+    duty = (reach + push) / speed / period
+    touchdown = {"l": 0.0, "r": .5}
+
+    def ball_at(k, a):
+        return line[k] + ahead * a + Vector((0, 0, ground[k]))
+
+    def ankle_for(k, ball, pitch):
+        return ball - Matrix.Rotation(math.radians(foot_yaw), 3, UP) @ Matrix.Rotation(math.radians(pitch), 3, Vector((1, 0, 0))) @ to_ball[k]
+
+    def coords(k, ankle):
+        rel = ankle - line[k]
+        return Vector((rel.dot(ahead), ankle.z))
+
+    swing_keys = {}
+    for k in LEGS:
+        off = ankle_for(k, ball_at(k, -push), RUN["toeOff"])
+        land = ankle_for(k, ball_at(k, reach), 0.0)
+        swing_time = (1 - duty) * period
+        o, l = coords(k, off), coords(k, land)
+        keys = [(0.0, Vector((o.x, o.y, RUN["toeOff"])), Vector((-.5 * speed * swing_time, 1.2 * scale, 0)))]
+        keys += [(f, Vector((a * scale, z * scale, pitch)), None) for f, a, z, pitch in RUN["swing"]]
+        keys.append((1.0, Vector((l.x, l.y, 0.0)), Vector((-.3 * speed * swing_time, -.6 * scale, 0))))
+        swing_keys[k] = keys
+
+    def foot(k, p):
+        """The ankle target and foot pitch of foot ``k`` at phase ``p``, and whether its ball is planted."""
+        into = (p - touchdown[k]) % 1.0
+        if into < duty:
+            u = into / duty
+            pitch = RUN["toeOff"] * smooth((u - RUN["heelFrom"]) / (1 - RUN["heelFrom"]))
+            return ankle_for(k, ball_at(k, reach - (reach + push) * u), pitch), pitch, True
+        a, z, pitch = hermite(swing_keys[k], (into - duty) / (1 - duty))
+        return line[k] + ahead * a + Vector((0, 0, z)), pitch, False
+
+    knee = feet_turn @ Vector((0, -1, 0))
+    poses = []
+    for frame in range(frames + 1):
+        p = (frame % frames) / frames
+        sampled = sample(rig, source, start + p * duration * import_fps)
+        pose = {name: (Matrix.Identity(4) if name == "root" else basis) for name, basis in sampled.items()}
+        rig.apply(pose)
+        targets = {k: foot(k, p) for k in LEGS}
+        # The pelvis is lowest at each mid-stance and rises into the flight, never higher than the legs reach.
+        height = lowest + bob * (1 - math.cos(4 * math.pi * (p - duty / 2)))
+        for k in LEGS:
+            ankle = targets[k][0]
+            hip = turn @ hip_offset[k]
+            flat = (Vector((rest_hips.x, rest_hips.y, 0)) + Vector((hip.x, hip.y, 0)) - Vector((ankle.x, ankle.y, 0))).length
+            height = min(height, ankle.z - hip.z + math.sqrt(max((leg_length[k] * .985) ** 2 - flat ** 2, 0.0)))
+        pelvis = rig.bones["pelvis"]
+        m = pelvis.matrix.copy()
+        m.translation = Vector((rest_hips.x, rest_hips.y, height))
+        pelvis.matrix = m
+        bpy.context.view_layer.update()
+        rotate_world(rig, "spine_01", Vector((1, 0, 0)), RUN["lean"])
+        rotate_world(rig, "neck_01", Vector((1, 0, 0)), RUN["nod"])
+        # The arms keep the sprint's swing about the hips rather than rising with the raised chest.
+        for arm in ("upperarm_l", "upperarm_r"):
+            rotate_world(rig, arm, Vector((1, 0, 0)), -RUN["lean"])
+        if sideways:
+            # The hips turn into the travel; the spine turns the chest back, and the neck the head, to the facing.
+            rotate_world(rig, "pelvis", UP, hip_yaw)
+            rotate_world(rig, "spine_01", UP, chest_yaw - hip_yaw)
+            rotate_world(rig, "neck_01", UP, -chest_yaw)
+        for k in LEGS:
+            ankle, pitch, _ = targets[k]
+            solve_leg(rig, k, ankle, knee, foot_yaw)
+            orient_foot(rig, LEGS[k][2], foot_yaw, pitch)
+        poses.append(rig.capture())
+    planted = {k: [[round(touchdown[k] * period, 4), round((touchdown[k] * frames + math.floor(duty * frames)) / FPS, 4)]] for k in LEGS}
+    travel = ahead * speed * period
+    return poses, {"source": RUN["source"], "gait": "run" if not sideways else "side-run", "periodSeconds": period,
+                   "groundSpeedMetersPerSecond": speed, "footPlants": planted,
+                   "removedTravel": [round(travel.x, 4) + 0.0, round(-travel.y, 4) + 0.0]}
+
+
 def walk_speed(rig, source, start, duration, import_fps):
     """The walk's ground speed: how fast the planted left foot moves back between phases 0.1 and 0.35."""
     rig.apply(sample(rig, source, start + .1 * duration * import_fps))
@@ -357,6 +514,8 @@ def author(rig, clip):
     """The clip's poses (one per frame at FPS; loops repeat the first pose last) and its observations."""
     if rig.rig.animation_data is None:
         rig.rig.animation_data_create()
+    if clip.startswith("Run_"):
+        return run(rig, clip)
     if clip.endswith("_Bwd_Loop"):
         return backward(rig, clip)
     if "_Strafe_" in clip:
