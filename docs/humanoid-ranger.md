@@ -55,7 +55,8 @@ The `humanoid.ranger.male` bundle holds the following.
   - the chopping, mining, herb-picking and skinning loops, the chest opening and the nod, head shake, shrug, clap and two-armed cheer ([Gathering loops and emotes](#gathering-loops-and-emotes-701));
   - the raiders' torch and palisade hacking, the two-handed load carry, the repair, pushing, the lever, the traps and the knockdown ([Raid, repair, push, trap and knockdown clips](#raid-repair-push-trap-and-knockdown-clips-705));
   - the running and jumping strike per melee weapon and the mace, staff and spear chain additions ([Movement-state strikes](#movement-state-strikes-709));
-  - the bare-fist, two-handed maul and bow-in-melee strike sets and the light and heavy hits and three deaths ([Fist, two-handed and bow strikes, hits and deaths](#fist-two-handed-and-bow-strikes-hits-and-deaths-711)).
+  - the bare-fist, two-handed maul and bow-in-melee strike sets and the light and heavy hits and three deaths ([Fist, two-handed and bow strikes, hits and deaths](#fist-two-handed-and-bow-strikes-hits-and-deaths-711));
+  - a draw and a sheathe per weapon family, the combat idles and the guards ([Draw, sheathe, combat idle and guard clips](#draw-sheathe-combat-idle-and-guard-clips-717)).
 
   No clip uses Mixamo data (#399). Mixamo is only a motion reference, so the build needs no local input and both figures publish from CI.
 
@@ -560,6 +561,30 @@ The same recipe ([`adapters/blender/strike_clips.py`](../adapters/blender/strike
 - **The items:** reviewed with `equipment.warhammer.maul` (on `hand_r.weapon`, the left hand on `hand_l.staff` at its `grip.offhand` frame, `offhand.onShaftMeters` -0.22, the strike point its head at 0.68 m) and `equipment.bow.long` on `hand_l.bow` (the strike point its upper limb, 0.62 m up; the right hand a free fist); the bare fists hold nothing.
 - **`react` object:** `hitSide` (where the blow came from), `peakSeconds` (the hit's moment) and, for the deaths, `landSeconds` (the body meets the ground) and `lies` (`back`, `front` or `side`). Reactions have no contact. They are full body and in place: the deaths end lying with the pelvis about 0.4 m from the origin, so a consumer holds the last frame. The feet, knees and hands never go into the ground (a falling limb is lifted at the hip or shoulder, an ankle on to the ground and the foot's ball turned up).
 - **Review:** shaped and reviewed in the live Blender on the male Ranger (the published figure with its library clips) with the published maul and bow on their sockets, and bare-handed.
+
+### Draw, sheathe, combat idle and guard clips (#717)
+
+[`adapters/blender/ready_clips.py`](../adapters/blender/ready_clips.py) authors a draw and a sheathe per weapon family, the combat idles and the guards the earlier kits lacked, in Blender on the animated Ranger (`RANGER_READY_CLIPS`, the `ready` family, after the strike clips in bundle order). The game makes drawing and sheathing an explicit mode (exploration or fight), so each draw and sheathe records where the item is stowed and the frame it changes socket. A key names a hand's frame, either explicitly (grip, the item's +Y and a hint for its +X or +Z) or as the stow socket's frame moved along the way the item leaves it (`-Y` out of a hip scabbard, `+Z` off the back). Two-bone arm IK puts the hand sockets there; between keys the grip follows a Hermite curve and the rotation turns at an eased rate, and a hand without a key keeps the idle's arm. Every clip starts from the `Idle_Loop` pose, is in place and keeps only the `spine_01` subtree (#422), so it plays over standing, walking or running legs.
+
+| Family | Draw / sheathe | Hand socket | Stow socket | `swapSeconds` (draw / sheathe) | Combat idle (3 s loop) | Guard (2 s loop) |
+| --- | --- | --- | --- | --- | --- | --- |
+| Sword (+ shield) | `Sword_Draw` 0.7 s, `Sword_Sheathe` 0.8 s | `hand_r.weapon` | `hip_l.stowed` | 0.267 / 0.433 s | `Sword_Idle` (library) | `Sword_Block` (library) |
+| Mace / axe | `Mace_Draw` 0.7 s, `Mace_Sheathe` 0.8 s | `hand_r.weapon` | `hip_r.stowed` | 0.267 / 0.433 s | `Mace_Idle_Loop` | `Mace_Guard_Loop` |
+| Dagger | `Dagger_Draw` 0.6 s, `Dagger_Sheathe` 0.7 s | `hand_r.weapon` | `hip_r.stowed` | 0.233 / 0.4 s | `Dagger_Idle_Loop` (#418) | `Dagger_Guard_Loop` |
+| Staff | `Staff_Draw`, `Staff_Sheathe` 0.8 s | `hand_r.staff` | `back.stowed` | 0.333 / 0.467 s | `Staff_Idle_Loop` | `Staff_Guard_Loop` |
+| Spear | `Spear_Draw`, `Spear_Sheathe` 0.8 s | `hand_r.staff` | `back.stowed` | 0.333 / 0.467 s | `Spear_Idle_Loop` | `Spear_Guard_Loop` |
+| Two-handed heavy | `TwoHand_Draw`, `TwoHand_Sheathe` 0.8 s | `hand_r.weapon` | `back.stowed` | 0.333 / 0.467 s | `TwoHand_Idle_Loop` | `TwoHand_Guard_Loop` |
+| Bow | `Bow_Draw_Weapon`, `Bow_Stow` 0.7 s | `hand_l.bow` | `back.bow.stowed` | 0.267 / 0.433 s | `Bow_Aim_Loop` (library) | — |
+| Unarmed | — | — | — | — | `Unarmed_Idle_Loop` | `Unarmed_Guard_Loop` |
+
+- **Draw:** the hand reaches the stow socket open, closes on the item there (`swapSeconds`: the game moves the item from the stow socket to the hand socket on this frame), pulls it clear (0.62 m for the sword, 0.36 m for the mace, 0.26 m for the dagger, 0.16 m off the back) and brings it into the family's idle pose, which it holds for the last frames. The hip draws cross the sword over to the left hip and take the mace and dagger from the right; the back draws reach over the right shoulder (the bow over the left), lift the item off the back, carry it above the shoulder and bring it down in front, where the second hand joins the shaft. The sword's left hand ends in the shield guard, the mace's in a fist, the dagger's in the #418 off-hand guard.
+- **Sheathe:** the reverse, from the idle pose: the item lined up over its socket, pushed home (`swapSeconds`: the game moves the item from the hand to the stow socket) and let go, the arm back in the idle's.
+- **`ready` object:** `family`, `kind` (`draw`, `sheathe`, `idle`, `guard`), `socket` (the hand socket that holds the item), and on draws and sheathes `item` (where the family has one), `stowSocket`, `swapSeconds`, `swapGapMeters` (how far the hand socket's origin still is from the stow socket's at the swap: at most 4 cm, the sword's sheathe; the others 2.3 cm or less) and `endsIn`/`startsIn` (`<family>.ready`, the role of the pose the draw ends in and the sheathe starts from).
+- **Roles:** `<family>.draw` (the bow's `bow.draw-weapon`, since `bow.draw` is the string draw), `<family>.sheathe`, `<family>.ready` for the combat idles (as `sword.ready`) and `<family>.guard`.
+- **Combat idles and guards:** the family's pose over the whole `Idle_Loop` resampled to the clip, with a chest sway once a loop, a breath twice, the hands bobbing twice (the off hand half a beat late) and the weapon's tip circling once, all closing on themselves. The guards are tighter and higher: the mace's haft angled across the face with the left fist forward, the daggers crossed high, the staff held across the body in both hands, the spear level with its point forward, the two-hander upright ahead, the fists up by the face with the elbows tucked. The idles carry the weapon lower: the mace at the side, the staff diagonal with the left hand high, the spear point up and forward, the two-hander's haft resting on the right shoulder, loose fists at chest height.
+- **Two-handed heavy:** the #711 maul (`equipment.warhammer.maul`) on `hand_r.weapon` with the left hand on its `grip.offhand`, 0.22 m down the haft (`hand_l.staff`), as in its strikes; the roles use the strikes' `two-hand` prefix.
+- **Back stow:** `back.stowed` is the shield's socket, centred between the shoulder blades; a staff, spear or two-hander rides it upright along its +Y. The bow uses its own `back.bow.stowed`.
+- **Review:** shaped and reviewed in the live Blender on the male Ranger (the published figure with its library clips) with proxy items on the hand sockets; not yet viewed in the game.
 
 ## Female Ranger
 
