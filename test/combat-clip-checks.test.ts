@@ -1,0 +1,86 @@
+// #737: the combat-animation checks on a small stand-in rig: a weapon through the torso, a planted foot that slides and
+// a strike no faster than its wind-up each fail, and their clean counterparts pass.
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { Document, type Node } from "@gltf-transform/core";
+import { CLEARANCE_TOLERANCE, PLANTED_DRIFT_LIMIT, STRIKE_SPEED_RATIO, checkCombatClip } from "../src/combat-clip-checks.ts";
+
+const SOCKETS = [{ id: "hand_r.weapon", joint: "hand_r", translation: [0, 0, 0], rotation: [0, 0, 0, 1] }];
+const FRAMES = 13;
+
+/** A figure facing +Z: the pelvis at 0.9 m, the neck at 1.5, the head above, thighs to the knees, both hands and balls. */
+function figure() {
+  const document = new Document();
+  const buffer = document.createBuffer(), scene = document.createScene();
+  const nodes = new Map<string, Node>();
+  const add = (name: string, at: number[], parent?: Node) => {
+    const node = document.createNode(name).setTranslation(at as [number, number, number]);
+    (parent ?? scene).addChild(node);
+    nodes.set(name, node);
+    return node;
+  };
+  const pelvis = add("pelvis", [0, .9, 0]);
+  const neck = add("neck_01", [0, .6, 0], pelvis);
+  add("Head", [0, .08, 0], neck);
+  for (const side of ["l", "r"]) {
+    const thigh = add(`thigh_${side}`, [side === "l" ? .1 : -.1, -.05, 0], pelvis);
+    const calf = add(`calf_${side}`, [0, -.4, 0], thigh);
+    add(`ball_${side}`, [0, -.43, .1], calf);
+  }
+  add("hand_l", [.4, .2, .3], pelvis);
+  add("hand_r", [-.6, .1, .4], pelvis);
+  const clip = (name: string, tracks: Record<string, (frame: number) => number[]>) => {
+    const animation = document.createAnimation(name);
+    const input = document.createAccessor().setType("SCALAR").setBuffer(buffer)
+      .setArray(new Float32Array(Array.from({ length: FRAMES }, (_, frame) => frame / 30)));
+    for (const [joint, at] of Object.entries(tracks)) {
+      const output = document.createAccessor().setType("VEC3").setBuffer(buffer)
+        .setArray(new Float32Array(Array.from({ length: FRAMES }, (_, frame) => at(frame)).flat()));
+      const sampler = document.createAnimationSampler().setInput(input).setOutput(output).setInterpolation("LINEAR");
+      animation.addSampler(sampler).addChannel(document.createAnimationChannel().setSampler(sampler).setTargetNode(nodes.get(joint)!).setTargetPath("translation"));
+    }
+  };
+  // Clean: the hand creeps for the wind-up (10 frames, 1 cm each) and strikes in three (20 cm each), out to the side.
+  const swing = (x: number) => (frame: number) => [x, .1, .4 + (frame <= 10 ? frame * .01 : .1 + (frame - 10) * .2)];
+  clip("Clean_Strike", { hand_r: swing(-.6), ball_l: () => [0, -.43, .1] });
+  // The blade held upright at the chest, the left ball sliding 1 cm a frame, the hand at one speed throughout.
+  clip("Bad_Strike", { hand_r: (frame) => [-.02, .1, .02 + frame * .02], ball_l: (frame) => [0, -.43, .1 + frame * .01] });
+  return document;
+}
+
+const entry = (name: string) => ({
+  name, durationSeconds: .4,
+  strike: {
+    weapon: { item: "equipment.sword.arming", socket: "hand_r.weapon", strikePoint: [0, .84, 0] },
+    contactSeconds: .4, windupEnd: 10 / 30, footPlants: { l: [[0, .4]] },
+  },
+});
+
+test("#737: a clean strike clears the body, keeps its planted foot and strikes much faster than it winds up", () => {
+  const report = checkCombatClip(figure(), entry("Clean_Strike"), SOCKETS);
+  assert.ok(report.clearance!.ok && report.clearance!.worstMeters <= CLEARANCE_TOLERANCE, JSON.stringify(report.clearance));
+  assert.ok(report.feet!.ok && report.feet!.worstMeters < 1e-6);
+  assert.ok(report.timing!.ok && report.timing!.ratio >= STRIKE_SPEED_RATIO && !report.timing!.inferredWindupEnd, JSON.stringify(report.timing));
+  assert.ok(Math.abs(report.timing!.windupMeanSpeed - .3) < .01 && Math.abs(report.timing!.strikePeakSpeed - 6) < .01);
+});
+
+test("#737: a blade through the torso, a sliding planted foot and an even-paced strike each fail, with the worst frame named", () => {
+  const report = checkCombatClip(figure(), entry("Bad_Strike"), SOCKETS);
+  assert.equal(report.clearance!.ok, false);
+  assert.ok(["torso", "head"].includes(report.clearance!.part) && report.clearance!.worstMeters > .1);
+  assert.ok(report.clearance!.frame >= 0 && report.clearance!.alongItemMeters > 0);
+  assert.equal(report.feet!.ok, false);
+  assert.ok(Math.abs(report.feet!.worstMeters - .12) < 1e-3 && report.feet!.worstMeters > PLANTED_DRIFT_LIMIT && report.feet!.foot === "l");
+  assert.equal(report.timing!.ok, false);
+  assert.ok(Math.abs(report.timing!.ratio - 1) < .01);
+});
+
+test("#737: without a recorded wind-up end the check takes the slowest frame before the contact; data a clip lacks is not checked", () => {
+  const { strike, ...rest } = entry("Clean_Strike");
+  const { windupEnd: _, footPlants: __, ...timingOnly } = strike;
+  const report = checkCombatClip(figure(), { ...rest, strike: timingOnly }, SOCKETS);
+  assert.ok(report.timing!.inferredWindupEnd && report.timing!.windupEnd < .4);
+  assert.equal(report.feet, undefined);
+  const bare = checkCombatClip(figure(), { name: "Clean_Strike", durationSeconds: .4 }, SOCKETS);
+  assert.deepEqual(bare, { clip: "Clean_Strike" });
+});
