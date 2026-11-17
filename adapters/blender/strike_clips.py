@@ -23,14 +23,19 @@ those base poses; the CC0 UAL1 seeds were only watched as reference.
   jumping strikes are full body: they start in ``Jump_Loop``'s first pose, tuck as ``Jump_Start`` does in the air,
   land as ``Jump_Land`` starts and end in its deepest crouch (``to``), so ``Jump_Land`` or the idle takes over. Both
   record a skirt and cape pose for the #391 chain joints (``secondaryPose``).
-- ``Mace_Swing_C``, ``Staff_Strike_C``, ``Spear_Thrust_A`` and ``Spear_Thrust_B`` keep only the ``spine_01`` subtree, as
-  the #420 mace and staff chains, and start and end in the first ``Idle_Loop`` pose.
+- ``Mace_Swing_C``, ``Staff_Strike_C`` and ``Spear_Thrust_A`` keep only the ``spine_01`` subtree, as the #420 mace and
+  staff chains, and start and end in the first ``Idle_Loop`` pose.
+- #737 makes ``Sword_Regular_A``, ``TwoHand_Swing_A`` and ``Spear_Thrust_B`` the references of
+  docs/combat-animation-standard.md: full body (``kind`` ``body``), from the family's guard and back to it, the feet
+  planted or stepping, the pelvis turning, leaning and dropping and the legs reaching their feet by IK, so the hips and
+  legs drive each strike (``BODY_FIELDS``). They record their phases (``windupEnd``, ``contactSeconds``,
+  ``recoveryStart``) and the spans each foot stands planted (``footPlants``).
 - #711 adds the bare-fist, two-handed maul and bow-in-melee sets on the same rules. The maul rides ``hand_r.weapon``
   with the left hand fixed on its ``grip.offhand``; the bow rides ``hand_l.bow`` (``bow``) and is the left hand's, the
   right a free fist; a bare fist strikes with its ``KNUCKLES`` from the hand the clip names (``hand``). ``Bow_Bash_B``
   kicks (the right ankle on its keys, the strike point the ball of the foot) and ``Unarmed_Run_Strike`` barges with the
   right shoulder; both record that joint as ``strikeJoint``. ``Unarmed_Jab``/``Cross``/``Hook``,
-  ``TwoHand_Swing_A``/``B``/``C`` and ``Bow_Bash_A`` keep the ``spine_01`` subtree.
+  ``TwoHand_Swing_B``/``C`` and ``Bow_Bash_A`` keep the ``spine_01`` subtree.
 - #711 also authors the hit reactions and deaths (``REACTS``), full body from the first ``Idle_Loop`` pose: the arms,
   chest and whole body turned about the pelvis through keys, the feet planted or riding the body, and no foot, knee or
   hand below the ground (``floor_feet``). They record ``hitSide``, ``peakSeconds`` and, for the deaths, ``landSeconds``
@@ -122,6 +127,27 @@ R_GUARD = {"g": (-.12, -.22, 1.44), **R_GUARD_KEY}
 R_FIST = {"g": (-.24, -.2, 1.12)}
 IDLE_ANKLE_R = (-.166, .293, .088)
 STRIKES = {
+    # #737 reference for the fast one-handed attacks: from the sword-and-shield guard the hips and chest coil right on
+    # to the rear foot while the blade is cocked over the right shoulder and the shield pushed out; then the lead foot
+    # steps in, the hips turn left ahead of the chest and the arm, and the blade cuts down across on a clean diagonal,
+    # landing as the lead foot plants; it follows through low and wide of the left leg and returns to the guard.
+    "Sword_Regular_A": {"weapon": "sword", "kind": "body", "duration": .9, "windup": .3, "contact": .44, "recovery": .6,
+                        "plants": {"l": [(0, .3), (.44, .6), (.92, 1)], "r": [(0, 1)]}, "keys": [
+        (0, {"g": (-.2, -.28, 1.12), "b": (.1, -.75, .65), "yaw": -6, "pitch": 6, "pz": -.02, "l": SHIELD_GUARD}),
+        (.3, {"g": (-.3, .02, 1.5), "b": (-.2, .5, .84), "yaw": -25, "pitch": -2, "hy": -20, "py": .04, "pz": -.04,
+              "l": {"g": (.14, -.42, 1.28), "f": (-.2, -1, .1), "t": (.05, 0, 1)}}),
+        (.37, {"g": (-.2, -.3, 1.56), "b": (-.15, -.5, .85), "yaw": -5, "pitch": 4, "hy": 5, "py": -.04, "pz": -.05,
+               "ly": -.12, "lz": .06}),
+        (.44, {"g": (-.02, -.52, 1.4), "b": (.4, -.8, -.45), "yaw": 15, "pitch": 10, "hy": 25, "py": -.12, "pz": -.07,
+               "ly": -.26, "lz": 0, "rh": 15, "rw": 15, "l": {"g": (.24, -.22, 1.16), "f": (-.4, -.9, 0), "t": (0, 0, 1)}}),
+        (.55, {"g": (.12, -.38, .94), "b": (.62, -.4, -.65), "yaw": 22, "pitch": 14, "hy": 32, "py": -.13, "pz": -.08}),
+        (.6, {"g": (.12, -.36, .94), "b": (.6, -.45, -.62), "yaw": 22, "pitch": 14, "hy": 32, "py": -.13, "pz": -.08}),
+        (.8, {"g": (-.14, -.32, 1.1), "b": (.15, -.75, .6), "yaw": -2, "pitch": 6, "hy": 4, "py": -.03, "pz": -.03,
+              "ly": -.08, "lz": .04, "rh": 4, "rw": 4, "l": SHIELD_GUARD}),
+        (.92, {"g": (-.2, -.28, 1.12), "b": (.1, -.75, .65), "yaw": -6, "pitch": 6, "hy": 0, "py": 0, "pz": -.02,
+               "ly": 0, "lz": 0, "rh": 0, "rw": 0}),
+        (1, {"g": (-.2, -.28, 1.12), "b": (.1, -.75, .65), "yaw": -6, "pitch": 6}),
+    ]},
     # A forehand diagonal cut on the run: the blade cocked back over the right shoulder, held, then driven down across
     # the body at chest height as the right foot strikes the ground, the shield pulled in.
     "Sword_Run_Strike": {"weapon": "sword", "kind": "run", "contact": .55, "into": .16, "out": .78, "keys": [
@@ -236,13 +262,26 @@ STRIKES = {
         (.6, {"g": (-.15, -.16, 1.08), "b": (.11, -.99, .04), "yaw": 4, "pitch": 6}),
         (.8, {"g": (-.15, .04, 1.08), "b": (.2, -.97, .1), "yaw": -12}),
     ]},
-    # A heavier overhand thrust at the face: the spear lifted to the shoulder, cocked back and driven out high.
-    "Spear_Thrust_B": {"weapon": "spear", "kind": "stand", "duration": .75, "contact": .5, "into": .14, "out": .82, "keys": [
-        (.14, {"g": (-.15, .04, 1.08), "b": (.2, -.97, .1), "yaw": -12}),
-        (.36, {"g": (-.26, .16, 1.46), "b": (.15, -.98, -.1), "yaw": -14, "pitch": -6}),
-        (.5, {"g": (-.16, -.14, 1.48), "b": (.06, -1, 0), "yaw": 6, "pitch": 6}),
-        (.64, {"g": (-.16, -.1, 1.44), "b": (.07, -1, 0), "yaw": 6, "pitch": 6}),
-        (.82, {"g": (-.15, .04, 1.08), "b": (.2, -.97, .1), "yaw": -12}),
+    # #737 reference lunge: from the spear guard the weight sinks on to the coiled rear leg and the spear is drawn back
+    # to the shoulder; the rear foot pushes (heel up, leg straightening), the lead foot steps out and the hips square up
+    # while the right shoulder drives the point along one straight line at the face; the front knee catches the body,
+    # the arms stay long a beat, then the lead foot recovers and the spear comes back to the guard.
+    "Spear_Thrust_B": {"weapon": "spear", "kind": "body", "duration": .9, "windup": .37, "contact": .52, "recovery": .63,
+                       "plants": {"l": [(0, .37), (.52, .63), (.86, 1)], "r": [(0, 1)]}, "keys": [
+        (0, {"g": (-.15, .04, 1.1), "b": (.18, -.95, .22), "yaw": -12, "pitch": 10, "neck": 4, "pz": -.02}),
+        (.3, {"g": (-.24, .22, .92), "b": (.06, -.96, .27), "yaw": -20, "pitch": 0, "hy": -26, "hp": -4, "py": .1, "pz": -.07}),
+        (.37, {"g": (-.24, .26, .9), "b": (.06, -.96, .27), "yaw": -22, "pitch": -1, "hy": -28, "hp": -4, "py": .11, "pz": -.08}),
+        (.45, {"g": (-.21, -.23, 1.03), "b": (.06, -.96, .27), "yaw": -4, "pitch": 6, "hy": 0, "hp": 3, "py": -.14, "pz": -.09,
+               "ly": -.28, "lz": .06, "rh": 22}),
+        (.52, {"g": (-.17, -.85, 1.21), "b": (.06, -.96, .27), "yaw": 8, "pitch": 12, "hy": 18, "hp": 10, "py": -.34, "pz": -.13,
+               "ly": -.5, "lz": 0, "rh": 35}),
+        (.63, {"g": (-.17, -.9, 1.22), "b": (.06, -.96, .27), "yaw": 8, "pitch": 13, "hy": 18, "hp": 11, "py": -.35, "pz": -.14,
+               "ly": -.5, "rh": 35}),
+        (.78, {"g": (-.17, -.12, 1.18), "b": (.14, -.97, .2), "yaw": -6, "pitch": 9, "hy": -2, "hp": 2, "py": -.1, "pz": -.06,
+               "ly": -.2, "lz": .04, "rh": 8}),
+        (.86, {"g": (-.15, .04, 1.1), "b": (.18, -.95, .22), "yaw": -12, "pitch": 10, "hy": 0, "py": 0, "pz": -.02,
+               "ly": 0, "lz": 0, "rh": 0}),
+        (1, {"g": (-.15, .04, 1.1), "b": (.18, -.95, .22), "yaw": -12, "pitch": 10, "neck": 4}),
     ]},
     # --- #711: bare fists. The jab and hook are the left's, the cross the right's; the other fist guards the chin.
     # A quick jab: the left fist drawn back a hand, then snapped straight out at the face, turned palm down.
@@ -291,15 +330,27 @@ STRIKES = {
     ]},
     # --- #711: the two-handed maul, the left hand on its grip.offhand. Slow: a long held wind-up, a strike of three or
     # four frames and a follow-through the head's weight drags on.
-    # A: cocked high over the right shoulder, the head hanging behind, then hewn down across to the left.
-    "TwoHand_Swing_A": {"weapon": "maul", "kind": "stand", "duration": 1.1, "contact": .55, "into": .14, "out": .84, "keys": [
-        (.14, {"g": (-.18, -.2, 1.3), "b": (-.15, .3, .94), "yaw": -14}),
-        (.36, {"g": (-.24, .06, 1.56), "b": (-.3, .75, .58), "yaw": -38, "pitch": -6, "neck": -4}),
-        (.45, {"g": (-.26, .08, 1.6), "b": (-.3, .8, .5), "yaw": -42, "pitch": -8, "neck": -4}),
-        (.51, {"g": (-.2, -.24, 1.5), "b": (-.2, -.4, .9), "yaw": -16, "pitch": 2}),
-        (.55, {"g": (-.02, -.44, 1.18), "b": (.45, -.82, -.35), "yaw": 14, "pitch": 14}),
-        (.68, {"g": (.12, -.3, .96), "b": (.75, -.3, -.6), "yaw": 30, "pitch": 20}),
-        (.84, {"g": (.08, -.32, 1.0), "b": (.7, -.4, -.55), "yaw": 26, "pitch": 18}),
+    # A (#737 reference for weight): from the maul guard the knees bend and the hips coil right on to the rear leg while
+    # the maul is hauled up over the right shoulder, its head hanging out behind, and held; then the lead foot stamps
+    # forward, the hips fire left ahead of the chest and the body drops, so the head accelerates down across to the
+    # left; it drags the body on into a deep follow-through, and the recovery heaves it back up into the guard.
+    "TwoHand_Swing_A": {"weapon": "maul", "kind": "body", "duration": 1.5, "windup": .33, "contact": .45, "recovery": .61,
+                        "plants": {"l": [(0, .33), (.45, .8), (.97, 1)], "r": [(0, 1)]}, "keys": [
+        (0, {"g": (-.12, -.36, 1.12), "b": (.12, -.45, .88), "yaw": -6, "pitch": 10, "neck": 4, "pz": -.02}),
+        (.26, {"g": (-.29, .08, 1.53), "b": (-.45, .75, .45), "yaw": -26, "pitch": -4, "hy": -30, "hp": -2, "py": .06, "pz": -.09, "lh": 12}),
+        (.33, {"g": (-.3, .1, 1.55), "b": (-.47, .76, .42), "yaw": -28, "pitch": -5, "hy": -34, "hp": -3, "py": .06, "pz": -.1, "lh": 12}),
+        (.39, {"g": (-.22, -.2, 1.55), "b": (-.2, -.35, .92), "yaw": -12, "pitch": 4, "hy": -8, "hp": 2, "py": -.06, "pz": -.11,
+               "lh": 0, "ly": -.16, "lz": .06}),
+        (.45, {"g": (0, -.58, 1.08), "b": (.5, -.62, -.6), "yaw": 16, "pitch": 20, "hy": 28, "hp": 8, "py": -.16, "pz": -.16,
+               "ly": -.32, "lz": 0, "rh": 22, "rw": 25}),
+        (.54, {"g": (.26, -.58, .74), "b": (.5, -.15, -.85), "yaw": 24, "pitch": 24, "hy": 38, "hp": 10, "py": -.18, "pz": -.18}),
+        (.61, {"g": (.27, -.56, .73), "b": (.5, -.13, -.86), "yaw": 24, "pitch": 24, "hy": 38, "hp": 10, "py": -.18, "pz": -.18}),
+        (.8, {"g": (.14, -.55, .86), "b": (.55, -.45, .1), "yaw": 14, "pitch": 18, "hy": 24, "hp": 7, "py": -.14, "pz": -.15}),
+        (.9, {"g": (-.04, -.44, 1.02), "b": (.25, -.5, .83), "yaw": 0, "pitch": 12, "hy": 6, "hp": 3, "py": -.05, "pz": -.08,
+              "ly": -.12, "lz": .04, "rh": 5, "rw": 5}),
+        (.97, {"g": (-.12, -.36, 1.12), "b": (.12, -.45, .88), "yaw": -6, "pitch": 10, "hy": 0, "hp": 0, "py": 0, "pz": -.02,
+               "ly": 0, "lz": 0, "rh": 0, "rw": 0}),
+        (1, {"g": (-.12, -.36, 1.12), "b": (.12, -.45, .88), "yaw": -6, "pitch": 10, "neck": 4}),
     ]},
     # B: wound to the left hip, then a flat backhand sweep across to the right at the waist, the hips turning through.
     "TwoHand_Swing_B": {"weapon": "maul", "kind": "stand", "duration": 1.2, "contact": .55, "into": .14, "out": .84, "keys": [
@@ -381,6 +432,17 @@ STRIKES = {
 # The jumping strikes' body: ``Jump_Loop``'s first pose, tucked as ``Jump_Start`` is at its highest by ``tuck``, the
 # feet touching down in ``Jump_Land``'s first pose at ``touch`` and sinking into its deepest crouch by ``crouch``.
 JUMP_BODY = {"duration": .8, "tuck": .3, "touch": .44, "crouch": .72}
+
+# #737: the full-body standing strikes (``kind`` ``body``) drive the attack from the ground up. A key may also turn the
+# pelvis about its head (``hy`` yaw, ``hp`` pitch, ``hr`` roll, signed as the chest's), move it (``px``, ``py``, ``pz``)
+# and move each foot's ball from where it stands in the idle (``lx``/``ly``/``lz``, ``rx``...), turn the foot about
+# its ball (``lw``/``rw``, positive toward the figure's left) and lift its heel about the ball (``lh``/``rh``,
+# degrees). A field a key leaves out holds its last value, and the tracks never overshoot a key, so a foot keyed in one
+# place stays there: the legs reach their feet with two-bone IK, the knees over the toes, and the toes stay flat on
+# the ground. The phases are fractions of the clip: the wind-up ends at ``windup`` (the strike starts), the weapon
+# lands at ``contact`` and the recovery starts at ``recovery``; ``plants`` lists, per foot, the spans it stands still.
+BODY_FIELDS = {"hy": 0, "hp": 0, "hr": 0, "px": 0, "py": 0, "pz": 0,
+               "lx": 0, "ly": 0, "lz": 0, "lw": 0, "lh": 0, "rx": 0, "ry": 0, "rz": 0, "rw": 0, "rh": 0}
 
 # #711: hit reactions and deaths, full body, played on the victim. A key (fraction, fields) holds every field it leaves
 # out at the previous key's value: the chest's ``yaw``, ``pitch``, ``roll``, ``neck`` and ``look``; the whole body
@@ -838,6 +900,39 @@ def hermite(keys, u):
     return (2 * s3 - 3 * s2 + 1) * p0 + (s3 - 2 * s2 + s) * h * slope(i) + (-2 * s3 + 3 * s2) * p1 + (s3 - s2) * h * slope(i + 1)
 
 
+def monotone(keys, u):
+    """A scalar curve through ``keys`` that never overshoots them (#737): flat at a key that is a turn or a hold, else
+    the harmonic mean of the slopes beside it, so two equal keys hold the value exactly between them."""
+    if u <= keys[0][0]:
+        return keys[0][1]
+    if u >= keys[-1][0]:
+        return keys[-1][1]
+    i = max(k for k in range(len(keys) - 1) if keys[k][0] <= u)
+    (t0, p0), (t1, p1) = keys[i], keys[i + 1]
+
+    def slope(k):
+        if k == 0 or k == len(keys) - 1:
+            return 0.0
+        a = (keys[k][1] - keys[k - 1][1]) / (keys[k][0] - keys[k - 1][0])
+        b = (keys[k + 1][1] - keys[k][1]) / (keys[k + 1][0] - keys[k][0])
+        return 0.0 if a * b <= 0 else 2 * a * b / (a + b)
+
+    h = t1 - t0
+    s = (u - t0) / h
+    s2, s3 = s * s, s * s * s
+    return (2 * s3 - 3 * s2 + 1) * p0 + (s3 - 2 * s2 + s) * h * slope(i) + (-2 * s3 + 3 * s2) * p1 + (s3 - s2) * h * slope(i + 1)
+
+
+def body_tracks(keys):
+    """The #737 body fields' keys, each key holding what it leaves out at the previous key's value."""
+    held, tracks = dict(BODY_FIELDS), {name: [] for name in BODY_FIELDS}
+    for u, key in keys:
+        held.update({name: key[name] for name in BODY_FIELDS if name in key})
+        for name in BODY_FIELDS:
+            tracks[name].append((u, float(held[name])))
+    return tracks
+
+
 class Motion:
     """A strike's keys as curves: the right grip and weapon direction, the chest scalars and the left hand's key."""
 
@@ -884,6 +979,43 @@ class Striker:
         self.fist = self.weapon["socket"] == "fist"
         self.socket = f"palm_{self.side}" if self.fist else self.weapon["socket"]
         self.tip = KNUCKLES if self.fist else Vector((0, self.weapon["tip"], 0))
+        self.body = body_tracks(self.spec["keys"]) if self.spec["kind"] == "body" else None
+        if self.body:
+            # Where the idle stands each foot: its ankle, its ball and how the foot and the toes are turned.
+            rig.apply(seed)
+            self.feet = {side: (rig.head(LEGS[side][2]), rig.head(LEGS[side][3]), rig.bones[LEGS[side][2]].matrix.to_3x3(),
+                                rig.bones[LEGS[side][3]].matrix.to_3x3()) for side in "lr"}
+
+    def place_body(self, u):
+        """#737: turn and move the pelvis, then stand each leg on its foot's key: the ball where the key puts it, the
+        foot turned about it and its heel lifted, the knee bending over the toes and the toes flat."""
+        rig = self.rig
+        k = {name: monotone(track, u) for name, track in self.body.items()}
+        head = rig.head("pelvis")
+        rotate_world(rig, "pelvis", UP, k["hy"])
+        rotate_world(rig, "pelvis", X, k["hp"])
+        rotate_world(rig, "pelvis", Y, -k["hr"])
+        pelvis = rig.bones["pelvis"]
+        m = pelvis.matrix.copy()
+        m.translation = head + Vector((k["px"], k["py"], k["pz"]))
+        pelvis.matrix = m
+        bpy.context.view_layer.update()
+        for side in "lr":
+            thigh, calf, foot, ball = LEGS[side]
+            ankle0, ball0, foot0, toes0 = self.feet[side]
+            at = ball0 + Vector((k[side + "x"], k[side + "y"], k[side + "z"]))
+            yaw = Matrix.Rotation(math.radians(k[side + "w"]), 3, UP)
+            back = yaw @ (ankle0 - ball0)
+            # The heel rises about the ball: the ball-to-ankle line turns up by the heel's angle.
+            heel = Matrix.Rotation(math.radians(k[side + "h"]), 3, back.cross(UP).normalized())
+            outward = .25 if side == "l" else -.25
+            two_bone(rig, thigh, calf, foot, at + heel @ back, yaw @ Vector((outward, -1, 0)))
+            for joint, turn in ((foot, heel @ yaw @ foot0), (ball, yaw @ toes0)):
+                f = turn.to_4x4()
+                f.translation = rig.head(joint)
+                rig.bones[joint].matrix = f
+                bpy.context.view_layer.update()
+        return k
 
     def weapon_frame(self, u, du=.01):
         """The striking hand's socket frame at ``u``: the grip and direction of the keys, the edge (+X) turned along the
@@ -919,7 +1051,12 @@ class Striker:
             reach(rig, socket, target)
             place_grip(rig, socket, target, pole)
 
-        turn_chest(rig, chest["yaw"], chest["pitch"], chest["roll"], chest["neck"])
+        if self.body:
+            # The head stays on the target while the hips and chest turn and lean under it.
+            k = self.place_body(u)
+            turn_chest(rig, chest["yaw"], chest["pitch"], chest["roll"], chest["neck"] - .6 * k["hp"], gaze=.7, look=-.8 * k["hy"])
+        else:
+            turn_chest(rig, chest["yaw"], chest["pitch"], chest["roll"], chest["neck"])
         hold(self.socket, frame, extra.get("e", POLE[self.side]))
         left = self.weapon["left"]
         keys = self.motion.left_at(u)
@@ -1086,7 +1223,20 @@ def jump_strike(striker, actions):
                    "from": JUMP, "to": {"clip": LAND, "seconds": round(crouch_at, 4)}, **striker.contact(bases[hit], hit / count)}
 
 
-AUTHORS = {"stand": stand_strike, "run": run_strike, "jump": jump_strike}
+def body_strike(striker, actions):
+    """#737: a full-body standing strike from the family's guard through its keys and back to it. Records the phase
+    boundaries and the spans each foot is planted, in seconds on the clip's frames."""
+    spec = striker.spec
+    count = frames_of(spec["duration"])
+    hit = contact_frame(spec, count)
+    at = lambda u: round(int(round(u * count)) / FPS, 4)
+    poses = one_shot(spec["duration"], lambda u: striker.pose(striker.seed, u, 1.0))
+    plants = {side: [[at(a), at(b)] for a, b in spans] for side, spans in spec["plants"].items()}
+    return poses, {"contactSeconds": round(hit / FPS, 4), "windupEnd": at(spec["windup"]), "recoveryStart": at(spec["recovery"]),
+                   "footPlants": plants, **striker.contact(striker.seed, hit / count)}
+
+
+AUTHORS = {"stand": stand_strike, "run": run_strike, "jump": jump_strike, "body": body_strike}
 
 
 # --- The reactions ---------------------------------------------------------------------------------------------------

@@ -211,9 +211,11 @@ const TRAVERSAL_CLIPS: readonly RangerClip[] = [
   { name: "Slide_Loop", library: "clips2", rootMotion: "in-place" },
   { name: "Slide_Exit", library: "clips2", rootMotion: "in-place" },
 ];
-/** #114 (owner picks 2026-10-17): sword strikes, shield, hit reactions and casting. Bow clips are split out (#277). */
+/**
+ * #114 (owner picks 2026-10-17): sword strikes, shield, hit reactions and casting. Bow clips are split out (#277).
+ * #737: `Sword_Regular_A` (the light strike) is authored full body in the strike family now; its library recovery stays.
+ */
 const COMBAT_CLIPS: readonly RangerClip[] = [
-  { name: "Sword_Regular_A", library: "clips2", rootMotion: "in-place" },
   { name: "Sword_Regular_A_Rec", library: "clips2", rootMotion: "in-place" },
   { name: "Sword_Regular_B", library: "clips2", rootMotion: "in-place" },
   { name: "Sword_Regular_B_Rec", library: "clips2", rootMotion: "in-place" },

@@ -25,7 +25,8 @@ import {
   RANGER_UBC_BONE_MAP, RANGER_WEAPONS, RANGER_THROWABLES, RANGER_ITEM_LOD_SELECTION, rangerItemLods, RANGER_OUTFIT_KITS, RANGER_PEASANT_OUTFITS, validateAppearancePresets,
   buildRangerCharacter, rangerItemDescriptor, rangerJobs, rangerPresets,
 } from "../scripts/build-ranger-character.ts";
-import { RANGER_BOW_CLIPS, RANGER_BOW_UPPER_CLIPS, RANGER_CROSSBOW_CLIPS, RANGER_CAST_CLIPS, RANGER_SOCIAL_CLIPS, RANGER_CHORE_CLIPS, RANGER_POST_CLIPS, RANGER_GATHER_CLIPS, RANGER_RAID_CLIPS, RANGER_STRIKE_CLIPS, RANGER_REACT_CLIPS, RANGER_READY_CLIPS, RANGER_DEFEND_CLIPS, RANGER_CLIP_FAMILIES, RANGER_GAIT_CLIPS, RANGER_GRIPS, RANGER_HIT_CLIPS, RANGER_SWIM_CLIPS, RANGER_DAGGER_CLIPS, RANGER_SWORD_CLIPS, RANGER_TRAVERSAL_CLIPS, rangerGripJoints } from "../src/ranger-clips.js";
+import { RANGER_BOW_CLIPS, RANGER_BOW_UPPER_CLIPS, RANGER_CROSSBOW_CLIPS, RANGER_CAST_CLIPS, RANGER_SOCIAL_CLIPS, RANGER_CHORE_CLIPS, RANGER_POST_CLIPS, RANGER_GATHER_CLIPS, RANGER_RAID_CLIPS, RANGER_STRIKE_CLIPS, RANGER_REACT_CLIPS, RANGER_READY_CLIPS, RANGER_DEFEND_CLIPS, RANGER_CLIP_FAMILIES, RANGER_GAIT_CLIPS, RANGER_GRIPS, RANGER_HIT_CLIPS, RANGER_SWIM_CLIPS, RANGER_DAGGER_CLIPS, RANGER_SWORD_CLIPS, RANGER_TRAVERSAL_CLIPS, RANGER_COMBAT_STANDARD_CLIPS, rangerGripJoints } from "../src/ranger-clips.js";
+import { checkCombatClip } from "../src/combat-clip-checks.js";
 import { WEAPON_ROLES } from "../src/weapon-recipes.js";
 import { FACE_MORPH_NODES, FACE_MORPH_TARGETS } from "../src/face-variants.js";
 import { VARIETY_BEARDS, VARIETY_BODY_TARGETS, VARIETY_MORPH_TARGETS } from "../src/male-variety.js";
@@ -128,9 +129,10 @@ test("the Ranger retargets the library clips in bundle order, then authors its o
   // #709: a running and a jumping strike per weapon and the mace, staff and spear chain additions; every one is a hand_r
   // contact and no name repeats an earlier clip.
   // #711 adds the bare-fist, two-handed and bow sets, whose contact is the striking hand, shoulder or foot.
-  assert.ok(RANGER_STRIKE_CLIPS.every((name) => !names.includes(name) && /^(sword|mace|dagger|staff|spear|unarmed|two-hand|bow)\.(strike|thrust)\./.test(RANGER_CLIP_ROLES[name]!.role)) && RANGER_STRIKE_CLIPS.length === 28);
-  assert.ok(RANGER_STRIKE_CLIPS.slice(0, 14).every((name) => RANGER_CLIP_ROLES[name]!.contact === "hand_r"));
-  assert.deepEqual(RANGER_STRIKE_CLIPS.slice(14).map((name) => RANGER_CLIP_ROLES[name]!.contact),
+  // #737: the library light strike `Sword_Regular_A` is authored at the head of the family now, with its role kept.
+  assert.ok(RANGER_STRIKE_CLIPS.every((name) => !names.includes(name) && /^(sword|mace|dagger|staff|spear|unarmed|two-hand|bow)\.(strike|thrust|light-strike)\b/.test(RANGER_CLIP_ROLES[name]!.role)) && RANGER_STRIKE_CLIPS.length === 29);
+  assert.ok(RANGER_STRIKE_CLIPS.slice(0, 15).every((name) => RANGER_CLIP_ROLES[name]!.contact === "hand_r"));
+  assert.deepEqual(RANGER_STRIKE_CLIPS.slice(15).map((name) => RANGER_CLIP_ROLES[name]!.contact),
     ["hand_l", "hand_r", "hand_l", "upperarm_r", "hand_r", "hand_r", "hand_r", "hand_r", "hand_r", "hand_r", "hand_l", "foot_r", "hand_l", "hand_l"]);
   const weapons = { sword: "Sword", mace: "Mace", dagger: "Dagger", staff: "Staff", spear: "Spear", unarmed: "Unarmed", "two-hand": "TwoHand", bow: "Bow" };
   assert.ok(Object.entries(weapons).every(([weapon, prefix]) => ["run", "jump"].every((state) => RANGER_CLIP_ROLES[`${prefix}_${state === "run" ? "Run" : "Jump"}_Strike`]?.role === `${weapon}.strike.${state}`)));
@@ -420,7 +422,13 @@ test("the Ranger recipe builds a verified bundle: in-place clips, equipment entr
       assert.ok(["low", "mid", "high"].includes(strike.band) && strike.reachMeters > (strike.strikeJoint === "upperarm_r" ? 0 : .4) && strike.tipAt.length === 3, name);
       assert.ok(Math.abs(strike.contactSeconds - byName[name].contact.seconds) < .05 && byName[name].contact.joint === RANGER_CLIP_ROLES[name]!.contact, name);
       assert.ok(strike.contactSeconds > 0 && strike.contactSeconds < byName[name].durationSeconds, name);
-      assert.equal(!byName[name].secondaryPose, /^(Mace_Swing|Staff_Strike|Spear_Thrust|TwoHand_Swing)_|^Unarmed_(Jab|Cross|Hook)$|^Bow_Bash_A$/.test(name), name);
+      assert.equal(!byName[name].secondaryPose, !RANGER_COMBAT_STANDARD_CLIPS.includes(name) && /^(Mace_Swing|Staff_Strike|Spear_Thrust|TwoHand_Swing)_|^Unarmed_(Jab|Cross|Hook)$|^Bow_Bash_A$/.test(name), name);
+    }
+    // #737: the reference clips are full body and record their phases in order and their planted feet.
+    for (const name of RANGER_COMBAT_STANDARD_CLIPS) {
+      const { strike, durationSeconds } = byName[name];
+      assert.ok(0 < strike.windupEnd && strike.windupEnd < strike.contactSeconds && strike.contactSeconds < strike.recoveryStart && strike.recoveryStart < durationSeconds, name);
+      assert.ok(["l", "r"].every((foot) => strike.footPlants[foot].length > 0), name);
     }
     // #711: the reactions record their side and peak, the deaths when they land and how they lie; all are full body.
     for (const name of RANGER_REACT_CLIPS) {
@@ -471,6 +479,15 @@ test("the Ranger recipe builds a verified bundle: in-place clips, equipment entr
 
     const { gltf, resources } = await readAssetBundleGltf(built.bundleDir, manifest, RANGER_BUNDLE_KEY, RANGER_BUNDLE_VARIANT);
     const document = await new NodeIO().registerExtensions([KHRTextureBasisu]).readJSON({ json: JSON.parse(gltf.toString("utf8")), resources: Object.fromEntries(resources) });
+    // #737 (docs/combat-animation-standard.md): the reference clips keep the weapon out of the body, their planted feet
+    // still and strike much faster than they wind up. Every other strike is checked and reported, to be held to the
+    // standard as phase 2 (#738) redoes it.
+    const socketList = JSON.parse(sockets.toString("utf8")).sockets;
+    for (const name of RANGER_STRIKE_CLIPS) {
+      const report = checkCombatClip(document, byName[name], socketList);
+      if (!RANGER_COMBAT_STANDARD_CLIPS.includes(name)) { console.log(`combat standard (not yet held): ${JSON.stringify(report)}`); continue; }
+      assert.ok(report.clearance?.ok && report.feet?.ok && report.timing?.ok && !report.timing.inferredWindupEnd, JSON.stringify(report));
+    }
     // #285: each grip pose keys only its hand's 15 finger and thumb rotations.
     for (const grip of RANGER_GRIPS) {
       const animation = document.getRoot().listAnimations().find((candidate) => candidate.getName() === grip.clip)!;
