@@ -1,7 +1,8 @@
-// Greyhaven's wildlife (#667, docs/greyhaven-wildlife.md), following the farm animals' conventions:
+// Greyhaven's wildlife (#667, docs/greyhaven-wildlife.md) and the hostile creatures' combat clips (#715), following the farm
+// animals' conventions:
 //   ASSET_TOOLING_BLENDER=<blender 5.2.2> bun scripts/build-greyhaven-wildlife.ts --out <directory>
 // Each animal is one external.blender.script@1 run of adapters/blender/wildlife.py, with the farm-animals recipe
-// (adapters/blender/farm_animals.py) as its declared Python input `farm`: the stag, doe and fox over their hash-pinned
+// (adapters/blender/farm_animals.py) as its declared Python input `farm`: the stag, doe, fox, wolf and rat over their hash-pinned
 // CC0 Quaternius catalog payloads (imported offline from hydrated LFS storage), the rabbit, boar and four birds
 // authored by the recipe itself. Each GLB is checked through scene.import.gltf@2 and exported as a gltf-resources-v1
 // bundle packed to <directory>/greyhaven.wildlife.tar, next to the measured greyhaven-wildlife-descriptor-v1,
@@ -31,23 +32,36 @@ export const WILD_TAR_NAME = "greyhaven.wildlife.tar";
 export const WILD_DESCRIPTOR_SCHEMA = "greyhaven-wildlife-descriptor-v1";
 export const WILD_DESCRIPTOR_ATTACHMENT = "wildlife-descriptor";
 export const WILD_DESCRIPTOR_FILE = "greyhaven.wildlife.descriptor.json";
-const UAA = { pack: "Quaternius Ultimate Animated Animals", file: "source.glb", sourceClips: { Idle: "Idle", Walk: "Walk", Eat: "Eating" } } as const;
+const UAA_CLIPS = { Idle: "Idle", Walk: "Walk", Eat: "Eating" } as const;
+const UAA = { pack: "Quaternius Ultimate Animated Animals", file: "source.glb", sourceClips: UAA_CLIPS } as const;
 const AUTHORED = { pack: null, file: null, sourceClips: null } as const;
+/** The source clip each shipped clip comes from; "<clip>+layer" is that clip re-timed under a scripted additive pose (#715). */
+const WOLF_CLIPS = { ...UAA_CLIPS, Run: "Gallop", Death: "Death", Attack_A: "Attack+layer", Attack_B: "Attack+layer", Hit: "Idle_HitReact_Left+layer", Alert: "Idle+layer" } as const;
+const RAT_CLIPS = {
+  Idle: "Rat_Idle", Walk: "Rat_Walk", Eat: "Rat_Idle+layer", Run: "Rat_Run", Death: "Rat_Death",
+  Attack_A: "Rat_Attack+layer", Attack_B: "Rat_Idle+layer", Hit: "Rat_Idle+layer", Alert: "Rat_Idle+layer",
+} as const;
 export const WILD_ANIMALS = [
-  { animal: "stag", sourceId: "quaternius.ultimate-animated-animals-stag-glb", member: "Stag.glb", bird: false, ...UAA },
-  { animal: "doe", sourceId: "quaternius.ultimate-animated-animals-deer-glb", member: "Deer.glb", bird: false, ...UAA },
-  { animal: "fox", sourceId: "quaternius.ultimate-animated-animals-fox-glb", member: "Fox.glb", bird: false, ...UAA },
-  { animal: "rabbit", sourceId: null, member: null, bird: false, ...AUTHORED },
-  { animal: "boar", sourceId: null, member: null, bird: false, ...AUTHORED },
-  { animal: "crow", sourceId: null, member: null, bird: true, ...AUTHORED },
-  { animal: "duck", sourceId: null, member: null, bird: true, ...AUTHORED },
-  { animal: "heron", sourceId: null, member: null, bird: true, ...AUTHORED },
-  { animal: "songbird", sourceId: null, member: null, bird: true, ...AUTHORED },
+  { animal: "stag", sourceId: "quaternius.ultimate-animated-animals-stag-glb", member: "Stag.glb", bird: false, hostile: false, ...UAA },
+  { animal: "doe", sourceId: "quaternius.ultimate-animated-animals-deer-glb", member: "Deer.glb", bird: false, hostile: false, ...UAA },
+  { animal: "fox", sourceId: "quaternius.ultimate-animated-animals-fox-glb", member: "Fox.glb", bird: false, hostile: false, ...UAA },
+  { animal: "rabbit", sourceId: null, member: null, bird: false, hostile: false, ...AUTHORED },
+  { animal: "boar", sourceId: null, member: null, bird: false, hostile: true, ...AUTHORED },
+  { animal: "crow", sourceId: null, member: null, bird: true, hostile: false, ...AUTHORED },
+  { animal: "duck", sourceId: null, member: null, bird: true, hostile: false, ...AUTHORED },
+  { animal: "heron", sourceId: null, member: null, bird: true, hostile: false, ...AUTHORED },
+  { animal: "songbird", sourceId: null, member: null, bird: true, hostile: false, ...AUTHORED },
+  { animal: "wolf", sourceId: "quaternius.ultimate-animated-animals-wolf-glb", member: "Wolf.glb", bird: false, hostile: true, ...UAA, sourceClips: WOLF_CLIPS },
+  { animal: "rat", sourceId: "quaternius.easy-enemy-rat-glb", member: "Rat.glb", bird: false, hostile: true, pack: "Quaternius Easy Enemy", file: "source.glb", sourceClips: RAT_CLIPS },
 ] as const;
 export type WildAnimal = (typeof WILD_ANIMALS)[number]["animal"];
-/** Every animal has Idle, Walk and Eat (grazing, rooting, pecking); the birds also a looping wingbeat, Fly. */
+/** The hostile creatures' combat clips (#715): a looping in-place Run and one-shot attacks, flinch, death and alert. */
+export const COMBAT_CLIPS = ["Run", "Attack_A", "Attack_B", "Hit", "Death", "Alert"] as const;
+export const ONE_SHOT_CLIPS = ["Attack_A", "Attack_B", "Hit", "Death", "Alert"] as const;
+/** Every animal has Idle, Walk and Eat (grazing, rooting, pecking); the birds also a looping wingbeat, Fly; the wolf,
+ * boar and rat also the combat clips. */
 export const WILD_CLIPS: Record<WildAnimal, readonly string[]> = Object.fromEntries(WILD_ANIMALS.map((entry) => [
-  entry.animal, entry.bird ? ["Idle", "Walk", "Eat", "Fly"] : ["Idle", "Walk", "Eat"],
+  entry.animal, ["Idle", "Walk", "Eat", ...(entry.bird ? ["Fly"] : []), ...(entry.hostile ? COMBAT_CLIPS : [])],
 ])) as Record<WildAnimal, readonly string[]>;
 export const wildKey = (animal: WildAnimal) => `greyhaven.wild.${animal}`;
 const POLICY = { allowedValidatorWarnings: [...GLTF_RESOURCES_BUNDLE_ALLOWED_VALIDATOR_WARNINGS] };
@@ -106,10 +120,13 @@ export async function buildGreyhavenWildlife({ outDir, log = () => {} }: { outDi
   const recipeRef = { script: "adapters/blender/wildlife.py", sha256: recipe.sha256, farm: { script: "adapters/blender/farm_animals.py", sha256: farm.sha256 } };
   const descriptor = {
     schema: WILD_DESCRIPTOR_SCHEMA, units: "metre", up: "+Y", facing: "+Z", handedness: "right", origin: "footprint-ground-center",
-    placement: "Non-interactive cosmetic wildlife. The consumer owns world placement, wandering, flight paths, fleeing, collision and gameplay; none is implied here.",
-    clips: { names: ["Idle", "Walk", "Eat", "Fly"], required: ["Idle", "Walk", "Eat"], birds: ["Fly"], rootMotion: "in-place", loop: true },
+    placement: "Cosmetic wildlife, and the hostile wolf, boar and rat's presentation. The consumer owns world placement, wandering, flight paths, fleeing, collision, combat and gameplay; none is implied here.",
+    clips: {
+      names: ["Idle", "Walk", "Eat", "Fly", ...COMBAT_CLIPS], required: ["Idle", "Walk", "Eat"], birds: ["Fly"], hostile: [...COMBAT_CLIPS],
+      oneShot: [...ONE_SHOT_CLIPS], rootMotion: "in-place", loop: "every clip but the oneShot ones",
+    },
     assets: built.map(({ entry, source, observations, document }) => ({
-      key: wildKey(entry.animal), variant: "default", animal: entry.animal, bird: entry.bird,
+      key: wildKey(entry.animal), variant: "default", animal: entry.animal, bird: entry.bird, hostile: entry.hostile,
       idleBounds: observations.idleBounds,
       size: Object.fromEntries((["width", "height", "depth"] as const).map((name, axis) => [name, +(observations.idleBounds.max[axis] - observations.idleBounds.min[axis]).toFixed(5)])),
       triangles: document.getRoot().listMeshes().reduce((sum, mesh) => sum + mesh.listPrimitives().reduce((n, p) => n + (p.getIndices()?.getCount() ?? 0) / 3, 0), 0),
@@ -117,6 +134,8 @@ export async function buildGreyhavenWildlife({ outDir, log = () => {} }: { outDi
       clips: Object.fromEntries(document.getRoot().listAnimations().map((a) => [a.getName(), {
         seconds: +Math.max(...a.listSamplers().map((s) => s.getInput()!.getMax([])[0]!)).toFixed(5),
         source: entry.sourceClips ? (entry.sourceClips as Record<string, string>)[a.getName()] : "authored",
+        loop: observations.clips[a.getName()].loop,
+        ...(observations.clips[a.getName()].contactSeconds === undefined ? {} : { contactSeconds: observations.clips[a.getName()].contactSeconds }),
       }])),
       walkTravel: observations.walkTravel,
       provenance: source

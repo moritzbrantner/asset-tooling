@@ -6920,6 +6920,35 @@
       "title": "Ultimate Animated Animals — Fox (GLB)"
     },
     {
+      "id": "quaternius.ultimate-animated-animals-wolf-glb",
+      "kind": "mesh",
+      "license": {
+        "evidenceUrl": "https://quaternius.com/packs/ultimateanimatedanimals.html",
+        "spdx": "CC0-1.0"
+      },
+      "mediaType": "model/gltf-binary",
+      "metadata": {
+        "distributionMirror": "github.com/trebeljahr/quaternius-showcase (the same bytes mmorpg vendors as assets/quaternius/Wolf.glb; official download is a rate-limited Google Drive folder)",
+        "purpose": "Rigged wolf with Idle, Walk, Eating, Gallop, Attack, Death and hit-react clips for the Greyhaven Timber Wolf (#715)"
+      },
+      "provider": "quaternius",
+      "schemaVersion": 1,
+      "source": {
+        "byteLength": 608660,
+        "path": "public/glb/animals_pack/Wolf.glb",
+        "revision": "478a184d29af65637ba335ea3127995066fe11b6",
+        "sha256": "8382f3d3b97e2338d2fd26190ddcc095d34d642d0e97105bda807ec87ccfd534",
+        "upstreamId": "ultimate-animated-animals/Wolf",
+        "url": "https://raw.githubusercontent.com/trebeljahr/quaternius-showcase/478a184d29af65637ba335ea3127995066fe11b6/public/glb/animals_pack/Wolf.glb"
+      },
+      "tags": [
+        "animal",
+        "animated",
+        "greyhaven-wildlife"
+      ],
+      "title": "Ultimate Animated Animals — Wolf (GLB)"
+    },
+    {
       "id": "quaternius.farm-animals-pig-blend",
       "kind": "mesh",
       "license": {

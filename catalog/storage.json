@@ -1161,6 +1161,12 @@
     },
     {
       "schemaVersion": 1,
+      "sourceId": "quaternius.ultimate-animated-animals-wolf-glb",
+      "storage": "git-lfs",
+      "path": "assets/canonical/quaternius.ultimate-animated-animals-wolf-glb/Wolf.glb"
+    },
+    {
+      "schemaVersion": 1,
       "sourceId": "quaternius.ultimate-animated-animals-horse-glb",
       "storage": "git-lfs",
       "path": "assets/canonical/quaternius.ultimate-animated-animals-horse-glb/Horse.glb"

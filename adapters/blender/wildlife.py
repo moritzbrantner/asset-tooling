@@ -1,12 +1,19 @@
 """Greyhaven wildlife: a stag, a doe, a fox, a rabbit, a wild boar, a crow, a duck, a heron and a songbird for
-Greyhaven's woods, meadows and river.
+Greyhaven's woods, meadows and river, and the hostile Timber Wolf, Young Boar and Grain Rat's combat clips.
 
-The stag, doe and fox come from CC0 Quaternius *Ultimate Animated Animals* (``Stag.glb``, ``Deer.glb``, ``Fox.glb``),
-each the declared ``source`` input; the recipe keeps their skinned mesh, armature and the ``Idle``, ``Walk`` and
-``Eating`` clips (shipped as ``Eat``). The stag's antlers are parented to its head bone in the source, so they are bound
-to that bone as a second skinned mesh. No CC0 Quaternius rabbit, boar or bird exists, so those six are original:
-low-poly rigid parts on a small armature, every vertex weighted fully to one bone, with scripted ``Idle``, ``Walk`` and
-``Eat`` loops, and a ``Fly`` wingbeat loop on the four birds.
+The stag, doe, fox and wolf come from CC0 Quaternius *Ultimate Animated Animals* (``Stag.glb``, ``Deer.glb``,
+``Fox.glb``, ``Wolf.glb``) and the rat from CC0 Quaternius *Easy Enemy* (``Rat.glb``), each the declared ``source``
+input; the recipe keeps their skinned mesh, armature and the clips in ``SOURCE_CLIPS`` (``Eating`` ships as ``Eat``).
+The stag's antlers are parented to its head bone in the source, so they are bound to that bone as a second skinned
+mesh. No CC0 Quaternius rabbit, boar or bird exists, so those six are original: low-poly rigid parts on a small
+armature, every vertex weighted fully to one bone, with scripted ``Idle``, ``Walk`` and ``Eat`` loops, and a ``Fly``
+wingbeat loop on the four birds.
+
+The wolf, boar and rat also fight (#715): a looping in-place ``Run`` and the one-shot ``Attack_A``, ``Attack_B``,
+``Hit``, ``Death`` and ``Alert``. The boar's are scripted on its rig like its loops. The wolf's and rat's reuse their
+authored source clips where one fits (``Gallop``, ``Death``, ``Rat_Run``, ``Rat_Death``) and otherwise are ``LAYERED``:
+a source clip, re-timed by a piecewise-linear warp, with a scripted additive pose baked on every frame (a bite's shake,
+a leap, a swipe, a snarl). ``CONTACT_FRAMES`` names the frame each attack lands.
 
 The farm-animals recipe (``farm_animals.py``) is a declared Python input named ``farm``; this recipe reuses its rig
 builder, clip keying and measuring helpers and its conventions (docs/greyhaven-farm-animals.md): a root node
@@ -20,16 +27,24 @@ no randomness.
 import math
 
 import bpy
-from mathutils import Vector
+from mathutils import Quaternion, Vector
 
 FPS = 24
 SHARED = ("Rig", "key_pose", "wave", "slot_for", "bounds", "principled_from_diffuse")
-UAA_CLIPS = {"Idle": "AnimalArmature|Idle", "Walk": "AnimalArmature|Walk", "Eat": "AnimalArmature|Eating"}
+UAA_CLIPS = {"Idle": "Idle", "Walk": "Walk", "Eat": "Eating"}
+# Shipped clip -> source clip (the source's action name after its "<armature>|" prefix), kept as authored.
+SOURCE_CLIPS = {
+    "stag": UAA_CLIPS, "doe": UAA_CLIPS, "fox": UAA_CLIPS,
+    "wolf": {**UAA_CLIPS, "Run": "Gallop", "Death": "Death"},
+    "rat": {"Idle": "Rat_Idle", "Walk": "Rat_Walk", "Run": "Rat_Run", "Death": "Rat_Death"},
+}
 # height: metres at the top of the idle pose, antlers and ears included. turn: degrees about Blender +Z to face glTF +Z.
 ANIMALS = {
     "stag": {"format": "glb", "turn": 0.0, "height": 2.0},
     "doe": {"format": "glb", "turn": 0.0, "height": 1.45},
     "fox": {"format": "glb", "turn": 0.0, "height": 0.5},
+    "wolf": {"format": "glb", "turn": 0.0, "height": 0.9},
+    "rat": {"format": "glb", "turn": 0.0, "height": 0.3},
     "rabbit": {"format": "authored", "turn": -90.0, "height": 0.3},
     "boar": {"format": "authored", "turn": -90.0, "height": 0.95},
     "crow": {"format": "authored", "turn": -90.0, "height": 0.3},
@@ -38,6 +53,9 @@ ANIMALS = {
     "songbird": {"format": "authored", "turn": -90.0, "height": 0.17},
 }
 BIRDS = ("crow", "duck", "heron", "songbird")
+HOSTILE = ("wolf", "boar", "rat")
+# One-shot clips; every other clip loops.
+ONE_SHOT = ("Attack_A", "Attack_B", "Hit", "Death", "Alert")
 
 
 def use_farm(farm):
@@ -59,7 +77,7 @@ def load_source(animal, source_path):
     before_objects, before_actions = set(bpy.data.objects), set(bpy.data.actions)
     bpy.ops.import_scene.gltf(filepath=source_path)
     loaded = [obj for obj in bpy.data.objects if obj not in before_objects]
-    armature = next(obj for obj in loaded if obj.type == "ARMATURE" and obj.name.startswith("AnimalArmature"))
+    armature = next(obj for obj in loaded if obj.type == "ARMATURE")
     # Bind meshes parented to a single bone (the stag's antlers) as skinned meshes weighted fully to that bone.
     for obj in [o for o in loaded if o.type == "MESH" and o.parent == armature and o.parent_type == "BONE"]:
         world = obj.matrix_world.copy()
@@ -81,12 +99,159 @@ def load_source(animal, source_path):
     for obj in loaded:
         if obj not in keep:
             bpy.data.objects.remove(obj)
-    actions = {name: next(a for a in bpy.data.actions if a not in before_actions and a.name == source) for name, source in UAA_CLIPS.items()}
-    for action in [a for a in bpy.data.actions if a not in before_actions and a not in actions.values()]:
+    sources = {a.name.split("|")[-1]: a for a in bpy.data.actions if a not in before_actions}
+    actions = {name: sources[source] for name, source in SOURCE_CLIPS[animal].items()}
+    if animal in LAYERED:
+        actions.update(layer_clips(animal, armature, sources))
+    for action in [a for a in sources.values() if a not in actions.values()]:
         bpy.data.actions.remove(action)
     for material in {slot.material for mesh in meshes for slot in mesh.material_slots if slot.material}:
         principled_from_diffuse(material)
     return armature, meshes, actions
+
+
+# ---------------------------------------------------------------- layered source clips (#715)
+
+# Source rigs (Quaternius glTF imports) in armature space: up is -Y and the head faces -Z. Rotations name an axis:
+# "P" pitches (positive tips a forward-pointing bone nose-down, a hanging leg backward), "W" yaws, "R" rolls. "loc"
+# moves a bone by (forward, up, lateral) in rig heights (the spread of the rest bone heads along up).
+SOURCE_AXES = {"P": (1, 0, 0), "W": (0, -1, 0), "R": (0, 0, -1)}
+FORWARD, UP, LATERAL = Vector((0, 0, -1)), Vector((0, -1, 0)), Vector((1, 0, 0))
+# Shipped clip -> (source clip, warp: ((frame, source frame), ...) piecewise linear from 0 to the clip's last frame).
+LAYERED = {
+    "wolf": {
+        "Attack_A": ("Attack", ((0, 0), (10, 10), (15, 20), (21, 32))),
+        "Attack_B": ("Attack", ((0, 0), (9, 5), (14, 9), (17, 20), (25, 32))),
+        "Hit": ("Idle_HitReact_Left", ((0, 0), (8, 16))),
+        "Alert": ("Idle", ((0, 0), (20, 20))),
+    },
+    "rat": {
+        "Eat": ("Rat_Idle", ((0, 0), (48, 57))),
+        "Attack_A": ("Rat_Attack", ((0, 0), (10, 10), (18, 16))),
+        "Attack_B": ("Rat_Idle", ((0, 0), (24, 24))),
+        "Hit": ("Rat_Idle", ((0, 0), (8, 8))),
+        "Alert": ("Rat_Idle", ((0, 0), (20, 20))),
+    },
+}
+# The frame each attack lands (the bite closes, the swipe or the tusks connect), for the zone's creature melee.
+CONTACT_FRAMES = {
+    "wolf": {"Attack_A": 9, "Attack_B": 14},
+    "rat": {"Attack_A": 10, "Attack_B": 12},
+    "boar": {"Attack_A": 9, "Attack_B": 15},
+}
+
+
+def curve(x, *keys):
+    """Smoothstep through ``keys`` ((x, value), ...); constant outside them."""
+    if x <= keys[0][0]:
+        return keys[0][1]
+    for (x0, v0), (x1, v1) in zip(keys, keys[1:]):
+        if x <= x1:
+            s = (x - x0) / (x1 - x0)
+            return v0 + (v1 - v0) * s * s * (3 - 2 * s)
+    return keys[-1][1]
+
+
+def warped(warp, frame):
+    for (t0, s0), (t1, s1) in zip(warp, warp[1:]):
+        if frame <= t1:
+            return s0 + (s1 - s0) * (frame - t0) / (t1 - t0)
+    return warp[-1][1]
+
+
+def wolf_layer(clip, t):
+    feet = ("IKFrontLeg.L", "IKFrontLeg.R", "IKBackLeg.L", "IKBackLeg.R")
+    if clip == "Attack_A":
+        # The source lunges and bites low; the jaws close at 9 and the head shakes the prey from side to side.
+        shake = curve(t, (9, 0), (10, 1), (14, 1), (16, 0)) * math.sin(math.pi * (t - 9) / 1.6)
+        ears = curve(t, (0, 0), (4, -35), (16, -35), (21, 0))
+        return {"Head": [("R", 24 * shake), ("W", 12 * shake)], "Neck3": [("R", 10 * shake)], "Neck1": [("P", curve(t, (0, 0), (5, -10), (8, 0)))],
+                "Ear1.L": [("P", ears)], "Ear1.R": [("P", ears)]}
+    if clip == "Attack_B":
+        # A deeper crouch, a leap that lifts the whole body and feet, forelegs reaching, the bite on landing at 14.
+        air = curve(t, (0, 0), (9, 0), (11.5, 1), (14, 0), (25, 0))
+        crouch = curve(t, (0, 0), (8, 1), (10, 0))
+        ears = curve(t, (0, 0), (5, -40), (18, -40), (25, 0))
+        pose = {"Body": [("loc", (0, 0.32 * air - 0.05 * crouch, 0)), ("P", curve(t, (0, 0), (8, 6), (11, -8), (13, 8), (16, 0)))],
+                "Ear1.L": [("P", ears)], "Ear1.R": [("P", ears)]}
+        for foot in feet:
+            front = "Front" in foot
+            pose[foot] = [("loc", (0.22 * air if front else -0.12 * air, 0.32 * air + (0.12 if front else 0.05) * air, 0))]
+        return pose
+    if clip == "Hit":
+        return {"Head": [("P", curve(t, (0, 0), (2, -12), (8, 0)))], "Ear1.L": [("P", curve(t, (0, 0), (2, -30), (8, 0)))],
+                "Ear1.R": [("P", curve(t, (0, 0), (2, -30), (8, 0)))]}
+    # Alert: lowers the head, flattens the ears, bares the muzzle and gives two snapping snarls.
+    snarl = curve(t, (0, 0), (5, 1), (16, 1), (20, 0))
+    snap = curve(t, (6, 0), (7, 1), (9, 0), (11, 0), (12, 1), (14, 0))
+    return {"Torso": [("P", 6 * snarl)], "Neck1": [("P", 14 * snarl + 6 * snap)], "Head": [("P", -16 * snarl - 6 * snap)],
+            "Ear1.L": [("P", -45 * snarl)], "Ear1.R": [("P", -45 * snarl)], "Tail1": [("P", 15 * snarl)],
+            "Body": [("loc", (0.03 * snap, 0, 0))]}
+
+
+def rat_layer(clip, t):
+    if clip == "Eat":
+        chew = wave(t / 48, 8)
+        return {"Body": [("P", 8)], "Neck": [("P", 30)], "Head": [("P", 22 + 5 * chew)]}
+    if clip == "Attack_A":
+        return {}
+    if clip == "Attack_B":
+        # Rears onto its haunches, then rakes down with the right forepaw at 12 and the left after it.
+        rear = curve(t, (0, 0), (6, 1), (16, 1), (24, 0))
+        right = curve(t, (0, 0), (6, -1), (9, -1), (12, 1), (15, 0))
+        left = curve(t, (0, 0), (9, 0), (12, -1), (15, 1), (18, 0))
+        return {"Body": [("P", -32 * rear)], "Head": [("P", 18 * rear)], "Tail1": [("P", 40 * rear)], "root": [("loc", (0, 0.03 * rear, 0))],
+                "FrontFoot.R": [("loc", (0.25 * right, 0.25 * rear + 0.15 * max(0.0, -right) - 0.1 * max(0.0, right), 0))],
+                "FrontFoot.L": [("loc", (0.25 * left, 0.25 * rear + 0.15 * max(0.0, -left) - 0.1 * max(0.0, left), 0))]}
+    if clip == "Hit":
+        jolt = curve(t, (0, 0), (2, 1), (8, 0))
+        return {"Body": [("P", -10 * jolt), ("R", 8 * jolt)], "Head": [("P", -15 * jolt)], "root": [("loc", (-0.06 * jolt, 0, 0))]}
+    # Alert: up on the haunches, head high and thrust forward in two hisses.
+    up = curve(t, (0, 0), (5, 1), (16, 1), (20, 0))
+    hiss = curve(t, (6, 0), (8, 1), (10, 0.3), (12, 1), (15, 0))
+    return {"Body": [("P", -18 * up)], "Neck": [("P", 10 * up)], "Head": [("P", -10 * up + 8 * hiss)],
+            "Tail1": [("P", 22 * up), ("W", 12 * hiss)], "root": [("loc", (0.03 * hiss, 0.02 * up, 0))]}
+
+
+def sample_pose(armature, frame):
+    whole = math.floor(frame)
+    bpy.context.scene.frame_set(whole, subframe=frame - whole)
+    return {pb.name: (pb.location.copy(), pb.rotation_quaternion.copy(), pb.scale.copy()) for pb in armature.pose.bones}
+
+
+def key_layered(armature, frame, base, pose, unit):
+    """Key ``base`` (a sampled source pose) with ``pose`` added: rotations about rig axes at rest, moves in rig heights."""
+    for pb in armature.pose.bones:
+        location, rotation, scale = base[pb.name]
+        rest = pb.bone.matrix_local.to_quaternion()
+        q, offset = Quaternion(), Vector()
+        for axis, value in pose.get(pb.name, ()):
+            if axis == "loc":
+                offset += (FORWARD * value[0] + UP * value[1] + LATERAL * value[2]) * unit
+            else:
+                q = Quaternion(Vector(SOURCE_AXES[axis]), math.radians(value)) @ q
+        pb.rotation_quaternion = rest.inverted() @ q @ rest @ rotation
+        pb.location = location + rest.inverted() @ offset
+        pb.scale = scale
+        for path in ("location", "rotation_quaternion", "scale"):
+            pb.keyframe_insert(path, frame=frame)
+
+
+def layer_clips(animal, armature, sources):
+    heads = [-bone.head_local.y for bone in armature.data.bones]
+    unit = max(heads) - min(heads)
+    layer = {"wolf": wolf_layer, "rat": rat_layer}[animal]
+    actions = {}
+    for clip, (source, warp) in LAYERED[animal].items():
+        slot_for(armature, sources[source])
+        count = warp[-1][0]
+        bases = [sample_pose(armature, warped(warp, t)) for t in range(count + 1)]
+        action = bpy.data.actions.new(clip)
+        slot_for(armature, action)
+        for t, base in enumerate(bases):
+            key_layered(armature, t, base, layer(clip, t), unit)
+        actions[clip] = action
+    return actions
 
 
 # ---------------------------------------------------------------- authored quadrupeds (Blender axes: +X forward, +Z up)
@@ -264,10 +429,71 @@ def boar_pose(clip, u):
         pose = {"Body": [("loc", (0, 0, 0.012 * abs(wave(u, 1)))), (X, 1.5 * wave(u, 1))], "Head": [(Y, 3 * wave(u, 2, 0.25))],
                 "Tail": [(X, 20 * wave(u, 2))]}
         return quad_gait(pose, u, ("HL", "FL", "HR", "FR"), 22, 30)
-    # Eat: rooting, snout ploughing the ground in short shoves.
-    shove = max(0.0, wave(u, 3)) ** 2
-    return {"Body": [(Y, 6), ("loc", (0, 0, -0.02))], "Head": [(Y, 28 + 8 * shove), (Z, 6 * wave(u, 1.5))],
-            "LegFL": [(Y, -8)], "LegFR": [(Y, -8)], "Tail": [(X, 25 * wave(u, 6))]}
+    if clip == "Eat":
+        # Rooting, snout ploughing the ground in short shoves.
+        shove = max(0.0, wave(u, 3)) ** 2
+        return {"Body": [(Y, 6), ("loc", (0, 0, -0.02))], "Head": [(Y, 28 + 8 * shove), (Z, 6 * wave(u, 1.5))],
+                "LegFL": [(Y, -8)], "LegFR": [(Y, -8)], "Tail": [(X, 25 * wave(u, 6))]}
+    return boar_combat(clip, u)
+
+
+def boar_combat(clip, u):
+    if clip == "Run":
+        # A bounding gallop: the hind pair then the fore pair, the back rocking over them.
+        pose = {"Body": [("loc", (0, 0, 0.04 * max(0.0, wave(u, 1, 0.1)))), (Y, 5 * wave(u, 1))], "Head": [(Y, -5 * wave(u, 1, 0.25))],
+                "Tail": [(Y, -40), (X, 15 * wave(u, 2))]}
+        for leg, phase in (("HL", 0.0), ("HR", 0.08), ("FL", 0.5), ("FR", 0.58)):
+            pose[f"Leg{leg}"] = [(Y, -38 * wave(u, 1, phase))]
+            pose[f"Shin{leg}"] = [(Y, 45 * max(0.0, wave(u, 1, phase + 0.25)))]
+        return pose
+    if clip == "Attack_A":
+        # Tusk gore: head drops and the weight rocks back, then the head rips upward as the boar surges in (lands at 9/20).
+        k = lambda *keys: curve(u, (0, 0), *keys, (1, 0))
+        return {"Body": [("loc", (k((0.3, -0.05), (0.45, 0.1), (0.6, 0.08)), 0, k((0.45, 0.03), (0.6, 0.02)))), (Y, k((0.45, -10), (0.6, -8)))],
+                "Head": [(Y, k((0.3, 32), (0.45, -38), (0.6, -30))), (X, k((0.45, 12), (0.6, 8)))],
+                "LegFL": [(Y, k((0.3, 12), (0.45, -18)))], "LegFR": [(Y, k((0.3, 12), (0.45, -18)))],
+                "LegHL": [(Y, k((0.3, -10), (0.45, 22)))], "LegHR": [(Y, k((0.3, -10), (0.45, 22)))],
+                "Tail": [(Y, k((0.2, -50), (0.7, -50)))]}
+    if clip == "Attack_B":
+        # Charge and toss: head down, a stamp of the forefoot, a short charge, then a full toss of the head (15/24).
+        k = lambda *keys: curve(u, (0, 0), *keys, (1, 0))
+        stamp = curve(u, (0.05, 0), (0.12, 1), (0.18, 0), (0.24, 1), (0.3, 0))
+        stride = wave(u, 4) * curve(u, (0.3, 0), (0.35, 1), (0.55, 1), (0.62, 0))
+        pose = {"Body": [("loc", (k((0.3, -0.06), (0.55, 0.16), (0.65, 0.2), (0.8, 0.12)), 0, k((0.55, 0.01), (0.65, 0.05), (0.75, 0.02)))),
+                         (Y, k((0.55, 0), (0.65, -14), (0.8, -6)))],
+                "Head": [(Y, k((0.25, 38), (0.55, 40), (0.65, -48), (0.8, -30))), (X, k((0.65, -14), (0.8, -6)))],
+                "Tail": [(Y, k((0.2, -55), (0.85, -55)))]}
+        for leg, sign in (("FL", 1), ("FR", -1), ("HL", -1), ("HR", 1)):
+            pose[f"Leg{leg}"] = [(Y, -30 * stride * sign + (-35 * stamp if leg == "FR" else 0))]
+        pose["ShinFR"] = [(Y, 50 * stamp)]
+        return pose
+    if clip == "Hit":
+        jolt = curve(u, (0, 0), (0.25, 1), (1, 0))
+        return {"Body": [("loc", (-0.05 * jolt, 0, 0.015 * jolt)), (X, 7 * jolt)], "Head": [(Y, -18 * jolt), (Z, 12 * jolt)], "Tail": [(Y, -30 * jolt)]}
+    if clip == "Death":
+        # Stagger, the forelegs buckle, a heavy roll onto the right side; ends lying still with the legs out.
+        fall = curve(u, (0.25, 0), (0.6, 1))
+        settle = curve(u, (0.6, 0), (0.68, 1), (0.76, 0))
+        buckle = curve(u, (0.1, 0), (0.35, 1), (0.6, 0.3))
+        # The body rolls about its spine, 0.55 m up: sink it by the lower of its hooves and its flank, so neither dips.
+        roll = math.radians(90 * fall)
+        lowest = min(0.55 - 0.12 * math.sin(roll) - 0.55 * math.cos(roll), 0.55 - math.hypot(0.21 * math.sin(roll), 0.27 * math.cos(roll)))
+        pose = {"Body": [("loc", (0, 0, -lowest + 0.02 * settle)), (X, 90 * fall - 4 * settle)],
+                "Head": [(Y, curve(u, (0, 0), (0.15, -25), (0.5, 10), (0.8, 25))), (Z, curve(u, (0.1, 0), (0.25, 15), (0.5, 0)))],
+                "Tail": [(Y, curve(u, (0, 0), (0.6, -10), (1, 0)))]}
+        for leg in ("FL", "FR"):
+            pose[f"Leg{leg}"] = [(Y, 35 * buckle)]
+            pose[f"Shin{leg}"] = [(Y, -40 * buckle + 20 * fall)]
+        for leg in ("HL", "HR"):
+            pose[f"Leg{leg}"] = [(Y, -15 * fall)]
+            pose[f"Shin{leg}"] = [(Y, 15 * fall)]
+        return pose
+    # Alert: head up with a huff and a shake of the tusks, a stamp of the forefoot, bristles up.
+    up = curve(u, (0, 0), (0.2, 1), (0.8, 1), (1, 0))
+    shake = math.sin(2 * math.pi * 3 * u) * curve(u, (0.2, 0), (0.3, 1), (0.55, 1), (0.65, 0))
+    stamp = curve(u, (0.55, 0), (0.65, 1), (0.75, 0))
+    return {"Body": [("loc", (0, 0, 0.012 * up)), (Y, -3 * up)], "Head": [(Y, -18 * up), (Z, 16 * shake)],
+            "LegFR": [(Y, -30 * stamp)], "ShinFR": [(Y, 45 * stamp)], "Tail": [(Y, -60 * up)]}
 
 
 # Per bird: wingbeat degrees, walk style ("hop" or "step"), how far the neck dips to feed.
@@ -302,7 +528,8 @@ def bird_pose(animal, clip, u):
 
 
 CLIP_FRAMES = {
-    "rabbit": {"Idle": 72, "Walk": 14, "Eat": 48}, "boar": {"Idle": 96, "Walk": 28, "Eat": 72},
+    "rabbit": {"Idle": 72, "Walk": 14, "Eat": 48},
+    "boar": {"Idle": 96, "Walk": 28, "Eat": 72, "Run": 16, "Attack_A": 20, "Attack_B": 24, "Hit": 8, "Death": 32, "Alert": 20},
     "crow": {"Idle": 72, "Walk": 16, "Eat": 48, "Fly": 16}, "songbird": {"Idle": 48, "Walk": 10, "Eat": 32, "Fly": 8},
     "duck": {"Idle": 72, "Walk": 18, "Eat": 56, "Fly": 10}, "heron": {"Idle": 96, "Walk": 36, "Eat": 64, "Fly": 28},
 }
@@ -319,7 +546,7 @@ def build_authored(animal, collection):
     for clip, count in CLIP_FRAMES[animal].items():
         action = bpy.data.actions.new(clip)
         slot_for(armature, action)
-        for frame in range(0, count + 1, 1 if count <= 16 else 2):
+        for frame in range(0, count + 1, 1 if count <= 16 or clip in ONE_SHOT else 2):
             key_pose(armature, frame, pose_of(clip, frame / count))
         actions[clip] = action
     for action in actions.values():
@@ -408,6 +635,8 @@ def generate(output_path, arguments, inputs):
         "materials": sorted({s.material.name for m in meshes for s in m.material_slots if s.material}),
         "idleBounds": {"min": gltf(Vector((low.x, high.y, low.z))), "max": gltf(Vector((high.x, low.y, high.z)))},
         "scale": round(root.scale.x, 6), "turnDegrees": ANIMALS[animal]["turn"],
-        "clips": {name: {"frames": frames, "fps": scene.render.fps} for name, frames in measured["frames"].items()},
+        "clips": {name: {"frames": frames, "fps": scene.render.fps, "loop": name not in ONE_SHOT,
+                         **({"contactSeconds": round(CONTACT_FRAMES[animal][name] / FPS, 5)} if name in CONTACT_FRAMES.get(animal, {}) else {})}
+                  for name, frames in measured["frames"].items()},
         "walkTravel": round(measured["travel"], 4),
     }
