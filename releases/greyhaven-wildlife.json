@@ -3,8 +3,8 @@
   "blender": true,
   "lfs": true,
   "budget": {
-    "materials": 64,
+    "materials": 96,
     "textureMemoryMB": 1,
-    "downloadMB": 6
+    "downloadMB": 8
   }
 }

@@ -1,6 +1,6 @@
 # Greyhaven wildlife
 
-The `greyhaven-wildlife` rolling release supplies a stag, a doe, a fox, a rabbit, a wild boar, a crow, a duck, a heron and a songbird for Greyhaven's woods, meadows and river ([#667](https://github.com/moritzbrantner/asset-tooling/issues/667)), and the hostile Timber Wolf, Young Boar and Grain Rat's combat clips ([#715](https://github.com/moritzbrantner/asset-tooling/issues/715), [below](#combat-clips-715)). It follows the [farm animals](greyhaven-farm-animals.md) exactly: the same conventions, the same recipe shape and the same plain skinned-glTF clip convention mmorpg already loads. The game owns placement, wandering, flight paths, fleeing, collision and everything else about behaviour.
+The `greyhaven-wildlife` rolling release supplies a stag, a doe, a fox, a rabbit, a wild boar, a crow, a duck, a heron and a songbird for Greyhaven's woods, meadows and river ([#667](https://github.com/moritzbrantner/asset-tooling/issues/667)), and the hostile Timber Wolf, Young Boar and Grain Rat's combat clips ([#715](https://github.com/moritzbrantner/asset-tooling/issues/715), [below](#combat-clips-715)), plus three more hostile creatures with the same combat set: a brown bear, a giant cave spider and a marsh lurker ([#722](https://github.com/moritzbrantner/asset-tooling/issues/722), [below](#bear-spider-and-marsh-lurker-722)). It follows the [farm animals](greyhaven-farm-animals.md) exactly: the same conventions, the same recipe shape and the same plain skinned-glTF clip convention mmorpg already loads. The game owns placement, wandering, flight paths, fleeing, collision and everything else about behaviour.
 
 | Key (variant `default`) | Source | Catalog source | Size in metres (W × H × D, idle) | Triangles | Joints | Idle / Walk / Eat / Fly (s) |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -15,8 +15,11 @@ The `greyhaven-wildlife` rolling release supplies a stag, a doe, a fox, a rabbit
 | `greyhaven.wild.songbird` | Original, authored by the recipe (robin) | – | 0.11 × 0.17 × 0.24 | 600 | 8 | 2.00 / 0.42 / 1.33 / 0.33 |
 | `greyhaven.wild.wolf` | Quaternius *Ultimate Animated Animals*, `Wolf.glb` (CC0-1.0) | `quaternius.ultimate-animated-animals-wolf-glb` | 0.36 × 0.90 × 1.78 | 1,962 | 51 | 3.33 / 1.04 / 2.50 / – |
 | `greyhaven.wild.rat` | Quaternius *Easy Enemy*, `Rat.glb` (CC0-1.0) | `quaternius.easy-enemy-rat-glb` | 0.20 × 0.30 × 0.90 | 4,004 | 31 | 2.38 / 1.33 / 2.00 / – |
+| `greyhaven.wild.bear` | Original, authored by the recipe (brown bear) | – | 0.75 × 1.30 × 1.97 | 1,096 | 12 | 4.00 / 1.33 / 3.00 / – |
+| `greyhaven.wild.spider` | Original, authored by the recipe (giant cave spider) | – | 0.90 × 0.45 × 1.39 | 1,164 | 20 | 2.00 / 0.50 / 2.00 / – |
+| `greyhaven.wild.marsh-lurker` | Original, authored by the recipe (newt-like marsh predator) | – | 0.75 × 0.30 × 1.52 | 1,332 | 14 | 3.00 / 1.00 / 2.00 / – |
 
-The numbers are from the builds of 2026-11-16 and, for the wolf, rat and combat clips, 2026-11-17; the descriptor carries each build's measurements. The packed tar is about 5.3 MB, mostly sampled animation.
+The numbers are from the builds of 2026-11-16 and, for the wolf, rat and combat clips, 2026-11-17 (the bear, spider and marsh lurker too); the descriptor carries each build's measurements. The packed tar is about 6.5 MB, mostly sampled animation.
 
 - **Why these sources.** The stag, doe, fox and wolf come from the same Quaternius pack as the farm cow, horse and donkey and the ambient dog, so they share its rig layout and clip names. The wolf is the same `Wolf.glb` bytes mmorpg vendors, and the rat the Easy Enemy `Rat.glb` it vendors (the ambient rodent's source), kept grey and hostile-sized here. Each has an authored `Eating` clip, shipped as `Eat`. The stag's antlers are a separate mesh parented to its head bone in the source; the recipe binds them to that bone as a second skinned mesh, so the stag is still one skin.
 - **The rabbit, boar and birds are original.** No catalogued CC0 Quaternius pack has them. Like the farm goat and chicken, they are low-poly rigid parts (ellipsoids and tapered tubes, flat-shaded) on a small armature, every vertex weighted fully to one bone, with plain colour materials and scripted loops. The rabbit's `Walk` is one hop and its `Eat` a head-down nibble; the boar's `Eat` roots with its snout. Every bird shares one eight-bone rig (body, neck, head, tail, two wings, two legs) and one set of clips: `Idle` looks around, `Walk` steps (the songbird hops), `Eat` pecks, and `Fly` unrolls the folded wings flat, sweeps them out and beats them with the legs tucked back.
@@ -37,11 +40,26 @@ The wolf, boar and rat fight players, so they also ship a looping in-place `Run`
 
 Every death ends lying still on its side. Clips stay in place: the wolf's leap and the boar's charge move the body over the footprint and come back, and a consumer moves the root itself. The wolf's and rat's source rigs have no jaw bone, so bites and snarls are head, neck and ear motion. The layered clips (`LAYERED` in the recipe) are a source clip re-timed by a piecewise-linear warp, with a scripted additive pose baked onto every frame; the source rigs' feet are separate root-level bones, so a leap or swipe moves them too.
 
+## Bear, spider and marsh lurker (#722)
+
+Three more hostile creatures for fights in the woods, caves and marsh, each with the full combat set above, `contactSeconds` on the attacks and `hostile` in the descriptor. No catalogued CC0 source has a bear, spider or newt-like creature (the Quaternius animal packs here have none, and the free asset libraries were not used), so all three are original and built like the boar: rigid low-poly parts on a small armature with every clip scripted. The bear (12 joints) has a jaw and four two-bone legs; the spider (20 joints) a cephalothorax, an abdomen, two fangs and eight two-bone legs whose feet a two-bone solve keeps planted while the body rears, lunges or leaps; the marsh lurker (14 joints) a jaw, a three-bone tail and four sprawled legs. Each moves differently: the bear is heavy and slow, the spider skitters, the lurker crawls with a side-to-side wave down its spine. Seconds; contact in brackets.
+
+| Clip | Bear | Spider | Marsh lurker |
+| --- | --- | --- | --- |
+| `Run` (loop) | 0.75, heavy bounding gallop | 0.42, low skitter | 0.58, fast sprawling crawl |
+| `Attack_A` | 0.92 [0.458], paw swipe: rocks back, the right forepaw rises and cocks out, then rakes across as the body twists in, roaring | 0.75 [0.375], fang strike: rears with the forelegs high and the fangs spread, then drops and lunges, forelegs hooking in, fangs driving under the head | 0.75 [0.333], snapping bite: head back and up with the jaw gaping, then a lunge and the jaw slams shut, with a head shake |
+| `Attack_B` | 1.42 [0.833], rear-up double slam: rears onto its hind legs roaring with the forepaws up, then slams both down together as it lunges | 1.00 [0.583], leap: deep crouch, jumps forward with the forelegs reaching and every foot off the ground, lands stabbing down with forelegs and fangs | 1.08 [0.583], tail lash: coils with the tail cocked right, then whips the body round so the tail cracks across to the front-left |
+| `Hit` | 0.33, jolt back, head flinch | 0.33, jolt back, forelegs up | 0.33, jolt back and roll, jaw open |
+| `Death` | 1.50, rears, forelegs buckle, crashes onto its right side | 1.17, twitches, curls its legs in, rolls onto its back with the curled legs up | 1.25, thrashes, rolls belly-up, jaw slack |
+| `Alert` | 1.00, head up to sniff, then low with two jaw-popping huffs as both forepaws slap the ground | 0.83, threat display: rears with the forelegs high and spread, fangs flared, swaying | 0.83, rises on its forelegs, jaw gaping in a trembling hiss, tail raised and lashing |
+
+Unlike the others, the spider and marsh lurker die on their backs. Feet and bodies stay within a few centimetres of the ground through every clip; the bear's leap-free slam moves the body forward over its hind feet and back.
+
 ## Conventions
 
 - Metres, +Y up, right-handed. The head faces **+Z**. The origin is the centre of the idle footprint on the ground (y = 0).
 - One root node per GLB, named by the key. It carries the uniform scale and turn.
-- **In-place** clips: `Idle`, `Walk` and `Eat` on every animal, `Fly` on the four birds and the [combat clips](#combat-clips-715) on the wolf, boar and rat (the walk's measured travel is below 1 mm). Every clip loops except the one-shot `Attack_A`, `Attack_B`, `Hit`, `Death` and `Alert`. `Fly` is posed at standing height; a consumer lifts the root into the air, moves it itself and may speed up the walk to match its pace.
+- **In-place** clips: `Idle`, `Walk` and `Eat` on every animal, `Fly` on the four birds and the [combat clips](#combat-clips-715) on the wolf, boar, rat, bear, spider and marsh lurker (the walk's measured travel is below 1 mm). Every clip loops except the one-shot `Attack_A`, `Attack_B`, `Hit`, `Death` and `Alert`. `Fly` is posed at standing height; a consumer lifts the root into the air, moves it itself and may speed up the walk to match its pace.
 
 ## Build
 
@@ -60,8 +78,8 @@ Attached as `wildlife-descriptor` to `greyhaven.wild.stag/default` and written b
 
 ## Release
 
-CI publishes the rolling `greyhaven-wildlife` release when the recipe merges ([Publishing a rolling release](../README.md#publishing-a-rolling-release)). `releases/greyhaven-wildlife.json` holds its budget (64 materials, 6 MB; measured 60 materials and 5.3 MB).
+CI publishes the rolling `greyhaven-wildlife` release when the recipe merges ([Publishing a rolling release](../README.md#publishing-a-rolling-release)). `releases/greyhaven-wildlife.json` holds its budget (96 materials, 8 MB; measured 80 materials and 6.5 MB).
 
 `test/blender/greyhaven-wildlife/` builds the real bundle and checks the keys, one skin with every mesh skinned and the expected clips per animal, one-shot attacks that land inside their clip, a death of at least a second, grounded and centred bounds, the +Z facing, the heights, in-place walks, the triangle counts, provenance and a byte-identical replay. It skips without Blender or with unhydrated sources.
 
-Review renders at the Greyhaven game camera (12 m, 0.42 rad pitch, 50° field of view), a close-up, the birds in flight and the hostile creatures' attack contacts, alert and final death pose (`combat-game-camera.jpg`, the same crop for each so their sizes compare) are in [`review/greyhaven-wildlife/`](../review/greyhaven-wildlife/).
+Review renders at the Greyhaven game camera (12 m, 0.42 rad pitch, 50° field of view), a close-up, the birds in flight and the hostile creatures' attack contacts, alert and final death pose (`combat-game-camera.jpg` for the wolf, boar and rat, `combat-game-camera-722.jpg` for the bear, spider and marsh lurker, the same crop for each so their sizes compare) are in [`review/greyhaven-wildlife/`](../review/greyhaven-wildlife/).

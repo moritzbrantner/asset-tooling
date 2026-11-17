@@ -1,5 +1,5 @@
-// Greyhaven wildlife (#667, #715, docs/greyhaven-wildlife.md): the recipe turns five hash-pinned CC0 Quaternius sources and
-// six authored animals into a verified gltf-resources-v1 bundle of grounded, forward-facing, metre-sized skinned animals
+// Greyhaven wildlife (#667, #715, #722, docs/greyhaven-wildlife.md): the recipe turns five hash-pinned CC0 Quaternius sources and
+// nine authored animals into a verified gltf-resources-v1 bundle of grounded, forward-facing, metre-sized skinned animals
 // with in-place Idle, Walk and Eat clips (and Fly on the birds), and replays to the same tar. The build skips unless
 // ASSET_TOOLING_BLENDER names Blender 5.2.2 and the canonical sources are hydrated (git lfs pull).
 import test from "node:test";
@@ -28,7 +28,7 @@ for (const { sourceId } of WILD_ANIMALS) {
 const skip = !process.env.ASSET_TOOLING_BLENDER ? "set ASSET_TOOLING_BLENDER to Blender 5.2.2 (snap Blender: TMPDIR under $HOME)"
   : pointers.length ? "requires hydrated canonical animal sources (git lfs pull)" : false;
 /** Greyhaven heights in metres, at the top of each idle pose. */
-const HEIGHTS = { stag: 2.0, doe: 1.45, fox: 0.5, rabbit: 0.3, boar: 0.95, crow: 0.3, duck: 0.36, heron: 0.95, songbird: 0.17, wolf: 0.9, rat: 0.3 } as const;
+const HEIGHTS = { stag: 2.0, doe: 1.45, fox: 0.5, rabbit: 0.3, boar: 0.95, crow: 0.3, duck: 0.36, heron: 0.95, songbird: 0.17, wolf: 0.9, rat: 0.3, bear: 1.3, spider: 0.45, "marsh-lurker": 0.3 } as const;
 
 test("each wildlife spec runs the packaged recipe with the farm recipe, over its pinned source or none when authored", () => {
   const base = { scriptSha256: "a".repeat(64), farmSha256: "c".repeat(64), blenderVersion: "5.2.2" };
@@ -37,7 +37,7 @@ test("each wildlife spec runs the packaged recipe with the farm recipe, over its
   assert.deepEqual(Object.keys(sourced.inputs).sort(), ["farm", "script", "source"]);
   const authored = createWildAnimalAssetSpec({ animal: "heron", file: null, sourceSha256: null, ...base });
   assert.deepEqual(Object.keys(authored.inputs).sort(), ["farm", "script"]);
-  assert.deepEqual(WILD_ANIMALS.map((item) => item.animal), ["stag", "doe", "fox", "rabbit", "boar", "crow", "duck", "heron", "songbird", "wolf", "rat"]);
+  assert.deepEqual(WILD_ANIMALS.map((item) => item.animal), ["stag", "doe", "fox", "rabbit", "boar", "crow", "duck", "heron", "songbird", "wolf", "rat", "bear", "spider", "marsh-lurker"]);
   assert.deepEqual(WILD_CLIPS.wolf, ["Idle", "Walk", "Eat", "Run", "Attack_A", "Attack_B", "Hit", "Death", "Alert"]);
   assert.deepEqual(WILD_CLIPS.duck, ["Idle", "Walk", "Eat", "Fly"]);
   assert.deepEqual(WILD_CLIPS.fox, ["Idle", "Walk", "Eat"]);
@@ -76,7 +76,7 @@ test("the wildlife recipe builds a verified, reproducible bundle of grounded ani
       assert.ok(asset.triangles < 5000, `${entry.animal} keeps a modest triangle count`);
       for (const clip of WILD_CLIPS[entry.animal]) assert.ok(asset.clips[clip].seconds > 0.3, `${entry.animal} ${clip} is a real loop`);
       if (entry.hostile) {
-        // The combat clips (#715): attacks land inside their clip, and the death lies down for at least a second.
+        // The combat clips (#715, #722): attacks land inside their clip, and the death lies down for at least a second.
         for (const clip of ["Attack_A", "Attack_B"]) {
           const { seconds, contactSeconds, loop } = asset.clips[clip];
           assert.equal(loop, false, `${entry.animal} ${clip} is one-shot`);

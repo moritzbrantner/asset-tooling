@@ -1,9 +1,9 @@
-// Greyhaven's wildlife (#667, docs/greyhaven-wildlife.md) and the hostile creatures' combat clips (#715), following the farm
+// Greyhaven's wildlife (#667, docs/greyhaven-wildlife.md) and the hostile creatures' combat clips (#715, #722), following the farm
 // animals' conventions:
 //   ASSET_TOOLING_BLENDER=<blender 5.2.2> bun scripts/build-greyhaven-wildlife.ts --out <directory>
 // Each animal is one external.blender.script@1 run of adapters/blender/wildlife.py, with the farm-animals recipe
 // (adapters/blender/farm_animals.py) as its declared Python input `farm`: the stag, doe, fox, wolf and rat over their hash-pinned
-// CC0 Quaternius catalog payloads (imported offline from hydrated LFS storage), the rabbit, boar and four birds
+// CC0 Quaternius catalog payloads (imported offline from hydrated LFS storage), the rabbit, boar, four birds, bear, spider and marsh lurker
 // authored by the recipe itself. Each GLB is checked through scene.import.gltf@2 and exported as a gltf-resources-v1
 // bundle packed to <directory>/greyhaven.wildlife.tar, next to the measured greyhaven-wildlife-descriptor-v1,
 // lineage.json and export.ref.json.
@@ -53,13 +53,16 @@ export const WILD_ANIMALS = [
   { animal: "songbird", sourceId: null, member: null, bird: true, hostile: false, ...AUTHORED },
   { animal: "wolf", sourceId: "quaternius.ultimate-animated-animals-wolf-glb", member: "Wolf.glb", bird: false, hostile: true, ...UAA, sourceClips: WOLF_CLIPS },
   { animal: "rat", sourceId: "quaternius.easy-enemy-rat-glb", member: "Rat.glb", bird: false, hostile: true, pack: "Quaternius Easy Enemy", file: "source.glb", sourceClips: RAT_CLIPS },
+  { animal: "bear", sourceId: null, member: null, bird: false, hostile: true, ...AUTHORED },
+  { animal: "spider", sourceId: null, member: null, bird: false, hostile: true, ...AUTHORED },
+  { animal: "marsh-lurker", sourceId: null, member: null, bird: false, hostile: true, ...AUTHORED },
 ] as const;
 export type WildAnimal = (typeof WILD_ANIMALS)[number]["animal"];
-/** The hostile creatures' combat clips (#715): a looping in-place Run and one-shot attacks, flinch, death and alert. */
+/** The hostile creatures' combat clips (#715, #722): a looping in-place Run and one-shot attacks, flinch, death and alert. */
 export const COMBAT_CLIPS = ["Run", "Attack_A", "Attack_B", "Hit", "Death", "Alert"] as const;
 export const ONE_SHOT_CLIPS = ["Attack_A", "Attack_B", "Hit", "Death", "Alert"] as const;
-/** Every animal has Idle, Walk and Eat (grazing, rooting, pecking); the birds also a looping wingbeat, Fly; the wolf,
- * boar and rat also the combat clips. */
+/** Every animal has Idle, Walk and Eat (grazing, rooting, pecking); the birds also a looping wingbeat, Fly; the hostile
+ * wolf, boar, rat, bear, spider and marsh lurker also the combat clips. */
 export const WILD_CLIPS: Record<WildAnimal, readonly string[]> = Object.fromEntries(WILD_ANIMALS.map((entry) => [
   entry.animal, ["Idle", "Walk", "Eat", ...(entry.bird ? ["Fly"] : []), ...(entry.hostile ? COMBAT_CLIPS : [])],
 ])) as Record<WildAnimal, readonly string[]>;
@@ -120,7 +123,7 @@ export async function buildGreyhavenWildlife({ outDir, log = () => {} }: { outDi
   const recipeRef = { script: "adapters/blender/wildlife.py", sha256: recipe.sha256, farm: { script: "adapters/blender/farm_animals.py", sha256: farm.sha256 } };
   const descriptor = {
     schema: WILD_DESCRIPTOR_SCHEMA, units: "metre", up: "+Y", facing: "+Z", handedness: "right", origin: "footprint-ground-center",
-    placement: "Cosmetic wildlife, and the hostile wolf, boar and rat's presentation. The consumer owns world placement, wandering, flight paths, fleeing, collision, combat and gameplay; none is implied here.",
+    placement: "Cosmetic wildlife and the hostile creatures' presentation. The consumer owns world placement, wandering, flight paths, fleeing, collision, combat and gameplay; none is implied here.",
     clips: {
       names: ["Idle", "Walk", "Eat", "Fly", ...COMBAT_CLIPS], required: ["Idle", "Walk", "Eat"], birds: ["Fly"], hostile: [...COMBAT_CLIPS],
       oneShot: [...ONE_SHOT_CLIPS], rootMotion: "in-place", loop: "every clip but the oneShot ones",
