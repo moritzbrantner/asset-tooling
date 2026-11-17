@@ -54,7 +54,8 @@ The `humanoid.ranger.male` bundle holds the following.
   - the guards' post idles, the marshal's inspection, the prayer and blessing, the wall lean and the idle breaks ([Post idles and devotions](#post-idles-and-devotions-697));
   - the chopping, mining, herb-picking and skinning loops, the chest opening and the nod, head shake, shrug, clap and two-armed cheer ([Gathering loops and emotes](#gathering-loops-and-emotes-701));
   - the raiders' torch and palisade hacking, the two-handed load carry, the repair, pushing, the lever, the traps and the knockdown ([Raid, repair, push, trap and knockdown clips](#raid-repair-push-trap-and-knockdown-clips-705));
-  - the running and jumping strike per melee weapon and the mace, staff and spear chain additions ([Movement-state strikes](#movement-state-strikes-709)).
+  - the running and jumping strike per melee weapon and the mace, staff and spear chain additions ([Movement-state strikes](#movement-state-strikes-709));
+  - the bare-fist, two-handed maul and bow-in-melee strike sets and the light and heavy hits and three deaths ([Fist, two-handed and bow strikes, hits and deaths](#fist-two-handed-and-bow-strikes-hits-and-deaths-711)).
 
   No clip uses Mixamo data (#399). Mixamo is only a motion reference, so the build needs no local input and both figures publish from CI.
 
@@ -526,6 +527,40 @@ The strokes are authored **upright**, with the body along +Y and facing +Z. Over
 - **Chains:** `Mace_Swing_C` follows `Mace_Swing_A`/`B` and `Staff_Strike_C` follows `Staff_Strike_A`/`B` as the third hit, and `Spear_Thrust_A`/`B` are the spear's two-thrust chain; all four keep the upper body as the #420 chains do and start and end in the first `Idle_Loop` pose.
 - **Review:** shaped and reviewed in the live Blender on the male Ranger (the published figure with its library clips) with the published items above on their sockets.
 
+### Fist, two-handed and bow strikes, hits and deaths (#711)
+
+The same recipe ([`adapters/blender/strike_clips.py`](../adapters/blender/strike_clips.py), `RANGER_STRIKE_CLIPS` and `RANGER_REACT_CLIPS`, the `strike` family) authors three more weapon families with a standing chain, a running and a jumping strike each, and the hit reactions and deaths after them in bundle order. Every strike has the #709 shape: a held anticipation, a strike of three or four frames into the contact and a follow-through that slows; the maul's are the slowest, with the longest hold. The running and jumping strikes follow the #709 running and jumping rules above.
+
+| Clip | Length | Layer | Motion | Contact | Band | Reach |
+| --- | --- | --- | --- | --- | --- | --- |
+| `Unarmed_Jab` | 0.6 s | `spine_01` | From the chin guard, the left fist drawn back a hand, then snapped straight out at the face, turned palm down. | `hand_l` 0.233 s | high | 0.58 m |
+| `Unarmed_Cross` | 0.733 s | `spine_01` | The chest wound to the right and held, then the right fist driven across at the face, the shoulder through. | `hand_r` 0.367 s | high | 0.65 m |
+| `Unarmed_Hook` | 0.733 s | `spine_01` | The left elbow lifted and the chest wound left, then the fist swung round level at the side of the head. | `hand_l` 0.367 s | high | 0.44 m |
+| `Unarmed_Run_Strike` | `Jog_Fwd_Loop` | full body | A shoulder barge: the fists tucked, the right shoulder drawn back, then driven down and through on the right foot's plant. | `upperarm_r` 0.5 s | mid | 0.16 m |
+| `Unarmed_Jump_Strike` | 0.8 s | full body | Both fists clasped overhead and hammered down as the feet touch. | `hand_r` 0.4 s | mid | 0.50 m |
+| `TwoHand_Swing_A` | 1.1 s | `spine_01` | The maul cocked over the right shoulder with its head hanging behind, held, then hewn down across to the left. | `hand_r` 0.6 s | mid | 1.05 m |
+| `TwoHand_Swing_B` | 1.2 s | `spine_01` | Wound to the left hip, held, then a flat backhand sweep across to the right at the waist. | `hand_r` 0.667 s | mid | 1.00 m |
+| `TwoHand_Swing_C` | 1.3 s | `spine_01` | The finisher: hauled overhead until the head hangs behind the back, held, then smashed down the centre line. | `hand_r` 0.733 s | mid | 1.00 m |
+| `TwoHand_Run_Strike` | `Jog_Fwd_Loop` | full body | The maul swung back over the right shoulder, then down across the body on the right foot's plant. | `hand_r` 0.5 s | mid | 1.06 m |
+| `TwoHand_Jump_Strike` | 0.8 s | full body | A ground slam: raised overhead in the air, the head driven into the ground ahead as the feet touch. | `hand_r` 0.4 s | low | 0.84 m |
+| `Bow_Bash_A` | 0.8 s | `spine_01` | The bow drawn back across to the right shoulder and held, then whipped out to the left, its upper limb at the head. | `hand_l` 0.4 s | mid | 1.12 m |
+| `Bow_Bash_B` | 0.9 s | full body | The bow up in guard, the right knee chambered and held, then a push kick driven out at the belly. | `foot_r` 0.433 s | mid | 0.75 m |
+| `Bow_Run_Strike` | `Jog_Fwd_Loop` | full body | The bow cocked across the chest, then backhanded out to the left on the right foot's plant. | `hand_l` 0.5 s | high | 1.10 m |
+| `Bow_Jump_Strike` | 0.8 s | full body | The bow raised high, chopped down with the upper limb as the feet touch. | `hand_l` 0.4 s | mid | 0.90 m |
+
+| Clip | Length | Motion | `react` |
+| --- | --- | --- | --- |
+| `Hit_Light_L`, `Hit_Light_R` | 0.4 s | A flinch from a hit on that side: the chest snaps away and the near shoulder back, the weight shifts on to the far foot, the far arm lifts; back in the idle. | `hitSide` left/right, `peakSeconds` 0.1 |
+| `Hit_Heavy_Front` | 0.7 s | The chest jolted back and the arms thrown forward, the right foot stepping back to catch the weight, then in again and up into the idle. | `hitSide` front, `peakSeconds` 0.098 |
+| `Death_Back` | 1.4 s | Thrown back with the arms flung up, the knees buckling, tipping over on to the back, a small bounce; lying with the arms out and the head rolled aside. | `landSeconds` 0.98, `lies` back |
+| `Death_Fwd` | 1.5 s | Doubled over, the knees giving way, then pitching forward on to the front; lying with the arms out and the head on its cheek. | `landSeconds` 1.11, `lies` front |
+| `Death_Spin` | 1.6 s | Spun round to its right with the arms flung wide, the knees giving way, toppling on to the right side; lying with the left arm thrown over. | `landSeconds` 1.216, `lies` side |
+
+- **`strike` object:** as #709. A fist names its `weapon.joint` (`hand_l` or `hand_r`) instead of an item and strikes with the front of its knuckles; the barge and the kick add `strikeJoint` (`upperarm_r`, `ball_r`), the joint whose position is `tipAt`. The role's `contact` names the striking joint, so a left jab or bow strike is a `hand_l` contact.
+- **The items:** reviewed with `equipment.warhammer.maul` (on `hand_r.weapon`, the left hand on `hand_l.staff` at its `grip.offhand` frame, `offhand.onShaftMeters` -0.22, the strike point its head at 0.68 m) and `equipment.bow.long` on `hand_l.bow` (the strike point its upper limb, 0.62 m up; the right hand a free fist); the bare fists hold nothing.
+- **`react` object:** `hitSide` (where the blow came from), `peakSeconds` (the hit's moment) and, for the deaths, `landSeconds` (the body meets the ground) and `lies` (`back`, `front` or `side`). Reactions have no contact. They are full body and in place: the deaths end lying with the pelvis about 0.4 m from the origin, so a consumer holds the last frame. The feet, knees and hands never go into the ground (a falling limb is lifted at the hip or shoulder, an ankle on to the ground and the foot's ball turned up).
+- **Review:** shaped and reviewed in the live Blender on the male Ranger (the published figure with its library clips) with the published maul and bow on their sockets, and bare-handed.
+
 ## Female Ranger
 
 `--figure female` (#115, owner answer Q1 = A) builds `humanoid.ranger.female` with the same recipe. Its Peasant-based outfits are the tanner (#378) and one fitted knight (#630), over the pack's `Female_Peasant` outfit. It has no headwear or facial-hair catalog; the female knight omits the male bascinet so the full face/jaw range stays exposed. It uses the Universal Base Characters `Superhero_Female_FullBody` head (`keepMeshes: ["Eyebrows", "Eyes"]`) on the full `Female_Ranger` outfit ([humanoid-sources.md](humanoid-sources.md#female-body-and-outfit-115)).
@@ -547,6 +582,8 @@ Both figures are rolling releases that CI builds (#399): merging a change to the
 **Shared figure definition.** The figure's catalog members, appearance sources, head subset, hips, Peasant outfits and texture policy live in [`src/ranger-figure.ts`](../src/ranger-figure.ts), not in the build script. The [hair kit](hair-kit.md) and the [Redbrand kit](redbrand-kit.md), which are fitted to the male figure, read them there. A change to a Ranger clip, weapon or other build step therefore rebuilds only the two figures, and not those kits.
 
 **Fewer draw calls (#517).** The Quaternius outfits ship one mesh per part (pauldron, bracers, belts, boots, legs), so a character drew once per part even where the parts share one material. Before export, the build joins, per material, the primitives of the parts that the appearance never addresses by name ([`src/skinned-part-merge.ts`](../src/skinned-part-merge.ts)). They land on one `merged.<material>` node, with the same skin binding, vertex colours, used UV sets and morph targets (stored sparse where few vertices move). What the appearance names stays separate: the hood, eyebrows, face nodes, and the garments and secondary chains of the variant's own outfit. The renders do not change: six looks of the Pages comparison (archer, Light skin, knight, warden, farmer, posed from three sides) are pixel-identical before and after. Draw calls fall from 13 to 6 for the archer and its Light skin, from 9 to 6 for the knight, by 1–3 for the class outfits, and from 294 to 228 over all male character variants (female: 60 to 34). Each variant's merges are listed under `partMerges` in `lineage.json`.
+
+**Shared clip accessors (#711).** Every channel of a clip keys at the same times, and many channels hold the same rest values, yet the embedded clips gave each sampler its own input and output accessor. With 253 clips that put the clip-carrying `default` entry's glTF JSON over the bundle's 8 MiB budget (`src/asset-bundle-gltf.ts`). Before export the build shares identical accessors in every entry that carries clips (gltf-transform `dedup`). It is lossless: the same channels, keys and clips. Accessors fall from 55,530 to 26,835 (female) and 55,505 to 26,813 (male), and the JSON to 5.35 MB on both figures.
 
 The per-entry download index already records estimated draw calls, triangles, material count, compressed texture memory, RGBA fallback memory and transferred bytes. Compare a rebuilt index with the last accepted one without rerunning Blender or requesting online services:
 

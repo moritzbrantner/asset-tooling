@@ -12,7 +12,8 @@ import { availableParallelism } from "node:os";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import pLimit from "p-limit";
-import { NodeIO, type Animation, type Document, type Node } from "@gltf-transform/core";
+import { NodeIO, PropertyType, type Animation, type Document, type Node } from "@gltf-transform/core";
+import { dedup } from "@gltf-transform/functions";
 import { RANGER_FEMALE_PROPORTIONS, followHead, reproportionDocument, reproportionSockets, type RestChange } from "../src/humanoid-proportions.js";
 import { GLTF_RESOURCES_BUNDLE_PROFILE, exportAssetBundle } from "../src/asset-bundle.js";
 import { ASSET_BUNDLE_REF_FILE, readAssetBundleTar } from "../src/asset-bundle-pack.js";
@@ -410,6 +411,28 @@ export const RANGER_CLIP_ROLES: Readonly<Record<string, { role: string; contact?
   Staff_Strike_C: { role: "staff.strike.overhead", contact: "hand_r" },
   Spear_Thrust_A: { role: "spear.thrust.jab", contact: "hand_r" },
   Spear_Thrust_B: { role: "spear.thrust.high", contact: "hand_r" },
+  // #711: the bare-fist, two-handed and bow-in-melee sets (contact: the striking hand, the barging shoulder or the
+  // kicking foot) and the hit reactions and deaths (src/ranger-clips.ts RANGER_REACT_CLIPS; no contact).
+  Unarmed_Jab: { role: "unarmed.strike.jab", contact: "hand_l" },
+  Unarmed_Cross: { role: "unarmed.strike.cross", contact: "hand_r" },
+  Unarmed_Hook: { role: "unarmed.strike.hook", contact: "hand_l" },
+  Unarmed_Run_Strike: { role: "unarmed.strike.run", contact: "upperarm_r" },
+  Unarmed_Jump_Strike: { role: "unarmed.strike.jump", contact: "hand_r" },
+  TwoHand_Swing_A: { role: "two-hand.strike.diagonal", contact: "hand_r" },
+  TwoHand_Swing_B: { role: "two-hand.strike.backhand", contact: "hand_r" },
+  TwoHand_Swing_C: { role: "two-hand.strike.overhead", contact: "hand_r" },
+  TwoHand_Run_Strike: { role: "two-hand.strike.run", contact: "hand_r" },
+  TwoHand_Jump_Strike: { role: "two-hand.strike.jump", contact: "hand_r" },
+  Bow_Bash_A: { role: "bow.strike.limb", contact: "hand_l" },
+  Bow_Bash_B: { role: "bow.strike.kick", contact: "foot_r" },
+  Bow_Run_Strike: { role: "bow.strike.run", contact: "hand_l" },
+  Bow_Jump_Strike: { role: "bow.strike.jump", contact: "hand_l" },
+  Hit_Light_L: { role: "hit.light.left" },
+  Hit_Light_R: { role: "hit.light.right" },
+  Hit_Heavy_Front: { role: "hit.heavy.front" },
+  Death_Back: { role: "death.back" },
+  Death_Fwd: { role: "death.forward" },
+  Death_Spin: { role: "death.spin" },
 };
 /** The gait loops whose ground speed the `humanoid-clips` attachment records. */
 export const RANGER_GAITS: ReadonlySet<string> = new Set(["Walk_Loop", "Jog_Fwd_Loop", "Sprint_Loop", "Crouch_Fwd_Loop", "Jog_Bwd_Loop", "Walk_Bwd_Loop", "Wade_Fwd_Loop"]);
@@ -1212,6 +1235,19 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
       assets[index] = (await storeAssetObject(root, { bytes: Buffer.from(await io.writeBinary(document)), kind: assets[index]!.kind, mediaType: "model/gltf-binary" })).asset;
     }
     log(`merge same-material parts (${Object.keys(partMerges).length} character variants)`);
+  }
+  // #711: every clip's channels repeat the same key times, and its rest-pose channels the same values; one accessor
+  // each keeps the clip-carrying entry's glTF JSON under the bundle's 8 MiB budget. Lossless: same channels and keys.
+  {
+    const io = new NodeIO();
+    for (const [index, asset] of assets.entries()) {
+      const document = await io.readBinary(new Uint8Array(await resolveAssetObject(root, asset)));
+      if (!document.getRoot().listAnimations().length) continue;
+      const before = document.getRoot().listAccessors().length;
+      await document.transform(dedup({ propertyTypes: [PropertyType.ACCESSOR] }));
+      log(`share identical accessors in ${selections[index]!.key}/${selections[index]!.variant} (${before} -> ${document.getRoot().listAccessors().length})`);
+      assets[index] = (await storeAssetObject(root, { bytes: Buffer.from(await io.writeBinary(document)), kind: asset.kind, mediaType: "model/gltf-binary" })).asset;
+    }
   }
   // #517: the bundle ships KTX2 textures like every kit (docs/kit-standard.md#textures). They are encoded per slot
   // exactly as the per-entry downloads always were (`textureEncoding`, pack-downloads.ts), which pass them through.

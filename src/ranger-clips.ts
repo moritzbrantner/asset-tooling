@@ -133,7 +133,20 @@ export const RANGER_RAID_CLIPS = [
 export const RANGER_STRIKE_CLIPS = [
   "Sword_Run_Strike", "Sword_Jump_Strike", "Mace_Run_Strike", "Mace_Jump_Strike", "Dagger_Run_Strike", "Dagger_Jump_Strike", "Staff_Run_Strike",
   "Staff_Jump_Strike", "Spear_Run_Strike", "Spear_Jump_Strike", "Mace_Swing_C", "Staff_Strike_C", "Spear_Thrust_A", "Spear_Thrust_B",
+  // #711: the bare-fist, two-handed maul and bow-in-melee sets, each a standing chain plus a running and a jumping
+  // strike. The fists strike with the knuckles of the hand that throws them (the barge with the right shoulder), the
+  // maul with its head (the left hand on its `grip.offhand`), the bow with its upper limb from `hand_l.bow` (the kick
+  // with the right foot); `Bow_Bash_B` is full body.
+  "Unarmed_Jab", "Unarmed_Cross", "Unarmed_Hook", "Unarmed_Run_Strike", "Unarmed_Jump_Strike", "TwoHand_Swing_A", "TwoHand_Swing_B",
+  "TwoHand_Swing_C", "TwoHand_Run_Strike", "TwoHand_Jump_Strike", "Bow_Bash_A", "Bow_Bash_B", "Bow_Run_Strike", "Bow_Jump_Strike",
 ] as const;
+/**
+ * #711: hit reactions and deaths played on the victim (health-only rules, so purely presentation), full body and in
+ * place from the first `Idle_Loop` pose, authored by the same recipe after the strikes. The light hits flinch away from
+ * the side named and end in the idle; the heavy hit staggers a step back and recovers; each death falls its own way and
+ * ends lying (`lies`: back, front or side), where the consumer holds the last frame.
+ */
+export const RANGER_REACT_CLIPS = ["Hit_Light_L", "Hit_Light_R", "Hit_Heavy_Front", "Death_Back", "Death_Fwd", "Death_Spin"] as const;
 /**
  * #285: static grip poses authored on the rig by adapters/blender/grip_poses.py. Each clip keys only the finger and
  * thumb rotations of one hand; a consumer plays it over the body clip's finger channels while that hand's socket holds
@@ -528,19 +541,27 @@ export const RANGER_CLIP_FAMILIES: readonly ClipFamily[] = [
     },
   },
   {
-    id: "strike", script: "strike_clips.py", clips: RANGER_STRIKE_CLIPS,
+    id: "strike", script: "strike_clips.py", clips: [...RANGER_STRIKE_CLIPS, ...RANGER_REACT_CLIPS],
     arguments: ({ socket }) => {
       const at = socketAt(socket);
       return {
-        schemaVersion: 1, clips: [...RANGER_STRIKE_CLIPS],
-        sockets: { weapon: at("hand_r.weapon"), offhand: at("hand_l.weapon"), shield: at("hand_l.shield"), staff: at("hand_r.staff"), staffLeft: at("hand_l.staff") },
+        schemaVersion: 1, clips: [...RANGER_STRIKE_CLIPS, ...RANGER_REACT_CLIPS],
+        sockets: {
+          weapon: at("hand_r.weapon"), offhand: at("hand_l.weapon"), shield: at("hand_l.shield"), staff: at("hand_r.staff"), staffLeft: at("hand_l.staff"),
+          bow: at("hand_l.bow"),
+        },
       };
     },
     clip: (name, family) => {
       // The standing strikes list their joints; the weapon, the contact's strike point, band and reach and the jump's
       // hand-off go to the clip's `strike` object and the chain pose beside it. The contact is the authored strike.
+      // #711: a reaction's side, peak and fall go to its `react` object instead; it has no contact.
       const { joints, source, secondaryPose, ...observed } = family.clips[name] as Json;
-      const strike = pickKeys(observed, ["weapon", "offhand", "contactSeconds", "tipAt", "band", "reachMeters", "landSeconds", "from", "to"]);
+      if (observed.contactSeconds === undefined) {
+        const react = pickKeys(observed, ["hitSide", "peakSeconds", "landSeconds", "lies"]);
+        return { authored: { recipe: family.recipe, clip: name, fps: family.fps, ...observed }, basedOn: source as string, extra: { fields: { react, secondaryPose } } };
+      }
+      const strike = pickKeys(observed, ["weapon", "offhand", "strikeJoint", "contactSeconds", "tipAt", "band", "reachMeters", "landSeconds", "from", "to"]);
       return {
         ...(joints ? { keep: joints as string[] } : {}),
         authored: { recipe: family.recipe, clip: name, fps: family.fps, ...observed }, basedOn: source as string,
