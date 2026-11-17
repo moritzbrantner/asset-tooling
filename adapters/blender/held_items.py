@@ -647,6 +647,136 @@ def spear_pike(b):
     langets(b, 1.5, 1.76, 0.0135)
     b.lathe([(1.74, 0.017), (1.84, 0.014)], 6, "iron")
     blade(b, 0.2, 0.021, 0.006, "steel", base=1.84, tip=0.5, widen=0.9)
+
+
+# ---------------------------------------------------------------- carried loads (#735)
+# Two-handed loads on chest.carry (docs/humanoid-sockets.md): the origin is the middle of the load's face against the
+# chest, +Y up, +Z out of the chest. Carry_Idle_Loop and Carry_Walk_Loop put the palms on the load's sides at
+# (±0.18, −0.08, 0.12), so every load is 0.36 m wide there and only flares above the forearms.
+
+
+def oval(y, ax, az, n, cz, power=2.5, wobble=0.0, lobes=5, phase=0.0):
+    """A ring at height ``y`` round (0, y, cz), wound like ``lathe``: a superellipse with half-widths ``ax`` (X) and
+    ``az`` (Z), its radius rippled by ``wobble`` with ``lobes`` waves."""
+    ring = []
+    for s in range(n):
+        a = 2 * math.pi * s / n
+        c, d = math.cos(a), math.sin(a)
+        k = (abs(c) ** power + abs(d) ** power) ** (-1 / power) * (1 + wobble * math.sin(lobes * a + phase))
+        ring.append((ax * c * k, y, cz - az * d * k))
+    return ring
+
+
+def apples(b, spots, mats=("paint.red",)):
+    for k, (x, y, z, r) in enumerate(spots):
+        b.ball((x, y, z), r, mats[k % len(mats)], n=8, rows=4, squash=(1, 0.88, 1))
+
+
+def load_crate(b):
+    # A slatted crate, 0.36 × 0.26 × 0.26 m like the clips' reference crate, heaped with apples.
+    w, h, d = 0.18, 0.13, 0.26
+    for x in (-w + 0.015, w - 0.015):
+        for z in (0.015, d - 0.015):
+            b.box((x - 0.015, -h, z - 0.015), (x + 0.015, h, z + 0.015), "wood.dark")
+    for y in (-0.085, 0.0, 0.085):
+        for x in (-w, w - 0.012):
+            b.box((x, y - 0.026, 0.03), (x + 0.012, y + 0.026, d - 0.03), "wood")
+        for z in (0.0, d - 0.012):
+            b.box((-w + 0.03, y - 0.026, z), (w - 0.03, y + 0.026, z + 0.012), "wood")
+    b.box((-w + 0.012, -h + 0.005, 0.012), (w - 0.012, 0.1, d - 0.012), "wood.dark")
+    apples(b, [(-0.1, 0.125, 0.07, 0.045), (0.0, 0.135, 0.08, 0.048), (0.1, 0.125, 0.065, 0.045), (-0.09, 0.13, 0.18, 0.046),
+               (0.015, 0.14, 0.17, 0.05), (0.11, 0.125, 0.19, 0.044), (-0.04, 0.17, 0.125, 0.044)])
+
+
+def load_sack(b):
+    # A slumped burlap grain sack, gathered and tied at the neck with a tuft above the cord.
+    n, cz = 12, 0.14
+    profile = [(-0.21, 0.135, 0.085, 0.02), (-0.18, 0.185, 0.11, 0.05), (-0.08, 0.18, 0.13, 0.04), (0.0, 0.163, 0.12, 0.06),
+               (0.08, 0.122, 0.098, 0.06), (0.15, 0.062, 0.05, 0.02), (0.185, 0.035, 0.03, 0.0), (0.2, 0.035, 0.03, 0.0)]
+    rings = [oval(y, ax, az, n, cz + 0.08 * max(0.0, y) + 0.35 * max(0.0, -0.08 - y), wobble=wob, lobes=3, phase=y * 9) for y, ax, az, wob in profile]
+    b.loft(rings, "parchment", caps=(True, False))
+    top = cz + 0.016
+    b.loft([oval(0.2, 0.035, 0.03, n, top), oval(0.225, 0.065, 0.055, n, top + 0.005, wobble=0.15, lobes=4),
+            oval(0.245, 0.045, 0.04, n, top + 0.01, wobble=0.2, lobes=4), [(0.0, 0.252, top + 0.01)]], "parchment", caps=(False, False))
+    b.loft([oval(0.178, 0.046, 0.04, 8, cz + 0.015, power=2), oval(0.204, 0.046, 0.04, 8, cz + 0.016, power=2)], "fuse", caps=(False, False))
+
+
+def load_firewood(b):
+    # A bundle of split logs, ends out from the chest, tied with two ropes.
+    logs = [(-0.12, -0.1, 0.05), (-0.04, -0.105, 0.05), (0.04, -0.1, 0.05), (0.12, -0.105, 0.05),
+            (-0.085, -0.015, 0.048), (0.0, -0.02, 0.05), (0.085, -0.015, 0.048), (-0.04, 0.07, 0.046), (0.045, 0.068, 0.046)]
+    for k, (x, y, r) in enumerate(logs):
+        turn = 0.7 * k
+        if k % 3 == 1:  # a split quarter: the bark arc and the two split faces
+            outline = [(x + 0.35 * r * math.cos(turn + math.pi), y + 0.35 * r * math.sin(turn + math.pi))]
+            outline += [(x + r * math.cos(turn + a), y + r * math.sin(turn + a)) for a in (-1.3, -0.45, 0.45, 1.3)]
+        else:
+            outline = [(x + r * (0.82 + 0.18 * ((3 * i + k) % 4) / 3) * math.cos(turn + 2 * math.pi * i / 6),
+                        y + r * (0.82 + 0.18 * ((3 * i + k) % 4) / 3) * math.sin(turn + 2 * math.pi * i / 6)) for i in range(6)]
+        b.prism(outline, 0.01 + 0.02 * (k % 3), 0.47 + 0.025 * ((2 * k) % 3), "wood", cap_mat="parchment")
+    for z in (0.22, 0.4):
+        with b.at(T(0, -0.02, z) @ rot("X", 90) @ Matrix.Diagonal((0.178, 1, 0.142, 1))):
+            b.lathe([(-0.012, 1.0), (0.012, 1.0)], 10, "fuse", caps=(False, False))
+
+
+def load_hay(b):
+    # An armful of loose hay: narrow where the hands hold it, bulging wide across the forearms with a ragged outline,
+    # and tufts of flat stalks fanning out of the bulge and drooping at their tips.
+    n, cz = 18, 0.15
+    profile = [(-0.13, 0.11, 0.08, 0.04), (-0.105, 0.165, 0.12, 0.05), (-0.08, 0.172, 0.135, 0.03), (-0.04, 0.19, 0.145, 0.06),
+               (0.01, 0.225, 0.15, 0.1), (0.06, 0.255, 0.142, 0.12), (0.11, 0.21, 0.115, 0.12), (0.15, 0.12, 0.07, 0.1)]
+    rings = [oval(y, ax, az, n, cz, power=2.2, wobble=wob, lobes=7 + 2 * (k % 2), phase=1.7 * k) for k, (y, ax, az, wob) in enumerate(profile)]
+    b.loft(rings + [[(0.0, 0.17, cz)]], "fuse", cap_mat="fuse")
+    for k in range(16):
+        a = 2 * math.pi * k / 16 + 0.2
+        if math.sin(a) > 0.3:  # none toward the chest
+            continue
+        y = 0.0 + 0.05 * ((5 * k) % 3)
+        base = Vector((0.2 * math.cos(a), y, cz - 0.12 * math.sin(a)))
+        length = 0.11 + 0.03 * ((7 * k) % 3)
+        for s in (-1, 0, 1):
+            turn = a + 0.22 * s
+            out = Vector((math.cos(turn), -0.3 + 0.15 * s * s, -0.8 * math.sin(turn))).normalized()
+            side = Vector((0, 1, 0)).cross(out).normalized() * 0.014
+            b.face(b.add([base - side, base + side, base + out * length]), "parchment" if (k + s) % 2 else "fuse")
+
+
+def load_basket_large(b):
+    # A two-handled oval wicker harvest basket: narrow at the base where the hands hold it, flaring to a rolled rim,
+    # heaped with apples and turnips.
+    n, cz = 16, 0.16
+
+    def wall(y):
+        u = (y + 0.14) / 0.22
+        return oval(y, 0.15 + 0.075 * u, 0.1 + 0.05 * u, n, cz)
+    heights = [-0.14, -0.1, -0.06, -0.02, 0.02, 0.06]
+    for k, (y0, y1) in enumerate(zip(heights, heights[1:])):
+        b.loft([wall(y0), wall(y1)], "fuse" if k % 2 == 0 else "cork", caps=(False, False))
+    b.face(list(reversed(b.add(wall(-0.14)))), "cork")
+    b.loft([wall(0.06), oval(0.075, 0.232, 0.156, n, cz), oval(0.085, 0.222, 0.146, n, cz), oval(0.07, 0.212, 0.138, n, cz)], "cork", caps=(False, False))
+    b.face(b.add(oval(0.062, 0.21, 0.138, n, cz)), "wood.dark")
+    apples(b, [(-0.12, 0.08, 0.13, 0.045), (-0.05, 0.09, 0.09, 0.047), (0.03, 0.085, 0.12, 0.045), (0.11, 0.08, 0.17, 0.046),
+               (-0.07, 0.085, 0.21, 0.044), (0.02, 0.095, 0.21, 0.048), (0.13, 0.075, 0.09, 0.042), (-0.01, 0.125, 0.15, 0.046)],
+           ("paint.red", "parchment", "paint.red", "bone"))
+    for side in (1, -1):
+        loop = [(side * 0.215, 0.075, 0.115), (side * 0.245, 0.08, 0.125), (side * 0.255, 0.085, 0.16), (side * 0.245, 0.08, 0.195), (side * 0.215, 0.075, 0.205)]
+        for p, q in zip(loop, loop[1:]):
+            b.rod(p, q, 0.011, 0.011, 4, "fuse")
+
+
+def load_water_jug(b):
+    # A big unglazed clay jug hugged to the chest: a round belly, a narrow neck with a lip and stopper, two pale slip
+    # bands and a strap handle on the far side.
+    cz = 0.185
+    with b.at(T(0, 0, cz)):
+        b.lathe([(-0.2, 0.0), (-0.2, 0.11), (-0.16, 0.158), (-0.08, 0.185), (0.0, 0.178), (0.07, 0.14), (0.115, 0.075), (0.14, 0.046),
+                 (0.185, 0.044), (0.198, 0.056), (0.205, 0.05)], 12, "cork", caps=(False, True))
+        for y, r in ((-0.02, 0.184), (0.03, 0.165)):
+            b.lathe([(y - 0.008, r + 0.002), (y + 0.008, r + 0.001)], 12, "bone", caps=(False, False))
+        b.lathe([(0.195, 0.036), (0.232, 0.032)], 8, "wood")
+    handle = [(0, 0.17, cz + 0.042), (0, 0.18, cz + 0.1), (0, 0.15, cz + 0.145), (0, 0.085, cz + 0.155)]
+    for p, q in zip(handle, handle[1:]):
+        b.rod(p, q, 0.013, 0.013, 5, "cork")
 # ---------------------------------------------------------------- catalogue
 
 # item: (builder, roles, frames beyond grip as {name: (x, y, z)}, triangle budget)
@@ -698,6 +828,12 @@ ITEMS = {
     "polearm.halberd": (polearm_halberd, ["staff", "spear"], {"grip.offhand": (0, 0.45, 0)}, 400),
     "polearm.glaive": (polearm_glaive, ["staff", "spear"], {"grip.offhand": (0, 0.45, 0)}, 300),
     "spear.pike": (spear_pike, ["staff", "spear"], {"grip.offhand": (0, 0.45, 0)}, 300),
+    "load.crate": (load_crate, ["load"], {}, 600),
+    "load.sack": (load_sack, ["load"], {}, 400),
+    "load.firewood": (load_firewood, ["load"], {}, 400),
+    "load.hay": (load_hay, ["load"], {}, 400),
+    "load.basket-large": (load_basket_large, ["load"], {}, 800),
+    "load.water-jug": (load_water_jug, ["load"], {}, 400),
 }
 
 

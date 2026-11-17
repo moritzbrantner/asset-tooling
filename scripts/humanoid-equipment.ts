@@ -80,8 +80,9 @@ export const RANGER_HEADWEAR: readonly { key: string; piece: HeadwearPiece; labe
 ];
 /**
  * #661: weapon variety and residents' hand tools from the fixed-design `held_items.py` recipe. Each declares the roles
- * the existing sockets accept (`one-hand-weapon`, `staff`, `shield`, `book`), plus a descriptive second role where it
- * helps (`two-hand-weapon`, `spear`, `tool`, `carried`), and two-handed pieces a `grip.offhand` frame.
+ * the existing sockets accept (`one-hand-weapon`, `staff`, `shield`, `book`, and #735's `load` on `chest.carry`), plus a
+ * descriptive second role where it helps (`two-hand-weapon`, `spear`, `tool`, `carried`), and two-handed pieces a
+ * `grip.offhand` frame.
  */
 export const RANGER_HELD_ITEMS: readonly { key: string; item: string }[] = [
   "sword.footman", "sword.falchion", "sword.longsword", "sword.bastard", "dagger.plain", "dagger.seax",
@@ -93,9 +94,11 @@ export const RANGER_HELD_ITEMS: readonly { key: string; item: string }[] = [
   "tool.pickaxe", "tool.sickle", "tool.skinning-knife", "tool.hand-saw", "tool.mallet", "tool.rake", "tool.scythe",
   // #719: the heavy weapons for the two-handed and spear clips.
   "sword.great", "axe.great", "hammer.great", "polearm.halberd", "polearm.glaive", "spear.pike",
+  // #735: the two-handed loads residents carry on `chest.carry`.
+  "load.crate", "load.sack", "load.firewood", "load.hay", "load.basket-large", "load.water-jug",
 ].map((item) => ({ key: `equipment.${item}`, item }));
 /** The roles the Ranger sockets accept, one of which every held item lists first. */
-export const SOCKET_ROLES = ["one-hand-weapon", "staff", "shield", "book"] as const;
+export const SOCKET_ROLES = ["one-hand-weapon", "staff", "shield", "book", "load"] as const;
 type HeldObservations = { roles: string[]; frames: Record<string, [number, number, number]>; triangleCount: number; bounds: { min: number[]; max: number[] } };
 
 /** A held item's `humanoid-item-v2` descriptor: its roles, the identity `grip` and any further frames it declares. */
