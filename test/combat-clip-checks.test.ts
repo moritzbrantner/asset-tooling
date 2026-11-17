@@ -43,6 +43,9 @@ function figure() {
   // Clean: the hand creeps for the wind-up (10 frames, 1 cm each) and strikes in three (20 cm each), out to the side.
   const swing = (x: number) => (frame: number) => [x, .1, .4 + (frame <= 10 ? frame * .01 : .1 + (frame - 10) * .2)];
   clip("Clean_Strike", { hand_r: swing(-.6), ball_l: () => [0, -.43, .1] });
+  // An in-place run at 6 m/s: the left ball moves back with the ground (20 cm a frame); a short stride's at half that.
+  clip("Run", { ball_l: (frame) => [0, -.43, .1 - frame * .2] });
+  clip("Short_Run", { ball_l: (frame) => [0, -.43, .1 - frame * .1] });
   // The blade held upright at the chest, the left ball sliding 1 cm a frame, the hand at one speed throughout.
   clip("Bad_Strike", { hand_r: (frame) => [-.02, .1, .02 + frame * .02], ball_l: (frame) => [0, -.43, .1 + frame * .01] });
   // mmorpg#804: every key clear of the body, the hand crossing in front of it from one key to the next.
@@ -104,4 +107,15 @@ test("mmorpg#804: a strike without a strike object is checked with its role fami
   assert.equal(combatCheckEntry({ ...clip, role: "bow.shot" }), undefined);
   const recorded = entry("Clean_Strike");
   assert.equal(combatCheckEntry(recorded), recorded);
+});
+
+test("#804: an in-place gait's planted ball keeps pace with the ground its travel stands for, and a short stride fails", () => {
+  const gait = (name: string) => ({ name, durationSeconds: .4, footPlants: { l: [[0, .2]] }, sourceRootDisplacement: { x: 0, y: 0, z: 2.4 } });
+  const run = checkCombatClip(figure(), gait("Run"), SOCKETS);
+  assert.ok(run.feet!.ok && run.feet!.worstMeters < 1e-6, JSON.stringify(run.feet));
+  assert.equal(run.clearance, undefined);
+  assert.equal(run.timing, undefined);
+  const short = checkCombatClip(figure(), gait("Short_Run"), SOCKETS);
+  assert.equal(short.feet!.ok, false);
+  assert.ok(Math.abs(short.feet!.worstMeters - .6) < 1e-3, JSON.stringify(short.feet));
 });

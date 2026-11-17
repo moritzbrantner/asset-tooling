@@ -72,7 +72,7 @@ test("the Ranger retargets the library clips in bundle order, then authors its o
   // #112, #399: the walk and jog directional family, start/stop and turns, all authored (no Mixamo input).
   assert.deepEqual([...RANGER_GAIT_CLIPS], [
     "Jog_Bwd_Loop", "Jog_Strafe_Left_Loop", "Jog_Strafe_Right_Loop", "Walk_Bwd_Loop", "Walk_Strafe_Left_Loop", "Walk_Strafe_Right_Loop",
-    "Walk_Start", "Walk_Stop", "Turn_Left", "Turn_Right",
+    "Walk_Start", "Walk_Stop", "Turn_Left", "Turn_Right", "Run_Fwd_Loop", "Run_Strafe_Left_Loop", "Run_Strafe_Right_Loop",
   ]);
   assert.ok(RANGER_GAIT_CLIPS.every((name) => !names.includes(name)));
   // #399: the upper-body hits and the shove, with their roles.

@@ -9,11 +9,12 @@ type Json = Record<string, any>;
  * #112, #399 (owner answers 2026-10-18 and 2026-10-29, Atlas 6.1.7): original directional gaits, walk start/stop and
  * turns authored in Blender (adapters/blender/gait_clips.py) from the CC0 UAL1 `Jog_Fwd_Loop`, `Walk_Loop` and
  * `Idle_Loop` and explicit foot trajectories. The walk and jog clips are one matched family (same stance, the same
- * swing phases at foot plant). No Mixamo data. They follow the library clips in bundle order.
+ * swing phases at foot plant). No Mixamo data. They follow the library clips in bundle order. #804: `Run_Fwd_Loop` and
+ * the `Run_Strafe_*_Loop` side-runs are a stride authored at the game's 6.3 m/s run, over the `Sprint_Loop` arms.
  */
 export const RANGER_GAIT_CLIPS = [
   "Jog_Bwd_Loop", "Jog_Strafe_Left_Loop", "Jog_Strafe_Right_Loop", "Walk_Bwd_Loop", "Walk_Strafe_Left_Loop", "Walk_Strafe_Right_Loop",
-  "Walk_Start", "Walk_Stop", "Turn_Left", "Turn_Right",
+  "Walk_Start", "Walk_Stop", "Turn_Left", "Turn_Right", "Run_Fwd_Loop", "Run_Strafe_Left_Loop", "Run_Strafe_Right_Loop",
 ] as const;
 /**
  * #399: hit reactions authored in Blender (adapters/blender/hit_clips.py) from the first `Idle_Loop` pose. The
@@ -349,7 +350,9 @@ function bowFamily(id: string, clips: readonly string[], { releaseContact = fals
 
 /** The authored clip families, in bundle order after the retargeted library clips. */
 export const RANGER_CLIP_FAMILIES: readonly ClipFamily[] = [
-  nameOnly("gait", "gait_clips.py", RANGER_GAIT_CLIPS),
+  // #804: the runs record the ground speed they were authored at and their planted spans.
+  nameOnly("gait", "gait_clips.py", RANGER_GAIT_CLIPS, (observed) =>
+    observed.footPlants ? { fields: pickKeys(observed, ["groundSpeedMetersPerSecond", "footPlants"]) } : undefined),
   bowFamily("bow", RANGER_BOW_CLIPS),
   {
     id: "grips", script: "grip_poses.py", clips: RANGER_GRIPS.map((grip) => grip.clip), linear: true,

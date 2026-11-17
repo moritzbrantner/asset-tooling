@@ -54,6 +54,8 @@ export const STRIKE_SPEED_RATIO = 3;
 /** What a check reads from a clip's `humanoid-clips` entry: its strike object and duration. */
 export type CombatClipEntry = {
   name: string; durationSeconds: number;
+  /** An in-place gait's planted spans (#804): its balls move back with the ground, at `sourceRootDisplacement` over the clip. */
+  footPlants?: Record<string, number[][]>; sourceRootDisplacement?: { x: number; y: number; z: number };
   strike?: {
     weapon?: { item?: string; socket?: string; strikePoint?: number[]; joint?: string };
     contactSeconds?: number; windupEnd?: number; recoveryStart?: number; footPlants?: Record<string, number[][]>;
@@ -181,9 +183,9 @@ const position = (matrix: Mat4): Vec3 => [matrix[12]!, matrix[13]!, matrix[14]!]
 /**
  * Check one clip (`entry` from `humanoid-clips`) of `document` against the standard. `sockets` are the figure's
  * `humanoid-sockets` entries. A check the clip gives no data for is left out of the report: clearance needs an item of
- * `COMBAT_ITEM_CAPSULES`, the planted feet `strike.footPlants`, the timing `strike.contactSeconds`. The joints a clip
- * does not key (an upper-body clip's legs) stand in `base`'s first pose, the idle the game layers it over. With
- * `substeps` (`CLEARANCE_SUBSTEPS`) the clearance is also checked between the keys.
+ * `COMBAT_ITEM_CAPSULES`, the planted feet `strike.footPlants` or a gait's `footPlants`, the timing
+ * `strike.contactSeconds`. The joints a clip does not key (an upper-body clip's legs) stand in `base`'s first pose, the
+ * idle the game layers it over. With `substeps` (`CLEARANCE_SUBSTEPS`) the clearance is also checked between the keys.
  */
 export function checkCombatClip(document: Document, entry: CombatClipEntry, sockets: readonly { id: string; joint: string; translation: number[]; rotation: number[] }[],
   { rate = 30, base = "Idle_Loop", substeps = 1 }: { rate?: number; base?: string; substeps?: number } = {}): CombatClipReport {
@@ -230,14 +232,20 @@ export function checkCombatClip(document: Document, entry: CombatClipEntry, sock
     if (worst) report.clearance = { ...worst, worstMeters: round(worst.worstMeters), ok: worst.worstMeters <= CLEARANCE_TOLERANCE, startMeters: round(start) };
   }
 
-  if (strike.footPlants) {
+  const footPlants = strike.footPlants ?? entry.footPlants;
+  if (footPlants) {
+    // An in-place gait's planted ball moves back with the ground, against the travel its clip stands for (#804).
+    const travel = strike.footPlants || !entry.sourceRootDisplacement ? [0, 0, 0]
+      : [entry.sourceRootDisplacement.x / entry.durationSeconds, 0, entry.sourceRootDisplacement.z / entry.durationSeconds];
     let worst: FootReport = { worstMeters: 0, foot: "", span: [], ok: true };
-    for (const [foot, spans] of Object.entries(strike.footPlants)) {
+    for (const [foot, spans] of Object.entries(footPlants)) {
       for (const span of spans) {
         const [a, b] = span.map((time) => Math.round(time * rate)) as [number, number];
         const start = position(worlds[a]!.get(`ball_${foot}`)!);
         for (let frame = a; frame <= Math.min(b, worlds.length - 1); frame += 1) {
-          const drift = length(sub(position(worlds[frame]!.get(`ball_${foot}`)!), start));
+          const since = (frame - a) / rate;
+          const ground: Vec3 = [start[0] - travel[0]! * since, start[1], start[2] - travel[2]! * since];
+          const drift = length(sub(position(worlds[frame]!.get(`ball_${foot}`)!), ground));
           if (drift > worst.worstMeters) worst = { worstMeters: drift, foot, span, ok: false };
         }
       }

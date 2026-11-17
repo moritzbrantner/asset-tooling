@@ -3,10 +3,11 @@
 //
 //   bun scripts/check-combat-clips.ts <character .glb/.gltf or clips .glb> <humanoid-clips.json> <humanoid-sockets.json> [clip ...] [--json] [--between]
 //
-// Without clip names it checks every clip with a `strike` object, the library sword strikes and the cast recipe's staff
-// and mace strikes (which have none: they are checked with their role's item and their measured contact, and the clips
-// of `RANGER_CLEARANCE_CLIPS` with their planted feet; `combatCheckEntry`). Prints one line per clip and the reports as
-// JSON with --json. Those clips, and every clip with --between, are also checked between their keys (`CLEARANCE_SUBSTEPS`).
+// Without clip names it checks every clip with a `strike` object or a gait's `footPlants` (#804), the library sword
+// strikes and the cast recipe's staff and mace strikes (which have none: they are checked with their role's item and
+// their measured contact, and the clips of `RANGER_CLEARANCE_CLIPS` with their planted feet; `combatCheckEntry`). Prints
+// one line per clip and the reports as JSON with --json. Those clips, and every clip with --between, are also checked
+// between their keys (`CLEARANCE_SUBSTEPS`).
 import { readFile } from "node:fs/promises";
 import { NodeIO } from "@gltf-transform/core";
 import { ALL_EXTENSIONS } from "@gltf-transform/extensions";
@@ -37,7 +38,7 @@ if (import.meta.main) {
   const clips = JSON.parse(await readFile(clipsFile, "utf8")).clips as Json[];
   const sockets = JSON.parse(await readFile(socketsFile, "utf8")).sockets;
   const entries = clips
-    .map((clip) => combatCheckEntry(clip as never, RANGER_CLEARANCE_CLIPS[clip.name]?.footPlants) ?? (names.includes(clip.name) ? clip : undefined))
+    .map((clip) => combatCheckEntry(clip as never, RANGER_CLEARANCE_CLIPS[clip.name]?.footPlants) ?? (clip.footPlants || names.includes(clip.name) ? clip : undefined))
     .filter((entry): entry is NonNullable<typeof entry> => entry !== undefined && (!names.length || names.includes(entry.name)));
   const reports = entries.map((entry) => checkCombatClip(document, entry, sockets, { substeps: between || entry.name in RANGER_CLEARANCE_CLIPS ? CLEARANCE_SUBSTEPS : 1 }));
   if (json) console.log(JSON.stringify(reports, null, 2));

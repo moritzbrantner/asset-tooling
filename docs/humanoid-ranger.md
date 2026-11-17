@@ -39,7 +39,7 @@ The `humanoid.ranger.male` bundle holds the following.
 - **No character levels of detail (#516):** the character variants ship only at full detail; the owner dropped their `lod1`/`lod2` on 2026-11-08, superseding #123 answer A for characters. The throwables keep their item levels ([levels-of-detail.md](levels-of-detail.md#characters)).
 - **Clips:** they ship once, embedded in `default`. Every other character variant shares the same joints and rest pose, and plays them by joint name. Every clip is in place. In bundle order:
   - the UAL1/UAL2 library clips retargeted with 3d-lab (idle, walk, the run gaits, sword, shield, death, the #112 traversal clips and the #114 combat clips with their roles);
-  - the authored gait clips: the jog and walk directional family `Jog_Bwd_Loop`, `Jog_Strafe_*`, `Walk_Bwd_Loop`, `Walk_Strafe_*`, then `Walk_Start`, `Walk_Stop` and `Turn_*` ([Authored gait clips](#authored-gait-clips));
+  - the authored gait clips: the jog and walk directional family `Jog_Bwd_Loop`, `Jog_Strafe_*`, `Walk_Bwd_Loop`, `Walk_Strafe_*`, then `Walk_Start`, `Walk_Stop`, `Turn_*` and the 6.3 m/s runs `Run_Fwd_Loop` and `Run_Strafe_*` ([Authored gait clips](#authored-gait-clips));
   - the authored bow clips ([Authored bow clips](#authored-bow-clips));
   - the static finger grip poses `Grip_*` for held items ([Grip poses](#grip-poses-285));
   - the authored water clips ([Water clips](#water-clips-393));
@@ -169,6 +169,17 @@ Short accessory-bone chains on the male figure's long hair, beards and loose gar
 In the strafes, each foot follows an explicit in-place trajectory. A planted foot slides against the travel direction at the reference speed. The lead foot swings out (phases 0.6 to 1.0, so it plants at phase 0). The trail foot swings in (0.3 to 0.55) and lands 12 cm short of the lead foot, so the legs never cross. A two-bone solve keeps the knees forward and the feet level, and the pelvis drops as far as the spread legs need. The upper body keeps the source loop's mean posture, with the swing damped to 45 %.
 
 The travelling clips report the travel that the in-place clip stands for as `sourceRootDisplacement`, and its speed as `sourceRootSpeedMetersPerSecond`.
+
+#### Runs at the game's speed (mmorpg#804)
+
+The library jog and the side-steps have short strides: about 0.8 m a step and 0.35 m a side-step. At mmorpg's 6.3 m/s run and strafe, a consumer that keeps the feet planted plays them at 3.6× and 4.5×. The runs are authored at 6.3 m/s instead, so they play near 1× there (0.5× at the 3.2 m/s walk-to-run threshold):
+
+| Clip | Length | Motion | `humanoid-clips` |
+| --- | --- | --- | --- |
+| `Run_Fwd_Loop` | 0.6 s (200 steps a minute) | 1.89 m steps. Each ball is planted from 34 cm ahead of the hip to 40 cm behind it (0.12 s), the heel rising from 45 % of the stance to 50° at toe-off. A flight follows; the swing heel kicks up behind, folds under the hip, and the knee drives forward before the shin reaches out and comes back to land. The knee bends from about 158° at touchdown to 140° at mid-stance to take the weight, and the pelvis rises 4.5 cm into the flight. The arms and spine are `Sprint_Loop`'s drive, raised from its 36° lean to about 18° | `groundSpeedMetersPerSecond` 6.3, `sourceRootSpeedMetersPerSecond` 6.3, `footPlants` |
+| `Run_Strafe_Left_Loop` / `_Right_` | 0.6 s | the same stride sideways. The pelvis turns 55° and the knees and feet 75° into the travel; the spine and neck turn the chest back to 15° from the facing and the head to the facing. The feet run on lines 13 cm before and behind the centre, so the swing knee passes the stance leg | the same, travel ±x |
+
+The distances are the male's and scale with the female's shorter legs (0.825 m against 0.86 m); the speed and cadence stay. The left ball plants at phase 0 and the right at 0.5. `footPlants` lists each ball's planted span in seconds; in that span the ball moves back at exactly the ground speed. `bun scripts/check-combat-clips.ts` checks it with the planted-foot drift check (2 cm), counting the ground's movement.
 
 ### Authored hit clips (#399)
 
