@@ -643,17 +643,19 @@ The index (`humanoid-ranger-<figure>.index.json`) lists the files under `clips.f
 | Family | Clips | KB | Family | Clips | KB |
 | --- | ---: | ---: | --- | ---: | ---: |
 | `base` | 43 | 367 | `cast` | 21 | 195 |
-| `combat` | 16 | 134 | `social` | 23 | 341 |
+| `combat` | 15 | 134 | `social` | 23 | 341 |
 | `bow` | 6 | 132 | `chores` | 7 | 114 |
 | `swim` | 7 | 61 | `posts` | 10 | 159 |
 | `hit` | 5 | 35 | `gather` | 10 | 163 |
 | `traversal` | 16 | 240 | `raid` | 13 | 210 |
-| `sword` | 20 | 122 | `strike` | 34 | 485 |
+| `sword` | 20 | 122 | `strike` | 35 | 485 |
 | `dagger` | 10 | 56 | `ready` | 25 | 329 |
 | `bow-upper` | 8 | 145 | `defend` | 16 | 199 |
 | `crossbow` | 4 | 33 | | | |
 
 The combined file and the `default` entry's embedded clips stay for one release cycle, until mmorpg loads the families (moenarch-games/mmorpg#898).
+
+#737 moved `Sword_Regular_A` from `combat` to `strike` (the counts above are after the move; the sizes are from before it). The combined clips grew by 15 KB (3.79 MB, male).
 
 **Shared figure definition.** The figure's catalog members, appearance sources, head subset, hips, Peasant outfits and texture policy live in [`src/ranger-figure.ts`](../src/ranger-figure.ts), not in the build script. The [hair kit](hair-kit.md) and the [Redbrand kit](redbrand-kit.md), which are fitted to the male figure, read them there. A change to a Ranger clip, weapon or other build step therefore rebuilds only the two figures, and not those kits.
 
