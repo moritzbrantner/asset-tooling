@@ -162,6 +162,18 @@ export const RANGER_READY_CLIPS = [
   "Mace_Guard_Loop", "Dagger_Guard_Loop", "Staff_Guard_Loop", "Spear_Guard_Loop", "TwoHand_Guard_Loop", "Unarmed_Guard_Loop",
 ] as const;
 /**
+ * #729 (the defensive half of the combat overhaul): a backward roll, sidesteps and a hop back (full body, in place, the
+ * travel in `removedTravel`), a parry per weapon family (`parrySeconds`, the deflection frame), the sword and dagger
+ * ripostes, the shield brace, its hit and a real bash, and a push kick for any family. Authored on the Ranger rig by
+ * adapters/blender/defend_clips.py; the parries, ripostes and shield clips keep only the `spine_01` subtree. They
+ * follow the ready family in bundle order.
+ */
+export const RANGER_DEFEND_CLIPS = [
+  "Roll_Bwd", "Sidestep_L", "Sidestep_R", "Dodge_Back",
+  "Sword_Parry", "Dagger_Parry", "Staff_Parry", "Spear_Parry", "TwoHand_Parry", "Mace_Parry",
+  "Sword_Riposte", "Dagger_Riposte", "Shield_Block_Loop", "Shield_Block_Hit", "Shield_Bash", "Kick_Front",
+] as const;
+/**
  * #285: static grip poses authored on the rig by adapters/blender/grip_poses.py. Each clip keys only the finger and
  * thumb rotations of one hand; a consumer plays it over the body clip's finger channels while that hand's socket holds
  * an item of `role`. The fingers wrap a handle of `radius` (metres) along the item's grip-frame `axis`; the tome leaves
@@ -602,6 +614,31 @@ export const RANGER_CLIP_FAMILIES: readonly ClipFamily[] = [
         keep: joints as string[],
         authored: { recipe: family.recipe, clip: name, fps: family.fps, ready, ...observed }, basedOn: source as string,
         extra: { fields: { ready } },
+      };
+    },
+  },
+  {
+    id: "defend", script: "defend_clips.py", clips: RANGER_DEFEND_CLIPS,
+    arguments: ({ socket }) => {
+      const at = socketAt(socket);
+      return {
+        schemaVersion: 1, clips: [...RANGER_DEFEND_CLIPS],
+        sockets: { weapon: at("hand_r.weapon"), offhand: at("hand_l.weapon"), shield: at("hand_l.shield"), staff: at("hand_r.staff"), staffLeft: at("hand_l.staff") },
+      };
+    },
+    clip: (name, family) => {
+      // The kind, the item and the parry, contact or impact time go to the clip's `defend` object; the full-body clips
+      // add their travel and chain pose. The contact of a riposte, the bash and the kick is the authored one.
+      const { joints, source, defend, secondaryPose, removedTravel, contactSeconds, ...observed } = family.clips[name] as Json;
+      const fields = { defend: { ...defend, ...(contactSeconds === undefined ? {} : { contactSeconds }) }, ...(secondaryPose ? { secondaryPose } : {}) };
+      return {
+        ...(joints ? { keep: joints as string[] } : {}),
+        authored: { recipe: family.recipe, clip: name, fps: family.fps, defend, ...(contactSeconds === undefined ? {} : { contactSeconds }), ...observed },
+        basedOn: source as string,
+        extra: {
+          fields, ...(removedTravel ? { removedTravel: removedTravel as [number, number] } : {}),
+          ...(contactSeconds === undefined ? {} : { contactSeconds: contactSeconds as number }),
+        },
       };
     },
   },
