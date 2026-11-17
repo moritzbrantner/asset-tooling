@@ -809,7 +809,7 @@ v7 adds these clips (UAL2 unless noted), also in place:
 | `Sword_Regular_Combo` | `sword.light-chain` | 3 s | 1.55 s |
 | `Sword_Block` | `shield.block-impact` | 1.233 s | |
 | `Idle_Shield_Break` | `shield.block-break` | 1.067 s | |
-| `Shield_OneShot` | `shield.bash` | 0.833 s | 0.083 s (`hand_l`) |
+| `Shield_OneShot` | `shield.bash.library` (`shield.bash` until #729) | 0.833 s | 0.083 s (`hand_l`) |
 | `Hit_Chest`, `Hit_Head` (UAL1), `Hit_Knockback` | `hit.chest`, `hit.head`, `hit.knockback` | 0.333, 0.433, 0.833 s | |
 | `Spell_Simple_Enter`, `_Idle_Loop`, `_Shoot`, `_Exit` (UAL1) | `cast.enter`, `cast.hold`, `cast.release`, `cast.exit` | 0.533, 2.1, 0.5, 0.433 s | 0.083 s (`_Shoot`) |
 

@@ -247,7 +247,8 @@ export const RANGER_CLIP_ROLES: Readonly<Record<string, { role: string; contact?
   Sword_Regular_Combo: { role: "sword.light-chain", contact: "hand_r" },
   Sword_Block: { role: "shield.block-impact" },
   Idle_Shield_Break: { role: "shield.block-break" },
-  Shield_OneShot: { role: "shield.bash", contact: "hand_l" },
+  // #729: Shield_Bash is the bash now; the generic library one-shot keeps a role of its own.
+  Shield_OneShot: { role: "shield.bash.library", contact: "hand_l" },
   Hit_Chest: { role: "hit.chest" },
   Hit_Head: { role: "hit.head" },
   Hit_Knockback: { role: "hit.knockback" },
@@ -459,6 +460,23 @@ export const RANGER_CLIP_ROLES: Readonly<Record<string, { role: string; contact?
   Spear_Guard_Loop: { role: "spear.guard" },
   TwoHand_Guard_Loop: { role: "two-hand.guard" },
   Unarmed_Guard_Loop: { role: "unarmed.guard" },
+  // #729: dodges, parries, ripostes, the shield brace, hit and bash, the push kick (src/ranger-clips.ts RANGER_DEFEND_CLIPS).
+  Roll_Bwd: { role: "dodge.roll.back" },
+  Sidestep_L: { role: "dodge.side.left" },
+  Sidestep_R: { role: "dodge.side.right" },
+  Dodge_Back: { role: "dodge.back" },
+  Sword_Parry: { role: "sword.parry" },
+  Dagger_Parry: { role: "dagger.parry" },
+  Staff_Parry: { role: "staff.parry" },
+  Spear_Parry: { role: "spear.parry" },
+  TwoHand_Parry: { role: "two-hand.parry" },
+  Mace_Parry: { role: "mace.parry" },
+  Sword_Riposte: { role: "sword.riposte", contact: "hand_r" },
+  Dagger_Riposte: { role: "dagger.riposte", contact: "hand_r" },
+  Shield_Block_Loop: { role: "shield.block" },
+  Shield_Block_Hit: { role: "shield.block-hit" },
+  Shield_Bash: { role: "shield.bash", contact: "hand_l" },
+  Kick_Front: { role: "kick.front", contact: "foot_r" },
 };
 /** The gait loops whose ground speed the `humanoid-clips` attachment records. */
 export const RANGER_GAITS: ReadonlySet<string> = new Set(["Walk_Loop", "Jog_Fwd_Loop", "Sprint_Loop", "Crouch_Fwd_Loop", "Jog_Bwd_Loop", "Walk_Bwd_Loop", "Wade_Fwd_Loop"]);
