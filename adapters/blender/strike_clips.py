@@ -130,6 +130,13 @@ L_GUARD = {"g": (.16, -.3, 1.42), **L_GUARD_KEY}
 R_GUARD = {"g": (-.12, -.22, 1.44), **R_GUARD_KEY}
 R_FIST = {"g": (-.24, -.2, 1.12)}
 IDLE_ANKLE_R = (-.166, .293, .088)
+# #738: the mace guard (as ``Mace_Guard_Loop``): the head up and across before the chest, the left fist up beside it.
+MACE_GUARD = {"g": (-.15, -.36, 1.24), "b": (.42, -.2, .88), "yaw": -6, "pitch": 9, "neck": 4, "l": {"g": (.15, -.38, 1.3)}}
+# On the run the head leans forward over the guard, so the mace is held lower and further out from the face.
+MACE_RUN_GUARD = {**MACE_GUARD, "g": (-.16, -.46, 1.16), "b": (.5, -.42, .76), "pitch": 6}
+# The maul guard (as ``TwoHand_Guard_Loop`` and the keys that start and end ``TwoHand_Swing_A``).
+MAUL_GUARD = {"g": (-.12, -.36, 1.12), "b": (.12, -.45, .88), "yaw": -6, "pitch": 10, "neck": 4}
+MAUL_RUN_GUARD = {**MAUL_GUARD, "g": (-.14, -.44, 1.06), "b": (.2, -.6, .77), "pitch": 6}
 STRIKES = {
     # #737 reference for the fast one-handed attacks: from the sword-and-shield guard the hips and chest coil right on
     # to the rear foot while the blade is cocked over the right shoulder and the shield pushed out; then the lead foot
@@ -232,24 +239,83 @@ STRIKES = {
         (.9, {"g": (-.2, -.28, 1.12), "b": (.1, -.75, .65), "yaw": -6, "pitch": 6, "hy": 0, "hp": 0, "pz": -.02, "rh": 0}),
         (1, {"g": (-.2, -.28, 1.12), "b": (.1, -.75, .65), "yaw": -6, "pitch": 6}),
     ]},
-    # An overhand smash on the run: the mace swung back and up behind the shoulder, then brought over and down on to a
-    # head-height target, the weight of the head carrying it low.
-    "Mace_Run_Strike": {"weapon": "mace", "kind": "run", "contact": .55, "into": .16, "out": .78, "keys": [
-        (.16, {"g": (-.26, .02, 1.44), "b": (.05, .6, .8), "yaw": -16, "l": FIST}),
-        (.42, {"g": (-.24, .1, 1.64), "b": (0, .7, .72), "yaw": -28, "pitch": -6, "l": {"g": (.22, -.32, 1.2)}}),
-        (.49, {"g": (-.2, -.24, 1.62), "b": (0, -.45, .89), "yaw": -8, "pitch": 2}),
-        (.55, {"g": (-.12, -.52, 1.26), "b": (.04, -.8, -.6), "yaw": 14, "pitch": 14, "l": {"g": (.26, -.08, 1.08)}}),
-        (.68, {"g": (-.06, -.38, .96), "b": (.1, -.35, -.93), "yaw": 20, "pitch": 18}),
-        (.82, {"g": (-.14, -.34, 1.1), "b": (0, -.5, .85), "yaw": 10, "pitch": 8, "l": FIST}),
+    # #738: the mace's overhand blow. From the mace guard the knees load and the hips coil right on to the rear leg while
+    # the mace goes up behind the right shoulder, its head hanging back, the left fist out ahead; a beat at the top, then
+    # the lead foot steps in, the hips fire left ahead of the chest, the left fist pulls back to the hip against the
+    # swing and the head comes over and down on to the target at chest height. Its weight carries it on low past the
+    # left knee, the body sinking with it, and the recovery lifts back into the guard.
+    "Mace_Swing_A": {"weapon": "mace", "kind": "body", "duration": .9, "windup": .33, "contact": .444, "recovery": .64,
+                     "plants": {"l": [(0, .33), (.444, .66), (.94, 1)], "r": [(0, 1)]}, "keys": [
+        (0, {**MACE_GUARD, "pz": -.02}),
+        (.12, {"g": (-.3, -.3, 1.34), "b": (-.5, -.4, .77), "yaw": -14, "pitch": 4, "neck": 3, "hy": -10, "py": .02, "pz": -.04}),
+        (.26, {"g": (-.3, .06, 1.56), "b": (-.15, .6, .78), "yaw": -26, "pitch": -3, "neck": 2, "hy": -22, "py": .05, "pz": -.06,
+               "l": {"g": (.18, -.46, 1.3)}}),
+        (.33, {"g": (-.3, .08, 1.58), "b": (-.15, .62, .77), "yaw": -28, "pitch": -4, "neck": 2, "hy": -24, "py": .05, "pz": -.07}),
+        (.4, {"g": (-.22, -.26, 1.62), "b": (-.05, -.4, .9), "yaw": -8, "pitch": 4, "neck": 3, "hy": 2, "py": -.05, "pz": -.08,
+              "ly": -.14, "lz": .06}),
+        (.444, {"g": (-.08, -.56, 1.24), "b": (.15, -.85, -.5), "yaw": 14, "pitch": 14, "neck": 4, "hy": 24, "hp": 6, "py": -.14, "pz": -.12,
+               "ly": -.28, "lz": 0, "rh": 16, "rw": 16, "l": {"g": (.24, -.1, 1.08)}}),
+        (.56, {"g": (.04, -.5, .94), "b": (.3, -.42, -.86), "yaw": 22, "pitch": 20, "hy": 30, "hp": 9, "py": -.15, "pz": -.14}),
+        (.64, {"g": (.04, -.49, .95), "b": (.3, -.43, -.85), "yaw": 22, "pitch": 19, "hy": 30, "hp": 9, "py": -.15, "pz": -.14}),
+        (.84, {"g": (-.15, -.36, 1.18), "b": (.3, -.3, .9), "yaw": -2, "pitch": 9, "hy": 4, "hp": 2, "py": -.03, "pz": -.04,
+               "ly": -.08, "lz": .04, "rh": 4, "rw": 4, "l": MACE_GUARD["l"]}),
+        (.94, {**MACE_GUARD, "hy": 0, "hp": 0, "py": 0, "pz": -.02, "ly": 0, "lz": 0, "rh": 0, "rw": 0}),
+        (1, MACE_GUARD),
     ]},
-    # Leaping with the mace raised overhead in the fist, slammed straight down as the feet touch, driven low.
-    "Mace_Jump_Strike": {"weapon": "mace", "kind": "jump", "contact": .5, "keys": [
-        (.14, {"g": (-.2, -.02, 1.64), "b": (0, .45, .9), "pitch": -6, "l": FIST}),
-        (.36, {"g": (-.14, .08, 1.74), "b": (0, .55, .83), "pitch": -14, "neck": -10, "l": {"g": (.26, -.28, 1.4)}}),
-        (.44, {"g": (-.12, -.2, 1.66), "b": (0, -.45, .89), "pitch": -4, "neck": -4}),
-        (.5, {"g": (-.1, -.46, 1.18), "b": (0, -.75, -.66), "pitch": 18, "neck": 4, "l": {"g": (.28, -.06, 1.06)}}),
-        (.72, {"g": (-.08, -.36, .76), "b": (.05, -.3, -.95), "pitch": 30, "neck": -10}),
-        (1.0, {"g": (-.08, -.38, .78), "b": (.05, -.38, -.92), "pitch": 28, "neck": -12, "l": {"g": (.26, -.14, .96)}}),
+    # #738: the backhand answers the overhand. The mace lifts before the chest and goes across to chamber over the left
+    # shoulder while the hips turn left and the left fist tucks in, held a beat; then the right heel turns out, the hips
+    # drive right ahead of the chest and the head sweeps across at head height and on, wide of the right side, dragging
+    # the chest round after it; the recovery comes back over the top into the guard.
+    "Mace_Swing_B": {"weapon": "mace", "kind": "body", "duration": .9, "windup": .38, "contact": .5, "recovery": .66,
+                     "plants": {"l": [(0, 1)], "r": [(0, 1)]}, "keys": [
+        (0, {**MACE_GUARD, "pz": -.02}),
+        (.18, {"g": (-.04, -.42, 1.38), "b": (.4, -.3, .86), "yaw": 6, "pitch": 5, "neck": 3, "hy": 8, "pz": -.04, "l": {"g": (.2, -.3, 1.16)}}),
+        (.33, {"g": (.08, -.32, 1.48), "b": (.7, .5, .5), "yaw": 24, "pitch": 0, "neck": 0, "hy": 22, "px": .03, "py": .02, "pz": -.07,
+               "l": {"g": (.18, -.22, 1.1)}}),
+        (.38, {"g": (.09, -.3, 1.5), "b": (.7, .52, .48), "yaw": 25, "pitch": 0, "neck": 0, "hy": 23, "px": .03, "py": .02, "pz": -.07}),
+        (.44, {"g": (-.02, -.48, 1.44), "b": (.55, -.6, .58), "yaw": 6, "pitch": 4, "neck": 1, "hy": 4, "px": .01, "py": -.04, "pz": -.08,
+               "rh": 10, "rw": -10}),
+        (.5, {"g": (-.16, -.56, 1.34), "b": (-.3, -.95, -.05), "yaw": -16, "pitch": 8, "neck": 2, "hy": -22, "px": -.03, "py": -.08, "pz": -.1,
+              "rh": 18, "rw": -24, "l": {"g": (.26, -.04, 1.12)}}),
+        (.6, {"g": (-.38, -.3, 1.2), "b": (-.9, -.3, -.3), "yaw": -30, "pitch": 10, "hy": -32, "px": -.04, "py": -.07, "pz": -.11,
+              "rh": 20, "rw": -28}),
+        (.66, {"g": (-.39, -.28, 1.2), "b": (-.9, -.28, -.32), "yaw": -31, "pitch": 10, "hy": -33, "px": -.04, "py": -.07, "pz": -.11}),
+        (.84, {"g": (-.26, -.3, 1.28), "b": (0, -.4, .92), "yaw": -14, "pitch": 7, "neck": 3, "hy": -10, "px": -.01, "py": -.02, "pz": -.05,
+               "rh": 6, "rw": -6, "l": MACE_GUARD["l"]}),
+        (.94, {**MACE_GUARD, "hy": 0, "px": 0, "py": 0, "pz": -.02, "rh": 0, "rw": 0}),
+        (1, MACE_GUARD),
+    ]},
+    # #738: an overhand smash on the run from the mace guard and back to it: the mace swung up behind the right shoulder
+    # on the stride, the left fist reaching ahead, then brought over and down at chest height as the right foot lands,
+    # the fist pulled back against it, the head's weight carrying it low before it comes back up to the guard.
+    "Mace_Run_Strike": {"weapon": "mace", "kind": "run", "guard": "Mace_Guard_Loop", "windup": .42, "contact": .55, "recovery": .68, "keys": [
+        (0, MACE_RUN_GUARD),
+        (.16, {"g": (-.28, -.06, 1.42), "b": (-.55, -.05, .83), "yaw": -18, "pitch": 3}),
+        (.42, {"g": (-.3, .06, 1.58), "b": (-.12, .62, .77), "yaw": -32, "pitch": -4, "l": {"g": (.2, -.46, 1.28)}}),
+        (.49, {"g": (-.28, -.3, 1.58), "b": (-.04, -.42, .9), "yaw": -10, "pitch": 4}),
+        (.55, {"g": (-.08, -.56, 1.22), "b": (.15, -.85, -.5), "yaw": 14, "pitch": 14, "l": {"g": (.26, -.06, 1.1)}}),
+        (.68, {"g": (.02, -.42, .96), "b": (.3, -.42, -.86), "yaw": 24, "pitch": 18}),
+        (.84, {"g": (-.18, -.42, 1.16), "b": (.3, -.4, .87), "yaw": -2, "pitch": 9, "l": MACE_GUARD["l"]}),
+        (.94, MACE_RUN_GUARD),
+        (1, MACE_RUN_GUARD),
+    ]},
+    # #738: the mace's leap is a hammer slam. In the air the mace goes up behind the head in the fist, the left fist out
+    # ahead; as the feet touch the body drops on to the blow and the head is slammed down low ahead, the knees taking
+    # 0.3 m and the chest over it; a beat down there, then the body heaves up into the mace guard.
+    "Mace_Jump_Strike": {"weapon": "mace", "kind": "leap", "duration": 1.0, "tuck": .22, "touch": .42, "windup": .36,
+                         "contact": .46, "recovery": .62, "guard": "Mace_Guard_Loop", "keys": [
+        (0, {"g": (-.2, -.1, 1.5), "b": (.1, .2, .97), "yaw": -6, "pitch": -2, "l": {"g": (.18, -.36, 1.36)}, "lz": .28, "rz": .24, "ly": .02}),
+        (.32, {"g": (-.2, .1, 1.78), "b": (-.02, .7, .71), "yaw": -10, "pitch": -12, "neck": -8, "hy": -6, "l": {"g": (.2, -.42, 1.5)}}),
+        (.36, {"g": (-.19, .06, 1.8), "b": (-.02, .6, .8), "yaw": -9, "pitch": -11, "neck": -8, "hy": -5}),
+        (.42, {"g": (-.14, -.36, 1.62), "b": (0, -.5, .87), "yaw": -2, "pitch": 4, "neck": -4, "hy": 0, "pz": .02, "lz": 0, "rz": 0, "ly": 0}),
+        (.46, {"g": (-.08, -.52, 1.0), "b": (.04, -.62, -.78), "yaw": 6, "pitch": 24, "neck": -4, "hy": 6, "hp": 12, "pz": -.2, "rh": 8,
+               "l": {"g": (.26, -.08, 1.08)}}),
+        (.54, {"g": (-.08, -.48, .8), "b": (.04, -.4, -.92), "yaw": 6, "pitch": 32, "neck": -8, "hy": 8, "hp": 18, "pz": -.3, "rh": 12}),
+        (.62, {"g": (-.08, -.48, .81), "b": (.04, -.41, -.91), "yaw": 6, "pitch": 31, "neck": -8, "hy": 8, "hp": 17, "pz": -.29, "rh": 12}),
+        (.8, {"g": (-.15, -.38, 1.16), "b": (.35, -.25, .9), "yaw": -4, "pitch": 11, "neck": 2, "hy": 0, "hp": 3, "pz": -.06, "rh": 2,
+              "l": MACE_GUARD["l"]}),
+        (.92, {**MACE_GUARD, "hp": 0, "pz": -.02, "rh": 0}),
+        (1, MACE_GUARD),
     ]},
     # A lunging stab on the run: the right dagger drawn back to the hip, then driven straight ahead at the belly, the
     # left dagger held low in guard.
@@ -315,14 +381,27 @@ STRIKES = {
         (.92, {"g": (-.15, .04, 1.1), "b": (.18, -.95, .22), "yaw": -12, "pitch": 10, "neck": 4, "hy": 0, "hp": 0, "pz": -.02, "rh": 0}),
         (1, {"g": (-.15, .04, 1.1), "b": (.18, -.95, .22), "yaw": -12, "pitch": 10, "neck": 4}),
     ]},
-    # The mace chain's finisher: a big wind-up high over the right shoulder, then a vertical smash down the centre line.
-    "Mace_Swing_C": {"weapon": "mace", "kind": "stand", "duration": .9, "contact": .5, "into": .14, "out": .8, "keys": [
-        (.14, {"g": (-.26, .0, 1.46), "b": (.05, .55, .84), "yaw": -14, "l": FIST}),
-        (.38, {"g": (-.2, .1, 1.7), "b": (-.05, .6, .8), "yaw": -24, "pitch": -10, "neck": -6, "l": {"g": (.24, -.34, 1.24)}}),
-        (.45, {"g": (-.14, -.22, 1.62), "b": (0, -.4, .92), "yaw": -8, "pitch": 0}),
-        (.5, {"g": (-.1, -.42, 1.2), "b": (0, -.78, -.62), "yaw": 8, "pitch": 18, "l": {"g": (.28, -.06, 1.06)}}),
-        (.64, {"g": (-.08, -.3, 1.02), "b": (.08, -.3, -.95), "yaw": 12, "pitch": 22}),
-        (.8, {"g": (-.18, -.26, 1.08), "b": (0, -.4, .9), "yaw": 4, "pitch": 8, "l": FIST}),
+    # #738: the mace chain's finisher is a stepping vertical smash. The weight sinks back and the mace goes high over the
+    # head, held a beat with the left fist up before the face; then the lead foot drives a long step, the body drops
+    # into it and the head comes straight down the centre line as the foot plants, the fist pulled back to the hip. The
+    # knees take it deep and the body stays down a moment under the weight before it heaves back into the guard.
+    "Mace_Swing_C": {"weapon": "mace", "kind": "body", "duration": 1.2, "windup": .4, "contact": .5, "recovery": .72,
+                     "plants": {"l": [(0, .4), (.5, .72), (.95, 1)], "r": [(0, 1)]}, "keys": [
+        (0, {**MACE_GUARD, "pz": -.02}),
+        (.2, {"g": (-.24, -.04, 1.6), "b": (-.1, .4, .9), "yaw": -14, "pitch": -4, "neck": -3, "hy": -10, "py": .05, "pz": -.05,
+              "l": {"g": (.16, -.44, 1.36)}}),
+        (.34, {"g": (-.2, .04, 1.8), "b": (-.04, .75, .66), "yaw": -16, "pitch": -10, "neck": -6, "hy": -14, "hp": -5, "py": .09, "pz": -.08}),
+        (.4, {"g": (-.19, .06, 1.81), "b": (-.04, .78, .62), "yaw": -16, "pitch": -11, "neck": -6, "hy": -15, "hp": -6, "py": .1, "pz": -.08}),
+        (.45, {"g": (-.16, -.34, 1.76), "b": (0, -.3, .95), "yaw": -6, "pitch": 0, "neck": -3, "hy": -4, "hp": 2, "py": -.06, "pz": -.09,
+               "ly": -.2, "lz": .07, "rh": 10}),
+        (.5, {"g": (-.1, -.62, 1.16), "b": (.02, -.85, -.52), "yaw": 4, "pitch": 14, "neck": 2, "hy": 8, "hp": 12, "py": -.22, "pz": -.2,
+              "ly": -.4, "lz": 0, "rh": 26, "l": {"g": (.24, -.12, 1.08)}}),
+        (.6, {"g": (-.12, -.56, .9), "b": (-.1, -.52, -.85), "yaw": 6, "pitch": 26, "neck": 4, "hy": 12, "hp": 17, "py": -.23, "pz": -.24, "rh": 28}),
+        (.72, {"g": (-.12, -.55, .91), "b": (-.1, -.53, -.84), "yaw": 6, "pitch": 25, "neck": 4, "hy": 12, "hp": 16, "py": -.23, "pz": -.24, "rh": 28}),
+        (.86, {"g": (-.17, -.34, 1.18), "b": (.3, -.3, .9), "yaw": -3, "pitch": 10, "neck": 3, "hy": 3, "hp": 4, "py": -.08, "pz": -.07,
+               "ly": -.14, "lz": .05, "rh": 8, "l": MACE_GUARD["l"]}),
+        (.95, {**MACE_GUARD, "hy": 0, "hp": 0, "py": 0, "pz": -.02, "ly": 0, "lz": 0, "rh": 0}),
+        (1, MACE_GUARD),
     ]},
     # The staff chain's third strike: the staff swung up over the head, its foot brought down on a head-height target.
     "Staff_Strike_C": {"weapon": "staff", "kind": "stand", "duration": .8, "contact": .5, "into": .14, "out": .82, "keys": [
@@ -444,44 +523,79 @@ STRIKES = {
                "ly": 0, "lz": 0, "rh": 0, "rw": 0}),
         (1, {"g": (-.12, -.36, 1.12), "b": (.12, -.45, .88), "yaw": -6, "pitch": 10, "neck": 4}),
     ]},
-    # B: wound to the left hip, then a flat backhand sweep across to the right at the waist, the hips turning through.
-    "TwoHand_Swing_B": {"weapon": "maul", "kind": "stand", "duration": 1.2, "contact": .55, "into": .14, "out": .84, "keys": [
-        (.14, {"g": (-.1, -.26, 1.2), "b": (.2, .3, .93), "yaw": 6}),
-        (.36, {"g": (.18, -.02, 1.14), "b": (.65, .72, .25), "yaw": 40, "pitch": 4}),
-        (.46, {"g": (.2, .0, 1.14), "b": (.62, .76, .2), "yaw": 44, "pitch": 4}),
-        (.51, {"g": (.14, -.36, 1.1), "b": (.8, -.55, .1), "yaw": 22, "pitch": 6}),
-        (.55, {"g": (-.04, -.46, 1.08), "b": (-.55, -.83, .05), "yaw": -6, "pitch": 8}),
-        (.68, {"g": (-.22, -.3, 1.08), "b": (-.92, .2, .1), "yaw": -34, "pitch": 6}),
-        (.84, {"g": (-.22, -.24, 1.1), "b": (-.85, .4, .2), "yaw": -38, "pitch": 4}),
+    # #738: B, the backhand, answers A. The maul comes across the front and is wound back past the left shoulder, its head
+    # out behind, the hips and chest coiled left over the lead leg and held; then the right heel turns out, the hips
+    # unwind right ahead of the chest and the head sweeps flat across at the waist, carrying on round to the right and
+    # dragging the chest after it, before the body heaves it back up into the guard.
+    "TwoHand_Swing_B": {"weapon": "maul", "kind": "body", "duration": 1.3, "windup": .41, "contact": .51, "recovery": .67,
+                        "plants": {"l": [(0, 1)], "r": [(0, 1)]}, "keys": [
+        (0, {**MAUL_GUARD, "pz": -.02}),
+        (.15, {"g": (0, -.42, 1.2), "b": (.4, -.4, .82), "yaw": 4, "pitch": 10, "neck": 4, "hy": 6, "pz": -.05}),
+        (.33, {"g": (.2, -.12, 1.22), "b": (.6, .7, .38), "yaw": 34, "pitch": 4, "neck": 2, "hy": 30, "px": .04, "py": .04, "pz": -.13}),
+        (.41, {"g": (.21, -.1, 1.22), "b": (.6, .72, .35), "yaw": 36, "pitch": 4, "neck": 2, "hy": 32, "px": .04, "py": .04, "pz": -.14}),
+        (.46, {"g": (.1, -.52, 1.14), "b": (.85, -.5, .15), "yaw": 16, "pitch": 6, "neck": 3, "hy": 12, "px": .01, "py": -.03, "pz": -.16,
+               "rh": 10, "rw": -10}),
+        (.51, {"g": (-.1, -.56, 1.1), "b": (-.9, -.42, .05), "yaw": -10, "pitch": 10, "neck": 4, "hy": -20, "px": -.03, "py": -.08, "pz": -.19,
+               "rh": 20, "rw": -26}),
+        (.6, {"g": (-.3, -.36, 1.06), "b": (-.92, .15, .05), "yaw": -36, "pitch": 12, "hy": -38, "px": -.05, "py": -.07, "pz": -.2,
+              "rh": 22, "rw": -32}),
+        (.67, {"g": (-.31, -.34, 1.06), "b": (-.9, .22, .05), "yaw": -37, "pitch": 12, "hy": -39, "px": -.05, "py": -.07, "pz": -.2}),
+        (.85, {"g": (-.2, -.4, 1.12), "b": (-.2, -.4, .9), "yaw": -16, "pitch": 10, "hy": -12, "px": -.01, "py": -.02, "pz": -.06,
+               "rh": 6, "rw": -6}),
+        (.95, {**MAUL_GUARD, "hy": 0, "px": 0, "py": 0, "pz": -.02, "rh": 0, "rw": 0}),
+        (1, MAUL_GUARD),
     ]},
-    # C: the finisher; the maul hauled up overhead until the head hangs behind the back, held, then smashed straight down
-    # the centre line.
-    "TwoHand_Swing_C": {"weapon": "maul", "kind": "stand", "duration": 1.3, "contact": .56, "into": .14, "out": .86, "keys": [
-        (.14, {"g": (-.12, -.24, 1.32), "b": (0, .2, .98), "yaw": -6}),
-        (.34, {"g": (-.06, .0, 1.72), "b": (0, .8, .1), "pitch": -10, "neck": -10}),
-        (.46, {"g": (-.06, .04, 1.74), "b": (0, .9, -.2), "pitch": -14, "neck": -12}),
-        (.52, {"g": (-.06, -.26, 1.64), "b": (0, -.3, .95), "pitch": 0, "neck": -4}),
-        (.56, {"g": (-.04, -.46, 1.1), "b": (0, -.86, -.5), "pitch": 18, "neck": 4}),
-        (.7, {"g": (-.04, -.38, .9), "b": (0, -.45, -.89), "pitch": 26}),
-        (.86, {"g": (-.04, -.38, .92), "b": (0, -.5, -.86), "pitch": 24}),
+    # #738: C, the finisher, is a stepping overhead smash. The maul is hauled up overhead, its head back over the
+    # shoulders, the body rising on the rear leg, and held; then the lead foot drives a long step, the body drops on to
+    # the blow and the head comes straight down the centre line into the ground ahead as the foot plants. The knees go
+    # deep under the weight and stay there a beat before the body heaves the maul back up into the guard.
+    "TwoHand_Swing_C": {"weapon": "maul", "kind": "body", "duration": 1.5, "windup": .4, "contact": .511, "recovery": .69,
+                        "plants": {"l": [(0, .4), (.511, .69), (.95, 1)], "r": [(0, 1)]}, "keys": [
+        (0, {**MAUL_GUARD, "pz": -.02}),
+        (.18, {"g": (-.16, -.2, 1.5), "b": (-.1, .3, .95), "yaw": -10, "pitch": 2, "neck": -2, "hy": -8, "py": .04, "pz": -.05}),
+        (.33, {"g": (-.22, 0, 1.84), "b": (0, .62, .78), "yaw": -12, "pitch": -8, "neck": -6, "hy": -12, "hp": -5, "py": .09, "pz": -.06}),
+        (.4, {"g": (-.22, .02, 1.85), "b": (0, .66, .75), "yaw": -12, "pitch": -9, "neck": -6, "hy": -13, "hp": -6, "py": .1, "pz": -.06}),
+        (.46, {"g": (-.2, -.36, 1.72), "b": (0, -.25, .97), "yaw": -4, "pitch": 2, "neck": -3, "hy": -2, "hp": 3, "py": -.06, "pz": -.1,
+               "ly": -.2, "lz": .07, "rh": 10}),
+        (.511, {"g": (-.18, -.62, 1.04), "b": (.06, -.8, -.6), "yaw": 2, "pitch": 14, "neck": 2, "hy": 4, "hp": 14, "py": -.22, "pz": -.24,
+                "ly": -.38, "lz": 0, "rh": 26}),
+        (.6, {"g": (-.22, -.62, .78), "b": (.1, -.62, -.78), "yaw": 4, "pitch": 12, "neck": 4, "hy": 8, "hp": 8, "py": -.24, "pz": -.32, "rh": 28}),
+        (.69, {"g": (-.22, -.61, .79), "b": (.1, -.63, -.77), "yaw": 4, "pitch": 12, "neck": 4, "hy": 8, "hp": 8, "py": -.24, "pz": -.31, "rh": 28}),
+        (.84, {"g": (-.1, -.44, 1.06), "b": (.1, -.45, .89), "yaw": -4, "pitch": 14, "neck": 4, "hy": 2, "hp": 5, "py": -.08, "pz": -.09,
+               "ly": -.14, "lz": .05, "rh": 8}),
+        (.95, {**MAUL_GUARD, "hy": 0, "hp": 0, "py": 0, "pz": -.02, "ly": 0, "lz": 0, "rh": 0}),
+        (1, MAUL_GUARD),
     ]},
-    # On the run: the maul swung back over the right shoulder, then down across the body on the right foot's plant.
-    "TwoHand_Run_Strike": {"weapon": "maul", "kind": "run", "contact": .55, "into": .16, "out": .8, "keys": [
-        (.16, {"g": (-.18, -.22, 1.28), "b": (-.15, .3, .94), "yaw": -12}),
-        (.42, {"g": (-.24, .06, 1.56), "b": (-.3, .75, .58), "yaw": -36, "pitch": -4}),
-        (.5, {"g": (-.2, -.24, 1.5), "b": (-.2, -.4, .9), "yaw": -14, "pitch": 4}),
-        (.55, {"g": (-.02, -.44, 1.18), "b": (.45, -.82, -.35), "yaw": 14, "pitch": 14}),
-        (.68, {"g": (.12, -.3, .98), "b": (.75, -.3, -.6), "yaw": 26, "pitch": 18}),
-        (.82, {"g": (-.12, -.26, 1.22), "b": (0, .1, 1), "yaw": 6, "pitch": 8}),
+    # #738: on the run from the maul guard and back to it: the maul swung up over the right shoulder on the stride, its
+    # head out behind, then driven down across the body as the right foot lands, the head's weight carrying it low past
+    # the left side before the arms haul it back up into the guard.
+    "TwoHand_Run_Strike": {"weapon": "maul", "kind": "run", "guard": "TwoHand_Guard_Loop", "windup": .42, "contact": .55, "recovery": .68, "keys": [
+        (0, MAUL_RUN_GUARD),
+        (.2, {"g": (-.28, -.3, 1.4), "b": (-.2, -.35, .92), "yaw": -16, "pitch": 4}),
+        (.42, {"g": (-.3, .08, 1.58), "b": (-.25, .4, .88), "yaw": -34, "pitch": -2}),
+        (.49, {"g": (-.34, -.34, 1.46), "b": (-.2, -.38, .9), "yaw": -12, "pitch": 6}),
+        (.52, {"g": (-.2, -.5, 1.3), "b": (.1, -.9, .2), "yaw": 2, "pitch": 12}),
+        (.55, {"g": (0, -.56, 1.1), "b": (.5, -.62, -.6), "yaw": 16, "pitch": 18}),
+        (.68, {"g": (.22, -.52, .82), "b": (.5, -.2, -.84), "yaw": 24, "pitch": 20}),
+        (.84, {"g": (-.06, -.42, 1.06), "b": (.25, -.5, .83), "yaw": 0, "pitch": 12}),
+        (.94, MAUL_RUN_GUARD),
+        (1, MAUL_RUN_GUARD),
     ]},
-    # A ground slam: leaping with the maul raised overhead, the head driven into the ground ahead as the feet touch.
-    "TwoHand_Jump_Strike": {"weapon": "maul", "kind": "jump", "contact": .5, "keys": [
-        (.14, {"g": (-.12, -.22, 1.4), "b": (0, .3, .95), "pitch": -6}),
-        (.36, {"g": (-.06, .02, 1.74), "b": (0, .85, .2), "pitch": -14, "neck": -10}),
-        (.44, {"g": (-.06, -.24, 1.62), "b": (0, -.3, .95), "pitch": -4, "neck": -4}),
-        (.5, {"g": (-.04, -.42, .92), "b": (0, -.62, -.78), "pitch": 22, "neck": 4}),
-        (.72, {"g": (-.04, -.38, .7), "b": (0, -.5, -.86), "pitch": 32, "neck": -10}),
-        (1.0, {"g": (-.04, -.38, .72), "b": (0, -.52, -.85), "pitch": 30, "neck": -12}),
+    # #738: the maul's leap is a ground slam. In the air the maul is hauled up overhead with both hands, its head back;
+    # as the feet touch it comes over the top and the body drops with it, the head slammed into the ground ahead, the
+    # knees taking 0.34 m and the chest over the haft. It stays down a beat, then the body heaves up into the guard.
+    "TwoHand_Jump_Strike": {"weapon": "maul", "kind": "leap", "duration": 1.0, "tuck": .22, "touch": .433, "windup": .37,
+                            "contact": .467, "recovery": .66, "guard": "TwoHand_Guard_Loop", "keys": [
+        (0, {"g": (-.2, -.2, 1.46), "b": (-.1, .2, .97), "yaw": -4, "pitch": -2, "lz": .28, "rz": .24, "ly": .02}),
+        (.32, {"g": (-.2, .04, 1.84), "b": (0, .72, .69), "yaw": -6, "pitch": -12, "neck": -8, "hy": -4}),
+        (.37, {"g": (-.2, .02, 1.85), "b": (0, .65, .76), "yaw": -6, "pitch": -11, "neck": -8, "hy": -4}),
+        (.433, {"g": (-.2, -.46, 1.62), "b": (0, -.4, .92), "yaw": 0, "pitch": 4, "neck": -4, "hy": 0, "pz": .02, "lz": 0, "rz": 0, "ly": 0}),
+        (.467, {"g": (-.18, -.62, .98), "b": (.06, -.75, -.66), "yaw": 2, "pitch": 18, "neck": -2, "hy": 4, "hp": 14, "pz": -.24, "rh": 8}),
+        (.56, {"g": (-.22, -.62, .76), "b": (.1, -.6, -.8), "yaw": 4, "pitch": 20, "neck": -6, "hy": 8, "hp": 12, "pz": -.34, "rh": 12}),
+        (.66, {"g": (-.22, -.61, .77), "b": (.1, -.61, -.79), "yaw": 4, "pitch": 19, "neck": -6, "hy": 8, "hp": 11, "pz": -.33, "rh": 12}),
+        (.82, {"g": (-.1, -.42, 1.06), "b": (.1, -.45, .89), "yaw": -4, "pitch": 13, "neck": 2, "hy": 0, "hp": 4, "pz": -.08, "rh": 2}),
+        (.93, {**MAUL_GUARD, "hp": 0, "pz": -.02, "rh": 0}),
+        (1, MAUL_GUARD),
     ]},
     # --- #711: the bow in melee, in the left hand (it strikes with its upper limb), the right a fist.
     # A: the bow drawn back across to the right shoulder and held, then whipped out to the left at the head.

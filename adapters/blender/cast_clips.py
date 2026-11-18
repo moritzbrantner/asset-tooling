@@ -1,12 +1,13 @@
-"""Original casting-style, staff and mace clips authored on the Ranger rig in Blender (#420, the mmorpg casters).
+"""Original casting-style and staff clips authored on the Ranger rig in Blender (#420, the mmorpg casters).
 
 The declared input ``target`` is the composed Ranger GLB with its embedded clips. The recipe authors in-place clips,
 every name in ``arguments["clips"]`` in one run (#425), from explicit hand frames solved with two-bone arm IK on top of
 the first ``Idle_Loop`` pose (no source motion is copied; Mixamo was only watched as reference):
 
 - The casters hold their staff on ``hand_r.staff`` (``arguments["sockets"]["staff"]``), the Arcanist's tome on
-  ``hand_l.shield`` (``tome``) and the Cleric's mace on ``hand_r.weapon`` (``weapon``, also the Warden's sword for
-  ``Warcry``). The two-handed staff strikes put the left hand on the shaft with ``hand_l.staff`` (``staffLeft``).
+  ``hand_l.shield`` (``tome``) and the Warden's sword for ``Warcry`` on ``hand_r.weapon`` (``weapon``; #738 moved the
+  Cleric's mace blows to the strike clips). The two-handed staff strikes put the left hand on the shaft with
+  ``hand_l.staff`` (``staffLeft``).
 - A key names the right hand's item frame (``r``: grip position ``g``, the item's +Y ``y`` and a hint for its +Z ``z``)
   and the left hand's frame (``l``): either its palm (position of the wrist ``g``, the fingers ``y``, the palm's
   normal ``z``) or, for the strikes, the staff grip. Missing fields hold the previous key's value; between keys the
@@ -178,29 +179,12 @@ SWEEP = {"duration": .7, "release": .5, "keys": [
     (.86, {"r": STAFF_GUARD, "yaw": 16}),
     (.93, {"r": STAFF_FRONT, "yaw": 8}),
 ]}
-# The mace blows (``hand_r.weapon``: the haft ``y`` toward the head, the edge hint ``z``).
-MACE_A = {"duration": .7, "release": .5, "keys": [
-    (.3, {"r": {"g": (-.26, .02, 1.6), "y": (.1, .7, .6), "z": (-1, 0, 0)}, "l": {"g": (.24, -.32, 1.18), "y": (0, -.8, .4), "z": (-.6, -.3, -.4)},
-          "shape": "fist", "yaw": -18, "pitch": -4}),
-    (.5, {"r": {"g": (-.12, -.56, 1.2), "y": (.05, -.9, -.3), "z": (-1, 0, 0)}, "l": {"g": (.24, -.12, 1.08)}, "yaw": 14, "pitch": 14}),
-    (.68, {"r": {"g": (-.04, -.42, .98), "y": (.1, -.4, -.9)}, "yaw": 18, "pitch": 16}),
-]}
-# mmorpg#804: the backhand first lifts the mace before the chest, its head up, so the pommel stays off the chest on the
-# way up to the left shoulder.
-MACE_B = {"duration": .7, "release": .5, "keys": [
-    (.15, {"r": {"g": (-.08, -.38, 1.2), "y": (.2, -.2, 1), "z": (0, -1, 0)}}),
-    (.3, {"r": {"g": (.16, -.22, 1.4), "y": (.6, .3, .7), "z": (0, -1, 0)}, "l": {"g": (.28, -.06, 1.08), "y": (0, -.8, -.4), "z": (-.6, 0, -.4)},
-          "shape": "fist", "yaw": 26}),
-    (.36, {}),
-    (.5, {"r": {"g": (-.22, -.56, 1.3), "y": (-.6, -.8, .1), "z": (0, 1, 0)}, "yaw": -10, "pitch": 6}),
-    (.68, {"r": {"g": (-.42, -.28, 1.24), "y": (-.9, .3, .1)}, "yaw": -22, "pitch": 4}),
-]}
 # Which socket each hand keys per clip (staff and palm unless named).
-RIGHT_WEAPON = {"Warcry", "Mace_Swing_A", "Mace_Swing_B"}
+RIGHT_WEAPON = {"Warcry"}
 STRIKES = {"Staff_Strike_A": JAB, "Staff_Strike_B": SWEEP}
 ONE_SHOTS = {"Cast_Release_Push": PUSH, "Cast_Release_Overhand": OVERHAND, "Cast_Cone": CONE, "Cast_Curse_Point": CURSE,
              "Cast_Ground_Sweep": GROUND, "Cast_Self_Ward": WARD, "Cast_Ally": ALLY, "Warcry": WARCRY, "Cast_Summon_Call": CALL,
-             "Mace_Swing_A": MACE_A, "Mace_Swing_B": MACE_B, "Cast_Raise_Wall": WALL, "Cast_Interrupted": INTERRUPTED, **STRIKES}
+             "Cast_Raise_Wall": WALL, "Cast_Interrupted": INTERRUPTED, **STRIKES}
 FROM_CHARGE = {"Cast_Release_Push", "Cast_Release_Overhand", "Cast_Interrupted"}
 LOOPS = {"Cast_Channel_Beam_Loop": BEAM, "Cast_Channel_Drain_Loop": DRAIN, "Cast_Channel_Sky_Loop": SKY}
 FULL_BODY = {"Cast_Nova", "Cast_Summon_Raise"}
@@ -211,7 +195,7 @@ CHANNEL = {"Cast_Charge_Loop": "palm", "Cast_Release_Push": "palm", "Cast_Releas
            "Cast_Summon_Raise": "palm"}
 CLIPS = ("Cast_Charge_Loop", "Cast_Release_Push", "Cast_Release_Overhand", "Cast_Channel_Beam_Loop", "Cast_Channel_Drain_Loop",
          "Cast_Channel_Sky_Loop", "Cast_Nova", "Cast_Cone", "Cast_Curse_Point", "Cast_Ground_Sweep", "Cast_Self_Ward", "Cast_Ally",
-         "Warcry", "Cast_Summon_Raise", "Cast_Summon_Call", "Staff_Strike_A", "Staff_Strike_B", "Mace_Swing_A", "Mace_Swing_B",
+         "Warcry", "Cast_Summon_Raise", "Cast_Summon_Call", "Staff_Strike_A", "Staff_Strike_B",
          "Cast_Raise_Wall", "Cast_Interrupted")
 # The #391 chain joints the kneel's secondaryPose keys, and how far the panels follow the thighs (as the traversal
 # clips, #443). The kneel lifts the front thigh level, so the front panel follows further than in the traversal clips
