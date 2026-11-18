@@ -124,8 +124,8 @@ MACE_GUARD = {"g": (-.15, -.36, 1.24), "b": (.42, -.2, .88), "yaw": -6, "pitch":
 # On the run the head leans forward over the guard, so the mace is held lower and further out from the face.
 MACE_RUN_GUARD = {**MACE_GUARD, "g": (-.16, -.46, 1.16), "b": (.5, -.42, .76), "pitch": 6}
 # The maul guard (as ``TwoHand_Guard_Loop`` and the keys that start and end ``TwoHand_Swing_A``).
-MAUL_GUARD = {"g": (-.12, -.36, 1.12), "b": (.12, -.45, .88), "yaw": -6, "pitch": 10, "neck": 4}
-MAUL_RUN_GUARD = {**MAUL_GUARD, "g": (-.14, -.44, 1.06), "b": (.2, -.6, .77), "pitch": 6}
+MAUL_GUARD = {"g": (-.16, -.38, 1.02), "b": (.22, -.72, -.66), "yaw": -8, "pitch": 16, "neck": 6}
+MAUL_RUN_GUARD = {**MAUL_GUARD, "g": (-.16, -.44, 1.06), "b": (.25, -.85, -.45), "pitch": 10}
 # The fists' guard (as ``Unarmed_Guard_Loop``): both fists up at the chin, knuckles up, the chest bent over them. A
 # left-handed strike keys the left fist and holds the right as ``r``; a right-handed one the other way round.
 FISTS = {"l": {"g": (.08, -.38, 1.55), "b": (-.3, -.25, .92), "z": (-1, 0, 0)}, "r": {"g": (-.08, -.34, 1.51), "b": (.3, -.25, .92), "z": (1, 0, 0)}}
@@ -629,7 +629,8 @@ STRIKES = {
     # left; it drags the body on into a deep follow-through, and the recovery heaves it back up into the guard.
     "TwoHand_Swing_A": {"weapon": "maul", "kind": "body", "duration": 1.5, "windup": .33, "contact": .45, "recovery": .61,
                         "plants": {"l": [(0, .33), (.45, .8), (.97, 1)], "r": [(0, 1)]}, "keys": [
-        (0, {"g": (-.12, -.36, 1.12), "b": (.12, -.45, .88), "yaw": -6, "pitch": 10, "neck": 4, "pz": -.02}),
+        (0, {**MAUL_GUARD, "pz": -.02}),
+        (.13, {"g": (-.3, -.26, 1.18), "b": (-.6, .3, -.74), "yaw": -16, "pitch": 6, "neck": 4, "hy": -14, "py": .03, "pz": -.06}),
         (.26, {"g": (-.29, .08, 1.53), "b": (-.45, .75, .45), "yaw": -26, "pitch": -4, "hy": -30, "hp": -2, "py": .06, "pz": -.09, "lh": 12}),
         (.33, {"g": (-.3, .1, 1.55), "b": (-.47, .76, .42), "yaw": -28, "pitch": -5, "hy": -34, "hp": -3, "py": .06, "pz": -.1, "lh": 12}),
         (.39, {"g": (-.22, -.2, 1.55), "b": (-.2, -.35, .92), "yaw": -12, "pitch": 4, "hy": -8, "hp": 2, "py": -.06, "pz": -.11,
@@ -641,9 +642,9 @@ STRIKES = {
         (.8, {"g": (.14, -.55, .86), "b": (.55, -.45, .1), "yaw": 14, "pitch": 18, "hy": 24, "hp": 7, "py": -.14, "pz": -.15}),
         (.9, {"g": (-.04, -.44, 1.02), "b": (.25, -.5, .83), "yaw": 0, "pitch": 12, "hy": 6, "hp": 3, "py": -.05, "pz": -.08,
               "ly": -.12, "lz": .04, "rh": 5, "rw": 5}),
-        (.97, {"g": (-.12, -.36, 1.12), "b": (.12, -.45, .88), "yaw": -6, "pitch": 10, "hy": 0, "hp": 0, "py": 0, "pz": -.02,
+        (.97, {**MAUL_GUARD, "neck": 0, "hy": 0, "hp": 0, "py": 0, "pz": -.02,
                "ly": 0, "lz": 0, "rh": 0, "rw": 0}),
-        (1, {"g": (-.12, -.36, 1.12), "b": (.12, -.45, .88), "yaw": -6, "pitch": 10, "neck": 4}),
+        (1, MAUL_GUARD),
     ]},
     # #738: B, the backhand, answers A. The maul comes across the front and is wound back past the left shoulder, its head
     # out behind, the hips and chest coiled left over the lead leg and held; then the right heel turns out, the hips
@@ -655,9 +656,9 @@ STRIKES = {
         (.15, {"g": (0, -.42, 1.2), "b": (.4, -.4, .82), "yaw": 4, "pitch": 10, "neck": 4, "hy": 6, "pz": -.05}),
         (.33, {"g": (.2, -.12, 1.22), "b": (.6, .7, .38), "yaw": 34, "pitch": 4, "neck": 2, "hy": 30, "px": .04, "py": .04, "pz": -.13}),
         (.41, {"g": (.21, -.1, 1.22), "b": (.6, .72, .35), "yaw": 36, "pitch": 4, "neck": 2, "hy": 32, "px": .04, "py": .04, "pz": -.14}),
-        (.46, {"g": (.1, -.52, 1.14), "b": (.85, -.5, .15), "yaw": 16, "pitch": 6, "neck": 3, "hy": 12, "px": .01, "py": -.03, "pz": -.16,
+        (.46, {"g": (.1, -.58, 1.14), "b": (.85, -.5, .15), "yaw": 16, "pitch": 6, "neck": 3, "hy": 12, "px": .01, "py": -.03, "pz": -.16,
                "rh": 10, "rw": -10}),
-        (.51, {"g": (-.1, -.56, 1.1), "b": (-.9, -.42, .05), "yaw": -10, "pitch": 10, "neck": 4, "hy": -20, "px": -.03, "py": -.08, "pz": -.19,
+        (.51, {"g": (-.1, -.62, 1.1), "b": (-.9, -.42, .05), "yaw": -10, "pitch": 10, "neck": 4, "hy": -20, "px": -.03, "py": -.08, "pz": -.19,
                "rh": 20, "rw": -26}),
         (.6, {"g": (-.3, -.36, 1.06), "b": (-.92, .15, .05), "yaw": -36, "pitch": 12, "hy": -38, "px": -.05, "py": -.07, "pz": -.2,
               "rh": 22, "rw": -32}),

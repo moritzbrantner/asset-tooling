@@ -1,4 +1,4 @@
-"""Original casting-style and staff clips authored on the Ranger rig in Blender (#420, the mmorpg casters).
+"""Original casting-style clips authored on the Ranger rig in Blender (#420, the mmorpg casters).
 
 The declared input ``target`` is the composed Ranger GLB with its embedded clips. The recipe authors in-place clips,
 every name in ``arguments["clips"]`` in one run (#425), from explicit hand frames solved with two-bone arm IK on top of
@@ -6,11 +6,10 @@ the first ``Idle_Loop`` pose (no source motion is copied; Mixamo was only watche
 
 - The casters hold their staff on ``hand_r.staff`` (``arguments["sockets"]["staff"]``), the Arcanist's tome on
   ``hand_l.shield`` (``tome``) and the Warden's sword for ``Warcry`` on ``hand_r.weapon`` (``weapon``; #738 moved the
-  Cleric's mace blows to the strike clips). The two-handed staff strikes put the left hand on the shaft with
-  ``hand_l.staff`` (``staffLeft``).
+  Cleric's mace blows, and then the staff strikes, to the strike clips; ``staffLeft`` is still declared but unused).
 - A key names the right hand's item frame (``r``: grip position ``g``, the item's +Y ``y`` and a hint for its +Z ``z``)
   and the left hand's frame (``l``): either its palm (position of the wrist ``g``, the fingers ``y``, the palm's
-  normal ``z``) or, for the strikes, the staff grip. Missing fields hold the previous key's value; between keys the
+  normal ``z``). Missing fields hold the previous key's value; between keys the
   frames follow a Catmull-Rom curve that starts and ends at rest. The chest turn (``yaw``, ``pitch``, ``roll``) is
   spread over ``spine_01``-``03``; ``shape`` names the left hand's casting shape (open, cup, claw, point, fist),
   keyed on its finger joints. The right hand's fingers are left to the grip pose the consumer plays.
@@ -19,7 +18,7 @@ the first ``Idle_Loop`` pose (no source motion is copied; Mixamo was only watche
   kneels and records a skirt and cape pose for the #391 chain joints (``secondaryPose``, as the traversal clips).
 - The releases (``Cast_Release_*``) start in ``Cast_Charge_Loop``'s first pose and end in the idle; every other one-shot
   starts and ends in the first ``Idle_Loop`` pose. Each one-shot reports its ``releaseSeconds`` (the moment the spell
-  leaves or the strike lands); the channels and casts that aim report ``channelJoint`` and ``channelPoint`` (the point
+  leaves or the war cry peaks); the channels and casts that aim report ``channelJoint`` and ``channelPoint`` (the point
   the effect starts from, in that joint's glTF frame: the staff's head, or the palm).
 
 No randomness.
@@ -147,44 +146,11 @@ INTERRUPTED = {"duration": .4, "keys": [
     (.25, {"l": {"g": (.26, -.1, 1.38), "y": (.3, 0, 1), "z": (0, -1, 0)}, "r": {"g": (-.24, -.18, 1.08)}, "shape": "open",
            "pitch": -12, "yaw": 6, "neck": -8}),
 ]}
-# The two-handed staff strikes: the right hand forward on the grip, the left hand behind it on the shaft toward the head
-# (``LEFT_ON_SHAFT`` metres), the staff's foot leading. ``y`` points from the right hand to the head.
-# mmorpg#804: the shaft never passes through the body. The staff comes forward upright out of the idle before it tips
-# into the guard (``STAFF_FRONT``), so its head clears the face; in the guard it runs up to the left before the chest;
-# every grip is within the arm's reach, and the shaft's line passes about 0.2 m or more from the torso's axis; the
-# sweep's foot crosses low before the legs while its head rises past the right shoulder, rather than swinging round
-# behind the body.
-LEFT_ON_SHAFT = .42
-STAFF_FRONT = {"g": (-.22, -.3, .98), "y": (.1, -.1, 1)}
-STAFF_GUARD = {"g": (-.14, -.38, 1.02), "y": (.6, .2, .77), "z": (-.4, -.6, .3)}
-JAB = {"duration": .7, "release": .46, "keys": [
-    (.08, {"r": STAFF_FRONT, "yaw": 8}),
-    (.16, {"r": STAFF_GUARD, "yaw": 16}),
-    (.3, {"r": {"g": (-.2, -.3, 1.0), "y": (.62, .27, .74)}, "yaw": 22}),
-    (.35, {}),
-    (.46, {"r": {"g": (0, -.5, 1.18), "y": (.45, .8, .4)}, "yaw": -6, "pitch": 8}),
-    (.64, {"r": {"g": (-.02, -.46, 1.16)}, "yaw": -2, "pitch": 6}),
-    (.84, {"r": STAFF_GUARD, "yaw": 16}),
-    (.93, {"r": STAFF_FRONT, "yaw": 8}),
-]}
-SWEEP = {"duration": .7, "release": .5, "keys": [
-    (.08, {"r": STAFF_FRONT, "yaw": 8}),
-    (.16, {"r": STAFF_GUARD, "yaw": 16}),
-    (.32, {"r": {"g": (-.32, -.3, 1.0), "y": (.8, .2, .56), "z": (-.3, -.7, .3)}, "yaw": -30}),
-    (.37, {}),
-    (.5, {"r": {"g": (0, -.44, 1.12), "y": (.45, .68, .58), "z": (.4, -.6, .4)}, "yaw": 10, "pitch": 8}),
-    (.58, {"r": {"g": (0, -.44, 1.1), "y": (.1, .12, .99)}, "yaw": 22, "pitch": 7}),
-    (.66, {"r": {"g": (.08, -.4, 1.08), "y": (-.35, .15, .92), "z": (.5, -.5, .4)}, "yaw": 34, "pitch": 6}),
-    (.76, {"r": {"g": (-.06, -.42, 1.06), "y": (.15, -.05, .99)}, "yaw": 24, "pitch": 4}),
-    (.86, {"r": STAFF_GUARD, "yaw": 16}),
-    (.93, {"r": STAFF_FRONT, "yaw": 8}),
-]}
 # Which socket each hand keys per clip (staff and palm unless named).
 RIGHT_WEAPON = {"Warcry"}
-STRIKES = {"Staff_Strike_A": JAB, "Staff_Strike_B": SWEEP}
 ONE_SHOTS = {"Cast_Release_Push": PUSH, "Cast_Release_Overhand": OVERHAND, "Cast_Cone": CONE, "Cast_Curse_Point": CURSE,
              "Cast_Ground_Sweep": GROUND, "Cast_Self_Ward": WARD, "Cast_Ally": ALLY, "Warcry": WARCRY, "Cast_Summon_Call": CALL,
-             "Cast_Raise_Wall": WALL, "Cast_Interrupted": INTERRUPTED, **STRIKES}
+             "Cast_Raise_Wall": WALL, "Cast_Interrupted": INTERRUPTED}
 FROM_CHARGE = {"Cast_Release_Push", "Cast_Release_Overhand", "Cast_Interrupted"}
 LOOPS = {"Cast_Channel_Beam_Loop": BEAM, "Cast_Channel_Drain_Loop": DRAIN, "Cast_Channel_Sky_Loop": SKY}
 FULL_BODY = {"Cast_Nova", "Cast_Summon_Raise"}
@@ -195,7 +161,7 @@ CHANNEL = {"Cast_Charge_Loop": "palm", "Cast_Release_Push": "palm", "Cast_Releas
            "Cast_Summon_Raise": "palm"}
 CLIPS = ("Cast_Charge_Loop", "Cast_Release_Push", "Cast_Release_Overhand", "Cast_Channel_Beam_Loop", "Cast_Channel_Drain_Loop",
          "Cast_Channel_Sky_Loop", "Cast_Nova", "Cast_Cone", "Cast_Curse_Point", "Cast_Ground_Sweep", "Cast_Self_Ward", "Cast_Ally",
-         "Warcry", "Cast_Summon_Raise", "Cast_Summon_Call", "Staff_Strike_A", "Staff_Strike_B",
+         "Warcry", "Cast_Summon_Raise", "Cast_Summon_Call",
          "Cast_Raise_Wall", "Cast_Interrupted")
 # The #391 chain joints the kneel's secondaryPose keys, and how far the panels follow the thighs (as the traversal
 # clips, #443). The kneel lifts the front thigh level, so the front panel follows further than in the traversal clips
@@ -527,7 +493,7 @@ class Caster:
 
     def __init__(self, rig, seed, clip):
         self.rig, self.seed = rig, seed
-        self.sockets = {"r": "weapon" if clip in RIGHT_WEAPON else "staff", "l": "staffLeft" if clip in STRIKES else "palm_l"}
+        self.sockets = {"r": "weapon" if clip in RIGHT_WEAPON else "staff", "l": "palm_l"}
         rig.apply(seed)
         self.start = {"r": key_of(rig.grip(self.sockets["r"])), "l": key_of(rig.grip("palm_l"))}
         self.hands = Hands(rig, seed)
@@ -542,14 +508,7 @@ class Caster:
             body()
         turn_chest(rig, chest.get("yaw", 0.0), chest.get("pitch", 0.0), chest.get("roll", 0.0), chest.get("neck", 0.0), gaze)
         place_grip(rig, self.sockets["r"], frames["r"], POLE["r"])
-        if self.sockets["l"] == "staffLeft":
-            # The left hand on the shaft, toward the head from the right hand's grip.
-            right = frames["r"]
-            shaft = right.to_3x3().col[1].normalized()
-            back = right.to_3x3().col[2]
-            place_grip(rig, "staffLeft", frame_of(right.translation + shaft * LEFT_ON_SHAFT, shaft, Vector((-back.x, back.y, back.z))), POLE["l"])
-        else:
-            place_grip(rig, "palm_l", frames["l"], POLE["l"])
+        place_grip(rig, "palm_l", frames["l"], POLE["l"])
         rig.apply(self.hands.blend("l", *shape))
         return rig.capture()
 
