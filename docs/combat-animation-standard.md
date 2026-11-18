@@ -227,8 +227,51 @@ The published `humanoid-ranger-male` bundle (before) and this build (after), fro
 
 The low maul guard leaves the maul clips passing: `TwoHand_Swing_A` 0.1 cm clear (4.8×), `B` 0.1 cm clear (5.2×), `C` 4.2 cm clear, the run 0.4 cm into the left thigh (within tolerance), the jump 2.2 cm clear. The standing and jumping clips join `RANGER_COMBAT_STANDARD_CLIPS` and the staff, dagger and bow running strikes `RANGER_CLEARANCE_CLIPS`; the staff jab and sweep leave it for the standard. All 35 of the recipe's strike clips pass every check now.
 
-Still outside phase 2's recipe work: the library dagger attacks (`Dagger_Stab_R`, `Dagger_Slash_L`, `Dagger_Sinister`, `Dagger_Poison`, `Dagger_Gouge`), and a per-family footing under the guards (they are upper-body layers over the game's legs).
+### The daggers and the footing
+
+The last step redoes the Rogue's dagger attacks and gives every guard its own footing.
+
+**The dagger attacks** were the dagger recipe's upper-body arm swings from `Dagger_Idle_Loop` ([`dagger_clips.py`](../adapters/blender/dagger_clips.py), #418). They move to the strike recipe with their names and roles (the dagger family has 5 clips now, the strike family 40) and are full body from the dagger guard back to it: short quick steps, the hips driving each blade over a short range and the other dagger working against it. `Dagger_Slash_L` strikes with the left dagger (the recipe's `dagger.l`: the left hand's dagger on `hand_l.weapon` strikes, the right holds the other), so its `strike.weapon.socket` is `hand_l.weapon` and its `offhand` the right hand's `hand_r.weapon`. `Dagger_Gouge` strikes with the pommel (`strikePoint` 0.08 m below the grip).
+
+| Clip | Weapon style | What it is now |
+| --- | --- | --- |
+| `Dagger_Stab_R` (0.5 s) | dagger stab | The right dagger drawn back to the hip on a sink into the rear leg; then the lead foot slips in, the hips snap left and the point goes straight in at the chest, the left dagger pulled back across the body; straight back out. Was 0.4 s. |
+| `Dagger_Slash_L` (0.5 s) | off-hand slash | The left dagger wound up high over the left shoulder as the hips coil left; then the right heel turns out, the hips drive right ahead of the chest and it cuts down across the front, edge first, carried on low to the right. Was 0.4 s. |
+| `Dagger_Sinister` (0.7 s) | double stab | The right dagger in at the chest on a short step, pulled back to the hip as the left cocks, then the left in on a second, longer step with the hips snapping back the other way. Was 0.6 s. |
+| `Dagger_Poison` (0.9 s) | coat and slash | The left dagger turned up before the chest as the vial, the right blade laid across it and drawn back; carried out round the right side (so the point never passes the face) and cocked over the shoulder, then a short step and the hips fire left as it slashes down across. Was 0.8 s. |
+| `Dagger_Gouge` (0.6 s) | pommel jab | The dagger turned point down so the pommel leads, drawn back by the ear on a sink; a short step and the hips snapping left drive the pommel up into the face. Was 0.5 s. |
+
+**For the game:** the five clips are full body now (they were `spine_01` layers): play them on the whole skeleton from `Dagger_Guard_Loop` and back to it, not from `Dagger_Idle_Loop`. Their contacts move later (`Dagger_Stab_R` and `Dagger_Slash_L` 0.208 s to 0.233 s, `Dagger_Sinister` 0.192 s to 0.233 s, `Dagger_Poison` 0.544 s to 0.567 s, `Dagger_Gouge` 0.25 s to 0.267 s), and each records a `strike` object.
+
+**Footing.** The guards were `spine_01` layers over the game's legs, so every family stood on the idle's feet. Now each family has a stance (`STANCES` in [`strike_clips.py`](../adapters/blender/strike_clips.py) and [`ready_clips.py`](../adapters/blender/ready_clips.py)): the pelvis moved and turned and each foot moved, turned and its heel lifted from the idle's footing. Its guard stands on it, full body (the legs by two-bone IK, the feet planted for the whole loop), and every `body` and `leap` strike of the family adds it to all its keys, so the strike starts and ends standing as the guard stands and a planted foot stays planted. The hands' keys move with the pelvis and the chest takes back the stance's hip turn, so the upper body holds its keys. The idle already stands staggered, the left foot 0.46 m ahead and the right turned out 43°:
+
+| Family | Stance |
+| --- | --- |
+| Spear | Long, the weight back: the lead foot 0.14 m further out, the rear 0.1 m back and turned out further, the hips turned 14° to the right and 6 cm lower. |
+| Maul | Wide and low: each foot 9 cm out to its side and 6 cm further apart, both turned out, the hips 9 cm lower. |
+| Dagger | Light: the rear foot 5 cm in (a shorter stance), both heels up on the balls of the feet, the knees soft. |
+| Staff | Square: the feet 6 cm further out each side and slightly closer front to back, the hips 4 cm lower. |
+| Sword and shield | `Sword_Idle`'s bladed footing (the library guard): the feet a little wider and the hips 10 cm lower. |
+| Mace | Bladed: the lead foot out, the rear back and turned out, the hips turned 8°. |
+| Fists | Bladed: the lead foot out, the rear back and turned out with its heel up, the hips turned 10°. |
+| Bow | Open: the feet apart and both turned out. |
+
+[`Guard_Footing.jpg`](../review/combat-standard/Guard_Footing.jpg) shows every guard before (over the idle's legs) and after. **For the game:** play a guard on the whole skeleton while standing; while moving, keep layering its `spine_01` subtree over the locomotion. The running strikes keep the run's legs.
+
+The published `humanoid-ranger-male` bundle (before) and this build (after), from the checks of `scripts/check-combat-clips.ts`, between the keys, on the strike recipe's output over the published clips. The library dagger strikes have no `strike` object, so before they are checked with the blackened dagger on the striking hand and their recorded contact:
+
+| Clip | Before | After |
+| --- | --- | --- |
+| `Dagger_Stab_R` | 9.9 cm clear; upper body; 0.14× (inferred) | 10.9 cm clear; feet 0.0 cm; 4.8× |
+| `Dagger_Slash_L` | 13.2 cm clear; upper body; 2.4× (inferred) | 10.6 cm clear; feet 0.0 cm; 4.1× |
+| `Dagger_Sinister` | 9.8 cm clear; upper body; 1.8× (inferred) | 7.8 cm clear; feet 0.2 cm; 3.5× |
+| `Dagger_Poison` | 6.3 cm into the head; upper body; 4.3× (inferred) | 9.8 cm clear; feet 0.8 cm; 3.5× |
+| `Dagger_Gouge` | 1.2 cm clear; upper body; 0.16× (inferred) | 5.8 cm clear; feet 0.0 cm; 4.6× |
+
+With the stances under them, every other strike still passes. The 35 clips of the last step keep their feet and timing; their clearance moves by at most 2.5 cm (`Staff_Strike_C` 6.1 to 3.6 cm clear, `Bow_Bash_B` 7.9 to 5.7 cm, `Bow_Bash_A` 3.8 to 5.7 cm), and the least clear is `Staff_Jump_Strike`, 1.3 cm into the head, within tolerance (was 0.6 cm). All 40 of the recipe's strike clips pass every check. The five dagger strikes join `RANGER_COMBAT_STANDARD_CLIPS`.
+
+**The staff's left hand.** On a staff or spear the left hand holds the shaft where it passes nearest a point ahead of and below its shoulder. In a fast swing that point could be out of the arm's reach, and the hand came off the shaft (up to 22 cm in `Staff_Jump_Strike`, 13 cm in `Staff_Strike_C`). The hand now takes the nearest point of its range it can reach. That closes the gap only partly (20.5 and 10.9 cm): in those frames the right hand is so far out that even the hands together are beyond the left arm. The spear's full lunges show the same (`Spear_Thrust_B` 31 cm at full reach, `Spear_Thrust_A` 23 cm). Closing it needs those keys reworked, which is left open.
 
 ## Renders
 
-Before and after at the game camera's angle (0.42 rad pitch from 12 m, zoomed onto the figure), from the side, three-quarter front and behind: [`review/combat-standard/`](../review/combat-standard/). Phase 2 adds a sheet per reworked clip, the columns the guard, the wind-up's end, the contact, the follow-through and the end. A running strike's columns are its start, the wind-up's end, the contact, the recovery's start and the end, and a jump's start in the air. The staff, dagger and bow step adds [`Stances.jpg`](../review/combat-standard/Stances.jpg) (every family's guard, before and after, from the side and three-quarter front) and [`TwoHand_Guard.jpg`](../review/combat-standard/TwoHand_Guard.jpg) (`TwoHand_Swing_A` from the old guard and the low one; its other sheet stays the #737 before and after).
+Before and after at the game camera's angle (0.42 rad pitch from 12 m, zoomed onto the figure), from the side, three-quarter front and behind: [`review/combat-standard/`](../review/combat-standard/). Phase 2 adds a sheet per reworked clip, the columns the guard, the wind-up's end, the contact, the follow-through and the end. A running strike's columns are its start, the wind-up's end, the contact, the recovery's start and the end, and a jump's start in the air. The staff, dagger and bow step adds [`Stances.jpg`](../review/combat-standard/Stances.jpg) (every family's guard, before and after, from the side and three-quarter front) and [`TwoHand_Guard.jpg`](../review/combat-standard/TwoHand_Guard.jpg) (`TwoHand_Swing_A` from the old guard and the low one; its other sheet stays the #737 before and after). The dagger and footing step adds a sheet per dagger attack (`Dagger_Sinister`'s fourth column is the left dagger's stab) and [`Guard_Footing.jpg`](../review/combat-standard/Guard_Footing.jpg).

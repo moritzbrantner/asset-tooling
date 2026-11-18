@@ -93,8 +93,9 @@ test("the Ranger retargets the library clips in bundle order, then authors its o
   assert.ok(RANGER_SWORD_CLIPS.every((name) => !names.includes(name) && RANGER_CLIP_ROLES[name]) && RANGER_SWORD_CLIPS.length === 20);
   assert.equal(RANGER_CLIP_ROLES.Sword_Slash_Low_R!.role, "sword.directed");
   assert.equal(RANGER_CLIP_ROLES.Charge_Impact!.contact, "hand_l");
-  // #418: the Rogue's ten upper-body clips, each with a role; the off-hand slash strikes with the left hand.
-  assert.ok(RANGER_DAGGER_CLIPS.every((name) => !names.includes(name) && RANGER_CLIP_ROLES[name]) && RANGER_DAGGER_CLIPS.length === 10);
+  // #418: the Rogue's upper-body clips, each with a role (#738 moved the five dagger attacks to the strikes); the
+  // off-hand slash strikes with the left hand.
+  assert.ok(RANGER_DAGGER_CLIPS.every((name) => !names.includes(name) && RANGER_CLIP_ROLES[name]) && RANGER_DAGGER_CLIPS.length === 5);
   assert.equal(RANGER_CLIP_ROLES.Dagger_Slash_L!.contact, "hand_l");
   assert.equal(RANGER_CLIP_ROLES.Throw_Lob!.role, "throw.lob");
   // #419: the upper-body bow cycle mirrors the cycle's roles; the rapid release, the shot and the fire have contacts.
@@ -132,11 +133,13 @@ test("the Ranger retargets the library clips in bundle order, then authors its o
   // #737: the library light strike `Sword_Regular_A` is authored at the head of the family now, with its role kept.
   // #738: the sword counter and heavy chop `Sword_Regular_B` / `C` move here from the library combat family.
   // #738: so do the mace's overhand and backhand `Mace_Swing_A` / `B`, from the cast family.
-  // #738: and the staff jab and sweep `Staff_Strike_A` / `B`; `Bow_Bash_B` is a bow strike now, not a kick.
-  assert.ok(RANGER_STRIKE_CLIPS.every((name) => !names.includes(name) && /^(sword|mace|dagger|staff|spear|unarmed|two-hand|bow)\.(strike|thrust|light-strike|heavy-strike|counter)\b/.test(RANGER_CLIP_ROLES[name]!.role)) && RANGER_STRIKE_CLIPS.length === 35);
+  // #738: and the staff jab and sweep `Staff_Strike_A` / `B`; `Bow_Bash_B` is a bow strike now, not a kick. The Rogue's
+  // dagger attacks come last, keeping their roles.
+  assert.ok(RANGER_STRIKE_CLIPS.every((name) => !names.includes(name) && /^(sword|mace|dagger|staff|spear|unarmed|two-hand|bow)\.(strike|thrust|light-strike|heavy-strike|counter|stab|slash|sinister|poison|gouge)\b/.test(RANGER_CLIP_ROLES[name]!.role)) && RANGER_STRIKE_CLIPS.length === 40);
   assert.ok(RANGER_STRIKE_CLIPS.slice(0, 21).every((name) => RANGER_CLIP_ROLES[name]!.contact === "hand_r"));
   assert.deepEqual(RANGER_STRIKE_CLIPS.slice(21).map((name) => RANGER_CLIP_ROLES[name]!.contact),
-    ["hand_l", "hand_r", "hand_l", "upperarm_r", "hand_r", "hand_r", "hand_r", "hand_r", "hand_r", "hand_r", "hand_l", "hand_l", "hand_l", "hand_l"]);
+    ["hand_l", "hand_r", "hand_l", "upperarm_r", "hand_r", "hand_r", "hand_r", "hand_r", "hand_r", "hand_r", "hand_l", "hand_l", "hand_l", "hand_l",
+      "hand_r", "hand_l", "hand_r", "hand_r", "hand_r"]);
   const weapons = { sword: "Sword", mace: "Mace", dagger: "Dagger", staff: "Staff", spear: "Spear", unarmed: "Unarmed", "two-hand": "TwoHand", bow: "Bow" };
   assert.ok(Object.entries(weapons).every(([weapon, prefix]) => ["run", "jump"].every((state) => RANGER_CLIP_ROLES[`${prefix}_${state === "run" ? "Run" : "Jump"}_Strike`]?.role === `${weapon}.strike.${state}`)));
   // #711: the hit reactions and deaths have roles but no contact.
@@ -335,7 +338,7 @@ test("the Ranger recipe builds a verified bundle: in-place clips, equipment entr
     for (const name of ["Throw_Knife", "Throw_Lob"]) assert.ok(byName[name].drawSeconds > 0 && byName[name].releaseSeconds > byName[name].drawSeconds, name);
     assert.ok(byName.Dagger_Idle_Loop.loop && byName.Dagger_Idle_Loop.role === "dagger.idle");
     assert.equal(byName.Dagger_Slash_L.contact.joint, "hand_l");
-    assert.ok(Math.abs(byName.Dagger_Slash_L.contact.seconds - .208) < .02 && Math.abs(byName.Throw_Knife.contact.seconds - byName.Throw_Knife.releaseSeconds) < .02);
+    assert.ok(Math.abs(byName.Dagger_Slash_L.contact.seconds - .233) < .02 && Math.abs(byName.Throw_Knife.contact.seconds - byName.Throw_Knife.releaseSeconds) < .02);
     // #277: every bow clip records the string draw per frame; full draw is longer than the set string.
     for (const name of RANGER_BOW_CLIPS) {
       const bow = byName[name].bow;

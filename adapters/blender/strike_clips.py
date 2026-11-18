@@ -34,7 +34,9 @@ base poses; the CC0 UAL1 seeds were only watched as reference.
   ``body`` strikes, the jumps ``leap``s and the running strikes go from the guard back to it. Then the staff, dagger and
   bow: ``Staff_Strike_A``/``B``/``C`` (the jab and sweep moved from the cast clips) and ``Bow_Bash_A``/``B`` are ``body``
   strikes, and every running and jumping strike now goes from its guard or lands in it, so no strike is an upper-body
-  layer any more.
+  layer any more. Last, the Rogue's dagger attacks (``Dagger_Stab_R``, ``Dagger_Slash_L`` with the left dagger,
+  ``Dagger_Sinister``, ``Dagger_Poison``, ``Dagger_Gouge``) move here from dagger_clips.py as ``body`` strikes, and each
+  family's ``body`` and ``leap`` strikes stand on its ``STANCES`` footing, as its guard does (ready_clips.py).
 - #711 adds the bare-fist, two-handed maul and bow-in-melee sets on the same rules. The maul rides ``hand_r.weapon``
   with the left hand fixed on its ``grip.offhand``; the bow rides ``hand_l.bow`` (``bow``) and is the left hand's, the
   right a free fist; a bare fist strikes with its ``KNUCKLES`` from the hand the clip names (``hand``).
@@ -82,6 +84,9 @@ WEAPONS = {
     "sword": {"item": "equipment.sword.arming", "socket": "weapon", "tip": .84, "left": "shield", "leftItem": "equipment.shield.heater"},
     "mace": {"item": "equipment.mace.flanged", "socket": "weapon", "tip": .5, "left": "fist"},
     "dagger": {"item": "equipment.dagger.blackened", "socket": "weapon", "tip": .41, "left": "offhand", "leftItem": "equipment.dagger.blackened"},
+    # #738: the off-hand dagger striking (``Dagger_Slash_L``): the left hand's on ``hand_l.weapon``, the right holds the other.
+    "dagger.l": {"item": "equipment.dagger.blackened", "socket": "offhand", "side": "l", "tip": .41, "left": "weapon",
+                 "leftItem": "equipment.dagger.blackened"},
     "staff": {"item": "equipment.staff.quarter", "socket": "staff", "tip": -.8, "left": "shaft", "range": (.15, .7)},
     "spear": {"item": "equipment.spear.leaf", "socket": "staff", "tip": 1.46, "left": "shaft", "range": (.15, .6)},
     # #711: the maul's left hand stays on its ``grip.offhand`` frame, 0.22 m down the haft; the strike point is its
@@ -117,6 +122,8 @@ SHIELD_GUARD = {"g": (.1, -.36, 1.22), "f": (-.15, -1, .05), "t": (.05, 0, 1)}
 # #738: the dagger guard (as ``Dagger_Guard_Loop``): light and forward, the right dagger low ahead, point out, and the
 # left up before the face, the chest bent over them.
 DAGGER_GUARD = {"g": (-.13, -.4, 1.18), "b": (.15, -.9, .4), "yaw": -10, "pitch": 14, "neck": 6, "l": {"g": (.1, -.3, 1.3), "b": (-.45, -.55, .7)}}
+# The same guard for a strike with the left dagger (``dagger.l``), which keys the right dagger as ``r``.
+DAGGER_GUARD_L = {**DAGGER_GUARD["l"], "yaw": -10, "pitch": 14, "neck": 6, "r": {"g": DAGGER_GUARD["g"], "b": DAGGER_GUARD["b"]}}
 # #711: a fist key may also turn the striking palm (``z``) and lift its elbow (``e``, the arm's pole); a left-handed strike
 # (``hand: "l"``) keys the right hand as ``r``.
 # #738: the mace guard (as ``Mace_Guard_Loop``): the head up and across before the chest, the left fist up beside it.
@@ -317,6 +324,99 @@ STRIKES = {
               "l": MACE_GUARD["l"]}),
         (.92, {**MACE_GUARD, "hp": 0, "pz": -.02, "rh": 0}),
         (1, MACE_GUARD),
+    ]},
+    # #738: the Rogue's dagger attacks (were adapters/blender/dagger_clips.py's upper-body arm swings from
+    # ``Dagger_Idle_Loop``) are full body from the dagger guard back to it: short quick steps, the hips driving each
+    # blade over a short range and the other dagger working against it. The stab: the right dagger drawn back to the
+    # hip as the weight sinks on to the rear leg, then the lead foot slips in, the hips snap left and the point goes
+    # straight in at the chest, the left dagger pulled back across the body; out again as fast.
+    "Dagger_Stab_R": {"weapon": "dagger", "kind": "body", "duration": .5, "windup": .3, "contact": .44, "recovery": .6,
+                      "plants": {"l": [(0, .3), (.44, .6), (.92, 1)], "r": [(0, 1)]}, "keys": [
+        (0, DAGGER_GUARD),
+        (.3, {"g": (-.24, -.12, 1.1), "b": (.06, -.92, .4), "yaw": -16, "pitch": 12, "hy": -10, "py": .03, "pz": -.03,
+              "l": {"g": (.12, -.36, 1.32), "b": (-.4, -.6, .7)}}),
+        (.44, {"g": (-.08, -.66, 1.24), "b": (.03, -1, .06), "yaw": 16, "pitch": 16, "hy": 14, "py": -.09, "pz": -.05, "ly": -.15,
+               "rh": 12, "rw": 12, "l": {"g": (.15, -.2, 1.24), "b": (-.3, -.5, .8)}}),
+        (.6, {"g": (-.1, -.62, 1.2), "b": (.04, -1, .1), "yaw": 15, "pitch": 16, "hy": 13, "py": -.09, "pz": -.05}),
+        (.8, {"g": (-.13, -.46, 1.18), "b": (.14, -.92, .36), "yaw": -6, "pitch": 14, "hy": 2, "py": -.02, "pz": -.03, "ly": -.04,
+              "rh": 3, "rw": 3, "l": DAGGER_GUARD["l"]}),
+        (.92, {**DAGGER_GUARD, "hy": 0, "py": 0, "pz": 0, "ly": 0, "rh": 0, "rw": 0}),
+        (1, DAGGER_GUARD),
+    ]},
+    # #738: the off-hand slash: the left dagger wound up high over the left shoulder as the hips coil left, then the
+    # right heel turns out, the hips drive right ahead of the chest and the blade cuts down across the front on a short
+    # diagonal, edge first, the right dagger tucked back at the hip; it carries on low to the right and snaps back up.
+    "Dagger_Slash_L": {"weapon": "dagger.l", "kind": "body", "duration": .5, "windup": .3, "contact": .44, "recovery": .6,
+                       "plants": {"l": [(0, .3), (.44, .6), (.92, 1)], "r": [(0, 1)]}, "keys": [
+        (0, DAGGER_GUARD_L),
+        (.3, {"g": (.32, -.12, 1.46), "b": (.45, -.35, .82), "yaw": 20, "pitch": 8, "hy": 14, "py": .02, "pz": -.03,
+              "r": {"g": (-.2, -.28, 1.1), "b": (.1, -.92, .36)}}),
+        (.44, {"g": (.02, -.56, 1.26), "b": (-.72, -.68, .12), "yaw": -14, "pitch": 14, "hy": -14, "py": -.08, "pz": -.05, "ly": -.1,
+               "rh": 12, "rw": -14}),
+        (.56, {"g": (-.18, -.4, 1.06), "b": (-.62, .12, -.78), "yaw": -24, "pitch": 16, "hy": -22, "py": -.08, "pz": -.06}),
+        (.6, {"g": (-.18, -.4, 1.07), "b": (-.62, .1, -.78), "yaw": -24, "pitch": 16, "hy": -22, "py": -.08, "pz": -.06}),
+        (.8, {"g": (.08, -.36, 1.24), "b": (-.4, -.6, .7), "yaw": -8, "pitch": 14, "hy": -4, "py": -.02, "pz": -.02, "ly": -.03,
+              "rh": 3, "rw": -3, "r": DAGGER_GUARD_L["r"]}),
+        (.92, {**DAGGER_GUARD_L, "hy": 0, "py": 0, "pz": 0, "ly": 0, "rh": 0, "rw": 0}),
+        (1, DAGGER_GUARD_L),
+    ]},
+    # #738: the double stab: the right dagger in at the chest on a short step, pulled back to the hip as the left one
+    # cocks, then the left in on a second, longer step, the hips snapping back the other way; back out into the guard.
+    "Dagger_Sinister": {"weapon": "dagger", "kind": "body", "duration": .7, "windup": .18, "contact": .32, "recovery": .72,
+                        "plants": {"l": [(0, .18), (.32, .44), (.58, .72), (.94, 1)], "r": [(0, 1)]}, "keys": [
+        (0, DAGGER_GUARD),
+        (.18, {"g": (-.24, -.12, 1.12), "b": (.06, -.92, .4), "yaw": -14, "pitch": 12, "hy": -8, "py": .02, "pz": -.03,
+               "l": {"g": (.12, -.36, 1.32), "b": (-.4, -.6, .7)}}),
+        (.32, {"g": (-.08, -.64, 1.24), "b": (.03, -1, .06), "yaw": 16, "pitch": 16, "hy": 12, "py": -.07, "pz": -.04, "ly": -.1,
+               "rh": 10, "rw": 10, "l": {"g": (.16, -.2, 1.24), "b": (-.3, -.5, .8)}}),
+        (.44, {"g": (-.22, -.22, 1.12), "b": (.08, -.94, .34), "yaw": 2, "pitch": 14, "hy": 0, "py": -.06, "pz": -.04, "ly": -.1,
+               "rh": 6, "rw": 6, "l": {"g": (.24, -.12, 1.22), "b": (-.06, -.92, .4)}}),
+        (.58, {"g": (-.2, -.3, 1.12), "b": (.1, -.92, .36), "yaw": -18, "pitch": 18, "hy": -14, "py": -.11, "pz": -.06, "ly": -.16,
+               "rh": 14, "rw": -8, "l": {"g": (.08, -.66, 1.24), "b": (-.03, -1, .06)}}),
+        (.72, {"g": (-.2, -.3, 1.13), "b": (.1, -.92, .36), "yaw": -16, "pitch": 17, "hy": -12, "py": -.1, "pz": -.06,
+               "l": {"g": (.09, -.62, 1.24), "b": (-.04, -1, .1)}}),
+        (.88, {"g": (-.14, -.42, 1.17), "b": (.14, -.92, .38), "yaw": -10, "pitch": 15, "hy": -2, "py": -.02, "pz": -.02, "ly": -.04,
+               "rh": 3, "rw": -2, "l": DAGGER_GUARD["l"]}),
+        (.94, {**DAGGER_GUARD, "hy": 0, "py": 0, "pz": 0, "ly": 0, "rh": 0, "rw": 0}),
+        (1, DAGGER_GUARD),
+    ]},
+    # #738: the coat: the left dagger turned up before the chest as the vial, the right blade laid across it and drawn
+    # back to the right, then cocked high over the right shoulder with the hips coiled, a short step and the hips firing
+    # left as it slashes down across, carried on low past the left hip; back up into the guard.
+    "Dagger_Poison": {"weapon": "dagger", "kind": "body", "duration": .9, "windup": .5, "contact": .62, "recovery": .8,
+                      "plants": {"l": [(0, .5), (.62, .8), (.97, 1)], "r": [(0, 1)]}, "keys": [
+        (0, DAGGER_GUARD),
+        (.15, {"g": (-.03, -.38, 1.27), "b": (.95, -.2, .2), "yaw": -2, "pitch": 14, "pz": -.02,
+               "l": {"g": (.06, -.34, 1.18), "b": (-.15, -.35, .92), "e": (0, -1, 0)}}),
+        (.33, {"g": (-.2, -.36, 1.26), "b": (.95, -.2, .2), "yaw": -4, "pitch": 14, "pz": -.02}),
+        # Out round the right side, so the point never passes the face on its way up.
+        (.42, {"g": (-.34, -.26, 1.3), "b": (-.8, -.25, .55), "yaw": -12, "pitch": 10, "hy": -8, "py": .02, "pz": -.03}),
+        (.5, {"g": (-.32, -.04, 1.42), "b": (-.55, .35, .76), "yaw": -18, "pitch": 6, "hy": -14, "py": .03, "pz": -.04,
+              "l": {"g": (.18, -.34, 1.26), "b": (-.4, -.6, .7)}}),
+        (.62, {"g": (-.02, -.58, 1.2), "b": (.7, -.7, .1), "yaw": 18, "pitch": 16, "hy": 16, "py": -.09, "pz": -.06, "ly": -.13,
+               "rh": 12, "rw": 14, "l": {"g": (.2, -.16, 1.18), "b": (-.3, -.5, .8)}}),
+        (.74, {"g": (.18, -.38, 1.02), "b": (.55, .1, -.83), "yaw": 26, "pitch": 18, "hy": 22, "py": -.1, "pz": -.07}),
+        (.8, {"g": (.18, -.38, 1.03), "b": (.55, .08, -.83), "yaw": 26, "pitch": 18, "hy": 22, "py": -.1, "pz": -.07}),
+        (.92, {"g": (-.1, -.42, 1.16), "b": (.2, -.9, .38), "yaw": -6, "pitch": 15, "hy": 2, "py": -.02, "pz": -.02, "ly": -.03,
+               "rh": 2, "rw": 2, "l": DAGGER_GUARD["l"]}),
+        (.97, {**DAGGER_GUARD, "hy": 0, "py": 0, "pz": 0, "ly": 0, "rh": 0, "rw": 0}),
+        (1, DAGGER_GUARD),
+    ]},
+    # #738: the gouge: the right dagger turned point down so the pommel leads, drawn back by the ear on a sink, then a
+    # short step and the hips snapping left drive the pommel up into the face; straight back into the guard.
+    "Dagger_Gouge": {"weapon": "dagger", "tip": -.08, "kind": "body", "duration": .6, "windup": .3, "contact": .42, "recovery": .58,
+                     "plants": {"l": [(0, .3), (.42, .58), (.92, 1)], "r": [(0, 1)]}, "keys": [
+        (0, DAGGER_GUARD),
+        (.15, {"g": (-.22, -.3, 1.24), "b": (.2, -.3, -.93), "yaw": -8, "pitch": 10, "pz": -.02}),
+        (.3, {"g": (-.26, -.1, 1.34), "b": (.08, .4, -.91), "yaw": -16, "pitch": 6, "hy": -10, "py": .03, "pz": -.03,
+               "l": {"g": (.12, -.36, 1.32), "b": (-.4, -.6, .7)}}),
+        (.42, {"g": (-.06, -.6, 1.5), "b": (0, .35, -.94), "yaw": 20, "pitch": 6, "neck": -2, "hy": 14, "py": -.08, "pz": -.03, "ly": -.13,
+               "rh": 12, "rw": 12, "l": {"g": (.15, -.2, 1.26), "b": (-.3, -.5, .8)}}),
+        (.58, {"g": (-.08, -.56, 1.46), "b": (0, .32, -.95), "yaw": 18, "pitch": 6, "neck": -2, "hy": 12, "py": -.08, "pz": -.03}),
+        (.72, {"g": (-.2, -.36, 1.22), "b": (.2, -.3, -.93), "yaw": -4, "pitch": 12, "neck": 2, "hy": 2, "py": -.02, "pz": -.02,
+               "ly": -.04, "rh": 3, "rw": 3, "l": DAGGER_GUARD["l"]}),
+        (.92, {**DAGGER_GUARD, "hy": 0, "py": 0, "pz": 0, "ly": 0, "rh": 0, "rw": 0}),
+        (1, DAGGER_GUARD),
     ]},
     # #738: a quick in-and-out stab on the run from the dagger guard and back to it: the right dagger drawn back to the
     # hip on the stride while the left comes up before the face, then snapped out at the belly as the right foot
@@ -811,6 +911,30 @@ STRIKES = {
 # phases when it names them.
 BODY_FIELDS = {"hy": 0, "hp": 0, "hr": 0, "px": 0, "py": 0, "pz": 0,
                "lx": 0, "ly": 0, "lz": 0, "lw": 0, "lh": 0, "rx": 0, "ry": 0, "rz": 0, "rw": 0, "rh": 0}
+# #738: each family's footing under its guard (as ready_clips.py's ``STANCES``), added to every key of its ``body`` and
+# ``leap`` strikes, so they start and end standing as the guard stands and a planted foot stays planted. The hands' keys
+# move with the pelvis (``px``, ``py``, ``pz``) and the chest takes back the stance's hip turn (``hy``), so the upper body
+# holds its keys over the new footing. The left foot leads.
+STANCES = {
+    # The spear keeps its distance: a long stance, the lead foot well out, the weight back on the bent rear leg.
+    "spear": {"ly": -.14, "ry": .1, "rx": -.03, "rw": -24, "hy": -14, "py": .05, "pz": -.06},
+    # The maul commits its weight: wide and low, both feet turned out.
+    "maul": {"lx": .09, "rx": -.09, "ly": -.06, "ry": .06, "lw": 12, "rw": -18, "pz": -.09},
+    # The daggers are light on the balls of the feet: a shorter stance than the idle's, both heels up, the knees soft.
+    "dagger": {"ry": -.05, "lh": 10, "rh": 16, "rw": 10, "pz": -.03},
+    "dagger.l": {"ry": -.05, "lh": 10, "rh": 16, "rw": 10, "pz": -.03},
+    # The staff stands square on a two-handed base, the feet a little wider than the hips.
+    "staff": {"lx": .06, "rx": -.06, "ly": -.04, "ry": .04, "lw": 6, "rw": -6, "pz": -.04},
+    # The sword and shield guard is the library ``Sword_Idle``: its bladed footing, the shield side forward, the feet a
+    # little wider than the idle's and the body sunk into the knees.
+    "sword": {"lx": -.05, "ly": -.03, "rx": -.045, "ry": -.035, "pz": -.1},
+    # The mace stands as the sword, a little squarer.
+    "mace": {"ly": -.08, "ry": .06, "rw": -18, "hy": -8, "py": .02, "pz": -.04},
+    # The fists: the lead foot ahead, the rear heel up and turned out.
+    "fist": {"ly": -.1, "ry": .07, "rw": -18, "rh": 14, "hy": -10, "pz": -.04},
+    # The bow stands open: the feet apart and turned out, the bow side forward.
+    "bow": {"lx": .05, "rx": -.07, "ly": -.05, "ry": .06, "lw": 16, "rw": -20, "pz": -.03},
+}
 
 # #711: hit reactions and deaths, full body, played on the victim. A key (fraction, fields) holds every field it leaves
 # out at the previous key's value: the chest's ``yaw``, ``pitch``, ``roll``, ``neck`` and ``look``; the whole body
@@ -1297,13 +1421,15 @@ def monotone(keys, u):
     return (2 * s3 - 3 * s2 + 1) * p0 + (s3 - 2 * s2 + s) * h * slope(i) + (-2 * s3 + 3 * s2) * p1 + (s3 - s2) * h * slope(i + 1)
 
 
-def body_tracks(keys):
-    """The #737 body fields' keys, each key holding what it leaves out at the previous key's value."""
+def body_tracks(keys, stance=None):
+    """The #737 body fields' keys, each key holding what it leaves out at the previous key's value, on the family's
+    stance (#738)."""
     held, tracks = dict(BODY_FIELDS), {name: [] for name in BODY_FIELDS}
+    stance = stance or {}
     for u, key in keys:
         held.update({name: key[name] for name in BODY_FIELDS if name in key})
         for name in BODY_FIELDS:
-            tracks[name].append((u, float(held[name])))
+            tracks[name].append((u, float(held[name]) + stance.get(name, 0.0)))
     return tracks
 
 
@@ -1355,7 +1481,9 @@ class Striker:
         # #738: a clip may strike with another point up the item (``tip``), as a staff with its head.
         self.reach = self.spec.get("tip", self.weapon.get("tip"))
         self.tip = KNUCKLES if self.fist else Vector((0, self.reach, 0))
-        self.body = body_tracks(self.spec["keys"]) if self.spec["kind"] in ("body", "leap") else None
+        self.stance = STANCES.get(self.spec["weapon"], {}) if self.spec["kind"] in ("body", "leap") else {}
+        self.shift = Vector(tuple(self.stance.get(name, 0.0) for name in ("px", "py", "pz")))
+        self.body = body_tracks(self.spec["keys"], self.stance) if self.spec["kind"] in ("body", "leap") else None
         self.edge = None
         if self.body:
             # Where the idle stands each foot: its ankle, its ball and how the foot and the toes are turned.
@@ -1410,7 +1538,7 @@ class Striker:
         reach = self.reach
         velocity = (c + b1 * reach) - (a + b0 * reach)
         sideways = velocity - b * velocity.dot(b)
-        hint = Vector((-.2, -.3, .9)) if self.weapon["socket"] == "weapon" else Vector((-.4, -.6, .3))
+        hint = Vector((-.2, -.3, .9)) if self.weapon["socket"] in ("weapon", "offhand") else Vector((-.4, -.6, .3))
         w = min(1.0, sideways.length / .06)
         edge = hint.normalized().lerp(sideways.normalized() if sideways.length > 1e-6 else hint.normalized(), w)
         if self.weapon["socket"] == "staff":
@@ -1428,6 +1556,8 @@ class Striker:
         rig = self.rig
         frame, chest = self.weapon_frame(u)
         extra = self.motion.extra_at(u)
+        # #738: the hands ride the stance's pelvis offset and the chest takes back its hip turn.
+        frame = Matrix.Translation(self.shift) @ frame
 
         def hold(socket, target, pole):
             reach(rig, socket, target)
@@ -1436,24 +1566,42 @@ class Striker:
         if self.body and body:
             # The head stays on the target while the hips and chest turn and lean under it.
             k = self.place_body(u)
-            turn_chest(rig, chest["yaw"], chest["pitch"], chest["roll"], chest["neck"] - .6 * k["hp"], gaze=.7, look=-.8 * k["hy"])
+            turn_chest(rig, chest["yaw"] - self.stance.get("hy", 0.0), chest["pitch"], chest["roll"], chest["neck"] - .6 * k["hp"], gaze=.7,
+                       look=-.8 * (k["hy"] - self.stance.get("hy", 0.0)))
         else:
             turn_chest(rig, chest["yaw"], chest["pitch"], chest["roll"], chest["neck"])
         hold(self.socket, frame, extra.get("e", POLE[self.side]))
         left = self.weapon["left"]
         keys = self.motion.left_at(u)
+        if "g" in keys:
+            keys["g"] = keys["g"] + self.shift
         off = self.off
         if left == "shaft":
             shaft = frame.to_3x3().col[1].normalized()
             back = frame.to_3x3().col[2]
             want = rig.head("upperarm_l") + v(SHAFT_REACH)
             low, high = self.weapon["range"]
-            self.on_shaft = min(high, max(low, (want - frame.translation).dot(shaft)))
-            hold("staffLeft", frame_of(frame.translation + shaft * self.on_shaft, shaft, Vector((-back.x, back.y, back.z))), POLE["l"])
+            z = Vector((-back.x, back.y, back.z))
+            on = min(high, max(low, (want - frame.translation).dot(shaft)))
+            # #738: where that point is beyond the arm's reach (a fast swing or a full lunge), the hand takes the
+            # nearest point of its range it can reach, so it never comes off the shaft.
+            _, local = rig.socket["staffLeft"]
+            shoulder = rig.head("upperarm_l")
+            arm = (rig.length("upperarm_l", "lowerarm_l") + rig.length("lowerarm_l", "hand_l")) * .98
+            steps = max(1, int(round((high - low) / .01)))
+            spots = [low + (high - low) * i / steps for i in range(steps + 1)]
+            wrist = lambda s: ((frame_of(frame.translation + shaft * s, shaft, z) @ local.inverted()).translation - shoulder).length
+            if wrist(on) > arm:
+                reachable = [s for s in spots if wrist(s) <= arm]
+                on = min(reachable, key=lambda s: abs(s - on)) if reachable else min(spots, key=wrist)
+            self.on_shaft = on
+            hold("staffLeft", frame_of(frame.translation + shaft * on, shaft, z), POLE["l"])
         elif left == "shield":
             hold("shield", shield_frame(keys["g"], keys["f"], keys["t"]), POLE["l"])
         elif left == "offhand":
-            hold("offhand", item_frame(keys["g"], keys["b"], Vector((.2, -.3, .9))), POLE["l"])
+            hold("offhand", item_frame(keys["g"], keys["b"], keys.get("e", Vector((.2, -.3, .9)))), POLE["l"])
+        elif left == "weapon":
+            hold("weapon", item_frame(keys["g"], keys["b"], keys.get("e", Vector((-.2, -.3, .9)))), POLE["r"])
         elif left == "guard":
             direction, palm = GUARD[off]
             hold(f"palm_{off}", palm_frame(keys["g"], keys.get("b", v(direction)), keys.get("z", v(palm)), offset=KNUCKLES), POLE[off])
