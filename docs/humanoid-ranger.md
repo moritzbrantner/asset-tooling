@@ -360,6 +360,8 @@ The strokes are authored **upright**, with the body along +Y and facing +Z. Over
 
 [`adapters/blender/cast_clips.py`](../adapters/blender/cast_clips.py) authors the casters' kit in Blender on the animated Ranger (`RANGER_CAST_CLIPS`, the `cast` family, after the crossbow clips in bundle order). The clips are shared **cast styles**: the school (fire, frost, shadow, holy, nature) shows through VFX, not separate clips. Each key names the right hand's item frame (the staff on `hand_r.staff`, or the mace or sword on `hand_r.weapon`) and the left hand's palm (the wrist, the fingers and the palm's normal), or for the two-handed staff strikes the left hand's `hand_l.staff` grip 0.42 m up the shaft from the right hand. Two-bone arm IK puts the hands there, the chest turn is spread over `spine_01`-`03`, and the left hand's casting shape (open, cupped, clawed, pointing or a fist) is keyed on its finger joints. The right hand's fingers are left to the grip pose. Mixamo was only watched as reference. Every clip starts from the first `Idle_Loop` pose and is in place.
 
+The Cleric's mace blows `Mace_Swing_A` and `Mace_Swing_B` were authored here until #738 redid them full body in the strike recipe ([movement-state strikes](#movement-state-strikes-709)).
+
 | Clip | Length | Layer | Motion | `humanoid-clips` |
 | --- | --- | --- | --- | --- |
 | `Cast_Charge_Loop` | 1.0 s loop | `spine_01` | The staff upright before the right of the chest, the left hand cupped before the chest toward it, circling 2.5 cm; the chest sways ±2°. | `role: cast.charge` |
@@ -378,7 +380,6 @@ The strokes are authored **upright**, with the body along +Y and facing +Z. Over
 | `Cast_Summon_Raise` | 1.5 s | full body | Kneels on the right knee with the staff planted (0.45-1.05 s, `kneelSeconds`), the left palm reaching down beside the knee; the palm turns up and rises (the summon at 0.93 s) while the caster stands. | `role: cast.summon.raise`, `contact` (`hand_l`), `secondaryPose` |
 | `Cast_Summon_Call` | 1.2 s | `spine_01` | Two fingers to the mouth for a whistle (0.5 s), then a beckoning sweep of the open hand. | `role: cast.summon.call` |
 | `Staff_Strike_A`, `Staff_Strike_B` | 0.7 s | `spine_01` | Two-handed, from a guard with the right hand forward on the grip, the left hand behind it on the shaft and the staff's foot leading: a jab (contact 0.32 s) and a right-to-left sweep at waist height (0.35 s). | `role: staff.strike.jab`, `staff.strike.sweep`, `contact` (`hand_r`) |
-| `Mace_Swing_A`, `Mace_Swing_B` | 0.7 s | `spine_01` | The mace on `hand_r.weapon`: an overhand blow from over the right shoulder, and a backhand from the left shoulder out to the right; contact at 0.35 s. | `role: mace.strike.overhand`, `mace.strike.backhand`, `contact` (`hand_r`) |
 | `Cast_Raise_Wall` | 1.0 s | `spine_01` | Both hands low, palms up, lifted to head height at 0.66 s. | `role: cast.wall`, `contact` (`hand_l`) |
 | `Cast_Interrupted` | 0.4 s | `spine_01` | From the charge: a recoil, hands thrown back and apart, the head back, then the idle. | `role: cast.interrupted` |
 
@@ -519,15 +520,17 @@ The strokes are authored **upright**, with the body along +Y and facing +Z. Over
 | --- | --- | --- | --- | --- | --- | --- |
 | `Sword_Run_Strike` | `Jog_Fwd_Loop` (0.933 s) | full body (#738) | From the sword-and-shield guard: the blade cocked back over the right shoulder and held, then cut over the top and across the chest as the right foot lands, the shield swinging out to the left against it; back to the guard. | 0.5 s | mid | 1.3 m |
 | `Sword_Jump_Strike` | 1 s | full body (#738) | A slash: coiled in the air with the blade cocked over the right shoulder, the feet reaching down, then a diagonal cut a frame after they touch, the knees taking 0.2 m; up into the guard (`Sword_Idle`). | 0.467 s | mid | 1.17 m |
-| `Mace_Run_Strike` | `Jog_Fwd_Loop` | full body | The mace swung back and up behind the shoulder, brought over the top on to a head-height target, its weight carrying it low. | 0.5 s | mid | 0.95 m |
-| `Mace_Jump_Strike` | 0.8 s | full body | The mace raised overhead, over the top and slammed down as the feet touch. | 0.4 s | mid | 0.84 m |
+| `Mace_Run_Strike` | `Jog_Fwd_Loop` | full body (#738) | From the mace guard: swung up behind the right shoulder on the stride, the left fist reaching ahead, then over and down at chest height as the right foot lands, the fist pulled back; back to the guard. | 0.5 s | mid | 1.01 m |
+| `Mace_Jump_Strike` | 1 s | full body (#738) | A hammer slam: the mace up behind the head in the air, then slammed down low ahead as the feet touch, the knees taking 0.3 m with the chest over it; a beat down, then up into the guard (`Mace_Guard_Loop`). | 0.467 s | low | 0.82 m |
 | `Dagger_Run_Strike` | `Jog_Fwd_Loop` | full body | The right dagger drawn back to the hip, then driven ahead at the belly; the left held low in guard. | 0.5 s | mid | 0.92 m |
 | `Dagger_Jump_Strike` | 0.8 s | full body | Both daggers raised, plunged together down and ahead as the feet touch. | 0.4 s | mid | 0.76 m |
 | `Staff_Run_Strike` | `Jog_Fwd_Loop` | full body | The staff drawn back along the body, its foot driven out ahead at chest height by both hands. | 0.5 s | mid | 1.31 m |
 | `Staff_Jump_Strike` | 0.8 s | full body | The staff raised high, its foot ahead, driven down into the ground ahead on landing. | 0.433 s | low | 0.92 m |
 | `Spear_Run_Strike` | `Jog_Fwd_Loop` | full body (#738) | From the spear guard: drawn back on the stride, then a long thrust off the right shoulder at chest height as the foot strikes, held at full reach; back to the guard. | 0.5 s | mid | 1.98 m |
 | `Spear_Jump_Strike` | 1 s | full body (#738) | A plunge: the spear raised overhand in the air, driven down with both arms into the ground 1.3 m ahead as the feet touch, the knees taking 0.27 m over the shaft; wrenched out and up into the guard (`Spear_Guard_Loop`). | 0.467 s | low | 1.32 m |
-| `Mace_Swing_C` | 0.9 s | `spine_01` | The chain's finisher: a big wind-up high over the right shoulder, a vertical smash down the centre line. | 0.467 s | mid | 0.77 m |
+| `Mace_Swing_A` | 0.9 s | full body (#738) | The overhand (`mace.strike.overhand`, moved from the cast clips): the knees load and the hips coil right while the mace goes up behind the right shoulder, the left fist out ahead; then the lead foot steps in, the hips fire ahead of the chest, the fist pulls back and the head comes over and down at chest height, carried on low past the left knee. | 0.4 s | mid | 0.99 m |
+| `Mace_Swing_B` | 0.9 s | full body (#738) | The backhand (`mace.strike.backhand`, moved from the cast clips): the mace lifts before the chest and chambers over the left shoulder with the hips turned left, held; then the right heel turns out, the hips drive right ahead of the chest and the head sweeps across at head height and on wide of the right side. | 0.467 s | mid | 0.95 m |
+| `Mace_Swing_C` | 1.2 s | full body (#738) | The chain's finisher, a stepping vertical smash: the mace high over the head and held, then a long lead step, the body dropping into it and the head coming straight down the centre line as the foot plants; the knees stay deep a beat under the weight before the heave back into the guard. | 0.6 s | mid | 1.05 m |
 | `Staff_Strike_C` | 0.8 s | `spine_01` | The staff's foot swung up over the head and brought down on a head-height target. | 0.4 s | mid | 1.17 m |
 | `Spear_Thrust_A` | 0.7 s | full body (#738) | A short lunge from the spear guard: a small draw back on the rear leg, then the rear heel lifts, the lead foot slides out and the point drives at the belly; held, then back out of range to the guard. | 0.3 s | mid | 2.07 m |
 | `Spear_Thrust_B` | 0.9 s | full body (#737) | The [standard](combat-animation-standard.md)'s lunge: chambered at the hip on the coiled rear leg, then the rear foot pushes, the lead foot steps out and the point drives along one straight rising line at the face; back to the guard. | 0.467 s | high | 2.25 m |
@@ -547,16 +550,16 @@ The same recipe ([`adapters/blender/strike_clips.py`](../adapters/blender/strike
 
 | Clip | Length | Layer | Motion | Contact | Band | Reach |
 | --- | --- | --- | --- | --- | --- | --- |
-| `Unarmed_Jab` | 0.6 s | `spine_01` | From the chin guard, the left fist drawn back a hand, then snapped straight out at the face, turned palm down. | `hand_l` 0.233 s | high | 0.58 m |
-| `Unarmed_Cross` | 0.733 s | `spine_01` | The chest wound to the right and held, then the right fist driven across at the face, the shoulder through. | `hand_r` 0.367 s | high | 0.65 m |
-| `Unarmed_Hook` | 0.733 s | `spine_01` | The left elbow lifted and the chest wound left, then the fist swung round level at the side of the head. | `hand_l` 0.367 s | high | 0.44 m |
-| `Unarmed_Run_Strike` | `Jog_Fwd_Loop` | full body | A shoulder barge: the fists tucked, the right shoulder drawn back, then driven down and through on the right foot's plant. | `upperarm_r` 0.5 s | mid | 0.16 m |
-| `Unarmed_Jump_Strike` | 0.8 s | full body | Both fists clasped overhead and hammered down as the feet touch. | `hand_r` 0.4 s | mid | 0.50 m |
+| `Unarmed_Jab` | 0.5 s | full body (#738) | From the fists' guard: a small dip, then the left fist snaps straight out at the face on a short slide of the lead foot, the left shoulder turning in. | `hand_l` 0.2 s | high | 0.78 m |
+| `Unarmed_Cross` | 0.7 s | full body (#738) | From the fists' guard: the weight sinks back with the hips coiled, a beat; then the rear heel turns out, the hips fire ahead of the chest and the right fist drives straight through at the face, the left kept at the chin. | `hand_r` 0.333 s | high | 0.80 m |
+| `Unarmed_Hook` | 0.7 s | full body (#738) | From the fists' guard: the chest and hips coil left as the left fist goes out wide, elbow up; then the lead heel turns in and the hips snap right, the fist swinging round level at head height. | `hand_l` 0.333 s | high | 0.56 m |
+| `Unarmed_Run_Strike` | `Jog_Fwd_Loop` | full body (#738) | A shoulder barge from the fists' guard: the fists in to the chest and the right shoulder drawn back on the stride, then driven down and through on the right foot's plant; back to the guard. | `upperarm_r` 0.5 s | mid | 0.18 m |
+| `Unarmed_Jump_Strike` | 1 s | full body (#738) | An overhand right: cocked high behind the shoulder in the air, then over and down at a target before the knees as the feet touch, the knees taking 0.26 m; up into the guard (`Unarmed_Guard_Loop`). | `hand_r` 0.467 s | mid | 0.74 m |
 | `TwoHand_Swing_A` | 1.5 s | full body (#737) | The [standard](combat-animation-standard.md)'s reference for weight: the knees bent and the hips coiled under the maul cocked over the right shoulder, held, then a stamp forward and a drop as the head is hewn down across to the left, dragging the body low; heaved back to the guard. | `hand_r` 0.667 s | mid | 1.07 m |
-| `TwoHand_Swing_B` | 1.2 s | `spine_01` | Wound to the left hip, held, then a flat backhand sweep across to the right at the waist. | `hand_r` 0.667 s | mid | 1.00 m |
-| `TwoHand_Swing_C` | 1.3 s | `spine_01` | The finisher: hauled overhead until the head hangs behind the back, held, then smashed down the centre line. | `hand_r` 0.733 s | mid | 1.00 m |
-| `TwoHand_Run_Strike` | `Jog_Fwd_Loop` | full body | The maul swung back over the right shoulder, then down across the body on the right foot's plant. | `hand_r` 0.5 s | mid | 1.06 m |
-| `TwoHand_Jump_Strike` | 0.8 s | full body | A ground slam: raised overhead in the air, the head driven into the ground ahead as the feet touch. | `hand_r` 0.4 s | low | 0.84 m |
+| `TwoHand_Swing_B` | 1.3 s | full body (#738) | The backhand: the maul wound back past the left shoulder with the hips coiled, held; then the rear heel turns out, the hips unwind ahead of the chest and the head sweeps flat across at the waist and on round to the right, the knees loaded. | `hand_r` 0.667 s | mid | 1.07 m |
+| `TwoHand_Swing_C` | 1.5 s | full body (#738) | The finisher, a stepping overhead smash: hauled overhead, the body rising on the rear leg, held; then a long lead step, the body dropping on to the blow and the head driven down into the ground ahead as the foot plants; the knees stay deep a beat before the heave back into the guard. | `hand_r` 0.767 s | low | 1.17 m |
+| `TwoHand_Run_Strike` | `Jog_Fwd_Loop` | full body (#738) | From the maul guard: swung up over the right shoulder on the stride, then down across the body as the right foot lands, its weight carrying it low; back to the guard. | `hand_r` 0.5 s | mid | 1.15 m |
+| `TwoHand_Jump_Strike` | 1 s | full body (#738) | A ground slam: hauled up overhead with both hands in the air, then over the top as the feet touch, the body dropping with the head into the ground ahead, the knees taking 0.34 m; a beat down, then up into the guard (`TwoHand_Guard_Loop`). | `hand_r` 0.467 s | low | 1.14 m |
 | `Bow_Bash_A` | 0.8 s | `spine_01` | The bow drawn back across to the right shoulder and held, then whipped out to the left, its upper limb at the head. | `hand_l` 0.4 s | mid | 1.12 m |
 | `Bow_Bash_B` | 0.9 s | full body | The bow up in guard, the right knee chambered and held, then a push kick driven out at the belly. | `foot_r` 0.433 s | mid | 0.75 m |
 | `Bow_Run_Strike` | `Jog_Fwd_Loop` | full body | The bow cocked across the chest, then backhanded out to the left on the right foot's plant. | `hand_l` 0.5 s | high | 1.10 m |
@@ -653,20 +656,20 @@ The index (`humanoid-ranger-<figure>.index.json`) lists the files under `clips.f
 
 | Family | Clips | KB | Family | Clips | KB |
 | --- | ---: | ---: | --- | ---: | ---: |
-| `base` | 43 | 367 | `cast` | 21 | 195 |
+| `base` | 43 | 367 | `cast` | 19 | 195 |
 | `combat` | 13 | 134 | `social` | 23 | 341 |
 | `bow` | 6 | 132 | `chores` | 7 | 114 |
 | `swim` | 7 | 61 | `posts` | 10 | 159 |
 | `hit` | 5 | 35 | `gather` | 10 | 163 |
 | `traversal` | 16 | 240 | `raid` | 13 | 210 |
-| `sword` | 20 | 122 | `strike` | 37 | 485 |
+| `sword` | 20 | 122 | `strike` | 39 | 485 |
 | `dagger` | 10 | 56 | `ready` | 25 | 329 |
 | `bow-upper` | 8 | 145 | `defend` | 16 | 199 |
 | `crossbow` | 4 | 33 | | | |
 
 The combined file and the `default` entry's embedded clips stay for one release cycle, until mmorpg loads the families (moenarch-games/mmorpg#898).
 
-#737 moved `Sword_Regular_A` from `combat` to `strike`, and #738 `Sword_Regular_B` and `Sword_Regular_C` (the counts above are after the moves; the sizes are from before them). #737 grew the combined clips by 15 KB (3.79 MB, male).
+#737 moved `Sword_Regular_A` from `combat` to `strike`, and #738 `Sword_Regular_B` and `Sword_Regular_C` from `combat` and `Mace_Swing_A` and `Mace_Swing_B` from `cast` (the counts above are after the moves; the sizes are from before them). #737 grew the combined clips by 15 KB (3.79 MB, male).
 
 **Shared figure definition.** The figure's catalog members, appearance sources, head subset, hips, Peasant outfits and texture policy live in [`src/ranger-figure.ts`](../src/ranger-figure.ts), not in the build script. The [hair kit](hair-kit.md) and the [Redbrand kit](redbrand-kit.md), which are fitted to the male figure, read them there. A change to a Ranger clip, weapon or other build step therefore rebuilds only the two figures, and not those kits.
 
