@@ -23,8 +23,8 @@ those base poses; the CC0 UAL1 seeds were only watched as reference.
   jumping strikes are full body: they start in ``Jump_Loop``'s first pose, tuck as ``Jump_Start`` does in the air,
   land as ``Jump_Land`` starts and end in its deepest crouch (``to``), so ``Jump_Land`` or the idle takes over. Both
   record a skirt and cape pose for the #391 chain joints (``secondaryPose``).
-- ``Mace_Swing_C`` and ``Staff_Strike_C`` keep only the ``spine_01`` subtree, as the #420 mace and staff chains, and start
-  and end in the first ``Idle_Loop`` pose.
+- ``Staff_Strike_C`` keeps only the ``spine_01`` subtree, as the #420 staff chain, and starts and ends in the first
+  ``Idle_Loop`` pose.
 - #737 makes ``Sword_Regular_A``, ``TwoHand_Swing_A`` and ``Spear_Thrust_B`` the references of
   docs/combat-animation-standard.md: full body (``kind`` ``body``), from the family's guard and back to it, the feet
   planted or stepping, the pelvis turning, leaning and dropping and the legs reaching their feet by IK, so the hips and
@@ -33,13 +33,14 @@ those base poses; the CC0 UAL1 seeds were only watched as reference.
 - #738 (phase 2) redoes ``Sword_Regular_B``/``C`` and ``Spear_Thrust_A`` as ``body`` strikes, the sword and spear running
   strikes from their family's guard back to it (``guard``) and their jumping strikes as ``leap``s that land in it. Two
   fixes hold every strike's hand still between frames: the forearm's share of the hand's twist is unwrapped against the
-  last frame's (``place_grip``), and a blade keeps leading with the edge it led with (``weapon_frame``).
+  last frame's (``place_grip``), and a blade keeps leading with the edge it led with (``weapon_frame``). The mace, maul
+  and fist strikes follow: ``Mace_Swing_A``/``B``/``C``, ``TwoHand_Swing_B``/``C`` and ``Unarmed_Jab``/``Cross``/``Hook`` are
+  ``body`` strikes, the jumps ``leap``s and the running strikes go from the guard back to it.
 - #711 adds the bare-fist, two-handed maul and bow-in-melee sets on the same rules. The maul rides ``hand_r.weapon``
   with the left hand fixed on its ``grip.offhand``; the bow rides ``hand_l.bow`` (``bow``) and is the left hand's, the
   right a free fist; a bare fist strikes with its ``KNUCKLES`` from the hand the clip names (``hand``). ``Bow_Bash_B``
   kicks (the right ankle on its keys, the strike point the ball of the foot) and ``Unarmed_Run_Strike`` barges with the
-  right shoulder; both record that joint as ``strikeJoint``. ``Unarmed_Jab``/``Cross``/``Hook``,
-  ``TwoHand_Swing_B``/``C`` and ``Bow_Bash_A`` keep the ``spine_01`` subtree.
+  right shoulder; both record that joint as ``strikeJoint``. ``Bow_Bash_A`` keeps the ``spine_01`` subtree.
 - #711 also authors the hit reactions and deaths (``REACTS``), full body from the first ``Idle_Loop`` pose: the arms,
   chest and whole body turned about the pelvis through keys, the feet planted or riding the body, and no foot, knee or
   hand below the ground (``floor_feet``). They record ``hitSide``, ``peakSeconds`` and, for the deaths, ``landSeconds``
