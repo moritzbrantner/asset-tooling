@@ -130,9 +130,10 @@ test("the Ranger retargets the library clips in bundle order, then authors its o
   // contact and no name repeats an earlier clip.
   // #711 adds the bare-fist, two-handed and bow sets, whose contact is the striking hand, shoulder or foot.
   // #737: the library light strike `Sword_Regular_A` is authored at the head of the family now, with its role kept.
-  assert.ok(RANGER_STRIKE_CLIPS.every((name) => !names.includes(name) && /^(sword|mace|dagger|staff|spear|unarmed|two-hand|bow)\.(strike|thrust|light-strike)\b/.test(RANGER_CLIP_ROLES[name]!.role)) && RANGER_STRIKE_CLIPS.length === 29);
-  assert.ok(RANGER_STRIKE_CLIPS.slice(0, 15).every((name) => RANGER_CLIP_ROLES[name]!.contact === "hand_r"));
-  assert.deepEqual(RANGER_STRIKE_CLIPS.slice(15).map((name) => RANGER_CLIP_ROLES[name]!.contact),
+  // #738: the sword counter and heavy chop `Sword_Regular_B` / `C` move here from the library combat family.
+  assert.ok(RANGER_STRIKE_CLIPS.every((name) => !names.includes(name) && /^(sword|mace|dagger|staff|spear|unarmed|two-hand|bow)\.(strike|thrust|light-strike|heavy-strike|counter)\b/.test(RANGER_CLIP_ROLES[name]!.role)) && RANGER_STRIKE_CLIPS.length === 31);
+  assert.ok(RANGER_STRIKE_CLIPS.slice(0, 17).every((name) => RANGER_CLIP_ROLES[name]!.contact === "hand_r"));
+  assert.deepEqual(RANGER_STRIKE_CLIPS.slice(17).map((name) => RANGER_CLIP_ROLES[name]!.contact),
     ["hand_l", "hand_r", "hand_l", "upperarm_r", "hand_r", "hand_r", "hand_r", "hand_r", "hand_r", "hand_r", "hand_l", "foot_r", "hand_l", "hand_l"]);
   const weapons = { sword: "Sword", mace: "Mace", dagger: "Dagger", staff: "Staff", spear: "Spear", unarmed: "Unarmed", "two-hand": "TwoHand", bow: "Bow" };
   assert.ok(Object.entries(weapons).every(([weapon, prefix]) => ["run", "jump"].every((state) => RANGER_CLIP_ROLES[`${prefix}_${state === "run" ? "Run" : "Jump"}_Strike`]?.role === `${weapon}.strike.${state}`)));
