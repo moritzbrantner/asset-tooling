@@ -4,8 +4,8 @@ weapon, and the standing strikes that complete the mace, staff and spear chains)
 The declared input ``target`` is the composed Ranger GLB with its embedded clips. The recipe authors in-place clips,
 every name in ``arguments["clips"]`` in one run (#425), from explicit weapon frames solved with two-bone arm IK on top of
 a base pose: the first ``Idle_Loop`` pose for the standing strikes, each ``Jog_Fwd_Loop`` frame for the running strikes
-and ``Jump_Loop``, ``Jump_Start`` and ``Jump_Land`` poses for the jumping strikes. No source motion is copied beyond
-those base poses; the CC0 UAL1 seeds were only watched as reference.
+and ``Jump_Loop`` and ``Jump_Start`` poses for the jumping strikes in the air. No source motion is copied beyond those
+base poses; the CC0 UAL1 seeds were only watched as reference.
 
 - The one-handed weapons ride ``hand_r.weapon`` (``arguments["sockets"]["weapon"]``): the sword with the shield on
   ``hand_l.shield`` (``shield``), the mace with a free left fist, the dagger with a second dagger on ``hand_l.weapon``
@@ -14,17 +14,13 @@ those base poses; the CC0 UAL1 seeds were only watched as reference.
   (``g``) and the weapon's +Y (``b``); between keys they follow a Hermite curve through the keys, and a blade's edge
   (+X) turns along the tip's motion, so every cut leads with its edge. When the arm alone cannot reach its key, the
   clavicle rolls toward it (``reach``).
-- Every strike has one contact: the frame the weapon's strike point (``WEAPONS[...]["tip"]`` up the item's +Y; the
-  staff strikes with its foot) reaches its target. The observations record ``contactSeconds``, the strike point there
-  in the root frame (``tipAt``), its height band (``band``: ``low`` below ``BANDS[0]`` m, ``high`` above ``BANDS[1]``,
-  else ``mid``) and its horizontal reach from the root (``reachMeters``).
+- Every strike has one contact: the frame the weapon's strike point (``WEAPONS[...]["tip"]`` up the item's +Y, or the
+  clip's own ``tip``: the staff strikes with its foot or its head) reaches its target. The observations record
+  ``contactSeconds``, the strike point there in the root frame (``tipAt``), its height band (``band``: ``low`` below
+  ``BANDS[0]`` m, ``high`` above ``BANDS[1]``, else ``mid``) and its horizontal reach from the root (``reachMeters``).
 - The running strikes are full body on ``Jog_Fwd_Loop``'s legs, one whole cycle long and starting at its first frame,
-  so they blend in and out of the run without a stop; the upper body leaves the run's pose and returns to it. The
-  jumping strikes are full body: they start in ``Jump_Loop``'s first pose, tuck as ``Jump_Start`` does in the air,
-  land as ``Jump_Land`` starts and end in its deepest crouch (``to``), so ``Jump_Land`` or the idle takes over. Both
-  record a skirt and cape pose for the #391 chain joints (``secondaryPose``).
-- ``Staff_Strike_C`` keeps only the ``spine_01`` subtree, as the #420 staff chain, and starts and ends in the first
-  ``Idle_Loop`` pose.
+  so they blend in and out of the run without a stop. Every strike records a skirt and cape pose for the #391 chain
+  joints (``secondaryPose``).
 - #737 makes ``Sword_Regular_A``, ``TwoHand_Swing_A`` and ``Spear_Thrust_B`` the references of
   docs/combat-animation-standard.md: full body (``kind`` ``body``), from the family's guard and back to it, the feet
   planted or stepping, the pelvis turning, leaning and dropping and the legs reaching their feet by IK, so the hips and
@@ -35,12 +31,14 @@ those base poses; the CC0 UAL1 seeds were only watched as reference.
   fixes hold every strike's hand still between frames: the forearm's share of the hand's twist is unwrapped against the
   last frame's (``place_grip``), and a blade keeps leading with the edge it led with (``weapon_frame``). The mace, maul
   and fist strikes follow: ``Mace_Swing_A``/``B``/``C``, ``TwoHand_Swing_B``/``C`` and ``Unarmed_Jab``/``Cross``/``Hook`` are
-  ``body`` strikes, the jumps ``leap``s and the running strikes go from the guard back to it.
+  ``body`` strikes, the jumps ``leap``s and the running strikes go from the guard back to it. Then the staff, dagger and
+  bow: ``Staff_Strike_A``/``B``/``C`` (the jab and sweep moved from the cast clips) and ``Bow_Bash_A``/``B`` are ``body``
+  strikes, and every running and jumping strike now goes from its guard or lands in it, so no strike is an upper-body
+  layer any more.
 - #711 adds the bare-fist, two-handed maul and bow-in-melee sets on the same rules. The maul rides ``hand_r.weapon``
   with the left hand fixed on its ``grip.offhand``; the bow rides ``hand_l.bow`` (``bow``) and is the left hand's, the
-  right a free fist; a bare fist strikes with its ``KNUCKLES`` from the hand the clip names (``hand``). ``Bow_Bash_B``
-  kicks (the right ankle on its keys, the strike point the ball of the foot) and ``Unarmed_Run_Strike`` barges with the
-  right shoulder; both record that joint as ``strikeJoint``. ``Bow_Bash_A`` keeps the ``spine_01`` subtree.
+  right a free fist; a bare fist strikes with its ``KNUCKLES`` from the hand the clip names (``hand``).
+  ``Unarmed_Run_Strike`` barges with the right shoulder and records that joint as ``strikeJoint``.
 - #711 also authors the hit reactions and deaths (``REACTS``), full body from the first ``Idle_Loop`` pose: the arms,
   chest and whole body turned about the pelvis through keys, the feet planted or riding the body, and no foot, knee or
   hand below the ground (``floor_feet``). They record ``hitSide``, ``peakSeconds`` and, for the deaths, ``landSeconds``
@@ -56,8 +54,7 @@ import bpy
 from mathutils import Matrix, Quaternion, Vector
 
 FPS = 30
-UPPER_ROOT = "spine_01"
-STAND, RUN, JUMP, TAKEOFF, LAND = "Idle_Loop", "Jog_Fwd_Loop", "Jump_Loop", "Jump_Start", "Jump_Land"
+STAND, RUN, JUMP, TAKEOFF = "Idle_Loop", "Jog_Fwd_Loop", "Jump_Loop", "Jump_Start"
 ARMS = {"l": ("upperarm_l", "lowerarm_l", "hand_l"), "r": ("upperarm_r", "lowerarm_r", "hand_r")}
 LEGS = {"l": ("thigh_l", "calf_l", "foot_l", "ball_l"), "r": ("thigh_r", "calf_r", "foot_r", "ball_r")}
 SPINE = (("spine_01", .3), ("spine_02", .35), ("spine_03", .35))
@@ -85,7 +82,7 @@ WEAPONS = {
     "sword": {"item": "equipment.sword.arming", "socket": "weapon", "tip": .84, "left": "shield", "leftItem": "equipment.shield.heater"},
     "mace": {"item": "equipment.mace.flanged", "socket": "weapon", "tip": .5, "left": "fist"},
     "dagger": {"item": "equipment.dagger.blackened", "socket": "weapon", "tip": .41, "left": "offhand", "leftItem": "equipment.dagger.blackened"},
-    "staff": {"item": "equipment.staff.quarter", "socket": "staff", "tip": -.8, "left": "shaft", "range": (.3, .6)},
+    "staff": {"item": "equipment.staff.quarter", "socket": "staff", "tip": -.8, "left": "shaft", "range": (.15, .7)},
     "spear": {"item": "equipment.spear.leaf", "socket": "staff", "tip": 1.46, "left": "shaft", "range": (.15, .6)},
     # #711: the maul's left hand stays on its ``grip.offhand`` frame, 0.22 m down the haft; the strike point is its
     # head. Bare fists strike with the knuckles (``KNUCKLES``) of the hand a clip names (``hand``), the other fist in
@@ -99,9 +96,8 @@ KNUCKLES = Vector((0, .1, .03))
 # The free hands' default direction (+Y) and palm (+Z), right hand mirrored from the left; a guard fist's knuckles up.
 FREE = {"l": ((-.3, -.6, .6), (-1, 0, 0)), "r": ((.3, -.6, .6), (1, 0, 0))}
 GUARD = {"l": ((-.1, -.4, .9), (-1, 0, 0)), "r": ((.1, -.4, .9), (1, 0, 0))}
-# The kick's knee pole (ahead and up) and the joints a foot or shoulder strike lands with.
-KNEE = Vector((0, -1, .3))
-STRIKE_JOINTS = {"foot": "ball_r", "shoulder": "upperarm_r"}
+# The joint a shoulder strike lands with.
+STRIKE_JOINTS = {"shoulder": "upperarm_r"}
 SOCKET_IDS = {"weapon": "hand_r.weapon", "staff": "hand_r.staff", "shield": "hand_l.shield", "offhand": "hand_l.weapon", "shaft": "hand_l.staff",
               "bow": "hand_l.bow"}
 SHAFT_REACH = (0, -.3, -.2)
@@ -112,33 +108,36 @@ BANDS = (.7, 1.4)
 # the shoulders at 1.43, the ground at 0). A positive yaw turns the chest to the figure's left; a positive pitch bends
 # it forward; a positive roll leans it to its left; a positive neck tips the head down.
 #
-# A strike: ``kind`` (``run``, ``jump`` or ``stand``), ``duration`` (a running strike lasts one ``Jog_Fwd_Loop``),
+# A strike: ``kind`` (``body``, ``run`` or ``leap``, below), ``duration`` (a running strike lasts one ``Jog_Fwd_Loop``),
 # ``contact`` (the fraction of the contact key) and ``keys`` (fraction, key): the right grip ``g``, the weapon's +Y
 # ``b`` and the chest's ``yaw``, ``pitch``, ``roll`` and ``neck`` (0 when absent); the left hand's key ``l`` holds the
 # shield (``g``, face ``f``, top ``t``), the off-hand dagger (``g``, blade ``b``) or the fist (``g``) and is held between
-# the keys that name it. A strike blends from its base pose into the first key by ``into`` and, unless it ends in a
-# crouch, back out of the last from ``out``.
+# the keys that name it. A staff key may also turn the staff's +Z (``z``).
 SHIELD_GUARD = {"g": (.1, -.36, 1.22), "f": (-.15, -1, .05), "t": (.05, 0, 1)}
-DAGGER_GUARD = {"g": (.2, -.3, 1.06), "b": (-.1, -.7, .7)}
-FIST = {"g": (.24, -.2, 1.12)}
-# #711: the bow's free right fist and the idle's right ankle the kick leaves and returns to. A fist key may also turn the
-# striking palm (``z``), lift its elbow (``e``, the arm's pole) and, on a kick, place the right ankle (``k``) with the foot
-# along ``kd``; a left-handed strike (``hand: "l"``) keys the right hand as ``r``.
-R_FIST = {"g": (-.24, -.2, 1.12)}
-IDLE_ANKLE_R = (-.166, .293, .088)
+# #738: the dagger guard (as ``Dagger_Guard_Loop``): light and forward, the right dagger low ahead, point out, and the
+# left up before the face, the chest bent over them.
+DAGGER_GUARD = {"g": (-.13, -.4, 1.18), "b": (.15, -.9, .4), "yaw": -10, "pitch": 14, "neck": 6, "l": {"g": (.1, -.3, 1.3), "b": (-.45, -.55, .7)}}
+# #711: a fist key may also turn the striking palm (``z``) and lift its elbow (``e``, the arm's pole); a left-handed strike
+# (``hand: "l"``) keys the right hand as ``r``.
 # #738: the mace guard (as ``Mace_Guard_Loop``): the head up and across before the chest, the left fist up beside it.
 MACE_GUARD = {"g": (-.15, -.36, 1.24), "b": (.42, -.2, .88), "yaw": -6, "pitch": 9, "neck": 4, "l": {"g": (.15, -.38, 1.3)}}
 # On the run the head leans forward over the guard, so the mace is held lower and further out from the face.
 MACE_RUN_GUARD = {**MACE_GUARD, "g": (-.16, -.46, 1.16), "b": (.5, -.42, .76), "pitch": 6}
 # The maul guard (as ``TwoHand_Guard_Loop`` and the keys that start and end ``TwoHand_Swing_A``).
-MAUL_GUARD = {"g": (-.12, -.36, 1.12), "b": (.12, -.45, .88), "yaw": -6, "pitch": 10, "neck": 4}
-MAUL_RUN_GUARD = {**MAUL_GUARD, "g": (-.14, -.44, 1.06), "b": (.2, -.6, .77), "pitch": 6}
+MAUL_GUARD = {"g": (-.16, -.38, 1.02), "b": (.22, -.72, -.66), "yaw": -8, "pitch": 16, "neck": 6}
+MAUL_RUN_GUARD = {**MAUL_GUARD, "g": (-.16, -.44, 1.06), "b": (.25, -.85, -.45), "pitch": 10}
 # The fists' guard (as ``Unarmed_Guard_Loop``): both fists up at the chin, knuckles up, the chest bent over them. A
 # left-handed strike keys the left fist and holds the right as ``r``; a right-handed one the other way round.
 FISTS = {"l": {"g": (.08, -.38, 1.55), "b": (-.3, -.25, .92), "z": (-1, 0, 0)}, "r": {"g": (-.08, -.34, 1.51), "b": (.3, -.25, .92), "z": (1, 0, 0)}}
 FISTS_CHEST = {"yaw": -4, "pitch": 10, "neck": 8}
 FISTS_L = {**FISTS["l"], "e": POLE["l"], **FISTS_CHEST, "r": FISTS["r"]}
 FISTS_R = {**FISTS["r"], "e": POLE["r"], **FISTS_CHEST, "l": FISTS["l"]}
+# The staff guard (as ``Staff_Guard_Loop``): the staff on a diagonal before the body, its head up toward the target over
+# the left hand and its foot back and low beside the right hip.
+STAFF_GUARD = {"g": (-.2, -.26, 1.06), "b": (.5, -.62, .6), "yaw": 8, "pitch": 10, "neck": 4}
+# The bow guard (as ``Bow_Guard_Loop``): the bow upright before the left side of the chest like a short staff, its
+# lower limb tipped forward clear of the legs, the right fist up at the chin.
+BOW_GUARD = {"g": (.2, -.4, 1.22), "b": (.12, .08, .99), "yaw": 4, "pitch": 8, "neck": 4, "r": {"g": (-.12, -.3, 1.4)}}
 STRIKES = {
     # #737 reference for the fast one-handed attacks: from the sword-and-shield guard the hips and chest coil right on
     # to the rear foot while the blade is cocked over the right shoulder and the shield pushed out; then the lead foot
@@ -319,39 +318,70 @@ STRIKES = {
         (.92, {**MACE_GUARD, "hp": 0, "pz": -.02, "rh": 0}),
         (1, MACE_GUARD),
     ]},
-    # A lunging stab on the run: the right dagger drawn back to the hip, then driven straight ahead at the belly, the
-    # left dagger held low in guard.
-    "Dagger_Run_Strike": {"weapon": "dagger", "kind": "run", "contact": .55, "into": .16, "out": .78, "keys": [
-        (.16, {"g": (-.24, -.18, 1.08), "b": (0, -.85, .5), "yaw": -10, "l": DAGGER_GUARD}),
-        (.44, {"g": (-.26, .08, 1.1), "b": (.05, -.95, .3), "yaw": -30, "pitch": 4, "l": {"g": (.18, -.36, 1.12), "b": (-.15, -.8, .55)}}),
-        (.55, {"g": (-.08, -.56, 1.2), "b": (.05, -1, .05), "yaw": 20, "pitch": 12, "l": {"g": (.24, -.06, 1.0), "b": (-.1, -.6, .8)}}),
-        (.68, {"g": (-.08, -.5, 1.16), "b": (.08, -1, -.05), "yaw": 18, "pitch": 12}),
-        (.82, {"g": (-.22, -.22, 1.06), "b": (0, -.85, .5), "yaw": 4, "l": DAGGER_GUARD}),
+    # #738: a quick in-and-out stab on the run from the dagger guard and back to it: the right dagger drawn back to the
+    # hip on the stride while the left comes up before the face, then snapped out at the belly as the right foot
+    # strikes, the left pulled back across the chest against it, and straight back into the guard.
+    "Dagger_Run_Strike": {"weapon": "dagger", "kind": "run", "guard": "Dagger_Guard_Loop", "windup": .42, "contact": .55, "recovery": .64,
+                          "keys": [
+        (0, DAGGER_GUARD),
+        (.2, {"g": (-.2, -.28, 1.12), "b": (.1, -.92, .36), "yaw": -16, "pitch": 12}),
+        (.42, {"g": (-.26, -.06, 1.08), "b": (.05, -.96, .26), "yaw": -28, "pitch": 10, "l": {"g": (.08, -.36, 1.36), "b": (-.4, -.6, .7)}}),
+        (.55, {"g": (-.08, -.62, 1.14), "b": (.04, -1, .04), "yaw": 18, "pitch": 18, "l": {"g": (.14, -.18, 1.24), "b": (-.3, -.5, .8)}}),
+        (.64, {"g": (-.08, -.6, 1.14), "b": (.04, -1, .04), "yaw": 17, "pitch": 18}),
+        (.82, {"g": (-.14, -.42, 1.17), "b": (.14, -.92, .36), "yaw": -6, "pitch": 15, "l": DAGGER_GUARD["l"]}),
+        (.92, DAGGER_GUARD),
+        (1, DAGGER_GUARD),
     ]},
-    # Leaping with both daggers raised, plunged together down and ahead as the feet touch.
-    "Dagger_Jump_Strike": {"weapon": "dagger", "kind": "jump", "contact": .5, "keys": [
-        (.14, {"g": (-.2, -.12, 1.5), "b": (0, -.3, .95), "pitch": -6, "l": {"g": (.2, -.12, 1.5), "b": (0, -.3, .95)}}),
-        (.36, {"g": (-.18, .02, 1.68), "b": (0, .2, 1), "pitch": -14, "neck": -10, "l": {"g": (.18, .02, 1.68), "b": (0, .2, 1)}}),
-        (.5, {"g": (-.12, -.46, 1.14), "b": (0, -.7, -.7), "pitch": 18, "neck": 4, "l": {"g": (.12, -.46, 1.14), "b": (0, -.7, -.7)}}),
-        (.72, {"g": (-.12, -.4, .8), "b": (0, -.45, -.9), "pitch": 30, "neck": -10, "l": {"g": (.12, -.4, .8), "b": (0, -.45, -.9)}}),
-        (1.0, {"g": (-.14, -.4, .82), "b": (0, -.5, -.86), "pitch": 28, "neck": -12, "l": {"g": (.14, -.4, .82), "b": (0, -.5, -.86)}}),
+    # #738: the daggers' leap is a stab. In the air both daggers go up over the shoulders, points back; as the feet
+    # touch they are driven down together into a target before the knees, the knees taking a short 0.18 m, and the
+    # body springs straight back up into the light dagger guard.
+    "Dagger_Jump_Strike": {"weapon": "dagger", "kind": "leap", "duration": .9, "tuck": .24, "touch": .48, "windup": .41, "contact": .52,
+                           "recovery": .6, "guard": "Dagger_Guard_Loop", "keys": [
+        (0, {"g": (-.2, -.3, 1.36), "b": (.05, -.6, .8), "yaw": -6, "pitch": 4, "l": {"g": (.2, -.3, 1.36), "b": (-.05, -.6, .8)},
+             "lz": .28, "rz": .24, "ly": .02}),
+        (.36, {"g": (-.24, -.08, 1.7), "b": (-.1, .3, .95), "yaw": -4, "pitch": -8, "neck": -6, "l": {"g": (.24, -.08, 1.7), "b": (.1, .3, .95)}}),
+        (.41, {"g": (-.24, -.07, 1.71), "b": (-.1, .32, .94), "yaw": -4, "pitch": -8, "neck": -6}),
+        (.48, {"g": (-.2, -.4, 1.42), "b": (0, -.9, .44), "yaw": 0, "pitch": 6, "neck": -2, "pz": .02, "lz": 0, "rz": 0, "ly": 0,
+               "l": {"g": (.2, -.4, 1.42), "b": (0, -.9, .44)}}),
+        (.52, {"g": (-.13, -.5, 1.0), "b": (0, -.55, -.83), "yaw": 4, "pitch": 22, "neck": 2, "hp": 10, "pz": -.15, "rh": 6,
+               "l": {"g": (.13, -.5, 1.0), "b": (0, -.55, -.83)}}),
+        (.58, {"g": (-.13, -.48, .94), "b": (0, -.5, -.86), "yaw": 4, "pitch": 26, "neck": 0, "hp": 12, "pz": -.18, "rh": 8}),
+        (.62, {"g": (-.13, -.48, .95), "b": (0, -.5, -.86), "yaw": 4, "pitch": 25, "neck": 0, "hp": 11, "pz": -.17, "rh": 8}),
+        (.8, {"g": (-.13, -.42, 1.14), "b": (.14, -.9, .4), "yaw": -6, "pitch": 16, "neck": 4, "hp": 3, "pz": -.04, "rh": 2,
+              "l": DAGGER_GUARD["l"]}),
+        (.9, {**DAGGER_GUARD, "hp": 0, "pz": -.02, "rh": 0}),
+        (1, DAGGER_GUARD),
     ]},
-    # A lunging thrust on the run with the staff's foot: the staff drawn back along the body, then driven out straight
-    # ahead at chest height, both hands pushing.
-    "Staff_Run_Strike": {"weapon": "staff", "kind": "run", "contact": .55, "into": .16, "out": .78, "keys": [
-        (.16, {"g": (-.12, -.3, 1.04), "b": (.5, .6, .62), "yaw": 14}),
-        (.42, {"g": (-.16, -.1, 1.06), "b": (.45, .75, .5), "yaw": 26, "pitch": -2}),
-        (.55, {"g": (-.06, -.58, 1.14), "b": (.25, .92, .3), "yaw": -8, "pitch": 12}),
-        (.68, {"g": (-.06, -.52, 1.12), "b": (.28, .9, .32), "yaw": -4, "pitch": 10}),
-        (.82, {"g": (-.12, -.32, 1.04), "b": (.5, .6, .62), "yaw": 12, "pitch": 4}),
+    # #738: a rotational swing on the run from the staff guard and back to it: the hips and chest wind right as the head
+    # swings back past the right shoulder on the stride, then the right hand pushes and the left pulls, sweeping the head
+    # round flat at the ribs as the right foot strikes, and the staff comes back over into the guard.
+    "Staff_Run_Strike": {"weapon": "staff", "tip": .95, "kind": "run", "guard": "Staff_Guard_Loop", "windup": .42, "contact": .55,
+                         "recovery": .68, "keys": [
+        (0, STAFF_GUARD),
+        (.2, {"g": (-.26, -.32, 1.2), "b": (-.6, .5, .62), "yaw": -18, "pitch": 6}),
+        (.42, {"g": (-.26, -.3, 1.2), "b": (-.75, .5, .43), "yaw": -32, "pitch": 4}),
+        (.49, {"g": (-.3, -.42, 1.12), "b": (-.95, -.15, .27), "yaw": -10, "pitch": 6}),
+        (.55, {"g": (-.34, -.5, 1.08), "b": (.35, -.93, .12), "yaw": 14, "pitch": 10}),
+        (.68, {"g": (-.24, -.5, 1.06), "b": (.85, -.5, .2), "yaw": 26, "pitch": 10}),
+        (.84, {"g": (-.16, -.3, 1.08), "b": (.6, -.5, .62), "yaw": 12, "pitch": 10}),
+        (.94, STAFF_GUARD),
+        (1, STAFF_GUARD),
     ]},
-    # Leaping with the staff raised high in both hands, its foot ahead, then driven down into the ground ahead.
-    "Staff_Jump_Strike": {"weapon": "staff", "kind": "jump", "contact": .56, "keys": [
-        (.14, {"g": (-.12, -.3, 1.2), "b": (.4, .85, .3), "pitch": -4}),
-        (.36, {"g": (-.12, -.2, 1.6), "b": (.1, .92, -.38), "pitch": -12, "neck": -8}),
-        (.56, {"g": (-.06, -.4, 1.0), "b": (.05, .6, .8), "pitch": 22, "neck": -4}),
-        (.72, {"g": (-.06, -.38, .86), "b": (.05, .55, .83), "pitch": 30, "neck": -10}),
-        (1.0, {"g": (-.06, -.38, .88), "b": (.05, .56, .82), "pitch": 28, "neck": -12}),
+    # #738: the staff's leap is an overhead slam. In the air the right hand drops to the belly and the left lifts, rocking
+    # the head up and back over the head; as the feet touch the hands lever it over and the body drops on to it, the head
+    # driven into the ground ahead, the knees taking 0.28 m, then the body rises into the staff guard.
+    "Staff_Jump_Strike": {"weapon": "staff", "tip": .95, "kind": "leap", "duration": 1.0, "tuck": .22, "touch": .433, "windup": .37,
+                          "contact": .467, "recovery": .64, "guard": "Staff_Guard_Loop", "keys": [
+        (0, {"g": (-.26, -.3, 1.4), "b": (.9, -.2, .38), "yaw": -4, "pitch": 0, "lz": .28, "rz": .24, "ly": .02}),
+        (.32, {"g": (-.24, -.36, 1.25), "b": (-.2, .62, .76), "yaw": -14, "pitch": -8, "neck": -6, "hy": -8}),
+        (.37, {"g": (-.24, -.36, 1.25), "b": (-.2, .63, .75), "yaw": -14, "pitch": -8, "neck": -6, "hy": -8}),
+        (.433, {"g": (-.34, -.4, 1.3), "b": (.1, -.3, .95), "yaw": -4, "pitch": 4, "neck": -2, "hy": 0, "pz": .02, "lz": 0, "rz": 0, "ly": 0}),
+        (.467, {"g": (-.3, -.46, 1.08), "b": (.2, -.64, -.74), "yaw": 6, "pitch": 18, "neck": -2, "hy": 6, "hp": 12, "pz": -.2, "rh": 8}),
+        (.56, {"g": (-.24, -.44, .92), "b": (.1, -.58, -.81), "yaw": 8, "pitch": 26, "neck": -6, "hy": 8, "hp": 16, "pz": -.28, "rh": 12}),
+        (.64, {"g": (-.24, -.44, .93), "b": (.1, -.58, -.81), "yaw": 8, "pitch": 25, "neck": -6, "hy": 8, "hp": 15, "pz": -.27, "rh": 12}),
+        (.82, {"g": (-.2, -.3, 1.06), "b": (.42, -.6, .68), "yaw": 6, "pitch": 12, "neck": 2, "hy": 0, "hp": 3, "pz": -.06, "rh": 2}),
+        (.93, {**STAFF_GUARD, "hp": 0, "pz": -.02, "rh": 0}),
+        (1, STAFF_GUARD),
     ]},
     # A lunging spear thrust on the run: the spear level at the hip, drawn back, then driven out at chest height.
     # #738: a thrust on the run from the spear's guard and back to it, over the run's legs: the spear draws back on the
@@ -405,14 +435,67 @@ STRIKES = {
         (.95, {**MACE_GUARD, "hy": 0, "hp": 0, "py": 0, "pz": -.02, "ly": 0, "lz": 0, "rh": 0}),
         (1, MACE_GUARD),
     ]},
-    # The staff chain's third strike: the staff swung up over the head, its foot brought down on a head-height target.
-    "Staff_Strike_C": {"weapon": "staff", "kind": "stand", "duration": .8, "contact": .5, "into": .14, "out": .82, "keys": [
-        (.14, {"g": (-.12, -.36, 1.04), "b": (.55, .55, .62), "yaw": 16}),
-        (.26, {"g": (-.14, -.3, 1.3), "b": (.25, .95, -.15), "yaw": 8}),
-        (.38, {"g": (-.14, -.2, 1.6), "b": (.05, .35, -.94), "pitch": -8, "neck": -8}),
-        (.5, {"g": (-.08, -.4, 1.16), "b": (.05, .95, .3), "pitch": 14}),
-        (.64, {"g": (-.08, -.36, 1.04), "b": (.05, .85, .52), "pitch": 16}),
-        (.82, {"g": (-.12, -.36, 1.04), "b": (.55, .55, .62), "yaw": 16}),
+    # #738: the staff chain's third strike is a stepping overhead blow with the head. The right hand drops and the left
+    # lifts, rocking the head up and back over the head while the weight sinks back and the hips coil right, a beat;
+    # then the lead foot steps in, the hips fire ahead of the chest and the hands drive in opposition, the right up and
+    # forward and the left down to the belly, levering the head over and down on to a head-height target.
+    "Staff_Strike_C": {"weapon": "staff", "tip": .95, "kind": "body", "duration": 1.0, "windup": .36, "contact": .46, "recovery": .62,
+                       "plants": {"l": [(0, .36), (.46, .62), (.92, 1)], "r": [(0, 1)]}, "keys": [
+        (0, {**STAFF_GUARD, "pz": -.02}),
+        (.18, {"g": (-.2, -.3, 1.1), "b": (.25, -.2, .95), "yaw": -6, "pitch": 4, "neck": 0, "hy": -10, "py": .03, "pz": -.05}),
+        (.3, {"g": (-.24, -.32, .98), "b": (-.22, .48, .85), "yaw": -18, "pitch": -2, "neck": -4, "hy": -20, "py": .06, "pz": -.07}),
+        (.36, {"g": (-.24, -.32, .97), "b": (-.23, .5, .84), "yaw": -19, "pitch": -2, "neck": -4, "hy": -21, "py": .06, "pz": -.07}),
+        (.41, {"g": (-.2, -.42, 1.3), "b": (.02, -.3, .95), "yaw": -6, "pitch": 4, "neck": -2, "hy": -4, "py": -.04, "pz": -.08,
+               "ly": -.16, "lz": .06, "rh": 10}),
+        (.46, {"g": (-.2, -.42, 1.3), "b": (.1, -.92, -.36), "yaw": 10, "pitch": 12, "neck": 2, "hy": 14, "hp": 6, "py": -.14, "pz": -.12,
+               "ly": -.3, "lz": 0, "rh": 22, "rw": 14}),
+        (.56, {"g": (-.22, -.36, 1.2), "b": (.04, -.8, -.6), "yaw": 14, "pitch": 16, "neck": 3, "hy": 18, "hp": 8, "py": -.15, "pz": -.13}),
+        (.62, {"g": (-.22, -.35, 1.2), "b": (.04, -.8, -.6), "yaw": 14, "pitch": 16, "neck": 3, "hy": 18, "hp": 8, "py": -.15, "pz": -.13}),
+        (.8, {"g": (-.21, -.3, 1.1), "b": (.4, -.6, .7), "yaw": 4, "pitch": 10, "neck": 4, "hy": 4, "hp": 2, "py": -.04, "pz": -.04,
+              "ly": -.1, "lz": .04, "rh": 4, "rw": 4}),
+        (.92, {**STAFF_GUARD, "hy": 0, "hp": 0, "py": 0, "pz": -.02, "ly": 0, "lz": 0, "rh": 0, "rw": 0}),
+        (1, STAFF_GUARD),
+    ]},
+    # #738: the staff chain's jab, moved from the cast clips. From the staff guard the right hand draws back to the hip
+    # on a small sink into the rear leg; then the rear heel lifts, the lead foot slides out and the hips snap square
+    # while the right hand drives the head up the line at the face, the left hand steering it; a brief hold, then back
+    # out of range into the guard.
+    "Staff_Strike_A": {"weapon": "staff", "tip": .95, "kind": "body", "duration": .7, "windup": .3, "contact": .43, "recovery": .56,
+                       "plants": {"l": [(0, .3), (.43, .56), (.86, 1)], "r": [(0, 1)]}, "keys": [
+        (0, {**STAFF_GUARD, "pz": -.02}),
+        (.24, {"g": (-.26, -.14, 1.0), "b": (.36, -.76, .54), "yaw": -6, "pitch": 6, "neck": 4, "hy": -12, "py": .05, "pz": -.05}),
+        (.3, {"g": (-.26, -.13, 1.0), "b": (.36, -.76, .54), "yaw": -7, "pitch": 6, "neck": 4, "hy": -13, "py": .05, "pz": -.05}),
+        (.37, {"g": (-.22, -.36, 1.08), "b": (.28, -.84, .46), "yaw": 2, "pitch": 8, "neck": 4, "hy": 0, "hp": 2, "py": -.06, "pz": -.06,
+               "ly": -.12, "lz": .05, "rh": 14}),
+        (.43, {"g": (-.14, -.54, 1.2), "b": (.16, -.9, .4), "yaw": 12, "pitch": 11, "neck": 4, "hy": 16, "hp": 6, "py": -.22, "pz": -.09,
+               "ly": -.26, "lz": 0, "rh": 26}),
+        (.56, {"g": (-.14, -.53, 1.2), "b": (.16, -.9, .4), "yaw": 12, "pitch": 11, "neck": 4, "hy": 16, "hp": 6, "py": -.22, "pz": -.09,
+               "ly": -.26, "rh": 26}),
+        (.74, {"g": (-.19, -.36, 1.1), "b": (.4, -.7, .58), "yaw": 9, "pitch": 10, "neck": 4, "hy": 3, "hp": 2, "py": -.05, "pz": -.04,
+               "ly": -.1, "lz": .04, "rh": 6}),
+        (.86, {**STAFF_GUARD, "hy": 0, "hp": 0, "py": 0, "pz": -.02, "ly": 0, "lz": 0, "rh": 0}),
+        (1, STAFF_GUARD),
+    ]},
+    # #738: the sweep, moved from the cast clips, takes the legs with the foot. The hips and chest coil right and the
+    # knees load as the foot swings back low beside the right leg, the head high before the left shoulder; then the right
+    # heel turns, the hips drive left ahead of the chest and the hands work against each other, the head going up and
+    # back over the right shoulder as the foot sweeps across at shin height and on past the left leg.
+    "Staff_Strike_B": {"weapon": "staff", "kind": "body", "duration": .9, "windup": .37, "contact": .5, "recovery": .66,
+                       "plants": {"l": [(0, 1)], "r": [(0, 1)]}, "keys": [
+        (0, {**STAFF_GUARD, "pz": -.02}),
+        (.2, {"g": (-.28, -.26, 1.08), "b": (.52, -.5, .69), "yaw": -14, "pitch": 8, "neck": 4, "hy": -12, "pz": -.06}),
+        (.33, {"g": (-.32, -.24, 1.06), "b": (.56, -.42, .71), "yaw": -26, "pitch": 10, "neck": 4, "hy": -24, "px": -.03, "py": .02, "pz": -.12}),
+        (.37, {"g": (-.32, -.24, 1.06), "b": (.56, -.42, .71), "yaw": -27, "pitch": 10, "neck": 4, "hy": -25, "px": -.03, "py": .02, "pz": -.12}),
+        (.44, {"g": (-.26, -.4, 1.08), "b": (.25, -.05, .97), "yaw": -10, "pitch": 14, "neck": 6, "hy": -4, "px": -.01, "py": -.03, "pz": -.16,
+               "rh": 10, "rw": 10}),
+        (.5, {"g": (-.16, -.44, 1.04), "b": (-.3, .48, .82), "yaw": 10, "pitch": 18, "neck": 8, "hy": 18, "px": .02, "py": -.06, "pz": -.18,
+              "rh": 20, "rw": 24}),
+        (.6, {"g": (-.02, -.4, 1.0), "b": (-.6, .15, .79), "yaw": 22, "pitch": 18, "neck": 8, "hy": 28, "px": .04, "py": -.06, "pz": -.18,
+              "rh": 24, "rw": 30}),
+        (.66, {"g": (-.02, -.4, 1.0), "b": (-.6, .15, .79), "yaw": 22, "pitch": 18, "neck": 8, "hy": 28, "px": .04, "py": -.06, "pz": -.18}),
+        (.8, {"g": (-.12, -.5, 1.1), "b": (.05, -.35, .94), "yaw": 14, "pitch": 13, "neck": 6, "hy": 14, "px": .02, "py": -.04, "pz": -.1}),
+        (.95, {**STAFF_GUARD, "hy": 0, "px": 0, "py": 0, "pz": -.02, "rh": 0, "rw": 0}),
+        (1, STAFF_GUARD),
     ]},
     # #738: the quick jab is a short lunge from the spear's guard. The spear draws back a hand on a small sink into the
     # rear leg; then the rear heel lifts and the leg pushes, the lead foot slides a short step out, the hips square and
@@ -546,7 +629,8 @@ STRIKES = {
     # left; it drags the body on into a deep follow-through, and the recovery heaves it back up into the guard.
     "TwoHand_Swing_A": {"weapon": "maul", "kind": "body", "duration": 1.5, "windup": .33, "contact": .45, "recovery": .61,
                         "plants": {"l": [(0, .33), (.45, .8), (.97, 1)], "r": [(0, 1)]}, "keys": [
-        (0, {"g": (-.12, -.36, 1.12), "b": (.12, -.45, .88), "yaw": -6, "pitch": 10, "neck": 4, "pz": -.02}),
+        (0, {**MAUL_GUARD, "pz": -.02}),
+        (.13, {"g": (-.3, -.26, 1.18), "b": (-.6, .3, -.74), "yaw": -16, "pitch": 6, "neck": 4, "hy": -14, "py": .03, "pz": -.06}),
         (.26, {"g": (-.29, .08, 1.53), "b": (-.45, .75, .45), "yaw": -26, "pitch": -4, "hy": -30, "hp": -2, "py": .06, "pz": -.09, "lh": 12}),
         (.33, {"g": (-.3, .1, 1.55), "b": (-.47, .76, .42), "yaw": -28, "pitch": -5, "hy": -34, "hp": -3, "py": .06, "pz": -.1, "lh": 12}),
         (.39, {"g": (-.22, -.2, 1.55), "b": (-.2, -.35, .92), "yaw": -12, "pitch": 4, "hy": -8, "hp": 2, "py": -.06, "pz": -.11,
@@ -558,9 +642,9 @@ STRIKES = {
         (.8, {"g": (.14, -.55, .86), "b": (.55, -.45, .1), "yaw": 14, "pitch": 18, "hy": 24, "hp": 7, "py": -.14, "pz": -.15}),
         (.9, {"g": (-.04, -.44, 1.02), "b": (.25, -.5, .83), "yaw": 0, "pitch": 12, "hy": 6, "hp": 3, "py": -.05, "pz": -.08,
               "ly": -.12, "lz": .04, "rh": 5, "rw": 5}),
-        (.97, {"g": (-.12, -.36, 1.12), "b": (.12, -.45, .88), "yaw": -6, "pitch": 10, "hy": 0, "hp": 0, "py": 0, "pz": -.02,
+        (.97, {**MAUL_GUARD, "neck": 0, "hy": 0, "hp": 0, "py": 0, "pz": -.02,
                "ly": 0, "lz": 0, "rh": 0, "rw": 0}),
-        (1, {"g": (-.12, -.36, 1.12), "b": (.12, -.45, .88), "yaw": -6, "pitch": 10, "neck": 4}),
+        (1, MAUL_GUARD),
     ]},
     # #738: B, the backhand, answers A. The maul comes across the front and is wound back past the left shoulder, its head
     # out behind, the hips and chest coiled left over the lead leg and held; then the right heel turns out, the hips
@@ -572,9 +656,9 @@ STRIKES = {
         (.15, {"g": (0, -.42, 1.2), "b": (.4, -.4, .82), "yaw": 4, "pitch": 10, "neck": 4, "hy": 6, "pz": -.05}),
         (.33, {"g": (.2, -.12, 1.22), "b": (.6, .7, .38), "yaw": 34, "pitch": 4, "neck": 2, "hy": 30, "px": .04, "py": .04, "pz": -.13}),
         (.41, {"g": (.21, -.1, 1.22), "b": (.6, .72, .35), "yaw": 36, "pitch": 4, "neck": 2, "hy": 32, "px": .04, "py": .04, "pz": -.14}),
-        (.46, {"g": (.1, -.52, 1.14), "b": (.85, -.5, .15), "yaw": 16, "pitch": 6, "neck": 3, "hy": 12, "px": .01, "py": -.03, "pz": -.16,
+        (.46, {"g": (.1, -.58, 1.14), "b": (.85, -.5, .15), "yaw": 16, "pitch": 6, "neck": 3, "hy": 12, "px": .01, "py": -.03, "pz": -.16,
                "rh": 10, "rw": -10}),
-        (.51, {"g": (-.1, -.56, 1.1), "b": (-.9, -.42, .05), "yaw": -10, "pitch": 10, "neck": 4, "hy": -20, "px": -.03, "py": -.08, "pz": -.19,
+        (.51, {"g": (-.1, -.62, 1.1), "b": (-.9, -.42, .05), "yaw": -10, "pitch": 10, "neck": 4, "hy": -20, "px": -.03, "py": -.08, "pz": -.19,
                "rh": 20, "rw": -26}),
         (.6, {"g": (-.3, -.36, 1.06), "b": (-.92, .15, .05), "yaw": -36, "pitch": 12, "hy": -38, "px": -.05, "py": -.07, "pz": -.2,
               "rh": 22, "rw": -32}),
@@ -637,46 +721,81 @@ STRIKES = {
         (1, MAUL_GUARD),
     ]},
     # --- #711: the bow in melee, in the left hand (it strikes with its upper limb), the right a fist.
-    # A: the bow drawn back across to the right shoulder and held, then whipped out to the left at the head.
-    "Bow_Bash_A": {"weapon": "bow", "kind": "stand", "duration": .8, "contact": .5, "into": .14, "out": .82, "keys": [
-        (.14, {"g": (.16, -.3, 1.14), "b": (0, -.25, .97), "yaw": 4, "r": R_FIST}),
-        (.36, {"g": (-.06, -.24, 1.38), "b": (-.6, .4, .7), "yaw": -26, "pitch": 2}),
-        (.44, {"g": (-.08, -.22, 1.4), "b": (-.62, .42, .66), "yaw": -30, "pitch": 2}),
-        (.5, {"g": (.22, -.46, 1.3), "b": (.35, -.92, .15), "yaw": 22, "pitch": 8, "r": {"g": (-.26, -.12, 1.1)}}),
-        (.64, {"g": (.34, -.3, 1.22), "b": (.9, -.3, .3), "yaw": 32, "pitch": 8}),
-        (.82, {"g": (.16, -.3, 1.14), "b": (0, -.25, .97), "yaw": 6, "r": R_FIST}),
+    # #738: every bow strike goes from the bow guard (``Bow_Guard_Loop``) back to it, and the bow stays near upright, its
+    # lower limb tipped forward, so the limb passes before the legs and the chest, never through them.
+    # A: the bow drawn across before the right shoulder as the hips coil right, a beat; then the lead foot steps in, the
+    # hips drive left ahead of the chest and the left arm whips the upper limb out across at the head, backhanded, the
+    # right fist pulled back to the chin.
+    "Bow_Bash_A": {"weapon": "bow", "kind": "body", "duration": .8, "windup": .34, "contact": .46, "recovery": .6,
+                   "plants": {"l": [(0, .34), (.46, .62), (.9, 1)], "r": [(0, 1)]}, "keys": [
+        (0, {**BOW_GUARD, "pz": -.02}),
+        (.22, {"g": (-.12, -.44, 1.32), "b": (-.42, .05, .9), "yaw": -22, "pitch": 6, "neck": 2, "hy": -16, "py": .03, "pz": -.05,
+               "r": {"g": (-.22, -.2, 1.28)}}),
+        (.34, {"g": (-.14, -.44, 1.34), "b": (-.46, .06, .89), "yaw": -26, "pitch": 6, "neck": 2, "hy": -20, "py": .04, "pz": -.06}),
+        (.41, {"g": (.08, -.52, 1.32), "b": (0, -.05, 1), "yaw": -6, "pitch": 8, "hy": -2, "py": -.04, "pz": -.07, "ly": -.14, "lz": .05,
+               "rh": 10}),
+        (.46, {"g": (.24, -.54, 1.3), "b": (.45, -.1, .89), "yaw": 16, "pitch": 10, "hy": 18, "hp": 4, "py": -.12, "pz": -.08, "ly": -.26,
+               "lz": 0, "rh": 20, "rw": 18, "r": {"g": (-.14, -.3, 1.4)}}),
+        (.54, {"g": (.38, -.42, 1.26), "b": (.65, 0, .76), "yaw": 26, "pitch": 10, "hy": 26, "hp": 5, "py": -.13, "pz": -.08}),
+        (.62, {"g": (.38, -.41, 1.26), "b": (.65, 0, .76), "yaw": 26, "pitch": 10, "hy": 26, "hp": 5, "py": -.13, "pz": -.08}),
+        (.8, {"g": (.24, -.42, 1.22), "b": (.15, .04, .99), "yaw": 6, "pitch": 7, "hy": 4, "hp": 1, "py": -.03, "pz": -.03, "ly": -.08,
+              "lz": .04, "rh": 4, "rw": 4, "r": BOW_GUARD["r"]}),
+        (.9, {**BOW_GUARD, "hy": 0, "hp": 0, "py": 0, "pz": -.02, "ly": 0, "lz": 0, "rh": 0, "rw": 0}),
+        (1, BOW_GUARD),
     ]},
-    # B: the bow held up in guard, the right knee chambered and held, then a push kick driven out at the belly.
-    "Bow_Bash_B": {"weapon": "bow", "kind": "stand", "full": True, "point": "foot", "duration": .9, "contact": .48, "into": .12, "out": .84, "keys": [
-        (.12, {"g": (.16, -.3, 1.16), "b": (0, -.25, .97), "k": IDLE_ANKLE_R, "kd": (-.1, -.7, -.7), "pitch": 2, "r": R_FIST}),
-        (.32, {"g": (.18, -.28, 1.2), "b": (0, -.2, .98), "k": (-.12, -.16, .52), "kd": (0, -.5, -.85), "pitch": -6}),
-        (.42, {"g": (.18, -.28, 1.2), "b": (0, -.2, .98), "k": (-.12, -.2, .56), "kd": (0, -.5, -.85), "pitch": -8}),
-        (.48, {"g": (.2, -.24, 1.22), "b": (0, -.2, .98), "k": (-.1, -.62, .78), "kd": (0, -.75, .65), "pitch": -16, "r": {"g": (-.28, -.04, 1.14)}}),
-        (.6, {"g": (.2, -.24, 1.22), "b": (0, -.2, .98), "k": (-.1, -.54, .7), "kd": (0, -.7, .7), "pitch": -14}),
-        (.76, {"g": (.16, -.3, 1.16), "b": (0, -.25, .97), "k": (-.14, .1, .3), "kd": (0, -.6, -.8), "pitch": -2}),
-        (.84, {"g": (.16, -.3, 1.16), "b": (0, -.25, .97), "k": IDLE_ANKLE_R, "kd": (-.1, -.7, -.7), "r": R_FIST}),
+    # B: the forehand that answers A (it was a push kick). The bow goes out wide to the left as the hips and chest coil
+    # left and the right fist drops back to the hip, a beat; then the right heel turns out, the hips drive right ahead of
+    # the chest and the left arm swings the upper limb in across the front at the head, carrying on past the right
+    # shoulder.
+    "Bow_Bash_B": {"weapon": "bow", "kind": "body", "duration": .8, "windup": .36, "contact": .48, "recovery": .62,
+                   "plants": {"l": [(0, 1)], "r": [(0, 1)]}, "keys": [
+        (0, {**BOW_GUARD, "pz": -.02}),
+        (.24, {"g": (.42, -.34, 1.3), "b": (.45, .12, .88), "yaw": 18, "pitch": 6, "neck": 2, "hy": 14, "px": .02, "pz": -.06,
+               "r": {"g": (-.24, -.12, 1.16)}}),
+        (.36, {"g": (.45, -.32, 1.3), "b": (.5, .14, .86), "yaw": 22, "pitch": 6, "neck": 2, "hy": 18, "px": .03, "pz": -.07}),
+        (.43, {"g": (.24, -.56, 1.32), "b": (.05, -.05, 1), "yaw": 4, "pitch": 8, "hy": 2, "px": 0, "pz": -.08, "rh": 10, "rw": -10}),
+        (.48, {"g": (-.02, -.56, 1.32), "b": (-.42, -.1, .9), "yaw": -16, "pitch": 10, "hy": -18, "px": -.03, "py": -.03, "pz": -.09, "rh": 20,
+               "rw": -24}),
+        (.56, {"g": (-.16, -.46, 1.28), "b": (-.62, 0, .78), "yaw": -24, "pitch": 10, "hy": -26, "px": -.04, "py": -.03, "pz": -.09, "rh": 22,
+               "rw": -28}),
+        (.62, {"g": (-.16, -.45, 1.28), "b": (-.62, 0, .78), "yaw": -24, "pitch": 10, "hy": -26, "px": -.04, "py": -.03, "pz": -.09}),
+        (.8, {"g": (.12, -.44, 1.24), "b": (-.05, .05, 1), "yaw": -6, "pitch": 8, "hy": -6, "px": -.01, "py": -.01, "pz": -.04, "rh": 6, "rw": -6,
+              "r": BOW_GUARD["r"]}),
+        (.9, {**BOW_GUARD, "hy": 0, "px": 0, "py": 0, "pz": -.02, "rh": 0, "rw": 0}),
+        (1, BOW_GUARD),
     ]},
-    # On the run: the bow cocked across the chest, then backhanded out to the left on the right foot's plant.
-    "Bow_Run_Strike": {"weapon": "bow", "kind": "run", "contact": .55, "into": .16, "out": .8, "keys": [
-        (.16, {"g": (.16, -.3, 1.16), "b": (0, -.25, .97), "yaw": 2, "r": R_FIST}),
-        (.42, {"g": (-.06, -.24, 1.38), "b": (-.6, .4, .7), "yaw": -24, "pitch": 4}),
-        (.55, {"g": (.22, -.46, 1.3), "b": (.35, -.92, .15), "yaw": 22, "pitch": 12, "r": {"g": (-.26, -.12, 1.1)}}),
-        (.68, {"g": (.34, -.3, 1.2), "b": (.9, -.3, .3), "yaw": 28, "pitch": 12}),
-        (.82, {"g": (.16, -.3, 1.16), "b": (0, -.25, .97), "yaw": 6, "pitch": 6, "r": R_FIST}),
+    # On the run from the bow guard and back to it: the bow drawn across before the right shoulder on the stride, then
+    # whipped out across at the head as the right foot lands, the right fist pulled back to the chin.
+    "Bow_Run_Strike": {"weapon": "bow", "kind": "run", "guard": "Bow_Guard_Loop", "windup": .42, "contact": .55, "recovery": .66, "keys": [
+        (0, BOW_GUARD),
+        (.2, {"g": (.06, -.56, 1.3), "b": (-.2, .05, .98), "yaw": -14, "pitch": 6, "r": {"g": (-.22, -.22, 1.28)}}),
+        (.42, {"g": (-.02, -.6, 1.32), "b": (-.3, .02, .95), "yaw": -26, "pitch": 6}),
+        (.49, {"g": (.08, -.62, 1.36), "b": (0, .02, 1), "yaw": -6, "pitch": 8}),
+        (.55, {"g": (.24, -.58, 1.4), "b": (.45, .05, .89), "yaw": 16, "pitch": 10, "r": {"g": (-.14, -.3, 1.4)}}),
+        (.66, {"g": (.36, -.5, 1.38), "b": (.63, .12, .77), "yaw": 24, "pitch": 10}),
+        (.84, {"g": (.22, -.48, 1.3), "b": (.15, .12, .98), "yaw": 6, "pitch": 7, "r": BOW_GUARD["r"]}),
+        (.94, BOW_GUARD),
+        (1, BOW_GUARD),
     ]},
-    # Leaping with the bow raised high in the left hand, chopped down with the upper limb as the feet touch.
-    "Bow_Jump_Strike": {"weapon": "bow", "kind": "jump", "contact": .5, "keys": [
-        (.14, {"g": (.16, -.26, 1.4), "b": (0, .1, 1), "pitch": -6, "r": R_FIST}),
-        (.36, {"g": (.12, .0, 1.74), "b": (0, .8, .3), "pitch": -14, "neck": -10, "r": {"g": (-.3, -.1, 1.3)}}),
-        (.44, {"g": (.12, -.24, 1.66), "b": (0, -.3, .95), "pitch": -4, "neck": -4}),
-        (.5, {"g": (.1, -.46, 1.14), "b": (0, -.7, -.7), "pitch": 18, "neck": 4, "r": {"g": (-.28, .02, 1.12)}}),
-        (.72, {"g": (.1, -.38, .8), "b": (0, -.35, -.94), "pitch": 30, "neck": -10}),
-        (1.0, {"g": (.1, -.38, .82), "b": (0, -.4, -.92), "pitch": 28, "neck": -12, "r": {"g": (-.26, -.1, .98)}}),
+    # #738: the bow's leap is a spike with the lower limb. In the air the bow is raised high and upright, the right fist
+    # out ahead; as the feet touch the body drops on to it and the left arm drives the lower limb's tip down into a
+    # target before the knees, the knees taking 0.22 m, then the body rises into the bow guard.
+    "Bow_Jump_Strike": {"weapon": "bow", "tip": -.62, "kind": "leap", "duration": 1.0, "tuck": .22, "touch": .433, "windup": .37,
+                        "contact": .467, "recovery": .62, "guard": "Bow_Guard_Loop", "keys": [
+        (0, {"g": (.2, -.4, 1.4), "b": (.1, .05, .99), "yaw": -4, "pitch": 2, "r": BOW_GUARD["r"], "lz": .28, "rz": .24, "ly": .02}),
+        (.32, {"g": (.22, -.3, 1.76), "b": (.08, .25, .96), "yaw": 6, "pitch": -10, "neck": -8, "hy": 4, "r": {"g": (-.16, -.42, 1.36)}}),
+        (.37, {"g": (.22, -.3, 1.77), "b": (.08, .26, .96), "yaw": 6, "pitch": -10, "neck": -8, "hy": 4}),
+        (.433, {"g": (.2, -.5, 1.5), "b": (.06, .3, .95), "yaw": 2, "pitch": 4, "neck": -2, "hy": 0, "pz": .02, "lz": 0, "rz": 0, "ly": 0}),
+        (.467, {"g": (.18, -.6, 1.12), "b": (.05, .36, .93), "yaw": -4, "pitch": 18, "neck": 0, "hy": -4, "hp": 10, "pz": -.16, "rh": 6,
+                "r": {"g": (-.16, -.24, 1.3)}}),
+        (.54, {"g": (.18, -.6, 1.02), "b": (.05, .38, .92), "yaw": -4, "pitch": 22, "neck": -2, "hy": -4, "hp": 12, "pz": -.22, "rh": 8}),
+        (.62, {"g": (.18, -.59, 1.03), "b": (.05, .38, .92), "yaw": -4, "pitch": 21, "neck": -2, "hy": -4, "hp": 11, "pz": -.21, "rh": 8}),
+        (.8, {"g": (.2, -.44, 1.2), "b": (.1, .12, .99), "yaw": 0, "pitch": 9, "neck": 2, "hy": 0, "hp": 3, "pz": -.05, "rh": 2,
+              "r": BOW_GUARD["r"]}),
+        (.92, {**BOW_GUARD, "hp": 0, "pz": -.02, "rh": 0}),
+        (1, BOW_GUARD),
     ]},
 }
-# The jumping strikes' body: ``Jump_Loop``'s first pose, tucked as ``Jump_Start`` is at its highest by ``tuck``, the
-# feet touching down in ``Jump_Land``'s first pose at ``touch`` and sinking into its deepest crouch by ``crouch``.
-JUMP_BODY = {"duration": .8, "tuck": .3, "touch": .44, "crouch": .72}
 
 # #737: the full-body standing strikes (``kind`` ``body``) drive the attack from the ground up. A key may also turn the
 # pelvis about its head (``hy`` yaw, ``hp`` pitch, ``hr`` roll, signed as the chest's), move it (``px``, ``py``, ``pz``)
@@ -752,7 +871,6 @@ REACTS = {
 }
 
 CLIPS = (*STRIKES, *REACTS)
-UPPER = {name for name, spec in STRIKES.items() if spec["kind"] == "stand" and not spec.get("full")}
 # The #391 chain joints the full-body clips key, and how far the panels follow the thighs (as the social clips).
 CAPE = "cape_01"
 SWING = {"share": .7, "front": 70.0, "sideShare": .8, "side": 75.0, "back": 20.0}
@@ -1055,9 +1173,6 @@ def record_chains(rig, poses):
     return {"sampleRate": FPS, "joints": chains}
 
 
-def upper_joints(rig):
-    return [UPPER_ROOT, *(bone.name for bone in rig.rig.data.bones[UPPER_ROOT].children_recursive)]
-
 
 def root_point(p):
     """An armature-space point in the root's glTF axes (+Y up, +Z facing), rounded."""
@@ -1200,8 +1315,8 @@ class Motion:
         self.grip = [(u, v(k["g"])) for u, k in keys]
         self.blade = [(u, v(k["b"]).normalized()) for u, k in keys]
         self.chest = {name: [(u, float(k.get(name, 0.0))) for u, k in keys] for name in ("yaw", "pitch", "roll", "neck")}
-        # The striking palm, elbow pole and kicking ankle and foot, each through the keys that name it.
-        self.extra = {name: [(u, v(k[name])) for u, k in keys if name in k] for name in ("z", "e", "k", "kd")}
+        # The striking palm (or a staff's +Z) and the elbow pole, each through the keys that name it.
+        self.extra = {name: [(u, v(k[name])) for u, k in keys if name in k] for name in ("z", "e")}
         self.left = {}
         for u, k in keys:
             for name, value in k.get(off, {}).items():
@@ -1237,7 +1352,9 @@ class Striker:
         self.hands = Hands(rig, seed)
         self.fist = self.weapon["socket"] == "fist"
         self.socket = f"palm_{self.side}" if self.fist else self.weapon["socket"]
-        self.tip = KNUCKLES if self.fist else Vector((0, self.weapon["tip"], 0))
+        # #738: a clip may strike with another point up the item (``tip``), as a staff with its head.
+        self.reach = self.spec.get("tip", self.weapon.get("tip"))
+        self.tip = KNUCKLES if self.fist else Vector((0, self.reach, 0))
         self.body = body_tracks(self.spec["keys"]) if self.spec["kind"] in ("body", "leap") else None
         self.edge = None
         if self.body:
@@ -1290,14 +1407,14 @@ class Striker:
             return frame_of(g, b, extra.get("z", Vector((-.3, .8, 0)))), chest
         a, b0, _ = self.motion.at(max(0.0, u - du))
         c, b1, _ = self.motion.at(min(1.0, u + du))
-        reach = self.weapon["tip"]
+        reach = self.reach
         velocity = (c + b1 * reach) - (a + b0 * reach)
         sideways = velocity - b * velocity.dot(b)
         hint = Vector((-.2, -.3, .9)) if self.weapon["socket"] == "weapon" else Vector((-.4, -.6, .3))
         w = min(1.0, sideways.length / .06)
         edge = hint.normalized().lerp(sideways.normalized() if sideways.length > 1e-6 else hint.normalized(), w)
         if self.weapon["socket"] == "staff":
-            return frame_of(g, b, Vector((-.4, -.6, .3))), chest
+            return frame_of(g, b, extra.get("z", Vector((-.4, -.6, .3)))), chest
         # #738: every one-handed item is symmetric about its blade, so either edge may lead: keep the one nearest the
         # last frame's, and the hand never rolls half a turn between frames when the swing reverses.
         edge = edge - b * edge.dot(b)
@@ -1307,8 +1424,7 @@ class Striker:
         return item_frame(g, b, edge), chest
 
     def place(self, u, body=True):
-        """Turn the chest, put both hands on their keys and, on a kick, the right foot on its key, on whatever body
-        the rig holds."""
+        """Turn the chest and put both hands on their keys, on whatever body the rig holds."""
         rig = self.rig
         frame, chest = self.weapon_frame(u)
         extra = self.motion.extra_at(u)
@@ -1344,8 +1460,6 @@ class Striker:
         else:
             direction, palm = FREE[off]
             hold(f"palm_{off}", palm_frame(keys["g"], v(direction), v(palm)), POLE[off])
-        if "k" in extra:
-            kick(rig, extra["k"], extra["kd"])
         strike = "fist" if self.fist else "grip"
         rest = "fist" if left in ("fist", "guard") else "grip"
         for side, shape in ((self.side, strike), (off, rest)):
@@ -1362,7 +1476,7 @@ class Striker:
 
     def contact(self, base, u):
         """Where the solved body puts the strike point at the contact frame, in the root frame, its band and reach: the
-        weapon's strike point, the knuckles, the ball of the kicking foot or the barging shoulder."""
+        weapon's strike point, the knuckles or the barging shoulder."""
         rig = self.rig
         rig.apply(base)
         self.place(u)
@@ -1374,26 +1488,13 @@ class Striker:
         if self.fist:
             weapon = {"joint": f"hand_{self.side}"}
         else:
-            weapon = {"item": self.weapon["item"], "socket": SOCKET_IDS[self.weapon["socket"]], "strikePoint": [0, self.weapon["tip"], 0]}
+            weapon = {"item": self.weapon["item"], "socket": SOCKET_IDS[self.weapon["socket"]], "strikePoint": [0, self.reach, 0]}
         left = self.weapon["left"]
         held = {"item": self.weapon["leftItem"], "socket": SOCKET_IDS[left]} if "leftItem" in self.weapon else None
         if left == "shaft":
             held = {"socket": SOCKET_IDS["shaft"], "onShaftMeters": round(self.on_shaft, 4)}
         return {"weapon": weapon, **({"offhand": held} if held else {}), **({"strikeJoint": STRIKE_JOINTS[point]} if point else {}),
                 "tipAt": at, "band": band, "reachMeters": reach}
-
-
-def kick(rig, ankle, along):
-    """Put the right ankle on ``ankle``, the knee ahead and up, and turn the foot so its ball lies along ``along``."""
-    thigh, calf, foot, ball = LEGS["r"]
-    two_bone(rig, thigh, calf, foot, ankle, KNEE)
-    toward = rig.head(ball) - rig.head(foot)
-    turn = toward.rotation_difference(along.normalized())
-    pb = rig.bones[foot]
-    m = (turn.to_matrix() @ pb.matrix.to_3x3()).to_4x4()
-    m.translation = pb.head.copy()
-    pb.matrix = m
-    bpy.context.view_layer.update()
 
 
 def contact_frame(spec, count):
@@ -1403,54 +1504,20 @@ def contact_frame(spec, count):
 # --- The strikes -----------------------------------------------------------------------------------------------------
 
 
-def stand_strike(striker, actions):
-    """A standing strike: from the idle, through the keys and back to the idle."""
-    spec = striker.spec
-    count = frames_of(spec["duration"])
-    hit = contact_frame(spec, count)
-
-    def frame(u):
-        w = window(u, 0.0, spec["into"]) * (1 - window(u, spec["out"], 1.0))
-        return striker.pose(striker.seed, u, w)
-
-    poses = one_shot(spec["duration"], frame)
-    return poses, {"contactSeconds": round(hit / FPS, 4), **striker.contact(striker.seed, hit / count)}
-
-
 def run_strike(striker, actions):
-    """A running strike over one whole ``Jog_Fwd_Loop`` cycle: the legs run on, the upper body leaves the run's pose,
-    strikes and returns to it."""
+    """A running strike over one whole ``Jog_Fwd_Loop`` cycle: the legs run on and (#738) the upper body holds the
+    keys from the family's guard back to it, over the run's legs."""
     spec, rig = striker.spec, striker.rig
     run = actions[RUN]
     duration = action_seconds(run)
     count = frames_of(duration)
     hit = contact_frame(spec, count)
     bases = [sample(rig, run, k / count * duration) for k in range(count + 1)]
-    poses = []
-    for k in range(count + 1):
-        u = k / count
-        # #738: a strike that names its family's guard holds the upper body in its keys throughout, from the guard back
-        # to it, over the run's legs.
-        w = 1.0 if "guard" in spec else window(u, 0.0, spec["into"]) * (1 - window(u, spec["out"], 1.0))
-        poses.append(striker.pose(bases[k], u, w))
+    poses = [striker.pose(bases[k], k / count, 1.0) for k in range(count + 1)]
     at = lambda u: round(int(round(u * count)) / FPS, 4)
-    phases = {"windupEnd": at(spec["windup"]), "recoveryStart": at(spec["recovery"])} if "windup" in spec else {}
+    phases = {"windupEnd": at(spec["windup"]), "recoveryStart": at(spec["recovery"])}
     return poses, {"source": RUN, "durationSeconds": round(duration, 4), "contactSeconds": round(hit / FPS, 4), **phases,
                    **striker.contact(bases[hit], hit / count)}
-
-
-def lowest_pelvis(rig, action):
-    """The time of ``action``'s lowest pelvis (its deepest crouch), on its own frames."""
-    fps = bpy.context.scene.render.fps / bpy.context.scene.render.fps_base
-    first, last = (int(round(f)) for f in action.frame_range)
-    best = None
-    for f in range(first, last + 1):
-        seconds = (f - first) / fps
-        rig.apply(sample(rig, action, seconds))
-        z = rig.bones["pelvis"].head.z
-        if best is None or z < best[0]:
-            best = (z, seconds)
-    return best[1]
 
 
 def highest_feet(rig, action):
@@ -1467,32 +1534,6 @@ def highest_feet(rig, action):
     return best[1]
 
 
-def jump_strike(striker, actions):
-    """A jumping strike: from ``Jump_Loop``'s first pose, tucked in the air, touching down as ``Jump_Land`` starts and
-    sinking into its deepest crouch, where it ends."""
-    spec, rig, body = striker.spec, striker.rig, JUMP_BODY
-    tuck_at = highest_feet(rig, actions[TAKEOFF])
-    crouch_at = lowest_pelvis(rig, actions[LAND])
-    air = sample(rig, actions[JUMP], 0.0)
-    tuck = sample(rig, actions[TAKEOFF], tuck_at)
-    touch = sample(rig, actions[LAND], 0.0)
-
-    def base(u):
-        if u <= body["tuck"]:
-            return blend_poses(air, tuck, smooth(u / body["tuck"]))
-        if u <= body["touch"]:
-            return blend_poses(tuck, touch, smooth((u - body["tuck"]) / (body["touch"] - body["tuck"])))
-        s = min(1.0, (u - body["touch"]) / (body["crouch"] - body["touch"]))
-        return sample(rig, actions[LAND], crouch_at * (1 - (1 - s) * (1 - s)))
-
-    count = frames_of(body["duration"])
-    hit = contact_frame(spec, count)
-    bases = [base(k / count) for k in range(count + 1)]
-    poses = [striker.pose(bases[k], k / count, window(k / count, 0.0, .14)) for k in range(count + 1)]
-    return poses, {"source": JUMP, "contactSeconds": round(hit / FPS, 4), "landSeconds": round(body["touch"] * body["duration"], 4),
-                   "from": JUMP, "to": {"clip": LAND, "seconds": round(crouch_at, 4)}, **striker.contact(bases[hit], hit / count)}
-
-
 def body_strike(striker, actions):
     """#737: a full-body standing strike from the family's guard through its keys and back to it. Records the phase
     boundaries and the spans each foot is planted, in seconds on the clip's frames."""
@@ -1507,7 +1548,7 @@ def body_strike(striker, actions):
 
 
 def leap_strike(striker, actions):
-    """#738: a jumping strike that lands in its family's guard. The air is ``jump_strike``'s (``Jump_Loop``'s first
+    """#738: a jumping strike that lands in its family's guard. The air starts in ``Jump_Loop``'s first
     pose, tucked as ``Jump_Start`` is at its highest by ``tuck``); from there the legs reach down for the idle's
     footing by IK and touch it at ``touch``, where the body keys take over: the feet stay planted, the pelvis sinks as
     deep as the weapon's landing needs and rises back into the guard, the weapon striking on the way. Records the
@@ -1535,7 +1576,7 @@ def leap_strike(striker, actions):
                    "footPlants": plants, **striker.contact(striker.seed, hit / count)}
 
 
-AUTHORS = {"stand": stand_strike, "run": run_strike, "jump": jump_strike, "body": body_strike, "leap": leap_strike}
+AUTHORS = {"run": run_strike, "body": body_strike, "leap": leap_strike}
 
 
 # --- The reactions ---------------------------------------------------------------------------------------------------
@@ -1663,10 +1704,8 @@ def author(rig, clip, actions):
                        "secondaryPose": record_chains(rig, poses)}
     striker = Striker(rig, seed, clip)
     poses, observations = AUTHORS[striker.spec["kind"]](striker, actions)
-    if clip not in UPPER:
-        observations["secondaryPose"] = record_chains(rig, poses)
-    return poses, {"source": STAND, "durationSeconds": round((len(poses) - 1) / FPS, 4), **observations,
-                   **({"layer": UPPER_ROOT, "joints": upper_joints(rig)} if clip in UPPER else {})}
+    observations["secondaryPose"] = record_chains(rig, poses)
+    return poses, {"source": STAND, "durationSeconds": round((len(poses) - 1) / FPS, 4), **observations}
 
 
 def imported_state(rig_object):
@@ -1717,7 +1756,7 @@ def write_actions(rig_object, clips):
 def author_all(rig_object, arguments, target_path):
     """Author every requested clip on ``rig_object`` (each from the imported state); {clip: (poses, observations)}."""
     actions = {}
-    for name in (STAND, RUN, JUMP, TAKEOFF, LAND):
+    for name in (STAND, RUN, JUMP, TAKEOFF):
         found = bpy.data.actions.get(name)
         if found is None:
             raise ValueError(f"the target GLB has no {name} clip")

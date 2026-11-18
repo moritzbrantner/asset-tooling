@@ -96,9 +96,9 @@ FAMILIES = {
                          "l": {"s": "offhand", "g": (.1, -.3, 1.3), "b": (-.45, -.55, .7), "x": (0, -.4, -1)},
                          "pitch": 14, "yaw": -10, "neck": 6}},
     "staff": {"item": "equipment.staff.quarter", "socket": "staff", "stow": "back", "hand": "r", "pull": ("+z", .16),
-              "shaft": (.35, .7),
+              "shaft": (.15, .7),
               "idle": {"r": {"s": "staff", "g": (-.2, -.2, 1.0), "b": (.45, -.25, .86), "z": (-.4, -.6, .3)}, "l": "shaft", "pitch": 4},
-              "guard": {"r": {"s": "staff", "g": (-.22, -.34, 1.12), "b": (.9, -.15, .4), "z": (0, -.6, .8)}, "l": "shaft",
+              "guard": {"r": {"s": "staff", "g": (-.2, -.26, 1.06), "b": (.5, -.62, .6), "z": (-.4, -.6, .3)}, "l": "shaft",
                         "pitch": 10, "yaw": 8, "neck": 4}},
     "spear": {"item": "equipment.spear.leaf", "socket": "staff", "stow": "back", "hand": "r", "pull": ("+z", .16),
               "shaft": (.2, .6),
@@ -110,10 +110,14 @@ FAMILIES = {
                  "shaft": (-.22, -.22),
                  "idle": {"r": {"s": "weapon", "g": (-.16, -.24, 1.18), "b": (-.06, .68, .73), "x": (0, -1, 0)}, "l": "shaft",
                           "pitch": 3},
-                 "guard": {"r": {"s": "weapon", "g": (-.12, -.36, 1.12), "b": (.12, -.45, .88), "x": (-.2, -.3, .9)}, "l": "shaft",
-                          "pitch": 10, "yaw": -6, "neck": 4}},
+                 "guard": {"r": {"s": "weapon", "g": (-.16, -.38, 1.02), "b": (.22, -.72, -.66), "x": (-.2, -.3, .9)}, "l": "shaft",
+                          "pitch": 16, "yaw": -8, "neck": 6}},
     "bow": {"item": "equipment.bow.long", "socket": "bow", "stow": "backBow", "hand": "l", "pull": ("+z", .14),
-            "idle": {"l": {"s": "bow", "g": (.24, -.2, 1.0), "b": (.12, -.35, .93), "z": (-.3, -.95, 0)}, "r": None, "pitch": 3}},
+            "idle": {"l": {"s": "bow", "g": (.24, -.2, 1.0), "b": (.12, -.35, .93), "z": (-.3, -.95, 0)}, "r": None, "pitch": 3},
+            # #738: the melee guard (as the bow strikes): the bow upright before the left side of the chest like a short
+            # staff, its lower limb tipped forward clear of the legs, the right fist up at the chin.
+            "guard": {"l": {"s": "bow", "g": (.2, -.4, 1.22), "b": (.12, .08, .99), "z": (-.3, .8, 0)}, "r": fist("r", (-.12, -.3, 1.4), (.3, -.6, .6)),
+                      "pitch": 8, "yaw": 4, "neck": 4}},
     "unarmed": {"item": None, "socket": None, "stow": None, "hand": None,
                 "idle": {"r": fist("r", (-.17, -.3, 1.24), (.25, -.45, .86)), "l": fist("l", (.16, -.34, 1.3), (-.25, -.45, .86)),
                          "pitch": 6, "yaw": -6},
@@ -187,12 +191,13 @@ LOOPS = {
     "Spear_Guard_Loop": ("spear", "guard", 2.0, {"sway": 2, "breathe": 1, "bob": .01, "turn": 2}),
     "TwoHand_Guard_Loop": ("two-hand", "guard", 2.0, {"sway": 2, "breathe": 1, "bob": .01, "turn": 2}),
     "Unarmed_Guard_Loop": ("unarmed", "guard", 2.0, {"sway": 3, "breathe": 1, "bob": .012, "turn": 0}),
+    "Bow_Guard_Loop": ("bow", "guard", 2.0, {"sway": 3, "breathe": 1, "bob": .01, "turn": 2}),
 }
 CLIPS = (
     "Sword_Draw", "Sword_Sheathe", "Mace_Draw", "Mace_Sheathe", "Dagger_Draw", "Dagger_Sheathe", "Staff_Draw", "Staff_Sheathe",
     "Spear_Draw", "Spear_Sheathe", "TwoHand_Draw", "TwoHand_Sheathe", "Bow_Draw_Weapon", "Bow_Stow",
     "Mace_Idle_Loop", "Staff_Idle_Loop", "Spear_Idle_Loop", "TwoHand_Idle_Loop", "Unarmed_Idle_Loop",
-    "Mace_Guard_Loop", "Dagger_Guard_Loop", "Staff_Guard_Loop", "Spear_Guard_Loop", "TwoHand_Guard_Loop", "Unarmed_Guard_Loop",
+    "Mace_Guard_Loop", "Dagger_Guard_Loop", "Staff_Guard_Loop", "Spear_Guard_Loop", "TwoHand_Guard_Loop", "Unarmed_Guard_Loop", "Bow_Guard_Loop",
 )
 
 

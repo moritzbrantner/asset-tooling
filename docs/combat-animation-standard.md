@@ -185,8 +185,50 @@ The published `humanoid-ranger-male` bundle (before) and this build (after), fro
 | `Unarmed_Run_Strike` | 1.5× (inferred) | 4.9× |
 | `Unarmed_Jump_Strike` | 2.2× (inferred); no feet planted | feet 1.1 cm; 18.3× |
 
-The standing and jumping clips join `RANGER_COMBAT_STANDARD_CLIPS`, the mace and maul running strikes `RANGER_CLEARANCE_CLIPS` (`Mace_Swing_B` leaves it for the standard). Over the recipe's 33 strike clips, 8 fail a check now, all in the staff, dagger and bow families. The staff, dagger and bow attacks and the family stances are still to come.
+The standing and jumping clips join `RANGER_COMBAT_STANDARD_CLIPS`, the mace and maul running strikes `RANGER_CLEARANCE_CLIPS` (`Mace_Swing_B` leaves it for the standard). Over the recipe's 33 strike clips, 8 fail a check now, all in the staff, dagger and bow families. The staff, dagger and bow attacks and the family stances follow.
+
+### Staff, dagger and bow
+
+The third step redoes the last three families and gives every family a guard its attacks start from and recover into. The staff jab and sweep `Staff_Strike_A` and `B` were the cast recipe's upper-body thrusts; they move to the strike recipe with their names and roles (the cast family has 17 clips now, the strike family 35). `Bow_Bash_B` was a push kick; it is a forehand bow strike now, so its role is `bow.strike.forehand` and its contact `hand_l` (it was `bow.strike.kick` on `foot_r`, with `strikeJoint` `ball_r`). A clip may now strike with another point up its item than its family's (`tip`): the staff's head (0.95 m) or the bow's lower limb. With these, no strike is an upper-body layer any more, every running strike goes from its guard back to it and every jumping strike lands in its guard.
+
+| Clip | Weapon style | What it is now |
+| --- | --- | --- |
+| `Staff_Strike_A` (0.7 s) | staff jab | From the staff guard the right hand draws back to the hip on a sink into the rear leg; then the rear heel lifts, the lead foot slides out, the hips snap square and the head drives up the line at the face. |
+| `Staff_Strike_B` (0.9 s) | staff sweep | The hips coil right and the knees load as the foot swings back low beside the right leg; then the right heel turns, the hips drive left and the hands work against each other, the foot sweeping across at shin height (low band) while the head goes up past the right shoulder. |
+| `Staff_Strike_C` (1 s) | staff overhead | A stepping lever blow: the right hand drops and the left lifts, rocking the head up and back over the head, a beat; then the lead foot steps in, the hips fire and the hands drive in opposition, levering the head over on to a head-height target. Was 0.8 s and upper body, striking with the foot. |
+| `Staff_Run_Strike` | staff | The head swung back past the right shoulder on the stride, then swept round flat at the ribs as the right foot strikes; guard to guard. |
+| `Staff_Jump_Strike` (1 s) | staff | An overhead slam: the head rocked up and back in the air, levered over as the feet touch and driven into the ground ahead, the knees taking 0.28 m. |
+| `Dagger_Run_Strike` | daggers | Quick in and out: the right dagger drawn to the hip on the stride, snapped out at the belly as the right foot strikes, the left pulled back across the chest; guard to guard. |
+| `Dagger_Jump_Strike` (0.9 s) | daggers | A stab: both daggers up over the shoulders in the air, driven down together into a target before the knees as the feet touch; a short 0.18 m landing and a quick spring back into the light dagger guard. |
+| `Bow_Bash_A` (0.8 s) | bow backhand | The bow drawn across before the right shoulder as the hips coil, a beat; then the lead foot steps in, the hips drive left and the upper limb whips out across at the head. Was upper body. |
+| `Bow_Bash_B` (0.8 s) | bow forehand | The bow out wide to the left as the hips coil left; then the right heel turns out, the hips drive right and the upper limb swings in across the front at the head. Was a push kick. |
+| `Bow_Run_Strike` | bow | The backhand on the stride, guard to guard. |
+| `Bow_Jump_Strike` (1 s) | bow | A spike: the bow raised high and upright in the air, its lower limb's tip driven down into a target before the knees as the feet touch. |
+
+A bow is 2 m long and held in its middle, so every bow strike keeps it near upright with the lower limb tipped forward: tipped back, the lower limb swept through the thighs (all four bow clips failed on that, 11 to 16 cm deep). A quarterstaff's ends work in opposition, so a rotational swing carries the far end round the other side of the body; the swings keep the right hand out to the side as the far end goes past.
+
+**Stances.** Every family's guard is the first and last pose of its attacks. The bow gets one (`Bow_Guard_Loop`, `bow.guard`, in the `ready` family, now 26 clips): the bow upright before the left side of the chest like a short staff, the right fist at the chin. The staff guard is a diagonal with the head up toward the target over the left hand and the foot low beside the right hip (it was held across the body to the left); the maul guard is low and committed, the head down toward the ground ahead and the chest bent over it (it was upright before the chest; `TwoHand_Swing_A`, `B` and `C`, the run and the jump start and end there, and `A` first swings the head back low past the right side before it goes up). The dagger guard (light and forward), the spear's (at distance), the mace's and the fists' stay as they were. The guards stay `spine_01` layers, as #717 made them, so the legs are the game's: [`review/combat-standard/Stances.jpg`](../review/combat-standard/Stances.jpg) shows them all, before and after.
+
+The published `humanoid-ranger-male` bundle (before) and this build (after), from `scripts/check-combat-clips.ts --between` on the strike recipe's output over the published clips:
+
+| Clip | Before | After |
+| --- | --- | --- |
+| `Staff_Strike_A` | 2.2 cm into the right thigh (the idle staff); upper body; 1.8× (inferred) | 4.3 cm clear; feet 0.1 cm; 5.4× |
+| `Staff_Strike_B` | 2.2 cm into the right thigh (the idle staff); upper body; 1.8× (inferred) | 2.6 cm clear; feet 0.0 cm; 21.8× |
+| `Staff_Strike_C` | 11.2 cm into the head; upper body; 2.2× (inferred) | 6.1 cm clear; feet 0.6 cm; 5.4× |
+| `Staff_Run_Strike` | 14.0 cm into the torso; 1.3× (inferred) | 0.5 cm into the right thigh (within the 2 cm tolerance); 7.0× |
+| `Staff_Jump_Strike` | 12.7 cm into the torso; no feet planted; 1.2× (inferred) | 0.6 cm into the head (within tolerance); feet 1.2 cm; 14.0× |
+| `Dagger_Run_Strike` | 1.5 cm into the left thigh; 4.6× (inferred) | 3.4 cm clear; 5.7× |
+| `Dagger_Jump_Strike` | 9.8 cm into the head; no feet planted | 11.6 cm clear; feet 1.1 cm; 13.2× |
+| `Bow_Bash_A` | 15.0 cm into the torso; upper body | 3.8 cm clear; feet 0.0 cm; 3.9× |
+| `Bow_Bash_B` | 11.0 cm into the left thigh; 0.32× (inferred) | 7.9 cm clear; feet 0.0 cm; 6.5× |
+| `Bow_Run_Strike` | 16.1 cm into the torso | 1.4 cm into the left thigh (within tolerance); 6.2× |
+| `Bow_Jump_Strike` | 12.1 cm into the left thigh; no feet planted | 8.0 cm clear; feet 1.2 cm; 11.1× |
+
+The low maul guard leaves the maul clips passing: `TwoHand_Swing_A` 0.1 cm clear (4.8×), `B` 0.1 cm clear (5.2×), `C` 4.2 cm clear, the run 0.4 cm into the left thigh (within tolerance), the jump 2.2 cm clear. The standing and jumping clips join `RANGER_COMBAT_STANDARD_CLIPS` and the staff, dagger and bow running strikes `RANGER_CLEARANCE_CLIPS`; the staff jab and sweep leave it for the standard. All 35 of the recipe's strike clips pass every check now.
+
+Still outside phase 2's recipe work: the library dagger attacks (`Dagger_Stab_R`, `Dagger_Slash_L`, `Dagger_Sinister`, `Dagger_Poison`, `Dagger_Gouge`), and a per-family footing under the guards (they are upper-body layers over the game's legs).
 
 ## Renders
 
-Before and after at the game camera's angle (0.42 rad pitch from 12 m, zoomed onto the figure), from the side, three-quarter front and behind: [`review/combat-standard/`](../review/combat-standard/). Phase 2 adds a sheet per reworked clip, the columns the guard, the wind-up's end, the contact, the follow-through and the end. A running strike's columns are its start, the wind-up's end, the contact, the recovery's start and the end, and a jump's start in the air.
+Before and after at the game camera's angle (0.42 rad pitch from 12 m, zoomed onto the figure), from the side, three-quarter front and behind: [`review/combat-standard/`](../review/combat-standard/). Phase 2 adds a sheet per reworked clip, the columns the guard, the wind-up's end, the contact, the follow-through and the end. A running strike's columns are its start, the wind-up's end, the contact, the recovery's start and the end, and a jump's start in the air. The staff, dagger and bow step adds [`Stances.jpg`](../review/combat-standard/Stances.jpg) (every family's guard, before and after, from the side and three-quarter front) and [`TwoHand_Guard.jpg`](../review/combat-standard/TwoHand_Guard.jpg) (`TwoHand_Swing_A` from the old guard and the low one; its other sheet stays the #737 before and after).

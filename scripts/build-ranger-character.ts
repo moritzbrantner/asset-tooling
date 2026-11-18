@@ -306,8 +306,8 @@ export const RANGER_CLIP_ROLES: Readonly<Record<string, { role: string; contact?
   Crossbow_Aim_Loop: { role: "crossbow.aim" },
   Crossbow_Fire: { role: "crossbow.fire", contact: "hand_r" },
   Crossbow_Reload: { role: "crossbow.reload" },
-  // #420: the casters' shared casting styles, the staff strikes and the war cry (src/ranger-clips.ts
-  // RANGER_CAST_CLIPS). The contacts are the authored releases (the spell leaves the palm, the staff stamps, the blow lands).
+  // #420: the casters' shared casting styles and the war cry (src/ranger-clips.ts
+  // RANGER_CAST_CLIPS). The contacts are the authored releases (the spell leaves the palm, the staff stamps).
   Cast_Charge_Loop: { role: "cast.charge" },
   Cast_Release_Push: { role: "cast.release.push", contact: "hand_l" },
   Cast_Release_Overhand: { role: "cast.release.overhand", contact: "hand_l" },
@@ -323,8 +323,6 @@ export const RANGER_CLIP_ROLES: Readonly<Record<string, { role: string; contact?
   Warcry: { role: "warcry" },
   Cast_Summon_Raise: { role: "cast.summon.raise", contact: "hand_l" },
   Cast_Summon_Call: { role: "cast.summon.call" },
-  Staff_Strike_A: { role: "staff.strike.jab", contact: "hand_r" },
-  Staff_Strike_B: { role: "staff.strike.sweep", contact: "hand_r" },
   Cast_Raise_Wall: { role: "cast.wall", contact: "hand_l" },
   Cast_Interrupted: { role: "cast.interrupted" },
   // #421: emotes, doors, loot, talk, trade, sitting and sleeping (src/ranger-clips.ts RANGER_SOCIAL_CLIPS). The contacts
@@ -404,6 +402,9 @@ export const RANGER_CLIP_ROLES: Readonly<Record<string, { role: string; contact?
   // #738: the mace's overhand and backhand, moved from the cast clips.
   Mace_Swing_A: { role: "mace.strike.overhand", contact: "hand_r" },
   Mace_Swing_B: { role: "mace.strike.backhand", contact: "hand_r" },
+  // #738: the staff jab and sweep, moved from the cast clips.
+  Staff_Strike_A: { role: "staff.strike.jab", contact: "hand_r" },
+  Staff_Strike_B: { role: "staff.strike.sweep", contact: "hand_r" },
   Dagger_Run_Strike: { role: "dagger.strike.run", contact: "hand_r" },
   Dagger_Jump_Strike: { role: "dagger.strike.jump", contact: "hand_r" },
   Staff_Run_Strike: { role: "staff.strike.run", contact: "hand_r" },
@@ -427,7 +428,8 @@ export const RANGER_CLIP_ROLES: Readonly<Record<string, { role: string; contact?
   TwoHand_Run_Strike: { role: "two-hand.strike.run", contact: "hand_r" },
   TwoHand_Jump_Strike: { role: "two-hand.strike.jump", contact: "hand_r" },
   Bow_Bash_A: { role: "bow.strike.limb", contact: "hand_l" },
-  Bow_Bash_B: { role: "bow.strike.kick", contact: "foot_r" },
+  // #738: a forehand bow strike; it was a push kick (`bow.strike.kick`, contact `foot_r`).
+  Bow_Bash_B: { role: "bow.strike.forehand", contact: "hand_l" },
   Bow_Run_Strike: { role: "bow.strike.run", contact: "hand_l" },
   Bow_Jump_Strike: { role: "bow.strike.jump", contact: "hand_l" },
   Hit_Light_L: { role: "hit.light.left" },
@@ -462,6 +464,7 @@ export const RANGER_CLIP_ROLES: Readonly<Record<string, { role: string; contact?
   Spear_Guard_Loop: { role: "spear.guard" },
   TwoHand_Guard_Loop: { role: "two-hand.guard" },
   Unarmed_Guard_Loop: { role: "unarmed.guard" },
+  Bow_Guard_Loop: { role: "bow.guard" },
   // #729: dodges, parries, ripostes, the shield brace, hit and bash, the push kick (src/ranger-clips.ts RANGER_DEFEND_CLIPS).
   Roll_Bwd: { role: "dodge.roll.back" },
   Sidestep_L: { role: "dodge.side.left" },

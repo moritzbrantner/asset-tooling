@@ -7,8 +7,8 @@ the decoded equipment GLBs (``items``: item id -> path), the output folder (``ou
 seconds to show as stills (``clips``: [{"name", "weapon", "stills"}]). Every clip renders with Workbench at the mmorpg
 game camera's angle (0.42 rad pitch from 12 m, zoomed onto the figure): its stills from the side, three-quarter front
 and behind (``<clip>-<view>-<k>.png``, 400x300) and every frame from three-quarter front for the clip video
-(``<clip>-video-<frame>.png``, 320x480). An upper-body clip is layered over the first ``Idle_Loop`` pose, as the game
-plays it; the items ride their sockets.
+(``<clip>-video-<frame>.png``, 320x480; ``"video": false`` skips them). An upper-body clip is layered over the first
+``Idle_Loop`` pose, as the game plays it; the items ride their sockets.
 """
 import json
 import math
@@ -19,7 +19,11 @@ import bpy
 from mathutils import Vector
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-SOCKET_OF = {"sword": ("equipment.sword.arming", "weapon"), "maul": ("equipment.warhammer.maul", "weapon"), "spear": ("equipment.spear.leaf", "staff")}
+SOCKET_OF = {"sword": ("equipment.sword.arming", "weapon"), "maul": ("equipment.warhammer.maul", "weapon"), "spear": ("equipment.spear.leaf", "staff"),
+             "mace": ("equipment.mace.flanged", "weapon"), "staff": ("equipment.staff.quarter", "staff"), "dagger": ("equipment.dagger.blackened", "weapon"),
+             "bow": ("equipment.bow.long", "bow"), "fist": None}
+# The items a family holds in its other hand: the shield, and the second dagger (a copy of the first).
+OFFHAND = {"sword": ("equipment.shield.heater", "shield"), "dagger": ("equipment.dagger.blackened#offhand", "offhand")}
 SOCKET_IDS = {"weapon": "hand_r.weapon", "offhand": "hand_l.weapon", "shield": "hand_l.shield", "staff": "hand_r.staff", "staffLeft": "hand_l.staff",
               "bow": "hand_l.bow"}
 VIEWS = {"side": -90, "34": -45, "behind": 180}
@@ -43,6 +47,11 @@ def main(config):
         bpy.ops.import_scene.gltf(filepath=file)
         mesh = next(o for o in scene.objects if o not in before and o.type == "MESH")
         items[item] = (mesh, mesh.matrix_world.copy())
+    if "equipment.dagger.blackened" in items:
+        mesh, rest = items["equipment.dagger.blackened"]
+        copy = mesh.copy()
+        scene.collection.objects.link(copy)
+        items["equipment.dagger.blackened#offhand"] = (copy, rest)
     C4i = recipe["C4"].inverted()
 
     camera = bpy.data.objects.new("camera", bpy.data.cameras.new("camera"))
@@ -73,8 +82,8 @@ def main(config):
     idle = recipe["sample"](R, bpy.data.actions["Idle_Loop"], 0.0)
     for clip in config["clips"]:
         action = bpy.data.actions[clip["name"]]
-        item, socket = SOCKET_OF[clip["weapon"]]
-        shown = [(item, socket)] + ([("equipment.shield.heater", "shield")] if clip["weapon"] == "sword" else [])
+        shown = [SOCKET_OF[clip["weapon"]]] if SOCKET_OF[clip["weapon"]] else []
+        shown += [OFFHAND[clip["weapon"]]] if clip["weapon"] in OFFHAND else []
         for name, (mesh, _) in items.items():
             mesh.hide_render = name not in [s[0] for s in shown]
 
@@ -98,6 +107,8 @@ def main(config):
             for k, seconds in enumerate(clip["stills"]):
                 pose(seconds)
                 shot(os.path.join(config["out"], f"{clip['name']}-{name}-{k}.png"))
+        if not config.get("video", True):
+            continue
         scene.render.resolution_x, scene.render.resolution_y = 320, 480
         view("34", 2.9)
         for frame in range(count + 1):

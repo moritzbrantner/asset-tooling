@@ -101,12 +101,12 @@ test("the Ranger retargets the library clips in bundle order, then authors its o
   assert.deepEqual(RANGER_BOW_UPPER_CLIPS.slice(0, 6).map((name) => RANGER_CLIP_ROLES[name]!.role), RANGER_BOW_CLIPS.map((name) => `${RANGER_CLIP_ROLES[name]!.role}.upper`));
   assert.deepEqual([...RANGER_BOW_UPPER_CLIPS, ...RANGER_CROSSBOW_CLIPS].filter((name) => RANGER_CLIP_ROLES[name]!.contact), ["Bow_Release_Upper", "Bow_Rapid_Release", "Crossbow_Fire"]);
   assert.ok(RANGER_CROSSBOW_CLIPS.every((name) => !names.includes(name) && RANGER_CLIP_ROLES[name]!.role.startsWith("crossbow.")));
-  // #420: the casters' 19 clips (#738 moved the mace blows to the strikes), each with a role; the releases contact with the casting (left) hand, the strikes with
-  // the weapon hand. The roles the spell list keys on keep their names.
-  assert.ok(RANGER_CAST_CLIPS.every((name) => !names.includes(name) && RANGER_CLIP_ROLES[name]) && RANGER_CAST_CLIPS.length === 19);
+  // #420: the casters' 17 clips (#738 moved the mace blows and the staff strikes to the strikes), each with a role; the releases
+  // contact with the casting (left) hand. The roles the spell list keys on keep their names.
+  assert.ok(RANGER_CAST_CLIPS.every((name) => !names.includes(name) && RANGER_CLIP_ROLES[name]) && RANGER_CAST_CLIPS.length === 17);
   assert.deepEqual(["Cast_Charge_Loop", "Cast_Channel_Beam_Loop", "Cast_Self_Ward", "Cast_Ally", "Cast_Summon_Raise"].map((name) => RANGER_CLIP_ROLES[name]!.role),
     ["cast.charge", "cast.channel.beam", "cast.self", "cast.ally", "cast.summon.raise"]);
-  assert.deepEqual(["Cast_Release_Push", "Staff_Strike_A"].map((name) => RANGER_CLIP_ROLES[name]!.contact), ["hand_l", "hand_r"]);
+  assert.equal(RANGER_CLIP_ROLES.Cast_Release_Push!.contact, "hand_l");
   // #421: the 23 social clips, each with an emote, interact, talk, sit or sleep role; the door clips and the handover
   // contact with the right hand.
   assert.ok(RANGER_SOCIAL_CLIPS.every((name) => !names.includes(name) && /^(emote|interact|talk|sit|sleep)\./.test(RANGER_CLIP_ROLES[name]!.role)) && RANGER_SOCIAL_CLIPS.length === 23);
@@ -132,16 +132,18 @@ test("the Ranger retargets the library clips in bundle order, then authors its o
   // #737: the library light strike `Sword_Regular_A` is authored at the head of the family now, with its role kept.
   // #738: the sword counter and heavy chop `Sword_Regular_B` / `C` move here from the library combat family.
   // #738: so do the mace's overhand and backhand `Mace_Swing_A` / `B`, from the cast family.
-  assert.ok(RANGER_STRIKE_CLIPS.every((name) => !names.includes(name) && /^(sword|mace|dagger|staff|spear|unarmed|two-hand|bow)\.(strike|thrust|light-strike|heavy-strike|counter)\b/.test(RANGER_CLIP_ROLES[name]!.role)) && RANGER_STRIKE_CLIPS.length === 33);
-  assert.ok(RANGER_STRIKE_CLIPS.slice(0, 19).every((name) => RANGER_CLIP_ROLES[name]!.contact === "hand_r"));
-  assert.deepEqual(RANGER_STRIKE_CLIPS.slice(19).map((name) => RANGER_CLIP_ROLES[name]!.contact),
-    ["hand_l", "hand_r", "hand_l", "upperarm_r", "hand_r", "hand_r", "hand_r", "hand_r", "hand_r", "hand_r", "hand_l", "foot_r", "hand_l", "hand_l"]);
+  // #738: and the staff jab and sweep `Staff_Strike_A` / `B`; `Bow_Bash_B` is a bow strike now, not a kick.
+  assert.ok(RANGER_STRIKE_CLIPS.every((name) => !names.includes(name) && /^(sword|mace|dagger|staff|spear|unarmed|two-hand|bow)\.(strike|thrust|light-strike|heavy-strike|counter)\b/.test(RANGER_CLIP_ROLES[name]!.role)) && RANGER_STRIKE_CLIPS.length === 35);
+  assert.ok(RANGER_STRIKE_CLIPS.slice(0, 21).every((name) => RANGER_CLIP_ROLES[name]!.contact === "hand_r"));
+  assert.deepEqual(RANGER_STRIKE_CLIPS.slice(21).map((name) => RANGER_CLIP_ROLES[name]!.contact),
+    ["hand_l", "hand_r", "hand_l", "upperarm_r", "hand_r", "hand_r", "hand_r", "hand_r", "hand_r", "hand_r", "hand_l", "hand_l", "hand_l", "hand_l"]);
   const weapons = { sword: "Sword", mace: "Mace", dagger: "Dagger", staff: "Staff", spear: "Spear", unarmed: "Unarmed", "two-hand": "TwoHand", bow: "Bow" };
   assert.ok(Object.entries(weapons).every(([weapon, prefix]) => ["run", "jump"].every((state) => RANGER_CLIP_ROLES[`${prefix}_${state === "run" ? "Run" : "Jump"}_Strike`]?.role === `${weapon}.strike.${state}`)));
   // #711: the hit reactions and deaths have roles but no contact.
   assert.ok(RANGER_REACT_CLIPS.every((name) => !names.includes(name) && /^(hit|death)\./.test(RANGER_CLIP_ROLES[name]!.role) && !RANGER_CLIP_ROLES[name]!.contact));
-  // #717: a draw and a sheathe per weapon family, the missing combat idles and the guards; no name repeats an earlier clip.
-  assert.ok(RANGER_READY_CLIPS.every((name) => !names.includes(name) && /^(sword|mace|dagger|staff|spear|two-hand|bow|unarmed)\.(draw|draw-weapon|sheathe|ready|guard)$/.test(RANGER_CLIP_ROLES[name]!.role) && !RANGER_CLIP_ROLES[name]!.contact) && RANGER_READY_CLIPS.length === 25);
+  // #717: a draw and a sheathe per weapon family, the missing combat idles and the guards (#738 adds the bow's); no name
+  // repeats an earlier clip.
+  assert.ok(RANGER_READY_CLIPS.every((name) => !names.includes(name) && /^(sword|mace|dagger|staff|spear|two-hand|bow|unarmed)\.(draw|draw-weapon|sheathe|ready|guard)$/.test(RANGER_CLIP_ROLES[name]!.role) && !RANGER_CLIP_ROLES[name]!.contact) && RANGER_READY_CLIPS.length === 26);
   // #729: the defensive clips; the shield bash takes the `shield.bash` role from the library one-shot.
   assert.ok(RANGER_DEFEND_CLIPS.every((name) => !names.includes(name) && /^(dodge|kick|shield|(sword|mace|dagger|staff|spear|two-hand)\.(parry|riposte))/.test(RANGER_CLIP_ROLES[name]!.role)) && RANGER_DEFEND_CLIPS.length === 16);
   assert.deepEqual(RANGER_DEFEND_CLIPS.filter((name) => RANGER_CLIP_ROLES[name]!.contact), ["Sword_Riposte", "Dagger_Riposte", "Shield_Bash", "Kick_Front"]);
@@ -439,10 +441,10 @@ test("the Ranger recipe builds a verified bundle: in-place clips, equipment entr
       assert.equal(name.startsWith("Death_"), ["back", "front", "side"].includes(react.lies) && react.landSeconds > react.peakSeconds, name);
     }
     assert.equal(byName.TwoHand_Jump_Strike.strike.band, "low");
-    assert.equal(byName.Bow_Bash_B.strike.strikeJoint, "ball_r");
+    assert.equal(byName.Unarmed_Run_Strike.strike.strikeJoint, "upperarm_r");
     assert.ok(RANGER_STRIKE_CLIPS.filter((name) => name.includes("_Run_")).every((name) => byName[name].durationSeconds === byName.Jog_Fwd_Loop.durationSeconds));
-    // #738: a jumping strike redone to the standard lands in its family's guard; the others still hand off to Jump_Land.
-    assert.ok(RANGER_STRIKE_CLIPS.filter((name) => name.includes("_Jump_")).every((name) => byName[name].strike.to.clip === (RANGER_COMBAT_STANDARD_CLIPS.includes(name) ? { Sword: "Sword_Idle", Spear: "Spear_Guard_Loop", Mace: "Mace_Guard_Loop", TwoHand: "TwoHand_Guard_Loop", Unarmed: "Unarmed_Guard_Loop" }[name.split("_")[0]!] : "Jump_Land")));
+    // #738: every jumping strike lands in its family's guard.
+    assert.ok(RANGER_STRIKE_CLIPS.filter((name) => name.includes("_Jump_")).every((name) => byName[name].strike.to.clip === ({ Sword: "Sword_Idle", Spear: "Spear_Guard_Loop", Mace: "Mace_Guard_Loop", TwoHand: "TwoHand_Guard_Loop", Unarmed: "Unarmed_Guard_Loop", Dagger: "Dagger_Guard_Loop", Staff: "Staff_Guard_Loop", Bow: "Bow_Guard_Loop" }[name.split("_")[0]!])));
     assert.equal(byName.Spear_Thrust_B.strike.band, "high");
     assert.equal(byName.Spear_Jump_Strike.strike.band, "low");
     // #717: every draw and sheathe names its stow socket and swaps the item inside the clip with the hand on that socket;
@@ -494,8 +496,8 @@ test("the Ranger recipe builds a verified bundle: in-place clips, equipment entr
       assert.ok((report.clearance?.ok ?? !byName[name].strike.weapon.item) && report.feet?.ok && report.timing?.ok && !report.timing.inferredWindupEnd, JSON.stringify(report));
     }
     // mmorpg#804: the strikes whose weapon passed through the torso keep it out, between their keys too, and Sword_Cleave
-    // its planted feet still. A staff strike starts and ends in the idle, whose staff stands against the right thigh
-    // (2.2 cm into its capsule on the male figure, 7 cm on the female): no frame may go deeper than the first.
+    // its planted feet still; a clip may start touching the body (#804: the idle staff), but no frame may go deeper than
+    // the first. #738 holds the running strikes, which have no planted feet, to this check.
     for (const [name, { footPlants }] of Object.entries(RANGER_CLEARANCE_CLIPS)) {
       const report = checkCombatClip(document, combatCheckEntry(byName[name], footPlants)!, socketList, { substeps: CLEARANCE_SUBSTEPS });
       assert.ok(report.clearance && (report.clearance.ok || report.clearance.worstMeters <= report.clearance.startMeters + .005) && (!footPlants || report.feet?.ok), JSON.stringify(report));
