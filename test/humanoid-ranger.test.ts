@@ -148,7 +148,7 @@ test("the Ranger retargets the library clips in bundle order, then authors its o
   // repeats an earlier clip.
   assert.ok(RANGER_READY_CLIPS.every((name) => !names.includes(name) && /^(sword|mace|dagger|staff|spear|two-hand|bow|unarmed)\.(draw|draw-weapon|sheathe|ready|guard)$/.test(RANGER_CLIP_ROLES[name]!.role) && !RANGER_CLIP_ROLES[name]!.contact) && RANGER_READY_CLIPS.length === 26);
   // #729: the defensive clips; the shield bash takes the `shield.bash` role from the library one-shot.
-  assert.ok(RANGER_DEFEND_CLIPS.every((name) => !names.includes(name) && /^(dodge|kick|shield|(sword|mace|dagger|staff|spear|two-hand)\.(parry|riposte))/.test(RANGER_CLIP_ROLES[name]!.role)) && RANGER_DEFEND_CLIPS.length === 16);
+  assert.ok(RANGER_DEFEND_CLIPS.every((name) => !names.includes(name) && /^(dodge|kick|shield|(sword|mace|dagger|staff|spear|two-hand)\.(parry|riposte)|sword\.(sidestep|hop-back))/.test(RANGER_CLIP_ROLES[name]!.role)) && RANGER_DEFEND_CLIPS.length === 19);
   assert.deepEqual(RANGER_DEFEND_CLIPS.filter((name) => RANGER_CLIP_ROLES[name]!.contact), ["Sword_Riposte", "Dagger_Riposte", "Shield_Bash", "Kick_Front"]);
   assert.equal(RANGER_CLIP_ROLES.Shield_Bash!.role, "shield.bash");
   assert.deepEqual(RANGER_GRIPS.find((grip) => grip.clip === "Grip_Crank_L"), { clip: "Grip_Crank_L", socket: "hand_l.weapon", role: "crank", surface: { kind: "cylinder", axis: [0, 1, 0], radius: .012 } });
@@ -473,6 +473,9 @@ test("the Ranger recipe builds a verified bundle: in-place clips, equipment entr
     assert.equal(byName.Shield_Bash.contact.joint, "hand_l");
     assert.equal(byName.Kick_Front.contact.joint, "foot_r");
     assert.ok(byName.Roll_Bwd.sourceRootDisplacement.z < -1 && byName.Sidestep_L.sourceRootDisplacement.x > 0 && byName.Sidestep_R.sourceRootDisplacement.x < 0);
+    // #754: the skirmisher's footwork goes from the sword guard back to it and stands for its travel.
+    for (const name of ["Sword_Sidestep_L", "Sword_Sidestep_R", "Sword_Hop_Back"]) assert.deepEqual([byName[name].defend.from, byName[name].defend.to, byName[name].defend.family], ["sword.guard", "sword.guard", "sword"], name);
+    assert.ok(byName.Sword_Sidestep_L.sourceRootDisplacement.x > 0 && byName.Sword_Sidestep_R.sourceRootDisplacement.x < 0 && byName.Sword_Hop_Back.sourceRootDisplacement.z < 0);
     // Gaits get faster from crouch to sprint; the root-motion variants record the travel in-place removed.
     const speeds = ["Crouch_Fwd_Loop", "Walk_Loop", "Jog_Fwd_Loop", "Sprint_Loop"].map((name) => byName[name].groundSpeedMetersPerSecond);
     assert.ok(speeds[0] > 0.3 && speeds.every((speed: number, index: number) => index === 0 || speed > speeds[index - 1]), `gait speeds ${speeds}`);

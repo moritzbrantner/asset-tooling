@@ -17,6 +17,10 @@ resampled for ``Shield_Block_Loop``). No source motion is copied beyond that bas
   knee); a foot is never below the ground. They are in place: the pelvis's travel (``px``/``py``) is taken off every
   joint and recorded as ``removedTravel`` (glTF x, z), so the game moves the capsule. They start and end in the
   ``Idle_Loop`` pose and record a skirt and cape pose for the #391 chain joints (``secondaryPose``).
+- #754 adds the skirmisher's footwork (``Sword_Sidestep_L``/``_R``, ``Sword_Hop_Back``): full-body clips of a ``family``
+  that start and end on its guard's footing (``STANCES``) with both hands held in its guard, carried with the chest.
+  Their tracks never overshoot a key (``monotone``) and a lifted heel turns the foot about its ball, so a planted
+  foot stays put; they record the family and its item, and ``from``/``to`` its guard.
 
 No randomness.
 """
@@ -193,6 +197,9 @@ BODY_FIELDS = {"px": 0, "py": 0, "sx": 0, "sy": 0, "pz": 0, "tip": 0, "lean": 0,
                "look": 0, "lf": 0, "lo": 0, "le": 0, "rf": 0, "ro": 0, "re": 0, "lk": 0, "lb": 0, "rk": 0, "rb": 0,
                "lx": 0, "ly": 0, "lz": 0, "lp": 1, "lh": 0, "rx": 0, "ry": 0, "rz": 0, "rp": 1, "rh": 0}
 ARMS_UP = {"lf": 35, "lo": 12, "le": 70, "rf": 35, "ro": 12, "re": 70}
+# #754: a family's footing under its guard (as strike_clips.py's ``STANCES``), added to every key of its full-body clips:
+# the sword's is the library ``Sword_Idle``'s, the feet a little wider than the idle's and the body sunk into the knees.
+STANCES = {"sword": {"lx": -.05, "ly": -.03, "rx": -.045, "ry": -.035, "pz": -.1}}
 BODY = {
     # Down into a squat, sat back on to the ground, rolled over the back and the shoulders with the knees tucked to the
     # chest and the hands pushing by the ears, the feet planted behind into a crouch and up into the stand: 1.3 m back.
@@ -233,6 +240,37 @@ BODY = {
         (.6, {"py": .44, "pz": -.14, "pitch": 14, "tip": 6, "ly": .46, "ry": .46, "lz": 0, "rz": 0, "lh": 10, "rh": 10}),
         (.8, {"py": .5, "pz": -.06, "pitch": 6, "tip": 2, "ly": .5, "ry": .5, "lh": 0, "rh": 0, "lf": 18, "rf": 18}),
         (1, {**BODY_FIELDS, "py": .5, "ly": .5, "ry": .5})]},
+    # #754: the skirmisher's footwork, from the sword guard back to it. Both hands hold the guard and ride the chest
+    # (``family``), and every key stands on the guard's footing (``stance``). A sidestep: the weight loads over the
+    # trailing leg, which pushes off its ball; the lead foot reaches out low and plants with the knee soft, the body
+    # rides over it and the trailing foot closes back into the guard; the head and the blade stay on the target.
+    "Sword_Sidestep_L": {"family": "sword", "duration": .5, "kind": "dodge", "direction": "left", "keys": [
+        (0, {}),
+        (.2, {"sx": -.05, "pz": -.06, "lean": -4, "roll": 3, "yaw": -3, "lx": 0, "rx": 0, "rh": 6}),
+        (.4, {"px": .2, "sx": -.01, "pz": -.03, "lean": 5, "roll": -2, "yaw": 0, "lx": .34, "lz": .07, "lh": -6, "rh": 22}),
+        (.54, {"px": .4, "sx": .02, "pz": -.08, "lean": 3, "lx": .52, "lz": 0, "lh": 0, "rx": 0, "rh": 10}),
+        (.74, {"px": .5, "sx": 0, "pz": -.06, "lean": 0, "roll": 0, "rx": .34, "rz": .05, "rh": 4}),
+        (.86, {"px": .52, "pz": -.04, "rx": .52, "rz": 0, "rh": 0}),
+        (1, {**BODY_FIELDS, "px": .52, "lx": .52, "rx": .52})]},
+    "Sword_Sidestep_R": {"family": "sword", "duration": .5, "kind": "dodge", "direction": "right", "keys": [
+        (0, {}),
+        (.2, {"sx": .05, "pz": -.06, "lean": 4, "roll": -3, "yaw": 3, "lx": 0, "rx": 0, "lh": 6}),
+        (.4, {"px": -.2, "sx": .01, "pz": -.03, "lean": -5, "roll": 2, "yaw": 0, "rx": -.34, "rz": .07, "rh": -6, "lh": 22}),
+        (.54, {"px": -.4, "sx": -.02, "pz": -.08, "lean": -3, "rx": -.52, "rz": 0, "rh": 0, "lx": 0, "lh": 10}),
+        (.74, {"px": -.5, "sx": 0, "pz": -.06, "lean": 0, "roll": 0, "lx": -.34, "lz": .05, "lh": 4}),
+        (.86, {"px": -.52, "pz": -.04, "lx": -.52, "lz": 0, "lh": 0}),
+        (1, {**BODY_FIELDS, "px": -.52, "lx": -.52, "rx": -.52})]},
+    # Out of reach after a swing: the knees load and the chest stays over them, both balls drive the body back in a
+    # low hop, the rear foot lands first on its ball, the lead foot after it, and the knees take the landing before the
+    # body rises into the guard. The blade stays up between the skirmisher and the target.
+    "Sword_Hop_Back": {"family": "sword", "duration": .6, "kind": "dodge", "direction": "back", "keys": [
+        (0, {}),
+        (.2, {"pz": -.1, "tip": 5, "pitch": 6, "ly": 0, "ry": 0, "lh": 10, "rh": 10}),
+        (.36, {"py": .18, "pz": -.02, "tip": 2, "pitch": 4, "ly": .14, "ry": .16, "lz": .1, "rz": .09, "lh": 24, "rh": 20}),
+        (.5, {"py": .46, "pz": -.05, "ly": .44, "lz": .06, "ry": .6, "rz": 0, "lh": 12, "rh": 12}),
+        (.6, {"py": .57, "pz": -.13, "tip": 6, "pitch": 7, "ly": .6, "lz": 0, "lh": 4, "rh": 6}),
+        (.78, {"py": .6, "pz": -.08, "tip": 3, "pitch": 3, "lh": 0, "rh": 0}),
+        (1, {**BODY_FIELDS, "py": .6, "ly": .6, "ry": .6})]},
     # A push kick: the fists up, the right knee chambered high, the heel driven out at the hip's height with the hips
     # behind it and the chest leaning back, snapped back to the chamber and set down where it stood.
     "Kick_Front": {"duration": .7, "kind": "kick", "mark": .44, "keys": [
@@ -244,7 +282,7 @@ BODY = {
         (1, BODY_FIELDS)]},
 }
 CLIPS = (
-    "Roll_Bwd", "Sidestep_L", "Sidestep_R", "Dodge_Back",
+    "Roll_Bwd", "Sidestep_L", "Sidestep_R", "Dodge_Back", "Sword_Sidestep_L", "Sword_Sidestep_R", "Sword_Hop_Back",
     "Sword_Parry", "Dagger_Parry", "Staff_Parry", "Spear_Parry", "TwoHand_Parry", "Mace_Parry",
     "Sword_Riposte", "Dagger_Riposte", "Shield_Block_Loop", "Shield_Block_Hit", "Shield_Bash", "Kick_Front",
 )
@@ -563,6 +601,29 @@ def hermite(keys, u):
     return (2 * s3 - 3 * s2 + 1) * p0 + (s3 - 2 * s2 + s) * h * slope(i) + (-2 * s3 + 3 * s2) * p1 + (s3 - s2) * h * slope(i + 1)
 
 
+def monotone(keys, u):
+    """A scalar curve through ``keys`` that never overshoots them (as strike_clips.py's, #737): flat at a key that is a
+    turn or a hold, else the harmonic mean of the slopes beside it, so two equal keys hold the value exactly between them."""
+    if u <= keys[0][0]:
+        return keys[0][1]
+    if u >= keys[-1][0]:
+        return keys[-1][1]
+    i = max(k for k in range(len(keys) - 1) if keys[k][0] <= u)
+    (t0, p0), (t1, p1) = keys[i], keys[i + 1]
+
+    def slope(k):
+        if k == 0 or k == len(keys) - 1:
+            return 0.0
+        a = (keys[k][1] - keys[k - 1][1]) / (keys[k][0] - keys[k - 1][0])
+        b = (keys[k + 1][1] - keys[k][1]) / (keys[k + 1][0] - keys[k][0])
+        return 0.0 if a * b <= 0 else 2 * a * b / (a + b)
+
+    h = t1 - t0
+    s = (u - t0) / h
+    s2, s3 = s * s, s * s * s
+    return (2 * s3 - 3 * s2 + 1) * p0 + (s3 - 2 * s2 + s) * h * slope(i) + (-2 * s3 + 3 * s2) * p1 + (s3 - s2) * h * slope(i + 1)
+
+
 def interpolate(track, u):
     """Position (Hermite through the keys) and rotation (eased slerp per span) of (fraction, frame) keys."""
     if u <= track[0][0]:
@@ -803,9 +864,23 @@ def floor_feet(rig, ahead):
                 bpy.context.view_layer.update()
 
 
-def body_pose(rig, seed, idle, k, tumble):
+def hold_guard(rig, guarded, chest_rest):
+    """Both hands back on the family's guard frames, carried rigidly with the chest from where it stood in the guard
+    (``chest_rest``, the ``spine_03`` matrix), and closed in their hand shapes."""
+    carry = rig.bones["spine_03"].matrix @ chest_rest.inverted()
+    for side in "rl":
+        socket, frame, pole, _ = guarded.guard[side]
+        moved = carry @ frame
+        reach(rig, socket, moved)
+        place_grip(rig, socket, moved, pole)
+    for side in "rl":
+        rig.apply(guarded.hands.shape(side, guarded.guard[side][3]))
+
+
+def body_pose(rig, seed, idle, k, tumble, hold=None):
     """The idle with the arms swung, the chest turned, the legs bent, the whole body turned and moved about the pelvis,
-    the travel taken off and each ankle ``lp``/``rp`` of the way to its key."""
+    the travel taken off and each ankle ``lp``/``rp`` of the way to its key; with ``hold`` (the family on the rig and
+    its chest in the guard) the hands keep the guard instead of swinging."""
     rig.apply(seed)
     for side in "lr":
         upper, lower, _ = ARMS[side]
@@ -843,7 +918,10 @@ def body_pose(rig, seed, idle, k, tumble):
             continue
         thigh, calf, foot, _ = LEGS[side]
         hip, knee, ankle = rig.head(thigh), rig.head(calf), rig.head(foot)
-        rest_ankle, rest_turn = idle[side]
+        rest_ankle, rest_turn, rest_ball = idle[side]
+        if hold and k[side + "h"] > 0:
+            # #754: a lifted heel turns the foot about its ball, so the ball stays where it is planted.
+            rest_ankle = rest_ball + Matrix.Rotation(math.radians(k[side + "h"]), 3, X) @ (rest_ankle - rest_ball)
         target = ankle.lerp(rest_ankle + Vector((k[side + "x"], k[side + "y"], k[side + "z"])) - travel, planted)
         pitched = (Matrix.Rotation(math.radians(k[side + "h"]), 3, X) @ rest_turn.to_matrix()).to_quaternion()
         turn = rig.bones[foot].matrix.to_quaternion().slerp(pitched, planted)
@@ -856,19 +934,35 @@ def body_pose(rig, seed, idle, k, tumble):
         rig.bones[foot].matrix = f
         bpy.context.view_layer.update()
     floor_feet(rig, Vector((0, -1, 0)))
+    if hold:
+        hold_guard(rig, *hold)
     return rig.capture()
 
 
 def body_clip(rig, seed, clip):
     spec = BODY[clip]
     rig.apply(seed)
-    idle = {side: (rig.head(LEGS[side][2]), rig.bones[LEGS[side][2]].matrix.to_quaternion()) for side in "lr"}
+    idle = {side: (rig.head(LEGS[side][2]), rig.bones[LEGS[side][2]].matrix.to_quaternion(), rig.head(LEGS[side][3])) for side in "lr"}
     tracks = body_tracks(spec)
     count = frames_of(spec["duration"])
-    poses = [body_pose(rig, seed, idle, {name: hermite(track, k / count) for name, track in tracks.items()}, spec.get("tumble", False))
+    family = spec.get("family")
+    hold, stance, curve = None, {}, hermite
+    if family:
+        # #754: the chest's keys add to the guard's, every key stands on the guard's footing, and the hands hold the guard.
+        guarded = Guarded(rig, seed, family)
+        stance = {**{name: guarded.chest[name] for name in ("yaw", "pitch", "roll", "neck")}, **STANCES[family]}
+        rig.apply(seed)
+        turn_chest(rig, guarded.chest["yaw"], guarded.chest["pitch"], guarded.chest["roll"], guarded.chest["neck"])
+        hold = (guarded, rig.bones["spine_03"].matrix.copy())
+        curve = monotone  # a foot keyed in one place stays exactly there
+    poses = [body_pose(rig, seed, idle, {name: curve(track, k / count) + stance.get(name, 0.0) for name, track in tracks.items()},
+                       spec.get("tumble", False), hold)
              for k in range(count + 1)]
     end = {name: track[-1][1] for name, track in tracks.items()}
-    defend = {"kind": spec["kind"], "from": STAND, "to": STAND}
+    guard = f"{family}.guard" if family else STAND
+    defend = {"kind": spec["kind"], "from": guard, "to": guard}
+    if family:
+        defend.update({"family": family, "item": FAMILIES[family]["item"], "socket": SOCKET_IDS[FAMILIES[family]["socket"]]})
     observed = {}
     if "direction" in spec:
         defend["direction"] = spec["direction"]

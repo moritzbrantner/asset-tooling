@@ -217,10 +217,11 @@ export const RANGER_READY_CLIPS = [
  * travel in `removedTravel`), a parry per weapon family (`parrySeconds`, the deflection frame), the sword and dagger
  * ripostes, the shield brace, its hit and a real bash, and a push kick for any family. Authored on the Ranger rig by
  * adapters/blender/defend_clips.py; the parries, ripostes and shield clips keep only the `spine_01` subtree. They
- * follow the ready family in bundle order.
+ * follow the ready family in bundle order. #754 adds the skirmisher's footwork: `Sword_Sidestep_L`/`_R` and
+ * `Sword_Hop_Back`, full body and in place like the dodges, from the sword guard back to it with the blade held in guard.
  */
 export const RANGER_DEFEND_CLIPS = [
-  "Roll_Bwd", "Sidestep_L", "Sidestep_R", "Dodge_Back",
+  "Roll_Bwd", "Sidestep_L", "Sidestep_R", "Dodge_Back", "Sword_Sidestep_L", "Sword_Sidestep_R", "Sword_Hop_Back",
   "Sword_Parry", "Dagger_Parry", "Staff_Parry", "Spear_Parry", "TwoHand_Parry", "Mace_Parry",
   "Sword_Riposte", "Dagger_Riposte", "Shield_Block_Loop", "Shield_Block_Hit", "Shield_Bash", "Kick_Front",
 ] as const;
