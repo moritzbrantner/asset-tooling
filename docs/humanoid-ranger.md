@@ -517,27 +517,27 @@ The strokes are authored **upright**, with the body along +Y and facing +Z. Over
 
 | Clip | Length | Layer | Motion | Contact | Band | Reach |
 | --- | --- | --- | --- | --- | --- | --- |
-| `Sword_Run_Strike` | `Jog_Fwd_Loop` (0.933 s) | full body | The blade cocked back over the right shoulder and held, then cut over the top and across the chest as the right foot lands; the shield pulled in. | 0.5 s | mid | 1.29 m |
-| `Sword_Jump_Strike` | 0.8 s | full body | Arching back in the air with the blade high behind the head, chopping straight down as the feet touch, carried low into the crouch. | 0.4 s | mid | 1.23 m |
+| `Sword_Run_Strike` | `Jog_Fwd_Loop` (0.933 s) | full body (#738) | From the sword-and-shield guard: the blade cocked back over the right shoulder and held, then cut over the top and across the chest as the right foot lands, the shield swinging out to the left against it; back to the guard. | 0.5 s | mid | 1.3 m |
+| `Sword_Jump_Strike` | 1 s | full body (#738) | A slash: coiled in the air with the blade cocked over the right shoulder, the feet reaching down, then a diagonal cut a frame after they touch, the knees taking 0.2 m; up into the guard (`Sword_Idle`). | 0.467 s | mid | 1.17 m |
 | `Mace_Run_Strike` | `Jog_Fwd_Loop` | full body | The mace swung back and up behind the shoulder, brought over the top on to a head-height target, its weight carrying it low. | 0.5 s | mid | 0.95 m |
 | `Mace_Jump_Strike` | 0.8 s | full body | The mace raised overhead, over the top and slammed down as the feet touch. | 0.4 s | mid | 0.84 m |
 | `Dagger_Run_Strike` | `Jog_Fwd_Loop` | full body | The right dagger drawn back to the hip, then driven ahead at the belly; the left held low in guard. | 0.5 s | mid | 0.92 m |
 | `Dagger_Jump_Strike` | 0.8 s | full body | Both daggers raised, plunged together down and ahead as the feet touch. | 0.4 s | mid | 0.76 m |
 | `Staff_Run_Strike` | `Jog_Fwd_Loop` | full body | The staff drawn back along the body, its foot driven out ahead at chest height by both hands. | 0.5 s | mid | 1.31 m |
 | `Staff_Jump_Strike` | 0.8 s | full body | The staff raised high, its foot ahead, driven down into the ground ahead on landing. | 0.433 s | low | 0.92 m |
-| `Spear_Run_Strike` | `Jog_Fwd_Loop` | full body | The spear level at the hip, drawn back, then thrust out at chest height. | 0.5 s | mid | 1.62 m |
-| `Spear_Jump_Strike` | 0.8 s | full body | The spear raised overhand, its point driven down into the ground ahead on landing. | 0.433 s | low | 1.37 m |
+| `Spear_Run_Strike` | `Jog_Fwd_Loop` | full body (#738) | From the spear guard: drawn back on the stride, then a long thrust off the right shoulder at chest height as the foot strikes, held at full reach; back to the guard. | 0.5 s | mid | 1.98 m |
+| `Spear_Jump_Strike` | 1 s | full body (#738) | A plunge: the spear raised overhand in the air, driven down with both arms into the ground 1.3 m ahead as the feet touch, the knees taking 0.27 m over the shaft; wrenched out and up into the guard (`Spear_Guard_Loop`). | 0.467 s | low | 1.32 m |
 | `Mace_Swing_C` | 0.9 s | `spine_01` | The chain's finisher: a big wind-up high over the right shoulder, a vertical smash down the centre line. | 0.467 s | mid | 0.77 m |
 | `Staff_Strike_C` | 0.8 s | `spine_01` | The staff's foot swung up over the head and brought down on a head-height target. | 0.4 s | mid | 1.17 m |
-| `Spear_Thrust_A` | 0.6 s | `spine_01` | A quick jab from the guard at the belly. | 0.267 s | mid | 1.59 m |
+| `Spear_Thrust_A` | 0.7 s | full body (#738) | A short lunge from the spear guard: a small draw back on the rear leg, then the rear heel lifts, the lead foot slides out and the point drives at the belly; held, then back out of range to the guard. | 0.3 s | mid | 2.07 m |
 | `Spear_Thrust_B` | 0.9 s | full body (#737) | The [standard](combat-animation-standard.md)'s lunge: chambered at the hip on the coiled rear leg, then the rear foot pushes, the lead foot steps out and the point drives along one straight rising line at the face; back to the guard. | 0.467 s | high | 2.25 m |
 
 - **`strike` object:** `weapon` (`item`, `socket`, `strikePoint`: the point on the item's +Y that strikes), `offhand` (the shield or second dagger's `item` and `socket`, or the shaft hand's `socket` and `onShaftMeters` at the contact), `contactSeconds`, `tipAt` (the strike point at the contact, root frame, glTF axes), `band` (`low` below 0.7 m, `high` above 1.4 m, else `mid`), `reachMeters` (the strike point's horizontal distance from the root at the contact) and, for the jumping strikes, `landSeconds` (touchdown), `from` (`Jump_Loop`) and `to` (`Jump_Land` and the time of its deepest crouch). Every strike is a `hand_r` contact at the authored `contactSeconds`.
 - **The items:** reviewed with `equipment.sword.arming` and `equipment.shield.heater`, `equipment.mace.flanged`, `equipment.dagger.blackened` (both hands), `equipment.staff.quarter` and `equipment.spear.leaf`; each is held at its own `grip`, so none needs an `itemOffset`. The strike points are the sword's and dagger's tips, the mace's head (0.5 m), the spear's point (1.46 m) and the staff's foot (0.8 m below the grip, as the #420 staff strikes lead with it).
-- **Running:** the legs are `Jog_Fwd_Loop`'s, frame for frame over one whole cycle from its first frame; the upper body leaves the run's pose by 0.15 s, strikes on the right foot's plant and is back in the run's pose by the last frame, so the clip blends in and out of running without a stop.
-- **Jumping:** `Jump_Loop`'s first pose, tucked as `Jump_Start` is at its highest, touching down in `Jump_Land`'s first pose at 0.352 s and ending in its deepest crouch (`to.seconds`), where `Jump_Land` or the idle takes over. In place: the zone moves the body.
+- **Running:** the legs are `Jog_Fwd_Loop`'s, frame for frame over one whole cycle from its first frame; the upper body leaves the run's pose by 0.15 s, strikes on the right foot's plant and is back in the run's pose by the last frame, so the clip blends in and out of running without a stop. **#738:** `Sword_Run_Strike` and `Spear_Run_Strike` instead hold the upper body in their family's guard from the first frame to the last (the shield up, the spear level), as every reworked attack does, and record `windupEnd` and `recoveryStart`. The run's own arms carry the sword up before the face and the spear back over the shoulder, so a strike that left and rejoined them swung the weapon through the head or torso; the game blends its run's upper body into the guard.
+- **Jumping:** `Jump_Loop`'s first pose, tucked as `Jump_Start` is at its highest, touching down in `Jump_Land`'s first pose at 0.352 s and ending in its deepest crouch (`to.seconds`), where `Jump_Land` or the idle takes over. In place: the zone moves the body. **#738:** `Sword_Jump_Strike` and `Spear_Jump_Strike` last 1 s and land in their guard instead (see [combat-animation-standard.md](combat-animation-standard.md#phase-2-738)): `landSeconds` 0.433 s, `to` the guard clip at 0 s, plus `windupEnd`, `recoveryStart` and both feet planted from the touch.
 - **The shaft:** on the staff and spear the shaft slides through the left hand as in a thrust, so the left hand holds it where it passes nearest a point ahead of and below the left shoulder (0.3-0.6 m up the staff, 0.15-0.6 m up the spear).
-- **Chains:** `Mace_Swing_C` follows `Mace_Swing_A`/`B` and `Staff_Strike_C` follows `Staff_Strike_A`/`B` as the third hit, and `Spear_Thrust_A`/`B` are the spear's two-thrust chain; the first three keep the upper body as the #420 chains do and start and end in the first `Idle_Loop` pose. `Spear_Thrust_B` is full body from the spear's guard (#737, below).
+- **Chains:** `Mace_Swing_C` follows `Mace_Swing_A`/`B` and `Staff_Strike_C` follows `Staff_Strike_A`/`B` as the third hit, and `Spear_Thrust_A`/`B` are the spear's two-thrust chain; the mace and staff finishers keep the upper body as the #420 chains do and start and end in the first `Idle_Loop` pose. Both spear thrusts are full body from the spear's guard (`Spear_Thrust_B` #737, `Spear_Thrust_A` #738).
 - **The combat standard (#737):** `Sword_Regular_A`, `TwoHand_Swing_A` and `Spear_Thrust_B` are the references of [combat-animation-standard.md](combat-animation-standard.md): full body, the feet planted or stepping and the hips and legs driving the strike, from the family's guard and back to it. Their `strike` object adds `windupEnd`, `recoveryStart` and `footPlants` (per foot, the spans it stands planted, in seconds). `Sword_Regular_A` (0.9 s, contact 0.4 s, reach 1.22 m, mid, with the heater shield) replaces the library clip of that name and is authored first in this family; it keeps the `sword.light-strike` role.
 - **Review:** shaped and reviewed in the live Blender on the male Ranger (the published figure with its library clips) with the published items above on their sockets.
 
@@ -654,19 +654,19 @@ The index (`humanoid-ranger-<figure>.index.json`) lists the files under `clips.f
 | Family | Clips | KB | Family | Clips | KB |
 | --- | ---: | ---: | --- | ---: | ---: |
 | `base` | 43 | 367 | `cast` | 21 | 195 |
-| `combat` | 15 | 134 | `social` | 23 | 341 |
+| `combat` | 13 | 134 | `social` | 23 | 341 |
 | `bow` | 6 | 132 | `chores` | 7 | 114 |
 | `swim` | 7 | 61 | `posts` | 10 | 159 |
 | `hit` | 5 | 35 | `gather` | 10 | 163 |
 | `traversal` | 16 | 240 | `raid` | 13 | 210 |
-| `sword` | 20 | 122 | `strike` | 35 | 485 |
+| `sword` | 20 | 122 | `strike` | 37 | 485 |
 | `dagger` | 10 | 56 | `ready` | 25 | 329 |
 | `bow-upper` | 8 | 145 | `defend` | 16 | 199 |
 | `crossbow` | 4 | 33 | | | |
 
 The combined file and the `default` entry's embedded clips stay for one release cycle, until mmorpg loads the families (moenarch-games/mmorpg#898).
 
-#737 moved `Sword_Regular_A` from `combat` to `strike` (the counts above are after the move; the sizes are from before it). The combined clips grew by 15 KB (3.79 MB, male).
+#737 moved `Sword_Regular_A` from `combat` to `strike`, and #738 `Sword_Regular_B` and `Sword_Regular_C` (the counts above are after the moves; the sizes are from before them). #737 grew the combined clips by 15 KB (3.79 MB, male).
 
 **Shared figure definition.** The figure's catalog members, appearance sources, head subset, hips, Peasant outfits and texture policy live in [`src/ranger-figure.ts`](../src/ranger-figure.ts), not in the build script. The [hair kit](hair-kit.md) and the [Redbrand kit](redbrand-kit.md), which are fitted to the male figure, read them there. A change to a Ranger clip, weapon or other build step therefore rebuilds only the two figures, and not those kits.
 
@@ -863,13 +863,12 @@ v6 adds these clips, also in place, with 48 channels each:
 
 In-place retargeting removes the horizontal hips travel of the `_RM` sources and keeps vertical motion. `ClimbUp_1m_RM` therefore still rises about 1 m and the slide clips drop and raise the pelvis about 0.8 m. The source travel is recorded in [Clip motion](#clip-motion), so a consumer can move the gameplay body to match.
 
-v7 adds these clips (UAL2 unless noted), also in place. The library `Sword_Regular_A` (`sword.light-strike`, 0.433 s) was replaced by an authored full-body clip in #737 ([combat-animation-standard.md](combat-animation-standard.md)):
+v7 adds these clips (UAL2 unless noted), also in place. The library `Sword_Regular_A` (`sword.light-strike`, 0.433 s) was replaced by an authored full-body clip in #737, and `Sword_Regular_B` (`sword.counter`, 0.533 s) and `Sword_Regular_C` (`sword.heavy-strike`, 2 s) in #738 ([combat-animation-standard.md](combat-animation-standard.md)); they keep their roles:
 
 | Clip | `role` | Duration | Contact (`hand_r` unless noted) |
 | --- | --- | --- | --- |
 | `Sword_Regular_A_Rec` | `sword.light-strike.recovery` | 0.967 s | |
-| `Sword_Regular_B`, `_B_Rec` | `sword.counter`, `.recovery` | 0.533 s, 1.033 s | 0.25 s |
-| `Sword_Regular_C` | `sword.heavy-strike` | 2 s | 0.65 s |
+| `Sword_Regular_B_Rec` | `sword.counter.recovery` | 1.033 s | |
 | `Sword_Regular_Combo` | `sword.light-chain` | 3 s | 1.55 s |
 | `Sword_Block` | `shield.block-impact` | 1.233 s | |
 | `Idle_Shield_Break` | `shield.block-break` | 1.067 s | |
