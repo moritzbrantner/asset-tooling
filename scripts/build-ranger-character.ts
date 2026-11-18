@@ -281,13 +281,8 @@ export const RANGER_CLIP_ROLES: Readonly<Record<string, { role: string; contact?
   Respawn_Rise: { role: "respawn" },
   Sword_Whirl: { role: "sword.whirl", contact: "hand_r" },
   Sword_Overhead_Smash: { role: "sword.overhead-smash", contact: "hand_r" },
-  // #418: the Rogue's twin daggers, throws, flourish and bandage (src/ranger-clips.ts RANGER_DAGGER_CLIPS).
+  // #418: the Rogue's dagger idle, throws, flourish and bandage (src/ranger-clips.ts RANGER_DAGGER_CLIPS).
   Dagger_Idle_Loop: { role: "dagger.idle" },
-  Dagger_Stab_R: { role: "dagger.stab", contact: "hand_r" },
-  Dagger_Slash_L: { role: "dagger.slash", contact: "hand_l" },
-  Dagger_Sinister: { role: "dagger.sinister", contact: "hand_r" },
-  Dagger_Poison: { role: "dagger.poison", contact: "hand_r" },
-  Dagger_Gouge: { role: "dagger.gouge", contact: "hand_r" },
   Flourish_Haste: { role: "flourish.haste" },
   Throw_Knife: { role: "throw.knife", contact: "hand_r" },
   Throw_Lob: { role: "throw.lob", contact: "hand_r" },
@@ -407,6 +402,12 @@ export const RANGER_CLIP_ROLES: Readonly<Record<string, { role: string; contact?
   Staff_Strike_B: { role: "staff.strike.sweep", contact: "hand_r" },
   Dagger_Run_Strike: { role: "dagger.strike.run", contact: "hand_r" },
   Dagger_Jump_Strike: { role: "dagger.strike.jump", contact: "hand_r" },
+  // #738: the Rogue's dagger attacks, moved from the dagger clips with their roles.
+  Dagger_Stab_R: { role: "dagger.stab", contact: "hand_r" },
+  Dagger_Slash_L: { role: "dagger.slash", contact: "hand_l" },
+  Dagger_Sinister: { role: "dagger.sinister", contact: "hand_r" },
+  Dagger_Poison: { role: "dagger.poison", contact: "hand_r" },
+  Dagger_Gouge: { role: "dagger.gouge", contact: "hand_r" },
   Staff_Run_Strike: { role: "staff.strike.run", contact: "hand_r" },
   Staff_Jump_Strike: { role: "staff.strike.jump", contact: "hand_r" },
   Spear_Run_Strike: { role: "spear.strike.run", contact: "hand_r" },

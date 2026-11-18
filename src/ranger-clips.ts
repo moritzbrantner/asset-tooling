@@ -150,6 +150,9 @@ export const RANGER_RAID_CLIPS = [
  * `Staff_Strike_C` and `Bow_Bash_A` and `B`, are full body from the family's guard back to it (`Bow_Bash_B` was a push
  * kick and is a forehand bow strike now, so its contact is the bow hand). Every running strike goes from its guard back
  * to it and every jumping strike lands in its guard, so no strike is an upper-body layer any more.
+ * #738 (the Rogue's daggers, last): `Dagger_Stab_R`, `Dagger_Slash_L` (with the left dagger), `Dagger_Sinister`,
+ * `Dagger_Poison` and `Dagger_Gouge` move here from the dagger clips with their names and roles, full body from the
+ * dagger guard back to it. Every standing and jumping strike now stands on its family's footing (as its guard does).
  */
 export const RANGER_STRIKE_CLIPS = [
   "Sword_Regular_A", "Sword_Regular_B", "Sword_Regular_C", "Sword_Run_Strike", "Sword_Jump_Strike", "Mace_Swing_A", "Mace_Swing_B",
@@ -160,6 +163,8 @@ export const RANGER_STRIKE_CLIPS = [
   // maul with its head (the left hand on its `grip.offhand`), the bow with a limb from `hand_l.bow`.
   "Unarmed_Jab", "Unarmed_Cross", "Unarmed_Hook", "Unarmed_Run_Strike", "Unarmed_Jump_Strike", "TwoHand_Swing_A", "TwoHand_Swing_B",
   "TwoHand_Swing_C", "TwoHand_Run_Strike", "TwoHand_Jump_Strike", "Bow_Bash_A", "Bow_Bash_B", "Bow_Run_Strike", "Bow_Jump_Strike",
+  // #738: the Rogue's dagger attacks, moved here from the dagger clips with their names and roles.
+  "Dagger_Stab_R", "Dagger_Slash_L", "Dagger_Sinister", "Dagger_Poison", "Dagger_Gouge",
 ] as const;
 /**
  * #737: the clips that meet the combat-animation standard (docs/combat-animation-standard.md); the Ranger build test
@@ -171,6 +176,7 @@ export const RANGER_COMBAT_STANDARD_CLIPS: readonly string[] = [
   "Mace_Swing_A", "Mace_Swing_B", "Mace_Swing_C", "Mace_Jump_Strike", "TwoHand_Swing_B", "TwoHand_Swing_C", "TwoHand_Jump_Strike",
   "Unarmed_Jab", "Unarmed_Cross", "Unarmed_Hook", "Unarmed_Jump_Strike",
   "Staff_Strike_A", "Staff_Strike_B", "Staff_Strike_C", "Staff_Jump_Strike", "Dagger_Jump_Strike", "Bow_Bash_A", "Bow_Bash_B", "Bow_Jump_Strike",
+  "Dagger_Stab_R", "Dagger_Slash_L", "Dagger_Sinister", "Dagger_Poison", "Dagger_Gouge",
 ];
 /**
  * mmorpg#804: strikes whose weapon passed through the torso in game, fixed without redoing them to the whole standard.
@@ -194,8 +200,9 @@ export const RANGER_REACT_CLIPS = ["Hit_Light_L", "Hit_Light_R", "Hit_Heavy_Fron
 /**
  * #717 (drawing and sheathing are an explicit gameplay mode): a draw and a sheathe per weapon family, the combat idles
  * and the guards the earlier kits lacked, authored in place on the Ranger rig by adapters/blender/ready_clips.py from
- * hand frames solved with two-bone arm IK on the `Idle_Loop` pose. Every clip keeps only the `spine_01` subtree. A draw
- * or sheathe records the hand socket, the stow socket (`hip_l.stowed`, `hip_r.stowed`, `back.stowed`,
+ * hand frames solved with two-bone arm IK on the `Idle_Loop` pose. Every draw, sheathe and idle keeps only the
+ * `spine_01` subtree; #738 stands each guard full body on its family's footing, the one its strikes start and end on.
+ * A draw or sheathe records the hand socket, the stow socket (`hip_l.stowed`, `hip_r.stowed`, `back.stowed`,
  * `back.bow.stowed`) and `swapSeconds`, the frame the hand's socket is on the stow socket, where the game moves the item
  * between them. They follow the strike family in bundle order.
  */
@@ -277,15 +284,14 @@ export const RANGER_SWORD_CLIPS = [
   "Stun_Loop", "Respawn_Rise", "Sword_Whirl", "Sword_Overhead_Smash",
 ] as const;
 /**
- * #418 (the mmorpg Rogue, the Field Marauder and the Redbrand bandage): twin-dagger, throw, flourish and bandage clips
- * authored in place on the Ranger rig by adapters/blender/dagger_clips.py from explicit grip frames on the
+ * #418 (the mmorpg Rogue, the Field Marauder and the Redbrand bandage): the twin-dagger idle, throw, flourish and
+ * bandage clips (#738 moved the dagger attacks to the strike family), authored in place on the Ranger rig by adapters/blender/dagger_clips.py from explicit grip frames on the
  * `hand_r.weapon` and `hand_l.weapon` sockets and the `belt.throwable` draw (two-bone arm IK; Mixamo only as
  * reference). Every one keeps only the `spine_01` subtree. They follow the sword clips in bundle order; the throws carry
  * `drawSeconds` and `releaseSeconds`.
  */
 export const RANGER_DAGGER_CLIPS = [
-  "Dagger_Idle_Loop", "Dagger_Stab_R", "Dagger_Slash_L", "Dagger_Sinister", "Dagger_Poison", "Dagger_Gouge",
-  "Flourish_Haste", "Throw_Knife", "Throw_Lob", "Bandage_Self",
+  "Dagger_Idle_Loop", "Flourish_Haste", "Throw_Knife", "Throw_Lob", "Bandage_Self",
 ] as const;
 
 /** A socket of the figure's sockets descriptor, as a recipe argument. */
@@ -444,11 +450,10 @@ export const RANGER_CLIP_FAMILIES: readonly ClipFamily[] = [
       };
     },
     clip: (name, family) => {
-      // Every clip is upper body; a throw's draw and release go to the clip's entry. The contact is the authored strike
-      // (or, for a throw, the release), since a dagger hand turns fastest in the wind-up.
+      // Every clip is upper body; a throw's draw and release go to the clip's entry, and its contact is the release.
       const { joints, source, ...observed } = family.clips[name] as Json;
       const fields = pickKeys(observed, ["drawSeconds", "releaseSeconds"]);
-      const contactSeconds = observed.releaseSeconds ?? (observed.contactFraction === undefined ? undefined : observed.contactFraction * observed.durationSeconds);
+      const contactSeconds = observed.releaseSeconds;
       return {
         keep: joints as string[],
         authored: { recipe: family.recipe, clip: name, fps: family.fps, ...observed }, basedOn: source as string,
@@ -655,10 +660,10 @@ export const RANGER_CLIP_FAMILIES: readonly ClipFamily[] = [
       };
     },
     clip: (name, family) => {
-      // The family, the sockets and the swap go to the clip's `ready` object.
+      // The family, the sockets and the swap go to the clip's `ready` object; a guard (#738) is full body, keeping every joint.
       const { joints, source, ready, ...observed } = family.clips[name] as Json;
       return {
-        keep: joints as string[],
+        ...(joints ? { keep: joints as string[] } : {}),
         authored: { recipe: family.recipe, clip: name, fps: family.fps, ready, ...observed }, basedOn: source as string,
         extra: { fields: { ready } },
       };
