@@ -35,6 +35,7 @@ FPS = 30
 UPPER_ROOT = "spine_01"
 STAND = "Idle_Loop"
 ARMS = {"l": ("upperarm_l", "lowerarm_l", "hand_l"), "r": ("upperarm_r", "lowerarm_r", "hand_r")}
+LEGS = {"l": ("thigh_l", "calf_l", "foot_l", "ball_l"), "r": ("thigh_r", "calf_r", "foot_r", "ball_r")}
 SPINE = (("spine_01", .3), ("spine_02", .35), ("spine_03", .35))
 X, Y, UP = Vector((1, 0, 0)), Vector((0, 1, 0)), Vector((0, 0, 1))
 C4 = Matrix(((1, 0, 0, 0), (0, 0, -1, 0), (0, 1, 0, 0), (0, 0, 0, 1)))
@@ -70,6 +71,21 @@ FIST_L = {"s": "palm_l", "g": (.22, -.26, 1.14), "b": (-.3, -.6, .6), "x": (0, 0
 FIST_R = {"s": "palm_r", "g": (-.22, -.26, 1.14), "b": (.3, -.6, .6), "x": (0, 0, -1), "shape": "fist"}
 DAGGER_R = {"s": "weapon", "g": (-.2, -.34, 1.06), "b": (.12, -.85, .5), "x": (0, 0, -1)}
 DAGGER_L = {"s": "offhand", "g": (.17, -.32, 1.2), "b": (-.12, -.8, .6), "x": (0, 0, -1)}
+
+
+# #738: each family's footing under its guard (as strike_clips.py's ``STANCES``, which its strikes start and end on):
+# the pelvis turned (``hy``) and moved (``px``, ``py``, ``pz``), each foot's ball moved from where it stands in the idle
+# (``lx``/``ly``/``lz``, ``rx``...), turned about the ball (``lw``/``rw``) and its heel lifted (``lh``/``rh``, degrees).
+# The left foot leads. The hands move with the pelvis and the chest takes back its turn.
+STANCES = {
+    "spear": {"ly": -.14, "ry": .1, "rx": -.03, "rw": -24, "hy": -14, "py": .05, "pz": -.06},
+    "two-hand": {"lx": .09, "rx": -.09, "ly": -.06, "ry": .06, "lw": 12, "rw": -18, "pz": -.09},
+    "dagger": {"ry": -.05, "lh": 10, "rh": 16, "rw": 10, "pz": -.03},
+    "staff": {"lx": .06, "rx": -.06, "ly": -.04, "ry": .04, "lw": 6, "rw": -6, "pz": -.04},
+    "mace": {"ly": -.08, "ry": .06, "rw": -18, "hy": -8, "py": .02, "pz": -.04},
+    "unarmed": {"ly": -.1, "ry": .07, "rw": -18, "rh": 14, "hy": -10, "pz": -.04},
+    "bow": {"lx": .05, "rx": -.07, "ly": -.05, "ry": .06, "lw": 16, "rw": -20, "pz": -.03},
+}
 
 
 def fist(side, g, b, x=(0, 0, -1)):
@@ -433,6 +449,40 @@ def turn_chest(rig, yaw=0.0, pitch=0.0, roll=0.0, neck=0.0, gaze=.5):
         rotate_world(rig, "neck_01", X, -pitch * .5 + neck)
 
 
+def stand_feet(rig):
+    """Where the pose on the rig stands each foot: its ankle, its ball and how the foot and the toes are turned."""
+    return {side: (rig.head(LEGS[side][2]), rig.head(LEGS[side][3]), rig.bones[LEGS[side][2]].matrix.to_3x3(),
+                   rig.bones[LEGS[side][3]].matrix.to_3x3()) for side in "lr"}
+
+
+def place_stance(rig, stance, feet):
+    """#738 (as strike_clips.py's ``place_body``): turn and move the pelvis by the stance, then stand each leg on its
+    foot, the ball moved from ``feet`` (the idle's), the foot turned about it and its heel lifted, the knee bending
+    over the toes and the toes flat."""
+    k = {name: float(stance.get(name, 0.0)) for name in ("hy", "px", "py", "pz", "lx", "ly", "lz", "lw", "lh", "rx", "ry", "rz", "rw", "rh")}
+    head = rig.head("pelvis")
+    rotate_world(rig, "pelvis", UP, k["hy"])
+    pelvis = rig.bones["pelvis"]
+    m = pelvis.matrix.copy()
+    m.translation = head + Vector((k["px"], k["py"], k["pz"]))
+    pelvis.matrix = m
+    bpy.context.view_layer.update()
+    for side in "lr":
+        thigh, calf, foot, ball = LEGS[side]
+        ankle0, ball0, foot0, toes0 = feet[side]
+        at = ball0 + Vector((k[side + "x"], k[side + "y"], k[side + "z"]))
+        yaw = Matrix.Rotation(math.radians(k[side + "w"]), 3, UP)
+        back = yaw @ (ankle0 - ball0)
+        heel = Matrix.Rotation(math.radians(k[side + "h"]), 3, back.cross(UP).normalized())
+        outward = .25 if side == "l" else -.25
+        two_bone(rig, thigh, calf, foot, at + heel @ back, yaw @ Vector((outward, -1, 0)))
+        for joint, turn in ((foot, heel @ yaw @ foot0), (ball, yaw @ toes0)):
+            f = turn.to_4x4()
+            f.translation = rig.head(joint)
+            rig.bones[joint].matrix = f
+            bpy.context.view_layer.update()
+
+
 def blend(a, b, w):
     la, ra, _ = a.decompose()
     lb, rb, _ = b.decompose()
@@ -534,12 +584,21 @@ class Ready:
         chest = tuple(float(spec.get(n, 0.0)) for n in ("yaw", "pitch", "roll", "neck"))
         return {side: self.side_key(side, spec.get(side), chest) for side in "rl"}, chest
 
-    def place(self, base, keys, chest, shapes):
+    def place(self, base, keys, chest, shapes, stance=None):
         """The base pose with the chest turned and each keyed hand on its frame. ``keys`` maps a side to (socket,
-        frame, pole, shape), ``"shaft"`` or None; ``shapes`` overrides a side's finger shape (a, b, u)."""
+        frame, pole, shape), ``"shaft"`` or None; ``shapes`` overrides a side's finger shape (a, b, u). A ``stance``
+        (fields, feet) stands the legs first (#738); the chest and head take back its hip turn."""
         rig = self.rig
         rig.apply(base)
-        turn_chest(rig, *chest)
+        if stance:
+            fields, feet = stance
+            place_stance(rig, fields, feet)
+            hy = fields.get("hy", 0.0)
+            turn_chest(rig, chest[0] - hy, *chest[1:])
+            if hy:
+                rotate_world(rig, "neck_01", UP, -.5 * hy)
+        else:
+            turn_chest(rig, *chest)
         main = None
         for side in "rl":
             key = keys.get(side)
@@ -699,6 +758,10 @@ def loop(rig, stand, clip):
     count = frames_of(duration)
     rig.apply(seed)
     chest_rest = rig.head("spine_03")
+    # #738: a guard stands on its family's footing, the feet planted where the stance puts them on the idle's footing
+    # and the hands carried with the pelvis.
+    stance = (STANCES[family], stand_feet(rig)) if pose_name == "guard" else None
+    shift = Vector(tuple(STANCES[family].get(n, 0.0) for n in ("px", "py", "pz"))) if stance else Vector()
     poses = []
     for k in range(count + 1):
         phase = 2 * math.pi * (k % count) / count
@@ -721,13 +784,13 @@ def loop(rig, stand, clip):
             pivot = rig.head("spine_01")
             moved = Matrix.Translation(pivot) @ turn @ Matrix.Translation(-pivot) @ frame
             m = (spin.to_3x3() @ moved.to_3x3()).to_4x4()
-            m.translation = moved.translation + lift
+            m.translation = moved.translation + lift + shift
             placed[side] = (socket, m, pole, shape)
         shapes = {side: (shape_of(placed[side]),) * 2 + (1.0,) if placed[side] is not None else ("seed", "seed", 1.0) for side in "rl"}
-        poses.append(ready.place(base, placed, chest, shapes))
+        poses.append(ready.place(base, placed, chest, shapes, stance))
     return poses, {"ready": {"family": family, "kind": "idle" if pose_name == "idle" else "guard",
                              **({"socket": SOCKET_IDS[ready.spec["socket"]]} if ready.spec["socket"] else {})},
-                   "seedSeconds": round(source, 4)}
+                   "seedSeconds": round(source, 4), **({"stance": True} if stance else {})}
 
 
 def author(rig, clip, actions):
@@ -739,8 +802,9 @@ def author(rig, clip, actions):
         poses, observations = loop(rig, actions[STAND], clip)
     else:
         poses, observations = one_shot(rig, sample(rig, actions[STAND], 0.0), clip)
-    return poses, {"source": STAND, "durationSeconds": round((len(poses) - 1) / FPS, 4), **observations,
-                   "layer": UPPER_ROOT, "joints": upper_joints(rig)}
+    # #738: a guard stands on its own footing, so it is full body; the others stay upper-body layers.
+    layered = {} if observations.pop("stance", False) else {"layer": UPPER_ROOT, "joints": upper_joints(rig)}
+    return poses, {"source": STAND, "durationSeconds": round((len(poses) - 1) / FPS, 4), **observations, **layered}
 
 
 def imported_state(rig_object):

@@ -1,4 +1,5 @@
-"""Original dagger, throw, flourish and bandage clips authored on the Ranger rig in Blender (#418, the mmorpg Rogue).
+"""Original dagger idle, throw, flourish and bandage clips authored on the Ranger rig in Blender (#418, the mmorpg Rogue;
+#738 moved the dagger attacks to strike_clips.py, full body from the dagger guard).
 
 The declared input ``target`` is the composed Ranger GLB with its embedded clips. The recipe authors in-place clips,
 every name in ``arguments["clips"]`` in one run (#425), from explicit grip frames solved with two-bone arm IK on top of
@@ -11,8 +12,8 @@ the first ``Idle_Loop`` pose (no source motion is copied; Mixamo was only watche
   turns its edge along the hand's motion.
 - Every clip keeps only the ``spine_01`` subtree (the observations list the joints), so a consumer plays it over
   standing, walking or running legs. The chest turn is spread over ``spine_01``-``03``.
-- ``Dagger_Idle_Loop`` is the low twin-dagger ready stance over the whole ``Idle_Loop`` (resampled to 2 s). The strikes
-  start and end in its first pose. ``Throw_Knife`` and ``Throw_Lob`` reach the belt socket at ``drawSeconds`` and let
+- ``Dagger_Idle_Loop`` is the low twin-dagger ready stance over the whole ``Idle_Loop`` (resampled to 2 s). The throws,
+  the flourish and the bandage start and end in its first pose. ``Throw_Knife`` and ``Throw_Lob`` reach the belt socket at ``drawSeconds`` and let
   go at ``releaseSeconds``. At the draw the hand's grip origin is the belt socket's origin, so the item stays where it
   hangs when it passes from the belt into the hand and only turns. The belt holds the item upright (#470), which the hand cannot reach at
   belt height, so the hand takes it in its own draw frame: the item's +Y turned ``DRAW_TILT`` from the socket's +Y
@@ -48,43 +49,6 @@ READY = {
     "pitch": 10.0,
 }
 IDLE = {"duration": 2.0, "sway": 3.0, "bob": .012}
-# The strikes: (fraction, key) pairs; a key names a hand's g, b and e (else the ready value) and the chest's yaw,
-# pitch (added to the stance's) and roll. ``cut`` names the hands whose edge follows their motion; ``contact`` the key
-# where the blade meets the target.
-STAB = {"duration": .4, "contact": 1, "keys": [
-    (.3, {"r": {"g": (-.24, -.1, 1.14), "b": (.06, -.9, .42), "e": (0, 0, -1)}, "l": {"g": (.12, -.26, 1.26)}, "yaw": -14}),
-    (.52, {"r": {"g": (-.1, -.62, 1.24), "b": (.04, -1, .05), "e": (0, 0, -1)}, "l": {"g": (.13, -.24, 1.28)}, "yaw": 20, "pitch": 6}),
-    (.7, {"r": {"g": (-.13, -.56, 1.2), "b": (.04, -1, .08), "e": (0, 0, -1)}, "yaw": 16, "pitch": 4}),
-]}
-SLASH_L = {"duration": .4, "contact": 1, "cut": "l", "keys": [
-    (.3, {"l": {"g": (.34, -.12, 1.44), "b": (.45, -.4, .8)}, "r": {"g": (-.22, -.24, 1.1)}, "yaw": 20, "pitch": -2}),
-    (.52, {"l": {"g": (.04, -.52, 1.24), "b": (-.7, -.7, .1)}, "yaw": -14, "pitch": 6}),
-    (.7, {"l": {"g": (-.18, -.36, 1.04), "b": (-.6, .2, -.75)}, "yaw": -28, "pitch": 10}),
-]}
-SINISTER = {"duration": .6, "contact": 1, "keys": [
-    (.14, {"r": {"g": (-.24, -.1, 1.16), "b": (.06, -.9, .42), "e": (0, 0, -1)}, "yaw": -12}),
-    (.32, {"r": {"g": (-.1, -.62, 1.26), "b": (.04, -1, .06), "e": (0, 0, -1)}, "yaw": 22, "pitch": 6}),
-    (.47, {"r": {"g": (-.2, -.3, 1.1)}, "l": {"g": (.24, -.08, 1.2), "b": (-.06, -.9, .42), "e": (0, 0, -1)}, "yaw": 10}),
-    (.64, {"l": {"g": (.08, -.62, 1.24), "b": (-.04, -1, .06), "e": (0, 0, -1)}, "yaw": -20, "pitch": 6}),
-    (.8, {"l": {"g": (.13, -.52, 1.22), "b": (-.04, -1, .1), "e": (0, 0, -1)}, "yaw": -12, "pitch": 4}),
-]}
-# The coat: the off hand holds up the vial (the off-hand dagger turned up out of the way), the main blade lies across it
-# and is drawn back to the right, then winds up and slashes.
-POISON = {"duration": .8, "contact": 3, "cut": "r", "keys": [
-    (.15, {"l": {"g": (.05, -.33, 1.18), "b": (-.15, -.35, .92), "e": (0, -1, 0)},
-           "r": {"g": (-.03, -.37, 1.27), "b": (.95, -.2, .2), "e": (0, 0, -1)}, "pitch": 8}),
-    (.33, {"l": {"g": (.05, -.33, 1.18), "b": (-.15, -.35, .92), "e": (0, -1, 0)},
-           "r": {"g": (-.2, -.35, 1.26), "b": (.95, -.2, .2), "e": (0, 0, -1)}, "pitch": 8}),
-    (.52, {"l": {"g": (.24, -.2, 1.18)}, "r": {"g": (-.3, -.08, 1.38), "b": (-.3, .4, .85)}, "yaw": -12}),
-    (.68, {"r": {"g": (-.02, -.56, 1.2), "b": (.7, -.7, .1)}, "yaw": 24, "pitch": 6}),
-    (.84, {"r": {"g": (.2, -.34, 1.02), "b": (.55, .2, -.8)}, "yaw": 32, "pitch": 12}),
-]}
-# The gouge: the main dagger turned so the pommel leads, a jab at face height.
-GOUGE = {"duration": .5, "contact": 1, "keys": [
-    (.3, {"r": {"g": (-.24, -.12, 1.3), "b": (.08, .45, -.9), "e": (0, -1, -.4)}, "yaw": -16, "pitch": -2}),
-    (.5, {"r": {"g": (-.06, -.58, 1.5), "b": (0, .35, -.94), "e": (0, -1, -.4)}, "yaw": 24, "pitch": -6}),
-    (.7, {"r": {"g": (-.1, -.5, 1.42), "b": (0, .3, -.95), "e": (0, -1, -.4)}, "yaw": 18, "pitch": -4}),
-]}
 # The knife throw: down to the belt, a sidearm cock to the right and back, a flat flick forward; the off hand aims.
 KNIFE = {"duration": .5, "draw": .18, "release": .56, "keys": [
     (.36, {"r": {"g": (-.46, .02, 1.2), "b": (-.2, .9, .35), "e": (0, 0, -1)}, "l": {"g": (.2, -.5, 1.32), "b": (0, -1, .1)},
@@ -109,10 +73,7 @@ FLOURISH = {"duration": .7, "spin": (.14, .7), "turns": 2, "cone": 55.0, "circle
 # The bandage: the left forearm raised across the body, the right hand wraps round it three times and tugs the knot.
 BANDAGE = {"duration": 1.5, "raise": .12, "wrap": (.2, .78), "turns": 3, "radius": .075, "tug": (.8, .9),
            "hand": (.02, -.38, 1.18), "elbow": (.27, -.2, 1.04), "pitch": 16.0}
-CLIPS = ("Dagger_Idle_Loop", "Dagger_Stab_R", "Dagger_Slash_L", "Dagger_Sinister", "Dagger_Poison", "Dagger_Gouge",
-         "Flourish_Haste", "Throw_Knife", "Throw_Lob", "Bandage_Self")
-STRIKES = {"Dagger_Stab_R": STAB, "Dagger_Slash_L": SLASH_L, "Dagger_Sinister": SINISTER, "Dagger_Poison": POISON,
-           "Dagger_Gouge": GOUGE}
+CLIPS = ("Dagger_Idle_Loop", "Flourish_Haste", "Throw_Knife", "Throw_Lob", "Bandage_Self")
 SOCKETS = ("weapon", "offhand", "belt")
 
 
@@ -405,12 +366,6 @@ def idle_loop(rig, stand_action):
     return poses, {"seedSeconds": round(source, 4)}
 
 
-def strike(rig, seed, clip):
-    spec = STRIKES[clip]
-    poses = run(rig, seed, Motion(spec["keys"], spec.get("cut", "")), spec["duration"])
-    return poses, {"contactFraction": spec["keys"][spec["contact"]][0]}
-
-
 def belt_key(rig, seed):
     """The right hand's key at the belt (#470): its grip origin is the belt socket's origin in the stance, the item's +Y
     the socket's +Y turned ``DRAW_TILT`` out of the belt, the fingers (+X) down."""
@@ -497,8 +452,6 @@ def author(rig, clip, actions):
     stand = sample(rig, actions[STAND], 0.0)
     if clip == "Dagger_Idle_Loop":
         poses, observations = idle_loop(rig, actions[STAND])
-    elif clip in STRIKES:
-        poses, observations = strike(rig, stand, clip)
     elif clip == "Flourish_Haste":
         poses, observations = flourish(rig, stand)
     elif clip == "Throw_Knife":
