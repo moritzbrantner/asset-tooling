@@ -119,7 +119,9 @@ BANDS = (.7, 1.4)
 # the keys that name it. A strike blends from its base pose into the first key by ``into`` and, unless it ends in a
 # crouch, back out of the last from ``out``.
 SHIELD_GUARD = {"g": (.1, -.36, 1.22), "f": (-.15, -1, .05), "t": (.05, 0, 1)}
-DAGGER_GUARD = {"g": (.2, -.3, 1.06), "b": (-.1, -.7, .7)}
+# #738: the dagger guard (as ``Dagger_Guard_Loop``): light and forward, the right dagger low ahead, point out, and the
+# left up before the face, the chest bent over them.
+DAGGER_GUARD = {"g": (-.13, -.4, 1.18), "b": (.15, -.9, .4), "yaw": -10, "pitch": 14, "neck": 6, "l": {"g": (.1, -.3, 1.3), "b": (-.45, -.55, .7)}}
 FIST = {"g": (.24, -.2, 1.12)}
 # #711: the bow's free right fist and the idle's right ankle the kick leaves and returns to. A fist key may also turn the
 # striking palm (``z``), lift its elbow (``e``, the arm's pole) and, on a kick, place the right ankle (``k``) with the foot
@@ -322,22 +324,39 @@ STRIKES = {
         (.92, {**MACE_GUARD, "hp": 0, "pz": -.02, "rh": 0}),
         (1, MACE_GUARD),
     ]},
-    # A lunging stab on the run: the right dagger drawn back to the hip, then driven straight ahead at the belly, the
-    # left dagger held low in guard.
-    "Dagger_Run_Strike": {"weapon": "dagger", "kind": "run", "contact": .55, "into": .16, "out": .78, "keys": [
-        (.16, {"g": (-.24, -.18, 1.08), "b": (0, -.85, .5), "yaw": -10, "l": DAGGER_GUARD}),
-        (.44, {"g": (-.26, .08, 1.1), "b": (.05, -.95, .3), "yaw": -30, "pitch": 4, "l": {"g": (.18, -.36, 1.12), "b": (-.15, -.8, .55)}}),
-        (.55, {"g": (-.08, -.56, 1.2), "b": (.05, -1, .05), "yaw": 20, "pitch": 12, "l": {"g": (.24, -.06, 1.0), "b": (-.1, -.6, .8)}}),
-        (.68, {"g": (-.08, -.5, 1.16), "b": (.08, -1, -.05), "yaw": 18, "pitch": 12}),
-        (.82, {"g": (-.22, -.22, 1.06), "b": (0, -.85, .5), "yaw": 4, "l": DAGGER_GUARD}),
+    # #738: a quick in-and-out stab on the run from the dagger guard and back to it: the right dagger drawn back to the
+    # hip on the stride while the left comes up before the face, then snapped out at the belly as the right foot
+    # strikes, the left pulled back across the chest against it, and straight back into the guard.
+    "Dagger_Run_Strike": {"weapon": "dagger", "kind": "run", "guard": "Dagger_Guard_Loop", "windup": .42, "contact": .55, "recovery": .64,
+                          "keys": [
+        (0, DAGGER_GUARD),
+        (.2, {"g": (-.2, -.28, 1.12), "b": (.1, -.92, .36), "yaw": -16, "pitch": 12}),
+        (.42, {"g": (-.26, -.06, 1.08), "b": (.05, -.96, .26), "yaw": -28, "pitch": 10, "l": {"g": (.08, -.36, 1.36), "b": (-.4, -.6, .7)}}),
+        (.55, {"g": (-.08, -.62, 1.14), "b": (.04, -1, .04), "yaw": 18, "pitch": 18, "l": {"g": (.14, -.18, 1.24), "b": (-.3, -.5, .8)}}),
+        (.64, {"g": (-.08, -.6, 1.14), "b": (.04, -1, .04), "yaw": 17, "pitch": 18}),
+        (.82, {"g": (-.14, -.42, 1.17), "b": (.14, -.92, .36), "yaw": -6, "pitch": 15, "l": DAGGER_GUARD["l"]}),
+        (.92, DAGGER_GUARD),
+        (1, DAGGER_GUARD),
     ]},
-    # Leaping with both daggers raised, plunged together down and ahead as the feet touch.
-    "Dagger_Jump_Strike": {"weapon": "dagger", "kind": "jump", "contact": .5, "keys": [
-        (.14, {"g": (-.2, -.12, 1.5), "b": (0, -.3, .95), "pitch": -6, "l": {"g": (.2, -.12, 1.5), "b": (0, -.3, .95)}}),
-        (.36, {"g": (-.18, .02, 1.68), "b": (0, .2, 1), "pitch": -14, "neck": -10, "l": {"g": (.18, .02, 1.68), "b": (0, .2, 1)}}),
-        (.5, {"g": (-.12, -.46, 1.14), "b": (0, -.7, -.7), "pitch": 18, "neck": 4, "l": {"g": (.12, -.46, 1.14), "b": (0, -.7, -.7)}}),
-        (.72, {"g": (-.12, -.4, .8), "b": (0, -.45, -.9), "pitch": 30, "neck": -10, "l": {"g": (.12, -.4, .8), "b": (0, -.45, -.9)}}),
-        (1.0, {"g": (-.14, -.4, .82), "b": (0, -.5, -.86), "pitch": 28, "neck": -12, "l": {"g": (.14, -.4, .82), "b": (0, -.5, -.86)}}),
+    # #738: the daggers' leap is a stab. In the air both daggers go up over the shoulders, points back; as the feet
+    # touch they are driven down together into a target before the knees, the knees taking a short 0.18 m, and the
+    # body springs straight back up into the light dagger guard.
+    "Dagger_Jump_Strike": {"weapon": "dagger", "kind": "leap", "duration": .9, "tuck": .24, "touch": .48, "windup": .41, "contact": .52,
+                           "recovery": .6, "guard": "Dagger_Guard_Loop", "keys": [
+        (0, {"g": (-.2, -.3, 1.36), "b": (.05, -.6, .8), "yaw": -6, "pitch": 4, "l": {"g": (.2, -.3, 1.36), "b": (-.05, -.6, .8)},
+             "lz": .28, "rz": .24, "ly": .02}),
+        (.36, {"g": (-.24, -.08, 1.7), "b": (-.1, .3, .95), "yaw": -4, "pitch": -8, "neck": -6, "l": {"g": (.24, -.08, 1.7), "b": (.1, .3, .95)}}),
+        (.41, {"g": (-.24, -.07, 1.71), "b": (-.1, .32, .94), "yaw": -4, "pitch": -8, "neck": -6}),
+        (.48, {"g": (-.2, -.4, 1.42), "b": (0, -.9, .44), "yaw": 0, "pitch": 6, "neck": -2, "pz": .02, "lz": 0, "rz": 0, "ly": 0,
+               "l": {"g": (.2, -.4, 1.42), "b": (0, -.9, .44)}}),
+        (.52, {"g": (-.13, -.5, 1.0), "b": (0, -.55, -.83), "yaw": 4, "pitch": 22, "neck": 2, "hp": 10, "pz": -.15, "rh": 6,
+               "l": {"g": (.13, -.5, 1.0), "b": (0, -.55, -.83)}}),
+        (.58, {"g": (-.13, -.48, .94), "b": (0, -.5, -.86), "yaw": 4, "pitch": 26, "neck": 0, "hp": 12, "pz": -.18, "rh": 8}),
+        (.62, {"g": (-.13, -.48, .95), "b": (0, -.5, -.86), "yaw": 4, "pitch": 25, "neck": 0, "hp": 11, "pz": -.17, "rh": 8}),
+        (.8, {"g": (-.13, -.42, 1.14), "b": (.14, -.9, .4), "yaw": -6, "pitch": 16, "neck": 4, "hp": 3, "pz": -.04, "rh": 2,
+              "l": DAGGER_GUARD["l"]}),
+        (.9, {**DAGGER_GUARD, "hp": 0, "pz": -.02, "rh": 0}),
+        (1, DAGGER_GUARD),
     ]},
     # #738: a rotational swing on the run from the staff guard and back to it: the hips and chest wind right as the head
     # swings back past the right shoulder on the stride, then the right hand pushes and the left pulls, sweeping the head
