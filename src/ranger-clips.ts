@@ -135,10 +135,16 @@ export const RANGER_RAID_CLIPS = [
  * feet plant, the hips and legs drive the strike, and each records its phases (`windupEnd`, `contactSeconds`,
  * `recoveryStart`) and the spans its feet stand planted (`footPlants`). `Sword_Regular_A` replaces the library clip of
  * that name, so it moves from the library combat clips to this family.
+ *
+ * #738 (phase 2, sword and spear first): `Sword_Regular_B` and `Sword_Regular_C` replace their library clips too and
+ * move here. The sword and spear jumping strikes land in their family's guard (the recipe's `leap`: the feet planted
+ * from the touch, a landing as deep as the weapon needs, `to` the guard) and the running strikes go from the family's
+ * guard back to it over the run's legs, recording their phases.
  */
 export const RANGER_STRIKE_CLIPS = [
-  "Sword_Regular_A", "Sword_Run_Strike", "Sword_Jump_Strike", "Mace_Run_Strike", "Mace_Jump_Strike", "Dagger_Run_Strike", "Dagger_Jump_Strike", "Staff_Run_Strike",
-  "Staff_Jump_Strike", "Spear_Run_Strike", "Spear_Jump_Strike", "Mace_Swing_C", "Staff_Strike_C", "Spear_Thrust_A", "Spear_Thrust_B",
+  "Sword_Regular_A", "Sword_Regular_B", "Sword_Regular_C", "Sword_Run_Strike", "Sword_Jump_Strike", "Mace_Run_Strike", "Mace_Jump_Strike",
+  "Dagger_Run_Strike", "Dagger_Jump_Strike", "Staff_Run_Strike", "Staff_Jump_Strike", "Spear_Run_Strike", "Spear_Jump_Strike", "Mace_Swing_C",
+  "Staff_Strike_C", "Spear_Thrust_A", "Spear_Thrust_B",
   // #711: the bare-fist, two-handed maul and bow-in-melee sets, each a standing chain plus a running and a jumping
   // strike. The fists strike with the knuckles of the hand that throws them (the barge with the right shoulder), the
   // maul with its head (the left hand on its `grip.offhand`), the bow with its upper limb from `hand_l.bow` (the kick
@@ -148,16 +154,22 @@ export const RANGER_STRIKE_CLIPS = [
 ] as const;
 /**
  * #737: the clips that meet the combat-animation standard (docs/combat-animation-standard.md); the Ranger build test
- * requires its checks to pass on each. Phase 2 (#738) adds every other attack as it is redone.
+ * requires its checks to pass on each, between the keys too. Phase 2 (#738) adds every other attack as it is redone.
  */
-export const RANGER_COMBAT_STANDARD_CLIPS: readonly string[] = ["Sword_Regular_A", "TwoHand_Swing_A", "Spear_Thrust_B"];
+export const RANGER_COMBAT_STANDARD_CLIPS: readonly string[] = [
+  "Sword_Regular_A", "TwoHand_Swing_A", "Spear_Thrust_B",
+  "Sword_Regular_B", "Sword_Regular_C", "Sword_Jump_Strike", "Spear_Thrust_A", "Spear_Jump_Strike",
+];
 /**
  * mmorpg#804: strikes whose weapon passed through the torso in game, fixed without redoing them to the whole standard.
  * The Ranger build test holds them to the weapon–body clearance check, and to the planted-foot check over the spans
  * listed (`Sword_Cleave` turns on both planted feet; the staff and mace strikes are upper body over the game's legs).
+ * #738: the sword and spear running strikes, redone to the standard, run on the run's legs and so have no planted
+ * feet; they are held to the clearance here.
  */
 export const RANGER_CLEARANCE_CLIPS: Readonly<Record<string, { footPlants?: Record<string, number[][]> }>> = {
   Sword_Cleave: { footPlants: { l: [[0, .9]], r: [[0, .9]] } }, Staff_Strike_A: {}, Staff_Strike_B: {}, Mace_Swing_B: {},
+  Sword_Run_Strike: {}, Spear_Run_Strike: {},
 };
 /**
  * #711: hit reactions and deaths played on the victim (health-only rules, so purely presentation), full body and in

@@ -90,7 +90,7 @@ The game found the weapon inside the torso in four clips that phase 2 has not re
 | `Staff_Strike_B` | As the jab, and the follow-through swung the staff's head round behind the body. The foot now sweeps low across the front while the head rises past the right shoulder. | 13.6 cm into the torso | clear (idle first frame as above); 1.8× (was 1.5×) |
 | `Mace_Swing_B` | The pommel crossed the chest on the way up to the backhand's wind-up. The mace now lifts before the chest first, and holds a moment at the top. | 6.6 cm into the torso | 4.2 cm clear; 3.1× |
 
-Checking the published references between their keys also finds `Sword_Regular_A`'s blade 11.1 cm into the torso at 0.18 s and `TwoHand_Swing_A`'s haft 3.0 cm into the left thigh at 1.02 s, from forearm turns of up to 178° between keys. They are left for phase 2 ([#738](https://github.com/moritzbrantner/asset-tooling/issues/738)), which is why the build test checks between the keys only for these four clips.
+Checking the published references between their keys also finds `Sword_Regular_A`'s blade 11.1 cm into the torso at 0.18 s and `TwoHand_Swing_A`'s haft 3.0 cm into the left thigh at 1.02 s, from forearm turns of up to 178° between keys. Phase 2 fixes that in the recipe (below), and the build test now checks every clip of `RANGER_COMBAT_STANDARD_CLIPS` between its keys as well.
 
 ### Before and after
 
@@ -107,6 +107,42 @@ The published `humanoid-ranger-male` bundle (before) and this build (after), fro
 
 The library `Sword_Regular_A` already cleared the body and struck fast. Its failings are ones the checks cannot see. It is a dashing cut made for root motion (0.83 m of travel), so in place it drops into a deep crouch and turns away. It has no planted lead foot, and it ends with the blade raised, not in a guard: its `_Rec` clip finishes it. Over all 47 strike clips (with the library sword strikes), 37 fail at least one check in the published bundle and 35 in this build, the references now passing; most failures are clearance, with the head and torso the usual victims. Phase 2 starts from that list.
 
+## Phase 2 (#738)
+
+Phase 2 carries the standard to the other attacks, the sword and spear families first (moenarch-games/mmorpg#914 needs distinct sword and spear movesets). They join `RANGER_COMBAT_STANDARD_CLIPS`, except the two running strikes, which have no planted feet and are held to the clearance check in `RANGER_CLEARANCE_CLIPS`.
+
+| Clip | Weapon style | What it is now |
+| --- | --- | --- |
+| `Sword_Regular_B` (0.8 s) | sword counter | A flat backhand that answers the forehand: chambered over the left shoulder as the hips turn left and the shield drops out of the way, then the right heel turns out and the hips drive right ahead of the chest, the blade sweeping flat across at head height. It was a library clip that dived into a low pose. |
+| `Sword_Regular_C` (1.2 s) | sword heavy strike | A stepping vertical chop: the weight back and the blade held a beat high over the head, then a long lead step, the body dropping into it and the blade coming straight down the centre line as the foot plants, staying low a moment before it heaves back into the guard. It was a 2 s library flourish with a spin. |
+| `Sword_Run_Strike` | sword | The diagonal cut on the run, now from the sword-and-shield guard and back to it, with the shield swinging out to the left against the cut so it never hides it from behind. |
+| `Sword_Jump_Strike` (1 s) | sword | A slash: coiled in the air with the blade cocked over the right shoulder, a diagonal cut a frame after touchdown, and a 0.2 m landing before rising into the guard. |
+| `Spear_Thrust_A` (0.7 s) | spear jab | A short lunge: a small draw back on the rear leg, then the rear heel lifts and the leg pushes, the lead foot slides out and the point drives along one line at the belly; held at full reach, then back out of range. It was an upper-body arm extension. |
+| `Spear_Run_Strike` | spear | A long thrust off the right shoulder on the stride, from the spear guard and back to it. |
+| `Spear_Jump_Strike` (1 s) | spear | A plunge: the spear overhand in the air, driven with both arms into a target on the ground 1.3 m ahead as the feet touch, the knees taking 0.27 m with the chest over the shaft, then wrenched out and up into the guard. |
+
+**Jumping strikes land in the guard.** Every family's jump attack used to end in `Jump_Land`'s same deep crouch (the pelvis 0.46 m down). The recipe's `leap` kind keeps the air from `Jump_Loop` and `Jump_Start`, then lets the legs reach down by IK for the idle's footing, which `Jump_Land`'s first pose stands within 4 cm of. From the touch the feet stay planted and the body keys take over, so each weapon lands as deep as it needs (the sword 0.2 m, the spear's plunge 0.27 m) and rises straight into its guard. The clip records `landSeconds`, `to` (the guard clip at 0 s), the phases and both feet planted from the touch.
+
+**Running strikes go from the guard to the guard.** `Jog_Fwd_Loop`'s arms carry a sword up before the face and a spear back over the right shoulder. A strike that left and rejoined those arms swung the weapon through the head (the sword) or turned the spear half round past the torso, and the swing round was faster than the thrust. The reworked running strikes hold their upper body in the family's guard over the run's legs from the first frame to the last, as every other reworked attack does; the game blends its run's upper body into them.
+
+**No more flips between frames.** Two recipe fixes apply to every strike: the forearm's half of the hand's twist is unwrapped against the last frame's, so it no longer flips half a turn when the twist passes 180°, and a blade keeps leading with the edge it led with instead of rolling half a turn when the swing reverses. The flips were what put `Sword_Regular_A` and `TwoHand_Swing_A` into the body between their keys.
+
+The published `humanoid-ranger-male` bundle (before) and this build (after), from `scripts/check-combat-clips.ts --between` on the strike recipe's output over the published clips:
+
+| Clip | Before | After |
+| --- | --- | --- |
+| `Sword_Regular_A` | 11.1 cm into the torso | 1.7 cm clear; feet 0.0 cm; 4.7× |
+| `Sword_Regular_B` | 13.5 cm clear; no feet planted | 9.6 cm clear; feet 0.0 cm; 3.5× |
+| `Sword_Regular_C` | 5.9 cm into the left thigh; no feet planted | 3.0 cm clear; feet 0.0 cm; 6.9× |
+| `Sword_Run_Strike` | 10.0 cm into the head | 5.3 cm clear; 7.0× |
+| `Sword_Jump_Strike` | 12.3 cm into the head; no feet planted | 2.7 cm clear; feet 0.0 cm; 8.5× |
+| `Spear_Thrust_A` | 3.4 cm into the right thigh; 0.22× | 0.9 cm clear; feet 1.0 cm; 9.0× |
+| `Spear_Run_Strike` | 10.6 cm into the torso; 0.33× | 3.0 cm clear; 11.6× |
+| `Spear_Jump_Strike` | 14.5 cm into the torso; 1.4× | 0.9 cm clear; feet 1.0 cm; 12.6× |
+| `TwoHand_Swing_A` | 3.0 cm into the left thigh | 0.1 cm clear (unchanged keys) |
+
+Over the recipe's strike clips (29 before, 31 with `Sword_Regular_B` and `C`), 26 failed a check before and 19 after, and no clip that passed fails now. The mace, two-handed, staff, unarmed, dagger and bow attacks and the family stances are still to come.
+
 ## Renders
 
-Before and after at the game camera's angle (0.42 rad pitch from 12 m, zoomed onto the figure), from the side, three-quarter front and behind: [`review/combat-standard/`](../review/combat-standard/).
+Before and after at the game camera's angle (0.42 rad pitch from 12 m, zoomed onto the figure), from the side, three-quarter front and behind: [`review/combat-standard/`](../review/combat-standard/). Phase 2 adds a sheet per reworked clip, the columns the guard, the wind-up's end, the contact, the follow-through and the end.
