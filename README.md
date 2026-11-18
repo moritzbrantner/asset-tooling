@@ -58,6 +58,8 @@ The [monuments](docs/monuments.md) are in the same weathered limestone as the gr
 
 The [gravestones](docs/gravestones.md) are weathered limestone headstones, a cross, a ledger, a chest tomb and a footstone on one atlas, matched to the limestone rocks for Greyhaven's graveyards.
 
+The [wolf den](docs/wolf-den.md) is a rocky den mouth over a dark hollow, dug into a mossy bank, with flattened bedding and scattered bones, plus a bone scatter and a bedding patch to dress the ground around it, for mmorpg's Wolfrun Den.
+
 The [ivy](docs/ivy.md) is seven generic pieces of dark, sparse English ivy to lay over stone: patches, a curtain over a wall's top, a ground creeper, column and corner wraps and a single runner, on one leaf atlas.
 
 The [moss](docs/moss.md) is seven generic pieces of thin, ragged-edged cushion moss to lay over stone and shady ground: a top cap, an edge drape, a foot ring, two strips for a block's foot, a ground mat and a broken scatter, on one atlas.
