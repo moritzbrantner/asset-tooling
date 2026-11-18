@@ -145,6 +145,8 @@ export const RANGER_RAID_CLIPS = [
  * #738 (mace and two-handed): the mace's overhand and backhand `Mace_Swing_A` and `B` move here from the cast clips and,
  * with `Mace_Swing_C` and `TwoHand_Swing_B` and `C`, are full body from the family's guard back to it. The mace and maul
  * jumping strikes are slams that land in their guard, and the running strikes go from the guard back to it.
+ * #738 (unarmed): the jab, cross and hook are full body from the fists' guard, the jump an overhand right that lands in
+ * it and the barge goes from the guard back to it.
  */
 export const RANGER_STRIKE_CLIPS = [
   "Sword_Regular_A", "Sword_Regular_B", "Sword_Regular_C", "Sword_Run_Strike", "Sword_Jump_Strike", "Mace_Swing_A", "Mace_Swing_B",
@@ -165,6 +167,7 @@ export const RANGER_COMBAT_STANDARD_CLIPS: readonly string[] = [
   "Sword_Regular_A", "TwoHand_Swing_A", "Spear_Thrust_B",
   "Sword_Regular_B", "Sword_Regular_C", "Sword_Jump_Strike", "Spear_Thrust_A", "Spear_Jump_Strike",
   "Mace_Swing_A", "Mace_Swing_B", "Mace_Swing_C", "Mace_Jump_Strike", "TwoHand_Swing_B", "TwoHand_Swing_C", "TwoHand_Jump_Strike",
+  "Unarmed_Jab", "Unarmed_Cross", "Unarmed_Hook", "Unarmed_Jump_Strike",
 ];
 /**
  * mmorpg#804: strikes whose weapon passed through the torso in game, fixed without redoing them to the whole standard.

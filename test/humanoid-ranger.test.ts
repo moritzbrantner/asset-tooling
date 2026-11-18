@@ -442,7 +442,7 @@ test("the Ranger recipe builds a verified bundle: in-place clips, equipment entr
     assert.equal(byName.Bow_Bash_B.strike.strikeJoint, "ball_r");
     assert.ok(RANGER_STRIKE_CLIPS.filter((name) => name.includes("_Run_")).every((name) => byName[name].durationSeconds === byName.Jog_Fwd_Loop.durationSeconds));
     // #738: a jumping strike redone to the standard lands in its family's guard; the others still hand off to Jump_Land.
-    assert.ok(RANGER_STRIKE_CLIPS.filter((name) => name.includes("_Jump_")).every((name) => byName[name].strike.to.clip === (RANGER_COMBAT_STANDARD_CLIPS.includes(name) ? { Sword: "Sword_Idle", Spear: "Spear_Guard_Loop", Mace: "Mace_Guard_Loop", TwoHand: "TwoHand_Guard_Loop" }[name.split("_")[0]!] : "Jump_Land")));
+    assert.ok(RANGER_STRIKE_CLIPS.filter((name) => name.includes("_Jump_")).every((name) => byName[name].strike.to.clip === (RANGER_COMBAT_STANDARD_CLIPS.includes(name) ? { Sword: "Sword_Idle", Spear: "Spear_Guard_Loop", Mace: "Mace_Guard_Loop", TwoHand: "TwoHand_Guard_Loop", Unarmed: "Unarmed_Guard_Loop" }[name.split("_")[0]!] : "Jump_Land")));
     assert.equal(byName.Spear_Thrust_B.strike.band, "high");
     assert.equal(byName.Spear_Jump_Strike.strike.band, "low");
     // #717: every draw and sheathe names its stow socket and swaps the item inside the clip with the hand on that socket;
@@ -490,7 +490,8 @@ test("the Ranger recipe builds a verified bundle: in-place clips, equipment entr
       // #738: the clips held to the standard also keep the weapon out of the body between their keys.
       const report = checkCombatClip(document, byName[name], socketList, RANGER_COMBAT_STANDARD_CLIPS.includes(name) ? { substeps: CLEARANCE_SUBSTEPS } : {});
       if (!RANGER_COMBAT_STANDARD_CLIPS.includes(name)) { console.log(`combat standard (not yet held): ${JSON.stringify(report)}`); continue; }
-      assert.ok(report.clearance?.ok && report.feet?.ok && report.timing?.ok && !report.timing.inferredWindupEnd, JSON.stringify(report));
+      // #738: a bare fist holds no item, so it has no clearance to check.
+      assert.ok((report.clearance?.ok ?? !byName[name].strike.weapon.item) && report.feet?.ok && report.timing?.ok && !report.timing.inferredWindupEnd, JSON.stringify(report));
     }
     // mmorpg#804: the strikes whose weapon passed through the torso keep it out, between their keys too, and Sword_Cleave
     // its planted feet still. A staff strike starts and ends in the idle, whose staff stands against the right thigh

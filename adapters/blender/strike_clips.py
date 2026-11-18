@@ -120,14 +120,9 @@ BANDS = (.7, 1.4)
 SHIELD_GUARD = {"g": (.1, -.36, 1.22), "f": (-.15, -1, .05), "t": (.05, 0, 1)}
 DAGGER_GUARD = {"g": (.2, -.3, 1.06), "b": (-.1, -.7, .7)}
 FIST = {"g": (.24, -.2, 1.12)}
-# #711: the fists' guard at the chin (the striking hand's own key, and the other hand's), the bow's free right fist and
-# the idle's right ankle the kick leaves and returns to. A key may also turn the striking palm (``z``), lift its elbow
-# (``e``, the arm's pole) and, on a kick, place the right ankle (``k``) with the foot along ``kd``; a left-handed strike
-# (``hand: "l"``) keys the right hand as ``r``.
-L_GUARD_KEY = {"b": GUARD["l"][0], "z": GUARD["l"][1]}
-R_GUARD_KEY = {"b": GUARD["r"][0], "z": GUARD["r"][1]}
-L_GUARD = {"g": (.16, -.3, 1.42), **L_GUARD_KEY}
-R_GUARD = {"g": (-.12, -.22, 1.44), **R_GUARD_KEY}
+# #711: the bow's free right fist and the idle's right ankle the kick leaves and returns to. A fist key may also turn the
+# striking palm (``z``), lift its elbow (``e``, the arm's pole) and, on a kick, place the right ankle (``k``) with the foot
+# along ``kd``; a left-handed strike (``hand: "l"``) keys the right hand as ``r``.
 R_FIST = {"g": (-.24, -.2, 1.12)}
 IDLE_ANKLE_R = (-.166, .293, .088)
 # #738: the mace guard (as ``Mace_Guard_Loop``): the head up and across before the chest, the left fist up beside it.
@@ -137,6 +132,12 @@ MACE_RUN_GUARD = {**MACE_GUARD, "g": (-.16, -.46, 1.16), "b": (.5, -.42, .76), "
 # The maul guard (as ``TwoHand_Guard_Loop`` and the keys that start and end ``TwoHand_Swing_A``).
 MAUL_GUARD = {"g": (-.12, -.36, 1.12), "b": (.12, -.45, .88), "yaw": -6, "pitch": 10, "neck": 4}
 MAUL_RUN_GUARD = {**MAUL_GUARD, "g": (-.14, -.44, 1.06), "b": (.2, -.6, .77), "pitch": 6}
+# The fists' guard (as ``Unarmed_Guard_Loop``): both fists up at the chin, knuckles up, the chest bent over them. A
+# left-handed strike keys the left fist and holds the right as ``r``; a right-handed one the other way round.
+FISTS = {"l": {"g": (.08, -.38, 1.55), "b": (-.3, -.25, .92), "z": (-1, 0, 0)}, "r": {"g": (-.08, -.34, 1.51), "b": (.3, -.25, .92), "z": (1, 0, 0)}}
+FISTS_CHEST = {"yaw": -4, "pitch": 10, "neck": 8}
+FISTS_L = {**FISTS["l"], "e": POLE["l"], **FISTS_CHEST, "r": FISTS["r"]}
+FISTS_R = {**FISTS["r"], "e": POLE["r"], **FISTS_CHEST, "l": FISTS["l"]}
 STRIKES = {
     # #737 reference for the fast one-handed attacks: from the sword-and-shield guard the hips and chest coil right on
     # to the rear foot while the blade is cocked over the right shoulder and the shield pushed out; then the lead foot
@@ -455,49 +456,86 @@ STRIKES = {
         (1, {"g": (-.15, .04, 1.1), "b": (.18, -.95, .22), "yaw": -12, "pitch": 10, "neck": 4}),
     ]},
     # --- #711: bare fists. The jab and hook are the left's, the cross the right's; the other fist guards the chin.
-    # A quick jab: the left fist drawn back a hand, then snapped straight out at the face, turned palm down.
-    "Unarmed_Jab": {"weapon": "fist", "hand": "l", "kind": "stand", "duration": .6, "contact": .4, "into": .16, "out": .8, "keys": [
-        (.16, {"g": (.16, -.3, 1.42), "yaw": -6, "r": R_GUARD, **L_GUARD_KEY}),
-        (.3, {"g": (.18, -.22, 1.36), "b": (-.05, -.3, .95), "z": (-1, 0, 0), "yaw": 8, "pitch": -2}),
-        (.4, {"g": (.08, -.6, 1.42), "b": (-.1, -1, .05), "z": (0, 0, -1), "yaw": -22, "pitch": 6}),
-        (.52, {"g": (.09, -.56, 1.41), "b": (-.1, -1, .05), "z": (0, 0, -1), "yaw": -20, "pitch": 6}),
-        (.8, {"g": (.16, -.3, 1.42), "yaw": -6, **L_GUARD_KEY}),
+    # #738: the three are full body from the fists' guard (``Unarmed_Guard_Loop``) back to it, and each throws its own
+    # way. The jab snaps straight out of the guard on a short slide of the lead foot, the left shoulder turning in.
+    "Unarmed_Jab": {"weapon": "fist", "hand": "l", "kind": "body", "duration": .5, "windup": .2, "contact": .4, "recovery": .533,
+                    "plants": {"l": [(0, .2), (.4, .6), (.87, 1)], "r": [(0, 1)]}, "keys": [
+        (0, {**FISTS_L, "pz": -.02}),
+        (.2, {"g": (.09, -.33, 1.5), "b": FISTS["l"]["b"], "yaw": 4, "pitch": 10, "neck": 8, "hy": 2, "pz": -.04}),
+        (.4, {"g": (.04, -.78, 1.46), "b": (-.05, -1, .05), "z": (0, 0, -1), "yaw": -24, "pitch": 6, "neck": 6, "hy": -10, "py": -.05, "pz": -.04,
+              "ly": -.08}),
+        (.533, {"g": (.05, -.76, 1.46), "b": (-.05, -1, .05), "yaw": -23, "pitch": 6, "neck": 6, "hy": -9, "py": -.05}),
+        (.8, {"g": (.07, -.42, 1.53), "b": FISTS["l"]["b"], "z": FISTS["l"]["z"], "yaw": -8, "pitch": 9, "neck": 7, "hy": -3, "py": -.02, "pz": -.03,
+              "ly": -.03}),
+        (.93, {**FISTS_L, "hy": 0, "py": 0, "pz": -.02, "ly": 0}),
+        (1, FISTS_L),
     ]},
-    # The cross: the weight turned on to the back foot and held, then the right fist driven across at the face, the
-    # right shoulder through, the chest turning past square.
-    "Unarmed_Cross": {"weapon": "fist", "kind": "stand", "duration": .75, "contact": .48, "into": .14, "out": .8, "keys": [
-        (.14, {"g": (-.12, -.22, 1.44), "yaw": -6, "l": L_GUARD, **R_GUARD_KEY}),
-        (.38, {"g": (-.16, -.12, 1.38), "b": (.05, -.3, .95), "z": (1, 0, 0), "yaw": -24, "pitch": -2, "roll": 4}),
-        (.48, {"g": (.02, -.62, 1.42), "b": (.1, -1, .05), "z": (0, 0, -1), "yaw": 34, "pitch": 10, "roll": -4}),
-        (.62, {"g": (.03, -.56, 1.38), "b": (.1, -1, 0), "z": (0, 0, -1), "yaw": 30, "pitch": 9}),
-        (.8, {"g": (-.12, -.22, 1.44), "yaw": -6, **R_GUARD_KEY}),
+    # #738: the cross drives off the hips. The weight sinks back on to the rear leg with the hips and chest coiled right,
+    # a beat; then the rear heel turns out, the hips fire left ahead of the chest and the right fist drives straight
+    # through at the face, the right shoulder following it in and the left fist kept at the chin.
+    "Unarmed_Cross": {"weapon": "fist", "kind": "body", "duration": .7, "windup": .333, "contact": .476, "recovery": .619,
+                      "plants": {"l": [(0, 1)], "r": [(0, 1)]}, "keys": [
+        (0, {**FISTS_R, "pz": -.02}),
+        (.25, {"g": (-.12, -.27, 1.48), "b": FISTS["r"]["b"], "yaw": -12, "pitch": 8, "neck": 8, "hy": -12, "py": .03, "pz": -.05}),
+        (.333, {"g": (-.13, -.25, 1.47), "b": FISTS["r"]["b"], "yaw": -14, "pitch": 8, "neck": 8, "hy": -14, "py": .03, "pz": -.06}),
+        (.476, {"g": (-.02, -.8, 1.46), "b": (.08, -1, .04), "z": (0, 0, -1), "yaw": 30, "pitch": 10, "neck": 6, "hy": 24, "py": -.06, "pz": -.07,
+                "rh": 22, "rw": 25, "l": {"g": (.06, -.36, 1.53)}}),
+        (.619, {"g": (-.01, -.78, 1.45), "b": (.08, -1, .04), "yaw": 28, "neck": 6, "pitch": 10, "hy": 22, "py": -.06, "pz": -.07}),
+        (.85, {"g": (-.07, -.4, 1.5), "b": FISTS["r"]["b"], "z": FISTS["r"]["z"], "yaw": 0, "pitch": 9, "neck": 7, "hy": 2, "py": -.01, "pz": -.03,
+               "rh": 4, "rw": 4, "l": FISTS["l"]}),
+        (.94, {**FISTS_R, "hy": 0, "py": 0, "pz": -.02, "rh": 0, "rw": 0}),
+        (1, FISTS_R),
     ]},
-    # The hook: the left elbow lifted and the chest wound to the left and held, then the fist swung round level at
-    # the side of the head, the chest snapping right.
-    "Unarmed_Hook": {"weapon": "fist", "hand": "l", "kind": "stand", "duration": .75, "contact": .5, "into": .14, "out": .8, "keys": [
-        (.14, {"g": (.16, -.3, 1.42), "yaw": -4, "r": R_GUARD, **L_GUARD_KEY}),
-        (.38, {"g": (.36, -.22, 1.36), "b": (.1, -.7, .3), "z": (-.8, 0, -.5), "e": (1, .3, .2), "yaw": 24, "pitch": 2}),
-        (.5, {"g": (.0, -.44, 1.44), "b": (-.9, -.4, 0), "z": (0, 0, -1), "e": (1, -.2, .3), "yaw": -26, "pitch": 8}),
-        (.62, {"g": (-.06, -.36, 1.4), "b": (-.9, -.1, 0), "z": (0, 0, -1), "e": (1, -.2, .2), "yaw": -32, "pitch": 8}),
-        (.8, {"g": (.16, -.3, 1.42), "yaw": -4, **L_GUARD_KEY}),
+    # #738: the hook swings on a lateral arc. The chest and hips coil left as the left fist goes out wide with the elbow
+    # up, a beat; then the lead heel turns in and the hips snap right, swinging the fist round level at head height with
+    # the forearm across, and it carries on past the centre before it comes back to the chin.
+    "Unarmed_Hook": {"weapon": "fist", "hand": "l", "kind": "body", "duration": .7, "windup": .333, "contact": .476, "recovery": .619,
+                     "plants": {"l": [(0, 1)], "r": [(0, 1)]}, "keys": [
+        (0, {**FISTS_L, "pz": -.02}),
+        (.25, {"g": (.3, -.3, 1.46), "b": (.2, -.8, .4), "z": (-.8, 0, -.5), "e": (1, .3, .2), "yaw": 12, "pitch": 7, "hy": 10, "px": .02, "pz": -.05}),
+        (.333, {"g": (.34, -.27, 1.46), "b": (.15, -.75, .3), "yaw": 16, "pitch": 7, "hy": 14, "px": .02, "pz": -.06}),
+        (.42, {"g": (.24, -.56, 1.5), "b": (-.5, -.85, 0), "z": (0, 0, -1), "e": (1, -.1, .4), "yaw": -4, "pitch": 8, "hy": -4, "px": 0, "pz": -.07,
+               "lh": 10, "lw": -10}),
+        (.476, {"g": (-.04, -.56, 1.52), "b": (-.95, -.3, 0), "z": (0, 0, -1), "e": (1, -.2, .4), "yaw": -28, "pitch": 9, "hy": -22, "px": -.03,
+                "pz": -.07, "lh": 18, "lw": -24}),
+        (.619, {"g": (-.08, -.5, 1.5), "b": (-.95, -.1, 0), "yaw": -32, "pitch": 9, "hy": -26, "px": -.03, "pz": -.07}),
+        (.85, {"g": (.06, -.42, 1.53), "b": FISTS["l"]["b"], "z": FISTS["l"]["z"], "e": POLE["l"], "yaw": -8, "pitch": 9, "hy": -5, "px": 0,
+               "pz": -.03, "lh": 4, "lw": -4}),
+        (.94, {**FISTS_L, "hy": 0, "px": 0, "pz": -.02, "lh": 0, "lw": 0}),
+        (1, FISTS_L),
     ]},
-    # A shoulder barge on the run: both fists tucked to the chest, the right shoulder drawn back, then driven down and
-    # through as the right foot lands.
-    "Unarmed_Run_Strike": {"weapon": "fist", "kind": "run", "point": "shoulder", "contact": .55, "into": .16, "out": .8, "keys": [
-        (.16, {"g": (-.1, -.26, 1.22), "b": (.4, -.4, .8), "z": (1, 0, 0), "yaw": -10, "l": {"g": (.16, -.26, 1.24)}}),
-        (.42, {"g": (-.14, -.18, 1.24), "b": (.4, -.4, .8), "z": (1, 0, 0), "yaw": -22, "pitch": 4, "l": {"g": (.18, -.28, 1.26)}}),
-        (.55, {"g": (.02, -.2, 1.18), "b": (.6, -.2, .7), "z": (1, 0, 0), "yaw": 38, "pitch": 18, "roll": -12, "l": {"g": (.2, -.12, 1.16)}}),
-        (.68, {"g": (.02, -.2, 1.16), "b": (.6, -.2, .7), "z": (1, 0, 0), "yaw": 34, "pitch": 16, "roll": -10}),
-        (.82, {"g": (-.1, -.26, 1.22), "b": (.4, -.4, .8), "z": (1, 0, 0), "yaw": 6, "pitch": 6, "l": {"g": (.16, -.26, 1.24)}}),
+    # #738: a shoulder barge on the run from the fists' guard and back to it: the fists come in to the chest and the
+    # right shoulder is drawn back on the stride, then driven down and through as the right foot lands.
+    "Unarmed_Run_Strike": {"weapon": "fist", "kind": "run", "point": "shoulder", "guard": "Unarmed_Guard_Loop", "windup": .5, "contact": .55,
+                           "recovery": .68, "keys": [
+        (0, FISTS_R),
+        (.16, {"g": (-.12, -.22, 1.28), "b": (.4, -.4, .8), "z": (1, 0, 0), "yaw": -24, "pitch": 6, "l": {"g": (.16, -.28, 1.3)}}),
+        (.5, {"g": (-.14, -.18, 1.26), "b": (.4, -.4, .8), "yaw": -26, "pitch": 4, "l": {"g": (.18, -.28, 1.28)}}),
+        (.55, {"g": (.02, -.2, 1.2), "b": (.6, -.2, .7), "yaw": 48, "pitch": 28, "roll": -18, "l": {"g": (.2, -.12, 1.18)}}),
+        (.68, {"g": (.02, -.2, 1.18), "b": (.6, -.2, .7), "yaw": 38, "pitch": 22, "roll": -15}),
+        (.86, {"g": (-.08, -.34, 1.44), "b": FISTS["r"]["b"], "z": FISTS["r"]["z"], "yaw": 0, "pitch": 9, "roll": 0, "l": FISTS["l"]}),
+        (.94, FISTS_R),
+        (1, FISTS_R),
     ]},
-    # Leaping with both fists clasped high overhead, hammered straight down as the feet touch, carried low.
-    "Unarmed_Jump_Strike": {"weapon": "fist", "kind": "jump", "contact": .5, "keys": [
-        (.14, {"g": (-.06, -.18, 1.5), "b": (0, -.2, 1), "z": (1, 0, 0), "pitch": -6, "l": {"g": (.06, -.18, 1.5), "b": (0, -.2, 1), "z": (-1, 0, 0)}}),
-        (.36, {"g": (-.05, .02, 1.78), "b": (0, .45, .9), "z": (1, 0, 0), "pitch": -14, "neck": -10, "l": {"g": (.05, .02, 1.78), "b": (0, .45, .9), "z": (-1, 0, 0)}}),
-        (.44, {"g": (-.05, -.24, 1.66), "b": (0, -.5, .85), "z": (1, 0, 0), "pitch": -4, "neck": -4, "l": {"g": (.05, -.24, 1.66), "b": (0, -.5, .85), "z": (-1, 0, 0)}}),
-        (.5, {"g": (-.05, -.5, 1.14), "b": (0, -.75, -.65), "z": (1, 0, 0), "pitch": 18, "neck": 4, "l": {"g": (.05, -.5, 1.14), "b": (0, -.75, -.65), "z": (-1, 0, 0)}}),
-        (.72, {"g": (-.05, -.4, .8), "b": (0, -.3, -.95), "z": (1, 0, 0), "pitch": 30, "neck": -10, "l": {"g": (.05, -.4, .8), "b": (0, -.3, -.95), "z": (-1, 0, 0)}}),
-        (1.0, {"g": (-.06, -.4, .82), "b": (0, -.35, -.93), "z": (1, 0, 0), "pitch": 28, "neck": -12, "l": {"g": (.06, -.4, .82), "b": (0, -.35, -.93), "z": (-1, 0, 0)}}),
+    # #738: the fists' leap ends in an overhand right. In the air the right fist is cocked high behind the shoulder, the
+    # left reaching ahead; as the feet touch the hips and chest turn through and the right comes over and down at a
+    # target in front of the knees, the knees taking 0.26 m, before the body rises into the guard.
+    "Unarmed_Jump_Strike": {"weapon": "fist", "kind": "leap", "duration": 1.0, "tuck": .22, "touch": .433, "windup": .37, "contact": .467,
+                            "recovery": .64, "guard": "Unarmed_Guard_Loop", "keys": [
+        (0, {"g": (-.14, -.24, 1.46), "b": FISTS["r"]["b"], "z": (1, 0, 0), "yaw": -6, "pitch": 4, "l": FISTS["l"], "lz": .28, "rz": .24, "ly": .02}),
+        (.32, {"g": (-.28, .1, 1.68), "b": (-.2, .3, .93), "z": (1, 0, 0), "e": (-1, .3, .3), "yaw": -24, "pitch": -6, "neck": -4, "hy": -10,
+               "l": {"g": (.12, -.46, 1.5)}}),
+        (.37, {"g": (-.28, .11, 1.69), "b": (-.2, .3, .93), "yaw": -25, "neck": -4, "pitch": -6, "hy": -11}),
+        (.433, {"g": (-.18, -.24, 1.6), "b": (.1, -.7, .7), "e": POLE["r"], "yaw": -6, "pitch": 4, "neck": 0, "hy": -2, "pz": .02, "lz": 0, "rz": 0,
+                "ly": 0}),
+        (.467, {"g": (-.03, -.74, 1.12), "b": (.1, -.8, -.55), "z": (0, 0, -1), "yaw": 24, "pitch": 18, "neck": 4, "hy": 18, "hp": 8, "pz": -.2,
+                "rh": 10, "rw": 12, "l": {"g": (.08, -.32, 1.42)}}),
+        (.56, {"g": (-.01, -.7, 1.02), "b": (.1, -.8, -.55), "yaw": 26, "neck": 4, "pitch": 22, "hy": 20, "hp": 10, "pz": -.26, "rh": 12}),
+        (.64, {"g": (-.01, -.7, 1.03), "b": (.1, -.8, -.55), "yaw": 25, "neck": 4, "pitch": 21, "hy": 19, "hp": 10, "pz": -.25}),
+        (.82, {"g": (-.09, -.38, 1.44), "b": FISTS["r"]["b"], "z": FISTS["r"]["z"], "e": POLE["r"], "yaw": 0, "pitch": 11, "neck": 7, "hy": 2,
+               "hp": 2, "pz": -.06, "rh": 2, "rw": 2, "l": FISTS["l"]}),
+        (.93, {**FISTS_R, "hy": 0, "hp": 0, "pz": -.02, "rh": 0, "rw": 0}),
+        (1, FISTS_R),
     ]},
     # --- #711: the two-handed maul, the left hand on its grip.offhand. Slow: a long held wind-up, a strike of three or
     # four frames and a follow-through the head's weight drags on.
