@@ -141,8 +141,52 @@ The published `humanoid-ranger-male` bundle (before) and this build (after), fro
 | `Spear_Jump_Strike` | 14.5 cm into the torso; 1.4× | 0.9 cm clear; feet 1.0 cm; 12.6× |
 | `TwoHand_Swing_A` | 3.0 cm into the left thigh | 0.1 cm clear (unchanged keys) |
 
-Over the recipe's strike clips (29 before, 31 with `Sword_Regular_B` and `C`), 26 failed a check before and 19 after, and no clip that passed fails now. The mace, two-handed, staff, unarmed, dagger and bow attacks and the family stances are still to come.
+Over the recipe's strike clips (29 before, 31 with `Sword_Regular_B` and `C`), 26 failed a check before and 19 after, and no clip that passed fails now.
+
+### Mace, two-handed and unarmed
+
+The second step redoes the families the owner found weakest: the mace, the maul and the bare fists. Every clip starts and ends in its family's guard (`Mace_Guard_Loop`, `TwoHand_Guard_Loop`, `Unarmed_Guard_Loop`; the hands' keys match them). The standing strikes are full body, the jumps are `leap`s that land in the guard and the running strikes hold the guard over the run's legs. On the run the body leans forward over the guard, so the mace and maul guards there sit a few centimetres lower and further out from the face. `Mace_Swing_A` and `B` were the cast recipe's upper-body blows; they move to the strike recipe with their names and roles (the cast family has 19 clips now, the strike family 33).
+
+| Clip | Weapon style | What it is now |
+| --- | --- | --- |
+| `Mace_Swing_A` (0.9 s) | mace overhand | The knees load and the hips coil right as the mace goes up behind the right shoulder, the left fist out ahead; a beat, then the lead foot steps in, the hips fire ahead of the chest, the fist pulls back to the hip against the swing and the head comes over and down at chest height, carried on low past the left knee. |
+| `Mace_Swing_B` (0.9 s) | mace backhand | The mace lifts before the chest (as the mmorpg#804 fix did) and chambers over the left shoulder with the hips turned left, held; then the right heel turns out, the hips drive right ahead of the chest and the head sweeps across at head height and on wide of the right side. |
+| `Mace_Swing_C` (1.2 s) | mace finisher | A stepping vertical smash: the mace held high over the head, then a long lead step with the body dropping into it as the head comes down the centre line; the knees stay deep a beat under the weight before the heave back up. Was 0.9 s and upper body. |
+| `Mace_Run_Strike` | mace | An overhand on the stride from the guard and back to it, the left fist reaching ahead and pulled back against the blow. |
+| `Mace_Jump_Strike` (1 s) | mace | A hammer slam: the mace up behind the head in the air, slammed down low ahead as the feet touch, the knees taking 0.3 m with the chest over it. |
+| `TwoHand_Swing_B` (1.3 s) | maul backhand | Wound back past the left shoulder with the hips coiled and the knees loaded, held; then the rear heel turns out, the hips unwind ahead of the chest and the head sweeps flat across at the waist, dragging the chest round after it. Was upper body. |
+| `TwoHand_Swing_C` (1.5 s) | maul finisher | A stepping overhead smash: hauled overhead with the body rising on the rear leg, held; then a long lead step and the body dropping on to the blow, the head driven down into the ground ahead (low band); deep in the knees a beat, then the heave. The head no longer hangs down the back, where its haft went through the torso. |
+| `TwoHand_Run_Strike` | maul | Up over the right shoulder on the stride, the head upright behind it so the haft's end stays off the chest, then down across the body; guard to guard. |
+| `TwoHand_Jump_Strike` (1 s) | maul | A ground slam: overhead in the air, over the top as the feet touch, the knees taking 0.34 m; the hands land to the right of the centre line so the haft's end stays out of the chest as the body bends over it. |
+| `Unarmed_Jab` (0.5 s) | fist jab | A small dip, then the left fist snaps straight out on a short slide of the lead foot, the left shoulder turning in; nearly the full arm's length. |
+| `Unarmed_Cross` (0.7 s) | fist cross | The weight sinks back with the hips coiled, a beat; then the rear heel turns out and the hips fire ahead of the chest, the right fist driving straight through, the left kept at the chin. |
+| `Unarmed_Hook` (0.7 s) | fist hook | The chest and hips coil left as the left fist goes out wide with the elbow up; then the lead heel turns in and the hips snap right, the fist swinging round level at head height on a lateral arc. |
+| `Unarmed_Run_Strike` | fists | A shoulder barge from the guard and back to it; the shoulder is held drawn back until the right foot lands, then driven through in two frames. |
+| `Unarmed_Jump_Strike` (1 s) | fists | An overhand right: cocked high behind the shoulder in the air, then over and down at a target before the knees as the feet touch. It was a two-fisted hammer, the same impact as the maul's. |
+
+The jab, the cross and the hook were three upper-body arm swings of about the same size (0.44 to 0.65 m of reach). Now the jab is a straight snap of the lead arm (0.78 m), the cross a rear-hand drive off the hips and the rear heel (0.80 m) and the hook a lateral arc on the lead foot's pivot (0.56 m).
+
+The published `humanoid-ranger-male` bundle (before) and this build (after), from `scripts/check-combat-clips.ts --between` on the strike recipe's output over the published clips. A bare fist holds no item, so the fists have no clearance to check; the build test holds them to the planted feet and the timing:
+
+| Clip | Before | After |
+| --- | --- | --- |
+| `Mace_Swing_A` | 0.1 cm clear; upper body; 4.2× (inferred) | 5.2 cm clear; feet 0.7 cm; 5.8× |
+| `Mace_Swing_B` | 4.2 cm clear; upper body; 3.1× (inferred) | 6.2 cm clear; feet 0.0 cm; 5.9× |
+| `Mace_Swing_C` | 2.1 cm clear; upper body; 3.4× (inferred) | 0.5 cm into the torso (within the 2 cm tolerance); feet 0.1 cm; 9.9× |
+| `Mace_Run_Strike` | 11.5 cm into the head | 2.5 cm clear; 6.9× |
+| `Mace_Jump_Strike` | 11.9 cm into the head; no feet planted | 2.9 cm clear; feet 0.0 cm; 19× |
+| `TwoHand_Swing_B` | 13.7 cm into the head; upper body | 0.6 cm into the torso (within tolerance); feet 0.0 cm; 8.2× |
+| `TwoHand_Swing_C` | 12.9 cm into the torso; upper body | 4.2 cm clear; feet 0.0 cm; 12.6× |
+| `TwoHand_Run_Strike` | 12.7 cm into the torso | 0.5 cm clear; 8.9× |
+| `TwoHand_Jump_Strike` | 13.7 cm into the torso; no feet planted | 2.2 cm clear; feet 1.2 cm; 26.9× |
+| `Unarmed_Jab` | 1.9× (inferred) | feet 1.1 cm; 5.4× |
+| `Unarmed_Cross` | 2.9× (inferred) | feet 0.0 cm; 11.5× |
+| `Unarmed_Hook` | 1.1× (inferred) | feet 0.0 cm; 5.2× |
+| `Unarmed_Run_Strike` | 1.5× (inferred) | 4.9× |
+| `Unarmed_Jump_Strike` | 2.2× (inferred); no feet planted | feet 1.1 cm; 18.3× |
+
+The standing and jumping clips join `RANGER_COMBAT_STANDARD_CLIPS`, the mace and maul running strikes `RANGER_CLEARANCE_CLIPS` (`Mace_Swing_B` leaves it for the standard). Over the recipe's 33 strike clips, 8 fail a check now, all in the staff, dagger and bow families. The staff, dagger and bow attacks and the family stances are still to come.
 
 ## Renders
 
-Before and after at the game camera's angle (0.42 rad pitch from 12 m, zoomed onto the figure), from the side, three-quarter front and behind: [`review/combat-standard/`](../review/combat-standard/). Phase 2 adds a sheet per reworked clip, the columns the guard, the wind-up's end, the contact, the follow-through and the end.
+Before and after at the game camera's angle (0.42 rad pitch from 12 m, zoomed onto the figure), from the side, three-quarter front and behind: [`review/combat-standard/`](../review/combat-standard/). Phase 2 adds a sheet per reworked clip, the columns the guard, the wind-up's end, the contact, the follow-through and the end. A running strike's columns are its start, the wind-up's end, the contact, the recovery's start and the end, and a jump's start in the air.
