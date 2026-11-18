@@ -46,16 +46,17 @@ export const RANGER_BOW_UPPER_CLIPS = [
  */
 export const RANGER_CROSSBOW_CLIPS = ["Crossbow_Idle_Loop", "Crossbow_Aim_Loop", "Crossbow_Fire", "Crossbow_Reload"] as const;
 /**
- * #420 (the mmorpg Arcanist, Necromancer, Cleric and Druid): shared casting styles, the staff and mace strikes and the
+ * #420 (the mmorpg Arcanist, Necromancer, Cleric and Druid): shared casting styles, the staff strikes and the
  * Warden's war cry, authored in place on the Ranger rig by adapters/blender/cast_clips.py from explicit hand frames on
- * `hand_r.staff`, `hand_l.staff` (the left hand on the shaft), `hand_r.weapon` (mace or sword) and the left palm (two-bone
+ * `hand_r.staff`, `hand_l.staff` (the left hand on the shaft), `hand_r.weapon` (the sword) and the left palm (two-bone
  * arm IK; Mixamo only as reference). The left hand's casting shapes are keyed. All but `Cast_Nova` and
- * `Cast_Summon_Raise` keep only the `spine_01` subtree. They follow the crossbow clips in bundle order.
+ * `Cast_Summon_Raise` keep only the `spine_01` subtree. They follow the crossbow clips in bundle order. #738 moved the
+ * Cleric's mace blows `Mace_Swing_A` and `B` to the strike family.
  */
 export const RANGER_CAST_CLIPS = [
   "Cast_Charge_Loop", "Cast_Release_Push", "Cast_Release_Overhand", "Cast_Channel_Beam_Loop", "Cast_Channel_Drain_Loop",
   "Cast_Channel_Sky_Loop", "Cast_Nova", "Cast_Cone", "Cast_Curse_Point", "Cast_Ground_Sweep", "Cast_Self_Ward", "Cast_Ally",
-  "Warcry", "Cast_Summon_Raise", "Cast_Summon_Call", "Staff_Strike_A", "Staff_Strike_B", "Mace_Swing_A", "Mace_Swing_B",
+  "Warcry", "Cast_Summon_Raise", "Cast_Summon_Call", "Staff_Strike_A", "Staff_Strike_B",
   "Cast_Raise_Wall", "Cast_Interrupted",
 ] as const;
 /**
@@ -140,11 +141,15 @@ export const RANGER_RAID_CLIPS = [
  * move here. The sword and spear jumping strikes land in their family's guard (the recipe's `leap`: the feet planted
  * from the touch, a landing as deep as the weapon needs, `to` the guard) and the running strikes go from the family's
  * guard back to it over the run's legs, recording their phases.
+ *
+ * #738 (mace and two-handed): the mace's overhand and backhand `Mace_Swing_A` and `B` move here from the cast clips and,
+ * with `Mace_Swing_C` and `TwoHand_Swing_B` and `C`, are full body from the family's guard back to it. The mace and maul
+ * jumping strikes are slams that land in their guard, and the running strikes go from the guard back to it.
  */
 export const RANGER_STRIKE_CLIPS = [
-  "Sword_Regular_A", "Sword_Regular_B", "Sword_Regular_C", "Sword_Run_Strike", "Sword_Jump_Strike", "Mace_Run_Strike", "Mace_Jump_Strike",
-  "Dagger_Run_Strike", "Dagger_Jump_Strike", "Staff_Run_Strike", "Staff_Jump_Strike", "Spear_Run_Strike", "Spear_Jump_Strike", "Mace_Swing_C",
-  "Staff_Strike_C", "Spear_Thrust_A", "Spear_Thrust_B",
+  "Sword_Regular_A", "Sword_Regular_B", "Sword_Regular_C", "Sword_Run_Strike", "Sword_Jump_Strike", "Mace_Swing_A", "Mace_Swing_B",
+  "Mace_Run_Strike", "Mace_Jump_Strike", "Dagger_Run_Strike", "Dagger_Jump_Strike", "Staff_Run_Strike", "Staff_Jump_Strike",
+  "Spear_Run_Strike", "Spear_Jump_Strike", "Mace_Swing_C", "Staff_Strike_C", "Spear_Thrust_A", "Spear_Thrust_B",
   // #711: the bare-fist, two-handed maul and bow-in-melee sets, each a standing chain plus a running and a jumping
   // strike. The fists strike with the knuckles of the hand that throws them (the barge with the right shoulder), the
   // maul with its head (the left hand on its `grip.offhand`), the bow with its upper limb from `hand_l.bow` (the kick
@@ -159,17 +164,19 @@ export const RANGER_STRIKE_CLIPS = [
 export const RANGER_COMBAT_STANDARD_CLIPS: readonly string[] = [
   "Sword_Regular_A", "TwoHand_Swing_A", "Spear_Thrust_B",
   "Sword_Regular_B", "Sword_Regular_C", "Sword_Jump_Strike", "Spear_Thrust_A", "Spear_Jump_Strike",
+  "Mace_Swing_A", "Mace_Swing_B", "Mace_Swing_C", "Mace_Jump_Strike", "TwoHand_Swing_B", "TwoHand_Swing_C", "TwoHand_Jump_Strike",
 ];
 /**
  * mmorpg#804: strikes whose weapon passed through the torso in game, fixed without redoing them to the whole standard.
  * The Ranger build test holds them to the weapon–body clearance check, and to the planted-foot check over the spans
  * listed (`Sword_Cleave` turns on both planted feet; the staff and mace strikes are upper body over the game's legs).
  * #738: the sword and spear running strikes, redone to the standard, run on the run's legs and so have no planted
- * feet; they are held to the clearance here.
+ * feet; they are held to the clearance here, as are the mace and maul running strikes. `Mace_Swing_B` is held to the
+ * whole standard now.
  */
 export const RANGER_CLEARANCE_CLIPS: Readonly<Record<string, { footPlants?: Record<string, number[][]> }>> = {
-  Sword_Cleave: { footPlants: { l: [[0, .9]], r: [[0, .9]] } }, Staff_Strike_A: {}, Staff_Strike_B: {}, Mace_Swing_B: {},
-  Sword_Run_Strike: {}, Spear_Run_Strike: {},
+  Sword_Cleave: { footPlants: { l: [[0, .9]], r: [[0, .9]] } }, Staff_Strike_A: {}, Staff_Strike_B: {},
+  Sword_Run_Strike: {}, Spear_Run_Strike: {}, Mace_Run_Strike: {}, TwoHand_Run_Strike: {},
 };
 /**
  * #711: hit reactions and deaths played on the victim (health-only rules, so purely presentation), full body and in

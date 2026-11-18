@@ -306,7 +306,7 @@ export const RANGER_CLIP_ROLES: Readonly<Record<string, { role: string; contact?
   Crossbow_Aim_Loop: { role: "crossbow.aim" },
   Crossbow_Fire: { role: "crossbow.fire", contact: "hand_r" },
   Crossbow_Reload: { role: "crossbow.reload" },
-  // #420: the casters' shared casting styles, the staff and mace strikes and the war cry (src/ranger-clips.ts
+  // #420: the casters' shared casting styles, the staff strikes and the war cry (src/ranger-clips.ts
   // RANGER_CAST_CLIPS). The contacts are the authored releases (the spell leaves the palm, the staff stamps, the blow lands).
   Cast_Charge_Loop: { role: "cast.charge" },
   Cast_Release_Push: { role: "cast.release.push", contact: "hand_l" },
@@ -325,8 +325,6 @@ export const RANGER_CLIP_ROLES: Readonly<Record<string, { role: string; contact?
   Cast_Summon_Call: { role: "cast.summon.call" },
   Staff_Strike_A: { role: "staff.strike.jab", contact: "hand_r" },
   Staff_Strike_B: { role: "staff.strike.sweep", contact: "hand_r" },
-  Mace_Swing_A: { role: "mace.strike.overhand", contact: "hand_r" },
-  Mace_Swing_B: { role: "mace.strike.backhand", contact: "hand_r" },
   Cast_Raise_Wall: { role: "cast.wall", contact: "hand_l" },
   Cast_Interrupted: { role: "cast.interrupted" },
   // #421: emotes, doors, loot, talk, trade, sitting and sleeping (src/ranger-clips.ts RANGER_SOCIAL_CLIPS). The contacts
@@ -403,6 +401,9 @@ export const RANGER_CLIP_ROLES: Readonly<Record<string, { role: string; contact?
   Sword_Jump_Strike: { role: "sword.strike.jump", contact: "hand_r" },
   Mace_Run_Strike: { role: "mace.strike.run", contact: "hand_r" },
   Mace_Jump_Strike: { role: "mace.strike.jump", contact: "hand_r" },
+  // #738: the mace's overhand and backhand, moved from the cast clips.
+  Mace_Swing_A: { role: "mace.strike.overhand", contact: "hand_r" },
+  Mace_Swing_B: { role: "mace.strike.backhand", contact: "hand_r" },
   Dagger_Run_Strike: { role: "dagger.strike.run", contact: "hand_r" },
   Dagger_Jump_Strike: { role: "dagger.strike.jump", contact: "hand_r" },
   Staff_Run_Strike: { role: "staff.strike.run", contact: "hand_r" },
