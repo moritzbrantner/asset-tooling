@@ -58,7 +58,8 @@ The `humanoid.ranger.male` bundle holds the following.
   - the bare-fist, two-handed maul and bow-in-melee strike sets and the light and heavy hits and three deaths ([Fist, two-handed and bow strikes, hits and deaths](#fist-two-handed-and-bow-strikes-hits-and-deaths-711));
   - a draw and a sheathe per weapon family, the combat idles and the guards ([Draw, sheathe, combat idle and guard clips](#draw-sheathe-combat-idle-and-guard-clips-717));
   - the dodges, a parry per weapon family, the ripostes, the shield brace, hit and bash and the push kick ([Defensive clips](#defensive-clips-729));
-  - the rooted struggles, the pit fall, the blink, leap, dash, grappling hook, yank, drag and ice slip, and the tanner ([Movement spells, control reactions and the tanner](#movement-spells-control-reactions-and-the-tanner-767)).
+  - the rooted struggles, the pit fall, the blink, leap, dash, grappling hook, yank, drag and ice slip, and the tanner ([Movement spells, control reactions and the tanner](#movement-spells-control-reactions-and-the-tanner-767));
+  - mounting, dismounting and riding the `mounts` horse through its gaits and turns ([Riding clips](#riding-clips-769)).
 
   No clip uses Mixamo data (#399). Mixamo is only a motion reference, so the build needs no local input and both figures publish from CI.
 
@@ -660,6 +661,25 @@ The same recipe ([`adapters/blender/strike_clips.py`](../adapters/blender/strike
 - **Props:** no item rides a socket; the scraper, the beam, the hide frame and the hook are the game's (or a later kit's) to place at the recorded points.
 - **Review:** shaped in the live Blender on the male Ranger (the published figure with its library clips) and rendered at the mmorpg game camera's angle: [`review/ranger-clips-767/`](../review/ranger-clips-767/README.md). Not yet viewed in the game.
 
+### Riding clips (#769)
+
+[`adapters/blender/ride_clips.py`](../adapters/blender/ride_clips.py) authors the rider for the tacked horse of the [`mounts`](mounts.md) release: `RANGER_RIDE_CLIPS` in the `ride` family, after the work clips in bundle order. The keys are as in the move clips, but absolute, in the **seat frame**: the game parents the rider's root to the horse's `saddle.seat` socket, the root stays at the origin and the pelvis joint sits on it while seated, so the horse's back carries the rider. The balls of the feet stay on the `stirrup.l`/`.r` treads and the fists on the `reins.l`/`.r` hand points in every seated frame. [`src/mounts.ts`](../src/mounts.ts) holds the numbers both recipes use: the tack's seat-frame points, the seat's height and each horse clip's length. A hip never gets further from its ankle than 96% of the leg, so the shorter female figure rises a little less out of the saddle on the same stirrups. Full body, each with a `secondaryPose`.
+
+| Clip | Length | `role` | Plays with the horse's | Notes |
+| --- | --- | --- | --- | --- |
+| `Mount_Horse` | 3 s | `ride.mount` | `Ride_Idle_Loop` | from the ground at the near (left) side, facing the horse: the left fist to the neck and the right hand to the cantle, the left foot into the stirrup, a spring up to stand in it over the saddle, the right hand to the pommel and the right leg swept back over the croup, down into the saddle and the right foot into its stirrup |
+| `Dismount_Horse` | 2.6 s | `ride.dismount` | `Ride_Idle_Loop` | the way back down: the right foot out, a lean over the withers, the right leg back over the croup, standing in the left stirrup, the right foot to the ground, then the left |
+| `Ride_Idle_Loop` | 4 s loop | `ride.idle` | `Ride_Idle_Loop` | seated at a halt, breathing, a look to each side |
+| `Ride_Walk_Loop` | 1.1 s loop | `ride.walk` | `Walk_Loop` | the seat swings with the back, a hip forward with each hind step; the shoulders and head stay quiet |
+| `Ride_Trot_Loop` | 0.733 s loop | `ride.trot` | `Trot_Loop` | posting: up out of the saddle (7.5 cm on the male) through one diagonal beat (rise 0.18 s, sit 0.48 s), seated through the next |
+| `Ride_Canter_Loop` | 0.6 s loop | `ride.canter` | `Canter_Loop` | the seat follows the rocking, scooping forward as the forehand comes down; the trunk counters the horse's pitch |
+| `Ride_Gallop_Loop` | 0.467 s loop | `ride.gallop` | `Gallop_Loop` | two-point: the seat up and back out of the saddle, the trunk folded forward into the stride, eyes up, the fists 10 cm forward along the reins |
+| `Ride_Turn_L` / `Ride_Turn_R` | 2.4 s | `ride.turn-left` / `ride.turn-right` | `Turn_L` / `Turn_R` | looking and leaning into the turn, the inside fist opening |
+
+- **`ride` object:** `mount: "horse"`, `seat: "saddle.seat"`, `horseClip` (play both clips from frame 0 together; the loops have the horse's lengths, so they stay in step), the trot's `riseSeconds` and `sitSeconds`, the gallop's `handsAlongReinsMeters`, and on the mount and dismount `from`/`to`, `groundBelowSeatMeters` (1.604), `standAt` (where the rider's root stands on the ground, glTF, seat frame: 0.7 m to the horse's left) and `standFacing` (towards the horse).
+- **Consumer:** while mounted, parent the rider's root to `saddle.seat` and play the ride clip with the horse clip `horseClip` names, from the same time. For the mount, start with the rider standing at `standAt` facing `standFacing`, then parent it and play `Mount_Horse`; the dismount ends there. The feet stand on the ground while the horse idles, so they move with its breathing by under a centimetre.
+- **Review:** [`review/mounts-769/`](../review/mounts-769/README.md), both figures on the built horse at the game camera, with the measured overlap.
+
 ## Female Ranger
 
 `--figure female` (#115, owner answer Q1 = A) builds `humanoid.ranger.female` with the same recipe. Its Peasant-based outfits are the tanner (#378) and one fitted knight (#630), over the pack's `Female_Peasant` outfit. It has no headwear or facial-hair catalog; the female knight omits the male bascinet so the full face/jaw range stays exposed. It uses the Universal Base Characters `Superhero_Female_FullBody` head (`keepMeshes: ["Eyebrows", "Eyes"]`) on the full `Female_Ranger` outfit ([humanoid-sources.md](humanoid-sources.md#female-body-and-outfit-115)).
@@ -682,7 +702,7 @@ Both figures are rolling releases that CI builds (#399): merging a change to the
 
 - `base`: the library's idle, gaits, sword and shield idles, death, jumps, crouch, roll, climb and slide, plus the authored `gait` (back, strafe, start, stop and turn) and `grips` families;
 - `combat`: the library's sword, shield, hit and spell clips;
-- every other authored family under its own id: `bow`, `swim`, `hit`, `traversal`, `sword`, `dagger`, `bow-upper`, `crossbow`, `cast`, `social` (the emotes), `chores`, `posts`, `gather`, `raid`, `strike` (with the reactions and deaths), `ready`, `defend`, `move` and `work` (#767).
+- every other authored family under its own id: `bow`, `swim`, `hit`, `traversal`, `sword`, `dagger`, `bow-upper`, `crossbow`, `cast`, `social` (the emotes), `chores`, `posts`, `gather`, `raid`, `strike` (with the reactions and deaths), `ready`, `defend`, `move` and `work` (#767), and `ride` (#769).
 
 The index (`humanoid-ranger-<figure>.index.json`) lists the files under `clips.families`, with each family's bytes and each clip's name and duration ([release-downloads.md](release-downloads.md)). Every clip is in exactly one family, or the pack fails. A family file over 1 MB (`RANGER_CLIP_FAMILY_LIMIT_MB` in [`build-ranger-release.ts`](../scripts/build-ranger-release.ts)) also fails the build. That limit replaces raising one clip budget with every batch: a family that outgrows it splits into two. Sizes on 2026-11-17 (male; female within 1.2%), 3.52 MB together against 3.78 MB for the combined file:
 
