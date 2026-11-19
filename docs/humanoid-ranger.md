@@ -57,7 +57,8 @@ The `humanoid.ranger.male` bundle holds the following.
   - the running and jumping strike per melee weapon and the mace, staff and spear chain additions ([Movement-state strikes](#movement-state-strikes-709));
   - the bare-fist, two-handed maul and bow-in-melee strike sets and the light and heavy hits and three deaths ([Fist, two-handed and bow strikes, hits and deaths](#fist-two-handed-and-bow-strikes-hits-and-deaths-711));
   - a draw and a sheathe per weapon family, the combat idles and the guards ([Draw, sheathe, combat idle and guard clips](#draw-sheathe-combat-idle-and-guard-clips-717));
-  - the dodges, a parry per weapon family, the ripostes, the shield brace, hit and bash and the push kick ([Defensive clips](#defensive-clips-729)).
+  - the dodges, a parry per weapon family, the ripostes, the shield brace, hit and bash and the push kick ([Defensive clips](#defensive-clips-729));
+  - the rooted struggles, the pit fall, the blink, leap, dash, grappling hook, yank, drag and ice slip, and the tanner ([Movement spells, control reactions and the tanner](#movement-spells-control-reactions-and-the-tanner-767)).
 
   No clip uses Mixamo data (#399). Mixamo is only a motion reference, so the build needs no local input and both figures publish from CI.
 
@@ -633,6 +634,32 @@ The same recipe ([`adapters/blender/strike_clips.py`](../adapters/blender/strike
 - **Shield bash:** `Shield_Bash` takes the `shield.bash` role; the library `Shield_OneShot` keeps its clip under `shield.bash.library`.
 - **Review:** shaped and reviewed in the live Blender on the male Ranger (the published figure with its library clips) with the published sword, round shield, daggers, quarterstaff, leaf spear, maul and flanged mace on their sockets; not yet viewed in the game.
 
+### Movement spells, control reactions and the tanner (#767)
+
+[`adapters/blender/move_clips.py`](../adapters/blender/move_clips.py) authors #422's remaining control reactions (mmorpg#933 Frost Nova and #934 Entangling Roots root enemies and players), the movement spells (mmorpg#294) and the tanner's work loops in Blender on the animated Ranger: `RANGER_MOVE_CLIPS` in the `move` family and `RANGER_WORK_CLIPS` in the `work` family, after the defend clips in bundle order, both from the one recipe. Every clip starts from the first `Idle_Loop` pose and is keyed: a key names the pelvis offset and turn, each foot's offset and its turn about the ball (the heel lifts, or the toes point in the air), the chest turn, the clavicles and each palm's target (carried with the chest, or fixed in place for the ground, the beam and the frame), with two-bone arm and leg IK and a Hermite curve between keys that only stops on a key where a channel turns. The upper-body clips keep only the `spine_01` subtree; the rest are full body, record a `secondaryPose` for the #391 chain joints and start and end in the idle unless the table says otherwise. They are in place: the game owns the travel (the blink, leap, dash and drag) and the drop (the pit). No source motion is copied.
+
+| Clip | Layer | Length | `role` | Marked time | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `Rooted_Struggle_Loop` | `spine_01` | 2 s loop | `control.rooted.struggle` | heaves 0.36, 1.36 s | the feet held: bent over one thigh hauling at it with both fists, then straining up and back twisted the other way, twice a loop |
+| `Rooted_Struggle_Frozen_Loop` | `spine_01` | 2 s loop | `control.rooted.frozen` | — | hunched, shoulders up, arms clamped across the chest, shivering 7 times a second; a stiff twist that barely moves |
+| `Fall_Pit` | full | 1 s | `control.fall.pit` | land 0.58 s | the knees buckle, the arms fly up and the legs kick through the drop, a hard landing with both palms down, up into the idle |
+| `Blink_Out` | full | 0.3 s | `move.blink.out` | — | a sharp dip, the arms snapped across the chest, up onto the toes as the body vanishes; ends where `Blink_In` starts |
+| `Blink_In` | full | 0.4 s | `move.blink.in` | — | bursts open from `Blink_Out`'s last frame, arms flung out and down, a small dip into the idle |
+| `Leap_Launch` | full | 0.5 s | `move.leap.launch` | take-off 0.36 s | a deep load with the arms swung back, the drive up through the toes, the feet tucked; ends in `Leap_Air_Loop` |
+| `Leap_Air_Loop` | full | 0.8 s loop | `move.leap.air` | — | tucked, the arms spread, the legs paddling a little |
+| `Leap_Slam` | full | 1 s | `move.leap.slam` | contact 0.36 s (`hand_r`) | from the air the fists go up over the head and the legs reach down; a landing on the left foot and the right knee with the right fist driven into the ground, held, up into the idle |
+| `Dash_Lunge` | full | 0.4 s | `move.dash.lunge` | — | a dip, the left foot thrown a long stride ahead, the right leg driving behind on its ball, the arms swept back, the feet gathered again |
+| `Grapple_Throw` | `spine_01` | 0.8 s | `move.grapple.throw` | contact 0.4 s (`hand_r`) | the left hand points at the mark while the right winds back over the shoulder, the chest whips round and the arm throws long, the fist opening at the release |
+| `Pull_Yank` | `spine_01` | 0.7 s | `move.pull.yank` | yank 0.308 s | both fists out on a line, yanked back to the right hip with the chest thrown back and turned |
+| `Pulled_Drag` | full | 1 s | `control.pulled.drag` | drag 0.1–0.56 s | hooked: the chest snatched forward with the head whipping back, the toes trailing, the arms out to catch the fall, a stumbling step and upright |
+| `Slip_Ice_Loop` | full | 1.2 s loop | `control.slip.ice` | — | the feet skate against each other (they slide on purpose: `slides`), the hips wobble and the arms windmill |
+| `Tanner_Scrape_Loop` | full | 2.4 s loop | `work.tanner.scrape` | strokes 0.54, 1.74 s | both fists push a two-handled scraper down a sloped beam (`beamAt`), the weight onto the front foot and the back heel up, twice a loop |
+| `Tanner_Stretch_Hide` | full | 2.6 s | `work.tanner.stretch` | grip 0.78 s, hook 1.768 s | up on the toes to take a hide's top corners on an upright frame (`frameAt`), pulled out and down, pushed onto the pegs, back into the idle |
+
+- **`move` object:** the marked times above (`heaveSeconds`, `landSeconds`, `takeoffSeconds`, `contactSeconds`, `releaseSeconds`, `yankSeconds`, `dragSeconds`, `strideSeconds`, `strokeSeconds`, `gripSeconds`, `hookSeconds`, the blink's `vanishSeconds` and `appearSeconds`), `from`/`to` for the chained clips, the frozen loop's `shiversPerSecond`, `drop: "game"` on the pit fall, `slides` on the ice, and the tanner's `beamAt` (the beam's near and far ends under the scraper) and `frameAt` (root frame, glTF axes).
+- **Props:** no item rides a socket; the scraper, the beam, the hide frame and the hook are the game's (or a later kit's) to place at the recorded points.
+- **Review:** shaped in the live Blender on the male Ranger (the published figure with its library clips) and rendered at the mmorpg game camera's angle: [`review/ranger-clips-767/`](../review/ranger-clips-767/README.md). Not yet viewed in the game.
+
 ## Female Ranger
 
 `--figure female` (#115, owner answer Q1 = A) builds `humanoid.ranger.female` with the same recipe. Its Peasant-based outfits are the tanner (#378) and one fitted knight (#630), over the pack's `Female_Peasant` outfit. It has no headwear or facial-hair catalog; the female knight omits the male bascinet so the full face/jaw range stays exposed. It uses the Universal Base Characters `Superhero_Female_FullBody` head (`keepMeshes: ["Eyebrows", "Eyes"]`) on the full `Female_Ranger` outfit ([humanoid-sources.md](humanoid-sources.md#female-body-and-outfit-115)).
@@ -655,7 +682,7 @@ Both figures are rolling releases that CI builds (#399): merging a change to the
 
 - `base`: the library's idle, gaits, sword and shield idles, death, jumps, crouch, roll, climb and slide, plus the authored `gait` (back, strafe, start, stop and turn) and `grips` families;
 - `combat`: the library's sword, shield, hit and spell clips;
-- every other authored family under its own id: `bow`, `swim`, `hit`, `traversal`, `sword`, `dagger`, `bow-upper`, `crossbow`, `cast`, `social` (the emotes), `chores`, `posts`, `gather`, `raid`, `strike` (with the reactions and deaths), `ready` and `defend`.
+- every other authored family under its own id: `bow`, `swim`, `hit`, `traversal`, `sword`, `dagger`, `bow-upper`, `crossbow`, `cast`, `social` (the emotes), `chores`, `posts`, `gather`, `raid`, `strike` (with the reactions and deaths), `ready`, `defend`, `move` and `work` (#767).
 
 The index (`humanoid-ranger-<figure>.index.json`) lists the files under `clips.families`, with each family's bytes and each clip's name and duration ([release-downloads.md](release-downloads.md)). Every clip is in exactly one family, or the pack fails. A family file over 1 MB (`RANGER_CLIP_FAMILY_LIMIT_MB` in [`build-ranger-release.ts`](../scripts/build-ranger-release.ts)) also fails the build. That limit replaces raising one clip budget with every batch: a family that outgrows it splits into two. Sizes on 2026-11-17 (male; female within 1.2%), 3.52 MB together against 3.78 MB for the combined file:
 

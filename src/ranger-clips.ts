@@ -228,6 +228,24 @@ export const RANGER_DEFEND_CLIPS = [
   "Sword_Riposte", "Dagger_Riposte", "Shield_Block_Loop", "Shield_Block_Hit", "Shield_Bash", "Kick_Front",
 ] as const;
 /**
+ * #767 (#422's control reactions and movement spells): the rooted struggle and its frozen variant (mmorpg#933 Frost
+ * Nova, #934 Entangling Roots), the pit fall, the blink, the three-part leap, the dash, the grappling hook's throw and
+ * yank, being pulled and slipping on ice (mmorpg#294). Authored in place on the Ranger rig by
+ * adapters/blender/move_clips.py from keyed pelvis, foot, chest and palm targets (two-bone arm and leg IK); the two
+ * struggles, the throw and the yank keep only the `spine_01` subtree, the rest are full body with a `secondaryPose`.
+ * `Blink_Out` ends where `Blink_In` starts, and `Leap_Launch`, `Leap_Air_Loop` and `Leap_Slam` chain the same way. The
+ * game owns the travel and the drop. They follow the defend clips in bundle order.
+ */
+export const RANGER_MOVE_CLIPS = [
+  "Rooted_Struggle_Loop", "Rooted_Struggle_Frozen_Loop", "Fall_Pit", "Blink_Out", "Blink_In", "Leap_Launch", "Leap_Air_Loop", "Leap_Slam",
+  "Dash_Lunge", "Grapple_Throw", "Pull_Yank", "Pulled_Drag", "Slip_Ice_Loop",
+] as const;
+/**
+ * #767 (#422's NPC work loops): the tanner fleshing a hide over a beam and stretching one on a frame, full body, by the
+ * same recipe as the move clips. They follow the move clips in bundle order.
+ */
+export const RANGER_WORK_CLIPS = ["Tanner_Scrape_Loop", "Tanner_Stretch_Hide"] as const;
+/**
  * #285: static grip poses authored on the rig by adapters/blender/grip_poses.py. Each clip keys only the finger and
  * thumb rotations of one hand; a consumer plays it over the body clip's finger channels while that hand's socket holds
  * an item of `role`. The fingers wrap a handle of `radius` (metres) along the item's grip-frame `axis`; the tome leaves
@@ -700,4 +718,30 @@ export const RANGER_CLIP_FAMILIES: readonly ClipFamily[] = [
       };
     },
   },
+  moveFamily("move", RANGER_MOVE_CLIPS),
+  moveFamily("work", RANGER_WORK_CLIPS),
 ];
+
+/**
+ * A family of adapters/blender/move_clips.py (#767): the upper-body clips list their joints; the timing, the chain
+ * names and the tanner's beam and frame go to the clip's `move` object and the chain pose beside it. The slam's contact
+ * is the fist meeting the ground, the throw's the release.
+ */
+function moveFamily(id: string, clips: readonly string[]): ClipFamily {
+  return {
+    id, script: "move_clips.py", clips,
+    arguments: () => ({ schemaVersion: 1, clips: [...clips] }),
+    clip: (name, family) => {
+      const { joints, source, secondaryPose, ...observed } = family.clips[name] as Json;
+      const move = pickKeys(observed, ["from", "to", "heaveSeconds", "shiversPerSecond", "landSeconds", "drop", "dragSeconds", "slides", "vanishSeconds",
+        "appearSeconds", "takeoffSeconds", "contactSeconds", "strideSeconds", "releaseSeconds", "yankSeconds", "strokeSeconds", "beamAt", "gripSeconds",
+        "hookSeconds", "frameAt"]);
+      const contact = (observed.contactSeconds ?? observed.releaseSeconds) as number | undefined;
+      return {
+        ...(joints ? { keep: joints as string[] } : {}),
+        authored: { recipe: family.recipe, clip: name, fps: family.fps, ...observed }, basedOn: source as string,
+        extra: { fields: { move, ...(secondaryPose ? { secondaryPose } : {}) }, ...(contact === undefined ? {} : { contactSeconds: contact }) },
+      };
+    },
+  };
+}
