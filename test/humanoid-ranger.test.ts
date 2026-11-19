@@ -14,7 +14,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { NodeIO } from "@gltf-transform/core";
 import { KHRTextureBasisu } from "@gltf-transform/extensions";
-import { clipFamilyProblems, ktx2Size } from "../scripts/pack-downloads.ts";
+import { addClips, clipFamilyEntryKey, clipFamilyProblems, ktx2Size } from "../scripts/pack-downloads.ts";
 import { verifyAssetBundleTar } from "../src/asset-bundle-pack.js";
 import { GLTF_RESOURCES_BUNDLE_PROFILE, readAssetBundleAttachment, readAssetBundleGltf, verifyAssetBundle } from "../src/asset-bundle.js";
 import { validateHumanoidItemDescriptor, validateHumanoidSocketDescriptor } from "../src/humanoid-sockets.js";
@@ -303,7 +303,11 @@ test("the Ranger recipe builds a verified bundle: in-place clips, equipment entr
     const entry = manifest.assets.find((candidate) => candidate.key === RANGER_BUNDLE_KEY)!;
     const clipNames = [...RANGER_CLIPS.map((clip) => clip.name), ...RANGER_GAIT_CLIPS, ...RANGER_BOW_CLIPS, ...RANGER_GRIPS.map((grip) => grip.clip), ...RANGER_SWIM_CLIPS, ...RANGER_HIT_CLIPS, ...RANGER_TRAVERSAL_CLIPS, ...RANGER_SWORD_CLIPS, ...RANGER_DAGGER_CLIPS, ...RANGER_BOW_UPPER_CLIPS, ...RANGER_CROSSBOW_CLIPS, ...RANGER_CAST_CLIPS, ...RANGER_SOCIAL_CLIPS, ...RANGER_CHORE_CLIPS, ...RANGER_POST_CLIPS, ...RANGER_GATHER_CLIPS, ...RANGER_RAID_CLIPS, ...RANGER_STRIKE_CLIPS, ...RANGER_REACT_CLIPS, ...RANGER_READY_CLIPS, ...RANGER_DEFEND_CLIPS, ...RANGER_MOVE_CLIPS, ...RANGER_WORK_CLIPS, ...RANGER_RIDE_CLIPS, ...RANGER_GUARD_CLIPS, ...RANGER_SIGNAL_CLIPS, ...RANGER_TINKER_CLIPS];
     const libraryClips = new Set(RANGER_CLIPS.map((clip) => clip.name));
-    assert.deepEqual(entry.observations.animations, clipNames);
+    // #775: one entry per clip download family carries its clips; the default entry carries none.
+    assert.deepEqual(entry.observations.animations, []);
+    const clipEntries = manifest.assets.filter((candidate) => candidate.key === clipFamilyEntryKey(RANGER_BUNDLE_KEY));
+    assert.deepEqual(clipEntries.map((candidate) => [candidate.variant, [...candidate.observations.animations].sort()]), RANGER_CLIP_DOWNLOADS.map(({ family, clips }) => [family, [...clips].sort()]));
+    assert.deepEqual(clipEntries.flatMap((candidate) => candidate.observations.animations).sort(), [...clipNames].sort());
 
     // The sockets descriptor ships with the character entry, byte-identical to the versioned file.
     assert.deepEqual(entry.attachments.map((attachment) => attachment.name).sort(), [RANGER_CLIPS_ATTACHMENT, "humanoid-appearance", RANGER_SOCKETS_ATTACHMENT].sort());
@@ -551,7 +555,12 @@ test("the Ranger recipe builds a verified bundle: in-place clips, equipment entr
     }
 
     const { gltf, resources } = await readAssetBundleGltf(built.bundleDir, manifest, RANGER_BUNDLE_KEY, RANGER_BUNDLE_VARIANT);
-    const document = await new NodeIO().registerExtensions([KHRTextureBasisu]).readJSON({ json: JSON.parse(gltf.toString("utf8")), resources: Object.fromEntries(resources) });
+    // #775: the default entry carries no clips; its family entries carry them, joined here on its joints by name.
+    const document = addClips(await new NodeIO().registerExtensions([KHRTextureBasisu]).readJSON({ json: JSON.parse(gltf.toString("utf8")), resources: Object.fromEntries(resources) }),
+      await Promise.all(clipEntries.map(async ({ variant }) => {
+        const family = await readAssetBundleGltf(built.bundleDir, manifest, clipFamilyEntryKey(RANGER_BUNDLE_KEY), variant);
+        return new NodeIO().readJSON({ json: JSON.parse(family.gltf.toString("utf8")), resources: Object.fromEntries(family.resources) });
+      })));
     // #737 (docs/combat-animation-standard.md): the reference clips keep the weapon out of the body, their planted feet
     // still and strike much faster than they wind up. Every other strike is checked and reported, to be held to the
     // standard as phase 2 (#738) redoes it.
@@ -651,7 +660,7 @@ test("the Ranger recipe builds a verified bundle: in-place clips, equipment entr
     const spine = joints.find((joint) => joint.getName() === "spine_01")!;
     const upperBody = new Set<string>();
     for (const pending = [spine]; pending.length;) { const joint = pending.pop()!; upperBody.add(joint.getName()); pending.push(...joint.listChildren()); }
-    assert.deepEqual(document.getRoot().listAnimations().map((animation) => animation.getName()), clipNames);
+    assert.deepEqual(document.getRoot().listAnimations().map((animation) => animation.getName()).sort(), [...clipNames].sort());
     for (const animation of document.getRoot().listAnimations()) {
       const name = animation.getName();
       for (const channel of animation.listChannels()) {

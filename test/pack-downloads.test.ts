@@ -123,3 +123,39 @@ test("clip families split the clips once each, and a family file keeps only its 
   assert.deepEqual(document.getRoot().listAnimations().map((animation) => [animation.getName(), clipDuration(animation)]), [["Idle", 2], ["Wave", 1.5]]);
   assert.deepEqual(document.getRoot().listNodes().map((node) => node.getName()), ["pelvis", "hand"]);
 });
+
+test("clip family entries join onto the skeleton by joint name, keys and interpolation intact (#775)", async () => {
+  const { Document } = await import("@gltf-transform/core");
+  const { addClips } = await import("../scripts/pack-downloads.ts");
+  const skeleton = (document: InstanceType<typeof Document>) => {
+    const pelvis = document.createNode("pelvis"), hand = document.createNode("hand");
+    document.createScene().addChild(pelvis.addChild(hand));
+    return { pelvis, hand };
+  };
+  const family = (clips: [string, number][]) => {
+    const document = new Document(), buffer = document.createBuffer(), { hand } = skeleton(document);
+    const input = document.createAccessor().setType("SCALAR").setBuffer(buffer);
+    for (const [name, duration] of clips) {
+      input.setArray(new Float32Array([0, duration]));
+      const sampler = document.createAnimationSampler().setInterpolation("STEP").setInput(input)
+        .setOutput(document.createAccessor().setType("VEC4").setArray(new Float32Array([0, 0, 0, 1, 0, 1, 0, 0])).setBuffer(buffer));
+      document.createAnimation(name).addSampler(sampler)
+        .addChannel(document.createAnimationChannel().setTargetNode(hand).setTargetPath("rotation").setSampler(sampler));
+    }
+    return document;
+  };
+  const target = new Document(), { hand } = skeleton(target);
+  addClips(target, [family([["Idle", 2]]), family([["Wave", 1.5]])]);
+  const clips = target.getRoot().listAnimations();
+  assert.deepEqual(clips.map((clip) => clip.getName()), ["Idle", "Wave"]);
+  for (const clip of clips) {
+    const [channel] = clip.listChannels();
+    assert.equal(channel!.getTargetNode(), hand);
+    assert.equal(channel!.getSampler()!.getInterpolation(), "STEP");
+    assert.deepEqual([...channel!.getSampler()!.getOutput()!.getArray()!], [0, 0, 0, 1, 0, 1, 0, 0]);
+  }
+  assert.equal(target.getRoot().listNodes().length, 2);
+  const lacking = new Document();
+  lacking.createScene().addChild(lacking.createNode("pelvis"));
+  assert.throws(() => addClips(lacking, [family([["Idle", 2]])]), /moves 'hand', which the skeleton lacks/);
+});
