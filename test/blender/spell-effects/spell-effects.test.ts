@@ -1,4 +1,4 @@
-// Spell effect meshes (#726, docs/spell-effects.md): the recipe builds a verified gltf-resources-v1 bundle of school
+// Spell effect meshes (#726, #771, docs/spell-effects.md): the recipe builds a verified gltf-resources-v1 bundle of school
 // bolts, impacts, a frost nova, a beam segment, heal motes and three static shot models, each under 240 triangles; the
 // effects carry one Loop or Play clip of their declared length, RGBA COLOR_0 and core-glTF blended materials, the shots
 // one opaque material; and it replays to the same tar. The build skips unless ASSET_TOOLING_BLENDER names Blender 5.2.2.
@@ -16,6 +16,7 @@ import {
 import { KIT_BUDGETS, kitBudgetViolations, kitCost } from "../../../scripts/report-kit-costs.ts";
 
 const SHOTS = ["arrow", "crossbow-bolt", "throwing-knife"];
+const HOLDS = ["roots-hold-loop", "roots-hold-end", "frost-hold-loop", "frost-hold-end"];
 
 test("the spell effect spec runs the packaged recipe for exactly one entry", () => {
   const spec = createSpellSpec({ entry: "frost-nova", scriptSha256: "a".repeat(64), blenderVersion: "5.2.2" });
@@ -66,15 +67,22 @@ test("the recipe builds a verified, reproducible bundle of small spell effects a
     }
     // Bolts and shots start at their tip and trail back along -Z; the nova and motes stay on and above the ground;
     // the beam runs from 0 to its tile length.
-    for (const entry of ["bolt-fire", "bolt-shadow", "bolt-holy", "bolt-nature", ...SHOTS]) {
+    for (const entry of ["bolt-fire", "bolt-shadow", "bolt-holy", "bolt-nature", ...SHOTS, "grapple-hook"]) {
       assert.equal(byRole[entry].align, "tip");
       assert.ok(byRole[entry].bounds.max[2] <= 0.01, `${entry} starts at its tip`);
       assert.ok(byRole[entry].bounds.min[2] < -0.2, `${entry} trails back along -Z`);
     }
     assert.ok(Math.abs(byRole.arrow.bounds.min[2] + 0.8) < 0.01, "the arrow is 0.8 m long");
-    for (const ground of ["frost-nova", "heal-motes"]) assert.ok(byRole[ground].bounds.min[1] >= -0.2, `${ground} rests on the ground`);
+    for (const ground of ["frost-nova", "heal-motes", "blink-out", "blink-in", ...HOLDS]) {
+      assert.equal(byRole[ground].align, "ground");
+      assert.ok(byRole[ground].bounds.min[1] >= -0.2, `${ground} rests on the ground`);
+    }
+    for (const hold of HOLDS) assert.ok(Math.max(...byRole[hold].bounds.max.map(Math.abs), ...byRole[hold].bounds.min.map(Math.abs)) < 0.8, `${hold} stays at the feet`);
     assert.ok(byRole["frost-nova"].bounds.max[0] > 7.5, "the nova reaches its 8 m radius");
-    assert.deepEqual([byRole["beam-segment"].bounds.min[2], byRole["beam-segment"].bounds.max[2]], [0, 1]);
+    for (const beam of ["beam-segment", "grapple-rope"]) assert.deepEqual([byRole[beam].bounds.min[2], byRole[beam].bounds.max[2], byRole[beam].tileLength], [0, 1, 1], `${beam} tiles from 0 to 1`);
+    assert.equal(byRole["grapple-hook"].length, 0.4, "the hook's eye is 0.4 m behind its crown");
+    assert.equal(byRole["ice-slip-scrape"].align, "path");
+    assert.deepEqual([byRole["ice-slip-scrape"].bounds.min[1], byRole["ice-slip-scrape"].bounds.max[2], byRole["ice-slip-scrape"].length], [0, 1, 1], "the scrape lies on the ground from 0 to 1");
 
     const replay = await buildSpellEffects({ outDir: replayDir });
     assert.equal(replay.tarSha256, built.tarSha256, "a rebuild packs the same tar");

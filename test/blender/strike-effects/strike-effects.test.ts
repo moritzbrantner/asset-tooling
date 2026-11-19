@@ -1,4 +1,4 @@
-// Strike effect meshes (#724, docs/strike-effects.md): the recipe builds a verified gltf-resources-v1 bundle of six small
+// Strike effect meshes (#724, #771, docs/strike-effects.md): the recipe builds a verified gltf-resources-v1 bundle of eleven small
 // animated effects, each under 200 triangles with one Play clip of its declared length, vertex colour and opacity in
 // COLOR_0 and core-glTF blended materials, and replays to the same tar. The build skips unless ASSET_TOOLING_BLENDER
 // names Blender 5.2.2.
@@ -14,6 +14,8 @@ import {
   buildStrikeEffects, createStrikeSpec, strikeKey,
 } from "../../../scripts/build-strike-effects.ts";
 import { KIT_BUDGETS, kitBudgetViolations, kitCost } from "../../../scripts/report-kit-costs.ts";
+
+const GROUND = ["ground-slam", "lunge-dust", "leap-slam", "dash-dust"];
 
 test("the strike effect spec runs the packaged recipe for exactly one entry", () => {
   const spec = createStrikeSpec({ entry: "ground-slam", scriptSha256: "a".repeat(64), blenderVersion: "5.2.2" });
@@ -58,7 +60,7 @@ test("the recipe builds a verified, reproducible bundle of small animated effect
       const asset = byRole[entry];
       assert.ok(asset.triangles <= STRIKE_TRIANGLE_BUDGET, `${entry}: ${asset.triangles} triangles`);
       assert.deepEqual(asset.clip, { name: "Play", duration: STRIKE_CLIPS[entry], loop: false });
-      assert.equal(asset.align, entry === "ground-slam" || entry === "lunge-dust" ? "ground" : entry === "combo-glint" ? "weapon" : "strike");
+      assert.equal(asset.align, GROUND.includes(entry) ? "ground" : entry === "combo-glint" ? "weapon" : entry === "dash-trail" ? "path" : "strike");
     }
     // The arcs' outer edge passes through the contact point, curving back to the swing centre at -X; the ground
     // effects stay on and above the ground.
@@ -66,7 +68,10 @@ test("the recipe builds a verified, reproducible bundle of small animated effect
       assert.equal(byRole[arc].bounds.max[0], 0, `${arc} reaches the contact point`);
       assert.ok(byRole[arc].bounds.min[0] < -byRole[arc].swingRadius, `${arc} curves back past its swing centre`);
     }
-    for (const ground of ["ground-slam", "lunge-dust"]) assert.equal(byRole[ground].bounds.min[1], 0, `${ground} rests on the ground`);
+    for (const ground of GROUND) assert.equal(byRole[ground].bounds.min[1], 0, `${ground} rests on the ground`);
+    assert.ok(byRole["leap-slam"].bounds.max[2] > -byRole["leap-slam"].bounds.min[2], "the leap slam's cracks and stones run ahead of the attacker");
+    assert.deepEqual([byRole["dash-trail"].bounds.min[2], byRole["dash-trail"].bounds.max[2], byRole["dash-trail"].length], [0, 1, 1], "the dash trail runs from its start to z = 1");
+    assert.ok(byRole["dash-dust"].bounds.min[2] < -0.5, "the dash dust is kicked back behind the start foot");
     assert.ok(byRole["strike-thrust"].bounds.min[2] < -1, "the thrust streak trails back along -Z");
 
     const replay = await buildStrikeEffects({ outDir: replayDir });
