@@ -8,6 +8,9 @@ Pieces, in metres and glTF right-handed +Y up, origin at each piece's attach fra
   at rest at [0, 0, -braceHeight]). Moving ``nock`` toward -Z draws the string: every string vertex
   is weighted linearly between ``grip`` at the tips and ``nock`` at the middle, so both string halves
   stay straight. The limbs do not bend.
+- ``bow.recurve`` (#760): a dark yew recurve on the same frame and ``grip``/``nock`` skin. The limbs reach the
+  string line short of the tips and curl forward; the string follows ``grip`` along the curls and is weighted from
+  where it leaves them to the nock point, at rest at [0, 0, -braceHeight].
 - ``arrow``: the origin is the arrow's nock and the shaft runs toward +Z to the broadhead.
 - ``quiver.back``: the origin is the centre of the tube. The tube's opening points to +Y and its back
   (the side worn against the body) faces -Z. Five arrow tails stand out of the opening.
@@ -26,12 +29,13 @@ from mathutils import Vector
 COMMON = {"schemaVersion", "piece", "maxTriangles"}
 PIECES = {
     "bow.long": {"length": (1.2, 1.9, False), "braceHeight": (.12, .24, False), "limbWidth": (.02, .05, False), "limbSegments": (6, 24, True)},
+    "bow.recurve": {"length": (1.1, 1.6, False), "braceHeight": (.12, .22, False), "limbWidth": (.02, .05, False), "limbSegments": (8, 24, True)},
     "arrow": {"length": (.55, .95, False), "shaftRadius": (.003, .007, False), "radialSegments": (5, 12, True)},
     "quiver.back": {"length": (.35, .7, False), "radius": (.035, .08, False), "arrows": (0, 8, True), "radialSegments": (8, 24, True)},
     "crossbow": {"length": (.6, .95, False), "prodSpan": (.45, .8, False), "prodOffset": (.25, .5, False), "radialSegments": (6, 12, True)},
 }
-BUDGETS = {"bow.long": 2500, "arrow": 800, "quiver.back": 6000, "crossbow": 2500}
-ROLES = {"bow.long": "bow", "arrow": "arrow", "quiver.back": "quiver", "crossbow": "crossbow"}
+BUDGETS = {"bow.long": 2500, "bow.recurve": 2500, "arrow": 800, "quiver.back": 6000, "crossbow": 2500}
+ROLES = {"bow.long": "bow", "bow.recurve": "bow", "arrow": "arrow", "quiver.back": "quiver", "crossbow": "crossbow"}
 MATERIALS = {
     "wood": ((.34, .22, .12), 0.0, .76),
     "horn": ((.55, .48, .36), 0.0, .5),
@@ -39,8 +43,11 @@ MATERIALS = {
     "string": ((.6, .56, .46), 0.0, .8),
     "iron": ((.29, .28, .27), 1.0, .48),
     "feather": ((.66, .62, .55), 0.0, .9),
+    "wood.dark": ((.07, .036, .018), 0.0, .85),
+    "reed": ((.46, .4, .22), 0.0, .9),
 }
-PIECE_MATERIALS = {"bow.long": ["wood", "horn", "leather", "string"], "arrow": ["wood", "iron", "feather"],
+PIECE_MATERIALS = {"bow.long": ["wood", "horn", "leather", "string"], "bow.recurve": ["wood.dark", "horn", "leather", "string", "reed"],
+                   "arrow": ["wood", "iron", "feather"],
                    "quiver.back": ["leather", "wood", "iron", "feather"], "crossbow": ["wood", "iron", "leather", "string"]}
 
 
@@ -50,7 +57,7 @@ def _number(value):
 
 def validate(p, inputs):
     if type(p) is not dict or p.get("piece") not in PIECES:
-        raise ValueError("archery piece must be bow.long, arrow, quiver.back or crossbow")
+        raise ValueError("archery piece must be bow.long, bow.recurve, arrow, quiver.back or crossbow")
     piece = p["piece"]
     if set(p) != COMMON | set(PIECES[piece]):
         raise ValueError("archery piece requires exactly the declared controls")
@@ -164,6 +171,67 @@ def bow(builder, p):
     # A serving wrap at the nock point (weighted fully to ``nock``).
     builder.loft([ring_y(chamfer_rect(.003, .003, .001), y, z) for y in (-.035, .035)], string, [1.0, 1.0])
     return z
+
+
+def bow_recurve(builder, p):
+    """#760, the Fenwarden's Bow: a dark yew recurve whose limbs bend back to the string line and then curl forward
+    at the tips, bound with reed wraps. The string runs straight from where it leaves the curls to the nock point,
+    and along the curls' bellies to the tips, weighted to ``grip`` there like the longbow's tips."""
+    yew, horn, leather, string, reed = range(5)
+    half, brace, width, n = p["length"] / 2, p["braceHeight"], p["limbWidth"], p["limbSegments"]
+    riser, tip, curl, ahead = .12, half - .012, .76, .075
+
+    def limb(t):
+        """(y offset from the riser's end along the limb, z) at fraction t of the limb."""
+        y = (tip - riser) * t
+        if t <= curl:
+            return y, -brace * (t / curl) ** 1.7
+        s = (t - curl) / (1 - curl)
+        return y - .02 * s * s, -brace + ahead * s ** 1.6
+
+    def section(t, grow=1.0):
+        hw = width / 2 * (1 - .5 * t + (.25 * max(0.0, t - curl) / (1 - curl))) * grow
+        ht = .012 * (1 - .4 * t) * grow
+        return chamfer_rect(hw, ht, min(hw, ht) * .4)
+
+    rings = []
+    for y, w, t in [(-riser, .7, 1.0), (-.065, 1.05, 1.5), (.065, 1.05, 1.5), (riser, .7, 1.0)]:
+        rings.append(ring_y(chamfer_rect(width / 2 * w * 1.1, .017 * t, .006), y, .005))
+    builder.loft(rings, yew)
+    builder.loft([ring_y(chamfer_rect(width / 2 * 1.2, .027, .009), y, .005) for y in (-.055, .055)], leather)
+    for sign in (-1, 1):
+        rings = []
+        for k in range(n + 1):
+            dy, z = limb(k / n)
+            rings.append(ring_y(section(k / n), sign * (riser + dy), z))
+        builder.loft(rings, yew)
+        for t0 in (.18, .4, .62):  # reed bindings
+            builder.loft([ring_y(section(t, 1.25), sign * (riser + limb(t)[0]), limb(t)[1]) for t in (t0, t0 + .05)], reed)
+        dy, z = limb(1.0)
+        y0 = sign * (riser + dy)
+        rings = [ring_y(chamfer_rect(width * .2, .008, .003), y0 - sign * d, z - d * .3) for d in (.03, 0.0)]
+        rings.append([(0.0, y0 + sign * .012, z + .006)])
+        builder.loft(rings, horn)
+    # String: along each curl's belly from the tip to where it leaves the curl (weight 0), then straight to the nock.
+    nock = -brace
+    thread = chamfer_rect(.0018, .0018, .0006)
+    for sign in (-1, 1):
+        rings = []
+        for k in range(5):
+            t = 1 - (1 - curl) * k / 4
+            dy, z = limb(t)
+            rings.append(ring_y(thread, sign * (riser + dy), z - .013 * (1 - .4 * t)))
+        builder.loft(rings, string, [0.0] * len(rings), caps=False)
+        y_leave = sign * (riser + limb(curl)[0])
+        z_leave = nock - .013 * (1 - .4 * curl)
+        rings, weights = [], []
+        for k in range(9):
+            t = k / 8
+            rings.append(ring_y(thread, y_leave * (1 - t), z_leave + (nock - z_leave) * t))
+            weights.append(t)
+        builder.loft(rings, string, weights, caps=False)
+    builder.loft([ring_y(chamfer_rect(.003, .003, .001), y, nock) for y in (-.035, .035)], string, [1.0, 1.0])
+    return nock
 
 
 def arrow(builder, p):
@@ -300,7 +368,7 @@ def generate(output_path, arguments, inputs):
     bpy.ops.object.select_all(action="SELECT")
     bpy.ops.object.delete(use_global=False)
     builder = Builder()
-    nock_z = {"bow.long": bow, "arrow": arrow, "quiver.back": quiver, "crossbow": crossbow}[piece](builder, p)
+    nock_z = {"bow.long": bow, "bow.recurve": bow_recurve, "arrow": arrow, "quiver.back": quiver, "crossbow": crossbow}[piece](builder, p)
     bm = builder.bm
     # Vanes are authored two-sided (one face per side); recalculating would merge their orientation.
     bmesh.ops.recalc_face_normals(bm, faces=[f for f in bm.faces if f.material_index != names_index(piece, "feather")])
@@ -322,9 +390,9 @@ def generate(output_path, arguments, inputs):
     bpy.context.scene.collection.objects.link(obj)
     selected = [obj]
     joints = []
-    if piece == "bow.long":
-        armature = bpy.data.armatures.new("bow.long.rig")
-        rig = bpy.data.objects.new("bow.long.rig", armature)
+    if ROLES[piece] == "bow":
+        armature = bpy.data.armatures.new(f"{piece}.rig")
+        rig = bpy.data.objects.new(f"{piece}.rig", armature)
         bpy.context.scene.collection.objects.link(rig)
         bpy.context.view_layer.objects.active = rig
         bpy.ops.object.mode_set(mode="EDIT")
@@ -363,7 +431,7 @@ def generate(output_path, arguments, inputs):
     bpy.ops.export_scene.gltf(
         filepath=output_path, export_format="GLB", use_selection=True,
         export_yup=True, export_texcoords=False, export_normals=True, export_tangents=False,
-        export_animations=False, export_skins=piece == "bow.long", export_morph=False,
+        export_animations=False, export_skins=ROLES[piece] == "bow", export_morph=False,
         export_cameras=False, export_lights=False, export_extras=False)
     result = {"recipe": "archery-v1", "parameters": p, "piece": piece, "role": ROLES[piece], "unit": "meter",
               "axes": "right-handed-y-up", "origin": "grip", "triangleCount": triangles,

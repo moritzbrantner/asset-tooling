@@ -11,13 +11,13 @@ The entries keep the keys they had in the [Ranger bundles](humanoid-ranger.md#co
   - the class set: `equipment.dagger.blackened`, `equipment.staff.bone`, `equipment.staff.gilded` and `equipment.staff.gnarled`;
   - the class starter props: `equipment.staff.crystal`, `equipment.book.tome` and `equipment.mace.flanged`.
 - **Throwables (#467):** `equipment.throwing-knife`, `equipment.venom-flask` and `equipment.blasting-bomb`, each with `lod1` and `lod2` variants.
-- **Archery** ([archery](weapon-recipes.md#archery)): `equipment.bow.long` (skinned to `grip` and `nock`), `equipment.arrow`, `equipment.quiver.back` and `equipment.crossbow`.
+- **Archery** ([archery](weapon-recipes.md#archery)): `equipment.bow.long` and the Fenwarden's Bow `equipment.bow.fenwarden` (a `bow.recurve`, #760), both skinned to `grip` and `nock`, `equipment.arrow`, `equipment.quiver.back` and `equipment.crossbow`.
 - **Headwear (#336, fitted to the male head):** `equipment.cap.ranger`, `equipment.helm.ironcrest` and `equipment.hat.straw`.
 - **Held items ([#661](https://github.com/moritzbrantner/asset-tooling/issues/661)):** weapon variety and the hand tools residents carry, below.
 
 ### Held items
 
-[`adapters/blender/held_items.py`](../adapters/blender/held_items.py) builds 53 fixed-design items on the weapon recipes' grip contract ([weapon-recipes.md](weapon-recipes.md)), with the weapon recipes' material names and colours, so the kit's material count is unchanged. Each item's first role is one the Ranger sockets already accept, which names its socket; a second role (`two-hand-weapon`, `spear`, `tool`, `carried`) only describes it. Two-handed pieces declare a `grip.offhand` frame (identity rotation) for the other hand's IK target.
+[`adapters/blender/held_items.py`](../adapters/blender/held_items.py) builds 56 fixed-design items on the weapon recipes' grip contract ([weapon-recipes.md](weapon-recipes.md)), with the weapon recipes' material names and colours; only the hunter's spear's `wood.ash` is its own (#760). Each item's first role is one the Ranger sockets already accept, which names its socket; a second role (`two-hand-weapon`, `spear`, `tool`, `carried`) only describes it. Two-handed pieces declare a `grip.offhand` frame (identity rotation) for the other hand's IK target.
 
 - **One-handed (`hand_r.weapon`):** the business end runs along +Y, edges and striking faces along +X, flats ±Z, as for the arming sword. The lantern, bucket and basket hang from the fist along +X with their bail along Y; the tankard's body sits on the +X side of its handle.
 - **Staff (`hand_r.staff`):** the shaft runs along +Y through the grip with its foot 0.8 m below (0.85 m for the walking stick), so it stands beside the leg in the idle. The shovel's, broom's and scythe's working ends are at the foot.
@@ -82,16 +82,21 @@ The [review renders](../review/humanoid-equipment/) show the items on the Ranger
 | `equipment.load.hay` | `chest.carry` | 0.69 | 316 | Armful of hay: a ragged 0.57 m bulge above the forearms with tufts of stalks fanning out. |
 | `equipment.load.basket-large` | `chest.carry` | 0.53 | 764 | Oval wicker harvest basket, 0.45 m at the rim, two loop handles, apples and turnips. |
 | `equipment.load.water-jug` | `chest.carry` | 0.43 | 362 | Big clay jug: round belly, two pale slip bands, stoppered neck, strap handle on the far side. |
+| `equipment.sword.garricks-cleaver` | `hand_r.weapon` | 0.79 | 354 | Garrick's Cleaver (#760): Garrick Redbrand's broad falchion, a straight iron-shod back, two notches in the edge, a clipped point, a red-wrapped grip under a short heavy guard. |
+| `equipment.spear.hollowpine-hunter` | `hand_r.staff` | 2.47 | 546 | Hollowpine Hunter's Spear (#760): pale ash shaft, broad leaf blade over two bound boar tusks, feather tufts on leather thongs; `grip.offhand` at y 0.45. |
+| `equipment.mace.millbrook-smith` | `hand_r.weapon` | 0.75 | 450 | Millbrook Smith's Mace (#760): seven stepped steel flanges on an iron core with a short finial, a brass plate struck with the smithy's anvil mark, a haft leather-wrapped from pommel to collar. |
 
 The heavy weapons (#719) are fitted to the Ranger's heavy clips. The great sword, axe and hammer ride `hand_r.weapon` with the maul's `grip.offhand` (0.22 m below the main grip), so the left hand lands where `TwoHand_Swing_A`/`B`/`C` put it on the maul (within a few millimetres in the swings). The polearms ride `hand_r.staff` like the spears: the left hand slides 0.15–0.5 m up the shaft through `Spear_Thrust_A`/`B`. They were reviewed on the male Ranger in the live Blender. The guard loops (`TwoHand_Guard_Loop`, `Spear_Guard_Loop`) were not yet published, so they were not checked.
 
 The carried loads (#735) were fitted on the male Ranger in the live Blender through both clips, the figure posed by the published `Carry_Idle_Loop` and `Carry_Walk_Loop`. The arms, palms and chest stay within 1.3 cm of each load's surface (the clips' own reference crate: 1.7 cm). The clips' cupped fingers and thumbs sink up to 0.1 m into any load as wide as that crate, the reference crate included; that is the clips' finger pose, not the loads.
 
+The named finds (#760) follow their family's sockets and roles: Garrick's Cleaver and the Millbrook Smith's Mace ride `hand_r.weapon`, the Hollowpine Hunter's Spear `hand_r.staff`, and the Fenwarden's Bow `hand_l.bow` with the longbow's draw contract. Each differs from its base weapon in silhouette and material, with no glow. [`named-finds-760.jpg`](../review/humanoid-equipment/named-finds-760.jpg) shows each beside its base weapon (falchion, leaf spear, flanged mace, longbow) on the male Ranger at a game-camera distance, posed by `Sword_Idle`, `Idle_Loop` and `Bow_Hold_Loop` and composed by the socket contract, then upright and broadside below. The Ranger there is untextured, because Blender cannot read its KTX2 textures. In `Sword_Idle` the blades point toward the camera, so the cleaver and the mace read mostly by their grip and head colours at that distance.
+
 Length is the item's longest extent. The numbers are from the build of 2026-11-16 (the loads' of 2026-11-17). A rebuild is byte-identical: the recipe builds explicit vertex lists and triangulates them itself, in a fixed order.
 
 Every item is a recipe preset whose origin is its grip frame. Its `humanoid-item` attachment (`humanoid-item-v2`) names its role and its `grip` frame. The throwables' attachments also list their levels and switch points. A consumer parents an item under the socket its role names, using the figure's sockets descriptor ([humanoid-sockets.md](humanoid-sockets.md)). The male figure's `humanoid-appearance.headwear` list still names the headwear entries and the parts each hides.
 
-The items ship no textures, only flat-colour materials. Held items load one at a time on a socket rather than being batched as scenery, so the one-atlas rule of the [kit standard](kit-standard.md) does not apply. The kit's 31 materials are its budget instead (`releases/humanoid-equipment.json`).
+The items ship no textures, only flat-colour materials. Held items load one at a time on a socket rather than being batched as scenery, so the one-atlas rule of the [kit standard](kit-standard.md) does not apply. The kit's 33 materials are its budget instead (`releases/humanoid-equipment.json`).
 
 ## Release files
 

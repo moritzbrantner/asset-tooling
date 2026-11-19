@@ -245,7 +245,8 @@ test("the female figure's tanner preset names options its descriptor offers (#37
 test("the Ranger declares its equipment, figures, appearance and texture limits", () => {
   assert.deepEqual(RANGER_WEAPONS.map((item) => item.key), ["equipment.sword.arming", "equipment.shield.heater", "equipment.dagger.blackened",
     "equipment.staff.bone", "equipment.staff.gilded", "equipment.staff.gnarled", "equipment.staff.crystal", "equipment.book.tome", "equipment.mace.flanged"]);
-  assert.deepEqual(RANGER_ARCHERY.map((item) => item.key), ["equipment.bow.long", "equipment.arrow", "equipment.quiver.back", "equipment.crossbow"]);
+  assert.deepEqual(RANGER_ARCHERY.map((item) => item.key), ["equipment.bow.long", "equipment.arrow", "equipment.quiver.back", "equipment.crossbow",
+    "equipment.bow.fenwarden"]);
   // #467: the throwables mmorpg draws in `hand_r.weapon` and on `belt.throwable`, with #457-format levels.
   assert.deepEqual(RANGER_THROWABLES.map((item) => [item.key, WEAPON_ROLES[item.piece]]),
     [["equipment.throwing-knife", "throwing-knife"], ["equipment.venom-flask", "flask"], ["equipment.blasting-bomb", "flask"]]);

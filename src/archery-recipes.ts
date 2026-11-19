@@ -3,17 +3,18 @@
 import {readBlenderRecipeSource} from "./blender-recipe-source.js";
 import {parseAssetSpec} from "./schema.js";
 
-export type ArcheryPiece="bow.long"|"arrow"|"quiver.back"|"crossbow";
+export type ArcheryPiece="bow.long"|"bow.recurve"|"arrow"|"quiver.back"|"crossbow";
 export type ArcheryRole="bow"|"arrow"|"quiver"|"crossbow";
-export const ARCHERY_PIECES:readonly ArcheryPiece[]=Object.freeze(["bow.long","arrow","quiver.back","crossbow"]);
+export const ARCHERY_PIECES:readonly ArcheryPiece[]=Object.freeze(["bow.long","bow.recurve","arrow","quiver.back","crossbow"]);
 /** Style-spec triangle ceilings; `maxTriangles` may lower, never raise, them. */
-export const ARCHERY_TRIANGLE_BUDGETS=Object.freeze({"bow.long":2500,"arrow":800,"quiver.back":6000,"crossbow":2500}) satisfies Record<ArcheryPiece,number>;
-export const ARCHERY_ROLES=Object.freeze({"bow.long":"bow","arrow":"arrow","quiver.back":"quiver","crossbow":"crossbow"}) satisfies Record<ArcheryPiece,ArcheryRole>;
-export const ARCHERY_MATERIALS=Object.freeze({"bow.long":["wood","horn","leather","string"],"arrow":["wood","iron","feather"],
+export const ARCHERY_TRIANGLE_BUDGETS=Object.freeze({"bow.long":2500,"bow.recurve":2500,"arrow":800,"quiver.back":6000,"crossbow":2500}) satisfies Record<ArcheryPiece,number>;
+export const ARCHERY_ROLES=Object.freeze({"bow.long":"bow","bow.recurve":"bow","arrow":"arrow","quiver.back":"quiver","crossbow":"crossbow"}) satisfies Record<ArcheryPiece,ArcheryRole>;
+export const ARCHERY_MATERIALS=Object.freeze({"bow.long":["wood","horn","leather","string"],"bow.recurve":["wood.dark","horn","leather","string","reed"],"arrow":["wood","iron","feather"],
  "quiver.back":["leather","wood","iron","feather"],"crossbow":["wood","iron","leather","string"]}) satisfies Record<ArcheryPiece,readonly string[]>;
 /** Attach frames: every GLB's origin is its attach frame. The bow's draw contract is in BOW_DRAW_CONTRACT. */
 export const ARCHERY_GRIP_CONTRACT=Object.freeze({schemaVersion:1,unit:"meter",axes:"right-handed-y-up",origin:"grip",
  "bow.long":"origin at the centre of the hand's contact on the riser; limbs along +Y/-Y, the arrow leaves toward +Z, the string is on the -Z side",
+ "bow.recurve":"as bow.long: origin at the riser grip, limbs along +Y/-Y, the arrow leaves toward +Z, the string is on the -Z side",
  "arrow":"origin at the arrow's nock; the shaft runs toward +Z to the head",
  "quiver.back":"origin at the centre of the tube; the opening points to +Y and the side worn against the body faces -Z",
  "crossbow":"origin at the centre of the hand's contact on the stock's wrist; the stock runs along Z and the bolt leaves toward +Z, the top of the stock faces +Y, the prod spans X ahead of the grip"});
@@ -22,6 +23,7 @@ export const BOW_DRAW_CONTRACT=Object.freeze({joints:Object.freeze(["grip","nock
 
 const RANGES={
  "bow.long":{length:[1.2,1.9],braceHeight:[.12,.24],limbWidth:[.02,.05],limbSegments:[6,24,true]},
+ "bow.recurve":{length:[1.1,1.6],braceHeight:[.12,.22],limbWidth:[.02,.05],limbSegments:[8,24,true]},
  "arrow":{length:[.55,.95],shaftRadius:[.003,.007],radialSegments:[5,12,true]},
  "quiver.back":{length:[.35,.7],radius:[.035,.08],arrows:[0,8,true],radialSegments:[8,24,true]},
  "crossbow":{length:[.6,.95],prodSpan:[.45,.8],prodOffset:[.25,.5],radialSegments:[6,12,true]},
@@ -30,7 +32,7 @@ const RANGES={
 export function normalizeArcheryParameters(value:unknown):Record<string,unknown> {
  if(!value || typeof value!=="object" || Array.isArray(value) || ![Object.prototype,null].includes(Object.getPrototypeOf(value))) throw new Error("archery parameters must be a plain object");
  const p=value as Record<string,unknown>;
- if(typeof p.piece!=="string" || !Object.hasOwn(RANGES,p.piece)) throw new Error("archery piece must be bow.long, arrow, quiver.back or crossbow");
+ if(typeof p.piece!=="string" || !Object.hasOwn(RANGES,p.piece)) throw new Error("archery piece must be bow.long, bow.recurve, arrow, quiver.back or crossbow");
  const piece=p.piece as ArcheryPiece,ranges:Record<string,readonly number[]|readonly [number,number,true]>=RANGES[piece];
  const keys=["schemaVersion","piece","maxTriangles",...Object.keys(ranges)];
  if(Object.keys(p).length!==keys.length || keys.some(k=>!Object.hasOwn(p,k))) throw new Error("archery piece requires exactly the declared controls");
@@ -55,6 +57,8 @@ export function createArcheryAssetSpec({assetId,parameters,scriptSha256,blenderV
 }
 export const ARCHERY_PRESETS=Object.freeze({
  "bow.long":Object.freeze({schemaVersion:1,piece:"bow.long",length:1.5,braceHeight:.18,limbWidth:.034,limbSegments:12,maxTriangles:2500}),
+ // #760: the Fenwarden's Bow, a 1.32 m dark yew recurve with reed-wrapped limbs.
+ "bow.recurve":Object.freeze({schemaVersion:1,piece:"bow.recurve",length:1.32,braceHeight:.17,limbWidth:.04,limbSegments:14,maxTriangles:2500}),
  "arrow":Object.freeze({schemaVersion:1,piece:"arrow",length:.76,shaftRadius:.0045,radialSegments:8,maxTriangles:800}),
  "quiver.back":Object.freeze({schemaVersion:1,piece:"quiver.back",length:.5,radius:.055,arrows:5,radialSegments:16,maxTriangles:6000}),
  // #389: the Redbrand crossbowmen's spanned crossbow, 0.78 m long with a 0.62 m steel prod 0.36 m ahead of the hand.

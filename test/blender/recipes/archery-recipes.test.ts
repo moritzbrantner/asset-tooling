@@ -6,7 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { NodeIO } from "@gltf-transform/core";
-import { ARCHERY_PIECES, ARCHERY_PRESETS, ARCHERY_TRIANGLE_BUDGETS, BOW_DRAW_CONTRACT, createArcheryAssetSpec, normalizeArcheryParameters, readArcheryRecipeSource } from "../../../src/archery-recipes.js";
+import { ARCHERY_PIECES, ARCHERY_PRESETS, ARCHERY_ROLES, ARCHERY_TRIANGLE_BUDGETS, BOW_DRAW_CONTRACT, createArcheryAssetSpec, normalizeArcheryParameters, readArcheryRecipeSource } from "../../../src/archery-recipes.js";
 import { canonicalJson } from "../../../src/canonical.js";
 import { generateAsset } from "../../../src/index.js";
 
@@ -17,7 +17,7 @@ test("archery controls are bounded and exact", () => {
   assert.throws(() => normalizeArcheryParameters({ ...ARCHERY_PRESETS["quiver.back"], maxTriangles: ARCHERY_TRIANGLE_BUDGETS["quiver.back"] + 1 }), /maxTriangles/);
 });
 
-test("the presets generate a skinned bow and static arrow and quiver", {
+test("the presets generate skinned bows and static arrow and quiver", {
   skip: process.env.ASSET_TOOLING_BLENDER ? false : "set ASSET_TOOLING_BLENDER to Blender 5.2.2 (snap Blender: TMPDIR under $HOME)", timeout: 600_000,
 }, async () => {
   const source = await readArcheryRecipeSource();
@@ -34,13 +34,13 @@ test("the presets generate a skinned bow and static arrow and quiver", {
       assert.ok(observations.triangleCount <= ARCHERY_TRIANGLE_BUDGETS[piece], piece);
       const document = await new NodeIO().readBinary(new Uint8Array(await readFile(path.join(workspace, "archery.glb"))));
       const skins = document.getRoot().listSkins();
-      if (piece !== "bow.long") {
+      if (ARCHERY_ROLES[piece] !== "bow") {
         assert.equal(skins.length, 0, piece);
         assert.ok(document.getRoot().listNodes().some((node) => node.getName() === "grip" && !node.getMesh()), piece);
         continue;
       }
       assert.deepEqual(skins[0]!.listJoints().map((joint) => joint.getName()), [...BOW_DRAW_CONTRACT.joints]);
-      assert.deepEqual(observations.nockRest, [0, 0, -ARCHERY_PRESETS["bow.long"].braceHeight]);
+      assert.deepEqual(observations.nockRest, [0, 0, -(ARCHERY_PRESETS[piece] as { braceHeight: number }).braceHeight]);
       // String vertices are weighted between grip and nock; the limbs follow grip only.
       for (const primitive of document.getRoot().listMeshes()[0]!.listPrimitives()) {
         const weights = primitive.getAttribute("WEIGHTS_0")!, joints = primitive.getAttribute("JOINTS_0")!;
