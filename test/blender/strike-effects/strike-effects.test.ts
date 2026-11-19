@@ -1,4 +1,4 @@
-// Strike effect meshes (#724, #771, docs/strike-effects.md): the recipe builds a verified gltf-resources-v1 bundle of eleven small
+// Strike effect meshes (#724, #771, #775, docs/strike-effects.md): the recipe builds a verified gltf-resources-v1 bundle of thirteen small
 // animated effects, each under 200 triangles with one Play clip of its declared length, vertex colour and opacity in
 // COLOR_0 and core-glTF blended materials, and replays to the same tar. The build skips unless ASSET_TOOLING_BLENDER
 // names Blender 5.2.2.
@@ -15,7 +15,7 @@ import {
 } from "../../../scripts/build-strike-effects.ts";
 import { KIT_BUDGETS, kitBudgetViolations, kitCost } from "../../../scripts/report-kit-costs.ts";
 
-const GROUND = ["ground-slam", "lunge-dust", "leap-slam", "dash-dust"];
+const GROUND = ["ground-slam", "lunge-dust", "leap-slam", "dash-dust", "bomb-blast", "trap-snap"];
 
 test("the strike effect spec runs the packaged recipe for exactly one entry", () => {
   const spec = createStrikeSpec({ entry: "ground-slam", scriptSha256: "a".repeat(64), blenderVersion: "5.2.2" });
@@ -62,6 +62,9 @@ test("the recipe builds a verified, reproducible bundle of small animated effect
       assert.deepEqual(asset.clip, { name: "Play", duration: STRIKE_CLIPS[entry], loop: false });
       assert.equal(asset.align, GROUND.includes(entry) ? "ground" : entry === "combo-glint" ? "weapon" : entry === "dash-trail" ? "path" : "strike");
     }
+    // #775: the bomb's blast reaches its 3 m radius; the trap snap stays round the trap.
+    assert.ok(byRole["bomb-blast"].radius === 3 && byRole["bomb-blast"].bounds.max[0] > 2.5, "the blast reaches its radius");
+    assert.ok(Math.max(...byRole["trap-snap"].bounds.max.map(Math.abs), ...byRole["trap-snap"].bounds.min.map(Math.abs)) < .7, "the snap stays at the trap");
     // The arcs' outer edge passes through the contact point, curving back to the swing centre at -X; the ground
     // effects stay on and above the ground.
     for (const arc of ["strike-arc-cut", "strike-arc-heavy", "cleave-sweep"]) {

@@ -73,7 +73,7 @@ test("the recipe builds a verified, reproducible bundle of small spell effects a
       assert.ok(byRole[entry].bounds.min[2] < -0.2, `${entry} trails back along -Z`);
     }
     assert.ok(Math.abs(byRole.arrow.bounds.min[2] + 0.8) < 0.01, "the arrow is 0.8 m long");
-    for (const ground of ["frost-nova", "heal-motes", "blink-out", "blink-in", ...HOLDS]) {
+    for (const ground of ["frost-nova", "heal-motes", "blink-out", "blink-in", ...HOLDS, "flask-splash", "chemical-ignite"]) {
       assert.equal(byRole[ground].align, "ground");
       assert.ok(byRole[ground].bounds.min[1] >= -0.2, `${ground} rests on the ground`);
     }
@@ -83,6 +83,11 @@ test("the recipe builds a verified, reproducible bundle of small spell effects a
     assert.equal(byRole["grapple-hook"].length, 0.4, "the hook's eye is 0.4 m behind its crown");
     assert.equal(byRole["ice-slip-scrape"].align, "path");
     assert.deepEqual([byRole["ice-slip-scrape"].bounds.min[1], byRole["ice-slip-scrape"].bounds.max[2], byRole["ice-slip-scrape"].length], [0, 1, 1], "the scrape lies on the ground from 0 to 1");
+    // #775: the flask's pool and its fire share the 2 m radius; the pool lies flat and names its brews' tints.
+    for (const pool of ["flask-splash", "chemical-ignite"]) assert.ok(byRole[pool].radius === 2 && byRole[pool].bounds.max[0] <= 2.06 && byRole[pool].bounds.max[0] > 1.9, pool);
+    assert.ok(byRole["flask-splash"].bounds.max[1] < .3, "the pool lies flat");
+    assert.deepEqual(byRole["flask-splash"].tints, { volatile: "#ff9929", caustic: "#9ef24d" });
+    assert.equal(byRole["flask-splash"].tint.colour, "#ff9929");
 
     const replay = await buildSpellEffects({ outDir: replayDir });
     assert.equal(replay.tarSha256, built.tarSha256, "a rebuild packs the same tar");

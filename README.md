@@ -81,7 +81,7 @@ The [wooden spike traps](docs/spike-traps.md) are six static hazard pieces on on
 
 The [Greyhaven gatherables](docs/gatherables.md) are the materials of the first crafting loop on one atlas: a ridge ore vein in its full and depleted states, with convex collision, and iron ore, boar hide and boar tusk drops, each with an inventory icon.
 
-The [strike effect meshes](docs/strike-effects.md) are eleven small animated meshes a game spawns at a strike's contact point or along a move: a cut arc, a heavy arc, a cleave sweep, a combo glint for the weapon, a thrust streak, an impact burst, a ground-slam ring, lunge dust, a leap slam, a dash trail and dash dust, each under 200 triangles with one `Play` clip, shipped as the `strike-effects` rolling release.
+The [strike effect meshes](docs/strike-effects.md) are thirteen small animated meshes a game spawns at a strike's contact point or along a move: a cut arc, a heavy arc, a cleave sweep, a combo glint for the weapon, a thrust streak, an impact burst, a ground-slam ring, lunge dust, a leap slam, a dash trail, dash dust, the Tinker's bomb blast and trap snap, each under 200 triangles with one `Play` clip, shipped as the `strike-effects` rolling release.
 
 The [Greyhaven settlement props](docs/settlement-props.md) are a scripted Blender prop set in the same style for an Outpost public space: a market stall, handcart, crate and barrel, a signpost, lantern post and bench, and a fence segment, planter and woodpile, with a market-square composition.
 
@@ -99,7 +99,7 @@ The [ARPG combat flipbooks](docs/combat-effects.md) are baked 16-frame hit-spark
 
 The [reward-feedback flipbooks](docs/reward-effects.md) are baked 16-frame sparkle, ring, burst and confetti strips in `subtle` and `strong` variants for ui's Pop/Pulse rewards. They are white alpha masks the UI tints with its own theme tokens, from the same rasterizer.
 
-The [spell effect meshes](docs/spell-effects.md) are twenty-four small meshes for mmorpg's spells, shots and movement spells: four looping school bolts, five school impacts, a frost nova, a tileable beam segment, heal motes, blink out and in, rooted-feet vine and ice holds with their end clips and an ice-slip scrape with emissive vertex-alpha glow and `Loop` or `Play` clips, plus static arrow, crossbow-bolt, throwing-knife, grapple-rope and grapple-hook models, each under 240 triangles, shipped as the `spell-effects` rolling release.
+The [spell effect meshes](docs/spell-effects.md) are twenty-six small meshes for mmorpg's spells, shots and movement spells: four looping school bolts, five school impacts, a frost nova, a tileable beam segment, heal motes, blink out and in, rooted-feet vine and ice holds with their end clips, an ice-slip scrape and the Tinker's flask pool and its fire with emissive vertex-alpha glow and `Loop` or `Play` clips, plus static arrow, crossbow-bolt, throwing-knife, grapple-rope and grapple-hook models, each under 240 triangles, shipped as the `spell-effects` rolling release.
 
 The [coordinated feedback kits](docs/feedback-kits.md) pair a short authored effect atlas, a reduced-motion still and a synthesized 48 kHz WAV cue per intensity for a UI reward, a Farm harvest, a shield impact and a solved puzzle, shipped as the `feedback-kits` rolling release.
 

@@ -1,4 +1,4 @@
-// Build the spell effect meshes (#726, #771, docs/spell-effects.md) from the scripted recipe adapters/blender/spell_effects.py:
+// Build the spell effect meshes (#726, #771, #775, docs/spell-effects.md) from the scripted recipe adapters/blender/spell_effects.py:
 //   ASSET_TOOLING_BLENDER=<blender 5.2.2> bun scripts/build-spell-effects.ts --out <directory>
 // Each entry is one external.blender.script@1 run, imported through scene.import.gltf@2. The spell-effects-descriptor-v1
 // attachment lists each entry's clip, alignment, intended scale, school tint, triangles and bounds. <directory> becomes the
@@ -20,6 +20,7 @@ export const SPELL_EFFECTS = [
   "frost-nova", "beam-segment", "heal-motes",
   "blink-out", "blink-in", "grapple-rope", "grapple-hook",
   "roots-hold-loop", "roots-hold-end", "frost-hold-loop", "frost-hold-end", "ice-slip-scrape",
+  "flask-splash", "chemical-ignite",
 ] as const;
 export type SpellEffect = (typeof SPELL_EFFECTS)[number];
 export const SPELL_KEY_PREFIX = "spell.effects";
@@ -29,7 +30,7 @@ export const SPELL_RELEASE = "spell-effects";
 export const SPELL_TAR_NAME = "spell.effects.tar";
 export const SPELL_DESCRIPTOR_SCHEMA = "spell-effects-descriptor-v1";
 export const SPELL_DESCRIPTOR_ATTACHMENT = "spell-effects-descriptor";
-export const SPELL_MATERIALS = ["shot", "spell-energy", "spell-fel", "spell-fire", "spell-frost", "spell-holy", "spell-nature", "spell-shadow"] as const;
+export const SPELL_MATERIALS = ["shot", "spell-alchemy", "spell-energy", "spell-fel", "spell-fire", "spell-frost", "spell-holy", "spell-nature", "spell-shadow"] as const;
 /** The ceiling for every entry, so a spell costs next to nothing to draw. */
 export const SPELL_TRIANGLE_BUDGET = 240;
 /** Each animated entry's one clip: `Loop` repeats while the effect lives, `Play` runs once and ends gone. */
@@ -44,6 +45,7 @@ export const SPELL_CLIPS: Partial<Record<SpellEffect, { name: "Loop" | "Play"; d
   "roots-hold-loop": { name: "Loop", duration: 1.2 }, "roots-hold-end": { name: "Play", duration: 0.35 },
   "frost-hold-loop": { name: "Loop", duration: 1 }, "frost-hold-end": { name: "Play", duration: 0.35 },
   "ice-slip-scrape": { name: "Play", duration: 0.6 },
+  "flask-splash": { name: "Loop", duration: 1.2 }, "chemical-ignite": { name: "Loop", duration: 0.8 },
 };
 /** What each entry is for and which school tints it, copied into the descriptor. */
 export const SPELL_USE: Record<SpellEffect, { use: string; school: string; tint: string }> = {
@@ -71,7 +73,14 @@ export const SPELL_USE: Record<SpellEffect, { use: string; school: string; tint:
   "frost-hold-loop": { use: "Frost Nova's freeze on a rooted target's feet while it holds", school: "frost", tint: "spell-frost" },
   "frost-hold-end": { use: "a freeze breaking, after frost-hold-loop", school: "frost", tint: "spell-frost" },
   "ice-slip-scrape": { use: "feet sliding on ice", school: "frost", tint: "spell-frost" },
+  "flask-splash": { use: "the Tinker's thrown flask, its chemical pooled where it shatters (tint it with the tints table)", school: "alchemy", tint: "spell-alchemy" },
+  "chemical-ignite": { use: "the volatile pool catching fire, over flask-splash (the same radius)", school: "fire", tint: "spell-fire" },
 };
+/**
+ * #775: the brews a pool is tinted for, as the sRGB colour to set on its tint material: the flask's volatile amber (the
+ * authored colour) and a caustic green.
+ */
+export const SPELL_TINTS: Partial<Record<SpellEffect, Record<string, string>>> = { "flask-splash": { volatile: "#ff9929", caustic: "#9ef24d" } };
 /** A material's base colour as an sRGB hex string, the colour a game would replace to recolour the entry. */
 function srgbHex(document: Document, name: string) {
   const material = document.getRoot().listMaterials().find((candidate) => candidate.getName() === name);
@@ -124,6 +133,7 @@ export async function buildSpellEffects({ outDir, log = () => {} }: { outDir: st
       ...(observations.radius ? { radius: observations.radius } : {}),
       ...(observations.tileLength ? { tileLength: observations.tileLength } : {}),
       ...(observations.length ? { length: observations.length } : {}),
+      ...(SPELL_TINTS[entry] ? { tints: SPELL_TINTS[entry] } : {}),
       triangles: triangles(document), bounds: observations.clipBounds,
       materials: [...new Set(document.getRoot().listMaterials().map((material) => material.getName()))].sort(),
     };
@@ -139,7 +149,7 @@ export async function buildSpellEffects({ outDir, log = () => {} }: { outDir: st
     },
     bounds: "Each entry's bounds hold every frame of its clip.",
     playback: "Loop clips repeat while the projectile, beam or hold lives; Play clips run once from the hit or cast and end with zero scale or zero area, so remove the instance when they end. A *-hold-loop entry is followed by its *-hold-end entry when the hold breaks: the end starts from the loop's first pose. Shots, the grapple rope and the hook are static: the game spins a knife itself.",
-    tinting: "Colour and opacity come from COLOR_0 (RGBA) times the material colour; spell vertex colours stay at or below white, so set a material's base and emissive colour to recolour. tint names each entry's main material and its authored sRGB colour.",
+    tinting: "Colour and opacity come from COLOR_0 (RGBA) times the material colour; spell vertex colours stay at or below white, so set a material's base and emissive colour to recolour. tint names each entry's main material and its authored sRGB colour; tints, where given, names the colours to set for each variant of the entry.",
     assets,
   };
   const descriptorAsset = (await storeAssetObject(root, { bytes: Buffer.from(`${canonicalJson(descriptor)}\n`), kind: SPELL_DESCRIPTOR_ATTACHMENT, mediaType: "application/json" })).asset;

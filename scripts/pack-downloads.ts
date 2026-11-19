@@ -11,11 +11,12 @@
 // off the rest pose and use meshopt's quaternion and exponential filters (#683). The bundle's JSON attachments are
 // copied as `<key>.<variant>.<attachment>.json`. `<name>.index.json` lists each download's files and bytes, so
 // a consumer fetches only what it uses. KTX2 encoding needs KTX-Software's `ktx` CLI (ASSET_TOOLING_KTX, or `ktx`
-// on PATH).
+// on PATH). A bundle may instead carry the clips as `<key>.clips` entries, one per clip family (#775): they are joined
+// onto the `--clips` entry's skeleton for the same downloads and are not downloads themselves.
 import path from "node:path";
 import os from "node:os";
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
-import { Logger, NodeIO, PropertyType, type Animation, type AnimationChannel, type Document, type Texture } from "@gltf-transform/core";
+import { Logger, NodeIO, PropertyType, type Accessor, type Animation, type AnimationChannel, type AnimationSampler, type Document, type Texture } from "@gltf-transform/core";
 import { ALL_EXTENSIONS, KHRTextureBasisu } from "@gltf-transform/extensions";
 import { cloneDocument, dedup, meshopt, prune } from "@gltf-transform/functions";
 import { MeshoptDecoder, MeshoptEncoder } from "meshoptimizer";
@@ -150,6 +151,39 @@ export function keepClips(document: Document, names: ReadonlySet<string>): Docum
   return document;
 }
 
+/** #775: the bundle key of `key`'s clip family entries, one per family (the variant), each the skeleton and its clips. */
+export const clipFamilyEntryKey = (key: string) => `${key}.clips`;
+
+/**
+ * Copy every clip of `sources` onto `target`'s joints by name (#775), in order, with their keys and interpolation, so
+ * the bundle's clip family entries play as one document again. Fails on a joint `target` lacks or names twice.
+ */
+export function addClips(target: Document, sources: readonly Document[]): Document {
+  const root = target.getRoot(), buffer = root.listBuffers()[0] ?? target.createBuffer();
+  const joints = new Map<string, ReturnType<typeof root.listNodes>[number]>(), twice = new Set<string>();
+  for (const node of root.listNodes()) { if (joints.has(node.getName())) twice.add(node.getName()); joints.set(node.getName(), node); }
+  for (const source of sources) {
+    const accessors = new Map<Accessor, Accessor>(), samplers = new Map<AnimationSampler, AnimationSampler>();
+    const copy = (accessor: Accessor) => accessors.get(accessor) ?? accessors.set(accessor, target.createAccessor(accessor.getName())
+      .setType(accessor.getType()).setArray(accessor.getArray()!.slice()).setNormalized(accessor.getNormalized()).setBuffer(buffer)).get(accessor)!;
+    for (const animation of source.getRoot().listAnimations()) {
+      const clip = target.createAnimation(animation.getName());
+      for (const channel of animation.listChannels()) {
+        const name = channel.getTargetNode()!.getName(), joint = joints.get(name), from = channel.getSampler()!;
+        if (!joint || twice.has(name)) throw new Error(`clip '${animation.getName()}' moves '${name}', which the skeleton ${joint ? "names twice" : "lacks"}`);
+        let sampler = samplers.get(from);
+        if (!sampler) {
+          sampler = target.createAnimationSampler().setInterpolation(from.getInterpolation()).setInput(copy(from.getInput()!)).setOutput(copy(from.getOutput()!));
+          samplers.set(from, sampler);
+        }
+        if (!clip.listSamplers().includes(sampler)) clip.addSampler(sampler);
+        clip.addChannel(target.createAnimationChannel().setTargetNode(joint).setTargetPath(channel.getTargetPath()!).setSampler(sampler));
+      }
+    }
+  }
+  return target;
+}
+
 /** How far (per component) a channel's key may sit from its joint's rest value and still count as the rest pose. */
 export const CLIP_REST_TOLERANCE = 1e-5;
 
@@ -219,17 +253,25 @@ export async function packDownloads({ bundleDir, outDir, name, clips, clipFamili
   const entries: Json[] = [];
   let clipsFile: string | undefined;
   const families: Json[] = [];
+  const read = async (key: string, variant: string) => {
+    const { gltf, resources } = await readAssetBundleGltf(bundleDir, readSnapshot, key, variant);
+    return io.readJSON({ json: JSON.parse(gltf.toString("utf8")), resources: Object.fromEntries([...resources].map(([uri, bytes]) => [uri, new Uint8Array(bytes)])) });
+  };
+  // #775: clips the bundle carries as one entry per family, beside the `--clips` entry.
+  const familyEntries = clips ? manifest.assets.filter((asset) => asset.key === clipFamilyEntryKey(clips.split("/")[0]!)) : [];
   try {
     for (const asset of manifest.assets) {
+      if (familyEntries.includes(asset)) continue;
       const id = `${asset.key}/${asset.variant}`;
-      const { gltf, resources } = await readAssetBundleGltf(bundleDir, readSnapshot, asset.key, asset.variant);
-      const document = await io.readJSON({ json: JSON.parse(gltf.toString("utf8")), resources: Object.fromEntries([...resources].map(([uri, bytes]) => [uri, new Uint8Array(bytes)])) });
+      const document = await read(asset.key, asset.variant);
       const root = document.getRoot();
-      if (clips === id && root.listAnimations().length > 0) {
+      if (clips === id && (familyEntries.length > 0 || root.listAnimations().length > 0)) {
         // The shared clips: the skeleton's nodes and every animation, without meshes, skins or materials.
-        const clipDocument = stripToClips(await io.readJSON({ json: JSON.parse(gltf.toString("utf8")), resources: Object.fromEntries([...resources].map(([uri, bytes]) => [uri, new Uint8Array(bytes)])) }));
+        const clipDocument = addClips(stripToClips(await read(asset.key, asset.variant)),
+          await Promise.all(familyEntries.map((entry) => read(entry.key, entry.variant))));
+        const clipCount = clipDocument.getRoot().listAnimations().length;
         if (clipFamilies) {
-          const problems = clipFamilyProblems(root.listAnimations().map((animation) => animation.getName()), clipFamilies);
+          const problems = clipFamilyProblems(clipDocument.getRoot().listAnimations().map((animation) => animation.getName()), clipFamilies);
           if (problems.length) throw new Error(`the clip families do not split ${id}'s clips: ${problems.join("; ")}`);
           const over: string[] = [];
           for (const { family, clips: names } of clipFamilies) {
@@ -249,7 +291,7 @@ export async function packDownloads({ bundleDir, outDir, name, clips, clipFamili
         // `high` adds meshopt's filters (#683): 16-bit quaternions and 12-bit-mantissa translations and scales.
         await clipDocument.transform(meshopt({ encoder: MeshoptEncoder, level: "high" }));
         clipsFile = await written(`${asset.key}.clips.glb`, await io.writeBinary(clipDocument));
-        log(`clips ${clipsFile} (${root.listAnimations().length} clips, ${dropped} rest-pose channels dropped)`);
+        log(`clips ${clipsFile} (${clipCount} clips, ${dropped} rest-pose channels dropped)`);
       }
       if (clips) {
         for (const animation of root.listAnimations()) {

@@ -13,7 +13,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import pLimit from "p-limit";
 import { NodeIO, PropertyType, type Animation, type Document, type Node } from "@gltf-transform/core";
-import { dedup } from "@gltf-transform/functions";
+import { cloneDocument, dedup, prune } from "@gltf-transform/functions";
 import { RANGER_FEMALE_PROPORTIONS, followHead, reproportionDocument, reproportionSockets, type RestChange } from "../src/humanoid-proportions.js";
 import { GLTF_RESOURCES_BUNDLE_PROFILE, exportAssetBundle } from "../src/asset-bundle.js";
 import { ASSET_BUNDLE_REF_FILE, readAssetBundleTar } from "../src/asset-bundle-pack.js";
@@ -29,7 +29,7 @@ import {
   cachedCompose, cachedEmbed, cachedExtract, cachedImageDecode, cachedImageEncodePng, cachedImport, cachedRetarget, cachedSubset, cachedTextureResize,
   operationCacheStatistics,
 } from "./cached-operations.ts";
-import { textureEncoding } from "./pack-downloads.ts";
+import { clipFamilyEntryKey, clipFamilyProblems, keepClips, stripToClips, textureEncoding } from "./pack-downloads.ts";
 import {
   RANGER_ARCHERY, RANGER_HEADWEAR, RANGER_ITEM_ATTACHMENT, RANGER_ITEM_LOD_REFERENCE_FOV_Y, RANGER_ITEM_LOD_SELECTION, RANGER_THROWABLES, RANGER_WEAPONS,
   buildHeadwear, rangerHeadwearAppearance, rangerItemDescriptor, rangerItemLods,
@@ -528,6 +528,12 @@ export const RANGER_CLIP_ROLES: Readonly<Record<string, { role: string; contact?
   Signal_Call_Loop: { role: "signal.call" },
   Signal_Call_Interrupted: { role: "signal.call.interrupted" },
   Signal_Call_End: { role: "signal.call.end" },
+  // #775: the Tinker's trap, throws and ready loop (src/ranger-clips.ts RANGER_TINKER_CLIPS). A throw's contact is the
+  // right hand letting go.
+  Tinker_Place_Trap: { role: "tinker.place-trap" },
+  Tinker_Throw_Flask: { role: "tinker.throw-flask", contact: "hand_r" },
+  Tinker_Throw_Bomb: { role: "tinker.throw-bomb", contact: "hand_r" },
+  Tinker_Ready_Loop: { role: "tinker.ready" },
 };
 /** The gait loops whose ground speed the `humanoid-clips` attachment records. */
 export const RANGER_GAITS: ReadonlySet<string> = new Set(["Walk_Loop", "Jog_Fwd_Loop", "Sprint_Loop", "Crouch_Fwd_Loop", "Jog_Bwd_Loop", "Walk_Bwd_Loop", "Wade_Fwd_Loop"]);
@@ -972,8 +978,9 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
     variety.transfers[RANGER_BUNDLE_VARIANT] = keyed.transfer;
   }
 
-  // Clips ship once, in `default` (round 4): every other character variant has the same joints (by name) at the same
-  // rest pose, which the build checks, so a consumer plays the default's clips on it by joint name. The characters
+  // Clips ship once, for `default` (round 4; since #775 in its `<key>.clips` family entries): every other character
+  // variant has the same joints (by name) at the same rest pose, which the build checks, so a consumer plays the
+  // default's clips on it by joint name. The characters
   // ship no levels of detail (#516 supersedes #123 answer A for characters); items keep theirs.
   const targetRigDocument = JSON.parse((await resolveAssetObject(root, targetRig)).toString("utf8"));
   /** Fails unless `rig` has exactly the target rig's joints, by name, with the same rest TRS (within 1e-4). */
@@ -1345,18 +1352,30 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
     }
     log(`merge same-material parts (${Object.keys(partMerges).length} character variants)`);
   }
-  // #711: every clip's channels repeat the same key times, and its rest-pose channels the same values; one accessor
-  // each keeps the clip-carrying entry's glTF JSON under the bundle's 8 MiB budget. Lossless: same channels and keys.
+  // #775: the clips ship as one entry per clip download family, `<key>.clips/<family>` (the skeleton and that family's
+  // clips), and `default` carries none. With every clip on `default`, its glTF JSON grew with each family until it
+  // outgrew the bundle's 8 MiB budget (a structural limit of gltf-resources-v1); one family stays far below it.
+  // pack-downloads joins the families onto the skeleton again for the same `<key>.clips.glb` and family downloads.
+  // #711: within a family, one accessor per repeated key-time or rest-pose track. Lossless: same channels and keys.
   {
     const io = new NodeIO();
-    for (const [index, asset] of assets.entries()) {
-      const document = await io.readBinary(new Uint8Array(await resolveAssetObject(root, asset)));
-      if (!document.getRoot().listAnimations().length) continue;
-      const before = document.getRoot().listAccessors().length;
-      await document.transform(dedup({ propertyTypes: [PropertyType.ACCESSOR] }));
-      log(`share identical accessors in ${selections[index]!.key}/${selections[index]!.variant} (${before} -> ${document.getRoot().listAccessors().length})`);
-      assets[index] = (await storeAssetObject(root, { bytes: Buffer.from(await io.writeBinary(document)), kind: asset.kind, mediaType: "model/gltf-binary" })).asset;
+    const document = await io.readBinary(new Uint8Array(await resolveAssetObject(root, assets[0]!)));
+    const problems = clipFamilyProblems(document.getRoot().listAnimations().map((animation) => animation.getName()), RANGER_CLIP_DOWNLOADS);
+    if (problems.length) throw new Error(`the clip downloads do not split the Ranger's clips: ${problems.join("; ")}`);
+    for (const { family, clips: names } of RANGER_CLIP_DOWNLOADS) {
+      const clips = keepClips(stripToClips(cloneDocument(document)), new Set(names));
+      await clips.transform(prune({ keepLeaves: true }), dedup({ propertyTypes: [PropertyType.ACCESSOR] }));
+      log(`clip family entry ${clipFamilyEntryKey(bundleKey)}/${family} (${names.length} clips, ${clips.getRoot().listAccessors().length} accessors)`);
+      selections.push({ key: clipFamilyEntryKey(bundleKey), variant: family });
+      assets.push((await storeAssetObject(root, { bytes: Buffer.from(await io.writeBinary(clips)), kind: assets[0]!.kind, mediaType: "model/gltf-binary" })).asset);
     }
+    for (const animation of document.getRoot().listAnimations()) {
+      for (const channel of animation.listChannels()) channel.dispose();
+      for (const sampler of animation.listSamplers()) sampler.dispose();
+      animation.dispose();
+    }
+    await document.transform(prune({ propertyTypes: [PropertyType.ACCESSOR] }));
+    assets[0] = (await storeAssetObject(root, { bytes: Buffer.from(await io.writeBinary(document)), kind: assets[0]!.kind, mediaType: "model/gltf-binary" })).asset;
   }
   // #517: the bundle ships KTX2 textures like every kit (docs/kit-standard.md#textures). They are encoded per slot
   // exactly as the per-entry downloads always were (`textureEncoding`, pack-downloads.ts), which pass them through.

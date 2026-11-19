@@ -1,4 +1,4 @@
-"""Strike effect meshes (docs/strike-effects.md, #724, #754, #771): eleven small animated meshes a game spawns at a strike's contact
+"""Strike effect meshes (docs/strike-effects.md, #724, #754, #771, #775): thirteen small animated meshes a game spawns at a strike's contact
 point or on the weapon.
 
 ``strike-arc-cut`` and ``strike-arc-heavy`` are crescent ribbons that sweep through the contact point and thin onto
@@ -7,7 +7,8 @@ their bright edge; ``cleave-sweep`` is a wider, flatter fan for a slash that hit
 with a flare; ``impact-burst`` is a star of short spikes that pops and shrinks; ``ground-slam`` is a ring shockwave with rising chips;
 ``lunge-dust`` is low dust puffs at the feet. For the movement clips (#771): ``leap-slam`` cracks the ground under a
 leaping attacker, rolls a dust ring out and throws stones forward; ``dash-trail`` is pale speed streaks along a dash;
-``dash-dust`` is dust and grit kicked back from the start foot.
+``dash-dust`` is dust and grit kicked back from the start foot. For the Tinker (#775): ``bomb-blast`` is a pot bomb going
+off (fireball, shock ring to ``BLAST_RADIUS``, smoke and shards); ``trap-snap`` is a spring trap's jaws snapping shut.
 Each is one glTF scene whose nodes (and, for the ribbons and the ring, one morph target ``Thin``) are animated by one
 clip, ``Play``, that starts at the contact frame and ends with the effect gone (zero scale or zero area).
 
@@ -33,14 +34,14 @@ from mathutils import Vector
 
 RECIPE = "strike-effects-v1"
 ENTRIES = ("strike-arc-cut", "strike-arc-heavy", "cleave-sweep", "combo-glint", "strike-thrust", "impact-burst", "ground-slam", "lunge-dust",
-           "leap-slam", "dash-trail", "dash-dust")
+           "leap-slam", "dash-trail", "dash-dust", "bomb-blast", "trap-snap")
 GLOW, DUST = "strike-glow", "strike-dust"
 CLIP = "Play"
 CLIP_FPS = 100  # whole frames for every clip length below
 CLIP_SECONDS = {"strike-arc-cut": 0.18, "strike-arc-heavy": 0.25, "cleave-sweep": 0.3, "combo-glint": 0.3, "strike-thrust": 0.15, "impact-burst": 0.2, "ground-slam": 0.4, "lunge-dust": 0.35,
-                "leap-slam": 0.6, "dash-trail": 0.4, "dash-dust": 0.35}
+                "leap-slam": 0.6, "dash-trail": 0.4, "dash-dust": 0.35, "bomb-blast": 0.9, "trap-snap": 0.3}
 ALIGN = {"strike-arc-cut": "strike", "strike-arc-heavy": "strike", "cleave-sweep": "strike", "combo-glint": "weapon", "strike-thrust": "strike", "impact-burst": "strike", "ground-slam": "ground", "lunge-dust": "ground",
-         "leap-slam": "ground", "dash-trail": "path", "dash-dust": "ground"}
+         "leap-slam": "ground", "dash-trail": "path", "dash-dust": "ground", "bomb-blast": "ground", "trap-snap": "ground"}
 TRIANGLE_BUDGET = 200
 
 # sRGB material colours; the vertex colours carry the gradient.
@@ -668,8 +669,134 @@ def dash_dust(entry, col, root, clip):
     return {}
 
 
+
+# The Tinker's bomb (#775): its blast reaches ``BLAST_RADIUS``. Fireball spikes: direction (glTF) and length share.
+BLAST_RADIUS = 3.0
+FIREBALL = [(0, 1, 0, 1.0), (1, 0.4, 0, 0.8), (-1, 0.4, 0, 0.85), (0, 0.4, 1, 0.8), (0, 0.4, -1, 0.75), (0.7, 0.8, 0.7, 0.9),
+            (-0.7, 0.8, -0.7, 0.9), (0.7, 0.8, -0.7, 0.85), (-0.7, 0.8, 0.7, 0.85)]
+BLAST_SMOKE = [((0.0, 0.0), 0.9, 0.0), ((0.9, -0.5), 0.7, 0.08), ((-0.8, 0.6), 0.75, 0.12)]
+BLAST_CHIPS = [(30, 1.0, 0.9), (150, 0.85, 0.7), (250, 0.95, 0.8), (330, 0.8, 0.6)]
+
+
+def shock_ring(m, n, inner, crest, outer, height):
+    """A flat ring on the ground with a low lip at ``crest``, bright on the lip and gone at its edges."""
+    rows = []
+    for k in range(n):
+        a = 2 * math.pi * k / n
+        c, s = math.cos(a), math.sin(a)
+        rows.append([m.v((inner * s, 0.01, inner * c), 0.0), m.v((crest * s, 0.04, crest * c), 0.8),
+                     m.v((outer * s, 0.02, outer * c), 0.0), m.v((crest * s, height, crest * c), 0.0)])
+    for k in range(n):
+        a, b = rows[k], rows[(k + 1) % n]
+        m.quad(a[0], b[0], b[1], a[1])
+        m.quad(a[1], b[1], b[2], a[2])
+        m.quad(a[1], b[1], b[3], a[3])
+    return rows
+
+
+def bomb_blast(entry, col, root, clip):
+    """The pot bomb going off on the ground: a fireball that flashes up and out and burns away, a shock ring that
+    races out to ``BLAST_RADIUS`` and thins, three smoke clouds that billow up after it and four shards of the pot
+    thrown out."""
+    m = Mesh()
+    core = [m.v(p, 1.0) for p in ((0.25, 0, 0), (-0.25, 0, 0), (0, 0.3, 0), (0, -0.05, 0), (0, 0, 0.25), (0, 0, -0.25))]
+    for a, b in ((0, 4), (4, 1), (1, 5), (5, 0)):
+        m.tri(core[a], core[b], core[2])
+        m.tri(core[b], core[a], core[3])
+    for x, y, z, share in FIREBALL:
+        d = Vector((x, y, z)).normalized()
+        side = d.cross(Vector((0, 0, 1)) if abs(d.z) < 0.9 else Vector((1, 0, 0))).normalized()
+        other = d.cross(side)
+        base = [m.v(d * 0.15 + 0.14 * (math.cos(a) * side + math.sin(a) * other), 1.0) for a in (0, 2.094, 4.189)]
+        tip = m.v(d * 1.3 * share, 0.1)
+        for k in range(3):
+            m.tri(base[k], base[(k + 1) % 3], tip)
+    fireball = m.finish(f"{entry}.fireball", col, bpy.data.materials[GLOW], root)
+
+    def fire_at(t):
+        s = 0.2 + 1.0 * ease_out(t / 0.14) if t < 0.14 else 1.2 - 0.2 * smooth((t - 0.14) / 0.16) if t < 0.3 else 1.0 - ease_in((t - 0.3) / 0.45)
+        return ((0, 0.25 + 0.5 * smooth(t / 0.6), 0), (0, 0.6 * t, 0), (max(s, 0.0),) * 3)
+
+    clip.node(fireball, fire_at)
+    r = Mesh()
+    crest = {vid: ids[1] for ids in shock_ring(r, 12, 0.7, 0.88, 1.0, 0.3) for vid in ids}
+    ring = r.finish(f"{entry}.ring", col, bpy.data.materials[GLOW], root)
+    verts = r.verts
+    thin_key(ring, lambda i, p: (verts[crest[i]][0], 0.04, verts[crest[i]][2]))
+    clip.node(ring, lambda t: ((0, 0, 0), (0, 0, 0), (0.3 + (BLAST_RADIUS - 0.3) * ease_out(t / 0.45), 1, 0.3 + (BLAST_RADIUS - 0.3) * ease_out(t / 0.45))))
+    clip.weight(ring, lambda t: smooth((t - 0.1) / 0.5))
+    for index, ((x, z), radius, delay) in enumerate(BLAST_SMOKE):
+        p = Mesh()
+        puff(p, radius)
+        smoke = p.finish(f"{entry}.smoke{index}", col, bpy.data.materials[DUST], root, white=0.55)
+
+        def smoke_at(t, x=x, z=z, delay=delay):
+            local = clamp01((t - 0.1 - delay) / (0.9 - delay))
+            s = (0.3 + 0.7 * ease_out(local / 0.5)) * (1 - ease_in((local - 0.5) / 0.5)) if local > 0 else 0.0
+            return ((x * (0.6 + 0.6 * local), 0.6 * local, z * (0.6 + 0.6 * local)), (0, 0, 0), (s, s * (1 + 0.5 * local), s))
+
+        clip.node(smoke, smoke_at)
+    for index, (heading, speed, peak) in enumerate(BLAST_CHIPS):
+        c = Mesh()
+        rock(c, 0.06, 0.95)
+        chip = c.finish(f"{entry}.shard{index}", col, bpy.data.materials[DUST], root, white=0.75)
+        h = math.radians(heading)
+
+        def chip_at(t, h=h, speed=speed, peak=peak, index=index):
+            flight = min(t / 0.8, 1.0)
+            out = 0.2 + 2.2 * speed * ease_out(flight)
+            s = smooth(t / 0.05) * (1 - smooth((t - 0.75) / 0.25))
+            return ((math.sin(h) * out, 4 * peak * flight * (1 - flight) + 0.07 * s, math.cos(h) * out), (9 * flight, 0, 5 * flight * (1 if index % 2 else -1)), (s, s, s))
+
+        clip.node(chip, chip_at)
+    return {"radius": BLAST_RADIUS}
+
+
+# The trap's jaws slamming shut (#775): sparks thrown off the jaws' teeth, at the jaws' height, and dust from the base.
+SNAP_SPARKS = [(-0.12, 0.8, 0.3), (0.12, 0.8, -0.3), (-0.06, 1.0, -0.5), (0.08, 0.9, 0.5), (0.0, 1.0, 0.0), (-0.14, 0.6, -0.1)]
+SNAP_HEIGHT = 0.13
+
+
+def trap_snap(entry, col, root, clip):
+    """A trap's jaws snapping shut on its plate: a flat flash where the teeth meet, six sparks flicked up off them and
+    two dust puffs kicked out from under the base."""
+    m = Mesh()
+    centre = m.v((0, SNAP_HEIGHT, 0), 1.0)
+    rays = [m.v((0.15 * math.sin(2 * math.pi * k / 8) * (1 if k % 2 else 0.4), SNAP_HEIGHT + 0.15 * math.cos(2 * math.pi * k / 8) * (1 if k % 2 else 0.4), 0), 0.0) for k in range(8)]
+    for k in range(8):
+        m.tri(centre, rays[k], rays[(k + 1) % 8])
+    flash = m.finish(f"{entry}.flash", col, bpy.data.materials[GLOW], root, origin=(0, SNAP_HEIGHT, 0))
+    clip.node(flash, lambda t: ((0, SNAP_HEIGHT, 0), (0, 0, 0.8 * t), ((ease_out(t / 0.15) * (1 - smooth((t - 0.15) / 0.35))),) * 3))
+    for index, (x, up, out) in enumerate(SNAP_SPARKS):
+        s = Mesh()
+        d = Vector((x, up, out)).normalized()
+        side = d.cross(Vector((0, 0, 1)) if abs(d.z) < 0.9 else Vector((1, 0, 0))).normalized() * 0.008
+        tail = s.v(tuple(-d * 0.07 - side), 0.0)
+        s.tri(tail, s.v(tuple(side), 1.0), s.v(tuple(-side), 1.0))
+        s.tri(tail, s.v(tuple(-side), 1.0), s.v(tuple(side), 1.0))
+        spark = s.finish(f"{entry}.spark{index}", col, bpy.data.materials[GLOW], root)
+
+        def spark_at(t, d=d):
+            flight = clamp01(t / 0.6)
+            p = d * 0.45 * ease_out(flight) + Vector((0, SNAP_HEIGHT - 0.12 * flight * flight, 0))
+            k = 1 - smooth((t - 0.4) / 0.3)
+            return (tuple(p), (0, 0, 0), (k, k, k))
+
+        clip.node(spark, spark_at)
+    for index, side in enumerate((-1, 1)):
+        p = Mesh()
+        puff(p, 0.12, 1.4)
+        cloud = p.finish(f"{entry}.dust{index}", col, bpy.data.materials[DUST], root, white=0.95)
+
+        def dust_at(t, side=side):
+            s = (0.4 + 0.6 * ease_out(t / 0.3)) * (1 - ease_in((t - 0.3) / 0.7))
+            return ((0, 0, side * (0.16 + 0.12 * ease_out(t))), (0, 0, 0), (s, s, s))
+
+        clip.node(cloud, dust_at)
+    return {}
+
 BUILDERS = {"strike-arc-cut": arc, "strike-arc-heavy": arc, "cleave-sweep": arc, "combo-glint": glint, "strike-thrust": thrust, "impact-burst": burst, "ground-slam": slam, "lunge-dust": dust,
-            "leap-slam": leap_slam, "dash-trail": dash_trail, "dash-dust": dash_dust}
+            "leap-slam": leap_slam, "dash-trail": dash_trail, "dash-dust": dash_dust, "bomb-blast": bomb_blast, "trap-snap": trap_snap}
 
 
 def build(entry, collection, location=(0, 0, 0)):

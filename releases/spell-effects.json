@@ -1,8 +1,9 @@
 {
+  "note": "#775 raises the materials to 9 for spell-alchemy, the Tinker's flask pool (tinted volatile or caustic).",
   "script": "scripts/build-spell-effects.ts",
   "blender": true,
   "budget": {
-    "materials": 8,
+    "materials": 9,
     "textureMemoryMB": 1,
     "downloadMB": 1
   }

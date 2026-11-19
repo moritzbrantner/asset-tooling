@@ -14,7 +14,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { NodeIO } from "@gltf-transform/core";
 import { KHRTextureBasisu } from "@gltf-transform/extensions";
-import { clipFamilyProblems, ktx2Size } from "../scripts/pack-downloads.ts";
+import { addClips, clipFamilyEntryKey, clipFamilyProblems, ktx2Size } from "../scripts/pack-downloads.ts";
 import { verifyAssetBundleTar } from "../src/asset-bundle-pack.js";
 import { GLTF_RESOURCES_BUNDLE_PROFILE, readAssetBundleAttachment, readAssetBundleGltf, verifyAssetBundle } from "../src/asset-bundle.js";
 import { validateHumanoidItemDescriptor, validateHumanoidSocketDescriptor } from "../src/humanoid-sockets.js";
@@ -25,7 +25,7 @@ import {
   RANGER_UBC_BONE_MAP, RANGER_WEAPONS, RANGER_THROWABLES, RANGER_ITEM_LOD_SELECTION, rangerItemLods, RANGER_OUTFIT_KITS, RANGER_PEASANT_OUTFITS, validateAppearancePresets,
   buildRangerCharacter, rangerItemDescriptor, rangerJobs, rangerPresets,
 } from "../scripts/build-ranger-character.ts";
-import { RANGER_BOW_CLIPS, RANGER_BOW_UPPER_CLIPS, RANGER_CROSSBOW_CLIPS, RANGER_CAST_CLIPS, RANGER_SOCIAL_CLIPS, RANGER_CHORE_CLIPS, RANGER_POST_CLIPS, RANGER_GATHER_CLIPS, RANGER_RAID_CLIPS, RANGER_STRIKE_CLIPS, RANGER_REACT_CLIPS, RANGER_READY_CLIPS, RANGER_DEFEND_CLIPS, RANGER_MOVE_CLIPS, RANGER_WORK_CLIPS, RANGER_RIDE_CLIPS, RANGER_GUARD_CLIPS, RANGER_SIGNAL_CLIPS, RANGER_CLIP_FAMILIES, RANGER_GAIT_CLIPS, RANGER_GRIPS, RANGER_HIT_CLIPS, RANGER_SWIM_CLIPS, RANGER_DAGGER_CLIPS, RANGER_SWORD_CLIPS, RANGER_TRAVERSAL_CLIPS, RANGER_COMBAT_STANDARD_CLIPS, RANGER_CLEARANCE_CLIPS, rangerGripJoints } from "../src/ranger-clips.js";
+import { RANGER_BOW_CLIPS, RANGER_BOW_UPPER_CLIPS, RANGER_CROSSBOW_CLIPS, RANGER_CAST_CLIPS, RANGER_SOCIAL_CLIPS, RANGER_CHORE_CLIPS, RANGER_POST_CLIPS, RANGER_GATHER_CLIPS, RANGER_RAID_CLIPS, RANGER_STRIKE_CLIPS, RANGER_REACT_CLIPS, RANGER_READY_CLIPS, RANGER_DEFEND_CLIPS, RANGER_MOVE_CLIPS, RANGER_WORK_CLIPS, RANGER_RIDE_CLIPS, RANGER_GUARD_CLIPS, RANGER_SIGNAL_CLIPS, RANGER_TINKER_CLIPS, RANGER_CLIP_FAMILIES, RANGER_GAIT_CLIPS, RANGER_GRIPS, RANGER_HIT_CLIPS, RANGER_SWIM_CLIPS, RANGER_DAGGER_CLIPS, RANGER_SWORD_CLIPS, RANGER_TRAVERSAL_CLIPS, RANGER_COMBAT_STANDARD_CLIPS, RANGER_CLEARANCE_CLIPS, rangerGripJoints } from "../src/ranger-clips.js";
 import { MOUNT_GAITS, MOUNT_SEAT_HEIGHT, MOUNT_STILL_SECONDS } from "../src/mounts.js";
 import { CLEARANCE_SUBSTEPS, checkCombatClip, combatCheckEntry } from "../src/combat-clip-checks.js";
 import { WEAPON_ROLES } from "../src/weapon-recipes.js";
@@ -87,7 +87,7 @@ test("the Ranger retargets the library clips in bundle order, then authors its o
   assert.deepEqual([...RANGER_SWIM_CLIPS], ["Wade_Fwd_Loop", "Swim_Idle_Loop", "Swim_Fwd_Loop", "Swim_Down_Loop", "Swim_Up_Loop", "Swim_Enter", "Swim_Exit"]);
   assert.ok(RANGER_SWIM_CLIPS.every((name) => !names.includes(name)));
   // #425: one Blender run per family, in bundle order after the library clips.
-  assert.deepEqual(RANGER_CLIP_FAMILIES.map((family) => family.id), ["gait", "bow", "grips", "swim", "hit", "traversal", "sword", "dagger", "bow-upper", "crossbow", "cast", "social", "chores", "posts", "gather", "raid", "strike", "ready", "defend", "move", "work", "ride", "guard", "signal"]);
+  assert.deepEqual(RANGER_CLIP_FAMILIES.map((family) => family.id), ["gait", "bow", "grips", "swim", "hit", "traversal", "sword", "dagger", "bow-upper", "crossbow", "cast", "social", "chores", "posts", "gather", "raid", "strike", "ready", "defend", "move", "work", "ride", "guard", "signal", "tinker"]);
   // #416: the climb, mantle, ladder and rope clips mmorpg#490 and #500 play by name.
   assert.ok(RANGER_TRAVERSAL_CLIPS.every((name) => !names.includes(name)) && RANGER_TRAVERSAL_CLIPS.length === 16);
   // #417: nine directed slashes and eleven more Warden and Redbrand clips, each with a sword or shield role.
@@ -164,7 +164,10 @@ test("the Ranger retargets the library clips in bundle order, then authors its o
   assert.deepEqual(RANGER_GUARD_CLIPS.filter((name) => RANGER_CLIP_ROLES[name]!.contact), ["Shield_Guard_Bash"]);
   assert.deepEqual(RANGER_GRIPS.find((grip) => grip.clip === "Grip_Crank_L"), { clip: "Grip_Crank_L", socket: "hand_l.weapon", role: "crank", surface: { kind: "cylinder", axis: [0, 1, 0], radius: .012 } });
   assert.deepEqual(RANGER_CLIP_FAMILIES.flatMap((family) => family.clips),
-    [...RANGER_GAIT_CLIPS, ...RANGER_BOW_CLIPS, ...RANGER_GRIPS.map((grip) => grip.clip), ...RANGER_SWIM_CLIPS, ...RANGER_HIT_CLIPS, ...RANGER_TRAVERSAL_CLIPS, ...RANGER_SWORD_CLIPS, ...RANGER_DAGGER_CLIPS, ...RANGER_BOW_UPPER_CLIPS, ...RANGER_CROSSBOW_CLIPS, ...RANGER_CAST_CLIPS, ...RANGER_SOCIAL_CLIPS, ...RANGER_CHORE_CLIPS, ...RANGER_POST_CLIPS, ...RANGER_GATHER_CLIPS, ...RANGER_RAID_CLIPS, ...RANGER_STRIKE_CLIPS, ...RANGER_REACT_CLIPS, ...RANGER_READY_CLIPS, ...RANGER_DEFEND_CLIPS, ...RANGER_MOVE_CLIPS, ...RANGER_WORK_CLIPS, ...RANGER_RIDE_CLIPS, ...RANGER_GUARD_CLIPS, ...RANGER_SIGNAL_CLIPS]);
+    [...RANGER_GAIT_CLIPS, ...RANGER_BOW_CLIPS, ...RANGER_GRIPS.map((grip) => grip.clip), ...RANGER_SWIM_CLIPS, ...RANGER_HIT_CLIPS, ...RANGER_TRAVERSAL_CLIPS, ...RANGER_SWORD_CLIPS, ...RANGER_DAGGER_CLIPS, ...RANGER_BOW_UPPER_CLIPS, ...RANGER_CROSSBOW_CLIPS, ...RANGER_CAST_CLIPS, ...RANGER_SOCIAL_CLIPS, ...RANGER_CHORE_CLIPS, ...RANGER_POST_CLIPS, ...RANGER_GATHER_CLIPS, ...RANGER_RAID_CLIPS, ...RANGER_STRIKE_CLIPS, ...RANGER_REACT_CLIPS, ...RANGER_READY_CLIPS, ...RANGER_DEFEND_CLIPS, ...RANGER_MOVE_CLIPS, ...RANGER_WORK_CLIPS, ...RANGER_RIDE_CLIPS, ...RANGER_GUARD_CLIPS, ...RANGER_SIGNAL_CLIPS, ...RANGER_TINKER_CLIPS]);
+  // #775: the Tinker's trap, throws and ready loop; only the throws have a contact (the release).
+  assert.ok(RANGER_TINKER_CLIPS.every((name) => !names.includes(name) && RANGER_CLIP_ROLES[name]!.role.startsWith("tinker.")));
+  assert.deepEqual(RANGER_TINKER_CLIPS.filter((name) => RANGER_CLIP_ROLES[name]!.contact), ["Tinker_Throw_Flask", "Tinker_Throw_Bomb"]);
   assert.deepEqual([...RANGER_GAITS], ["Walk_Loop", "Jog_Fwd_Loop", "Sprint_Loop", "Crouch_Fwd_Loop", "Jog_Bwd_Loop", "Walk_Bwd_Loop", "Wade_Fwd_Loop"]);
   // Owner picks on #114: heavy = Sword_Regular_C, counter = Sword_Regular_B, light = Sword_Regular_A; Melee_Hook is not used.
   assert.equal(RANGER_CLIP_ROLES.Sword_Regular_C!.role, "sword.heavy-strike");
@@ -178,7 +181,7 @@ test("#733: the clip downloads split every Ranger clip into one family each, in 
   const bundleOrder = [...RANGER_CLIPS.map((clip) => clip.name), ...RANGER_CLIP_FAMILIES.flatMap((family) => family.clips)];
   assert.deepEqual(clipFamilyProblems(bundleOrder, RANGER_CLIP_DOWNLOADS), []);
   assert.deepEqual(RANGER_CLIP_DOWNLOADS.map((download) => download.family),
-    ["base", "combat", "bow", "swim", "hit", "traversal", "sword", "dagger", "bow-upper", "crossbow", "cast", "social", "chores", "posts", "gather", "raid", "strike", "ready", "defend", "move", "work", "ride", "guard", "signal"]);
+    ["base", "combat", "bow", "swim", "hit", "traversal", "sword", "dagger", "bow-upper", "crossbow", "cast", "social", "chores", "posts", "gather", "raid", "strike", "ready", "defend", "move", "work", "ride", "guard", "signal", "tinker"]);
   const base = RANGER_CLIP_DOWNLOADS[0]!.clips;
   assert.ok(["Idle_Loop", "Walk_Loop", "Jog_Fwd_Loop", "Sprint_Loop", "Jump_Loop", "Death01", "Walk_Bwd_Loop", "Grip_Crank_L"].every((clip) => base.includes(clip)));
 });
@@ -298,9 +301,13 @@ test("the Ranger recipe builds a verified bundle: in-place clips, equipment entr
       assert.ok(entries.includes(expected), expected);
     }
     const entry = manifest.assets.find((candidate) => candidate.key === RANGER_BUNDLE_KEY)!;
-    const clipNames = [...RANGER_CLIPS.map((clip) => clip.name), ...RANGER_GAIT_CLIPS, ...RANGER_BOW_CLIPS, ...RANGER_GRIPS.map((grip) => grip.clip), ...RANGER_SWIM_CLIPS, ...RANGER_HIT_CLIPS, ...RANGER_TRAVERSAL_CLIPS, ...RANGER_SWORD_CLIPS, ...RANGER_DAGGER_CLIPS, ...RANGER_BOW_UPPER_CLIPS, ...RANGER_CROSSBOW_CLIPS, ...RANGER_CAST_CLIPS, ...RANGER_SOCIAL_CLIPS, ...RANGER_CHORE_CLIPS, ...RANGER_POST_CLIPS, ...RANGER_GATHER_CLIPS, ...RANGER_RAID_CLIPS, ...RANGER_STRIKE_CLIPS, ...RANGER_REACT_CLIPS, ...RANGER_READY_CLIPS, ...RANGER_DEFEND_CLIPS, ...RANGER_MOVE_CLIPS, ...RANGER_WORK_CLIPS, ...RANGER_RIDE_CLIPS, ...RANGER_GUARD_CLIPS, ...RANGER_SIGNAL_CLIPS];
+    const clipNames = [...RANGER_CLIPS.map((clip) => clip.name), ...RANGER_GAIT_CLIPS, ...RANGER_BOW_CLIPS, ...RANGER_GRIPS.map((grip) => grip.clip), ...RANGER_SWIM_CLIPS, ...RANGER_HIT_CLIPS, ...RANGER_TRAVERSAL_CLIPS, ...RANGER_SWORD_CLIPS, ...RANGER_DAGGER_CLIPS, ...RANGER_BOW_UPPER_CLIPS, ...RANGER_CROSSBOW_CLIPS, ...RANGER_CAST_CLIPS, ...RANGER_SOCIAL_CLIPS, ...RANGER_CHORE_CLIPS, ...RANGER_POST_CLIPS, ...RANGER_GATHER_CLIPS, ...RANGER_RAID_CLIPS, ...RANGER_STRIKE_CLIPS, ...RANGER_REACT_CLIPS, ...RANGER_READY_CLIPS, ...RANGER_DEFEND_CLIPS, ...RANGER_MOVE_CLIPS, ...RANGER_WORK_CLIPS, ...RANGER_RIDE_CLIPS, ...RANGER_GUARD_CLIPS, ...RANGER_SIGNAL_CLIPS, ...RANGER_TINKER_CLIPS];
     const libraryClips = new Set(RANGER_CLIPS.map((clip) => clip.name));
-    assert.deepEqual(entry.observations.animations, clipNames);
+    // #775: one entry per clip download family carries its clips; the default entry carries none.
+    assert.deepEqual(entry.observations.animations, []);
+    const clipEntries = manifest.assets.filter((candidate) => candidate.key === clipFamilyEntryKey(RANGER_BUNDLE_KEY));
+    assert.deepEqual(clipEntries.map((candidate) => [candidate.variant, [...candidate.observations.animations].sort()]), RANGER_CLIP_DOWNLOADS.map(({ family, clips }) => [family, [...clips].sort()]));
+    assert.deepEqual(clipEntries.flatMap((candidate) => candidate.observations.animations).sort(), [...clipNames].sort());
 
     // The sockets descriptor ships with the character entry, byte-identical to the versioned file.
     assert.deepEqual(entry.attachments.map((attachment) => attachment.name).sort(), [RANGER_CLIPS_ATTACHMENT, "humanoid-appearance", RANGER_SOCKETS_ATTACHMENT].sort());
@@ -525,6 +532,16 @@ test("the Ranger recipe builds a verified bundle: in-place clips, equipment entr
       [["Idle_Loop", "Signal_Call_Loop"], ["Signal_Call_Loop", "Signal_Call_Loop"], ["Signal_Call_Loop", "Idle_Loop"], ["Signal_Call_Loop", "Idle_Loop"]]);
     assert.ok(byName.Signal_Call_Start.signal.lipsSeconds >= .4 && byName.Signal_Call_Start.signal.lipsSeconds <= .6);
     assert.ok(byName.Signal_Call_Interrupted.signal.dropSeconds < .2 && Math.abs(byName.Signal_Call_Loop.durationSeconds - 1.5) < .02);
+    // #775: the throws chain through the ready loop and let go at their contact; the trap is set before it is armed,
+    // on the ground in front of the figure.
+    for (const name of RANGER_TINKER_CLIPS) assert.equal(byName[name].secondaryPose.joints.skirt_f_01.length, Math.round(byName[name].durationSeconds * 30) + 1, name);
+    for (const name of ["Tinker_Throw_Flask", "Tinker_Throw_Bomb"]) {
+      assert.deepEqual([byName[name].tinker.from, byName[name].tinker.to], ["Tinker_Ready_Loop", "Tinker_Ready_Loop"], name);
+      assert.ok(Math.abs(byName[name].contact.seconds - byName[name].tinker.releaseSeconds) < .02 && byName[name].tinker.drawSeconds > byName[name].tinker.releaseSeconds, name);
+    }
+    assert.ok(byName.Tinker_Throw_Bomb.tinker.lightSeconds < byName.Tinker_Throw_Bomb.tinker.releaseSeconds);
+    const trap = byName.Tinker_Place_Trap.tinker;
+    assert.ok(trap.placeSeconds < trap.armSeconds && Math.abs(trap.trapAt[1]) < .06 && trap.trapAt[2] > .3, JSON.stringify(trap));
     // Gaits get faster from crouch to sprint; the root-motion variants record the travel in-place removed.
     const speeds = ["Crouch_Fwd_Loop", "Walk_Loop", "Jog_Fwd_Loop", "Sprint_Loop"].map((name) => byName[name].groundSpeedMetersPerSecond);
     assert.ok(speeds[0] > 0.3 && speeds.every((speed: number, index: number) => index === 0 || speed > speeds[index - 1]), `gait speeds ${speeds}`);
@@ -538,7 +555,12 @@ test("the Ranger recipe builds a verified bundle: in-place clips, equipment entr
     }
 
     const { gltf, resources } = await readAssetBundleGltf(built.bundleDir, manifest, RANGER_BUNDLE_KEY, RANGER_BUNDLE_VARIANT);
-    const document = await new NodeIO().registerExtensions([KHRTextureBasisu]).readJSON({ json: JSON.parse(gltf.toString("utf8")), resources: Object.fromEntries(resources) });
+    // #775: the default entry carries no clips; its family entries carry them, joined here on its joints by name.
+    const document = addClips(await new NodeIO().registerExtensions([KHRTextureBasisu]).readJSON({ json: JSON.parse(gltf.toString("utf8")), resources: Object.fromEntries(resources) }),
+      await Promise.all(clipEntries.map(async ({ variant }) => {
+        const family = await readAssetBundleGltf(built.bundleDir, manifest, clipFamilyEntryKey(RANGER_BUNDLE_KEY), variant);
+        return new NodeIO().readJSON({ json: JSON.parse(family.gltf.toString("utf8")), resources: Object.fromEntries(family.resources) });
+      })));
     // #737 (docs/combat-animation-standard.md): the reference clips keep the weapon out of the body, their planted feet
     // still and strike much faster than they wind up. Every other strike is checked and reported, to be held to the
     // standard as phase 2 (#738) redoes it.
@@ -638,7 +660,7 @@ test("the Ranger recipe builds a verified bundle: in-place clips, equipment entr
     const spine = joints.find((joint) => joint.getName() === "spine_01")!;
     const upperBody = new Set<string>();
     for (const pending = [spine]; pending.length;) { const joint = pending.pop()!; upperBody.add(joint.getName()); pending.push(...joint.listChildren()); }
-    assert.deepEqual(document.getRoot().listAnimations().map((animation) => animation.getName()), clipNames);
+    assert.deepEqual(document.getRoot().listAnimations().map((animation) => animation.getName()).sort(), [...clipNames].sort());
     for (const animation of document.getRoot().listAnimations()) {
       const name = animation.getName();
       for (const channel of animation.listChannels()) {

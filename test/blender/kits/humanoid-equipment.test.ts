@@ -11,12 +11,12 @@ import { verifyAssetBundleTar } from "../../../src/asset-bundle-pack.js";
 import { GLTF_RESOURCES_BUNDLE_PROFILE, readAssetBundleAttachment, readAssetBundleGltf, verifyAssetBundle } from "../../../src/asset-bundle.js";
 import { validateHumanoidItemDescriptor } from "../../../src/humanoid-sockets.js";
 import { EQUIPMENT_RELEASE, buildHumanoidEquipment } from "../../../scripts/build-humanoid-equipment.ts";
-import { RANGER_ARCHERY, RANGER_HEADWEAR, RANGER_HELD_ITEMS, RANGER_ITEM_ATTACHMENT, RANGER_THROWABLES, RANGER_WEAPONS, SOCKET_ROLES, rangerItemDescriptor } from "../../../scripts/humanoid-equipment.ts";
+import { RANGER_ARCHERY, RANGER_HEADWEAR, RANGER_HELD_ITEMS, RANGER_ITEM_ATTACHMENT, RANGER_THROWABLES, RANGER_TINKER_ITEMS, RANGER_WEAPONS, SOCKET_ROLES, rangerItemDescriptor } from "../../../scripts/humanoid-equipment.ts";
 import { WEAPON_ROLES } from "../../../src/weapon-recipes.js";
 import { ARCHERY_ROLES } from "../../../src/archery-recipes.js";
 import { KIT_BUDGETS, kitBudgetViolations, kitCost } from "../../../scripts/report-kit-costs.ts";
 
-const ITEMS = [...RANGER_WEAPONS, ...RANGER_ARCHERY, ...RANGER_HEADWEAR, ...RANGER_THROWABLES, ...RANGER_HELD_ITEMS].map(({ key }) => key);
+const ITEMS = [...RANGER_WEAPONS, ...RANGER_ARCHERY, ...RANGER_HEADWEAR, ...RANGER_THROWABLES, ...RANGER_HELD_ITEMS, ...RANGER_TINKER_ITEMS].map(({ key }) => key);
 
 test("the equipment is one rolling release with a budget and the Ranger's item keys", () => {
   assert.equal(EQUIPMENT_RELEASE, "humanoid-equipment");
@@ -35,7 +35,8 @@ test("the recipe builds a verified equipment kit within its limits", {
     const { manifest } = await verifyAssetBundle(built.bundleDir, built.exportRef, { profile: GLTF_RESOURCES_BUNDLE_PROFILE });
     const throwables = RANGER_THROWABLES.map(({ key }) => key);
     assert.deepEqual(manifest.assets.map((entry) => `${entry.key}#${entry.variant}`).sort(),
-      [...ITEMS.map((key) => `${key}#default`), ...throwables.flatMap((key) => [`${key}#lod1`, `${key}#lod2`])].sort());
+      [...ITEMS.map((key) => `${key}#default`), ...throwables.flatMap((key) => [`${key}#lod1`, `${key}#lod2`]),
+        ...RANGER_TINKER_ITEMS.flatMap(({ key, variants }) => variants.slice(1).map(({ variant }) => `${key}#${variant}`))].sort());
     assert.deepEqual(kitBudgetViolations(await kitCost(built.bundleDir), KIT_BUDGETS[EQUIPMENT_RELEASE]!), []);
     for (const key of ITEMS) {
       const item = JSON.parse((await readAssetBundleAttachment(built.bundleDir, manifest, key, "default", RANGER_ITEM_ATTACHMENT)).toString("utf8"));
@@ -96,6 +97,20 @@ test("the recipe builds a verified equipment kit within its limits", {
       const json = JSON.parse((await readAssetBundleGltf(built.bundleDir, manifest, key, "default")).gltf.toString("utf8"));
       assert.deepEqual(json.nodes.map((node: any) => node.name).sort(), ["grip", item].sort(), key);
     }
+    // #775: the Tinker's devices: one entry per device, a variant per state, held on `hand_r.weapon`; the trap turns
+    // its ground, trigger and collision frames up to +Z and records the trigger radius and the collider's half extents.
+    for (const { key, variants } of RANGER_TINKER_ITEMS) {
+      assert.deepEqual(manifest.assets.filter((candidate) => candidate.key === key).map((entry) => entry.variant).sort(), variants.map(({ variant }) => variant).sort(), key);
+      const descriptor = JSON.parse((await readAssetBundleAttachment(built.bundleDir, manifest, key, "default", RANGER_ITEM_ATTACHMENT)).toString("utf8"));
+      assert.equal(descriptor.roles[0], "one-hand-weapon", key);
+    }
+    const trap = JSON.parse((await readAssetBundleAttachment(built.bundleDir, manifest, "equipment.tinker.trap", "default", RANGER_ITEM_ATTACHMENT)).toString("utf8"));
+    assert.deepEqual(trap.roles, ["one-hand-weapon", "trap"]);
+    assert.deepEqual(trap.frames.map((frame: any) => frame.name), ["grip", "collision", "ground", "trigger"]);
+    const byName = Object.fromEntries(trap.frames.map((frame: any) => [frame.name, frame]));
+    assert.deepEqual(byName.trigger.scale, [.25, .25, .25]);
+    assert.deepEqual(byName.collision.scale, [.17, .045, .15]);
+    for (const name of ["ground", "trigger", "collision"]) assert.deepEqual(byName[name].rotation, [.707107, 0, 0, .707107], name);
   } finally {
     await rm(outDir, { recursive: true, force: true });
   }
