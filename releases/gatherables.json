@@ -1,0 +1,10 @@
+{
+  "script": "scripts/build-gatherables.ts",
+  "blender": true,
+  "ktx": true,
+  "budget": {
+    "materials": 1,
+    "textureMemoryMB": 4.5,
+    "downloadMB": 1.5
+  }
+}

@@ -24,6 +24,8 @@ as mmorpg#421 asks:
   an emissive coal bed, ``butter-churn``, ``loom``, ``potters-wheel``, whose wheel spins by ``Spin_Loop``, and
   ``hide-frame``; ``shop-sign-smith``, ``shop-sign-baker`` and ``shop-sign-tailor``, whose painted boards swing by
   ``Swing_Loop``.
+- the smith's crafting bench for Greyhaven crafting (#762): ``smith-bench``, the anvil on its stump with a quench bucket, tongs
+  and a hammer rack.
 
 Frame: metres, glTF right-handed +Y up, origin on the ground at the centre of the prop's footprint, its
 front towards +Z. ``fence`` follows the kit's wall convention: a 2 m module (x -1..1) with half a post
@@ -55,7 +57,8 @@ PROPS = ("stall", "cart", "crate", "barrel", "signpost", "lantern-post", "bench"
          "banner-outpost", "banner-village", "pennant-outpost", "pennant-village", "bunting",
          "scarecrow", "weather-vane", "beehive-skeps", "water-trough", "feed-trough", "hen-coop", "plough",
          "watermill", "water-wheel", "windmill", "forge", "well-windlass",
-         "spit-roast", "butter-churn", "loom", "potters-wheel", "hide-frame", "shop-sign-smith", "shop-sign-baker", "shop-sign-tailor")
+         "spit-roast", "butter-churn", "loom", "potters-wheel", "hide-frame", "shop-sign-smith", "shop-sign-baker", "shop-sign-tailor",
+         "smith-bench")
 FAMILY = {"stall": "market", "cart": "market", "crate": "market", "barrel": "market", "signpost": "street",
           "lantern-post": "street", "bench": "street", "fence": "dressing", "planter": "dressing", "firewood": "dressing",
           "footbridge": "street", "bed": "dressing", "table": "dressing", "chair": "dressing", "chest": "dressing",
@@ -77,7 +80,8 @@ FAMILY = {"stall": "market", "cart": "market", "crate": "market", "barrel": "mar
           **{prop: "dressing" for prop in ("scarecrow", "weather-vane", "beehive-skeps", "water-trough", "feed-trough", "hen-coop", "plough")},
           **{prop: "dressing" for prop in ("watermill", "water-wheel", "windmill", "forge", "well-windlass")},
           **{prop: "dressing" for prop in ("spit-roast", "butter-churn", "loom", "potters-wheel", "hide-frame")},
-          **{prop: "street" for prop in ("shop-sign-smith", "shop-sign-baker", "shop-sign-tailor")}}
+          **{prop: "street" for prop in ("shop-sign-smith", "shop-sign-baker", "shop-sign-tailor")},
+          "smith-bench": "dressing"}
 
 # Plain-colour materials the props add to the kit's: (sRGB base colour, metallic, roughness, texture).
 EXTRA_MATERIALS = {
@@ -1560,10 +1564,8 @@ def build_pottery(part, col, root):
     return {"collisionProxies": [proxy("jar", (-0.57, 0, -0.34), (-0.13, 0.66, 0.1)), proxy("ware", (-0.55, 0, -0.3), (0.55, 0.36, 0.38))]}
 
 
-def build_anvil(part, col, root):
-    """A blacksmith's anvil on an elm stump, its horn toward +X, a hammer and tongs leaning on the stump and a
-    quench bucket beside it."""
-    b = K["Builder"](f"settlement.{part}.mesh")
+def anvil_on_stump(b):
+    """The anvil on its elm stump, horn toward +X; returns the anvil's foot height."""
     sh = 0.5
     lathe(b, [(0, 0.27), (0.04, 0.25), (sh, 0.24)], 10, "wood", "anvil/stump", cap_mat="endgrain", jitter=0.05)
     y = sh
@@ -1572,6 +1574,49 @@ def build_anvil(part, col, root):
     b.prism([(x, y + v) for x, v in outline], -0.075, 0.075, "iron", "anvil/body")
     b.box((-0.18, y, -0.13), (0.18, y + 0.035, 0.13), "iron", "anvil/foot")
     lying(b, (0.31, y + 0.25, 0), 0.0, 0.22, lambda: lathe(b, [(0, 0.0), (0.22, 0.05), (0.22, 0.0)], 7, "iron", "anvil/horn"), squash=(0.7, 0.8))
+    return y
+
+
+def build_smith_bench(part, col, root):
+    """The smith's crafting bench (#762), to stand beside the forge: the anvil on its stump, a quench bucket to +X with a
+    pair of tongs standing in it, and a hammer rack to -X, two posts on feet with a slotted top rail from which three
+    hammers hang by their heads and a sledge leaning on the outer post."""
+    b = K["Builder"](f"settlement.{part}.mesh")
+    y = anvil_on_stump(b)
+    # The work in hand: a bar on the anvil face, the tongs' business end round it.
+    b.box((-0.18, y + 0.28, -0.012), (0.12, y + 0.3, 0.012), "soot", "smith-bench/bar")
+    bx, bz = 0.58, 0.1
+    placed(b, Matrix.Translation((bx, 0, bz)), lambda: lathe(b, [(0, 0.17), (0.4, 0.2), (0.4, 0.18), (0.33, 0.18)], 10, "wood", "smith-bench/bucket", cap_mat="soot"))
+    for yy in (0.07, 0.32):
+        placed(b, Matrix.Translation((bx, 0, bz)), lambda yy=yy: lathe(b, [(yy - 0.015, 0.177 + 0.03 * yy / 0.4), (yy + 0.015, 0.179 + 0.03 * yy / 0.4)], 10, "iron", f"smith-bench/hoop{yy}"))
+    for s in (-1, 1):
+        tilted(b, (bx - 0.02, 0.12, bz + s * 0.02), 0.12 * s, -0.25, lambda s=s: b.box((-0.009, 0, -0.009), (0.009, 0.62, 0.009), "iron", f"smith-bench/tong{s}", grain=(0, 1, 0)))
+    # The hammer rack: posts at x0 and x1 on feet along Z, a top rail the hammers hang from and a low shelf rail.
+    x0, x1, rz, top = -1.05, -0.5, -0.12, 1.0
+    for k, x in enumerate((x0, x1)):
+        b.box((x - 0.035, 0, rz - 0.035), (x + 0.035, top, rz + 0.035), "timber", f"smith-bench/post{k}", grain=(0, 1, 0))
+        b.box((x - 0.04, 0, rz - 0.22), (x + 0.04, 0.07, rz + 0.22), "timber", f"smith-bench/foot{k}", grain=(0, 0, 1))
+    b.box((x0 - 0.06, top, rz - 0.05), (x1 + 0.06, top + 0.06, rz + 0.05), "timber", "smith-bench/rail")
+    b.box((x0 + 0.035, 0.3, rz - 0.03), (x1 - 0.035, 0.36, rz + 0.03), "timber", "smith-bench/shelf")
+    for k, (x, length, head) in enumerate(((-0.92, 0.36, 0.06), (-0.78, 0.42, 0.075), (-0.64, 0.32, 0.05))):
+        # Each hangs by its head across the rail, the handle down through a slot in front of it.
+        hy = top + 0.06
+        b.box((x - 0.024, hy, rz - head), (x + 0.024, hy + 0.05, rz + head), "iron", f"smith-bench/hammer{k}/head")
+        b.box((x - 0.014, hy - length, rz - 0.014), (x + 0.014, hy, rz + 0.014), "timber", f"smith-bench/hammer{k}/handle", grain=(0, 1, 0))
+    # A sledge leans head-down against the rack's outer post.
+    tilted(b, (x0 - 0.12, 0.0087, rz + 0.2), -0.25, 0.0, lambda: (
+        b.box((-0.09, 0, -0.035), (0.09, 0.07, 0.035), "iron", "smith-bench/sledge/head"),
+        b.box((-0.016, 0.07, -0.016), (0.016, 0.72, 0.016), "timber", "smith-bench/sledge/handle", grain=(0, 1, 0))))
+    b.finish(col, root)
+    return {"collisionProxies": [proxy("anvil", (-0.27, 0, -0.27), (0.42, y + 0.3, 0.27)), proxy("bucket", (bx - 0.21, 0, bz - 0.21), (bx + 0.21, 0.4, bz + 0.21)),
+                                 proxy("rack", (x0 - 0.25, 0, rz - 0.22), (x1 + 0.06, top + 0.11, rz + 0.22))]}
+
+
+def build_anvil(part, col, root):
+    """A blacksmith's anvil on an elm stump, its horn toward +X, a hammer and tongs leaning on the stump and a
+    quench bucket beside it."""
+    b = K["Builder"](f"settlement.{part}.mesh")
+    y = anvil_on_stump(b)
     # Hammer and tongs lean against the stump's front.
     tilted(b, (0.1, 0.01, 0.3), -0.3, 0, lambda: (b.box((-0.015, 0, -0.015), (0.015, 0.36, 0.015), "timber", "anvil/hammer-handle", grain=(0, 1, 0)),
                                                 b.box((-0.06, 0.34, -0.025), (0.06, 0.39, 0.025), "iron", "anvil/hammer-head")))
@@ -2952,7 +2997,7 @@ BUILDERS = {"stall": build_stall, "cart": build_cart, "crate": build_crate_part,
             "bread-basket": build_bread_basket, "cheese-board": build_cheese_board, "fish-crate": build_fish_crate,
             "apple-crate": build_apple_crate, "hanging-meats": build_hanging_meats, "cask-rack": build_cask_rack,
             "merchant-scale": build_merchant_scale, "cloth-bolts": build_cloth_bolts, "pottery": build_pottery,
-            "anvil": build_anvil, "grindstone": build_grindstone, "cooper-barrel": build_cooper_barrel,
+            "anvil": build_anvil, "smith-bench": build_smith_bench, "grindstone": build_grindstone, "cooper-barrel": build_cooper_barrel,
             "table-set": build_table_set, "candles": build_candles, "candelabra": build_candelabra, "inn-sign": build_inn_sign,
             "stool": build_stool, "bar-counter": build_bar_counter, "log-stack": build_log_stack, "wall-shield": build_wall_shield,
             "wall-trophy": build_wall_trophy,
