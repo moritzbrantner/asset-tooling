@@ -465,9 +465,9 @@ The Cleric's mace blows `Mace_Swing_A` and `Mace_Swing_B` were authored here unt
 | Clip | Length | Layer | Motion | `humanoid-clips` |
 | --- | --- | --- | --- | --- |
 | `Gather_Chop_Loop` | 2.0 s loop | full body | The wood axe in both hands, the left on its `grip.offhand` below the right: raised over the head, swung down into a log on a block ahead (struck at 0.84 s), wrenched free and raised; the left foot ahead, the pelvis dipping into the strike. | `role: gather.chop`, contact `hand_r`, `secondaryPose` |
-| `Gather_Mine_Loop` | 2.0 s loop | full body | The hammer as a pick in the right hand, drawn back over the shoulder and struck flat into a rock face ahead at about 1.35 m (0.92 s), recoiling; the left palm braced on the rock. | `role: gather.mine`, contact `hand_r`, `secondaryPose` |
+| `Gather_Mine_Loop` | 2.0 s loop | full body | The pickaxe in both hands (the left on its `grip.offhand`), raised over the right shoulder and swung down so its point bites into an ore rock about 0.7 m ahead and 0.44 m up (0.88 s), the chest hinging and the knees dipping into the strike; levered out and raised again. | `role: gather.mine`, contact `hand_r`, `secondaryPose` |
 | `Gather_Herb_Loop` | 3.0 s loop | full body | Crouched, hinged at the hips: each hand in turn reaches to a stem low on the ground, pinches it and pulls it up, twice a loop each. | `role: gather.herb`, `secondaryPose` |
-| `Gather_Skin_Loop` | 3.0 s loop | full body | Kneeling on the right knee over a carcass: the left hand pulls the hide up, the right draws the knife along it and lifts it back, twice a loop. | `role: gather.skin`, `secondaryPose` |
+| `Gather_Skin_Loop` | 3.0 s loop | full body | Kneeling on the right knee over a carcass: the left hand pulls the hide up, the right draws the skinning knife along it and lifts it well clear, twice a loop. | `role: gather.skin`, `secondaryPose` |
 | `Chest_Open` | 1.5 s | full body | Crouching, both palms under the lid's front edge, lifting it about its hinge (0.45-0.93 s) until it falls open, letting go and standing. | `role: interact.chest.open`, `secondaryPose` |
 | `Emote_Yes` | 1.2 s | `spine_01` | Two nods. | `role: emote.yes` |
 | `Emote_No` | 1.2 s | `spine_01` | The head shakes twice. | `role: emote.no` |
@@ -475,8 +475,8 @@ The Cleric's mace blows `Mace_Swing_A` and `Mace_Swing_B` were authored here unt
 | `Emote_Clap` | 2.0 s | `spine_01` | Four claps before the chest (0.55, 0.85, 1.15, 1.45 s). | `role: emote.clap` |
 | `Emote_Cheer_Both` | 1.5 s | `spine_01` | Both fists thrown overhead and pumped twice, the head back; held and lowered. | `role: emote.cheer.both` |
 
-- **`gather` object:** `tool` (`item`, `socket` `hand_r.weapon`; the axe's `offhand` frame and where its `edgeAt` strikes, the hammer's `faceAt`, root frame, glTF axes); `strikeSeconds`, `pickSeconds`, `strokeSeconds`, the skinning kneel's `kneelDropMeters`, the chest's `lidSeconds`, `lidHingeAt`, `lidDepthMeters` and `lidOpenDegrees`, and the clap's `clapSeconds`.
-- **The grips:** `equipment.tool.wood-axe` (both hands), `equipment.tool.hammer` (the pick, until a pick exists) and `equipment.dagger.plain` (the knife) are all held at their own `grip` on `hand_r.weapon`, so none needs a `tool.itemOffset`.
+- **`gather` object:** `tool` (`item`, `socket` `hand_r.weapon`; the axe's `offhand` frame and where its `edgeAt` strikes, the pickaxe's `offhand` frame and its `pointAt`, root frame, glTF axes); `strikeSeconds`, `pickSeconds`, `strokeSeconds`, the skinning kneel's `kneelDropMeters`, the chest's `lidSeconds`, `lidHingeAt`, `lidDepthMeters` and `lidOpenDegrees`, and the clap's `clapSeconds`.
+- **The grips:** `equipment.tool.wood-axe` and `equipment.tool.pickaxe` (both hands, #736) and `equipment.tool.skinning-knife` are all held at their own `grip` on `hand_r.weapon`, so none needs a `tool.itemOffset`.
 - **The chest:** a chest 0.55 m high whose lid's front edge stands 0.38 m ahead, 0.36 m deep; the hands push the lid to 65° and let go, and the consumer swings it on to `lidOpenDegrees` over `lidSeconds`.
 - **Wave and cheer:** `Emote_Wave` and the one-armed `Emote_Cheer` are the #421 social clips and stay as they are; `Emote_Cheer_Both` is the both-arms cheer #701 asks for, under its own name so no clip changes.
 - **Review:** shaped and reviewed in the live Blender on the male Ranger (the published figure with its Idle clip) with stand-in axe, hammer and knife on `hand_r.weapon`.

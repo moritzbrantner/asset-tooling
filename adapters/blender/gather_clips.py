@@ -8,8 +8,8 @@ the full-body clips, pelvis and ankle targets solved with two-bone leg IK, on to
 source motion is copied; the CC0 UAL1 seeds were only watched as reference.
 
 - The tools hang on ``hand_r.weapon`` (``arguments["sockets"]["weapon"]``), as adapters/blender/held_items.py builds
-  them: the business end along the item's +Y, the edge or striking face along +X. The wood axe is two-handed, the
-  left hand on its ``grip.offhand`` frame below the right; the hammer (the pick) and the knife are one-handed. Their
+  them: the business end along the item's +Y, the edge or pick point along +X. The wood axe and the pickaxe are
+  two-handed, the left hand on their ``grip.offhand`` frame below the right; the skinning knife is one-handed. Their
   grips need no ``itemOffset``: each is held where held_items.py puts its grip.
 - ``Gather_Chop_Loop``, ``Gather_Mine_Loop``, ``Gather_Herb_Loop``, ``Gather_Skin_Loop`` and ``Chest_Open`` are full
   body and record a skirt and cape pose for the #391 chain joints (``secondaryPose``, as the social clips). The
@@ -77,16 +77,16 @@ CHOP = {"duration": 2.0, "head": .55, "edge": .16, "offhand": -.12, "strike": .4
                  (.42, 115.0, (-.04, -.38, .88), 40.0, .14),
                  (.56, 110.0, (-.04, -.36, .9), 38.0, .14),
                  (.78, 25.0, (-.05, -.16, 1.42), 6.0, .03))}
-# Mining (held_items.py ``tool.hammer`` as the pick: the head ``head`` up the haft, its face ``face`` out along +X):
-# keys (fraction, haft angle, grip point, chest yaw, chest pitch) drawn back over the right shoulder, swung, struck
-# flat into a rock face ahead at chest height (``strike``; the rock stands where the face lands) and recoiling; the
-# left palm braced on the rock at ``brace`` (x and height).
-MINE = {"duration": 2.0, "head": .27, "face": .07, "strike": .46, "stance": (.16, .08), "brace": (.2, -.5, 1.1),
-        "keys": ((0.0, -105.0, (-.2, .02, 1.5), -14.0, -2.0),
-                 (.3, -45.0, (-.17, -.18, 1.42), -6.0, 4.0),
-                 (.46, 2.0, (-.13, -.34, 1.08), 4.0, 12.0),
-                 (.58, -10.0, (-.14, -.3, 1.14), 2.0, 10.0),
-                 (.8, -70.0, (-.19, -.08, 1.48), -10.0, 2.0))}
+# Mining (#736: held_items.py ``tool.pickaxe``, two-handed like the axe: its +X pick ``point`` (along X, up the haft)
+# leading, the left hand on ``grip.offhand``, ``offhand`` below the right): keys (fraction, haft angle, grip point,
+# chest pitch, pelvis dip) raised over the right shoulder, swung down so the point bites into an ore rock low ahead
+# (``strike``; the rock stands where the point lands), levered out and raised.
+MINE = {"duration": 2.0, "point": (.22, .515), "offhand": -.12, "strike": .44, "stance": (.18, .1),
+        "keys": ((0.0, -40.0, (-.2, .06, 1.6), -8.0, .0),
+                 (.3, 50.0, (-.07, -.28, 1.42), 12.0, .04),
+                 (.44, 122.0, (-.05, -.4, .9), 40.0, .15),
+                 (.58, 112.0, (-.05, -.36, .96), 36.0, .14),
+                 (.8, 5.0, (-.18, -.1, 1.52), 2.0, .03))}
 # A crouch (``crouch_body``): the feet ``ahead`` and ``wide`` apart, the pelvis ``drop`` lower, ``back`` behind and
 # tipped ``hip`` degrees forward, so the chest hinges at the hips (the spine pitch alone pivots too high to reach the
 # ground with the Ranger's short arms).
@@ -96,11 +96,12 @@ MINE = {"duration": 2.0, "head": .27, "face": .07, "strike": .46, "stance": (.16
 HERB = {"duration": 3.0, "crouch": {"drop": .54, "back": .08, "hip": 46.0, "ahead": .18, "wide": .06}, "reach": (-.12, -.36, .14),
         "lift": (-.07, -.28, .38), "pitch": 30.0, "neck": 6.0, "picks": ((0.0, "r"), (.25, "l"), (.5, "r"), (.75, "l"))}
 # Skinning: kneeling on the right knee over a carcass ahead (the pelvis ``kneel`` lower and tipped ``hip`` degrees,
-# the left foot ``step`` forward), the left hand pulling the hide up at ``hold``, the right drawing the knife
-# (held_items.py ``dagger.plain``, blade along +Y pointing down into the hide, edge along +X leading) along ``stroke``,
-# lifting it ``lift`` back, ``strokes`` a loop.
-SKIN = {"duration": 3.0, "kneel": .42, "step": .3, "strokes": 2, "hold": (.12, -.46, .36), "stroke": ((-.12, -.36, .48), (-.02, -.48, .44)),
-        "lift": .07, "hip": 40.0, "pitch": 24.0, "neck": 16.0}
+# the left foot ``step`` forward), the left hand pulling the hide up ``peel`` from ``hold``, the right drawing the
+# skinning knife (#736: held_items.py ``tool.skinning-knife``, blade along +Y pointing down into the hide, edge along +X
+# leading) along ``stroke`` and lifting it ``lift`` back, ``strokes`` a loop; long and high enough to read at the game
+# camera.
+SKIN = {"duration": 3.0, "kneel": .42, "step": .3, "strokes": 2, "hold": (.12, -.46, .36), "peel": .07,
+        "stroke": ((-.14, -.34, .47), (.0, -.54, .42)), "lift": .13, "hip": 40.0, "pitch": 24.0, "neck": 16.0}
 # The chest: its lid's front edge ``front`` ahead at ``height``, ``width`` across, the hinge ``depth`` behind it. The
 # figure crouches (``crouch``), puts both palms under the lid's edge, lifts it from ``lift[0]`` to ``lift[1]`` up to
 # ``reach`` degrees, lets go (the lid falls on to ``open``) and stands.
@@ -618,49 +619,42 @@ def mirror(p):
 
 # --- Gathering -------------------------------------------------------------------------------------------------------
 
+def two_hand_swing(actor, spec, u):
+    """One frame of a two-handed tool swing (``spec["keys"]``), the left hand ``spec["offhand"]`` down the haft from
+    the right, the feet planted in ``spec["stance"]`` and the pelvis dipping into the strike."""
+    weapon, pitch, dip = swing_at(swing_keys(spec["keys"]), u)
+    haft = weapon.to_3x3().col[1]
+    palm = weapon @ actor.weapon_palm @ PALM
+    around = palm - weapon.translation
+    hands = lambda: {"r": ("weapon", weapon), "l": ("palm_l", shaft_palm(weapon.translation + haft * spec["offhand"], haft, around, True))}
+    return actor.pose(hands, {"pitch": pitch, "neck": 8.0 + pitch * .2}, {"r": "grip", "l": "grip"},
+                      lambda: stance_body(actor, spec["stance"], dip))
+
+
 def chop(actor):
     """Chopping a log with the wood axe in both hands, the left below the right on its ``grip.offhand``: raised over
     the head, swung down into the log ahead, wrenched free and raised again, once a loop; the pelvis dips into the
     strike."""
     spec = CHOP
-    keys = swing_keys(spec["keys"])
     edge_point = Vector((spec["edge"], spec["head"], 0))
-
-    def frame(u):
-        weapon, pitch, dip = swing_at(keys, u)
-        haft = weapon.to_3x3().col[1]
-        palm = weapon @ actor.weapon_palm @ PALM
-        around = palm - weapon.translation
-        hands = lambda: {"r": ("weapon", weapon), "l": ("palm_l", shaft_palm(weapon.translation + haft * spec["offhand"], haft, around, True))}
-        return actor.pose(hands, {"pitch": pitch, "neck": 8.0 + pitch * .2}, {"r": "grip", "l": "grip"},
-                          lambda: stance_body(actor, spec["stance"], dip))
-
-    poses = loop(spec["duration"], frame)
+    poses = loop(spec["duration"], lambda u: two_hand_swing(actor, spec, u))
     strike = spec["strike"]
-    edge = swing_at(keys, strike)[0] @ edge_point
+    edge = swing_at(swing_keys(spec["keys"]), strike)[0] @ edge_point
     return poses, {"strikeSeconds": round(strike * spec["duration"], 4), "contactSeconds": round(strike * spec["duration"], 4),
                    "tool": {"item": "equipment.tool.wood-axe", "socket": "hand_r.weapon", "offhand": "grip.offhand", "edgeAt": root_point(edge)}}
 
 
 def mine(actor):
-    """Mining a rock face at chest height with the hammer as the pick, one-handed: drawn back over the right shoulder,
-    swung and struck flat into the rock, recoiling, once a loop; the left palm braced on the rock beside the strike."""
+    """Mining an ore rock low ahead with the pickaxe in both hands, the left below the right on its ``grip.offhand``:
+    raised over the right shoulder, swung down so the point bites into the rock, levered out and raised again, once a
+    loop; the chest hinges and the pelvis dips into the strike."""
     spec = MINE
-    keys = swing_keys(spec["keys"])
-    face_point = Vector((spec["face"], spec["head"], 0))
+    point_at = Vector((spec["point"][0], spec["point"][1], 0))
+    poses = loop(spec["duration"], lambda u: two_hand_swing(actor, spec, u))
     strike = spec["strike"]
-    face = swing_at(keys, strike)[0] @ face_point
-    brace = Vector((spec["brace"][0], face.y, spec["brace"][2]))
-
-    def frame(u):
-        weapon, yaw, pitch = swing_at(keys, u)
-        hands = lambda: {"r": ("weapon", weapon), "l": ("palm_l", palm_frame(brace, Vector((-.25, 0, 1)), Vector((0, -1, 0))))}
-        return actor.pose(hands, {"yaw": yaw, "pitch": pitch, "neck": 4.0}, {"r": "grip", "l": "flat"},
-                          lambda: stance_body(actor, spec["stance"], .04))
-
-    poses = loop(spec["duration"], frame)
+    point = swing_at(swing_keys(spec["keys"]), strike)[0] @ point_at
     return poses, {"strikeSeconds": round(strike * spec["duration"], 4), "contactSeconds": round(strike * spec["duration"], 4),
-                   "tool": {"item": "equipment.tool.hammer", "socket": "hand_r.weapon", "faceAt": root_point(face)}}
+                   "tool": {"item": "equipment.tool.pickaxe", "socket": "hand_r.weapon", "offhand": "grip.offhand", "pointAt": root_point(point)}}
 
 
 def herb(actor):
@@ -691,7 +685,7 @@ def herb(actor):
 
 
 def skin(actor):
-    """Skinning a carcass, kneeling on the right knee over it: the left hand pulls the hide up, the right draws the
+    """Skinning a carcass, kneeling on the right knee over it: the left hand peels the hide up, the right draws the
     knife along it and lifts it back, ``strokes`` a loop."""
     spec, rig = SKIN, actor.rig
     a, b = (v(p) for p in spec["stroke"])
@@ -703,14 +697,14 @@ def skin(actor):
         rise = spec["lift"] * math.sin(math.pi * (phase - .6) / .4) if phase >= .6 else 0.0
         blade = Vector((0, -.5, -1)).normalized()
         knife = frame_of(a.lerp(b, draw) + UP * rise, blade, along.cross(blade))
-        hide = palm_frame(v(spec["hold"]) + UP * .03 * draw, Vector((0, -.4, -1)), Vector((-1, 0, 0)))
+        hide = palm_frame(v(spec["hold"]) + UP * spec["peel"] * draw, Vector((0, -.4, -1)), Vector((-1, 0, 0)))
         hands = lambda: {"r": ("weapon", knife), "l": ("palm_l", hide)}
-        chest = {"pitch": spec["pitch"] + 2.0 * draw, "yaw": -4.0 * draw, "neck": spec["neck"]}
+        chest = {"pitch": spec["pitch"] + 6.0 * draw, "yaw": -9.0 * draw, "neck": spec["neck"]}
         return actor.pose(hands, chest, {"r": "grip", "l": "grip"}, lambda: kneel_body(rig, actor.feet, 1.0))
 
     starts = [round(k * spec["duration"] / spec["strokes"], 4) for k in range(spec["strokes"])]
     return loop(spec["duration"], frame), {"strokeSeconds": starts, "kneelDropMeters": spec["kneel"],
-                                           "tool": {"item": "equipment.dagger.plain", "socket": "hand_r.weapon"}}
+                                           "tool": {"item": "equipment.tool.skinning-knife", "socket": "hand_r.weapon"}}
 
 
 def chest_open(actor):

@@ -100,7 +100,7 @@ export const RANGER_POST_CLIPS = [
 /**
  * #701 (#422's gathering and emotes, for players and residents): gathering loops, a chest opening and social emotes
  * authored in place on the Ranger rig by adapters/blender/gather_clips.py from the `hand_r.weapon` frame (the wood axe,
- * the hammer as a pick and the knife) and explicit palm frames (two-bone arm IK) and, for the full-body clips, pelvis
+ * the pickaxe and the skinning knife, #736) and explicit palm frames (two-bone arm IK) and, for the full-body clips, pelvis
  * and ankle targets (two-bone leg IK; the CC0 UAL1 seeds only as reference). The gathering loops and the chest are full
  * body with a `secondaryPose`; the emotes keep only the `spine_01` subtree. `Emote_Wave` and the one-armed
  * `Emote_Cheer` are the #421 social clips; `Emote_Cheer_Both` is the both-arms cheer. They follow the post clips in
