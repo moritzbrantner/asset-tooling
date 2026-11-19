@@ -1,0 +1,8 @@
+{
+  "note": "The Greyhaven mounts (#769): the tacked riding horse over the catalogued Quaternius horse, built twice for the same tar.",
+  "timeout": 20,
+  "ktx": false,
+  "lfs": [
+    "assets/canonical/quaternius.ultimate-animated-animals-horse-glb/**"
+  ]
+}
