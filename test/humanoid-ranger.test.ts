@@ -361,6 +361,12 @@ test("the Ranger recipe builds a verified bundle: in-place clips, equipment entr
     assert.ok(reload.spannedSeconds < reload.leftHandSeconds[0] && reload.leftHandSeconds[0] < reload.boltDrawnSeconds
       && reload.boltDrawnSeconds < reload.reloadedSeconds && reload.reloadedSeconds < reload.leftHandSeconds[1], JSON.stringify(reload));
     assert.ok(byName.Crossbow_Aim_Loop.loop && byName.Crossbow_Idle_Loop.loop);
+    // #754: the marksman's footwork goes from the aim back to it, stands for its travel back and keeps the reload's marks.
+    for (const name of ["Crossbow_Backpedal", "Crossbow_Reload_Back"]) {
+      assert.deepEqual([byName[name].crossbow.from, byName[name].crossbow.to, byName[name].crossbow.direction], ["crossbow.aim", "crossbow.aim", "back"], name);
+      assert.ok(byName[name].sourceRootDisplacement.z < -.5 && byName[name].secondaryPose.joints.skirt_f_01.length === Math.round(byName[name].durationSeconds * 30) + 1, name);
+    }
+    assert.deepEqual(byName.Crossbow_Reload_Back.crossbow.reloadedSeconds, reload.reloadedSeconds);
     // #420: every cast clip with a contact has it at its release; the beam starts at the staff's head, the releases at
     // the palm; the kneel records the skirt and cape pose.
     for (const name of RANGER_CAST_CLIPS.filter((clip) => RANGER_CLIP_ROLES[clip]!.contact)) {
