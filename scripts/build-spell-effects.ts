@@ -1,4 +1,4 @@
-// Build the spell effect meshes (#726, docs/spell-effects.md) from the scripted recipe adapters/blender/spell_effects.py:
+// Build the spell effect meshes (#726, #771, docs/spell-effects.md) from the scripted recipe adapters/blender/spell_effects.py:
 //   ASSET_TOOLING_BLENDER=<blender 5.2.2> bun scripts/build-spell-effects.ts --out <directory>
 // Each entry is one external.blender.script@1 run, imported through scene.import.gltf@2. The spell-effects-descriptor-v1
 // attachment lists each entry's clip, alignment, intended scale, school tint, triangles and bounds. <directory> becomes the
@@ -18,6 +18,8 @@ export const SPELL_EFFECTS = [
   "impact-fire", "impact-shadow", "impact-holy", "impact-nature", "impact-frost",
   "arrow", "crossbow-bolt", "throwing-knife",
   "frost-nova", "beam-segment", "heal-motes",
+  "blink-out", "blink-in", "grapple-rope", "grapple-hook",
+  "roots-hold-loop", "roots-hold-end", "frost-hold-loop", "frost-hold-end", "ice-slip-scrape",
 ] as const;
 export type SpellEffect = (typeof SPELL_EFFECTS)[number];
 export const SPELL_KEY_PREFIX = "spell.effects";
@@ -38,6 +40,10 @@ export const SPELL_CLIPS: Partial<Record<SpellEffect, { name: "Loop" | "Play"; d
   "impact-holy": { name: "Play", duration: 0.4 }, "impact-nature": { name: "Play", duration: 0.45 },
   "impact-frost": { name: "Play", duration: 0.35 }, "frost-nova": { name: "Play", duration: 0.5 },
   "beam-segment": { name: "Loop", duration: 0.24 }, "heal-motes": { name: "Play", duration: 0.8 },
+  "blink-out": { name: "Play", duration: 0.3 }, "blink-in": { name: "Play", duration: 0.4 },
+  "roots-hold-loop": { name: "Loop", duration: 1.2 }, "roots-hold-end": { name: "Play", duration: 0.35 },
+  "frost-hold-loop": { name: "Loop", duration: 1 }, "frost-hold-end": { name: "Play", duration: 0.35 },
+  "ice-slip-scrape": { name: "Play", duration: 0.6 },
 };
 /** What each entry is for and which school tints it, copied into the descriptor. */
 export const SPELL_USE: Record<SpellEffect, { use: string; school: string; tint: string }> = {
@@ -56,6 +62,15 @@ export const SPELL_USE: Record<SpellEffect, { use: string; school: string; tint:
   "frost-nova": { use: "Frost Nova", school: "frost", tint: "spell-frost" },
   "beam-segment": { use: "Lightning Beam, Holy Beam", school: "any", tint: "spell-energy" },
   "heal-motes": { use: "Renew, Rejuvenation and heals", school: "any", tint: "spell-energy" },
+  "blink-out": { use: "Blink, at the caster as it leaves (Blink_Out, 0.3 s)", school: "any", tint: "spell-energy" },
+  "blink-in": { use: "Blink, at the caster as it arrives (Blink_In, 0.4 s)", school: "any", tint: "spell-energy" },
+  "grapple-rope": { use: "a grapple's rope from the hand to the hook (Grapple_Throw, released 0.4 s in)", school: "physical", tint: "shot" },
+  "grapple-hook": { use: "a grapple's hook, flying and caught on the target", school: "physical", tint: "shot" },
+  "roots-hold-loop": { use: "Entangling Roots on a rooted target's feet while it holds", school: "nature", tint: "shot" },
+  "roots-hold-end": { use: "Entangling Roots breaking, after roots-hold-loop", school: "nature", tint: "shot" },
+  "frost-hold-loop": { use: "Frost Nova's freeze on a rooted target's feet while it holds", school: "frost", tint: "spell-frost" },
+  "frost-hold-end": { use: "a freeze breaking, after frost-hold-loop", school: "frost", tint: "spell-frost" },
+  "ice-slip-scrape": { use: "feet sliding on ice", school: "frost", tint: "spell-frost" },
 };
 /** A material's base colour as an sRGB hex string, the colour a game would replace to recolour the entry. */
 function srgbHex(document: Document, name: string) {
@@ -120,9 +135,10 @@ export async function buildSpellEffects({ outDir, log = () => {} }: { outDir: st
       hit: "the hit point; the burst is roughly round, its holy column and flame tongues rise along +Y",
       ground: "the caster's or target's feet on the ground, +Y up",
       beam: "the beam's start; one segment runs from z = 0 to z = tileLength, and both ends share a cross-section, so scale it along Z or lay copies end to end",
+      path: "the start of a move on the ground, +Y up and +Z along the move; the effect runs to z = length, so scale Z by the move's distance / length",
     },
     bounds: "Each entry's bounds hold every frame of its clip.",
-    playback: "Loop clips repeat while the projectile or beam lives; Play clips run once from the hit or cast and end with zero scale or zero area, so remove the instance when they end. Shots are static: the game spins a knife itself.",
+    playback: "Loop clips repeat while the projectile, beam or hold lives; Play clips run once from the hit or cast and end with zero scale or zero area, so remove the instance when they end. A *-hold-loop entry is followed by its *-hold-end entry when the hold breaks: the end starts from the loop's first pose. Shots, the grapple rope and the hook are static: the game spins a knife itself.",
     tinting: "Colour and opacity come from COLOR_0 (RGBA) times the material colour; spell vertex colours stay at or below white, so set a material's base and emissive colour to recolour. tint names each entry's main material and its authored sRGB colour.",
     assets,
   };

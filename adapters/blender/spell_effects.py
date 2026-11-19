@@ -1,5 +1,6 @@
 """Spell effect meshes (docs/spell-effects.md, #726): school bolts, impacts, a frost nova, a beam segment, heal motes,
-and proper arrow, crossbow-bolt and throwing-knife models.
+and proper arrow, crossbow-bolt and throwing-knife models; and, for the movement and control clips (#771), blink out and in,
+a grapple rope and hook, vine and ice holds for a rooted target's feet with their end clips, and an ice-slip scrape.
 
 ``bolt-<school>`` are looping projectile heads with a crossed-plane tail; ``impact-<school>`` are short bursts that end
 gone; ``frost-nova`` is a ring of ice spikes that bursts out to 8 m and sinks; ``beam-segment`` is a one-metre tileable
@@ -34,6 +35,8 @@ ENTRIES = (
     "impact-fire", "impact-shadow", "impact-holy", "impact-nature", "impact-frost",
     "arrow", "crossbow-bolt", "throwing-knife",
     "frost-nova", "beam-segment", "heal-motes",
+    "blink-out", "blink-in", "grapple-rope", "grapple-hook",
+    "roots-hold-loop", "roots-hold-end", "frost-hold-loop", "frost-hold-end", "ice-slip-scrape",
 )
 CLIP_FPS = 100  # whole frames for every clip length below
 # Entry: (clip name, seconds); the shots have no clip.
@@ -41,11 +44,15 @@ CLIPS = {
     "bolt-fire": ("Loop", 0.4), "bolt-shadow": ("Loop", 0.6), "bolt-holy": ("Loop", 0.5), "bolt-nature": ("Loop", 0.6),
     "impact-fire": ("Play", 0.35), "impact-shadow": ("Play", 0.4), "impact-holy": ("Play", 0.4), "impact-nature": ("Play", 0.45),
     "impact-frost": ("Play", 0.35), "frost-nova": ("Play", 0.5), "beam-segment": ("Loop", 0.24), "heal-motes": ("Play", 0.8),
+    "blink-out": ("Play", 0.3), "blink-in": ("Play", 0.4), "roots-hold-loop": ("Loop", 1.2), "roots-hold-end": ("Play", 0.35),
+    "frost-hold-loop": ("Loop", 1.0), "frost-hold-end": ("Play", 0.35), "ice-slip-scrape": ("Play", 0.6),
 }
 ALIGN = {
     **{e: "tip" for e in ("bolt-fire", "bolt-shadow", "bolt-holy", "bolt-nature", "arrow", "crossbow-bolt", "throwing-knife")},
     **{f"impact-{s}": "hit" for s in SCHOOLS},
     "frost-nova": "ground", "heal-motes": "ground", "beam-segment": "beam",
+    **{e: "ground" for e in ("blink-out", "blink-in", "roots-hold-loop", "roots-hold-end", "frost-hold-loop", "frost-hold-end")},
+    "grapple-rope": "beam", "grapple-hook": "tip", "ice-slip-scrape": "path",
 }
 TRIANGLE_BUDGET = 240
 NOVA_RADIUS = 8.0  # Frost Nova's 800-unit radius in mmorpg
@@ -187,6 +194,7 @@ def morph(obj, name, target):
     """Add one morph target: every vertex moves to ``target(index, point)`` (glTF axes, mesh-local)."""
     obj.shape_key_add(name="Basis")
     key = obj.shape_key_add(name=name)
+    key.value = 0.0
     for i, vert in enumerate(obj.data.vertices):
         p = vert.co
         key.data[i].co = to_blender(target(i, (p.x, p.z, -p.y)))
@@ -776,11 +784,390 @@ def heal_motes(entry, col, root, clip):
     return {}
 
 
+# ---------------------------------------------------------------- movement and control (#771)
+
+def mote(m, size, alpha=1.0, rgb=(1, 1, 1)):
+    """A soft mote: three crossed diamonds about a bright centre, so it reads from any side."""
+    centre = m.v((0, 0, 0), alpha, rgb)
+    for axis in ((1, 0, 0), (0, 1, 0), (0, 0, 1)):
+        e = Vector((axis[1], axis[2], axis[0]))
+        f = Vector(axis).cross(e)
+        ring = [m.v(tuple(size * (math.cos(TAU * k / 4) * e + math.sin(TAU * k / 4) * f)), 0.0, rgb) for k in range(4)]
+        for k in range(4):
+            m.tri(centre, ring[k], ring[(k + 1) % 4])
+
+
+def star_flash(m, ray, cross):
+    """A four-pointed star of three crossed planes about a bright centre."""
+    for plane in range(3):
+        at = lambda u, v, plane=plane: ((u, v, 0), (0, v, u), (u, 0, v))[plane]
+        centre = m.v((0, 0, 0), 1.0)
+        rim = []
+        for k in range(8):
+            a = TAU * k / 8
+            reach = ray if k % 2 == 0 else cross
+            rim.append(m.v(at(reach * math.cos(a), reach * math.sin(a)), 0.0 if k % 2 == 0 else 0.4))
+        for k in range(8):
+            m.tri(centre, rim[k], rim[(k + 1) % 8])
+
+
+def column(m, height, width, alphas):
+    """Two crossed upright glow planes, bright on their axis (``alphas`` from the ground up) and clear at their edges."""
+    rows = []
+    for i, a in enumerate(alphas):
+        y = height * i / (len(alphas) - 1)
+        rows.append([m.v((0, y, 0), a), m.v((width, y, 0), 0.0), m.v((-width, y, 0), 0.0), m.v((0, y, width), 0.0), m.v((0, y, -width), 0.0)])
+    for a, b in zip(rows, rows[1:]):
+        for edge in (1, 2, 3, 4):
+            m.quad(a[0], a[edge], b[edge], b[0])
+
+
+# Blink motes: angle about the caster, height, start radius and size.
+BLINK_MOTES = [(0.0, 0.35, 0.5, 0.09), (1.3, 1.5, 0.45, 0.07), (2.5, 0.8, 0.55, 0.08), (3.6, 1.75, 0.4, 0.06), (4.6, 0.25, 0.5, 0.08),
+               (5.5, 1.15, 0.5, 0.09), (0.7, 1.0, 0.6, 0.06), (3.0, 0.55, 0.45, 0.07), (1.9, 0.15, 0.4, 0.06), (5.0, 1.55, 0.55, 0.07)]
+BODY = 1.0  # the caster's middle, where a blink gathers and bursts
+
+
+def blink_out(entry, col, root, clip):
+    """The caster folds away: a shimmer column about the body narrows to nothing while ten motes spiral in to the
+    caster's middle, which pops with a small star as the caster vanishes."""
+    m = Mesh()
+    column(m, 2.0, 0.42, (0.1, 0.32, 0.3, 0.05))
+    shimmer = m.finish(f"{entry}.shimmer", col, "spell-energy", root)
+    clip.node(shimmer, lambda t: ((0, 0, 0), (0, 2.5 * t, 0), (1 - ease_in(t), 1 + 0.15 * t, 1 - ease_in(t))))
+    for index, (angle, height, radius, size) in enumerate(BLINK_MOTES):
+        mm = Mesh()
+        mote(mm, size)
+        obj = mm.finish(f"{entry}.mote{index}", col, "spell-energy", root)
+
+        def at(t, angle=angle, height=height, radius=radius):
+            pull = ease_in(t / 0.8)
+            a = angle + 2.4 * t
+            r = radius * (1 - pull)
+            s = smooth(t / 0.15) * (1 - smooth((t - 0.65) / 0.3))
+            return ((r * math.sin(a), height + (BODY - height) * pull, r * math.cos(a)), (0, 0, 0), (s, s, s))
+
+        clip.node(obj, at)
+    fm = Mesh()
+    star_flash(fm, 0.42, 0.12)
+    star = fm.finish(f"{entry}.pop", col, "spell-energy", root)
+
+    def pop(t):
+        local = clamp01((t - 0.62) / 0.38)
+        s = ease_out(local / 0.4) * (1 - ease_in((local - 0.4) / 0.6)) if local > 0 else 0.0
+        return ((0, BODY, 0), (0, 0, 1.2 * local), (s, s, s))
+
+    clip.node(star, pop)
+    return {}
+
+
+def blink_in(entry, col, root, clip):
+    """The caster arrives: a star flash at the body, a shimmer column that flares and narrows, eight motes thrown out and
+    settling, and a faint ring that runs out over the ground."""
+    fm = Mesh()
+    star_flash(fm, 0.55, 0.15)
+    star = fm.finish(f"{entry}.flash", col, "spell-energy", root)
+
+    def flash_at(t):
+        s = ease_out(t / 0.12) * (1 - ease_in((t - 0.12) / 0.48))
+        return ((0, BODY, 0), (0, 0, -0.8 * t), (s, s, s))
+
+    clip.node(star, flash_at)
+    m = Mesh()
+    column(m, 2.1, 0.45, (0.12, 0.35, 0.32, 0.05))
+    shimmer = m.finish(f"{entry}.shimmer", col, "spell-energy", root)
+    clip.node(shimmer, lambda t: ((0, 0, 0), (0, -2 * t, 0), ((0.3 + 0.8 * ease_out(t / 0.2)) * (1 - ease_in((t - 0.25) / 0.75)), 1, (0.3 + 0.8 * ease_out(t / 0.2)) * (1 - ease_in((t - 0.25) / 0.75)))))
+    for index, (angle, height, radius, size) in enumerate(BLINK_MOTES[:8]):
+        mm = Mesh()
+        mote(mm, size)
+        obj = mm.finish(f"{entry}.mote{index}", col, "spell-energy", root)
+
+        def at(t, angle=angle, height=height, radius=radius):
+            out = ease_out(t / 0.6)
+            a = angle - 1.8 * t
+            r = (radius + 0.15) * out
+            s = smooth(t / 0.08) * (1 - smooth((t - 0.5) / 0.5))
+            return ((r * math.sin(a), BODY + (height - BODY) * out - 0.15 * t, r * math.cos(a)), (0, 0, 0), (s, s, s))
+
+        clip.node(obj, at)
+    n = 16
+    rm = Mesh()
+    rows = []
+    for k in range(n):
+        a = TAU * k / n
+        c, s = math.cos(a), math.sin(a)
+        rows.append([rm.v((0.86 * s, 0.01, 0.86 * c), 0.0), rm.v((0.95 * s, 0.025, 0.95 * c), 0.5), rm.v((1.0 * s, 0.01, 1.0 * c), 0.0)])
+    for k in range(n):
+        a, b = rows[k], rows[(k + 1) % n]
+        rm.quad(a[0], b[0], b[1], a[1])
+        rm.quad(a[1], b[1], b[2], a[2])
+    ring = rm.finish(f"{entry}.ring", col, "spell-energy", root)
+    crest_of = {vid: ids[1] for ids in rows for vid in ids}
+    verts = rm.verts
+    morph(ring, "Thin", lambda i, p: verts[crest_of[i]])
+    clip.node(ring, lambda t: ((0, 0, 0), (0, 0, 0), (0.25 + 0.95 * ease_out(t), 1, 0.25 + 0.95 * ease_out(t))))
+    clip.weight(ring, "Thin", lambda t: smooth((t - 0.35) / 0.65))
+    return {}
+
+
+ROPE = (0.62, 0.5, 0.32)
+DARK_ROPE = (0.44, 0.34, 0.2)
+ROPE_LENGTH = 1.0
+
+
+def grapple_rope(entry, col, root, clip):
+    """A one-metre piece of two-strand hemp rope from z = 0 to z = 1; the strands make half a turn over the piece, so
+    both ends have the same cross-section and copies tile end to end."""
+    m = Mesh()
+    segments, sides, strand, offset = 8, 4, 0.016, 0.013
+    for start in (0.0, math.pi):
+        rings = []
+        for i in range(segments + 1):
+            z = ROPE_LENGTH * i / segments
+            a = start + math.pi * i / segments
+            cx, cy = offset * math.cos(a), offset * math.sin(a)
+            rgb = ROPE if i % 2 == 0 else DARK_ROPE
+            rings.append([m.v((cx + strand * math.cos(TAU * k / sides + a), cy + strand * math.sin(TAU * k / sides + a), z), 1.0, rgb) for k in range(sides)])
+        for a, b in zip(rings, rings[1:]):
+            for k in range(sides):
+                j = (k + 1) % sides
+                m.quad(a[k], b[k], b[j], a[j])
+    m.finish(f"{entry}.rope", col, SHOT, root)
+    return {"tileLength": ROPE_LENGTH}
+
+
+# Grapple prongs: the path of each prong as (radius out from the shank, z), from the crown back to its point.
+PRONG = [(0.012, -0.035), (0.075, -0.03), (0.13, -0.07), (0.15, -0.14), (0.125, -0.2)]
+HOOK_LENGTH = 0.4
+
+
+def tube(m, path, radii, rgb, tip_rgb, sides=4):
+    """A tapering tube through ``path`` (glTF points) that closes to a point at its end."""
+    pts = [Vector(p) for p in path]
+    rings = []
+    for i, p in enumerate(pts[:-1]):
+        d = (pts[i + 1] - p).normalized() if i == 0 else (pts[i + 1] - pts[i - 1]).normalized()
+        side = d.cross(Vector((0, 1, 0)) if abs(d.y) < 0.9 else Vector((1, 0, 0))).normalized()
+        other = d.cross(side)
+        rings.append([m.v(p + radii[i] * (math.cos(TAU * k / sides) * side + math.sin(TAU * k / sides) * other), 1.0, rgb) for k in range(sides)])
+    for a, b in zip(rings, rings[1:]):
+        for k in range(sides):
+            j = (k + 1) % sides
+            m.quad(a[k], b[k], b[j], a[j])
+    tip = m.v(pts[-1], 1.0, tip_rgb)
+    for k in range(sides):
+        m.tri(rings[-1][k], rings[-1][(k + 1) % sides], tip)
+    return rings
+
+
+def grapple_hook(entry, col, root, clip):
+    """A three-pronged iron grapnel flying crown first: origin at the crown, +Z forward; the shank trails back to the eye
+    at z = -0.4 where the rope ties on, and the prongs curve back from the crown so they catch when pulled."""
+    m = Mesh()
+    ball(m, (0, 0, -0.03), 0.03, 1.0, DARK_STEEL, rings=1, sides=6)
+    body = shaft(m, -0.03, -0.33, 0.016, DARK_STEEL)
+    cap(m, body[0], (0, 0, -0.02), DARK_STEEL)
+    for k in range(3):
+        a = TAU * k / 3 + math.pi / 2
+        c, s = math.cos(a), math.sin(a)
+        tube(m, [(r * c, r * s, z) for r, z in PRONG], (0.017, 0.016, 0.014, 0.011), DARK_STEEL, STEEL)
+    # the eye: a flat octagon loop in the YZ plane, with a lashing of rope where it meets the shank
+    loop = []
+    for k in range(8):
+        a = TAU * k / 8
+        centre = Vector((0, 0, -0.36))
+        loop.append([m.v(centre + Vector((sx, r * math.cos(a), r * math.sin(a))), 1.0, DARK_STEEL) for r in (0.04, 0.026) for sx in (0.006, -0.006)])
+    for k in range(8):
+        a, b = loop[k], loop[(k + 1) % 8]
+        m.quad(a[0], b[0], b[2], a[2])
+        m.quad(a[1], a[3], b[3], b[1])
+        m.quad(a[0], a[1], b[1], b[0])
+    shaft(m, -0.27, -0.33, 0.021, ROPE, sides=6)
+    m.finish(f"{entry}.model", col, SHOT, root)
+    return {"length": HOOK_LENGTH}
+
+
+BARK, VINE_TIP, VINE_LEAF = (0.4, 0.31, 0.17), (0.5, 0.6, 0.25), (0.42, 0.62, 0.24)
+FEET = (-0.13, 0.13)  # the rooted target's ankles across its facing
+# Vines: ankle, start angle, turn direction, height reached and turns about the ankle.
+VINES = [(0, 0.4, 1, 0.62, 1.25), (0, 3.4, -1, 0.48, 1.0), (1, 2.6, -1, 0.64, 1.2), (1, 5.8, 1, 0.46, 1.05)]
+VINE_SEGMENTS = 8
+
+
+def vines(entry, col, root):
+    """Four tapering vines that come out of the ground beside the ankles and coil up round them, and a few leaves.
+    The ``Writhe`` morph squeezes the coils tighter and turns them a little, more towards their tips."""
+    m = Mesh()
+    writhe = {}
+    for foot, start, turn, height, turns in VINES:
+        cx = FEET[foot]
+        path, radii = [], []
+        for i in range(VINE_SEGMENTS + 1):
+            u = i / VINE_SEGMENTS
+            a = start + turn * TAU * turns * u
+            r = 0.32 - 0.16 * smooth(u * 2.5)
+            path.append((cx + r * math.sin(a), height * u ** 0.85, r * math.cos(a)))
+            radii.append(0.05 * (1 - u) + 0.014)
+        first = len(m.verts)
+        tube(m, path, radii[:-1], BARK, VINE_TIP, sides=3)
+        for vid in range(first, len(m.verts)):
+            x, y, z = m.verts[vid]
+            u = y / height
+            m.colours[vid] = (*[BARK[k] + (VINE_TIP[k] - BARK[k]) * u for k in range(3)], 1.0)
+            writhe[vid] = (cx, u, turn)
+        # one leaf two thirds of the way up, sticking out from the coil
+        lx, ly, lz = path[5]
+        out = Vector((lx - cx, 0, lz)).normalized()
+        base = Vector((lx, ly, lz))
+        tip = base + out * 0.2 + Vector((0, 0.07, 0))
+        side = out.cross(Vector((0, 1, 0))) * 0.06
+        ids = [m.v(base, 1.0, VINE_LEAF), m.v((base + tip) / 2 + side, 1.0, VINE_LEAF), m.v(tip, 1.0, VINE_TIP), m.v((base + tip) / 2 - side, 1.0, VINE_LEAF)]
+        m.quad(*ids)
+        for vid in ids:
+            writhe[vid] = (cx, 2 / 3, turn)
+    obj = m.finish(f"{entry}.vines", col, SHOT, root)
+
+    def squeeze(i, p):
+        cx, u, turn = writhe[i]
+        x, z = p[0] - cx, p[2]
+        a = 0.3 * u * turn
+        k = 1 - 0.18 * u
+        return (cx + k * (x * math.cos(a) + z * math.sin(a)), p[1] - 0.02 * u, k * (-x * math.sin(a) + z * math.cos(a)))
+
+    morph(obj, "Writhe", squeeze)
+    return obj
+
+
+def roots_hold_loop(entry, col, root, clip):
+    """Vines coiled round a rooted target's ankles, slowly squeezing and easing while the root holds."""
+    obj = vines(entry, col, root)
+    clip.weight(obj, "Writhe", lambda t: pulse(t))
+    return {}
+
+
+def roots_hold_end(entry, col, root, clip):
+    """The root breaks: the vines give a last squeeze, then let go and sink back into the ground."""
+    obj = vines(entry, col, root)
+    clip.weight(obj, "Writhe", lambda t: ease_out(t / 0.3) * (1 - smooth((t - 0.3) / 0.7)))
+    clip.node(obj, lambda t: ((0, -0.12 * ease_in(t), 0), (0, 0, 0), (1 - 0.3 * ease_in(t), 1 - ease_in(t), 1 - 0.3 * ease_in(t))))
+    return {}
+
+
+# Frost shards: ankle, angle about it, height and lean outward.
+FROST_SHARDS = [(0, 0.3, 0.52, 0.35), (0, 1.7, 0.36, 0.5), (0, 3.0, 0.44, 0.4), (0, 4.4, 0.3, 0.55), (0, 5.4, 0.42, 0.45),
+          (1, 0.9, 0.42, 0.45), (1, 2.2, 0.5, 0.35), (1, 3.5, 0.32, 0.55), (1, 4.9, 0.46, 0.4), (1, 6.0, 0.3, 0.5)]
+# Glints on the crust: position and phase (share of the loop).
+FROST_GLINTS = [((-0.2, 0.3, 0.08), 0.0), ((0.17, 0.22, -0.1), 0.35), ((0.05, 0.12, 0.22), 0.7)]
+ICE, PALE_ICE = (0.72, 0.86, 1.0), (1.0, 1.0, 1.0)
+
+
+def crust(entry, col, root):
+    """Ice shards jutting round both ankles, a glassy band about each ankle and a frosted patch on the ground. The
+    ``Shatter`` morph throws each shard out and down from its ankle."""
+    m = Mesh()
+    shatter = {}
+    patch = [m.v((0.44 * (1 - 0.18 * (k % 2)) * math.sin(TAU * k / 12), 0.006, 0.36 * (1 - 0.18 * (k % 2)) * math.cos(TAU * k / 12)), 0.0) for k in range(12)]
+    middle = m.v((0, 0.006, 0), 0.45, PALE_ICE)
+    for k in range(12):
+        m.tri(middle, patch[k], patch[(k + 1) % 12])
+    for foot, angle, height, lean in FROST_SHARDS:
+        cx = FEET[foot]
+        out = Vector((math.sin(angle), 0, math.cos(angle)))
+        base = Vector((cx, 0, 0)) + out * 0.09
+        first = len(m.verts)
+        spike(m, base, out * lean + Vector((0, 1, 0)), height, 0.06, 0.8, 0.6, ICE, PALE_ICE, sides=4)
+        for vid in range(first, len(m.verts)):
+            shatter[vid] = out * 0.22 + Vector((0, -0.06, 0))
+    for cx in FEET:
+        rings = [[m.v((cx + 0.085 * math.sin(TAU * k / 6), y, 0.085 * math.cos(TAU * k / 6)), a, ICE) for k in range(6)] for y, a in ((0.0, 0.65), (0.3, 0.2))]
+        for k in range(6):
+            j = (k + 1) % 6
+            m.quad(rings[0][k], rings[0][j], rings[1][j], rings[1][k])
+    obj = m.finish(f"{entry}.crust", col, "spell-frost", root)
+    morph(obj, "Shatter", lambda i, p: tuple(p[k] + shatter[i][k] for k in range(3)) if i in shatter else p)
+    return obj
+
+
+def frost_glints(entry, col, root, clip, at):
+    for index, (point, phase) in enumerate(FROST_GLINTS):
+        m = Mesh()
+        mote(m, 0.11, 1.0, PALE_ICE)
+        obj = m.finish(f"{entry}.glint{index}", col, "spell-frost", root)
+        clip.node(obj, lambda t, point=point, phase=phase: (point, (0, 0, 0), (at(t, phase),) * 3))
+
+
+def frost_hold_loop(entry, col, root, clip):
+    """An ice crust round a rooted target's feet, with three glints that twinkle in turn while it holds."""
+    obj = crust(entry, col, root)
+    frost_glints(entry, col, root, clip, lambda t, phase: max(0.0, math.sin(TAU * (t + phase))) ** 3)
+    return {}
+
+
+def frost_hold_end(entry, col, root, clip):
+    """The ice breaks: the shards burst out and sink, the crust shrinks away and the glints flash once."""
+    obj = crust(entry, col, root)
+    clip.weight(obj, "Shatter", lambda t: ease_out(t / 0.6))
+    clip.node(obj, lambda t: ((0, 0, 0), (0, 0, 0), (1 - ease_in(t),) * 3))
+    frost_glints(entry, col, root, clip, lambda t, phase: ease_out(t / 0.15) * (1 - smooth((t - 0.15) / 0.5)))
+    return {}
+
+
+# Ice-slip scrapes: offset across, width and alpha; chips: side (-1 or 1), heading out (degrees) and peak.
+SCRAPES = [(-0.13, 0.11, 0.9), (0.13, 0.11, 0.9), (-0.22, 0.03, 0.7), (0.04, 0.03, 0.7)]
+SLIP_CHIPS = [(-1, 60, 0.18), (1, 55, 0.2), (-1, 100, 0.12), (1, 110, 0.14)]
+SLIP_LENGTH = 1.0
+
+
+def ice_slip_scrape(entry, col, root, clip):
+    """Two pale frost scrapes and two fine scratches drawn out along a slide from z = 0 to z = 1, under the sliding
+    feet, with ice chips flicked out to the sides; the scrapes then thin away."""
+    m = Mesh()
+    centre_of = {}
+    jag = (0.0, 0.012, -0.01, 0.014, -0.006, 0.0)
+    for x, width, alpha in SCRAPES:
+        rows = []
+        for i in range(6):
+            u = i / 5
+            w = width * (0.5 + 0.5 * math.sin(math.pi * min(u * 1.3, 1.0)))
+            cx = x + jag[i]
+            ids = [m.v((cx - w, 0.008, u), 0.0, ICE), m.v((cx, 0.008, u), alpha, PALE_ICE), m.v((cx + w, 0.008, u), 0.0, ICE)]
+            rows.append(ids)
+            for vid in ids:
+                centre_of[vid] = ids[1]
+        for a, b in zip(rows, rows[1:]):
+            m.quad(a[0], b[0], b[1], a[1])
+            m.quad(a[1], b[1], b[2], a[2])
+    scrape = m.finish(f"{entry}.scrapes", col, "spell-frost", root)
+    verts = m.verts
+    morph(scrape, "Thin", lambda i, p: verts[centre_of[i]])
+    clip.node(scrape, lambda t: ((0, 0, 0), (0, 0, 0), (1, 1, max(SLIP_LENGTH * ease_out(t / 0.55), 0.0))))
+    clip.weight(scrape, "Thin", lambda t: smooth((t - 0.5) / 0.5))
+    for index, (side, heading, peak) in enumerate(SLIP_CHIPS):
+        cm = Mesh()
+        spike(cm, (0, 0, 0), (0.3, 1, 0.2), 0.07, 0.03, 0.8, 0.5, ICE, PALE_ICE, sides=4)
+        chip = cm.finish(f"{entry}.chip{index}", col, "spell-frost", root)
+        h = math.radians(heading)
+
+        def at(t, side=side, h=h, peak=peak, index=index):
+            start = 0.08 * index
+            flight = clamp01((t - start) / 0.45)
+            z = SLIP_LENGTH * ease_out(start / 0.55) + 0.25 * math.cos(h) * flight
+            x = side * (0.14 + 0.3 * math.sin(h) * flight)
+            s = smooth(flight / 0.1) * (1 - smooth((flight - 0.7) / 0.3)) if t >= start else 0.0
+            return ((x, 4 * peak * flight * (1 - flight) + 0.02 * s, z), (6 * flight, 0, 4 * flight * side), (s, s, s))
+
+        clip.node(chip, at)
+    return {"length": SLIP_LENGTH}
+
+
 BUILDERS = {
     "bolt-fire": bolt_fire, "bolt-shadow": bolt_shadow, "bolt-holy": bolt_holy, "bolt-nature": bolt_nature,
     "impact-fire": impact_fire, "impact-shadow": impact_shadow, "impact-holy": impact_holy, "impact-nature": impact_nature,
     "impact-frost": impact_frost, "arrow": arrow, "crossbow-bolt": crossbow_bolt, "throwing-knife": throwing_knife,
     "frost-nova": frost_nova, "beam-segment": beam_segment, "heal-motes": heal_motes,
+    "blink-out": blink_out, "blink-in": blink_in, "grapple-rope": grapple_rope, "grapple-hook": grapple_hook,
+    "roots-hold-loop": roots_hold_loop, "roots-hold-end": roots_hold_end, "frost-hold-loop": frost_hold_loop,
+    "frost-hold-end": frost_hold_end, "ice-slip-scrape": ice_slip_scrape,
 }
 
 
