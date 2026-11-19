@@ -13,9 +13,13 @@ weapon recipes' grip contract (docs/weapon-recipes.md) so they attach through th
 - ``shield`` (``hand_l.shield``): the grip frame is the centre of the hand handle along Y, the face points to +Z, the
   point to -Y and the forearm strap lies along +X.
 - ``book`` (``hand_l.shield``): the grip frame is the middle of the back cover, the spine along +Y, the book toward +Z.
+- #775's Tinker devices ride ``hand_r.weapon`` too: the flask and the pot bomb (second role ``flask``) round the grip
+  origin like the Rogue's throwables, and the spring trap (second role ``trap``) from its D-handle, hanging along +X.
+  The trap's further frames turn up to the item's +Z and carry a scale: ``ground`` (under the base), ``trigger`` (the
+  plate; its scale is the trigger radius) and ``collision`` (its scale is the collider box's half extents).
 
 Every GLB has one mesh node named after the item and an empty ``grip`` node at the origin. Materials are the weapon
-recipes' factor-only PBR colours (same names), with no UVs or textures; ``ember`` glows. Geometry is built from explicit
+recipes' factor-only PBR colours (same names), with no UVs or textures; ``ember`` and ``volatile`` glow. Geometry is built from explicit
 vertex lists and triangulated here, in a fixed order, so a rebuild is byte-identical. There is no randomness.
 """
 import hashlib
@@ -46,9 +50,11 @@ MATERIALS = {
     # #760: the hunter's spear's pale ash shaft, and the archery recipe's feather (same name and values).
     "wood.ash": ((.52, .4, .25), 0.0, .74),
     "feather": ((.66, .62, .55), 0.0, .9),
+    # #775: the Tinker's flask liquid, an amber volatile that glows faintly.
+    "volatile": ((.6, .16, .012), 0.0, .15),
 }
 ALPHA = {"glass": .32}
-EMISSIVE = {"ember"}
+EMISSIVE = {"ember", "volatile"}
 SHARP_ANGLE = math.radians(35)
 
 
@@ -965,6 +971,166 @@ def signal_horn(b):
         b.rod(p, q, 0.0035, 0.0035, 4, "leather")
 
 
+
+# ---------------------------------------------------------------- the Tinker's devices (#775)
+# A rural inventor's kit, not clockwork: blown glass, fired clay, forged iron and planks, twine and wax. The flask and
+# the bomb are held like the Rogue's throwables (``Grip_Flask_R``, a 4 cm sphere round the grip origin). The trap is
+# carried by the forged D-handle on one side of its base and set down by its ``ground`` frame.
+
+def tinker_flask(b, thrown=False):
+    """A round-bottomed glass flask of amber ``volatile``, its cork tied down with twine. The held flask sits in a
+    stitched leather cradle with a paper label on the twine; the thrown one (the projectile spawned at the release) is
+    the bare glass with the cork sealed in red wax, at fewer segments."""
+    n = 8 if thrown else 12
+    glass = [(-0.042, 0.0), (-0.037, 0.02), (-0.022, 0.036), (0.0, 0.042), (0.02, 0.037), (0.031, 0.025), (0.038, 0.013),
+             (0.084, 0.011), (0.089, 0.015), (0.094, 0.013)]
+    b.lathe(glass, n, "glass", caps=(False, True))
+    b.lathe([(-0.038, 0.0), (-0.033, 0.018), (-0.02, 0.032), (0.0, 0.0375), (0.016, 0.034), (0.016, 0.0)], n, "volatile", caps=(False, False))
+    b.lathe([(0.086, 0.0095), (0.114, 0.0115), (0.118, 0.0)], n, "cork", caps=(True, False))
+    wrapped(b, 0.07, 0.082, 0.012, "fuse", step=0.006, n=n)
+    if thrown:
+        b.lathe([(0.108, 0.0135), (0.116, 0.0145), (0.124, 0.0)], n, "paint.red", caps=(True, False))
+        return
+    b.lathe([(-0.046, 0.0), (-0.041, 0.022), (-0.03, 0.035), (-0.012, 0.043), (-0.006, 0.0435)], n, "leather", caps=(False, False))
+    for k in range(4):  # the cradle's straps up to the twine
+        a = 2 * math.pi * k / 4 + math.pi / 4
+        c, s = math.cos(a), -math.sin(a)
+        b.rod((0.044 * c, -0.008, 0.044 * s), (0.039 * c, 0.02, 0.039 * s), 0.004, 0.004, 4, "leather")
+        b.rod((0.039 * c, 0.02, 0.039 * s), (0.013 * c, 0.072, 0.013 * s), 0.003, 0.003, 4, "leather")
+    b.rod((0.012, 0.076, 0.0), (0.03, 0.05, 0.004), 0.0015, 0.0015, 3, "fuse")
+    b.box((0.025, 0.02, 0.0), (0.045, 0.05, 0.003), "parchment")
+
+
+def tinker_bomb(b, lit=False):
+    """A squat fired-clay pot bomb with an iron band riveted round its belly, the mouth plugged with dark pitch and a
+    twisted fuse curling out of it; the lit bomb's fuse end glows with a spark."""
+    n = 12
+    b.lathe([(-0.044, 0.0), (-0.041, 0.024), (-0.028, 0.044), (-0.006, 0.052), (0.016, 0.047), (0.03, 0.034), (0.037, 0.02),
+             (0.042, 0.021), (0.046, 0.026), (0.05, 0.022)], n, "cork", cap_mat=("cork", "wood.dark"))
+    b.lathe([(-0.012, 0.0535), (0.0, 0.054), (0.012, 0.0525)], n, "iron", caps=(False, False))
+    for k in range(4):
+        a = 2 * math.pi * k / 4 + math.pi / 12
+        b.ball((0.055 * math.cos(a), 0.0, -0.055 * math.sin(a)), 0.0045, "iron", n=4, rows=2)
+    path = [(0.0, 0.046, 0.0), (0.004, 0.066, 0.004), (0.016, 0.082, 0.006), (0.032, 0.088, 0.0), (0.045, 0.083, -0.008)]
+    for p, q in zip(path, path[1:]):
+        b.rod(p, q, 0.0042, 0.0042, 4, "fuse")
+    for side in (1, -1):  # a twine sling round the neck
+        b.rod((0.0, 0.039, 0.041 * side), (0.042 * side, 0.039, 0.0), 0.0028, 0.0028, 3, "fuse")
+        b.rod((0.0, 0.039, -0.041 * side), (0.042 * side, 0.039, 0.0), 0.0028, 0.0028, 3, "fuse")
+    if lit:
+        tip = Vector(path[-1])
+        b.ball(tip, 0.0075, "ember", n=6, rows=3)
+        for k in range(5):  # sparks
+            a = 2 * math.pi * k / 5
+            out = Vector((math.cos(a) * 0.7, 0.55, math.sin(a) * 0.7)).normalized()
+            side = out.cross(Vector((0, 1, 0)) if abs(out.y) < 0.9 else Vector((1, 0, 0))).normalized() * 0.002
+            b.face(b.add([tip + out * 0.006 - side, tip + out * 0.006 + side, tip + out * 0.022]), "ember")
+
+
+TRAP = {"half": (0.16, 0.14), "plank": 0.025, "jaw": 0.13, "hinge": 0.036, "plate": 0.052, "handle": 0.19, "grip": 0.055}
+# The trap's frames in its own space (x across, from the handle to the stake; y up; z along the handle's bar): the
+# ground under the base's middle, the trigger plate's top and the collider box's middle with its half extents.
+TRAP_TRIGGER_RADIUS = 0.25
+
+
+def trap_space():
+    """Trap space to the item frame: the D-handle's bar along -Y through the grip, the base hanging along +X, the jaws
+    toward +Z."""
+    return rot("X", 90) @ T(TRAP["handle"], -TRAP["grip"], 0)
+
+
+def trap_frames():
+    """The trap's ``ground``, ``trigger`` and ``collision`` frames in the item frame: each turns trap space's up (+Y) to
+    the item's +Z. The trigger's scale is its radius, the collision's its box's half extents along x, up and z."""
+    up = [round(math.sin(math.pi / 4), 6), 0.0, 0.0, round(math.cos(math.pi / 4), 6)]
+    at = lambda p: [round(c, 6) + 0.0 for c in trap_space() @ Vector(p)]
+    hx, hz = TRAP["half"]
+    return {
+        "ground": {"translation": at((0, 0, 0)), "rotation": up},
+        "trigger": {"translation": at((0, TRAP["hinge"] + 0.01, 0)), "rotation": up, "scale": [TRAP_TRIGGER_RADIUS] * 3},
+        "collision": {"translation": at((0, 0.045, 0)), "rotation": up, "scale": [round(hx + 0.01, 6), 0.045, round(hz + 0.01, 6)]},
+    }
+
+
+def trap_jaw(b, side, angle):
+    """One iron jaw: a half ring of radius ``TRAP["jaw"]`` hinged on the x axis, toothed along its inner edge, raised
+    ``angle`` degrees from lying open on the ``side`` (+1 or -1 along z) half of the base."""
+    r, steps = TRAP["jaw"], 12
+    with b.at(T(0, TRAP["hinge"], 0) @ rot("X", -angle * side)):
+        rings = []
+        for k in range(steps + 1):
+            a = math.pi * k / steps
+            c, s = math.cos(a), math.sin(a) * side
+            rings.append([((r + 0.007) * c, -0.004, (r + 0.007) * s), ((r + 0.007) * c, 0.004, (r + 0.007) * s),
+                          ((r - 0.007) * c, 0.004, (r - 0.007) * s), ((r - 0.007) * c, -0.004, (r - 0.007) * s)][::side])
+        b.loft(rings, "iron")
+        for k in range(1, 8):  # the teeth stand up off the inner edge, so a closed pair interlocks
+            a = math.pi * (k - 0.25 * side + 0.25) / 8
+            c, s = math.cos(a), math.sin(a) * side
+            base = [Vector(((r - 0.006) * math.cos(a + d), 0.004, (r - 0.006) * math.sin(a + d) * side)) for d in (-0.07, 0.07)]
+            tip = Vector(((r - 0.011) * c, 0.018, (r - 0.011) * s))
+            low = Vector(((r - 0.002) * c, 0.004, (r - 0.002) * s))
+            loop = b.add([base[0], base[1], tip, low])
+            for face in ((0, 1, 2), (1, 3, 2), (3, 0, 2), (0, 3, 1)):
+                b.face([loop[i] for i in (face if side > 0 else face[::-1])], "steel")
+
+
+def trap_link(b, centre, upright):
+    """One forged chain link, 3.4 cm long along x, lying flat or standing on edge."""
+    x, y, z = centre
+    with b.at(T(x, y, z) @ (rot("X", 90) if upright else Matrix.Identity(4))):
+        loop = [(-0.017, 0, -0.006), (0.017, 0, -0.006), (0.017, 0, 0.006), (-0.017, 0, 0.006)]
+        for p, q in zip(loop, loop[1:] + loop[:1]):
+            b.rod(p, q, 0.0035, 0.0035, 4, "iron")
+
+
+def tinker_trap(b, state):
+    """A placeable spring-jaw trap: a two-plank base with a dark seam, an iron hinge bar across it, two coiled springs
+    at its ends, two toothed jaws, a round trigger plate and the dog that holds the jaws open, a D-handle to carry it
+    and a chain to a stake. ``closed`` (carried): the jaws shut upright over the plate, the dog folded across it, the
+    chain coiled on the base and the stake tucked beside it. ``armed``: the jaws open flat round the raised plate, held
+    by the dog, the chain laid out to the stake driven in beside the base. ``triggered``: sprung, the jaws shut, the
+    plate pressed down and the dog flung up."""
+    hx, hz = TRAP["half"]
+    with b.at(trap_space()):
+        b.box((-hx, 0.0, -hz), (hx, TRAP["plank"], hz), "wood")
+        b.box((-hx, TRAP["plank"], -0.003), (hx, TRAP["plank"] + 0.001, 0.003), "wood.dark")
+        for x in (-hx + 0.03, hx - 0.03):  # the battens' nails
+            for z in (-hz + 0.03, hz - 0.03):
+                b.box((x - 0.005, TRAP["plank"], z - 0.005), (x + 0.005, TRAP["plank"] + 0.003, z + 0.005), "iron")
+        b.box((-hx + 0.005, TRAP["plank"], -0.014), (hx - 0.005, TRAP["hinge"] - 0.004, 0.014), "iron")
+        for x in (-hx + 0.015, hx - 0.015):  # the springs, coiled along z
+            with b.at(T(x, TRAP["hinge"] + 0.004, 0) @ rot("X", 90)):
+                wrapped(b, -0.055, 0.055, 0.011, "iron", step=0.012, n=6)
+        angle = 0.0 if state == "armed" else 86.0
+        for side in (1, -1):
+            trap_jaw(b, side, angle)
+        plate = TRAP["hinge"] + (0.008 if state != "triggered" else 0.0)
+        b.lathe([(TRAP["hinge"] - 0.004, TRAP["plate"]), (plate, TRAP["plate"]), (plate + 0.004, TRAP["plate"] - 0.006), (plate + 0.004, 0.0)],
+                10, "iron", caps=(True, False))
+        pivot = Vector((0, plate + 0.004, TRAP["plate"] - 0.006))
+        if state == "armed":  # the dog lies over the open jaw and holds it
+            dog = pivot + Vector((0, 0.002, 0.1))
+        elif state == "triggered":
+            dog = pivot + Vector((0, 0.085, 0.045))
+        else:
+            dog = pivot + Vector((0, 0.002, -0.095))
+        b.rod(pivot, dog, 0.005, 0.004, 4, "iron")
+        handle = [(-hx, 0.012, -0.045), (-TRAP["handle"], TRAP["grip"], -0.04), (-TRAP["handle"], TRAP["grip"], 0.04), (-hx, 0.012, 0.045)]
+        for p, q in zip(handle, handle[1:]):
+            b.rod(p, q, 0.0075, 0.0075, 5, "iron")
+        if state == "closed":
+            for k, (x, z) in enumerate(((0.09, 0.07), (0.12, 0.05), (0.13, 0.015), (0.12, -0.02), (0.095, -0.045))):
+                trap_link(b, (x, TRAP["plank"] + 0.006, z), k % 2 == 1)
+            b.rod((-0.12, TRAP["plank"] + 0.012, -hz + 0.012), (0.1, TRAP["plank"] + 0.012, -hz + 0.012), 0.009, 0.006, 5, "wood")
+        else:
+            for k in range(5):
+                trap_link(b, (hx + 0.012 + 0.03 * k, 0.01 if k % 2 else 0.004, 0.0), k % 2 == 1)
+            stake = hx + 0.17
+            with b.at(T(stake, 0, 0)):
+                b.lathe([(-0.002, 0.012), (0.05, 0.011), (0.058, 0.004)], 5, "wood")
+                with b.at(T(0, 0.03, 0) @ rot("X", 90)):
+                    b.lathe([(-0.003, 0.016), (0.003, 0.016)], 8, "iron", caps=(False, False))
 # ---------------------------------------------------------------- catalogue
 
 # item: (builder, roles, frames beyond grip as {name: (x, y, z)}, triangle budget)
@@ -1029,6 +1195,14 @@ ITEMS = {
     # #773: the Redbrand shield-bearer's shield and the signaler's horn.
     "shield.redbrand": (shield_redbrand, ["shield"], {}, 900),
     "tool.signal-horn": (signal_horn, ["one-hand-weapon", "tool"], {"horn.mouthpiece": (0, 0.088, 0)}, 600),
+    # #775: the Tinker's flask (held, and thrown: the projectile), pot bomb (and lit) and spring trap (closed, armed, triggered).
+    "tinker.flask": (tinker_flask, ["one-hand-weapon", "flask"], {}, 900),
+    "tinker.flask.thrown": (lambda b: tinker_flask(b, thrown=True), ["one-hand-weapon", "flask"], {}, 500),
+    "tinker.bomb": (tinker_bomb, ["one-hand-weapon", "flask"], {}, 700),
+    "tinker.bomb.lit": (lambda b: tinker_bomb(b, lit=True), ["one-hand-weapon", "flask"], {}, 800),
+    "tinker.trap": (lambda b: tinker_trap(b, "closed"), ["one-hand-weapon", "trap"], trap_frames, 1600),
+    "tinker.trap.armed": (lambda b: tinker_trap(b, "armed"), ["one-hand-weapon", "trap"], trap_frames, 1600),
+    "tinker.trap.triggered": (lambda b: tinker_trap(b, "triggered"), ["one-hand-weapon", "trap"], trap_frames, 1600),
 }
 
 
@@ -1121,7 +1295,9 @@ def generate(output_path, arguments, inputs):
         export_animations=False, export_skins=False, export_morph=False,
         export_cameras=False, export_lights=False, export_extras=False)
     _, roles, frames, _ = ITEMS[item]
-    return {"recipe": "held-items-v1", "item": item, "roles": roles, "frames": {k: list(v) for k, v in frames.items()},
+    frames = frames() if callable(frames) else frames
+    return {"recipe": "held-items-v1", "item": item, "roles": roles,
+            "frames": {k: v if isinstance(v, dict) else list(v) for k, v in frames.items()},
             "unit": "meter", "axes": "right-handed-y-up", "origin": "grip", "gripNode": "grip", "triangleCount": count,
             "bounds": {"min": [round(c, 6) for c in lows], "max": [round(c, 6) for c in highs]},
             "materials": names, "geometrySha256": hashlib.sha256(geometry_bytes).hexdigest()}

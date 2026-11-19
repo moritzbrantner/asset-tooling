@@ -1,9 +1,9 @@
 {
-  "note": "#517: the weapons, throwables, archery pieces and headwear of the Ranger figures, built once. Held items load one at a time on a socket, not batched as scenery, so each keeps its own flat-colour materials (33 in all) and no textures. The budget holds the kit at its cost on 2026-11-14, with the download raised to 1.2 MB for the six carried loads (#735), then to 1.3 MB and 33 materials for the four named finds and their ash shaft and reed bindings (#760).",
+  "note": "#517: the weapons, throwables, archery pieces and headwear of the Ranger figures, built once. Held items load one at a time on a socket, not batched as scenery, so each keeps its own flat-colour materials (34 in all) and no textures. The budget holds the kit at its cost on 2026-11-14, with the download raised to 1.2 MB for the six carried loads (#735), then to 1.3 MB and 33 materials for the four named finds and their ash shaft and reed bindings (#760), then to 34 materials for the Tinker flask's amber `volatile` (#775).",
   "script": "scripts/build-humanoid-equipment.ts",
   "blender": true,
   "budget": {
-    "materials": 33,
+    "materials": 34,
     "textureMemoryMB": 1,
     "downloadMB": 1.3
   }

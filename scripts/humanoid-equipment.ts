@@ -106,13 +106,30 @@ export const RANGER_HELD_ITEMS: readonly { key: string; item: string }[] = [
 ].map((item) => ({ key: `equipment.${item}`, item }));
 /** The roles the Ranger sockets accept, one of which every held item lists first. */
 export const SOCKET_ROLES = ["one-hand-weapon", "staff", "shield", "book", "load"] as const;
-type HeldObservations = { roles: string[]; frames: Record<string, [number, number, number]>; triangleCount: number; bounds: { min: number[]; max: number[] } };
+/**
+ * #775: the Tinker's devices from the same recipe, each one entry whose variants are the device's states: the flask
+ * held and thrown (the projectile spawned at the release), the pot bomb and the bomb lit, and the spring trap closed
+ * (carried), armed and triggered. Every variant shares the default's frames, so a consumer swaps the mesh in place.
+ */
+export const RANGER_TINKER_ITEMS: readonly { key: string; variants: readonly { variant: string; item: string }[] }[] = [
+  { key: "equipment.tinker.flask", variants: [{ variant: DEFAULT_VARIANT, item: "tinker.flask" }, { variant: "thrown", item: "tinker.flask.thrown" }] },
+  { key: "equipment.tinker.bomb", variants: [{ variant: DEFAULT_VARIANT, item: "tinker.bomb" }, { variant: "lit", item: "tinker.bomb.lit" }] },
+  { key: "equipment.tinker.trap", variants: [{ variant: DEFAULT_VARIANT, item: "tinker.trap" }, { variant: "armed", item: "tinker.trap.armed" },
+    { variant: "triggered", item: "tinker.trap.triggered" }] },
+];
+type Vec3 = [number, number, number];
+type HeldFrame = Vec3 | { translation: Vec3; rotation: [number, number, number, number]; scale?: Vec3 };
+type HeldObservations = { roles: string[]; frames: Record<string, HeldFrame>; triangleCount: number; bounds: { min: number[]; max: number[] } };
 
-/** A held item's `humanoid-item-v2` descriptor: its roles, the identity `grip` and any further frames it declares. */
+/**
+ * A held item's `humanoid-item-v2` descriptor: its roles, the identity `grip` and any further frames it declares (a
+ * bare translation, or #775's turned frames with a scale).
+ */
 export function heldItemDescriptor(key: string, observations: Pick<HeldObservations, "roles" | "frames">): HumanoidItemDescriptor {
   return createHumanoidItemDescriptor({ item: key, roles: observations.roles, frames: [
     { name: "grip", translation: [0, 0, 0], rotation: [0, 0, 0, 1] },
-    ...Object.entries(observations.frames).map(([name, translation]) => ({ name, translation, rotation: [0, 0, 0, 1] as [number, number, number, number] })),
+    ...Object.entries(observations.frames).map(([name, frame]) =>
+      Array.isArray(frame) ? { name, translation: frame, rotation: [0, 0, 0, 1] as [number, number, number, number] } : { name, ...frame }),
   ] });
 }
 
@@ -261,6 +278,10 @@ export async function buildEquipmentItems(root: string, { headwear, pool, log, r
     log(`generate ${item} (external.blender.script@1 held-items recipe, scene.import.gltf@2)`);
     return buildHeldItem(root, item);
   }));
+  const tinkering = RANGER_TINKER_ITEMS.map(({ variants }) => variants.map(({ item }) => pool(() => {
+    log(`generate ${item} (external.blender.script@1 held-items recipe, scene.import.gltf@2)`);
+    return buildHeldItem(root, item);
+  })));
   const built = await Promise.all(items.map((item) => pool(item.build)));
   for (const [index, { key, role, resize: resized }] of items.entries()) {
     out.items[key] = built[index]!;
@@ -281,6 +302,17 @@ export async function buildEquipmentItems(root: string, { headwear, pool, log, r
     const { asset, observations } = await holding[index]!;
     out.items[key] = asset;
     await selectItem(key, observations.roles[0]!, asset, undefined, heldItemDescriptor(key, observations));
+  }
+  // #775: the Tinker's devices follow, the default state with the descriptor and each further state a variant.
+  for (const [index, { key, variants }] of RANGER_TINKER_ITEMS.entries()) {
+    const states = await Promise.all(tinkering[index]!);
+    const { asset, observations } = states[0]!;
+    out.items[key] = asset;
+    await selectItem(key, observations.roles[0]!, asset, undefined, heldItemDescriptor(key, observations));
+    for (const [state, { variant }] of variants.slice(1).entries()) {
+      out.selections.push({ key, variant });
+      out.assets.push(states[state + 1]!.asset);
+    }
   }
   return out;
 }
