@@ -74,6 +74,8 @@ The [Shooter robot locomotion](docs/robot-locomotion.md) is the driven wheel (`r
 
 The [Shooter arena kit](docs/shooter-arena.md) is the Shooter's modular clean-futuristic arena set on one atlas in the robot kit's palette: floor and ceiling plates, 4 m and 5 m wall modules with corner posts, a doorway with sliding doors, low and high cover and crates (each with a broken variant on the same placement), platform blocks, 14° ramps, a walkway on supports, a pillar, a jump pad, a container, a generator and pipes, and exterior ship-hull plates, shoulders, ribs and a grapple mast. Each module carries the Block, Ramp or JumpPad collision proxies Shooter composes its arenas from. It ships as its own rolling release, `shooter-arena`, with an `arena-kit-descriptor-v1` descriptor.
 
+The [Greyhaven discoveries](docs/discoveries.md) are three optional discovery sites on one atlas: the Wolfrun hunter's cache (a hide lean-to, a lashed chest open and closed, a skinning rack, a cold fire ring and a snapped bow), the Greyfang lookout (a Redbrand watch platform, ladder, signal brazier unlit and lit, tattered banner and weapon rack) and the Eastwater Fen supply cache (a half-sunk punt, oilcloth crates open and closed and a red-ragged marker pole), with collision proxies and site layouts.
+
 The [wooden spike traps](docs/spike-traps.md) are six static hazard pieces on one wood atlas: a stake cluster, a tiling stake row, a cheval-de-frise, a pit bed, a studded board and a hanging spiked log.
 
 The [Greyhaven gatherables](docs/gatherables.md) are the materials of the first crafting loop on one atlas: a ridge ore vein in its full and depleted states, with convex collision, and iron ore, boar hide and boar tusk drops, each with an inventory icon.
