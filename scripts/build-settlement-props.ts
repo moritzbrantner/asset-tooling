@@ -31,6 +31,7 @@ export const SETTLEMENT_PROPS = [
   "scarecrow", "weather-vane", "beehive-skeps", "water-trough", "feed-trough", "hen-coop", "plough",
   "watermill", "water-wheel", "windmill", "forge", "well-windlass",
   "spit-roast", "butter-churn", "loom", "potters-wheel", "hide-frame", "shop-sign-smith", "shop-sign-baker", "shop-sign-tailor",
+  "smith-bench",
 ] as const;
 export type SettlementProp = (typeof SETTLEMENT_PROPS)[number];
 export type SettlementFamily = "market" | "street" | "dressing";
@@ -58,6 +59,7 @@ export const SETTLEMENT_FAMILY: Record<SettlementProp, SettlementFamily> = {
   watermill: "dressing", "water-wheel": "dressing", windmill: "dressing", forge: "dressing", "well-windlass": "dressing",
   "spit-roast": "dressing", "butter-churn": "dressing", loom: "dressing", "potters-wheel": "dressing", "hide-frame": "dressing",
   "shop-sign-smith": "street", "shop-sign-baker": "street", "shop-sign-tailor": "street",
+  "smith-bench": "dressing",
 };
 export const SETTLEMENT_KEY_PREFIX = "settlement.props";
 export const SETTLEMENT_VARIANT = "default";
@@ -86,6 +88,7 @@ export const SETTLEMENT_TRIANGLE_BUDGET: Record<SettlementProp, number> = {
   watermill: 2500, "water-wheel": 1100, windmill: 2300, forge: 1300, "well-windlass": 1000,
   "spit-roast": 1200, "butter-churn": 500, loom: 1200, "potters-wheel": 1400, "hide-frame": 750,
   "shop-sign-smith": 600, "shop-sign-baker": 900, "shop-sign-tailor": 900,
+  "smith-bench": 1000,
 };
 /** The named node-animation loops (#695, #699, #703), in seconds. They live in the props' glTF and the bundle manifest's observations; the
  * published descriptor schema keeps its fields. */
