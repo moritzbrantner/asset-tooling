@@ -42,9 +42,11 @@ export const RANGER_BOW_UPPER_CLIPS = [
  * #419 (the Redbrand Crossbowman's Crossbow Bolt): crossbow clips authored in place on the Ranger rig by
  * adapters/blender/crossbow_clips.py from explicit crossbow frames on `hand_r.crossbow`, the fore-stock grip on
  * `hand_l.crossbow`, the crank on `hand_l.weapon` and the bolt on `hand_r.arrow` (two-bone arm IK; Mixamo only as
- * reference). Every one keeps only the `spine_01` subtree. They follow the upper-body bow clips in bundle order.
+ * reference). Every one but the footwork keeps only the `spine_01` subtree. They follow the upper-body bow clips in
+ * bundle order. #754 adds the marksman's footwork: `Crossbow_Backpedal` (the aim held) and `Crossbow_Reload_Back` (the
+ * whole reload) over steps back, full body and in place (travel in `removedTravel`), from the aim back to it.
  */
-export const RANGER_CROSSBOW_CLIPS = ["Crossbow_Idle_Loop", "Crossbow_Aim_Loop", "Crossbow_Fire", "Crossbow_Reload"] as const;
+export const RANGER_CROSSBOW_CLIPS = ["Crossbow_Idle_Loop", "Crossbow_Aim_Loop", "Crossbow_Fire", "Crossbow_Reload", "Crossbow_Backpedal", "Crossbow_Reload_Back"] as const;
 /**
  * #420 (the mmorpg Arcanist, Necromancer, Cleric and Druid): shared casting styles and the Warden's war cry, authored
  * in place on the Ranger rig by adapters/blender/cast_clips.py from explicit hand frames on `hand_r.staff`,
@@ -473,15 +475,18 @@ export const RANGER_CLIP_FAMILIES: readonly ClipFamily[] = [
       };
     },
     clip: (name, family) => {
-      // Every clip is upper body; the shot's release and the reload's marks go to the clip's `crossbow` object. The
-      // contact is the release, as for the bow.
-      const { joints, source, ...observed } = family.clips[name] as Json;
-      const crossbow = pickKeys(observed, ["releaseSeconds", "crankSeconds", "spannedSeconds", "leftHandSeconds", "boltDrawnSeconds", "reloadedSeconds"]);
+      // The shot's release, the reload's marks and the footwork's from, to and direction go to the clip's `crossbow`
+      // object. The contact is the release, as for the bow. The footwork (#754) is full body: it keeps every joint and
+      // adds its travel and chain pose.
+      const { joints, source, secondaryPose, removedTravel, ...observed } = family.clips[name] as Json;
+      const crossbow = pickKeys(observed, ["releaseSeconds", "crankSeconds", "spannedSeconds", "leftHandSeconds", "boltDrawnSeconds", "reloadedSeconds", "from", "to", "direction"]);
+      const fields = { ...(Object.keys(crossbow).length ? { crossbow } : {}), ...(secondaryPose ? { secondaryPose } : {}) };
       return {
-        keep: joints as string[],
+        ...(joints ? { keep: joints as string[] } : {}),
         authored: { recipe: family.recipe, clip: name, fps: family.fps, ...observed }, basedOn: source as string,
         extra: {
-          ...(Object.keys(crossbow).length ? { fields: { crossbow } } : {}),
+          ...(Object.keys(fields).length ? { fields } : {}),
+          ...(removedTravel ? { removedTravel: removedTravel as [number, number] } : {}),
           ...(observed.releaseSeconds === undefined ? {} : { contactSeconds: observed.releaseSeconds as number }),
         },
       };

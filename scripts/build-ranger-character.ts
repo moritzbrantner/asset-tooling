@@ -301,6 +301,8 @@ export const RANGER_CLIP_ROLES: Readonly<Record<string, { role: string; contact?
   Crossbow_Aim_Loop: { role: "crossbow.aim" },
   Crossbow_Fire: { role: "crossbow.fire", contact: "hand_r" },
   Crossbow_Reload: { role: "crossbow.reload" },
+  Crossbow_Backpedal: { role: "crossbow.backpedal" },
+  Crossbow_Reload_Back: { role: "crossbow.reload-back" },
   // #420: the casters' shared casting styles and the war cry (src/ranger-clips.ts
   // RANGER_CAST_CLIPS). The contacts are the authored releases (the spell leaves the palm, the staff stamps).
   Cast_Charge_Loop: { role: "cast.charge" },

@@ -21,6 +21,15 @@ it lowers the crossbow muzzle down, winds the crank twice (spanned at ``spannedS
 waist, where the left hand holds it alone over ``leftHandSeconds`` while the right hand draws a bolt from the quiver
 (``boltDrawnSeconds``) and lays it in the groove (``reloadedSeconds``), then raises it to the shoulder.
 
+#754 adds the marksman's footwork, full body: ``Crossbow_Backpedal`` steps back holding the aim and
+``Crossbow_Reload_Back`` runs the whole reload over steps back. The arms and chest are the upper clips' (the aim, or the
+reload's frames carried with the chest), over legs that step straight back (``STEPS``): the weight moves over the
+standing foot, the stepping heel peels, the foot reaches back low and lands on its ball, the heel settles and the
+weight moves on; the knees stay soft, the hips turn with each step and the chest turns back against them, so the
+crossbow stays on the target. A planted ball stays exactly where it landed once the travel is added back. They start
+and end on the aim's footing (``Idle_Loop``'s), are in place (the travel is recorded as ``removedTravel``, glTF x, z) and
+record a skirt and cape pose for the #391 chain joints (``secondaryPose``).
+
 No randomness.
 """
 import json
@@ -38,7 +47,9 @@ SPINE = (("spine_01", .3), ("spine_02", .35), ("spine_03", .35))
 X, Y, UP = Vector((1, 0, 0)), Vector((0, 1, 0)), Vector((0, 0, 1))
 C4 = Matrix(((1, 0, 0, 0), (0, 0, -1, 0), (0, 1, 0, 0), (0, 0, 0, 1)))
 POLE = {"r": Vector((-.7, .3, -.7)), "l": Vector((.5, .2, -1))}
-CLIPS = ("Crossbow_Idle_Loop", "Crossbow_Aim_Loop", "Crossbow_Fire", "Crossbow_Reload")
+LEGS = {"l": ("thigh_l", "calf_l", "foot_l", "ball_l"), "r": ("thigh_r", "calf_r", "foot_r", "ball_r")}
+KNEE = Vector((0, -1, .3))
+CLIPS = ("Crossbow_Idle_Loop", "Crossbow_Aim_Loop", "Crossbow_Fire", "Crossbow_Reload", "Crossbow_Backpedal", "Crossbow_Reload_Back")
 SOCKETS = ("crossbow", "fore", "crank", "bolt", "quiver")
 
 # Blender armature axes: +X is the figure's left, -Y in front of it, +Z up; metres. A crossbow pose names the wrist
@@ -72,6 +83,23 @@ RELOAD = {
 }
 # The bolt in the groove: its nock just ahead of the nut, its shaft along the stock.
 GROOVE = (0, .03, .04)
+# #754: the steps back, (foot, lifts, lands, metres back from the start), fractions of the clip. A foot lands on its
+# ball (``land`` degrees of heel) and settles over ``settle``; its heel peels ``peel`` before it lifts; it swings
+# ``lift`` high. The weight (``shift`` metres) sits over the standing foot through a step and moves over in the double
+# support between; the knees sink ``sink`` and dip ``dip`` on each landing; the hips turn ``spin`` degrees with the
+# stepping side and the chest turns ``counter`` of that back.
+STEPS = {
+    "Crossbow_Backpedal": {"upper": "aim", "duration": 1.0, "steps": (("r", .1, .34, .28), ("l", .42, .66, .56), ("r", .74, .92, .56))},
+    "Crossbow_Reload_Back": {"upper": "reload", "duration": RELOAD["duration"],
+                             "steps": (("r", .05, .19, .22), ("l", .26, .4, .44), ("r", .47, .61, .66), ("l", .68, .82, .78), ("r", .86, .94, .78))},
+}
+STEP = {"peel": .05, "heel": 8.0, "land": 12.0, "settle": .08, "lift": .06, "shift": .035, "sink": -.04, "dip": -.02,
+        "spin": 4.0, "counter": .8}
+# The #391 chain joints the full-body clips key (as adapters/blender/defend_clips.py).
+CAPE = "cape_01"
+SWING = {"share": .7, "front": 70.0, "sideShare": .8, "side": 75.0, "back": 20.0}
+BACK = Vector((0, 1, 0))
+PLUMB = ("skirt_f_03", "skirt_l_02", "skirt_r_02")
 
 
 def validate(p, inputs):
@@ -139,6 +167,7 @@ class Rig:
         self.rig = rig
         self.bones = rig.pose.bones
         self.rest = {b.name: b.matrix_local.copy() for b in rig.data.bones}
+        self.rest_gltf = rest_gltf
         # The socket frame in its joint's bone frame: the frame in armature space is the bone matrix times this.
         self.socket = {}
         for name, s in sockets.items():
@@ -293,7 +322,11 @@ class Stance:
 
     def apply(self, rig, seed):
         rig.apply(seed)
-        turn_chest(rig, self.yaw, self.pitch, gaze=.9)
+        self.turn(rig)
+
+    def turn(self, rig, counter=0.0):
+        """The chest turn and head lean on the rig as it stands; ``counter`` more degrees of chest yaw (#754)."""
+        turn_chest(rig, self.yaw + counter, self.pitch, gaze=.9)
         if self.head_roll:
             rotate_world(rig, "Head", Y, self.head_roll)
         if self.head_pitch:
@@ -321,9 +354,13 @@ def pose_crossbow(rig, seed, stance, crossbow, left=None, right=None):
     """Pose the stance, the right hand on the crossbow (or on ``right``, a hand matrix) and the left on the fore-stock
     (or ``left``)."""
     stance.apply(rig, seed)
+    hold_crossbow(rig, crossbow, left, right)
+    return rig.capture()
+
+
+def hold_crossbow(rig, crossbow, left=None, right=None):
     place_hand(rig, "r", right if right is not None else rig.hand_for("crossbow", crossbow), POLE["r"])
     place_hand(rig, "l", left if left is not None else rig.hand_for("fore", fore_frame(crossbow)), POLE["l"])
-    return rig.capture()
 
 
 def carry_frame(seed_offset=Vector()):
@@ -407,11 +444,13 @@ def bolt_frames(rig, crossbow):
     return drawn, laid
 
 
-def reload(rig, seed):
+def reload_plan(rig, seed):
+    """Per frame of the reload, its stance, crossbow frame and the left and right hand matrices (``None``: on the
+    crossbow), all over ``seed``; and its marks."""
     spec = RELOAD
     duration = spec["duration"]
     frames = int(round(duration * FPS))
-    poses = []
+    plans = []
     span_stance = Stance(spec["span"]["yaw"], spec["span"]["pitch"])
     load_stance = Stance(spec["load"]["yaw"], spec["load"]["pitch"])
     for k in range(frames + 1):
@@ -439,13 +478,188 @@ def reload(rig, seed):
             to_quiver, to_groove, back = window(u, spec["quiver"]), window(u, spec["groove"]), window(u, spec["back"])
             bolt = blend(drawn, laid, to_groove)
             right = blend(blend(wrist, rig.hand_for("bolt", bolt), to_quiver), wrist, back)
-        poses.append(pose_crossbow(rig, seed, stance, frame, left=left, right=right))
+        plans.append((stance, frame, left, right))
     d = duration
-    return poses, {
+    return plans, {
         "spannedSeconds": round(spec["crank"][1] * d, 4), "leftHandSeconds": [round(spec["free"][0] * d, 4), round(spec["free"][1] * d, 4)],
         "boltDrawnSeconds": round(spec["quiver"][1] * d, 4), "reloadedSeconds": round(spec["groove"][1] * d, 4),
         "crankSeconds": [round(spec["crank"][0] * d, 4), round(spec["crank"][1] * d, 4)], "turns": spec["turns"],
     }
+
+
+def reload(rig, seed):
+    plans, observations = reload_plan(rig, seed)
+    return [pose_crossbow(rig, seed, stance, frame, left=left, right=right) for stance, frame, left, right in plans], observations
+
+
+# --- #754: the full-body footwork --------------------------------------------------------------------------------------
+
+
+def monotone(keys, u):
+    """A curve through ``keys`` that never overshoots them (as defend_clips.py's): flat at a key that is a turn or a hold,
+    else the harmonic mean of the slopes beside it, so two equal keys hold the value exactly between them."""
+    if u <= keys[0][0]:
+        return keys[0][1]
+    if u >= keys[-1][0]:
+        return keys[-1][1]
+    i = max(k for k in range(len(keys) - 1) if keys[k][0] <= u)
+    (t0, p0), (t1, p1) = keys[i], keys[i + 1]
+
+    def slope(k):
+        if k == 0 or k == len(keys) - 1:
+            return 0.0
+        a = (keys[k][1] - keys[k - 1][1]) / (keys[k][0] - keys[k - 1][0])
+        b = (keys[k + 1][1] - keys[k][1]) / (keys[k + 1][0] - keys[k][0])
+        return 0.0 if a * b <= 0 else 2 * a * b / (a + b)
+
+    h = t1 - t0
+    s = (u - t0) / h
+    s2, s3 = s * s, s * s * s
+    return (2 * s3 - 3 * s2 + 1) * p0 + (s3 - 2 * s2 + s) * h * slope(i) + (-2 * s3 + 3 * s2) * p1 + (s3 - s2) * h * slope(i + 1)
+
+
+def step_tracks(spec):
+    """The feet's (``ly``/``ry`` back, ``lz``/``rz`` up, ``lh``/``rh`` heel) and the hips' (``sx`` weight, ``pz`` sink,
+    ``spin``) keys from the clip's steps: each a sorted list of (fraction, value)."""
+    keys = {name: {0.0: 0.0} for name in ("ly", "lz", "lh", "ry", "rz", "rh", "sx", "pz", "spin")}
+    at = {"l": 0.0, "r": 0.0}
+    steps = spec["steps"]
+    for index, (side, t0, t1, y) in enumerate(steps):
+        last = index == len(steps) - 1
+        mid = (t0 + t1) / 2
+        keys[side + "y"].update({t0: at[side], t1: y})
+        keys[side + "z"].update({t0: 0.0, mid: STEP["lift"], t1: 0.0})
+        keys[side + "h"].update({max(0.0, t0 - STEP["peel"]): 0.0, t0: STEP["heel"], t1: STEP["land"], min(1.0, t1 + STEP["settle"]): 0.0})
+        # The weight over the standing foot (+X is the figure's left); the last, closing step only half over.
+        weight = STEP["shift"] * (.5 if last else 1) * (1 if side == "r" else -1)
+        keys["sx"].update({t0: weight, t1: weight})
+        keys["spin"][mid] = -STEP["spin"] if side == "r" else STEP["spin"]
+        # The knees sink into the first step, dip on each landing and rise out of the last into the aim's footing.
+        keys["pz"][t0] = STEP["sink"]
+        if not last:
+            keys["pz"][t1 + .03] = STEP["sink"] + STEP["dip"]
+        at[side] = y
+    ends = {"ly": at["l"], "ry": at["r"]}
+    return {name: sorted({**track, 1.0: ends.get(name, 0.0)}.items()) for name, track in keys.items()}
+
+
+def legs_pose(rig, seed, idle, k):
+    """The seed with the hips turned (``spin``), moved over (``sx``) and sunk (``pz``), and each ankle on its key less
+    the travel (``py``); a lifted heel turns the foot about its ball, so a planted ball stays where it landed."""
+    rig.apply(seed)
+    head = rig.head("pelvis")
+    rotate_world(rig, "pelvis", UP, k["spin"])
+    pelvis = rig.bones["pelvis"]
+    m = pelvis.matrix.copy()
+    m.translation = head + Vector((k["sx"], 0, k["pz"]))
+    pelvis.matrix = m
+    bpy.context.view_layer.update()
+    for side in "lr":
+        thigh, calf, foot, _ = LEGS[side]
+        hip, knee, ankle = rig.head(thigh), rig.head(calf), rig.head(foot)
+        rest_ankle, rest_turn, rest_ball = idle[side]
+        heel = Matrix.Rotation(math.radians(k[side + "h"]), 3, X)
+        target = rest_ball + heel @ (rest_ankle - rest_ball) + Vector((0, k[side + "y"] - k["py"], k[side + "z"]))
+        # The knee keeps bending the way it bends (forward when the leg is near straight).
+        line = (ankle - hip).normalized()
+        bend = (knee - hip) - line * (knee - hip).dot(line)
+        two_bone(rig, thigh, calf, foot, target, bend.normalized() if bend.length > .02 else KNEE)
+        f = (heel @ rest_turn.to_matrix()).to_4x4()
+        f.translation = rig.head(foot)
+        rig.bones[foot].matrix = f
+        bpy.context.view_layer.update()
+
+
+def footwork(rig, seed, clip):
+    """The aim, or the reload's frames carried with the chest, over the clip's steps back."""
+    spec = STEPS[clip]
+    count = int(round(spec["duration"] * FPS))
+    rig.apply(seed)
+    idle = {side: (rig.head(LEGS[side][2]), rig.bones[LEGS[side][2]].matrix.to_quaternion(), rig.head(LEGS[side][3])) for side in "lr"}
+    if spec["upper"] == "reload":
+        plans, observed = reload_plan(rig, seed)
+    else:
+        plans, observed = [(aim_stance(), None, None, None)] * (count + 1), {}
+    if len(plans) != count + 1:
+        raise ValueError(f"{clip}: the steps and the arms differ in length")
+    tracks = step_tracks(spec)
+    poses, drift = [], {"l": 0.0, "r": 0.0}
+    for n, (stance, frame, left, right) in enumerate(plans):
+        k = {name: monotone(track, n / count) for name, track in tracks.items()}
+        k["py"] = (k["ly"] + k["ry"]) / 2
+        stance.apply(rig, seed)
+        chest = rig.head("spine_03")
+        legs_pose(rig, seed, idle, k)
+        # The chest turns back against the hips, so the crossbow stays on the target.
+        stance.turn(rig, -STEP["counter"] * k["spin"])
+        carry = Matrix.Translation(rig.head("spine_03") - chest)
+        if frame is None:
+            frame = aim_crossbow(rig)
+        else:
+            frame = carry @ frame
+            left = None if left is None else carry @ left
+            right = None if right is None else carry @ right
+        hold_crossbow(rig, frame, left, right)
+        poses.append(rig.capture())
+        for side in "lr":
+            # A planted ball (on the ground, its heel down or peeling) with the travel added back stays where it landed.
+            if k[side + "z"] < 1e-6:
+                ball = rig.head(LEGS[side][3]) + Vector((0, k["py"], 0))
+                drift[side] = max(drift[side], (ball - idle[side][2] - Vector((0, k[side + "y"], 0))).length)
+    back = tracks["ly"][-1][1] / 2 + tracks["ry"][-1][1] / 2
+    # Blender +Y (behind the figure) is glTF -Z.
+    observed.update({"removedTravel": [0.0, round(-back, 4) + 0.0], "from": "crossbow.aim", "to": "crossbow.aim", "direction": "back",
+                     "plantDriftMeters": round(max(drift.values()), 4)})
+    return poses, observed
+
+
+def secondary(rig):
+    """The #391 chain pose of this frame (as adapters/blender/defend_clips.py): per chain joint it keys, its local
+    rotation (glTF xyzw) under its parent. The front panel rides the higher thigh, each side panel follows its own
+    thigh, and past the knee both hang plumb; the back panel and the cape hang but never pass into the legs or back."""
+    down = Vector((0, 0, -1))
+    thigh = {s: (rig.bones[LEGS[s][1]].head - rig.bones[LEGS[s][0]].head).normalized() for s in "lr"}
+    lift_of = {s: math.degrees(math.atan2(max(0.0, -thigh[s].y), max(1e-6, -thigh[s].z))) if thigh[s].z < 0 else 90.0 for s in "lr"}
+    reach_of = max(0.0, *(math.degrees(math.asin(max(0.0, min(1.0, thigh[s].y)))) for s in "lr"))
+    turn = lambda degrees: Matrix.Rotation(math.radians(degrees), 3, Vector((1, 0, 0))) @ down
+
+    def toward(direction, share, limit):
+        angle = min(limit, share * math.degrees(down.angle(direction)))
+        axis = down.cross(direction)
+        return Matrix.Rotation(math.radians(angle), 3, axis.normalized()) @ down if axis.length > 1e-6 else down
+
+    directions = {
+        "skirt_f_01": turn(-min(SWING["front"], SWING["share"] * max(lift_of.values()))),
+        "skirt_b_01": turn(min(SWING["back"], SWING["share"] * reach_of)),
+        "skirt_l_01": toward(thigh["l"], SWING["sideShare"], SWING["side"]),
+        "skirt_r_01": toward(thigh["r"], SWING["sideShare"], SWING["side"]),
+    }
+    spine = rig.bones["spine_03"].matrix.to_3x3()
+    back = (spine @ rig.rest["spine_03"].to_3x3().inverted() @ BACK).normalized()
+    cape = down.copy()
+    if cape.dot(back) < .1:
+        cape = (cape + back * (.1 - cape.dot(back))).normalized()
+    directions[CAPE] = cape
+    gltf = lambda m: C4.to_3x3().inverted() @ m @ C4.to_3x3()
+    out, swings = {}, {}
+    for joint, direction in directions.items():
+        parent = "spine_03" if joint == CAPE else "pelvis"
+        delta = (rig.bones[parent].matrix.to_3x3() @ rig.rest[parent].to_3x3().inverted())
+        parent_world = gltf(delta) @ rig.rest_gltf[parent].to_3x3()
+        swings[joint] = gltf(down.rotation_difference(direction).to_matrix())
+        out[joint] = (parent_world.inverted() @ swings[joint]).to_quaternion()
+    for joint in PLUMB:
+        out[joint] = swings[joint[:-2] + "01"].inverted().to_quaternion()
+    return {joint: [round(q.x, 5), round(q.y, 5), round(q.z, 5), round(q.w, 5)] for joint, q in out.items()}
+
+
+def record_chains(rig, poses):
+    chains = {}
+    for pose in poses:
+        rig.apply(pose)
+        for joint, rotation in secondary(rig).items():
+            chains.setdefault(joint, []).append(rotation)
+    return {"sampleRate": FPS, "joints": chains}
 
 
 def upper_joints(rig):
@@ -458,6 +672,10 @@ def author(rig, clip, actions):
         rig.rig.animation_data_create()
     rig.apply({name: Matrix.Identity(4) for name in rig.rest})
     stand = sample(rig, actions[STAND], 0.0)
+    if clip in STEPS:
+        poses, observations = footwork(rig, stand, clip)
+        observations["secondaryPose"] = record_chains(rig, poses)
+        return poses, {"source": STAND, "durationSeconds": round((len(poses) - 1) / FPS, 4), **observations}
     if clip == "Crossbow_Idle_Loop":
         poses, observations = idle_loop(rig, actions[STAND])
     elif clip == "Crossbow_Aim_Loop":
