@@ -26,8 +26,8 @@ SITE_X = {"wolfrun-hunter-cache": -16.0, "greyfang-lookout": 0.0, "eastwater-fen
 SHOTS = {"game-hunter-cache": ((-15.6, -0.2, 0.8), 0.35, DISTANCE), "game-lookout": ((0.0, 0.0, 1.6), 0.45, DISTANCE),
          "game-fen-cache": ((15.4, -0.3, 0.3), -0.3, DISTANCE)}
 # The state pairs, built side by side away from the sites: (piece, x) in a row at Blender y = 30.
-STATE_ROW = [("hunter-chest", -4.6), ("hunter-chest-open", -3.4), ("signal-brazier", -1.2), ("signal-brazier-lit", 0.2),
-             ("supply-crates", 2.6), ("supply-crates-open", 4.6)]
+STATE_ROW = [("hunter-chest", -4.4), ("hunter-chest-open", -3.1), ("signal-brazier", -1.4), ("signal-brazier-lit", 0.0),
+             ("supply-crates", 1.9), ("supply-crates-open", 4.0)]
 
 
 def out_dir():
@@ -134,7 +134,7 @@ def main():
     scene.render.image_settings.file_format = "JPEG"
     scene.render.image_settings.quality = 82
     shots = dict(SHOTS)
-    shots["states"] = ((0.0, 30.0, 1.5), 0.0, 9.5)
+    shots["states"] = ((0.4, 30.0, 1.4), 0.0, 10.5)
     for name, (target, yaw, distance) in shots.items():
         aim(camera, target, yaw, distance, PITCH if name != "states" else 0.3)
         scene.render.filepath = os.path.join(out, f"{name}.jpg")
