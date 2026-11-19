@@ -1,4 +1,4 @@
-// Build the strike effect meshes (#724, docs/strike-effects.md) from the scripted recipe adapters/blender/strike_effects.py:
+// Build the strike effect meshes (#724, #754, docs/strike-effects.md) from the scripted recipe adapters/blender/strike_effects.py:
 //   ASSET_TOOLING_BLENDER=<blender 5.2.2> bun scripts/build-strike-effects.ts --out <directory>
 // Each entry is one external.blender.script@1 run, imported through scene.import.gltf@2. The strike-effects-descriptor-v1
 // attachment lists each entry's clip, alignment, intended scale, triangles and bounds. <directory> becomes the object-store
@@ -13,7 +13,7 @@ import { readBlenderRecipeSource } from "../src/blender-recipe-source.js";
 import { canonicalJson } from "../src/canonical.js";
 import { buildKitPart, byKey, exportKitBundle, runKitCli, triangles, type KitPart } from "../src/kit-bundle.js";
 
-export const STRIKE_EFFECTS = ["strike-arc-cut", "strike-arc-heavy", "strike-thrust", "impact-burst", "ground-slam", "lunge-dust"] as const;
+export const STRIKE_EFFECTS = ["strike-arc-cut", "strike-arc-heavy", "cleave-sweep", "combo-glint", "strike-thrust", "impact-burst", "ground-slam", "lunge-dust"] as const;
 export type StrikeEffect = (typeof STRIKE_EFFECTS)[number];
 export const STRIKE_KEY_PREFIX = "strike.effects";
 export const STRIKE_VARIANT = "default";
@@ -27,12 +27,14 @@ export const STRIKE_MATERIALS = ["strike-dust", "strike-glow"] as const;
 export const STRIKE_TRIANGLE_BUDGET = 200;
 /** Each entry's one-shot clip `Play`, in seconds. */
 export const STRIKE_CLIPS: Record<StrikeEffect, number> = {
-  "strike-arc-cut": 0.18, "strike-arc-heavy": 0.25, "strike-thrust": 0.15, "impact-burst": 0.2, "ground-slam": 0.4, "lunge-dust": 0.35,
+  "strike-arc-cut": 0.18, "strike-arc-heavy": 0.25, "cleave-sweep": 0.3, "combo-glint": 0.3, "strike-thrust": 0.15, "impact-burst": 0.2, "ground-slam": 0.4, "lunge-dust": 0.35,
 };
 /** What each entry marks in a fight, copied into the descriptor. */
 export const STRIKE_USE: Record<StrikeEffect, string> = {
   "strike-arc-cut": "sword, dagger and axe chain hits",
   "strike-arc-heavy": "finishers, maces and two-handed weapons",
+  "cleave-sweep": "a slash that hits more than one enemy",
+  "combo-glint": "the weapon while a follow-up window is open",
   "strike-thrust": "spear and dagger stabs",
   "impact-burst": "any hit on a body",
   "ground-slam": "a jumping strike's landing",
@@ -82,6 +84,7 @@ export async function buildStrikeEffects({ outDir, log = () => {} }: { outDir: s
     origins: {
       strike: "the contact point, with +Z along the strike direction; the arcs lie in the XZ plane and curve back to their swing centre at (-swingRadius, 0, 0)",
       ground: "the landing or foot point on the ground, +Y up and +Z the attacker's facing",
+      weapon: "the point on the weapon to glint, usually the blade's tip or middle; the glint reads from any side, so its rotation does not matter",
     },
     bounds: "Each entry's bounds hold every frame of its clip.",
     playback: "Spawn at the contact frame, play Play once and remove the instance when it ends: every entry ends with zero scale or zero area. Colour and opacity come from COLOR_0 (RGBA) times the material colour; tint through the material.",

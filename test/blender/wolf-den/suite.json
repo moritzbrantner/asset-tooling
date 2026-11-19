@@ -1,0 +1,11 @@
+{
+  "note": "The wolf den (#754): 10 recipe runs, three of them Cycles bakes, built twice for the same tar.",
+  "timeout": 25,
+  "ktx": true,
+  "lfs": [
+    "assets/canonical/poly-haven.rock-boulder-dry-diff-2k-jpg/**",
+    "assets/canonical/poly-haven.rock-boulder-dry-disp-2k-jpg/**",
+    "assets/canonical/poly-haven.mossy-rock-diff-2k-jpg/**",
+    "assets/canonical/poly-haven.forrest-ground-01-diff-2k-jpg/**"
+  ]
+}

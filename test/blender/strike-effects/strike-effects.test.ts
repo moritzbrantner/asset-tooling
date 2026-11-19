@@ -58,11 +58,11 @@ test("the recipe builds a verified, reproducible bundle of small animated effect
       const asset = byRole[entry];
       assert.ok(asset.triangles <= STRIKE_TRIANGLE_BUDGET, `${entry}: ${asset.triangles} triangles`);
       assert.deepEqual(asset.clip, { name: "Play", duration: STRIKE_CLIPS[entry], loop: false });
-      assert.equal(asset.align, entry === "ground-slam" || entry === "lunge-dust" ? "ground" : "strike");
+      assert.equal(asset.align, entry === "ground-slam" || entry === "lunge-dust" ? "ground" : entry === "combo-glint" ? "weapon" : "strike");
     }
     // The arcs' outer edge passes through the contact point, curving back to the swing centre at -X; the ground
     // effects stay on and above the ground.
-    for (const arc of ["strike-arc-cut", "strike-arc-heavy"]) {
+    for (const arc of ["strike-arc-cut", "strike-arc-heavy", "cleave-sweep"]) {
       assert.equal(byRole[arc].bounds.max[0], 0, `${arc} reaches the contact point`);
       assert.ok(byRole[arc].bounds.min[0] < -byRole[arc].swingRadius, `${arc} curves back past its swing centre`);
     }

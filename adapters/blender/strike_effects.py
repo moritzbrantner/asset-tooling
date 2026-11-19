@@ -1,8 +1,11 @@
-"""Strike effect meshes (docs/strike-effects.md, #724): six small animated meshes a game spawns at a strike's contact point.
+"""Strike effect meshes (docs/strike-effects.md, #724, #754): eight small animated meshes a game spawns at a strike's contact
+point or on the weapon.
 
 ``strike-arc-cut`` and ``strike-arc-heavy`` are crescent ribbons that sweep through the contact point and thin onto
-their bright edge; ``strike-thrust`` is a narrow streak with a flare; ``impact-burst`` is a star of short spikes that
-pops and shrinks; ``ground-slam`` is a ring shockwave with rising chips; ``lunge-dust`` is low dust puffs at the feet.
+their bright edge; ``cleave-sweep`` is a wider, flatter fan for a slash that hits more than one enemy;
+``combo-glint`` is a star glint on the weapon while a follow-up window is open; ``strike-thrust`` is a narrow streak
+with a flare; ``impact-burst`` is a star of short spikes that pops and shrinks; ``ground-slam`` is a ring shockwave with rising chips;
+``lunge-dust`` is low dust puffs at the feet.
 Each is one glTF scene whose nodes (and, for the ribbons and the ring, one morph target ``Thin``) are animated by one
 clip, ``Play``, that starts at the contact frame and ends with the effect gone (zero scale or zero area).
 
@@ -26,12 +29,12 @@ from bpy_extras import anim_utils
 from mathutils import Vector
 
 RECIPE = "strike-effects-v1"
-ENTRIES = ("strike-arc-cut", "strike-arc-heavy", "strike-thrust", "impact-burst", "ground-slam", "lunge-dust")
+ENTRIES = ("strike-arc-cut", "strike-arc-heavy", "cleave-sweep", "combo-glint", "strike-thrust", "impact-burst", "ground-slam", "lunge-dust")
 GLOW, DUST = "strike-glow", "strike-dust"
 CLIP = "Play"
 CLIP_FPS = 100  # whole frames for every clip length below
-CLIP_SECONDS = {"strike-arc-cut": 0.18, "strike-arc-heavy": 0.25, "strike-thrust": 0.15, "impact-burst": 0.2, "ground-slam": 0.4, "lunge-dust": 0.35}
-ALIGN = {"strike-arc-cut": "strike", "strike-arc-heavy": "strike", "strike-thrust": "strike", "impact-burst": "strike", "ground-slam": "ground", "lunge-dust": "ground"}
+CLIP_SECONDS = {"strike-arc-cut": 0.18, "strike-arc-heavy": 0.25, "cleave-sweep": 0.3, "combo-glint": 0.3, "strike-thrust": 0.15, "impact-burst": 0.2, "ground-slam": 0.4, "lunge-dust": 0.35}
+ALIGN = {"strike-arc-cut": "strike", "strike-arc-heavy": "strike", "cleave-sweep": "strike", "combo-glint": "weapon", "strike-thrust": "strike", "impact-burst": "strike", "ground-slam": "ground", "lunge-dust": "ground"}
 TRIANGLE_BUDGET = 200
 
 # sRGB material colours; the vertex colours carry the gradient.
@@ -43,6 +46,8 @@ DUST_COLOUR = (0.74, 0.66, 0.54)
 ARCS = {
     "strike-arc-cut": {"radius": 1.15, "width": 0.16, "behind": 115, "ahead": 10, "segments": 16, "band": 0.0, "sweep": (-40, 12)},
     "strike-arc-heavy": {"radius": 1.55, "width": 0.3, "behind": 150, "ahead": 12, "segments": 20, "band": 0.07, "sweep": (-55, 15)},
+    # The cleave sweeps a wide, flat fan: a slash that carries on through more than one enemy.
+    "cleave-sweep": {"radius": 1.6, "width": 0.5, "behind": 175, "ahead": 14, "segments": 22, "band": 0.11, "sweep": (-85, 20)},
 }
 
 
@@ -426,7 +431,48 @@ def dust(entry, col, root, clip):
     return {}
 
 
-BUILDERS = {"strike-arc-cut": arc, "strike-arc-heavy": arc, "strike-thrust": thrust, "impact-burst": burst, "ground-slam": slam, "lunge-dust": dust}
+# Glint stars: ray length, cross-ray length, delay (share of the clip), peak scale and spin (radians over the clip).
+GLINTS = [(0.46, 0.13, 0.0, 1.0, 0.7), (0.26, 0.09, 0.2, 0.85, -0.9)]
+
+
+def glint(entry, col, root, clip):
+    """A four-pointed star glint and a smaller, later twinkle beside it, each three crossed star planes about a bright
+    core, so they read from any side. Both pop, turn a little and shrink to nothing: one cue as the follow-up opens."""
+    for index, (ray, cross, delay, peak, spin) in enumerate(GLINTS):
+        m = Mesh()
+        core = [m.v(p, 1.0) for p in ((0.03, 0, 0), (-0.03, 0, 0), (0, 0.03, 0), (0, -0.03, 0), (0, 0, 0.03), (0, 0, -0.03))]
+        for a, b in ((0, 2), (2, 1), (1, 3), (3, 0)):
+            m.tri(core[a], core[b], core[4])
+            m.tri(core[b], core[a], core[5])
+        for plane in range(3):
+            def at(u, v, plane=plane):
+                return ((u, v, 0), (0, v, u), (u, 0, v))[plane]
+            centre = m.v((0, 0, 0), 1.0)
+            rim = []
+            for k in range(8):
+                a = 2 * math.pi * k / 8
+                reach = (ray if plane == 0 else ray * 0.8) if k % 2 == 0 else cross * 0.35
+                rim.append(m.v(at(reach * math.cos(a), reach * math.sin(a)), 0.0 if k % 2 == 0 else 0.5))
+            for k in range(8):
+                m.tri(centre, rim[k], rim[(k + 1) % 8])
+        offset = (0, 0, 0) if index == 0 else (0.09, 0.11, 0.0)
+        star = m.finish(f"{entry}.star{index}", col, bpy.data.materials[GLOW], root)
+
+        def star_at(t, offset=offset, delay=delay, peak=peak, spin=spin):
+            local = min(max((t - delay) / (1 - delay), 0.0), 1.0)
+            if local <= 0:
+                s = 0.0
+            elif local < 0.3:
+                s = peak * 1.15 * ease_out(local / 0.3)
+            else:
+                s = peak * (1.15 - 0.15 * smooth((local - 0.3) / 0.2)) * (1 - ease_in((local - 0.5) / 0.5))
+            return (offset, (0, 0, spin * local), (s, s, s))
+
+        clip.node(star, star_at)
+    return {}
+
+
+BUILDERS = {"strike-arc-cut": arc, "strike-arc-heavy": arc, "cleave-sweep": arc, "combo-glint": glint, "strike-thrust": thrust, "impact-burst": burst, "ground-slam": slam, "lunge-dust": dust}
 
 
 def build(entry, collection, location=(0, 0, 0)):
