@@ -489,6 +489,23 @@ export const RANGER_CLIP_ROLES: Readonly<Record<string, { role: string; contact?
   Shield_Block_Hit: { role: "shield.block-hit" },
   Shield_Bash: { role: "shield.bash", contact: "hand_l" },
   Kick_Front: { role: "kick.front", contact: "foot_r" },
+  // #767: the control reactions, the movement spells and the tanner (src/ranger-clips.ts RANGER_MOVE_CLIPS,
+  // RANGER_WORK_CLIPS). The slam's contact is the fist meeting the ground, the throw's the hook leaving the hand.
+  Rooted_Struggle_Loop: { role: "control.rooted.struggle" },
+  Rooted_Struggle_Frozen_Loop: { role: "control.rooted.frozen" },
+  Fall_Pit: { role: "control.fall.pit" },
+  Blink_Out: { role: "move.blink.out" },
+  Blink_In: { role: "move.blink.in" },
+  Leap_Launch: { role: "move.leap.launch" },
+  Leap_Air_Loop: { role: "move.leap.air" },
+  Leap_Slam: { role: "move.leap.slam", contact: "hand_r" },
+  Dash_Lunge: { role: "move.dash.lunge" },
+  Grapple_Throw: { role: "move.grapple.throw", contact: "hand_r" },
+  Pull_Yank: { role: "move.pull.yank" },
+  Pulled_Drag: { role: "control.pulled.drag" },
+  Slip_Ice_Loop: { role: "control.slip.ice" },
+  Tanner_Scrape_Loop: { role: "work.tanner.scrape" },
+  Tanner_Stretch_Hide: { role: "work.tanner.stretch" },
 };
 /** The gait loops whose ground speed the `humanoid-clips` attachment records. */
 export const RANGER_GAITS: ReadonlySet<string> = new Set(["Walk_Loop", "Jog_Fwd_Loop", "Sprint_Loop", "Crouch_Fwd_Loop", "Jog_Bwd_Loop", "Walk_Bwd_Loop", "Wade_Fwd_Loop"]);
