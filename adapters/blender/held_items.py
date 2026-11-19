@@ -43,6 +43,9 @@ MATERIALS = {
     "fuse": ((.5, .38, .2), 0.0, .95),
     "glass": ((.62, .8, .66), 0.0, .06),
     "ember": ((1.0, .32, .04), 0.0, .2),
+    # #760: the hunter's spear's pale ash shaft, and the archery recipe's feather (same name and values).
+    "wood.ash": ((.52, .4, .25), 0.0, .74),
+    "feather": ((.66, .62, .55), 0.0, .9),
 }
 ALPHA = {"glass": .32}
 EMISSIVE = {"ember"}
@@ -777,6 +780,98 @@ def load_water_jug(b):
     handle = [(0, 0.17, cz + 0.042), (0, 0.18, cz + 0.1), (0, 0.15, cz + 0.145), (0, 0.085, cz + 0.155)]
     for p, q in zip(handle, handle[1:]):
         b.rod(p, q, 0.013, 0.013, 5, "cork")
+
+
+# ---------------------------------------------------------------- Greyhaven named finds (#760)
+# Recognisable named weapons on their family's grip and role, each with its own silhouette and materials, no glow.
+
+def wrapped(b, y0, y1, r, mat, step=0.03, n=6):
+    """A wrap of raised turns around a haft or grip from ``y0`` to ``y1``."""
+    turns = max(1, round((y1 - y0) / step))
+    profile = []
+    for k in range(turns + 1):
+        y = y0 + (y1 - y0) * k / turns
+        profile += [(y, r + 0.0015)] if k in (0, turns) else [(y - 0.004, r + 0.0035), (y + 0.004, r + 0.0015)]
+    b.lathe(profile, n, mat)
+
+
+def feather(b, length, width):
+    """A flat feather along +Y from the origin, a thin lozenge section widest a third of the way out."""
+    rings = [[(w, length * u, 0), (0, length * u, -0.0015), (-w, length * u, 0), (0, length * u, 0.0015)]
+             for u, w in ((0.0, 0.002), (0.35, width), (0.8, width * 0.7))]
+    b.loft(rings + [[(0, length, 0)]], "feather")
+
+
+def garricks_cleaver(b):
+    """Garrick Redbrand's falchion: a broad chopping blade with a straight, thick iron-shod back, two notches in the
+    edge from hard use and a clipped point; a red-wrapped grip under a short, heavy guard."""
+    wrapped(b, -0.075, 0.05, 0.015, "paint.red", step=0.025)
+    b.box((-0.06, 0.05, -0.017), (0.07, 0.074, 0.017), "iron")
+    with b.at(T(0, -0.09, 0) @ rot("X", 90)):
+        b.lathe([(-0.012, 0.026), (0.012, 0.026)], 8, "iron")
+    top, length, back = 0.074, 0.6, -0.014
+    notches = (0.38, 0.66)
+    us = sorted({k / 12 for k in range(13)} | {c + d for c in notches for d in (-0.025, 0.0, 0.025)})
+    rings = []
+    for u in us:
+        edge = 0.036 + 0.075 * min(1.0, u / 0.8) ** 0.8
+        edge -= sum(0.016 * max(0.0, 1 - abs(u - c) / 0.025) for c in notches)
+        spine = back if u <= 0.86 else back + (edge - 0.012 - back) * ((u - 0.86) / 0.14) ** 1.3
+        if u == 1.0:
+            edge -= 0.004
+        mid = spine + (edge - spine) * 0.4
+        y = top + length * u
+        rings.append([(edge, y, 0), (mid, y, -0.006), (spine, y, -0.008), (spine, y, 0.008), (mid, y, 0.006)])
+    b.loft(rings, "steel")
+    b.box((back - 0.004, top, -0.0095), (back + 0.007, top + length * 0.84, 0.0095), "iron")
+
+
+def hollowpine_spear(b):
+    """A hunter's spear: a long pale ash shaft, a broad leaf blade above a crossguard of two bound boar tusks, and
+    feather tufts hanging from the socket on leather thongs."""
+    b.lathe([(-FOOT, 0.0165), (1.2, 0.0145)], 7, "wood.ash")
+    b.lathe([(-FOOT - 0.025, 0.0), (-FOOT, 0.018)], 7, "iron", caps=(False, True))
+    wrapped(b, -0.12, 0.1, 0.016, "leather", step=0.055, n=7)
+    b.lathe([(1.18, 0.0175), (1.28, 0.0135)], 7, "iron")
+    wrapped(b, 1.15, 1.205, 0.017, "leather", step=0.018, n=7)
+    for s in (-1, 1):  # the tusks curve out along ±X and up toward the blade
+        path = [(0.012 * s, 1.18), (0.06 * s, 1.165), (0.105 * s, 1.185), (0.13 * s, 1.235)]
+        radii = [0.013, 0.011, 0.007, 0.0]
+        for (p, q), r0, r1 in zip(zip(path, path[1:]), radii, radii[1:]):
+            b.rod((p[0], p[1], 0), (q[0], q[1], 0), r0, r1, 5, "bone")
+    rings, length, width = [], 0.36, 0.044
+    for k in range(9):
+        u = k / 8
+        y = 1.28 + length * u
+        if k == 8:
+            rings.append([(0, y, 0)])
+            continue
+        w = width * math.sin(math.pi * min(1.0, (u + 0.08) / 1.05) ** 0.75) + 0.008 * (1 - u)
+        t = 0.008 * (1 - 0.6 * u)
+        rings.append([(w, y, 0), (0, y, -t), (-w, y, 0), (0, y, t)])
+    b.loft(rings, "steel")
+    for s in (-1, 1):  # two thongs, each ending in a tuft of three feathers
+        knot = (0.028 * s, 1.07, 0.0)
+        b.rod((0.014 * s, 1.16, 0), knot, 0.003, 0.003, 4, "leather")
+        for k, lean in enumerate((-14, 0, 14)):
+            with b.at(T(*knot) @ rot("Z", 180 + s * (8 + lean)) @ rot("Y", 60 * k)):
+                feather(b, 0.13, 0.012)
+
+
+def millbrook_mace(b):
+    """The Millbrook smith's mace: a tall head of seven stepped steel flanges on an iron core, a short finial, a brass
+    plate struck with the smithy's stamp, and a haft wrapped in leather from pommel to collar."""
+    b.lathe([(-0.15, 0.0), (-0.14, 0.022), (-0.115, 0.024), (-0.105, 0.016)], 7, "iron", caps=(False, True))
+    wrapped(b, -0.105, 0.315, 0.016, "leather", step=0.05, n=6)
+    b.lathe([(0.31, 0.021), (0.37, 0.024)], 7, "iron")
+    b.box((-0.014, 0.322, 0.022), (0.014, 0.356, 0.028), "brass")
+    b.box((-0.006, 0.33, 0.028), (0.006, 0.348, 0.0305), "iron")  # the stamp: a struck anvil mark
+    b.lathe([(0.37, 0.022), (0.55, 0.02), (0.56, 0.0)], 7, "iron", caps=(True, False))
+    outline = [(0.0, 0.37), (0.035, 0.38), (0.07, 0.43), (0.05, 0.47), (0.072, 0.53), (0.0, 0.55)]
+    for k in range(7):
+        with b.at(rot("Y", 360 * k / 7)):
+            b.prism(outline, -0.005, 0.005, "steel")
+    b.lathe([(0.55, 0.012), (0.6, 0.0)], 5, "steel", caps=(True, False))
 # ---------------------------------------------------------------- catalogue
 
 # item: (builder, roles, frames beyond grip as {name: (x, y, z)}, triangle budget)
@@ -834,6 +929,10 @@ ITEMS = {
     "load.hay": (load_hay, ["load"], {}, 400),
     "load.basket-large": (load_basket_large, ["load"], {}, 800),
     "load.water-jug": (load_water_jug, ["load"], {}, 400),
+    # #760: Greyhaven's named finds, on their family's sockets.
+    "sword.garricks-cleaver": (garricks_cleaver, ["one-hand-weapon"], {}, 500),
+    "spear.hollowpine-hunter": (hollowpine_spear, ["staff", "spear"], {"grip.offhand": (0, 0.45, 0)}, 600),
+    "mace.millbrook-smith": (millbrook_mace, ["one-hand-weapon"], {}, 600),
 }
 
 
