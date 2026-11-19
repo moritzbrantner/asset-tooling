@@ -516,6 +516,18 @@ export const RANGER_CLIP_ROLES: Readonly<Record<string, { role: string; contact?
   Ride_Gallop_Loop: { role: "ride.gallop" },
   Ride_Turn_L: { role: "ride.turn-left" },
   Ride_Turn_R: { role: "ride.turn-right" },
+  // #773: the Redbrand shield-bearer's guard and the signaler's horn call (src/ranger-clips.ts RANGER_GUARD_CLIPS,
+  // RANGER_SIGNAL_CLIPS). The bash's contact is the shield punched out on the left hand.
+  Shield_Guard_Loop: { role: "shield.guard" },
+  Shield_Guard_Turn_L: { role: "shield.guard.turn-left" },
+  Shield_Guard_Turn_R: { role: "shield.guard.turn-right" },
+  Shield_Block_Impact: { role: "shield.guard.impact" },
+  Shield_Guard_Bash: { role: "shield.guard.bash", contact: "hand_l" },
+  Guard_Broken_Stagger: { role: "shield.guard.broken" },
+  Signal_Call_Start: { role: "signal.call.start" },
+  Signal_Call_Loop: { role: "signal.call" },
+  Signal_Call_Interrupted: { role: "signal.call.interrupted" },
+  Signal_Call_End: { role: "signal.call.end" },
 };
 /** The gait loops whose ground speed the `humanoid-clips` attachment records. */
 export const RANGER_GAITS: ReadonlySet<string> = new Set(["Walk_Loop", "Jog_Fwd_Loop", "Sprint_Loop", "Crouch_Fwd_Loop", "Jog_Bwd_Loop", "Walk_Bwd_Loop", "Wade_Fwd_Loop"]);

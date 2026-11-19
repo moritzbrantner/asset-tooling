@@ -258,6 +258,23 @@ export const RANGER_RIDE_CLIPS = [
   "Ride_Turn_R",
 ] as const;
 /**
+ * #773 (mmorpg#953, the shield-bearing Redbrand whose guard rewards flanking): a full-body shield guard on the Redbrand
+ * shield (`equipment.shield.redbrand` on `hand_l.shield`) with a one-hander in the right hand, its slow planted 45
+ * degree turns (ending turned, as `Turn_Left`), a blow landing on the shield, a full-body bash that steps in and a
+ * guard broken from the side or behind. Authored by adapters/blender/defend_clips.py's stance keys (feet, hips, chest,
+ * shoulders, then the shield); each starts and ends in `Shield_Guard_Loop`. `Shield_Guard_Bash` is the bash from this
+ * guard; the upper-body `Shield_Bash` of the defend family keeps its name. They follow the ride clips in bundle order.
+ */
+export const RANGER_GUARD_CLIPS = [
+  "Shield_Guard_Loop", "Shield_Guard_Turn_L", "Shield_Guard_Turn_R", "Shield_Block_Impact", "Shield_Guard_Bash", "Guard_Broken_Stagger",
+] as const;
+/**
+ * #773 (mmorpg#952, the interruptible Redbrand signaler): raising the signal horn (`equipment.tool.signal-horn` on
+ * `hand_r.weapon`) to the lips, the blast held as a loop, the call broken (the horn struck loose at `dropSeconds`) and
+ * the call ended, full body by the same recipe. They follow the guard clips.
+ */
+export const RANGER_SIGNAL_CLIPS = ["Signal_Call_Start", "Signal_Call_Loop", "Signal_Call_Interrupted", "Signal_Call_End"] as const;
+/**
  * #285: static grip poses authored on the rig by adapters/blender/grip_poses.py. Each clip keys only the finger and
  * thumb rotations of one hand; a consumer plays it over the body clip's finger channels while that hand's socket holds
  * an item of `role`. The fingers wrap a handle of `radius` (metres) along the item's grip-frame `axis`; the tome leaves
@@ -747,7 +764,34 @@ export const RANGER_CLIP_FAMILIES: readonly ClipFamily[] = [
       };
     },
   },
+  stanceFamily("guard", RANGER_GUARD_CLIPS),
+  stanceFamily("signal", RANGER_SIGNAL_CLIPS),
 ];
+
+/**
+ * A family of adapters/blender/defend_clips.py's stance clips (#773): the clip's `guard` or `signal` object (its kind,
+ * items, `from`/`to` and marks) and its chain pose; the bash's contact is the authored one.
+ */
+function stanceFamily(id: "guard" | "signal", clips: readonly string[]): ClipFamily {
+  return {
+    id, script: "defend_clips.py", clips,
+    arguments: ({ socket }) => {
+      const at = socketAt(socket);
+      return {
+        schemaVersion: 1, clips: [...clips],
+        sockets: { weapon: at("hand_r.weapon"), offhand: at("hand_l.weapon"), shield: at("hand_l.shield"), staff: at("hand_r.staff"), staffLeft: at("hand_l.staff") },
+      };
+    },
+    clip: (name, family) => {
+      const { source, secondaryPose, contactSeconds, ...observed } = family.clips[name] as Json;
+      return {
+        authored: { recipe: family.recipe, clip: name, fps: family.fps, ...(contactSeconds === undefined ? {} : { contactSeconds }), ...observed },
+        basedOn: source as string,
+        extra: { fields: { [id]: observed[id], secondaryPose }, ...(contactSeconds === undefined ? {} : { contactSeconds: contactSeconds as number }) },
+      };
+    },
+  };
+}
 
 /**
  * A family of adapters/blender/move_clips.py (#767): the upper-body clips list their joints; the timing, the chain
