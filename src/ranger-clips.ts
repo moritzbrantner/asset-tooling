@@ -2,6 +2,7 @@
 // run per family. Adding a family is one table row plus its Blender recipe; adding a clip is one name.
 import { ARCHERY_PRESETS } from "./archery-recipes.js";
 import { WEAPON_PRESETS } from "./weapon-recipes.js";
+import { rideArguments } from "./mounts.js";
 
 type Json = Record<string, any>;
 
@@ -245,6 +246,17 @@ export const RANGER_MOVE_CLIPS = [
  * same recipe as the move clips. They follow the move clips in bundle order.
  */
 export const RANGER_WORK_CLIPS = ["Tanner_Scrape_Loop", "Tanner_Stretch_Hide"] as const;
+/**
+ * #769: riding the tacked horse of the `mounts` release (docs/mounts.md): mounting from its near side, dismounting, and
+ * riding at a halt, through its four gaits (in step with the horse's loops: the trot posts, the gallop leans forward
+ * out of the saddle) and through its turns. Authored in the seat frame by adapters/blender/ride_clips.py: the game
+ * parents the root to the horse's `saddle.seat`, the pelvis sits on it and the palms and balls stay on `reins.*` and
+ * `stirrup.*` (src/mounts.ts holds the shared numbers). Full body with a `secondaryPose`. They follow the work clips.
+ */
+export const RANGER_RIDE_CLIPS = [
+  "Mount_Horse", "Dismount_Horse", "Ride_Idle_Loop", "Ride_Walk_Loop", "Ride_Trot_Loop", "Ride_Canter_Loop", "Ride_Gallop_Loop", "Ride_Turn_L",
+  "Ride_Turn_R",
+] as const;
 /**
  * #285: static grip poses authored on the rig by adapters/blender/grip_poses.py. Each clip keys only the finger and
  * thumb rotations of one hand; a consumer plays it over the body clip's finger channels while that hand's socket holds
@@ -720,6 +732,21 @@ export const RANGER_CLIP_FAMILIES: readonly ClipFamily[] = [
   },
   moveFamily("move", RANGER_MOVE_CLIPS),
   moveFamily("work", RANGER_WORK_CLIPS),
+  {
+    id: "ride", script: "ride_clips.py", clips: RANGER_RIDE_CLIPS,
+    arguments: () => ({ schemaVersion: 1, clips: [...RANGER_RIDE_CLIPS], ...rideArguments() }),
+    clip: (name, family) => {
+      // The horse clip it plays with, the seat and the mount's ground and standing place go to the clip's `ride` object
+      // and the chain pose beside it.
+      const { source, secondaryPose, ...observed } = family.clips[name] as Json;
+      const ride = pickKeys(observed, ["mount", "seat", "horseClip", "from", "to", "riseSeconds", "sitSeconds", "handsAlongReinsMeters", "standAt",
+        "standFacing", "groundBelowSeatMeters"]);
+      return {
+        authored: { recipe: family.recipe, clip: name, fps: family.fps, ...observed }, basedOn: source as string,
+        extra: { fields: { ride, secondaryPose } },
+      };
+    },
+  },
 ];
 
 /**
