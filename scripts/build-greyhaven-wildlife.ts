@@ -1,9 +1,9 @@
-// Greyhaven's wildlife (#667, docs/greyhaven-wildlife.md) and the hostile creatures' combat clips (#715, #722), following the farm
+// Greyhaven's wildlife (#667, docs/greyhaven-wildlife.md) and the hostile creatures' combat clips (#715, #722) and the lynx and adder (#778), following the farm
 // animals' conventions:
 //   ASSET_TOOLING_BLENDER=<blender 5.2.2> bun scripts/build-greyhaven-wildlife.ts --out <directory>
 // Each animal is one external.blender.script@1 run of adapters/blender/wildlife.py, with the farm-animals recipe
 // (adapters/blender/farm_animals.py) as its declared Python input `farm`: the stag, doe, fox, wolf and rat over their hash-pinned
-// CC0 Quaternius catalog payloads (imported offline from hydrated LFS storage), the rabbit, boar, four birds, bear, spider and marsh lurker
+// CC0 Quaternius catalog payloads (imported offline from hydrated LFS storage), the rabbit, boar, four birds, bear, spider, marsh lurker, lynx and adder
 // authored by the recipe itself. Each GLB is checked through scene.import.gltf@2 and exported as a gltf-resources-v1
 // bundle packed to <directory>/greyhaven.wildlife.tar, next to the measured greyhaven-wildlife-descriptor-v1,
 // lineage.json and export.ref.json.
@@ -56,15 +56,23 @@ export const WILD_ANIMALS = [
   { animal: "bear", sourceId: null, member: null, bird: false, hostile: true, ...AUTHORED },
   { animal: "spider", sourceId: null, member: null, bird: false, hostile: true, ...AUTHORED },
   { animal: "marsh-lurker", sourceId: null, member: null, bird: false, hostile: true, ...AUTHORED },
+  { animal: "lynx", sourceId: null, member: null, bird: false, hostile: true, ...AUTHORED },
+  { animal: "marsh-adder", sourceId: null, member: null, bird: false, hostile: true, ...AUTHORED },
 ] as const;
 export type WildAnimal = (typeof WILD_ANIMALS)[number]["animal"];
 /** The hostile creatures' combat clips (#715, #722): a looping in-place Run and one-shot attacks, flinch, death and alert. */
 export const COMBAT_CLIPS = ["Run", "Attack_A", "Attack_B", "Hit", "Death", "Alert"] as const;
-export const ONE_SHOT_CLIPS = ["Attack_A", "Attack_B", "Hit", "Death", "Alert"] as const;
+export const ONE_SHOT_CLIPS = ["Attack_A", "Attack_B", "Hit", "Death", "Alert", "Pounce_Windup", "Pounce_Lunge", "Pounce_Recover", "Strike", "Strike_Recover"] as const;
+/** The forest lynx and marsh adder (#778) have their own clip sets instead of Idle, Walk, Eat and the combat clips: the lynx
+ * stalks and pounces in three phases, the adder rests coiled, slithers, rears to warn and strikes. */
+export const SPECIES_CLIPS = {
+  lynx: ["Idle", "Walk", "Run", "Crouch_Stalk_Loop", "Pounce_Windup", "Pounce_Lunge", "Pounce_Recover", "Hit", "Death"],
+  "marsh-adder": ["Idle_Coil_Loop", "Slither_Loop", "Warn_Hiss_Loop", "Strike", "Strike_Recover", "Hit", "Death"],
+} as const;
 /** Every animal has Idle, Walk and Eat (grazing, rooting, pecking); the birds also a looping wingbeat, Fly; the hostile
  * wolf, boar, rat, bear, spider and marsh lurker also the combat clips. */
 export const WILD_CLIPS: Record<WildAnimal, readonly string[]> = Object.fromEntries(WILD_ANIMALS.map((entry) => [
-  entry.animal, ["Idle", "Walk", "Eat", ...(entry.bird ? ["Fly"] : []), ...(entry.hostile ? COMBAT_CLIPS : [])],
+  entry.animal, (SPECIES_CLIPS as Record<string, readonly string[]>)[entry.animal] ?? ["Idle", "Walk", "Eat", ...(entry.bird ? ["Fly"] : []), ...(entry.hostile ? COMBAT_CLIPS : [])],
 ])) as Record<WildAnimal, readonly string[]>;
 export const wildKey = (animal: WildAnimal) => `greyhaven.wild.${animal}`;
 const POLICY = { allowedValidatorWarnings: [...GLTF_RESOURCES_BUNDLE_ALLOWED_VALIDATOR_WARNINGS] };
@@ -125,8 +133,9 @@ export async function buildGreyhavenWildlife({ outDir, log = () => {} }: { outDi
     schema: WILD_DESCRIPTOR_SCHEMA, units: "metre", up: "+Y", facing: "+Z", handedness: "right", origin: "footprint-ground-center",
     placement: "Cosmetic wildlife and the hostile creatures' presentation. The consumer owns world placement, wandering, flight paths, fleeing, collision, combat and gameplay; none is implied here.",
     clips: {
-      names: ["Idle", "Walk", "Eat", "Fly", ...COMBAT_CLIPS], required: ["Idle", "Walk", "Eat"], birds: ["Fly"], hostile: [...COMBAT_CLIPS],
-      oneShot: [...ONE_SHOT_CLIPS], rootMotion: "in-place", loop: "every clip but the oneShot ones",
+      names: [...new Set(["Idle", "Walk", "Eat", "Fly", ...COMBAT_CLIPS, ...Object.values(SPECIES_CLIPS).flat()])], required: ["Idle", "Walk", "Eat"], birds: ["Fly"], hostile: [...COMBAT_CLIPS],
+      species: SPECIES_CLIPS,
+      oneShot: [...ONE_SHOT_CLIPS], rootMotion: "in-place; travelSpeed (m/s) or rootTravel says how far the consumer moves the root", loop: "every clip but the oneShot ones",
     },
     assets: built.map(({ entry, source, observations, document }) => ({
       key: wildKey(entry.animal), variant: "default", animal: entry.animal, bird: entry.bird, hostile: entry.hostile,
@@ -139,8 +148,18 @@ export async function buildGreyhavenWildlife({ outDir, log = () => {} }: { outDi
         source: entry.sourceClips ? (entry.sourceClips as Record<string, string>)[a.getName()] : "authored",
         loop: observations.clips[a.getName()].loop,
         ...(observations.clips[a.getName()].contactSeconds === undefined ? {} : { contactSeconds: observations.clips[a.getName()].contactSeconds }),
+        ...(observations.clips[a.getName()].travelSpeed === undefined ? {} : { travelSpeed: observations.clips[a.getName()].travelSpeed }),
+        ...(observations.clips[a.getName()].rootTravel === undefined ? {} : { rootTravel: observations.clips[a.getName()].rootTravel }),
       }])),
       walkTravel: observations.walkTravel,
+      restClip: observations.restClip, moveClip: observations.moveClip,
+      ...(observations.length === undefined ? {} : { length: observations.length }),
+      // A box around the idle pose for the consumer's creature collision (#778); the consumer may shrink or swap it.
+      collisionProxy: {
+        shape: "box", pose: observations.restClip,
+        center: (observations.idleBounds.min as number[]).map((low, axis) => +((low + observations.idleBounds.max[axis]) / 2).toFixed(5)),
+        size: (observations.idleBounds.min as number[]).map((low, axis) => +(observations.idleBounds.max[axis] - low).toFixed(5)),
+      },
       provenance: source
         ? { pack: entry.pack, member: entry.member, catalogSource: entry.sourceId, license: "CC0-1.0", source, recipe: recipeRef }
         : { authored: "original scripted model, rig and clips", license: "original", recipe: recipeRef },
