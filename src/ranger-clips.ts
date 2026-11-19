@@ -100,7 +100,7 @@ export const RANGER_POST_CLIPS = [
 /**
  * #701 (#422's gathering and emotes, for players and residents): gathering loops, a chest opening and social emotes
  * authored in place on the Ranger rig by adapters/blender/gather_clips.py from the `hand_r.weapon` frame (the wood axe,
- * the hammer as a pick and the knife) and explicit palm frames (two-bone arm IK) and, for the full-body clips, pelvis
+ * the pickaxe and the skinning knife, #736) and explicit palm frames (two-bone arm IK) and, for the full-body clips, pelvis
  * and ankle targets (two-bone leg IK; the CC0 UAL1 seeds only as reference). The gathering loops and the chest are full
  * body with a `secondaryPose`; the emotes keep only the `spine_01` subtree. `Emote_Wave` and the one-armed
  * `Emote_Cheer` are the #421 social clips; `Emote_Cheer_Both` is the both-arms cheer. They follow the post clips in
@@ -211,7 +211,7 @@ export const RANGER_REACT_CLIPS = ["Hit_Light_L", "Hit_Light_R", "Hit_Heavy_Fron
 export const RANGER_READY_CLIPS = [
   "Sword_Draw", "Sword_Sheathe", "Mace_Draw", "Mace_Sheathe", "Dagger_Draw", "Dagger_Sheathe", "Staff_Draw", "Staff_Sheathe",
   "Spear_Draw", "Spear_Sheathe", "TwoHand_Draw", "TwoHand_Sheathe", "Bow_Draw_Weapon", "Bow_Stow",
-  "Mace_Idle_Loop", "Staff_Idle_Loop", "Spear_Idle_Loop", "TwoHand_Idle_Loop", "Unarmed_Idle_Loop",
+  "Mace_Idle_Loop", "Staff_Idle_Loop", "Spear_Idle_Loop", "TwoHand_Idle_Loop", "Unarmed_Idle_Loop", "Bow_Idle_Loop",
   "Mace_Guard_Loop", "Dagger_Guard_Loop", "Staff_Guard_Loop", "Spear_Guard_Loop", "TwoHand_Guard_Loop", "Unarmed_Guard_Loop", "Bow_Guard_Loop",
 ] as const;
 /**

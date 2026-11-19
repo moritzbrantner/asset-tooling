@@ -461,6 +461,7 @@ export const RANGER_CLIP_ROLES: Readonly<Record<string, { role: string; contact?
   Spear_Idle_Loop: { role: "spear.ready" },
   TwoHand_Idle_Loop: { role: "two-hand.ready" },
   Unarmed_Idle_Loop: { role: "unarmed.ready" },
+  Bow_Idle_Loop: { role: "bow.ready" },
   Mace_Guard_Loop: { role: "mace.guard" },
   Dagger_Guard_Loop: { role: "dagger.guard" },
   Staff_Guard_Loop: { role: "staff.guard" },
