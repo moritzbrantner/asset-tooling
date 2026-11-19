@@ -506,6 +506,16 @@ export const RANGER_CLIP_ROLES: Readonly<Record<string, { role: string; contact?
   Slip_Ice_Loop: { role: "control.slip.ice" },
   Tanner_Scrape_Loop: { role: "work.tanner.scrape" },
   Tanner_Stretch_Hide: { role: "work.tanner.stretch" },
+  // #769: riding the mounts release's horse (src/ranger-clips.ts RANGER_RIDE_CLIPS).
+  Mount_Horse: { role: "ride.mount" },
+  Dismount_Horse: { role: "ride.dismount" },
+  Ride_Idle_Loop: { role: "ride.idle" },
+  Ride_Walk_Loop: { role: "ride.walk" },
+  Ride_Trot_Loop: { role: "ride.trot" },
+  Ride_Canter_Loop: { role: "ride.canter" },
+  Ride_Gallop_Loop: { role: "ride.gallop" },
+  Ride_Turn_L: { role: "ride.turn-left" },
+  Ride_Turn_R: { role: "ride.turn-right" },
 };
 /** The gait loops whose ground speed the `humanoid-clips` attachment records. */
 export const RANGER_GAITS: ReadonlySet<string> = new Set(["Walk_Loop", "Jog_Fwd_Loop", "Sprint_Loop", "Crouch_Fwd_Loop", "Jog_Bwd_Loop", "Walk_Bwd_Loop", "Wade_Fwd_Loop"]);
