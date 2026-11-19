@@ -1,6 +1,7 @@
 """Spell effect meshes (docs/spell-effects.md, #726): school bolts, impacts, a frost nova, a beam segment, heal motes,
 and proper arrow, crossbow-bolt and throwing-knife models; and, for the movement and control clips (#771), blink out and in,
-a grapple rope and hook, vine and ice holds for a rooted target's feet with their end clips, and an ice-slip scrape.
+a grapple rope and hook, vine and ice holds for a rooted target's feet with their end clips, and an ice-slip scrape;
+and, for the Tinker (#775), the flask's chemical pool (``flask-splash``) and the pool burning (``chemical-ignite``).
 
 ``bolt-<school>`` are looping projectile heads with a crossed-plane tail; ``impact-<school>`` are short bursts that end
 gone; ``frost-nova`` is a ring of ice spikes that bursts out to 8 m and sinks; ``beam-segment`` is a one-metre tileable
@@ -37,6 +38,7 @@ ENTRIES = (
     "frost-nova", "beam-segment", "heal-motes",
     "blink-out", "blink-in", "grapple-rope", "grapple-hook",
     "roots-hold-loop", "roots-hold-end", "frost-hold-loop", "frost-hold-end", "ice-slip-scrape",
+    "flask-splash", "chemical-ignite",
 )
 CLIP_FPS = 100  # whole frames for every clip length below
 # Entry: (clip name, seconds); the shots have no clip.
@@ -46,13 +48,14 @@ CLIPS = {
     "impact-frost": ("Play", 0.35), "frost-nova": ("Play", 0.5), "beam-segment": ("Loop", 0.24), "heal-motes": ("Play", 0.8),
     "blink-out": ("Play", 0.3), "blink-in": ("Play", 0.4), "roots-hold-loop": ("Loop", 1.2), "roots-hold-end": ("Play", 0.35),
     "frost-hold-loop": ("Loop", 1.0), "frost-hold-end": ("Play", 0.35), "ice-slip-scrape": ("Play", 0.6),
+    "flask-splash": ("Loop", 1.2), "chemical-ignite": ("Loop", 0.8),
 }
 ALIGN = {
     **{e: "tip" for e in ("bolt-fire", "bolt-shadow", "bolt-holy", "bolt-nature", "arrow", "crossbow-bolt", "throwing-knife")},
     **{f"impact-{s}": "hit" for s in SCHOOLS},
     "frost-nova": "ground", "heal-motes": "ground", "beam-segment": "beam",
     **{e: "ground" for e in ("blink-out", "blink-in", "roots-hold-loop", "roots-hold-end", "frost-hold-loop", "frost-hold-end")},
-    "grapple-rope": "beam", "grapple-hook": "tip", "ice-slip-scrape": "path",
+    "grapple-rope": "beam", "grapple-hook": "tip", "ice-slip-scrape": "path", "flask-splash": "ground", "chemical-ignite": "ground",
 }
 TRIANGLE_BUDGET = 240
 NOVA_RADIUS = 8.0  # Frost Nova's 800-unit radius in mmorpg
@@ -62,7 +65,7 @@ BEAM_LENGTH = 1.0
 COLOURS = {
     "spell-fire": (1.0, 0.66, 0.3), "spell-shadow": (0.7, 0.42, 1.0), "spell-fel": (0.6, 1.0, 0.42),
     "spell-holy": (1.0, 0.88, 0.55), "spell-nature": (0.62, 1.0, 0.42), "spell-frost": (0.7, 0.9, 1.0),
-    "spell-energy": (0.86, 0.93, 1.0), "shot": (1.0, 1.0, 1.0),
+    "spell-energy": (0.86, 0.93, 1.0), "shot": (1.0, 1.0, 1.0), "spell-alchemy": (1.0, 0.6, 0.16),
 }
 SHOT = "shot"
 
@@ -1160,6 +1163,92 @@ def ice_slip_scrape(entry, col, root, clip):
     return {"length": SLIP_LENGTH}
 
 
+
+# ---------------------------------------------------------------- the Tinker's chemicals (#775)
+# A pool of the flask's chemical, authored in its volatile amber (``spell-alchemy``); a game tints the material for the
+# caustic brew (``TINTS``). The flask splashes it out to ``POOL_RADIUS``.
+POOL_RADIUS = 2.0
+TINTS = {"volatile": (1.0, 0.6, 0.16), "caustic": (0.62, 0.95, 0.3)}
+# Bubbles: angle (radians), distance as a share of the radius, size and phase (share of the loop).
+BUBBLES = [(0.3, 0.2, 0.16, 0.0), (1.9, 0.55, 0.13, 0.22), (3.0, 0.35, 0.18, 0.45), (4.2, 0.7, 0.12, 0.62), (5.3, 0.45, 0.15, 0.8),
+           (0.9, 0.78, 0.11, 0.35)]
+# The pool's rim, as a share of the radius per segment: a splashed, lobed outline.
+POOL_RIM = (1.0, 0.92, 0.97, 0.84, 0.95, 1.0, 0.88, 0.94, 0.99, 0.86, 0.93, 1.0, 0.9, 0.96, 0.87, 0.97)
+
+
+def pool(m, radius, alphas, rgbs):
+    """A flat lobed pool just above the ground: a bright middle, two inner rings and a rim that fades out."""
+    n = len(POOL_RIM)
+    middle = m.v((0, 0.02, 0), alphas[0], rgbs[0])
+    rings = []
+    for share, alpha, rgb in ((0.45, alphas[1], rgbs[1]), (0.85, alphas[2], rgbs[2]), (1.0, 0.0, rgbs[2])):
+        rings.append([m.v((radius * share * POOL_RIM[k] * math.sin(TAU * k / n), 0.02, radius * share * POOL_RIM[k] * math.cos(TAU * k / n)), alpha, rgb)
+                      for k in range(n)])
+    for k in range(n):
+        j = (k + 1) % n
+        m.tri(middle, rings[0][k], rings[0][j])
+        for inner, outer in zip(rings, rings[1:]):
+            m.quad(inner[k], outer[k], outer[j], inner[j])
+
+
+def flask_splash(entry, col, root, clip):
+    """The flask's chemical pooled on the ground, out to ``POOL_RADIUS``: a lobed, glowing pool that breathes, with
+    bubbles that swell and pop in turn while it lies there."""
+    m = Mesh()
+    pool(m, POOL_RADIUS, (0.75, 0.6, 0.4), ((1, 1, 1), (0.85, 0.8, 0.7), (0.7, 0.62, 0.5)))
+    obj = m.finish(f"{entry}.pool", col, "spell-alchemy", root)
+    clip.node(obj, lambda t: ((0, 0, 0), (0, 0, 0), (1 + 0.025 * pulse(t), 1, 1 + 0.025 * pulse(t))))
+    for index, (angle, share, size, phase) in enumerate(BUBBLES):
+        b = Mesh()
+        mote(b, size, 0.9)
+        bubble = b.finish(f"{entry}.bubble{index}", col, "spell-alchemy", root)
+        at = (POOL_RADIUS * share * math.sin(angle), 0.03, POOL_RADIUS * share * math.cos(angle))
+
+        def bubble_at(t, at=at, phase=phase):
+            local = (t + phase) % 1.0
+            s = ease_out(local / 0.7) * (1 - smooth((local - 0.7) / 0.12)) if local < 0.82 else 0.0
+            return ((at[0], at[1] + 0.06 * s, at[2]), (0, 0, 0), (s, s * 0.7, s))
+
+        clip.node(bubble, bubble_at)
+    return {"radius": POOL_RADIUS}
+
+
+# Flame tongues over the burning pool: angle (radians), distance as a share of the radius, height and phase.
+TONGUES = [(0.0, 0.0, 1.3, 0.0), (0.4, 0.35, 1.1, 0.3), (1.5, 0.4, 1.2, 0.6), (2.6, 0.3, 1.05, 0.15), (3.7, 0.42, 1.15, 0.75), (4.9, 0.36, 1.1, 0.45),
+           (0.9, 0.72, 0.6, 0.5), (1.9, 0.78, 0.7, 0.05), (2.9, 0.7, 0.55, 0.85), (3.9, 0.8, 0.65, 0.25), (5.0, 0.74, 0.6, 0.65),
+           (6.0, 0.7, 0.7, 0.4)]
+
+
+def chemical_ignite(entry, col, root, clip):
+    """The volatile pool burning: a hot glow over the pool and twelve flame tongues standing in it, tallest in the
+    middle, each flickering on its own beat."""
+    m = Mesh()
+    pool(m, POOL_RADIUS, (0.5, 0.42, 0.25), ((1, 1, 1), (1, 0.85, 0.6), (1, 0.7, 0.45)))
+    glow = m.finish(f"{entry}.glow", col, "spell-fire", root)
+    clip.node(glow, lambda t: ((0, 0, 0), (0, 0, 0), (1 + 0.03 * pulse(t, 2), 1, 1 + 0.03 * pulse(t, 2))))
+    for index, (angle, share, height, phase) in enumerate(TONGUES):
+        f = Mesh()
+        for turn in (0.0, math.pi / 2):  # two crossed blades, so the tongue reads from any side
+            side = Vector((math.cos(turn), 0, math.sin(turn))) * 0.26
+            base = [f.v(tuple(-side), 0.0, (1, 0.7, 0.4)), f.v((0, 0, 0), 0.85, (1, 0.8, 0.5)), f.v(tuple(side), 0.0, (1, 0.7, 0.4))]
+            mid = [f.v(tuple(-side * 0.6 + Vector((0, 0.45, 0))), 0.2, (1, 0.9, 0.7)), f.v((0, 0.4, 0), 0.75, (1, 1, 1)),
+                   f.v(tuple(side * 0.6 + Vector((0, 0.45, 0))), 0.2, (1, 0.9, 0.7))]
+            tip = f.v((0, 1.0, 0), 0.0, (1, 1, 1))
+            f.quad(base[0], base[1], mid[1], mid[0])
+            f.quad(base[1], base[2], mid[2], mid[1])
+            f.tri(mid[0], mid[1], tip)
+            f.tri(mid[1], mid[2], tip)
+        tongue = f.finish(f"{entry}.tongue{index}", col, "spell-fire", root)
+        at = (POOL_RADIUS * share * math.sin(angle), 0.02, POOL_RADIUS * share * math.cos(angle))
+
+        def tongue_at(t, at=at, height=height, phase=phase, index=index):
+            flick = 0.75 + 0.25 * math.sin(TAU * (2 * t + phase)) + 0.1 * math.sin(TAU * (3 * t + 2 * phase))
+            return (at, (0, TAU * t * (1 if index % 2 else -1) * 0.5, 0.06 * math.sin(TAU * (t + phase))),
+                    (0.8 + 0.2 * flick, height * flick, 0.8 + 0.2 * flick))
+
+        clip.node(tongue, tongue_at)
+    return {"radius": POOL_RADIUS}
+
 BUILDERS = {
     "bolt-fire": bolt_fire, "bolt-shadow": bolt_shadow, "bolt-holy": bolt_holy, "bolt-nature": bolt_nature,
     "impact-fire": impact_fire, "impact-shadow": impact_shadow, "impact-holy": impact_holy, "impact-nature": impact_nature,
@@ -1167,7 +1256,7 @@ BUILDERS = {
     "frost-nova": frost_nova, "beam-segment": beam_segment, "heal-motes": heal_motes,
     "blink-out": blink_out, "blink-in": blink_in, "grapple-rope": grapple_rope, "grapple-hook": grapple_hook,
     "roots-hold-loop": roots_hold_loop, "roots-hold-end": roots_hold_end, "frost-hold-loop": frost_hold_loop,
-    "frost-hold-end": frost_hold_end, "ice-slip-scrape": ice_slip_scrape,
+    "frost-hold-end": frost_hold_end, "ice-slip-scrape": ice_slip_scrape, "flask-splash": flask_splash, "chemical-ignite": chemical_ignite,
 }
 
 

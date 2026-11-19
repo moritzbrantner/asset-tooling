@@ -1,4 +1,4 @@
-// Build the strike effect meshes (#724, #754, #771, docs/strike-effects.md) from the scripted recipe adapters/blender/strike_effects.py:
+// Build the strike effect meshes (#724, #754, #771, #775, docs/strike-effects.md) from the scripted recipe adapters/blender/strike_effects.py:
 //   ASSET_TOOLING_BLENDER=<blender 5.2.2> bun scripts/build-strike-effects.ts --out <directory>
 // Each entry is one external.blender.script@1 run, imported through scene.import.gltf@2. The strike-effects-descriptor-v1
 // attachment lists each entry's clip, alignment, intended scale, triangles and bounds. <directory> becomes the object-store
@@ -15,7 +15,7 @@ import { buildKitPart, byKey, exportKitBundle, runKitCli, triangles, type KitPar
 
 export const STRIKE_EFFECTS = [
   "strike-arc-cut", "strike-arc-heavy", "cleave-sweep", "combo-glint", "strike-thrust", "impact-burst", "ground-slam", "lunge-dust",
-  "leap-slam", "dash-trail", "dash-dust",
+  "leap-slam", "dash-trail", "dash-dust", "bomb-blast", "trap-snap",
 ] as const;
 export type StrikeEffect = (typeof STRIKE_EFFECTS)[number];
 export const STRIKE_KEY_PREFIX = "strike.effects";
@@ -31,7 +31,7 @@ export const STRIKE_TRIANGLE_BUDGET = 200;
 /** Each entry's one-shot clip `Play`, in seconds. */
 export const STRIKE_CLIPS: Record<StrikeEffect, number> = {
   "strike-arc-cut": 0.18, "strike-arc-heavy": 0.25, "cleave-sweep": 0.3, "combo-glint": 0.3, "strike-thrust": 0.15, "impact-burst": 0.2, "ground-slam": 0.4, "lunge-dust": 0.35,
-  "leap-slam": 0.6, "dash-trail": 0.4, "dash-dust": 0.35,
+  "leap-slam": 0.6, "dash-trail": 0.4, "dash-dust": 0.35, "bomb-blast": 0.9, "trap-snap": 0.3,
 };
 /** What each entry marks in a fight, copied into the descriptor. */
 export const STRIKE_USE: Record<StrikeEffect, string> = {
@@ -46,6 +46,8 @@ export const STRIKE_USE: Record<StrikeEffect, string> = {
   "leap-slam": "Leap Slam's landing (spawn at the Leap_Slam contact, 0.36 s in)",
   "dash-trail": "a dash or Dash_Lunge, stretched from its start to its end",
   "dash-dust": "a dash's start foot",
+  "bomb-blast": "the Tinker's pot bomb going off where it lands (its radius is the blast's reach)",
+  "trap-snap": "the Tinker's spring trap snapping shut, at its ground frame (swap the trap to its triggered variant)",
 };
 
 export const strikeKey = (entry: StrikeEffect) => `${STRIKE_KEY_PREFIX}.${entry}`;
@@ -83,6 +85,7 @@ export async function buildStrikeEffects({ outDir, log = () => {} }: { outDir: s
       clip: { name: "Play", duration: STRIKE_CLIPS[entry], loop: false }, intendedScale: 1,
       ...(observations.swingRadius ? { swingRadius: observations.swingRadius } : {}),
       ...(observations.length ? { length: observations.length } : {}),
+      ...(observations.radius ? { radius: observations.radius } : {}),
       triangles: triangles(document), bounds: observations.clipBounds,
       materials: [...new Set(document.getRoot().listMaterials().map((material) => material.getName()))].sort(),
     };
