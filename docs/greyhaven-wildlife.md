@@ -32,7 +32,7 @@ The wolf, boar and rat fight players, so they also ship a looping in-place `Run`
 | Clip | Wolf | Boar | Rat |
 | --- | --- | --- | --- |
 | `Run` (loop) | 0.54, source `Gallop` | 0.67, bounding gallop | 0.50, source `Rat_Run` |
-| `Attack_A` | 0.88 [0.375], bite and shake: source `Attack` re-timed, head shaking the prey after the jaws close | 0.83 [0.375], tusk gore: head drops and weight rocks back, then the head rips upward as it surges in | 0.75 [0.417], lunge bite: source `Rat_Attack`, longer recovery |
+| `Attack_A` | 0.88 [0.375], bite and shake: source `Attack` re-timed, head shaking the prey after the jaws close | 0.83 [0.375], tusk gore: head drops and weight sinks onto the haunches, then it drives off its planted hind feet and rears, forelegs tucked, as the head rips upward; the forefeet land a stride ahead and step back (#736) | 0.75 [0.417], lunge bite: source `Rat_Attack`, longer recovery |
 | `Attack_B` | 1.04 [0.583], leap bite: deeper crouch, the whole body and feet leave the ground, forelegs reach, bite on landing | 1.00 [0.625], charge and toss: forefoot stamps, short charge, full head toss | 1.00 [0.500], claw swipe: rears onto its haunches, rakes down right then left |
 | `Hit` | 0.33, source `Idle_HitReact_Left` re-timed, ears flinch | 0.33, jolt back and sideways | 0.33, jolt back |
 | `Death` | 1.04, source `Death`: rears, collapses onto its side | 1.33, staggers, forelegs buckle, rolls onto its right side | 1.08, source `Rat_Death`: flips onto its side |

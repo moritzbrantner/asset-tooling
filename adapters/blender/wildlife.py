@@ -318,6 +318,9 @@ def build_boar(collection):
     for leg, x, s in BOAR_LEGS:
         y = s * 0.12
         r.tube(f"Leg{leg}", "coat", (x, y, hip + 0.1), (x, y, knee - 0.01), 0.09, 0.05, 7)
+        # #736: a rounded shoulder or haunch on the leg closes its flat top inside the body, so a leg swung against the
+        # body (the gore's rear) never shows the tube's end.
+        r.ellipsoid(f"Leg{leg}", "coat", (x, y * 0.92, hip + 0.05), (0.115, 0.09, 0.14), segments=8, rings=5)
         r.tube(f"Shin{leg}", "dark", (x, y, knee + 0.01), (x, y, 0.04), 0.045, 0.035, 6)
         r.tube(f"Shin{leg}", "eye", (x, y, 0.05), (x, y, 0.0), 0.036, 0.042, 6)
     return r.finish(collection)
@@ -562,6 +565,38 @@ def quad_gait(pose, u, legs, swing_deg, knee_deg, prefix=("Leg", "Shin")):
     return pose
 
 
+BOAR_PIVOT, BOAR_HIP, BOAR_THIGH, BOAR_SHIN = (-0.45, 0.55), 0.42, 0.22, 0.2  # the Body bone's head (x, z); the leg bones
+
+
+def boar_hips(loc, pitch):
+    """Where each hip (x, z) is once the Body moves by ``loc`` (x, z) and pitches ``pitch`` degrees about its head."""
+    a = math.radians(pitch)
+    px, pz = BOAR_PIVOT
+    hips = {}
+    for leg, x, _ in BOAR_LEGS:
+        dx, dz = x - px, BOAR_HIP - pz
+        hips[leg] = (px + loc[0] + dx * math.cos(a) + dz * math.sin(a), pz + loc[1] - dx * math.sin(a) + dz * math.cos(a))
+    return hips
+
+
+def boar_legs(pose, hips, pitch, feet):
+    """Two-bone legs from each hip to its foot (x, z on the ground plane's side view), the knee forward of the line,
+    as ``Leg``/``Shin`` rotations about Y under the Body's ``pitch``. A foot out of reach ends a straight leg."""
+    def towards(dx, dz):  # the angle about Y that turns a leg hanging straight down onto (dx, dz)
+        return math.degrees(math.atan2(-dx, -dz))
+
+    for leg, (fx, fz) in feet.items():
+        hx, hz = hips[leg]
+        d = min(max(math.hypot(fx - hx, fz - hz), 0.05), BOAR_THIGH + BOAR_SHIN - 1e-4)
+        bend = math.degrees(math.acos((BOAR_THIGH ** 2 + d ** 2 - BOAR_SHIN ** 2) / (2 * BOAR_THIGH * d)))
+        thigh = towards(fx - hx, fz - hz) - bend
+        t = math.radians(thigh)
+        kx, kz = hx - BOAR_THIGH * math.sin(t), hz - BOAR_THIGH * math.cos(t)
+        pose[f"Leg{leg}"] = [(Y, thigh - pitch)]
+        pose[f"Shin{leg}"] = [(Y, towards(fx - kx, fz - kz) - thigh)]
+    return pose
+
+
 def boar_pose(clip, u):
     if clip == "Idle":
         return {"Body": [("loc", (0, 0, 0.004 * wave(u, 2)))], "Head": [(Z, 10 * wave(u, 1, 0.1)), (Y, 4 * wave(u, 2))],
@@ -588,13 +623,29 @@ def boar_combat(clip, u):
             pose[f"Shin{leg}"] = [(Y, 45 * max(0.0, wave(u, 1, phase + 0.25)))]
         return pose
     if clip == "Attack_A":
-        # Tusk gore: head drops and the weight rocks back, then the head rips upward as the boar surges in (lands at 9/20).
+        # Tusk gore (#736): the head drops and the weight sinks back onto the haunches, then the boar drives off its
+        # planted hind feet and rears, forelegs tucked under the chest, as the head rips upward (lands at 9/20); the
+        # forefeet come down a stride ahead and step back under the shoulders. The legs are solved to their feet.
         k = lambda *keys: curve(u, (0, 0), *keys, (1, 0))
-        return {"Body": [("loc", (k((0.3, -0.05), (0.45, 0.1), (0.6, 0.08)), 0, k((0.45, 0.03), (0.6, 0.02)))), (Y, k((0.45, -10), (0.6, -8)))],
+        loc = (k((0.3, -0.05), (0.45, 0.06), (0.6, 0.05)), k((0.3, -0.03), (0.45, -0.04), (0.6, -0.03)))
+        pitch = k((0.3, 4), (0.45, -12), (0.6, -6))
+        pose = {"Body": [("loc", (loc[0], 0, loc[1])), (Y, pitch)],
                 "Head": [(Y, k((0.3, 32), (0.45, -38), (0.6, -30))), (X, k((0.45, 12), (0.6, 8)))],
-                "LegFL": [(Y, k((0.3, 12), (0.45, -18)))], "LegFR": [(Y, k((0.3, 12), (0.45, -18)))],
-                "LegHL": [(Y, k((0.3, -10), (0.45, 22)))], "LegHR": [(Y, k((0.3, -10), (0.45, 22)))],
                 "Tail": [(Y, k((0.2, -50), (0.7, -50)))]}
+        hips = boar_hips(loc, pitch)
+        rear = curve(u, (0.28, 0), (0.4, 1), (0.6, 1), (0.72, 0))
+        step = curve(u, (0.3, 0), (0.62, 0.1), (0.78, 0.1), (0.94, 0))
+        lift = 0.05 * curve(u, (0.78, 0), (0.86, 1), (0.94, 0))
+        feet = {}
+        for leg, x, _ in BOAR_LEGS:
+            if leg[0] == "H":
+                feet[leg] = (x, 0.0)
+            else:
+                # Tucked: the forefoot drawn up and back under the rising shoulder, the knee forward.
+                hx, hz = hips[leg]
+                planted = (x + step, lift)
+                feet[leg] = (planted[0] + (hx - 0.04 - planted[0]) * rear, planted[1] + (hz - 0.27 - planted[1]) * rear)
+        return boar_legs(pose, hips, pitch, feet)
     if clip == "Attack_B":
         # Charge and toss: head down, a stamp of the forefoot, a short charge, then a full toss of the head (15/24).
         k = lambda *keys: curve(u, (0, 0), *keys, (1, 0))
