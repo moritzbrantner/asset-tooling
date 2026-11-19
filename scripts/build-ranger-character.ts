@@ -528,6 +528,12 @@ export const RANGER_CLIP_ROLES: Readonly<Record<string, { role: string; contact?
   Signal_Call_Loop: { role: "signal.call" },
   Signal_Call_Interrupted: { role: "signal.call.interrupted" },
   Signal_Call_End: { role: "signal.call.end" },
+  // #775: the Tinker's trap, throws and ready loop (src/ranger-clips.ts RANGER_TINKER_CLIPS). A throw's contact is the
+  // right hand letting go.
+  Tinker_Place_Trap: { role: "tinker.place-trap" },
+  Tinker_Throw_Flask: { role: "tinker.throw-flask", contact: "hand_r" },
+  Tinker_Throw_Bomb: { role: "tinker.throw-bomb", contact: "hand_r" },
+  Tinker_Ready_Loop: { role: "tinker.ready" },
 };
 /** The gait loops whose ground speed the `humanoid-clips` attachment records. */
 export const RANGER_GAITS: ReadonlySet<string> = new Set(["Walk_Loop", "Jog_Fwd_Loop", "Sprint_Loop", "Crouch_Fwd_Loop", "Jog_Bwd_Loop", "Walk_Bwd_Loop", "Wade_Fwd_Loop"]);

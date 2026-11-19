@@ -275,6 +275,14 @@ export const RANGER_GUARD_CLIPS = [
  */
 export const RANGER_SIGNAL_CLIPS = ["Signal_Call_Start", "Signal_Call_Loop", "Signal_Call_Interrupted", "Signal_Call_End"] as const;
 /**
+ * #775 (mmorpg#950, the Tinker): kneeling to set and arm the spring trap (`equipment.tinker.trap`), an underhand
+ * flask lob and an overhand bomb lob that lights the fuse first (`equipment.tinker.flask`, `equipment.tinker.bomb`),
+ * and the ready loop with a flask in hand, all on `hand_r.weapon`. Authored full body by adapters/blender/tinker_clips.py
+ * from stance keys (feet, hips, chest, shoulders, then the hands); the throws start and end in `Tinker_Ready_Loop`, the
+ * trap in the idle. They follow the signal clips in bundle order.
+ */
+export const RANGER_TINKER_CLIPS = ["Tinker_Place_Trap", "Tinker_Throw_Flask", "Tinker_Throw_Bomb", "Tinker_Ready_Loop"] as const;
+/**
  * #285: static grip poses authored on the rig by adapters/blender/grip_poses.py. Each clip keys only the finger and
  * thumb rotations of one hand; a consumer plays it over the body clip's finger channels while that hand's socket holds
  * an item of `role`. The fingers wrap a handle of `radius` (metres) along the item's grip-frame `axis`; the tome leaves
@@ -766,6 +774,20 @@ export const RANGER_CLIP_FAMILIES: readonly ClipFamily[] = [
   },
   stanceFamily("guard", RANGER_GUARD_CLIPS),
   stanceFamily("signal", RANGER_SIGNAL_CLIPS),
+  {
+    id: "tinker", script: "tinker_clips.py", clips: RANGER_TINKER_CLIPS,
+    arguments: ({ socket }) => ({ schemaVersion: 1, clips: [...RANGER_TINKER_CLIPS], sockets: { weapon: socketAt(socket)("hand_r.weapon") } }),
+    clip: (name, family) => {
+      // The kind, the items and the marks go to the clip's `tinker` object, beside the chain pose. A throw's contact is
+      // its release.
+      const { source, secondaryPose, ...observed } = family.clips[name] as Json;
+      const releaseSeconds = (observed.tinker as Json).releaseSeconds as number | undefined;
+      return {
+        authored: { recipe: family.recipe, clip: name, fps: family.fps, ...observed }, basedOn: source as string,
+        extra: { fields: { tinker: observed.tinker, secondaryPose }, ...(releaseSeconds === undefined ? {} : { contactSeconds: releaseSeconds }) },
+      };
+    },
+  },
 ];
 
 /**
