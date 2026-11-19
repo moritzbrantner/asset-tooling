@@ -13,7 +13,7 @@ The entries keep the keys they had in the [Ranger bundles](humanoid-ranger.md#co
 - **Throwables (#467):** `equipment.throwing-knife`, `equipment.venom-flask` and `equipment.blasting-bomb`, each with `lod1` and `lod2` variants.
 - **Archery** ([archery](weapon-recipes.md#archery)): `equipment.bow.long` and the Fenwarden's Bow `equipment.bow.fenwarden` (a `bow.recurve`, #760), both skinned to `grip` and `nock`, `equipment.arrow`, `equipment.quiver.back` and `equipment.crossbow`.
 - **Headwear (#336, fitted to the male head):** `equipment.cap.ranger`, `equipment.helm.ironcrest` and `equipment.hat.straw`.
-- **Held items ([#661](https://github.com/moritzbrantner/asset-tooling/issues/661)):** weapon variety and the hand tools residents carry, below.
+- **Held items ([#661](https://github.com/moritzbrantner/asset-tooling/issues/661)):** weapon variety and the hand tools residents carry, below, and the Tinker's flask, pot bomb and spring trap with their states ([#775](#the-tinkers-devices-775)).
 
 ### Held items
 
@@ -94,13 +94,31 @@ The carried loads (#735) were fitted on the male Ranger in the live Blender thro
 
 The Redbrand shield and signal horn (#773) are held by the Ranger's `guard` and `signal` clips ([humanoid-ranger.md](humanoid-ranger.md#redbrand-shield-guard-and-signal-horn-clips-773)). The horn's `one-hand-weapon` role puts it on `hand_r.weapon`: its narrow end sits in the fist and the mouthpiece reaches the lips when `Signal_Call_Loop` holds it there. Both use existing materials only. [`review/redbrand-773/Props.jpg`](../review/redbrand-773/Props.jpg) shows them.
 
+### The Tinker's devices (#775)
+
+The Tinker (mmorpg#950: prepare, attract, combine, detonate) carries three devices from the same recipe, each one entry whose variants are its states. Every variant shares the default's `humanoid-item` descriptor and grip, so a consumer swaps the mesh in place when the clip marks a change (the [`tinker` clips](humanoid-ranger.md#tinker-clips-775)). They are a rural inventor's kit, not clockwork: blown glass, fired clay, forged iron, planks, twine and wax.
+
+| Key | Variants | Socket | Size (m) | Triangles | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `equipment.tinker.flask` | `default` (held), `thrown` | `hand_r.weapon` | 0.09 × 0.16 | 648, 326 | A round-bottomed glass flask of glowing amber `volatile`, its cork tied down with twine; held, it sits in a stitched leather cradle with a paper label. `thrown` is the projectile spawned at the release: the bare glass, the cork sealed in red wax, fewer segments. |
+| `equipment.tinker.bomb` | `default`, `lit` | `hand_r.weapon` | 0.12 × 0.14 | 374, 403 | A squat fired-clay pot bomb, an iron band riveted round its belly, the mouth plugged with pitch, a twine sling and a twisted fuse; `lit` adds the glowing fuse end and its sparks. |
+| `equipment.tinker.trap` | `default` (closed, carried), `armed`, `triggered` | `hand_r.weapon` | base 0.32 × 0.28; 0.54 with the chain laid out | 1138, 1164, 1164 | A spring-jaw trap: two iron jaws with steel teeth on a hinge bar across a two-plank base, coiled springs at the ends, a round trigger plate and the dog that holds the jaws open, a forged D-handle and a chain to a stake. Closed: the jaws shut upright, the chain coiled and the stake tucked beside the base. Armed: the jaws open flat round the raised plate, the dog over one jaw, the chain laid out to the stake driven in. Triggered: the jaws shut, the plate down, the dog flung up. |
+
+The flask and the bomb are held round the grip origin like the Rogue's throwables (`Grip_Flask_R`, a 4 cm sphere), roles `one-hand-weapon` and `flask`. The trap (roles `one-hand-weapon` and `trap`) hangs from its D-handle along +X, the jaws toward +Z, and declares three more frames, each turning the trap's up to the item's +Z (rotation `[0.707107, 0, 0, 0.707107]`) and carrying a scale:
+
+- **`ground`** at (0.19, 0, −0.055): the middle of the base's underside. Set the trap down by putting this frame on the ground, its +Y up.
+- **`trigger`** at (0.19, 0, −0.009), scale 0.25: the top of the trigger plate. The scale is the trigger radius, **0.25 m** about the plate on the ground (the jaws close across 0.26 m).
+- **`collision`** at (0.19, 0, −0.01), scale (0.17, 0.045, 0.15): the trap's simple collider, a box with those half extents (0.34 × 0.09 × 0.30 m) in the ground frame's axes. The jaws of the closed and triggered states stand 0.12 m higher, thin enough to leave out.
+
+The flask's `volatile` is the kit's one new material (34 in all); the rest reuse the weapon recipes' colours.
+
 The named finds (#760) follow their family's sockets and roles: Garrick's Cleaver and the Millbrook Smith's Mace ride `hand_r.weapon`, the Hollowpine Hunter's Spear `hand_r.staff`, and the Fenwarden's Bow `hand_l.bow` with the longbow's draw contract. Each differs from its base weapon in silhouette and material, with no glow. [`named-finds-760.jpg`](../review/humanoid-equipment/named-finds-760.jpg) shows each beside its base weapon (falchion, leaf spear, flanged mace, longbow) on the male Ranger at a game-camera distance, posed by `Sword_Idle`, `Idle_Loop` and `Bow_Hold_Loop` and composed by the socket contract, then upright and broadside below. The Ranger there is untextured, because Blender cannot read its KTX2 textures. In `Sword_Idle` the blades point toward the camera, so the cleaver and the mace read mostly by their grip and head colours at that distance.
 
 Length is the item's longest extent. The numbers are from the build of 2026-11-16 (the loads' of 2026-11-17). A rebuild is byte-identical: the recipe builds explicit vertex lists and triangulates them itself, in a fixed order.
 
 Every item is a recipe preset whose origin is its grip frame. Its `humanoid-item` attachment (`humanoid-item-v2`) names its role and its `grip` frame. The throwables' attachments also list their levels and switch points. A consumer parents an item under the socket its role names, using the figure's sockets descriptor ([humanoid-sockets.md](humanoid-sockets.md)). The male figure's `humanoid-appearance.headwear` list still names the headwear entries and the parts each hides.
 
-The items ship no textures, only flat-colour materials. Held items load one at a time on a socket rather than being batched as scenery, so the one-atlas rule of the [kit standard](kit-standard.md) does not apply. The kit's 33 materials are its budget instead (`releases/humanoid-equipment.json`).
+The items ship no textures, only flat-colour materials. Held items load one at a time on a socket rather than being batched as scenery, so the one-atlas rule of the [kit standard](kit-standard.md) does not apply. The kit's 34 materials are its budget instead (`releases/humanoid-equipment.json`).
 
 ## Release files
 
