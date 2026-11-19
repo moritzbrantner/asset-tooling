@@ -1,6 +1,6 @@
 """Greyhaven wildlife: a stag, a doe, a fox, a rabbit, a wild boar, a crow, a duck, a heron and a songbird for
 Greyhaven's woods, meadows and river, and the hostile Timber Wolf, Young Boar, Grain Rat, brown bear, giant cave spider
-and marsh lurker with combat clips.
+and marsh lurker with combat clips, and a forest lynx and a marsh adder with their own clip sets.
 
 The stag, doe, fox and wolf come from CC0 Quaternius *Ultimate Animated Animals* (``Stag.glb``, ``Deer.glb``,
 ``Fox.glb``, ``Wolf.glb``) and the rat from CC0 Quaternius *Easy Enemy* (``Rat.glb``), each the declared ``source``
@@ -21,6 +21,13 @@ source has them; they are built like the boar, with the full combat set scripted
 legs are placed each frame by a two-bone solve (``spider_feet``) so its feet stay planted while the body rears, lunges
 or leaps.
 
+The forest lynx and marsh adder (#778) are hostile and original too (the only catalogued CC0 cat is a house cat with
+an idle and a walk, and there is no snake). Each has its own clip set: the lynx stalks and pounces in three chained clips
+(``Pounce_Windup``, ``Pounce_Lunge``, ``Pounce_Recover``) with every leg solved to its paw each frame (``lynx_assemble``);
+the adder is one smooth tube on a fourteen-bone spine posed from joint positions (``adder_assemble``), resting coiled,
+slithering along a fixed path, rearing to warn and striking. ``root_motion`` names how far a consumer moves the root under
+their travelling clips.
+
 The farm-animals recipe (``farm_animals.py``) is a declared Python input named ``farm``; this recipe reuses its rig
 builder, clip keying and measuring helpers and its conventions (docs/greyhaven-farm-animals.md): a root node
 ``greyhaven.wild.<animal>`` scales the animal to its Greyhaven height in metres (measured at the first Idle frame), turns
@@ -30,10 +37,11 @@ no randomness.
 ``prepare(animal, source_path)`` also runs in a live Blender session after ``use_farm(module dict of farm_animals.py)``
 (``source_path`` is ``None`` for the authored animals).
 """
+import bisect
 import math
 
 import bpy
-from mathutils import Quaternion, Vector
+from mathutils import Matrix, Quaternion, Vector
 
 FPS = 24
 SHARED = ("Rig", "key_pose", "wave", "slot_for", "bounds", "principled_from_diffuse")
@@ -60,11 +68,14 @@ ANIMALS = {
     "bear": {"format": "authored", "turn": -90.0, "height": 1.3},
     "spider": {"format": "authored", "turn": -90.0, "height": 0.45},
     "marsh-lurker": {"format": "authored", "turn": -90.0, "height": 0.3},
+    "lynx": {"format": "authored", "turn": -90.0, "height": 0.8},
+    # Authored at life size (scale 1); it rests coiled and moves by Slither_Loop.
+    "marsh-adder": {"format": "authored", "turn": -90.0, "height": None, "rest": "Idle_Coil_Loop", "move": "Slither_Loop"},
 }
 BIRDS = ("crow", "duck", "heron", "songbird")
-HOSTILE = ("wolf", "boar", "rat", "bear", "spider", "marsh-lurker")
+HOSTILE = ("wolf", "boar", "rat", "bear", "spider", "marsh-lurker", "lynx", "marsh-adder")
 # One-shot clips; every other clip loops.
-ONE_SHOT = ("Attack_A", "Attack_B", "Hit", "Death", "Alert")
+ONE_SHOT = ("Attack_A", "Attack_B", "Hit", "Death", "Alert", "Pounce_Windup", "Pounce_Lunge", "Pounce_Recover", "Strike", "Strike_Recover")
 
 
 def use_farm(farm):
@@ -150,6 +161,8 @@ CONTACT_FRAMES = {
     "bear": {"Attack_A": 11, "Attack_B": 20},
     "spider": {"Attack_A": 9, "Attack_B": 14},
     "marsh-lurker": {"Attack_A": 8, "Attack_B": 14},
+    "lynx": {"Pounce_Lunge": 8},
+    "marsh-adder": {"Strike": 5},
 }
 
 
@@ -966,6 +979,568 @@ def lurker_pose(clip, u):
     return pose
 
 
+# ---------------------------------------------------------------- forest lynx and marsh adder (#778)
+
+LYNX_PALETTE = {"coat": (0.6, 0.5, 0.37), "pale": (0.87, 0.82, 0.72), "spot": (0.27, 0.2, 0.14), "dark": (0.06, 0.05, 0.05),
+                "eye": (0.8, 0.64, 0.2), "mouth": (0.5, 0.16, 0.16), "tooth": (0.92, 0.89, 0.8)}
+# The lynx's legs, in the side view (x forward, z up). Per kind (F fore, H hind): the shoulder or hip joint at rest, the
+# upper and lower bone lengths, the ball of the foot's home x, the wrist or hock above the ball, and which way the joint
+# bends (+1 the elbow behind the line, -1 the stifle ahead of it). Every leg is placed each frame by a two-bone solve to
+# its foot, so a planted paw stays exactly where it is while the body moves over it.
+LYNX_PIVOT, LYNX_CHEST = (-0.28, 0.54), (0.0, 0.55)  # the Hips bone's head and the Chest bone's head
+LYNX_JOINT = {"F": (0.2, 0.47), "H": (-0.24, 0.5)}
+LYNX_BONES = {"F": (0.2, 0.22), "H": (0.2, 0.2)}
+LYNX_HOME = {"F": 0.24, "H": -0.21}
+LYNX_ANKLE = {"F": (-0.02, 0.07), "H": (-0.03, 0.15)}
+LYNX_BEND = {"F": 1, "H": -1}
+LYNX_SIDE = {"F": 0.085, "H": 0.09}
+LYNX_LEGS = (("FL", "F", 1), ("FR", "F", -1), ("HL", "H", 1), ("HR", "H", -1))
+
+
+def ry(v, degrees):
+    """(x, z) rotated about Blender +Y: positive tips a forward vector down and a hanging one back."""
+    a = math.radians(degrees)
+    return (v[0] * math.cos(a) + v[1] * math.sin(a), -v[0] * math.sin(a) + v[1] * math.cos(a))
+
+
+def towards(dx, dz):
+    """The angle about +Y that turns a bone hanging straight down onto (dx, dz)."""
+    return math.degrees(math.atan2(-dx, -dz))
+
+
+def lynx_joints(body):
+    """Shoulder and hip joints (x, z) once the body is ``(x, z, hip pitch, chest pitch)``."""
+    x, z, hip, chest = body
+    px, pz = LYNX_PIVOT
+    hx, hz = ry((LYNX_JOINT["H"][0] - px, LYNX_JOINT["H"][1] - pz), hip)
+    cx, cz = ry((LYNX_CHEST[0] - px, LYNX_CHEST[1] - pz), hip)
+    fx, fz = ry((LYNX_JOINT["F"][0] - LYNX_CHEST[0], LYNX_JOINT["F"][1] - LYNX_CHEST[1]), hip + chest)
+    return {"H": (px + x + hx, pz + z + hz), "F": (px + x + cx + fx, pz + z + cz + fz)}
+
+
+def lynx_solve(kind, joint, ball, tilt):
+    """Thigh and shin angles (about +Y, from hanging) that reach the wrist or hock over ``ball`` with the paw tilted."""
+    a, b = LYNX_BONES[kind]
+    ax, az = ry(LYNX_ANKLE[kind], tilt)
+    ankle = (ball[0] + ax, ball[1] + az)
+    dx, dz = ankle[0] - joint[0], ankle[1] - joint[1]
+    d = min(max(math.hypot(dx, dz), 0.05), a + b - 1e-4)
+    bend = math.degrees(math.acos((a * a + d * d - b * b) / (2 * a * d)))
+    thigh = towards(dx, dz) + LYNX_BEND[kind] * bend
+    t = math.radians(thigh)
+    knee = (joint[0] - a * math.sin(t), joint[1] - a * math.cos(t))
+    return thigh, towards(ankle[0] - knee[0], ankle[1] - knee[1]), knee, ankle
+
+
+def lynx_rest():
+    """Leg name -> (joint, knee, ankle, ball, thigh, shin) at rest."""
+    joints = lynx_joints((0, 0, 0, 0))
+    rest = {}
+    for leg, kind, _ in LYNX_LEGS:
+        ball = (LYNX_HOME[kind], 0.0)
+        thigh, shin, knee, ankle = lynx_solve(kind, joints[kind], ball, 0)
+        rest[leg] = (joints[kind], knee, ankle, ball, thigh, shin)
+    return rest
+
+
+LYNX_REST = lynx_rest()
+
+
+def build_lynx(collection):
+    bones = [("Hips", (*LYNX_PIVOT[:1], 0, LYNX_PIVOT[1]), (0.0, 0, 0.55), None), ("Chest", (0.0, 0, 0.55), (0.24, 0, 0.56), "Hips"),
+             ("Neck", (0.22, 0, 0.57), (0.31, 0, 0.66), "Chest"), ("Head", (0.31, 0, 0.66), (0.47, 0, 0.63), "Neck"),
+             ("Jaw", (0.37, 0, 0.615), (0.46, 0, 0.6), "Head"), ("EarL", (0.35, 0.05, 0.71), (0.34, 0.06, 0.8), "Head"),
+             ("EarR", (0.35, -0.05, 0.71), (0.34, -0.06, 0.8), "Head"), ("Tail", (-0.36, 0, 0.58), (-0.45, 0, 0.47), "Hips")]
+    for leg, kind, s in LYNX_LEGS:
+        (jx, jz), (kx, kz), (ax, az), (bx, bz), _, _ = LYNX_REST[leg]
+        y = s * LYNX_SIDE[kind]
+        bones += [(f"Leg{leg}", (jx, y, jz), (kx, y, kz), "Hips" if kind == "H" else "Chest"),
+                  (f"Shin{leg}", (kx, y, kz), (ax, y, az), f"Leg{leg}"), (f"Paw{leg}", (ax, y, az), (bx + 0.04, y, bz), f"Shin{leg}")]
+    r = Rig("Lynx", LYNX_PALETTE, bones)
+    # Torso: haunch and chest overlap at the Chest bone's head, so the spine can flex without a gap.
+    r.ellipsoid("Hips", "coat", (-0.16, 0, 0.53), (0.21, 0.115, 0.13), segments=12, rings=7)
+    r.ellipsoid("Chest", "coat", (0.1, 0, 0.53), (0.2, 0.12, 0.14), segments=12, rings=7)
+    r.ellipsoid("Chest", "pale", (0.1, 0, 0.45), (0.17, 0.085, 0.07), segments=8, rings=4)  # pale chest and belly
+    r.ellipsoid("Hips", "pale", (-0.12, 0, 0.45), (0.15, 0.08, 0.06), segments=8, rings=4)
+    # Spots: a fixed golden-angle scatter over the flanks and haunches, half sunk into the coat.
+    for i in range(26):
+        a = 2.39996 * i
+        x = -0.32 + 0.6 * ((i * 0.618034) % 1.0)
+        bone, (cx, rx) = ("Hips", (-0.16, 0.21)) if x < -0.02 else ("Chest", (0.1, 0.2))
+        e = max(0.0, 1 - ((x - cx) / rx) ** 2)
+        theta = -0.45 + 1.3 * ((i * 0.754878) % 1.0)  # up from the flank's equator
+        side = 1 if math.sin(a) >= 0 else -1
+        y, z = side * 0.112 * math.sqrt(e) * math.cos(theta), 0.53 + 0.128 * math.sqrt(e) * math.sin(theta)
+        r.ellipsoid(bone, "spot", (x, y, z), (0.026, 0.02, 0.022), segments=5, rings=3)
+    r.tube("Neck", "coat", (0.17, 0, 0.55), (0.33, 0, 0.66), 0.085, 0.065, 8)
+    r.ellipsoid("Neck", "pale", (0.27, 0, 0.56), (0.08, 0.06, 0.06), segments=7, rings=4)  # throat
+    r.ellipsoid("Head", "coat", (0.37, 0, 0.665), (0.085, 0.078, 0.072), segments=10, rings=6)
+    r.ellipsoid("Head", "pale", (0.44, 0, 0.635), (0.05, 0.048, 0.035), segments=8, rings=4)  # muzzle
+    r.ellipsoid("Head", "dark", (0.485, 0, 0.645), (0.014, 0.018, 0.012), segments=5, rings=3)  # nose
+    r.ellipsoid("Head", "mouth", (0.43, 0, 0.61), (0.045, 0.035, 0.012), segments=6, rings=3)
+    r.ellipsoid("Jaw", "pale", (0.42, 0, 0.6), (0.05, 0.036, 0.016), segments=7, rings=3)
+    for s in (1, -1):
+        r.ellipsoid("Head", "pale", (0.34, s * 0.075, 0.625), (0.05, 0.035, 0.065), rotation=(s * 0.35, 0.3, 0), segments=7, rings=4)  # ruff
+        r.ellipsoid("Head", "dark", (0.33, s * 0.095, 0.62), (0.035, 0.012, 0.012), rotation=(0, 0.6, 0), segments=5, rings=3)  # ruff stripe
+        r.ellipsoid("Head", "eye", (0.435, s * 0.042, 0.685), (0.016, 0.014, 0.013), segments=6, rings=3)
+        r.ellipsoid("Head", "dark", (0.448, s * 0.043, 0.686), (0.006, 0.008, 0.009), segments=4, rings=3)
+        r.tube("Head", "tooth", (0.47, s * 0.018, 0.618), (0.47, s * 0.018, 0.596), 0.006, 0.0015, 4)  # fangs
+        ear = "EarL" if s > 0 else "EarR"
+        r.ellipsoid(ear, "coat", (0.35, s * 0.055, 0.755), (0.026, 0.012, 0.05), rotation=(s * -0.12, -0.08, 0), segments=6, rings=4)
+        r.ellipsoid(ear, "dark", (0.345, s * 0.058, 0.79), (0.02, 0.013, 0.02), segments=5, rings=3)  # dark back of the tip
+        r.tube(ear, "dark", (0.343, s * 0.058, 0.795), (0.338, s * 0.064, 0.87), 0.008, 0.0015, 4)  # tuft
+    r.tube("Tail", "coat", (-0.34, 0, 0.59), (-0.43, 0, 0.49), 0.045, 0.038, 7)
+    r.ellipsoid("Tail", "dark", (-0.445, 0, 0.475), (0.036, 0.034, 0.036), segments=6, rings=4)  # black tip
+    for leg, kind, s in LYNX_LEGS:
+        (jx, jz), (kx, kz), (ax, az), (bx, bz), _, _ = LYNX_REST[leg]
+        y = s * LYNX_SIDE[kind]
+        hind = kind == "H"
+        r.tube(f"Leg{leg}", "coat", (jx, y, jz + 0.06), (kx, y, kz), 0.075 if hind else 0.06, 0.045 if hind else 0.042, 7)
+        # A rounded shoulder or haunch closes the leg's top inside the body (#736).
+        r.ellipsoid(f"Leg{leg}", "coat", (jx, y * 0.95, jz + 0.02), (0.1 if hind else 0.08, 0.075, 0.12 if hind else 0.1), segments=8, rings=5)
+        r.ellipsoid(f"Shin{leg}", "coat", (kx, y, kz), (0.045, 0.042, 0.045), segments=6, rings=4)  # knee or elbow
+        r.tube(f"Shin{leg}", "coat", (kx, y, kz), (ax, y, az), 0.04, 0.03, 6)
+        r.tube(f"Paw{leg}", "coat", (ax, y, az), (bx, y, bz + 0.02), 0.03, 0.03, 6)
+        r.ellipsoid(f"Paw{leg}", "pale", (bx + 0.02, y, 0.022), (0.05, 0.036, 0.022), segments=7, rings=4)  # the broad paw
+        if not hind:
+            r.ellipsoid(f"Shin{leg}", "spot", (kx - 0.01, y + s * 0.035, kz - 0.06), (0.016, 0.012, 0.016), segments=5, rings=3)
+    return r.finish(collection)
+
+
+def lynx_feet(u, duty, stride, lift, phases, home=None):
+    """A gait's paw targets (x, z, paw tilt) at ``u``: each paw slides back at an even speed while planted, so with the
+    root moving at ``stride / (duty × clip seconds)`` it stays still on the ground, then swings forward in an arc."""
+    feet = {}
+    for leg, kind, _ in LYNX_LEGS:
+        h = (home or LYNX_HOME)[kind]
+        c = (u - phases[leg]) % 1.0
+        if c < duty:
+            feet[leg] = (h + stride / 2 - stride * c / duty, 0.0, 0.0)
+        else:
+            s = (c - duty) / (1 - duty)
+            e = s * s * (3 - 2 * s)
+            feet[leg] = (h - stride / 2 + stride * e, lift * math.sin(math.pi * s), 45 * math.sin(math.pi * s))
+    return feet
+
+
+def lynx_assemble(body, feet, roll=0.0, neck=0.0, head=None, yaw=0.0, jaw=0.0, ears=0.0, tail=(0.0, 0.0), relax=None, relaxed=0.0):
+    """The lynx's pose: the body, every leg solved to its paw, and the head kept at world pitch ``head`` (degrees, nose
+    down positive) when given. ``relax`` blends the solved legs towards loose angles by ``relaxed`` (the death roll)."""
+    x, z, hip, chest = body
+    pose = {"Hips": [("loc", (x, 0, z)), (Y, hip), (X, roll)], "Chest": [(Y, chest)], "Neck": [(Y, neck)],
+            "Head": [(Y, (head - hip - chest - neck) if head is not None else 0.0), (Z, yaw)], "Jaw": [(Y, jaw)],
+            "EarL": [(Y, ears)], "EarR": [(Y, ears)], "Tail": [(Y, tail[0]), (Z, tail[1])]}
+    joints = lynx_joints(body)
+    for leg, kind, _ in LYNX_LEGS:
+        bx, bz, tilt = feet[leg]
+        thigh, shin, _, _ = lynx_solve(kind, joints[kind], (bx, bz), tilt)
+        rest_thigh, rest_shin = LYNX_REST[leg][4:]
+        parent = hip + (chest if kind == "F" else 0.0)
+        angles = (thigh - rest_thigh - parent, shin - rest_shin - (thigh - rest_thigh), tilt - (shin - rest_shin))
+        if relax:
+            angles = tuple(a + (b - a) * relaxed for a, b in zip(angles, relax.get(leg, relax[kind])))
+        pose[f"Leg{leg}"], pose[f"Shin{leg}"], pose[f"Paw{leg}"] = ([(Y, a)] for a in angles)
+        # Undo the body's roll in the leg so a planted paw stays put while the hips sway (not while it falls over).
+        counter = roll * (1 - relaxed)
+        if counter:
+            pose[f"Leg{leg}"] = [(Y, parent + angles[0]), (X, -counter), (Y, -parent)]
+    return pose
+
+
+# Per looping gait: frames, duty factor, stride (m), paw lift (m), each paw's phase. Walk and stalk are a cat's lateral
+# sequence; the run is a rotary gallop with a gathered suspension.
+LYNX_GAITS = {
+    "Walk": (24, 0.62, 0.4, 0.08, {"HL": 0.0, "FL": 0.25, "HR": 0.5, "FR": 0.75}),
+    "Crouch_Stalk_Loop": (36, 0.76, 0.26, 0.07, {"HL": 0.0, "FL": 0.25, "HR": 0.5, "FR": 0.75}),
+    "Run": (10, 0.3, 0.4, 0.15, {"HL": 0.0, "HR": 0.1, "FR": 0.42, "FL": 0.52}),
+}
+LYNX_CROUCH = (-0.07, -0.17, 5, 6)  # the loaded pounce crouch: weight back, chest low
+LYNX_POUNCE = {"takeoff": 3, "land": 8, "distance": 1.5}  # Pounce_Lunge's flight, when the consumer moves the root
+
+
+def lynx_pose(clip, u):
+    t = u * CLIP_FRAMES["lynx"][clip]
+    home = {leg: (LYNX_HOME[kind], 0.0, 0.0) for leg, kind, _ in LYNX_LEGS}
+    if clip == "Idle":
+        look = curve(u, (0.2, 0), (0.28, 26), (0.45, 26), (0.52, 0), (0.7, 0), (0.76, -18), (0.88, -18), (0.94, 0))
+        flick = curve(u, (0.6, 0), (0.62, -25), (0.66, 0))
+        body = (0.008 * wave(u, 1), 0.003 * wave(u, 4), 0, 0.8 * wave(u, 4))
+        return lynx_assemble(body, home, neck=-4, head=-2, yaw=look, ears=flick,
+                             tail=(-8 + 10 * curve(u, (0.3, 0), (0.33, 1), (0.37, 0), (0.8, 0), (0.83, 1), (0.87, 0)), 8 * wave(u, 2)))
+    if clip in LYNX_GAITS:
+        frames, duty, stride, lift, phases = LYNX_GAITS[clip]
+        if clip == "Walk":
+            body = (0, -0.012 + 0.007 * math.cos(4 * math.pi * u), 1.5 * wave(u, 2), -1.5 * wave(u, 2))
+            return lynx_assemble(body, lynx_feet(u, duty, stride, lift, phases), roll=2 * wave(u, 1), neck=2, head=2,
+                                 yaw=3 * wave(u, 1), tail=(-12, 8 * wave(u, 1, 0.2)))
+        if clip == "Crouch_Stalk_Loop":
+            body = (-0.02, -0.14 + 0.004 * math.cos(4 * math.pi * u), 3, 5)
+            return lynx_assemble(body, lynx_feet(u, duty, stride, lift, phases, {"F": 0.25, "H": -0.2}), roll=1.5 * wave(u, 1),
+                                 neck=24, head=-2, ears=14, tail=(-22, 12 * wave(u, 2)))
+        flex = math.cos(2 * math.pi * u)  # gathered at the hind footfall, stretched at the fore footfall
+        air = curve((u - 0.8) % 1.0, (0.0, 0), (0.1, 1), (0.22, 0))  # the gathered suspension, across the loop seam
+        body = (0.02 * flex, -0.035 + 0.06 * air, -9 * flex, 18 * flex)
+        return lynx_assemble(body, lynx_feet(u, duty, stride, lift, phases, {"F": 0.25, "H": -0.24}), neck=-6, head=0,
+                             ears=-25, tail=(-20 + 12 * flex, 0))
+    if clip == "Pounce_Windup":
+        # A readable crouch: the lynx sinks back onto its haunches, chest low, eyes fixed ahead, treads its hind paws
+        # under itself and wiggles its rump before the spring. Ends loaded, in Pounce_Lunge's first pose.
+        sink = curve(t, (0, 0), (6, 1))
+        body = tuple(v * sink for v in LYNX_CROUCH)
+        feet = dict(home)
+        for leg, start, end in (("HL", 1, 4), ("HR", 3.5, 6.5)):
+            s = curve(t, (start, 0), (end, 1))
+            feet[leg] = (LYNX_HOME["H"] + 0.05 * s, 0.05 * math.sin(math.pi * s), 30 * math.sin(math.pi * s))
+        for leg, at in (("HL", 7), ("HR", 8.5), ("HL", 10)):
+            tread = curve(t, (at - 0.75, 0), (at, 1), (at + 0.75, 0))
+            x, z, tilt = feet[leg]
+            feet[leg] = (x, z + 0.018 * tread, tilt + 12 * tread)
+        wiggle = math.sin(2 * math.pi * (t - 6) / 2.5) * curve(t, (6, 0), (7, 1), (10.5, 1), (11.5, 0))
+        return lynx_assemble(body, feet, roll=5 * wiggle, neck=-4 + 16 * sink, head=-2 - 2 * sink, ears=16 * sink,
+                             tail=(-8 - 14 * sink, 20 * wiggle))
+    if clip == "Pounce_Lunge":
+        # Takes off at 3 off the planted hind paws, flies with the forelegs reaching (the consumer moves the root
+        # LYNX_POUNCE["distance"] metres from 3 to 8), strikes down with both forepaws and the bite at 8, and lands the
+        # hind paws far back, stretched low over its catch.
+        k = lambda *keys: curve(t, *keys)
+        body = (k((0, LYNX_CROUCH[0]), (3, 0.08), (8, 0.0), (12, -0.06)), k((0, LYNX_CROUCH[1]), (3, -0.02), (5.5, 0.08), (8, -0.08), (12, -0.12)),
+                k((0, LYNX_CROUCH[2]), (3, -16), (5.5, -8), (8, 12), (12, 8)), k((0, LYNX_CROUCH[3]), (3, -8), (5.5, -10), (8, 4), (12, 2)))
+        joints = lynx_joints(body)
+        feet = {}
+        for leg, kind, s in LYNX_LEGS:
+            jx, jz = joints[kind]
+            if kind == "H":
+                planted = (LYNX_HOME["H"] + 0.05, 0.0)
+                trail = (jx - 0.36, jz - 0.24)
+                landed = (-0.36, 0.0)
+                a, b = curve(t, (3, 0), (4.5, 1)), curve(t, (8, 0), (11, 1))
+                x = planted[0] + (trail[0] - planted[0]) * a + (landed[0] - trail[0]) * b
+                z = planted[1] + (trail[1] - planted[1]) * a + (landed[1] - trail[1]) * b
+                feet[leg] = (x, max(0.0, z), 55 * a * (1 - b))
+            else:
+                tuck = (jx + 0.05, jz - 0.27)
+                reach = (jx + 0.3, jz - 0.32)
+                strike = (0.26 + (0.015 if s > 0 else -0.015), 0.0)
+                a, b, c = curve(t, (0, 0), (2.5, 1)), curve(t, (3, 0), (6, 1)), curve(t, (6, 0), (8, 1))
+                x = home[leg][0] + (tuck[0] - home[leg][0]) * a + (reach[0] - tuck[0]) * b + (strike[0] - reach[0]) * c
+                z = (tuck[1]) * a + (reach[1] - tuck[1]) * b + (strike[1] - reach[1]) * c
+                feet[leg] = (x, max(0.0, z), 60 * a - 95 * b + 35 * c)
+        return lynx_assemble(body, feet, neck=k((0, 12), (3, -4), (8, 24), (12, 30)), head=k((0, -4), (3, -10), (6, -6), (8, 40), (12, 48)),
+                             jaw=k((0, 0), (3, 22), (6, 38), (7.3, 34), (8, 2), (12, 4)), ears=k((0, 16), (3, -35), (12, -30)),
+                             tail=(k((0, -22), (3, 10), (8, 0), (12, -20)), 0))
+    if clip == "Pounce_Recover":
+        # Exposed: it stays stretched low over the catch with its head down, shaking it, broadside and slow; then it
+        # gathers its hind paws forward one at a time, rises and settles back into the idle stance.
+        start = (-0.06, -0.12, 8, 2)
+        rise = curve(t, (7, 0), (19, 1))
+        body = tuple(a + (0 - a) * rise for a in start)
+        feet = {}
+        for leg, kind, s in LYNX_LEGS:
+            if kind == "H":
+                a, b = (8, 12) if s > 0 else (11, 15)
+                p = curve(t, (a, 0), (b, 1))
+                feet[leg] = (-0.36 + (LYNX_HOME["H"] + 0.36) * p, 0.06 * math.sin(math.pi * p), 40 * math.sin(math.pi * p))
+            else:
+                a, b = (14, 16.5) if s > 0 else (16, 18.5)
+                p = curve(t, (a, 0), (b, 1))
+                x0 = 0.26 + (0.015 if s > 0 else -0.015)
+                feet[leg] = (x0 + (LYNX_HOME["F"] - x0) * p, 0.035 * math.sin(math.pi * p), 30 * math.sin(math.pi * p))
+        shake = math.sin(2 * math.pi * t / 3) * curve(t, (0, 0), (1, 1), (6, 1), (7.5, 0))
+        return lynx_assemble(body, feet, neck=30 * (1 - rise) - 4 * rise, head=48 + (-2 - 48) * rise, yaw=14 * shake, jaw=4 * (1 - rise),
+                             ears=-30 * (1 - curve(t, (10, 0), (18, 1))), tail=(-20 * (1 - rise) - 8 * rise, 6 * shake))
+    if clip == "Hit":
+        jolt = curve(t, (0, 0), (2, 1), (8, 0))
+        return lynx_assemble((-0.04 * jolt, 0.015 * jolt, -5 * jolt, -4 * jolt), home, roll=7 * jolt, neck=-8 * jolt, head=-20 * jolt,
+                             yaw=16 * jolt, jaw=18 * jolt, ears=-35 * jolt, tail=(15 * jolt, 0))
+    # Death: flinches up with a snarl, the hind legs buckle, then it rolls onto its right side and lies still.
+    flinch = curve(t, (0, 0), (3, 1), (8, 0))
+    buckle = curve(t, (5, 0), (12, 1))
+    fall = curve(t, (10, 0), (22, 1))
+    settle = curve(t, (22, 0), (24.5, 1), (27, 0))
+    roll = 86 * fall - 3 * settle
+    # The body rides up over its folding legs mid-roll so nothing digs into the ground.
+    body = (-0.03 * flinch, 0.02 * flinch - 0.16 * buckle * (1 - fall) - 0.39 * fall + 0.24 * math.sin(math.pi * fall) ** 1.5 + 0.012 * settle, -6 * flinch - 12 * buckle * (1 - fall), -4 * flinch)
+    feet = {leg: (LYNX_HOME[kind], 0.0, 0.0) for leg, kind, _ in LYNX_LEGS}
+    relax = {"F": (30, -38, 25), "H": (-25, 35, 30), "FR": (45, -85, 40), "HR": (-50, 95, 40)}  # the lower legs fold in
+    return lynx_assemble(body, feet, roll=roll, neck=-14 * flinch + 8 * fall, head=None, yaw=10 * flinch, jaw=30 * flinch + 10 * fall,
+                         ears=-35 * flinch - 10 * fall, tail=(10 * flinch - 12 * fall, 0), relax=relax, relaxed=fall)
+
+
+ADDER_PALETTE = {"scale": (0.47, 0.43, 0.33), "zig": (0.07, 0.06, 0.05), "belly": (0.2, 0.2, 0.2), "eye": (0.72, 0.2, 0.1),
+                 "mouth": (0.78, 0.5, 0.5), "tongue": (0.12, 0.05, 0.06), "fang": (0.92, 0.9, 0.82)}
+# The adder's spine: ADDER_SEGMENTS equal bones running back from the neck joint at ADDER_NECK_X, with the head forward
+# of it. The body's radius along its length (metres from the neck); it lies slightly flattened on the ground.
+ADDER_SEGMENTS, ADDER_SEG, ADDER_NECK_X, ADDER_FLAT = 14, 0.093, 0.62, 0.85
+ADDER_LENGTH = ADDER_SEGMENTS * ADDER_SEG
+
+
+def adder_radius(s):
+    return curve(s, (0.0, 0.021), (0.12, 0.024), (0.45, 0.037), (0.85, 0.036), (1.06, 0.026), (ADDER_LENGTH, 0.004))
+
+
+def adder_rest():
+    """Spine joints (neck first) at rest: lying straight back along -X."""
+    return [Vector((ADDER_NECK_X - i * ADDER_SEG, 0, ADDER_FLAT * adder_radius(i * ADDER_SEG))) for i in range(ADDER_SEGMENTS + 1)]
+
+
+ADDER_REST = adder_rest()
+
+
+def adder_body(r, rings=82, around=14):
+    """The body as one smooth tube along the rest spine, each ring weighted between the two nearest spine bones, with
+    the dark dorsal zigzag, the lateral spots and the belly as face materials."""
+    bm, deform = r.bm, r.deform
+    group = {name: r.groups.index(name) for name in r.groups}
+    ring_verts = []
+    for k in range(rings + 1):
+        s = ADDER_LENGTH * k / rings
+        rad = adder_radius(s)
+        centre = Vector((ADDER_NECK_X - s, 0, ADDER_FLAT * rad))
+        c = s / ADDER_SEG - 0.5  # position in bone-centre units
+        i0 = min(max(int(math.floor(c)), 0), ADDER_SEGMENTS - 1)
+        i1 = min(i0 + 1, ADDER_SEGMENTS - 1)
+        w1 = min(max(c - i0, 0.0), 1.0) if i1 != i0 else 0.0
+        ring = []
+        for j in range(around):
+            a = 2 * math.pi * j / around
+            v = bm.verts.new(centre + Vector((0, rad * math.sin(a), ADDER_FLAT * rad * math.cos(a))))
+            v[deform][group[f"Spine{i0 + 1}"]] = 1 - w1
+            if w1 > 0:
+                v[deform][group[f"Spine{i1 + 1}"]] = w1
+            ring.append(v)
+        ring_verts.append(ring)
+    period = 0.075
+    for k in range(rings):
+        s = ADDER_LENGTH * (k + 0.5) / rings
+        zig = 0.55 * (1 - 4 * abs((s / period) % 1.0 - 0.5))  # triangle wave, radians either side of the spine
+        for j in range(around):
+            a = 2 * math.pi * (j + 0.5) / around
+            a = (a + math.pi) % (2 * math.pi) - math.pi  # 0 on top, +-pi underneath
+            face = bm.faces.new((ring_verts[k][j], ring_verts[k][(j + 1) % around], ring_verts[k + 1][(j + 1) % around], ring_verts[k + 1][j]))
+            if abs(a) > 2.3:
+                key = "belly"
+            elif s > 0.03 and abs(a - zig) < 0.36:
+                key = "zig"
+            elif 0.06 < s < 1.2 and abs(abs(a) - 1.45) < 0.2 and (s / period + (0.5 if a > 0 else 0.0)) % 1.0 < 0.4:
+                key = "zig"  # flank spots between the zigzag's points
+            else:
+                key = "scale"
+            face.material_index = r.index[key]
+    for k, (end, s) in enumerate(((ring_verts[0], 0.0), (ring_verts[-1], ADDER_LENGTH))):
+        tip = bm.verts.new(Vector((ADDER_NECK_X - s - (0.012 if k else 0.0), 0, ADDER_FLAT * adder_radius(s))))
+        tip[deform][group["Spine1" if k == 0 else f"Spine{ADDER_SEGMENTS}"]] = 1.0
+        for j in range(around):
+            a, b = end[j], end[(j + 1) % around]
+            face = bm.faces.new((a, tip, b) if k == 0 else (b, tip, a))
+            face.material_index = r.index["scale"]
+
+
+def build_adder(collection):
+    rest = ADDER_REST
+    n, h = rest[0], ADDER_FLAT * adder_radius(0.0)
+    bones = [(f"Spine{i + 1}", tuple(rest[i]), tuple(rest[i + 1]), f"Spine{i}" if i else None) for i in range(ADDER_SEGMENTS)]
+    bones += [("Head", tuple(n), (n.x + 0.06, 0, h), "Spine1"), ("Jaw", (n.x + 0.005, 0, h - 0.008), (n.x + 0.06, 0, h - 0.012), "Head"),
+              ("Tongue", (n.x + 0.03, 0, h - 0.004), (n.x + 0.07, 0, h - 0.004), "Head")]
+    r = Rig("Adder", ADDER_PALETTE, bones)
+    adder_body(r)
+    x = n.x
+    # A broad, flat, slightly triangular viper head over the neck, with the dark crown mark and eye stripe.
+    r.ellipsoid("Head", "scale", (x + 0.03, 0, h + 0.004), (0.045, 0.03, 0.017), segments=10, rings=5)
+    r.ellipsoid("Head", "scale", (x + 0.062, 0, h + 0.0), (0.018, 0.019, 0.012), segments=7, rings=4)  # snout
+    r.ellipsoid("Head", "mouth", (x + 0.035, 0, h - 0.008), (0.035, 0.022, 0.005), segments=7, rings=3)
+    r.ellipsoid("Jaw", "belly", (x + 0.033, 0, h - 0.013), (0.038, 0.022, 0.006), segments=8, rings=3)
+    for s in (1, -1):
+        r.ellipsoid("Head", "zig", (x + 0.02, s * 0.012, h + 0.019), (0.022, 0.006, 0.003), rotation=(0, 0, s * 0.5), segments=5, rings=3)  # crown V
+        r.ellipsoid("Head", "zig", (x + 0.012, s * 0.026, h + 0.004), (0.03, 0.006, 0.006), rotation=(0, 0, s * -0.2), segments=5, rings=3)  # eye stripe
+        r.ellipsoid("Head", "eye", (x + 0.045, s * 0.022, h + 0.01), (0.008, 0.006, 0.007), segments=5, rings=3)
+        r.tube("Head", "fang", (x + 0.06, s * 0.009, h - 0.006), (x + 0.064, s * 0.009, h - 0.02), 0.0025, 0.0006, 4)
+        r.tube("Tongue", "tongue", (x + 0.06, 0, h - 0.004), (x + 0.075, s * 0.006, h - 0.004), 0.0018, 0.0008, 4)  # fork
+    r.tube("Tongue", "tongue", (x + 0.025, 0, h - 0.004), (x + 0.06, 0, h - 0.004), 0.0025, 0.0018, 4)
+    return r.finish(collection)
+
+
+def frame_of(direction, up):
+    d = direction.normalized()
+    side = up.cross(d)
+    side = side.normalized() if side.length > 1e-6 else Vector((0, 1, 0))
+    return Matrix((d, side, d.cross(side))).transposed()  # columns: along, side, up
+
+
+def adder_assemble(points, head=None, roll=0.0, twist=0.0, jaw=0.0, tongue=0.0, flick=0.0):
+    """The adder's pose from its spine joints (neck first, armature space): the neck bone set by a look-at frame (rolled
+    ``roll`` degrees, then ``twist`` more spread down the body), every later bone by parallel transport, so a coil or a
+    roll never flips the pattern. ``head`` is the snout's world direction (default: along the neck)."""
+    pose = {"Spine1": [("loc", tuple(points[0] - ADDER_REST[0]))]}
+    world, parent = [], None
+    for i in range(ADDER_SEGMENTS):
+        rest_dir = ADDER_REST[i + 1] - ADDER_REST[i]
+        new_dir = points[i + 1] - points[i]
+        if parent is None:
+            spin = Quaternion(new_dir.normalized(), math.radians(roll))
+            w = (spin.to_matrix() @ frame_of(new_dir, Vector((0, 0, 1))) @ frame_of(rest_dir, Vector((0, 0, 1))).inverted()).to_quaternion()
+        else:
+            moved = parent @ rest_dir
+            w = moved.rotation_difference(new_dir) @ parent
+            if twist:
+                w = Quaternion(new_dir.normalized(), math.radians(twist / ADDER_SEGMENTS)) @ w
+        local = (parent.inverted() @ w) if parent is not None else w
+        axis, angle = local.to_axis_angle()
+        pose.setdefault(f"Spine{i + 1}", []).append((tuple(axis), math.degrees(angle)))
+        world.append(w)
+        parent = w
+    neck = world[0]
+    snout = neck @ Vector((1, 0, 0)) if head is None else Vector(head)
+    rest_head = Vector((1, 0, 0))
+    w_head = (neck @ rest_head).rotation_difference(snout) @ neck
+    axis, angle = (neck.inverted() @ w_head).to_axis_angle()
+    pose["Head"] = [(tuple(axis), math.degrees(angle))]
+    pose["Jaw"] = [(Y, jaw)]
+    pose["Tongue"] = [("loc", (tongue, 0, 0)), (Z, flick)]
+    return pose
+
+
+def adder_ground(points):
+    """Rest each joint on the ground at its body radius."""
+    return [Vector((p.x, p.y, ADDER_FLAT * adder_radius(i * ADDER_SEG))) for i, p in enumerate(points)]
+
+
+def adder_turtle(start, heading, turns):
+    """Joints on the ground from the neck back: each bone ADDER_SEG long, its heading (degrees about +Z, 180 = straight
+    back) turned by ``turns[i]``."""
+    points, h = [Vector(start)], heading
+    for i in range(ADDER_SEGMENTS):
+        h += turns[i]
+        a = math.radians(h)
+        points.append(points[-1] + ADDER_SEG * Vector((math.cos(a), math.sin(a), 0)))
+    return points
+
+
+def adder_raise(points, heights, anchor):
+    """Raise joints ``0 .. anchor - 1`` by ``heights`` (neck first) above the ground, working forward from the joint
+    ``anchor``, which stays put: each bone keeps its length, so a raised neck draws the head back along the body."""
+    out = [Vector(p) for p in points]
+    for i in range(anchor - 1, -1, -1):
+        z = ADDER_FLAT * adder_radius(i * ADDER_SEG) + (heights[i] if i < len(heights) else 0.0)
+        flat = (points[i] - points[i + 1]).to_2d()
+        dz = z - out[i + 1].z
+        run = math.sqrt(max(ADDER_SEG * ADDER_SEG - dz * dz, 1e-6))
+        step = flat.normalized() * run
+        out[i] = Vector((out[i + 1].x + step.x, out[i + 1].y + step.y, z))
+    return out
+
+
+ADDER_SLITHER = {"wavelength": 0.46, "amplitude": 0.065}
+
+
+def adder_slither(u):
+    """Lateral undulation: the joints lie on one fixed sine path in the world and slide along it, so with the root
+    moving forward a wavelength per loop every part of the body follows the path the head took."""
+    lam, amp, ds = ADDER_SLITHER["wavelength"], ADDER_SLITHER["amplitude"], 0.002
+    top = ADDER_NECK_X + lam + 0.1
+    pts = [Vector((top - i * ds, amp * math.sin(2 * math.pi * (top - i * ds) / lam), 0)) for i in range(int((lam + 1.9) / ds))]
+    arc = [0.0]
+    for a, b in zip(pts, pts[1:]):
+        arc.append(arc[-1] + (a - b).length)
+    neck_index, one_wave = round((lam + 0.1) / ds), round(0.1 / ds)
+    per = arc[neck_index] - arc[one_wave]
+    joints = []
+    for i in range(ADDER_SEGMENTS + 1):
+        target = arc[neck_index] - per * u + i * ADDER_SEG
+        j = min(bisect.bisect_right(arc, target) - 1, len(arc) - 2)
+        p = pts[j].lerp(pts[j + 1], (target - arc[j]) / (arc[j + 1] - arc[j]))
+        joints.append(Vector((p.x - lam * u, p.y, 0)))
+    return adder_ground(joints)
+
+
+def adder_coil():
+    """The resting coil: the body spirals out flat on the ground, rings a body's width apart, and the neck rises from
+    the inner ring to hold the head over the coil, facing forward."""
+    turns, radius = [0.0, 40.0], 0.11
+    for _ in range(2, ADDER_SEGMENTS):
+        turns.append(math.degrees(ADDER_SEG / radius))
+        radius += 0.096 * ADDER_SEG / (2 * math.pi * radius)
+    pts = adder_ground(adder_turtle(Vector((0.1, -0.1, 0.0)), 180.0, turns))
+    return adder_raise(pts, [0.15, 0.085, 0.025], 3)
+
+
+# The warning posture's horizontal bends (degrees per bone, neck first). Joint ADDER_ANCHOR and everything behind it
+# stay where they are through the warning, the strike and the recovery.
+ADDER_BEND = (0.0, 18.0, 22.0, 14.0, -30.0, -40.0, -38.0, -20.0, 22.0, 30.0, 24.0, 12.0, 0.0, 0.0)
+ADDER_ANCHOR = 8
+ADDER_WARN = adder_ground(adder_turtle(Vector((0.12, 0.0, 0.0)), 180.0, ADDER_BEND))
+
+
+def adder_warn(sway=0.0, coil=0.0, strike=0.0):
+    """The forebody raised in an S, head level and forward, the rest lying in a horizontal S behind. ``coil`` raises it
+    and draws the head back (the strike's cock); ``strike`` (0..1) straightens the forebody forward and down along the
+    ground from the anchored joint; ``sway`` (degrees) swings the raised part side to side."""
+    a = ADDER_ANCHOR
+    heading = 180.0 + sum(ADDER_BEND[:a + 1])
+    total = sum(ADDER_BEND[1:a + 1])
+    turns = [(1 - strike) * ADDER_BEND[i] + strike * total / a for i in range(a + 1)]
+    turns[1] += sway
+    turns[3] -= sway
+    pts = [Vector(p) for p in ADDER_WARN]
+    for i in range(a - 1, -1, -1):
+        heading -= turns[i + 1]
+        h = math.radians(heading)
+        pts[i] = pts[i + 1] - ADDER_SEG * Vector((math.cos(h), math.sin(h), 0))
+    lift = (0.2 + 0.04 * coil, 0.25 + 0.04 * coil, 0.17 + 0.02 * coil, 0.075, 0.018)
+    heights = [v * (1 - strike) for v in lift]
+    heights[0] += 0.035 * strike  # the struck head stays just off the ground
+    return adder_raise(adder_ground(pts), heights, a)
+def adder_pose(clip, u):
+    t = u * CLIP_FRAMES["marsh-adder"][clip]
+    if clip == "Idle_Coil_Loop":
+        flicks = sum(curve(u, (c - 0.02, 0), (c, 1), (c + 0.02, 0)) for c in (0.3, 0.35, 0.4, 0.76, 0.81))
+        pts = adder_coil()
+        pts[0] = pts[0] + Vector((0.004 * wave(u, 1), 0.01 * wave(u, 1, 0.25), 0.003 * wave(u, 2)))
+        look = curve(u, (0.45, 0), (0.52, 1), (0.66, 1), (0.72, 0))
+        return adder_assemble(pts, head=(math.cos(math.radians(25 * look)), math.sin(math.radians(25 * look)), -0.05), tongue=0.03 * flicks,
+                              flick=10 * wave(u, 24) * flicks)
+    if clip == "Slither_Loop":
+        pts = adder_slither(u)
+        direction = (pts[0] - pts[2]).normalized().lerp(Vector((1, 0, 0)), 0.5)
+        direction.z = -0.05
+        flick = curve(u, (0.5, 0), (0.55, 1), (0.62, 0))
+        return adder_assemble(pts, head=tuple(direction), tongue=0.03 * flick, flick=12 * wave(u, 12) * flick)
+    if clip == "Warn_Hiss_Loop":
+        sway = 7 * wave(u, 1)
+        hiss = max(0.0, wave(u, 2, -0.1)) ** 0.7
+        pts = adder_warn(sway=sway, coil=0.25 + 0.15 * hiss)
+        return adder_assemble(pts, head=(1, 0.1 * wave(u, 1), -0.08), jaw=8 + 34 * hiss, tongue=0.035 * (1 - hiss) * max(0.0, wave(u, 4)),
+                              flick=10 * wave(u, 16))
+    if clip == "Strike":
+        # Cocks back for two frames, then the S whips straight: the head shoots forward and down, the jaw gaping to the
+        # bite at 5 (contact), and the body ends stretched along the ground.
+        coil = curve(t, (0, 0.25), (2, 1), (3, 1), (4, 0))
+        strike = curve(t, (2, 0), (5, 1))
+        pts = adder_warn(coil=coil, strike=strike)
+        jaw = curve(t, (0, 8), (2, 30), (4, 70), (4.7, 70), (5.2, 10), (10, 6))
+        return adder_assemble(pts, head=(1, 0, -0.08 - 0.12 * strike), jaw=jaw)
+    if clip == "Strike_Recover":
+        # Exposed: lies stretched out with its head down for a beat, then slowly gathers the S back up into the warning
+        # posture it started from.
+        back = curve(t, (6, 0), (19, 1))
+        pts = adder_warn(coil=0.25 * back, strike=1 - back)
+        return adder_assemble(pts, head=(1, 0, -0.2 + 0.12 * back), jaw=6 + 2 * back)
+    if clip == "Hit":
+        jolt = curve(t, (0, 0), (2, 1), (8, 0))
+        pts = adder_warn(sway=-14 * jolt, coil=0.25 + 0.6 * jolt)
+        return adder_assemble(pts, head=(1, -0.3 * jolt, -0.08 + 0.3 * jolt), jaw=8 + 40 * jolt, roll=12 * jolt)
+    # Death: writhes, rolls belly-up along its length and goes limp, stretched out.
+    thrash = curve(t, (0, 0), (2, 1), (12, 1), (18, 0))
+    writhe = math.sin(2 * math.pi * t / 6) * thrash
+    fall = curve(t, (4, 0), (20, 1))
+    pts = adder_warn(sway=22 * writhe, coil=0.25 * (1 - fall), strike=fall * 0.85)
+    for i, p in enumerate(pts):
+        p.y += 0.05 * writhe * math.sin(i * 0.9) * (1 - fall)
+        ground = ADDER_FLAT * adder_radius(i * ADDER_SEG)
+        # Rolled, the wider side is down; mid-roll the body rides up a little over its own turning flank.
+        p.z = max(p.z * (1 - fall) + ground * fall, ground) + 0.15 * ground * fall + 0.006 * fall + 0.02 * math.sin(math.pi * fall) + 0.014 * thrash
+    return adder_assemble(pts, head=(1, 0.2 * writhe, -0.06 + 0.06 * fall), jaw=20 * (1 - fall) + 6, roll=150 * fall, twist=40 * fall)
+
+
 # Per bird: wingbeat degrees, walk style ("hop" or "step"), how far the neck dips to feed.
 BIRD_MOTION = {"crow": (55, "step", 70), "songbird": (60, "hop", 60), "duck": (50, "step", 55), "heron": (40, "step", 60)}
 
@@ -1005,6 +1580,9 @@ CLIP_FRAMES = {
     "bear": {"Idle": 96, "Walk": 32, "Eat": 72, "Run": 18, "Attack_A": 22, "Attack_B": 34, "Hit": 8, "Death": 36, "Alert": 24},
     "spider": {"Idle": 48, "Walk": 12, "Eat": 48, "Run": 10, "Attack_A": 18, "Attack_B": 24, "Hit": 8, "Death": 28, "Alert": 20},
     "marsh-lurker": {"Idle": 72, "Walk": 24, "Eat": 48, "Run": 14, "Attack_A": 18, "Attack_B": 26, "Hit": 8, "Death": 30, "Alert": 20},
+    "lynx": {"Idle": 96, "Walk": 24, "Run": 10, "Crouch_Stalk_Loop": 36, "Pounce_Windup": 12, "Pounce_Lunge": 12, "Pounce_Recover": 20,
+             "Hit": 8, "Death": 32},
+    "marsh-adder": {"Idle_Coil_Loop": 96, "Slither_Loop": 24, "Warn_Hiss_Loop": 32, "Strike": 10, "Strike_Recover": 20, "Hit": 8, "Death": 30},
 }
 
 
@@ -1013,13 +1591,17 @@ def build_authored(animal, collection):
         armature, mesh = build_bird(animal, collection)
         pose_of = lambda clip, u: bird_pose(animal, clip, u)
     else:
-        armature, mesh = {"rabbit": build_rabbit, "boar": build_boar, "bear": build_bear, "spider": build_spider, "marsh-lurker": build_lurker}[animal](collection)
-        pose_of = {"rabbit": rabbit_pose, "boar": boar_pose, "bear": bear_pose, "spider": spider_pose, "marsh-lurker": lurker_pose}[animal]
+        armature, mesh = {"rabbit": build_rabbit, "boar": build_boar, "bear": build_bear, "spider": build_spider, "marsh-lurker": build_lurker,
+                          "lynx": build_lynx, "marsh-adder": build_adder}[animal](collection)
+        pose_of = {"rabbit": rabbit_pose, "boar": boar_pose, "bear": bear_pose, "spider": spider_pose, "marsh-lurker": lurker_pose,
+                   "lynx": lynx_pose, "marsh-adder": adder_pose}[animal]
     actions = {}
     for clip, count in CLIP_FRAMES[animal].items():
         action = bpy.data.actions.new(clip)
         slot_for(armature, action)
-        for frame in range(0, count + 1, 1 if count <= 16 or clip in ONE_SHOT else 2):
+        # The lynx and adder key every frame: their planted paws and path-following body are solved per frame.
+        every = count <= 16 or clip in ONE_SHOT or animal in ("lynx", "marsh-adder")
+        for frame in range(0, count + 1, 1 if every else 2):
             key_pose(armature, frame, pose_of(clip, frame / count))
         actions[clip] = action
     for action in actions.values():
@@ -1030,6 +1612,21 @@ def build_authored(animal, collection):
 
 
 # ---------------------------------------------------------------- shared
+
+def root_motion(animal, clip, scale):
+    """How a consumer moves the root under the lynx's and adder's travelling clips, in metres at the shipped scale: a
+    gait's even ``travelSpeed`` keeps every planted paw (or the adder's body on its path) still on the ground, and the
+    pounce's ``rootTravel`` carries the lynx through its flight in a straight line."""
+    if animal == "lynx" and clip in LYNX_GAITS:
+        frames, duty, stride = LYNX_GAITS[clip][:3]
+        return {"travelSpeed": round(scale * stride / (duty * frames / FPS), 4)}
+    if animal == "lynx" and clip == "Pounce_Lunge":
+        return {"rootTravel": {"metres": round(scale * LYNX_POUNCE["distance"], 4), "startSeconds": round(LYNX_POUNCE["takeoff"] / FPS, 5),
+                               "endSeconds": round(LYNX_POUNCE["land"] / FPS, 5)}}
+    if animal == "marsh-adder" and clip == "Slither_Loop":
+        return {"travelSpeed": round(scale * ADDER_SLITHER["wavelength"] / (CLIP_FRAMES[animal][clip] / FPS), 4)}
+    return {}
+
 
 def prepare(animal, source_path):
     """Load or build ``animal`` into the current scene, normalised; return its root and measurements."""
@@ -1050,12 +1647,13 @@ def prepare(animal, source_path):
         top = top.parent
     top.parent = root
     root.rotation_euler = (0.0, 0.0, math.radians(spec["turn"]))
-    slot_for(armature, actions["Idle"])
+    rest, move = spec.get("rest", "Idle"), spec.get("move", "Walk")
+    slot_for(armature, actions[rest])
     scene = bpy.context.scene
-    scene.frame_set(int(actions["Idle"].frame_range[0]))
+    scene.frame_set(int(actions[rest].frame_range[0]))
     bpy.context.view_layer.update()
     low, high = bounds(meshes)
-    root.scale = (spec["height"] / (high.z - low.z),) * 3
+    root.scale = ((spec["height"] / (high.z - low.z)) if spec["height"] else 1.0,) * 3
     bpy.context.view_layer.update()
     low, high = bounds(meshes)
     root.location = Vector((-(low.x + high.x) / 2, -(low.y + high.y) / 2, -low.z))
@@ -1063,16 +1661,16 @@ def prepare(animal, source_path):
     low, high = bounds(meshes)
 
     # In-place check: the walk's horizontal travel of the mesh centre over the clip, in metres.
-    slot_for(armature, actions["Walk"])
-    start, end = (int(round(v)) for v in actions["Walk"].frame_range)
+    slot_for(armature, actions[move])
+    start, end = (int(round(v)) for v in actions[move].frame_range)
     centres = []
     for frame in (start, end):
         scene.frame_set(frame)
         bpy.context.view_layer.update()
         a, b = bounds(meshes)
         centres.append(((a.x + b.x) / 2, (a.y + b.y) / 2))
-    slot_for(armature, actions["Idle"])
-    scene.frame_set(int(actions["Idle"].frame_range[0]))
+    slot_for(armature, actions[rest])
+    scene.frame_set(int(actions[rest].frame_range[0]))
     travel = math.dist(centres[0], centres[1])
     return root, armature, meshes, actions, {
         "low": low, "high": high, "travel": travel,
@@ -1109,7 +1707,10 @@ def generate(output_path, arguments, inputs):
         "idleBounds": {"min": gltf(Vector((low.x, high.y, low.z))), "max": gltf(Vector((high.x, low.y, high.z)))},
         "scale": round(root.scale.x, 6), "turnDegrees": ANIMALS[animal]["turn"],
         "clips": {name: {"frames": frames, "fps": scene.render.fps, "loop": name not in ONE_SHOT,
-                         **({"contactSeconds": round(CONTACT_FRAMES[animal][name] / FPS, 5)} if name in CONTACT_FRAMES.get(animal, {}) else {})}
+                         **({"contactSeconds": round(CONTACT_FRAMES[animal][name] / FPS, 5)} if name in CONTACT_FRAMES.get(animal, {}) else {}),
+                         **root_motion(animal, name, root.scale.x)}
                   for name, frames in measured["frames"].items()},
         "walkTravel": round(measured["travel"], 4),
+        "restClip": ANIMALS[animal].get("rest", "Idle"), "moveClip": ANIMALS[animal].get("move", "Walk"),
+        **({"length": round(ADDER_LENGTH + 0.092, 4)} if animal == "marsh-adder" else {}),
     }
