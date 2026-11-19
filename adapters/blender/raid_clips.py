@@ -47,7 +47,8 @@ FINGERS = ("index", "middle", "ring", "pinky", "thumb")
 SOCKETS = ("weapon", "carry")
 # The hand shapes: degrees per finger joint (01, 02, 03) toward the palm, and a spread (degrees about the palm normal,
 # + away from the middle finger) per finger. ``grip`` wraps a haft about 3 cm across; ``pinch`` closes the thumb on
-# the index (a trigger or a spring); ``cup`` is the palm under a load's edge.
+# the index (a trigger or a spring); ``cup`` is the palm under a load's edge; ``brace`` is the open hand flat on the
+# side of a load, the thumb laid back along the face (#740: ``cup`` curled the fingers and thumb into the load).
 SHAPES = {
     "flat": {"curl": {"index": (0, 2, 2), "middle": (0, 2, 2), "ring": (0, 2, 2), "pinky": (0, 3, 2), "thumb": (0, 4, 4)},
              "spread": {"index": 3, "ring": 3, "pinky": 6, "thumb": 8}},
@@ -57,6 +58,8 @@ SHAPES = {
             "spread": {"index": 4, "ring": 4, "pinky": 8}},
     "grip": {"curl": {"index": (50, 70, 45), "middle": (52, 72, 46), "ring": (54, 72, 46), "pinky": (56, 74, 48), "thumb": (25, 35, 30)},
              "spread": {}},
+    "brace": {"curl": {"index": (6, 8, 6), "middle": (6, 8, 6), "ring": (8, 10, 6), "pinky": (8, 10, 8), "thumb": (-40, -6, 0)},
+              "spread": {"index": 2, "ring": 2, "pinky": 5, "thumb": 6}},
     "pinch": {"curl": {"index": (40, 45, 30), "middle": (50, 60, 40), "ring": (56, 66, 44), "pinky": (60, 70, 46), "thumb": (30, 30, 25)},
               "spread": {}},
 }
@@ -83,9 +86,10 @@ HACK = {"duration": 1.5, "head": .54, "edge": .19, "strike": .45,
                  (.58, 32.0, (-.13, -.28, 1.1), 6.0, 12.0),
                  (.8, -60.0, (-.21, -.1, 1.52), -12.0, 0.0))}
 # The load: a crate ``size`` (width, height, depth) on ``chest.carry``; the palms on its sides ``hold`` (up from the
-# socket, out from the chest) with the fingers ``fingers`` (socket frame) round the bottom edge, the chest leaning
-# ``lean`` degrees back. The idle breathes once a loop; the walk keeps the load still against the chest.
-LOAD = {"idle": 3.0, "size": (.36, .26, .26), "hold": (-.08, .12), "fingers": (0, -.3, 1), "lean": -4.0}
+# socket, out from the chest, ``gap`` off the face for the skin) with the fingers ``fingers`` (socket frame) toward the
+# bottom front edge, the chest leaning ``lean`` degrees back. The idle breathes once a loop; the walk keeps the load
+# still against the chest.
+LOAD = {"idle": 3.0, "size": (.36, .26, .26), "hold": (-.08, .12), "gap": .012, "fingers": (0, -.3, 1), "lean": -4.0}
 # A crouch (``crouch_body``): the feet ``ahead`` and ``wide`` apart, the pelvis ``drop`` lower, ``back`` behind and
 # tipped ``hip`` degrees forward, so the chest hinges at the hips.
 #
@@ -665,7 +669,7 @@ def hack(actor):
 # --- Carrying a load -------------------------------------------------------------------------------------------------
 
 def load_hands(actor):
-    """Both palms on the sides of the load on ``chest.carry``, the fingers round its bottom edge."""
+    """Both palms flat on the sides of the load on ``chest.carry``, the fingers toward its bottom front edge."""
     width = LOAD["size"][0]
     up, out = LOAD["hold"]
     load = actor.rig.grip("carry")
@@ -673,7 +677,7 @@ def load_hands(actor):
     hands = {}
     for side, sign in (("r", -1), ("l", 1)):
         inward = turn @ Vector((-sign, 0, 0))
-        hands[side] = ("palm_" + side, palm_frame(load @ Vector((sign * width * .5, up, out)), turn @ v(LOAD["fingers"]), inward))
+        hands[side] = ("palm_" + side, palm_frame(load @ Vector((sign * (width * .5 + LOAD["gap"]), up, out)), turn @ v(LOAD["fingers"]), inward))
     return hands
 
 
@@ -686,7 +690,7 @@ def carry_idle(actor):
     def frame(u):
         a = 2 * math.pi * u
         chest = {"pitch": LOAD["lean"] - 1.2 * math.sin(a), "neck": 2.0 + 1.0 * math.sin(a + .6)}
-        return actor.pose(lambda: load_hands(actor), chest, {"r": "cup", "l": "cup"})
+        return actor.pose(lambda: load_hands(actor), chest, {"r": "brace", "l": "brace"})
 
     return loop(LOAD["idle"], frame), load_observation()
 
@@ -698,7 +702,7 @@ def carry_walk(actor, walk):
 
     def frame(u):
         pose = sample(rig, walk, u * duration)
-        return actor.pose(lambda: load_hands(actor), {"pitch": LOAD["lean"]}, {"r": "cup", "l": "cup"}, lambda: rig.apply(pose))
+        return actor.pose(lambda: load_hands(actor), {"pitch": LOAD["lean"]}, {"r": "brace", "l": "brace"}, lambda: rig.apply(pose))
 
     return loop(duration, frame), {**load_observation(), "source": WALK}
 
