@@ -520,7 +520,7 @@ test("the Ranger recipe builds a verified bundle: in-place clips, equipment entr
       assert.equal(byName[name].secondaryPose.joints.skirt_f_01.length, Math.round(byName[name].durationSeconds * 30) + 1, name);
     }
     assert.deepEqual([byName.Shield_Guard_Turn_L.guard.degrees, byName.Shield_Guard_Turn_R.guard.degrees], [45, -45]);
-    assert.ok(byName.Shield_Guard_Bash.contactSeconds > .3 && byName.Shield_Guard_Bash.guard.strikeSocket === "hand_l.shield");
+    assert.ok(byName.Shield_Guard_Bash.contact.joint === "hand_l" && byName.Shield_Guard_Bash.contact.seconds > .3 && byName.Shield_Guard_Bash.guard.strikeSocket === "hand_l.shield");
     assert.deepEqual(RANGER_SIGNAL_CLIPS.map((name) => [byName[name].signal.from, byName[name].signal.to]),
       [["Idle_Loop", "Signal_Call_Loop"], ["Signal_Call_Loop", "Signal_Call_Loop"], ["Signal_Call_Loop", "Idle_Loop"], ["Signal_Call_Loop", "Idle_Loop"]]);
     assert.ok(byName.Signal_Call_Start.signal.lipsSeconds >= .4 && byName.Signal_Call_Start.signal.lipsSeconds <= .6);
