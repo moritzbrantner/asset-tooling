@@ -201,6 +201,8 @@ LOOPS = {
     "Spear_Idle_Loop": ("spear", "idle", 3.0, {"sway": 4, "breathe": 1.5, "bob": .016, "turn": 3}),
     "TwoHand_Idle_Loop": ("two-hand", "idle", 3.0, {"sway": 4, "breathe": 1.5, "bob": .016, "turn": 4}),
     "Unarmed_Idle_Loop": ("unarmed", "idle", 3.0, {"sway": 5, "breathe": 2, "bob": .022, "turn": 0}),
+    # #736: the bow's combat idle, the pose its draw ends in and its stow starts from.
+    "Bow_Idle_Loop": ("bow", "idle", 3.0, {"sway": 4, "breathe": 1.5, "bob": .016, "turn": 3}),
     "Mace_Guard_Loop": ("mace", "guard", 2.0, {"sway": 2, "breathe": 1, "bob": .01, "turn": 3}),
     "Dagger_Guard_Loop": ("dagger", "guard", 2.0, {"sway": 3, "breathe": 1, "bob": .012, "turn": 5}),
     "Staff_Guard_Loop": ("staff", "guard", 2.0, {"sway": 2, "breathe": 1, "bob": .01, "turn": 2}),
@@ -212,7 +214,7 @@ LOOPS = {
 CLIPS = (
     "Sword_Draw", "Sword_Sheathe", "Mace_Draw", "Mace_Sheathe", "Dagger_Draw", "Dagger_Sheathe", "Staff_Draw", "Staff_Sheathe",
     "Spear_Draw", "Spear_Sheathe", "TwoHand_Draw", "TwoHand_Sheathe", "Bow_Draw_Weapon", "Bow_Stow",
-    "Mace_Idle_Loop", "Staff_Idle_Loop", "Spear_Idle_Loop", "TwoHand_Idle_Loop", "Unarmed_Idle_Loop",
+    "Mace_Idle_Loop", "Staff_Idle_Loop", "Spear_Idle_Loop", "TwoHand_Idle_Loop", "Unarmed_Idle_Loop", "Bow_Idle_Loop",
     "Mace_Guard_Loop", "Dagger_Guard_Loop", "Staff_Guard_Loop", "Spear_Guard_Loop", "TwoHand_Guard_Loop", "Unarmed_Guard_Loop", "Bow_Guard_Loop",
 )
 

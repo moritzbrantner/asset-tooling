@@ -211,7 +211,7 @@ export const RANGER_REACT_CLIPS = ["Hit_Light_L", "Hit_Light_R", "Hit_Heavy_Fron
 export const RANGER_READY_CLIPS = [
   "Sword_Draw", "Sword_Sheathe", "Mace_Draw", "Mace_Sheathe", "Dagger_Draw", "Dagger_Sheathe", "Staff_Draw", "Staff_Sheathe",
   "Spear_Draw", "Spear_Sheathe", "TwoHand_Draw", "TwoHand_Sheathe", "Bow_Draw_Weapon", "Bow_Stow",
-  "Mace_Idle_Loop", "Staff_Idle_Loop", "Spear_Idle_Loop", "TwoHand_Idle_Loop", "Unarmed_Idle_Loop",
+  "Mace_Idle_Loop", "Staff_Idle_Loop", "Spear_Idle_Loop", "TwoHand_Idle_Loop", "Unarmed_Idle_Loop", "Bow_Idle_Loop",
   "Mace_Guard_Loop", "Dagger_Guard_Loop", "Staff_Guard_Loop", "Spear_Guard_Loop", "TwoHand_Guard_Loop", "Unarmed_Guard_Loop", "Bow_Guard_Loop",
 ] as const;
 /**

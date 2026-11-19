@@ -146,7 +146,7 @@ test("the Ranger retargets the library clips in bundle order, then authors its o
   assert.ok(RANGER_REACT_CLIPS.every((name) => !names.includes(name) && /^(hit|death)\./.test(RANGER_CLIP_ROLES[name]!.role) && !RANGER_CLIP_ROLES[name]!.contact));
   // #717: a draw and a sheathe per weapon family, the missing combat idles and the guards (#738 adds the bow's); no name
   // repeats an earlier clip.
-  assert.ok(RANGER_READY_CLIPS.every((name) => !names.includes(name) && /^(sword|mace|dagger|staff|spear|two-hand|bow|unarmed)\.(draw|draw-weapon|sheathe|ready|guard)$/.test(RANGER_CLIP_ROLES[name]!.role) && !RANGER_CLIP_ROLES[name]!.contact) && RANGER_READY_CLIPS.length === 26);
+  assert.ok(RANGER_READY_CLIPS.every((name) => !names.includes(name) && /^(sword|mace|dagger|staff|spear|two-hand|bow|unarmed)\.(draw|draw-weapon|sheathe|ready|guard)$/.test(RANGER_CLIP_ROLES[name]!.role) && !RANGER_CLIP_ROLES[name]!.contact) && RANGER_READY_CLIPS.length === 27);
   // #729: the defensive clips; the shield bash takes the `shield.bash` role from the library one-shot.
   assert.ok(RANGER_DEFEND_CLIPS.every((name) => !names.includes(name) && /^(dodge|kick|shield|(sword|mace|dagger|staff|spear|two-hand)\.(parry|riposte)|sword\.(sidestep|hop-back))/.test(RANGER_CLIP_ROLES[name]!.role)) && RANGER_DEFEND_CLIPS.length === 19);
   assert.deepEqual(RANGER_DEFEND_CLIPS.filter((name) => RANGER_CLIP_ROLES[name]!.contact), ["Sword_Riposte", "Dagger_Riposte", "Shield_Bash", "Kick_Front"]);

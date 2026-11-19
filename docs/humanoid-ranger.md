@@ -587,13 +587,13 @@ The same recipe ([`adapters/blender/strike_clips.py`](../adapters/blender/strike
 
 | Family | Draw / sheathe | Hand socket | Stow socket | `swapSeconds` (draw / sheathe) | Combat idle (3 s loop) | Guard (2 s loop) |
 | --- | --- | --- | --- | --- | --- | --- |
-| Sword (+ shield) | `Sword_Draw` 0.7 s, `Sword_Sheathe` 0.8 s | `hand_r.weapon` | `hip_l.stowed` | 0.267 / 0.433 s | `Sword_Idle` (library) | `Sword_Block` (library) |
+| Sword (+ shield) | `Sword_Draw` 0.7 s, `Sword_Sheathe` 0.8 s | `hand_r.weapon` | `hip_l.stowed` | 0.267 / 0.433 s | `Sword_Idle` (library) | `Sword_Idle` (library; #738: its strikes start and end there) |
 | Mace / axe | `Mace_Draw` 0.7 s, `Mace_Sheathe` 0.8 s | `hand_r.weapon` | `hip_r.stowed` | 0.267 / 0.433 s | `Mace_Idle_Loop` | `Mace_Guard_Loop` |
 | Dagger | `Dagger_Draw` 0.6 s, `Dagger_Sheathe` 0.7 s | `hand_r.weapon` | `hip_r.stowed` | 0.233 / 0.4 s | `Dagger_Idle_Loop` (#418) | `Dagger_Guard_Loop` |
 | Staff | `Staff_Draw`, `Staff_Sheathe` 0.8 s | `hand_r.staff` | `back.stowed` | 0.333 / 0.467 s | `Staff_Idle_Loop` | `Staff_Guard_Loop` |
 | Spear | `Spear_Draw`, `Spear_Sheathe` 0.8 s | `hand_r.staff` | `back.stowed` | 0.333 / 0.467 s | `Spear_Idle_Loop` | `Spear_Guard_Loop` |
 | Two-handed heavy | `TwoHand_Draw`, `TwoHand_Sheathe` 0.8 s | `hand_r.weapon` | `back.stowed` | 0.333 / 0.467 s | `TwoHand_Idle_Loop` | `TwoHand_Guard_Loop` |
-| Bow | `Bow_Draw_Weapon`, `Bow_Stow` 0.7 s | `hand_l.bow` | `back.bow.stowed` | 0.267 / 0.433 s | `Bow_Aim_Loop` (library) | `Bow_Guard_Loop` (#738) |
+| Bow | `Bow_Draw_Weapon`, `Bow_Stow` 0.7 s | `hand_l.bow` | `back.bow.stowed` | 0.267 / 0.433 s | `Bow_Idle_Loop` (#736) | `Bow_Guard_Loop` (#738) |
 | Unarmed | — | — | — | — | `Unarmed_Idle_Loop` | `Unarmed_Guard_Loop` |
 
 - **Draw:** the hand reaches the stow socket open, closes on the item there (`swapSeconds`: the game moves the item from the stow socket to the hand socket on this frame), pulls it clear (0.62 m for the sword, 0.36 m for the mace, 0.26 m for the dagger, 0.16 m off the back) and brings it into the family's idle pose, which it holds for the last frames. The hip draws cross the sword over to the left hip and take the mace and dagger from the right; the back draws reach over the right shoulder (the bow over the left), lift the item off the back, carry it above the shoulder and bring it down in front, where the second hand joins the shaft. The sword's left hand ends in the shield guard, the mace's in a fist, the dagger's in the #418 off-hand guard.
