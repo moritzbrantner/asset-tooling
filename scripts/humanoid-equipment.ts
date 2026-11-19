@@ -101,6 +101,8 @@ export const RANGER_HELD_ITEMS: readonly { key: string; item: string }[] = [
   // #760: Greyhaven's named finds on their family's sockets: Garrick Redbrand's cleaver, the Hollowpine hunter's spear and
   // the Millbrook smith's mace.
   "sword.garricks-cleaver", "spear.hollowpine-hunter", "mace.millbrook-smith",
+  // #773: the Redbrand shield-bearer's battered round shield and the signaler's horn (the guard and signal clips).
+  "shield.redbrand", "tool.signal-horn",
 ].map((item) => ({ key: `equipment.${item}`, item }));
 /** The roles the Ranger sockets accept, one of which every held item lists first. */
 export const SOCKET_ROLES = ["one-hand-weapon", "staff", "shield", "book", "load"] as const;
