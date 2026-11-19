@@ -13,6 +13,7 @@ import { validateHumanoidItemDescriptor } from "../../../src/humanoid-sockets.js
 import { EQUIPMENT_RELEASE, buildHumanoidEquipment } from "../../../scripts/build-humanoid-equipment.ts";
 import { RANGER_ARCHERY, RANGER_HEADWEAR, RANGER_HELD_ITEMS, RANGER_ITEM_ATTACHMENT, RANGER_THROWABLES, RANGER_WEAPONS, SOCKET_ROLES, rangerItemDescriptor } from "../../../scripts/humanoid-equipment.ts";
 import { WEAPON_ROLES } from "../../../src/weapon-recipes.js";
+import { ARCHERY_ROLES } from "../../../src/archery-recipes.js";
 import { KIT_BUDGETS, kitBudgetViolations, kitCost } from "../../../scripts/report-kit-costs.ts";
 
 const ITEMS = [...RANGER_WEAPONS, ...RANGER_ARCHERY, ...RANGER_HEADWEAR, ...RANGER_THROWABLES, ...RANGER_HELD_ITEMS].map(({ key }) => key);
@@ -69,13 +70,13 @@ test("the recipe builds a verified equipment kit within its limits", {
         variants.map((variant) => [variant.variant, variant.observations.triangles]), key);
       assert.ok(item.lods.levels[0].triangles > item.lods.levels[1].triangles && item.lods.levels[1].triangles > item.lods.levels[2].triangles, key);
     }
-    // v7 archery: the arrow and quiver are static like the weapons; the bow is skinned to grip and nock.
+    // v7 archery: the arrow and quiver are static like the weapons; the bows are skinned to grip and nock.
     for (const { key, piece } of RANGER_ARCHERY) {
       const item = manifest.assets.find((candidate) => candidate.key === key)!;
       assert.deepEqual(item.observations.animations, [], key);
       const json = JSON.parse((await readAssetBundleGltf(built.bundleDir, manifest, key, "default")).gltf.toString("utf8"));
       const names = json.nodes.map((node: any) => node.name);
-      if (piece === "bow.long") {
+      if (ARCHERY_ROLES[piece] === "bow") {
         assert.equal(item.observations.skins, 1, key);
         assert.deepEqual(json.skins[0].joints.map((index: number) => json.nodes[index].name), ["grip", "nock"]);
         assert.ok(names.includes(piece), key);

@@ -68,6 +68,8 @@ export const RANGER_ARCHERY: readonly { key: string; piece: ArcheryPiece }[] = [
   { key: "equipment.quiver.back", piece: "quiver.back" },
   // #389: the crossbow, held in `hand_r.crossbow`.
   { key: "equipment.crossbow", piece: "crossbow" },
+  // #760: the Fenwarden's Bow, a named find from the Eastwater Fen: a dark yew recurve on the same grip and nock.
+  { key: "equipment.bow.fenwarden", piece: "bow.recurve" },
 ];
 /**
  * Headwear entries (#336, male only): headwear-recipe presets fitted in the male rest model space, parented at runtime
@@ -96,6 +98,9 @@ export const RANGER_HELD_ITEMS: readonly { key: string; item: string }[] = [
   "sword.great", "axe.great", "hammer.great", "polearm.halberd", "polearm.glaive", "spear.pike",
   // #735: the two-handed loads residents carry on `chest.carry`.
   "load.crate", "load.sack", "load.firewood", "load.hay", "load.basket-large", "load.water-jug",
+  // #760: Greyhaven's named finds on their family's sockets: Garrick Redbrand's cleaver, the Hollowpine hunter's spear and
+  // the Millbrook smith's mace.
+  "sword.garricks-cleaver", "spear.hollowpine-hunter", "mace.millbrook-smith",
 ].map((item) => ({ key: `equipment.${item}`, item }));
 /** The roles the Ranger sockets accept, one of which every held item lists first. */
 export const SOCKET_ROLES = ["one-hand-weapon", "staff", "shield", "book", "load"] as const;
