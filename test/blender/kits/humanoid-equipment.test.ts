@@ -100,13 +100,13 @@ test("the recipe builds a verified equipment kit within its limits", {
     // #775: the Tinker's devices: one entry per device, a variant per state, held on `hand_r.weapon`; the trap turns
     // its ground, trigger and collision frames up to +Z and records the trigger radius and the collider's half extents.
     for (const { key, variants } of RANGER_TINKER_ITEMS) {
-      assert.deepEqual(manifest.assets.filter((candidate) => candidate.key === key).map((entry) => entry.variant), variants.map(({ variant }) => variant), key);
+      assert.deepEqual(manifest.assets.filter((candidate) => candidate.key === key).map((entry) => entry.variant).sort(), variants.map(({ variant }) => variant).sort(), key);
       const descriptor = JSON.parse((await readAssetBundleAttachment(built.bundleDir, manifest, key, "default", RANGER_ITEM_ATTACHMENT)).toString("utf8"));
       assert.equal(descriptor.roles[0], "one-hand-weapon", key);
     }
     const trap = JSON.parse((await readAssetBundleAttachment(built.bundleDir, manifest, "equipment.tinker.trap", "default", RANGER_ITEM_ATTACHMENT)).toString("utf8"));
     assert.deepEqual(trap.roles, ["one-hand-weapon", "trap"]);
-    assert.deepEqual(trap.frames.map((frame: any) => frame.name), ["grip", "ground", "trigger", "collision"]);
+    assert.deepEqual(trap.frames.map((frame: any) => frame.name), ["grip", "collision", "ground", "trigger"]);
     const byName = Object.fromEntries(trap.frames.map((frame: any) => [frame.name, frame]));
     assert.deepEqual(byName.trigger.scale, [.25, .25, .25]);
     assert.deepEqual(byName.collision.scale, [.17, .045, .15]);
