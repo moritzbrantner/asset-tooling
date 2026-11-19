@@ -872,6 +872,99 @@ def millbrook_mace(b):
         with b.at(rot("Y", 360 * k / 7)):
             b.prism(outline, -0.005, 0.005, "steel")
     b.lathe([(0.55, 0.012), (0.6, 0.0)], 5, "steel", caps=(True, False))
+# The Redbrand shield-bearer's shield and the signaler's horn (#773).
+
+def shield_redbrand(b):
+    """A battered Redbrand round shield: bare planks with dark seams, a nicked and dented outline, an iron rim, a raised
+    iron boss ringed in the band's red, the red brand (a downward chevron under a bar) above it and iron nails along
+    the planks; the handle and forearm strap as the round shield's."""
+    radius, n = 0.29, 20
+    nicks = {3: .028, 4: .018, 11: .022, 16: .034}
+    rim = [radius - nicks.get(s, 0.0) - 0.004 * math.sin(3.1 * s) for s in range(n)]
+    ring = lambda z, grow=0.0: [((r + grow) * math.cos(2 * math.pi * s / n), (r + grow) * math.sin(2 * math.pi * s / n), z) for s, r in enumerate(rim)]
+    back, front = b.add(ring(0.032)), b.add(ring(0.05))
+    for s in range(n):
+        b.face([back[s], back[(s + 1) % n], front[(s + 1) % n], front[s]], "wood")
+    b.face(list(reversed(back)), "wood")
+    b.face(front, "wood")
+    # The iron rim over the edge, missing where the edge is nicked deepest.
+    for s in range(n):
+        if s in (3, 16):
+            continue
+        a0, a1 = 2 * math.pi * s / n, 2 * math.pi * (s + 1) / n
+        r0, r1 = rim[s] + 0.004, rim[(s + 1) % n] + 0.004
+        quad = [(r0 * math.cos(a0), r0 * math.sin(a0)), (r1 * math.cos(a1), r1 * math.sin(a1))]
+        b.prism([quad[0], quad[1], (quad[1][0] * 0.94, quad[1][1] * 0.94), (quad[0][0] * 0.94, quad[0][1] * 0.94)], 0.03, 0.054, "iron")
+    for x in (-0.14, -0.05, 0.05, 0.14):  # plank seams
+        h = math.sqrt(max(0.0, (radius - 0.03) ** 2 - x * x))
+        b.box((x - 0.003, -h, 0.0495), (x + 0.003, h, 0.0515), "wood.dark")
+    # The boss on a red ring, the brand above it.
+    with b.at(T(0, 0, 0.05) @ rot("X", 90)):
+        b.lathe([(0.0, 0.1), (0.003, 0.1), (0.003, 0.075)], 16, "paint.red", caps=(False, True))
+        b.lathe([(0.0, 0.075), (0.012, 0.072), (0.03, 0.058), (0.045, 0.03), (0.05, 0)], 10, "iron")
+    b.prism([(-0.075, 0.2), (0.075, 0.2), (0.075, 0.228), (-0.075, 0.228)], 0.05, 0.0525, "paint.red")
+    b.prism([(-0.075, 0.185), (-0.055, 0.185), (0.0, 0.125), (0.055, 0.185), (0.075, 0.185), (0.0, 0.103)], 0.05, 0.0525, "paint.red")
+    for x, y in ((-0.14, 0.2), (-0.14, -0.2), (0.14, 0.2), (0.14, -0.2), (-0.05, -0.24), (0.05, -0.24)):
+        with b.at(T(x, y, 0.05) @ rot("X", 90)):
+            b.lathe([(0.0, 0.008), (0.004, 0.0)], 5, "iron", caps=(True, False))
+    b.box((-0.012, -0.06, -0.012), (0.012, 0.06, 0.012), "leather")
+    for y in (-0.06, 0.06):
+        b.box((-0.012, y - 0.008, -0.012), (0.012, y + 0.008, 0.032), "leather")
+    b.box((0.13, -0.06, 0.012), (0.17, 0.06, 0.032), "leather")
+
+
+HORN = {"mouth": 0.07, "straight": 0.12, "bend": 0.2, "turn": 100.0}
+
+
+def horn_path(u):
+    """The horn's centreline at ``u`` (0 the mouthpiece, 1 the bell): down -Y from the mouthpiece through the fist, then
+    curving toward +X; and its direction there."""
+    s = HORN["mouth"] + HORN["straight"]
+    total = s + math.radians(HORN["turn"]) * HORN["bend"]
+    d = u * total
+    if d <= s:
+        return Vector((0, HORN["mouth"] - d, 0)), Vector((0, -1, 0))
+    a = (d - s) / HORN["bend"]
+    r = HORN["bend"]
+    return Vector((r - r * math.cos(a), -HORN["straight"] - r * math.sin(a), 0)), Vector((math.sin(a), -math.cos(a), 0))
+
+
+def signal_horn(b):
+    """A Redbrand signal horn: a curved ox horn widening from a brass mouthpiece above the fist to a brass-rimmed bell
+    that curves toward +X, with two brass bands and a leather cord between them. The grip is the narrow end in the
+    fist; the mouthpiece is ``HORN["mouth"]`` up +Y from it."""
+    steps, k = 12, 8
+    for i in range(steps):
+        u0, u1 = i / steps, (i + 1) / steps
+        p0, d0 = horn_path(u0)
+        p1, d1 = horn_path(u1)
+        r0, r1 = 0.012 + 0.046 * u0 ** 1.5, 0.012 + 0.046 * u1 ** 1.5
+        rings = []
+        for p, d, r in ((p0, d0, r0), (p1, d1, r1)):
+            side = d.cross(Vector((0, 0, 1))).normalized()
+            rings.append([p + r * (math.cos(2 * math.pi * s / k) * side + math.sin(2 * math.pi * s / k) * Vector((0, 0, 1))) for s in range(k)])
+        lo, hi = b.add(rings[0]), b.add(rings[1])
+        mat = "leather" if i < 4 else "bone"  # dark toward the narrow end, pale toward the bell
+        for s in range(k):
+            b.face([lo[s], lo[(s + 1) % k], hi[(s + 1) % k], hi[s]], mat)
+    p, d = horn_path(1.0)
+    with b.at(Matrix.Translation(p) @ Vector((0, 1, 0)).rotation_difference(d).to_matrix().to_4x4()):
+        b.lathe([(-0.03, 0.055), (0.004, 0.062), (0.004, 0.052)], k, "brass", caps=(False, False))
+        b.lathe([(-0.02, 0.0), (0.0, 0.051)], k, "wood.dark", caps=(False, False))
+    with b.at(T(0, HORN["mouth"], 0)):
+        b.lathe([(-0.035, 0.0125), (-0.005, 0.0125), (0.0, 0.01), (0.012, 0.009), (0.016, 0.011), (0.018, 0.0)], k, "brass")
+    for u in (0.48, 0.78):
+        p, d = horn_path(u)
+        r = 0.012 + 0.046 * u ** 1.5
+        with b.at(Matrix.Translation(p) @ Vector((0, 1, 0)).rotation_difference(d).to_matrix().to_4x4()):
+            b.lathe([(-0.008, r + 0.003), (0.008, r + 0.003)], k, "brass", caps=(False, False))
+    # The carrying cord from band to band, sagging across the inside of the curve.
+    a, c = horn_path(0.48)[0], horn_path(0.78)[0]
+    sag = [a, a.lerp(c, 0.35) + Vector((0.05, -0.03, 0)), a.lerp(c, 0.7) + Vector((0.05, -0.04, 0)), c]
+    for p, q in zip(sag, sag[1:]):
+        b.rod(p, q, 0.0035, 0.0035, 4, "leather")
+
+
 # ---------------------------------------------------------------- catalogue
 
 # item: (builder, roles, frames beyond grip as {name: (x, y, z)}, triangle budget)
@@ -933,6 +1026,9 @@ ITEMS = {
     "sword.garricks-cleaver": (garricks_cleaver, ["one-hand-weapon"], {}, 500),
     "spear.hollowpine-hunter": (hollowpine_spear, ["staff", "spear"], {"grip.offhand": (0, 0.45, 0)}, 600),
     "mace.millbrook-smith": (millbrook_mace, ["one-hand-weapon"], {}, 600),
+    # #773: the Redbrand shield-bearer's shield and the signaler's horn.
+    "shield.redbrand": (shield_redbrand, ["shield"], {}, 900),
+    "tool.signal-horn": (signal_horn, ["one-hand-weapon", "tool"], {"horn.mouthpiece": (0, 0.088, 0)}, 600),
 }
 
 

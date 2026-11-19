@@ -21,6 +21,14 @@ resampled for ``Shield_Block_Loop``). No source motion is copied beyond that bas
   that start and end on its guard's footing (``STANCES``) with both hands held in its guard, carried with the chest.
   Their tracks never overshoot a key (``monotone``) and a lifted heel turns the foot about its ball, so a planted
   foot stays put; they record the family and its item, and ``from``/``to`` its guard.
+- #773 adds the Redbrand shield-bearer's guard and the signaler's horn call (``GUARD``), full body with a
+  ``secondaryPose``: every key is a whole stance (the pelvis, each foot placed by its ball, the chest) and the hands are
+  keyed frames carried with the chest or the head, so the feet lead, the hips, chest and shoulders follow and the item
+  arrives last. The shield clips stand on the guard's footing and start and end in ``Shield_Guard_Loop``; the turns end
+  turned (``degrees``, as the gait turns). The horn clips start and end in the idle or the call loop. They record their
+  ``guard`` or ``signal`` object: the kind, the items and sockets, ``from``/``to``, and the bash's ``contactSeconds``
+  and strike point, an impact's ``impactSeconds``, the horn at the lips (``lipsSeconds``) or knocked loose
+  (``dropSeconds``, after which the consumer drops the horn).
 
 No randomness.
 """
@@ -285,6 +293,9 @@ CLIPS = (
     "Roll_Bwd", "Sidestep_L", "Sidestep_R", "Dodge_Back", "Sword_Sidestep_L", "Sword_Sidestep_R", "Sword_Hop_Back",
     "Sword_Parry", "Dagger_Parry", "Staff_Parry", "Spear_Parry", "TwoHand_Parry", "Mace_Parry",
     "Sword_Riposte", "Dagger_Riposte", "Shield_Block_Loop", "Shield_Block_Hit", "Shield_Bash", "Kick_Front",
+    # #773: the Redbrand shield-bearer's guard and the signaler's horn call (``GUARD``).
+    "Shield_Guard_Loop", "Shield_Guard_Turn_L", "Shield_Guard_Turn_R", "Shield_Block_Impact", "Shield_Guard_Bash", "Guard_Broken_Stagger",
+    "Signal_Call_Start", "Signal_Call_Loop", "Signal_Call_Interrupted", "Signal_Call_End",
 )
 # The lowest an ankle and a ball of the foot may go (metres above the ground), and the trunk's joints a tumble keeps
 # ``TRUNK_CLEAR`` above it.
@@ -1028,6 +1039,306 @@ def record_chains(rig, poses):
     return {"sampleRate": FPS, "joints": chains}
 
 
+# --- #773: the Redbrand shield-bearer's guard and the signaler's horn call ---------------------------------------------
+#
+# Full-body clips keyed like the body clips, but every key is a whole stance: the pelvis shifts ``sx``/``sy``/``pz``,
+# pitches ``tip``, rolls ``lean`` and turns ``spin`` (positive to the figure's left) about its own head; the chest
+# turns by ``yaw``/``pitch``/``roll``/``neck``/``look`` and the clavicles rise ``cl``/``cr``. Each foot is placed by its
+# ball: ``lx``/``ly``/``lz`` from where the idle's ball stands, the whole foot carried round the pelvis's ground point
+# by ``lr`` degrees (a step round a turn), turned ``lt`` degrees about its ball (a pivot) and its heel raised ``lh``
+# degrees about the ball (``r...`` for the right foot). Every key adds to its family's stance (``STANCE``). The tracks
+# never overshoot a key (``monotone``), so a ball keyed in one place stays exactly there.
+#
+# The hands are keyed frames (``L``, ``R``: the socket ``s``, the grip ``g``, the item's +Y ``b`` and a hint for its
+# +Z ``z`` or +X ``x``, the hand shape) in the stance's own space, each carried with the joint ``on`` names (``spine_03``
+# by default, ``Head`` for the horn at the lips) from where it stands in the stance; ``"guard"`` is the family's guard
+# key and ``"seed"`` the hand as the idle holds it. A hand with no keys keeps the idle's arm.
+STANCE_FIELDS = ("sx", "sy", "pz", "tip", "lean", "spin", "yaw", "pitch", "roll", "neck", "look", "cl", "cr",
+                 "lx", "ly", "lz", "lr", "lt", "lh", "rx", "ry", "rz", "rr", "rt", "rh")
+# The shield guard's stance: the idle's own staggered feet (the left ahead) set wider and longer, the body sunk into
+# the knees and leaning in, the hips turned a little to the right so the shield shoulder leads, the head down behind
+# the rim. The signal stance is the idle's.
+STANCE = {
+    "shield": {"sx": .02, "sy": -.035, "pz": -.085, "tip": 6, "spin": -10, "yaw": -4, "pitch": 7, "neck": 7,
+               "lx": .02, "ly": -.07, "rx": -.04, "ry": .07, "rt": -4},
+    "signal": {},
+}
+GUARD_HANDS = {
+    # The round shield tight in front of the chest and chin, its face square to the front and its top tipped back; the
+    # sword (Garrick's cleaver or any one-hander) cocked at the right hip, the point up and forward beside the shield.
+    "shield": {"L": {"s": "shield", "g": (.06, -.4, 1.2), "b": (.04, .14, 1), "z": (-.18, -1, .12)},
+               "R": {"s": "weapon", "g": (-.27, -.2, 1.0), "b": (-.05, -.48, .88), "x": (0, -1, -.2), "shape": "grip"}},
+}
+# The horn at the lips (in the stance's space, carried with the head): the fist under the chin and a little to the
+# right, the mouthpiece up at the mouth, the horn running forward and curving up in front of the face.
+LIPS = {"s": "weapon", "on": "Head", "g": (-.02, -.15, 1.53), "b": (.0, .72, .7), "x": (0, -.3, 1), "shape": "grip"}
+# The free left fist of the horn call: raised out to the side, the arm bent (the band's rallying gesture).
+RALLY = {"s": "palm_l", "g": (.42, -.12, 1.42), "b": (.1, -.15, 1), "x": (-1, 0, 0), "shape": "fist", "pole": (.9, .3, -.4)}
+LOW_FIST = {"s": "palm_l", "g": (.3, -.06, 1.0), "b": (.1, -.3, -1), "x": (-1, 0, 0), "shape": "fist"}
+GUARD = {
+    # The guard held: the weight rocks between the front and the back foot, the chest breathes and the head watches
+    # left and right over the rim; the shield and the sword stay on the line. The balls never move.
+    "Shield_Guard_Loop": {"family": "shield", "duration": 2.0, "kind": "guard", "loop": True, "keys": [
+        (0, {"L": G, "R": G}),
+        (.25, {"sy": -.018, "pz": -.008, "tip": 1.5, "pitch": 1.5, "look": 4, "rh": 3, "L": G, "R": G}),
+        (.5, {"sy": 0, "pz": 0, "tip": 0, "pitch": -.5, "look": 0, "cl": 1.5, "rh": 0, "L": G, "R": G}),
+        (.75, {"sy": .015, "pz": -.006, "tip": -1, "pitch": .5, "look": -4, "cl": 0, "lh": 3, "L": G, "R": G}),
+        (1, {"sy": 0, "pz": 0, "tip": 0, "pitch": 0, "look": 0, "lh": 0, "L": G, "R": G})]},
+    # A slow planted pivot to the left, the shield kept on the threat: the head turns first and the weight settles on
+    # the front (left) foot, which pivots on its ball; the rear foot pushes off and steps round 45 degrees, the hips
+    # follow it, the chest and the shield arrive last and the front foot resets under the new stance.
+    "Shield_Guard_Turn_L": {"family": "shield", "duration": .5333, "kind": "turn", "degrees": 45, "keys": [
+        (0, {"L": G, "R": G}),
+        (.18, {"look": 10, "sx": .04, "pz": -.02, "rh": 14, "lt": 6, "spin": 4, "yaw": -4}),
+        (.26, {"rz": .05, "rr": 2, "rh": 6, "lt": 12, "spin": 8, "yaw": -6}),
+        (.52, {"rz": .05, "rr": 43, "lt": 40, "spin": 36, "yaw": -4, "look": 6, "sx": .02, "pz": -.03}),
+        (.6, {"rz": 0, "rr": 45, "lt": 45, "spin": 41, "yaw": 2, "look": 2, "lh": 10}),
+        (.68, {"lz": .05, "lr": 2, "lt": 43, "lh": 6, "spin": 44, "yaw": 0, "sx": -.01}),
+        (.84, {"lz": .05, "lr": 43, "lt": 2, "lh": 2, "spin": 45}),
+        (.92, {"lz": 0, "lr": 45, "lt": 0, "lh": 0, "pz": -.015, "look": 0, "sx": 0}),
+        (1, {"rr": 45, "lr": 45, "spin": 45, "pz": 0, "L": G, "R": G})]},
+    # The mirror: to the right the rear (right) foot is the pivot and the front foot steps round.
+    "Shield_Guard_Turn_R": {"family": "shield", "duration": .5333, "kind": "turn", "degrees": -45, "keys": [
+        (0, {"L": G, "R": G}),
+        (.18, {"look": -10, "sx": -.04, "pz": -.02, "lh": 14, "rt": -6, "spin": -4, "yaw": 4}),
+        (.26, {"lz": .05, "lr": -2, "lh": 6, "rt": -12, "spin": -8, "yaw": 6}),
+        (.52, {"lz": .05, "lr": -43, "rt": -40, "spin": -36, "yaw": 4, "look": -6, "sx": -.02, "pz": -.03}),
+        (.6, {"lz": 0, "lr": -45, "rt": -45, "spin": -41, "yaw": -2, "look": -2, "rh": 10}),
+        (.68, {"rz": .05, "rr": -2, "rt": -43, "rh": 6, "spin": -44, "yaw": 0, "sx": .01}),
+        (.84, {"rz": .05, "rr": -43, "rt": -2, "rh": 2, "spin": -45}),
+        (.92, {"rz": 0, "rr": -45, "rt": 0, "rh": 0, "pz": -.015, "look": 0, "sx": 0}),
+        (1, {"rr": -45, "lr": -45, "spin": -45, "pz": 0, "L": G, "R": G})]},
+    # A heavy blow lands on the shield: the shield is driven back into the chest and its top tips back, the chest and
+    # the hips are knocked back over the rear leg, whose knee takes it and whose heel stays down; the front heel lifts.
+    # Then the weight presses forward again and the shield comes back out on to the line.
+    "Shield_Block_Impact": {"family": "shield", "duration": .6, "kind": "block-hit", "mark": .1, "keys": [
+        (0, {"L": G, "R": G}),
+        (.1, {"sy": .05, "pz": -.03, "tip": -6, "pitch": -5, "neck": -3, "lh": 12, "cl": 5,
+              "L": {"s": "shield", "g": (.07, -.37, 1.19), "b": (.02, .3, .95), "z": (-.2, -1, .3)},
+              "R": {"s": "weapon", "g": (-.3, -.12, 1.02), "b": (-.15, -.55, .82), "x": (0, -1, -.2), "shape": "grip"}}),
+        (.22, {"sy": .06, "pz": -.05, "tip": -4, "pitch": -2, "neck": 0, "lh": 8,
+               "L": {"s": "shield", "g": (.07, -.36, 1.18), "b": (.03, .22, .97), "z": (-.2, -1, .2)}}),
+        (.5, {"sy": -.01, "pz": -.01, "tip": 2, "pitch": 2, "lh": 0, "cl": 0, "L": G, "R": G}),
+        (1, {"sy": 0, "pz": 0, "tip": 0, "pitch": 0, "neck": 0, "L": G, "R": G})]},
+    # The bash: the weight sinks back over the rear leg and the shield draws in (a clear wind-up), then the rear leg
+    # drives, the front foot steps in, the hips and the chest turn the left shoulder through and the shield is punched
+    # out at face height; it lands, the body recoils a little and steps back into the guard.
+    "Shield_Guard_Bash": {"family": "shield", "duration": .8, "kind": "bash", "mark": .44, "keys": [
+        (0, {"L": G, "R": G}),
+        (.3, {"sy": .05, "pz": -.03, "tip": -2, "spin": 8, "yaw": 6, "pitch": 2, "lh": 6, "cl": 3,
+              "L": {"s": "shield", "g": (.12, -.36, 1.18), "b": (.06, .14, 1), "z": (-.3, -1, .08)},
+              "R": {"s": "weapon", "g": (-.3, -.12, 1.0), "b": (-.1, -.55, .83), "x": (0, -1, -.2), "shape": "grip"}}),
+        (.35, {"ly": -.03, "lz": .05, "lh": -4, "rh": 10, "sy": .0, "spin": 4}),
+        (.41, {"ly": -.18, "lz": .03}),
+        (.44, {"sy": -.15, "pz": -.06, "tip": 5, "spin": -12, "yaw": -8, "pitch": 5, "roll": -3, "neck": 0, "cl": -2,
+               "ly": -.2, "lz": 0, "lh": 0, "rh": 24,
+               "L": {"s": "shield", "g": (.0, -.8, 1.3), "b": (0, -.1, 1), "z": (.1, -1, -.06)},
+               "R": {"s": "weapon", "g": (-.26, -.26, .98), "b": (-.1, -.55, .83), "x": (0, -1, -.2), "shape": "grip"}}),
+        (.52, {"sy": -.14, "pz": -.065, "tip": 5, "spin": -10, "yaw": -7, "rh": 21,
+               "L": {"s": "shield", "g": (.0, -.76, 1.29), "b": (0, -.06, 1), "z": (.1, -1, -.02)}}),
+        (.64, {"sy": -.08, "pz": -.04, "tip": 3, "spin": -3, "yaw": -2, "pitch": 3, "roll": 0, "cl": 0, "rh": 8, "lz": .0, "ly": -.2}),
+        (.7, {"ly": -.18, "lz": .05, "lh": 4, "L": G, "R": G}),
+        (.82, {"ly": -.02, "lz": .05, "lh": 0, "sy": -.01, "spin": 0, "yaw": 0, "rh": 0, "tip": 0, "pitch": 0}),
+        (.88, {"ly": 0, "lz": 0, "pz": -.01}),
+        (1, {"sy": 0, "pz": 0, "L": G, "R": G})]},
+    # Struck from behind on the right while guarding: the hips are shoved forward and to the left, the chest whips
+    # round to the right and folds, the shield arm flies out wide and low and the sword arm out to the right; the rear
+    # foot stumbles forward to catch the weight, then the body gathers, steps the foot back and brings the guard up.
+    "Guard_Broken_Stagger": {"family": "shield", "duration": 1.1, "kind": "guard-broken", "mark": .06, "keys": [
+        (0, {"L": G, "R": G}),
+        (.06, {"sx": .06, "sy": -.07, "pz": -.03, "tip": 8, "lean": 6, "yaw": -22, "pitch": 10, "roll": 8, "neck": -6,
+               "look": 10, "rh": 18, "cl": 6,
+               "L": {"s": "shield", "g": (.44, -.22, 1.04), "b": (.3, .1, 1), "z": (.6, -.8, 0)},
+               "R": {"s": "weapon", "g": (-.42, .0, 1.0), "b": (-.5, -.3, .8), "x": (0, -1, -.3), "shape": "grip"}}),
+        (.22, {"sx": .08, "sy": -.13, "pz": -.07, "tip": 10, "lean": 4, "yaw": -14, "pitch": 12, "roll": 4, "neck": 2, "look": 4,
+               "rx": .1, "ry": -.24, "rz": .07, "rh": 6, "rt": 10, "cl": 2,
+               "L": {"s": "shield", "g": (.42, -.28, .98), "b": (.25, -.05, 1), "z": (.5, -.85, .1)}}),
+        (.36, {"sx": .07, "sy": -.16, "pz": -.1, "tip": 9, "lean": 2, "yaw": -8, "pitch": 10, "roll": 2, "look": 0,
+               "rx": .13, "ry": -.33, "rz": 0, "rh": 0, "rt": 12, "lh": 10}),
+        (.55, {"sx": .02, "sy": -.06, "pz": -.05, "tip": 5, "lean": 0, "yaw": -4, "pitch": 6, "roll": 0, "neck": 4, "cl": 0,
+               "rx": .1, "ry": -.24, "rz": .06, "rh": 4, "lh": 4,
+               "L": {"s": "shield", "g": (.2, -.36, 1.12), "b": (.12, .1, 1), "z": (.0, -1, .1)}, "R": G}),
+        (.72, {"rx": 0, "ry": 0, "rz": 0, "rt": 0, "rh": 0, "lh": 0, "sx": 0, "sy": -.01, "pz": -.02, "tip": 1, "yaw": 0, "pitch": 1,
+               "L": G}),
+        (1, {"sy": 0, "pz": 0, "tip": 0, "pitch": 0, "neck": 0, "L": G, "R": G})]},
+    # The horn raised: the feet set and the knees give a little, the chest fills (the shoulders rise and the head
+    # comes up), the horn swings up from the side to the lips and the free fist comes up and out.
+    "Signal_Call_Start": {"family": "signal", "duration": .6, "kind": "call-start", "mark": .83, "keys": [
+        (0, {"R": "seed"}),
+        (.3, {"pz": -.03, "tip": 2, "pitch": 4, "cl": 2, "cr": 2, "lh": 4,
+              "R": {"s": "weapon", "on": "Head", "g": (-.24, -.3, 1.24), "b": (.1, .3, 1), "x": (-.3, -1, .2), "shape": "grip"}}),
+        (.66, {"pz": -.02, "tip": -3, "pitch": -7, "neck": -10, "cl": 7, "cr": 9, "lh": 0, "L": RALLY}),
+        (.83, {"pz": -.02, "tip": -5, "pitch": -12, "neck": -14, "cl": 8, "cr": 10, "R": LIPS, "L": RALLY}),
+        (1, {"pz": -.02, "tip": -6, "pitch": -13, "neck": -15, "cl": 8, "cr": 10, "R": LIPS, "L": RALLY})]},
+    # The call: braced, leaning back with the horn high, the chest emptying into it over a long blast (the shoulders
+    # come down, the body bows into the note) and filling again in a quick breath.
+    "Signal_Call_Loop": {"family": "signal", "duration": 1.5, "kind": "call", "loop": True, "keys": [
+        (0, {"pz": -.02, "tip": -6, "pitch": -13, "neck": -15, "cl": 8, "cr": 10, "R": LIPS, "L": RALLY}),
+        (.4, {"pz": -.03, "tip": -2, "pitch": -6, "neck": -12, "cl": 4, "cr": 6}),
+        (.78, {"pz": -.045, "tip": 1, "pitch": -1, "neck": -9, "cl": 0, "cr": 2, "R": LIPS, "L": RALLY}),
+        (1, {"pz": -.02, "tip": -6, "pitch": -13, "neck": -15, "cl": 8, "cr": 10, "R": LIPS, "L": RALLY})]},
+    # The call broken: the horn is struck out of the hand (flung out to the right, the fingers opening), the head and
+    # the chest snap round with it, the body staggers back a step on the right foot and the left arm flails for
+    # balance; it gathers and stands, the hands empty.
+    "Signal_Call_Interrupted": {"family": "signal", "duration": 1.0, "kind": "call-interrupted", "mark": .07, "drop": .11, "keys": [
+        (0, {"pz": -.02, "tip": -6, "pitch": -13, "neck": -15, "cl": 8, "cr": 10, "R": LIPS, "L": RALLY}),
+        (.07, {"pz": -.04, "tip": -6, "pitch": -8, "yaw": -26, "roll": -6, "neck": -4, "look": -14, "cl": 4, "cr": 14, "lh": 10,
+               "R": {"s": "weapon", "g": (-.6, .04, 1.42), "b": (-.6, .4, .5), "x": (0, -1, .2), "shape": "open"}}),
+        (.11, {"rz": .05, "ry": .02, "R": {"s": "weapon", "g": (-.62, .12, 1.36), "b": (-.7, .5, .3), "x": (0, -1, .2), "shape": "open"}}),
+        (.3, {"sy": .06, "pz": -.07, "tip": -6, "yaw": -18, "roll": -3, "pitch": 4, "neck": 6, "look": -6, "cl": 2, "cr": 6,
+              "ry": .22, "rz": .05, "rh": -4, "lh": 14,
+              "R": {"s": "palm_r", "g": (-.46, .1, 1.08), "b": (-.3, .2, -1), "x": (0, -1, 0), "shape": "open"},
+              "L": {"s": "palm_l", "g": (.5, -.2, 1.2), "b": (.4, -.4, .4), "x": (0, 0, -1), "shape": "open"}}),
+        (.46, {"sy": .08, "pz": -.08, "tip": 2, "yaw": -8, "roll": 0, "pitch": 10, "neck": 8, "look": 0, "cl": 0, "cr": 0,
+               "ry": .22, "rz": 0, "rh": 0, "lh": 0}),
+        (.64, {"sy": .04, "pz": -.04, "tip": 1, "yaw": -3, "pitch": 4, "neck": 3, "R": "seed", "L": "seed"}),
+        (.72, {"rz": .05, "ry": .2, "rh": 6, "sy": .02}),
+        (.88, {"rz": .05, "ry": .02, "rh": 2, "pz": -.02, "yaw": -1, "pitch": 2, "neck": 1}),
+        (.94, {"rz": 0, "ry": 0, "rh": 0}),
+        (1, {"sy": 0, "pz": 0, "tip": 0, "yaw": 0, "pitch": 0, "neck": 0, "R": "seed", "L": "seed"})]},
+    # The call ends: a last breath out, the horn comes down from the lips to the side and the fist drops.
+    "Signal_Call_End": {"family": "signal", "duration": .6, "kind": "call-end", "keys": [
+        (0, {"pz": -.02, "tip": -6, "pitch": -13, "neck": -15, "cl": 8, "cr": 10, "R": LIPS, "L": RALLY}),
+        (.25, {"pz": -.03, "tip": 0, "pitch": 2, "neck": -4, "cl": 2, "cr": 3,
+               "R": {"s": "weapon", "on": "Head", "g": (-.22, -.28, 1.3), "b": (.1, .3, 1), "x": (-.3, -1, .2), "shape": "grip"}, "L": LOW_FIST}),
+        (.6, {"pz": -.01, "tip": 0, "pitch": 1, "neck": 0, "cl": 0, "cr": 0}),
+        (1, {"pz": 0, "tip": 0, "pitch": 0, "R": "seed", "L": "seed"})]},
+}
+# The item each family's clips hold: the socket and the item a consumer puts on it.
+GUARD_ITEMS = {"shield": {"shield": {"item": "equipment.shield.redbrand", "socket": "hand_l.shield"},
+                          "weapon": {"item": "equipment.sword.garricks-cleaver", "socket": "hand_r.weapon"}},
+               "signal": {"horn": {"item": "equipment.tool.signal-horn", "socket": "hand_r.weapon"}}}
+
+
+def stance_tracks(spec):
+    """Every field's keys (each holding what a key leaves out at the previous key's value), plus the family's stance."""
+    stance = STANCE[spec["family"]]
+    held, tracks = {name: 0.0 for name in STANCE_FIELDS}, {name: [] for name in STANCE_FIELDS}
+    for u, key in spec["keys"]:
+        held.update({name: value for name, value in key.items() if name in STANCE_FIELDS})
+        for name in STANCE_FIELDS:
+            tracks[name].append((u, float(held[name]) + stance.get(name, 0.0)))
+    return tracks
+
+
+def stance_pose(rig, seed, idle, k):
+    """The body of one frame: the pelvis moved and turned, each foot on its ball's key, the chest and clavicles."""
+    rig.apply(seed)
+    pelvis = rig.bones["pelvis"]
+    head = rig.head("pelvis")
+    for axis, degrees in ((UP, k["spin"]), (X, k["tip"]), (Y, k["lean"])):
+        if degrees:
+            rotate_world(rig, "pelvis", axis, degrees)
+    m = pelvis.matrix.copy()
+    m.translation = head + Vector((k["sx"], k["sy"], k["pz"]))
+    pelvis.matrix = m
+    bpy.context.view_layer.update()
+    ground = Vector((head.x, head.y, 0))
+    for side in "lr":
+        thigh, calf, foot, _ = LEGS[side]
+        ankle, turn, ball, bend = idle[side]
+        around = Matrix.Rotation(math.radians(k[side + "r"]), 3, UP)
+        yaw = Matrix.Rotation(math.radians(k[side + "r"] + k[side + "t"]), 3, UP)
+        heel_axis = (ankle - ball).cross(UP).normalized()
+        heel = Matrix.Rotation(math.radians(-k[side + "h"]), 3, heel_axis)
+        at = ground + around @ (ball + Vector((k[side + "x"], k[side + "y"], k[side + "z"])) - ground)
+        target = at + yaw @ heel @ (ankle - ball)
+        two_bone(rig, thigh, calf, foot, target, yaw @ bend)
+        f = (yaw @ heel @ turn.to_matrix()).to_4x4()
+        f.translation = rig.head(foot)
+        rig.bones[foot].matrix = f
+        bpy.context.view_layer.update()
+    turn_chest(rig, k["yaw"], k["pitch"], k["roll"], k["neck"], look=k["look"])
+    for side in "lr":
+        raised = k["c" + side]
+        if raised:
+            rotate_world(rig, f"clavicle_{side}", Y, -raised if side == "l" else raised)
+
+
+def hand_key(value, guard, seed_frames, side):
+    """A keyed hand as (socket, frame in the stance's space, the joint carrying it, pole, shape)."""
+    if value == G:
+        value = guard[side]
+    if value == "seed":
+        socket, frame = seed_frames[side]
+        return socket, frame, "spine_03", POLE[side.lower()], "seed"
+    pole = v(value["pole"]) if "pole" in value else POLE[side.lower()]
+    return value["s"], key_frame(value), value.get("on", "spine_03"), pole, value.get("shape", "grip")
+
+
+def stance_clip(rig, seed, clip):
+    spec = GUARD[clip]
+    family = spec["family"]
+    hands = Hands(rig, seed)
+    rig.apply(seed)
+    idle = {}
+    for side in "lr":
+        thigh, calf, foot, ball = LEGS[side]
+        hip, knee, ankle = rig.head(thigh), rig.head(calf), rig.head(foot)
+        line = (ankle - hip).normalized()
+        bend = (knee - hip) - line * (knee - hip).dot(line)
+        idle[side] = (ankle, rig.bones[foot].matrix.to_quaternion(), rig.head(ball), bend.normalized() if bend.length > .02 else KNEE)
+    # The idle's own hands, as the sockets the clip's keys name: the horn hand on the weapon socket, the free hand's palm.
+    seed_frames = {"R": ("weapon", rig.grip("weapon")), "L": ("palm_l", rig.grip("palm_l"))}
+    tracks = stance_tracks(spec)
+    # The stance itself, from which every hand key is carried.
+    stance_pose(rig, seed, idle, {name: STANCE[family].get(name, 0.0) for name in STANCE_FIELDS})
+    reference = {joint: rig.bones[joint].matrix.copy() for joint in ("spine_03", "Head")}
+    guard = GUARD_HANDS.get(family, {})
+    keyed = {side: [(u, hand_key(key[side], guard, seed_frames, side)) for u, key in spec["keys"] if side in key] for side in "LR"}
+    count = frames_of(spec["duration"])
+    poses = []
+    for frame in range(count + 1):
+        u = frame / count
+        stance_pose(rig, seed, idle, {name: monotone(track, u) for name, track in tracks.items()})
+        carry = {joint: rig.bones[joint].matrix @ reference[joint].inverted() for joint in reference}
+        shapes = {}
+        for side in "RL":
+            track = keyed[side]
+            if not track:
+                continue
+            # Each key is carried with its joint as it stands now, then the keys are interpolated.
+            frames = [(t, carry[on] @ frame_) for t, (_, frame_, on, _, _) in track]
+            nearest = min(track, key=lambda item: abs(item[0] - u))[1]
+            socket, pole = nearest[0], nearest[3]
+            placed = interpolate(frames, u)
+            reach(rig, socket, placed)
+            place_grip(rig, socket, placed, pole)
+            shapes[side.lower()] = nearest[4]
+        for side, shape in shapes.items():
+            rig.apply(seed_fingers(seed, hands, side) if shape == "seed" else hands.shape(side, shape))
+        floor_feet(rig, Vector((0, -1, 0)))
+        poses.append(rig.capture())
+    observed = {"kind": spec["kind"], "family": family, "items": GUARD_ITEMS[family]}
+    rest = "Shield_Guard_Loop" if family == "shield" else STAND
+    observed["from"] = "Signal_Call_Loop" if clip in ("Signal_Call_Loop", "Signal_Call_Interrupted", "Signal_Call_End") else rest
+    observed["to"] = {"Signal_Call_Start": "Signal_Call_Loop", "Signal_Call_Loop": "Signal_Call_Loop"}.get(clip, rest)
+    if "degrees" in spec:
+        observed["degrees"] = spec["degrees"]
+    out = {}
+    if "mark" in spec:
+        mark = int(round(spec["mark"] * count))
+        seconds = round(mark / FPS, 4)
+        if spec["kind"] == "bash":
+            out["contactSeconds"] = seconds
+            rig.apply(poses[mark])
+            observed.update({"strikeSocket": SOCKET_IDS["shield"], **strike_point(rig, "shield", 0.0)})
+        elif spec["kind"] == "call-start":
+            observed["lipsSeconds"] = seconds
+        else:
+            observed["impactSeconds"] = seconds
+    if "drop" in spec:
+        observed["dropSeconds"] = round(int(round(spec["drop"] * count)) / FPS, 4)
+    return poses, {**out, FAMILY_FIELD[family]: observed}
+
+
+FAMILY_FIELD = {"shield": "guard", "signal": "signal"}
+
+
+def seed_fingers(seed, hands, side):
+    return {name: seed[name].copy() for name in hands.joints[side]}
+
+
 def author(rig, clip, actions):
     """The clip's poses (one per frame at FPS; the loop repeats its first pose last) and its observations."""
     if rig.rig.animation_data is None:
@@ -1038,7 +1349,8 @@ def author(rig, clip, actions):
     elif clip in UPPER:
         poses, observations = guarded_clip(rig, sample(rig, actions[STAND], 0.0), clip)
     else:
-        poses, observations = body_clip(rig, sample(rig, actions[STAND], 0.0), clip)
+        author_body = stance_clip if clip in GUARD else body_clip
+        poses, observations = author_body(rig, sample(rig, actions[STAND], 0.0), clip)
         observations["secondaryPose"] = record_chains(rig, poses)
         return poses, {"source": STAND, "durationSeconds": round((len(poses) - 1) / FPS, 4), **observations}
     return poses, {"source": STAND, "durationSeconds": round((len(poses) - 1) / FPS, 4), **observations,

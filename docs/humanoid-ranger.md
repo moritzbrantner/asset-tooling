@@ -59,7 +59,8 @@ The `humanoid.ranger.male` bundle holds the following.
   - a draw and a sheathe per weapon family, the combat idles and the guards ([Draw, sheathe, combat idle and guard clips](#draw-sheathe-combat-idle-and-guard-clips-717));
   - the dodges, a parry per weapon family, the ripostes, the shield brace, hit and bash and the push kick ([Defensive clips](#defensive-clips-729));
   - the rooted struggles, the pit fall, the blink, leap, dash, grappling hook, yank, drag and ice slip, and the tanner ([Movement spells, control reactions and the tanner](#movement-spells-control-reactions-and-the-tanner-767));
-  - mounting, dismounting and riding the `mounts` horse through its gaits and turns ([Riding clips](#riding-clips-769)).
+  - mounting, dismounting and riding the `mounts` horse through its gaits and turns ([Riding clips](#riding-clips-769));
+  - the Redbrand shield-bearer's full-body guard, turns, impact, bash and broken guard, and the signaler's horn call ([Redbrand shield guard and signal horn clips](#redbrand-shield-guard-and-signal-horn-clips-773)).
 
   No clip uses Mixamo data (#399). Mixamo is only a motion reference, so the build needs no local input and both figures publish from CI.
 
@@ -680,6 +681,27 @@ The same recipe ([`adapters/blender/strike_clips.py`](../adapters/blender/strike
 - **Consumer:** while mounted, parent the rider's root to `saddle.seat` and play the ride clip with the horse clip `horseClip` names, from the same time. For the mount, start with the rider standing at `standAt` facing `standFacing`, then parent it and play `Mount_Horse`; the dismount ends there. The feet stand on the ground while the horse idles, so they move with its breathing by under a centimetre.
 - **Review:** [`review/mounts-769/`](../review/mounts-769/README.md), both figures on the built horse at the game camera, with the measured overlap.
 
+### Redbrand shield guard and signal horn clips (#773)
+
+The Redbrand figures ([redbrand-kit](redbrand-kit.md)) ship no clips and play the Ranger's by joint name, so these are two Ranger families, `guard` (`RANGER_GUARD_CLIPS`, for mmorpg#953's shield-bearer) and `signal` (`RANGER_SIGNAL_CLIPS`, for mmorpg#952's signaler), after the ride clips in bundle order. [`adapters/blender/defend_clips.py`](../adapters/blender/defend_clips.py) authors them (its `GUARD` table). Every key is a whole stance: the pelvis shift and turn, each foot placed by its ball (moved, carried round the pelvis in a turn, pivoted about the ball, its heel raised), the chest and clavicles. The hands are keyed frames on their sockets, carried with the chest (the horn at the lips with the head). So the feet move first, the hips, chest and shoulders follow and the shield or horn arrives last. The tracks never overshoot a key, so a planted ball stays put. Every clip is full body with a `secondaryPose`. The items are the humanoid-equipment kit's `equipment.shield.redbrand` on `hand_l.shield` with a one-hander (Garrick's cleaver in the review) on `hand_r.weapon`, and `equipment.tool.signal-horn` on `hand_r.weapon`.
+
+| Clip | Length | `role` | Marked time | Notes |
+| --- | --- | --- | --- | --- |
+| `Shield_Guard_Loop` | 2 s loop | `shield.guard` | — | a tight frontal guard on a long, wide stance sunk into the knees: the hips turned so the shield shoulder leads, the shield tight before the chest and chin, the head down behind the rim, the blade cocked up at the right hip; the weight rocks between the feet and the head watches each side |
+| `Shield_Guard_Turn_L` / `_R` | 0.533 s | `shield.guard.turn-left` / `-right` | — | a planted 45° pivot with the shield kept on the threat: the head turns and the weight settles on the inside foot, which pivots on its ball; the other foot lifts and steps round, the hips follow, the chest and shield arrive last, the pivot foot resets. Ends turned (`degrees` 45 / −45, as `Turn_Left`) |
+| `Shield_Block_Impact` | 0.6 s | `shield.guard.impact` | impact 0.067 s | the blow drives the shield back to the chin and tips its top back, the body is knocked back over the rear leg (the knee takes it, the front heel lifts), then presses forward into the guard |
+| `Shield_Guard_Bash` | 0.8 s | `shield.guard.bash` | contact 0.383 s (`hand_l`) | the weight sinks back and the shield draws in with the shield shoulder turned away (the wind-up), then the rear leg drives, the front foot steps in 20 cm, the hips and chest turn the shoulder through and the shield is punched out at face height; a short recoil and a step back into the guard |
+| `Guard_Broken_Stagger` | 1.1 s | `shield.guard.broken` | impact 0.067 s | struck from behind on the right: the hips shoved forward, the chest whipped round and folded, the shield arm flung out wide and low and the sword arm out; the rear foot stumbles forward to catch the weight, steps back and the guard comes up |
+| `Signal_Call_Start` | 0.6 s | `signal.call.start` | lips 0.5 s | the knees give, the chest fills and the head comes up while the horn swings up from the side to the lips and the free fist rises; ends in `Signal_Call_Loop` |
+| `Signal_Call_Loop` | 1.5 s loop | `signal.call` | — | braced and leaning back with the horn high, the chest emptying into a long blast (the shoulders come down, the body bows into the note), then a quick breath |
+| `Signal_Call_Interrupted` | 1 s | `signal.call.interrupted` | impact 0.067 s, drop 0.1 s | from the loop: the horn struck out of the hand (flung out to the right, the fingers opening), the head and chest snapped round, a stagger back on the right foot, the left arm flailing; gathers and steps back into the idle, hands empty |
+| `Signal_Call_End` | 0.6 s | `signal.call.end` | — | from the loop: a last breath out, the horn down from the lips to the side, the fist dropped, into the idle |
+
+- **`guard` / `signal` object:** `kind`, `family`, `items` (each held item's entry and socket), `from`/`to` (`Shield_Guard_Loop` for every guard clip; the idle and `Signal_Call_Loop` for the horn), the turns' `degrees`, the bash's strike point (`strikeSocket`, `tipAt`, `band`, `reachMeters`), `impactSeconds`, `lipsSeconds` and `dropSeconds`.
+- **Consumer:** hold the shield and the one-hander through the guard clips. Rotate the facing by `degrees` when a turn ends. Hide or drop the horn at `dropSeconds` in `Signal_Call_Interrupted`. The ends match: each guard clip begins and ends on the guard loop's first frame, `Signal_Call_Start` ends on the call loop's and the other two horn clips start there.
+- **Names:** `Shield_Guard_Bash` is the full-body bash from this guard. The defend family's upper-body `Shield_Bash` keeps its name and role.
+- **Review:** [`review/redbrand-773/`](../review/redbrand-773/README.md), the male Ranger at the game camera with the items on their sockets, and the measured foot drift and item clearance.
+
 ## Female Ranger
 
 `--figure female` (#115, owner answer Q1 = A) builds `humanoid.ranger.female` with the same recipe. Its Peasant-based outfits are the tanner (#378) and one fitted knight (#630), over the pack's `Female_Peasant` outfit. It has no headwear or facial-hair catalog; the female knight omits the male bascinet so the full face/jaw range stays exposed. It uses the Universal Base Characters `Superhero_Female_FullBody` head (`keepMeshes: ["Eyebrows", "Eyes"]`) on the full `Female_Ranger` outfit ([humanoid-sources.md](humanoid-sources.md#female-body-and-outfit-115)).
@@ -702,7 +724,7 @@ Both figures are rolling releases that CI builds (#399): merging a change to the
 
 - `base`: the library's idle, gaits, sword and shield idles, death, jumps, crouch, roll, climb and slide, plus the authored `gait` (back, strafe, start, stop and turn) and `grips` families;
 - `combat`: the library's sword, shield, hit and spell clips;
-- every other authored family under its own id: `bow`, `swim`, `hit`, `traversal`, `sword`, `dagger`, `bow-upper`, `crossbow`, `cast`, `social` (the emotes), `chores`, `posts`, `gather`, `raid`, `strike` (with the reactions and deaths), `ready`, `defend`, `move` and `work` (#767), and `ride` (#769).
+- every other authored family under its own id: `bow`, `swim`, `hit`, `traversal`, `sword`, `dagger`, `bow-upper`, `crossbow`, `cast`, `social` (the emotes), `chores`, `posts`, `gather`, `raid`, `strike` (with the reactions and deaths), `ready`, `defend`, `move` and `work` (#767), `ride` (#769), and `guard` and `signal` (#773).
 
 The index (`humanoid-ranger-<figure>.index.json`) lists the files under `clips.families`, with each family's bytes and each clip's name and duration ([release-downloads.md](release-downloads.md)). Every clip is in exactly one family, or the pack fails. A family file over 1 MB (`RANGER_CLIP_FAMILY_LIMIT_MB` in [`build-ranger-release.ts`](../scripts/build-ranger-release.ts)) also fails the build. That limit replaces raising one clip budget with every batch: a family that outgrows it splits into two. Sizes on 2026-11-17 (male; female within 1.2%), 3.52 MB together against 3.78 MB for the combined file:
 
