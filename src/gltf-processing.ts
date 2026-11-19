@@ -191,14 +191,16 @@ export function checkBasisuImages(document: Document, location: string) {
   }
 }
 
-function supportedPolicy(json: GLTF.IGLTF, allowRigged: boolean, basisu: boolean) {
+function supportedPolicy(json: GLTF.IGLTF, allowRigged: boolean, basisu: boolean, clipLibrary: boolean) {
   const profile = allowRigged ? "gltf-core-production-v1" : PROFILE;
   // A capability policy over the authoritative parser's document, not a format decoder.
   if (!allowRigged && (json.skins?.length || json.animations?.length || json.nodes?.some((node) => node.skin !== undefined))) {
     throw new Error(`${PROFILE} does not support skins or animations`);
   }
   if ((json.buffers?.length ?? 0) > 1) throw new Error(`${profile} supports one buffer`);
-  if (!json.scenes?.length || !json.nodes?.length || !json.meshes?.length) {
+  // #775: a clip library is the skeleton's nodes and their animations alone.
+  const clips = clipLibrary && allowRigged && !json.meshes?.length && !!json.animations?.length;
+  if (!json.scenes?.length || !json.nodes?.length || (!json.meshes?.length && !clips)) {
     throw new Error(`${profile} requires a scene with mesh geometry`);
   }
   function inspectExtensions(value: unknown, location: string): void {
@@ -308,6 +310,8 @@ export async function parseCheckedGltfBytes(
   allowRigged: boolean, allowedWarnings: readonly string[] = [], locatedSupersessions: readonly LocatedValidatorSupersession[] = [],
   /** Admit KHR_texture_basisu (KTX2) textures: the gltf-resources-v1 bundle profile does, the import operations do not. */
   basisu = false,
+  /** Admit a rigged clip library (#775): a scene of nodes with animations and no mesh, as gltf-resources-v1 does. */
+  clipLibrary = false,
 ) {
   if (sourceBytes.byteLength !== source.byteLength || sha256Bytes(sourceBytes) !== source.sha256) throw new Error("glTF bytes do not match the declared source pin");
   if (source.mediaType !== "model/gltf-binary" && source.mediaType !== "model/gltf+json") throw new Error("unsupported glTF source media type");
@@ -344,7 +348,7 @@ export async function parseCheckedGltfBytes(
   structuralPreflight(jsonDocument.json, format, "scene.import.gltf source");
   const validatorWarnings = await validateGltf(sourceBytes, format, resourceBytes, "scene.import.gltf source", allowedWarnings,
     allowRigged ? PRODUCTION_SUPERSEDED_VALIDATOR_CODES : [], [...locatedSupersessions, ...(basisu ? basisuSupersessions(jsonDocument.json) : [])]);
-  supportedPolicy(jsonDocument.json, allowRigged, basisu);
+  supportedPolicy(jsonDocument.json, allowRigged, basisu, clipLibrary);
   const inventory = resourceInventory(jsonDocument.json, resourceBytes, format === "glb" ? jsonDocument.resources : Object.create(null));
   const document = await io.readJSON(jsonDocument);
   if (basisu) checkBasisuImages(document, "scene.import.gltf source");

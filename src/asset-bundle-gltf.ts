@@ -103,7 +103,7 @@ async function checkSourceGlb(source:AssetRef,bytes:Buffer,location:string) {
   if(bytes.byteLength!==source.byteLength || sha256Bytes(bytes)!==source.sha256) throw new Error(`${location} payload does not match its content pin`);
   const { json } = await new NodeIO().setAllowNetwork(false).setStrictResources(true).binaryToJSON(bytes);
   checkStaticGltfAccessorBudget(json,location);
-  const parsed=await parseCheckedGltfBytes(source,bytes,Object.create(null),true,GLTF_RESOURCES_BUNDLE_ALLOWED_VALIDATOR_WARNINGS,[],true);
+  const parsed=await parseCheckedGltfBytes(source,bytes,Object.create(null),true,GLTF_RESOURCES_BUNDLE_ALLOWED_VALIDATOR_WARNINGS,[],true,true);
   if(parsed.inventory.some(resource=>resource.storage!=="embedded")) throw new Error(`${location} must embed its buffers and images in the GLB`);
   checkWeightSums(parsed.document);
   return parsed.document;
