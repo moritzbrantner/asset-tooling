@@ -1,6 +1,6 @@
 # Greyhaven wildlife
 
-The `greyhaven-wildlife` rolling release supplies a stag, a doe, a fox, a rabbit, a wild boar, a crow, a duck, a heron and a songbird for Greyhaven's woods, meadows and river ([#667](https://github.com/moritzbrantner/asset-tooling/issues/667)), and the hostile Timber Wolf, Young Boar and Grain Rat's combat clips ([#715](https://github.com/moritzbrantner/asset-tooling/issues/715), [below](#combat-clips-715)), plus three more hostile creatures with the same combat set: a brown bear, a giant cave spider and a marsh lurker ([#722](https://github.com/moritzbrantner/asset-tooling/issues/722), [below](#bear-spider-and-marsh-lurker-722)), and a forest lynx and a marsh adder with their own stalk-and-pounce and warn-and-strike clips ([#778](https://github.com/moritzbrantner/asset-tooling/issues/778), [below](#forest-lynx-and-marsh-adder-778)), and the combat set for the neutral stag and a new highland ram that fight back when threatened ([#782](https://github.com/moritzbrantner/asset-tooling/issues/782), [below](#stag-and-highland-ram-782)). It follows the [farm animals](greyhaven-farm-animals.md) exactly: the same conventions, the same recipe shape and the same plain skinned-glTF clip convention mmorpg already loads. The game owns placement, wandering, flight paths, fleeing, collision and everything else about behaviour.
+The `greyhaven-wildlife` rolling release supplies a stag, a doe, a fox, a rabbit, a wild boar, a crow, a duck, a heron and a songbird for Greyhaven's woods, meadows and river ([#667](https://github.com/moritzbrantner/asset-tooling/issues/667)), and the hostile Timber Wolf, Young Boar and Grain Rat's combat clips ([#715](https://github.com/moritzbrantner/asset-tooling/issues/715), [below](#combat-clips-715)), plus three more hostile creatures with the same combat set: a brown bear, a giant cave spider and a marsh lurker ([#722](https://github.com/moritzbrantner/asset-tooling/issues/722), [below](#bear-spider-and-marsh-lurker-722)), and a forest lynx and a marsh adder with their own stalk-and-pounce and warn-and-strike clips ([#778](https://github.com/moritzbrantner/asset-tooling/issues/778), [below](#forest-lynx-and-marsh-adder-778)), and the combat set for the neutral stag and a new highland ram that fight back when threatened ([#782](https://github.com/moritzbrantner/asset-tooling/issues/782), [below](#stag-and-highland-ram-782)), and a territorial badger, a giant river crayfish and a bog toad with the same combat set ([#783](https://github.com/moritzbrantner/asset-tooling/issues/783), [below](#badger-river-crayfish-and-bog-toad-783)). It follows the [farm animals](greyhaven-farm-animals.md) exactly: the same conventions, the same recipe shape and the same plain skinned-glTF clip convention mmorpg already loads. The game owns placement, wandering, flight paths, fleeing, collision and everything else about behaviour.
 
 | Key (variant `default`) | Source | Catalog source | Size in metres (W × H × D, idle) | Triangles | Joints | Idle / Walk / Eat / Fly (s) |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -21,8 +21,11 @@ The `greyhaven-wildlife` rolling release supplies a stag, a doe, a fox, a rabbit
 | `greyhaven.wild.lynx` | Original, authored by the recipe (Eurasian lynx) | – | 0.29 × 0.80 × 0.87 | 2,482 | 20 | 4.00 / 1.00 / – / – |
 | `greyhaven.wild.marsh-adder` | Original, authored by the recipe (common adder), 1.39 m long | – | 0.40 × 0.19 × 0.42 (coiled) | 2,686 | 17 | 4.00 (`Idle_Coil_Loop`) / 1.00 (`Slither_Loop`) / – / – |
 | `greyhaven.wild.highland-ram` | Original, authored by the recipe from the farm goat's (blackface hill ram) | – | 0.65 × 1.00 × 1.30 | 4,112 | 12 | 4.00 / 1.17 / 3.00 / – |
+| `greyhaven.wild.badger` | Original, authored by the recipe (European badger) | – | 0.37 × 0.35 × 0.99 | 1,632 | 16 | 3.00 / 1.00 / 2.00 / – |
+| `greyhaven.wild.river-crayfish` | Original, authored by the recipe (giant river crayfish) | – | 0.67 × 0.32 × 1.38 | 2,460 | 29 | 2.00 / 1.00 / 2.00 / – |
+| `greyhaven.wild.bog-toad` | Original, authored by the recipe (bog toad) | – | 0.54 × 0.35 × 0.82 | 2,256 | 14 | 3.00 / 1.17 / 2.00 / – |
 
-The numbers are from the builds of 2026-11-16 and, for the wolf, rat and combat clips, 2026-11-17 (the bear, spider and marsh lurker too; the lynx and adder 2026-11-19; the highland ram and the stag's combat clips 2026-11-20); the descriptor carries each build's measurements. The packed tar is about 8.2 MB, mostly sampled animation.
+The numbers are from the builds of 2026-11-16 and, for the wolf, rat and combat clips, 2026-11-17 (the bear, spider and marsh lurker too; the lynx and adder 2026-11-19; the highland ram and the stag's combat clips 2026-11-20, as are the badger, crayfish and toad); the descriptor carries each build's measurements. The packed tar is about 9.3 MB, mostly sampled animation.
 
 - **Why these sources.** The stag, doe, fox and wolf come from the same Quaternius pack as the farm cow, horse and donkey and the ambient dog, so they share its rig layout and clip names. The wolf is the same `Wolf.glb` bytes mmorpg vendors, and the rat the Easy Enemy `Rat.glb` it vendors (the ambient rodent's source), kept grey and hostile-sized here. Each has an authored `Eating` clip, shipped as `Eat`. The stag's antlers are a separate mesh parented to its head bone in the source; the recipe binds them to that bone as a second skinned mesh, so the stag is still one skin.
 - **The rabbit, boar and birds are original.** No catalogued CC0 Quaternius pack has them. Like the farm goat and chicken, they are low-poly rigid parts (ellipsoids and tapered tubes, flat-shaded) on a small armature, every vertex weighted fully to one bone, with plain colour materials and scripted loops. The rabbit's `Walk` is one hop and its `Eat` a head-down nibble; the boar's `Eat` roots with its snout. Every bird shares one eight-bone rig (body, neck, head, tail, two wings, two legs) and one set of clips: `Idle` looks around, `Walk` steps (the songbird hops), `Eat` pecks, and `Fly` unrolls the folded wings flat, sweeps them out and beats them with the legs tucked back.
@@ -127,6 +130,54 @@ The stag ([mmorpg#997](https://github.com/moritzbrantner/mmorpg/issues/997)) and
 
 Measured on the release GLBs ([`review/greyhaven-wildlife-782/check.py`](../review/greyhaven-wildlife-782/check.py)): nothing of the ram sinks more than 3.2 cm below the ground in any clip (its hoof rims as the legs tilt, and the fringe mid-roll), nothing of the stag's new clips more than 3 cm (the source `Gallop` itself dips 3.8 cm), and both dead animals rest on the ground. Review sheets are in [`review/greyhaven-wildlife-782/`](../review/greyhaven-wildlife-782/).
 
+## Badger, river crayfish and bog toad (#783)
+
+Three grounded fighters for mmorpg's [badger at Millbrook](https://github.com/moritzbrantner/mmorpg/issues/998), [crayfish at Fenwater](https://github.com/moritzbrantner/mmorpg/issues/996) and [bog toad in the wetlands](https://github.com/moritzbrantner/mmorpg/issues/1000), each with `Idle`, `Walk`, `Eat` and the full combat set. The badger is neutral and fights when threatened (`hostile` false, `combat` true, like the stag); the crayfish and toad are `hostile`. No catalogued CC0 source has any of them, so all three are original like the bear: rigid parts on a small armature, every clip scripted, with the [organic surface](#organic-surface-779) from the start. Projectiles, slows, facing rules and placement are the game's. Seconds; contact in brackets.
+
+**Badger** (16 joints): low and broad, a grizzled grey coat with long guard hair hanging off the flanks, black legs and belly, and a white head with a black stripe from each ear over the eye to the nose. Each leg is solved to its foot (the boar's two-bone solve) with a level paw on its own bone, so the long digging claws never dig in.
+
+| Clip | Seconds | Motion |
+| --- | --- | --- |
+| `Idle` (loop) | 3.00 | Snuffles, the striped head swinging low from side to side |
+| `Walk` (loop) | 1.00 | A rolling waddle, head low |
+| `Eat` (loop) | 2.00 | Digs: snout at the earth, the forepaws scraping it back in turn |
+| `Run` (loop) | 0.50 | A scurrying bound |
+| `Alert` | 1.00 | The defensive crouch: drops low on its haunches, head low and forward, growling with the jaw open; bluffs forward twice, stamping both forepaws, and holds its ground |
+| `Attack_A` | 0.67 [0.292] | Quick bite: gathers back as the jaw opens, darts in low and snaps shut, then worries with a head shake and backs off |
+| `Attack_B` | 0.92 [0.458] | Claw rake: rocks back and rears off its forepaws, the right paw cocked out wide, then drives down so the claws rake in across the front as the body twists behind them; the left paw slams down after, the jaw snapping |
+| `Hit` | 0.33 | Jolts back, head flinching, jaw open |
+| `Death` | 1.33 | A last snarl, the legs buckle and it rolls heavily onto its right side |
+
+**Giant river crayfish** (29 joints): a broad, dull olive-brown carapace with a cervical groove and median ridge, a segmented tail with side plates and the tail fan, long whip antennae, rust-red chitin claws with pale tips and four pairs of walking legs. The claws differ: the right is a heavy crusher (1.6 times the base size), the left a slimmer cutter with longer fingers (1.1); on each the outer finger (`Finger`) opens. The walking legs are solved to their feet each frame (the spider's solve, shared as `solve_feet`), so planted feet stay planted and each foot swings out to the side as it steps.
+
+| Clip | Seconds | Motion |
+| --- | --- | --- |
+| `Idle` (loop) | 2.00 | Antennae sweeping, the claws opening and closing slowly |
+| `Walk` (loop) | 1.00 | Alternating legs, each swung forward and out as it lifts; the body rolls |
+| `Eat` (loop) | 2.00 | Each claw in turn tears at the riverbed and lifts a morsel to the mouthparts |
+| `Run` (loop) | 0.50 | Fast scuttle, body low, claws tucked |
+| `Alert` | 1.00 | The warning: both claws lift high and wide with the fingers gaping, the body rears on its legs and the raised claws tremble |
+| `Attack_A` | 1.25 [0.750] | The committed pinch: a slow warning lift of both claws, held trembling for a quarter second (0.42 to 0.62 s), then a lunge in which the crusher drives down and in and slams shut, a yank, and it lets go |
+| `Attack_B` | 1.00 [0.500] | Scissor clamp: both claws swing out wide, fingers open, then sweep in together and clamp across the front as the body surges and twists |
+| `Hit` | 0.33 | Jolts back, claws flinching up, tail flicking up |
+| `Death` | 1.25 | Claws flail, legs curl in, rolls onto its back, claws splayed |
+
+**Bog toad** (14 joints): broad and squat, warty olive-brown hide with dark blotches and raised warts, swollen parotoid glands behind the eyes, copper eyes with dark pupils, a cream belly and a pale yellow throat pouch. The pouch (`Throat`) is the one bone keyed with scale: it pumps as the toad breathes and swells before the spit. The arms are solved to the hands and the hind legs, folded alongside the body, to the ankles, with the hind feet kept flat on the ground.
+
+| Clip | Seconds | Motion |
+| --- | --- | --- |
+| `Idle` (loop) | 3.00 | Sits breathing, the throat pumping, turns its head |
+| `Walk` (loop) | 1.17 | A toad's crawl on diagonal pairs, the body swinging side to side |
+| `Eat` (loop) | 2.00 | Snaps at a fly on the ground and gulps it, the throat bulging |
+| `Run` (loop) | 0.58 | One hop per loop in place: crouch, push off the hind legs, flight, landing on the forelegs |
+| `Alert` | 1.00 | The defensive puff: rises stiff-legged, tips forward to present the glands, the throat inflated, swaying |
+| `Attack_A` | 1.00 [0.542] | The spit: draws back on its haunches with the head tipped up and the throat swelling in pumps, then snaps forward with the jaw gaping as the glob leaves at the contact and the throat empties |
+| `Attack_B` | 1.00 [0.583] | The hop-bite: a crouch, a short hop and the jaw snapping on the landing. `rootTravel`: the consumer moves the root 0.6 m from 0.25 s to the contact |
+| `Hit` | 0.33 | Jolts back, head up, jaw open |
+| `Death` | 1.25 | Puffs up, convulses, rolls belly-up and goes limp |
+
+Measured on the built GLBs ([`review/greyhaven-wildlife-783/check.py`](../review/greyhaven-wildlife-783/check.py)): nothing sinks more than 3 cm below the ground in any clip (the badger's rake as its jaw comes down and its paws mid-roll, the toad's crawl and death roll), and each dead animal rests on the ground. The crayfish's shell (`chitin`) is roughness 0.75 to 0.8 and the toad's hide 0.6, every material metallic 0. Review sheets are in [`review/greyhaven-wildlife-783/`](../review/greyhaven-wildlife-783/).
+
 ## Organic surface (#779)
 
 The animals used to read as shaped metal at the game camera ([#779](https://github.com/moritzbrantner/asset-tooling/issues/779)). Read from the shipped GLBs, two things caused it:
@@ -142,7 +193,7 @@ Before/after stills at the game camera are in [`review/greyhaven-wildlife-779/`]
 
 - Metres, +Y up, right-handed. The head faces **+Z**. The origin is the centre of the idle footprint on the ground (y = 0).
 - One root node per GLB, named by the key. It carries the uniform scale and turn.
-- **In-place** clips: `Idle`, `Walk` and `Eat` on every animal, `Fly` on the four birds and the [combat clips](#combat-clips-715) on the wolf, boar, rat, bear, spider, marsh lurker, stag and highland ram, and the [lynx's and adder's own sets](#forest-lynx-and-marsh-adder-778) (the walk's measured travel is below 1 mm). Every clip loops except the one-shot `Attack_A`, `Attack_B`, `Hit`, `Death`, `Alert`, `Pounce_Windup`, `Pounce_Lunge`, `Pounce_Recover`, `Strike` and `Strike_Recover`. Where a clip travels, the descriptor says how the consumer moves the root: `travelSpeed` (m/s) on a gait, `rootTravel` (metres, from `startSeconds` to `endSeconds`) on the pounce and the stag's and ram's charges. `Fly` is posed at standing height; a consumer lifts the root into the air, moves it itself and may speed up the walk to match its pace.
+- **In-place** clips: `Idle`, `Walk` and `Eat` on every animal, `Fly` on the four birds and the [combat clips](#combat-clips-715) on the wolf, boar, rat, bear, spider, marsh lurker, stag, highland ram, badger, river crayfish and bog toad, and the [lynx's and adder's own sets](#forest-lynx-and-marsh-adder-778) (the walk's measured travel is below 1 mm). Every clip loops except the one-shot `Attack_A`, `Attack_B`, `Hit`, `Death`, `Alert`, `Pounce_Windup`, `Pounce_Lunge`, `Pounce_Recover`, `Strike` and `Strike_Recover`. Where a clip travels, the descriptor says how the consumer moves the root: `travelSpeed` (m/s) on a gait, `rootTravel` (metres, from `startSeconds` to `endSeconds`) on the pounce, the stag's and ram's charges and the toad's hop. `Fly` is posed at standing height; a consumer lifts the root into the air, moves it itself and may speed up the walk to match its pace.
 
 ## Build
 
@@ -153,7 +204,7 @@ ASSET_TOOLING_BLENDER=<blender 5.2.2> bun scripts/build-greyhaven-wildlife.ts --
 
 [`scripts/build-greyhaven-wildlife.ts`](../scripts/build-greyhaven-wildlife.ts) imports each pinned payload from canonical storage (offline, hash-verified), runs [`adapters/blender/wildlife.py`](../adapters/blender/wildlife.py) once per animal through `external.blender.script@1` with the farm-animals recipe as its declared Python input `farm` (the authored animals take no source input), checks each GLB with `scene.import.gltf@2` and exports a `gltf-resources-v1` bundle. It writes `greyhaven.wildlife.tar`, `export.ref.json`, `greyhaven.wildlife.descriptor.json` and `lineage.json`. A rebuild packs the same tar bytes; it takes about fifteen seconds.
 
-`wildlife.prepare(animal, source_path)` also runs in a live Blender after `wildlife.use_farm(<farm_animals module dict>)` (`source_path` is `None` for the authored animals). The tables in the recipe (`ANIMALS`, `SOURCE_CLIPS`, `LAYERED`, `CONTACT_FRAMES`, `BIRD_SPECS`, `BIRD_MOTION`, `LYNX_GAITS`, `LYNX_POUNCE`, `ADDER_SLITHER`, `CHARGES`, `ORGANIC`, `CLIP_FRAMES`) hold the heights, the source clips kept, the layered clips' sources and time warps, the attacks' contact frames, the birds' proportions and colours, the lynx's gaits and pounce, the adder's slither, the stag's and ram's charges, the detail textures and the clip lengths.
+`wildlife.prepare(animal, source_path)` also runs in a live Blender after `wildlife.use_farm(<farm_animals module dict>)` (`source_path` is `None` for the authored animals). The tables in the recipe (`ANIMALS`, `SOURCE_CLIPS`, `LAYERED`, `CONTACT_FRAMES`, `BIRD_SPECS`, `BIRD_MOTION`, `LYNX_GAITS`, `LYNX_POUNCE`, `ADDER_SLITHER`, `CHARGES`, `CRAYFISH_LEGS`, `CRAYFISH_CLAWS`, `ORGANIC`, `CLIP_FRAMES`) hold the heights, the source clips kept, the layered clips' sources and time warps, the attacks' contact frames, the birds' proportions and colours, the lynx's gaits and pounce, the adder's slither, the stag's and ram's charges and the toad's hop, the crayfish's legs and claws, the detail textures and the clip lengths.
 
 ## Descriptor `greyhaven-wildlife-descriptor-v1`
 
@@ -161,8 +212,8 @@ Attached as `wildlife-descriptor` to `greyhaven.wild.stag/default` and written b
 
 ## Release
 
-CI publishes the rolling `greyhaven-wildlife` release when the recipe merges ([Publishing a rolling release](../README.md#publishing-a-rolling-release)). `releases/greyhaven-wildlife.json` holds its budget: 96 materials, 1 MB of textures, 9 MB download (measured 96 materials, 0.75 MB of textures in nine shared detail textures and 7.84 MB with every animal textured, #779; the organic surface added no material, so the allowance stays used up).
+CI publishes the rolling `greyhaven-wildlife` release when the recipe merges ([Publishing a rolling release](../README.md#publishing-a-rolling-release)). `releases/greyhaven-wildlife.json` holds its budget: 115 materials, 1 MB of textures, 10 MB download (measured 115 materials, 0.75 MB of textures in the nine shared detail textures and 9.19 MB with the badger, river crayfish and bog toad, #783; they add 19 materials and no texture).
 
-`test/blender/greyhaven-wildlife/` builds the real bundle and checks the keys, one skin with every mesh skinned and the expected clips per animal, one-shot attacks that land inside their clip, a death of at least a second, grounded and centred bounds, the +Z facing, the heights (the adder's length), the collision boxes, the lynx's and adder's root motion, the stag's and ram's charges and `combat` flag, in-place walks, the triangle counts, provenance and a byte-identical replay. It skips without Blender or with unhydrated sources.
+`test/blender/greyhaven-wildlife/` builds the real bundle and checks the keys, one skin with every mesh skinned and the expected clips per animal, one-shot attacks that land inside their clip, a death of at least a second, grounded and centred bounds, the +Z facing, the heights (the adder's length), the collision boxes, the lynx's and adder's root motion, the stag's and ram's charges, the toad's hop and the `combat` flag, in-place walks, the triangle counts, provenance and a byte-identical replay. It skips without Blender or with unhydrated sources.
 
 Review renders at the Greyhaven game camera (12 m, 0.42 rad pitch, 50° field of view), a close-up, the birds in flight and the hostile creatures' attack contacts, alert and final death pose (`combat-game-camera.jpg` for the wolf, boar and rat, `combat-game-camera-722.jpg` for the bear, spider and marsh lurker, the same crop for each so their sizes compare) are in [`review/greyhaven-wildlife/`](../review/greyhaven-wildlife/). The lynx and adder have theirs in [`review/greyhaven-creatures-778/`](../review/greyhaven-creatures-778/): each one's wind-up → strike → recovery strip, every clip, the gaits with their travel added back and both beside the wolf at the game camera.

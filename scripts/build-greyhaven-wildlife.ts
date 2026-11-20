@@ -1,10 +1,10 @@
 // Greyhaven's wildlife (#667, docs/greyhaven-wildlife.md) and the hostile creatures' combat clips (#715, #722), the lynx and adder (#778) and the
-// stag's fights and the highland ram (#782), following the farm animals' conventions:
+// stag's fights and the highland ram (#782) and the badger, river crayfish and bog toad (#783), following the farm animals' conventions:
 //   ASSET_TOOLING_BLENDER=<blender 5.2.2> bun scripts/build-greyhaven-wildlife.ts --out <directory>
 // Each animal is one external.blender.script@1 run of adapters/blender/wildlife.py, with the farm-animals recipe
 // (adapters/blender/farm_animals.py) as its declared Python input `farm`: the stag, doe, fox, wolf and rat over their hash-pinned
-// CC0 Quaternius catalog payloads (imported offline from hydrated LFS storage), the rabbit, boar, four birds, bear, spider, marsh lurker, lynx, adder
-// and highland ram authored by the recipe itself. Each GLB is checked through scene.import.gltf@2 and exported as a gltf-resources-v1
+// CC0 Quaternius catalog payloads (imported offline from hydrated LFS storage), the rabbit, boar, four birds, bear, spider, marsh lurker, lynx, adder,
+// highland ram, badger, river crayfish and bog toad authored by the recipe itself. Each GLB is checked through scene.import.gltf@2 and exported as a gltf-resources-v1
 // bundle packed to <directory>/greyhaven.wildlife.tar, next to the measured greyhaven-wildlife-descriptor-v1,
 // lineage.json and export.ref.json.
 import path from "node:path";
@@ -63,12 +63,15 @@ export const WILD_ANIMALS = [
   { animal: "lynx", sourceId: null, member: null, bird: false, hostile: true, ...AUTHORED },
   { animal: "marsh-adder", sourceId: null, member: null, bird: false, hostile: true, ...AUTHORED },
   { animal: "highland-ram", sourceId: null, member: null, bird: false, hostile: false, ...AUTHORED },
+  { animal: "badger", sourceId: null, member: null, bird: false, hostile: false, ...AUTHORED },
+  { animal: "river-crayfish", sourceId: null, member: null, bird: false, hostile: true, ...AUTHORED },
+  { animal: "bog-toad", sourceId: null, member: null, bird: false, hostile: true, ...AUTHORED },
 ] as const;
 export type WildAnimal = (typeof WILD_ANIMALS)[number]["animal"];
-/** Neutral animals that still fight when threatened (#782): they carry the combat clips without being hostile. */
-export const NEUTRAL_FIGHTERS: readonly WildAnimal[] = ["stag", "highland-ram"];
+/** Neutral animals that still fight when threatened (#782; the badger, #783): they carry the combat clips without being hostile. */
+export const NEUTRAL_FIGHTERS: readonly WildAnimal[] = ["stag", "highland-ram", "badger"];
 export const fights = (entry: (typeof WILD_ANIMALS)[number]) => entry.hostile || NEUTRAL_FIGHTERS.includes(entry.animal);
-/** The combat clips (#715, #722, #782): a looping in-place Run and one-shot attacks, flinch, death and alert. */
+/** The combat clips (#715, #722, #782, #783): a looping in-place Run and one-shot attacks, flinch, death and alert. */
 export const COMBAT_CLIPS = ["Run", "Attack_A", "Attack_B", "Hit", "Death", "Alert"] as const;
 export const ONE_SHOT_CLIPS = ["Attack_A", "Attack_B", "Hit", "Death", "Alert", "Pounce_Windup", "Pounce_Lunge", "Pounce_Recover", "Strike", "Strike_Recover"] as const;
 /** The forest lynx and marsh adder (#778) have their own clip sets instead of Idle, Walk, Eat and the combat clips: the lynx
@@ -78,7 +81,7 @@ export const SPECIES_CLIPS = {
   "marsh-adder": ["Idle_Coil_Loop", "Slither_Loop", "Warn_Hiss_Loop", "Strike", "Strike_Recover", "Hit", "Death"],
 } as const;
 /** Every animal has Idle, Walk and Eat (grazing, rooting, pecking); the birds also a looping wingbeat, Fly; the hostile
- * wolf, boar, rat, bear, spider and marsh lurker and the neutral stag and highland ram also the combat clips. */
+ * wolf, boar, rat, bear, spider, marsh lurker, river crayfish and bog toad and the neutral stag, highland ram and badger also the combat clips. */
 export const WILD_CLIPS: Record<WildAnimal, readonly string[]> = Object.fromEntries(WILD_ANIMALS.map((entry) => [
   entry.animal, (SPECIES_CLIPS as Record<string, readonly string[]>)[entry.animal] ?? ["Idle", "Walk", "Eat", ...(entry.bird ? ["Fly"] : []), ...(fights(entry) ? COMBAT_CLIPS : [])],
 ])) as Record<WildAnimal, readonly string[]>;

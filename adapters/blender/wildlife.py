@@ -28,6 +28,11 @@ the adder is one smooth tube on a fourteen-bone spine posed from joint positions
 slithering along a fixed path, rearing to warn and striking. ``root_motion`` names how far a consumer moves the root under
 their travelling clips.
 
+The territorial badger, giant river crayfish and bog toad (#783) are original too and carry the combat set: the badger's
+legs are solved to their feet with level paws, the crayfish's eight walking legs by the spider's solve (``solve_feet``) and
+its two differentiated claws open by their outer finger, and the toad's legs are solved to its hands and ankles while its
+throat pouch, the one scaled bone, pumps and swells before it spits.
+
 The farm-animals recipe (``farm_animals.py``) is a declared Python input named ``farm``; this recipe reuses its rig
 builder, clip keying and measuring helpers and its conventions (docs/greyhaven-farm-animals.md): a root node
 ``greyhaven.wild.<animal>`` scales the animal to its Greyhaven height in metres (measured at the first Idle frame), turns
@@ -72,9 +77,12 @@ ANIMALS = {
     # Authored at life size (scale 1); it rests coiled and moves by Slither_Loop.
     "marsh-adder": {"format": "authored", "turn": -90.0, "height": None, "rest": "Idle_Coil_Loop", "move": "Slither_Loop"},
     "highland-ram": {"format": "authored", "turn": -90.0, "height": 1.0},
+    "badger": {"format": "authored", "turn": -90.0, "height": 0.35},
+    "river-crayfish": {"format": "authored", "turn": -90.0, "height": 0.32},
+    "bog-toad": {"format": "authored", "turn": -90.0, "height": 0.35},
 }
 BIRDS = ("crow", "duck", "heron", "songbird")
-HOSTILE = ("wolf", "boar", "rat", "bear", "spider", "marsh-lurker", "lynx", "marsh-adder")
+HOSTILE = ("wolf", "boar", "rat", "bear", "spider", "marsh-lurker", "lynx", "marsh-adder", "river-crayfish", "bog-toad")
 # One-shot clips; every other clip loops.
 ONE_SHOT = ("Attack_A", "Attack_B", "Hit", "Death", "Alert", "Pounce_Windup", "Pounce_Lunge", "Pounce_Recover", "Strike", "Strike_Recover")
 
@@ -175,6 +183,9 @@ CONTACT_FRAMES = {
     "marsh-lurker": {"Attack_A": 8, "Attack_B": 14},
     "lynx": {"Pounce_Lunge": 8},
     "marsh-adder": {"Strike": 5},
+    "badger": {"Attack_A": 7, "Attack_B": 11},
+    "river-crayfish": {"Attack_A": 18, "Attack_B": 12},
+    "bog-toad": {"Attack_A": 13, "Attack_B": 14},
 }
 
 
@@ -942,25 +953,32 @@ def bear_pose(clip, u):
 
 def spider_feet(pose, feet):
     """Plant each foot at its rest spot plus ``feet[leg]`` (metres) by a two-bone solve through the posed body, knees up."""
+    return solve_feet(pose, feet, SPIDER_REST, SPIDER_HEAD)
+
+
+def solve_feet(pose, feet, rest, pivot, names=("Leg", "Shin"), flat=None, lean=0.3):
+    """Plant each leg of ``rest`` (leg -> (unit direction, attachment, knee, foot)) at its rest foot plus ``feet[leg]`` by a
+    two-bone solve through the posed Body (pivoting on ``pivot``), each knee bent up and out along its direction, ``lean``
+    weighing out against up. ``flat`` names a third bone (the toad's hind foot) turned back so it lies as at rest."""
     q, offset = Quaternion(), Vector()
     for axis, value in pose.get("Body", ()):
         if axis == "loc":
             offset += Vector(value)
         else:
             q = Quaternion(Vector(axis), math.radians(value)) @ q
-    for leg, (d, attach, knee, foot) in SPIDER_REST.items():
-        hip = q @ (attach - SPIDER_HEAD) + SPIDER_HEAD + offset
+    for leg, (d, attach, knee, foot) in rest.items():
+        hip = q @ (attach - pivot) + pivot + offset
         l1, l2 = (knee - attach).length, (foot - knee).length
         reach = foot + Vector(feet.get(leg, (0, 0, 0))) - hip
         dist = min(reach.length, (l1 + l2) * 0.999)
         along = reach.normalized()
         a = (l1 * l1 - l2 * l2 + dist * dist) / (2 * dist)
-        pole = Vector((0, 0, 1)) + d * 0.3
+        pole = Vector((0, 0, 1)) + d * lean
         pole = (pole - along * pole.dot(along)).normalized()
         bend = hip + along * a + pole * math.sqrt(max(0.0, l1 * l1 - a * a))
         q1 = (knee - attach).rotation_difference(q.inverted() @ (bend - hip))
         q2 = (foot - knee).rotation_difference((q @ q1).inverted() @ (hip + along * dist - bend))
-        for bone, rotation in ((f"Leg{leg}", q1), (f"Shin{leg}", q2)):
+        for bone, rotation in ((f"{names[0]}{leg}", q1), (f"{names[1]}{leg}", q2), *(((f"{flat}{leg}", (q @ q1 @ q2).inverted()),) if flat else ())):
             axis, angle = rotation.to_axis_angle()
             pose[bone] = [(tuple(axis), math.degrees(angle))]
     return pose
@@ -1792,9 +1810,9 @@ def ram_gallop(pose, u, amount=1.0):
     return pose
 
 
-# The stag's and ram's charges (#782): (first frame, contact frame, metres) the consumer moves the root in a straight line
-# while the clip gallops in place.
-CHARGES = {("stag", "Attack_B"): (8, 15, 2.0), ("highland-ram", "Attack_B"): (6, 13, 1.6)}
+# The stag's and ram's charges (#782) and the toad's hop (#783): (first frame, contact frame, metres) the consumer moves the root in a straight line
+# while the clip gallops or hops in place.
+CHARGES = {("stag", "Attack_B"): (8, 15, 2.0), ("highland-ram", "Attack_B"): (6, 13, 1.6), ("bog-toad", "Attack_B"): (6, 14, 0.6)}
 
 
 def ram_pose(clip, u):
@@ -1901,6 +1919,572 @@ def ram_pose(clip, u):
     return pose
 
 
+# ---------------------------------------------------------------- badger, river crayfish and bog toad (#783)
+
+# A territorial European badger: low and broad, a grizzled grey coat over black legs and belly, and a white head with a
+# black stripe from each ear over the eye to the nose. Its legs are placed by the boar's two-bone solve to their feet.
+BADGER_PALETTE = {"fur": (0.34, 0.32, 0.3), "dark": (0.05, 0.045, 0.04), "white": (0.84, 0.82, 0.77), "nose": (0.04, 0.035, 0.035),
+                  "claw": (0.7, 0.64, 0.53), "mouth": (0.45, 0.15, 0.14)}
+BADGER_LEGS = (("FL", 0.16, 1), ("FR", 0.16, -1), ("HL", -0.2, 1), ("HR", -0.2, -1))
+BADGER_PIVOT, BADGER_HIP, BADGER_THIGH, BADGER_SHIN = (-0.3, 0.2), 0.17, 0.085, 0.085  # the Body bone's head (x, z); the leg bones
+
+
+def build_badger(collection):
+    hip, knee = BADGER_HIP, BADGER_HIP - BADGER_THIGH
+    bones = [("Body", (BADGER_PIVOT[0], 0, BADGER_PIVOT[1]), (0.18, 0, 0.21), None), ("Head", (0.2, 0, 0.215), (0.44, 0, 0.145), "Body"),
+             ("Jaw", (0.3, 0, 0.15), (0.43, 0, 0.125), "Head"), ("Tail", (-0.33, 0, 0.22), (-0.42, 0, 0.2), "Body")]
+    for leg, x, s in BADGER_LEGS:
+        bones += [(f"Leg{leg}", (x, s * 0.085, hip), (x, s * 0.085, knee), "Body"), (f"Shin{leg}", (x, s * 0.085, knee), (x, s * 0.085, 0.03), f"Leg{leg}"),
+                  (f"Paw{leg}", (x, s * 0.085, 0.03), (x + 0.06, s * 0.085, 0.03), f"Shin{leg}")]
+    r = Rig("Badger", BADGER_PALETTE, bones)
+    r.ellipsoid("Body", "fur", (-0.05, 0, 0.2), (0.31, 0.15, 0.115), segments=12, rings=7)
+    r.ellipsoid("Body", "fur", (-0.2, 0, 0.19), (0.16, 0.16, 0.12), segments=10, rings=6)  # the broad rump
+    r.ellipsoid("Body", "fur", (0.1, 0, 0.2), (0.14, 0.13, 0.105), segments=10, rings=6)
+    r.ellipsoid("Body", "dark", (-0.04, 0, 0.13), (0.28, 0.13, 0.065), segments=10, rings=5)  # black belly and flanks
+    for s in (1, -1):
+        # Long guard hair hanging low off each flank, so the body reads as a broad, flat wedge close to the ground.
+        r.ellipsoid("Body", "fur", (-0.06, s * 0.08, 0.14), (0.29, 0.085, 0.075), rotation=(s * 0.25, 0, 0), segments=10, rings=5)
+    r.tube("Head", "white", (0.2, 0, 0.215), (0.43, 0, 0.145), 0.085, 0.028, 8)
+    r.ellipsoid("Head", "white", (0.25, 0, 0.2), (0.07, 0.08, 0.068), segments=8, rings=5)  # the cheeks
+    r.ellipsoid("Head", "nose", (0.437, 0, 0.143), (0.022, 0.03, 0.02), segments=6, rings=3)
+    r.ellipsoid("Head", "mouth", (0.37, 0, 0.128), (0.06, 0.03, 0.012), segments=6, rings=3)
+    r.tube("Jaw", "white", (0.3, 0, 0.138), (0.42, 0, 0.122), 0.038, 0.018, 7)
+    for s in (1, -1):
+        # The stripe runs from behind the ear over the eye down the side of the snout.
+        r.tube("Head", "dark", (0.2, s * 0.045, 0.29), (0.32, s * 0.035, 0.235), 0.026, 0.02, 6)
+        r.tube("Head", "dark", (0.32, s * 0.035, 0.235), (0.42, s * 0.018, 0.168), 0.02, 0.012, 6)
+        r.ellipsoid("Head", "dark", (0.215, s * 0.078, 0.268), (0.02, 0.028, 0.024), segments=6, rings=3)  # ear
+        r.ellipsoid("Head", "white", (0.212, s * 0.088, 0.287), (0.016, 0.02, 0.01), segments=5, rings=3)  # its white rim
+        r.tube("Head", "claw", (0.41, s * 0.018, 0.135), (0.41, s * 0.018, 0.115), 0.006, 0.002, 4)  # upper canines
+        r.tube("Jaw", "claw", (0.4, s * 0.016, 0.12), (0.4, s * 0.016, 0.138), 0.005, 0.002, 4)
+    r.ellipsoid("Tail", "fur", (-0.38, 0, 0.21), (0.07, 0.045, 0.035), rotation=(0, 0.35, 0), segments=6, rings=4)
+    for leg, x, s in BADGER_LEGS:
+        y = s * 0.085
+        r.tube(f"Leg{leg}", "dark", (x, y, hip + 0.04), (x, y, knee - 0.005), 0.05, 0.04, 7)
+        r.ellipsoid(f"Leg{leg}", "dark", (x, y * 0.9, hip + 0.02), (0.075, 0.055, 0.075), segments=7, rings=4)
+        r.tube(f"Shin{leg}", "dark", (x, y, knee + 0.01), (x, y, 0.025), 0.038, 0.032, 6)
+        r.ellipsoid(f"Paw{leg}", "dark", (x + 0.022, y, 0.018), (0.045, 0.033, 0.018), segments=6, rings=3)
+        # Long digging claws on the forepaws, short ones behind.
+        for o in (-0.022, -0.007, 0.008, 0.022):
+            length = 0.045 if leg[0] == "F" else 0.022
+            r.tube(f"Paw{leg}", "claw", (x + 0.05, y + o, 0.014), (x + 0.05 + length, y + 1.2 * o, 0.004), 0.007, 0.002, 4)
+    return r.finish(collection)
+
+
+def badger_planted(pose, loc, pitch, feet=None, lift=None):
+    """Solve every leg to its rest foot plus ``feet[leg]`` (x, z), under the Body moved by ``loc`` (x, z) and pitched."""
+    hips = body_hips(loc, pitch, BADGER_PIVOT, BADGER_HIP, BADGER_LEGS)
+    targets = {leg: (x + (feet or {}).get(leg, (0.0, 0.0))[0], (feet or {}).get(leg, (0.0, 0.0))[1]) for leg, x, _ in BADGER_LEGS}
+    return two_bone_legs(pose, hips, pitch, targets, BADGER_THIGH, BADGER_SHIN)
+
+
+def badger_pose(clip, u):
+    """The clip's pose with every paw kept level (turned back by its leg's whole pitch), so the long claws never dig in;
+    the dying badger's paws go limp with its legs."""
+    pose = badger_clip(clip, u)
+    if clip != "Death":
+        body = sum(value for axis, value in pose.get("Body", ()) if axis == Y)
+        for leg, _, _ in BADGER_LEGS:
+            pitch = body + sum(value for axis, value in pose.get(f"Leg{leg}", []) + pose.get(f"Shin{leg}", []) if axis == Y)
+            pose[f"Paw{leg}"] = [(Y, -pitch)]
+    return pose
+
+
+def badger_clip(clip, u):
+    t = u * CLIP_FRAMES["badger"][clip]
+    if clip == "Idle":
+        # Snuffles: the striped head swings low from side to side, the nose working.
+        sniff = curve(u, (0.35, 0), (0.45, 1), (0.7, 1), (0.8, 0))
+        return {"Body": [("loc", (0, 0, 0.003 * wave(u, 2)))], "Head": [(Z, 16 * wave(u, 1, 0.1) * (1 - sniff) + 6 * sniff * wave(u, 6)), (Y, 16 * sniff + 3 * wave(u, 2))],
+                "Jaw": [(Y, 3 * sniff * max(0.0, wave(u, 12)))], "Tail": [(Y, -8 + 6 * wave(u, 2))]}
+    if clip == "Walk":
+        # A rolling, pigeon-toed waddle, head low.
+        pose = {"Body": [("loc", (0, 0, 0.006 * abs(wave(u, 2)))), (X, 4 * wave(u, 1))], "Head": [(Z, -5 * wave(u, 1)), (Y, 6 + 3 * wave(u, 2, 0.25))],
+                "Tail": [(Z, 12 * wave(u, 1))]}
+        return quad_gait(pose, u, ("HL", "FL", "HR", "FR"), 26, 40)
+    if clip == "Eat":
+        # Digs: snout down at the earth while the forepaws scrape it back under the belly in turn.
+        loc, pitch = (0.0, -0.01), 5
+        pose = {"Body": [("loc", (0, 0, loc[1])), (Y, pitch)], "Head": [(Y, 8 + 4 * wave(u, 6)), (Z, 8 * wave(u, 1))], "Jaw": [(Y, 5 * max(0.0, wave(u, 6)))],
+                "Tail": [(Y, -18)]}
+        feet = {}
+        for leg, phase in (("FL", 0.0), ("FR", 0.5)):
+            theta = 2 * math.pi * (4 * u + phase)
+            feet[leg] = (0.03 - 0.05 * math.cos(theta), 0.035 * max(0.0, math.sin(theta)))
+        return badger_planted(pose, loc, pitch, feet)
+    if clip == "Run":
+        # A scurrying bound, the hind pair then the fore pair, the low back rocking over them.
+        # The Body pivots at the rump, so a nose-down pitch lifts the body by the forelegs' drop.
+        pitch = 6 * wave(u, 1)
+        pose = {"Body": [("loc", (0, 0, 0.025 * max(0.0, wave(u, 1, 0.1)) + 0.46 * math.sin(math.radians(max(0.0, pitch))))), (Y, pitch)],
+                "Head": [(Y, -5 * wave(u, 1, 0.25))], "Tail": [(Y, -20)]}
+        for leg, phase in (("HL", 0.0), ("HR", 0.07), ("FL", 0.5), ("FR", 0.57)):
+            pose[f"Leg{leg}"] = [(Y, -42 * wave(u, 1, phase))]
+            pose[f"Shin{leg}"] = [(Y, 55 * max(0.0, wave(u, 1, phase + 0.25)))]
+        return pose
+    if clip == "Alert":
+        # The defensive crouch: it drops low on its haunches with the striped head low and forward, the back hunched and
+        # bristling, growling with the jaw open; twice it bluffs forward and stamps both forepaws, then holds its ground.
+        low = curve(t, (0, 0), (4, 1), (20, 1), (24, 0))
+        bluff = curve(t, (7, 0), (9, 1), (11, 0), (13, 0), (15, 1), (17, 0))
+        stamp = curve(t, (7, 0), (8, 1), (9, 0), (13, 0), (14, 1), (15, 0))
+        growl = low * (0.6 + 0.4 * math.sin(2 * math.pi * t / 2.5))
+        loc = (-0.025 * low + 0.05 * bluff, -0.03 * low + 0.015 * bluff)
+        pitch = 4 * low - 3 * bluff
+        pose = {"Body": [("loc", (loc[0], 0, loc[1])), (Y, pitch)], "Head": [(Y, 2 * low - 8 * bluff), (Z, 12 * wave(t / 24, 1.5) * low)],
+                "Jaw": [(Y, 12 * growl + 10 * bluff)], "Tail": [(Y, -40 * low)]}
+        return badger_planted(pose, loc, pitch, {"FL": (0.05 * bluff, 0.04 * stamp), "FR": (0.05 * bluff, 0.04 * stamp)})
+    if clip == "Attack_A":
+        # Quick bite: it gathers back with the jaw opening, then darts in low and the jaw snaps shut at 7/16, with a
+        # worrying shake of the head before it backs off.
+        k = lambda *keys: curve(t, (0, 0), *keys, (16, 0))
+        shake = math.sin(2 * math.pi * (t - 7) / 2.5) * curve(t, (7, 0), (8, 1), (10, 1), (11.5, 0))
+        loc = (k((4, -0.06), (7, 0.14), (10, 0.12), (13, 0.03)), k((4, -0.02), (6, 0.01), (7, -0.005), (10, -0.01)))
+        pitch = k((4, -10), (7, 4), (10, 3))
+        pose = {"Body": [("loc", (loc[0], 0, loc[1])), (Y, pitch), (Z, k((4, -8), (7, 5)))],
+                "Head": [(Y, k((4, -28), (7, 10), (10, 6))), (Z, 18 * shake)], "Jaw": [(Y, k((2, 10), (5, 38), (6.3, 40), (7, 0), (10, 0)))],
+                "Tail": [(Y, k((3, -35), (12, -35)))]}
+        step = curve(t, (4, 0), (7, 1), (11, 1), (14, 0))
+        lift = 0.035 * (curve(t, (4, 0), (5.5, 1), (7, 0)) + curve(t, (11, 0), (12.5, 1), (14, 0)))
+        hind = curve(t, (4.5, 0), (7, 1), (11, 1), (14, 0))
+        return badger_planted(pose, loc, pitch, {"FL": (0.16 * step, lift), "FR": (0.15 * step, lift), "HL": (0.09 * hind, 0.03 * curve(t, (4.5, 0), (5.8, 1), (7, 0))),
+                                                 "HR": (0.09 * hind, 0.03 * curve(t, (5, 0), (6.3, 1), (7.5, 0)))})
+    if clip == "Attack_B":
+        # Claw rake: it rocks back and rears off its forepaws, the right paw cocked out wide, then drives down and forward,
+        # the right claws raking in across the front at 11/22 as the body twists behind them, the left paw slamming down
+        # after and the jaw snapping; it settles back.
+        k = lambda *keys: curve(t, (0, 0), *keys, (22, 0))
+        pitch = k((3, 3), (7, -32), (9, -34), (11, 6), (14, 4), (18, 0))
+        loc = (k((3, 0.02), (7, -0.05), (9, -0.05), (11, 0.07), (14, 0.06), (19, 0.01)), k((3, -0.02), (7, 0.0), (11, -0.01), (14, -0.01)))
+        pose = {"Body": [("loc", (loc[0], 0, loc[1])), (Y, pitch), (Z, k((7, -8), (11, 10), (14, 8)))],
+                "Head": [(Y, k((7, -10), (11, 4), (13, 6), (17, 2))), (Z, k((7, 8), (11, -10), (14, -6)))],
+                "Jaw": [(Y, k((5, 20), (9, 30), (11, 18), (13, 24), (14.5, 0)))], "Tail": [(Y, k((3, -40), (16, -40)))]}
+        hips = body_hips(loc, pitch, BADGER_PIVOT, BADGER_HIP, BADGER_LEGS)
+        feet = {}
+        for leg, x, _ in BADGER_LEGS:
+            if leg[0] == "H":
+                feet[leg] = (0.0, 0.0)
+                continue
+            land = 11 if leg == "FR" else 13
+            tuck = curve(t, (1, 0), (6, 1), (land - 2, 1), (land, 0))
+            hx, hz = hips[leg]
+            planted = (0.11 * curve(t, (land - 2, 0), (land, 1), (16, 1), (20, 0)), 0.03 * curve(t, (16, 0), (18, 1), (20, 0)))
+            feet[leg] = (planted[0] + (hx - x + 0.03 - planted[0]) * tuck, planted[1] + (hz - 0.09 - planted[1]) * tuck)
+        pose = badger_planted(pose, loc, pitch, feet)
+        pose["LegFR"].append((X, k((7, -45), (9, -50), (11, 0), (12, 14), (15, 0))))
+        return pose
+    if clip == "Hit":
+        jolt = curve(t, (0, 0), (2, 1), (8, 0))
+        pose = {"Body": [("loc", (-0.04 * jolt, 0, 0.01 * jolt)), (X, 6 * jolt)], "Head": [(Y, -16 * jolt), (Z, 14 * jolt)], "Jaw": [(Y, 20 * jolt)],
+                "Tail": [(Y, -30 * jolt)]}
+        return badger_planted(pose, (-0.04 * jolt, 0.01 * jolt), 0)
+    # Death: a last snarl, the legs buckle and it rolls heavily onto its right side; lies still.
+    fall = curve(t, (9, 0), (21, 1))
+    settle = curve(t, (21, 0), (24, 1), (27, 0))
+    buckle = curve(t, (2, 0), (9, 1), (21, 0.3))
+    flinch = curve(t, (0, 0), (2, 1), (7, 0))
+    roll = math.radians(90 * fall)
+    lowest = min(0.2 - 0.085 * math.sin(roll) - 0.2 * math.cos(roll), 0.2 - math.hypot(0.16 * math.sin(roll), 0.135 * math.cos(roll)))
+    pose = {"Body": [("loc", (0, 0, -lowest + 0.012 * settle)), (Y, 5 * buckle * (1 - fall) - 8 * flinch), (X, 90 * fall - 4 * settle)],
+            "Head": [(Y, curve(t, (0, 0), (3, -25), (10, 0), (24, 8))), (Z, curve(t, (2, 0), (6, 16), (12, 0)))],
+            "Jaw": [(Y, curve(t, (0, 0), (3, 32), (10, 12), (24, 8)))], "Tail": [(Y, curve(t, (0, 0), (24, -10)))]}
+    for leg in ("FL", "FR"):
+        pose[f"Leg{leg}"] = [(Y, 30 * buckle)]
+        pose[f"Shin{leg}"] = [(Y, -60 * buckle + 20 * fall)]
+    for leg in ("HL", "HR"):
+        pose[f"Leg{leg}"] = [(Y, -15 * fall)]
+        pose[f"Shin{leg}"] = [(Y, 15 * fall)]
+    return pose
+
+
+# A giant river crayfish: a broad, dull olive-brown carapace, a five-part segmented tail ending in the fan, long whip
+# antennae, two differentiated claws (the right a heavy crusher, the left a slimmer cutter) whose outer finger opens, and
+# four pairs of walking legs placed each frame by the spider's two-bone solve, so planted feet stay planted.
+CRAYFISH_PALETTE = {"shell": (0.3, 0.25, 0.17), "dark": (0.12, 0.1, 0.075), "claw": (0.4, 0.22, 0.13), "tip": (0.72, 0.58, 0.4),
+                    "belly": (0.58, 0.48, 0.34), "eye": (0.03, 0.03, 0.03)}
+# Per walking-leg pair, front to back: degrees from forward, attachment x, horizontal reach to the foot, knee height.
+CRAYFISH_LEGS = ((60, 0.1, 0.19, 0.16), (80, 0.05, 0.2, 0.17), (100, 0.0, 0.19, 0.17), (120, -0.05, 0.17, 0.15))
+CRAYFISH_PIVOT = Vector((-0.1, 0, 0.15))  # the Body bone's head
+CRAYFISH_CLAWS = {"L": (1, 1.1), "R": (-1, 1.6)}  # side and size: the right is the heavy crusher
+CRAYFISH_HAND_Y = 0.13  # the claws are held forward, this far out from the midline
+
+
+def crayfish_hand(size):
+    """A claw of ``size``: the palm's radii, where its fingers start and where they end (x). The crusher is broad and short
+    fingered, the cutter slimmer with longer fingers."""
+    palm = (0.08 + 0.02 * size, 0.035 * size, 0.025 * size)
+    fingers = 0.31 + 1.5 * palm[0]
+    return palm, fingers, fingers + 0.2 - 0.03 * size
+
+
+def crayfish_rest():
+    legs = {}
+    for i, (angle, x, reach, knee) in enumerate(CRAYFISH_LEGS, 1):
+        a = math.radians(angle)
+        for side, s in (("L", 1), ("R", -1)):
+            d = Vector((math.cos(a), s * math.sin(a), 0))
+            attach = Vector((x, s * 0.06, 0.1))
+            legs[f"{side}{i}"] = (d, attach, attach + d * reach * 0.45 + Vector((0, 0, knee - 0.1)), Vector((x, s * 0.06, 0)) + d * reach)
+    return legs
+
+
+CRAYFISH_REST = crayfish_rest()
+
+
+def build_crayfish(collection):
+    bones = [("Body", tuple(CRAYFISH_PIVOT), (0.22, 0, 0.16), None),
+             ("Tail1", (-0.12, 0, 0.15), (-0.23, 0, 0.14), "Body"), ("Tail2", (-0.23, 0, 0.14), (-0.33, 0, 0.12), "Tail1"),
+             ("Tail3", (-0.33, 0, 0.12), (-0.42, 0, 0.1), "Tail2"), ("Fan", (-0.42, 0, 0.1), (-0.52, 0, 0.08), "Tail3")]
+    for side, (s, size) in CRAYFISH_CLAWS.items():
+        palm, fingers, tip = crayfish_hand(size)
+        bones += [(f"Antenna{side}", (0.22, s * 0.035, 0.19), (0.4, s * 0.12, 0.23), "Body"),
+                  (f"Arm{side}", (0.17, s * 0.07, 0.13), (0.31, s * CRAYFISH_HAND_Y, 0.15), "Body"),
+                  (f"Hand{side}", (0.31, s * CRAYFISH_HAND_Y, 0.15), (tip, s * CRAYFISH_HAND_Y, 0.15), f"Arm{side}"),
+                  (f"Finger{side}", (fingers, s * (CRAYFISH_HAND_Y + 0.6 * palm[1]), 0.15), (tip, s * (CRAYFISH_HAND_Y + 0.01), 0.15), f"Hand{side}")]
+    for leg, (_, attach, knee, foot) in CRAYFISH_REST.items():
+        bones += [(f"Leg{leg}", tuple(attach), tuple(knee), "Body"), (f"Shin{leg}", tuple(knee), tuple(foot), f"Leg{leg}")]
+    r = Rig("Crayfish", CRAYFISH_PALETTE, bones)
+    r.ellipsoid("Body", "shell", (0.06, 0, 0.16), (0.17, 0.105, 0.085), segments=12, rings=7)  # carapace
+    r.ellipsoid("Body", "shell", (0.19, 0, 0.165), (0.075, 0.07, 0.06), segments=10, rings=6)
+    r.ellipsoid("Body", "dark", (0.1, 0, 0.2), (0.014, 0.1, 0.065), segments=10, rings=4)  # the cervical groove
+    r.ellipsoid("Body", "dark", (0.03, 0, 0.243), (0.13, 0.012, 0.008), segments=6, rings=3)  # the median ridge
+    r.tube("Body", "shell", (0.24, 0, 0.19), (0.32, 0, 0.18), 0.026, 0.004, 6)  # rostrum
+    r.ellipsoid("Body", "belly", (0.05, 0, 0.1), (0.15, 0.085, 0.04), segments=8, rings=4)
+    for x in (0.215, 0.235):
+        r.ellipsoid("Body", "dark", (x, 0, 0.11), (0.02, 0.04, 0.025), segments=6, rings=3)  # mouthparts
+    for s in (1, -1):
+        r.tube("Body", "dark", (0.22, s * 0.04, 0.2), (0.255, s * 0.062, 0.215), 0.011, 0.009, 5)  # eye stalk
+        r.ellipsoid("Body", "eye", (0.26, s * 0.066, 0.218), (0.017, 0.016, 0.016), segments=6, rings=3)
+        r.tube("Body", "claw", (0.24, s * 0.02, 0.18), (0.33, s * 0.05, 0.2), 0.006, 0.003, 4)  # antennule
+        for k, x in enumerate((0.12, 0.0, -0.06)):
+            r.ellipsoid("Body", "shell", (x, s * 0.09, 0.115 + 0.01 * k), (0.06, 0.03, 0.04), rotation=(s * 0.4, 0, 0), segments=6, rings=3)  # gill flanks
+    for bone, centre, radii in (("Tail1", (-0.175, 0, 0.148), (0.065, 0.095, 0.066)), ("Tail2", (-0.28, 0, 0.13), (0.06, 0.085, 0.058)),
+                                ("Tail3", (-0.375, 0, 0.11), (0.055, 0.07, 0.05))):
+        r.ellipsoid(bone, "shell", centre, radii, segments=10, rings=5)
+        r.ellipsoid(bone, "dark", (centre[0] - radii[0] * 0.8, 0, centre[2]), (0.012, radii[1] * 0.97, radii[2] * 0.97), segments=10, rings=4)  # joint
+        for s in (1, -1):
+            r.ellipsoid(bone, "shell", (centre[0], s * radii[1] * 0.8, centre[2] - radii[2] * 0.55), (radii[0] * 0.8, 0.03, 0.03), rotation=(s * 0.5, 0, 0),
+                        segments=6, rings=3)  # the side plate
+    r.ellipsoid("Fan", "shell", (-0.47, 0, 0.088), (0.065, 0.038, 0.012), segments=8, rings=3)  # telson
+    for s in (1, -1):
+        r.ellipsoid("Fan", "shell", (-0.465, s * 0.05, 0.09), (0.06, 0.028, 0.01), rotation=(0, 0, s * 0.45), segments=8, rings=3)
+        r.ellipsoid("Fan", "dark", (-0.51, s * 0.07, 0.09), (0.022, 0.02, 0.008), rotation=(0, 0, s * 0.45), segments=6, rings=3)
+    for side, (s, size) in CRAYFISH_CLAWS.items():
+        palm, fingers, tip = crayfish_hand(size)
+        y = CRAYFISH_HAND_Y
+        r.tube(f"Antenna{side}", "claw", (0.22, s * 0.035, 0.19), (0.4, s * 0.12, 0.23), 0.01, 0.006, 5)
+        r.tube(f"Antenna{side}", "claw", (0.4, s * 0.12, 0.23), (0.62, s * 0.2, 0.2), 0.006, 0.002, 4)
+        r.tube(f"Arm{side}", "claw", (0.17, s * 0.07, 0.13), (0.31, s * y, 0.15), 0.026 * size, 0.032 * size, 6)
+        r.ellipsoid(f"Arm{side}", "claw", (0.31, s * y, 0.15), (0.04 * size, 0.034 * size, 0.03 * size), segments=7, rings=4)  # carpus
+        centre = 0.31 + 0.95 * palm[0]
+        r.ellipsoid(f"Hand{side}", "claw", (centre, s * y, 0.15), palm, segments=10, rings=5)  # palm
+        for dx, dy in ((-0.3, 0.45), (0.1, 0.35), (-0.15, -0.45), (0.3, -0.3)):
+            r.ellipsoid(f"Hand{side}", "dark", (centre + dx * palm[0], s * (y + dy * palm[1]), 0.15 + 0.85 * palm[2]), (0.012, 0.01, 0.008), segments=5, rings=3)  # tubercles
+        inner, outer = s * (y - 0.4 * palm[1]), s * (y + 0.6 * palm[1])
+        r.tube(f"Hand{side}", "claw", (fingers, inner, 0.15), (tip - 0.03, s * (y - 0.002), 0.15), 0.5 * palm[1], 0.008, 6)  # fixed finger
+        r.tube(f"Hand{side}", "tip", (tip - 0.03, s * (y - 0.002), 0.15), (tip, s * (y + 0.004), 0.15), 0.008, 0.003, 5)
+        r.tube(f"Finger{side}", "claw", (fingers, outer, 0.15), (tip - 0.03, s * (y + 0.014), 0.15), 0.42 * palm[1], 0.007, 6)  # the dactyl
+        r.tube(f"Finger{side}", "tip", (tip - 0.03, s * (y + 0.014), 0.15), (tip, s * (y + 0.008), 0.15), 0.007, 0.003, 5)
+    for leg, (_, attach, knee, foot) in CRAYFISH_REST.items():
+        r.tube(f"Leg{leg}", "claw", tuple(attach), tuple(knee), 0.016, 0.013, 5)
+        r.ellipsoid(f"Shin{leg}", "claw", tuple(knee), (0.016, 0.016, 0.016), segments=5, rings=3)
+        r.tube(f"Shin{leg}", "claw", tuple(knee), tuple(foot), 0.013, 0.004, 5)
+    return r.finish(collection)
+
+
+def crayfish_feet(pose, feet):
+    return solve_feet(pose, feet, CRAYFISH_REST, CRAYFISH_PIVOT)
+
+
+def crayfish_claws(left, right):
+    """Each claw (lift, spread, bend, gape) in degrees: the arm raised and swung out, the hand bent in, the dactyl open."""
+    pose = {}
+    for side, (lift, spread, bend, gape) in (("L", left), ("R", right)):
+        s = CRAYFISH_CLAWS[side][0]
+        pose[f"Arm{side}"] = [(Z, s * spread), (Y, -lift)]
+        pose[f"Hand{side}"] = [(Z, -s * bend)]
+        pose[f"Finger{side}"] = [(Z, s * gape)]
+    return pose
+
+
+def crayfish_gait(u, stride, lift, out, cycles=1):
+    """Alternating legs, each foot swung forward and out to the side as it lifts."""
+    feet = {}
+    for leg, (d, *_rest) in CRAYFISH_REST.items():
+        theta = 2 * math.pi * (cycles * u + (0.0 if (leg[0] == "L") == (int(leg[1]) % 2 == 1) else 0.5))
+        up = max(0.0, math.sin(theta))
+        feet[leg] = (-stride * math.cos(theta) + out * up * d.x, out * up * d.y, lift * up)
+    return feet
+
+
+def crayfish_pose(clip, u):
+    t = u * CLIP_FRAMES["river-crayfish"][clip]
+    if clip == "Idle":
+        open_l, open_r = 6 + 10 * max(0.0, wave(u, 2)), 4 + 8 * max(0.0, wave(u, 2, 0.4))
+        pose = {"Body": [("loc", (0, 0, 0.004 * wave(u, 2)))], "Tail1": [(Y, 2 * wave(u, 1))], "Tail2": [(Y, 3 * wave(u, 1, 0.1))], "Fan": [(Y, 6 * wave(u, 2))],
+                "AntennaL": [(Z, 16 * wave(u, 1)), (Y, -6 * wave(u, 2))], "AntennaR": [(Z, -16 * wave(u, 1, 0.3)), (Y, -6 * wave(u, 2, 0.2))],
+                **crayfish_claws((10 + 3 * wave(u, 1), 4, 8, open_l), (8 + 2 * wave(u, 1, 0.5), 2, 10, open_r))}
+        return crayfish_feet(pose, {})
+    if clip in ("Walk", "Run"):
+        run = clip == "Run"
+        pose = {"Body": [("loc", (0, 0, (-0.02 if run else 0) + 0.005 * wave(u, 2))), (X, 2.5 * wave(u, 1))], "Fan": [(Y, 4 * wave(u, 2))],
+                "AntennaL": [(Z, (-14 if run else 0) + 8 * wave(u, 1)), (Y, 8 if run else 0)], "AntennaR": [(Z, (14 if run else 0) - 8 * wave(u, 1, 0.2)), (Y, 8 if run else 0)],
+                **(crayfish_claws((18, -12, 25, 2), (16, -12, 25, 2)) if run else crayfish_claws((12, 2, 8, 6), (10, 2, 10, 4)))}
+        return crayfish_feet(pose, crayfish_gait(u, 0.07 if run else 0.045, 0.06 if run else 0.045, 0.03))
+    if clip == "Eat":
+        # Picks at the riverbed, each claw in turn tearing a morsel and lifting it in to the mouthparts.
+        pick_l, pick_r = max(0.0, wave(u, 2)) ** 1.5, max(0.0, wave(u, 2, 0.5)) ** 1.5
+        pose = {"Body": [(Y, 4), ("loc", (0, 0, -0.01))], "AntennaL": [(Z, 10 * wave(u, 1))], "AntennaR": [(Z, -10 * wave(u, 1, 0.3))],
+                **crayfish_claws((-4 + 24 * pick_l, -18 * pick_l, 10 + 50 * pick_l, 14 * (1 - pick_l)), (-4 + 22 * pick_r, -16 * pick_r, 10 + 45 * pick_r, 10 * (1 - pick_r)))}
+        return crayfish_feet(pose, {})
+    if clip == "Alert":
+        # The warning: both claws lift high and wide with the fingers gaping, the body rears up on its legs, the tail
+        # curls under and the antennae sweep at the threat; the raised claws tremble.
+        up = curve(t, (0, 0), (5, 1), (19, 1), (24, 0))
+        tremble = math.sin(2 * math.pi * t / 3) * up
+        pose = {"Body": [("loc", (-0.02 * up, 0, 0.055 * up)), (Y, -5 * up)], "Tail1": [(Y, -3 * up)], "Tail2": [(Y, -5 * up)], "Tail3": [(Y, -5 * up)],
+                "Fan": [(Y, -4 * up)], "AntennaL": [(Z, -10 * up + 10 * wave(t / 24, 2)), (Y, -10 * up)], "AntennaR": [(Z, 10 * up - 10 * wave(t / 24, 2, 0.2)), (Y, -10 * up)],
+                **crayfish_claws((48 * up + 3 * tremble, 26 * up, -10 * up, 6 + 30 * up), (44 * up + 3 * tremble, 30 * up, -8 * up, 4 + 28 * up))}
+        return crayfish_feet(pose, {})
+    if clip == "Attack_A":
+        # The committed pinch: a slow warning lift of both claws, the fingers gaping, held trembling; then the crayfish
+        # lunges and the heavy right claw drives down and in, slamming shut at 18/30, and yanks before it lets go.
+        k = lambda *keys: curve(t, (0, 0), *keys, (30, 0))
+        raise_ = curve(t, (0, 0), (10, 1), (15, 1), (18, 0.2), (22, 0.15), (28, 0))
+        lunge = curve(t, (14, 0), (18, 1), (21, 1), (27, 0))
+        snap = curve(t, (16.5, 0), (18, 1), (23, 1), (25, 0))
+        tremble = math.sin(2 * math.pi * t / 2.5) * curve(t, (9, 0), (10, 1), (14, 1), (15, 0))
+        yank = math.sin(2 * math.pi * (t - 18) / 3) * curve(t, (18, 0), (19, 1), (21, 1), (22, 0))
+        gape = curve(t, (2, 0), (10, 1), (17, 1))
+        loc = (-0.04 * raise_ + 0.13 * lunge, 0.035 * raise_ - 0.012 * lunge)
+        pose = {"Body": [("loc", (loc[0], 0, loc[1])), (Y, -9 * raise_ + 7 * lunge), (Z, -8 * yank)],
+                "Tail1": [(Y, k((10, 6), (18, -4), (24, -2)))], "Tail2": [(Y, k((10, 6), (18, -5), (24, -2)))], "Fan": [(Y, k((10, 8), (18, -6)))],
+                "AntennaL": [(Z, -12 * raise_), (Y, -8 * raise_)], "AntennaR": [(Z, 12 * raise_), (Y, -8 * raise_)],
+                **crayfish_claws((40 * raise_ + 6 * lunge + 2 * tremble, 22 * raise_ - 4 * lunge, -6 * raise_ + 18 * lunge, 6 + 26 * gape * (1 - snap)),
+                                 (54 * raise_ - 10 * lunge + 3 * tremble, 30 * raise_ - 20 * lunge + 6 * yank, -10 * raise_ + 12 * lunge, 4 + 40 * gape * (1 - snap)))}
+        step = curve(t, (14, 0), (17, 1), (22, 1), (27, 0))
+        feet = {}
+        for leg in CRAYFISH_REST:
+            first = (leg[0] == "L") == (int(leg[1]) % 2 == 1)
+            lift = 0.03 * (curve(t, (14, 0), (15.5, 1), (17, 0)) if first else curve(t, (15, 0), (16.5, 1), (18, 0)))
+            lift += 0.025 * (curve(t, (22, 0), (23.5, 1), (25, 0)) if first else curve(t, (24, 0), (25.5, 1), (27, 0)))
+            feet[leg] = (0.08 * step, 0, lift)
+        return crayfish_feet(pose, feet)
+    if clip == "Attack_B":
+        # Scissor clamp: both claws swing out wide with the fingers open, then sweep in together and clamp shut across the
+        # front at 12/24 as the body surges forward and twists.
+        k = lambda *keys: curve(t, (0, 0), *keys, (24, 0))
+        wide = curve(t, (0, 0), (7, 1), (9, 1), (12, 0))
+        clamp = curve(t, (9, 0), (12, 1), (15, 1), (20, 0))
+        loc = (k((7, -0.04), (12, 0.07), (15, 0.06)), k((7, 0.02), (12, -0.008)))
+        pose = {"Body": [("loc", (loc[0], 0, loc[1])), (Y, k((7, -7), (12, 5), (15, 4))), (Z, k((7, 5), (12, -4), (15, -3)))],
+                "Tail1": [(Y, k((7, 6), (12, -3)))], "Tail2": [(Y, k((7, 6), (12, -4)))], "Fan": [(Y, k((12, -5)))],
+                **crayfish_claws((20 * wide + 6 * clamp, 50 * wide - 18 * clamp, -16 * wide + 30 * clamp, 6 + 30 * wide * (1 - clamp)),
+                                 (18 * wide + 4 * clamp, 54 * wide - 20 * clamp, -16 * wide + 28 * clamp, 4 + 34 * wide * (1 - clamp)))}
+        step = curve(t, (9, 0), (12, 1), (16, 1), (21, 0))
+        return crayfish_feet(pose, {leg: (0.05 * step, 0, 0.025 * curve(t, (9, 0), (10.5, 1), (12, 0)) if leg[1] in "13" else 0.0) for leg in CRAYFISH_REST})
+    if clip == "Hit":
+        jolt = curve(t, (0, 0), (2, 1), (8, 0))
+        pose = {"Body": [("loc", (-0.05 * jolt, 0, 0.02 * jolt)), (Y, -6 * jolt), (X, 5 * jolt)], "Tail1": [(Y, 8 * jolt)], "Tail2": [(Y, 10 * jolt)],
+                "Fan": [(Y, 10 * jolt)], "AntennaL": [(Y, -14 * jolt)], "AntennaR": [(Y, -14 * jolt)],
+                **crayfish_claws((10 + 24 * jolt, 4 + 14 * jolt, 8 - 10 * jolt, 6 + 20 * jolt), (8 + 26 * jolt, 2 + 14 * jolt, 10 - 10 * jolt, 4 + 20 * jolt))}
+        return crayfish_feet(pose, {leg: (-0.03 * jolt, 0, 0.0) for leg in CRAYFISH_REST})
+    # Death: the claws flail, every leg curls in and it rolls onto its back, claws splayed; lies still.
+    flail = math.sin(2 * math.pi * t / 4) * curve(t, (0, 0), (2, 1), (9, 1), (12, 0))
+    curl = curve(t, (4, 0), (14, 1))
+    flip = curve(t, (8, 0), (20, 1))
+    settle = curve(t, (20, 0), (23, 1), (26, 0))
+    roll = math.radians(180 * flip)
+    pose = {"Body": [("loc", (0, 0, 0.37 * math.sin(roll) - 0.04 * flip + 0.012 * settle)), (Y, 6 * flail), (X, 180 * flip)],
+            "Tail1": [(Y, -12 * curl)], "Tail2": [(Y, -16 * curl)], "Tail3": [(Y, -14 * curl)], "Fan": [(Y, -10 * curl)],
+            "AntennaL": [(Z, 20 * curl), (Y, 10 * flail)], "AntennaR": [(Z, -20 * curl), (Y, -10 * flail)],
+            **crayfish_claws((20 * flail + 10 * (1 - flip), 30 * curl + 10 * flail, -20 * curl, 30 * curl), (-20 * flail + 10 * (1 - flip), 34 * curl - 10 * flail, -20 * curl, 34 * curl))}
+    for leg, (d, *_rest) in CRAYFISH_REST.items():
+        lift = d.cross(Vector((0, 0, 1))).to_tuple()  # positive about this axis raises the leg
+        pose[f"Leg{leg}"] = [(lift, 15 * abs(flail) + 20 * curl - 30 * flip)]
+        pose[f"Shin{leg}"] = [(lift, -60 * curl + 8 * settle)]
+    return pose
+
+
+# A bog toad: a broad, squat, warty olive-brown amphibian with dark blotches, raised parotoid glands, a cream belly, copper
+# eyes and a pale yellow throat pouch that pumps as it breathes and swells before it spits. Its four legs are solved to
+# their hands and ankles each frame (the hind feet kept flat on the ground), and the pouch is the one scaled bone.
+TOAD_PALETTE = {"skin": (0.36, 0.3, 0.18), "dark": (0.2, 0.16, 0.09), "belly": (0.72, 0.65, 0.48), "throat": (0.78, 0.68, 0.38),
+                "eye": (0.72, 0.46, 0.14), "pupil": (0.02, 0.02, 0.02), "mouth": (0.55, 0.26, 0.22)}
+TOAD_PIVOT = Vector((-0.22, 0, 0.15))  # the Body bone's head
+
+
+def toad_rest():
+    """Front legs (Arm, Hand to the ground) and hind legs (Thigh, Shin to the ankle), each (direction, attachment, knee, end)."""
+    front, hind = {}, {}
+    for side, s in (("L", 1), ("R", -1)):
+        front[f"F{side}"] = (Vector((-0.8, s * 0.6, 0)), Vector((0.1, s * 0.09, 0.12)), Vector((0.15, s * 0.12, 0.06)), Vector((0.19, s * 0.125, 0.0)))
+        hind[f"H{side}"] = (Vector((0.9, s * 0.44, 0)), Vector((-0.14, s * 0.09, 0.12)), Vector((-0.02, s * 0.14, 0.09)), Vector((-0.17, s * 0.13, 0.025)))
+    return front, hind
+
+
+TOAD_FRONT, TOAD_HIND = toad_rest()
+
+
+def build_toad(collection):
+    bones = [("Body", tuple(TOAD_PIVOT), (0.12, 0, 0.19), None), ("Head", (0.12, 0, 0.19), (0.33, 0, 0.16), "Body"),
+             ("Jaw", (0.12, 0, 0.13), (0.32, 0, 0.115), "Head"), ("Throat", (0.13, 0, 0.11), (0.25, 0, 0.09), "Jaw")]
+    for leg, (_, attach, knee, end) in TOAD_FRONT.items():
+        bones += [(f"Arm{leg}", tuple(attach), tuple(knee), "Body"), (f"Hand{leg}", tuple(knee), tuple(end), f"Arm{leg}")]
+    for leg, (_, attach, knee, end) in TOAD_HIND.items():
+        s = 1 if leg[1] == "L" else -1
+        bones += [(f"Thigh{leg}", tuple(attach), tuple(knee), "Body"), (f"Shin{leg}", tuple(knee), tuple(end), f"Thigh{leg}"),
+                  (f"Foot{leg}", tuple(end), (-0.05, s * 0.155, 0.0), f"Shin{leg}")]
+    r = Rig("Toad", TOAD_PALETTE, bones)
+    r.ellipsoid("Body", "skin", (-0.04, 0, 0.15), (0.22, 0.14, 0.105), segments=12, rings=7)
+    r.ellipsoid("Body", "skin", (-0.16, 0, 0.14), (0.09, 0.12, 0.09), segments=10, rings=5)  # the rump
+    r.ellipsoid("Body", "belly", (0.0, 0, 0.1), (0.19, 0.12, 0.05), segments=10, rings=5)
+    # Dark blotches and raised warts over the back and flanks, each set on the body's surface.
+    on_back = lambda x, y: 0.15 + 0.105 * math.sqrt(max(0.0, 1 - ((x + 0.04) / 0.22) ** 2 - (y / 0.14) ** 2))
+    for x, y, size in ((0.0, 0.05, 0.03), (-0.08, -0.06, 0.026), (-0.14, 0.04, 0.024), (0.06, -0.04, 0.022), (-0.05, 0.1, 0.02),
+                       (-0.1, -0.1, 0.022), (0.04, 0.1, 0.018), (0.02, -0.1, 0.019)):
+        r.ellipsoid("Body", "dark", (x, y, on_back(x, y) - 0.004), (size * 1.3, size, size * 0.35), rotation=(y * 4, -x, x * 5), segments=8, rings=4)
+    for i in range(18):
+        x, y = -0.2 + 0.25 * lattice(i, 0, 31), 0.12 * (2 * lattice(i, 1, 31) - 1)
+        r.ellipsoid("Body", "skin", (x, y, on_back(x, y)), (0.011 + 0.006 * lattice(i, 2, 31),) * 2 + (0.008,), segments=6, rings=3)
+    for s in (1, -1):
+        r.ellipsoid("Body", "skin", (0.1, s * 0.085, 0.228), (0.06, 0.03, 0.028), rotation=(0, 0, s * 0.3), segments=7, rings=4)  # parotoid gland
+        r.ellipsoid("Body", "dark", (0.1, s * 0.105, 0.22), (0.045, 0.012, 0.02), rotation=(0, 0, s * 0.3), segments=6, rings=3)
+    r.ellipsoid("Head", "skin", (0.21, 0, 0.175), (0.12, 0.125, 0.055), segments=10, rings=5)
+    r.ellipsoid("Head", "skin", (0.3, 0, 0.162), (0.06, 0.08, 0.036), segments=8, rings=4)  # the snout
+    r.ellipsoid("Head", "mouth", (0.23, 0, 0.138), (0.1, 0.11, 0.012), segments=8, rings=3)
+    for s in (1, -1):
+        r.ellipsoid("Head", "eye", (0.2, s * 0.085, 0.215), (0.032, 0.03, 0.03), segments=8, rings=4)
+        r.ellipsoid("Head", "pupil", (0.21, s * 0.1, 0.236), (0.016, 0.008, 0.006), rotation=(s * 0.6, 0, 0), segments=6, rings=3)
+        r.ellipsoid("Head", "skin", (0.19, s * 0.08, 0.235), (0.03, 0.022, 0.01), segments=6, rings=3)  # the brow over the eye
+    r.ellipsoid("Jaw", "skin", (0.22, 0, 0.125), (0.11, 0.12, 0.025), segments=10, rings=4)
+    r.ellipsoid("Jaw", "belly", (0.2, 0, 0.112), (0.1, 0.1, 0.018), segments=8, rings=3)
+    r.ellipsoid("Throat", "throat", (0.18, 0, 0.1), (0.075, 0.08, 0.03), segments=10, rings=5)
+    for leg, (_, attach, knee, end) in TOAD_FRONT.items():
+        s = 1 if leg[1] == "L" else -1
+        r.tube(f"Arm{leg}", "skin", tuple(attach), tuple(knee), 0.03, 0.022, 6)
+        r.tube(f"Hand{leg}", "skin", tuple(knee), tuple(end + Vector((0, 0, 0.012))), 0.021, 0.015, 6)
+        for a in (-0.5, 0.0, 0.5):
+            d = Vector((math.cos(a), s * math.sin(a), 0))
+            r.tube(f"Hand{leg}", "skin", tuple(end + Vector((0, 0, 0.008))), tuple(end + d * 0.04 + Vector((0, 0, 0.004))), 0.007, 0.004, 4)
+    for leg, (_, attach, knee, end) in TOAD_HIND.items():
+        s = 1 if leg[1] == "L" else -1
+        r.ellipsoid(f"Thigh{leg}", "skin", tuple(attach.lerp(knee, 0.5)), (0.08, 0.035, 0.045), rotation=(0, 0.3, s * 0.4), segments=8, rings=4)
+        r.ellipsoid(f"Thigh{leg}", "dark", tuple(attach.lerp(knee, 0.55) + Vector((0, s * 0.03, 0.03))), (0.03, 0.012, 0.012), rotation=(0, 0, s * 0.4), segments=5, rings=3)  # a bar
+        r.tube(f"Shin{leg}", "skin", tuple(knee), tuple(end), 0.03, 0.02, 6)
+        r.ellipsoid(f"Foot{leg}", "skin", (-0.11, s * 0.145, 0.012), (0.07, 0.03, 0.012), rotation=(0, 0, s * 0.2), segments=7, rings=3)
+        for a in (-0.2, 0.05, 0.3, 0.55):
+            d = Vector((math.cos(a), s * math.sin(a), 0))
+            r.tube(f"Foot{leg}", "skin", (-0.06, s * 0.155, 0.008), tuple(Vector((-0.06, s * 0.155, 0.004)) + d * 0.05), 0.007, 0.004, 4)
+    return r.finish(collection)
+
+
+def toad_solve(pose, front=None, hind=None):
+    """Plant the hands and ankles at rest plus their offsets, the hind feet flat on the ground."""
+    solve_feet(pose, front or {}, TOAD_FRONT, TOAD_PIVOT, ("Arm", "Hand"), lean=0.6)
+    return solve_feet(pose, hind or {}, TOAD_HIND, TOAD_PIVOT, ("Thigh", "Shin"), flat="Foot", lean=3.0)
+
+
+def toad_hop(p, height, reach=0.0):
+    """One hop at phase ``p``: a crouch, the push off the hind legs, the flight and the landing on the forelegs. Returns
+    the body's (x, z) and pitch, and the hands' and ankles' (x, z) offsets."""
+    crouch = curve(p, (0, 0), (0.2, 1), (0.3, 1), (0.38, 0)) - 0.6 * curve(p, (0.72, 0), (0.8, 1), (0.95, 0))
+    air = math.sin(math.pi * min(max((p - 0.3) / 0.45, 0.0), 1.0))
+    z = -0.03 * crouch + height * air
+    x = reach * curve(p, (0.3, 0), (0.75, 1)) - 0.015 * crouch
+    pitch = -14 * curve(p, (0.25, 0), (0.38, 1), (0.55, 0)) + 8 * curve(p, (0.55, 0), (0.72, 1), (0.85, 0))
+    takeoff, landing = curve(p, (0.32, 0), (0.42, 1)), curve(p, (0.68, 0), (0.75, 1))
+    hands = (x * landing + (x + 0.06) * (1 - landing) * curve(p, (0.32, 0), (0.45, 1)), max(0.0, z - 0.005) * (1 - landing))
+    ankles = (x * landing + (x - 0.1) * takeoff * (1 - landing), max(0.0, z + 0.02) * takeoff * (1 - landing))
+    return (x, z), pitch, hands, ankles
+
+
+def toad_pose(clip, u):
+    pose = toad_clip(clip, u)
+    pose.setdefault("Scale", {"Throat": 1.0})
+    return pose
+
+
+def toad_clip(clip, u):
+    t = u * CLIP_FRAMES["bog-toad"][clip]
+    if clip == "Idle":
+        # Sits breathing, the throat pumping, and turns its head a little.
+        look = curve(u, (0.5, 0), (0.6, 1), (0.8, 1), (0.9, 0))
+        pose = {"Body": [("loc", (0, 0, 0.003 * wave(u, 3)))], "Head": [(Z, 10 * look), (Y, -3 * look)], "Scale": {"Throat": 1.0 + 0.2 * max(0.0, wave(u, 12)) ** 2}}
+        return toad_solve(pose)
+    if clip == "Walk":
+        # A toad's crawl: diagonal pairs, the hind feet shoved back, the body swinging side to side.
+        pose = {"Body": [("loc", (0, 0, 0.008 * abs(wave(u, 2)))), (Z, 5 * wave(u, 1)), (X, 3 * wave(u, 1, 0.25))], "Head": [(Z, -3 * wave(u, 1))],
+                "Scale": {"Throat": 1.0 + 0.1 * max(0.0, wave(u, 4)) ** 2}}
+        front, hind = {}, {}
+        for leg, phase in (("FL", 0.0), ("HR", 0.0), ("FR", 0.5), ("HL", 0.5)):
+            theta = 2 * math.pi * (u + phase)
+            stride, lift = (0.05, 0.035) if leg[0] == "F" else (0.045, 0.03)
+            (front if leg[0] == "F" else hind)[leg] = (-stride * math.cos(theta), 0, lift * max(0.0, math.sin(theta)))
+        return toad_solve(pose, front, hind)
+    if clip == "Eat":
+        # Watches, then snaps at a fly on the ground and gulps it down, the eyes pressing in as it swallows.
+        snap = curve(u, (0.3, 0), (0.36, 1), (0.42, 0))
+        gulp = curve(u, (0.45, 0), (0.55, 1), (0.7, 0))
+        pose = {"Body": [(Y, 4 * snap + 2 * gulp), ("loc", (0.03 * snap, 0, -0.005 * gulp))], "Head": [(Y, 6 * snap + 4 * gulp), (Z, 8 * curve(u, (0.1, 0), (0.25, 1), (0.85, 1), (1, 0)))],
+                "Jaw": [(Y, 22 * curve(u, (0.3, 0), (0.34, 1), (0.38, 1), (0.42, 0)))], "Scale": {"Throat": 1.0 + 0.3 * gulp}}
+        return toad_solve(pose)
+    if clip == "Run":
+        # Hops, one per loop, in place.
+        (x, z), pitch, hands, ankles = toad_hop(u, 0.09)
+        pose = {"Body": [("loc", (x, 0, z)), (Y, pitch)], "Head": [(Y, 0.4 * pitch)], "Scale": {"Throat": 1.0}}
+        return toad_solve(pose, {leg: (hands[0], 0, hands[1]) for leg in TOAD_FRONT}, {leg: (ankles[0], 0, ankles[1]) for leg in TOAD_HIND})
+    if clip == "Alert":
+        # The defensive puff: it rises stiff-legged, tips forward to present the swollen glands behind its eyes, the throat
+        # inflated, and sways side to side at the threat.
+        up = curve(t, (0, 0), (5, 1), (19, 1), (24, 0))
+        sway = wave(t / 24, 1.5) * up
+        pose = {"Body": [("loc", (0.01 * up, 0, 0.04 * up)), (Y, 8 * up), (X, 8 * sway)], "Head": [(Y, 0), (Z, -8 * sway)],
+                "Jaw": [(Y, 4 * up)], "Scale": {"Throat": 1.0 + 0.5 * up}}
+        return toad_solve(pose)
+    if clip == "Attack_A":
+        # The spit: it draws back on its haunches, head tipped up, the throat swelling; then it snaps forward and up, the
+        # jaw gaping wide as the glob leaves at 13/24 and the throat empties.
+        draw = curve(t, (0, 0), (9, 1), (11, 1), (13, 0))
+        spit = curve(t, (11, 0), (13, 1), (16, 1), (21, 0))
+        pump = 0.1 * max(0.0, math.sin(2 * math.pi * t / 3)) * curve(t, (2, 0), (4, 1), (9, 1), (11, 0))
+        pose = {"Body": [("loc", (-0.04 * draw + 0.05 * spit, 0, -0.015 * draw + 0.03 * spit)), (Y, -14 * draw + 2 * spit)],
+                "Head": [(Y, -12 * draw - 10 * spit)], "Jaw": [(Y, 6 * draw + 34 * curve(t, (11.5, 0), (13, 1), (15, 1), (18, 0)))],
+                "Scale": {"Throat": 1.0 + 0.6 * draw + pump - 0.2 * curve(t, (12, 0), (13, 1), (16, 1), (20, 0))}}
+        return toad_solve(pose)
+    if clip == "Attack_B":
+        # The hop-bite: a crouch, a short hop forward (the consumer moves the root from 6 to 14) and the jaw snapping on
+        # the landing at 14/24, then it settles.
+        p = min(t / 16, 1.0)
+        (x, z), pitch, hands, ankles = toad_hop(p, 0.11)
+        bite = curve(t, (10, 0), (12.5, 1), (13.5, 1), (14, 0))
+        pose = {"Body": [("loc", (x, 0, z)), (Y, pitch + 3 * curve(t, (13, 0), (14, 1), (18, 0)))], "Head": [(Y, 0.4 * pitch - 16 * bite)],
+                "Jaw": [(Y, 20 * bite)], "Scale": {"Throat": 1.0 + 0.15 * bite}}
+        return toad_solve(pose, {leg: (hands[0], 0, hands[1]) for leg in TOAD_FRONT}, {leg: (ankles[0], 0, ankles[1]) for leg in TOAD_HIND})
+    if clip == "Hit":
+        jolt = curve(t, (0, 0), (2, 1), (8, 0))
+        pose = {"Body": [("loc", (-0.04 * jolt, 0, 0.015 * jolt)), (Y, -10 * jolt), (X, 6 * jolt)], "Head": [(Y, -10 * jolt)], "Jaw": [(Y, 16 * jolt)],
+                "Scale": {"Throat": 1.0 - 0.15 * jolt}}
+        return toad_solve(pose)
+    # Death: it puffs up, convulses, rolls belly-up and goes limp with its legs splayed.
+    puff = curve(t, (0, 0), (4, 1), (12, 1), (18, 0.6))
+    twitch = math.sin(2 * math.pi * t / 3) * curve(t, (2, 0), (4, 1), (9, 1), (12, 0))
+    flip = curve(t, (9, 0), (21, 1))
+    settle = curve(t, (21, 0), (24, 1), (27, 0))
+    roll = math.radians(178 * flip)
+    pose = {"Body": [("loc", (0, 0, 0.06 * math.sin(roll) - 0.04 * flip + 0.03 * puff * (1 - flip) + 0.01 * settle)), (Y, 6 * twitch), (X, -178 * flip)],
+            "Head": [(Y, -14 * flip)], "Jaw": [(Y, curve(t, (0, 0), (4, 20), (12, 8), (24, 14)))], "Scale": {"Throat": 1.0 + 0.4 * puff}}
+    for leg in TOAD_FRONT:
+        s = 1 if leg[1] == "L" else -1
+        pose[f"Arm{leg}"] = [(X, s * (30 * flip + 10 * twitch))]
+        pose[f"Hand{leg}"] = [(X, -s * 20 * flip)]
+    for leg in TOAD_HIND:
+        s = 1 if leg[1] == "L" else -1
+        pose[f"Thigh{leg}"] = [(Z, -s * 50 * flip), (X, s * 20 * twitch)]
+        pose[f"Shin{leg}"] = [(Z, s * 30 * flip)]
+    return pose
+
+
 # Per bird: wingbeat degrees, walk style ("hop" or "step"), how far the neck dips to feed.
 BIRD_MOTION = {"crow": (55, "step", 70), "songbird": (60, "hop", 60), "duck": (50, "step", 55), "heron": (40, "step", 60)}
 
@@ -1944,6 +2528,9 @@ CLIP_FRAMES = {
              "Hit": 8, "Death": 32},
     "marsh-adder": {"Idle_Coil_Loop": 96, "Slither_Loop": 24, "Warn_Hiss_Loop": 32, "Strike": 10, "Strike_Recover": 20, "Hit": 8, "Death": 30},
     "highland-ram": {"Idle": 96, "Walk": 28, "Eat": 72, "Run": 14, "Attack_A": 22, "Attack_B": 30, "Hit": 8, "Death": 32, "Alert": 24},
+    "badger": {"Idle": 72, "Walk": 24, "Eat": 48, "Run": 12, "Attack_A": 16, "Attack_B": 22, "Hit": 8, "Death": 32, "Alert": 24},
+    "river-crayfish": {"Idle": 48, "Walk": 24, "Eat": 48, "Run": 12, "Attack_A": 30, "Attack_B": 24, "Hit": 8, "Death": 30, "Alert": 24},
+    "bog-toad": {"Idle": 72, "Walk": 28, "Eat": 48, "Run": 14, "Attack_A": 24, "Attack_B": 24, "Hit": 8, "Death": 30, "Alert": 24},
 }
 
 
@@ -1953,17 +2540,24 @@ def build_authored(animal, collection):
         pose_of = lambda clip, u: bird_pose(animal, clip, u)
     else:
         armature, mesh = {"rabbit": build_rabbit, "boar": build_boar, "bear": build_bear, "spider": build_spider, "marsh-lurker": build_lurker,
-                          "lynx": build_lynx, "marsh-adder": build_adder, "highland-ram": build_ram}[animal](collection)
+                          "lynx": build_lynx, "marsh-adder": build_adder, "highland-ram": build_ram, "badger": build_badger,
+                          "river-crayfish": build_crayfish, "bog-toad": build_toad}[animal](collection)
         pose_of = {"rabbit": rabbit_pose, "boar": boar_pose, "bear": bear_pose, "spider": spider_pose, "marsh-lurker": lurker_pose,
-                   "lynx": lynx_pose, "marsh-adder": adder_pose, "highland-ram": ram_pose}[animal]
+                   "lynx": lynx_pose, "marsh-adder": adder_pose, "highland-ram": ram_pose, "badger": badger_pose,
+                   "river-crayfish": crayfish_pose, "bog-toad": toad_pose}[animal]
     actions = {}
     for clip, count in CLIP_FRAMES[animal].items():
         action = bpy.data.actions.new(clip)
         slot_for(armature, action)
-        # The lynx and adder key every frame: their planted paws and path-following body are solved per frame.
-        every = count <= 16 or clip in ONE_SHOT or animal in ("lynx", "marsh-adder")
+        # The lynx, adder, crayfish and toad key every frame: their planted feet and path-following body are solved per frame.
+        every = count <= 16 or clip in ONE_SHOT or animal in ("lynx", "marsh-adder", "river-crayfish", "bog-toad")
         for frame in range(0, count + 1, 1 if every else 2):
-            key_pose(armature, frame, pose_of(clip, frame / count))
+            pose = pose_of(clip, frame / count)
+            key_pose(armature, frame, pose)
+            # The toad's throat pouch swells by scale (#783); key_pose skips the "Scale" entry, which names no bone.
+            for bone, size in pose.get("Scale", {}).items():
+                armature.pose.bones[bone].scale = (size,) * 3
+                armature.pose.bones[bone].keyframe_insert("scale", frame=frame)
         actions[clip] = action
     for action in actions.values():
         for fcurve in getattr(action, "fcurves", ()):
@@ -2007,6 +2601,13 @@ ORGANIC = {
                     "Adder-eye": (None, 0, 0.25), "Adder-mouth": ("skin", 0.04, 0.5), "Adder-tongue": (None, 0, 0.5), "Adder-fang": (None, 0, 0.45)},
     "highland-ram": {"Ram-wool": ("wool", 0.24, 0.95), "Ram-fringe": ("wool", 0.2, 0.95), "Ram-face": ("hair", 0.16, 0.8),
                      "Ram-muzzle": ("hair", 0.16, 0.8), "Ram-horn": ("horn", 0.08, 0.6), "Ram-hoof": (None, 0, 0.8), "Ram-eye": (None, 0, 0.8)},
+    # #783: a coarse grizzled coat, a dull stone-like crayfish shell and the toad's wet-matte warty hide.
+    "badger": {"Badger-fur": COAT(0.14, 0.92), "Badger-dark": COAT(0.14, 0.92), "Badger-white": COAT(0.1, 0.85), "Badger-nose": (None, 0, 0.45),
+               "Badger-claw": ("horn", 0.04, 0.55), "Badger-mouth": ("skin", 0.06, 0.6)},
+    "river-crayfish": {"Crayfish-shell": ("chitin", 0.14, 0.8), "Crayfish-dark": ("chitin", 0.14, 0.8), "Crayfish-claw": ("chitin", 0.1, 0.75),
+                       "Crayfish-tip": ("horn", 0.05, 0.7), "Crayfish-belly": ("chitin", 0.12, 0.75), "Crayfish-eye": EYE},
+    "bog-toad": {"Toad-skin": ("hide", 0.1, 0.6), "Toad-dark": ("hide", 0.1, 0.6), "Toad-belly": ("skin", 0.08, 0.55), "Toad-throat": ("skin", 0.06, 0.5),
+                 "Toad-eye": (None, 0, 0.25), "Toad-pupil": EYE, "Toad-mouth": ("skin", 0.05, 0.5)},
     **{bird: FEATHERS(BIRD_SPECS[bird]["palette"], bird) for bird in BIRDS},
 }
 # The authored animals built from rigid parts shade smooth within SMOOTH_ANGLE and keep sharp creases (tube caps) beyond

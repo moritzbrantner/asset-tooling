@@ -1,5 +1,5 @@
-// Greyhaven wildlife (#667, #715, #722, #778, #779, #782, docs/greyhaven-wildlife.md): the recipe turns five hash-pinned CC0 Quaternius sources and
-// twelve authored animals into a verified gltf-resources-v1 bundle of grounded, forward-facing, metre-sized skinned animals
+// Greyhaven wildlife (#667, #715, #722, #778, #779, #782, #783, docs/greyhaven-wildlife.md): the recipe turns five hash-pinned CC0 Quaternius sources and
+// fifteen authored animals into a verified gltf-resources-v1 bundle of grounded, forward-facing, metre-sized skinned animals
 // with in-place Idle, Walk and Eat clips (and Fly on the birds), and replays to the same tar. The build skips unless
 // ASSET_TOOLING_BLENDER names Blender 5.2.2 and the canonical sources are hydrated (git lfs pull).
 import test from "node:test";
@@ -13,7 +13,7 @@ import { verifyAssetBundleTar } from "../../../src/asset-bundle-pack.js";
 import { readAssetBundleAttachment, readAssetBundleGltf, verifyAssetBundle, type GltfResourcesBundleManifest } from "../../../src/asset-bundle.js";
 import {
   WILD_ANIMALS, WILD_CLIPS, WILD_DESCRIPTOR_ATTACHMENT, WILD_DESCRIPTOR_FILE, WILD_DESCRIPTOR_SCHEMA, WILD_RELEASE,
-  NEUTRAL_FIGHTERS, buildGreyhavenWildlife, createWildAnimalAssetSpec, fights, wildKey,
+  buildGreyhavenWildlife, createWildAnimalAssetSpec, fights, wildKey,
 } from "../../../scripts/build-greyhaven-wildlife.ts";
 
 const root = path.resolve(fileURLToPath(new URL("../../..", import.meta.url)));
@@ -29,7 +29,7 @@ const skip = !process.env.ASSET_TOOLING_BLENDER ? "set ASSET_TOOLING_BLENDER to 
   : pointers.length ? "requires hydrated canonical animal sources (git lfs pull)" : false;
 
 /** Greyhaven heights in metres, at the top of each idle pose; the marsh adder is authored at life size and measured by its length. */
-const HEIGHTS: Partial<Record<string, number>> = { stag: 2.0, doe: 1.45, fox: 0.5, rabbit: 0.3, boar: 0.95, crow: 0.3, duck: 0.36, heron: 0.95, songbird: 0.17, wolf: 0.9, rat: 0.3, bear: 1.3, spider: 0.45, "marsh-lurker": 0.3, lynx: 0.8, "highland-ram": 1.0 };
+const HEIGHTS: Partial<Record<string, number>> = { stag: 2.0, doe: 1.45, fox: 0.5, rabbit: 0.3, boar: 0.95, crow: 0.3, duck: 0.36, heron: 0.95, songbird: 0.17, wolf: 0.9, rat: 0.3, bear: 1.3, spider: 0.45, "marsh-lurker": 0.3, lynx: 0.8, "highland-ram": 1.0, badger: 0.35, "river-crayfish": 0.32, "bog-toad": 0.35 };
 
 test("each wildlife spec runs the packaged recipe with the farm recipe, over its pinned source or none when authored", () => {
   const base = { scriptSha256: "a".repeat(64), farmSha256: "c".repeat(64), blenderVersion: "5.2.2" };
@@ -38,14 +38,14 @@ test("each wildlife spec runs the packaged recipe with the farm recipe, over its
   assert.deepEqual(Object.keys(sourced.inputs).sort(), ["farm", "script", "source"]);
   const authored = createWildAnimalAssetSpec({ animal: "heron", file: null, sourceSha256: null, ...base });
   assert.deepEqual(Object.keys(authored.inputs).sort(), ["farm", "script"]);
-  assert.deepEqual(WILD_ANIMALS.map((item) => item.animal), ["stag", "doe", "fox", "rabbit", "boar", "crow", "duck", "heron", "songbird", "wolf", "rat", "bear", "spider", "marsh-lurker", "lynx", "marsh-adder", "highland-ram"]);
+  assert.deepEqual(WILD_ANIMALS.map((item) => item.animal), ["stag", "doe", "fox", "rabbit", "boar", "crow", "duck", "heron", "songbird", "wolf", "rat", "bear", "spider", "marsh-lurker", "lynx", "marsh-adder", "highland-ram", "badger", "river-crayfish", "bog-toad"]);
   assert.deepEqual(WILD_CLIPS.lynx, ["Idle", "Walk", "Run", "Crouch_Stalk_Loop", "Pounce_Windup", "Pounce_Lunge", "Pounce_Recover", "Hit", "Death"]);
   assert.deepEqual(WILD_CLIPS["marsh-adder"], ["Idle_Coil_Loop", "Slither_Loop", "Warn_Hiss_Loop", "Strike", "Strike_Recover", "Hit", "Death"]);
   assert.deepEqual(WILD_CLIPS.wolf, ["Idle", "Walk", "Eat", "Run", "Attack_A", "Attack_B", "Hit", "Death", "Alert"]);
   assert.deepEqual(WILD_CLIPS.duck, ["Idle", "Walk", "Eat", "Fly"]);
   assert.deepEqual(WILD_CLIPS.fox, ["Idle", "Walk", "Eat"]);
-  // The neutral stag and highland ram fight back (#782) without being hostile.
-  for (const animal of ["stag", "highland-ram"] as const) {
+  // The neutral stag, highland ram (#782) and badger (#783) fight back without being hostile.
+  for (const animal of ["stag", "highland-ram", "badger"] as const) {
     const entry = WILD_ANIMALS.find((item) => item.animal === animal)!;
     assert.ok(!entry.hostile && fights(entry), `${animal} is neutral but fights`);
     assert.deepEqual(WILD_CLIPS[animal], ["Idle", "Walk", "Eat", "Run", "Attack_A", "Attack_B", "Hit", "Death", "Alert"]);
@@ -113,10 +113,15 @@ test("the wildlife recipe builds a verified, reproducible bundle of grounded ani
         assert.ok(asset.clips.Pounce_Windup.seconds >= 0.4 && asset.clips.Pounce_Windup.seconds <= 0.6, "a readable pounce wind-up");
       }
       if (entry.animal === "marsh-adder") assert.ok(asset.clips.Slither_Loop.travelSpeed > 0, "adder slither travel speed");
-      if (NEUTRAL_FIGHTERS.includes(entry.animal)) {
+      if (entry.animal === "stag" || entry.animal === "highland-ram") {
         // The stag's and ram's charges gallop in place; the consumer moves the root up to the contact (#782).
         const { metres, startSeconds, endSeconds } = asset.clips.Attack_B.rootTravel;
         assert.ok(metres >= 1.5 && startSeconds < endSeconds && Math.abs(endSeconds - asset.clips.Attack_B.contactSeconds) < 1e-6, `${entry.animal} charge`);
+      }
+      if (entry.animal === "bog-toad") {
+        // The toad's hop-bite hops in place; the consumer moves the root through the hop up to the bite (#783).
+        const { metres, startSeconds, endSeconds } = asset.clips.Attack_B.rootTravel;
+        assert.ok(metres > 0.3 && startSeconds < endSeconds && Math.abs(endSeconds - asset.clips.Attack_B.contactSeconds) < 1e-6, "toad hop");
       }
       if (entry.sourceId) {
         assert.equal(asset.provenance.license, "CC0-1.0");
