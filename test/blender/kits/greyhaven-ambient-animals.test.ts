@@ -70,6 +70,9 @@ test("the ambient-animals recipe builds a verified, reproducible bundle of groun
       assert.equal(asset.provenance.catalogSource, entry.sourceId);
       assert.match(asset.provenance.source.sha256, /^[0-9a-f]{64}$/);
 
+      for (const material of gltf.listMaterials()) assert.equal(material.getMetallicFactor(), 0, `${entry.animal} ${material.getName()} is nonmetallic (#780)`);
+      const fur = { cat: "Grey", dog: "Main", rodent: "Grey" }[entry.animal];
+      assert.ok(gltf.listMaterials().find((m) => m.getName() === fur)!.getBaseColorTexture(), `${entry.animal} fur carries the hair detail texture (#780)`);
       const colours = gltf.listMaterials().map((m) => m.getBaseColorFactor());
       if (entry.animal === "cat") {
         assert.ok(colours.some(([r, g, b]) => Math.max(r!, g!, b!) < 0.15), "the cat keeps its dark fur");
