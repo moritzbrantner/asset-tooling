@@ -16,7 +16,8 @@ against the ``body`` input). The build copies only the morph targets back onto t
   displacement grows with the distance from the bone axis, outer layers move a little more than the body under them
   and keep their clearance. The heavy build also fills the cheeks and the jaw line; the lean build hollows them.
   Hanging garments (tabards, robes, aprons) take no leg weights and grow only sideways round the body's vertical axis,
-  so their hems hang straight instead of flaring with the thighs.
+  so their hems hang straight instead of flaring with the thighs. Their torso weights are the spine at each vertex's
+  height, so a panel hung from the chest still clears the heavy belly behind it (#776).
 - Physique (#588): paired, localized frame, muscle, shoulder, waist, hip, glute and jaw fields on both figures;
   the female recipe also authors bust fullness. Zero influences retain the original neutral midpoint.
 - Height: a per-character uniform scale of the rig (``HEIGHTS``, about +-9%), set by the consumer.
@@ -68,6 +69,9 @@ HEIGHTS = (.91, 1.09)
 # Garments that hang from the body (no leg weights, horizontal growth only).
 HANGING = ("tabard", "robe", "habit", "smock", "apron", "skirt", "coat")
 LEG_BONES = ("thigh_l", "thigh_r", "calf_l", "calf_r", "foot_l", "foot_r", "ball_l", "ball_r")
+TORSO_BONES = ("pelvis", "spine_01", "spine_02", "spine_03")
+# The #391 skirt and apron chains, which the build does not grow by themselves.
+CHAIN_PREFIXES = ("skirt_", "apron_")
 
 
 def smooth(t):
@@ -286,6 +290,19 @@ def build_offset(p, bone, axes, which, hanging=False):
     return offset
 
 
+def spine_at(z, axes):
+    """The spine bone a body vertex at height ``z`` is skinned to, blended between the bones' mid-heights."""
+    spine = ("spine_01", "spine_02", "spine_03")
+    mids = [(axes[b][0].z + axes[b][1].z) / 2 for b in spine]
+    if z <= mids[0]:
+        return [(spine[0], 1.0)]
+    for lower, upper, a, b in zip(spine, spine[1:], mids, mids[1:]):
+        if z <= b:
+            t = (z - a) / (b - a)
+            return [(lower, 1 - t), (upper, t)]
+    return [(spine[-1], 1.0)]
+
+
 def skin_weights(obj, rig_bones):
     names = {g.index: g.name for g in obj.vertex_groups if g.name in rig_bones}
     result = []
@@ -442,11 +459,18 @@ def add_build_keys(rig, meshes, lm, body=None, female=False, body_morph_scale=1.
                             mix[n] = mix.get(n, 0) + w / (d + 1e-4) / total
                     ws = list(mix.items())
                 if hanging:
-                    # Leg and hip weights go to the belly, so the hem hangs straight down from it, not round the thighs.
+                    # Leg, hip, spine and chain weights go to the spine at the vertex's height (#776), so the hem
+                    # hangs straight down from the belly, not round the thighs, and a panel hung from the chest
+                    # still grows with the belly behind it. Both sheets of a two-sided panel move alike.
                     merged = {}
+                    torso = 0.0
                     for n, w in ws:
-                        n = "spine_01" if n in LEG_BONES or n == "pelvis" else n
-                        merged[n] = merged.get(n, 0) + w
+                        if n in LEG_BONES or n in TORSO_BONES or n.startswith(CHAIN_PREFIXES):
+                            torso += w
+                        else:
+                            merged[n] = merged.get(n, 0) + w
+                    for n, w in spine_at(p.z, axes):
+                        merged[n] = merged.get(n, 0) + w * torso
                     ws = list(merged.items())
                 offset = Vector()
                 for n, w in ws:
