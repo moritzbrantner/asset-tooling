@@ -1972,17 +1972,46 @@ def build_authored(animal, collection):
     return armature, [mesh], actions
 
 
-# ---------------------------------------------------------------- organic surface (#782)
+# ---------------------------------------------------------------- organic surface (#782, #779)
 
-# Material -> (detail, metres per texture repeat, roughness). Each listed material multiplies its colour by a small
-# tileable greyscale detail texture (glTF baseColorTexture times baseColorFactor), nonmetallic: short hair, wool clumps,
-# horn growth rings or antler grooves, so the coat reads as fur at the game camera rather than smooth plastic or metal.
+# Material -> (detail, metres per texture repeat, roughness); detail None keeps a plain colour. Every animal lists every
+# material and every material ships nonmetallic: the Quaternius GLBs author metallic 0.4 and roughness 0.415, which a PBR
+# renderer draws as dull metal. Each detailed material multiplies its colour by a small tileable greyscale detail texture
+# (glTF baseColorTexture times baseColorFactor), so coats read as hair or wool, the lurker as warty hide, the spider as
+# bristled chitin, the adder as scales and the birds as feathers at the game camera rather than smooth plastic or metal.
+# The textures are shared by kind, so the bundle carries each once.
+EYE = (None, 0, 0.3)
+COAT = lambda tile=0.3, roughness=0.9: ("hair", tile, roughness)
+FEATHERS = lambda palette, animal: {f"{animal.capitalize()}-{key}": (("feather", 0.05 if animal == "songbird" else 0.1, 0.9) if key not in ("beak", "leg", "eye")
+                                                                       else EYE if key == "eye" else ("skin", 0.04, 0.7) if key == "leg" else (None, 0, 0.55))
+                                    for key in palette}
 ORGANIC = {
-    "stag": {"Material": ("hair", 0.3, 0.85), "Material.003": ("hair", 0.3, 0.85), "Material.010": ("hair", 0.3, 0.85),
-             "Material.001": ("antler", 0.2, 0.7)},
+    "stag": {"Material.002": COAT(), "Material.003": COAT(), "Material.010": COAT(), "Material.001": ("antler", 0.2, 0.7), "Material.011": EYE},
+    "doe": {"Main": COAT(), "Main_Light": COAT(), "Main_Dark": COAT(), "Hooves": (None, 0, 0.7), "Eye_Lighter": EYE, "Eye_Black": EYE, "Eye_White": EYE},
+    "fox": {"Main": COAT(0.16), "Main_Light": COAT(0.16), "Grey": COAT(0.16), "Black": COAT(0.16), "Eyes": EYE},
+    "wolf": {"Main": COAT(0.22), "Main_Light": COAT(0.22), "Eyes_Black": EYE, "Nose": (None, 0, 0.5)},
+    "rat": {"Grey": COAT(0.1), "Pink": ("skin", 0.06, 0.7)},
+    "rabbit": {"Rabbit-fur": COAT(0.1), "Rabbit-pale": COAT(0.1), "Rabbit-pink": ("skin", 0.06, 0.7), "Rabbit-dark": EYE},
+    "boar": {"Boar-coat": COAT(0.2, 0.95), "Boar-dark": COAT(0.2, 0.95), "Boar-snout": ("skin", 0.12, 0.7), "Boar-tusk": ("horn", 0.06, 0.55),
+             "Boar-eye": EYE},
+    "bear": {"Bear-fur": COAT(0.3, 0.95), "Bear-dark": COAT(0.3, 0.95), "Bear-muzzle": COAT(0.16), "Bear-nose": (None, 0, 0.45),
+             "Bear-claw": ("horn", 0.05, 0.55), "Bear-mouth": ("skin", 0.1, 0.6), "Bear-eye": EYE},
+    "spider": {"Spider-body": ("chitin", 0.16, 0.6), "Spider-dark": ("chitin", 0.16, 0.6), "Spider-band": ("chitin", 0.16, 0.6),
+               "Spider-mark": ("chitin", 0.16, 0.6), "Spider-eye": (None, 0, 0.2), "Spider-fang": ("horn", 0.04, 0.45)},
+    "marsh-lurker": {"MarshLurker-back": ("hide", 0.14, 0.6), "MarshLurker-dark": ("hide", 0.14, 0.6), "MarshLurker-belly": ("skin", 0.1, 0.55),
+                     "MarshLurker-eye": (None, 0, 0.25), "MarshLurker-pupil": EYE, "MarshLurker-mouth": ("skin", 0.06, 0.5),
+                     "MarshLurker-tooth": (None, 0, 0.5)},
+    "lynx": {"Lynx-coat": COAT(0.16), "Lynx-pale": COAT(0.16), "Lynx-spot": COAT(0.16), "Lynx-dark": COAT(0.16), "Lynx-eye": EYE,
+             "Lynx-mouth": ("skin", 0.06, 0.6), "Lynx-tooth": (None, 0, 0.5)},
+    "marsh-adder": {"Adder-scale": ("scales", 0.08, 0.6), "Adder-zig": ("scales", 0.08, 0.6), "Adder-belly": ("scales", 0.08, 0.55),
+                    "Adder-eye": (None, 0, 0.25), "Adder-mouth": ("skin", 0.04, 0.5), "Adder-tongue": (None, 0, 0.5), "Adder-fang": (None, 0, 0.45)},
     "highland-ram": {"Ram-wool": ("wool", 0.24, 0.95), "Ram-fringe": ("wool", 0.2, 0.95), "Ram-face": ("hair", 0.16, 0.8),
-                     "Ram-muzzle": ("hair", 0.16, 0.8), "Ram-horn": ("horn", 0.08, 0.6)},
+                     "Ram-muzzle": ("hair", 0.16, 0.8), "Ram-horn": ("horn", 0.08, 0.6), "Ram-hoof": (None, 0, 0.8), "Ram-eye": (None, 0, 0.8)},
+    **{bird: FEATHERS(BIRD_SPECS[bird]["palette"], bird) for bird in BIRDS},
 }
+# The authored animals built from rigid parts shade smooth within SMOOTH_ANGLE and keep sharp creases (tube caps) beyond
+# it, so their ellipsoids read as rounded bodies rather than faceted, polished solids. The ram sets its own smoothing.
+SMOOTH_ANGLE = 75.0
 DETAIL_SIZE = 128
 HORN_RINGS = 20  # growth rings along a whole curl of the ram's horn
 
@@ -2020,9 +2049,44 @@ def detail_texel(kind, x, y):
         ring = 0.5 + 0.5 * math.cos(2 * math.pi * (8 * y + 0.3 * tile_noise(x, y, 4, 8, 8)))
         b = 0.8 + 0.16 * ring + 0.22 * (tile_noise(x, y, 32, 16, 9) - 0.5)
         return b, b * 0.98, b * 0.93
-    # antler: grooves along v and a rough burr
-    b = 0.66 + 0.4 * tile_noise(x, y, 24, 3, 10) + 0.14 * (tile_noise(x, y, 64, 64, 11) - 0.5)
-    return b, b, b * 0.98
+    if kind == "antler":  # grooves along v and a rough burr
+        b = 0.66 + 0.4 * tile_noise(x, y, 24, 3, 10) + 0.14 * (tile_noise(x, y, 64, 64, 11) - 0.5)
+        return b, b, b * 0.98
+    if kind == "skin":  # soft blotches, ruddier where darker, with a fine pore grain
+        m = tile_noise(x, y, 6, 6, 12)
+        b = 0.9 + 0.16 * (m - 0.5) + 0.08 * (tile_noise(x, y, 48, 48, 13) - 0.5)
+        return b * (1.0 + 0.04 * (0.5 - m)), b, b * (0.97 + 0.06 * m)
+    if kind == "feather":  # overlapping rows of round-tipped feathers, darker at each tip's rim, with barbs along v
+        row = math.floor(y * 8)
+        fx = x * 6 + 0.5 * (row % 2)
+        cx, cy = fx - math.floor(fx) - 0.5, y * 8 - row
+        rim = smoothstep(0.7, 0.95, cy + 1.2 * cx * cx)
+        b = (0.98 - 0.3 * rim + 0.1 * (tile_noise(x, y, 48, 6, 14) - 0.5)) * (0.9 + 0.16 * tile_noise(x, y, 4, 4, 15))
+        return b, b * 0.98, b * 0.95
+    if kind == "hide":  # the lurker's warty amphibian hide: raised pale-topped warts with dark rims over large mottling
+        w = 0.65 * tile_noise(x, y, 14, 14, 16) + 0.35 * tile_noise(x, y, 28, 28, 17)
+        wart, rim = smoothstep(0.58, 0.7, w), smoothstep(0.5, 0.58, w) - smoothstep(0.58, 0.66, w)
+        b = (0.92 + 0.22 * wart - 0.22 * rim) * (0.78 + 0.34 * tile_noise(x, y, 3, 3, 18))
+        return b * (1.0 - 0.04 * wart), b, b * (0.92 + 0.06 * wart)
+    if kind == "chitin":  # the spider's segmented plates with dark seams across v, a dull sheen mottle and fine bristles
+        seam = smoothstep(0.82, 0.97, 0.5 + 0.5 * math.cos(2 * math.pi * (6 * y + 0.25 * tile_noise(x, y, 3, 6, 19))))
+        bristle = 0.5 * tile_noise(x, y, 64, 8, 20) + 0.5 * tile_noise(x, y, 128, 16, 21)
+        b = (0.95 - 0.45 * seam + 0.42 * (bristle - 0.5)) * (0.86 + 0.26 * tile_noise(x, y, 4, 4, 22))
+        return b, b * 0.97, b * 0.92
+    # scales: staggered rows of keeled oval scales across v, each darker at its rim, with a slight per-scale tint
+    row = math.floor(y * 10)
+    fx = x * 8 + 0.5 * (row % 2)
+    cell = math.floor(fx)
+    cx, cy = fx - cell - 0.5, y * 10 - row - 0.5
+    rim = smoothstep(0.32, 0.5, math.hypot(cx * 1.15, cy))
+    tint = lattice(cell % 8, row % 10, 23)
+    b = (1.0 - 0.36 * rim + 0.12 * (0.5 - abs(cx)) - 0.06) * (0.9 + 0.14 * tint)
+    return b, b * 0.98, b * 0.93
+
+
+def smoothstep(a, b, v):
+    s = min(max((v - a) / (b - a), 0.0), 1.0)
+    return s * s * (3 - 2 * s)
 
 
 def detail_image(name, kind):
@@ -2038,20 +2102,28 @@ def detail_image(name, kind):
 
 
 def organic_surface(animal, meshes):
-    """UV-map ``meshes`` (box-projected at the shipped size; the ram's horns along their curl) and give each material in
-    ``ORGANIC`` its detail texture."""
+    """UV-map ``meshes`` (box-projected at the shipped size; the ram's horns along their curl), give every material its
+    ``ORGANIC`` roughness, metallic 0 and detail texture, and smooth the authored animals' rigid parts."""
     spec = ORGANIC[animal]
+    missing = sorted({s.material.name for obj in meshes for s in obj.material_slots if s.material} - set(spec))
+    if missing:
+        raise ValueError(f"{animal}: ORGANIC lists no surface for {missing}")
     zs = [(obj.matrix_world @ v.co).z for obj in meshes for v in obj.data.vertices]
-    metre = ANIMALS[animal]["height"] / (max(zs) - min(zs))  # metres per world unit once shipped
+    height = ANIMALS[animal]["height"]
+    metre = height / (max(zs) - min(zs)) if height else 1.0  # metres per world unit once shipped
     for obj in meshes:
         mesh = obj.data
+        if ANIMALS[animal]["format"] == "authored" and animal != "highland-ram":
+            mesh.shade_smooth()
+            mesh.set_sharp_from_angle(angle=math.radians(SMOOTH_ANGLE))
         layer = mesh.uv_layers.get("UVMap") or mesh.uv_layers.new(name="UVMap")
         normals = obj.matrix_world.to_3x3().inverted().transposed()
         for poly in mesh.polygons:
             material = obj.material_slots[poly.material_index].material if obj.material_slots else None
             kind, tile, _ = spec.get(material.name if material else "", ("hair", 0.3, 0.8))
+            tile = tile or 0.3
             points = [obj.matrix_world @ mesh.vertices[mesh.loops[i].vertex_index].co for i in poly.loop_indices]
-            if kind == "horn":
+            if kind == "horn" and animal == "highland-ram":
                 # Rings follow the angle round the curl's centre, unwrapped about the face's own angle.
                 centre = sum(points, Vector((0, 0, 0))) / len(points)
                 mid = math.atan2(centre.z - RAM_HORN[1], centre.x - RAM_HORN[0])
@@ -2066,13 +2138,17 @@ def organic_surface(animal, meshes):
                 a, b = (p[k] for k in range(3) if k != axis)
                 layer.data[i].uv = (a * metre / tile, b * metre / tile)
     images = {}
-    materials = {slot.material.name: slot.material for obj in meshes for slot in obj.material_slots if slot.material and slot.material.name in spec}
+    materials = {slot.material.name: slot.material for obj in meshes for slot in obj.material_slots if slot.material}
     for name in sorted(materials):
         kind, _, roughness = spec[name]
-        if kind not in images:
-            images[kind] = detail_image(f"{animal}-{kind}", kind)
         tree = materials[name].node_tree
         shader = next(n for n in tree.nodes if n.type == "BSDF_PRINCIPLED")
+        shader.inputs["Roughness"].default_value = roughness
+        shader.inputs["Metallic"].default_value = 0.0
+        if kind is None:
+            continue
+        if kind not in images:
+            images[kind] = detail_image(f"{animal}-{kind}", kind)
         texture = tree.nodes.new("ShaderNodeTexImage")
         texture.image = images[kind]
         mix = tree.nodes.new("ShaderNodeMix")
@@ -2081,8 +2157,6 @@ def organic_surface(animal, meshes):
         mix.inputs[7].default_value = shader.inputs["Base Color"].default_value
         tree.links.new(texture.outputs["Color"], mix.inputs[6])
         tree.links.new(mix.outputs[2], shader.inputs["Base Color"])
-        shader.inputs["Roughness"].default_value = roughness
-        shader.inputs["Metallic"].default_value = 0.0
 
 
 # ---------------------------------------------------------------- shared

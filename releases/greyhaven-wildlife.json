@@ -1,5 +1,5 @@
 {
-  "note": "#782: measured 96 materials, 0.33 MB of textures and an 8.16 MB download with the highland ram, the stag's combat clips and their detail textures.",
+  "note": "#779: measured 96 materials, 9 shared detail textures (0.75 MB of GPU texture memory) and a 7.84 MB download (8.31 MB tar) with every animal nonmetallic and textured; no material was added, so the allowance stays used up.",
   "script": "scripts/build-greyhaven-wildlife.ts",
   "blender": true,
   "lfs": true,
