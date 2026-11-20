@@ -48,8 +48,10 @@ test("parts sharing a material and binding join into one primitive; named parts 
   assert.deepEqual(Array.from(primitive!.getAttribute("COLOR_0")!.getArray()!).slice(0, 4), [1, 1, 1, 1]);
   assert.deepEqual(Array.from(primitive!.listTargets()[0]!.getAttribute("POSITION")!.getArray()!), [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 2, 0, 0, 2, 0]);
   assert.deepEqual(mergedMesh.getExtras(), { targetNames: ["build.heavy"] });
-  // The merged document still writes as valid glTF.
-  await new NodeIO().writeBinary(document);
+  // The merged document still writes as valid glTF, and its targets keep their names there (#776).
+  const written = await new NodeIO().readBinary(await new NodeIO().writeBinary(document));
+  const writtenMesh = written.getRoot().listMeshes().find((mesh) => mesh.getName() === "merged.cloth")!;
+  assert.deepEqual(writtenMesh.getExtras(), { targetNames: ["build.heavy"] });
 });
 
 test("nothing merges across materials, kept names or differing morph target names", async () => {
