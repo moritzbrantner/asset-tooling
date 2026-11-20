@@ -97,8 +97,11 @@ export async function mergeSkinnedParts(document: Document, { keep }: { keep: Re
       const sample = group.map(({ primitive }) => primitive.getAttribute(semantic)).find((accessor) => accessor)!;
       out.setAttribute(semantic, concat(sample, (primitive) => primitive.getAttribute(semantic), semantic === "COLOR_0" ? 1 : 0));
     }
+    // #776: each target keeps its name. glTF-Transform writes `extras.targetNames` from the target names, so an unnamed
+    // target shipped as '0', '1', … and a consumer setting `build.heavy` by name left the merged body unmorphed.
+    const targetNames: string[] = (first.node.getMesh()!.getExtras() as Json).targetNames ?? [];
     for (let t = 0; t < first.primitive.listTargets().length; t++) {
-      const target = document.createPrimitiveTarget();
+      const target = document.createPrimitiveTarget(targetNames[t] ?? first.primitive.listTargets()[t]!.getName());
       for (const semantic of first.primitive.listTargets()[t]!.listSemantics()) {
         const sample = first.primitive.listTargets()[t]!.getAttribute(semantic)!;
         // Targets move few vertices; sparse storage writes only those, as the sources did.
