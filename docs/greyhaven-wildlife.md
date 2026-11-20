@@ -161,7 +161,7 @@ Attached as `wildlife-descriptor` to `greyhaven.wild.stag/default` and written b
 
 ## Release
 
-CI publishes the rolling `greyhaven-wildlife` release when the recipe merges ([Publishing a rolling release](../README.md#publishing-a-rolling-release)). `releases/greyhaven-wildlife.json` holds its budget: 96 materials, 1 MB of textures, 9 MB download (measured 96 materials, 0.33 MB of textures and 8.16 MB with the highland ram and the stag's combat clips, #782; the material allowance is now used up).
+CI publishes the rolling `greyhaven-wildlife` release when the recipe merges ([Publishing a rolling release](../README.md#publishing-a-rolling-release)). `releases/greyhaven-wildlife.json` holds its budget: 96 materials, 1 MB of textures, 9 MB download (measured 96 materials, 0.75 MB of textures in nine shared detail textures and 7.84 MB with every animal textured, #779; the organic surface added no material, so the allowance stays used up).
 
 `test/blender/greyhaven-wildlife/` builds the real bundle and checks the keys, one skin with every mesh skinned and the expected clips per animal, one-shot attacks that land inside their clip, a death of at least a second, grounded and centred bounds, the +Z facing, the heights (the adder's length), the collision boxes, the lynx's and adder's root motion, the stag's and ram's charges and `combat` flag, in-place walks, the triangle counts, provenance and a byte-identical replay. It skips without Blender or with unhydrated sources.
 
