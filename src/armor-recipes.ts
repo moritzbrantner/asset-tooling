@@ -10,7 +10,7 @@ import { readBlenderRecipeSource } from "./blender-recipe-source.js";
  * The resident kits (#376) use the same fitting for plain clothes: the farmer's smock, the innkeeper's apron and the
  * monk's habit, each with a belt as its one rigid piece. The facial hair moved to `male-variety.ts` (#380).
  *
- * The class kits (#379) are the seven mmorpg class starter outfits in the Greyhaven Marshal's style: long robes,
+ * The class kits (#379) are the mmorpg class starter outfits in the Greyhaven Marshal's style (the Tinker's, #775, on both figures): long robes,
  * jerkins over straight work trousers, hoods, mantles, cloaks and long sleeves cut from or fitted to the Peasant base,
  * each with a recolourable `class` colour slot.
  *
@@ -21,26 +21,26 @@ import { readBlenderRecipeSource } from "./blender-recipe-source.js";
  * The tanner kit (#378) is the female figure's: an ankle-length work skirt and a long leather apron with a leather
  * belt over the Female_Peasant outfit.
  */
-export type ArmorClassKit = "class.warden" | "class.ranger" | "class.arcanist" | "class.necromancer" | "class.rogue" | "class.cleric" | "class.druid";
+export type ArmorClassKit = "class.warden" | "class.ranger" | "class.arcanist" | "class.necromancer" | "class.rogue" | "class.cleric" | "class.druid" | "class.tinker";
 export type ArmorMaleKit = "soldier" | "knight" | "farmer" | "innkeeper" | "monk" | ArmorClassKit;
-/** The female base reuses the knight fit (#630); no separate class wardrobe is implied. */
-export type ArmorFemaleKit = "tanner" | "knight";
+/** The female base reuses the knight fit (#630) and wears the Tinker's class outfit (#775); no other class wardrobe is implied. */
+export type ArmorFemaleKit = "tanner" | "knight" | "class.tinker";
 export type ArmorOutfitKit = ArmorMaleKit | ArmorFemaleKit;
 export type ArmorKit = ArmorOutfitKit;
 export type ArmorOutput = "plates" | "cloth";
 export type ArmorParameters = { schemaVersion: 1; kit: ArmorKit; output: ArmorOutput };
 /** The class starter outfits (#379), in mmorpg's class order. */
-export const ARMOR_CLASS_KITS: readonly ArmorClassKit[] = ["class.warden", "class.ranger", "class.arcanist", "class.necromancer", "class.rogue", "class.cleric", "class.druid"];
+export const ARMOR_CLASS_KITS: readonly ArmorClassKit[] = ["class.warden", "class.ranger", "class.arcanist", "class.necromancer", "class.rogue", "class.cleric", "class.druid", "class.tinker"];
 /** The kits that dress the male Peasant base as an outfit variant, in bundle order. */
 export const ARMOR_OUTFIT_KITS: readonly ArmorMaleKit[] = ["soldier", "knight", "farmer", "innkeeper", "monk", ...ARMOR_CLASS_KITS];
-/** The kits that dress the female Peasant base (#378, #630), in bundle order. */
-export const ARMOR_FEMALE_OUTFIT_KITS: readonly ArmorFemaleKit[] = ["tanner", "knight"];
+/** The kits that dress the female Peasant base (#378, #630, #775), in bundle order. */
+export const ARMOR_FEMALE_OUTFIT_KITS: readonly ArmorFemaleKit[] = ["tanner", "knight", "class.tinker"];
 export const ARMOR_KITS: readonly ArmorKit[] = [...new Set([...ARMOR_OUTFIT_KITS, ...ARMOR_FEMALE_OUTFIT_KITS])];
 /** Outfit labels for the appearance descriptor. */
 export const ARMOR_KIT_LABELS = {
   soldier: "Soldier", knight: "Knight", farmer: "Farmer", innkeeper: "Innkeeper", monk: "Monk",
   "class.warden": "Warden", "class.ranger": "Ranger", "class.arcanist": "Arcanist", "class.necromancer": "Necromancer",
-  "class.rogue": "Rogue", "class.cleric": "Cleric", "class.druid": "Druid", tanner: "Tanner",
+  "class.rogue": "Rogue", "class.cleric": "Cleric", "class.druid": "Druid", "class.tinker": "Tinker", tanner: "Tanner",
 } as const satisfies Record<ArmorOutfitKit, string>;
 /** The class kits' hood garments: shown as the `outfit.hood` part, so hair that needs the hood off hides under them. */
 export const ARMOR_CLASS_HOODS: readonly string[] = ["class.ranger.hood", "class.rogue.hood", "class.necromancer.hood"];

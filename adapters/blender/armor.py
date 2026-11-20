@@ -34,8 +34,10 @@ import bpy
 import numpy
 from mathutils import Matrix, Quaternion, Vector, kdtree
 
-# Class starter outfits (#379): the seven mmorpg classes over the same Peasant base, in the Greyhaven Marshal's style.
-CLASS_KITS = ("class.warden", "class.ranger", "class.arcanist", "class.necromancer", "class.rogue", "class.cleric", "class.druid")
+# Class starter outfits (#379): the mmorpg classes over the same Peasant base, in the Greyhaven Marshal's style (the
+# Tinker, #775, for both figures).
+CLASS_KITS = ("class.warden", "class.ranger", "class.arcanist", "class.necromancer", "class.rogue", "class.cleric", "class.druid",
+              "class.tinker")
 KITS = ("soldier", "knight", "farmer", "innkeeper", "monk", *CLASS_KITS, "redbrand", "tanner")
 # Resident outfits (#376): plain clothes over the Peasant base; their only rigid piece is a belt. The tanner (#378) is
 # the female figure's: a long work skirt and a leather apron over the Female_Peasant outfit.
@@ -910,7 +912,7 @@ def linear(code):
 # The class colour slot ``class`` and its default per kit (mmorpg's class looks): the tabard, sash, mantle or leaves that
 # keep the class readable when armour drops replace other pieces.
 CLASS_TRIM = {"class.warden": "#3f5f57", "class.ranger": "#2f5a2c", "class.arcanist": "#6f6a96", "class.necromancer": "#4b3e5e",
-              "class.rogue": "#6b2a26", "class.cleric": "#c9a23e", "class.druid": "#53613a"}
+              "class.rogue": "#6b2a26", "class.cleric": "#c9a23e", "class.druid": "#53613a", "class.tinker": "#8c5a2e"}
 MATERIALS.update({name: (linear(code), metallic, roughness) for name, (code, metallic, roughness) in {
     "class": ("#808080", 0.0, .8),
     "jerkin.green": ("#4b5634", 0.0, .75), "jerkin.charcoal": ("#2e2b29", 0.0, .78),
@@ -922,6 +924,8 @@ MATERIALS.update({name: (linear(code), metallic, roughness) for name, (code, met
     "robe.ivory": ("#d6cdb8", 0.0, .85), "sleeve.ivory": ("#e0d8c4", 0.0, .85), "tabard.white": ("#f4f1e8", 0.0, .8),
     "robe.moss": ("#4b4f3a", 0.0, .92), "sleeve.moss": ("#4f4a37", 0.0, .92), "bark": ("#4a3a26", 0.0, .95),
     "antler": ("#b9a888", 0.0, .7), "bone": ("#ddd5bd", 0.0, .6), "gold": ("#d9b44a", 1.0, .35), "sash.gold": ("#b08a3e", .3, .5),
+    # The Tinker (#775): a woad-dyed work shirt, and the corked flasks' glass, coloured by what is in them.
+    "shirt.woad": ("#4f5d68", 0.0, .88), "glass.volatile": ("#c8641c", 0.0, .15), "glass.caustic": ("#6f9a2c", 0.0, .15),
 }.items()})
 TABARDS = {"knight.tabard", "class.warden.tabard", "class.cleric.tabard"}
 HANGING_ARM = {f"{joint}_{side}" for joint in ("upperarm", "lowerarm", "hand") for side in "lr"}
@@ -944,6 +948,40 @@ SETTLE["class.ranger.cloak"] = (.6, 1.05, .82)
 HOODS = {"class.ranger": {"clearance": .03, "crown": .05, "peak": .035, "drape": .3, "slot": "wool.olive"},
          "class.rogue": {"clearance": .022, "crown": .04, "peak": .02, "drape": .22, "slot": "wool.charcoal"},
          "class.necromancer": {"clearance": .045, "crown": .085, "peak": .075, "drape": .4, "slot": "robe.black"}}
+# The Tinker (#775), a rural artisan-inventor: a hip-length woad shirt over the work trousers, its sleeves rolled to the
+# elbow, and over it a leather work apron to mid-thigh in the class colour (the piece that keeps the class readable), a
+# leather bandolier of corked flasks from the right shoulder to the left hip, a hammer and tongs in loops at the thighs,
+# a satchel on the belt behind the left hip and goggles pushed up on the brow. The apron and the bandolier clear the
+# shirt (pushed 12 mm out), and the bandolier clears the apron. Both figures wear it: on the female figure the shirt is
+# her bodice pushed out, and her own long sleeves show under the rolled ones.
+TUNICS["class.tinker.shirt"], HIDES["class.tinker.shirt"] = ("shirt.woad", .012), [SHIRT]
+HIDES["class.tinker.trousers"] = [LEGS]
+TINKER_APRON = {"bib": .105, "skirt": .19, "clearance": .03, "rows": 22, "columns": 15, "smooth": 3}
+TINKER_BANDOLIER = {"clearance": .05, "half": .028}
+# The belt and the satchel hanging from it are one piece: the belt and the flap, the bag, the buckle.
+TINKER_BELT_SLOTS = ("leather", "leather.tan", "iron")
+# Where each figure's pieces sit (glTF metres; x toward the figure's left): the apron's top, waist and hem, and the
+# height its slit runs up to; the shirt's hem; the belt; the bandolier's shoulder and hip ends, its middle and the
+# chest span it rides; the satchel's centre; how far out the tools hang. The female figure is shorter, with a higher
+# waist for her height, narrower shoulders and wider hips (her Peasant joints and the tanner's fit, #378).
+TINKER_FIGURE = {
+    "male": {"top": 1.37, "waist": 1.03, "hem": .6, "slit": .9, "shirt": .93, "belt": (.985, 1.03), "shoulder": (.13, 1.5),
+             "hip": (.15, .99), "middle": 1.25, "chest": (1.25, 1.4), "satchel": (.14, .925), "tools": .135, "skirt": .19},
+    "female": {"top": 1.3, "waist": 1.0, "hem": .56, "slit": .83, "shirt": .9, "belt": (.975, 1.02), "shoulder": (.09, 1.36),
+               "hip": (.16, .95), "middle": 1.16, "chest": (1.16, 1.3), "satchel": (.16, .9), "tools": .155, "skirt": .2},
+}
+
+
+def tinker_figure():
+    """The Tinker's placements on the target's figure, and the skirt weights that follow from them (#775): a farrier's
+    split apron, slit up the middle below the crotch, each leg panel following its own thigh fully from just below the
+    waist (like a tasset), so a running knee lifts its panel instead of passing through the leather."""
+    f = TINKER_FIGURE["female" if SHIRT == FIGURES["female"][0] else "male"]
+    SETTLE["class.tinker.shirt"], STRIDE["class.tinker.shirt"] = (.3, 1.0, f["shirt"]), (1.0, 1.0, f["shirt"], .03)
+    SETTLE["class.tinker.apron"], STRIDE["class.tinker.apron"] = (.3, f["waist"] - .03, f["hem"]), (5.0, f["waist"], f["hem"], .001)
+    return f, {**TINKER_APRON, "top": f["top"], "waist": f["waist"], "hem": f["hem"], "skirt": f["skirt"]}
+# The flasks on the bandolier (where along it from the left hip, 0, to the right shoulder, 1) and their glass.
+TINKER_FLASKS = ((.58, "glass.volatile"), (.67, "glass.caustic"), (.76, "glass.volatile"), (.85, "glass.caustic"))
 
 
 def scene_mesh(name):
@@ -1234,14 +1272,35 @@ def hood_surface(body, spec):
     return surface, mask, (chin - .03, chin + .03)
 
 
-def sash(body, mirror=1):
-    """A sash from one shoulder to the other hip, like the soldier's (#309), over a jerkin."""
+def sash(body, mirror=1, clearance=.03, half=.035, ends=((.13, 1.5), (.15, .99), 1.25)):
+    """A sash from one shoulder to the other hip, like the soldier's (#309), over a jerkin (or the Tinker's bandolier
+    over the apron: ``clearance`` from the body, ``half`` its half-width, ``ends`` its shoulder and hip and its middle's
+    height on the figure)."""
+    (sx, sy), (hx, hy), my = ends
     torso = body.select(["spine_01", "spine_02", "spine_03", "clavicle_l", "clavicle_r", "pelvis"], meshes=[SHIRT], minimum=.5)
-    middle = Vector((0, 1.25, float(body.array[torso][:, 2].mean())))
-    shoulder, hip = Vector((.13 * mirror, 1.5, 0)), Vector((-.15 * mirror, .99, 0))
+    middle = Vector((0, my, float(body.array[torso][:, 2].mean())))
+    shoulder, hip = Vector((sx * mirror, sy, 0)), Vector((-hx * mirror, hy, 0))
     along = (shoulder - hip).normalized()
     normal = Vector((along.y, -along.x, 0))
-    return ring_grid(body, torso, middle - normal * .035, middle + normal * .035, FRONT, along, (0, 1), 3, None, 40, .03, slab=.03)
+    return ring_grid(body, torso, middle - normal * half, middle + normal * half, FRONT, along, (0, 1), 3, None, 40, clearance, slab=.03)
+
+
+def rolled_sleeves(rig, slot, offset=.014):
+    """The Tinker's rolled sleeves (#775): the Peasant arms from the shoulder to just past the elbow pushed out, ending in
+    a thick roll of cloth that turns out and back over itself; the forearms stay bare (the Peasant's own)."""
+    shoulder, elbow = rig.at("upperarm_l").x, rig.at("lowerarm_l").x
+    end = elbow + .035
+    garment = Derived(scene_mesh(ARMS), lambda p: shoulder + .01 < abs(p.x) < end, offset, [slot])
+    axis = rig.at("lowerarm_l")
+
+    def row(out, along):
+        def place(p):
+            s = 1 if p.x > 0 else -1
+            radial = Vector((0, p.y - axis.y, p.z - axis.z)).normalized()
+            return p + Vector((s * along, 0, 0)) + radial * out
+        return place
+    garment.hang(lambda p: abs(p.x) > end - .03, [row(.008, .002), row(.017, .012), row(.016, .026), row(.006, .034), row(-.004, .03)])
+    return garment
 
 
 def class_robe(body, kit, tatter=0.0):
@@ -1310,13 +1369,28 @@ def class_cloth(body, rig, kit):
         garments.append((f"{kit}.sleeves", None, sleeves(rig, "sleeve.moss", flare=.04, tatter=.4), None))
         cape = drape_surface(body, 1.28, 1.17, flare=.035, tatter=.5)
         garments.append((f"{kit}.mantle", "bark", cape, None, {**drape, "slots": ["class"], "decorate": leaves(cape)}))
+    if kit == "class.tinker":
+        figure, spec = tinker_figure()
+        # Short below the belt, so the shirt tucks under the apron instead of showing through it.
+        garments.append((f"{kit}.shirt", "shirt.woad", tunic_skirt(body, figure["shirt"], .008, 3), None))
+        garments.append((f"{kit}.trousers", None, trousers(body, rig, "trousers.brown"), None))
+        garments.append((f"{kit}.sleeves", None, rolled_sleeves(rig, "shirt.woad"), None))
+        apron = apron_surface(body, spec)
+        grid = apron["grid"]
+
+        def slit(i, j):
+            middle = (grid[i][j] + grid[i + 1][j + 1]) / 2
+            return not (abs(middle.x) < .02 and middle.y < figure["slit"])
+        garments.append((f"{kit}.apron", "class", apron, slit, {"torso": True}))
+        garments.append((f"{kit}.bandolier", "leather", tinker_bandolier(body, figure), None,
+                         {"torso": True, "follow": ("spine_03", *figure["chest"])}))
     return garments
 
 
-def class_belt(body, name, slot, clearance):
+def class_belt(body, name, slot, clearance, heights=(.985, 1.03)):
     waist = body.select(["pelvis", "spine_01", "thigh_l", "thigh_r"], meshes=[SHIRT, LEGS], minimum=.5)
     centre = Vector((0, 0, float(body.array[waist][:, 2].mean())))
-    belt = ring_grid(body, waist, centre + Vector((0, .985, 0)), centre + Vector((0, 1.03, 0)), FRONT, Vector((1, 0, 0)),
+    belt = ring_grid(body, waist, centre + Vector((0, heights[0], 0)), centre + Vector((0, heights[1], 0)), FRONT, Vector((1, 0, 0)),
                      (0, 1), 3, None, 28, clearance, slab=.03)
     return (name, "pelvis", slot, belt, None, None, .006)
 
@@ -1369,8 +1443,13 @@ def class_plates(body, rig, kit):
     pieces = []
     robed = kit in CLASS_ROBES
     belt = {"class.ranger": "leather", "class.rogue": "leather", "class.arcanist": "sash.gold", "class.necromancer": "leather",
-            "class.cleric": "gold", "class.druid": "rope"}[kit]
-    pieces.append(class_belt(body, f"{kit}.belt", belt, .032 if robed else .03))
+            "class.cleric": "gold", "class.druid": "rope", "class.tinker": "leather"}[kit]
+    if kit == "class.tinker":
+        # The Tinker's belt goes over the apron's waist, at the figure's own waist (#775).
+        name, joint, _slot, *fit = class_belt(body, f"{kit}.belt", belt, .04, tinker_figure()[0]["belt"])
+        pieces.append((name, joint, TINKER_BELT_SLOTS, *fit))
+    else:
+        pieces.append(class_belt(body, f"{kit}.belt", belt, .032 if robed else .03))
     if kit in ("class.ranger", "class.rogue"):
         for side, _s in SIDES:
             if kit == "class.ranger":
@@ -1447,6 +1526,95 @@ def class_plates(body, rig, kit):
                 builder.spike(q, p2 + Vector((-.03 * s, .05, -.03)), .005, .002, 0)
         pieces.append((f"{kit}.antler-circlet", "Head", "antler", circlet, None, None, .005))
         pieces.append((f"{kit}.antler-circlet", "Head", "antler", antlers, None, None, 0))
+    if kit == "class.tinker":
+        pieces += tinker_plates(body, rig)
+    return pieces
+
+
+def surface_front(surface, x, y):
+    """The outermost (+z) point of a fitted surface's grid near (x, y): where a rigid piece sits on a garment (#775)."""
+    points = [p for row in surface["grid"] for p in row if abs(p.x - x) < .04 and abs(p.y - y) < .04]
+    return max(points, key=lambda p: p.z - .2 * Vector((p.x - x, p.y - y, 0)).length)
+
+
+def tinker_bandolier(body, figure):
+    """The Tinker's bandolier: a narrow leather sash from the right shoulder to the left hip, clear of the apron."""
+    return sash(body, -1, TINKER_BANDOLIER["clearance"], TINKER_BANDOLIER["half"], (figure["shoulder"], figure["hip"], figure["middle"]))
+
+
+def tinker_plates(body, rig):
+    """The Tinker's rigid pieces (#775): the corked flasks on the bandolier (riding the chest), a hammer and tongs in
+    loops on the apron at the thighs, a satchel on the belt behind the left hip and goggles pushed up on the brow."""
+    kit, pieces = "class.tinker", []
+    figure, spec = tinker_figure()
+    # The flasks stand in front of the bandolier: a round-bellied vial, its neck and a cork, in a leather loop.
+    shoulder, hip = Vector((-figure["shoulder"][0], figure["shoulder"][1], 0)), Vector((figure["hip"][0], figure["hip"][1], 0))
+    bandolier = tinker_bandolier(body, figure)
+    flasks = []
+    for t, glass in TINKER_FLASKS:
+        p = hip + (shoulder - hip) * t
+        flasks.append((surface_front(bandolier, p.x, p.y) + Vector((0, 0, .017)), 1 if glass == "glass.caustic" else 0))
+
+    def flask(builder):
+        for centre, glass in flasks:
+            builder.blob(centre, .017, glass, (1, 1.3, .85), 2)
+            builder.spike(centre + Vector((0, .018, 0)), centre + Vector((0, .034, 0)), .007, .006, glass)
+            builder.spike(centre + Vector((0, .033, 0)), centre + Vector((0, .045, 0)), .008, .007, 2)
+            builder.box(centre + Vector((0, -.002, -.0125)), (.02, .007, .003), 3)
+    pieces.append((f"{kit}.flasks", "spine_03", ("glass.volatile", "glass.caustic", "rope", "leather"), flask, None, None, 0))
+    # The tools hang head up through loops on the apron's front, over the outside of each thigh: a hammer on the right,
+    # tongs on the left. Each rides its thigh, as the apron does there. Heights are the male figure's, moved with the waist.
+    apron = apron_surface(body, spec)
+    lift = figure["waist"] - TINKER_FIGURE["male"]["waist"]
+    for side, s in SIDES:
+        x = figure["tools"] * s
+        front = max(surface_front(apron, x, y + lift).z for y in (.8, .86, .92))
+
+        def tools(builder, s=s, x=x, front=front):
+            z = front + .015
+            builder.box(Vector((x, .88 + lift, front + .005)), (.03, .011, .005), 1)
+            if s < 0:
+                builder.spike(Vector((x, .75 + lift, z)), Vector((x, .94 + lift, z)), .009, .011, 0)
+                builder.box(Vector((x - .008, .958 + lift, z)), (.046, .017, .015), 2)
+            else:
+                for k in (-1, 1):
+                    builder.spike(Vector((x + .007 * k, .76 + lift, z)), Vector((x + .002 * k, .93 + lift, z)), .006, .006, 2)
+                    builder.spike(Vector((x + .002 * k, .93 + lift, z)), Vector((x - .01 * k, .975 + lift, z + .004)), .0065, .004, 2)
+        pieces.append((f"{kit}.tools_{side}", f"thigh_{side}", ("rope", "leather", "iron"), tools, None, None, 0))
+    # The satchel hangs from the belt behind the left hip, part of the belt's piece: a stiff leather bag, its flap and a buckle.
+    hips = body.array[body.select(None, meshes=[SHIRT, LEGS], minimum=0)]
+    sx, sy = figure["satchel"]
+    near = hips[(numpy.abs(hips[:, 0] - sx) < .05) & (numpy.abs(hips[:, 1] - sy) < .06)]
+    # It sits up on the belt, above where the shirt's hem swings with the thighs, its inner face clear of the shirt (12 mm
+    # out) and the trousers.
+    back = float(near[:, 2].min()) - .06
+
+    def satchel(builder):
+        builder.box(Vector((sx, sy, back)), (.07, .055, .028), 1)
+        builder.box(Vector((sx, sy + .03, back - .03)), (.073, .03, .004), 0)
+        builder.box(Vector((sx, sy + .005, back - .036)), (.012, .009, .003), 2)
+    pieces.append((f"{kit}.belt", "pelvis", TINKER_BELT_SLOTS, satchel, None, None, 0))
+    # The goggles pushed up on the brow: a leather strap round the head and two iron-rimmed, smoked lenses on the forehead,
+    # tipped up toward the sky.
+    centre, indices = head_centre(body)
+    brow = centre.y - .055
+    strap = ring_grid(body, indices, Vector((centre.x, brow - .01, centre.z)), Vector((centre.x, brow + .01, centre.z)), FRONT,
+                      Vector((1, 0, 0)), (0, 1), 2, None, 32, .012)
+    head = body.array[indices]
+    lenses = []
+    for _side, s in SIDES:
+        x = centre.x + .034 * s
+        near = head[(numpy.abs(head[:, 0] - x) < .015) & (numpy.abs(head[:, 1] - brow) < .015)]
+        lenses.append(Vector((x, brow, float(near[:, 2].max()) + .012)))
+    facing = Vector((0, .45, 1)).normalized()
+
+    def goggles(builder):
+        for base in lenses:
+            builder.spike(base, base + facing * .016, .021, .019, 1, segments=12)
+            builder.blob(base + facing * .017, .017, 2, (1, 1, .3), 2)
+        builder.spike(lenses[0] + facing * .008, lenses[1] + facing * .008, .004, .004, 1)
+    pieces.append((f"{kit}.goggles", "Head", ("leather", "iron", "mask"), strap, None, None, .004))
+    pieces.append((f"{kit}.goggles", "Head", ("leather", "iron", "mask"), goggles, None, None, 0))
     return pieces
 
 
@@ -1650,6 +1818,12 @@ def geometry_hash(meshes):
     return digest.hexdigest()
 
 
+def hidden(name):
+    """The base nodes a piece hides, on the target's figure: the tables name the male base's (#775)."""
+    figure = FIGURES["female" if SHIRT == FIGURES["female"][0] else "male"]
+    return [figure[FIGURES["male"].index(node)] if node in FIGURES["male"] else node for node in HIDES.get(name, [])]
+
+
 def bounds(points):
     return {"min": [round(min(p[i] for p in points), 6) for i in range(3)], "max": [round(max(p[i] for p in points), 6) for i in range(3)]}
 
@@ -1704,7 +1878,7 @@ def generate(output_path, arguments, inputs):
             triangles = finish_plate(obj, [palette[s] for s in slots])
             exported.append(obj)
             pieces.append({"node": name, "kind": "rigid", "joint": joint, "materials": [m.name for m in obj.data.materials], "triangleCount": triangles,
-                           "bounds": bounds(points), "hides": HIDES.get(name, [])})
+                           "bounds": bounds(points), "hides": hidden(name)})
     else:
         shirt = next(o for o in bpy.context.scene.objects if o.type == "MESH" and o.name == SHIRT)
         for name, slot, surface, mask, *extra in cloth_surfaces(body, rig, kit):
@@ -1713,7 +1887,7 @@ def generate(output_path, arguments, inputs):
                 obj = surface.finish(name, [palette[s] for s in surface.slots], rig_object)
                 exported.append(obj)
                 pieces.append({"node": name, "kind": "skinned", "nodes": [obj.name], "materials": list(surface.slots),
-                               "triangleCount": surface.triangles, "bounds": bounds(surface.points), "hides": HIDES.get(name, [])})
+                               "triangleCount": surface.triangles, "bounds": bounds(surface.points), "hides": hidden(name)})
                 continue
             spec = extra[0] if extra else {}
             slots = [slot] + spec.get("slots", [])
@@ -1775,7 +1949,7 @@ def generate(output_path, arguments, inputs):
                 points += [tuple(to_gltf(copy.matrix_world @ v.co)) for v in shirt_mesh.vertices]
             exported += parts
             pieces.append({"node": name, "kind": "skinned", "nodes": sorted(p.name for p in parts), "materials": slots,
-                           "triangleCount": triangles, "bounds": bounds(points), "hides": HIDES.get(name, [])})
+                           "triangleCount": triangles, "bounds": bounds(points), "hides": hidden(name)})
         exported.append(rig_object)
     for obj in list(bpy.context.scene.objects):
         if obj not in exported:
