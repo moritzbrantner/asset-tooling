@@ -9,7 +9,8 @@ on a small armature, every vertex weighted fully to one bone, with scripted ``Id
 Like the ambient animals (docs/greyhaven-ambient-animals.md): a new root node ``greyhaven.farm.<animal>`` scales the
 animal to its Greyhaven size in metres (measured at the first Idle frame), turns its head to glTF +Z and puts the centre
 of its footprint on the ground at the origin. Every clip loops in place. Farm Animals shades with Diffuse BSDF nodes,
-which the glTF exporter ignores; their colour moves to a matte Principled BSDF. There is no randomness.
+which the glTF exporter ignores; their colour moves to a matte Principled BSDF. Every material ships nonmetallic, coats,
+wool, skin, feathers and horns with a generated detail texture (``ORGANIC``, #781). There is no randomness.
 
 ``prepare(animal, source_path)`` also runs in a live Blender session (``source_path`` is ``None`` for the goat and the
 chicken).
@@ -353,6 +354,150 @@ def build_authored(animal, collection):
     return armature, [mesh], actions
 
 
+# ---------------------------------------------------------------- organic surface (#781)
+
+# Material -> (detail, metres per texture repeat, roughness); detail None keeps a plain colour. Every material ends
+# nonmetallic: the Ultimate Animated Animals GLBs author metallic 0.4 and roughness 0.415 everywhere, which a PBR
+# renderer draws as dull metal. Each detailed material multiplies its colour by a small tileable greyscale detail
+# texture (glTF baseColorTexture times baseColorFactor), so coat, wool, skin and feathers read as different substances
+# at the game camera: short streaked hair, clumped wool locks, soft mottled skin, overlapping feathers and horn rings.
+UAA_ORGANIC = {"Main": ("hair", 0.3, 0.9), "Main_Light": ("hair", 0.3, 0.9), "Main_Dark": ("hair", 0.3, 0.9),
+               "Muzzle": ("skin", 0.2, 0.75), "Hair": ("hair", 0.16, 0.85), "Horns": ("horn", 0.08, 0.6),
+               "Hooves": (None, 0, 0.7), "Eye_Black": (None, 0, 0.3), "Eye_Dark": (None, 0, 0.3), "Eye_White": (None, 0, 0.4)}
+ORGANIC = {
+    "cow": UAA_ORGANIC, "horse": UAA_ORGANIC, "donkey": UAA_ORGANIC,
+    "pig": {"Material.003": ("skin", 0.25, 0.7), "Material.001": (None, 0, 0.7)},
+    "sheep": {"White": ("wool", 0.22, 0.95), "Black": ("hair", 0.16, 0.85)},
+    "goat": {"Goat-coat": ("hair", 0.22, 0.9), "Goat-patch": ("hair", 0.22, 0.9), "Goat-horn": ("horn", 0.06, 0.6),
+             "Goat-dark": (None, 0, 0.6), "Goat-pink": ("skin", 0.1, 0.75)},
+    "chicken": {"Chicken-feather": ("feather", 0.14, 0.9), "Chicken-dark": ("feather", 0.1, 0.9), "Chicken-comb": ("skin", 0.06, 0.7),
+                "Chicken-beak": (None, 0, 0.6), "Chicken-eye": (None, 0, 0.3)},
+}
+# These shade smooth within SMOOTH_ANGLE and keep sharp creases (tube caps, hooves) beyond it: the authored animals' rigid
+# parts and the pig's faceted skin. The sheep keeps its blocky fleece.
+SMOOTHED, SMOOTH_ANGLE = ("goat", "chicken", "pig"), 75.0
+DETAIL_SIZE = 128
+
+
+def lattice(ix, iy, seed):
+    h = (ix * 374761393 + iy * 668265263 + seed * 982451653) & 0xFFFFFFFF
+    h = ((h ^ (h >> 13)) * 1274126177) & 0xFFFFFFFF
+    return ((h ^ (h >> 16)) & 0xFFFF) / 65535.0
+
+
+def tile_noise(x, y, cells_x, cells_y, seed):
+    """Smooth value noise over the unit square that tiles: ``cells_x`` by ``cells_y`` lattice cells."""
+    fx, fy = x * cells_x, y * cells_y
+    ix, iy = math.floor(fx), math.floor(fy)
+    sx, sy = fx - ix, fy - iy
+    sx, sy = sx * sx * (3 - 2 * sx), sy * sy * (3 - 2 * sy)
+    at = lambda a, b: lattice(a % cells_x, b % cells_y, seed)
+    top = at(ix, iy) + (at(ix + 1, iy) - at(ix, iy)) * sx
+    bottom = at(ix, iy + 1) + (at(ix + 1, iy + 1) - at(ix, iy + 1)) * sx
+    return top + (bottom - top) * sy
+
+
+def smoothstep(a, b, v):
+    s = min(max((v - a) / (b - a), 0.0), 1.0)
+    return s * s * (3 - 2 * s)
+
+
+def detail_texel(kind, x, y):
+    """The linear multiplier (r, g, b) of a detail texture at (x, y) in the unit square; about 0.9 on average."""
+    if kind == "hair":  # streaked tufts of short strands along v over a soft mottle, coarse enough to read at the game camera
+        n = 0.45 * tile_noise(x, y, 24, 4, 1) + 0.35 * tile_noise(x, y, 48, 8, 2) + 0.2 * tile_noise(x, y, 96, 16, 3)
+        b = (0.88 + 0.65 * (n - 0.5)) * (0.88 + 0.22 * tile_noise(x, y, 6, 6, 4))
+        return b, b, b * 0.97
+    if kind == "wool":  # clumped locks, darker and warmer in the creases between them
+        c = 0.5 * tile_noise(x, y, 16, 16, 5) + 0.3 * tile_noise(x, y, 32, 32, 6) + 0.2 * tile_noise(x, y, 64, 64, 7)
+        b = 0.68 + 0.34 * smoothstep(0.25, 0.75, c)
+        return b, b * (0.95 + 0.05 * b), b * (0.86 + 0.14 * b)
+    if kind == "skin":  # soft blotches, ruddier where darker, with a fine pore grain
+        m = tile_noise(x, y, 6, 6, 12)
+        b = 0.9 + 0.16 * (m - 0.5) + 0.08 * (tile_noise(x, y, 48, 48, 13) - 0.5)
+        return b * (1.0 + 0.04 * (0.5 - m)), b, b * (0.97 + 0.06 * m)
+    if kind == "feather":  # overlapping rows of round-tipped feathers, darker at each tip's rim, with barbs along v
+        row = math.floor(y * 8)
+        fx = x * 6 + 0.5 * (row % 2)
+        cx, cy = fx - math.floor(fx) - 0.5, y * 8 - row
+        rim = smoothstep(0.7, 0.95, cy + 1.2 * cx * cx)
+        b = (0.98 - 0.3 * rim + 0.1 * (tile_noise(x, y, 48, 6, 14) - 0.5)) * (0.9 + 0.16 * tile_noise(x, y, 4, 4, 15))
+        return b, b * 0.98, b * 0.95
+    # horn: growth rings across v, a little uneven, with fine grain
+    ring = 0.5 + 0.5 * math.cos(2 * math.pi * (8 * y + 0.3 * tile_noise(x, y, 4, 8, 8)))
+    b = 0.8 + 0.16 * ring + 0.22 * (tile_noise(x, y, 32, 16, 9) - 0.5)
+    return b, b * 0.98, b * 0.93
+
+
+def detail_image(name, kind):
+    image = bpy.data.images.new(name, DETAIL_SIZE, DETAIL_SIZE, alpha=False)
+    srgb = lambda v: 12.92 * v if v <= 0.0031308 else 1.055 * v ** (1 / 2.4) - 0.055
+    pixels = []
+    for j in range(DETAIL_SIZE):
+        for i in range(DETAIL_SIZE):
+            pixels += [round(srgb(min(c, 1.0)) * 255) / 255 for c in detail_texel(kind, i / DETAIL_SIZE, j / DETAIL_SIZE)] + [1.0]
+    image.pixels = pixels
+    image.pack()
+    return image
+
+
+def organic_surface(animal, meshes):
+    """Box-project a UV map onto ``meshes`` in metres (call once the animal has its shipped size) and give each material
+    its ``ORGANIC`` detail texture, roughness and metallic 0; smooth the ``SMOOTHED`` animals."""
+    spec = ORGANIC[animal]
+    for obj in meshes:
+        mesh = obj.data
+        if animal in SMOOTHED:
+            mesh.shade_smooth()
+            mesh.set_sharp_from_angle(angle=math.radians(SMOOTH_ANGLE))
+        layer = mesh.uv_layers.get("UVMap") or mesh.uv_layers.new(name="UVMap")
+        normals = obj.matrix_world.to_3x3().inverted().transposed()
+        for poly in mesh.polygons:
+            material = obj.material_slots[poly.material_index].material if obj.material_slots else None
+            _, tile, _ = spec.get(material.name if material else "", (None, 0.3, 0.8))
+            tile = tile or 0.3
+            n = normals @ poly.normal
+            axis = max(range(3), key=lambda k: abs(n[k]))
+            for i in poly.loop_indices:
+                p = obj.matrix_world @ mesh.vertices[mesh.loops[i].vertex_index].co
+                a, b = (p[k] for k in range(3) if k != axis)
+                layer.data[i].uv = (a / tile, b / tile)
+        if ANIMALS[animal]["format"] == "blend":
+            # Farm Animals' vertex colours are all white; the exporter would ship them as two unused attributes.
+            for attribute in list(mesh.color_attributes):
+                mesh.color_attributes.remove(attribute)
+    images = {}
+    materials = {slot.material.name: slot.material for obj in meshes for slot in obj.material_slots if slot.material}
+    for name in sorted(materials):
+        kind, _, roughness = spec.get(name, (None, 0, 0.8))
+        # One Principled BSDF on one output. Farm Animals keeps a Diffuse BSDF on its all-renderer output beside an
+        # EEVEE Principled one, and the glTF exporter then writes an empty material, which glTF draws white and fully
+        # metallic.
+        tree = materials[name].node_tree
+        output = next(n for n in tree.nodes if n.type == "OUTPUT_MATERIAL" and n.is_active_output)
+        source = output.inputs[0].links[0].from_node
+        colour = tuple(source.inputs["Base Color" if source.type == "BSDF_PRINCIPLED" else "Color"].default_value)
+        tree.nodes.clear()
+        output = tree.nodes.new("ShaderNodeOutputMaterial")
+        shader = tree.nodes.new("ShaderNodeBsdfPrincipled")
+        tree.links.new(shader.outputs[0], output.inputs[0])
+        shader.inputs["Base Color"].default_value = colour
+        shader.inputs["Roughness"].default_value = roughness
+        shader.inputs["Metallic"].default_value = 0.0
+        if kind is None:
+            continue
+        if kind not in images:
+            images[kind] = detail_image(f"{animal}-{kind}", kind)
+        texture = tree.nodes.new("ShaderNodeTexImage")
+        texture.image = images[kind]
+        mix = tree.nodes.new("ShaderNodeMix")
+        mix.data_type, mix.blend_type = "RGBA", "MULTIPLY"
+        mix.inputs["Factor"].default_value = 1.0
+        mix.inputs[7].default_value = shader.inputs["Base Color"].default_value
+        tree.links.new(texture.outputs["Color"], mix.inputs[6])
+        tree.links.new(mix.outputs[2], shader.inputs["Base Color"])
+
+
 # ---------------------------------------------------------------- shared
 
 def prepare(animal, source_path):
@@ -387,6 +532,7 @@ def prepare(animal, source_path):
     root.location = Vector((-(low.x + high.x) / 2, -(low.y + high.y) / 2, -low.z))
     bpy.context.view_layer.update()
     low, high = bounds(meshes)
+    organic_surface(animal, meshes)
 
     # In-place check: the walk's horizontal travel of the mesh centre over the clip, in metres.
     slot_for(armature, actions["Walk"])

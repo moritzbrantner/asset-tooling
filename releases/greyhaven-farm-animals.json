@@ -1,10 +1,11 @@
 {
+  "note": "#781: measured 24 materials, 5 detail textures (0.42 MB of GPU texture memory) and a 3.18 MB download (3.37 MB tar) with the nonmetallic organic surface.",
   "script": "scripts/build-greyhaven-farm-animals.ts",
   "blender": true,
   "lfs": true,
   "budget": {
     "materials": 24,
-    "textureMemoryMB": 1,
+    "textureMemoryMB": 0.5,
     "downloadMB": 3.5
   }
 }
