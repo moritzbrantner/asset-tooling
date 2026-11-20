@@ -1,4 +1,4 @@
-// Greyhaven wildlife (#667, #715, #722, #778, #782, docs/greyhaven-wildlife.md): the recipe turns five hash-pinned CC0 Quaternius sources and
+// Greyhaven wildlife (#667, #715, #722, #778, #779, #782, docs/greyhaven-wildlife.md): the recipe turns five hash-pinned CC0 Quaternius sources and
 // twelve authored animals into a verified gltf-resources-v1 bundle of grounded, forward-facing, metre-sized skinned animals
 // with in-place Idle, Walk and Eat clips (and Fly on the birds), and replays to the same tar. The build skips unless
 // ASSET_TOOLING_BLENDER names Blender 5.2.2 and the canonical sources are hydrated (git lfs pull).
@@ -74,6 +74,9 @@ test("the wildlife recipe builds a verified, reproducible bundle of grounded ani
       assert.deepEqual(gltf.listAnimations().map((a) => a.getName()).sort(), [...WILD_CLIPS[entry.animal]].sort(), `${entry.animal} clips`);
       assert.equal(gltf.getDefaultScene()?.listChildren().map((node) => node.getName()).join(), key, `${entry.animal} root node`);
       for (const node of gltf.listNodes().filter((n) => n.getMesh())) assert.ok(node.getSkin(), `${entry.animal} mesh ${node.getName()} is skinned`);
+      // Organic surface (#779): every material is nonmetallic and the animal's main surface carries a detail texture.
+      for (const material of gltf.listMaterials()) assert.equal(material.getMetallicFactor(), 0, `${entry.animal} ${material.getName()} is nonmetallic`);
+      assert.ok(gltf.listMaterials().some((material) => material.getBaseColorTexture()), `${entry.animal} has a textured surface`);
 
       const asset = descriptor.assets.find((a: any) => a.key === key);
       const { min, max } = asset.idleBounds;
