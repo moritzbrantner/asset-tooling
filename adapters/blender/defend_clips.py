@@ -1240,7 +1240,7 @@ def stance_pose(rig, seed, idle, k):
         around = Matrix.Rotation(math.radians(k[side + "r"]), 3, UP)
         yaw = Matrix.Rotation(math.radians(k[side + "r"] + k[side + "t"]), 3, UP)
         heel_axis = (ankle - ball).cross(UP).normalized()
-        heel = Matrix.Rotation(math.radians(-k[side + "h"]), 3, heel_axis)
+        heel = Matrix.Rotation(math.radians(k[side + "h"]), 3, heel_axis)
         at = ground + around @ (ball + Vector((k[side + "x"], k[side + "y"], k[side + "z"])) - ground)
         target = at + yaw @ heel @ (ankle - ball)
         two_bone(rig, thigh, calf, foot, target, yaw @ bend)

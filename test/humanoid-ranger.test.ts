@@ -217,14 +217,14 @@ test("resident presets must name options the appearance descriptor offers", () =
       { id: "outfit.soldier", skins: options("skin.dark", "skin.light"), armor: { pieces: [] }, faction: {} },
       ...["farmer", "innkeeper", "monk"].map((kit) => ({ id: `outfit.${kit}`, skins: options("skin.dark", "skin.light"), armor: { pieces: [] } })),
       // #379: the class outfits; the hooded ones name their hood, the Necromancer adds its grey skin.
-      ...["warden", "ranger", "arcanist", "necromancer", "rogue", "cleric", "druid"].map((kit) => ({
+      ...["warden", "ranger", "arcanist", "necromancer", "rogue", "cleric", "druid", "tinker"].map((kit) => ({
         id: `outfit.class.${kit}`, skins: options("skin.dark", "skin.light", ...(kit === "necromancer" ? ["skin.grey"] : [])), armor: { pieces: [] },
         ...(["ranger", "rogue", "necromancer"].includes(kit) ? { hood: `class.${kit}.hood` } : {}),
       })),
     ],
   };
   validateAppearancePresets(descriptor, [...RANGER_RESIDENT_PRESETS, ...RANGER_CLASS_PRESETS]);
-  assert.deepEqual(RANGER_CLASS_PRESETS.map((preset) => preset.id), ["warden", "ranger", "arcanist", "necromancer", "rogue", "cleric", "druid"].map((id) => `class.${id}`));
+  assert.deepEqual(RANGER_CLASS_PRESETS.map((preset) => preset.id), ["warden", "ranger", "arcanist", "necromancer", "rogue", "cleric", "druid", "tinker"].map((id) => `class.${id}`));
   const [marshal] = RANGER_RESIDENT_PRESETS;
   assert.throws(() => validateAppearancePresets(descriptor, [{ ...marshal!, facialHair: ["beard.braided"] }]), /facial hair/);
   assert.throws(() => validateAppearancePresets(descriptor, [{ ...marshal!, hiddenArmor: ["knight.visor"] }]), /plate/);
@@ -241,17 +241,18 @@ test("resident presets must name options the appearance descriptor offers", () =
   assert.throws(() => validateAppearancePresets(kitDescriptor, [{ ...marshal!, hair: "hair.mohawk" }]), /unknown hair/);
 });
 
-test("the female figure's tanner preset names options its descriptor offers (#378)", () => {
+test("the female figure's tanner and Tinker presets name options its descriptor offers (#378, #775)", () => {
   const options = (...ids: string[]) => ids.map((id) => ({ id }));
   const descriptor: any = {
     skins: options("skin.dark", "skin.light"), hair: options("hair.long", "hair.buns"), tints: options("tint.black", "tint.brown", "tint.blond", "tint.grey"),
     face: { features: ["face", "eyes", "nose", "mouth"].map((feature) => ({ id: feature, options: options(...["base", "broad", "narrow", "large", "long", "full", "thin"].map((o) => `${feature}.${o}`)) })) },
-    outfits: [{ id: "outfit.tanner", skins: options("skin.dark", "skin.light"), armor: { pieces: [{ node: "tanner.belt" }] } }],
+    outfits: [{ id: "outfit.tanner", skins: options("skin.dark", "skin.light"), armor: { pieces: [{ node: "tanner.belt" }] } },
+      { id: "outfit.class.tinker", skins: options("skin.dark", "skin.light"), armor: { pieces: [{ node: "class.tinker.belt" }] } }],
   };
-  assert.deepEqual(rangerPresets("female").map((preset) => preset.id), ["resident.tanner"]);
+  assert.deepEqual(rangerPresets("female").map((preset) => preset.id), ["resident.tanner", "class.tinker"]);
   validateAppearancePresets(descriptor, rangerPresets("female"));
   assert.throws(() => validateAppearancePresets({ ...descriptor, outfits: [] }, rangerPresets("female")), /unknown outfit/);
-  assert.deepEqual([...RANGER_OUTFIT_KITS.female], ["tanner", "knight"]);
+  assert.deepEqual([...RANGER_OUTFIT_KITS.female], ["tanner", "knight", "class.tinker"]);
   assert.ok(!(RANGER_OUTFIT_KITS.male as readonly string[]).includes("tanner"));
   assert.match(RANGER_PEASANT_OUTFITS.female.path, /Female_Peasant\.gltf$/);
 });

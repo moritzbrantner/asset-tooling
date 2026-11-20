@@ -24,7 +24,7 @@ The `humanoid.ranger.male` bundle holds the following.
     - `skin.light`: the Light skin, with the outfit's skin texture derived by a colour transfer (#116 Q13).
     - `outfit.soldier` and `outfit.knight`, plus their `.skin.light` variants: the Peasant outfit under the [armour](armor-recipes.md) (#117, #301; knight also fits the female base, #630).
     - `outfit.farmer`, `outfit.innkeeper` and `outfit.monk`, plus their `.skin.light` variants: the Peasant outfit with the [resident clothes](armor-recipes.md#resident-outfits-376) (#376, male only).
-    - `outfit.class.warden`, `outfit.class.ranger`, `outfit.class.arcanist`, `outfit.class.necromancer`, `outfit.class.rogue`, `outfit.class.cleric` and `outfit.class.druid`, plus their `.skin.light` variants and `outfit.class.necromancer.skin.grey`: the [class starter outfits](armor-recipes.md#class-starter-outfits-379) (#379, male only).
+    - `outfit.class.warden`, `outfit.class.ranger`, `outfit.class.arcanist`, `outfit.class.necromancer`, `outfit.class.rogue`, `outfit.class.cleric`, `outfit.class.druid` and `outfit.class.tinker`, plus their `.skin.light` variants and `outfit.class.necromancer.skin.grey`: the [class starter outfits](armor-recipes.md#class-starter-outfits-379) (#379, male only; `outfit.class.tinker` and its `.skin.light` variant also on the female figure, #775).
     - `outfit.tanner` and `outfit.tanner.skin.light` (female only): the Female_Peasant outfit with the [tanner's work skirt and leather apron](armor-recipes.md#tanner-378) (#378).
   - **Attachments:**
     - `humanoid-sockets`: the [sockets descriptor](humanoid-sockets.md), with hand, stowed, archery, hair and armour sockets.
@@ -120,6 +120,9 @@ One starter look per mmorpg class (#379), in its [class outfit](armor-recipes.md
 | `class.rogue` | `outfit.class.rogue` (cowl, half-mask, one-shoulder cape, wrapped forearms) | Dark | hood, black | none | base, narrow, base, base | two daggers |
 | `class.cleric` | `outfit.class.cleric` (ivory robe, sun tabard edged in the class colour, gold spaulders) | Light | `hair.simple-parted`, brown | none | broad, base, base, full | flanged mace |
 | `class.druid` | `outfit.class.druid` (moss robe, bark-and-leaf mantle, antler circlet) | Dark | `hair.long`, brown | full beard, moustache | broad, base, broad, base | gnarled staff |
+| `class.tinker` (#775) | `outfit.class.tinker` (woad shirt with rolled sleeves, split leather apron in the class colour, bandolier of corked flasks, goggles on the brow, satchel) | Light | `hair.buzzed`, brown | moustache | base, large, base, base | flask, bomb, trap |
+
+The female figure ships the Tinker too (#775), the one class look it has: `class.tinker` in `outfit.class.tinker`, Light skin, `hair.buns` in brown, and a narrow face with large eyes.
 
 ### Male variety (#380)
 
@@ -686,6 +689,8 @@ The same recipe ([`adapters/blender/strike_clips.py`](../adapters/blender/strike
 
 The Redbrand figures ([redbrand-kit](redbrand-kit.md)) ship no clips and play the Ranger's by joint name, so these are two Ranger families, `guard` (`RANGER_GUARD_CLIPS`, for mmorpg#953's shield-bearer) and `signal` (`RANGER_SIGNAL_CLIPS`, for mmorpg#952's signaler), after the ride clips in bundle order. [`adapters/blender/defend_clips.py`](../adapters/blender/defend_clips.py) authors them (its `GUARD` table). Every key is a whole stance: the pelvis shift and turn, each foot placed by its ball (moved, carried round the pelvis in a turn, pivoted about the ball, its heel raised), the chest and clavicles. The hands are keyed frames on their sockets, carried with the chest (the horn at the lips with the head). So the feet move first, the hips, chest and shoulders follow and the shield or horn arrives last. The tracks never overshoot a key, so a planted ball stays put. Every clip is full body with a `secondaryPose`. The items are the humanoid-equipment kit's `equipment.shield.redbrand` on `hand_l.shield` with a one-hander (Garrick's cleaver in the review) on `hand_r.weapon`, and `equipment.tool.signal-horn` on `hand_r.weapon`.
 
+**Heel raises (#775).** A stance key's `lh`/`rh` raises that heel about the ball, as documented; until #775 `stance_pose` turned the foot the other way, so every raised heel tipped the toes up and dug the heel in (the bash's driving rear foot, the turns' pivots, the impact's lifted front heel, the broken guard's and the interrupted call's steps). The sign is fixed in the recipe and the clips republish with the Ranger; the balls stay planted (within 1.2 cm while on the ground, the broken guard's stepping foot 4.3 cm over its landing). [`review/heel-raise-775/Heel_Raise.jpg`](../review/heel-raise-775/Heel_Raise.jpg) shows the released and the fixed foot side by side.
+
 | Clip | Length | `role` | Marked time | Notes |
 | --- | --- | --- | --- | --- |
 | `Shield_Guard_Loop` | 2 s loop | `shield.guard` | — | a tight frontal guard on a long, wide stance sunk into the knees: the hips turned so the shield shoulder leads, the shield tight before the chest and chin, the head down behind the rim, the blade cocked up at the right hip; the weight rocks between the feet and the head watches each side |
@@ -1185,7 +1190,7 @@ Characters and armor retain their existing full-detail path; equipment keeps its
 The male bascinet is omitted: its cheek rim did not fit the female head at the full combined
 face/build limits. No female helmet or headwear capability is claimed.
 
-This is one representative armor outfit, not seven female class wardrobes. Separate female
+This is one representative armor outfit, not a female class wardrobe (the Tinker's class outfit, #775, is the only one she wears). Separate female
 headwear, age overlays and the other class outfits remain unavailable. CI republishes the existing
 `humanoid-ranger-female` rolling release after merge. Game-camera adoption remains the consumer's
 acceptance; the live Blender fit review is supplementary and does not claim consumer or owner approval.

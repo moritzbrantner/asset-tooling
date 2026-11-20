@@ -132,11 +132,19 @@ export const RANGER_CLASS_PRESETS: readonly RangerAppearancePreset[] = [
     facialHair: [], face: { face: "face.broad", eyes: "eyes.base", nose: "nose.base", mouth: "mouth.full" } },
   { id: "class.druid", label: "Druid", outfit: "outfit.class.druid", skin: "skin.dark", hair: "hair.long", tint: "tint.brown",
     facialHair: ["beard.full", "beard.moustache"], face: { face: "face.broad", eyes: "eyes.base", nose: "nose.broad", mouth: "mouth.base" } },
+  // #775: short hair, so the goggles' strap shows.
+  { id: "class.tinker", label: "Tinker", outfit: "outfit.class.tinker", skin: "skin.light", hair: "hair.buzzed", tint: "tint.brown",
+    facialHair: ["beard.moustache"], face: { face: "face.base", eyes: "eyes.large", nose: "nose.base", mouth: "mouth.base" } },
+];
+/** Female class looks (#775): the Tinker, the one class outfit fitted to the female figure. */
+export const RANGER_FEMALE_CLASS_PRESETS: readonly RangerAppearancePreset[] = [
+  { id: "class.tinker", label: "Tinker", outfit: "outfit.class.tinker", skin: "skin.light", hair: "hair.buns", tint: "tint.brown",
+    facialHair: [], face: { face: "face.narrow", eyes: "eyes.large", nose: "nose.base", mouth: "mouth.base" } },
 ];
 
 /** The appearance presets each figure ships. */
 export function rangerPresets(figure: RangerFigure): readonly RangerAppearancePreset[] {
-  return figure === "male" ? [...RANGER_RESIDENT_PRESETS, ...RANGER_CLASS_PRESETS] : RANGER_FEMALE_RESIDENT_PRESETS;
+  return figure === "male" ? [...RANGER_RESIDENT_PRESETS, ...RANGER_CLASS_PRESETS] : [...RANGER_FEMALE_RESIDENT_PRESETS, ...RANGER_FEMALE_CLASS_PRESETS];
 }
 
 const hairKey = (style: string) => `hair.${style.replace(/^Hair_/, "").replace(/([a-z])([A-Z])/g, "$1-$2").toLowerCase()}`;
