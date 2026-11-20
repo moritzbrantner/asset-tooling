@@ -1,10 +1,11 @@
 {
+  "note": "#782: measured 96 materials, 0.33 MB of textures and an 8.16 MB download with the highland ram, the stag's combat clips and their detail textures.",
   "script": "scripts/build-greyhaven-wildlife.ts",
   "blender": true,
   "lfs": true,
   "budget": {
     "materials": 96,
     "textureMemoryMB": 1,
-    "downloadMB": 8
+    "downloadMB": 9
   }
 }

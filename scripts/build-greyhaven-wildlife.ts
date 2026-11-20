@@ -1,10 +1,10 @@
-// Greyhaven's wildlife (#667, docs/greyhaven-wildlife.md) and the hostile creatures' combat clips (#715, #722) and the lynx and adder (#778), following the farm
-// animals' conventions:
+// Greyhaven's wildlife (#667, docs/greyhaven-wildlife.md) and the hostile creatures' combat clips (#715, #722), the lynx and adder (#778) and the
+// stag's fights and the highland ram (#782), following the farm animals' conventions:
 //   ASSET_TOOLING_BLENDER=<blender 5.2.2> bun scripts/build-greyhaven-wildlife.ts --out <directory>
 // Each animal is one external.blender.script@1 run of adapters/blender/wildlife.py, with the farm-animals recipe
 // (adapters/blender/farm_animals.py) as its declared Python input `farm`: the stag, doe, fox, wolf and rat over their hash-pinned
-// CC0 Quaternius catalog payloads (imported offline from hydrated LFS storage), the rabbit, boar, four birds, bear, spider, marsh lurker, lynx and adder
-// authored by the recipe itself. Each GLB is checked through scene.import.gltf@2 and exported as a gltf-resources-v1
+// CC0 Quaternius catalog payloads (imported offline from hydrated LFS storage), the rabbit, boar, four birds, bear, spider, marsh lurker, lynx, adder
+// and highland ram authored by the recipe itself. Each GLB is checked through scene.import.gltf@2 and exported as a gltf-resources-v1
 // bundle packed to <directory>/greyhaven.wildlife.tar, next to the measured greyhaven-wildlife-descriptor-v1,
 // lineage.json and export.ref.json.
 import path from "node:path";
@@ -35,14 +35,18 @@ export const WILD_DESCRIPTOR_FILE = "greyhaven.wildlife.descriptor.json";
 const UAA_CLIPS = { Idle: "Idle", Walk: "Walk", Eat: "Eating" } as const;
 const UAA = { pack: "Quaternius Ultimate Animated Animals", file: "source.glb", sourceClips: UAA_CLIPS } as const;
 const AUTHORED = { pack: null, file: null, sourceClips: null } as const;
-/** The source clip each shipped clip comes from; "<clip>+layer" is that clip re-timed under a scripted additive pose (#715). */
+/** The source clip each shipped clip comes from; "<clip>+layer" is that clip re-timed under a scripted additive pose (#715), and
+ * "<clip>+<clip>+layer" several blended one into the next (#782). */
+const STAG_CLIPS = {
+  ...UAA_CLIPS, Run: "Gallop", Death: "Death+layer", Attack_A: "Attack_Headbutt+layer", Attack_B: "Idle+Gallop+layer", Hit: "Idle_HitReact_Left+layer", Alert: "Idle+layer",
+} as const;
 const WOLF_CLIPS = { ...UAA_CLIPS, Run: "Gallop", Death: "Death", Attack_A: "Attack+layer", Attack_B: "Attack+layer", Hit: "Idle_HitReact_Left+layer", Alert: "Idle+layer" } as const;
 const RAT_CLIPS = {
   Idle: "Rat_Idle", Walk: "Rat_Walk", Eat: "Rat_Idle+layer", Run: "Rat_Run", Death: "Rat_Death",
   Attack_A: "Rat_Attack+layer", Attack_B: "Rat_Idle+layer", Hit: "Rat_Idle+layer", Alert: "Rat_Idle+layer",
 } as const;
 export const WILD_ANIMALS = [
-  { animal: "stag", sourceId: "quaternius.ultimate-animated-animals-stag-glb", member: "Stag.glb", bird: false, hostile: false, ...UAA },
+  { animal: "stag", sourceId: "quaternius.ultimate-animated-animals-stag-glb", member: "Stag.glb", bird: false, hostile: false, ...UAA, sourceClips: STAG_CLIPS },
   { animal: "doe", sourceId: "quaternius.ultimate-animated-animals-deer-glb", member: "Deer.glb", bird: false, hostile: false, ...UAA },
   { animal: "fox", sourceId: "quaternius.ultimate-animated-animals-fox-glb", member: "Fox.glb", bird: false, hostile: false, ...UAA },
   { animal: "rabbit", sourceId: null, member: null, bird: false, hostile: false, ...AUTHORED },
@@ -58,9 +62,13 @@ export const WILD_ANIMALS = [
   { animal: "marsh-lurker", sourceId: null, member: null, bird: false, hostile: true, ...AUTHORED },
   { animal: "lynx", sourceId: null, member: null, bird: false, hostile: true, ...AUTHORED },
   { animal: "marsh-adder", sourceId: null, member: null, bird: false, hostile: true, ...AUTHORED },
+  { animal: "highland-ram", sourceId: null, member: null, bird: false, hostile: false, ...AUTHORED },
 ] as const;
 export type WildAnimal = (typeof WILD_ANIMALS)[number]["animal"];
-/** The hostile creatures' combat clips (#715, #722): a looping in-place Run and one-shot attacks, flinch, death and alert. */
+/** Neutral animals that still fight when threatened (#782): they carry the combat clips without being hostile. */
+export const NEUTRAL_FIGHTERS: readonly WildAnimal[] = ["stag", "highland-ram"];
+export const fights = (entry: (typeof WILD_ANIMALS)[number]) => entry.hostile || NEUTRAL_FIGHTERS.includes(entry.animal);
+/** The combat clips (#715, #722, #782): a looping in-place Run and one-shot attacks, flinch, death and alert. */
 export const COMBAT_CLIPS = ["Run", "Attack_A", "Attack_B", "Hit", "Death", "Alert"] as const;
 export const ONE_SHOT_CLIPS = ["Attack_A", "Attack_B", "Hit", "Death", "Alert", "Pounce_Windup", "Pounce_Lunge", "Pounce_Recover", "Strike", "Strike_Recover"] as const;
 /** The forest lynx and marsh adder (#778) have their own clip sets instead of Idle, Walk, Eat and the combat clips: the lynx
@@ -70,9 +78,9 @@ export const SPECIES_CLIPS = {
   "marsh-adder": ["Idle_Coil_Loop", "Slither_Loop", "Warn_Hiss_Loop", "Strike", "Strike_Recover", "Hit", "Death"],
 } as const;
 /** Every animal has Idle, Walk and Eat (grazing, rooting, pecking); the birds also a looping wingbeat, Fly; the hostile
- * wolf, boar, rat, bear, spider and marsh lurker also the combat clips. */
+ * wolf, boar, rat, bear, spider and marsh lurker and the neutral stag and highland ram also the combat clips. */
 export const WILD_CLIPS: Record<WildAnimal, readonly string[]> = Object.fromEntries(WILD_ANIMALS.map((entry) => [
-  entry.animal, (SPECIES_CLIPS as Record<string, readonly string[]>)[entry.animal] ?? ["Idle", "Walk", "Eat", ...(entry.bird ? ["Fly"] : []), ...(entry.hostile ? COMBAT_CLIPS : [])],
+  entry.animal, (SPECIES_CLIPS as Record<string, readonly string[]>)[entry.animal] ?? ["Idle", "Walk", "Eat", ...(entry.bird ? ["Fly"] : []), ...(fights(entry) ? COMBAT_CLIPS : [])],
 ])) as Record<WildAnimal, readonly string[]>;
 export const wildKey = (animal: WildAnimal) => `greyhaven.wild.${animal}`;
 const POLICY = { allowedValidatorWarnings: [...GLTF_RESOURCES_BUNDLE_ALLOWED_VALIDATOR_WARNINGS] };
@@ -138,7 +146,7 @@ export async function buildGreyhavenWildlife({ outDir, log = () => {} }: { outDi
       oneShot: [...ONE_SHOT_CLIPS], rootMotion: "in-place; travelSpeed (m/s) or rootTravel says how far the consumer moves the root", loop: "every clip but the oneShot ones",
     },
     assets: built.map(({ entry, source, observations, document }) => ({
-      key: wildKey(entry.animal), variant: "default", animal: entry.animal, bird: entry.bird, hostile: entry.hostile,
+      key: wildKey(entry.animal), variant: "default", animal: entry.animal, bird: entry.bird, hostile: entry.hostile, combat: fights(entry),
       idleBounds: observations.idleBounds,
       size: Object.fromEntries((["width", "height", "depth"] as const).map((name, axis) => [name, +(observations.idleBounds.max[axis] - observations.idleBounds.min[axis]).toFixed(5)])),
       triangles: document.getRoot().listMeshes().reduce((sum, mesh) => sum + mesh.listPrimitives().reduce((n, p) => n + (p.getIndices()?.getCount() ?? 0) / 3, 0), 0),
