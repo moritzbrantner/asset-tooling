@@ -1593,9 +1593,9 @@ def bake_ambient_occlusion(obj, bases):
         texture.image = image
         nodes.active = texture
         materials.append((material, texture))
-    obj.data.materials.clear()
-    for material, _texture in materials:
-        obj.data.materials.append(material)
+    # Swap each slot in place: clearing the slots would put every face on the first one (#775: the two-tone pieces).
+    for index, (material, _texture) in enumerate(materials):
+        obj.data.materials[index] = material
     scene = bpy.context.scene
     scene.render.engine = "CYCLES"
     scene.cycles.device = "CPU"
