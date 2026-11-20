@@ -1,11 +1,11 @@
 {
-  "note": "#779: measured 96 materials, 9 shared detail textures (0.75 MB of GPU texture memory) and a 7.84 MB download (8.31 MB tar) with every animal nonmetallic and textured; no material was added, so the allowance stays used up.",
+  "note": "#783: measured 115 materials (the badger, river crayfish and bog toad add 19), the same 9 shared detail textures (0.75 MB of GPU texture memory) and a 9.19 MB download (9.29 MB tar); the allowance is raised to the measured 115 materials and 10 MB.",
   "script": "scripts/build-greyhaven-wildlife.ts",
   "blender": true,
   "lfs": true,
   "budget": {
-    "materials": 96,
+    "materials": 115,
     "textureMemoryMB": 1,
-    "downloadMB": 9
+    "downloadMB": 10
   }
 }
