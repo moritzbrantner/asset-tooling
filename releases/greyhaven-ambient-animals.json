@@ -1,10 +1,11 @@
 {
+  "note": "#780: measured 10 materials, 2 shared detail textures (0.17 MB of GPU texture memory) and a 0.98 MB download (1.05 MB tar) with the nonmetallic organic surface; no material was added, so the allowance stays used up.",
   "script": "scripts/build-greyhaven-ambient-animals.ts",
   "blender": true,
   "lfs": true,
   "budget": {
     "materials": 10,
-    "textureMemoryMB": 1,
+    "textureMemoryMB": 0.25,
     "downloadMB": 2
   }
 }

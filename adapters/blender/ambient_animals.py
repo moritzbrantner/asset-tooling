@@ -12,6 +12,10 @@ and amber eyes with slit pupils skinned to the head; its Walk's paws plant, each
 line at one constant speed over a 32-frame cycle instead of easing in and out, so a consumer that moves it at
 ``walkStride`` metres per cycle keeps every planted paw still.
 
+Every material ships nonmetallic, with roughness from ``ORGANIC``; coats carry a generated short-hair detail texture
+and noses, ears, paws and tails a soft skin one, and the flat-shaded dog and rodent are welded and smooth-shaded (#780).
+The cat's near-black fur is lifted to charcoal, still dark, so its hair texture shows.
+
 ``prepare(animal, source_path)`` also runs in a live Blender session, which is how the sizes were reviewed at
 Greyhaven's game camera.
 """
@@ -26,7 +30,7 @@ from mathutils.bvhtree import BVHTree
 ANIMALS = {
     "cat": {"format": "blend", "armature": "CatArmature", "clips": {"Idle": "Idle", "Walk": "Walking"},
             "turn": -90.0, "size": ("height", 0.45),
-            "feet": ["IKFrontRight", "IKFrontLeft", "IKBackRight", "IKBackLeft"]},
+            "feet": ["IKFrontRight", "IKFrontLeft", "IKBackRight", "IKBackLeft"], "tint": {"Grey": (0.13, 0.12, 0.115, 1.0)}},
     "dog": {"format": "glb", "armature": "AnimalArmature", "clips": {"Idle": "AnimalArmature|Idle", "Walk": "AnimalArmature|Walk"},
             "turn": 0.0, "size": ("height", 0.65)},
     "rodent": {"format": "glb", "armature": "RatArmature", "clips": {"Idle": "RatArmature|Rat_Idle", "Walk": "RatArmature|Rat_Walk"},
@@ -156,6 +160,122 @@ def stride(armature, feet, action, scene):
     return mean * (end - start), max(abs(s - mean) for s in speeds)
 
 
+# ---------------------------------------------------------------- organic surface (#780)
+
+# Material -> (detail, metres per texture repeat, roughness); detail None keeps a plain colour. Every animal lists every
+# material and every material ships nonmetallic: the dog's and rodent's Quaternius GLBs author metallic 0.4 and roughness
+# 0.415, which a PBR renderer draws as dull metal. Each detailed material multiplies its colour by a small tileable
+# greyscale detail texture (glTF baseColorTexture times baseColorFactor), so coats read as short hair and noses, ears,
+# paws and tails as soft skin at the game camera. The two textures are generated identically for every animal, so the
+# bundle carries each once (the approach of the farm animals, #781, and the wildlife, #779).
+EYE = (None, 0, 0.3)
+ORGANIC = {
+    "cat": {"Grey": ("hair", 0.08, 0.9), "White": ("hair", 0.08, 0.9), "Pink": ("skin", 0.04, 0.7), "Eye": (None, 0, 0.25)},
+    "dog": {"Main": ("hair", 0.12, 0.9), "Main_Light": ("hair", 0.12, 0.9), "Black": (None, 0, 0.5),
+            "Eyes_White": EYE, "Eyes_Pupil": EYE, "Eyes_Black": EYE},
+    "rodent": {"Grey": ("hair", 0.06, 0.9), "Pink": ("skin", 0.04, 0.7)},
+}
+# The dog's and rodent's GLBs are flat-shaded, every triangle its own three vertices. They are welded and shade smooth
+# within SMOOTH_ANGLE, keeping sharp creases (paw soles, ear rims) beyond it; the cat is already smooth (#799).
+SMOOTH_ANGLE = 75.0
+DETAIL_SIZE = 128
+
+
+def lattice(ix, iy, seed):
+    h = (ix * 374761393 + iy * 668265263 + seed * 982451653) & 0xFFFFFFFF
+    h = ((h ^ (h >> 13)) * 1274126177) & 0xFFFFFFFF
+    return ((h ^ (h >> 16)) & 0xFFFF) / 65535.0
+
+
+def tile_noise(x, y, cells_x, cells_y, seed):
+    """Smooth value noise over the unit square that tiles: ``cells_x`` by ``cells_y`` lattice cells."""
+    fx, fy = x * cells_x, y * cells_y
+    ix, iy = math.floor(fx), math.floor(fy)
+    sx, sy = fx - ix, fy - iy
+    sx, sy = sx * sx * (3 - 2 * sx), sy * sy * (3 - 2 * sy)
+    at = lambda a, b: lattice(a % cells_x, b % cells_y, seed)
+    top = at(ix, iy) + (at(ix + 1, iy) - at(ix, iy)) * sx
+    bottom = at(ix, iy + 1) + (at(ix + 1, iy + 1) - at(ix, iy + 1)) * sx
+    return top + (bottom - top) * sy
+
+
+def detail_texel(kind, x, y):
+    """The linear multiplier (r, g, b) of a detail texture at (x, y) in the unit square; about 0.9 on average."""
+    if kind == "hair":  # streaked tufts of short strands along v over a soft mottle, coarse enough to read at the game camera
+        n = 0.45 * tile_noise(x, y, 24, 4, 1) + 0.35 * tile_noise(x, y, 48, 8, 2) + 0.2 * tile_noise(x, y, 96, 16, 3)
+        b = (0.88 + 0.65 * (n - 0.5)) * (0.88 + 0.22 * tile_noise(x, y, 6, 6, 4))
+        return b, b, b * 0.97
+    # skin: soft blotches, ruddier where darker, with a fine pore grain
+    m = tile_noise(x, y, 6, 6, 12)
+    b = 0.9 + 0.16 * (m - 0.5) + 0.08 * (tile_noise(x, y, 48, 48, 13) - 0.5)
+    return b * (1.0 + 0.04 * (0.5 - m)), b, b * (0.97 + 0.06 * m)
+
+
+def detail_image(kind):
+    image = bpy.data.images.new(kind, DETAIL_SIZE, DETAIL_SIZE, alpha=False)
+    srgb = lambda v: 12.92 * v if v <= 0.0031308 else 1.055 * v ** (1 / 2.4) - 0.055
+    pixels = []
+    for j in range(DETAIL_SIZE):
+        for i in range(DETAIL_SIZE):
+            pixels += [round(srgb(min(c, 1.0)) * 255) / 255 for c in detail_texel(kind, i / DETAIL_SIZE, j / DETAIL_SIZE)] + [1.0]
+    image.pixels = pixels
+    image.pack()
+    return image
+
+
+def organic_surface(animal, meshes):
+    """Weld and smooth the flat-shaded GLB meshes, box-project a UV map in metres (call once the animal has its shipped
+    size) and give every material its ``ORGANIC`` roughness, metallic 0 and detail texture."""
+    spec = ORGANIC[animal]
+    missing = sorted({s.material.name for obj in meshes for s in obj.material_slots if s.material} - set(spec))
+    if missing:
+        raise ValueError(f"{animal}: ORGANIC lists no surface for {missing}")
+    for obj in meshes:
+        mesh = obj.data
+        if ANIMALS[animal]["format"] == "glb":
+            bm = bmesh.new()
+            bm.from_mesh(mesh)
+            bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-5)
+            bm.to_mesh(mesh)
+            bm.free()
+            with bpy.context.temp_override(object=obj, active_object=obj):
+                if mesh.has_custom_normals:
+                    bpy.ops.mesh.customdata_custom_splitnormals_clear()
+            mesh.shade_smooth()
+            mesh.set_sharp_from_angle(angle=math.radians(SMOOTH_ANGLE))
+        layer = mesh.uv_layers.get("UVMap") or mesh.uv_layers.new(name="UVMap")
+        normals = obj.matrix_world.to_3x3().inverted().transposed()
+        for poly in mesh.polygons:
+            _, tile, _ = spec[obj.material_slots[poly.material_index].material.name]
+            tile = tile or 0.1
+            n = normals @ poly.normal
+            axis = max(range(3), key=lambda k: abs(n[k]))
+            for i in poly.loop_indices:
+                p = obj.matrix_world @ mesh.vertices[mesh.loops[i].vertex_index].co
+                a, b = (p[k] for k in range(3) if k != axis)
+                layer.data[i].uv = (a / tile, b / tile)
+    images = {}
+    materials = {slot.material.name: slot.material for obj in meshes for slot in obj.material_slots if slot.material}
+    for name in sorted(materials):
+        kind, _, roughness = spec[name]
+        tree = materials[name].node_tree
+        shader = next(n for n in tree.nodes if n.type == "BSDF_PRINCIPLED")
+        shader.inputs["Roughness"].default_value = roughness
+        shader.inputs["Metallic"].default_value = 0.0
+        if kind is None:
+            continue
+        if kind not in images:
+            images[kind] = detail_image(kind)
+        texture = tree.nodes.new("ShaderNodeTexImage")
+        texture.image = images[kind]
+        mix = tree.nodes.new("ShaderNodeMix")
+        mix.data_type, mix.blend_type = "RGBA", "MULTIPLY"
+        mix.inputs["Factor"].default_value = 1.0
+        mix.inputs[7].default_value = shader.inputs["Base Color"].default_value
+        tree.links.new(texture.outputs["Color"], mix.inputs[6])
+        tree.links.new(mix.outputs[2], shader.inputs["Base Color"])
+
+
 def validate(p, inputs):
     if type(p) is not dict or set(p) != {"schemaVersion", "animal"} or p["schemaVersion"] != 1 or p["animal"] not in ANIMALS:
         raise ValueError(f"ambient animals takes schemaVersion 1 and an animal of {sorted(ANIMALS)}")
@@ -264,6 +384,7 @@ def prepare(animal, source_path):
     root.location = Vector((-(low.x + high.x) / 2, -(low.y + high.y) / 2, -low.z))
     bpy.context.view_layer.update()
     low, high = bounds(meshes)
+    organic_surface(animal, meshes)
 
     # In-place check: the walk's horizontal travel of the mesh centre over the clip, in metres.
     slot_for(armature, actions["Walk"])
