@@ -38,7 +38,7 @@ const AUTHORED = { pack: null, file: null, sourceClips: null } as const;
 /** The source clip each shipped clip comes from; "<clip>+layer" is that clip re-timed under a scripted additive pose (#715), and
  * "<clip>+<clip>+layer" several blended one into the next (#782). */
 const STAG_CLIPS = {
-  ...UAA_CLIPS, Run: "Gallop", Death: "Death+layer", Attack_A: "Attack_Headbutt+layer", Attack_B: "Idle+Gallop+layer", Hit: "Idle_HitReact_Left+layer", Alert: "Idle+layer",
+  ...UAA_CLIPS, Run: "Gallop", Death: "Death+layer", Attack_A: "Idle+Gallop+layer", Attack_B: "Idle+layer", Hit: "Idle_HitReact_Left+layer", Alert: "Idle+layer",
 } as const;
 const WOLF_CLIPS = { ...UAA_CLIPS, Run: "Gallop", Death: "Death", Attack_A: "Attack+layer", Attack_B: "Attack+layer", Hit: "Idle_HitReact_Left+layer", Alert: "Idle+layer" } as const;
 const RAT_CLIPS = {
