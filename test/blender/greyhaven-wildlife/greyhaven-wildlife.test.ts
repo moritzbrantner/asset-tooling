@@ -131,9 +131,11 @@ test("the wildlife recipe builds a verified, reproducible bundle of grounded ani
       }
       if (entry.animal === "marsh-adder") assert.ok(asset.clips.Slither_Loop.travelSpeed > 0, "adder slither travel speed");
       if (entry.animal === "stag" || entry.animal === "highland-ram") {
-        // The stag's and ram's charges gallop in place; the consumer moves the root up to the contact (#782).
-        const { metres, startSeconds, endSeconds } = asset.clips.Attack_B.rootTravel;
-        assert.ok(metres >= 1.5 && startSeconds < endSeconds && Math.abs(endSeconds - asset.clips.Attack_B.contactSeconds) < 1e-6, `${entry.animal} charge`);
+        // The stag's and ram's charges gallop in place; the consumer moves the root up to the contact (#782). The stag's is
+        // Attack_A, its rearing swipe Attack_B (#804).
+        const charge = asset.clips[entry.animal === "stag" ? "Attack_A" : "Attack_B"];
+        const { metres, startSeconds, endSeconds } = charge.rootTravel;
+        assert.ok(metres >= 1.5 && startSeconds < endSeconds && Math.abs(endSeconds - charge.contactSeconds) < 1e-6, `${entry.animal} charge`);
       }
       if (entry.animal === "bog-toad") {
         // The toad's hop-bite hops in place; the consumer moves the root through the hop up to the bite (#783).

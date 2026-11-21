@@ -166,9 +166,9 @@ LAYERED = {
         "Alert": ("Idle", ((0, 0), (20, 20))),
     },
     "stag": {
-        "Attack_A": ("Attack_Headbutt", ((0, 0), (8, 6), (11, 10), (22, 19))),
-        "Attack_B": ("Idle", ((0, 0, "Idle"), (6, 6, "Idle"), (8, 0, "Gallop"), (15, 11, "Gallop"), (17, 0, "Idle"), (32, 15, "Idle"))),
-        "Hit": ("Idle_HitReact_Left", ((0, 0), (8, 11))),
+        "Attack_A": ("Idle", ((0, 0, "Idle"), (7, 7, "Idle"), (8, 0, "Gallop"), (14, 10, "Gallop"), (15, 0, "Idle"), (32, 17, "Idle"))),
+        "Attack_B": ("Idle", ((0, 0), (26, 26))),
+        "Hit": ("Idle_HitReact_Left", ((0, 0), (12, 11))),
         "Alert": ("Idle", ((0, 0), (24, 24))),
         "Death": ("Death", ((0, 0), (26, 26))),
     },
@@ -184,7 +184,7 @@ LAYERED = {
 CONTACT_FRAMES = {
     "wolf": {"Attack_A": 9, "Attack_B": 14},
     "rat": {"Attack_A": 10, "Attack_B": 12},
-    "stag": {"Attack_A": 11, "Attack_B": 15},
+    "stag": {"Attack_A": 15, "Attack_B": 13},
     "highland-ram": {"Attack_A": 11, "Attack_B": 13},
     "boar": {"Attack_A": 9, "Attack_B": 15},
     "bear": {"Attack_A": 11, "Attack_B": 20},
@@ -271,74 +271,137 @@ def rat_layer(clip, t):
             "Tail1": [("P", 22 * up), ("W", 12 * hiss)], "root": [("loc", (0.03 * hiss, 0.02 * up, 0))]}
 
 
+def stag_stance(s):
+    """The stag's alert combat stance (#804), which its attacks, Alert and Hit recover into: weight a little back and down,
+    the neck raised and the antlers presented forward at the threat, the tail flagged."""
+    return {"Body": [("loc", (-0.012 * s, -0.012 * s, 0))], "Neck1": [("P", -8 * s)], "Head": [("P", 14 * s)], "Tail1": [("P", -25 * s)]}
+
+
+def stag_rear(pitch):
+    """Body pitch (degrees, nose up positive) about the hind hips instead of the body bone's head, as (rotation, move)."""
+    a = math.radians(pitch)
+    f, u = STAG_HIP
+    return ("P", -pitch), ("loc", (f - (f * math.cos(a) - u * math.sin(a)), u - (f * math.sin(a) + u * math.cos(a)), 0))
+
+
+def stag_merge(*poses):
+    merged = {}
+    for pose in poses:
+        for bone, ops in pose.items():
+            merged.setdefault(bone, []).extend(ops)
+    return merged
+
+
 def stag_layer(clip, t):
-    """The stag's fights (#782). Its hooves are the source rig's root-level IK bones, so the body and feet move freely and
-    ``STAG_LEGS`` re-solves each leg onto its hoof every frame: planted hooves stay planted while the body drives."""
+    """The stag's fights (#782, reworked in #804). Its hooves are the source rig's root-level IK bones, so the body and
+    feet move freely and ``STAG_LEGS`` re-solves each leg onto its hoof every frame: planted hooves stay planted while the
+    body drives."""
     if clip == "Attack_A":
-        # Antler sweep: the weight rocks back and the head cocks right with the antlers tipped low, then the whole body
-        # twists left behind a sharp sideways rake of the antlers across the front (lands at 11/22), the right forefoot
-        # stepping in to drive it; a follow-through and recovery to the stance.
-        k = lambda *keys: curve(t, (0, 0), *keys, (22, 0))
-        sweep = k((5, -1), (8, -1.1), (11, 0.55), (13, 0.85), (17, 0.3))
-        step = curve(t, (6, 0), (9, 1), (16, 1), (21, 0))
-        lift = curve(t, (6, 0), (7.5, 1), (9, 0), (16, 0), (18.5, 1), (21, 0))
-        return {"Body": [("loc", (k((7, -0.035), (11, 0.05), (14, 0.04)), k((7, -0.012), (11, -0.02)), -0.025 * sweep)), ("W", 8 * sweep), ("R", -4 * sweep)],
-                "Torso": [("W", 6 * sweep)], "Torso3": [("W", 6 * sweep)], "Neck1": [("W", 14 * sweep), ("P", k((7, -4), (11, 12), (14, 10)))],
-                "Neck3": [("W", 10 * sweep)], "Head": [("W", 14 * sweep), ("R", 26 * sweep), ("P", k((7, 6), (11, 16), (14, 12)))],
-                "Tail1": [("P", k((5, -30), (17, -30)))],
-                "IKFrontLeg.R": [("loc", (0.07 * step, 0.05 * lift, -0.01 * step))]}
-    if clip == "Attack_B":
-        # Forward charge: antlers lowered at the threat, a forefoot scrape, then a lowered-head gallop (the consumer moves
-        # the root from 8 to 15), the lowered antlers driven in at the contact (15/32) braced on both forefeet, a hard
-        # upward hook, the recoil, and an exposed, head-shaking recovery.
-        k = lambda *keys: curve(t, (0, 0), *keys, (32, 0))
-        low = curve(t, (0, 0), (5, 1), (15, 1), (16.5, 0), (32, 0))
-        hook = curve(t, (15, 0), (16.5, 1), (19, 0.4), (23, 0))
-        scrape = curve(t, (1, 0), (2.5, 1), (4, 0), (5.5, 1), (7, 0))
-        brace = curve(t, (13, 0), (15, 1), (19, 1), (24, 0))
-        shake = math.sin(2 * math.pi * (t - 18) / 4) * curve(t, (17, 0), (19, 1), (24, 1), (27, 0))
-        pose = {"Body": [("loc", (k((5, -0.035), (8, -0.02), (15, 0.045), (18, -0.03), (24, 0)), k((5, -0.03), (8, -0.01), (15, -0.025), (18, 0)), 0)),
-                         ("P", k((5, 4), (14, 6), (15, 0), (18, -5), (23, 0)))],
-                "Neck1": [("P", 26 * low - 10 * hook - 6 * curve(t, (17, 0), (19, 1), (26, 0)))], "Neck3": [("P", 8 * low)],
-                "Head": [("P", 55 * low - 25 * hook), ("R", 14 * shake), ("W", 8 * shake)],
-                "Tail1": [("P", k((3, -40), (24, -40)))],
-                "IKFrontLeg.R": [("loc", (0.05 * scrape, 0.035 * scrape, 0))]}
+        # Lowered-antler charge. Wind-up (0-7): the weight rocks back and down onto the haunches, the antlers drop at the
+        # threat and the right forefoot paws twice. Charge (8-15): a lowered-head gallop the consumer moves the root
+        # through. Strike: the hind legs drive out behind, the body lunges forward and down and the antlers ram in at the
+        # contact (15/32) on braced forefeet. Follow-through: a hard upward hook as the body rides up over the planted
+        # hooves. Recovery: the hooves step back under the body, a head shake, and the alert stance.
+        sink = curve(t, (0, 0), (5, 1), (7, 1), (8.5, 0))
+        low = curve(t, (0, 0), (4, 1), (15, 1), (17, 0.2), (21, 0))
+        thrust = curve(t, (12, 0), (15, 1), (17, 0.8), (21, 0))
+        hook = curve(t, (15, 0), (17, 1), (20, 0.25), (24, 0))
+        scrape = curve(t, (1, 0), (2.5, 1), (4, 0), (4.5, 0), (6, 1), (7.5, 0))
+        drive = curve(t, (12, 0), (15, 1), (22, 1), (26, 0))
+        brace = curve(t, (12, 0), (15, 1), (21, 1), (25, 0))
+        hind_lift = curve(t, (22, 0), (24, 1), (26, 0))
+        fore_lift = curve(t, (21, 0), (23, 1), (25, 0))
+        shake = math.sin(2 * math.pi * (t - 22) / 4) * curve(t, (21, 0), (23, 1), (26, 1), (28, 0))
+        stance = curve(t, (21, 0), (28, 1))
+        pose = {"Body": [("loc", (-0.075 * sink + 0.06 * thrust + 0.02 * hook, -0.055 * sink - 0.025 * thrust + 0.02 * hook, 0)),
+                         ("P", -7 * sink + 7 * thrust - 5 * hook)],
+                "Torso": [("P", 4 * thrust)],
+                "Neck1": [("P", 34 * low + 6 * thrust - 16 * hook)], "Neck3": [("P", 10 * low)],
+                "Head": [("P", 60 * low + 8 * thrust - 30 * hook), ("R", 14 * shake), ("W", 8 * shake)],
+                "Tail1": [("P", curve(t, (0, 0), (3, -40), (24, -40), (28, 0)))],
+                "IKFrontLeg.R": [("loc", (0.06 * scrape, 0.04 * scrape, 0))]}
+        for foot in ("IKBackLeg.L", "IKBackLeg.R"):
+            pose[foot] = [("loc", (-0.035 * drive, 0.04 * hind_lift, 0))]
         for foot in ("IKFrontLeg.L", "IKFrontLeg.R"):
-            pose.setdefault(foot, []).append(("loc", (0.05 * brace, 0, 0)))
-        return pose
+            pose.setdefault(foot, []).append(("loc", (0.07 * brace, 0.04 * fore_lift, 0)))
+        return stag_merge(pose, stag_stance(stance))
+    if clip == "Attack_B":
+        # Rearing antler swipe. Gather (0-4): the weight sinks onto the haunches and the head cocks right with the antlers
+        # tipped. Rear (4-9): the forehand rises about the hips, forelegs tucked. Strike (9-13): the stag drops and twists
+        # left, raking the antlers down and across the front, the contact (13/26) as the forefeet land. Follow-through to
+        # 17, then the forefeet step back under it and it settles into the alert stance.
+        gather = curve(t, (0, 0), (4, 1), (7, 0))
+        rear = curve(t, (2, 0), (8, 1), (10, 0.85), (13, 0))
+        sweep = curve(t, (0, 0), (4, -0.7), (9, -1), (13, 0.75), (16, 1.05), (20, 0.3), (24, 0))
+        tuck = curve(t, (3, 0), (7, 1), (11, 0.4), (13, 0))
+        land = curve(t, (10, 0), (13, 1), (19, 1), (23, 0))
+        step = curve(t, (19, 0), (21, 1), (23, 0))
+        stance = curve(t, (17, 0), (24, 1))
+        pitch, move = stag_rear(40 * rear)
+        reach = curve(t, (9, 0), (13, 1), (15, 1.15), (19, 0.4), (23, 0))
+        pose = {"Body": [move, ("loc", (-0.04 * gather + 0.04 * reach, -0.03 * gather - 0.025 * reach, 0.03 * sweep)), pitch,
+                         ("W", 8 * sweep), ("R", -5 * sweep)],
+                "Torso": [("W", 6 * sweep)], "Torso3": [("W", 6 * sweep)],
+                "Neck1": [("W", 22 * sweep), ("P", -6 * rear + 22 * reach)], "Neck3": [("W", 14 * sweep)],
+                "Head": [("W", 14 * sweep), ("R", 14 * sweep), ("P", 14 * rear + 42 * reach)],
+                "Tail1": [("P", curve(t, (0, 0), (3, -35), (20, -35), (24, 0)))]}
+        # The forefeet ride up with the chest about the hips, tucked back and up, then land braced ahead and to the left.
+        a = math.radians(40 * rear)
+        f, u = STAG_FORE_HOOF[0] - STAG_HIP[0], STAG_FORE_HOOF[1] - STAG_HIP[1]
+        ride = (f * math.cos(a) - u * math.sin(a) - f, f * math.sin(a) + u * math.cos(a) - u)
+        for foot in ("IKFrontLeg.L", "IKFrontLeg.R"):
+            pose[foot] = [("loc", (ride[0] - 0.2 * tuck + 0.07 * land, ride[1] + 0.03 * tuck + 0.05 * step, 0.03 * land))]
+        return stag_merge(pose, stag_stance(stance))
     if clip == "Death":
         # The source collapse onto its side, with the head turned as it lands so the antlers lie along the ground
         # instead of spearing into it, and the body and hooves raised out of the ground the source sinks them into.
         fall = curve(t, (7, 0), (15, 1))
-        pose = {"Body": [("loc", (0, 0.064 * curve(t, (5, 0), (12, 1)), 0))], "Neck3": [("R", STAG_DEATH_ROLL * 0.4 * fall)],
+        # The neck gives a little as the head lands so the antler tips touch down rather than dig in (#804).
+        land = curve(t, (11, 0), (15, 1), (19, 0.6), (24, 0))
+        pose = {"Body": [("loc", (0, 0.064 * curve(t, (5, 0), (12, 1)), 0))], "Neck1": [("R", 9 * land)], "Neck3": [("R", STAG_DEATH_ROLL * 0.4 * fall)],
                 "Head": [("R", STAG_DEATH_ROLL * fall)]}
         for foot in ("IKFrontLeg.L", "IKFrontLeg.R", "IKBackLeg.L", "IKBackLeg.R"):
             pose[foot] = [("loc", (0, 0.045 * curve(t, (0, 0), (12, 1)), 0))]
         return pose
     if clip == "Hit":
-        # Struck: a jolt back and away, the head and antlers snapping up and aside.
-        jolt = curve(t, (0, 0), (2, 1), (8, 0))
-        return {"Body": [("loc", (-0.03 * jolt, 0.008 * jolt, 0.012 * jolt)), ("R", 5 * jolt)], "Neck1": [("P", -10 * jolt)],
-                "Head": [("P", -16 * jolt), ("R", -12 * jolt)], "Tail1": [("P", -35 * jolt)]}
-    # Alert: the head snaps up in alarm, then the antlers drop at the threat and thrash twice as the right forefoot
-    # stamps the ground twice; the tail flags up throughout.
-    up = curve(t, (0, 0), (3, 1), (6, 1), (8, 0))
-    low = curve(t, (6, 0), (9, 1), (20, 1), (24, 0))
-    thrash = math.sin(2 * math.pi * (t - 9) / 4) * curve(t, (9, 0), (10, 1), (17, 1), (19, 0))
-    stamp = curve(t, (10, 0), (11.5, 1), (12.5, 0), (15, 0), (16.5, 1), (17.5, 0))
-    return {"Body": [("loc", (0.012 * low, 0.015 * up - 0.01 * low, 0))], "Neck1": [("P", -20 * up + 22 * low)], "Neck3": [("W", 12 * thrash)],
-            "Head": [("P", -16 * up + 40 * low), ("R", 24 * thrash)], "Tail1": [("P", -40 * max(up, low))],
-            "IKFrontLeg.R": [("loc", (0.04 * stamp, 0.09 * stamp, 0))]}
+        # Struck: the whole body jolts back and away with the head and antlers snapping up and aside, the right hind hoof
+        # steps back to catch the weight, and it squares up into the alert stance.
+        jolt = curve(t, (0, 0), (1.5, 1), (5, 0.3), (9, 0))
+        catch = curve(t, (1, 0), (4, 1), (12, 1))
+        lift = curve(t, (1, 0), (2.5, 1), (4, 0))
+        stance = curve(t, (5, 0), (11, 1))
+        return stag_merge({"Body": [("loc", (-0.045 * jolt - 0.015 * catch, 0.01 * jolt, 0.02 * jolt)), ("R", 6 * jolt), ("W", -5 * jolt)],
+                           "Neck1": [("P", -12 * jolt)], "Head": [("P", -18 * jolt), ("R", -14 * jolt)], "Tail1": [("P", -35 * jolt)],
+                           "IKBackLeg.R": [("loc", (-0.04 * catch, 0.04 * lift, 0))]}, stag_stance(stance))
+    # Alert: the head snaps up high in alarm and the tail flags, the right forefoot stamps hard twice, the weight shifting
+    # onto it each time, then a snorting head toss and the alert stance, antlers presented.
+    up = curve(t, (0, 0), (2.5, 1), (15, 1), (19, 0))
+    stamps = curve(t, (4, 0), (6, 1), (7, 0), (10, 0), (12, 1), (13, 0))
+    slam = curve(t, (6, 0), (7, 1), (9, 0), (12, 0), (13, 1), (15, 0))
+    toss = curve(t, (15, 0), (16.5, 1), (18.5, -0.4), (20, 0))
+    stance = curve(t, (17, 0), (22, 1))
+    return stag_merge({"Body": [("loc", (0.012 * slam, 0.015 * up - 0.012 * slam, -0.015 * slam)), ("R", 3 * slam)],
+                       "Neck1": [("P", -22 * up + 6 * slam)], "Head": [("P", -12 * up + 8 * slam + 16 * toss), ("R", 8 * toss)],
+                       "Tail1": [("P", -45 * up)],
+                       "IKFrontLeg.R": [("loc", (0.03 * stamps, 0.1 * stamps, 0))]}, stag_stance(stance))
 
 
-STAG_DEATH_ROLL = 60.0
+STAG_DEATH_ROLL = 30.0
+# The stag's hind hips and fore hooves at rest, (forward, up) from the body bone in rig heights (#804): the rear pivots about the hips.
+STAG_HIP = (-0.27, 0.52)
+STAG_FORE_HOOF = (0.293, -0.113)
 # The stag's legs (#782): the two bones solved onto each IK hoof, upper and lower. The hind legs keep their thigh.
 STAG_LEGS = (("FrontUpperLeg.L", "FrontLowerLeg.L", "IKFrontLeg.L"), ("FrontUpperLeg.R", "FrontLowerLeg.R", "IKFrontLeg.R"),
              ("BackUpperLeg.L", "BackLowerLeg.L", "IKBackLeg.L"), ("BackUpperLeg.R", "BackLowerLeg.R", "IKBackLeg.R"))
 LAYERS = {"wolf": (wolf_layer, ()), "rat": (rat_layer, ()), "stag": (stag_layer, STAG_LEGS)}
 
 
-def sample_pose(armature, frame):
+def sample_pose(armature, frame, reset=None):
+    """The pose at ``frame`` of the slotted clip. With ``reset`` (a pose), bones the clip leaves unkeyed read that pose
+    instead of whatever was sampled or keyed before (#804: the stag's Idle leaves its IK hooves unkeyed)."""
+    if reset:
+        for pb in armature.pose.bones:
+            pb.location, pb.rotation_quaternion, pb.scale = reset[pb.name]
     whole = math.floor(frame)
     bpy.context.scene.frame_set(whole, subframe=frame - whole)
     return {pb.name: (pb.location.copy(), pb.rotation_quaternion.copy(), pb.scale.copy()) for pb in armature.pose.bones}
@@ -348,16 +411,16 @@ def blend_pose(a, b, s):
     return {name: (a[name][0].lerp(b[name][0], s), a[name][1].slerp(b[name][1], s), a[name][2].lerp(b[name][2], s)) for name in a}
 
 
-def layered_bases(armature, sources, source, warp):
+def layered_bases(armature, sources, source, warp, reset=None):
     """The source pose under each frame of a layered clip: one clip re-timed, or several blended key to key."""
     count = warp[-1][0]
     if len(warp[0]) == 2:
         slot_for(armature, sources[source])
-        return [sample_pose(armature, warped(warp, t)) for t in range(count + 1)]
+        return [sample_pose(armature, warped(warp, t), reset) for t in range(count + 1)]
 
     def at(clip, frame):
         slot_for(armature, sources[clip])
-        return sample_pose(armature, frame)
+        return sample_pose(armature, frame, reset)
 
     bases = []
     for t in range(count + 1):
@@ -434,9 +497,11 @@ def layer_clips(animal, armature, sources):
     unit = max(heads) - min(heads)
     layer, legs = LAYERS[animal]
     before = {pb.name: (pb.location.copy(), pb.rotation_quaternion.copy(), pb.scale.copy()) for pb in armature.pose.bones}
+    # The stag samples its sources over the rest pose, so a bone its source leaves unkeyed rests there (#804).
+    rest = {pb.name: (Vector(), Quaternion(), Vector((1, 1, 1))) for pb in armature.pose.bones}
     actions = {}
     for clip, (source, warp) in LAYERED[animal].items():
-        bases = layered_bases(armature, sources, source, warp)
+        bases = layered_bases(armature, sources, source, warp, rest if legs else None)
         action = bpy.data.actions.new(clip)
         slot_for(armature, action)
         for t, base in enumerate(bases):
@@ -1822,7 +1887,7 @@ def ram_gallop(pose, u, amount=1.0):
 
 # The stag's and ram's charges (#782) and the toad's hop (#783): (first frame, contact frame, metres) the consumer moves the root in a straight line
 # while the clip gallops or hops in place.
-CHARGES = {("stag", "Attack_B"): (8, 15, 2.0), ("highland-ram", "Attack_B"): (6, 13, 1.6), ("bog-toad", "Attack_B"): (6, 14, 0.6),
+CHARGES = {("stag", "Attack_A"): (8, 15, 2.0), ("highland-ram", "Attack_B"): (6, 13, 1.6), ("bog-toad", "Attack_B"): (6, 14, 0.6),
            ("cave-bat", "Dive_Contact"): (0, 8, 2.4)}
 
 
