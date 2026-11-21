@@ -1,0 +1,8 @@
+{
+  "note": "The textured hair kit (#557): six hairstyles grown on the catalogued male and female heads, built twice for the same tar.",
+  "timeout": 20,
+  "ktx": true,
+  "lfs": [
+    "assets/canonical/quaternius.universal-base-characters-standard.superhero-*-fullbody-*/**"
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "note": "#557: curly, coily and braided hairstyles on the shared Head joint, fitted to the male and female heads.",
+  "script": "scripts/build-textured-hair-kit.ts",
+  "blender": true,
+  "lfs": true,
+  "ktx": true,
+  "budget": {
+    "materials": 2,
+    "textureMemoryMB": 2,
+    "downloadMB": 3
+  }
+}
