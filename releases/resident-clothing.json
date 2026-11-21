@@ -1,0 +1,13 @@
+{
+  "note": "#560: everyday garments for the adult and young residents, skinned to each figure's rig, with one shared cloth atlas.",
+  "script": "scripts/build-resident-clothing.ts",
+  "blender": true,
+  "lfs": true,
+  "ktx": true,
+  "budget": {
+    "note": "#560: two materials (cloth and the tintable cloth.dyed) over one atlas and normal map; measured on the first build.",
+    "materials": 2,
+    "textureMemoryMB": 7,
+    "downloadMB": 12
+  }
+}

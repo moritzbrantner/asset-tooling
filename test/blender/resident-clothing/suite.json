@@ -1,0 +1,8 @@
+{
+  "note": "The resident clothing kit (#560): six fit runs on the catalogued Quaternius Peasant outfits, built twice for the same tar.",
+  "timeout": 25,
+  "ktx": true,
+  "lfs": [
+    "assets/canonical/quaternius.modular-character-outfits-fantasy-standard.*/**"
+  ]
+}
