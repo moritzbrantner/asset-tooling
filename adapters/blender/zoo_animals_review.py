@@ -172,16 +172,22 @@ def main():
         groups[pose["id"]] = (holder, objects)
         heights[pose["id"]] = height
         lengths[pose["id"]] = length
-    # one scale per animal, from its standing idle height
+    # one scale per animal, from its standing idle height; a relative plan (young age stages) keeps every animal at
+    # the compared adult's scale, so their true sizes show side by side
+    relative = PLAN.get("relative", False)
     scale_current = ZOO_HEIGHT / heights["current-idle"]
-    scale_candidate = ZOO_HEIGHT / heights["idle-0"]
+    scale_candidate = scale_current if relative else ZOO_HEIGHT / heights["idle-0"]
+    scale_also = (scale_current if relative else ZOO_HEIGHT / heights["also-idle"]) if "also-idle" in heights else None
 
     def put(pose_id, location, yaw):
-        arrange(groups[pose_id][0], location, yaw, scale_current if pose_id.startswith("current") else scale_candidate)
+        scale = scale_current if pose_id.startswith("current") else scale_also if pose_id.startswith("also") else scale_candidate
+        arrange(groups[pose_id][0], location, yaw, scale)
 
     # The enclosure: the candidate idling, walking, feeding and resting, and the current zebra for scale.
     enclosure = {"current-idle": ((-2.2, 1.2, 0), 200), "idle-0": ((-0.6, 1.4, 0), 160), "walk-3": ((1.4, 0.8, 0), 20),
                  "feed-1": ((-1.4, -1.1, 0), -30), "rest-1": ((1.6, -1.2, 0), 140)}
+    if scale_also:  # the other age stage joins the herd, grazing beside the adult and walking behind the candidate
+        enclosure.update({"also-feed": ((-2.6, 0.1, 0), 230), "also-walk": ((0.6, 0.3, 0), 10)})
     for pose_id, (location, yaw) in enclosure.items():
         put(pose_id, location, yaw)
     show(groups, enclosure)
@@ -189,13 +195,25 @@ def main():
     shoot(scene, camera, "watch.jpg", (0, 0, 0.25), 6.5)
     shoot(scene, camera, "orbit-front.jpg", (0, 0, 0.25), 6.5, yaw=YAW + 120, pitch=30)
     shoot(scene, camera, "orbit-back.jpg", (0, 0, 0.25), 6.5, yaw=YAW + 220, pitch=34)
+    if relative:  # the park view on a phone held upright: is each stage still legible at its true size?
+        scene.render.resolution_x, scene.render.resolution_y = 390, 844
+        shoot(scene, camera, "mobile.jpg", (0, 0, 0.2), 15)
+        scene.render.resolution_x, scene.render.resolution_y = WIDTH, HEIGHT
 
-    # Current and candidate side by side at the same height and angle.
+    # Current and candidate side by side at the same height and angle (with the other stage between them).
     put("current-idle", (-0.5, 0, 0), 0)
     put("idle-0", (0.5, 0, 0), 0)
     put("current-walk", (-0.5, 0, 0), 0)
-    show(groups, {"current-idle", "idle-0"})
-    shoot(scene, camera, "compare.jpg", (0.05, 0, 0.28), 2.6, yaw=-28, pitch=22)
+    lineup = {"current-idle", "idle-0"}
+    if scale_also:
+        put("current-idle", (-0.75, 0, 0), 0)
+        put("also-idle", (0.1, 0, 0), 0)
+        put("idle-0", (0.75, 0, 0), 0)
+        lineup.add("also-idle")
+    show(groups, lineup)
+    shoot(scene, camera, "compare.jpg", (0.05, 0, 0.28), 2.6 if not scale_also else 3.2, yaw=-28, pitch=22)
+    if scale_also:  # the same lineup from the side, the silhouettes the age stages must keep apart
+        shoot(scene, camera, "compare-side.jpg", (0.0, 0, 0.27), 12, yaw=0, pitch=6, ortho=2.4)
 
     # The candidate's face, close up from three-quarters front: the expression is what players bond with.
     put("idle-0", (0, 0, 0), 0)
@@ -208,7 +226,7 @@ def main():
     shoot(scene, camera, "face.jpg", centre, 3.2 * size, yaw=118, pitch=10)  # framed by the head's own size
 
     # Every clip's poses in a row, seen from the animal's right side, spaced by the animal's own length.
-    step = max(0.8, 1.15 * lengths["idle-0"] * scale_candidate)
+    step = max(0.3 if relative else 0.8, 1.15 * lengths["idle-0"] * scale_candidate)
     for clip in ("idle", "walk", "feed", "rest"):
         ids = [p["id"] for p in PLAN["poses"] if p["clip"] == clip and p["id"].startswith(clip)]
         if clip == "walk":

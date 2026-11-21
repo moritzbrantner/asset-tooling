@@ -2,7 +2,8 @@
 
 One run builds one animal (asset-tooling#589 zebra, consumer zoo#112/#142). It replaces nothing in Zoo: the
 animals join the rolling ``zoo-animals`` release beside Zoo's old authored zebra and giraffe as the variant
-``expressive`` (docs/zoo-animals.md). The rig follows the shared ``quadruped-rigid`` profile
+``expressive`` (docs/zoo-animals.md). The zebra also has young age stages (#747), built with the argument
+``stage`` (``baby`` or ``juvenile``) as their own variants, on the adult's joints and clip names. The rig follows the shared ``quadruped-rigid`` profile
 (src/quadruped-rigid.ts), and the birds (the flamingo and penguin) its two-legged sibling ``biped-rigid`` (src/biped-rigid.ts):
 named transform nodes pivoting at their joints, rigid parts, no skin.
 
@@ -50,6 +51,7 @@ PALETTE = {
     "zebra-white": (0.95, 0.94, 0.9),
     "zebra-black": (0.1, 0.1, 0.11),
     "zebra-muzzle": (0.24, 0.22, 0.23),
+    "zebra-foal": (0.34, 0.22, 0.15),
     "ear-inner": (0.86, 0.72, 0.72),
     "hoof": (0.2, 0.19, 0.19),
     "eye-white": (1.0, 1.0, 1.0),
@@ -198,7 +200,12 @@ class Part:
                 if abs((c - p).dot(n)) < width / 2 and (keep is None or keep(c + self.pivot)):
                     face.material_index = index
 
-    def finish(self, collection, parent):
+    def finish(self, collection, parent, scale=1.0):
+        """``scale`` shrinks the part and its pivot about the origin, so a young animal is modelled in its adult's
+        units and finished at its own size; the adults finish at 1."""
+        if scale != 1.0:
+            bmesh.ops.scale(self.bm, vec=(scale, scale, scale), verts=self.bm.verts)
+            self.pivot = self.pivot * scale
         mesh = bpy.data.meshes.new(self.name)
         bmesh.ops.remove_doubles(self.bm, verts=self.bm.verts, dist=1e-6)
         bmesh.ops.triangulate(self.bm, faces=[f for f in self.bm.faces if len(f.verts) > 4])
@@ -336,6 +343,142 @@ def build_zebra(collection):
         eye.lathe("eye-pupil", ball(0.03, 3), eye_c + look * 0.03 + Vector((0.012, 0, 0.004)), direction=look, scale=(1, 1, 0.65), segments=8)
         eye.lathe("eye-white", ball(0.009, 3), eye_c + look * 0.05 + Vector((0.018, 0, 0.018)), segments=6)
         eye.finish(collection, head)
+
+    return root
+
+
+# ---------------------------------------------------------------- young zebras
+
+# The baby (foal) and juvenile zebra (#747): the adult's joints, clips and palette, but a young animal's build,
+# not a scaled adult. Each stage is modelled in the adult's units with these factors and finished at ``scale``:
+# legs long for the body (a foal's legs are nearly full length), a short round barrel, a short upright neck with a
+# soft brush mane, a big round head with a short muzzle, big low-set eyes and big ears, knobbly knees and a short
+# tail. A foal's stripes are brown (``zebra-foal``) and darken to the adult's black by the juvenile stage.
+ZEBRA_YOUNG = {
+    "baby": {"scale": 0.5, "leg": 1.26, "length": 0.72, "girth": 0.98, "limb": 0.8, "neck": 0.82, "neck_lean": 0.36,
+             "head": 1.62, "muzzle": 0.6, "eye": 1.3, "eye_z": 0.02, "ear": 1.12, "ear_out": 0.72, "tail": 0.55,
+             "body_stripes": 7, "stripe": "zebra-foal", "knee": 0.062, "mane": (0.12, 0.06, 0.27), "walk": 0.8},
+    "juvenile": {"scale": 0.72, "leg": 1.12, "length": 0.86, "girth": 0.95, "limb": 0.88, "neck": 0.94, "neck_lean": 0.46,
+                 "head": 1.28, "muzzle": 0.8, "eye": 1.14, "eye_z": 0.04, "ear": 1.06, "ear_out": 0.62, "tail": 0.78,
+                 "body_stripes": 8, "stripe": "zebra-black", "knee": 0.054, "mane": (0.1, 0.045, 0.29), "walk": 1.0},
+}
+
+
+def zebra_young_frame(stage):
+    """The young zebra's joint positions in the adult's units, before it is finished at its scale."""
+    y = ZEBRA_YOUNG[stage]
+    upper, lower = ZEBRA["upper"] * y["leg"], ZEBRA["lower"] * y["leg"]
+    hip_z = upper + lower
+    body_z = hip_z + 0.06 * y["girth"]
+    neck = Vector((0.4 * y["length"], 0, body_z + 0.14 * y["girth"]))
+    neck_dir = Vector((y["neck_lean"], 0, 1)).normalized()
+    hips = {leg: (x * y["length"], side * y["girth"], hip_z) for leg, (x, side) in
+            {"leg_0": (-0.3, -0.135), "leg_1": (-0.3, 0.135), "leg_2": (0.29, -0.13), "leg_3": (0.29, 0.13)}.items()}
+    return {"upper": upper, "lower": lower, "body": (0.0, 0.0, body_z), "neck": tuple(neck), "neck_dir": neck_dir,
+            "head": tuple(neck + neck_dir * 0.46 * y["neck"]), "tail": (-0.5 * y["length"], 0.0, body_z + 0.1 * y["girth"]), "hips": hips}
+
+
+def build_zebra_young(collection, stage):
+    y, f = ZEBRA_YOUNG[stage], zebra_young_frame(stage)
+    s, stripe, g, h = y["scale"], y["stripe"], y["girth"], y["head"]
+    root = bpy.data.objects.new("animal_root", None)
+    root.empty_display_size = 0.3 * s
+    collection.objects.link(root)
+    bz = f["body"][2]
+
+    # Body: a short, round barrel, striped across with a few wide bands, the belly left white.
+    body = Part("body", f["body"])
+    barrel = [(0, -0.6), (0.15, -0.58), (0.23, -0.51), (0.27, -0.38), (0.275, -0.2), (0.27, 0.0), (0.27, 0.2), (0.265, 0.36),
+              (0.23, 0.48), (0.15, 0.56), (0, 0.58)]
+    body.lathe("zebra-white", [(r * g, x * y["length"]) for r, x in barrel], f["body"], direction=(1, 0, 0.04), scale=(1.0, 0.92, 1), segments=12)
+    slabs = []
+    for k in range(y["body_stripes"]):
+        x = y["length"] * (-0.62 + 1.14 * (k + 0.5) / y["body_stripes"])
+        a = math.radians(-8 + 55 * max(0.0, -x / y["length"] - 0.12) / 0.4)
+        slabs.append(((x, 0, bz), (math.cos(a), 0, math.sin(a)), 0.065 * y["length"] / 0.86))
+    body.paint("zebra-white", stripe, slabs, keep=lambda c: c.z > bz - 0.16 * g + 0.05 * math.sin(c.x * 9 / y["length"]))
+    body = body.finish(collection, root, s)
+
+    # Legs: long and slim, with a round knobbly knee, bands and a small black hoof.
+    for leg, hip in f["hips"].items():
+        front = leg in ("leg_2", "leg_3")
+        hip = Vector(hip)
+        upper = Part(leg, hip)
+        upper.lathe("zebra-white", capsule((0.085 if not front else 0.075) * y["limb"], 0.05 * y["limb"], f["upper"], cap=0.15), hip, segments=8,
+                    scale=(1.15 if not front else 1.0, 1, 1))
+        upper.paint("zebra-white", stripe, [((hip.x, 0, hip.z - f["upper"] * (0.35 + 0.27 * k)), (0, 0, 1), 0.035 * y["limb"]) for k in range(2)])
+        upper = upper.finish(collection, body, s)
+        knee = hip - Vector((0, 0, f["upper"]))
+        lower = Part(f"{leg}_lower", knee)
+        lower.lathe("zebra-white", ball(y["knee"], 4), knee + Vector((0.006, 0, 0.0)), scale=(1.0, 0.9, 1.0), segments=8)
+        lower.lathe("zebra-white", capsule(0.046 * y["limb"], 0.038 * y["limb"], f["lower"] - 0.06, 2), knee, segments=8)
+        lower.paint("zebra-white", stripe, [((knee.x, 0, knee.z - f["lower"] * (0.26 + 0.22 * k)), (0, 0, 1), 0.03 * y["limb"]) for k in range(3)])
+        hoof = [(0, 0), (0.058, 0), (0.06, 0.02), (0.046, 0.075), (0, 0.075)]
+        lower.lathe("hoof", [(r * y["limb"] * 1.05, z * y["limb"]) for r, z in hoof], (knee.x + 0.01, knee.y, 0.0), segments=8, scale=(1.1, 1, 1))
+        lower.finish(collection, upper, s)
+
+    # Tail: short, with a fluffy dark tuft.
+    tp = Vector(f["tail"])
+    tail_dir = Vector((0.4, 0, 1)).normalized()
+    tail = Part("tail", tp)
+    tail.lathe("zebra-white", capsule(0.03, 0.02, 0.36 * y["tail"], 2), tp, direction=tail_dir, segments=7)
+    tail.lathe(stripe, ball(0.055, 4), tp - tail_dir * (0.36 * y["tail"] + 0.035), direction=-tail_dir, scale=(0.85, 0.85, 1.4), segments=8)
+    tail.finish(collection, body, s)
+
+    # Neck: short and upright, with a soft brush mane standing up along its back.
+    nd = f["neck_dir"]
+    np_ = Vector(f["neck"])
+    neck = Part("neck", np_)
+    neck.lathe("zebra-white", capsule(0.14 * g, 0.1 * g, 0.42 * y["neck"] + 0.04, 2), np_, direction=-nd, scale=(1.0, 0.8, 1), segments=12)
+    back = Vector((-nd.z, 0, nd.x))
+    mx, my, mz = y["mane"]
+    neck.lathe("zebra-white", ball(1.0, 4), np_ + nd * (0.27 * y["neck"] + 0.03) + back * (0.11 * g), direction=nd,
+               scale=(mx, my, mz * y["neck"] + 0.06), segments=6)
+    count = max(3, round(6 * y["neck"]))
+    neck.paint("zebra-white", stripe, [(np_ + nd * (0.04 + 0.42 * y["neck"] * (k + 0.3) / count), nd, 0.045) for k in range(count)])
+    neck.paint("zebra-white", stripe, [(np_ + back * (0.11 * g + mx * 0.75), back, 0.05)])
+    neck = neck.finish(collection, body, s)
+
+    # Head: a big round cranium, a short soft muzzle with a dark nose, forehead stripes and a fluffy forelock.
+    hp = Vector(f["head"])
+    cranium = hp + Vector((0.03, 0, 0.02)) * h
+    head = Part("head", hp)
+    head.lathe("zebra-white", ball(0.16 * h, 6), cranium, scale=(1.05, 0.98, 1.0), segments=12)
+    muzzle_dir = Vector((1, 0, -0.62)).normalized()
+    reach = 0.2 * h * y["muzzle"]
+    head.lathe("zebra-white", ball(0.2 * h, 7), cranium + muzzle_dir * (0.11 * h + 0.5 * reach), direction=muzzle_dir,
+               scale=(0.48, 0.46, y["muzzle"] * 0.95), segments=12)
+    nose = cranium + muzzle_dir * (0.11 * h + 1.4 * reach)
+    head.paint("zebra-white", "zebra-muzzle", [(nose - muzzle_dir * 0.005 * h, muzzle_dir, 0.06 * h)])
+    head.paint("zebra-white", stripe, [(cranium + muzzle_dir * (0.11 + 0.045 * k) * h, muzzle_dir, 0.022 * h) for k in range(3)],
+               keep=lambda c: c.z > hp.z - 0.04 * h)
+    head.lathe(stripe, ball(1.0, 3), hp + Vector((0.06, 0, 0.15)) * h, direction=(0.7, 0, 1), scale=(0.06 * h, 0.05 * h, 0.075 * h), segments=6)
+    for side in (-1, 1):  # nostrils
+        head.lathe("zebra-black", ball(0.016 * h, 3), nose + Vector((-0.01, side * 0.04, 0.015)) * h, scale=(1, 1, 0.6), segments=6)
+    head = head.finish(collection, neck, s)
+
+    for side, name in ((1, "left"), (-1, "right")):
+        base = hp + Vector((-0.03, side * 0.085, 0.12)) * h
+        ear = Part(f"ear_{name}", base)
+        ear_dir = Vector((-0.15, side * y["ear_out"], 1)).normalized()
+        e = h * y["ear"] * 0.82
+        leaf = [(0, 0), (0.05, 0.02), (0.066, 0.08), (0.055, 0.14), (0.024, 0.2), (0, 0.22)]
+        ear.lathe("zebra-white", [(r * e, z * e) for r, z in leaf], base, direction=ear_dir, scale=(1, 0.5, 1), segments=8)
+        ear.lathe("ear-inner", [(0, 0), (0.044 * e, 0.03 * e), (0.04 * e, 0.12 * e), (0, 0.16 * e)], base + Vector((0.025, 0, 0.0)) * e,
+                  direction=ear_dir, scale=(1, 0.32, 1), segments=6)
+        ear.paint("zebra-white", stripe, [(base + ear_dir * 0.195 * e, ear_dir, 0.05 * e)])
+        ear.finish(collection, head, s)
+
+        eye_c = hp + Vector((0.08, side * 0.106, y["eye_z"])) * h
+        r = 0.052 * h * y["eye"] / 1.12
+        eye = Part(f"eye_{name}", eye_c)
+        look = Vector((0.75, side * 0.85, 0.05)).normalized()
+        eye.lathe("eye-white", ball(r, 4), eye_c, direction=look, scale=(1, 1, 0.78), segments=10)
+        eye.lathe("eye-pupil", ball(r * 0.64, 3), eye_c + look * r * 0.6 + Vector((0.014, 0, 0.0)) * h, direction=look, scale=(1, 1, 0.65), segments=8)
+        on_eye = lambda up, ahead: eye_c + (look + Vector((ahead, 0, up))).normalized() * r * 0.97  # a point on the eyeball
+        eye.lathe("eye-white", ball(r * 0.2, 3), on_eye(0.38, 0.2), segments=6)
+        eye.lathe("eye-white", ball(r * 0.1, 2), on_eye(-0.2, 0.32), segments=5)
+        eye.finish(collection, head, s)
 
     return root
 
@@ -928,7 +1071,10 @@ def build_penguin(collection):
 
 
 BUILDERS = {"zebra": build_zebra, "giraffe": build_giraffe, "tiger": build_tiger, "elephant": build_elephant, "capybara": build_capybara,
-            "flamingo": build_flamingo, "penguin": build_penguin}
+            "flamingo": build_flamingo, "penguin": build_penguin,
+            "zebra-baby": lambda collection: build_zebra_young(collection, "baby"),
+            "zebra-juvenile": lambda collection: build_zebra_young(collection, "juvenile")}
+YOUNG = {"zebra": ("baby", "juvenile")}  # species: its young age stages (#747), built as "<species>-<stage>"
 
 
 # ---------------------------------------------------------------- clips
@@ -1049,6 +1195,101 @@ def pose_rest(t, duration):
     }
     fold_legs(pose, ZEBRA["hips"], lambda leg: ZEBRA["upper"], LYING_DROP["zebra"], KNEE_HEIGHT["zebra"])
     return pose
+
+
+def zebra_young_poses(stage):
+    """The young zebra's idle, walk, feed and rest: the adult's clips with a young animal's energy. ``baby`` is
+    bouncier, its head and ears livelier and its blinks more frequent; it grazes with its front legs splayed, as a
+    long-legged foal must; it lies on folded legs like the adult, with its chin down."""
+    y, f = ZEBRA_YOUNG[stage], zebra_young_frame(stage)
+    s = y["scale"]
+    baby = stage == "baby"
+    lively = 1.5 if baby else 1.2
+    hips = {leg: tuple(c * s for c in hip) for leg, hip in f["hips"].items()}
+    upper = f["upper"] * s
+    body_bottom = (f["body"][2] - 0.275 * y["girth"]) * s
+    drop = -(body_bottom - 0.12 * s * y["limb"])
+    knee = 0.075 * s * y["limb"] + 0.012 * s
+
+    def idle(t, duration):
+        w = 2 * math.pi * t / duration
+        blink = pulse(t, 1.3, 0.2) + pulse(t, 3.4, 0.2) if baby else pulse(t, 2.6, 0.22)
+        tilt = math.radians(14 if baby else 9) * pulse(t, 1.6, 1.4)  # a curious head tilt
+        return {
+            "body.t": (0, 0, 0.006 * s * (1 - math.cos(2 * w))),
+            "body.r": (0, math.radians(0.6) * math.sin(2 * w), 0),
+            "neck.r": (0, math.radians(-3) * math.sin(w), math.radians(8 * lively) * math.sin(w)),
+            "head.r": (math.radians(5) * math.sin(w) + tilt, math.radians(4) * math.sin(2 * w), math.radians(14 * lively) * math.sin(w + 0.6)),
+            "ear_left.r": (math.radians(-35) * pulse(t, 0.8, 0.3) + math.radians(-30) * pulse(t, 2.7, 0.3), math.radians(10) * math.sin(w), 0),
+            "ear_right.r": (math.radians(35) * pulse(t, 2.0, 0.3), math.radians(10) * math.sin(w + 1), 0),
+            "eye_left.s": (1, 1, 1 - 0.9 * blink), "eye_right.s": (1, 1, 1 - 0.9 * blink),
+            "tail.r": (math.radians(34) * math.sin(w * (4 if baby else 3)), math.radians(-6) * (1 + math.sin(w)), 0),
+        }
+
+    def walk(t, duration):
+        u = t / duration
+        pose = {}
+        phases = {"leg_1": 0.0, "leg_3": 0.25, "leg_0": 0.5, "leg_2": 0.75}
+        for leg, phase in phases.items():
+            swing, fold = leg_cycle((u + 1 - phase) % 1, leg in ("leg_2", "leg_3"))
+            pose[f"{leg}.r"] = (0, -swing, 0)
+            pose[f"{leg}_lower.r"] = (0, fold, 0)
+        w = 2 * math.pi * u
+        pose.update({
+            "body.t": (0, 0, (0.006 + 0.006 * lively * (1 - math.cos(2 * w))) * s),
+            "body.r": (math.radians(1.5) * math.sin(w), math.radians(1.0) * math.sin(2 * w), math.radians(1.5) * math.sin(w)),
+            "neck.r": (0, math.radians(4 * lively) * math.sin(2 * w - 0.8), 0),
+            "head.r": (0, math.radians(-3 * lively) * math.sin(2 * w - 1.2), 0),
+            "ear_left.r": (0, math.radians(-4) + math.radians(5) * math.sin(2 * w), 0),
+            "ear_right.r": (0, math.radians(-4) + math.radians(5) * math.sin(2 * w + 0.5), 0),
+            "eye_left.s": (1, 1, 1), "eye_right.s": (1, 1, 1),
+            "tail.r": (math.radians(20) * math.sin(w), math.radians(-14), 0),
+        })
+        return pose
+
+    # Feeding: the front legs splay sideways (front hips drop by the legs' lost height) and the body pitches
+    # forwards about its centre to meet them, so the hind hooves stay down while the mouth reaches the grass.
+    leg_length = (f["upper"] + f["lower"]) * s
+    splay = math.radians(30 if baby else 20)
+    front_x, hind_x = hips["leg_2"][0], -hips["leg_0"][0]
+    hoof = 0.063 * y["limb"] * s  # a splayed hoof tips onto its rim, which stays on the grass
+    pitch = math.asin((leg_length * (1 - math.cos(splay)) - hoof * math.sin(splay)) / (front_x + hind_x))
+    lift = hind_x * math.sin(pitch)
+    neck_down = math.radians(116 if baby else 112)
+
+    def feed(t, duration):
+        w = 2 * math.pi * t / duration
+        nibble = 0.5 + 0.5 * math.sin(3 * w)
+        return {
+            "body.t": (0, 0, -lift),
+            "body.r": (0, pitch, 0),
+            "neck.r": (0, neck_down - pitch + math.radians(2) * math.sin(w), math.radians(5) * math.sin(w)),
+            "head.r": (math.radians(4) * math.sin(w), math.radians(38) + math.radians(6) * nibble, 0),
+            "leg_0.r": (0, -pitch, 0), "leg_1.r": (0, -pitch, 0),
+            "leg_2.r": (-splay, -pitch, 0), "leg_3.r": (splay, -pitch, 0),
+            "ear_left.r": (math.radians(-20) * pulse(t, 0.6, 0.4), math.radians(15), 0),
+            "ear_right.r": (math.radians(20) * pulse(t, 2.1, 0.4), math.radians(15), 0),
+            "eye_left.s": (1, 1, 0.8), "eye_right.s": (1, 1, 0.8),
+            "tail.r": (math.radians(30) * math.sin(w * 2), math.radians(-4), 0),
+        }
+
+    def rest(t, duration):
+        w = 2 * math.pi * t / duration
+        breath = 0.5 - 0.5 * math.cos(w)
+        pose = {
+            "body.t": (0, 0, drop + 0.008 * s * breath),
+            "body.r": (0, 0, 0),
+            "neck.r": (0, math.radians(24 if baby else 20) + math.radians(2) * breath, math.radians(-10)),
+            "head.r": (math.radians(-6), math.radians(26) + math.radians(3) * breath, 0),
+            "ear_left.r": (math.radians(-25) * pulse(t, 2.4, 0.4), math.radians(35), 0),
+            "ear_right.r": (0, math.radians(35), 0),
+            "eye_left.s": (1, 1, 0.12), "eye_right.s": (1, 1, 0.12),
+            "tail.r": (math.radians(-20), math.radians(-70), math.radians(4) * math.sin(w)),
+        }
+        fold_legs(pose, hips, lambda leg: upper, drop, knee)
+        return pose
+
+    return {"idle": (idle, 4.0), "walk": (walk, y["walk"]), "feed": (feed, 3.0), "rest": (rest, 5.0)}
 
 
 def giraffe_idle(t, duration):
@@ -1606,6 +1847,8 @@ POSES = {
     "capybara": {"idle": (capybara_idle, 6.0), "walk": (capybara_walk, 0.9), "feed": (capybara_feed, 3.0), "rest": (capybara_rest, 6.0)},
     "flamingo": {"idle": (flamingo_idle, 5.0), "walk": (flamingo_walk, 1.4), "feed": (flamingo_feed, 4.0), "rest": (flamingo_rest, 6.0)},
     "penguin": {"idle": (penguin_idle, 5.0), "walk": (penguin_walk, 0.8), "feed": (penguin_feed, 4.0), "rest": (penguin_rest, 6.0)},
+    "zebra-baby": zebra_young_poses("baby"),
+    "zebra-juvenile": zebra_young_poses("juvenile"),
 }
 
 
@@ -1711,24 +1954,28 @@ def measure_clips(root):
     return result
 
 
-def build(species, collection):
-    if species not in BUILDERS:
-        raise ValueError(f"zoo animal species must be one of {', '.join(SPECIES)}")
-    root = BUILDERS[species](collection)
-    root["species"] = species
+def build(species, collection, stage=None):
+    """Build one animal; ``stage`` picks a young age stage (``YOUNG``) of a species that has one."""
+    animal = species if stage is None else f"{species}-{stage}"
+    if animal not in BUILDERS:
+        raise ValueError(f"zoo animal species must be one of {', '.join(SPECIES)}, or a stage of {', '.join(sorted(YOUNG))}")
+    root = BUILDERS[animal](collection)
+    root["species"] = animal
     animate(root)
     return root
 
 
 def generate(output_path, arguments, inputs):
-    if not isinstance(arguments, dict) or set(arguments) != {"schemaVersion", "species"} or arguments["schemaVersion"] != 1:
-        raise ValueError("zoo animal arguments must be exactly {schemaVersion: 1, species}")
+    if not isinstance(arguments, dict) or set(arguments) - {"stage"} != {"schemaVersion", "species"} or arguments["schemaVersion"] != 1:
+        raise ValueError("zoo animal arguments must be exactly {schemaVersion: 1, species} and an optional stage")
     if inputs:
         raise ValueError("zoo animal recipe does not accept extra resources")
-    species = arguments["species"]
+    species, stage = arguments["species"], arguments.get("stage")
+    if stage is not None and stage not in YOUNG.get(species, ()):
+        raise ValueError(f"the {species} has no age stage {stage!r}")
     bpy.ops.object.select_all(action="SELECT")
     bpy.ops.object.delete(use_global=False)
-    root = build(species, bpy.context.scene.collection)
+    root = build(species, bpy.context.scene.collection, stage)
     clips = measure_clips(root)
     objects = [root] + list(root.children_recursive)
     bpy.ops.object.select_all(action="DESELECT")
@@ -1744,6 +1991,6 @@ def generate(output_path, arguments, inputs):
         export_animations=True, export_animation_mode="NLA_TRACKS", export_force_sampling=False,
         export_optimize_animation_size=False, export_optimize_animation_keep_anim_object=True,
         export_skins=False, export_morph=False, export_cameras=False, export_lights=False, export_extras=False)
-    return {"recipe": "zoo-animals-v1", "species": species, "unit": "meter", "axes": "right-handed-y-up", "facing": "+X",
+    return {"recipe": "zoo-animals-v1", "species": species, **({"stage": stage} if stage else {}), "unit": "meter", "axes": "right-handed-y-up", "facing": "+X",
             "origin": "rig-root-on-the-ground-plane", "triangleCount": triangles, "bounds": bounds,
             "joints": sorted(o.name for o in objects), "clips": clips}

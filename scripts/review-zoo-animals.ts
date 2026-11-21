@@ -1,5 +1,6 @@
 // Review images for the zoo-animals release (docs/zoo-animals.md), rendered from the packaged bundle itself:
 //   ASSET_TOOLING_BLENDER=<blender 5.2.2> bun scripts/review-zoo-animals.ts --bundle <out>/bundle --key zoo.animal.zebra --out <directory>
+//   [--variant <variant>] [--compare <key/variant>] [--relative] [--also <key/variant>]
 // Each pose is sampled from the packaged glTF clips by the profile's own sampler (withClipPose) and written as a
 // static posed GLB; adapters/blender/zoo_animals_review.py lays them out at Zoo's camera (yaw −38°, pitch 46°, 36°
 // vertical field of view) and renders the park and watch views, two orbit angles, pose strips and a walk loop.
@@ -53,19 +54,30 @@ const load = async (entryKey: string, entryVariant: string) => {
 const candidate = await load(key, variant);
 const [compareKey, compareVariant] = compare.split("/") as [string, string];
 const current = await load(compareKey, compareVariant);
+// Age stages (#747): `--relative` shows the candidate at the compared adult's scale, so a young animal keeps its
+// true size beside it, and `--also <key/variant>` adds a third animal (the other stage) to the lineup.
+const relative = process.argv.includes("--relative");
+const alsoIndex = process.argv.indexOf("--also");
+const [alsoKey, alsoVariant] = alsoIndex >= 0 ? (process.argv[alsoIndex + 1] ?? "").split("/") as [string, string] : [];
+const also = alsoKey && alsoVariant ? await load(alsoKey, alsoVariant) : null;
 
 const poses: Pose[] = [{ id: "current-idle", key: compareKey, variant: compareVariant, clip: "idle", time: 0 },
   { id: "current-walk", key: compareKey, variant: compareVariant, clip: "walk", time: seconds(current, "walk") * 0.25 }];
+if (also) {
+  poses.push({ id: "also-idle", key: alsoKey!, variant: alsoVariant!, clip: "idle", time: 0 },
+    { id: "also-walk", key: alsoKey!, variant: alsoVariant!, clip: "walk", time: seconds(also, "walk") * 0.25 },
+    { id: "also-feed", key: alsoKey!, variant: alsoVariant!, clip: "feed", time: seconds(also, "feed") * 0.25 });
+}
 for (const clip of ["idle", "walk", "feed", "rest"]) {
   const length = seconds(candidate, clip);
   const steps = clip === "walk" ? 12 : 4;
   for (let step = 0; step < steps; step += 1) poses.push({ id: `${clip}-${step}`, key, variant, clip, time: (length * step) / steps });
 }
 for (const pose of poses) {
-  const document = pose.key === key && pose.variant === variant ? candidate : current;
+  const document = pose.id.startsWith("also-") ? also! : pose.key === key && pose.variant === variant ? candidate : current;
   await writeFile(path.join(out, "poses", `${pose.id}.glb`), await posed(io, document, pose.clip, pose.time));
 }
-const plan = { title: `${key}/${variant}`, poses: poses.map(({ id, clip, time }) => ({ id, clip, time: +time.toFixed(3) })) };
+const plan = { title: `${key}/${variant}`, relative, poses: poses.map(({ id, clip, time }) => ({ id, clip, time: +time.toFixed(3) })) };
 await writeFile(path.join(out, "plan.json"), `${JSON.stringify(plan, null, 2)}\n`);
 
 const blender = process.env.ASSET_TOOLING_BLENDER;

@@ -1,6 +1,7 @@
 // The zoo-animals release (#128, #589; docs/zoo-animals.md): Zoo's pinned zebra and giraffe stay as authored, and
-// the expressive zebra, giraffe, tiger, elephant, capybara, flamingo and penguin built by adapters/blender/zoo_animals.py join them as the `expressive` variant, with in-place
-// idle, walk, feed and rest clips whose legs swing about the animal's side axis. The build replays to the same tar.
+// the expressive zebra, giraffe, tiger, elephant, capybara, flamingo and penguin built by adapters/blender/zoo_animals.py join them as the `expressive` variant
+// (and the zebra's `baby` and `juvenile` age stages, #747), with in-place idle, walk, feed and rest clips whose legs swing
+// about the animal's side axis. The build replays to the same tar.
 // It skips unless ASSET_TOOLING_BLENDER names Blender 5.2.2 and the two canonical Zoo sources are hydrated.
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -14,7 +15,7 @@ import { readAssetBundleGltf, verifyAssetBundle, type GltfResourcesBundleManifes
 import { BIPED_RIGID } from "../../../src/biped-rigid.js";
 import { QUADRUPED_RIGID, assertRigidAnimal } from "../../../src/quadruped-rigid.js";
 import {
-  ZOO_ANIMALS, ZOO_ANIMALS_DESCRIPTOR_FILE, ZOO_ANIMALS_RECIPE, ZOO_EXPRESSIVE_ANIMALS, ZOO_EXPRESSIVE_VARIANT, buildZooAnimals, createZooAnimalAssetSpec,
+  ZOO_AGE_STAGES, ZOO_ANIMALS, ZOO_ANIMALS_DESCRIPTOR_FILE, ZOO_ANIMALS_RECIPE, ZOO_EXPRESSIVE_ANIMALS, ZOO_EXPRESSIVE_VARIANT, buildZooAnimals, createZooAnimalAssetSpec,
 } from "../../../scripts/build-zoo-animals.ts";
 
 const root = path.resolve(fileURLToPath(new URL("../../..", import.meta.url)));
@@ -51,6 +52,9 @@ const EXPECTED: Record<string, { height: [number, number]; length: [number, numb
   "zoo.animal.capybara": { height: [0.6, 1.0], length: [1.2, 1.8], triangles: 3000, coat: "0.39,0.17", coatName: "the brown coat" },
   "zoo.animal.flamingo": { height: [1.5, 1.9], length: [0.6, 0.95], triangles: 2500, coat: "0.96,0.34", coatName: "the pink plumage", joints: ["neck", "neck_upper"], biped: true },
   "zoo.animal.penguin": { height: [0.7, 1.0], length: [0.4, 0.65], triangles: 2500, coat: "0.02,0.02", coatName: "the black back", biped: true },
+  // The young zebras (#747), keyed by key/variant: a foal's brown stripes, the juvenile's adult black.
+  "zoo.animal.zebra/baby": { height: [0.8, 1.1], length: [0.55, 0.85], triangles: 4500, coat: "0.09,0.04", coatName: "the foal's brown stripes" },
+  "zoo.animal.zebra/juvenile": { height: [1.1, 1.45], length: [0.95, 1.3], triangles: 4500, coat: "0.01,0.01", coatName: "the black stripes" },
 };
 
 /** The rotation axis of a quaternion in the leg's channel, or null when it barely turns. */
@@ -60,7 +64,7 @@ function axisOf([x, y, z]: number[]): number[] | null {
 }
 
 function checkExpressive(document: Document, label: string) {
-  const expected = EXPECTED[label.split("/")[0]!]!;
+  const expected = EXPECTED[label] ?? EXPECTED[label.split("/")[0]!]!;
   const observations = assertRigidAnimal(document, expected.biped ? BIPED_RIGID : QUADRUPED_RIGID, label);
   const gltf = document.getRoot();
   assert.deepEqual(gltf.listNodes().map((node) => node.getName()).sort(), [...(expected.biped ? BIRD_JOINTS : JOINTS), ...(expected.joints ?? [])].sort(), `${label}: the joints`);
@@ -113,6 +117,26 @@ function checkExpressive(document: Document, label: string) {
   }
   assert.equal(new Set(phases).size, phases.length, `${label}: the legs step at different times`);
   assert.equal(phases.length, expected.biped ? 2 : 4);
+  return observations;
+}
+
+/** Young proportions, not a scaled adult: the head's share of the standing height and the hip's share grow as the animal gets younger. */
+function proportions(document: Document) {
+  const nodes = document.getRoot().listNodes();
+  const world = (name: string) => nodes.find((node) => node.getName() === name)!.getWorldTranslation()[1]!;
+  const head = nodes.find((node) => node.getName() === "head")!;
+  const position = head.getMesh()!.listPrimitives()[0]!.getAttribute("POSITION")!;
+  const height = Math.max(...nodes.filter((node) => node.getMesh()).map((node) => {
+    const values = node.getMesh()!.listPrimitives()[0]!.getAttribute("POSITION")!;
+    const matrix = node.getWorldMatrix();
+    let top = -Infinity;
+    for (let index = 0; index < values.getCount(); index += 1) {
+      const [x, y, z] = values.getElement(index, []);
+      top = Math.max(top, matrix[1]! * x! + matrix[5]! * y! + matrix[9]! * z! + matrix[13]!);
+    }
+    return top;
+  }));
+  return { head: (position.getMax([])[1]! - position.getMin([])[1]!) / height, hip: world("leg_0") / height };
 }
 
 test("zoo-animals builds the old members unchanged and the expressive animals, reproducibly", { skip, timeout: 600_000 }, async () => {
@@ -124,11 +148,12 @@ test("zoo-animals builds the old members unchanged and the expressive animals, r
     const manifest = (await verifyAssetBundle(built.bundleDir, built.exportRef, { profile: "gltf-resources-v1" })).manifest as GltfResourcesBundleManifest;
     assert.deepEqual(manifest.assets.map((item) => `${item.key}/${item.variant}`).sort(),
       [`zoo.animal.capybara/${ZOO_EXPRESSIVE_VARIANT}`, `zoo.animal.elephant/${ZOO_EXPRESSIVE_VARIANT}`, `zoo.animal.flamingo/${ZOO_EXPRESSIVE_VARIANT}`, "zoo.animal.giraffe/default", `zoo.animal.giraffe/${ZOO_EXPRESSIVE_VARIANT}`, `zoo.animal.penguin/${ZOO_EXPRESSIVE_VARIANT}`, `zoo.animal.tiger/${ZOO_EXPRESSIVE_VARIANT}`,
-        "zoo.animal.zebra/default", `zoo.animal.zebra/${ZOO_EXPRESSIVE_VARIANT}`]);
+        "zoo.animal.zebra/baby", "zoo.animal.zebra/default", `zoo.animal.zebra/${ZOO_EXPRESSIVE_VARIANT}`, "zoo.animal.zebra/juvenile"]);
 
     const descriptor = JSON.parse(await readFile(path.join(outDir, ZOO_ANIMALS_DESCRIPTOR_FILE), "utf8"));
     assert.deepEqual(descriptor.clips.activity, ["feed", "rest"]);
     const io = new NodeIO();
+    const zebras: Record<string, { channels: string; size: { height: number }; proportions: { head: number; hip: number } }> = {};
     for (const asset of descriptor.assets) {
       const item = await readAssetBundleGltf(built.bundleDir, manifest, asset.key, asset.variant);
       const document = await io.readJSON({ json: JSON.parse(item.gltf.toString()), resources: Object.fromEntries(item.resources) });
@@ -140,7 +165,20 @@ test("zoo-animals builds the old members unchanged and the expressive animals, r
       }
       assert.equal(asset.provenance.recipe.script, ZOO_ANIMALS_RECIPE);
       assert.match(asset.provenance.generator, /no third-party assets/);
-      checkExpressive(document, `${asset.key}/${asset.variant}`);
+      const observations = checkExpressive(document, `${asset.key}/${asset.variant}`);
+      if (asset.key === "zoo.animal.zebra") {
+        zebras[asset.variant] = { channels: observations.clips.walk!.channels.join(), size: observations.size, proportions: proportions(document) };
+      }
+      const stage = ZOO_AGE_STAGES.find((entry) => entry.key === asset.key && entry.stage === asset.variant);
+      if (stage) assert.deepEqual([asset.provenance.ageStage, asset.provenance.adult], [stage.stage, stage.adult]);
+    }
+    // The age stages bind to the adult's clips unchanged, are smaller, and are young in build, not shrunk adults.
+    const { expressive: adult, juvenile, baby } = zebras as Record<string, (typeof zebras)[string]>;
+    for (const young of [juvenile!, baby!]) assert.equal(young.channels, adult!.channels, "the young zebras key the adult's channels");
+    assert.ok(baby!.size.height < juvenile!.size.height && juvenile!.size.height < adult!.size.height, "baby < juvenile < adult");
+    for (const ratio of ["head", "hip"] as const) {
+      assert.ok(baby!.proportions[ratio] > juvenile!.proportions[ratio] + 0.01 && juvenile!.proportions[ratio] > adult!.proportions[ratio] + 0.01,
+        `${ratio} share of the height: baby ${baby!.proportions[ratio]}, juvenile ${juvenile!.proportions[ratio]}, adult ${adult!.proportions[ratio]}`);
     }
 
     const replay = await buildZooAnimals({ outDir: replayDir });
