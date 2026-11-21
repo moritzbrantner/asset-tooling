@@ -69,6 +69,8 @@ The [moss](docs/moss.md) is seven generic pieces of thin, ragged-edged cushion m
 
 The [young residents](docs/young-residents.md) are children and teenagers on the adults' rig, always dressed, with 21 face morph targets and a slider page.
 
+The [resident clothing kit](docs/resident-clothing.md) dresses the adult and young residents in everyday garments (smocks, smock dress and pinafore, shirt and jerkin, chemise and kirtle, work tunic, work aprons and belts), skinned to each figure's rig with authored folds, #391 skirt and apron chains, poor and better-off finishes and one shared cloth atlas.
+
 The [Shooter combat robot parts](docs/combat-robot-kit.md) are socket-grid robot parts for the Shooter on one metal atlas: three chassis sections and two beams with a coupling on every 20 cm surface cell, a sensor head, a battery, an armor plate with a damaged variant, a hinge and a rotor joint, and a self-contained leg with reference walk clips. Their descriptor defines the socket, frame, origin and joint-axis convention the Shooter's weapon and locomotion kits share.
 
 The [Shooter weapons](docs/shooter-weapons.md) are the eight socket-grid weapons of the Shooter (energy rifle, shotgun, laser, flamethrower, grapple hook, energy blade, rail gun and rocket launcher) and its four weapon mods, on one atlas in the robot kit's style: each weapon points out of its socket, with muzzle and mod anchors, two emissive channel nodes, its fire, charge, swing, launch and reload states as glTF animations, and LODs. It ships as its own rolling release, `shooter-weapons`, with a `socket-grid-kit-descriptor-v2` descriptor.
