@@ -45,12 +45,21 @@ export const ZOO_EXPRESSIVE_ANIMALS = [
   { animal: "flamingo", key: "zoo.animal.flamingo", issue: 609, profile: BIPED_RIGID },
   { animal: "penguin", key: "zoo.animal.penguin", issue: 611, profile: BIPED_RIGID },
 ] as const;
+/**
+ * Young age stages of an expressive animal (#747), packaged under the adult's key as the variant named by the stage.
+ * They share the adult's joints, clip names and material, so a consumer swaps the model, not the animation binding.
+ * Age progression stays with the consumer (zoo-core).
+ */
+export const ZOO_AGE_STAGES = [
+  { animal: "zebra", key: "zoo.animal.zebra", stage: "baby", adult: `zoo.animal.zebra/${ZOO_EXPRESSIVE_VARIANT}`, issue: 747 },
+  { animal: "zebra", key: "zoo.animal.zebra", stage: "juvenile", adult: `zoo.animal.zebra/${ZOO_EXPRESSIVE_VARIANT}`, issue: 747 },
+] as const;
 export const ZOO_ANIMALS_RECIPE = "adapters/blender/zoo_animals.py";
 
-export function createZooAnimalAssetSpec({ species, scriptSha256, blenderVersion }: { species: string; scriptSha256: string; blenderVersion: string }) {
+export function createZooAnimalAssetSpec({ species, stage, scriptSha256, blenderVersion }: { species: string; stage?: string; scriptSha256: string; blenderVersion: string }) {
   return blenderScriptSpec({
-    assetId: `zoo.animal.${species}.${ZOO_EXPRESSIVE_VARIANT}`, inputs: { script: { path: "zoo_animals.py", sha256: scriptSha256 } },
-    blenderVersion, arguments: { schemaVersion: 1, species }, output: `${species}.glb`,
+    assetId: `zoo.animal.${species}.${stage ?? ZOO_EXPRESSIVE_VARIANT}`, inputs: { script: { path: "zoo_animals.py", sha256: scriptSha256 } },
+    blenderVersion, arguments: { schemaVersion: 1, species, ...(stage ? { stage } : {}) }, output: `${stage ? `${species}-${stage}` : species}.glb`,
   });
 }
 /** The conventions of Zoo's authored models. They are as authored, and differ from the Greyhaven animals' +Z facing. */
@@ -87,6 +96,21 @@ export async function buildZooAnimals({ outDir, log = () => {} }: { outDir: stri
       key: entry.key, variant: ZOO_EXPRESSIVE_VARIANT, source: glb, ...("profile" in entry ? { profile: entry.profile } : {}),
       provenance: {
         animal: entry.animal, issue: `https://github.com/moritzbrantner/asset-tooling/issues/${entry.issue}`,
+        recipe: { script: ZOO_ANIMALS_RECIPE, sha256: recipe.sha256, blenderVersion: recipe.blenderVersion, name: (observations as { recipe: string }).recipe },
+        generator: "procedural: original scripted geometry and clips in this repository; no imported meshes, no third-party assets, no textures",
+      },
+    });
+  }
+  for (const entry of ZOO_AGE_STAGES) {
+    log(`generate the ${entry.stage} ${entry.animal} (external.blender.script@1 ${ZOO_ANIMALS_RECIPE})`);
+    const { glb, observations } = await runBlenderRecipe(root, {
+      workspace: path.join(root, "zoo-animals", `${entry.animal}-${entry.stage}`), files: { "zoo_animals.py": recipe.bytes },
+      spec: createZooAnimalAssetSpec({ species: entry.animal, stage: entry.stage, scriptSha256: recipe.sha256, blenderVersion: recipe.blenderVersion }),
+    });
+    members.push({
+      key: entry.key, variant: entry.stage, source: glb,
+      provenance: {
+        animal: entry.animal, ageStage: entry.stage, adult: entry.adult, issue: `https://github.com/moritzbrantner/asset-tooling/issues/${entry.issue}`,
         recipe: { script: ZOO_ANIMALS_RECIPE, sha256: recipe.sha256, blenderVersion: recipe.blenderVersion, name: (observations as { recipe: string }).recipe },
         generator: "procedural: original scripted geometry and clips in this repository; no imported meshes, no third-party assets, no textures",
       },

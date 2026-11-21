@@ -56,6 +56,22 @@ Every clip loops, stays in place and keys the same channels: the rotation, trans
 
 **Mapping to Zoo activities:** Zoo's core owns activity. For its current `AnimalActivity` (`apps/web/src/game-types.ts`), play `walk` for `walking` and `rest` for `resting`. Play `feed` once Zoo reports feeding, and `idle` otherwise. A cross-fade of about 0.4 s hides the change between standing and lying. These names are new clips; the existing `idle` and `walk` keep their meaning, so no consumer migration is needed.
 
+## The young zebras
+
+The zebra's two young age stages ([#747](https://github.com/moritzbrantner/asset-tooling/issues/747), consumer [zoo#110](https://github.com/moenarch-games/zoo/issues/110) and [zoo#112](https://github.com/moenarch-games/zoo/issues/112)) are the variants `baby` and `juvenile` of `zoo.animal.zebra`, beside the accepted adult `expressive`. The adult is unchanged: it builds to the same bytes as before.
+
+| Key / variant | Size (L × H × W, m) | Triangles | Parts | Materials |
+| --- | --- | --- | --- | --- |
+| `zoo.animal.zebra` / `baby` | 0.69 × 0.97 × 0.33 | 4,010 | 16 | 1 |
+| `zoo.animal.zebra` / `juvenile` | 1.11 × 1.28 × 0.35 | 4,128 | 16 | 1 |
+
+- **Build, not scale:** `build_zebra_young` models each stage in the adult's units with the factors in `ZEBRA_YOUNG` and finishes it at its own size (`Part.finish(scale=…)`). Against the adult, the young have long legs for their bodies, a short round barrel, a short upright neck with a soft brush mane, a big round head with a short soft muzzle, big low-set eyes with two highlights, big ears, knobbly knees and a short tail. The baby is the most extreme. Its stripes are a foal's dark brown (`zebra-foal`); the juvenile's are already the adult's black. The test checks that the head's and the hip's share of the standing height grow from adult to juvenile to baby.
+- **Rig and clips:** the adult's joints, clip names and keyed channels, and its one `zoo-animal` material, so a consumer swaps the model and keeps its clip binding and cross-fades. The clips (`zebra_young_poses`) are the adult's with a young animal's energy: a livelier idle with a curious head tilt and more blinks, a bouncier, quicker walk (`baby` 0.8 s, `juvenile` 1.0 s, each leg still swinging only about the side axis), grazing with the front legs splayed sideways and the body pitched forwards, as a long-legged foal must (only `feed` splays; the hooves stay on the grass), and lying on folded legs with the chin down.
+- **Identity:** each descriptor entry's provenance names its `ageStage` and its `adult` (`zoo.animal.zebra/expressive`). The recipe takes `{schemaVersion: 1, species: "zebra", stage}`. Age progression, breeding and which stage to show stay in `zoo-core`.
+- **Migration:** none. These are new variants; every existing member keeps its key, variant and bytes. The release's download budget grows from 3 to 4 MB for them (3.41 MB tar).
+
+The Zoo activity mapping is the adult zebra's.
+
 ## The giraffe
 
 The second animal ([#596](https://github.com/moritzbrantner/asset-tooling/issues/596)) uses the zebra's joints, clip names and checks, with its own proportions and clips.
@@ -214,6 +230,15 @@ ASSET_TOOLING_BLENDER=<blender 5.2.2> bun scripts/review-zoo-animals.ts --bundle
 ASSET_TOOLING_BLENDER=<blender 5.2.2> bun scripts/review-zoo-animals.ts --bundle .artifacts/zoo-animals/bundle --key zoo.animal.flamingo --compare zoo.animal.zebra/expressive --out .artifacts/zoo-review-flamingo
 ASSET_TOOLING_BLENDER=<blender 5.2.2> bun scripts/review-zoo-animals.ts --bundle .artifacts/zoo-animals/bundle --key zoo.animal.penguin --compare zoo.animal.zebra/expressive --out .artifacts/zoo-review-penguin
 ```
+
+The young zebras review as age stages, at the adult's scale so their true sizes show, with the other stage in the lineup:
+
+```sh
+ASSET_TOOLING_BLENDER=<blender 5.2.2> bun scripts/review-zoo-animals.ts --bundle .artifacts/zoo-animals/bundle --key zoo.animal.zebra --variant baby --compare zoo.animal.zebra/expressive --also zoo.animal.zebra/juvenile --relative --out .artifacts/zoo-review-zebra-baby
+ASSET_TOOLING_BLENDER=<blender 5.2.2> bun scripts/review-zoo-animals.ts --bundle .artifacts/zoo-animals/bundle --key zoo.animal.zebra --variant juvenile --compare zoo.animal.zebra/expressive --also zoo.animal.zebra/baby --relative --out .artifacts/zoo-review-zebra-juvenile
+```
+
+They add `compare-side.jpg` (adult, juvenile and baby side by side in profile) and `mobile.jpg` (the park view on an upright phone screen), in `review/zoo-animals/zebra-baby/` and `review/zoo-animals/zebra-juvenile/`.
 
 The zebra images are in [`review/zoo-animals/`](../review/zoo-animals/), and each later animal's in its own folder, `review/zoo-animals/<species>/`. The giraffe stands beside Zoo's current giraffe; the tiger, elephant, capybara, flamingo and penguin, which Zoo has no expressive model of, beside the expressive zebra for scale:
 
