@@ -1,10 +1,10 @@
 // Greyhaven's wildlife (#667, docs/greyhaven-wildlife.md) and the hostile creatures' combat clips (#715, #722), the lynx and adder (#778) and the
-// stag's fights and the highland ram (#782) and the badger, river crayfish and bog toad (#783), following the farm animals' conventions:
+// stag's fights and the highland ram (#782), the badger, river crayfish and bog toad (#783) and the cave bat (#784), following the farm animals' conventions:
 //   ASSET_TOOLING_BLENDER=<blender 5.2.2> bun scripts/build-greyhaven-wildlife.ts --out <directory>
 // Each animal is one external.blender.script@1 run of adapters/blender/wildlife.py, with the farm-animals recipe
 // (adapters/blender/farm_animals.py) as its declared Python input `farm`: the stag, doe, fox, wolf and rat over their hash-pinned
 // CC0 Quaternius catalog payloads (imported offline from hydrated LFS storage), the rabbit, boar, four birds, bear, spider, marsh lurker, lynx, adder,
-// highland ram, badger, river crayfish and bog toad authored by the recipe itself. Each GLB is checked through scene.import.gltf@2 and exported as a gltf-resources-v1
+// highland ram, badger, river crayfish, bog toad and cave bat authored by the recipe itself. Each GLB is checked through scene.import.gltf@2 and exported as a gltf-resources-v1
 // bundle packed to <directory>/greyhaven.wildlife.tar, next to the measured greyhaven-wildlife-descriptor-v1,
 // lineage.json and export.ref.json.
 import path from "node:path";
@@ -66,6 +66,7 @@ export const WILD_ANIMALS = [
   { animal: "badger", sourceId: null, member: null, bird: false, hostile: false, ...AUTHORED },
   { animal: "river-crayfish", sourceId: null, member: null, bird: false, hostile: true, ...AUTHORED },
   { animal: "bog-toad", sourceId: null, member: null, bird: false, hostile: true, ...AUTHORED },
+  { animal: "cave-bat", sourceId: null, member: null, bird: false, hostile: true, ...AUTHORED },
 ] as const;
 export type WildAnimal = (typeof WILD_ANIMALS)[number]["animal"];
 /** Neutral animals that still fight when threatened (#782; the badger, #783): they carry the combat clips without being hostile. */
@@ -73,12 +74,17 @@ export const NEUTRAL_FIGHTERS: readonly WildAnimal[] = ["stag", "highland-ram", 
 export const fights = (entry: (typeof WILD_ANIMALS)[number]) => entry.hostile || NEUTRAL_FIGHTERS.includes(entry.animal);
 /** The combat clips (#715, #722, #782, #783): a looping in-place Run and one-shot attacks, flinch, death and alert. */
 export const COMBAT_CLIPS = ["Run", "Attack_A", "Attack_B", "Hit", "Death", "Alert"] as const;
-export const ONE_SHOT_CLIPS = ["Attack_A", "Attack_B", "Hit", "Death", "Alert", "Pounce_Windup", "Pounce_Lunge", "Pounce_Recover", "Strike", "Strike_Recover"] as const;
-/** The forest lynx and marsh adder (#778) have their own clip sets instead of Idle, Walk, Eat and the combat clips: the lynx
- * stalks and pounces in three phases, the adder rests coiled, slithers, rears to warn and strikes. */
+export const ONE_SHOT_CLIPS = [
+  "Attack_A", "Attack_B", "Hit", "Death", "Alert", "Pounce_Windup", "Pounce_Lunge", "Pounce_Recover", "Strike", "Strike_Recover",
+  "Launch", "Land", "Dive_Windup", "Dive_Contact", "Dive_Recover",
+] as const;
+/** The forest lynx, marsh adder (#778) and cave bat (#784) have their own clip sets instead of Idle, Walk, Eat and the combat clips: the lynx
+ * stalks and pounces in three phases, the adder rests coiled, slithers, rears to warn and strikes, the bat hangs at its roost,
+ * launches, flies, dives in three phases and lands back. */
 export const SPECIES_CLIPS = {
   lynx: ["Idle", "Walk", "Run", "Crouch_Stalk_Loop", "Pounce_Windup", "Pounce_Lunge", "Pounce_Recover", "Hit", "Death"],
   "marsh-adder": ["Idle_Coil_Loop", "Slither_Loop", "Warn_Hiss_Loop", "Strike", "Strike_Recover", "Hit", "Death"],
+  "cave-bat": ["Perch", "Launch", "Idle", "Fly", "Dive_Windup", "Dive_Contact", "Dive_Recover", "Land", "Hit", "Death"],
 } as const;
 /** Every animal has Idle, Walk and Eat (grazing, rooting, pecking); the birds also a looping wingbeat, Fly; the hostile
  * wolf, boar, rat, bear, spider, marsh lurker, river crayfish and bog toad and the neutral stag, highland ram and badger also the combat clips. */
@@ -165,6 +171,8 @@ export async function buildGreyhavenWildlife({ outDir, log = () => {} }: { outDi
       walkTravel: observations.walkTravel,
       restClip: observations.restClip, moveClip: observations.moveClip,
       ...(observations.length === undefined ? {} : { length: observations.length }),
+      // The bat flies, so its origin is its centre: where it hangs from in Perch and lies once dead (#784).
+      ...(observations.flight === undefined ? {} : { flight: observations.flight }),
       // A box around the idle pose for the consumer's creature collision (#778); the consumer may shrink or swap it.
       collisionProxy: {
         shape: "box", pose: observations.restClip,

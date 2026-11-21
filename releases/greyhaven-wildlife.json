@@ -1,10 +1,10 @@
 {
-  "note": "#783: measured 115 materials (the badger, river crayfish and bog toad add 19), the same 9 shared detail textures (0.75 MB of GPU texture memory) and a 9.19 MB download (9.29 MB tar); the allowance is raised to the measured 115 materials and 10 MB.",
+  "note": "#784: measured 122 materials (the cave bat adds 7), 10 shared detail textures (the bat's membrane adds one; 0.83 MB of GPU texture memory) and a 9.72 MB download (9.83 MB tar); the allowance is raised to the measured 122 materials, the texture and download limits still fit.",
   "script": "scripts/build-greyhaven-wildlife.ts",
   "blender": true,
   "lfs": true,
   "budget": {
-    "materials": 115,
+    "materials": 122,
     "textureMemoryMB": 1,
     "downloadMB": 10
   }

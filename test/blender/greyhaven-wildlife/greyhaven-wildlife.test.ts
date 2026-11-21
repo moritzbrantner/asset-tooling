@@ -1,5 +1,5 @@
-// Greyhaven wildlife (#667, #715, #722, #778, #779, #782, #783, docs/greyhaven-wildlife.md): the recipe turns five hash-pinned CC0 Quaternius sources and
-// fifteen authored animals into a verified gltf-resources-v1 bundle of grounded, forward-facing, metre-sized skinned animals
+// Greyhaven wildlife (#667, #715, #722, #778, #779, #782, #783, #784, docs/greyhaven-wildlife.md): the recipe turns five hash-pinned CC0 Quaternius sources and
+// sixteen authored animals into a verified gltf-resources-v1 bundle of grounded, forward-facing, metre-sized skinned animals
 // with in-place Idle, Walk and Eat clips (and Fly on the birds), and replays to the same tar. The build skips unless
 // ASSET_TOOLING_BLENDER names Blender 5.2.2 and the canonical sources are hydrated (git lfs pull).
 import test from "node:test";
@@ -38,9 +38,10 @@ test("each wildlife spec runs the packaged recipe with the farm recipe, over its
   assert.deepEqual(Object.keys(sourced.inputs).sort(), ["farm", "script", "source"]);
   const authored = createWildAnimalAssetSpec({ animal: "heron", file: null, sourceSha256: null, ...base });
   assert.deepEqual(Object.keys(authored.inputs).sort(), ["farm", "script"]);
-  assert.deepEqual(WILD_ANIMALS.map((item) => item.animal), ["stag", "doe", "fox", "rabbit", "boar", "crow", "duck", "heron", "songbird", "wolf", "rat", "bear", "spider", "marsh-lurker", "lynx", "marsh-adder", "highland-ram", "badger", "river-crayfish", "bog-toad"]);
+  assert.deepEqual(WILD_ANIMALS.map((item) => item.animal), ["stag", "doe", "fox", "rabbit", "boar", "crow", "duck", "heron", "songbird", "wolf", "rat", "bear", "spider", "marsh-lurker", "lynx", "marsh-adder", "highland-ram", "badger", "river-crayfish", "bog-toad", "cave-bat"]);
   assert.deepEqual(WILD_CLIPS.lynx, ["Idle", "Walk", "Run", "Crouch_Stalk_Loop", "Pounce_Windup", "Pounce_Lunge", "Pounce_Recover", "Hit", "Death"]);
   assert.deepEqual(WILD_CLIPS["marsh-adder"], ["Idle_Coil_Loop", "Slither_Loop", "Warn_Hiss_Loop", "Strike", "Strike_Recover", "Hit", "Death"]);
+  assert.deepEqual(WILD_CLIPS["cave-bat"], ["Perch", "Launch", "Idle", "Fly", "Dive_Windup", "Dive_Contact", "Dive_Recover", "Land", "Hit", "Death"]);
   assert.deepEqual(WILD_CLIPS.wolf, ["Idle", "Walk", "Eat", "Run", "Attack_A", "Attack_B", "Hit", "Death", "Alert"]);
   assert.deepEqual(WILD_CLIPS.duck, ["Idle", "Walk", "Eat", "Fly"]);
   assert.deepEqual(WILD_CLIPS.fox, ["Idle", "Walk", "Eat"]);
@@ -80,12 +81,28 @@ test("the wildlife recipe builds a verified, reproducible bundle of grounded ani
 
       const asset = descriptor.assets.find((a: any) => a.key === key);
       const { min, max } = asset.idleBounds;
-      assert.equal(min[1], 0, `${entry.animal} stands on y = 0`);
-      for (const k of [0, 2]) assert.ok(Math.abs(min[k] + max[k]) < 1e-3, `${entry.animal} is centred on its footprint`);
+      if (entry.animal === "cave-bat") {
+        // It flies, so its origin is its centre, inside its hovering body; it hangs from a grip point above that origin,
+        // lies dead with the origin on its belly above the ground, and spreads a broad span (#784).
+        assert.ok(min[1] < 0 && max[1] > 0 && min[2] < 0 && max[2] > 0, "the bat's origin is inside its body");
+        assert.ok(Math.abs(min[0] + max[0]) < 1e-3, "the bat hovers symmetric about its midline");
+        const { origin, gripHeight, groundHeight, landSeconds, wingspan } = asset.flight;
+        assert.equal(origin, "body");
+        assert.ok(gripHeight > 0.1 && gripHeight < 0.3, `the bat hangs ${gripHeight} m below its grip`);
+        assert.ok(groundHeight > 0.02 && groundHeight < 0.1, `the dead bat lies ${groundHeight} m deep`);
+        assert.ok(landSeconds > 0.3 && landSeconds < asset.clips.Death.seconds - 0.3, "the dead bat lands and lies still");
+        assert.ok(wingspan > 1.1 && wingspan < 1.5, `the bat spans ${wingspan} m`);
+        const { metres, startSeconds, endSeconds } = asset.clips.Dive_Contact.rootTravel;
+        assert.ok(metres > 1.5 && startSeconds < endSeconds && Math.abs(endSeconds - asset.clips.Dive_Contact.contactSeconds) < 1e-6, "bat dive");
+        assert.ok(asset.clips.Dive_Windup.seconds >= 0.4, "a readable dive wind-up");
+      } else {
+        assert.equal(min[1], 0, `${entry.animal} stands on y = 0`);
+        for (const k of [0, 2]) assert.ok(Math.abs(min[k] + max[k]) < 1e-3, `${entry.animal} is centred on its footprint`);
+      }
       if (entry.animal === "marsh-adder") {
         // It rests coiled, so its idle footprint is round; its length is what is life-size (#778).
         assert.ok(asset.length >= 1.2 && asset.length <= 1.5, `the adder is ${asset.length} m long`);
-      } else {
+      } else if (entry.animal !== "cave-bat") {
         assert.ok(asset.size.depth > asset.size.width * 1.4, `${entry.animal} is long along +Z, the facing axis`);
         assert.ok(Math.abs(asset.size.height - HEIGHTS[entry.animal]!) < 1e-3, `${entry.animal} is ${HEIGHTS[entry.animal]} m high`);
       }
@@ -96,7 +113,7 @@ test("the wildlife recipe builds a verified, reproducible bundle of grounded ani
       assert.equal(asset.combat, fights(entry), `${entry.animal} combat flag`);
       if (fights(entry)) {
         // The combat clips (#715, #722, #782): attacks land inside their clip, and the death lies down for at least a second.
-        const attacks = { lynx: ["Pounce_Lunge"], "marsh-adder": ["Strike"] }[entry.animal as string] ?? ["Attack_A", "Attack_B"];
+        const attacks = { lynx: ["Pounce_Lunge"], "marsh-adder": ["Strike"], "cave-bat": ["Dive_Contact"] }[entry.animal as string] ?? ["Attack_A", "Attack_B"];
         for (const clip of attacks) {
           const { seconds, contactSeconds, loop } = asset.clips[clip];
           assert.equal(loop, false, `${entry.animal} ${clip} is one-shot`);

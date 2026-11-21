@@ -33,6 +33,12 @@ legs are solved to their feet with level paws, the crayfish's eight walking legs
 its two differentiated claws open by their outer finger, and the toad's legs are solved to its hands and ankles while its
 throat pouch, the one scaled bone, pumps and swells before it spits.
 
+The giant cave bat (#784) is original and hostile with its own clip set: it hangs at its roost (``Perch``), launches,
+hovers, flies, dives in three chained clips (``Dive_Windup``, ``Dive_Contact``, ``Dive_Recover``) and lands back. Its
+leather membranes are weighted between the wing bones, with helper bones (``BAT_MEMBRANE``) posed every frame inside the
+widest one so it folds with the wing. Its origin is its centre, not the ground, and ``bat_flight`` measures where it
+hangs and lies for the consumer.
+
 The farm-animals recipe (``farm_animals.py``) is a declared Python input named ``farm``; this recipe reuses its rig
 builder, clip keying and measuring helpers and its conventions (docs/greyhaven-farm-animals.md): a root node
 ``greyhaven.wild.<animal>`` scales the animal to its Greyhaven height in metres (measured at the first Idle frame), turns
@@ -80,11 +86,14 @@ ANIMALS = {
     "badger": {"format": "authored", "turn": -90.0, "height": 0.35},
     "river-crayfish": {"format": "authored", "turn": -90.0, "height": 0.32},
     "bog-toad": {"format": "authored", "turn": -90.0, "height": 0.35},
+    # Authored at life size (scale 1) with its origin at its centre, not on the ground: it flies (#784).
+    "cave-bat": {"format": "authored", "turn": -90.0, "height": None, "rest": "Idle", "move": "Fly", "origin": "body"},
 }
 BIRDS = ("crow", "duck", "heron", "songbird")
-HOSTILE = ("wolf", "boar", "rat", "bear", "spider", "marsh-lurker", "lynx", "marsh-adder", "river-crayfish", "bog-toad")
+HOSTILE = ("wolf", "boar", "rat", "bear", "spider", "marsh-lurker", "lynx", "marsh-adder", "river-crayfish", "bog-toad", "cave-bat")
 # One-shot clips; every other clip loops.
-ONE_SHOT = ("Attack_A", "Attack_B", "Hit", "Death", "Alert", "Pounce_Windup", "Pounce_Lunge", "Pounce_Recover", "Strike", "Strike_Recover")
+ONE_SHOT = ("Attack_A", "Attack_B", "Hit", "Death", "Alert", "Pounce_Windup", "Pounce_Lunge", "Pounce_Recover", "Strike", "Strike_Recover",
+            "Launch", "Land", "Dive_Windup", "Dive_Contact", "Dive_Recover")
 
 
 def use_farm(farm):
@@ -186,6 +195,7 @@ CONTACT_FRAMES = {
     "badger": {"Attack_A": 7, "Attack_B": 11},
     "river-crayfish": {"Attack_A": 18, "Attack_B": 12},
     "bog-toad": {"Attack_A": 13, "Attack_B": 14},
+    "cave-bat": {"Dive_Contact": 8},
 }
 
 
@@ -1812,7 +1822,8 @@ def ram_gallop(pose, u, amount=1.0):
 
 # The stag's and ram's charges (#782) and the toad's hop (#783): (first frame, contact frame, metres) the consumer moves the root in a straight line
 # while the clip gallops or hops in place.
-CHARGES = {("stag", "Attack_B"): (8, 15, 2.0), ("highland-ram", "Attack_B"): (6, 13, 1.6), ("bog-toad", "Attack_B"): (6, 14, 0.6)}
+CHARGES = {("stag", "Attack_B"): (8, 15, 2.0), ("highland-ram", "Attack_B"): (6, 13, 1.6), ("bog-toad", "Attack_B"): (6, 14, 0.6),
+           ("cave-bat", "Dive_Contact"): (0, 8, 2.4)}
 
 
 def ram_pose(clip, u):
@@ -2485,6 +2496,423 @@ def toad_clip(clip, u):
     return pose
 
 
+# ---------------------------------------------------------------- cave bat (#784)
+
+# A giant cave bat for the Greyfang Cave, life-size at scale 1: a small furred body with a broad chest, big ears and a
+# snub, nose-leafed face, and two broad leather wings 1.3 m across when spread. Each wing is an arm, a forearm and three
+# digits; its membrane is one sheet per panel (between the digits, from the fifth digit back to the ankle, in front of
+# the elbow, and the tail membrane between the legs), every vertex weighted between the bones whose points it lies
+# between, so the sheet stretches open and folds away with the wing. The origin is the bat's centre (the Body bone's
+# head), not the ground under it, because the game moves it through the air: Perch hangs from a grip point
+# ``gripHeight`` above the origin and the dead bat lies with the origin ``groundHeight`` above the ground (``flight``).
+BAT_PALETTE = {"fur": (0.33, 0.23, 0.16), "pale": (0.47, 0.36, 0.26), "dark": (0.12, 0.085, 0.07), "membrane": (0.27, 0.16, 0.13),
+               "mouth": (0.52, 0.22, 0.2), "tooth": (0.88, 0.85, 0.78), "eye": (0.02, 0.02, 0.02)}
+# The left wing's joints and digit tips at rest, spread flat (x forward, y out, z up); the right wing mirrors it.
+BAT_WING = {"shoulder": Vector((0.035, 0.045, 0.012)), "elbow": Vector((-0.005, 0.175, 0.012)), "wrist": Vector((0.05, 0.37, 0.012)),
+            "Dig3": Vector((0.0, 0.66, 0.012)), "Dig4": Vector((-0.17, 0.56, 0.012)), "Dig5": Vector((-0.2, 0.4, 0.012))}
+BAT_HIP, BAT_ANKLE = Vector((-0.07, 0.03, -0.01)), Vector((-0.15, 0.075, -0.012))
+BAT_TAIL = (Vector((-0.085, 0, -0.008)), Vector((-0.2, 0, -0.012)))
+BAT_DIGITS = ("Dig3", "Dig4", "Dig5")
+BAT_DEATH_LAND = 14  # the frame the falling dead bat reaches the ground
+# The left wing folded (fold 1), per bone its direction in the body's axes, with the membrane's outer face turned out
+# against the flank: the arm back and down from the shoulder, the forearm forward along the side to the wrist beside the
+# head, and the digits laid back along the forearm, a little fanned.
+BAT_FOLDED = {"Arm": Vector((-0.82, 0.12, -0.56)), "Fore": Vector((0.97, 0.05, 0.22)), "Dig3": Vector((-0.985, 0.03, -0.17)),
+              "Dig4": Vector((-0.99, 0.05, -0.1)), "Dig5": Vector((-0.99, 0.07, -0.03))}
+
+
+def bat_fold_rotations():
+    """Each wing bone's own rotation (in its parent's rest axes, as key_pose takes it) from spread flat to folded."""
+    def frame(direction, normal):
+        x = direction.normalized()
+        z = (normal - x * normal.dot(x)).normalized()
+        return Matrix((x, z.cross(x), z)).transposed()
+
+    w, out = BAT_WING, {}
+    rest = {"Arm": w["elbow"] - w["shoulder"], "Fore": w["wrist"] - w["elbow"], **{d: w[d] - w["wrist"] for d in BAT_DIGITS}}
+    world = {}
+    for bone, parent in (("Arm", None), ("Fore", "Arm"), *((d, "Fore") for d in BAT_DIGITS)):
+        world[bone] = (frame(BAT_FOLDED[bone], Vector((0, 1, 0))) @ frame(rest[bone], Vector((0, 0, 1))).transposed()).to_quaternion()
+        out[bone] = (world[parent].inverted() @ world[bone]) if parent else world[bone]
+    return out
+
+
+BAT_FOLD = bat_fold_rotations()
+
+
+def bat_mirror(p, s):
+    return Vector((p.x, s * p.y, p.z))
+
+
+def build_bat(collection):
+    w = BAT_WING
+    bones = [("Body", (0, 0, 0), (0.08, 0, 0), None), ("Head", (0.07, 0, 0.005), (0.15, 0, 0.0), "Body"),
+             ("Jaw", (0.115, 0, -0.012), (0.155, 0, -0.02), "Head"), ("Tail", tuple(BAT_TAIL[0]), tuple(BAT_TAIL[1]), "Body")]
+    for side, s in (("L", 1), ("R", -1)):
+        m = lambda p: tuple(bat_mirror(p, s))
+        bones += [(f"Ear{side}", (0.095, s * 0.025, 0.035), (0.09, s * 0.04, 0.1), "Head"),
+                  (f"Arm{side}", m(w["shoulder"]), m(w["elbow"]), "Body"), (f"Fore{side}", m(w["elbow"]), m(w["wrist"]), f"Arm{side}"),
+                  *((f"{d}{side}", m(w["wrist"]), m(w[d]), f"Fore{side}") for d in BAT_DIGITS),
+                  (f"Leg{side}", m(BAT_HIP), m(BAT_ANKLE), "Body"),
+                  *((f"Mem{k}{side}", tuple(bat_plagio(bat_anchors(s), u, v)), tuple(bat_plagio(bat_anchors(s), u, v) + Vector((0.02, 0, 0))), "Body")
+                    for k, u, v in BAT_MEMBRANE)]
+    r = Rig("Bat", BAT_PALETTE, bones)
+    r.ellipsoid("Body", "fur", (-0.005, 0, 0.0), (0.085, 0.048, 0.045), segments=12, rings=7)
+    r.ellipsoid("Body", "fur", (0.045, 0, 0.0), (0.05, 0.056, 0.048), segments=10, rings=6)  # the broad chest
+    r.ellipsoid("Body", "pale", (0.0, 0, -0.02), (0.075, 0.036, 0.03), segments=10, rings=5)  # belly
+    r.ellipsoid("Body", "dark", (0.062, 0, 0.02), (0.034, 0.05, 0.032), segments=8, rings=5)  # dark mantle over the shoulders
+    r.ellipsoid("Head", "dark", (0.1, 0, 0.012), (0.038, 0.034, 0.032), segments=10, rings=6)
+    r.tube("Head", "dark", (0.115, 0, 0.004), (0.158, 0, -0.006), 0.022, 0.013, 7)  # snub muzzle
+    r.ellipsoid("Head", "mouth", (0.135, 0, -0.012), (0.022, 0.013, 0.005), segments=6, rings=3)
+    r.tube("Head", "membrane", (0.155, 0, -0.002), (0.16, 0, 0.022), 0.01, 0.004, 5)  # nose-leaf
+    r.tube("Jaw", "dark", (0.112, 0, -0.016), (0.153, 0, -0.022), 0.016, 0.009, 6)
+    r.tube("Tail", "dark", tuple(BAT_TAIL[0]), tuple(BAT_TAIL[1]), 0.006, 0.002, 4)
+    for side, s in (("L", 1), ("R", -1)):
+        m = lambda p: tuple(bat_mirror(p, s))
+        r.ellipsoid("Head", "eye", (0.132, s * 0.02, 0.017), (0.006, 0.005, 0.006), segments=5, rings=3)
+        r.tube("Head", "tooth", (0.15, s * 0.008, -0.009), (0.151, s * 0.008, -0.026), 0.0032, 0.0007, 4)  # fangs
+        r.tube("Jaw", "tooth", (0.145, s * 0.007, -0.02), (0.146, s * 0.007, -0.008), 0.0025, 0.0006, 4)
+        # Big ears, tipped out, their inner faces pink.
+        r.ellipsoid(f"Ear{side}", "membrane", (0.092, s * 0.036, 0.068), (0.022, 0.006, 0.042), rotation=(-s * 0.4, 0.15, 0), segments=8, rings=5)
+        r.ellipsoid(f"Ear{side}", "mouth", (0.096, s * 0.034, 0.064), (0.015, 0.004, 0.03), rotation=(-s * 0.4, 0.15, 0), segments=6, rings=4)
+        r.tube(f"Arm{side}", "dark", m(w["shoulder"]), m(w["elbow"]), 0.013, 0.01, 6)
+        r.ellipsoid(f"Arm{side}", "fur", m(w["shoulder"] + Vector((-0.008, 0.03, 0))), (0.022, 0.035, 0.016), rotation=(0, 0, s * 0.3), segments=7, rings=4)
+        r.tube(f"Fore{side}", "dark", m(w["elbow"]), m(w["wrist"]), 0.011, 0.008, 6)
+        r.ellipsoid(f"Fore{side}", "dark", m(w["wrist"]), (0.012, 0.011, 0.01), segments=6, rings=4)
+        r.tube(f"Fore{side}", "dark", m(w["wrist"]), m(w["wrist"] + Vector((0.03, -0.004, 0.004))), 0.005, 0.0012, 4)  # thumb claw
+        for d in BAT_DIGITS:
+            r.tube(f"{d}{side}", "dark", m(w["wrist"]), m(w[d]), 0.0055, 0.002, 4)
+        r.ellipsoid(f"Leg{side}", "fur", m(BAT_HIP + Vector((-0.01, 0.005, 0))), (0.022, 0.016, 0.014), segments=6, rings=4)
+        r.tube(f"Leg{side}", "dark", m(BAT_HIP), m(BAT_ANKLE), 0.009, 0.006, 5)
+        along = (BAT_ANKLE - BAT_HIP).normalized()
+        for k in range(5):
+            toe = BAT_ANKLE + Vector((0, (k - 2) * 0.004, 0))
+            r.tube(f"Leg{side}", "dark", m(toe), m(toe + along * 0.012 + Vector((0, 0, -0.009))), 0.0028, 0.0008, 4)  # hooked toes
+    bat_membrane(r)
+    return r.finish(collection)
+
+
+def bat_polyline(points, u):
+    """The point a fraction ``u`` along ``points`` by length, and the index of its segment."""
+    lengths = [(b - a).length for a, b in zip(points, points[1:])]
+    target = u * sum(lengths)
+    for i, length in enumerate(lengths):
+        if target <= length or i == len(lengths) - 1:
+            return points[i].lerp(points[i + 1], min(target / length, 1.0)), i
+        target -= length
+
+
+def bat_anchors(s, rotations=None):
+    """The points one side's plagiopatagium hangs from, in the body's axes: shoulder, elbow, wrist, the fifth digit's tip
+    and the ankle, at rest or turned by ``rotations`` (bone -> its rotation in the body's axes, from ``bat_wing_fk``)."""
+    w, m = BAT_WING, lambda p: bat_mirror(p, s)
+    if rotations is None:
+        return {"shoulder": m(w["shoulder"]), "elbow": m(w["elbow"]), "wrist": m(w["wrist"]), "tip": m(w["Dig5"]), "ankle": m(BAT_ANKLE)}
+    elbow = m(w["shoulder"]) + rotations["Arm"] @ (m(w["elbow"]) - m(w["shoulder"]))
+    wrist = elbow + rotations["Fore"] @ (m(w["wrist"]) - m(w["elbow"]))
+    return {"shoulder": m(w["shoulder"]), "elbow": elbow, "wrist": wrist, "tip": wrist + rotations["Dig5"] @ (m(w["Dig5"]) - m(w["wrist"])),
+            "ankle": m(BAT_HIP) + rotations["Leg"] @ (m(BAT_ANKLE) - m(BAT_HIP))}
+
+
+def bat_plagio(anchors, u, v):
+    """A point of the plagiopatagium: ``u`` along the arm and forearm (and along the trailing edge from the ankle to the
+    fifth digit's tip, which sags inward), ``v`` back from the leading edge to the trailing edge. The sag shrinks with
+    the chord as the wing folds."""
+    lead = bat_polyline([anchors["shoulder"], anchors["elbow"], anchors["wrist"]], u)[0]
+    line = anchors["ankle"].lerp(anchors["tip"], u)
+    rest = bat_anchors(1)
+    chord = (lead - line).length / max((bat_polyline([rest["shoulder"], rest["elbow"], rest["wrist"]], u)[0] - rest["ankle"].lerp(rest["tip"], u)).length, 1e-6)
+    inward = (lead - line).normalized() if (lead - line).length > 1e-6 else Vector()
+    return lead.lerp(line + inward * 0.055 * math.sin(math.pi * u) * min(chord, 1.0), v)
+
+
+# The plagiopatagium's helper bones per side, where they sit in it (u, v); each is posed every frame to follow the wing.
+BAT_MEMBRANE = ((1, 1 / 3, 0.5), (2, 2 / 3, 0.5), (3, 1 / 3, 1.0), (4, 2 / 3, 1.0))
+
+
+def bat_wing_fk(pose, side):
+    """Each wing bone's and the leg's rotation in the body's axes, chained from ``pose`` as key_pose turns them."""
+    def turn(items):
+        q = Quaternion()
+        for axis, degrees in items:
+            q = Quaternion(Vector(axis), math.radians(degrees)) @ q
+        return q
+
+    arm = turn(pose[f"Arm{side}"])
+    fore = arm @ turn(pose[f"Fore{side}"])
+    return {"Arm": arm, "Fore": fore, "Dig5": fore @ turn(pose[f"Dig5{side}"]), "Leg": turn(pose[f"Leg{side}"])}
+
+
+def bat_membrane(r):
+    """The wing and tail membranes, one grid sheet per panel over (u, v) in the unit square. ``place(u, v)`` gives a
+    vertex's rest position and ``weigh(u, v)`` its bone weights; ``pinch`` folds an edge column (u = 0 or 1) to one point."""
+    bm, deform = r.bm, r.deform
+    group = {name: r.groups.index(name) for name in r.groups}
+    membrane = r.index["membrane"]
+
+    def sheet(place, weigh, nu, nv, pinch=()):
+        grid = []
+        for i in range(nu + 1):
+            u = i / nu
+            if u in pinch:
+                v = bm.verts.new(place(u, 0.0))
+                for bone, weight in weigh(u, 0.0).items():
+                    v[deform][group[bone]] = weight
+                grid.append([v] * (nv + 1))
+                continue
+            row = []
+            for j in range(nv + 1):
+                v = bm.verts.new(place(u, j / nv))
+                for bone, weight in weigh(u, j / nv).items():
+                    if weight > 1e-4:
+                        v[deform][group[bone]] = weight
+                row.append(v)
+            grid.append(row)
+        for i in range(nu):
+            for j in range(nv):
+                quad = []
+                for v in (grid[i][j], grid[i + 1][j], grid[i + 1][j + 1], grid[i][j + 1]):
+                    if v not in quad:
+                        quad.append(v)
+                if len(quad) < 3:
+                    continue
+                face = bm.faces.new(quad)
+                face.normal_update()
+                if face.normal.z < 0:
+                    face.normal_flip()
+                face.material_index = membrane
+
+    def mix(*pairs):
+        out = {}
+        for weight, weights in pairs:
+            for bone, w in weights.items():
+                out[bone] = out.get(bone, 0.0) + weight * w
+        return out
+
+    w = BAT_WING
+    for side, s in (("L", 1), ("R", -1)):
+        m = lambda p: bat_mirror(p, s)
+        lead = [m(w["shoulder"]), m(w["elbow"]), m(w["wrist"])]
+        lead_bone = lambda u: f"Arm{side}" if bat_polyline(lead, u)[1] == 0 else f"Fore{side}"
+        wrist, ankle = m(w["wrist"]), m(BAT_ANKLE)
+
+        # The plagiopatagium, from the arm and forearm back to the trailing edge between the ankle and the fifth digit
+        # (``bat_plagio``). Its leading edge rides the arm and forearm, its outer column the fifth digit, its inner one
+        # the flank and ankle; inside, the weights blend over a lattice of helper bones (``BAT_MEMBRANE``) that follow
+        # the posed bones, so the sheet folds with the wing instead of swinging rigidly with the arm or the leg.
+        rest = bat_anchors(s)
+        columns = {0.5: ["Body", *(f"Mem{k}{side}" for k in (1, 2)), f"Dig5{side}"], 1.0: [f"Leg{side}", *(f"Mem{k}{side}" for k in (3, 4)), f"Dig5{side}"]}
+
+        def row(v, u):
+            bones = columns[v]
+            x = u * (len(bones) - 1)
+            i = min(int(x), len(bones) - 2)
+            return mix((1 - (x - i), {bones[i]: 1.0}), (x - i, {bones[i + 1]: 1.0}))
+
+        def plagio_weigh(u, v):
+            if v <= 0.5:
+                return mix((1 - v / 0.5, {lead_bone(u): 1.0}), (v / 0.5, row(0.5, u)))
+            return mix((1 - (v - 0.5) / 0.5, row(0.5, u)), ((v - 0.5) / 0.5, row(1.0, u)))
+
+        sheet(lambda u, v: bat_plagio(rest, u, v), plagio_weigh, 9, 6)
+        # The chiropatagium between the digits, fanned from the wrist, its trailing edge scalloped between the tips.
+        for a, b, sag in (("Dig3", "Dig4", 0.22), ("Dig4", "Dig5", 0.16)):
+            ta, tb = m(w[a]), m(w[b])
+            sheet(lambda u, v, ta=ta, tb=tb, sag=sag: wrist + (ta.lerp(tb, v) - wrist) * u * (1 - sag * math.sin(math.pi * v)),
+                  lambda u, v, a=a, b=b: {f"{a}{side}": 1 - v, f"{b}{side}": v}, 6, 4, pinch=(0.0,))
+        # The propatagium in front of the elbow, from the shoulder straight to the wrist.
+        sheet(lambda u, v: m(w["shoulder"]).lerp(wrist, u).lerp(bat_polyline(lead, u)[0], v) + Vector((0.012 * math.sin(math.pi * u) * (1 - v), 0, 0)),
+              lambda u, v: mix((1 - v, {f"Arm{side}": 1 - u, f"Fore{side}": u}), (v, {lead_bone(u): 1.0})), 10, 2, pinch=(0.0, 1.0))
+        # The tail membrane, from the leg to the tail, its trailing edge scalloped forward.
+        hip = m(BAT_HIP)
+        sheet(lambda u, v: hip.lerp(ankle, u).lerp(BAT_TAIL[0].lerp(BAT_TAIL[1], u), v) + Vector((0.025 * u * math.sin(math.pi * v), 0, 0)),
+              lambda u, v: {f"Leg{side}": 1 - v, "Tail": v}, 4, 3)
+
+
+# A pose state: the body's offset (x, z) and turns (pitch nose-down, roll left wing up, yaw), the head's pitch, yaw and
+# tilt, the jaw's gape, the ears laid back, each wing's raise, sweep back, twist and fold, the legs' swing (feet up +) and
+# spread, and the tail. Clips blend between states.
+BAT_NEUTRAL = {"x": 0.0, "z": 0.0, "pitch": 0.0, "roll": 0.0, "yaw": 0.0, "head": 0.0, "look": 0.0, "tilt": 0.0, "jaw": 0.0, "ears": 0.0,
+               **{f"{key}{side}": 0.0 for key in ("raise", "back", "twist", "fold") for side in "LR"}, "legs": 0.0, "spread": 0.0, "tail": 0.0}
+
+
+def bat_state(base=None, **changes):
+    state = dict(base or BAT_NEUTRAL)
+    for key, value in changes.items():
+        if key in ("raise", "back", "twist", "fold"):
+            state[f"{key}L"] = state[f"{key}R"] = value
+        else:
+            state[key] = value
+    return state
+
+
+def bat_mix(a, b, s):
+    return {key: a[key] + (b[key] - a[key]) * s for key in a}
+
+
+def bat_fly(p, amplitude=50.0, base=10.0, flex=0.38):
+    """The flight wingbeat at phase ``p`` (0 at the top of the upstroke): the extended wings sweep down and forward, then
+    flex at the elbow and wrist and rise up and back; the body lifts on each downstroke."""
+    a = 2 * math.pi * p
+    return bat_state(z=-0.02 * math.cos(a), pitch=-3 * math.sin(a), head=3 * math.sin(a), ears=25, legs=10 + 6 * math.sin(a + 1),
+                     tail=5 * math.sin(a + 1), **{"raise": base + amplitude * math.cos(a), "back": 4 - 8 * math.sin(a), "twist": 8 * math.sin(a),
+                                                  "fold": 0.05 + flex * (0.5 + 0.5 * math.sin(a - math.pi))})
+
+
+def bat_perch(u):
+    """Hanging head down from its feet, wings folded and wrapped round the body, the tail tucked under; the head lifted to
+    look out, the ears flicking, and once a loop the left wing half opens in a stretch."""
+    stretch = curve(u, (0.5, 0), (0.58, 1), (0.66, 1), (0.74, 0))
+    state = bat_state(pitch=90, roll=2 * wave(u, 1), z=0.002 * wave(u, 4), head=62 + 4 * wave(u, 2), tilt=24 * wave(u, 1, 0.1),
+                      ears=8 * max(0.0, wave(u, 3, 0.2)) ** 4, fold=1.0, legs=0, spread=14, tail=-80)
+    state.update(raiseL=-25 + 30 * stretch, foldL=1 - 0.5 * stretch, backL=-15 * stretch, raiseR=-25)
+    return state
+
+
+def bat_assemble(state):
+    q = state
+    pose = {"Body": [("loc", (q["x"], 0, q["z"])), (X, q["roll"]), (Y, q["pitch"]), (Z, q["yaw"])],
+            "Head": [(Z, q["look"]), (Y, q["head"]), (X, q["tilt"])], "Jaw": [(Y, q["jaw"])], "Tail": [(Y, q["tail"])]}
+    for side, s in (("L", 1), ("R", -1)):
+        folds = {}
+        for bone, rotation in BAT_FOLD.items():
+            # Part of the way to folded; the right wing's rotation mirrored across the body's midplane.
+            axis, angle = Quaternion().slerp(rotation, q[f"fold{side}"]).to_axis_angle()
+            folds[bone] = (tuple(axis) if s > 0 else (-axis.x, axis.y, -axis.z), math.degrees(angle))
+        pose[f"Ear{side}"] = [(Y, -q["ears"])]
+        pose[f"Arm{side}"] = [folds["Arm"], (Y, q[f"twist{side}"]), (Z, s * q[f"back{side}"]), (X, s * q[f"raise{side}"])]
+        for bone in ("Fore", *BAT_DIGITS):
+            pose[f"{bone}{side}"] = [folds[bone]]
+        pose[f"Leg{side}"] = [(Z, -s * q["spread"]), (Y, q["legs"])]
+        # The plagiopatagium's helpers sit where the posed wing puts their spot of the sheet, turned between the bones round it.
+        turns, rest = bat_wing_fk(pose, side), bat_anchors(s)
+        posed = bat_anchors(s, turns)
+        for k, u, v in BAT_MEMBRANE:
+            lead = turns["Arm"] if bat_polyline([rest["shoulder"], rest["elbow"], rest["wrist"]], u)[1] == 0 else turns["Fore"]
+            axis, angle = lead.slerp(turns["Leg"].slerp(turns["Dig5"], u), v).to_axis_angle()
+            pose[f"Mem{k}{side}"] = [("loc", tuple(bat_plagio(posed, u, v) - bat_plagio(rest, u, v))), (tuple(axis), math.degrees(angle))]
+    return pose
+
+
+def bat_pose(clip, u):
+    return bat_assemble(bat_clip(clip, u))
+
+
+def bat_clip(clip, u):
+    t = u * CLIP_FRAMES["cave-bat"][clip]
+    if clip == "Perch":
+        return bat_perch(u)
+    if clip == "Fly":
+        return bat_fly(u)
+    if clip == "Idle":
+        # Hovering on the spot: body tipped up, the wings sculling forward and back, the head level and looking round.
+        state = bat_fly(2 * u, amplitude=38, base=14, flex=0.3)
+        a = 2 * math.pi * 2 * u
+        state.update(pitch=-35 - 3 * math.sin(a), head=30 + 3 * math.sin(a), look=25 * wave(u, 1), legs=-25, backL=4 - 22 * math.sin(a), backR=4 - 22 * math.sin(a))
+        return state
+    if clip == "Launch":
+        # Lets go: the head comes up, the feet release and it drops head first, the wings snap open as it swings out of
+        # the drop into level flight with one hard downstroke, then rises into the flight wingbeat's first pose.
+        start, end = bat_perch(0.0), bat_fly(0.0)
+        state = bat_mix(start, end, curve(t, (2, 0), (12, 1)))
+        state["pitch"] = 90 * (1 - curve(t, (3, 0), (10, 1))) - 12 * curve(t, (7, 0), (10, 1), (14, 0))
+        state["head"] = curve(t, (0, 62), (4, 20), (10, -10), (16, end["head"]))
+        open_ = curve(t, (3, 0), (6, 1))
+        stroke = curve(t, (3, 0), (6, 60), (10, -45), (16, end["raiseL"]))
+        for side in "LR":
+            state[f"fold{side}"] = curve(t, (0, 1.0), (3, 0.9), (6, 0.04), (10, 0.06), (16, end["foldL"]))
+            state[f"raise{side}"] = start[f"raise{side}"] + (stroke - start[f"raise{side}"]) * open_
+            state[f"back{side}"] = curve(t, (3, 0), (6, -10), (10, -12), (16, end["backL"]))
+        return state
+    if clip == "Land":
+        # Flares nose-up, brakes with the wings thrown forward, swings its feet up to the roost in a backward half
+        # cartwheel and folds its wings round itself, hanging.
+        start, end = bat_fly(0.0), bat_perch(0.0)
+        state = bat_mix(start, end, curve(t, (6, 0), (16, 1)))
+        state["pitch"] = curve(t, (0, 0), (5, -95), (11, -270), (16, -270))
+        state["head"] = curve(t, (0, start["head"]), (5, 40), (11, 70), (16, end["head"]))
+        for side in "LR":
+            state[f"raise{side}"] = curve(t, (0, start[f"raise{side}"]), (3, 45), (6, -20), (9, 30), (12, -10), (16, end[f"raise{side}"]))
+            state[f"back{side}"] = curve(t, (0, start[f"back{side}"]), (4, -28), (8, -10), (12, 0), (16, end[f"back{side}"]))
+            state[f"fold{side}"] = curve(t, (0, start[f"fold{side}"]), (3, 0.06), (8, 0.15), (12, 0.75), (16, 1.0))
+        state["legs"] = curve(t, (0, start["legs"]), (6, 20), (11, 0), (16, end["legs"]))
+        return state
+    if clip == "Dive_Windup":
+        # The telegraph: one big flaring stroke up into an upright hover facing the target, the wings spread wide and
+        # forward round it, the ears pinned and the jaw gaping in a trembling hiss; then it tips nose-down and half-folds
+        # the wings back, loaded.
+        fly = bat_fly(0.0)
+        flare = bat_state(fly, pitch=-48, head=44, jaw=50, ears=45, legs=-30, z=0.04, **{"raise": 36, "back": -24, "twist": -15, "fold": 0.0})
+        cocked = bat_dive_states()[0]
+        state = bat_mix(fly, flare, curve(t, (0, 0), (3, 1)))
+        state = bat_mix(state, cocked, curve(t, (8, 0), (12, 1)))
+        tremble = math.sin(2 * math.pi * t / 2) * curve(t, (2, 0), (3, 1), (8, 1), (9, 0))
+        for side in "LR":
+            state[f"raise{side}"] += 5 * tremble
+        state["jaw"] += 8 * tremble
+        state["look"] = 6 * tremble
+        return state
+    if clip == "Dive_Contact":
+        # The stoop: one hard downstroke drives it off, then the wings sweep back tight and the head stretches out as it
+        # plunges, steepening; at 8/12 the wings fling open forward round the target, the body pitches up and the feet
+        # rake forward as the jaw snaps shut; then one braking downstroke.
+        cocked, plunge, strike, brake = bat_dive_states()
+        state = bat_mix(cocked, plunge, curve(t, (0, 0), (5, 1)))
+        state = bat_mix(state, strike, curve(t, (6.5, 0), (8, 1)))
+        state = bat_mix(state, brake, curve(t, (8, 0), (12, 1)))
+        state["jaw"] = curve(t, (0, 30), (4, 40), (7, 50), (8, 0), (9.5, 0), (12, 12))
+        state["pitch"] += curve(t, (2, 0), (5, 0), (6.5, 8), (8, 0))
+        for side in "LR":
+            state[f"raise{side}"] += curve(t, (0, 0), (2, -40), (4, 0)) + 3 * math.sin(2 * math.pi * t / 2) * curve(t, (3, 0), (4, 1), (6, 1), (6.5, 0))
+            state[f"fold{side}"] += curve(t, (0, 0), (2, -0.4), (4, 0))
+        return state
+    if clip == "Dive_Recover":
+        # Exposed: two heavy, labouring wingbeats, sinking on the first, shaking its head after the bite, before it
+        # climbs back into the flight wingbeat.
+        brake = bat_dive_states()[3]
+        settle = curve(t, (12, 0), (20, 1))
+        flap = bat_fly(0.5 + 1.5 * t / 20, amplitude=62 - 12 * settle, flex=0.55 - 0.17 * settle)
+        # Nose-up and stalling at first, levelling into the wingbeat's own pitch by the end.
+        flap["pitch"] = curve(t, (0, -35), (4, -24), (14, -8), (20, 0)) + flap["pitch"] * settle
+        state = bat_mix(brake, flap, curve(t, (0, 0), (4, 1)))
+        state["z"] += -0.06 * curve(t, (0, 0), (6, 1), (14, 0.5), (20, 0))
+        state["look"] = 22 * math.sin(2 * math.pi * t / 3) * curve(t, (1, 0), (2, 1), (8, 1), (10, 0))
+        state["jaw"] = curve(t, (0, 12), (4, 22), (9, 0))
+        state["ears"] = curve(t, (0, 50), (12, 25))
+        return state
+    if clip == "Hit":
+        jolt = curve(t, (0, 0), (2, 1), (8, 0))
+        state = bat_mix(bat_fly(0.0), bat_state(bat_fly(0.0), pitch=-20, roll=25, head=-20, look=15, jaw=35, ears=45, x=-0.04, z=0.03,
+                                                **{"raise": 70, "fold": 0.45, "back": 10}), jolt)
+        state["raiseR"] -= 20 * jolt
+        return state
+    # Death: a jolt and a shriek, the wings crumple and flail as it tumbles over once, then it lands belly-down with the
+    # wings spread askew, bounces, a last twitch of the left wing, and lies still.
+    fall, land = curve(t, (3, 0), (BAT_DEATH_LAND, 1)), curve(t, (BAT_DEATH_LAND - 2, 0), (BAT_DEATH_LAND + 2, 1))
+    jolt = bat_state(bat_fly(0.0), pitch=-20, roll=-20, head=-25, jaw=55, ears=45, **{"raise": 75, "fold": 0.35})
+    tumble = bat_state(pitch=25, head=-10, jaw=40, ears=40, legs=-30, raiseL=55, foldL=0.75, raiseR=-15, foldR=0.4, backL=20, backR=10)
+    dead = bat_state(head=22, look=28, jaw=18, ears=30, legs=-15, spread=10, z=0.0, raiseL=10, foldL=0.22, backL=12, raiseR=34, foldR=0.4,
+                     backR=25, twistL=8, twistR=24)
+    state = bat_mix(bat_fly(0.0), jolt, curve(t, (0, 0), (3, 1)))
+    state = bat_mix(state, tumble, curve(t, (3, 0), (6, 1)))
+    state = bat_mix(state, dead, land)
+    state["roll"] = 380 * fall - 20 * curve(t, (13, 0), (16, 1))
+    state["raiseR"] += 25 * math.sin(2 * math.pi * t / 5) * curve(t, (4, 0), (6, 1), (11, 1), (13, 0))
+    state["z"] += 0.015 * curve(t, (14, 0), (16, 1), (19, 0))
+    state["raiseL"] += 7 * math.sin(2 * math.pi * (t - 20) / 4) * curve(t, (20, 0), (21, 1), (23, 1), (24, 0))
+    return state
+
+
+def bat_dive_states():
+    """Dive_Contact's key states: cocked (Dive_Windup's end), the plunge, the strike at the contact and the brake."""
+    fly = bat_fly(0.0)
+    cocked = bat_state(fly, pitch=25, head=0, jaw=30, ears=55, legs=-40, z=0.0, **{"raise": 38, "back": 32, "twist": 10, "fold": 0.5})
+    plunge = bat_state(fly, pitch=40, head=-8, jaw=40, ears=60, legs=-40, z=0.0, **{"raise": 20, "back": 50, "twist": 4, "fold": 0.68})
+    strike = bat_state(fly, pitch=-35, head=35, jaw=0, ears=50, legs=-140, z=0.03, **{"raise": 8, "back": -35, "twist": -15, "fold": 0.0})
+    brake = bat_state(fly, pitch=-35, head=25, jaw=12, ears=50, legs=-80, z=0.05, **{"raise": -40, "back": -20, "twist": -5, "fold": 0.05})
+    return cocked, plunge, strike, brake
+
+
 # Per bird: wingbeat degrees, walk style ("hop" or "step"), how far the neck dips to feed.
 BIRD_MOTION = {"crow": (55, "step", 70), "songbird": (60, "hop", 60), "duck": (50, "step", 55), "heron": (40, "step", 60)}
 
@@ -2531,6 +2959,8 @@ CLIP_FRAMES = {
     "badger": {"Idle": 72, "Walk": 24, "Eat": 48, "Run": 12, "Attack_A": 16, "Attack_B": 22, "Hit": 8, "Death": 32, "Alert": 24},
     "river-crayfish": {"Idle": 48, "Walk": 24, "Eat": 48, "Run": 12, "Attack_A": 30, "Attack_B": 24, "Hit": 8, "Death": 30, "Alert": 24},
     "bog-toad": {"Idle": 72, "Walk": 28, "Eat": 48, "Run": 14, "Attack_A": 24, "Attack_B": 24, "Hit": 8, "Death": 30, "Alert": 24},
+    "cave-bat": {"Perch": 96, "Launch": 16, "Idle": 24, "Fly": 10, "Dive_Windup": 12, "Dive_Contact": 12, "Dive_Recover": 20, "Land": 16,
+                 "Hit": 8, "Death": 30},
 }
 
 
@@ -2541,16 +2971,17 @@ def build_authored(animal, collection):
     else:
         armature, mesh = {"rabbit": build_rabbit, "boar": build_boar, "bear": build_bear, "spider": build_spider, "marsh-lurker": build_lurker,
                           "lynx": build_lynx, "marsh-adder": build_adder, "highland-ram": build_ram, "badger": build_badger,
-                          "river-crayfish": build_crayfish, "bog-toad": build_toad}[animal](collection)
+                          "river-crayfish": build_crayfish, "bog-toad": build_toad, "cave-bat": build_bat}[animal](collection)
         pose_of = {"rabbit": rabbit_pose, "boar": boar_pose, "bear": bear_pose, "spider": spider_pose, "marsh-lurker": lurker_pose,
                    "lynx": lynx_pose, "marsh-adder": adder_pose, "highland-ram": ram_pose, "badger": badger_pose,
-                   "river-crayfish": crayfish_pose, "bog-toad": toad_pose}[animal]
+                   "river-crayfish": crayfish_pose, "bog-toad": toad_pose, "cave-bat": bat_pose}[animal]
     actions = {}
     for clip, count in CLIP_FRAMES[animal].items():
         action = bpy.data.actions.new(clip)
         slot_for(armature, action)
-        # The lynx, adder, crayfish and toad key every frame: their planted feet and path-following body are solved per frame.
-        every = count <= 16 or clip in ONE_SHOT or animal in ("lynx", "marsh-adder", "river-crayfish", "bog-toad")
+        # The lynx, adder, crayfish and toad key every frame: their planted feet and path-following body are solved per frame;
+        # the bat its fast wingbeats.
+        every = count <= 16 or clip in ONE_SHOT or animal in ("lynx", "marsh-adder", "river-crayfish", "bog-toad", "cave-bat")
         for frame in range(0, count + 1, 1 if every else 2):
             pose = pose_of(clip, frame / count)
             key_pose(armature, frame, pose)
@@ -2608,6 +3039,9 @@ ORGANIC = {
                        "Crayfish-tip": ("horn", 0.05, 0.7), "Crayfish-belly": ("chitin", 0.12, 0.75), "Crayfish-eye": EYE},
     "bog-toad": {"Toad-skin": ("hide", 0.1, 0.6), "Toad-dark": ("hide", 0.1, 0.6), "Toad-belly": ("skin", 0.08, 0.55), "Toad-throat": ("skin", 0.06, 0.5),
                  "Toad-eye": (None, 0, 0.25), "Toad-pupil": EYE, "Toad-mouth": ("skin", 0.05, 0.5)},
+    # #784: a soft, dense coat and dull leather wings and ears, finely wrinkled and veined.
+    "cave-bat": {"Bat-fur": COAT(0.08, 0.92), "Bat-pale": COAT(0.08, 0.92), "Bat-dark": ("skin", 0.05, 0.75), "Bat-membrane": ("membrane", 0.16, 0.78),
+                 "Bat-mouth": ("skin", 0.04, 0.55), "Bat-tooth": (None, 0, 0.45), "Bat-eye": EYE},
     **{bird: FEATHERS(BIRD_SPECS[bird]["palette"], bird) for bird in BIRDS},
 }
 # The authored animals built from rigid parts shade smooth within SMOOTH_ANGLE and keep sharp creases (tube caps) beyond
@@ -2674,6 +3108,11 @@ def detail_texel(kind, x, y):
         bristle = 0.5 * tile_noise(x, y, 64, 8, 20) + 0.5 * tile_noise(x, y, 128, 16, 21)
         b = (0.95 - 0.45 * seam + 0.42 * (bristle - 0.5)) * (0.86 + 0.26 * tile_noise(x, y, 4, 4, 22))
         return b, b * 0.97, b * 0.92
+    if kind == "membrane":  # the bat's wing leather: fine elastin wrinkles across x, a faint network of veins and a soft mottle
+        wrinkle = 0.5 + 0.5 * math.cos(2 * math.pi * (12 * x + 0.8 * tile_noise(x, y, 3, 6, 24)))
+        vein = 1 - smoothstep(0.0, 0.04, abs(tile_noise(x, y, 5, 5, 25) - 0.5))
+        b = (0.95 - 0.12 * wrinkle - 0.2 * vein + 0.08 * (tile_noise(x, y, 64, 64, 26) - 0.5)) * (0.86 + 0.24 * tile_noise(x, y, 3, 3, 27))
+        return b * (1.0 + 0.05 * vein), b * (0.97 - 0.04 * vein), b * (0.95 - 0.04 * vein)
     # scales: staggered rows of keeled oval scales across v, each darker at its rim, with a slight per-scale tint
     row = math.floor(y * 10)
     fx = x * 8 + 0.5 * (row % 2)
@@ -2810,7 +3249,8 @@ def prepare(animal, source_path):
     root.scale = ((spec["height"] / (high.z - low.z)) if spec["height"] else 1.0,) * 3
     bpy.context.view_layer.update()
     low, high = bounds(meshes)
-    root.location = Vector((-(low.x + high.x) / 2, -(low.y + high.y) / 2, -low.z))
+    if spec.get("origin") != "body":  # the bat keeps its origin at its centre (#784)
+        root.location = Vector((-(low.x + high.x) / 2, -(low.y + high.y) / 2, -low.z))
     bpy.context.view_layer.update()
     low, high = bounds(meshes)
 
@@ -2823,13 +3263,31 @@ def prepare(animal, source_path):
         bpy.context.view_layer.update()
         a, b = bounds(meshes)
         centres.append(((a.x + b.x) / 2, (a.y + b.y) / 2))
+    travel = math.dist(centres[0], centres[1])
+    flight = bat_flight(armature, meshes, actions) if spec.get("origin") == "body" else None
     slot_for(armature, actions[rest])
     scene.frame_set(int(actions[rest].frame_range[0]))
-    travel = math.dist(centres[0], centres[1])
     return root, armature, meshes, actions, {
-        "low": low, "high": high, "travel": travel,
+        "low": low, "high": high, "travel": travel, "flight": flight,
         "frames": {name: [int(round(v)) for v in action.frame_range] for name, action in actions.items()},
     }
+
+
+def bat_flight(armature, meshes, actions):
+    """Where the bat's centre origin sits for the consumer (#784): the grip point it hangs from in Perch, the height of the
+    origin above the ground once the dead bat lies still, when it lands, and the span of its spread wings in Fly."""
+    def measure(clip, frames):
+        slot_for(armature, actions[clip])
+        for frame in frames:
+            bpy.context.scene.frame_set(frame)
+            bpy.context.view_layer.update()
+            yield bounds(meshes)
+
+    _, perch = next(measure("Perch", [0]))
+    dead, _ = next(measure("Death", [CLIP_FRAMES["cave-bat"]["Death"]]))
+    span = max(b.x - a.x for a, b in measure("Fly", range(CLIP_FRAMES["cave-bat"]["Fly"])))
+    return {"origin": "body", "gripHeight": round(perch.z, 4), "groundHeight": round(-dead.z, 4),
+            "landSeconds": round(BAT_DEATH_LAND / FPS, 5), "wingspan": round(span, 4)}
 
 
 def generate(output_path, arguments, inputs):
@@ -2867,4 +3325,5 @@ def generate(output_path, arguments, inputs):
         "walkTravel": round(measured["travel"], 4),
         "restClip": ANIMALS[animal].get("rest", "Idle"), "moveClip": ANIMALS[animal].get("move", "Walk"),
         **({"length": round(ADDER_LENGTH + 0.092, 4)} if animal == "marsh-adder" else {}),
+        **({"flight": measured["flight"]} if measured["flight"] else {}),
     }
