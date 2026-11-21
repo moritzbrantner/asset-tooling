@@ -56,4 +56,4 @@ The tables at the top of the recipe set the proportions (`PROFILES`), each figur
 
 `test/blender/young-residents/young-residents.test.ts` checks the bundle, the adult joint rotations, the heights, the morph targets, the head subset, the cost limit and that two builds are byte-identical. Review images are in [`review/young-residents/`](../review/young-residents/).
 
-**Known limits:** the hair is straight only; curly, coily and braided styles are [#557](https://github.com/moritzbrantner/asset-tooling/issues/557). The tunic's texture has faint chest shading painted for an adult. Extreme slider combinations can look angular.
+**Known limits:** the figures' own hair is straight only; curly, coily and braided styles are in the [textured hair kit](textured-hair-kit.md) (#557), which gives each figure a scale for them. The tunic's texture has faint chest shading painted for an adult. Extreme slider combinations can look angular.

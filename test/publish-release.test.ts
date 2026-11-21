@@ -68,10 +68,10 @@ describe("publish-release", () => {
   test("plans only the releases a change touches", () => {
     expect(plan(["adapters/blender/outpost.py"]).map((entry) => entry.release)).toEqual(["greyhaven-marshal-house", "outpost-kit", "sandstone-kit", "settlement-props"]);
     expect(plan(["adapters/blender/zoo_scenery.py"])).toEqual([{ release: "zoo-scenery", blender: true, lfs: false, processor: "", ktx: false, timeout: 60 }]);
-    // The Redbrand and hair kits read the Ranger figure from src/ranger-figure.ts, not the Ranger build, so a Ranger clip
+    // The Redbrand, hair and textured hair kits read the Ranger figure from src/ranger-figure.ts, not the Ranger build, so a Ranger clip
     // does not rebuild them (#517).
     expect(plan(["adapters/blender/hit_clips.py"]).map((entry) => entry.release)).toEqual(["humanoid-ranger-female", "humanoid-ranger-male"]);
-    expect(plan(["src/ranger-figure.ts"]).map((entry) => entry.release)).toEqual(["hair-kit", "humanoid-ranger-female", "humanoid-ranger-male", "redbrand-kit"]);
+    expect(plan(["src/ranger-figure.ts"]).map((entry) => entry.release)).toEqual(["hair-kit", "humanoid-ranger-female", "humanoid-ranger-male", "redbrand-kit", "textured-hair-kit"]);
     expect(plan(["docs/outpost-kit.md", "README.md", "consumers.json", ".github/workflows/publish-releases.yml"])).toEqual([]);
     expect(plan("all")).toHaveLength(ROLLING_RELEASES.length);
     // #574: each release's own data file (scripts/release-data.ts) rebuilds only that release.
