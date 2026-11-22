@@ -3,7 +3,8 @@
 The declared input ``target`` is the composed base character GLB: the Peasant outfit, the head subset and the
 65-joint skeleton in its rest pose. Every piece is fitted to that geometry. A piece samples the rest-pose vertices
 skinned to its joints in rings around an axis, keeps the outermost radius in each angular sector, smooths it and adds
-a clearance, so the plate follows the real body and clothing instead of a primitive proxy.
+a clearance, so the plate follows the real body and clothing instead of a primitive proxy. Pieces that must sit on the
+body (#814) are then shrink-wrapped onto its skin triangles before the clearance and their reliefs are added.
 
 ``arguments["output"]`` selects one of two GLBs per kit:
 
@@ -33,6 +34,7 @@ import bmesh
 import bpy
 import numpy
 from mathutils import Matrix, Quaternion, Vector, kdtree
+from mathutils.bvhtree import BVHTree
 
 # Class starter outfits (#379): the mmorpg classes over the same Peasant base, in the Greyhaven Marshal's style (the
 # Tinker, #775, for both figures).
@@ -71,6 +73,36 @@ SHIRT, LEGS, ARMS, FEET, HEAD = FIGURES["male"]
 def use_figure(figure):
     global SHIRT, LEGS, ARMS, FEET, HEAD
     SHIRT, LEGS, ARMS, FEET, HEAD = FIGURES[figure]
+
+
+# #814: the knight's breastplate and tabard heights were authored on the male figure (pelvis 0.949 m, shoulder joint
+# 1.455 m up, 0.192 m out). On the shorter female figure the tabard's top edge rose to her chin and stood off it like a
+# collar, so those heights map through the figure's own pelvis and shoulder joints, and the tabard's width follows half
+# of her narrower shoulders. ``None`` (the male figure) keeps the authored values exactly.
+MALE_FRAME = (.949, 1.455, .192)
+FIGURE_FRAME = None
+
+
+def use_frame(rig, female):
+    global FIGURE_FRAME
+    FIGURE_FRAME = (rig.at("pelvis").y, rig.at("upperarm_l").y, rig.at("upperarm_l").x) if female else None
+
+
+def figure_y(y):
+    """A height authored on the male figure, on the current figure: scaled with the pelvis below it and between the pelvis
+    and the shoulder joint above it."""
+    if FIGURE_FRAME is None:
+        return y
+    (pelvis, shoulder, _), (own_pelvis, own_shoulder, _) = MALE_FRAME, FIGURE_FRAME
+    if y <= pelvis:
+        return y * own_pelvis / pelvis
+    return own_pelvis + (y - pelvis) * (own_shoulder - own_pelvis) / (shoulder - pelvis)
+
+
+def figure_width(x):
+    if FIGURE_FRAME is None:
+        return x
+    return x * (1 - .5 * (1 - FIGURE_FRAME[2] / MALE_FRAME[2]))
 # Pieces whose wearer hides a base mesh node completely (the hidden-body-region list, Q12).
 HIDES = {"soldier.gambeson": [SHIRT], "farmer.smock": [SHIRT], "monk.habit": [SHIRT]}
 # Tunics: the Peasant shirt's surface and skin weights pushed out (material, offset), plus a fitted skirt.
@@ -130,18 +162,33 @@ class Body:
     """Rest-pose vertices of the target's skinned meshes in glTF model space, with their joint weights."""
 
     def __init__(self, rig):
-        self.positions, self.weights, self.meshes = [], [], []
+        self.positions, self.weights, self.meshes, self.triangles = [], [], [], []
         for obj in sorted((o for o in bpy.context.scene.objects if o.type == "MESH" and o.vertex_groups), key=lambda o: o.name):
             names = {group.index: group.name for group in obj.vertex_groups}
+            local = {}
             for vertex in obj.data.vertices:
                 weights = {names[g.group]: g.weight for g in vertex.groups if g.weight > 0}
                 if not weights:
                     continue
+                local[vertex.index] = len(self.positions)
                 self.positions.append(to_gltf(obj.matrix_world @ vertex.co))
                 self.weights.append(weights)
                 self.meshes.append(obj.name)
+            # #814: the skin's triangles, so a piece can be shrink-wrapped onto the real surface between the vertices.
+            obj.data.calc_loop_triangles()
+            for triangle in obj.data.loop_triangles:
+                if all(v in local for v in triangle.vertices):
+                    self.triangles.append(tuple(local[v] for v in triangle.vertices))
         self.array = numpy.array([tuple(p) for p in self.positions])
         self.rig = rig
+
+    def surface(self, indices):
+        """A BVH of the skin triangles whose corners are all in ``indices`` (#814)."""
+        chosen = set(indices)
+        triangles = [t for t in self.triangles if all(v in chosen for v in t)]
+        if not triangles:
+            return None
+        return BVHTree.FromPolygons(self.positions, triangles)
 
     def select(self, joints=None, meshes=None, exclude=None, minimum=.5):
         """Indices whose weight on ``joints`` sums to at least ``minimum``, optionally limited to mesh nodes."""
@@ -213,8 +260,36 @@ def fit_radii(body, indices, origin, u, e1, e2, ts, thetas, slab, sector, full_c
     return numpy.mean([smoothed[a:a + len(ts), b:b + len(thetas)] for a in range(3) for b in range(3)], axis=0)
 
 
-def ring_grid(body, indices, a, b, ref, hint, t_range, rows, theta_range, columns, clearance, profile=None, slab=None):
-    """Grid of points (rows along a->b, columns around it) fitted around the selected body vertices."""
+def shrink_radii(body, indices, origin, u, e1, e2, ts, thetas, radii, full_circle, passes=2):
+    """#814: shrink-wrap the fitted radii onto the selected skin. The outermost-vertex fit above keeps the largest radius
+    of a whole sector and then dilates it, so over a curved joint (the top of the shoulder, the deltoid, the chest) the
+    plate stood a centimetre or two off the cloth. Here each grid point is cast from outside back toward the axis; the
+    first skin triangle it meets is the surface under it. The hits are smoothed (never below a hit), so a rigid plate
+    stays fair instead of following every fold, and a point only moves inward. Rays that miss keep the fitted radius."""
+    tree = body.surface(indices)
+    if tree is None:
+        return radii
+    hits = numpy.array(radii, dtype=float)
+    for i, t in enumerate(ts):
+        centre = origin + u * t
+        for j, theta in enumerate(thetas):
+            direction = e1 * math.cos(theta) + e2 * math.sin(theta)
+            reach = float(radii[i, j]) + .05
+            location, _normal, _index, distance = tree.ray_cast(centre + direction * reach, -direction, reach)
+            if location is not None:
+                hits[i, j] = min(float(radii[i, j]), (location - centre).dot(direction))
+    pad = "wrap" if full_circle else "edge"
+    result = hits
+    for _ in range(passes):
+        padded = numpy.pad(numpy.pad(result, ((1, 1), (0, 0)), mode="edge"), ((0, 0), (1, 1)), mode=pad)
+        mean = numpy.mean([padded[a:a + len(ts), b:b + len(thetas)] for a in range(3) for b in range(3)], axis=0)
+        result = numpy.maximum(hits, mean)
+    return numpy.minimum(result, radii)
+
+
+def ring_grid(body, indices, a, b, ref, hint, t_range, rows, theta_range, columns, clearance, profile=None, slab=None, shrink=False):
+    """Grid of points (rows along a->b, columns around it) fitted around the selected body vertices. With ``shrink``
+    (#814) the fit is shrink-wrapped onto the skin under it before the clearance and the profile's relief are added."""
     axis = b - a
     length = axis.length
     u = axis / length
@@ -228,6 +303,8 @@ def ring_grid(body, indices, a, b, ref, hint, t_range, rows, theta_range, column
     sector = math.pi / columns if full else max(abs(theta_range[1] - theta_range[0]) / (2 * (columns - 1)), math.radians(8))
     slab = slab or max(abs(ts[-1] - ts[0]) / (2 * (rows - 1)), .012)
     radii = fit_radii(body, indices, a, u, e1, e2, ts, thetas, slab, sector, full)
+    if shrink:
+        radii = shrink_radii(body, indices, a, u, e1, e2, ts, thetas, radii, full)
     grid = []
     for i, t in enumerate(ts):
         row = []
@@ -433,12 +510,16 @@ def helmet(body, kit):
     return dome, None, crown + Vector((0, .012, 0))
 
 
-# #811: the knight's plate clearances over the fitted (already outermost-dilated) clothed body, in metres. The plates
-# sit a few millimetres off the cloth instead of 1.2-2.2 cm; the shapes (lames, cops, keel, flares) keep their own
-# reliefs, smaller. The spaulder stays outside the pauldron's top where the two overlap.
+# #811: the knight's plate clearances over the clothed body, in metres: a few millimetres off the cloth instead of
+# 1.2-2.2 cm; the shapes (lames, cops, keel, flares) keep their own reliefs, smaller. The spaulder stays outside the
+# pauldron's top where the two overlap. #814: the plates are shrink-wrapped onto the cloth before these are added (the
+# outermost-dilated fit still left 1.5-2.5 cm over the shoulders and chest). The spaulder ends ``cop_reach`` past the
+# shoulder joint (was 5 cm, so it stood out over the hanging arm), the pauldron starts ``pauldron_from`` past it, under
+# the cop, and the breastplate eases out by up to ``breast_ease`` over the belly, which moves with the lower spine.
 KNIGHT_FIT = {"greave": .007, "cuisse": .006, "knee": .009, "sabaton": .006, "spaulder": .011, "spaulder_bulge": .005,
-              "pauldron": .004, "lame": .002, "pauldron_top": .003, "couter": .005, "elbow": .01, "cuff": .006,
-              "cuff_flare": .016, "glove": .006, "breastplate": .006, "breast_flare": .012, "keel": .01}
+              "pauldron": .004, "lame": .002, "pauldron_top": .008, "couter": .007, "elbow": .01, "cuff": .006,
+              "cuff_flare": .016, "glove": .006, "breastplate": .006, "breast_ease": .014, "breast_flare": .012, "keel": .01,
+              "cop_reach": .02, "pauldron_from": .01}
 
 
 def plate_surfaces(body, rig, kit):
@@ -467,7 +548,7 @@ def plate_surfaces(body, rig, kit):
             shin = body.select([f"calf_{side}"], minimum=.95)
             greave = ring_grid(body, shin, knee, ankle, FRONT, out, (.2, .82), 9, (-math.radians(100), math.radians(100)), 13, .008)
         else:
-            greave = ring_grid(body, calf, knee, ankle, FRONT, out, (.04, .86), 10, None, 20, KNIGHT_FIT["greave"])
+            greave = ring_grid(body, calf, knee, ankle, FRONT, out, (.04, .86), 10, None, 20, KNIGHT_FIT["greave"], shrink=True)
         pieces.append((f"{kit}.greave_{side}", f"calf_{side}", "iron" if kit == "soldier" else "steel", greave, None, None, .003))
         if kit != "knight":
             continue
@@ -476,12 +557,12 @@ def plate_surfaces(body, rig, kit):
         def cuisse_profile(t, theta, r):
             return r + KNIGHT_FIT["knee"] * max(0, (t - .82) / .18) * math.cos(theta)
         cuisse = ring_grid(body, thigh, hip, knee + (knee - hip).normalized() * .07, FRONT, out, (.18, 1.0), 11,
-                           (-math.radians(70), math.radians(125)), 12, KNIGHT_FIT["cuisse"], cuisse_profile)
+                           (-math.radians(70), math.radians(125)), 12, KNIGHT_FIT["cuisse"], cuisse_profile, shrink=True)
         pieces.append((f"knight.cuisse_{side}", f"thigh_{side}", "steel", cuisse, None, None, .003))
         # Sabaton over the top of the foot.
         foot = body.select([f"foot_{side}", f"ball_{side}"], minimum=.5)
         toe = rig.at(f"ball_{side}") + Vector((0, 0, .1))
-        sabaton = ring_grid(body, foot, ankle, toe, UP, out, (.0, .98), 8, (-math.radians(95), math.radians(95)), 11, KNIGHT_FIT["sabaton"])
+        sabaton = ring_grid(body, foot, ankle, toe, UP, out, (.0, .98), 8, (-math.radians(95), math.radians(95)), 11, KNIGHT_FIT["sabaton"], shrink=True)
         pieces.append((f"knight.sabaton_{side}", f"foot_{side}", "steel", sabaton, None, None, .003))
         # Arm pieces (the rest pose is a T-pose: the arm runs along +-X, the back of the hand faces up).
         shoulder, elbow, wrist = rig.at(f"upperarm_{side}"), rig.at(f"lowerarm_{side}"), rig.at(f"hand_{side}")
@@ -491,18 +572,18 @@ def plate_surfaces(body, rig, kit):
             return r + KNIGHT_FIT["lame"] * math.floor(t * 3.999) + KNIGHT_FIT["pauldron_top"] * (1 - t)
         # #301: the shoulder cop rides the clavicle, so it stays on the shoulder when the arm hangs or rises; the lames
         # below it ride the upper arm and slide under the cop.
-        cop_surface = ring_grid(body, upper, shoulder - arm * .06, shoulder + arm * .05, UP, FRONT, (0, 1), 9,
+        cop_surface = ring_grid(body, upper, shoulder - arm * .06, shoulder + arm * KNIGHT_FIT["cop_reach"], UP, FRONT, (0, 1), 9,
                                 (-math.radians(85), math.radians(85)), 15, KNIGHT_FIT["spaulder"],
-                                lambda t, theta, r: r + KNIGHT_FIT["spaulder_bulge"] * math.sin(math.pi * t))
+                                lambda t, theta, r: r + KNIGHT_FIT["spaulder_bulge"] * math.sin(math.pi * t), shrink=True)
         pieces.append((f"knight.spaulder_{side}", f"clavicle_{side}", "steel", cop_surface, None, None, .003))
-        pauldron = ring_grid(body, upper, shoulder + arm * .03, shoulder + arm * .15, UP, FRONT, (0, 1), 9,
-                             (-math.radians(80), math.radians(80)), 15, KNIGHT_FIT["pauldron"], lames)
+        pauldron = ring_grid(body, upper, shoulder + arm * KNIGHT_FIT["pauldron_from"], shoulder + arm * .15, UP, FRONT, (0, 1), 9,
+                             (-math.radians(80), math.radians(80)), 15, KNIGHT_FIT["pauldron"], lames, shrink=True)
         pieces.append((f"knight.pauldron_{side}", f"upperarm_{side}", "steel", pauldron, None, None, .003))
         around = body.select([f"upperarm_{side}", f"lowerarm_{side}"], minimum=.5)
         def cop(t, theta, r):
             return r + KNIGHT_FIT["elbow"] * math.sin(math.pi * t) * max(0, math.cos(theta))
         couter = ring_grid(body, around, elbow - arm * .065, elbow + arm * .065, Vector((0, 0, -1)), UP, (0, 1), 7,
-                           (-math.radians(95), math.radians(95)), 11, KNIGHT_FIT["couter"], cop)
+                           (-math.radians(95), math.radians(95)), 11, KNIGHT_FIT["couter"], cop, shrink=True)
         pieces.append((f"knight.couter_{side}", f"lowerarm_{side}", "steel", couter, None, None, .003))
         forearm = body.select([f"lowerarm_{side}", f"hand_{side}"], minimum=.5)
         def flare(t, theta, r):
@@ -522,14 +603,14 @@ def plate_surfaces(body, rig, kit):
         torso = body.select(["spine_01", "spine_02", "spine_03", "clavicle_l", "clavicle_r", "pelvis"], meshes=[SHIRT], minimum=.5)
         centre = Vector((0, 0, float(body.array[torso][:, 2].mean())))
         def breast(t, theta, r):
-            # A flared lower edge and a central keel down the front (#301).
-            return (r + KNIGHT_FIT["breast_flare"] * max(0, .25 - t) / .25
+            # A flared lower edge and a central keel down the front (#301), eased over the belly (#814).
+            return (r + KNIGHT_FIT["breast_flare"] * max(0, .25 - t) / .25 + KNIGHT_FIT["breast_ease"] * max(0.0, 1 - t / .6)
                     + KNIGHT_FIT["keel"] * max(0.0, math.cos(theta)) ** 10 * (1 - .5 * t))
-        plate = ring_grid(body, torso, centre + Vector((0, 1.13, 0)), centre + Vector((0, 1.45, 0)), FRONT, Vector((1, 0, 0)),
-                          (0, 1), 16, None, 40, KNIGHT_FIT["breastplate"], breast)
+        plate = ring_grid(body, torso, centre + Vector((0, figure_y(1.13), 0)), centre + Vector((0, figure_y(1.45), 0)), FRONT, Vector((1, 0, 0)),
+                          (0, 1), 16, None, 40, KNIGHT_FIT["breastplate"], breast, shrink=True)
         def armholes(i, j):
             p = plate["grid"][i][j]
-            return not (abs(p.x) > .115 and p.y > 1.33)
+            return not (abs(p.x) > figure_width(.115) and p.y > figure_y(1.33))
         pieces.append(("knight.breastplate", "spine_03", "steel", plate, armholes, None, .004))
     if kit == "soldier":
         waist = body.select(["pelvis", "spine_01", "thigh_l", "thigh_r"], meshes=[SHIRT, LEGS], minimum=.5)
@@ -599,7 +680,7 @@ def cloth_surfaces(body, rig, kit):
         # The tabard also clears the breastplate's own surface (keel and rim), not only the body under it (#309).
         plates = plate_surfaces(body, rig, "knight")
         plate = next(surface for name, _joint, _slot, surface, *_rest in plates if name == "knight.breastplate")
-        surface = tabard_surface(body, rig, [p for row in plate["grid"] for p in row])
+        surface = tabard_surface(body, rig, [p for row in plate["grid"] for p in row], waist=TABARD_FIT["waist"])
         mask = tabard_mask(surface)
         # The cloth falls over the body and the breastplate (#314). The cuisses sit inside the hanging skirt's clearance
         # already, and as colliders they snag the gathered cloth at the hips.
@@ -618,7 +699,7 @@ def cloth_surfaces(body, rig, kit):
     return garments
 
 
-def tunic_skirt(body, bottom, flare, rows, ripple=None, hang=None):
+def tunic_skirt(body, bottom, flare, rows, ripple=None, hang=None, shrink=False):
     """A skirt fitted around the hips from the waist (1.0 m) down to ``bottom``, widening by ``flare`` at the hem.
     With ``hang`` (#811), the cloth falls straight from the widest point above it instead of following the legs in,
     widens by ``flare`` only toward the hem (eased, not a cone) and folds softly: ``hang`` is (fold depth, fold count)."""
@@ -634,7 +715,7 @@ def tunic_skirt(body, bottom, flare, rows, ripple=None, hang=None):
             return r + flare * t * t + depth * t * math.cos(theta * folds)
         return r + flare * t + (ripple(theta) if ripple else 0)
     return ring_grid(body, hips, centre + Vector((0, 1.0, 0)), centre + Vector((0, bottom, 0)), FRONT, Vector((1, 0, 0)),
-                     (0, 1), rows, None, 32, .016, profile, slab=.03)
+                     (0, 1), rows, None, 32, .016, profile, slab=.03, shrink=shrink)
 
 
 # Resident skirts (#376): (bottom height, hem flare, rows). The smock ends above the knee, the habit at the ankle.
@@ -652,6 +733,7 @@ APRON = {"top": 1.37, "waist": 1.03, "hem": .66, "bib": .1, "skirt": .17, "clear
 # #811: it used to widen linearly by 18 cm into a cone; it now hangs from the hips with an 8 cm eased hem and soft folds.
 TANNER_SKIRT = (.14, .08, 20)
 TANNER_SKIRT_HANG = (.006, 9)
+TANNER_BELT = {"clearance": .024, "apron": .012}
 TANNER_APRON = {"top": 1.33, "waist": 1.0, "hem": .3, "bib": .095, "skirt": .2, "clearance": .012, "rows": 26, "columns": 17,
                  "smooth": 3}
 SETTLE["tanner.skirt"], STRIDE["tanner.skirt"] = SETTLE["monk.habit"], STRIDE["monk.habit"]
@@ -663,9 +745,12 @@ def resident_plates(body, kit):
     waist = body.select(["pelvis", "spine_01", "thigh_l", "thigh_r"], meshes=[SHIRT, LEGS], minimum=.5)
     centre = Vector((0, 0, float(body.array[waist][:, 2].mean())))
     if kit == "tanner":
-        # Over the apron and the skirt's waistband.
+        # Over the apron and the skirt's waistband. #814: shrink-wrapped onto the waist, 3.6 cm out over the apron in front
+        # and 2.4 cm over the skirt at the sides and back, where it stood off like a ring.
+        def over_apron(t, theta, r):
+            return r + TANNER_BELT["apron"] * min(1.0, max(0.0, (math.cos(theta) - .5) / .3))
         belt = ring_grid(body, waist, centre + Vector((0, .975, 0)), centre + Vector((0, 1.02, 0)), FRONT, Vector((1, 0, 0)),
-                         (0, 1), 3, None, 28, .036, slab=.03)
+                         (0, 1), 3, None, 28, TANNER_BELT["clearance"], over_apron, slab=.03, shrink=True)
         return [("tanner.belt", "pelvis", "leather", belt, None, None, .006)]
     leather = kit == "innkeeper"
     low, high = (.985, 1.03) if leather else (.99, 1.015)
@@ -721,7 +806,7 @@ def resident_cloth(body, kit):
     if kit == "innkeeper":
         return [("innkeeper.apron", "linen", apron_surface(body), None)]
     if kit == "tanner":
-        skirt = tunic_skirt(body, *TANNER_SKIRT, hang=TANNER_SKIRT_HANG)
+        skirt = tunic_skirt(body, *TANNER_SKIRT, hang=TANNER_SKIRT_HANG, shrink=True)
         apron = apron_surface(body, TANNER_APRON, [p for row in skirt["grid"] for p in row])
         return [("tanner.skirt", "skirt.wool", skirt, None), ("tanner.apron", "leather.tan", apron, None)]
     name = f"{kit}.{'smock' if kit == 'farmer' else 'habit'}"
@@ -734,22 +819,27 @@ ARM_JOINTS = {f"{joint}_{side}" for joint in ("clavicle", "upperarm", "lowerarm"
 
 
 # #811: the tabard over the knight's breastplate: front and back above the waist, below it, and its gap over the plate itself.
-# It used to stand 6.6-7 cm off the body and 1.8 cm off the plate; now 3 cm and 1.2 cm.
-TABARD_FIT = {"clearance": (.03, .03, .026), "over_plate": .012}
+# It used to stand 6.6-7 cm off the body and 1.8 cm off the plate (#811: 3 cm and 1.2 cm). #814: the breastplate is now
+# shrink-wrapped onto the chest, so the tabard rides it: 1.6 cm off the body and 6 mm off the plate. Below the plate's
+# rim the belly moves with the lower spine while the tabard still rides the chest, so the gap eases back to 3 cm at the
+# belt (``waist``: the gap there, and the heights it eases between).
+TABARD_FIT = {"clearance": (.016, .016, .022), "over_plate": .006, "waist": (.032, 1.08, 1.3)}
 
 
-def tabard_surface(body, rig, obstacles=(), clearance=TABARD_FIT["clearance"]):
+def tabard_surface(body, rig, obstacles=(), clearance=TABARD_FIT["clearance"], waist=None):
     """Front and back panels hanging from the shoulders, over the breastplate, joined across the shoulders.
-    ``clearance``: front and back above the waist (over the plate), and below it."""
+    ``clearance``: front and back above the waist (over the plate), and below it; ``waist`` (#814) eases the gap above
+    the waist toward the belt."""
     torso = body.select(None, meshes=[SHIRT, LEGS], minimum=0)
     torso = [i for i in torso if max(body.weights[i], key=body.weights[i].get) not in
              {"upperarm_l", "upperarm_r", "lowerarm_l", "lowerarm_r"}]
     points = body.array[torso]
     zc = float(points[:, 2].mean())
     columns = 23
-    xs = [-TABARD_HALF_WIDTH + 2 * TABARD_HALF_WIDTH * j / (columns - 1) for j in range(columns)]
+    half = figure_width(TABARD_HALF_WIDTH)
+    xs = [-half + 2 * half * j / (columns - 1) for j in range(columns)]
     # The panels rise above the breastplate's top edge (1.45 m), so its rim never shows at the collar (#309).
-    ys = [.6 + (1.475 - .6) * i / 23 for i in range(24)]
+    ys = [figure_y(.6 + (1.475 - .6) * i / 23) for i in range(24)]
 
     def extreme(x, y, front):
         near = (numpy.abs(points[:, 0] - x) < .04) & (numpy.abs(points[:, 1] - y) < .035)
@@ -763,7 +853,10 @@ def tabard_surface(body, rig, obstacles=(), clearance=TABARD_FIT["clearance"]):
         previous = None
         for y in reversed(ys):
             # Over the breastplate, then over the cuisses below it.
-            gap = (clearance[0] if front else clearance[1]) if y >= 1.0 else clearance[2]
+            gap = (clearance[0] if front else clearance[1]) if y >= figure_y(1.0) else clearance[2]
+            if waist is not None and y >= figure_y(1.0):
+                ease = min(1.0, max(0.0, (figure_y(waist[2]) - y) / (figure_y(waist[2]) - figure_y(waist[1]))))
+                gap += (waist[0] - gap) * ease * ease * (3 - 2 * ease)
             row = []
             for j, x in enumerate(xs):
                 z = extreme(x, y, front)
@@ -786,7 +879,7 @@ def tabard_surface(body, rig, obstacles=(), clearance=TABARD_FIT["clearance"]):
         shoulder.append(float(points[near][:, 1].max()) + .03 if near.any() else 1.5)
     def drape(x, y, z, side):
         # #301: below the waist the cloth widens and falls in soft vertical folds that deepen toward the hem.
-        hang = min(1.0, max(0.0, (1.12 - y) / .5))
+        hang = min(1.0, max(0.0, (figure_y(1.12) - y) / .5))
         # Deeper folds with a little irregularity, and a hem that rises and falls with them, so it reads as cloth (#309).
         fold = math.sin(2 * math.pi * x / .105) + .35 * math.sin(2 * math.pi * x / .047 + 1.3)
         return Vector((x * (1 + .22 * hang), y + .012 * hang * hang * fold, z + side * .024 * hang * fold))
@@ -836,14 +929,15 @@ def settle_tabard(surface, mask, body_objects, plates):
     cloth.shape_key_add(name="rest")
     gathered = cloth.shape_key_add(name="gathered", from_mix=False)
     gathered.value = 1.0
+    pin_from, belt = figure_y(TABARD_PIN_FROM), (figure_y(TABARD_BELT[0]), figure_y(TABARD_BELT[1]))
     for index in range(rows * columns):
         point = grid[index // columns][index % columns]
-        if point.y >= TABARD_PIN_FROM or TABARD_BELT[0] <= point.y <= TABARD_BELT[1]:
+        if point.y >= pin_from or belt[0] <= point.y <= belt[1]:
             pin.add([index], 1.0, "REPLACE")
-        if point.y < TABARD_PIN_FROM:
+        if point.y < pin_from:
             # Full gather at the belt, easing back to the cut width over the plate above it.
-            amount = 1.0 if point.y <= TABARD_BELT[1] else 1 - (point.y - TABARD_BELT[1]) / (TABARD_PIN_FROM - TABARD_BELT[1])
-            scale = 1 - (1 - TABARD_GATHER) * amount if point.y >= TABARD_BELT[0] else 1.0
+            amount = 1.0 if point.y <= belt[1] else 1 - (point.y - belt[1]) / (pin_from - belt[1])
+            scale = 1 - (1 - TABARD_GATHER) * amount if point.y >= belt[0] else 1.0
             gathered.data[index].co.x = point.x * scale
     temporary = [cloth]
     for obj in body_objects:
@@ -961,6 +1055,13 @@ CLASS_ROBES = {"class.arcanist": ("robe.indigo", "sleeve.indigo"), "class.necrom
                "class.cleric": ("robe.ivory", "sleeve.ivory"), "class.druid": ("robe.moss", "robe.moss")}
 # Hip-length jerkins over straight work trousers (owner, 2026-10-25: no slim tucked trousers).
 CLASS_JERKINS = {"class.ranger": ("jerkin.green", "trousers.brown"), "class.rogue": ("jerkin.charcoal", "trousers.charcoal")}
+# #814: over the jerkin (the shirt pushed 12 mm out) the sash is shrink-wrapped onto the chest and sits 1 cm over the
+# jerkin (it stood about 3 cm off it), the belt 6 mm over the jerkin's skirt (was 1.4 cm). The Ranger's bracers are
+# shrink-wrapped onto the forearm, over the sleeve; the cloak clears the torso by 3.2 cm instead of 4.2 cm.
+JERKIN_SASH = {"clearance": .022, "shrink": True}
+JERKIN_BELT = .024
+RANGER_BRACER = .022
+RANGER_CLOAK_CLEARANCE = .032
 for _kit, (_skirt, _top) in CLASS_ROBES.items():
     _name = f"{_kit}.robe"
     TUNICS[_name], HIDES[_name] = (_top, .012), [SHIRT]
@@ -1299,7 +1400,7 @@ def hood_surface(body, spec):
     return surface, mask, (chin - .03, chin + .03)
 
 
-def sash(body, mirror=1, clearance=.03, half=.035, ends=((.13, 1.5), (.15, .99), 1.25)):
+def sash(body, mirror=1, clearance=.03, half=.035, ends=((.13, 1.5), (.15, .99), 1.25), shrink=False):
     """A sash from one shoulder to the other hip, like the soldier's (#309), over a jerkin (or the Tinker's bandolier
     over the apron: ``clearance`` from the body, ``half`` its half-width, ``ends`` its shoulder and hip and its middle's
     height on the figure)."""
@@ -1309,7 +1410,8 @@ def sash(body, mirror=1, clearance=.03, half=.035, ends=((.13, 1.5), (.15, .99),
     shoulder, hip = Vector((sx * mirror, sy, 0)), Vector((-hx * mirror, hy, 0))
     along = (shoulder - hip).normalized()
     normal = Vector((along.y, -along.x, 0))
-    return ring_grid(body, torso, middle - normal * half, middle + normal * half, FRONT, along, (0, 1), 3, None, 40, clearance, slab=.03)
+    return ring_grid(body, torso, middle - normal * half, middle + normal * half, FRONT, along, (0, 1), 3, None, 40, clearance, slab=.03,
+                     shrink=shrink)
 
 
 def rolled_sleeves(rig, slot, offset=.014):
@@ -1350,7 +1452,7 @@ def class_cloth(body, rig, kit):
         garments.append((f"{kit}.jerkin", jerkin, tunic_skirt(body, .86, .03, 5), None))
         garments.append((f"{kit}.trousers", None, trousers(body, rig, legwear), None))
         garments.append((f"{kit}.sleeves", None, sleeves(rig, jerkin), None))
-        garments.append((f"{kit}.sash", "class", sash(body, 1 if kit == "class.ranger" else -1), None,
+        garments.append((f"{kit}.sash", "class", sash(body, 1 if kit == "class.ranger" else -1, **JERKIN_SASH), None,
                          {"torso": True, "follow": ("spine_03", 1.25, 1.40)}))
     if kit in CLASS_ROBES:
         garments.append(class_robe(body, kit, .07 if kit == "class.necromancer" else 0.0))
@@ -1362,7 +1464,7 @@ def class_cloth(body, rig, kit):
     drape = {"exclude": HANGING_ARM, "follow": ("spine_03", 1.12, 1.3)}
     if kit == "class.ranger":
         # Open at the chest but wrapped over both shoulders, so it reads from the front too (owner, 2026-10-25).
-        garments.append((f"{kit}.cloak", "wool.olive", drape_surface(body, 1.06, .82, clearance=.042, arc=(42, 318), rows=16, flare=.04,
+        garments.append((f"{kit}.cloak", "wool.olive", drape_surface(body, 1.06, .82, clearance=RANGER_CLOAK_CLEARANCE, arc=(42, 318), rows=16, flare=.04,
                                                                      slope=.12, arms=.3), None, drape))
     if kit == "class.rogue":
         # One shoulder: over the left shoulder, across the back and down the left side of the chest.
@@ -1422,11 +1524,11 @@ def class_belt(body, name, slot, clearance, heights=(.985, 1.03)):
     return (name, "pelvis", slot, belt, None, None, .006)
 
 
-def forearm_band(body, rig, side, start, end, clearance, rows, profile=None):
+def forearm_band(body, rig, side, start, end, clearance, rows, profile=None, shrink=False):
     elbow, wrist = rig.at(f"lowerarm_{side}"), rig.at(f"hand_{side}")
     forearm = body.select([f"lowerarm_{side}"], meshes=[ARMS], minimum=.5)
     return ring_grid(body, forearm, elbow + (wrist - elbow) * start, elbow + (wrist - elbow) * end, UP, FRONT, (0, 1), rows, None, 16,
-                     clearance, profile)
+                     clearance, profile, shrink=shrink)
 
 
 def half_mask(body):
@@ -1476,13 +1578,13 @@ def class_plates(body, rig, kit):
         name, joint, _slot, *fit = class_belt(body, f"{kit}.belt", belt, .04, tinker_figure()[0]["belt"])
         pieces.append((name, joint, TINKER_BELT_SLOTS, *fit))
     else:
-        pieces.append(class_belt(body, f"{kit}.belt", belt, .032 if robed else .03))
+        pieces.append(class_belt(body, f"{kit}.belt", belt, .032 if robed else JERKIN_BELT if kit in CLASS_JERKINS else .03))
     if kit in ("class.ranger", "class.rogue"):
         for side, _s in SIDES:
             if kit == "class.ranger":
                 def bracer(t, theta, r):
                     return r + .006 * math.sin(math.pi * t)
-                pieces.append((f"{kit}.bracer_{side}", f"lowerarm_{side}", "leather", forearm_band(body, rig, side, .3, .92, .024, 6, bracer),
+                pieces.append((f"{kit}.bracer_{side}", f"lowerarm_{side}", "leather", forearm_band(body, rig, side, .3, .92, RANGER_BRACER, 6, bracer, shrink=True),
                                None, None, .004))
             else:
                 def wrap(t, theta, r):
@@ -1869,6 +1971,7 @@ def generate(output_path, arguments, inputs):
     # #630: knight is shared by both figures. The declared target, not the kit name, selects its real base.
     female = any(o.type == "MESH" and o.name == FIGURES["female"][0] for o in bpy.context.scene.objects)
     use_figure("female" if female else "male")
+    use_frame(rig, female)
     if kit == "tanner" and not female:
         raise ValueError("the tanner kit requires the Female_Peasant base")
     body = Body(rig)
@@ -1939,7 +2042,8 @@ def generate(output_path, arguments, inputs):
             if name in TABARDS:
                 # Over the breastplate the tabard rides spine_03 like the plate, so the plate cannot push through it;
                 # it blends back to the body's own weights between the plate's lower edge and the hips.
-                weights = [follow(w, "spine_03", (p[1] - TABARD_RIGID_FROM[0]) / (TABARD_RIGID_FROM[1] - TABARD_RIGID_FROM[0]))
+                rigid = (figure_y(TABARD_RIGID_FROM[0]), figure_y(TABARD_RIGID_FROM[1]))
+                weights = [follow(w, "spine_03", (p[1] - rigid[0]) / (rigid[1] - rigid[0]))
                            for w, p in zip(weights, builder.points)]
             if name in SETTLE:
                 # Long resident skirts blend toward the pelvis down to the hem, so a striding thigh does not drag the
