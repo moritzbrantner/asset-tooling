@@ -16,7 +16,7 @@ After the owner's first review, the knight's shapes were reworked:
 
 - **Bascinet:** an analytic skull fitted to the head's extents, no longer a scan of the head. It is a rounded dome that narrows to a point set back over the crown. The sides and back fall almost straight to the jaw and nape, flaring slightly at the rim. The face opening is an arch whose top follows the brow and whose sides drop toward the cheeks.
 - **Shoulders:** a **spaulder** (the shoulder cop) rides `clavicle_*` through a new `clavicle_*.armor` socket, so it stays on the shoulder when the arm hangs or rises. The **pauldron** lames below it ride the upper arm and slide under the cop.
-- **Gauntlets:** a mitten shell over the whole hand and fingers, closed at the fingertips, plus the flared cuff.
+- **Gauntlets:** a mitten shell over the whole hand and fingers, closed at the fingertips, plus the flared cuff (replaced by a skinned glove, a cuff and a back-of-hand plate in #819).
 - **Breastplate:** finer sampling and a central keel down the front.
 - **Rims:** the finishing bevel is 4 mm with three segments, so the plate edges read as rolled rims.
 - **Tabard:** shaped cloth instead of flat boards (see Outputs).
@@ -90,7 +90,7 @@ Each mmorpg class starts in its own outfit, in the Greyhaven Marshal's style (ow
 The owner's rules for the set: no short skirts or leggings on anyone, only plain functional boots (the Peasant boots, or the knight's sabatons), and long robes that differ by sleeves, overcoats, hoods, collars, belts, colour and props.
 
 - **Robes** are the monk habit's cut (the shirt pushed 12 mm out, a skirt to the ankle) with the same `SETTLE` and `STRIDE` weights.
-- **Jerkins and trousers:** the jerkin is the shirt pushed out with a skirt to the hip. The trousers are the Peasant legs pushed 8 mm out. Below the knee they widen into a straight tube around the boot shaft, and they lengthen to 13 cm above the ground, so they fall over the boots instead of tucking in.
+- **Jerkins and trousers:** the jerkin is the shirt pushed out with a skirt to the hip. The trousers are the Peasant legs pushed 8 mm out. Below the knee they become a straight tube that follows the thigh and falls over the boot shaft (#819), and they lengthen to 13 cm above the ground, so they fall over the boots instead of tucking in.
 - **Sleeves** are cut from the Peasant arms between the shoulder and the wrist and pushed out, so they keep the arms' own weights. The cuff is extruded past the wrist and opens by a flare. A tattered cuff ends in uneven points.
 - **Mantles, the cloak and the cape** (`drape_surface`) are rings around the torso from the neckline to a hem that runs from a front height to a back height. Each ring clears the torso and shoulder caps. Going down, a ring never narrows faster than a slope, so the cloth falls from the shoulders and shoulder blades instead of following the small of the back. The rings are widened over the spine's groove before the clearance is added. An arc leaves the chest open (the Ranger's cloak) or keeps one shoulder (the Rogue's cape), and the cloth over the sides stays outside the hanging arms. They ride the torso, `spine_03` above the chest, and ignore the arm joints below the clavicle. The cloak's back settles toward the pelvis below the waist.
 - **Hoods** (`hood_surface`) are soft domes fitted to the head's extents, with a peak that falls back over the crown, an open face from the chin to the brow and a drape that rests on the shoulders. They ride `Head` above the chin and blend into the neck and chest below it. Each hood is listed as an `outfit.hood` part node, so hair that needs the hood off hides under it.
@@ -115,7 +115,7 @@ The recipe's declared input `target` is the base character at rest: the Peasant 
 The outermost-vertex fit keeps the largest radius of a whole sector and then dilates it. Over a curved joint (the top of the shoulder, the deltoid, the chest) the plates still stood 1.5–2.5 cm off the cloth after #811, and the owner saw the armour hovering above the shoulders. Hand-tuned clearances could not fix that, because the excess came from the fit itself.
 
 - **Shrink-wrap:** `ring_grid(..., shrink=True)` casts each grid point from outside back toward the piece's axis. The first skin triangle of the selected body vertices that it meets is the surface under the point (`Body.surface`, a BVH of the target's skin triangles). The hits are smoothed twice, never below a hit, so a rigid plate stays fair instead of following every fold. A point only moves inward, and a ray that misses keeps the fitted radius. The clearance and the reliefs (lames, cops, keel, flares, bulges) go on top of the projected surface, so they survive.
-- **Where:** the knight's (and the Warden's) greaves, cuisses, sabatons, spaulders, pauldrons, couters and breastplate. The gauntlets are left as they are (#819). Also the Tanner's skirt and belt, and the jerkin kits' sash and the Ranger's bracers.
+- **Where:** the knight's (and the Warden's) greaves, cuisses, sabatons, spaulders, pauldrons, couters and breastplate. The gauntlets followed in #819. Also the Tanner's skirt and belt, and the jerkin kits' sash and the Ranger's bracers.
 - **Shoulders:** the spaulder (on `clavicle_*`) now ends 2 cm past the shoulder joint instead of 5 cm (`cop_reach`). It stuck out over the deltoid when the arm hung, which was the hover the owner saw. The pauldron lames (on `upperarm_*`) start 1 cm past the joint (`pauldron_from`, was 3 cm), under the cop, with 8 mm of extra relief on the top lame, so the deltoid does not poke through when the arm swings.
 - **Breastplate:** shrink-wrapped onto the chest. Over the belly it eases out by up to 1.4 cm toward its lower rim (`breast_ease`). The belly moves with the lower spine, while the plate rides `spine_03`.
 - **Tabard:** 1.6 cm off the body and 6 mm off the plate (`TABARD_FIT`; it was 3 cm and 1.2 cm). Below the chest the gap eases back to 3.2 cm at the belt (`waist`), so the belly does not push through it in the walk.
@@ -125,6 +125,28 @@ The outermost-vertex fit keeps the largest radius of a whole sector and then dil
 - **Weights:** the plates stay rigid on one joint through their sockets, because the output contract and the consumers' socket attachment are unchanged. Cloth already blends the weights of the nearest body vertices (`blend_weights`).
 
 The fit probe [`examples/armour-fit/review.py`](../examples/armour-fit/review.py) poses the target and both outputs with the published clips (rest, `Walk_Loop`, `Sprint_Loop`, `Crouch_Idle_Loop`, `Sword_Slash_High_R`, and optionally `Idle_Loop`, `Sword_Cleave` and `Shield_Guard_High_Loop`). For each piece it reports the median gap of its body-facing surface to the posed body and the share of its vertices more than 3 mm inside it, and it renders a game-camera frame, a close-up and a shoulder close-up per pose. The male Warden's median gaps in the T-pose went from 1.4 to 1.0 cm (spaulder), 1.1 to 0.9 cm (pauldron), 2.0 to 0.7 cm (breastplate), 1.4 to 0.5 cm (cuisse and greave) and 4.2 to 3.2 cm (tabard, which hangs off the body below the waist). Penetration stays about where it was.
+
+## Gloves and trousers (#819)
+
+After #814 the owner reviewed the lineup and found the gloves "messed up" and the Ranger's trousers bad.
+
+- **Gauntlets:** the rigid mitten round the spread rest-pose fingers and thumb stood 1.2–1.9 cm off the hand, read as a bucket at the game camera, and the grip poses (`Grip_*`, #285) closed the real fingers through its palm. Now the hand is a skinned glove, `knight.gloves` (and `class.warden.gloves`) in the cloth output: the base arms' hands from 3.5 cm behind the wrist, pushed 4 mm out, keeping their skin weights, so the fingers close inside it. Over it ride two plates (`GAUNTLET`):
+  - `knight.cuff_*`, a new piece on `lowerarm_*`: 10 cm up the forearm to 5 mm past the wrist, shrink-wrapped, flaring by 1.2 cm toward the elbow. It rode the hand before, so a bending wrist swung its far end off the forearm.
+  - `knight.gauntlet_*`, on `hand_*` as before, is now a plate over the back of the hand, from the wrist to 8 mm short of the knuckles, 70° to each side of the top, shrink-wrapped and slightly domed.
+  - The glove itself is `leather` under the steel cuff and plate (`GAUNTLET["glove_slot"]`; owner choice over steel, 2026-11-22). The Ranger keeps bare hands with its bracers.
+- **Trousers** (the Ranger, Rogue, Tinker and Redbrand): they were one round tube as wide as the hidden Peasant legs' knee puff, about 23 cm across, from the knee to the hem. They read as bell-bottoms, wider than the thigh, with a kink at the knee. Now each leg is a tube whose cross-section follows the thigh 10 cm above the knee joint, its outermost radius in each of 24 sectors, and tapers to 90 % of it at the hem (`TROUSERS`). It stays 1 cm off the boot and falls straight down from the boot's folded top. The axis runs from the thigh's centre to the boot shaft's, and the tube takes over from the legs' own shape over 8 cm. The male Ranger's lower leg is now about 18 cm across instead of 23 cm, and the leg runs straight from the thigh to the hem. The 13 cm hem height is unchanged.
+- **Fit probe:** it adds a `grip` pose (`Grip_Weapon_R`: only the right fingers move) and close-ups of the right hand and the legs, and it no longer draws the base meshes the outfit hides, as the game does.
+- **The 2 m icosphere** seen in the published outfit files is Blender's glTF importer's bone display shape, in its `glTF_not_exported` collection. The files have no such mesh.
+
+Male Warden and Knight, median gap in cm (share of vertices more than 3 mm inside the body), before → after:
+
+| Piece | T-pose | Walk | Crouch | Grip |
+| --- | --- | --- | --- | --- |
+| gauntlet (before: cuff and mitten; after: back plate) | 1.63 (0.6 %) → 0.67 (0 %) | 1.2 (10 %) → 0.68 (0 %) | 1.62 (0.5 %) → 0.67 (0 %) | 2.61 (1.0 %) → 0.61 (5.8 %) |
+| cuff (new) | 0.88 (0 %) | 0.92 (5.8 %) | 0.88 (1.7 %) | 0.89 (3.4 %) |
+| gloves (new) | 0.22 (0 %) | 0.19 (0.7 %) | 0.22 (0 %) | 0.17 (0.3 %) |
+
+The right side is shown. In the probe's `Sword_Slash_High_R` frame the bare right hand sits in the face, so every hand piece measures inside the head there. The Ranger's trousers measure 6–9 % inside, as before: the top inside the shirt under the jerkin, and now the back of the knee inside the hidden legs' knee puff.
 
 ## Outputs
 
@@ -181,4 +203,4 @@ The pose sheets are rendered with `examples/weapons/socket-sheets.py` and its `-
 Known limits of this first candidate:
 
 - The sabatons ride `foot_*` only, so the toe plate does not bend with the toes.
-- The mitten gauntlets follow the fingers' rest pose, which is spread. The bone maps never move the fingers, so the shells fit, but the hands look wide.
+- The gloves keep the hands' rest pose, which is spread, except where a grip pose closes the fingers.

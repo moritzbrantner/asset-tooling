@@ -9,11 +9,12 @@ holds ``<kit>-plates.glb`` and ``<kit>-cloth.glb`` with their observations (``bu
 come from a published bundle. ``POSES=tpose,walk`` limits the poses; ``DETAIL=<piece>`` prints where that piece is
 penetrated (rest height, front or back, middle or side).
 
-Poses: the rest T-pose, then one frame each of idle, walk, sprint, crouch, a high slash, the cleave and the shield guard.
+Poses: the rest T-pose, then one frame each of idle, walk, sprint, crouch, a high slash, the cleave and the shield guard,
+and the right hand closed on a sword grip (#819: only the fingers move).
 For each pose and piece it reports the median gap of the piece's body-facing surface to the posed body (cm), its 90th
 percentile and the share of its vertices more than 3 mm inside the body. With ``render`` it writes, per pose, the mmorpg
 game camera's view from 7 m (narrowed to the figure; the walk also at the full 50 degree field), a close-up and a
-close-up of the left shoulder. The probe JSON goes to ``<out prefix>-probe.json``.
+close-up of the left shoulder, the right hand (#819) and the legs. The probe JSON goes to ``<out prefix>-probe.json``.
 """
 import json
 import math
@@ -35,7 +36,8 @@ render = "render" in argv[5:]
 POSES = [("tpose", None, None, None), ("idle", "base", "Idle_Loop", .2), ("walk", "base", "Walk_Loop", .25),
          ("sprint", "base", "Sprint_Loop", .3), ("crouch", "base", "Crouch_Idle_Loop", .3),
          ("strike", "sword", "Sword_Slash_High_R", .45), ("cleave", "sword", "Sword_Cleave", .5),
-         ("guard", "sword", "Shield_Guard_High_Loop", .3)]
+         ("guard", "sword", "Shield_Guard_High_Loop", .3),
+         ("grip", "base", "Grip_Weapon_R", .5)]
 if os.environ.get("POSES"):
     POSES = [p for p in POSES if p[0] in os.environ["POSES"].split(",")]
 
@@ -53,7 +55,7 @@ body_objects = imported(target)
 rig = next(o for o in body_objects if o.type == "ARMATURE")
 body = [o for o in body_objects if o.type == "MESH"]
 rigs = [rig]
-pieces = {}
+pieces, hidden = {}, set()
 for output in ("plates", "cloth"):
     path = os.path.join(kit_dir, f"{kit}-{output}.glb")
     observed = json.load(open(path + ".json"))
@@ -63,6 +65,7 @@ for output in ("plates", "cloth"):
         nodes = piece.get("nodes", [piece["node"]])
         found = [o for o in objects if o.type == "MESH" and (o.name in nodes or o.name.split(".0")[0] in nodes)]
         pieces[piece["node"]] = {"kind": piece["kind"], "joint": piece.get("joint"), "objects": found}
+        hidden.update(piece.get("hides", []))
         if piece["kind"] == "rigid":
             for obj in found:
                 bone = rig.data.bones[piece["joint"]]
@@ -218,6 +221,8 @@ def setup_render():
         m.node_tree.nodes["Principled BSDF"].inputs["Roughness"].default_value = .8
         obj.data.materials.clear()
         obj.data.materials.append(m)
+        # #819: the base meshes the outfit hides (the legs under trousers) are not drawn, as in the game.
+        obj.hide_render = obj.name in hidden
     camera = bpy.data.objects.new("camera", bpy.data.cameras.new("camera"))
     scene.collection.objects.link(camera)
     scene.camera = camera
@@ -254,6 +259,11 @@ for label, family, clip, phase in POSES:
         shoulder = rig.matrix_world @ rig.pose.bones["upperarm_l"].head
         side = Vector((.8, -.55, .3)).normalized()
         shoot(camera, shoulder + side * .9, shoulder + Vector((0, 0, -.08)), 45, f"{prefix}-{label}-shoulder.png", (700, 700))
+        # #819: the right hand from the front three-quarter and above, and the legs from the front three-quarter.
+        hand = rig.matrix_world @ rig.pose.bones["hand_r"].tail
+        shoot(camera, hand + Vector((-.25, -.45, .3)).normalized() * .55, hand, 40, f"{prefix}-{label}-hand.png", (700, 700))
+        knees = (rig.matrix_world @ rig.pose.bones["calf_l"].head + rig.matrix_world @ rig.pose.bones["calf_r"].head) / 2
+        shoot(camera, knees + Vector((.45, -1.6, .25)), knees + Vector((0, 0, -.1)), 45, f"{prefix}-{label}-legs.png", (700, 900))
 with open(f"{prefix}-probe.json", "w") as handle:
     json.dump(results, handle, indent=1)
 print("PROBE " + json.dumps(results))
