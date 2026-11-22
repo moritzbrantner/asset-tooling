@@ -517,9 +517,19 @@ def helmet(body, kit):
 # shoulder joint (was 5 cm, so it stood out over the hanging arm), the pauldron starts ``pauldron_from`` past it, under
 # the cop, and the breastplate eases out by up to ``breast_ease`` over the belly, which moves with the lower spine.
 KNIGHT_FIT = {"greave": .007, "cuisse": .006, "knee": .009, "sabaton": .006, "spaulder": .011, "spaulder_bulge": .005,
-              "pauldron": .004, "lame": .002, "pauldron_top": .008, "couter": .007, "elbow": .01, "cuff": .006,
-              "cuff_flare": .016, "glove": .006, "breastplate": .006, "breast_ease": .014, "breast_flare": .012, "keel": .01,
+              "pauldron": .004, "lame": .002, "pauldron_top": .008, "couter": .007, "elbow": .01,
+              "breastplate": .006, "breast_ease": .014, "breast_flare": .012, "keel": .01,
               "cop_reach": .02, "pauldron_from": .01}
+# #819: the gauntlets. The rigid mitten round the spread rest-pose fingers and thumb stood 1.2-1.9 cm off the hand and
+# read as a bucket, and the grip poses closed the real fingers through its palm. Now a steel glove is cut from the base
+# arms' hands (``glove_from`` behind the wrist) and pushed ``glove`` out, keeping their skin weights, so its fingers close
+# with the grips. Over it ride two plates: the cuff (``knight.cuff_*``), ``cuff_length`` up the forearm to ``cuff_past``
+# beyond the wrist, shrink-wrapped and flaring by ``cuff_flare`` toward the elbow, rides the forearm, so a bending wrist
+# no longer swings it off the arm; the gauntlet (``knight.gauntlet_*``) is now a plate over the back of the hand on the
+# hand joint, ``plate_reach`` degrees to each side of its top, ending ``plate_short`` before the knuckles, domed by
+# ``plate_dome``.
+GAUNTLET = {"glove": .004, "glove_from": .035, "glove_slot": "steel", "cuff": .008, "cuff_flare": .012, "cuff_length": .1,
+            "cuff_past": .005, "plate": .009, "plate_dome": .003, "plate_reach": 70, "plate_short": .008}
 
 
 def plate_surfaces(body, rig, kit):
@@ -587,18 +597,20 @@ def plate_surfaces(body, rig, kit):
         pieces.append((f"knight.couter_{side}", f"lowerarm_{side}", "steel", couter, None, None, .003))
         forearm = body.select([f"lowerarm_{side}", f"hand_{side}"], minimum=.5)
         def flare(t, theta, r):
-            return r + KNIGHT_FIT["cuff_flare"] * (1 - t) ** 2
-        cuff = ring_grid(body, forearm, wrist - arm * .1, wrist + arm * .015, UP, FRONT, (0, 1), 6, None, 16, KNIGHT_FIT["cuff"], flare)
-        pieces.append((f"knight.gauntlet_{side}", f"hand_{side}", "steel", cuff, None, None, .003))
-        # #301: a mitten gauntlet over the whole hand and fingers. The bone maps leave the fingers at their rest pose,
-        # so a rigid shell on the hand fits in every clip.
-        fingers = [name for name in rig.worlds if name.endswith(f"_{side}") and name.split("_")[0] in ("index", "middle", "ring", "pinky", "thumb")]
-        hand = body.select([f"hand_{side}", *fingers], minimum=.5)
-        reach = max(float((body.array[i] - numpy.array(tuple(wrist))) @ numpy.array(tuple(arm))) for i in hand)
-        def mitten(t, theta, r):
-            return r + .004 * math.sin(math.pi * min(1.0, t * 1.2))
-        glove = ring_grid(body, hand, wrist - arm * .01, wrist + arm * (reach + .01), UP, FRONT, (0, 1), 12, None, 20, KNIGHT_FIT["glove"], mitten)
-        pieces.append((f"knight.gauntlet_{side}", f"hand_{side}", "steel", glove, None, wrist + arm * (reach + .018), .003))
+            return r + GAUNTLET["cuff_flare"] * (1 - t) ** 2
+        cuff = ring_grid(body, forearm, wrist - arm * GAUNTLET["cuff_length"], wrist + arm * GAUNTLET["cuff_past"], UP, FRONT, (0, 1), 6,
+                         None, 16, GAUNTLET["cuff"], flare, shrink=True)
+        pieces.append((f"knight.cuff_{side}", f"lowerarm_{side}", "steel", cuff, None, None, .003))
+        # #819: the plate over the back of the hand, from the wrist to just short of the knuckles, over the skinned glove
+        # (``gloves``). The fingers close under it in the grip poses.
+        knuckles = min((rig.at(f"{finger}_01_{side}") - wrist).dot(arm) for finger in ("index", "middle", "ring", "pinky"))
+        palm = body.select([f"hand_{side}"], meshes=[ARMS], minimum=.5)
+        def dome(t, theta, r):
+            return r + GAUNTLET["plate_dome"] * math.sin(math.pi * t) * math.cos(theta)
+        reach = math.radians(GAUNTLET["plate_reach"])
+        plate = ring_grid(body, palm, wrist + arm * .004, wrist + arm * (knuckles - GAUNTLET["plate_short"]), UP, FRONT, (0, 1), 6,
+                          (-reach, reach), 11, GAUNTLET["plate"], dome, shrink=True)
+        pieces.append((f"knight.gauntlet_{side}", f"hand_{side}", "steel", plate, None, None, .003))
     if kit == "knight":
         torso = body.select(["spine_01", "spine_02", "spine_03", "clavicle_l", "clavicle_r", "pelvis"], meshes=[SHIRT], minimum=.5)
         centre = Vector((0, 0, float(body.array[torso][:, 2].mean())))
@@ -696,7 +708,16 @@ def cloth_surfaces(body, rig, kit):
         bodies = [o for o in bpy.context.scene.objects if o.type == "MESH" and o.name in (SHIRT, LEGS)]
         settle_tabard(surface, mask, bodies, colliders)
         garments.append(("knight.tabard", "faction", surface, mask))
+        garments.append(("knight.gloves", None, gloves(rig, GAUNTLET["glove_slot"]), None))
     return garments
+
+
+def gloves(rig, slot, offset=GAUNTLET["glove"]):
+    """Skinned gloves (#819): the base arms' hands from ``glove_from`` behind the wrist, pushed ``offset`` out. They keep
+    the hands' skin weights, so the fingers close inside them in the grip poses. The rest pose is a T-pose (the arms run
+    along x)."""
+    wrist = rig.at("hand_l").x
+    return Derived(scene_mesh(ARMS), lambda p: abs(p.x) > wrist - GAUNTLET["glove_from"], offset, [slot])
 
 
 def tunic_skirt(body, bottom, flare, rows, ripple=None, hang=None, shrink=False):
@@ -1218,40 +1239,99 @@ class Derived:
         return obj
 
 
-def trousers(body, rig, slot):
-    """Straight-cut work trousers: the Peasant legs pushed out, the lower legs widened into straight tubes that fall
-    over the boot shafts, and lengthened to just above the ankle."""
-    garment = Derived(scene_mesh(LEGS), lambda p: True, .008, [slot])
-    knee_y = rig.at("calf_l").y
-    legs, feet = set(body.select(None, meshes=[LEGS], minimum=0)), set(body.select(None, meshes=[FEET], minimum=0))
-    tubes = {}
-    for side, s in SIDES:
-        knee = numpy.array([tuple(body.positions[i]) for i in legs if body.positions[i].x * s > 0 and abs(body.positions[i].y - knee_y) < .04])
-        boot = numpy.array([tuple(body.positions[i]) for i in feet if body.positions[i].x * s > 0 and .3 < body.positions[i].y < .45])
-        # The tube is centred on the boot shaft and wide enough for the knee above it and the shaft below.
-        centre = Vector((float(boot[:, 0].mean()), 0, float(boot[:, 2].mean())))
-        def spread(points, centre):
-            return numpy.hypot(points[:, 0] - centre.x, points[:, 2] - centre.z)
-        knee_centre = Vector((float(knee[:, 0].mean()), 0, float(knee[:, 2].mean())))
-        tubes[s] = (centre, max(float(spread(knee, knee_centre).max()) + .004, float(numpy.percentile(spread(boot, centre), 90)) + .016))
+# #819: the trousers below the thigh. They used to be one round tube as wide as the Peasant legs' knee puff (about
+# 23 cm across) from the knee to the hem, so they read as bell-bottoms, wider than the thigh, with a kink at the knee.
+# Now each leg is a tube whose cross-section follows the thigh ``thigh`` metres above the knee joint (its outermost
+# radius per sector, ``sectors`` round the leg) and tapers to ``taper`` of it at the hem. It never comes closer than
+# ``boot`` to the boot under it, and below the boot's folded top it falls straight down from it. The tube takes over
+# from the legs' own shape over ``blend`` metres below where it starts. The hidden Peasant legs' knee puff is ignored.
+TROUSERS = {"offset": .008, "thigh": .1, "blend": .08, "taper": .9, "boot": .01, "sectors": 24, "step": .02,
+            "boot_top": .45, "hem": (.32, .21, .13), "hem_flare": (.001, .002, .004)}
 
-    def straighten(p):
-        centre, radius = tubes[1 if p.x > 0 else -1]
-        k = min(1.0, max(0.0, (knee_y + .08 - p.y) / .16))
-        offset = Vector((p.x - centre.x, 0, p.z - centre.z))
-        r = offset.length
-        if r < 1e-6 or k == 0:
+
+def outer_radii(points, centre, count):
+    """The outermost radius round a vertical axis through ``centre`` (glTF x, z) per sector, gaps filled round the
+    circle, then smoothed (never below a measured radius)."""
+    d = points[:, [0, 2]] - centre
+    r, a = numpy.hypot(d[:, 0], d[:, 1]), numpy.arctan2(d[:, 1], d[:, 0])
+    radii = numpy.full(count, numpy.nan)
+    for j in range(count):
+        near = numpy.abs((a - 2 * math.pi * j / count + math.pi) % (2 * math.pi) - math.pi) <= 1.5 * math.pi / count
+        if near.any():
+            radii[j] = r[near].max()
+    known = numpy.flatnonzero(~numpy.isnan(radii))
+    if len(known) == 0:
+        return numpy.zeros(count)
+    positions = numpy.arange(count)
+    radii = numpy.interp(positions, numpy.concatenate([known - count, known, known + count]), numpy.concatenate([radii[known]] * 3))
+    measured = radii
+    for _ in range(2):
+        radii = numpy.maximum(measured * .97, (numpy.roll(radii, 1) + radii + numpy.roll(radii, -1)) / 3)
+    return radii
+
+
+def trousers(body, rig, slot):
+    """Straight-cut work trousers: the Peasant legs pushed out, the lower legs reshaped into tubes that follow the thigh,
+    taper a little toward the hem and fall over the boot shafts, lengthened to just above the ankle (#819)."""
+    fit = TROUSERS
+    garment = Derived(scene_mesh(LEGS), lambda p: True, fit["offset"], [slot])
+    top = rig.at("calf_l").y + fit["thigh"]
+    legs, feet = (body.array[body.select(None, meshes=[mesh], minimum=0)] for mesh in (LEGS, FEET))
+    count, hem = fit["sectors"], fit["hem"][-1]
+    heights = numpy.linspace(hem, top, int(round((top - hem) / fit["step"])) + 1)
+    tubes = {}
+    for _side, s in SIDES:
+        leg, foot = legs[legs[:, 0] * s > 0], feet[feet[:, 0] * s > 0]
+        shaft = foot[(foot[:, 1] > .3) & (foot[:, 1] < fit["boot_top"])]
+        boot_centre = shaft[:, [0, 2]].mean(axis=0)
+        thigh = leg[(leg[:, 1] > top - fit["step"]) & (leg[:, 1] < top + 2 * fit["step"])]
+        thigh_centre = thigh[:, [0, 2]].mean(axis=0)
+        thigh_radii = outer_radii(thigh, thigh_centre, count) + fit["offset"]
+        centres, table = [], []
+        for h in heights:
+            # The axis runs from the thigh's centre down to the boot shaft's, which it follows below the boot top.
+            k = min(1.0, max(0.0, (top - h) / (top - fit["boot_top"])))
+            centre = thigh_centre + (boot_centre - thigh_centre) * k
+            radii = thigh_radii * (1 - (1 - fit["taper"]) * (top - h) / (top - hem))
+            below = foot[foot[:, 1] >= h - fit["step"] / 2]
+            if len(below):
+                radii = numpy.maximum(radii, outer_radii(below, centre, count) + fit["boot"])
+            centres.append(centre)
+            table.append(radii)
+        tubes[s] = (numpy.array(centres), numpy.array(table))
+
+    def tube(p):
+        """The tube's axis and radius at a point's height, toward the point."""
+        centres, table = tubes[1 if p.x > 0 else -1]
+        u = min(len(heights) - 1.0, max(0.0, (p.y - hem) / (heights[1] - heights[0])))
+        i = min(int(u), len(heights) - 2)
+        f = u - i
+        centre = centres[i] * (1 - f) + centres[i + 1] * f
+        radii = table[i] * (1 - f) + table[i + 1] * f
+        direction = Vector((p.x - centre[0], 0, p.z - centre[1]))
+        if direction.length < 1e-6:
+            direction = Vector((1, 0, 0))
+        direction.normalize()
+        v = (math.atan2(direction.z, direction.x) % (2 * math.pi)) / (2 * math.pi) * count
+        j = int(v) % count
+        g = v - int(v)
+        return Vector((centre[0], p.y, centre[1])), direction, float(radii[j] * (1 - g) + radii[(j + 1) % count] * g)
+
+    def reshape(p):
+        k = min(1.0, max(0.0, (top - p.y) / fit["blend"]))
+        if k == 0:
             return p
-        return Vector((centre.x, p.y, centre.z)) + offset * ((r + (max(r, radius) - r) * k) / r)
-    garment.move(straighten)
+        axis, direction, radius = tube(p)
+        r = (p - axis).length
+        return axis + direction * (r + (radius - r) * k)
+    garment.move(reshape)
 
     def row(y, extra):
         def place(p):
-            centre, radius = tubes[1 if p.x > 0 else -1]
-            direction = Vector((p.x - centre.x, 0, p.z - centre.z)).normalized()
-            return Vector((centre.x, y, centre.z)) + direction * (radius + extra)
+            axis, direction, radius = tube(Vector((p.x, y, p.z)))
+            return axis + direction * (radius + extra)
         return place
-    garment.hang(lambda p: p.y < .45, [row(.32, .002), row(.21, .004), row(.13, .007)])
+    garment.hang(lambda p: p.y < fit["boot_top"], [row(y, extra) for y, extra in zip(fit["hem"], fit["hem_flare"])])
     return garment
 
 
