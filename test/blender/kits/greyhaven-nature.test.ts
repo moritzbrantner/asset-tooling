@@ -80,9 +80,12 @@ test("nature bundle supplies independently shaped, grounded families with game-r
         }
         const triangles = trianglesIn(lod);
         assert.equal(lods.levels[index + 1].triangles, triangles);
+        // docs/kit-standard.md: a level has at most half the triangles of the one before (#822).
+        const previous = lods.levels[index].triangles;
+        assert.ok(triangles <= previous / 2, `${entry.key}/${variant}: ${triangles} triangles, more than half of the level before (${previous})`);
         const share = triangles / lod0Triangles;
-        // A bush keeps its whole small core at lod1, so its shares are higher; its absolute budget is far lower.
-        const [lod1Share, lod2Share] = entry.family === "bush" ? [0.6, 0.25] : [0.45, 0.12];
+        // A bush keeps its whole small core at lod1, so its lod2 share is higher; its absolute budget is far lower.
+        const [lod1Share, lod2Share] = entry.family === "bush" ? [0.5, 0.25] : [0.45, 0.12];
         assert.ok(index === 0 ? share >= 0.25 && share <= lod1Share : share <= lod2Share, `${entry.key}/${variant}: ${triangles} triangles (${share.toFixed(2)} of LOD0)`);
         if (entry.family === "rock") {
           for (const texture of lod.getRoot().listTextures()) assert.ok(Math.max(...texture.getSize()!) <= 512 / 2 ** index, `${entry.key}/${variant}: smaller baked maps`);

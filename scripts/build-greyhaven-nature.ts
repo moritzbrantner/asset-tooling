@@ -103,7 +103,7 @@ export const NATURE_LOD_RECIPES = {
     { ...TREE_LOD2, method: "envelope", bands: 28, sectors: 12, fit: 0.5, gain: 0.62, underside: 0.5, barkRatio: 0.15 }],
   rock: [{ method: "decimate", ratio: 0.35 }, { method: "decimate", ratio: 0.1 }],
   // Bushes have no bark, so no barkRatio.
-  bush: [{ method: "thin", seed: 449, keep: 0.4, grow: 0.8 },
+  bush: [{ method: "thin", seed: 449, keep: 0.3, grow: 0.7 },
     { method: "hull", inflate: 2.2, fit: 0.95, hullTriangles: 120, neighbours: 8, coreShare: 0.3, gain: 1.1, underside: 0.75 }],
 } as const;
 /** Rock levels halve LOD0's baked maps per level (512 px, then 256 px); tree and bush levels share LOD0's images. */

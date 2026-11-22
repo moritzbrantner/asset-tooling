@@ -28,8 +28,8 @@ export const WOODLAND_BUSHES_RELEASE = "woodland-bushes";
 export const WOODLAND_BUSHES_TAR_NAME = "woodland-bushes.kit.tar";
 /** Triangles a piece may have at full detail: bushes are numerous, so they stay near the greyhaven-nature bushes. */
 export const WOODLAND_BUSH_TRIANGLES = 780;
-/** nature_lod.py arguments. lod1 thins harder than greyhaven-nature's bushes, so it is at most half of LOD0 despite the kept core. */
-export const WOODLAND_BUSH_LODS = [{ ...NATURE_LOD_RECIPES.bush[0], keep: 0.33 }, { ...NATURE_LOD_RECIPES.bush[1], gain: 0.72 }] as const;
+/** nature_lod.py arguments. lod1 keeps a third of the cards (grown by 0.8 / sqrt(keep)), so it is at most half of LOD0 despite the kept core. */
+export const WOODLAND_BUSH_LODS = [{ ...NATURE_LOD_RECIPES.bush[0], keep: 0.33, grow: 0.8 }, { ...NATURE_LOD_RECIPES.bush[1], gain: 0.72 }] as const;
 /**
  * Where LOD0 and lod1 end, in metres at the reference field of view. Fixed distances rather than screen sizes, so a small
  * bush doesn't drop to the plain hull sooner than a large one; at 180 m the hull is about 15 pixels tall at 1080p.
