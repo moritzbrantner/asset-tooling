@@ -124,6 +124,9 @@ SHIELD_GUARD = {"g": (.1, -.36, 1.22), "f": (-.15, -1, .05), "t": (.05, 0, 1)}
 DAGGER_GUARD = {"g": (-.13, -.4, 1.18), "b": (.15, -.9, .4), "yaw": -10, "pitch": 14, "neck": 6, "l": {"g": (.1, -.3, 1.3), "b": (-.45, -.55, .7)}}
 # The same guard for a strike with the left dagger (``dagger.l``), which keys the right dagger as ``r``.
 DAGGER_GUARD_L = {**DAGGER_GUARD["l"], "yaw": -10, "pitch": 14, "neck": 6, "r": {"g": DAGGER_GUARD["g"], "b": DAGGER_GUARD["b"]}}
+# #815: on the run the chest leans forward over the guard, so the left dagger is held further out and lower, its point
+# forward rather than up at the face, clear of the chest and hood.
+DAGGER_RUN_GUARD = {**DAGGER_GUARD, "l": {"g": (.16, -.44, 1.24), "b": (-.35, -.8, .5)}}
 # #711: a fist key may also turn the striking palm (``z``) and lift its elbow (``e``, the arm's pole); a left-handed strike
 # (``hand: "l"``) keys the right hand as ``r``.
 # #738: the mace guard (as ``Mace_Guard_Loop``): the head up and across before the chest, the left fist up beside it.
@@ -420,17 +423,18 @@ STRIKES = {
     ]},
     # #738: a quick in-and-out stab on the run from the dagger guard and back to it: the right dagger drawn back to the
     # hip on the stride while the left comes up before the face, then snapped out at the belly as the right foot
-    # strikes, the left pulled back across the chest against it, and straight back into the guard.
+    # strikes, the left pulled back against it, and straight back into the guard. #815: the left dagger stays out
+    # ahead of the leaning chest (``DAGGER_RUN_GUARD``), so it never passes into the chest or the hood.
     "Dagger_Run_Strike": {"weapon": "dagger", "kind": "run", "guard": "Dagger_Guard_Loop", "windup": .42, "contact": .55, "recovery": .64,
                           "keys": [
-        (0, DAGGER_GUARD),
+        (0, DAGGER_RUN_GUARD),
         (.2, {"g": (-.2, -.28, 1.12), "b": (.1, -.92, .36), "yaw": -16, "pitch": 12}),
         (.42, {"g": (-.26, -.06, 1.08), "b": (.05, -.96, .26), "yaw": -28, "pitch": 10, "l": {"g": (.08, -.36, 1.36), "b": (-.4, -.6, .7)}}),
-        (.55, {"g": (-.08, -.62, 1.14), "b": (.04, -1, .04), "yaw": 18, "pitch": 18, "l": {"g": (.14, -.18, 1.24), "b": (-.3, -.5, .8)}}),
+        (.55, {"g": (-.08, -.62, 1.14), "b": (.04, -1, .04), "yaw": 18, "pitch": 18, "l": {"g": (.2, -.32, 1.16), "b": (-.3, -.8, .5)}}),
         (.64, {"g": (-.08, -.6, 1.14), "b": (.04, -1, .04), "yaw": 17, "pitch": 18}),
-        (.82, {"g": (-.14, -.42, 1.17), "b": (.14, -.92, .36), "yaw": -6, "pitch": 15, "l": DAGGER_GUARD["l"]}),
-        (.92, DAGGER_GUARD),
-        (1, DAGGER_GUARD),
+        (.82, {"g": (-.14, -.42, 1.17), "b": (.14, -.92, .36), "yaw": -6, "pitch": 15, "l": DAGGER_RUN_GUARD["l"]}),
+        (.92, DAGGER_RUN_GUARD),
+        (1, DAGGER_RUN_GUARD),
     ]},
     # #738: the daggers' leap is a stab. In the air both daggers go up over the shoulders, points back; as the feet
     # touch they are driven down together into a target before the knees, the knees taking a short 0.18 m, and the
