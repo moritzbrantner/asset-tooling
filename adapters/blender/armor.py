@@ -528,7 +528,7 @@ KNIGHT_FIT = {"greave": .007, "cuisse": .006, "knee": .009, "sabaton": .006, "sp
 # no longer swings it off the arm; the gauntlet (``knight.gauntlet_*``) is now a plate over the back of the hand on the
 # hand joint, ``plate_reach`` degrees to each side of its top, ending ``plate_short`` before the knuckles, domed by
 # ``plate_dome``.
-GAUNTLET = {"glove": .004, "glove_from": .035, "glove_slot": "steel", "cuff": .008, "cuff_flare": .012, "cuff_length": .1,
+GAUNTLET = {"glove": .004, "glove_from": .035, "glove_slot": "leather", "cuff": .008, "cuff_flare": .012, "cuff_length": .1,
             "cuff_past": .005, "plate": .009, "plate_dome": .003, "plate_reach": 70, "plate_short": .008}
 
 
