@@ -107,7 +107,24 @@ The recipe's declared input `target` is the base character at rest: the Peasant 
 - It selects the rest-pose vertices skinned to its joints. For example, the greave uses the vertices skinned to `calf_l`, which include the boot.
 - It samples them in rings around an axis between two joints and keeps the outermost radius in each angular sector.
 - It fills empty sectors, dilates and smooths the radii, and adds a clearance.
+- With `shrink` (#814, see below) it then projects each grid point back onto the skin under it before the clearance and the piece's reliefs are added.
 - It builds a closed plate: the fitted outer surface, an inner surface offset by the plate thickness, and a band on every open edge. Open edges come from partial angular ranges (front greaves, cuisses, sabatons) or masks (the bascinet's face opening, the breastplate's armholes).
+
+## Conforming to the body (#814)
+
+The outermost-vertex fit keeps the largest radius of a whole sector and then dilates it. Over a curved joint (the top of the shoulder, the deltoid, the chest) the plates still stood 1.5–2.5 cm off the cloth after #811, and the owner saw the armour hovering above the shoulders. Hand-tuned clearances could not fix that, because the excess came from the fit itself.
+
+- **Shrink-wrap:** `ring_grid(..., shrink=True)` casts each grid point from outside back toward the piece's axis. The first skin triangle of the selected body vertices that it meets is the surface under the point (`Body.surface`, a BVH of the target's skin triangles). The hits are smoothed twice, never below a hit, so a rigid plate stays fair instead of following every fold. A point only moves inward, and a ray that misses keeps the fitted radius. The clearance and the reliefs (lames, cops, keel, flares, bulges) go on top of the projected surface, so they survive.
+- **Where:** the knight's (and the Warden's) greaves, cuisses, sabatons, spaulders, pauldrons, couters and breastplate. The gauntlets are left as they are (#819). Also the Tanner's skirt and belt, and the jerkin kits' sash and the Ranger's bracers.
+- **Shoulders:** the spaulder (on `clavicle_*`) now ends 2 cm past the shoulder joint instead of 5 cm (`cop_reach`). It stuck out over the deltoid when the arm hung, which was the hover the owner saw. The pauldron lames (on `upperarm_*`) start 1 cm past the joint (`pauldron_from`, was 3 cm), under the cop, with 8 mm of extra relief on the top lame, so the deltoid does not poke through when the arm swings.
+- **Breastplate:** shrink-wrapped onto the chest. Over the belly it eases out by up to 1.4 cm toward its lower rim (`breast_ease`). The belly moves with the lower spine, while the plate rides `spine_03`.
+- **Tabard:** 1.6 cm off the body and 6 mm off the plate (`TABARD_FIT`; it was 3 cm and 1.2 cm). Below the chest the gap eases back to 3.2 cm at the belt (`waist`), so the belly does not push through it in the walk.
+- **Female figure:** the breastplate's and the tabard's heights were authored on the male figure. On the shorter female figure the tabard's top edge rose to her chin and stood off it like a collar. `figure_y` now maps those heights through the figure's own pelvis and shoulder joints, and `figure_width` narrows the tabard by half the difference in shoulder width. On the male figure both are the identity, so his output stays the same.
+- **Tanner:** the skirt is shrink-wrapped onto the hips before it hangs. The belt is 3.6 cm out over the apron in front and 2.4 cm over the skirt at the sides and back (`TANNER_BELT`); before, it was 3.6 cm all the way round and read as a ring.
+- **Ranger and Rogue (jerkin kits):** the sash is shrink-wrapped and sits 1 cm over the jerkin (`JERKIN_SASH`; it stood about 3 cm off), and the belt sits 6 mm over the jerkin's skirt (`JERKIN_BELT`, was 1.4 cm). The Ranger's bracers are shrink-wrapped onto the forearm (`RANGER_BRACER`), and the cloak clears the torso by 3.2 cm instead of 4.2 cm (`RANGER_CLOAK_CLEARANCE`).
+- **Weights:** the plates stay rigid on one joint through their sockets, because the output contract and the consumers' socket attachment are unchanged. Cloth already blends the weights of the nearest body vertices (`blend_weights`).
+
+The fit probe [`examples/armour-fit/review.py`](../examples/armour-fit/review.py) poses the target and both outputs with the published clips (rest, `Walk_Loop`, `Sprint_Loop`, `Crouch_Idle_Loop`, `Sword_Slash_High_R`, and optionally `Idle_Loop`, `Sword_Cleave` and `Shield_Guard_High_Loop`). For each piece it reports the median gap of its body-facing surface to the posed body and the share of its vertices more than 3 mm inside it, and it renders a game-camera frame, a close-up and a shoulder close-up per pose. The male Warden's median gaps in the T-pose went from 1.4 to 1.0 cm (spaulder), 1.1 to 0.9 cm (pauldron), 2.0 to 0.7 cm (breastplate), 1.4 to 0.5 cm (cuisse and greave) and 4.2 to 3.2 cm (tabard, which hangs off the body below the waist). Penetration stays about where it was.
 
 ## Outputs
 
@@ -132,7 +149,7 @@ Each piece declares which base mesh nodes it completely covers (Q12). The build 
 | `soldier.gambeson` | `Male_Peasant_Body` (the shirt; the gambeson replaces it, sleeves included) |
 | all other pieces | nothing |
 
-The plates sit over the Peasant clothing instead of hiding it, a few millimetres off the fitted cloth (`KNIGHT_FIT`, #811; before, 1.2–2.2 cm plus reliefs, so they hovered). The tabard hangs 3 cm off the body and 1.2 cm off the breastplate (`TABARD_FIT`; before, 6.6–7 cm and 1.8 cm). Hiding the legs or arms under jointed plates would open holes at the knees and elbows, where no rigid plate covers the bend.
+The plates sit over the Peasant clothing instead of hiding it, shrink-wrapped onto it a few millimetres off the cloth (`KNIGHT_FIT`, #811 and #814; before #811, 1.2–2.2 cm plus reliefs, so they hovered). The tabard hangs 1.6 cm off the body and 6 mm off the breastplate (`TABARD_FIT`; 3 cm and 1.2 cm after #811, 6.6–7 cm and 1.8 cm before). Hiding the legs or arms under jointed plates would open holes at the knees and elbows, where no rigid plate covers the bend.
 
 ## In the Ranger bundle
 
