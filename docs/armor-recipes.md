@@ -68,7 +68,7 @@ Tanner Hilda Brook is the female figure's resident (decision C on #376): the pac
 | --- | --- | --- | --- |
 | `tanner` | `tanner.skirt`: an ankle-length work skirt (green-grey wool) fitted round the hips like the monk's habit, with a wider hem; `tanner.apron`: a long tan leather apron from the chest to mid-shin, over the skirt | `tanner.belt` (leather, over the apron) | nothing |
 
-- **Skirt:** the slim trousers stay under it (owner style rules: no short skirts or leggings; only the boots show). It uses the habit's `SETTLE` and `STRIDE` weights.
+- **Skirt:** the slim trousers stay under it (owner style rules: no short skirts or leggings; only the boots show). It uses the habit's `SETTLE` and `STRIDE` weights. It hangs straight down from the widest point of the hips and seat instead of following the legs in, widens by 8 cm toward the hem on an eased curve and has nine soft folds (`TANNER_SKIRT`, `TANNER_SKIRT_HANG`, #811); it used to widen linearly by 18 cm into a cone.
 - **Apron:** the innkeeper's apron cut (`apron_surface`) with a lower hem, a 20 cm half-width below the waist, and the skirt's surface as an extra clearance target. Three smoothing passes even out the depth across each row, so the leather shows broad folds instead of the legs under it. Below the waist it settles 40 % toward the pelvis and each side follows its thigh by up to 60 %.
 - **Materials:** `skirt.wool` (linear 0.045, 0.055, 0.04) and `leather.tan` (0.16, 0.075, 0.03); the belt is the shared `leather`.
 
@@ -132,7 +132,7 @@ Each piece declares which base mesh nodes it completely covers (Q12). The build 
 | `soldier.gambeson` | `Male_Peasant_Body` (the shirt; the gambeson replaces it, sleeves included) |
 | all other pieces | nothing |
 
-The plates sit over the Peasant clothing with 1–2.5 cm of clearance instead of hiding it. Hiding the legs or arms under jointed plates would open holes at the knees and elbows, where no rigid plate covers the bend.
+The plates sit over the Peasant clothing instead of hiding it, a few millimetres off the fitted cloth (`KNIGHT_FIT`, #811; before, 1.2–2.2 cm plus reliefs, so they hovered). The tabard hangs 3 cm off the body and 1.2 cm off the breastplate (`TABARD_FIT`; before, 6.6–7 cm and 1.8 cm). Hiding the legs or arms under jointed plates would open holes at the knees and elbows, where no rigid plate covers the bend.
 
 ## In the Ranger bundle
 

@@ -432,6 +432,15 @@ def helmet(body, kit):
     dome["ts"] = [0] * 3 + dome["ts"]
     return dome, None, crown + Vector((0, .012, 0))
 
+
+# #811: the knight's plate clearances over the fitted (already outermost-dilated) clothed body, in metres. The plates
+# sit a few millimetres off the cloth instead of 1.2-2.2 cm; the shapes (lames, cops, keel, flares) keep their own
+# reliefs, smaller. The spaulder stays outside the pauldron's top where the two overlap.
+KNIGHT_FIT = {"greave": .007, "cuisse": .006, "knee": .009, "sabaton": .006, "spaulder": .011, "spaulder_bulge": .005,
+              "pauldron": .004, "lame": .002, "pauldron_top": .003, "couter": .005, "elbow": .01, "cuff": .006,
+              "cuff_flare": .016, "glove": .006, "breastplate": .006, "breast_flare": .012, "keel": .01}
+
+
 def plate_surfaces(body, rig, kit):
     """Every rigid piece of the kit: (node name, joint, material, surface, mask, apex, thickness)."""
     if kit in CLASS_KITS:
@@ -458,46 +467,47 @@ def plate_surfaces(body, rig, kit):
             shin = body.select([f"calf_{side}"], minimum=.95)
             greave = ring_grid(body, shin, knee, ankle, FRONT, out, (.2, .82), 9, (-math.radians(100), math.radians(100)), 13, .008)
         else:
-            greave = ring_grid(body, calf, knee, ankle, FRONT, out, (.04, .86), 10, None, 20, .013)
+            greave = ring_grid(body, calf, knee, ankle, FRONT, out, (.04, .86), 10, None, 20, KNIGHT_FIT["greave"])
         pieces.append((f"{kit}.greave_{side}", f"calf_{side}", "iron" if kit == "soldier" else "steel", greave, None, None, .003))
         if kit != "knight":
             continue
         # Cuisse with the knee cop at its foot: front and outer thigh, ending over the knee.
         thigh = body.select([f"thigh_{side}", f"calf_{side}"], meshes=[LEGS], minimum=.5)
         def cuisse_profile(t, theta, r):
-            return r + .012 * max(0, (t - .82) / .18) * math.cos(theta)
+            return r + KNIGHT_FIT["knee"] * max(0, (t - .82) / .18) * math.cos(theta)
         cuisse = ring_grid(body, thigh, hip, knee + (knee - hip).normalized() * .07, FRONT, out, (.18, 1.0), 11,
-                           (-math.radians(70), math.radians(125)), 12, .016, cuisse_profile)
+                           (-math.radians(70), math.radians(125)), 12, KNIGHT_FIT["cuisse"], cuisse_profile)
         pieces.append((f"knight.cuisse_{side}", f"thigh_{side}", "steel", cuisse, None, None, .003))
         # Sabaton over the top of the foot.
         foot = body.select([f"foot_{side}", f"ball_{side}"], minimum=.5)
         toe = rig.at(f"ball_{side}") + Vector((0, 0, .1))
-        sabaton = ring_grid(body, foot, ankle, toe, UP, out, (.0, .98), 8, (-math.radians(95), math.radians(95)), 11, .01)
+        sabaton = ring_grid(body, foot, ankle, toe, UP, out, (.0, .98), 8, (-math.radians(95), math.radians(95)), 11, KNIGHT_FIT["sabaton"])
         pieces.append((f"knight.sabaton_{side}", f"foot_{side}", "steel", sabaton, None, None, .003))
         # Arm pieces (the rest pose is a T-pose: the arm runs along +-X, the back of the hand faces up).
         shoulder, elbow, wrist = rig.at(f"upperarm_{side}"), rig.at(f"lowerarm_{side}"), rig.at(f"hand_{side}")
         arm = (elbow - shoulder).normalized()
         upper = body.select([f"upperarm_{side}", f"clavicle_{side}"], minimum=.5)
         def lames(t, theta, r):
-            return r + .004 * math.floor(t * 3.999) + .006 * (1 - t)
+            return r + KNIGHT_FIT["lame"] * math.floor(t * 3.999) + KNIGHT_FIT["pauldron_top"] * (1 - t)
         # #301: the shoulder cop rides the clavicle, so it stays on the shoulder when the arm hangs or rises; the lames
         # below it ride the upper arm and slide under the cop.
         cop_surface = ring_grid(body, upper, shoulder - arm * .06, shoulder + arm * .05, UP, FRONT, (0, 1), 9,
-                                (-math.radians(85), math.radians(85)), 15, .022, lambda t, theta, r: r + .01 * math.sin(math.pi * t))
+                                (-math.radians(85), math.radians(85)), 15, KNIGHT_FIT["spaulder"],
+                                lambda t, theta, r: r + KNIGHT_FIT["spaulder_bulge"] * math.sin(math.pi * t))
         pieces.append((f"knight.spaulder_{side}", f"clavicle_{side}", "steel", cop_surface, None, None, .003))
         pauldron = ring_grid(body, upper, shoulder + arm * .03, shoulder + arm * .15, UP, FRONT, (0, 1), 9,
-                             (-math.radians(80), math.radians(80)), 15, .012, lames)
+                             (-math.radians(80), math.radians(80)), 15, KNIGHT_FIT["pauldron"], lames)
         pieces.append((f"knight.pauldron_{side}", f"upperarm_{side}", "steel", pauldron, None, None, .003))
         around = body.select([f"upperarm_{side}", f"lowerarm_{side}"], minimum=.5)
         def cop(t, theta, r):
-            return r + .014 * math.sin(math.pi * t) * max(0, math.cos(theta))
+            return r + KNIGHT_FIT["elbow"] * math.sin(math.pi * t) * max(0, math.cos(theta))
         couter = ring_grid(body, around, elbow - arm * .065, elbow + arm * .065, Vector((0, 0, -1)), UP, (0, 1), 7,
-                           (-math.radians(95), math.radians(95)), 11, .014, cop)
+                           (-math.radians(95), math.radians(95)), 11, KNIGHT_FIT["couter"], cop)
         pieces.append((f"knight.couter_{side}", f"lowerarm_{side}", "steel", couter, None, None, .003))
         forearm = body.select([f"lowerarm_{side}", f"hand_{side}"], minimum=.5)
         def flare(t, theta, r):
-            return r + .022 * (1 - t) ** 2
-        cuff = ring_grid(body, forearm, wrist - arm * .1, wrist + arm * .015, UP, FRONT, (0, 1), 6, None, 16, .012, flare)
+            return r + KNIGHT_FIT["cuff_flare"] * (1 - t) ** 2
+        cuff = ring_grid(body, forearm, wrist - arm * .1, wrist + arm * .015, UP, FRONT, (0, 1), 6, None, 16, KNIGHT_FIT["cuff"], flare)
         pieces.append((f"knight.gauntlet_{side}", f"hand_{side}", "steel", cuff, None, None, .003))
         # #301: a mitten gauntlet over the whole hand and fingers. The bone maps leave the fingers at their rest pose,
         # so a rigid shell on the hand fits in every clip.
@@ -506,16 +516,17 @@ def plate_surfaces(body, rig, kit):
         reach = max(float((body.array[i] - numpy.array(tuple(wrist))) @ numpy.array(tuple(arm))) for i in hand)
         def mitten(t, theta, r):
             return r + .004 * math.sin(math.pi * min(1.0, t * 1.2))
-        glove = ring_grid(body, hand, wrist - arm * .01, wrist + arm * (reach + .01), UP, FRONT, (0, 1), 12, None, 20, .009, mitten)
+        glove = ring_grid(body, hand, wrist - arm * .01, wrist + arm * (reach + .01), UP, FRONT, (0, 1), 12, None, 20, KNIGHT_FIT["glove"], mitten)
         pieces.append((f"knight.gauntlet_{side}", f"hand_{side}", "steel", glove, None, wrist + arm * (reach + .018), .003))
     if kit == "knight":
         torso = body.select(["spine_01", "spine_02", "spine_03", "clavicle_l", "clavicle_r", "pelvis"], meshes=[SHIRT], minimum=.5)
         centre = Vector((0, 0, float(body.array[torso][:, 2].mean())))
         def breast(t, theta, r):
             # A flared lower edge and a central keel down the front (#301).
-            return r + .012 * max(0, .25 - t) / .25 + .014 * max(0.0, math.cos(theta)) ** 10 * (1 - .5 * t)
+            return (r + KNIGHT_FIT["breast_flare"] * max(0, .25 - t) / .25
+                    + KNIGHT_FIT["keel"] * max(0.0, math.cos(theta)) ** 10 * (1 - .5 * t))
         plate = ring_grid(body, torso, centre + Vector((0, 1.13, 0)), centre + Vector((0, 1.45, 0)), FRONT, Vector((1, 0, 0)),
-                          (0, 1), 16, None, 40, .022, breast)
+                          (0, 1), 16, None, 40, KNIGHT_FIT["breastplate"], breast)
         def armholes(i, j):
             p = plate["grid"][i][j]
             return not (abs(p.x) > .115 and p.y > 1.33)
@@ -607,11 +618,20 @@ def cloth_surfaces(body, rig, kit):
     return garments
 
 
-def tunic_skirt(body, bottom, flare, rows, ripple=None):
-    """A skirt fitted around the hips from the waist (1.0 m) down to ``bottom``, widening by ``flare`` at the hem."""
+def tunic_skirt(body, bottom, flare, rows, ripple=None, hang=None):
+    """A skirt fitted around the hips from the waist (1.0 m) down to ``bottom``, widening by ``flare`` at the hem.
+    With ``hang`` (#811), the cloth falls straight from the widest point above it instead of following the legs in,
+    widens by ``flare`` only toward the hem (eased, not a cone) and folds softly: ``hang`` is (fold depth, fold count)."""
     hips = body.select(["pelvis", "spine_01", "thigh_l", "thigh_r"], meshes=[SHIRT, LEGS], minimum=.5)
     centre = Vector((0, 0, float(body.array[hips][:, 2].mean())))
+    widest = {}
+
     def profile(t, theta, r):
+        if hang:
+            # Rows run from the waist down, so the widest radius above this row is already known per column.
+            r = widest[theta] = max(r, widest.get(theta, 0.0))
+            depth, folds = hang
+            return r + flare * t * t + depth * t * math.cos(theta * folds)
         return r + flare * t + (ripple(theta) if ripple else 0)
     return ring_grid(body, hips, centre + Vector((0, 1.0, 0)), centre + Vector((0, bottom, 0)), FRONT, Vector((1, 0, 0)),
                      (0, 1), rows, None, 32, .016, profile, slab=.03)
@@ -629,7 +649,9 @@ STRIDE = {"farmer.smock": (1.0, 1.0, .6, .03), "monk.habit": (.6, 1.0, .16, .05)
 APRON = {"top": 1.37, "waist": 1.03, "hem": .66, "bib": .1, "skirt": .17, "clearance": .012, "rows": 20, "columns": 15}
 # The tanner (#378, female figure): an ankle-length work skirt (Marshal style: no short skirts), and over it a long
 # leather apron from the chest to mid-shin, wide enough to wrap the skirt's front.
-TANNER_SKIRT = (.14, .18, 20)
+# #811: it used to widen linearly by 18 cm into a cone; it now hangs from the hips with an 8 cm eased hem and soft folds.
+TANNER_SKIRT = (.14, .08, 20)
+TANNER_SKIRT_HANG = (.006, 9)
 TANNER_APRON = {"top": 1.33, "waist": 1.0, "hem": .3, "bib": .095, "skirt": .2, "clearance": .012, "rows": 26, "columns": 17,
                  "smooth": 3}
 SETTLE["tanner.skirt"], STRIDE["tanner.skirt"] = SETTLE["monk.habit"], STRIDE["monk.habit"]
@@ -699,7 +721,7 @@ def resident_cloth(body, kit):
     if kit == "innkeeper":
         return [("innkeeper.apron", "linen", apron_surface(body), None)]
     if kit == "tanner":
-        skirt = tunic_skirt(body, *TANNER_SKIRT)
+        skirt = tunic_skirt(body, *TANNER_SKIRT, hang=TANNER_SKIRT_HANG)
         apron = apron_surface(body, TANNER_APRON, [p for row in skirt["grid"] for p in row])
         return [("tanner.skirt", "skirt.wool", skirt, None), ("tanner.apron", "leather.tan", apron, None)]
     name = f"{kit}.{'smock' if kit == 'farmer' else 'habit'}"
@@ -711,7 +733,12 @@ TABARD_HALF_WIDTH = .155
 ARM_JOINTS = {f"{joint}_{side}" for joint in ("clavicle", "upperarm", "lowerarm", "hand") for side in "lr"}
 
 
-def tabard_surface(body, rig, obstacles=(), clearance=(.066, .07, .042)):
+# #811: the tabard over the knight's breastplate: front and back above the waist, below it, and its gap over the plate itself.
+# It used to stand 6.6-7 cm off the body and 1.8 cm off the plate; now 3 cm and 1.2 cm.
+TABARD_FIT = {"clearance": (.03, .03, .026), "over_plate": .012}
+
+
+def tabard_surface(body, rig, obstacles=(), clearance=TABARD_FIT["clearance"]):
     """Front and back panels hanging from the shoulders, over the breastplate, joined across the shoulders.
     ``clearance``: front and back above the waist (over the plate), and below it."""
     torso = body.select(None, meshes=[SHIRT, LEGS], minimum=0)
@@ -743,7 +770,7 @@ def tabard_surface(body, rig, obstacles=(), clearance=(.066, .07, .042)):
                 z = (zc + (.12 if front else -.12)) if z is None else z + (gap if front else -gap)
                 near = [p.z for p in obstacles if abs(p.x - x) < .03 and abs(p.y - y) < .03]
                 if near:
-                    z = max(z, max(near) + .018) if front else min(z, min(near) - .018)
+                    z = max(z, max(near) + TABARD_FIT["over_plate"]) if front else min(z, min(near) - TABARD_FIT["over_plate"])
                 if previous is not None:
                     # Hang: below the chest the cloth falls almost straight instead of following the waist.
                     z = max(z, previous[j] - .2 * (ys[1] - ys[0])) if front else min(z, previous[j] + .2 * (ys[1] - ys[0]))
