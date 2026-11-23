@@ -256,12 +256,12 @@ export async function buildRedbrandKit({ outDir, log = () => {} }: { outDir: str
   for (const asset of delivered) documents.push(await io.readBinary(new Uint8Array(await resolveAssetObject(root, asset))));
 
   log("write the redbrand-kit descriptor");
-  const garments = (cloth.observations.pieces as Json[]).map((piece) => ({ id: piece.node, nodes: piece.nodes, hides: piece.hides }));
+  const garments = (cloth.observations.pieces as Json[]).map((piece) => ({ id: piece.node, slot: piece.slot, nodes: piece.nodes, hides: piece.hides }));
   const outfit = {
     id: REDBRAND_OUTFIT_ID, label: REDBRAND_OUTFIT_LABEL, character: REDBRAND_OUTFIT_KEY,
     skins: REDBRAND_SKINS.map(({ id, variant }) => ({ id, entry: REDBRAND_OUTFIT_KEY, variant })),
     base: { outfit: "Male_Peasant", hidden },
-    armor: { entry: REDBRAND_ARMOR_KEY, pieces: (plates.observations.pieces as Json[]).map((piece) => ({ node: piece.node, socket: `${String(piece.joint).toLowerCase()}.armor`, hides: piece.hides })) },
+    armor: { entry: REDBRAND_ARMOR_KEY, pieces: (plates.observations.pieces as Json[]).map((piece) => ({ node: piece.node, socket: `${String(piece.joint).toLowerCase()}.armor`, slot: piece.slot, hides: piece.hides })) },
     garments,
     secondary: chains,
     faction: { materials: [ARMOR_FACTION.material], defaultBaseColorFactor: [...ARMOR_FACTION.default, 1] },
