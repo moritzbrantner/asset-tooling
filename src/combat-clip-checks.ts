@@ -25,6 +25,11 @@ export const COMBAT_ITEM_CAPSULES: Readonly<Record<string, readonly ItemCapsule[
   "equipment.spear.leaf": [{ from: -.83, to: 1.46, radius: .026 }],
   "equipment.warhammer.maul": [{ from: -.3, to: .6, radius: .025 }, { from: .6, to: .75, radius: .09 }],
   "equipment.bow.long": [{ from: -1, to: 1, radius: .05 }],
+  // #823: the great weapons of the heavy running strikes (held_items.py): a thick haft from its butt cap, the hammer's
+  // and the axe's head, the greatsword's blade from its pommel (its quillons are not modelled).
+  "equipment.hammer.great": [{ from: -.36, to: .9, radius: .025 }, { from: .9, to: 1.0, radius: .09 }],
+  "equipment.axe.great": [{ from: -.36, to: .78, radius: .025 }, { from: .78, to: 1.02, radius: .12 }],
+  "equipment.sword.great": [{ from: -.4, to: 1.19, radius: .03 }],
 };
 /**
  * The wielder's body: the torso from the pelvis to the neck, the head from its joint up along the neck, and each thigh
@@ -59,6 +64,8 @@ export type CombatClipEntry = {
   strike?: {
     weapon?: { item?: string; socket?: string; strikePoint?: number[]; joint?: string };
     contactSeconds?: number; windupEnd?: number; recoveryStart?: number; footPlants?: Record<string, number[][]>;
+    /** #823: a running strike on the heavy stride plants its feet on ground moving back at this speed (m/s, +z ahead). */
+    groundSpeedMetersPerSecond?: number;
   };
 };
 /** `frame` counts the clip's frames and falls between two when the check samples `substeps`. */
@@ -234,8 +241,9 @@ export function checkCombatClip(document: Document, entry: CombatClipEntry, sock
 
   const footPlants = strike.footPlants ?? entry.footPlants;
   if (footPlants) {
-    // An in-place gait's planted ball moves back with the ground, against the travel its clip stands for (#804).
-    const travel = strike.footPlants || !entry.sourceRootDisplacement ? [0, 0, 0]
+    // An in-place gait's planted ball moves back with the ground, against the travel its clip stands for (#804); so
+    // does a heavy running strike's, at its ground speed (#823).
+    const travel = strike.groundSpeedMetersPerSecond ? [0, 0, strike.groundSpeedMetersPerSecond] : strike.footPlants || !entry.sourceRootDisplacement ? [0, 0, 0]
       : [entry.sourceRootDisplacement.x / entry.durationSeconds, 0, entry.sourceRootDisplacement.z / entry.durationSeconds];
     let worst: FootReport = { worstMeters: 0, foot: "", span: [], ok: true };
     for (const [foot, spans] of Object.entries(footPlants)) {

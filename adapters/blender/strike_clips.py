@@ -45,6 +45,12 @@ base poses; the CC0 UAL1 seeds were only watched as reference.
   chest and whole body turned about the pelvis through keys, the feet planted or riding the body, and no foot, knee or
   hand below the ground (``floor_feet``). They record ``hitSide``, ``peakSeconds`` and, for the deaths, ``landSeconds``
   and how they lie (``lies``), and no contact.
+- #823 (the heavy running set): ``TwoHand_Run_Strike`` (the maul and the great hammer), ``TwoHand_Axe_Run_Strike`` and
+  ``TwoHand_Sword_Run_Strike`` (``kind`` ``heavy``) run two strides of the heavy run (``Heavy_Run_Fwd_Loop``, gait_clips.py)
+  on its stride, which this recipe carries as the same block (``HEAVY``, ``Stride``), the striking stride planting deep
+  under the blow; ``TwoHand_Run_Loop`` and ``TwoHand_Sword_Run_Loop`` (``kind`` ``carry``) are the great weapons carried
+  upright on it, the carry those strikes start and end in. They record the stride, its ground speed and the planted
+  spans.
 
 No randomness.
 """
@@ -93,6 +99,11 @@ WEAPONS = {
     # head. Bare fists strike with the knuckles (``KNUCKLES``) of the hand a clip names (``hand``), the other fist in
     # guard. The bow rides the left hand and strikes with its upper limb, the right a free fist.
     "maul": {"item": "equipment.warhammer.maul", "socket": "weapon", "tip": .68, "left": "shaft", "range": (-.22, -.22)},
+    # #823: the great weapons hold as the maul does (the left hand on ``grip.offhand``, 0.22 m down the haft) and
+    # strike with the hammer's and the axe's head, the greatsword 0.95 m up, its blade's percussion point.
+    "hammer.great": {"item": "equipment.hammer.great", "socket": "weapon", "tip": .95, "left": "shaft", "range": (-.22, -.22), "single": True},
+    "axe.great": {"item": "equipment.axe.great", "socket": "weapon", "tip": .9, "left": "shaft", "range": (-.22, -.22), "single": True},
+    "sword.great": {"item": "equipment.sword.great", "socket": "weapon", "tip": .95, "left": "shaft", "range": (-.22, -.22)},
     "fist": {"socket": "fist", "left": "guard"},
     "bow": {"item": "equipment.bow.long", "socket": "bow", "side": "l", "tip": .62, "left": "fist"},
 }
@@ -136,6 +147,10 @@ MACE_RUN_GUARD = {**MACE_GUARD, "g": (-.16, -.46, 1.16), "b": (.5, -.42, .76), "
 # The maul guard (as ``TwoHand_Guard_Loop`` and the keys that start and end ``TwoHand_Swing_A``).
 MAUL_GUARD = {"g": (-.16, -.38, 1.02), "b": (.22, -.72, -.66), "yaw": -8, "pitch": 16, "neck": 6}
 MAUL_RUN_GUARD = {**MAUL_GUARD, "g": (-.16, -.44, 1.06), "b": (.25, -.85, -.45), "pitch": 10}
+# #823: the heavy run carries a great weapon upright before the right side of the chest, its head up over the right
+# shoulder and the butt low before the belly, clear of the leaning chest and the driving knees.
+HEAVY_RUN_GUARD = {"g": (-.22, -.46, 1.12), "b": (-.25, .05, .97), "yaw": -6, "pitch": 8, "neck": 4, "e": (-.8, .35, -.5)}
+HEAVY_SWORD_GUARD = {"g": (-.26, -.6, 1.1), "b": (-.25, -.4, .88), "yaw": -6, "pitch": 8, "neck": 4, "e": (-.8, .35, -.5), "pl": (.8, .35, -.5)}
 # The fists' guard (as ``Unarmed_Guard_Loop``): both fists up at the chin, knuckles up, the chest bent over them. A
 # left-handed strike keys the left fist and holds the right as ``r``; a right-handed one the other way round.
 FISTS = {"l": {"g": (.08, -.38, 1.55), "b": (-.3, -.25, .92), "z": (-1, 0, 0)}, "r": {"g": (-.08, -.34, 1.51), "b": (.3, -.25, .92), "z": (1, 0, 0)}}
@@ -793,21 +808,75 @@ STRIKES = {
         (.95, {**MAUL_GUARD, "hy": 0, "hp": 0, "py": 0, "pz": -.02, "ly": 0, "lz": 0, "rh": 0}),
         (1, MAUL_GUARD),
     ]},
-    # #738: on the run from the maul guard and back to it: the maul swung up over the right shoulder on the stride, its
-    # head out behind, then driven down across the body as the right foot lands, the head's weight carrying it low past
-    # the left side before the arms haul it back up into the guard.
-    "TwoHand_Run_Strike": {"weapon": "maul", "kind": "run", "guard": "TwoHand_Guard_Loop", "windup": .42, "contact": .55, "recovery": .68, "keys": [
-        (0, MAUL_RUN_GUARD),
-        (.2, {"g": (-.28, -.3, 1.4), "b": (-.2, -.35, .92), "yaw": -16, "pitch": 4}),
-        (.42, {"g": (-.3, .08, 1.58), "b": (-.25, .4, .88), "yaw": -34, "pitch": -2}),
-        (.49, {"g": (-.34, -.34, 1.46), "b": (-.2, -.38, .9), "yaw": -12, "pitch": 6}),
-        (.52, {"g": (-.2, -.5, 1.3), "b": (.1, -.9, .2), "yaw": 2, "pitch": 12}),
-        (.55, {"g": (0, -.56, 1.1), "b": (.5, -.62, -.6), "yaw": 16, "pitch": 18}),
-        (.68, {"g": (.22, -.52, .82), "b": (.5, -.2, -.84), "yaw": 24, "pitch": 20}),
-        (.84, {"g": (-.06, -.42, 1.06), "b": (.25, -.5, .83), "yaw": 0, "pitch": 12}),
-        (.94, MAUL_RUN_GUARD),
-        (1, MAUL_RUN_GUARD),
+    # #823: the heavy running strikes (``kind`` ``heavy``) run two heavy strides from the heavy run guard back to it,
+    # and the third footfall is the striking stride: the left foot reaches long and plants deep (``footfall``: reach,
+    # push, drop), the hips coiled right on the wind-up drive round to the left ahead of the chest into the blow, and
+    # the body sinks under it (``sink``). The hammers (the maul and the great hammer) slam straight down the centre line
+    # from overhead, the head held up behind the head a beat at the top; the head's weight carries it on low ahead, held
+    # a moment, before the arms haul it back up into the guard on the last stride.
+    "TwoHand_Run_Strike": {"weapon": "maul", "kind": "heavy", "guard": "TwoHand_Guard_Loop", "windup": .42, "contact": .55, "recovery": .72,
+                           "footfall": (.52, .48, .05), "single": True, "poleLeft": (.4, .2, -1), "keys": [
+        (0, HEAVY_RUN_GUARD),
+        (.18, {"g": (-.26, -.34, 1.38), "b": (-.22, .3, .93), "yaw": -10, "pitch": 4, "hy": -8}),
+        (.32, {"g": (-.4, -.12, 1.66), "b": (-.25, .5, .83), "yaw": -14, "pitch": -4, "neck": -4, "hy": -16}),
+        (.42, {"g": (-.3, .02, 1.8), "b": (-.15, .8, -.4), "yaw": -12, "pitch": -8, "neck": -6, "hy": -22}),
+        (.48, {"g": (-.3, -.5, 1.7), "b": (-.05, -.4, .92), "yaw": -6, "pitch": 0, "neck": -2, "hy": -6}),
+        (.51, {"g": (-.2, -.62, 1.5), "b": (-.05, -.45, .89), "yaw": -2, "pitch": 6, "neck": 2, "hy": 4, "sink": .02}),
+        (.55, {"g": (-.08, -.74, 1.5), "b": (.05, -.75, -.66), "yaw": 6, "pitch": 18, "neck": 4, "hy": 16, "sink": .07}),
+        (.62, {"g": (-.1, -.8, 1.12), "b": (.06, -.7, -.71), "yaw": 6, "pitch": 14, "neck": 4, "hy": 20, "sink": .09}),
+        (.72, {"g": (-.02, -.76, 1.08), "b": (.1, -.72, -.69), "yaw": 6, "pitch": 12, "neck": 4, "hy": 18, "sink": .08, "e": (-1, .1, .3)}),
+        (.765, {"g": (0, -.62, .98), "b": (.9, -.35, .1), "yaw": 2, "pitch": 10, "neck": 4, "hy": 14, "sink": .06}),
+        (.82, {"g": (-.06, -.6, 1.04), "b": (.45, -.65, .6), "yaw": 0, "pitch": 10, "neck": 4, "hy": 10, "sink": .05}),
+        (.86, {"g": (-.16, -.56, 1.14), "b": (-.05, -.45, .89), "yaw": -4, "pitch": 12, "neck": 6, "hy": 6, "sink": .02}),
+        (.96, {**HEAVY_RUN_GUARD, "hy": 0, "sink": 0}),
+        (1, HEAVY_RUN_GUARD),
     ]},
+    # #823: the great axe chops on a diagonal: wound up high over the right shoulder, the head back, the hips coiled
+    # hard right; then the hips drive round as the left foot plants and the head comes down across the body from high
+    # right to low left, edge first, carrying on low and wide of the left leg, held there by its weight before the arms
+    # bring it back up to the guard.
+    "TwoHand_Axe_Run_Strike": {"weapon": "axe.great", "kind": "heavy", "guard": "TwoHand_Guard_Loop", "windup": .42, "contact": .55,
+                               "recovery": .72, "footfall": (.52, .48, .05), "keys": [
+        (0, HEAVY_RUN_GUARD),
+        (.18, {"g": (-.26, -.34, 1.38), "b": (-.22, .3, .93), "yaw": -10, "pitch": 4, "hy": -8}),
+        (.32, {"g": (-.46, -.1, 1.66), "b": (-.25, .5, .83), "yaw": -14, "pitch": -4, "neck": -4, "hy": -16}),
+        (.42, {"g": (-.36, .02, 1.8), "b": (-.15, .8, -.4), "yaw": -12, "pitch": -8, "neck": -6, "hy": -22}),
+        (.48, {"g": (-.34, -.52, 1.7), "b": (-.1, -.4, .91), "yaw": -6, "pitch": 0, "neck": -2, "hy": -6}),
+        (.51, {"g": (-.2, -.62, 1.5), "b": (-.05, -.45, .89), "yaw": -2, "pitch": 6, "neck": 2, "hy": 4, "sink": .02, "e": (-1, .1, .3)}),
+        (.53, {"g": (-.1, -.78, 1.45), "b": (.15, -.7, .7), "yaw": 2, "pitch": 10, "neck": 3, "hy": 10, "sink": .04, "e": (-1, .1, .3)}),
+        (.55, {"g": (-.04, -.8, 1.36), "b": (.5, -.75, -.43), "yaw": 8, "pitch": 16, "neck": 4, "hy": 18, "sink": .07, "e": (-1, .1, .3)}),
+        (.64, {"g": (.12, -.66, 1.06), "b": (.62, -.35, -.7), "yaw": 14, "pitch": 20, "neck": 6, "hy": 24, "sink": .09}),
+        (.72, {"g": (.12, -.64, 1.06), "b": (.6, -.37, -.71), "yaw": 14, "pitch": 18, "neck": 6, "hy": 22, "sink": .08}),
+        (.79, {"g": (-.06, -.76, 1.0), "b": (.2, -.9, .3), "yaw": 6, "pitch": 16, "neck": 6, "hy": 14, "sink": .05}),
+        (.86, {"g": (-.12, -.58, 1.14), "b": (-.05, -.45, .89), "yaw": 0, "pitch": 12, "neck": 6, "hy": 6, "sink": .02}),
+        (.96, {**HEAVY_RUN_GUARD, "hy": 0, "sink": 0}),
+        (1, HEAVY_RUN_GUARD),
+    ]},
+    # #823: the greatsword sweeps flat: the blade swung back over the right shoulder on the wind-up, the hips coiled
+    # right; then the hips drive round as the left foot plants and the blade comes round level at chest height from
+    # right to left, edge leading, the arms long so the pommel stays off the chest, carried on wide of the left side and
+    # held there before it comes back up to its upright carry (``HEAVY_SWORD_GUARD``: further out than the hammers', so
+    # the long blade and wide quillons clear the head).
+    "TwoHand_Sword_Run_Strike": {"weapon": "sword.great", "kind": "heavy", "guard": "TwoHand_Guard_Loop", "windup": .42, "contact": .55,
+                                 "recovery": .72, "footfall": (.52, .48, .05), "keys": [
+        (0, HEAVY_SWORD_GUARD),
+        (.18, {"g": (-.42, -.34, 1.42), "b": (-.5, .2, .85), "yaw": -12, "pitch": 4, "hy": -10, "pl": (.8, .6, -.2)}),
+        (.3, {"g": (-.58, -.2, 1.64), "b": (-.35, .75, .56), "yaw": -10, "pitch": -8, "neck": -6, "hy": -16}),
+        (.42, {"g": (-.6, -.02, 1.86), "b": (-.25, .92, .3), "yaw": -6, "pitch": -10, "neck": -6, "hy": -20, "pl": (.6, .6, -.3)}),
+        (.49, {"g": (-.56, -.5, 1.45), "b": (-.88, .18, .44), "yaw": -12, "pitch": -6, "neck": -4, "hy": -12, "pl": (.8, .35, -.5)}),
+        (.53, {"g": (-.24, -.72, 1.5), "b": (-.35, -.65, .68), "yaw": 0, "pitch": 2, "neck": -4, "hy": 6, "sink": .03, "pl": (.3, .2, -1)}),
+        (.55, {"g": (-.05, -.74, 1.42), "b": (.25, -.97, 0), "yaw": 6, "pitch": 4, "neck": -4, "hy": 14, "sink": .06}),
+        (.62, {"g": (.36, -.62, 1.32), "b": (.8, .4, -.1), "yaw": 12, "pitch": 8, "neck": 4, "hy": 24, "sink": .08, "pl": (.8, .35, -.5)}),
+        (.72, {"g": (.34, -.58, 1.42), "b": (.55, .3, .78), "yaw": 14, "pitch": 8, "neck": 4, "hy": 26, "sink": .08}),
+        (.86, {"g": (0, -.62, 1.2), "b": (.3, -.6, .74), "yaw": 0, "pitch": 12, "neck": 4, "hy": 8, "sink": .02}),
+        (.96, {**HEAVY_SWORD_GUARD, "hy": 0, "sink": 0}),
+        (1, HEAVY_SWORD_GUARD),
+    ]},
+    # #823: the great weapons carried on the heavy run (``kind`` ``carry``), one heavy stride long: upright before the
+    # right side of the chest in the heavy running strikes' own carry, so the strikes start and end on these loops' first
+    # frame. The hammers and the great axe share ``HEAVY_RUN_GUARD``; the greatsword is held further out.
+    "TwoHand_Run_Loop": {"weapon": "maul", "kind": "carry", "single": True, "keys": [(0, HEAVY_RUN_GUARD), (1, HEAVY_RUN_GUARD)]},
+    "TwoHand_Sword_Run_Loop": {"weapon": "sword.great", "kind": "carry", "keys": [(0, HEAVY_SWORD_GUARD), (1, HEAVY_SWORD_GUARD)]},
     # #738: the maul's leap is a ground slam. In the air the maul is hauled up overhead with both hands, its head back;
     # as the feet touch it comes over the top and the body drops with it, the head slammed into the ground ahead, the
     # knees taking 0.34 m and the chest over the haft. It stays down a beat, then the body heaves up into the guard.
@@ -1448,7 +1517,7 @@ class Motion:
         self.blade = [(u, v(k["b"]).normalized()) for u, k in keys]
         self.chest = {name: [(u, float(k.get(name, 0.0))) for u, k in keys] for name in ("yaw", "pitch", "roll", "neck")}
         # The striking palm (or a staff's +Z) and the elbow pole, each through the keys that name it.
-        self.extra = {name: [(u, v(k[name])) for u, k in keys if name in k] for name in ("z", "e")}
+        self.extra = {name: [(u, v(k[name])) for u, k in keys if name in k] for name in ("z", "e", "pl")}
         self.left = {}
         for u, k in keys:
             for name, value in k.get(off, {}).items():
@@ -1552,7 +1621,9 @@ class Striker:
         # #738: every one-handed item is symmetric about its blade, so either edge may lead: keep the one nearest the
         # last frame's, and the hand never rolls half a turn between frames when the swing reverses.
         edge = edge - b * edge.dot(b)
-        if self.edge is not None and edge.dot(self.edge) < 0:
+        # #823: a one-sided head (the great axe's edge, the great hammer's face: ``single``, or a clip played with one)
+        # always leads with +X.
+        if self.edge is not None and edge.dot(self.edge) < 0 and not (self.weapon.get("single") or self.spec.get("single")):
             edge = -edge
         self.edge = edge
         return item_frame(g, b, edge), chest
@@ -1601,7 +1672,9 @@ class Striker:
                 reachable = [s for s in spots if wrist(s) <= arm]
                 on = min(reachable, key=lambda s: abs(s - on)) if reachable else min(spots, key=wrist)
             self.on_shaft = on
-            hold("staffLeft", frame_of(frame.translation + shaft * on, shaft, z), POLE["l"])
+            # #823: a heavy strike may drop the left elbow (``poleLeft``, or keyed as ``pl``), so the forearm comes up to
+            # the haft from below rather than along it and a long haft's butt clears it.
+            hold("staffLeft", frame_of(frame.translation + shaft * on, shaft, z), extra.get("pl", v(self.spec.get("poleLeft", POLE["l"]))))
         elif left == "shield":
             hold("shield", shield_frame(keys["g"], keys["f"], keys["t"]), POLE["l"])
         elif left == "offhand":
@@ -1658,6 +1731,230 @@ def contact_frame(spec, count):
 # --- The strikes -----------------------------------------------------------------------------------------------------
 
 
+# --- The heavy stride (#823) -----------------------------------------------------------------------------------------
+# Kept identical in gait_clips.py and strike_clips.py (test/heavy-stride.test.ts compares the two blocks): the heavy
+# run's legs, which ``Heavy_Run_Fwd_Loop`` loops and the heavy running strikes stand on, deep plant and all.
+#
+# The heavy run is the #804 run (the balls on explicit in-place tracks, planted at exactly the ground speed) with a
+# heavier body: a shorter stride (1.68 m a step at the game's 6.3 m/s, against the run's 1.89, so a quicker cadence), a
+# longer ground contact and a low, flat flight, the hips `stance` of the leg's length above the ankle at mid-stance (the
+# run's .93), the feet on wider lines (`track`) and a low swing: the heel kicks up less and the knee drives less high.
+# Each footfall is (side, touchdown seconds, reach, push, drop): the ball lands `reach` ahead of the hip line, is
+# planted until it is `push` behind it and the hips sink a further `drop` metres over its mid-stance; a heavy strike's
+# striking footfall reaches further and drops deeper. Distances are for a `legLength` leg and scale with the figure's.
+# The upper body under the arms is the source sprint's spine drive at the stride's phase, leant `lean` degrees further
+# forward than the run's (-22), the head `nod` back up to look ahead.
+HEAVY = {"period": 16 / 30, "speed": 6.3, "reach": .4, "push": .44, "heelFrom": .4, "toeOff": 40.0,
+         "swing": ((.25, -.4, .26, 50.0), (.45, -.15, .3, 36.0), (.65, .22, .26, 18.0), (.85, .36, .14, 6.0)),
+         "legLength": .86, "stance": .88, "bob": .014, "track": .09, "source": "Sprint_Loop", "lean": -12.0, "nod": 12.0}
+
+
+def stride_turn(rig, name, axis, degrees):
+    """Rotate a bone about an armature-space axis through its head; its children follow."""
+    pb = rig.bones[name]
+    head = pb.matrix.translation.copy()
+    pb.matrix = Matrix.Translation(head) @ Matrix.Rotation(math.radians(degrees), 4, axis) @ Matrix.Translation(-head) @ pb.matrix
+    bpy.context.view_layer.update()
+
+
+def stride_hermite(keys, s):
+    """Cubic Hermite through ``keys`` = [(s, value Vector, tangent Vector or None)]; a missing tangent is the
+    neighbours' slope."""
+    for i in range(len(keys) - 1):
+        if keys[i][0] <= s <= keys[i + 1][0]:
+            break
+    tangents = []
+    for j in (i, i + 1):
+        s_j, _, given = keys[j]
+        if given is not None:
+            tangents.append(given)
+        else:
+            before, after = keys[max(j - 1, 0)], keys[min(j + 1, len(keys) - 1)]
+            tangents.append((after[1] - before[1]) / (after[0] - before[0]))
+    (s0, p0, _), (s1, p1, _) = keys[i], keys[i + 1]
+    h = s1 - s0
+    u = (s - s0) / h
+    return (p0 * (2 * u ** 3 - 3 * u ** 2 + 1) + tangents[0] * h * (u ** 3 - 2 * u ** 2 + u)
+            + p1 * (-2 * u ** 3 + 3 * u ** 2) + tangents[1] * h * (u ** 3 - u ** 2))
+
+
+def stride_aim(rig, name, direction):
+    """Point a bone (its local +Y) along ``direction`` in armature space by the minimal turn from its rest."""
+    pb = rig.bones[name]
+    rest = rig.rest[name]
+    rest_y = (rest.to_3x3() @ Vector((0, 1, 0))).normalized()
+    m = (rest_y.rotation_difference(direction.normalized()).to_matrix() @ rest.to_3x3()).to_4x4()
+    m.translation = pb.head.copy()
+    pb.matrix = m
+    bpy.context.view_layer.update()
+
+
+def stride_leg(rig, side, ankle, pitch):
+    """Solve the leg so its ankle lands on ``ankle``, the knee forward, the foot at rest pitched heel-up ``pitch``."""
+    thigh, calf, foot, ball = STRIDE_LEGS[side]
+    hip = rig.bones[thigh].head.copy()
+    l1, l2 = rig.length(thigh, calf), rig.length(calf, foot)
+    reach = ankle - hip
+    d = min(reach.length, (l1 + l2) * .999)
+    u = reach.normalized()
+    a = (l1 * l1 - l2 * l2 + d * d) / (2 * d)
+    h = math.sqrt(max(l1 * l1 - a * a, 0.0))
+    forward = Vector((0, -1, 0))
+    knee = hip + u * a + (forward - u * forward.dot(u)).normalized() * h
+    stride_aim(rig, thigh, knee - hip)
+    stride_aim(rig, calf, (hip + u * d) - knee)
+    pb = rig.bones[foot]
+    m = (Matrix.Rotation(math.radians(pitch), 4, Vector((1, 0, 0))) @ rig.rest[foot].to_3x3().to_4x4())
+    m.translation = pb.head.copy()
+    pb.matrix = m
+    rig.bones[ball].matrix_basis = Matrix.Identity(4)
+    bpy.context.view_layer.update()
+
+
+STRIDE_LEGS = {"l": ("thigh_l", "calf_l", "foot_l", "ball_l"), "r": ("thigh_r", "calf_r", "foot_r", "ball_r")}
+
+
+class Stride:
+    """The heavy run's legs over explicit footfalls (``HEAVY``), measured on the rig at rest."""
+
+    def __init__(self, rig, footfalls):
+        self.rig = rig
+        rest_pose = {name: Matrix.Identity(4) for name in rig.rest}
+        rig.apply(rest_pose)
+        self.rest_hips = rig.bones["pelvis"].head.copy()
+        self.hip_offset = {k: rig.bones[STRIDE_LEGS[k][0]].head - self.rest_hips for k in STRIDE_LEGS}
+        self.to_ball = {k: rig.bones[STRIDE_LEGS[k][3]].head - rig.bones[STRIDE_LEGS[k][2]].head for k in STRIDE_LEGS}
+        ground = {k: rig.bones[STRIDE_LEGS[k][3]].head.z for k in STRIDE_LEGS}
+        self.leg = {k: rig.length(STRIDE_LEGS[k][0], STRIDE_LEGS[k][1]) + rig.length(STRIDE_LEGS[k][1], STRIDE_LEGS[k][2])
+                    for k in STRIDE_LEGS}
+        self.scale = (self.leg["l"] + self.leg["r"]) / 2 / HEAVY["legLength"]
+        self.speed = HEAVY["speed"]
+        self.lowest = min(rig.bones[STRIDE_LEGS[k][2]].head.z + HEAVY["stance"] * self.leg[k] - self.hip_offset[k].z for k in STRIDE_LEGS)
+        track = HEAVY["track"] * self.scale
+        self.line = {k: Vector((self.rest_hips.x + math.copysign(track, self.hip_offset[k].x), self.rest_hips.y, ground[k]))
+                     for k in STRIDE_LEGS}
+        # Each foot's stances in time order: (touchdown, toe-off, reach, push, drop), distances scaled.
+        self.stances = {k: [] for k in STRIDE_LEGS}
+        for side, touch, reach, push, drop in footfalls:
+            reach, push = reach * self.scale, push * self.scale
+            self.stances[side].append((touch, touch + (reach + push) / self.speed, reach, push, drop * self.scale))
+        for k in STRIDE_LEGS:
+            self.stances[k].sort()
+
+    def base(self, source, t):
+        """``source``'s pose at the stride's phase at ``t`` seconds (the root still), leant to the heavy run's lean;
+        the arms keep their swing about the hips rather than rising with the chest."""
+        rig = self.rig
+        data = rig.rig.animation_data
+        data.action = source
+        if hasattr(data, "action_slot") and source.slots:
+            data.action_slot = source.slots[0]
+        start, end = source.frame_range
+        frame = start + (t / HEAVY["period"]) % 1.0 * (end - start)
+        bpy.context.scene.frame_set(int(math.floor(frame)), subframe=frame - math.floor(frame))
+        bpy.context.view_layer.update()
+        pose = {pb.name: (Matrix.Identity(4) if pb.name == "root" else pb.matrix_basis.copy()) for pb in rig.bones}
+        data.action = None
+        rig.apply(pose)
+        stride_turn(rig, "spine_01", Vector((1, 0, 0)), HEAVY["lean"])
+        stride_turn(rig, "neck_01", Vector((1, 0, 0)), HEAVY["nod"])
+        for arm in ("upperarm_l", "upperarm_r"):
+            stride_turn(rig, arm, Vector((1, 0, 0)), -HEAVY["lean"])
+
+    def ball(self, k, ahead):
+        return self.line[k] + Vector((0, -ahead, 0))
+
+    def ankle(self, k, ball, pitch):
+        return ball - Matrix.Rotation(math.radians(pitch), 3, Vector((1, 0, 0))) @ self.to_ball[k]
+
+    def foot(self, k, t):
+        """The ankle target and heel pitch of foot ``k`` at ``t`` seconds, and whether its ball is planted."""
+        stances = self.stances[k]
+        for touch, off, reach, push, _ in stances:
+            if touch <= t <= off:
+                u = (t - touch) / (off - touch)
+                pitch = HEAVY["toeOff"] * smooth((u - HEAVY["heelFrom"]) / (1 - HEAVY["heelFrom"]))
+                return self.ankle(k, self.ball(k, reach - self.speed * (t - touch)), pitch), pitch, True
+        before = max((s for s in stances if s[1] < t), key=lambda s: s[1])
+        after = min((s for s in stances if s[0] > t), key=lambda s: s[0])
+        swing = after[0] - before[1]
+        off = self.ankle(k, self.ball(k, -before[3]), HEAVY["toeOff"])
+        land = self.ankle(k, self.ball(k, after[2]), 0.0)
+        o = Vector((-(off - self.line[k]).y, off.z, HEAVY["toeOff"]))
+        l = Vector((-(land - self.line[k]).y, land.z, 0.0))
+        keys = [(0.0, o, Vector((-.5 * self.speed * swing, 1.2 * self.scale, 0)))]
+        keys += [(f, Vector((a * self.scale, z * self.scale, pitch)), None) for f, a, z, pitch in HEAVY["swing"]]
+        keys.append((1.0, l, Vector((-.3 * self.speed * swing, -.6 * self.scale, 0))))
+        a, z, pitch = stride_hermite(keys, (t - before[1]) / swing)
+        return self.line[k] + Vector((0, -a, z - self.line[k].z)), pitch, False
+
+    def height(self, t, sink=0.0):
+        """The pelvis height at ``t``: lowest at each mid-stance, ``bob`` higher in the flight, a footfall's ``drop``
+        sunk over its stance, ``sink`` lower still, never higher than the legs reach."""
+        mids = sorted(((touch + off) / 2, off - touch, drop) for k in STRIDE_LEGS for touch, off, _, _, drop in self.stances[k])
+        mid, length, _ = min(mids, key=lambda m: abs(m[0] - t))
+        step = HEAVY["period"] / 2
+        h = self.lowest + HEAVY["bob"] * self.scale * (1 - math.cos(2 * math.pi * (t - mid) / step)) - sink
+        for m, length, drop in mids:
+            if drop:
+                w = max(0.0, 1 - abs(t - m) / (length / 2 + step * .75))
+                h -= drop * smooth(w)
+        return h
+
+    def place(self, t, yaw=0.0, sink=0.0):
+        """Put the pelvis (turned ``yaw`` degrees to the figure's left) and both legs on the stride at ``t`` seconds;
+        returns {side: planted}."""
+        rig = self.rig
+        targets = {k: self.foot(k, t) for k in STRIDE_LEGS}
+        turn = Matrix.Rotation(math.radians(yaw), 3, UP)
+        height = self.height(t, sink)
+        for k in STRIDE_LEGS:
+            ankle = targets[k][0]
+            hip = turn @ self.hip_offset[k]
+            flat = (Vector((self.rest_hips.x + hip.x, self.rest_hips.y + hip.y, 0)) - Vector((ankle.x, ankle.y, 0))).length
+            height = min(height, ankle.z - hip.z + math.sqrt(max((self.leg[k] * .985) ** 2 - flat ** 2, 0.0)))
+        pelvis = rig.bones["pelvis"]
+        m = pelvis.matrix.copy()
+        m.translation = Vector((self.rest_hips.x, self.rest_hips.y, height))
+        pelvis.matrix = m
+        bpy.context.view_layer.update()
+        if yaw:
+            m = pelvis.matrix.copy()
+            pelvis.matrix = Matrix.Translation(m.translation) @ Matrix.Rotation(math.radians(yaw), 4, UP) @ Matrix.Translation(-m.translation) @ m
+            bpy.context.view_layer.update()
+        for k in STRIDE_LEGS:
+            ankle, pitch, _ = targets[k]
+            stride_leg(rig, k, ankle, pitch)
+        return {k: targets[k][2] for k in STRIDE_LEGS}
+
+    def plants(self, start, end):
+        """The planted spans of each foot within [start, end], in seconds on 30 fps frames."""
+        out = {}
+        for k in STRIDE_LEGS:
+            spans = []
+            for touch, off, *_ in self.stances[k]:
+                a, b = max(touch, start), min(off, end)
+                if a <= b:
+                    spans.append([round(math.ceil(round((a - start) * 30, 6)) / 30, 4), round(math.floor(round((b - start) * 30, 6)) / 30, 4)])
+            out[k] = spans
+        return out
+
+
+def heavy_footfalls(cycles, strike=None):
+    """The heavy run's footfalls over ``cycles`` periods, the left foot touching down at 0, with a cycle either side so
+    every swing has a stance before and after it. ``strike`` = (index, reach, push, drop) overrides one footfall (the
+    first of the clip is 0)."""
+    period = HEAVY["period"]
+    out = []
+    for i in range(-2, 2 * cycles + 2):
+        footfall = ["l" if i % 2 == 0 else "r", i * period / 2, HEAVY["reach"], HEAVY["push"], 0.0]
+        if strike and strike[0] == i:
+            footfall[2:] = strike[1:]
+        out.append(tuple(footfall))
+    return out
+# --- end of the heavy stride ------------------------------------------------------------------------------------------
+
+
 def run_strike(striker, actions):
     """A running strike over one whole ``Jog_Fwd_Loop`` cycle: the legs run on and (#738) the upper body holds the
     keys from the family's guard back to it, over the run's legs."""
@@ -1672,6 +1969,75 @@ def run_strike(striker, actions):
     phases = {"windupEnd": at(spec["windup"]), "recoveryStart": at(spec["recovery"])}
     return poses, {"source": RUN, "durationSeconds": round(duration, 4), "contactSeconds": round(hit / FPS, 4), **phases,
                    **striker.contact(bases[hit], hit / count)}
+
+
+HEAVY_FIELDS = ("hy", "sink")
+
+
+def heavy_strike(striker, actions):
+    """#823: a heavy weapon's running strike over two ``Heavy_Run_Fwd_Loop`` cycles, starting and ending at its first
+    frame, on the heavy stride at the game's run speed. The third footfall (the left, at the second cycle's start)
+    is the striking stride: it reaches ``footfall`` further and plants deeper, the hips sinking into it. Over the legs
+    the pelvis turns (``hy``, degrees to the figure's left) and sinks (``sink``, metres) through the keys, so the hips
+    coil on the wind-up and drive round ahead of the chest into the blow; the hands ride the pelvis's height. Records
+    the phases, the planted spans (``footPlants``) and the ground speed they hold still at."""
+    spec, rig = striker.spec, striker.rig
+    period = HEAVY["period"]
+    duration = 2 * period
+    count = frames_of(duration)
+    hit = contact_frame(spec, count)
+    stride = Stride(rig, heavy_footfalls(2, (2, *spec["footfall"])))
+    held, tracks = {name: 0.0 for name in HEAVY_FIELDS}, {name: [] for name in HEAVY_FIELDS}
+    for u, key in spec["keys"]:
+        held.update({name: key[name] for name in HEAVY_FIELDS if name in key})
+        for name in HEAVY_FIELDS:
+            tracks[name].append((u, float(held[name])))
+    sprint = actions[HEAVY["source"]]
+
+    def frame(k):
+        u, t = k / count, k / count * duration
+        stride.base(sprint, t)
+        stride.place(t, monotone(tracks["hy"], u), monotone(tracks["sink"], u))
+        striker.shift = Vector((0, 0, rig.head("pelvis").z - stride.lowest))
+        striker.place(u, body=False)
+        return rig.capture()
+
+    poses = [frame(k) for k in range(count + 1)]
+    at = lambda u: round(int(round(u * count)) / FPS, 4)
+    # The contact as the poses have it: the solved body at the contact frame.
+    frame(hit)
+    point = rig.grip(striker.socket) @ striker.tip
+    tip = root_point(point)
+    held_item = {"socket": SOCKET_IDS["shaft"], "onShaftMeters": round(striker.on_shaft, 4)}
+    contact = {"weapon": {"item": striker.weapon["item"], "socket": SOCKET_IDS[striker.weapon["socket"]], "strikePoint": [0, striker.reach, 0]},
+               "offhand": held_item, "tipAt": tip, "band": "low" if tip[1] < BANDS[0] else "high" if tip[1] > BANDS[1] else "mid",
+               "reachMeters": round(math.hypot(tip[0], tip[2]), 4)}
+    return poses, {"source": HEAVY["source"], "stride": "Heavy_Run_Fwd_Loop", "durationSeconds": round(duration, 4),
+                   "groundSpeedMetersPerSecond": stride.speed, "footPlants": stride.plants(0.0, duration - .5 / FPS),
+                   "contactSeconds": round(hit / FPS, 4), "windupEnd": at(spec["windup"]), "recoveryStart": at(spec["recovery"]), **contact}
+
+
+def heavy_loop(striker, actions):
+    """#823: a great weapon carried on the heavy run, one ``Heavy_Run_Fwd_Loop`` cycle: the heavy stride under the
+    upright carry its heavy running strikes start and end in, the hands riding the pelvis. Records no contact."""
+    spec, rig = striker.spec, striker.rig
+    period = HEAVY["period"]
+    count = frames_of(period)
+    stride = Stride(rig, heavy_footfalls(1))
+    sprint = actions[HEAVY["source"]]
+
+    def frame(k):
+        t = (k % count) / count * period
+        stride.base(sprint, t)
+        stride.place(t)
+        striker.shift = Vector((0, 0, rig.head("pelvis").z - stride.lowest))
+        striker.place(t / period, body=False)
+        return rig.capture()
+
+    poses = [frame(k) for k in range(count + 1)]
+    weapon = {"item": striker.weapon["item"], "socket": SOCKET_IDS[striker.weapon["socket"]]}
+    return poses, {"source": HEAVY["source"], "stride": "Heavy_Run_Fwd_Loop", "durationSeconds": round(period, 4),
+                   "groundSpeedMetersPerSecond": stride.speed, "footPlants": stride.plants(0.0, period - .5 / FPS), "carry": weapon}
 
 
 def highest_feet(rig, action):
@@ -1730,7 +2096,7 @@ def leap_strike(striker, actions):
                    "footPlants": plants, **striker.contact(striker.seed, hit / count)}
 
 
-AUTHORS = {"run": run_strike, "body": body_strike, "leap": leap_strike}
+AUTHORS = {"run": run_strike, "body": body_strike, "leap": leap_strike, "heavy": heavy_strike, "carry": heavy_loop}
 
 
 # --- The reactions ---------------------------------------------------------------------------------------------------
@@ -1910,7 +2276,7 @@ def write_actions(rig_object, clips):
 def author_all(rig_object, arguments, target_path):
     """Author every requested clip on ``rig_object`` (each from the imported state); {clip: (poses, observations)}."""
     actions = {}
-    for name in (STAND, RUN, JUMP, TAKEOFF):
+    for name in (STAND, RUN, JUMP, TAKEOFF, HEAVY["source"]):
         found = bpy.data.actions.get(name)
         if found is None:
             raise ValueError(f"the target GLB has no {name} clip")
