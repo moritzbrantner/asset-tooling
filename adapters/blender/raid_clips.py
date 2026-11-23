@@ -23,6 +23,9 @@ reference.
 - The loops are periodic (their last frame is their first); the one-shots start and end in the idle, except
   ``Push_Start`` (ends in ``Push_Loop``'s first frame), ``Knockdown_Fall`` (ends in ``Lie_Loop``'s first frame) and
   ``GetUp`` (starts there).
+- #823: ``Carry_Run_Loop`` is the loaded run's upper body over ``Heavy_Run_Fwd_Loop`` (gait_clips.py), of its length:
+  ``Sprint_Loop``'s pelvis at the same phase under the idle's still spine, the trunk stood up against the load and
+  the palms braced on its sides.
 
 No randomness.
 """
@@ -37,6 +40,7 @@ FPS = 30
 UPPER_ROOT = "spine_01"
 STAND = "Idle_Loop"
 WALK = "Walk_Loop"
+SPRINT = "Sprint_Loop"
 ARMS = {"l": ("upperarm_l", "lowerarm_l", "hand_l"), "r": ("upperarm_r", "lowerarm_r", "hand_r")}
 LEGS = {"l": ("thigh_l", "calf_l", "foot_l", "ball_l"), "r": ("thigh_r", "calf_r", "foot_r", "ball_r")}
 SPINE = (("spine_01", .3), ("spine_02", .35), ("spine_03", .35))
@@ -119,9 +123,9 @@ TRAP = {"place": 1.5, "disarm": 3.0, "at": (-.12, -.32, .1), "width": .2, "carry
 # height) behind the origin, tipped ``tip`` degrees back, the feet ``feet`` ahead with the knees a little bent.
 DOWN = {"fall": .8, "lie": 3.0, "getUp": 1.5, "land": .72, "pelvis": (.42, .13), "tip": -86.0, "feet": (-.42, .07)}
 
-UPPER = {"Raid_Torch_Carry_Loop", "Raid_Hack_Structure_Loop", "Carry_Idle_Loop", "Carry_Walk_Loop"}
+UPPER = {"Raid_Torch_Carry_Loop", "Raid_Hack_Structure_Loop", "Carry_Idle_Loop", "Carry_Walk_Loop", "Carry_Run_Loop"}
 CLIPS = ("Raid_Torch_Carry_Loop", "Raid_Hack_Structure_Loop", "Carry_Idle_Loop", "Carry_Walk_Loop", "Repair_Hammer_Loop", "Push_Start",
-         "Push_Loop", "Lever_Pull", "Trap_Place", "Trap_Disarm_Loop", "Knockdown_Fall", "Lie_Loop", "GetUp")
+         "Push_Loop", "Lever_Pull", "Trap_Place", "Trap_Disarm_Loop", "Knockdown_Fall", "Lie_Loop", "GetUp", "Carry_Run_Loop")
 # The #391 chain joints the full-body clips key, and how far the panels follow the thighs (as the social clips).
 CAPE = "cape_01"
 SWING = {"share": .7, "front": 70.0, "sideShare": .8, "side": 75.0, "back": 20.0}
@@ -668,7 +672,7 @@ def hack(actor):
 
 # --- Carrying a load -------------------------------------------------------------------------------------------------
 
-def load_hands(actor):
+def load_hands(actor, gap=LOAD["gap"]):
     """Both palms flat on the sides of the load on ``chest.carry``, the fingers toward its bottom front edge."""
     width = LOAD["size"][0]
     up, out = LOAD["hold"]
@@ -677,7 +681,7 @@ def load_hands(actor):
     hands = {}
     for side, sign in (("r", -1), ("l", 1)):
         inward = turn @ Vector((-sign, 0, 0))
-        hands[side] = ("palm_" + side, palm_frame(load @ Vector((sign * (width * .5 + LOAD["gap"]), up, out)), turn @ v(LOAD["fingers"]), inward))
+        hands[side] = ("palm_" + side, palm_frame(load @ Vector((sign * (width * .5 + gap), up, out)), turn @ v(LOAD["fingers"]), inward))
     return hands
 
 
@@ -705,6 +709,45 @@ def carry_walk(actor, walk):
         return actor.pose(lambda: load_hands(actor), {"pitch": LOAD["lean"]}, {"r": "brace", "l": "brace"}, lambda: rig.apply(pose))
 
     return loop(duration, frame), {**load_observation(), "source": WALK}
+
+
+# #823: the loaded run's upper body, over ``Heavy_Run_Fwd_Loop``'s legs (gait_clips.py) and of its length ``period``,
+# sampled on ``Sprint_Loop`` at the same phase (``HEAVY``'s ``source`` and ``period``) for the pelvis it stands on. A
+# loaded trunk does not twist with the stride: the spine is the idle's, its small of the back hauled ``lumbar`` degrees
+# back against the load's weight and the upper chest curled ``over`` it, so the load's bottom stands off the belly and
+# the driving thighs; the chest gives forward at each footfall (``give``) as the weight lands, and the head ``neck`` up
+# to see over the load. Both palms brace the load's sides, ``gap`` off them (the running wrists turn in further than the
+# walking ones).
+RUN_LOAD = {"period": 16 / 30, "trunk": 9.0, "over": -14.0, "give": 2.5, "neck": -6.0, "gap": .04}
+RUN_SPINE = ("spine_01", "spine_02", "spine_03", "neck_01", "Head")
+# The elbows held out wide of the load, so the forearms clear its sides.
+ELBOWS_OUT = {"r": Vector((-1, .15, -.1)), "l": Vector((1, .15, -.1))}
+
+
+def carry_run(actor, sprint):
+    """The heavy run's upper body with the load against the chest, the chest leaning back against it."""
+    rig = actor.rig
+    duration = action_seconds(sprint)
+
+    def frame(u):
+        pose = sample(rig, sprint, u * duration)
+        pose["root"] = Matrix.Identity(4)
+
+        def body():
+            # The run's pelvis, under the idle's still spine: a loaded trunk does not twist with the stride.
+            rig.apply({**pose, **{joint: actor.seed[joint] for joint in RUN_SPINE}})
+            # The run's pelvis tips well forward; the small of the back stands the trunk up to ``trunk`` degrees.
+            rise = rig.head("neck_01") - rig.head("pelvis")
+            rotate_world(rig, "spine_01", X, RUN_LOAD["trunk"] - math.degrees(math.atan2(-rise.y, rise.z)))
+            rotate_world(rig, "spine_03", X, RUN_LOAD["over"])
+
+        # Each footfall (phase 0 and 0.5) lands the load's weight: the chest gives forward and recovers.
+        give = RUN_LOAD["give"] * max(0.0, math.cos(4 * math.pi * u)) ** 2
+        chest = {"pitch": give, "neck": RUN_LOAD["neck"]}
+        return actor.pose(lambda: {side: (*hold, ELBOWS_OUT[side]) for side, hold in load_hands(actor, RUN_LOAD["gap"]).items()}, chest,
+                          {"r": "brace", "l": "brace"}, body)
+
+    return loop(RUN_LOAD["period"], frame), {**load_observation(), "source": SPRINT, "stride": "Heavy_Run_Fwd_Loop"}
 
 
 # --- Repairing -------------------------------------------------------------------------------------------------------
@@ -999,7 +1042,10 @@ def author(rig, clip, actions):
     rig.apply({name: Matrix.Identity(4) for name in rig.rest})
     seed = sample(rig, actions[STAND], 0.0)
     actor = Actor(rig, seed)
-    poses, observations = WALKING[clip](actor, actions[WALK]) if clip in WALKING else AUTHORS[clip](actor)
+    if clip == "Carry_Run_Loop":
+        poses, observations = carry_run(actor, actions[SPRINT])
+    else:
+        poses, observations = WALKING[clip](actor, actions[WALK]) if clip in WALKING else AUTHORS[clip](actor)
     if clip not in UPPER:
         observations["secondaryPose"] = record_chains(rig, poses)
     return poses, {"source": STAND, "durationSeconds": round((len(poses) - 1) / FPS, 4), **observations,
@@ -1054,7 +1100,7 @@ def write_actions(rig_object, clips):
 def author_all(rig_object, arguments, target_path):
     """Author every requested clip on ``rig_object`` (each from the imported state); {clip: (poses, observations)}."""
     actions = {}
-    for name in (STAND, WALK):
+    for name in (STAND, WALK, SPRINT):
         found = bpy.data.actions.get(name)
         if found is None:
             raise ValueError(f"the target GLB has no {name} clip")
