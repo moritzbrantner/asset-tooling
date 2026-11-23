@@ -1,5 +1,5 @@
 {
-  "note": "#399: each figure is its own release, so the two build in parallel jobs. The Ranger builds the whole bundle (clips, outfits, armour, equipment, hair, appearance) in one run. The budget holds the KTX2 bundle at its cost on 2026-11-14, so it can only get cheaper; adding content raises it deliberately (#517). #767 raises the download by 1 MB for its 15 clips, #769 by 1 MB for its 9 ride clips, #773 by 1 MB for its 10 guard and signal clips (66.6 MB measured), #775 by 1 MB for its 4 tinker clips. #775 (the Tinker's outfit, her first class outfit) raises the download by 4 MB for its two skin variants and its plates (the tanner's outfit is 2.5 MB), the materials by 20 (the plates' 15 per-piece AO copies and the shirt, trousers, apron and bandolier materials) and the texture memory by 2 MB (five 512 px AO maps); the download measured 75.9 MB in CI, so it is 76 MB. #820 lowers the budget to its measured cost: the plates keep the shared slot materials and carry their baked occlusion in COLOR_0 instead of a per-piece material copy with a 512 px AO map, so the materials fall from 46 to 19, the texture memory from 20.2 to 12.5 MB and the download from 75.9 to 72.6 MB.",
+  "note": "#399: each figure is its own release, so the two build in parallel jobs. The Ranger builds the whole bundle (clips, outfits, armour, equipment, hair, appearance) in one run. The budget holds the KTX2 bundle at its cost on 2026-11-14, so it can only get cheaper; adding content raises it deliberately (#517). #767 raises the download by 1 MB for its 15 clips, #769 by 1 MB for its 9 ride clips, #773 by 1 MB for its 10 guard and signal clips (66.6 MB measured), #775 by 1 MB for its 4 tinker clips. #775 (the Tinker's outfit, her first class outfit) raises the download by 4 MB for its two skin variants and its plates (the tanner's outfit is 2.5 MB), the materials by 20 (the plates' 15 per-piece AO copies and the shirt, trousers, apron and bandolier materials) and the texture memory by 2 MB (five 512 px AO maps); the download measured 75.9 MB in CI, so it is 76 MB. #820 lowers the budget to its measured cost: the plates keep the shared slot materials and carry their baked occlusion in COLOR_0 instead of a per-piece material copy with a 512 px AO map, so the materials fall from 46 to 19, the texture memory from 20.2 to 12.5 MB and the download from 75.9 to 72.6 MB. #823 raises the download by 1 MB for its heavy running set (Heavy_Run_Fwd_Loop, Carry_Run_Loop, two more heavy strikes and two carry loops; about 0.3 MB estimated, not measured locally).",
   "script": "scripts/build-ranger-release.ts",
   "blender": true,
   "lfs": true,
@@ -13,6 +13,6 @@
   "budget": {
     "materials": 19,
     "textureMemoryMB": 13,
-    "downloadMB": 73
+    "downloadMB": 74
   }
 }
