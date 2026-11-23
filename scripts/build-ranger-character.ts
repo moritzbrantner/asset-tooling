@@ -390,6 +390,8 @@ export const RANGER_CLIP_ROLES: Readonly<Record<string, { role: string; contact?
   Raid_Hack_Structure_Loop: { role: "raid.hack", contact: "hand_r" },
   Carry_Idle_Loop: { role: "carry.load.idle" },
   Carry_Walk_Loop: { role: "carry.load.walk" },
+  // #823: the loaded run's upper body, over Heavy_Run_Fwd_Loop.
+  Carry_Run_Loop: { role: "carry.load.run" },
   Repair_Hammer_Loop: { role: "repair.hammer", contact: "hand_r" },
   Push_Start: { role: "push.start" },
   Push_Loop: { role: "push.loop" },
@@ -437,6 +439,11 @@ export const RANGER_CLIP_ROLES: Readonly<Record<string, { role: string; contact?
   TwoHand_Swing_B: { role: "two-hand.strike.backhand", contact: "hand_r" },
   TwoHand_Swing_C: { role: "two-hand.strike.overhead", contact: "hand_r" },
   TwoHand_Run_Strike: { role: "two-hand.strike.run", contact: "hand_r" },
+  // #823: the great axe's and the greatsword's heavy running strikes, and the great weapons carried on the heavy run.
+  TwoHand_Axe_Run_Strike: { role: "two-hand.strike.run.axe", contact: "hand_r" },
+  TwoHand_Sword_Run_Strike: { role: "two-hand.strike.run.sword", contact: "hand_r" },
+  TwoHand_Run_Loop: { role: "two-hand.carry.run" },
+  TwoHand_Sword_Run_Loop: { role: "two-hand.carry.run.sword" },
   TwoHand_Jump_Strike: { role: "two-hand.strike.jump", contact: "hand_r" },
   Bow_Bash_A: { role: "bow.strike.limb", contact: "hand_l" },
   // #738: a forehand bow strike; it was a push kick (`bow.strike.kick`, contact `foot_r`).

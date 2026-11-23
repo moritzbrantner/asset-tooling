@@ -12,10 +12,13 @@ type Json = Record<string, any>;
  * `Idle_Loop` and explicit foot trajectories. The walk and jog clips are one matched family (same stance, the same
  * swing phases at foot plant). No Mixamo data. They follow the library clips in bundle order. #804: `Run_Fwd_Loop` and
  * the `Run_Strafe_*_Loop` side-runs are a stride authored at the game's 6.3 m/s run, over the `Sprint_Loop` arms.
+ * #823: `Heavy_Run_Fwd_Loop` is the heavy run at the same speed, for a heavy weapon or load: a shorter stride (so a
+ * quicker cadence), a longer ground contact and a low, flat flight, the hips lower, the chest leant into it and the arms
+ * braced. The heavy running strikes and the loaded run (`Carry_Run_Loop`) stand on its stride.
  */
 export const RANGER_GAIT_CLIPS = [
   "Jog_Bwd_Loop", "Jog_Strafe_Left_Loop", "Jog_Strafe_Right_Loop", "Walk_Bwd_Loop", "Walk_Strafe_Left_Loop", "Walk_Strafe_Right_Loop",
-  "Walk_Start", "Walk_Stop", "Turn_Left", "Turn_Right", "Run_Fwd_Loop", "Run_Strafe_Left_Loop", "Run_Strafe_Right_Loop",
+  "Walk_Start", "Walk_Stop", "Turn_Left", "Turn_Right", "Run_Fwd_Loop", "Run_Strafe_Left_Loop", "Run_Strafe_Right_Loop", "Heavy_Run_Fwd_Loop",
 ] as const;
 /**
  * #399: hit reactions authored in Blender (adapters/blender/hit_clips.py) from the first `Idle_Loop` pose. The
@@ -118,11 +121,12 @@ export const RANGER_GATHER_CLIPS = [
  * pelvis and ankle targets (two-bone leg IK; the CC0 UAL1 seeds only as reference). The torch, the hack and the carries
  * keep only the `spine_01` subtree; the rest are full body with a `secondaryPose`. `Carry_Walk_Loop` and `Push_Loop`
  * have `Walk_Loop`'s length; `Push_Start` ends in `Push_Loop`, `Knockdown_Fall` in `Lie_Loop`, and `GetUp` starts
- * there. They follow the gather clips in bundle order.
+ * there. They follow the gather clips in bundle order. #823: `Carry_Run_Loop` is the loaded run's upper body, as
+ * `Carry_Walk_Loop` keeps only the `spine_01` subtree, of `Heavy_Run_Fwd_Loop`'s length and played over its legs.
  */
 export const RANGER_RAID_CLIPS = [
   "Raid_Torch_Carry_Loop", "Raid_Hack_Structure_Loop", "Carry_Idle_Loop", "Carry_Walk_Loop", "Repair_Hammer_Loop", "Push_Start", "Push_Loop",
-  "Lever_Pull", "Trap_Place", "Trap_Disarm_Loop", "Knockdown_Fall", "Lie_Loop", "GetUp",
+  "Lever_Pull", "Trap_Place", "Trap_Disarm_Loop", "Knockdown_Fall", "Lie_Loop", "GetUp", "Carry_Run_Loop",
 ] as const;
 /**
  * #709 (movement-state melee: the game picks the strike from the attacker's movement state): a running and a jumping
@@ -168,7 +172,19 @@ export const RANGER_STRIKE_CLIPS = [
   "TwoHand_Swing_C", "TwoHand_Run_Strike", "TwoHand_Jump_Strike", "Bow_Bash_A", "Bow_Bash_B", "Bow_Run_Strike", "Bow_Jump_Strike",
   // #738: the Rogue's dagger attacks, moved here from the dagger clips with their names and roles.
   "Dagger_Stab_R", "Dagger_Slash_L", "Dagger_Sinister", "Dagger_Poison", "Dagger_Gouge",
+  // #823: the great axe's and the greatsword's heavy running strikes, beside the hammers' `TwoHand_Run_Strike`.
+  "TwoHand_Axe_Run_Strike", "TwoHand_Sword_Run_Strike",
 ] as const;
+/**
+ * #823: the heavy running strikes (`TwoHand_Run_Strike` for the maul and the great hammer, `TwoHand_Axe_Run_Strike`,
+ * `TwoHand_Sword_Run_Strike`) run two `Heavy_Run_Fwd_Loop` strides on its stride at the game's run speed, the third
+ * footfall planting long and deep under the blow; they record the stride (`strike.stride`), the ground speed their
+ * planted feet hold still at (`strike.groundSpeedMetersPerSecond`) and their planted spans. They start and end on these
+ * carry loops: the great weapon held upright on the heavy run (the hammers and the great axe on `TwoHand_Run_Loop`, the
+ * greatsword on `TwoHand_Sword_Run_Loop`), recording the carried item (`carry`), the ground speed and the planted spans.
+ * The strike recipe authors them after the reactions.
+ */
+export const RANGER_HEAVY_CARRY_CLIPS = ["TwoHand_Run_Loop", "TwoHand_Sword_Run_Loop"] as const;
 /**
  * #737: the clips that meet the combat-animation standard (docs/combat-animation-standard.md); the Ranger build test
  * requires its checks to pass on each, between the keys too. Phase 2 (#738) adds every other attack as it is redone.
@@ -180,17 +196,20 @@ export const RANGER_COMBAT_STANDARD_CLIPS: readonly string[] = [
   "Unarmed_Jab", "Unarmed_Cross", "Unarmed_Hook", "Unarmed_Jump_Strike",
   "Staff_Strike_A", "Staff_Strike_B", "Staff_Strike_C", "Staff_Jump_Strike", "Dagger_Jump_Strike", "Bow_Bash_A", "Bow_Bash_B", "Bow_Jump_Strike",
   "Dagger_Stab_R", "Dagger_Slash_L", "Dagger_Sinister", "Dagger_Poison", "Dagger_Gouge",
+  // #823: the heavy running strikes plant their striking stride deep and their feet hold still on the moving ground.
+  "TwoHand_Run_Strike", "TwoHand_Axe_Run_Strike", "TwoHand_Sword_Run_Strike",
 ];
 /**
  * mmorpg#804: strikes whose weapon passed through the torso in game, fixed without redoing them to the whole standard.
  * The Ranger build test holds them to the weapon–body clearance check, and to the planted-foot check over the spans
  * listed (`Sword_Cleave` turns on both planted feet).
  * #738: the running strikes, redone to the standard, run on the run's legs and so have no planted feet; they are held
- * to the clearance here. `Mace_Swing_B` and the staff jab and sweep are held to the whole standard now.
+ * to the clearance here. `Mace_Swing_B` and the staff jab and sweep are held to the whole standard now, and (#823)
+ * `TwoHand_Run_Strike`, redone on the heavy stride with its feet planted.
  */
 export const RANGER_CLEARANCE_CLIPS: Readonly<Record<string, { footPlants?: Record<string, number[][]> }>> = {
   Sword_Cleave: { footPlants: { l: [[0, .9]], r: [[0, .9]] } },
-  Sword_Run_Strike: {}, Spear_Run_Strike: {}, Mace_Run_Strike: {}, TwoHand_Run_Strike: {}, Staff_Run_Strike: {}, Dagger_Run_Strike: {},
+  Sword_Run_Strike: {}, Spear_Run_Strike: {}, Mace_Run_Strike: {}, Staff_Run_Strike: {}, Dagger_Run_Strike: {},
   Bow_Run_Strike: {},
 };
 /**
@@ -667,7 +686,7 @@ export const RANGER_CLIP_FAMILIES: readonly ClipFamily[] = [
       // `raid` object and the chain pose beside it. The hack's and the hammer's contact is the authored strike.
       const { joints, source, secondaryPose, ...observed } = family.clips[name] as Json;
       const raid = pickKeys(observed, ["tool", "load", "strikeSeconds", "boardAt", "pushHandsAt", "leverSeconds", "leverPivotAt", "leverLengthMeters",
-        "leverDegrees", "setSeconds", "probeSeconds", "trapAt", "landSeconds", "from", "to"]);
+        "leverDegrees", "setSeconds", "probeSeconds", "trapAt", "landSeconds", "from", "to", "stride"]);
       return {
         ...(joints ? { keep: joints as string[] } : {}),
         authored: { recipe: family.recipe, clip: name, fps: family.fps, ...observed }, basedOn: source as string,
@@ -679,11 +698,11 @@ export const RANGER_CLIP_FAMILIES: readonly ClipFamily[] = [
     },
   },
   {
-    id: "strike", script: "strike_clips.py", clips: [...RANGER_STRIKE_CLIPS, ...RANGER_REACT_CLIPS],
+    id: "strike", script: "strike_clips.py", clips: [...RANGER_STRIKE_CLIPS, ...RANGER_REACT_CLIPS, ...RANGER_HEAVY_CARRY_CLIPS],
     arguments: ({ socket }) => {
       const at = socketAt(socket);
       return {
-        schemaVersion: 1, clips: [...RANGER_STRIKE_CLIPS, ...RANGER_REACT_CLIPS],
+        schemaVersion: 1, clips: [...RANGER_STRIKE_CLIPS, ...RANGER_REACT_CLIPS, ...RANGER_HEAVY_CARRY_CLIPS],
         sockets: {
           weapon: at("hand_r.weapon"), offhand: at("hand_l.weapon"), shield: at("hand_l.shield"), staff: at("hand_r.staff"), staffLeft: at("hand_l.staff"),
           bow: at("hand_l.bow"),
@@ -695,12 +714,18 @@ export const RANGER_CLIP_FAMILIES: readonly ClipFamily[] = [
       // hand-off go to the clip's `strike` object and the chain pose beside it. The contact is the authored strike.
       // #711: a reaction's side, peak and fall go to its `react` object instead; it has no contact.
       const { joints, source, secondaryPose, ...observed } = family.clips[name] as Json;
+      // #823: a great weapon's carry on the heavy run records the item, its stride, the ground speed and planted spans.
+      if (observed.carry) {
+        const fields = pickKeys(observed, ["groundSpeedMetersPerSecond", "footPlants"]);
+        return { authored: { recipe: family.recipe, clip: name, fps: family.fps, ...observed }, basedOn: source as string,
+          extra: { fields: { carry: { ...observed.carry, stride: observed.stride }, ...fields, secondaryPose } } };
+      }
       if (observed.contactSeconds === undefined) {
         const react = pickKeys(observed, ["hitSide", "peakSeconds", "landSeconds", "lies"]);
         return { authored: { recipe: family.recipe, clip: name, fps: family.fps, ...observed }, basedOn: source as string, extra: { fields: { react, secondaryPose } } };
       }
       const strike = pickKeys(observed, ["weapon", "offhand", "strikeJoint", "contactSeconds", "tipAt", "band", "reachMeters", "landSeconds", "from", "to",
-        "windupEnd", "recoveryStart", "footPlants"]);
+        "windupEnd", "recoveryStart", "footPlants", "stride", "groundSpeedMetersPerSecond"]);
       return {
         ...(joints ? { keep: joints as string[] } : {}),
         authored: { recipe: family.recipe, clip: name, fps: family.fps, ...observed }, basedOn: source as string,

@@ -20,6 +20,9 @@ strafe pair built the same way, so a consumer blends walk and jog by angle and b
 - ``Run_Fwd_Loop`` / ``Run_Strafe_*_Loop`` (mmorpg#804): a run stride authored at the game's 6.3 m/s, forward and
   sideways, with a flight phase. The balls follow explicit in-place trajectories, planted at exactly the ground speed;
   the upper body is the ``Sprint_Loop`` drive at a run's lean. Each reports its planted spans as ``footPlants``.
+- ``Heavy_Run_Fwd_Loop`` (#823): the heavy run at the same speed for a heavy weapon or load (``HEAVY``): a shorter
+  stride, a longer contact and a low flight, the hips lower, the chest leant into it and the fists braced. Its legs are
+  the heavy stride block that strike_clips.py carries too, for the heavy running strikes.
 
 Travelling clips report the horizontal travel they would cover (glTF x, z: +x is the figure's left, +z ahead) as
 ``removedTravel``. No Mixamo data is used; Mixamo clips were only watched as motion reference. The output GLB is the
@@ -69,7 +72,7 @@ TRANSITION = {"Walk_Start": .8, "Walk_Stop": .8}
 TURN = {"degrees": 90.0, "duration": .9333, "steps": ((.12, .5), (.45, .85)), "lift": .05, "lead": 14.0}
 CLIPS = ("Jog_Bwd_Loop", "Jog_Strafe_Left_Loop", "Jog_Strafe_Right_Loop", "Walk_Bwd_Loop", "Walk_Strafe_Left_Loop",
          "Walk_Strafe_Right_Loop", "Walk_Start", "Walk_Stop", "Turn_Left", "Turn_Right", "Run_Fwd_Loop",
-         "Run_Strafe_Left_Loop", "Run_Strafe_Right_Loop")
+         "Run_Strafe_Left_Loop", "Run_Strafe_Right_Loop", "Heavy_Run_Fwd_Loop")
 
 
 def validate(p, inputs):
@@ -337,6 +340,230 @@ def orient_foot(rig, name, yaw, pitch):
     bpy.context.view_layer.update()
 
 
+# --- The heavy stride (#823) -----------------------------------------------------------------------------------------
+# Kept identical in gait_clips.py and strike_clips.py (test/heavy-stride.test.ts compares the two blocks): the heavy
+# run's legs, which ``Heavy_Run_Fwd_Loop`` loops and the heavy running strikes stand on, deep plant and all.
+#
+# The heavy run is the #804 run (the balls on explicit in-place tracks, planted at exactly the ground speed) with a
+# heavier body: a shorter stride (1.68 m a step at the game's 6.3 m/s, against the run's 1.89, so a quicker cadence), a
+# longer ground contact and a low, flat flight, the hips `stance` of the leg's length above the ankle at mid-stance (the
+# run's .93), the feet on wider lines (`track`) and a low swing: the heel kicks up less and the knee drives less high.
+# Each footfall is (side, touchdown seconds, reach, push, drop): the ball lands `reach` ahead of the hip line, is
+# planted until it is `push` behind it and the hips sink a further `drop` metres over its mid-stance; a heavy strike's
+# striking footfall reaches further and drops deeper. Distances are for a `legLength` leg and scale with the figure's.
+# The upper body under the arms is the source sprint's spine drive at the stride's phase, leant `lean` degrees further
+# forward than the run's (-22), the head `nod` back up to look ahead.
+HEAVY = {"period": 16 / 30, "speed": 6.3, "reach": .4, "push": .44, "heelFrom": .4, "toeOff": 40.0,
+         "swing": ((.25, -.4, .26, 50.0), (.45, -.15, .3, 36.0), (.65, .22, .26, 18.0), (.85, .36, .14, 6.0)),
+         "legLength": .86, "stance": .88, "bob": .014, "track": .09, "source": "Sprint_Loop", "lean": -12.0, "nod": 12.0}
+
+
+def stride_turn(rig, name, axis, degrees):
+    """Rotate a bone about an armature-space axis through its head; its children follow."""
+    pb = rig.bones[name]
+    head = pb.matrix.translation.copy()
+    pb.matrix = Matrix.Translation(head) @ Matrix.Rotation(math.radians(degrees), 4, axis) @ Matrix.Translation(-head) @ pb.matrix
+    bpy.context.view_layer.update()
+
+
+def stride_hermite(keys, s):
+    """Cubic Hermite through ``keys`` = [(s, value Vector, tangent Vector or None)]; a missing tangent is the
+    neighbours' slope."""
+    for i in range(len(keys) - 1):
+        if keys[i][0] <= s <= keys[i + 1][0]:
+            break
+    tangents = []
+    for j in (i, i + 1):
+        s_j, _, given = keys[j]
+        if given is not None:
+            tangents.append(given)
+        else:
+            before, after = keys[max(j - 1, 0)], keys[min(j + 1, len(keys) - 1)]
+            tangents.append((after[1] - before[1]) / (after[0] - before[0]))
+    (s0, p0, _), (s1, p1, _) = keys[i], keys[i + 1]
+    h = s1 - s0
+    u = (s - s0) / h
+    return (p0 * (2 * u ** 3 - 3 * u ** 2 + 1) + tangents[0] * h * (u ** 3 - 2 * u ** 2 + u)
+            + p1 * (-2 * u ** 3 + 3 * u ** 2) + tangents[1] * h * (u ** 3 - u ** 2))
+
+
+def stride_aim(rig, name, direction):
+    """Point a bone (its local +Y) along ``direction`` in armature space by the minimal turn from its rest."""
+    pb = rig.bones[name]
+    rest = rig.rest[name]
+    rest_y = (rest.to_3x3() @ Vector((0, 1, 0))).normalized()
+    m = (rest_y.rotation_difference(direction.normalized()).to_matrix() @ rest.to_3x3()).to_4x4()
+    m.translation = pb.head.copy()
+    pb.matrix = m
+    bpy.context.view_layer.update()
+
+
+def stride_leg(rig, side, ankle, pitch):
+    """Solve the leg so its ankle lands on ``ankle``, the knee forward, the foot at rest pitched heel-up ``pitch``."""
+    thigh, calf, foot, ball = STRIDE_LEGS[side]
+    hip = rig.bones[thigh].head.copy()
+    l1, l2 = rig.length(thigh, calf), rig.length(calf, foot)
+    reach = ankle - hip
+    d = min(reach.length, (l1 + l2) * .999)
+    u = reach.normalized()
+    a = (l1 * l1 - l2 * l2 + d * d) / (2 * d)
+    h = math.sqrt(max(l1 * l1 - a * a, 0.0))
+    forward = Vector((0, -1, 0))
+    knee = hip + u * a + (forward - u * forward.dot(u)).normalized() * h
+    stride_aim(rig, thigh, knee - hip)
+    stride_aim(rig, calf, (hip + u * d) - knee)
+    pb = rig.bones[foot]
+    m = (Matrix.Rotation(math.radians(pitch), 4, Vector((1, 0, 0))) @ rig.rest[foot].to_3x3().to_4x4())
+    m.translation = pb.head.copy()
+    pb.matrix = m
+    rig.bones[ball].matrix_basis = Matrix.Identity(4)
+    bpy.context.view_layer.update()
+
+
+STRIDE_LEGS = {"l": ("thigh_l", "calf_l", "foot_l", "ball_l"), "r": ("thigh_r", "calf_r", "foot_r", "ball_r")}
+
+
+class Stride:
+    """The heavy run's legs over explicit footfalls (``HEAVY``), measured on the rig at rest."""
+
+    def __init__(self, rig, footfalls):
+        self.rig = rig
+        rest_pose = {name: Matrix.Identity(4) for name in rig.rest}
+        rig.apply(rest_pose)
+        self.rest_hips = rig.bones["pelvis"].head.copy()
+        self.hip_offset = {k: rig.bones[STRIDE_LEGS[k][0]].head - self.rest_hips for k in STRIDE_LEGS}
+        self.to_ball = {k: rig.bones[STRIDE_LEGS[k][3]].head - rig.bones[STRIDE_LEGS[k][2]].head for k in STRIDE_LEGS}
+        ground = {k: rig.bones[STRIDE_LEGS[k][3]].head.z for k in STRIDE_LEGS}
+        self.leg = {k: rig.length(STRIDE_LEGS[k][0], STRIDE_LEGS[k][1]) + rig.length(STRIDE_LEGS[k][1], STRIDE_LEGS[k][2])
+                    for k in STRIDE_LEGS}
+        self.scale = (self.leg["l"] + self.leg["r"]) / 2 / HEAVY["legLength"]
+        self.speed = HEAVY["speed"]
+        self.lowest = min(rig.bones[STRIDE_LEGS[k][2]].head.z + HEAVY["stance"] * self.leg[k] - self.hip_offset[k].z for k in STRIDE_LEGS)
+        track = HEAVY["track"] * self.scale
+        self.line = {k: Vector((self.rest_hips.x + math.copysign(track, self.hip_offset[k].x), self.rest_hips.y, ground[k]))
+                     for k in STRIDE_LEGS}
+        # Each foot's stances in time order: (touchdown, toe-off, reach, push, drop), distances scaled.
+        self.stances = {k: [] for k in STRIDE_LEGS}
+        for side, touch, reach, push, drop in footfalls:
+            reach, push = reach * self.scale, push * self.scale
+            self.stances[side].append((touch, touch + (reach + push) / self.speed, reach, push, drop * self.scale))
+        for k in STRIDE_LEGS:
+            self.stances[k].sort()
+
+    def base(self, source, t):
+        """``source``'s pose at the stride's phase at ``t`` seconds (the root still), leant to the heavy run's lean;
+        the arms keep their swing about the hips rather than rising with the chest."""
+        rig = self.rig
+        data = rig.rig.animation_data
+        data.action = source
+        if hasattr(data, "action_slot") and source.slots:
+            data.action_slot = source.slots[0]
+        start, end = source.frame_range
+        frame = start + (t / HEAVY["period"]) % 1.0 * (end - start)
+        bpy.context.scene.frame_set(int(math.floor(frame)), subframe=frame - math.floor(frame))
+        bpy.context.view_layer.update()
+        pose = {pb.name: (Matrix.Identity(4) if pb.name == "root" else pb.matrix_basis.copy()) for pb in rig.bones}
+        data.action = None
+        rig.apply(pose)
+        stride_turn(rig, "spine_01", Vector((1, 0, 0)), HEAVY["lean"])
+        stride_turn(rig, "neck_01", Vector((1, 0, 0)), HEAVY["nod"])
+        for arm in ("upperarm_l", "upperarm_r"):
+            stride_turn(rig, arm, Vector((1, 0, 0)), -HEAVY["lean"])
+
+    def ball(self, k, ahead):
+        return self.line[k] + Vector((0, -ahead, 0))
+
+    def ankle(self, k, ball, pitch):
+        return ball - Matrix.Rotation(math.radians(pitch), 3, Vector((1, 0, 0))) @ self.to_ball[k]
+
+    def foot(self, k, t):
+        """The ankle target and heel pitch of foot ``k`` at ``t`` seconds, and whether its ball is planted."""
+        stances = self.stances[k]
+        for touch, off, reach, push, _ in stances:
+            if touch <= t <= off:
+                u = (t - touch) / (off - touch)
+                pitch = HEAVY["toeOff"] * smooth((u - HEAVY["heelFrom"]) / (1 - HEAVY["heelFrom"]))
+                return self.ankle(k, self.ball(k, reach - self.speed * (t - touch)), pitch), pitch, True
+        before = max((s for s in stances if s[1] < t), key=lambda s: s[1])
+        after = min((s for s in stances if s[0] > t), key=lambda s: s[0])
+        swing = after[0] - before[1]
+        off = self.ankle(k, self.ball(k, -before[3]), HEAVY["toeOff"])
+        land = self.ankle(k, self.ball(k, after[2]), 0.0)
+        o = Vector((-(off - self.line[k]).y, off.z, HEAVY["toeOff"]))
+        l = Vector((-(land - self.line[k]).y, land.z, 0.0))
+        keys = [(0.0, o, Vector((-.5 * self.speed * swing, 1.2 * self.scale, 0)))]
+        keys += [(f, Vector((a * self.scale, z * self.scale, pitch)), None) for f, a, z, pitch in HEAVY["swing"]]
+        keys.append((1.0, l, Vector((-.3 * self.speed * swing, -.6 * self.scale, 0))))
+        a, z, pitch = stride_hermite(keys, (t - before[1]) / swing)
+        return self.line[k] + Vector((0, -a, z - self.line[k].z)), pitch, False
+
+    def height(self, t, sink=0.0):
+        """The pelvis height at ``t``: lowest at each mid-stance, ``bob`` higher in the flight, a footfall's ``drop``
+        sunk over its stance, ``sink`` lower still, never higher than the legs reach."""
+        mids = sorted(((touch + off) / 2, off - touch, drop) for k in STRIDE_LEGS for touch, off, _, _, drop in self.stances[k])
+        mid, length, _ = min(mids, key=lambda m: abs(m[0] - t))
+        step = HEAVY["period"] / 2
+        h = self.lowest + HEAVY["bob"] * self.scale * (1 - math.cos(2 * math.pi * (t - mid) / step)) - sink
+        for m, length, drop in mids:
+            if drop:
+                w = max(0.0, 1 - abs(t - m) / (length / 2 + step * .75))
+                h -= drop * smooth(w)
+        return h
+
+    def place(self, t, yaw=0.0, sink=0.0):
+        """Put the pelvis (turned ``yaw`` degrees to the figure's left) and both legs on the stride at ``t`` seconds;
+        returns {side: planted}."""
+        rig = self.rig
+        targets = {k: self.foot(k, t) for k in STRIDE_LEGS}
+        turn = Matrix.Rotation(math.radians(yaw), 3, UP)
+        height = self.height(t, sink)
+        for k in STRIDE_LEGS:
+            ankle = targets[k][0]
+            hip = turn @ self.hip_offset[k]
+            flat = (Vector((self.rest_hips.x + hip.x, self.rest_hips.y + hip.y, 0)) - Vector((ankle.x, ankle.y, 0))).length
+            height = min(height, ankle.z - hip.z + math.sqrt(max((self.leg[k] * .985) ** 2 - flat ** 2, 0.0)))
+        pelvis = rig.bones["pelvis"]
+        m = pelvis.matrix.copy()
+        m.translation = Vector((self.rest_hips.x, self.rest_hips.y, height))
+        pelvis.matrix = m
+        bpy.context.view_layer.update()
+        if yaw:
+            m = pelvis.matrix.copy()
+            pelvis.matrix = Matrix.Translation(m.translation) @ Matrix.Rotation(math.radians(yaw), 4, UP) @ Matrix.Translation(-m.translation) @ m
+            bpy.context.view_layer.update()
+        for k in STRIDE_LEGS:
+            ankle, pitch, _ = targets[k]
+            stride_leg(rig, k, ankle, pitch)
+        return {k: targets[k][2] for k in STRIDE_LEGS}
+
+    def plants(self, start, end):
+        """The planted spans of each foot within [start, end], in seconds on 30 fps frames."""
+        out = {}
+        for k in STRIDE_LEGS:
+            spans = []
+            for touch, off, *_ in self.stances[k]:
+                a, b = max(touch, start), min(off, end)
+                if a <= b:
+                    spans.append([round(math.ceil(round((a - start) * 30, 6)) / 30, 4), round(math.floor(round((b - start) * 30, 6)) / 30, 4)])
+            out[k] = spans
+        return out
+
+
+def heavy_footfalls(cycles, strike=None):
+    """The heavy run's footfalls over ``cycles`` periods, the left foot touching down at 0, with a cycle either side so
+    every swing has a stance before and after it. ``strike`` = (index, reach, push, drop) overrides one footfall (the
+    first of the clip is 0)."""
+    period = HEAVY["period"]
+    out = []
+    for i in range(-2, 2 * cycles + 2):
+        footfall = ["l" if i % 2 == 0 else "r", i * period / 2, HEAVY["reach"], HEAVY["push"], 0.0]
+        if strike and strike[0] == i:
+            footfall[2:] = strike[1:]
+        out.append(tuple(footfall))
+    return out
+# --- end of the heavy stride ------------------------------------------------------------------------------------------
+
+
 def run(rig, clip):
     """``Run_Fwd_Loop`` and ``Run_Strafe_*_Loop``: the run stride at ``RUN["speed"]``, forward or sideways (#804)."""
     source, start, duration, import_fps = loop_source(RUN["source"])
@@ -444,6 +671,66 @@ def run(rig, clip):
                    "removedTravel": [round(travel.x, 4) + 0.0, round(-travel.y, 4) + 0.0]}
 
 
+# #823: the heavy run's braced arms. The fists ride the hips `ahead` of and `up` from the pelvis, `out` to each side,
+# elbows bent and in, swinging only `swing` metres fore and aft against the legs; the elbows point out and back
+# (`pole`).
+BRACE = {"out": .17, "ahead": .27, "up": .2, "swing": .045, "pole": (.7, .5, -.4)}
+
+
+def brace_arm(rig, side, hand):
+    """Two-bone arm solve putting the wrist on ``hand``, the elbow toward the brace's pole."""
+    upper, lower, wrist = f"upperarm_{side}", f"lowerarm_{side}", f"hand_{side}"
+    root = rig.head(upper)
+    l1, l2 = rig.length(upper, lower), rig.length(lower, wrist)
+    reach = hand - root
+    d = max(min(reach.length, (l1 + l2) * .999), abs(l1 - l2) + 1e-3)
+    u = reach.normalized()
+    x = (l1 * l1 - l2 * l2 + d * d) / (2 * d)
+    h = math.sqrt(max(l1 * l1 - x * x, 0.0))
+    sign = 1 if side == "l" else -1
+    pole = Vector((sign * BRACE["pole"][0], BRACE["pole"][1], BRACE["pole"][2]))
+    out = (pole - u * pole.dot(u)).normalized()
+    elbow = root + u * x + out * h
+    hand_matrix = rig.bones[wrist].matrix.to_3x3()
+    for bone, direction in ((upper, elbow - root), (lower, (root + u * d) - elbow)):
+        pb = rig.bones[bone]
+        current = (pb.matrix.to_3x3() @ Vector((0, 1, 0))).normalized()
+        m = (current.rotation_difference(direction.normalized()).to_matrix() @ pb.matrix.to_3x3()).to_4x4()
+        m.translation = pb.head.copy()
+        pb.matrix = m
+        bpy.context.view_layer.update()
+    # The fist keeps the sprint's turn, pitched down a little toward the belly.
+    pb = rig.bones[wrist]
+    m = (Matrix.Rotation(math.radians(-20), 3, Vector((1, 0, 0))) @ hand_matrix).to_4x4()
+    m.translation = pb.head.copy()
+    pb.matrix = m
+    bpy.context.view_layer.update()
+
+
+def heavy_run(rig, clip):
+    """``Heavy_Run_Fwd_Loop`` (#823): the heavy run at the game's 6.3 m/s on the heavy stride, the chest leant into it
+    and the arms braced, for a heavy weapon or load."""
+    stride = Stride(rig, heavy_footfalls(1))
+    source = action(HEAVY["source"])
+    period = HEAVY["period"]
+    frames = int(round(period * FPS))
+    poses = []
+    for frame in range(frames + 1):
+        t = (frame % frames) / FPS
+        stride.base(source, t)
+        stride.place(t)
+        hips = rig.head("pelvis")
+        swing = BRACE["swing"] * math.cos(2 * math.pi * t / period)
+        for side, sign in (("l", 1), ("r", -1)):
+            # The right fist is ahead while the left foot is (phase 0), the left half a stride later.
+            ahead = BRACE["ahead"] + (swing if side == "r" else -swing)
+            brace_arm(rig, side, hips + Vector((sign * BRACE["out"], -ahead, BRACE["up"])))
+        poses.append(rig.capture())
+    travel = stride.speed * period
+    return poses, {"source": HEAVY["source"], "gait": "heavy-run", "periodSeconds": round(period, 4), "groundSpeedMetersPerSecond": stride.speed,
+                   "footPlants": stride.plants(0.0, period - .5 / FPS), "removedTravel": [0.0, round(travel, 4)]}
+
+
 def walk_speed(rig, source, start, duration, import_fps):
     """The walk's ground speed: how fast the planted left foot moves back between phases 0.1 and 0.35."""
     rig.apply(sample(rig, source, start + .1 * duration * import_fps))
@@ -514,6 +801,8 @@ def author(rig, clip):
     """The clip's poses (one per frame at FPS; loops repeat the first pose last) and its observations."""
     if rig.rig.animation_data is None:
         rig.rig.animation_data_create()
+    if clip == "Heavy_Run_Fwd_Loop":
+        return heavy_run(rig, clip)
     if clip.startswith("Run_"):
         return run(rig, clip)
     if clip.endswith("_Bwd_Loop"):
