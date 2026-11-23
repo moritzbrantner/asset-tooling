@@ -96,7 +96,11 @@ test("the redbrand recipe builds two complete KTX2 figures on the Ranger rig and
       assert.ok(document.getRoot().listMaterials().some((material) => material.getName() === "faction"));
     }
     assert.deepEqual(plates!.getRoot().listNodes().filter((node) => node.getMesh()).map((node) => node.getName()).sort(), ["redbrand.belt", "redbrand.bracer_l", "redbrand.bracer_r"]);
-    assert.ok(plates!.getRoot().listMaterials().every((material) => material.getOcclusionTexture()?.getMimeType() === "image/ktx2"));
+    // #820: the plates' AO is baked into vertex colours on the shared materials, not a texture per piece.
+    assert.ok(plates!.getRoot().listMaterials().every((material) => !material.getOcclusionTexture()));
+    for (const node of plates!.getRoot().listNodes().filter((node) => node.getMesh())) {
+      assert.ok(node.getMesh()!.listPrimitives().every((p) => p.getAttribute("COLOR_0")), `${node.getName()} carries baked AO in COLOR_0`);
+    }
 
     const rebuilt = await buildRedbrandKit({ outDir: again });
     assert.equal(rebuilt.tarSha256, built.tarSha256, "two builds give the same tar");
