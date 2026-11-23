@@ -869,7 +869,9 @@ STRIKES = {
         (1, BOW_GUARD),
     ]},
     # On the run from the bow guard and back to it: the bow drawn across before the right shoulder on the stride, then
-    # whipped out across at the head as the right foot lands, the right fist pulled back to the chin.
+    # whipped out across at the head as the right foot lands, the right fist pulled back to the chin. #821: on the way
+    # back the left thigh swings forward under the bow, so the recovery key holds it a little further ahead with the
+    # lower limb tipped forward, clear of the thigh and a robe's skirt, before it settles into the guard.
     "Bow_Run_Strike": {"weapon": "bow", "kind": "run", "guard": "Bow_Guard_Loop", "windup": .42, "contact": .55, "recovery": .66, "keys": [
         (0, BOW_GUARD),
         (.2, {"g": (.06, -.56, 1.3), "b": (-.2, .05, .98), "yaw": -14, "pitch": 6, "r": {"g": (-.22, -.22, 1.28)}}),
@@ -877,7 +879,7 @@ STRIKES = {
         (.49, {"g": (.08, -.62, 1.36), "b": (0, .02, 1), "yaw": -6, "pitch": 8}),
         (.55, {"g": (.24, -.58, 1.4), "b": (.45, .05, .89), "yaw": 16, "pitch": 10, "r": {"g": (-.14, -.3, 1.4)}}),
         (.66, {"g": (.36, -.5, 1.38), "b": (.63, .12, .77), "yaw": 24, "pitch": 10}),
-        (.84, {"g": (.22, -.48, 1.3), "b": (.15, .12, .98), "yaw": 6, "pitch": 7, "r": BOW_GUARD["r"]}),
+        (.84, {"g": (.22, -.54, 1.32), "b": (.15, .3, .94), "yaw": 6, "pitch": 7, "r": BOW_GUARD["r"]}),
         (.94, BOW_GUARD),
         (1, BOW_GUARD),
     ]},
