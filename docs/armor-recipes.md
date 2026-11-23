@@ -160,7 +160,7 @@ The right side is shown. In the probe's `Sword_Slash_High_R` frame the bare righ
 
   The skirt, sash and tabard are fitted surfaces. Each vertex blends the weights of the nearest base vertices, and the tabard ignores arm and shoulder joints so that it rides the torso over the rigid breastplate. The build composes the cloth into the outfit variant with `scene.compose.skinned.gltf@1`.
 
-The receipt observations list every piece with its kind (`rigid` or `skinned`), joint, triangle count, bounds, materials and the base mesh nodes it hides.
+The receipt observations list every piece with its kind (`rigid` or `skinned`), joint, equipment slot ([Equipment slots and tints](#equipment-slots-and-tints-820)), triangle count, bounds, materials and the base mesh nodes it hides.
 
 ## Hidden body regions
 
@@ -183,7 +183,7 @@ The Ranger bundle ([humanoid-ranger.md](humanoid-ranger.md#contents)) builds the
 4. It ships the variants as `humanoid.ranger.male/outfit.<kit>`.
 5. It ships the plates as the entries `armor.<kit>`. The outfit variants and their plates carry the age and build morph targets ([Male variety](humanoid-ranger.md#male-variety-380)).
 
-The `humanoid-appearance` attachment gains `outfits`. Each outfit lists its character variant, its armour entry with every node and its socket, its garments, the hidden base nodes and (soldier and knight) the faction slot.
+The `humanoid-appearance` attachment gains `outfits`. Each outfit lists its character variant, its armour entry with every node, its socket and its slot, its garments with their slots, the hidden base nodes and (soldier and knight) the faction slot.
 
 ## Finishing
 
@@ -192,9 +192,39 @@ Under Atlas Decision 5.1.6, every rigid plate goes through Blender finishing bef
 - a 4 mm, three-segment **bevel** on edges sharper than 40°, so rims catch light instead of reading as knife edges;
 - **weighted normals** that keep sharp edges, so large faces shade flat and clean.
 
-- **ambient occlusion** (owner answer on #120, option A): a Smart-UV unwrap and pack (2 % island margin), then a 512 px AO bake in Cycles (64 samples, 8 cm distance, fixed seed). The other plates and the body under the plate occlude it. The map is bound as the glTF `occlusionTexture`, through the exporter's `glTF Material Output` group, on a per-piece copy of each of its materials, for example `steel.knight.pauldron_l`. Each copy replaces its slot in place, so a piece with several materials keeps them on their faces (#775: until then every face fell to the first slot, and the Rogue's two-tone wraps shipped in one tone).
+- **ambient occlusion** (owner answer on #120, option A; vertex colours since #820): an AO bake in Cycles (64 samples, 8 cm distance, fixed seed) into the piece's vertex colours, which ship as glTF `COLOR_0`. The other plates and the body under the plate occlude it. `COLOR_0` multiplies the base colour, so unlike an occlusion texture it also darkens direct light; the bake keeps 60 % of its depth (`PLATE_AO["strength"]`), which matches the shade of the earlier occlusion map in the game's sun and sky light. Until #820 the bake was a 512 px `occlusionTexture` on a per-piece copy of each material (`steel.knight.pauldron_l`), which gave the male Ranger 135 materials and five AO textures per kit. Now every piece keeps the shared slot materials, the plates carry no UVs or textures, and a piece with several materials keeps them on their faces (#775).
 
-The modifiers are applied, and the observations report the finished triangle count. Blender's own renderer ignores glTF occlusion, so the AO shows in glTF viewers and in three.js (`aoMap`), not in the Blender sheets. Armour sheets light the scene with a procedural sky (`--armor`). Steel reflects its environment and reads as metal only against one with contrast; a flat grey world made it look white.
+The modifiers are applied, and the observations report the finished triangle count. Blender's renderer reads the `ao` colour attribute only through a Color Attribute node, so the Blender sheets show the plates without it; glTF viewers and three.js (`vertexColors`) show it. Armour sheets light the scene with a procedural sky (`--armor`). Steel reflects its environment and reads as metal only against one with contrast; a flat grey world made it look white.
+
+## Equipment slots and tints (#820)
+
+The owner decided on 2026-11-22 that equipment follows loot: the game will have many clothes and pieces in many colours, so the pieces are not baked into one kit per figure. Each piece stays modular, and its colour is data.
+
+**Slots.** Every piece in the receipt observations, and every `armor.pieces[]` and `garments[]` entry of an outfit in the `humanoid-appearance` attachment, names its `slot` (`EQUIPMENT_SLOTS` in `armor.py`). A loot item maps to the pieces of its slot, and any combination can be worn:
+
+| Slot | Rigid plates (by the joint they ride) | Garments (by name) |
+| --- | --- | --- |
+| `helm` | `head`: bascinet, kettle hat, mask, goggles, antler circlet | hoods |
+| `chest` | `spine_03`: breastplate, collars, the Cleric's sun, the Tinker's flasks | robes, jerkins, the gambeson, smock, habit, shirt, coat |
+| `overgarment` | | tabards, sashes, cloaks, capes, mantles, aprons, the bandolier, the scarf |
+| `shoulders` | `clavicle_*`, `upperarm_*`: spaulders, pauldrons, bone spikes | |
+| `arms` | `lowerarm_*`: couters, cuffs, bracers, wraps | sleeves |
+| `gloves` | `hand_*`: gauntlets | gloves |
+| `belt` | `pelvis`: belts, the skull clasp | |
+| `legs` | `thigh_*`, `calf_*`: cuisses, greaves, the Tinker's tool loops | trousers, skirts |
+| `boots` | `foot_*`: sabatons | |
+
+A new piece whose joint or name matches no rule fails the build, so it names its slot. Node names, entries and sockets are unchanged: a piece is still `<kit>.<piece>` in the `armor.<kit>` entry, riding `<joint>.armor`.
+
+**Shared materials.** Pieces use only the recipe's shared, factor-only slot materials (`MATERIALS` in `armor.py`): metals `steel`, `iron` and `gold`; `leather`, `leather.tan`, `rope`, cloths such as `gambeson`, `linen` and `wool.*`; `bone`, `antler`, `glass.*`, `mask`; and the two recolourable slots `class` and `faction`. No material is named after a piece, and no piece has a texture of its own. The baked occlusion rides in each piece's `COLOR_0`, so it survives any tint.
+
+**Tinting a piece.** A loot item carries a linear RGB tint per material it recolours (later perhaps trim or a pattern). To show it, a consumer:
+
+1. finds the item's pieces by `slot` (or by node) in the outfit's `armor.pieces` and `garments`;
+2. gives those pieces' meshes their own copy of each named material (for example `steel`, or `faction`), so other characters keep theirs;
+3. sets the copy's base-colour factor to the tint, in linear space, and leaves metallic and roughness as they are. Vertex colours (`COLOR_0`) still multiply it, so the crevices stay shaded.
+
+The `faction` and `classTrim` records of an outfit are this, with the tint given by the preset or the class colour. Pieces that share a material and differ only in tint can still be merged into one draw per character, with the tint moved into the vertex colours; mmorpg's `merged-unit.ts` already does this for base colours. Batching or merging the worn pieces is the consumer's job; the bundle ships no pre-merged outfit.
 
 ## Review
 
