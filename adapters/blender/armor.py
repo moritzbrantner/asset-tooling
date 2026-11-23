@@ -1934,45 +1934,29 @@ def finish_mesh(builder, name, materials):
 # Blender finishing for rigid plates (Atlas Decision 5.1.6): a narrow bevel rounds every hard edge so plate rims catch
 # light instead of reading as knife edges, and weighted normals keep the large faces flat-shaded and clean.
 PLATE_BEVEL = {"width": .004, "segments": 3, "angle": math.radians(40)}
-# Owner answer on #120 (option A): Smart-UV unwrap and pack, then a baked ambient-occlusion map per piece, bound as the
-# glTF occlusion texture so crevices and overlaps read at the game camera.
-PLATE_AO = {"size": 512, "samples": 64, "distance": .08, "island_margin": .02, "bake_margin": 4}
-
-
-def gltf_output_group():
-    """The node group the glTF exporter reads extra outputs from (its `Occlusion` input becomes occlusionTexture)."""
-    group = bpy.data.node_groups.get("glTF Material Output")
-    if group is None:
-        group = bpy.data.node_groups.new("glTF Material Output", "ShaderNodeTree")
-        group.interface.new_socket("Occlusion", in_out="INPUT", socket_type="NodeSocketFloat")
-    return group
+# Owner answer on #120 (option A): a baked ambient occlusion per piece, so crevices and overlaps read at the game
+# camera. #820 (owner, 2026-11-22: equipment follows loot, colour is data): the bake goes into the piece's vertex
+# colours (glTF COLOR_0, which multiplies the base colour) instead of a texture per piece, so every piece keeps the
+# shared recolourable slot materials (`steel`, `iron`, `leather`, `class`, `faction`, ...) and any combination of
+# pieces shares them. COLOR_0 also darkens direct light, which an occlusion texture does not, so `strength` keeps the
+# bake to part of its depth: about the shade the occlusion map gave in the game's sun and sky light.
+PLATE_AO = {"samples": 64, "distance": .08, "strength": .6}
 
 
 def bake_ambient_occlusion(obj, bases):
-    """Unwrap ``obj``, bake its AO into a PNG and give it its own copy of each of ``bases`` (its material slots, in
-    order) with that occlusion map."""
+    """Bake ``obj``'s ambient occlusion into its vertex colours (point domain, linear grey, `PLATE_AO["strength"]` of
+    the baked depth) and keep ``bases``, its shared slot materials, in its material slots."""
+    for index, base in enumerate(bases):
+        obj.data.materials[index] = base
+    mesh = obj.data
+    for attribute in list(mesh.color_attributes):
+        mesh.color_attributes.remove(attribute)
+    colours = mesh.color_attributes.new("ao", "FLOAT_COLOR", "POINT")
+    mesh.color_attributes.active_color = colours
+    mesh.color_attributes.render_color_index = mesh.color_attributes.active_color_index
     bpy.ops.object.select_all(action="DESELECT")
     obj.select_set(True)
     bpy.context.view_layer.objects.active = obj
-    bpy.ops.object.mode_set(mode="EDIT")
-    bpy.ops.mesh.select_all(action="SELECT")
-    bpy.ops.uv.smart_project(island_margin=PLATE_AO["island_margin"])
-    bpy.ops.uv.pack_islands(margin=PLATE_AO["island_margin"])
-    bpy.ops.object.mode_set(mode="OBJECT")
-    image = bpy.data.images.new(f"{obj.name}-ao", PLATE_AO["size"], PLATE_AO["size"], alpha=False)
-    image.colorspace_settings.name = "Non-Color"
-    materials = []
-    for base in bases:
-        material = base.copy()
-        material.name = f"{base.name}.{obj.name}"
-        nodes = material.node_tree.nodes
-        texture = nodes.new("ShaderNodeTexImage")
-        texture.image = image
-        nodes.active = texture
-        materials.append((material, texture))
-    # Swap each slot in place: clearing the slots would put every face on the first one (#775: the two-tone pieces).
-    for index, (material, _texture) in enumerate(materials):
-        obj.data.materials[index] = material
     scene = bpy.context.scene
     scene.render.engine = "CYCLES"
     scene.cycles.device = "CPU"
@@ -1980,20 +1964,17 @@ def bake_ambient_occlusion(obj, bases):
     scene.cycles.seed = 0
     scene.world = scene.world or bpy.data.worlds.new("bake")
     scene.world.light_settings.distance = PLATE_AO["distance"]
-    scene.render.bake.margin = PLATE_AO["bake_margin"]
-    bpy.ops.object.bake(type="AO", margin=PLATE_AO["bake_margin"], use_clear=True)
-    image.filepath_raw = f"//{obj.name}-ao.png"
-    image.file_format = "PNG"
-    image.pack()
-    # Bind it: the red channel of the baked image feeds the glTF output group's Occlusion socket.
-    for material, texture in materials:
-        nodes = material.node_tree.nodes
-        separate = nodes.new("ShaderNodeSeparateColor")
-        material.node_tree.links.new(texture.outputs["Color"], separate.inputs["Color"])
-        output = nodes.new("ShaderNodeGroup")
-        output.node_tree = gltf_output_group()
-        material.node_tree.links.new(separate.outputs["Red"], output.inputs["Occlusion"])
-    return [material for material, _texture in materials]
+    scene.render.bake.target = "VERTEX_COLORS"
+    bpy.ops.object.bake(type="AO", use_clear=True)
+    strength = PLATE_AO["strength"]
+    values = [0.0] * (4 * len(colours.data))
+    colours.data.foreach_get("color", values)
+    for i in range(0, len(values), 4):
+        # Rounded, so the bytes do not depend on the last bits of the bake's float sums.
+        shade = round(1 - strength * (1 - min(1.0, max(0.0, values[i]))), 4)
+        values[i:i + 4] = (shade, shade, shade, 1.0)
+    colours.data.foreach_set("color", values)
+    return list(bases)
 
 
 def finish_plate(obj, bases):
@@ -2025,6 +2006,31 @@ def geometry_hash(meshes):
         for f in mesh.polygons:
             digest.update((",".join(str(i) for i in f.vertices) + ":" + str(f.material_index) + "\n").encode("ascii"))
     return digest.hexdigest()
+
+
+# #820 (owner, 2026-11-22: equipment follows loot): the equipment slot each piece belongs to, so a loot item maps to its
+# pieces and any combination can be worn. A rigid plate's slot follows the joint it rides; a garment's its name.
+EQUIPMENT_SLOTS = ("helm", "chest", "overgarment", "shoulders", "arms", "gloves", "belt", "legs", "boots")
+JOINT_SLOTS = {"head": "helm", "spine_03": "chest", "clavicle": "shoulders", "upperarm": "shoulders", "lowerarm": "arms",
+               "hand": "gloves", "pelvis": "belt", "thigh": "legs", "calf": "legs", "foot": "boots"}
+GARMENT_SLOTS = (("hood", "helm"), ("tabard", "overgarment"), ("sash", "overgarment"), ("cloak", "overgarment"),
+                 ("cape", "overgarment"), ("mantle", "overgarment"), ("apron", "overgarment"), ("bandolier", "overgarment"),
+                 ("scarf", "overgarment"), ("sleeves", "arms"), ("gloves", "gloves"), ("trousers", "legs"), ("skirt", "legs"),
+                 ("belt", "belt"), ("robe", "chest"), ("jerkin", "chest"), ("gambeson", "chest"), ("smock", "chest"),
+                 ("habit", "chest"), ("shirt", "chest"), ("coat", "chest"))
+
+
+def equipment_slot(name, joint=None):
+    """The `EQUIPMENT_SLOTS` slot of piece ``name``: a rigid plate's from the ``joint`` it rides, a garment's from its
+    name. Fails for a piece no rule covers, so a new piece names its slot."""
+    if joint is not None:
+        slot = JOINT_SLOTS.get(joint.lower().removesuffix("_l").removesuffix("_r"))
+    else:
+        part = name.rsplit(".", 1)[-1]
+        slot = next((slot for word, slot in GARMENT_SLOTS if word in part), None)
+    if slot is None:
+        raise ValueError(f"{name} belongs to no equipment slot (joint {joint})")
+    return slot
 
 
 def hidden(name):
@@ -2087,7 +2093,8 @@ def generate(output_path, arguments, inputs):
             bpy.context.scene.collection.objects.link(obj)
             triangles = finish_plate(obj, [palette[s] for s in slots])
             exported.append(obj)
-            pieces.append({"node": name, "kind": "rigid", "joint": joint, "materials": [m.name for m in obj.data.materials], "triangleCount": triangles,
+            pieces.append({"node": name, "kind": "rigid", "joint": joint, "slot": equipment_slot(name, joint),
+                           "materials": [m.name for m in obj.data.materials], "triangleCount": triangles,
                            "bounds": bounds(points), "hides": hidden(name)})
     else:
         shirt = next(o for o in bpy.context.scene.objects if o.type == "MESH" and o.name == SHIRT)
@@ -2096,7 +2103,7 @@ def generate(output_path, arguments, inputs):
                 # #379: a garment cut from a base mesh, keeping the base's own skin weights.
                 obj = surface.finish(name, [palette[s] for s in surface.slots], rig_object)
                 exported.append(obj)
-                pieces.append({"node": name, "kind": "skinned", "nodes": [obj.name], "materials": list(surface.slots),
+                pieces.append({"node": name, "kind": "skinned", "slot": equipment_slot(name), "nodes": [obj.name], "materials": list(surface.slots),
                                "triangleCount": surface.triangles, "bounds": bounds(surface.points), "hides": hidden(name)})
                 continue
             spec = extra[0] if extra else {}
@@ -2159,7 +2166,7 @@ def generate(output_path, arguments, inputs):
                 triangles += sum(len(p.vertices) - 2 for p in shirt_mesh.polygons)
                 points += [tuple(to_gltf(copy.matrix_world @ v.co)) for v in shirt_mesh.vertices]
             exported += parts
-            pieces.append({"node": name, "kind": "skinned", "nodes": sorted(p.name for p in parts), "materials": slots,
+            pieces.append({"node": name, "kind": "skinned", "slot": equipment_slot(name), "nodes": sorted(p.name for p in parts), "materials": slots,
                            "triangleCount": triangles, "bounds": bounds(points), "hides": hidden(name)})
         exported.append(rig_object)
     for obj in list(bpy.context.scene.objects):
@@ -2171,7 +2178,8 @@ def generate(output_path, arguments, inputs):
     bpy.context.view_layer.objects.active = exported[0]
     bpy.ops.export_scene.gltf(
         filepath=output_path, export_format="GLB", use_selection=True,
-        export_yup=True, export_texcoords=output == "plates", export_normals=True, export_tangents=False,
+        export_yup=True, export_texcoords=False, export_normals=True, export_tangents=False,
+        export_vertex_color="ACTIVE" if output == "plates" else "MATERIAL",
         export_animations=False, export_skins=output == "cloth", export_morph=False,
         export_cameras=False, export_lights=False, export_extras=False)
     meshes = [obj.data for obj in exported if obj.type == "MESH"]

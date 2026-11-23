@@ -116,7 +116,8 @@ def generate(output_path, arguments, inputs):
             obj.modifiers.clear()
             obj.vertex_groups.clear()
             armor["bake_ambient_occlusion"](obj, bases)
-            pieces.append({"node": obj.name, "kind": "rigid", "joint": meta["joint"], "materials": [m.name for m in obj.data.materials],
+            pieces.append({"node": obj.name, "kind": "rigid", "joint": meta["joint"], "slot": armor["equipment_slot"](obj.name, meta["joint"]),
+                           "materials": [m.name for m in obj.data.materials],
                            "triangleCount": triangle_count(obj.data), "bounds": bounds(obj), "hides": list(meta.get("hides", []))})
         else:
             missing = sorted({group.name for group in obj.vertex_groups} - bones)
@@ -127,7 +128,7 @@ def generate(output_path, arguments, inputs):
             obj.matrix_parent_inverse = rig_object.matrix_world.inverted()
             modifier = obj.modifiers.new("Armature", "ARMATURE")
             modifier.object = rig_object
-            piece = grouped.setdefault(meta["piece"], {"node": meta["piece"], "kind": "skinned", "nodes": [], "materials": [],
+            piece = grouped.setdefault(meta["piece"], {"node": meta["piece"], "kind": "skinned", "slot": armor["equipment_slot"](meta["piece"]), "nodes": [], "materials": [],
                                                        "triangleCount": 0, "points": [], "hides": list(meta.get("hides", []))})
             piece["nodes"].append(obj.name)
             piece["materials"] += [name for name in meta["materials"] if name not in piece["materials"]]
@@ -150,7 +151,8 @@ def generate(output_path, arguments, inputs):
     bpy.context.view_layer.objects.active = exported[0]
     bpy.ops.export_scene.gltf(
         filepath=output_path, export_format="GLB", use_selection=True,
-        export_yup=True, export_texcoords=output == "plates", export_normals=True, export_tangents=False,
+        export_yup=True, export_texcoords=False, export_normals=True, export_tangents=False,
+        export_vertex_color="ACTIVE" if output == "plates" else "MATERIAL",
         export_animations=False, export_skins=output == "cloth", export_morph=False,
         export_cameras=False, export_lights=False, export_extras=False)
     meshes = [obj.data for obj in exported if obj.type == "MESH"]

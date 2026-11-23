@@ -1194,13 +1194,14 @@ export async function buildRangerCharacter({ processorCheckout, outDir, figure =
           kitVariety.transfers[`armor.${kit}`] = keyed.transfer;
           keyedPlates = keyed.glb;
         }
-        const garments = (cloth.observations.pieces as Json[]).map((piece) => ({ id: piece.node, nodes: piece.nodes, hides: piece.hides }));
+        const garments = (cloth.observations.pieces as Json[]).map((piece) => ({ id: piece.node, slot: piece.slot, nodes: piece.nodes, hides: piece.hides }));
         const hood = garments.find((garment) => ARMOR_CLASS_HOODS.includes(garment.id));
         const outfit: Json = {
           id: variant, variant, label: ARMOR_KIT_LABELS[kit],
           skins: variants.map(({ variant: skinVariant, skin }) => ({ id: skin, variant: skinVariant })),
           base: { outfit: male ? "Male_Peasant" : "Female_Peasant", hidden },
-          armor: { entry: `armor.${kit}`, pieces: (plates.observations.pieces as Json[]).map((piece) => ({ node: piece.node, socket: `${String(piece.joint).toLowerCase()}.armor`, hides: piece.hides })) },
+          // #820: each piece names its equipment slot (adapters/blender/armor.py EQUIPMENT_SLOTS), so a loot item maps to its pieces.
+          armor: { entry: `armor.${kit}`, pieces: (plates.observations.pieces as Json[]).map((piece) => ({ node: piece.node, socket: `${String(piece.joint).toLowerCase()}.armor`, slot: piece.slot, hides: piece.hides })) },
           garments,
           // #630: the armored exterior remains continuous without adding every full-strength body field at corners.
           ...(bodyMorphScale !== 1 ? { physiqueFit: { mode: "bounded-exterior", bodyMorphScale, headMorphScale: 1 } } : {}),
