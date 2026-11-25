@@ -44,6 +44,8 @@ export type RollingRelease = {
   ktx?: boolean;
   /** The publish job's timeout, when the build needs more than DEFAULT_TIMEOUT_MINUTES. */
   timeoutMinutes?: number;
+  /** The Temurin JDK (actions/setup-java `java-version`) the build needs, if any. */
+  java?: string;
 };
 
 export const DEFAULT_TIMEOUT_MINUTES = 60;
@@ -90,7 +92,7 @@ export function planEntry(release: RollingRelease): PlanEntry {
   return {
     release: release.name, blender: !!release.blender, lfs: !!release.lfs, processor: release.processor ?? "", ktx: !!release.ktx,
     timeout: release.timeoutMinutes ?? DEFAULT_TIMEOUT_MINUTES,
-    ...(release.name === "maps-shortbread" ? { java: "21.0.13+9.0.LTS" } : {}),
+    ...(release.java ? { java: release.java } : {}),
   };
 }
 

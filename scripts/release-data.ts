@@ -20,10 +20,12 @@ export type ReleaseData = {
   processor?: string;
   ktx?: boolean;
   timeoutMinutes?: number;
+  /** The Temurin JDK (actions/setup-java `java-version`) the build needs, if any. */
+  java?: string;
   budget?: ReleaseBudgetData;
 };
 
-const KEYS = new Set(["note", "script", "args", "blender", "lfs", "processor", "ktx", "timeoutMinutes", "budget"]);
+const KEYS = new Set(["note", "script", "args", "blender", "lfs", "processor", "ktx", "timeoutMinutes", "java", "budget"]);
 const BUDGET_KEYS = ["materials", "textureMemoryMB", "downloadMB"];
 
 function parse(name: string, text: string): ReleaseData {
