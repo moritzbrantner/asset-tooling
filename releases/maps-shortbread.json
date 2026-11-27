@@ -1,3 +1,4 @@
 {
-  "script": "scripts/build-maps-shortbread-release.ts"
+  "script": "scripts/build-maps-shortbread-release.ts",
+  "java": "21.0.13+100000002.0.LTS"
 }

@@ -18,7 +18,7 @@ function validate(document: AssetSpecDocument) {
   if (spec.inputs.planetiler!.sha256 !== JAR_SHA256) { throw new Error("Planetiler must match pinned v0.10.2 JAR"); }
   const p = spec.parameters;
   if (Object.keys(p).sort().join() !== "bounds,javaVersion,maxZoom,minZoom") { throw new Error("unsupported Planetiler parameters"); }
-  if (typeof p.javaVersion !== "string" || !/^\d+\.\d+\.\d+$/.test(p.javaVersion)) { throw new Error("javaVersion must be an exact release"); }
+  if (typeof p.javaVersion !== "string" || !/^\d+\.\d+\.\d+(\.\d+)?$/.test(p.javaVersion)) { throw new Error("javaVersion must be an exact release"); }
   const b = p.bounds;
   if (!Array.isArray(b) || b.length !== 4 || !b.every(n => typeof n === "number" && Number.isFinite(n))) { throw new Error("bounds must contain four finite degrees"); }
   // Narrowed JSON array elements are numbers after the all-elements guard above.
